@@ -2,52 +2,40 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Optional, Tuple, Union, final
+from typing import Any, Literal, Optional, Tuple, Union
 
 import torch
 import torch.distributed
-from torch import Tensor
-from torch.nn import Module
 
 from fairseq2.assets import AssetNotFoundError, default_asset_store
 from fairseq2.assets.utils import retrieve_asset_card
 from fairseq2.checkpoint import CheckpointModelMetadataProvider, FileCheckpointManager
-from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_text_tokenizer
 from fairseq2.datasets import LengthBatching
-from fairseq2.datasets.preference import PreferenceOptimizationBatch, load_preference_optimization_dataset, PreferenceOptimizationDataset
-from fairseq2.gang import Gang
+from fairseq2.datasets.preference import (
+    GenericPreferenceOptimizationDataset,
+    PreferenceOptimizationBatch,
+    load_preference_optimization_dataset,
+)
 from fairseq2.logging import get_log_writer
 from fairseq2.models import load_model
-from fairseq2.nn.utils.module import freeze_parameters
 from fairseq2.models.decoder import DecoderModel
-from fairseq2.models.sequence import (
-    SequenceBatch,
-    SequenceModel,
-    SequenceModelOutput,
-    as_auto_regressive_input,
-)
 from fairseq2.nn.checkpointing import use_layerwise_activation_checkpointing
 from fairseq2.nn.transformer import enable_memory_efficient_torch_sdpa
+from fairseq2.nn.utils.module import freeze_parameters
 from fairseq2.optim import AdamW
 from fairseq2.optim.lr_scheduler import CosineAnnealingLR
-from fairseq2.recipes.common_metrics import SequenceMetricBag
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import (
-    check_model_type,
-    compile_model,
-    setup_gangs,
-    to_data_parallel,
-)
-from fairseq2.typing import META, DataType, override
+from fairseq2.recipes.utils.setup import compile_model, setup_gangs, to_data_parallel
+from fairseq2.typing import META, DataType
 from fairseq2.utils.profiler import Stopwatch
-
 
 log = get_log_writer(__name__)
 
+
 @dataclass
-class PreferenceOptimizationConfig: #TODO: Should this just inherit from InstructionFinetuneConfig? The potential reason not to is that a later version may take two datasets (one positive, one negative)?
+class PreferenceOptimizationConfig:  # TODO: Should this just inherit from InstructionFinetuneConfig? The potential reason not to is that a later version may take two datasets (one positive, one negative)?
     """Holds the configuration of a language model instruction-finetuning task."""
 
     # Data
@@ -69,6 +57,15 @@ class PreferenceOptimizationConfig: #TODO: Should this just inherit from Instruc
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
 
+    # Criterion
+    criterion_type: str = "dpo"
+    """The type of preference optimization to perform"""
+
+    criterion: dict[
+        str, Any
+    ] = dict()  # TODO: is there a better way to do this than a dict?
+    """The hyperparameters specific to the criterion_type"""
+
     # Model
     model: Union[str, Path] = "llama3_8b_instruct"
     """The name or path to the asset card of the language model to finetune."""
@@ -76,26 +73,36 @@ class PreferenceOptimizationConfig: #TODO: Should this just inherit from Instruc
     dtype: DataType = torch.bfloat16
     """The data type of the model."""
 
-    data_parallelism: Literal["ddp", "fsdp"] = "fsdp" #TODO is it fine to assume the reference model will use the same data_parallelism?
+    data_parallelism: Literal[
+        "ddp", "fsdp"
+    ] = "fsdp"  # TODO is it fine to assume the reference model will use the same data_parallelism?
     """The data parallelism API to use."""
 
-    fsdp_wrap_granularity: Literal["layer", "stack", "model"] = "layer" #TODO is it fine to assume the reference model will never need this?
+    fsdp_wrap_granularity: Literal[
+        "layer", "stack", "model"
+    ] = "layer"  # TODO is it fine to assume the reference model will never need this?
     """The granularity at which to wrap the model."""
 
-    fsdp_reshard_after_forward: bool = True #TODO is it fine to assume the reference model will never need this?
+    fsdp_reshard_after_forward: bool = (
+        True  # TODO is it fine to assume the reference model will never need this?
+    )
     """If ``True``, reshards the parameters only after the backward pass."""
 
     tensor_parallel_size: int = 1
     """The size of tensor parallelism."""
 
-    activation_checkpointing: bool = True #TODO is it fine to assume the reference model will never need this?
+    activation_checkpointing: bool = (
+        True  # TODO is it fine to assume the reference model will never need this?
+    )
     """If ``True``, uses layer-wise activation checkpointing."""
 
-    torch_compile: bool = False #TODO is it fine to assume the reference model will always use the same?
+    torch_compile: bool = (
+        False  # TODO is it fine to assume the reference model will always use the same?
+    )
     """If ``True``, applies ``torch.compile()`` to the decoder. (experimental)"""
 
     # Reference Model
-    reference_model: Union[str, Path] = None
+    reference_model: Union[str, Path] = "llama3_8b_instruct"
     """The name or path to the asset card of the reference model to use."""
 
     reference_dtype: DataType = torch.bfloat16
@@ -165,7 +172,9 @@ class PreferenceOptimizationConfig: #TODO: Should this just inherit from Instruc
     anomaly_detection: bool = False
     """If ``True``, turns on anomaly detection feature in ``torch.autograd``."""
 
-#TODO: Planning for config registries to be in their own DPO, SimPO, ORPO, etc. files
+
+# TODO: Planning for config registries to be in their own DPO, SimPO, ORPO, etc. files
+
 
 def load_preference_finetuner(
     config: PreferenceOptimizationConfig, output_dir: Path
@@ -189,8 +198,6 @@ def load_preference_finetuner(
             CheckpointModelMetadataProvider(config.resume_checkpoint_dir)
         )
 
-    seed = config.seed
-
     # Load the tokenizer.
     model_card = retrieve_asset_card(config.model)
 
@@ -207,7 +214,7 @@ def load_preference_finetuner(
         dataset_card = None
 
     if dataset_card is not None:
-        log.info("Loading {} DPO instruction dataset.", dataset_card.name)
+        log.info("Loading {} preference optimization dataset.", dataset_card.name)
 
         dataset = load_preference_optimization_dataset(dataset_card)
 
@@ -220,7 +227,7 @@ def load_preference_finetuner(
                 config.dataset, f"An asset with the name '{config.dataset}' cannot be found."  # type: ignore[arg-type]
             )
 
-        dataset = PreferenceOptimizationDataset.from_path(path)
+        dataset = GenericPreferenceOptimizationDataset.from_path(path)
 
     # Load the model.
     init_device = META
@@ -281,11 +288,12 @@ def load_preference_finetuner(
     log_model(dp_model, log, rank=root_gang.rank)
 
     # Load the reference model.
+    # TODO: figure out if a config doesn't need a reference model
     reference_model_card = retrieve_asset_card(config.reference_model)
 
     log.info("Loading {} reference model on data parallel rank 0 (per shard).", reference_model_card.name)  # fmt: skip
 
-    #TODO: figure out how to load the reference model onto its own gangs
+    # TODO: figure out how to load the reference model onto its own gangs
     reference_model = load_model(
         reference_model_card, gangs=gangs, device=init_device, dtype=torch.float32
     )
@@ -311,15 +319,33 @@ def load_preference_finetuner(
         fsdp_wrap_granularity=config.fsdp_wrap_granularity,
     )
 
-    # Initialize the train unit and the optimizer.
-    unit = DpoFinetuneUnit(dp_model, dp_reference_model, dp_gang)
+    dp_reference_model  # to make flake8 happy, remove once used
+
+    def _create_preference_unit(
+        config: PreferenceOptimizationConfig,
+    ) -> AbstractTrainUnit[PreferenceOptimizationBatch]:
+        # TODO: setup registers for TrainUnits to replace this
+        if config.criterion_type == "dpo":
+            print("DPOTrainUnit")  # TODO: implement DPO
+            # return DpoFinetuneUnit(dp_model, dp_reference_model, dp_gang)
+            raise NotImplementedError
+        if config.criterion_type == "SimPO":
+            print("SimPOTrainUnit")  # TODO: implement SimPO
+            raise NotImplementedError
+        # TODO: build an exception for this. is there one already?
+        raise Exception(
+            f"config.criterion_type '{config.criterion_type}' cannot be found."
+        )
+
+    # Initialize the train unit
+    unit = _create_preference_unit(config)
 
     data_reader = dataset.create_reader(
         tokenizer,
         dp_gang,
         max_seq_len=config.max_seq_len,
+        batching=LengthBatching(config.max_num_tokens),
         max_num_tokens=config.max_num_tokens,
-        min_seq_len=config.min_seq_len,
         example_shuffle_window=config.example_shuffle_window,
         batch_shuffle_window=config.batch_shuffle_window,
         num_accumulate=config.gradient_accumulation,
@@ -327,6 +353,7 @@ def load_preference_finetuner(
         seed=config.seed,
     )
 
+    # Initialize the optimizer
     optimizer = AdamW(
         model.parameters(),
         lr=config.lr,
@@ -342,7 +369,7 @@ def load_preference_finetuner(
     )
 
     # Initialize the trainer.
-    return Trainer[DpoInstructionBatch](
+    return Trainer[PreferenceOptimizationBatch](
         unit=unit,
         data_reader=data_reader,
         root_gang=root_gang,
