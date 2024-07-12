@@ -4,23 +4,97 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+import abc
 from typing import Any, Dict, Optional, Union, final
 
-from datasets import Dataset  # type: ignore
+from datasets import Dataset, DatasetDict  # type: ignore
 
 from fairseq2.assets.card import AssetCard
-from fairseq2.data.data_pipeline import Collater, create_bucket_sizes, read_sequence
+from fairseq2.data.data_pipeline import (
+    Collater,
+    DataPipelineBuilder,
+    create_bucket_sizes,
+    read_sequence,
+)
 from fairseq2.datasets.data_reader import DataPipelineReader
 from fairseq2.datasets.loader import DatasetLoader
 from fairseq2.gang import Gang
 
+
 HFBatch = Dict[str, Any]
+
+
+class Batcher(abc.ABC):
+    @abc.abstractmethod
+    def batch(self, builder: DataPipelineBuilder, **kwargs: Any) -> DataPipelineBuilder:
+        ...
+
+
+class BatcherBySize(Batcher):
+    def __init__(self, bucket_size: int) -> None:
+        if bucket_size <= 0:
+            raise ValueError(f"Forbidden value: bucket_size={bucket_size}")
+        self.bucket_size = bucket_size
+
+    def batch(self, builder: DataPipelineBuilder, **kwargs: Any) -> DataPipelineBuilder:
+        return builder.bucket(bucket_size=self.bucket_size)
+
+
+class BatcherBySeqLength(Batcher):
+    """
+    The batching strategy that looks into the sequence defined in the column
+    `seq_len_col`, and batch them until certain accumulated length is reached.
+
+    :param max_num_elements:
+        The maximum number of elements in each batch.
+    :param max_seq_len:
+        The maximum sequence length of each example.
+        Examples longer than this value will be cropped.
+    :param min_seq_len:
+        The minimum sequence length of each example. Examples
+        shorter than this value will be dropped.
+    :param seq_len_col:
+        The column that stores length of source sequence. Must
+        be provided if the data is to be batched by length
+    """
+
+    def __init__(
+        self,
+        max_num_elements: int,
+        max_seq_len: Optional[int] = None,
+        min_seq_len: Optional[int] = None,
+        seq_len_col: Optional[str] = None,
+        **extra: Any,
+    ):
+        self.max_num_elements = max_num_elements
+        self.max_seq_len = max_seq_len or max_num_elements
+        self.min_seq_len = min_seq_len or 1
+        self.skip_below_min_examples = min_seq_len is not None
+        self.seq_len_col = seq_len_col
+
+    def batch(
+        self, builder: DataPipelineBuilder, num_seqs_multiple_of: int = 1, **kwargs: Any
+    ) -> DataPipelineBuilder:
+        bucket_sizes = create_bucket_sizes(
+            max_num_elements=self.max_num_elements,
+            max_seq_len=self.max_seq_len,
+            min_seq_len=self.min_seq_len,
+            num_seqs_multiple_of=num_seqs_multiple_of,
+        )
+
+        return builder.bucket_by_length(
+            bucket_sizes,
+            selector=self.seq_len_col,
+            min_data_len=self.min_seq_len,
+            skip_below_min_examples=self.skip_below_min_examples,
+            skip_above_max_examples=True,
+        )
 
 
 class HFDataset:
     def __init__(self, name: str):
         self.name = name
-    
+
     def __repr__(self) -> str:
         return self.name
 
@@ -28,14 +102,10 @@ class HFDataset:
         self,
         dataset: Dataset,
         gang: Gang,
-        bucket_size: Optional[int] = None,
-        max_num_elements: Optional[int] = None,
-        max_seq_len: Optional[int] = None,
-        min_seq_len: Optional[int] = None,
-        seq_len_col: Optional[str] = None,
+        *,
+        batcher: Optional[Batcher] = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
-        seed: int = 2,
         **extra: Any,
     ) -> DataPipelineReader[HFBatch]:
         """
@@ -61,89 +131,45 @@ class HFDataset:
 
         :param gang:
             The gang over which to shard the dataset.
-        :param max_num_elements:
-            The maximum number of elements in each batch.
-        :param max_seq_len:
-            The maximum sequence length of each example.
-            Examples longer than this value will be cropped.
-        :param min_seq_len:
-            The minimum sequence length of each example. Examples
-            shorter than this value will be dropped.
-        :param seq_len_col:
-            The column that stores length of source sequence. Must
-            be provided if the data is to be batched by length
+        :param batcher:
+            The batching strategy that is used to transform the pipeline
+            into iteration of batch of items.
         :param num_accumulate:
             The number of batches to accumulate in each iteration.
             Typically used with gradient accumulation during
             training.
         :param num_prefetch:
             The number of batches to prefetch in background.
-        :param seed:
-            The seed to initialize the random number generators
-            used internally.
         :param extras:
             The extra parameters specific to the dataset
             implementation.
         """
 
-        # Resolve the batching strategies
-        def resolve_batching_strategy() -> int:
-            if bucket_size is None and max_num_elements is None:
-                return 0  # NO_BATCH
-            elif bucket_size is not None and max_num_elements is not None:
-                raise ValueError("Can only batch by size or by length, not both")
-            elif bucket_size is not None:
-                return 1  # BATCH_BY_SIZE
-            else:
-                assert (
-                    max_seq_len
-                ), "Max_seq_len must be specified in batch-by-length mode"
-                return 2  # BATCH_BY_LEN
+        # Make sure the dataset is a proper arrow dataset
+        if not isinstance(dataset, Dataset):
+            # One common mistake is pass a DatasetDict (e.g. with all splits) as inputs
+            if isinstance(dataset, DatasetDict):
+                raise TypeError(
+                    "create_reader() expects input of datasets.Dataset type, "
+                    "get datasets.DatasetDict. Make sure you specify `split` "
+                    "when loading the dataset"
+                )
+            raise TypeError(f"Expect datasets.Dataset type, get {type(dataset)}")
 
-        batch_mode = resolve_batching_strategy()
-        if batch_mode == 0:
+        if batcher is None:
             data = dataset.data.to_batches()  # list of RecordBatch
         else:
             data = dataset.to_list()
         builder = read_sequence(data)
 
-        seed += 1
-
         # Shard.
         builder.shard(gang.rank, gang.size, allow_uneven=True)
 
-        seed += gang.rank
-
-        if batch_mode == 0:
+        if batcher is None:
             # Convert RecordBatch to python dictionary
-            builder.map(lambda batch: batch.to_pydict())
-
+            builder = builder.map(lambda batch: batch.to_pydict())
         else:
-            if batch_mode == 1:
-                assert bucket_size
-                builder.bucket(bucket_size=bucket_size)
-
-            if batch_mode == 2:
-
-                skip_below_min_examples = min_seq_len is not None
-                min_seq_len = min_seq_len or 1
-
-                # Bucket by audio length.
-                assert max_num_elements and max_seq_len
-                bucket_sizes = create_bucket_sizes(
-                    max_num_elements=max_num_elements,
-                    max_seq_len=max_seq_len,
-                    min_seq_len=min_seq_len,
-                    num_seqs_multiple_of=8,
-                )
-
-                builder.bucket_by_length(
-                    bucket_sizes,
-                    selector=seq_len_col,
-                    min_data_len=min_seq_len,
-                    skip_below_min_examples=skip_below_min_examples,
-                    skip_above_max_examples=True,
-                )
+            builder = batcher.batch(builder, **extra)
 
             # collate to python dict
             builder.map(Collater())
@@ -168,17 +194,17 @@ class HFDatasetLoader(DatasetLoader[HFDataset]):
         force: bool = False,
         progress: bool = True,
     ) -> HFDataset:
-        assert (
-            isinstance(dataset_name_or_card, str)
-        ), f"{type(dataset_name_or_card)} is not supported in HFDataset"
+        if not isinstance(dataset_name_or_card, str):
+            raise TypeError(
+                "{type(dataset_name_or_card)} is not supported in HFDataset"
+            )
         return HFDataset(dataset_name_or_card)
-        
 
 
 # Usage:
-# >>> from datasets import load_dataset()
+# >>> from datasets import load_dataset
 # >>> from fairseq2.recipes.hf.datasets import hf_datasets
-# >>> ds = load_dataset(DATASET_NAME, ...)
+# >>> ds = load_dataset(DATASET_NAME, split="train|test|validation",...)
 # >>> .... # Process ds
 # >>> fs2_hf = hf_datasets("my_dataset")
 # >>> hf_data_reader = fs2_hf.create_reader(dataset=ds, ....)
