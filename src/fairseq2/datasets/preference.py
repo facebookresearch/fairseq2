@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Sequence, Union, cast, final
 
 import torch
-from torch import Tensor
 from typing_extensions import NoReturn
 
 from fairseq2.assets import AssetCard, AssetError
@@ -22,7 +21,7 @@ from fairseq2.data import (
 )
 from fairseq2.data.text import TextTokenizer
 from fairseq2.datasets.batching import LengthBatching, StaticBatching
-from fairseq2.datasets.data_reader import DataPipelineReader, DataReader
+from fairseq2.datasets.data_reader import DataPipelineReader
 from fairseq2.datasets.error import DatasetError
 from fairseq2.datasets.loader import AbstractDatasetLoader, DelegatingDatasetLoader
 from fairseq2.gang import Gang
@@ -58,7 +57,7 @@ class PreferenceOptimizationDataset(ABC):
         num_prefetch: int = 1,
         seed: int = 2,
         **extras: Any,
-    ) -> DataReader[SequenceBatch]:
+    ) -> DataPipelineReader[PreferenceOptimizationBatch]:
         """Create a dataset reader.
 
         :param tokenizer:
@@ -126,7 +125,7 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
         self._weights = weights
 
     @classmethod
-    def from_path(cls, path: Path) -> PreferenceOptimizationDataset:
+    def from_path(cls, path: Path) -> GenericPreferenceOptimizationDataset:
         """Load a :class:`PreferenceOptimizationDataset` from ``path``."""
         path = path.expanduser().resolve()
 
@@ -262,6 +261,41 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
 
         seed += gang.rank
 
+        # Encode prompt and target texts.
+        prompt_encoder = tokenizer.create_encoder(mode="prompt")
+        target_encoder = tokenizer.create_encoder(mode="prompt_response")
+
+        builder.map(prompt_encoder, selector="src", num_parallel_calls=npc)
+        builder.map(target_encoder, selector="tgt_chosen", num_parallel_calls=npc)
+        builder.map(target_encoder, selector="tgt_rejected", num_parallel_calls=npc)
+
+        def cat_source_and_target(example: Dict[str, Any]) -> Dict[str, Any]:
+            sample_id = example.get("id", None)
+
+            prompt_indices = example["src"]
+            target_indices_chosen = example["tgt_chosen"]
+            target_indices_rejected = example["tgt_rejected"]
+
+            indices_chosen = torch.cat([prompt_indices, target_indices_chosen])
+            indices_rejected = torch.cat([prompt_indices, target_indices_rejected])
+
+            target_mask_chosen = torch.arange(len(indices_chosen)) >= len(
+                prompt_indices
+            )
+            target_mask_rejected = torch.arange(len(indices_rejected)) >= len(
+                prompt_indices
+            )
+
+            return {
+                "indices_chosen": indices_chosen,
+                "indices_rejected": indices_rejected,
+                "target_mask_chosen": target_mask_chosen,
+                "target_mask_rejected": target_mask_rejected,
+                "id": sample_id,
+            }
+
+        builder.map(cat_source_and_target, num_parallel_calls=npc)
+
         if isinstance(batching, LengthBatching):
             bucket_sizes = create_bucket_sizes(
                 max_seq_len=max_seq_len, max_num_elements=batching.max_num_elements
@@ -269,12 +303,15 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
 
             # Bucket by the sequence length.
             builder.bucket_by_length(
-                bucket_sizes, selector="chosen_tokens", skip_above_max_examples=True
+                bucket_sizes, selector="indices_chosen", skip_above_max_examples=True
             )
         else:
             # Filter out long examples.
             def skip(example: Dict[str, Any]) -> bool:
-                return len(example["chosen_tokens"]) <= max_seq_len
+                return (
+                    len(example["indices_chosen"]) <= max_seq_len
+                    and len(example["indices_rejected"]) <= max_seq_len
+                )
 
             builder.filter(skip)
 
@@ -289,51 +326,53 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
 
         # Collate bucketed examples into a batch.
         target_mask_collate_opts = [
-            CollateOptionsOverride("chosen_target_mask", pad_value=False),
-            CollateOptionsOverride("rejected_target_mask", pad_value=False),
+            CollateOptionsOverride("target_mask_chosen", pad_value=False),
+            CollateOptionsOverride("target_mask_rejected", pad_value=False),
         ]
 
         collater = Collater(pad_value=0, overrides=target_mask_collate_opts)
 
         builder.map(collater, num_parallel_calls=npc)
 
-        # Prefetch `num_prefetch` examples in background.
+        # Return only the first `max_num_batches`.
+        if max_num_batches is not None:
+            builder.take(max_num_batches)
+
+        # Prefetch `num_prefetch` batches in background.
         builder.prefetch(num_prefetch)
 
-        # Wrap examples with `DpoInstructionBatch`.
-        def _example_to_batch(example: Dict[str, Any]) -> PreferenceOptimizationBatch:
-            chosen_text = cast(SequenceData, example["chosen_tokens"])
-            rejected_text = cast(SequenceData, example["rejected_tokens"])
+        # Wrap examples with `SequenceBatch`.
+        def to_batch(example: Dict[str, Any]) -> PreferenceOptimizationBatch:
+            indices_chosen = cast(SequenceData, example["indices_chosen"])
+            indices_rejected = cast(SequenceData, example["indices_rejected"])
 
-            chosen_seqs, chosen_padding_mask = get_seqs_and_padding_mask(
-                chosen_text, gang.device
+            seqs_chosen, padding_mask_chosen = get_seqs_and_padding_mask(
+                indices_chosen, gang.device
             )
-            rejected_seqs, rejected_padding_mask = get_seqs_and_padding_mask(
-                rejected_text, gang.device
+            seqs_rejected, padding_mask_rejected = get_seqs_and_padding_mask(
+                indices_rejected, gang.device
             )
 
-            chosen_target_mask = example["chosen_target_mask"]["seqs"].to(gang.device)
-            rejected_target_mask = example["rejected_target_mask"]["seqs"].to(
+            target_mask_chosen = example["target_mask_chosen"]["seqs"].to(gang.device)
+            target_mask_rejected = example["target_mask_rejected"]["seqs"].to(
                 gang.device
             )
 
-            chosen_batch = SequenceBatch(
-                chosen_seqs,
-                chosen_padding_mask,
-                chosen_target_mask,
-                example=example["chosen_tokens"],
+            batch_chosen = SequenceBatch(
+                seqs_chosen, padding_mask_chosen, target_mask_chosen, example=example
+            )
+            batch_rejected = SequenceBatch(
+                seqs_rejected,
+                padding_mask_rejected,
+                target_mask_rejected,
+                example=example,
             )
 
-            rejected_batch = SequenceBatch(
-                rejected_seqs,
-                rejected_padding_mask,
-                rejected_target_mask,
-                example=example["rejected_tokens"],
+            return PreferenceOptimizationBatch(
+                chosen=batch_chosen, rejected=batch_rejected
             )
 
-            return PreferenceOptimizationBatch(chosen_batch, rejected_batch)
-
-        pipeline = builder.map(_example_to_batch).and_return()
+        pipeline = builder.map(to_batch).and_return()
 
         return DataPipelineReader[PreferenceOptimizationBatch](
             pipeline,
@@ -343,49 +382,15 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
             sync_batches=not static_batching,
         )
 
-    def _read_jsonl(self, path: str, tokenizer: TextTokenizer) -> DataPipeline:
-        source_text_encoder = tokenizer.create_encoder(mode="prompt")
-        target_text_encoder = tokenizer.create_encoder(mode="prompt_response")
-
+    def _read_jsonl(self, path: Path, tokenizer: TextTokenizer) -> DataPipelineBuilder:
         lines = []
 
-        with Path(path).open() as fp:
+        # TODO(balioglu): Do in C++.
+        with path.open() as fp:
             for line in fp:
                 lines.append(line)
 
-        builder = read_sequence(lines)
-
-        builder.map(json.loads, num_parallel_calls=npc)
-
-        builder.map(source_text_encoder, selector="src", num_parallel_calls=npc)
-        builder.map(target_text_encoder, selector="tgt_chosen", num_parallel_calls=npc)
-        builder.map(
-            target_text_encoder, selector="tgt_rejected", num_parallel_calls=npc
-        )
-
-        def cat_source_and_text(d: Dict[str, Any]) -> Dict[str, Tensor]:
-            source_tokens = d["src"]
-            chosen_target_tokens = d["tgt_chosen"]
-            rejected_target_tokens = d["tgt_rejected"]
-
-            chosen_tokens = torch.cat([source_tokens, chosen_target_tokens])
-            rejected_tokens = torch.cat([source_tokens, rejected_target_tokens])
-
-            chosen_target_mask = torch.arange(len(chosen_tokens)) >= len(source_tokens)
-            rejected_target_mask = torch.arange(len(rejected_tokens)) >= len(
-                source_tokens
-            )
-
-            return {
-                "chosen_tokens": chosen_tokens,
-                "chosen_target_mask": chosen_target_mask,
-                "rejected_tokens": rejected_tokens,
-                "rejected_target_mask": rejected_target_mask,
-            }
-
-        builder.map(cat_source_and_text, num_parallel_calls=npc)
-
-        return builder.and_return()
+        return read_sequence(lines).map(json.loads, num_parallel_calls=npc)
 
 
 @final
