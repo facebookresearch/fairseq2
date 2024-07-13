@@ -294,7 +294,7 @@ class GenericInstructionDataset(InstructionDataset):
         builder.map(target_encoder, selector="tgt", num_parallel_calls=npc)
 
         def cat_source_and_target(example: Dict[str, Any]) -> Dict[str, Any]:
-            sample_id = example.get("id", None)
+            id_ = example.get("id")
 
             prompt_indices = example["src"]
             target_indices = example["tgt"]
@@ -303,7 +303,7 @@ class GenericInstructionDataset(InstructionDataset):
 
             target_mask = torch.arange(len(indices)) >= len(prompt_indices)
 
-            return {"indices": indices, "target_mask": target_mask, "id": sample_id}
+            return {"id": id_, "indices": indices, "target_mask": target_mask}
 
         builder.map(cat_source_and_target, num_parallel_calls=npc)
 
@@ -398,10 +398,13 @@ class GenericInstructionDataset(InstructionDataset):
         text_encoder = tokenizer.create_encoder(mode="prompt")
 
         def encode(example: Dict[str, Any]) -> Dict[str, Any]:
-            sample_id = example.get("id", None)
+            id_ = example.get("id")
+
             prompt = example["src"]
 
-            return {"prompt": prompt, "indices": text_encoder(prompt), "id": sample_id}
+            indices = text_encoder(prompt)
+
+            return {"id": id_, "prompt": prompt, "indices": indices}
 
         builder.map(encode, num_parallel_calls=npc)
 

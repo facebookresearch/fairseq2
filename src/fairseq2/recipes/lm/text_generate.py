@@ -403,7 +403,7 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
         except KeyError:
             raise ValueError("`batch.example` must contain a 'prompt' item.")
 
-        sample_ids = batch.example["id"]
+        ids = batch.example["id"]
 
         output = self._generator(batch.seqs, batch.padding_mask)
 
@@ -413,9 +413,7 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
         if not self._text_output_stream and not self._json_output_stream:
             return
 
-        for sample_id, prompt, hypotheses in zip(
-            sample_ids, prompts, output.hypotheses
-        ):
+        for id_, prompt, hypotheses in zip(ids, prompts, output.hypotheses):
             if len(hypotheses) == 0:
                 raise RuntimeError(
                     "The sequence generator returned no hypothesis. Please file a bug report."
@@ -441,6 +439,12 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
 
             # Dump as text.
             if stream := self._text_output_stream:
+                if id_ is not None:
+                    stream.write("<<<<< ID >>>>>")
+                    stream.write("\n")
+                    stream.write(f"{id_}")
+                    stream.write("\n\n")
+
                 stream.write("<<<<< PROMPT >>>>>")
                 stream.write("\n")
                 stream.write(prompt)
@@ -459,14 +463,12 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
                     stream.write("\n\n")
                     stream.write("<<<<< SCORE >>>>>")
                     stream.write("\n")
-
                     stream.write(f"{score:.8f}")
 
                 if step_scores is not None:
                     stream.write("\n\n")
                     stream.write("<<<<< STEP SCORES >>>>>")
                     stream.write("\n")
-
                     stream.write(", ".join(f"{s:.8f}" for s in step_scores))
 
                 stream.write("\n\n\n============================\n\n\n")
@@ -474,7 +476,7 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
             # Dump as JSON.
             if stream := self._json_output_stream:
                 json_output = {
-                    "id": sample_id,
+                    "id": id_,
                     "prompt": prompt,
                     "response": response,
                     "token_indices": token_indices,
