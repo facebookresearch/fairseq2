@@ -51,7 +51,7 @@ from fairseq2.nn.utils.gradient import (
 )
 from fairseq2.optim import DynamicLossScaler
 from fairseq2.optim.lr_scheduler import LRScheduler, NoopLR, get_effective_lr
-from fairseq2.recipes.common_metrics import compute_throughput
+from fairseq2.recipes.common_metrics import set_throughput
 from fairseq2.recipes.evaluator import EvalUnit
 from fairseq2.recipes.utils.cli import create_rich_progress
 from fairseq2.typing import CPU, DataType, override
@@ -682,7 +682,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         values["lr"] = get_effective_lr(self._lr_scheduler)
 
-        compute_throughput(values, self._unit.throughput_metric_name, elapsed_time)
+        set_throughput(values, self._unit.throughput_metric_name, elapsed_time)
 
         values["elapsed_time"] = elapsed_time
 
@@ -765,7 +765,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         assert values is not None
 
-        compute_throughput(values, unit.throughput_metric_name, elapsed_time)
+        set_throughput(values, unit.throughput_metric_name, elapsed_time)
 
         values["elapsed_time"] = elapsed_time
 

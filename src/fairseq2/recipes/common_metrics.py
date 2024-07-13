@@ -358,12 +358,12 @@ class Seq2SeqGenerationMetricBag(MetricBag):
         self._generator_cache_capacity.update(output.counters.cache_capacity)
 
 
-def compute_throughput(
+def set_throughput(
     metric_values: Dict[str, Any],
     throughput_metric_name: Optional[str],
     elapsed_time: float,
 ) -> None:
-    """Computes the task throughput.
+    """Sets the task throughput in ``metric_values``.
 
     :param metric_values:
         The metric values computed by a :class:`MetricBag`.
