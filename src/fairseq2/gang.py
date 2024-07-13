@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import logging
 import os
 from abc import ABC, abstractmethod
 from datetime import timedelta
@@ -650,7 +649,7 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Dict[str, Gang
 
     dp_size = root_gang.size // tp_size
 
-    if log.is_enabled_for(logging.INFO):
+    if log.is_enabled_for_info():
         for name, size in [("data", dp_size), ("tensor", tp_size)]:
             log.info("Initializing {} parallelism with a gang of size {}.", name, size)
 
