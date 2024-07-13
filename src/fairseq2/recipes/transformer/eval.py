@@ -189,7 +189,7 @@ def load_transformer_evaluator(
     if generator_max_num_batches is not None:
         if generator_max_num_batches % gang.size != 0:
             raise ValueError(
-                f"`config.generator_max_num_batches` must be divisible by the size of the gang ({gang.size}), but is {generator_max_num_batches} instead."
+                f"`generator_max_num_batches` must be divisible by the size of the gang ({gang.size}), but is {generator_max_num_batches} instead."
             )
 
         generator_max_num_batches //= gang.size

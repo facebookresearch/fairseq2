@@ -416,7 +416,7 @@ def _create_sequence_generator(
         return _create_sampling_generator(model, sampling_config)
 
     raise ValueError(
-        f"`config.generator_mode` must be 'sampling' or 'beam_search', but is '{mode}' instead."
+        f"`generator_mode` must be 'sampling' or 'beam_search', but is '{mode}' instead."
     )
 
 
@@ -427,7 +427,7 @@ def _create_beam_search_generator(
         algorithm = StandardBeamSearchAlgorithm()
     else:
         raise ValueError(
-            f"`config.beam_search.algorithm` must be 'standard', but is '{config.algorithm}' instead."
+            f"`beam_search.algorithm` must be 'standard', but is '{config.algorithm}' instead."
         )
 
     return BeamSearchSeq2SeqGenerator(
@@ -457,7 +457,7 @@ def _create_sampling_generator(
         sampler = TopKSampler(config.top_k)
     else:
         raise ValueError(
-            f"`config.sampling.sampler` must be 'top-p' or 'top-k', but is '{config.sampler}' instead."
+            f"`sampling.sampler` must be 'top-p' or 'top-k', but is '{config.sampler}' instead."
         )
 
     return SamplingSeq2SeqGenerator(

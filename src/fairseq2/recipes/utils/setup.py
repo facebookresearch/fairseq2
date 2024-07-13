@@ -81,7 +81,7 @@ def setup_gangs(
         gangs = setup_parallel_gangs(root_gang, tp_size=tp_size)
     except ValueError as ex:
         raise RuntimeError(
-            f"The size of the root gang ({root_gang.size}) is not divisible by `config.tensor_parallel_size` ({tp_size})."
+            f"The size of the root gang ({root_gang.size}) is not divisible by `tensor_parallel_size` ({tp_size})."
         ) from ex
 
     log.info("Data and tensor parallel gangs initialized.")
@@ -179,7 +179,7 @@ def to_data_parallel(
         return model
 
     raise ValueError(
-        f"`config.data_parallelism` must be 'ddp' or 'fsdp', but is '{parallelism}' instead."
+        f"`data_parallelism` must be 'ddp' or 'fsdp', but is '{parallelism}' instead."
     )
 
 

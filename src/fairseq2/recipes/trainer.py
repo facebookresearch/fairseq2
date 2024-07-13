@@ -10,8 +10,11 @@ from abc import ABC, abstractmethod
 from contextlib import nullcontext
 from itertools import count
 from pathlib import Path
+from statistics import mean
 from typing import (
+    Any,
     ContextManager,
+    Dict,
     Generic,
     List,
     Optional,
@@ -34,7 +37,8 @@ from torcheval.metrics import Mean
 
 from fairseq2.checkpoint import CheckpointManager, CheckpointNotFoundError
 from fairseq2.datasets import DataReader
-from fairseq2.gang import FakeGang, Gang
+from fairseq2.early_stopper import EarlyStopper
+from fairseq2.gang import FakeGang, Gang, broadcast_flag
 from fairseq2.logging import get_log_writer
 from fairseq2.metrics import (
     JsonFileMetricRecorder,
@@ -42,6 +46,7 @@ from fairseq2.metrics import (
     MetricBag,
     MetricRecorder,
     TensorBoardRecorder,
+    format_metric_value,
     record_metrics,
 )
 from fairseq2.nn.utils.gradient import (
@@ -140,6 +145,12 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     _data_epoch_nr: int
     _max_num_data_epochs: Optional[int]
     _eod: bool
+    _should_stop: bool
+    _score_metric_name: Optional[str]
+    _lower_better: bool
+    _early_stopper: Optional[EarlyStopper]
+    _best_step_and_score: Optional[Tuple[int, float]]
+    _valid_score: Optional[float]
     _valid_units: Sequence[EvalUnit[BatchT]]
     _valid_data_readers: Sequence[DataReader[BatchT]]
     _validate_after_n_steps: int
@@ -160,7 +171,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     _seed: int
     _rng_bag: RngBag
     _wall_watch: Stopwatch
-    _elapsed_time: float
+    _step_time: float
     _run: bool
     _progress: Progress
 
@@ -181,6 +192,9 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         max_gradient_norm: Optional[float] = None,
         max_num_steps: Optional[int] = 1000,
         max_num_data_epochs: Optional[int] = None,
+        score_metric_name: Optional[str] = None,
+        lower_better: bool = False,
+        early_stopper: Optional[EarlyStopper] = None,
         valid_units: Optional[Sequence[EvalUnit[BatchT]]] = None,
         valid_data_readers: Optional[Sequence[DataReader[BatchT]]] = None,
         validate_after_n_steps: int = 0,
@@ -217,8 +231,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         :param dp_gang:
             The data parallel gang. If ``None``, ``gang`` will be used.
         :param tp_gang:
-            The tensor parallel gang. Only required for tensor parallel models
-            such as LLaMA 70B.
+            The tensor parallel gang. Only required for tensor parallel models.
         :param lr_scheduler:
             The learning rate scheduler.
         :param fp16_loss_scale:
@@ -229,6 +242,12 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             The maximum number of steps to train for.
         :param max_num_data_epochs:
             The maximum number of data epochs to train for.
+        :param score_metric_name:
+            The name of the metric to use for score calculation.
+        :param lower_better:
+            If ``True``, lower scores are considered better.
+        :param early_stopper:
+            The early-stopper callable.
         :param valid_units:
             The evaluation units for validating the model.
         :param valid_data_readers:
@@ -245,12 +264,15 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             The number of checkpoints to keep. If ``None``, no checkpoint will
             be deleted.
         :param keep_best_n_checkpoints:
-            WIP
+            The number of checkpoints to keep based on their validation score.
+            If ``None``, no checkpoint will be deleted.
         :param keep_last_n_models:
             The number of checkpoint models to keep. Must be greater than or
             equal to ``keep_last_n_checkpoints``.
         :param keep_best_n_models:
-            WIP
+            The number of best checkpoint models to keep based on their
+            validation score. Must be greater than or equal to
+            ``keep_best_n_checkpoints``.
         :param tb_dir:
             The TensorBoard log directory to dump metrics.
         :param metrics_dir:
@@ -288,6 +310,12 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         else:
             raise ValueError("`dp_gang` and `tp_gang` must be both specified.")
 
+        if root_gang.rank == 0:
+            if self._dp_gang.rank != 0 or self._tp_gang.rank != 0:
+                raise ValueError(
+                    f"The coordinator process of `root_gang` (i.e. rank 0) must be rank 0 in `dp_gang` and `tp_gang`, but is {self._dp_gang.rank} and {self._tp_gang.rank} instead."
+                )
+
         self._dtype = dtype
 
         if uses_fsdp := isinstance(self._model, FSDP):
@@ -323,6 +351,29 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._eod = max_num_data_epochs == 0
 
+        self._should_stop = False
+
+        self._score_metric_name = score_metric_name
+
+        self._lower_better = lower_better
+
+        if early_stopper is not None:
+            if score_metric_name is None:
+                raise ValueError(
+                    "`score_metric_name` must be specified when `early_stopper` is specified."
+                )
+
+            if root_gang.rank != 0:
+                early_stopper = lambda step_nr, score: False
+
+            self._early_stopper = early_stopper
+        else:
+            self._early_stopper = None
+
+        self.register_stateful("_best_step_and_score", None)
+
+        self._valid_score = None
+
         if valid_units is None and valid_data_readers is None:
             self._valid_units = []
 
@@ -355,11 +406,28 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         self._checkpoint_after_n_steps = checkpoint_after_n_steps
         self._checkpoint_every_n_steps = checkpoint_every_n_steps
 
+        if keep_last_n_checkpoints is not None and keep_best_n_checkpoints is not None:
+            raise ValueError(
+                "`keep_last_n_checkpoints` and `keep_best_n_checkpoints` are mutually exclusive and must not be specified at the same time."
+            )
+
         if keep_last_n_checkpoints == 0:
             raise ValueError("`keep_last_n_checkpoints` must be greater than zero.")
 
         if keep_best_n_checkpoints == 0:
             raise ValueError("`keep_best_n_checkpoints` must be greater than zero.")
+
+        if keep_best_n_checkpoints is not None:
+            if checkpoint_every_n_steps is not None:
+                if score_metric_name is None:
+                    raise ValueError(
+                        "`score_metric_name` must be specified when `keep_best_n_checkpoints` is specified."
+                    )
+
+                if checkpoint_every_n_steps % validate_every_n_steps != 0:
+                    raise ValueError(
+                        f"`checkpoint_every_n_steps` must be a multiple of `validate_every_n_steps` ({validate_every_n_steps}) when `keep_best_n_checkpoints` is specified, but is {checkpoint_every_n_steps} instead."
+                    )
 
         self._keep_last_n_checkpoints = keep_last_n_checkpoints
         self._keep_best_n_checkpoints = keep_best_n_checkpoints
@@ -395,7 +463,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._metric_bag = unit.metric_bag
 
-        if self._tp_gang.rank == 0 and self._dp_gang.rank == 0:
+        if root_gang.rank == 0:
             self._metric_recorders = [LogMetricRecorder(log)]
 
             if tb_dir is not None:
@@ -415,10 +483,10 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         self._publish_metrics_every_n_steps = publish_metrics_every_n_steps
 
         if profile is None or tb_dir is None:
-            skip_first, active_steps = 1, 0
-
-            if tb_dir is None:
+            if profile is not None and tb_dir is None:
                 log.warning("No TensorBoard log directory provided. Profiling will be disabled.")  # fmt: skip
+
+            skip_first, active_steps = 1, 0
 
             profile_dir = Path()
         else:
@@ -438,7 +506,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._wall_watch = wall_watch
 
-        self._elapsed_time = 0.0
+        self._step_time = 0.0
 
         self._run = False
 
@@ -470,6 +538,11 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
             raise
 
+        if self._should_stop:
+            log.info("Training terminated at step {}!", self._step_nr)
+
+            return
+
         elapsed_time = self._wall_watch.get_elapsed_time()
 
         log.info("Training complete in {:,} seconds after {} step(s)!", int(elapsed_time), self._step_nr)  # fmt: skip
@@ -500,7 +573,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
                 "train", total=self._max_num_steps, completed=self._step_nr
             )
 
-            while self._should_step():
+            while self._should_run_step():
                 self._step_nr += 1
 
                 self._progress.update(train_task, advance=1)
@@ -519,16 +592,20 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
                 if self._should_publish_metrics():
                     self._publish_metrics()
 
-                if self._should_checkpoint():
-                    self._checkpoint()
-
                 if self._should_validate():
                     self._validate()
 
+                    self._maybe_request_early_stop()
+
+                if self._should_checkpoint():
+                    self._checkpoint()
+
                 self._profiler.step()
 
-    def _should_step(self) -> bool:
-        if self._eod:
+                self._valid_score = None
+
+    def _should_run_step(self) -> bool:
+        if self._eod or self._should_stop:
             return False
 
         if self._max_num_steps is None:
@@ -611,7 +688,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             # Reset.
             self._optimizer.zero_grad(set_to_none=True)
 
-        self._elapsed_time += watch.get_elapsed_time()
+        self._step_time += watch.get_elapsed_time()
 
     def _next_batches(self) -> List[BatchT]:
         while True:
@@ -656,10 +733,10 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         return torch.autocast(device_type=self._dp_gang.device.type, dtype=self._dtype)
 
     def _should_publish_metrics(self) -> bool:
-        if self._step_nr < self._publish_metrics_after_n_steps:
-            return False
+        after_n_steps = self._publish_metrics_after_n_steps
+        every_n_steps = self._publish_metrics_every_n_steps
 
-        return self._should_do(self._publish_metrics_every_n_steps)
+        return self._should_do(after_n_steps, every_n_steps)
 
     def _publish_metrics(self) -> None:
         log.debug("Syncing metrics.")
@@ -671,11 +748,11 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._metric_bag.reset_non_persistent_metrics()
 
-        elapsed_time = self._elapsed_time
+        elapsed_time = self._step_time
 
-        self._elapsed_time = 0.0
+        self._step_time = 0.0
 
-        if self._tp_gang.rank != 0 or self._dp_gang.rank != 0:
+        if self._root_gang.rank != 0:
             return
 
         assert values is not None
@@ -694,10 +771,10 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         if not self._valid_units:
             return False
 
-        if self._step_nr < self._validate_after_n_steps:
-            return False
+        after_n_steps = self._validate_after_n_steps
+        every_n_steps = self._validate_every_n_steps
 
-        return self._should_do(self._validate_every_n_steps)
+        return self._should_do(after_n_steps, every_n_steps)
 
     @torch.inference_mode()
     def _validate(self) -> None:
@@ -705,19 +782,25 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         log.info("Starting validation after step {}.", self._step_nr)
 
+        unit_scores = []
+
         for unit, data_reader in zip(self._valid_units, self._valid_data_readers):
             if unit.display_name:
                 log.info("Validating {}.", unit.display_name)
 
-            self._validate_unit(unit, data_reader)
+            unit_score = self._validate_unit(unit, data_reader)
+            if unit_score is not None:
+                unit_scores.append(unit_score)
 
-        log.info("Validation complete, resuming training.")
+        self._valid_score = self._compute_valid_score(unit_scores)
+
+        log.info("Validation complete.")
 
         self._model.train()
 
     def _validate_unit(
         self, unit: EvalUnit[BatchT], data_reader: DataReader[BatchT]
-    ) -> None:
+    ) -> Optional[float]:
         watch = Stopwatch(start=True, device=self._root_gang.device)
 
         unit.model.eval()
@@ -746,11 +829,15 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         data_reader.reset()
 
-        self._publish_validation_metrics(unit, watch.get_elapsed_time())
+        time = watch.get_elapsed_time()
+
+        metric_values = self._publish_validation_metrics(unit, time)
+
+        return self._get_unit_score(metric_values)
 
     def _publish_validation_metrics(
         self, unit: EvalUnit[BatchT], elapsed_time: float
-    ) -> None:
+    ) -> Optional[Dict[str, Any]]:
         log.debug("Syncing validation metrics.")
 
         if self._tp_gang.rank == 0:
@@ -760,8 +847,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         unit.metric_bag.reset_metrics()
 
-        if self._tp_gang.rank != 0 or self._dp_gang.rank != 0:
-            return
+        if self._root_gang.rank != 0:
+            return None
 
         assert values is not None
 
@@ -778,14 +865,87 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         record_metrics(self._metric_recorders, run_name, values, self._step_nr)
 
+        return values
+
+    def _get_unit_score(
+        self, metric_values: Optional[Dict[str, Any]]
+    ) -> Optional[float]:
+        if metric_values is None:
+            return None
+
+        if self._score_metric_name is None:
+            return None
+
+        score = metric_values.get(self._score_metric_name)
+        if score is None:
+            return None
+
+        if not isinstance(score, (int, float, Tensor)):
+            log.warning("The score metric must be of type `int`, `float`, or `torch.Tensor`.")  # fmt: skip
+
+            return None
+
+        return float(score)
+
+    def _compute_valid_score(self, unit_scores: List[float]) -> Optional[float]:
+        if self._score_metric_name is None:
+            return None
+
+        if not unit_scores:
+            if self._root_gang.rank == 0:
+                raise RuntimeError(
+                    "None of the validation units returned a score metric value. Please file a bug report with the recipe author."
+                )
+
+            return None
+
+        score = mean(unit_scores)
+
+        def is_better_score() -> bool:
+            if self._best_step_and_score is None:
+                return True
+
+            best_score = self._best_step_and_score[1]
+
+            return best_score > score if self._lower_better else best_score < score
+
+        if is_better_score():
+            self._best_step_and_score = (self._step_nr, score)
+
+        if log.is_enabled_for_info():
+            best_step_nr, best_score = self._best_step_and_score  # type: ignore[misc]
+
+            s1 = format_metric_value(self._score_metric_name, score)
+            s2 = format_metric_value(self._score_metric_name, best_score)
+
+            log.info("Score (step {}) - {} | Best {} at step {}", self._step_nr, s1, s2, best_step_nr)  # fmt: skip
+
+        return score
+
+    def _maybe_request_early_stop(self) -> None:
+        if self._early_stopper is None:
+            return
+
+        if self._root_gang.rank == 0:
+            assert self._valid_score is not None
+
+            should_stop = self._early_stopper(self._step_nr, self._valid_score)
+        else:
+            should_stop = False
+
+        self._should_stop = broadcast_flag(self._root_gang, should_stop)
+
+        if self._should_stop:
+            log.info("Early stop requested. Training will be terminated after saving checkpoint.")  # fmt: skip
+
     def _should_checkpoint(self) -> bool:
-        if self._step_nr < self._checkpoint_after_n_steps:
+        after_n_steps = self._checkpoint_after_n_steps
+        every_n_steps = self._checkpoint_every_n_steps
+
+        if every_n_steps is None:
             return False
 
-        if n := self._checkpoint_every_n_steps:
-            return self._should_do(n)
-
-        return False
+        return self._should_do(after_n_steps, every_n_steps)
 
     def _checkpoint(self) -> None:
         step_nr = self._step_nr
@@ -814,23 +974,27 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
             log.info("Model saved.")
 
+        # Clean up checkpoints.
         nc = self._keep_last_n_checkpoints
         nm = self._keep_last_n_models
 
-        if nm:
-            assert nc
+        if nm is not None:
+            assert nc is not None
 
             self._checkpoint_manager.keep_last_n_checkpoints(nm)
-
             self._checkpoint_manager.keep_last_n_checkpoints(nc, preserve_model=True)
-        elif nc:
+        elif nc is not None:
             self._checkpoint_manager.keep_last_n_checkpoints(nc)
 
-    def _should_do(self, n_step: int) -> bool:
-        if self._eod:
+    def _should_do(self, after_n_steps: int, n_steps: int) -> bool:
+        if self._eod or self._should_stop:
             return True
 
-        if self._max_num_steps and self._step_nr >= self._max_num_steps:
-            return True
+        if self._step_nr < after_n_steps:
+            return False
 
-        return self._step_nr % n_step == 0
+        if self._max_num_steps is not None:
+            if self._step_nr >= self._max_num_steps:
+                return True
+
+        return self._step_nr % n_steps == 0

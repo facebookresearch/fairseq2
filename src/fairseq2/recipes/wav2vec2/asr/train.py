@@ -164,6 +164,9 @@ class Wav2Vec2AsrTrainConfig:
     checkpoint_every_n_steps: int = 1000
     """The step interval at which to checkpoint."""
 
+    keep_best_n_checkpoints: Optional[int] = None
+    """The number of checkpoints to keep based on their validation score."""
+
     publish_metrics_every_n_steps: int = 200
     """The step interval at which to publish metrics."""
 
@@ -314,9 +317,7 @@ def load_wav2vec2_asr_trainer(
 
     if config.data_parallelism == "fsdp":
         if config.freeze_encoder_for_n_steps != 0:
-            raise ValueError(
-                "`config.freeze_encoder_for_n_steps` must be 0 when using FSDP."
-            )
+            raise ValueError("`freeze_encoder_for_n_steps` must be 0 when using FSDP.")
 
     dp_model = to_data_parallel(
         model,
@@ -399,6 +400,8 @@ def load_wav2vec2_asr_trainer(
         max_gradient_norm=config.max_gradient_norm,
         max_num_steps=config.max_num_steps,
         max_num_data_epochs=config.max_num_data_epochs,
+        score_metric_name="wer",
+        lower_better=True,
         valid_units=[valid_unit],
         valid_data_readers=[valid_data_reader],
         validate_after_n_steps=config.validate_after_n_steps,
@@ -406,6 +409,7 @@ def load_wav2vec2_asr_trainer(
         checkpoint_manager=checkpoint_manager,
         checkpoint_after_n_steps=config.checkpoint_after_n_steps,
         checkpoint_every_n_steps=config.checkpoint_every_n_steps,
+        keep_best_n_checkpoints=config.keep_best_n_checkpoints,
         tb_dir=output_dir.joinpath("tb"),
         metrics_dir=output_dir.joinpath("metrics"),
         publish_metrics_every_n_steps=config.publish_metrics_every_n_steps,
