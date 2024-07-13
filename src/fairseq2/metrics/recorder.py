@@ -157,6 +157,15 @@ def register_metric_formatter(
     _metric_formatters[name] = _MetricFormatter(display_name, priority, fn, log)
 
 
+def format_metric_value(name: str, value: Any) -> str:
+    """Format the specified metric along with its value as a string."""
+    formatter = _metric_formatters.get(name)
+    if formatter is None:
+        return f"{name}: {value}"
+
+    return f"{formatter.display_name}: {formatter.fn(value)}"
+
+
 class MetricRecorder(ABC):
     """Records metric values."""
 
