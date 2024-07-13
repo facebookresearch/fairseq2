@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -237,7 +236,7 @@ class LogMetricRecorder(MetricRecorder):
         *,
         flush: bool = True,
     ) -> None:
-        if not self._log.is_enabled_for(logging.INFO):
+        if not self._log.is_enabled_for_info():
             return
 
         values_and_formatters = []
