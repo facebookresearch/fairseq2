@@ -18,7 +18,7 @@ from fairseq2.datasets import DataReader
 from fairseq2.gang import FakeGang, Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.metrics import (
-    FileMetricRecorder,
+    JsonFileMetricRecorder,
     LogMetricRecorder,
     MetricBag,
     MetricRecorder,
@@ -188,7 +188,7 @@ class Evaluator(Generic[BatchT]):
                 self._metric_recorders.append(TensorBoardRecorder(tb_dir))
 
             if metrics_dir is not None:
-                self._metric_recorders.append(FileMetricRecorder(metrics_dir))
+                self._metric_recorders.append(JsonFileMetricRecorder(metrics_dir))
         else:
             self._metric_recorders = []
 
