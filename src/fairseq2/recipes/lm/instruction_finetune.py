@@ -138,7 +138,7 @@ class InstructionFinetuneConfig:
     """The step interval at which to checkpoint."""
 
     keep_last_n_checkpoints: Optional[int] = 1
-    """The number of checkpoints to keep. If ``None``, none will be deleted."""
+    """The number of checkpoints to keep."""
 
     keep_last_n_models: Optional[int] = None
     """The number of checkpoint models to keep."""
@@ -286,7 +286,7 @@ def load_instruction_finetuner(
         log.info("Model loaded on data parallel rank 0.")
 
     if not isinstance(model, DecoderModel):
-        raise ValueError("`config.model` must specify a decoder model.")
+        raise ValueError("`model` must specify a decoder model.")
 
     checkpoint_manager.save_model_metadata(
         base_asset=model_card.name, family=model.family

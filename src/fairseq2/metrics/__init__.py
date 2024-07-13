@@ -15,6 +15,7 @@ from fairseq2.metrics.recorder import TensorBoardRecorder as TensorBoardRecorder
 from fairseq2.metrics.recorder import format_as_float as format_as_float
 from fairseq2.metrics.recorder import format_as_int as format_as_int
 from fairseq2.metrics.recorder import format_as_seconds as format_as_seconds
+from fairseq2.metrics.recorder import format_metric_value as format_metric_value
 from fairseq2.metrics.recorder import record_metrics as record_metrics
 from fairseq2.metrics.recorder import (
     register_metric_formatter as register_metric_formatter,
