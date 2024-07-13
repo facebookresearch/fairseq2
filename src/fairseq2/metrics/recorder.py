@@ -274,7 +274,7 @@ class LogMetricRecorder(MetricRecorder):
 
 
 @final
-class FileMetricRecorder(MetricRecorder):
+class JsonFileMetricRecorder(MetricRecorder):
     """Records metric values to JSONL files."""
 
     _RUN_PART_REGEX: Final = re.compile("^[-_a-zA-Z0-9]+$")
