@@ -20,7 +20,6 @@ from fairseq2.datasets.data_reader import DataPipelineReader
 from fairseq2.datasets.loader import DatasetLoader
 from fairseq2.gang import Gang
 
-
 HFBatch = Dict[str, Any]
 
 
