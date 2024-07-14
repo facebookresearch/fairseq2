@@ -7,7 +7,6 @@
 import abc
 from typing import Any, Callable, Dict, Optional
 
-from datasets import Dataset, DatasetDict  # type: ignore
 
 from fairseq2.data.data_pipeline import (
     Collater,
@@ -18,6 +17,14 @@ from fairseq2.data.data_pipeline import (
 from fairseq2.datasets.data_reader import DataPipelineReader
 from fairseq2.gang import Gang
 from fairseq2.models.seq2seq import Seq2SeqBatch
+
+try:
+    from datasets import Dataset, DatasetDict  # type: ignore[attr-defined,import-untyped]
+except ImportError:
+    has_datasets = False
+else:
+    has_datasets = True
+
 
 Example = Dict[str, Any]
 
@@ -135,6 +142,11 @@ def create_hf_reader(
         The extra parameters specific to the dataset
         implementation.
     """
+
+    if not has_datasets:
+        raise ModuleNotFoundError(
+            "`datasets` is required but not found. Please install it with `pip install datasets`."
+        )  # fmt: skip
 
     # Make sure the dataset is a proper arrow dataset
     if not isinstance(dataset, Dataset):

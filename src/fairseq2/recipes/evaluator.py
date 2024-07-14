@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+import importlib
 from itertools import count
 from pathlib import Path
 from typing import Any, Dict, Generic, List, Optional, TypeVar, final
@@ -22,6 +23,7 @@ from fairseq2.metrics import (
     TensorBoardRecorder,
     record_metrics,
 )
+from fairseq2.models.model import Model
 from fairseq2.recipes.criterion import Criterion
 from fairseq2.recipes.utils.cli import create_rich_progress
 from fairseq2.typing import override
@@ -133,7 +135,6 @@ class StandardEvaluator(Evaluator, Generic[BatchT]):
             raise
 
         elapsed_time = self._wall_watch.get_elapsed_time()
-
         log.info("Evaluation complete in {:,} seconds after {} steps!", int(elapsed_time), self._step_nr)  # fmt: skip
 
     def _do_run(self) -> None:
@@ -199,3 +200,134 @@ class StandardEvaluator(Evaluator, Generic[BatchT]):
             metric_values["elements_per_second"] = 0.0
         else:
             metric_values["elements_per_second"] = num_elements / self._elapsed_time
+
+
+@final
+class HFEvaluator(Evaluator, Generic[BatchT]):
+    """Evaluate a machine learning model with HuggingFace's evaluate.Metric library"""
+
+    _model: Model
+    _root_gang: Gang
+    _dp_gang: Gang
+    _tp_gang: Gang
+    _data_reader: DataReader[BatchT]
+    _metric_recorders: List[MetricRecorder]
+    _wall_watch: Stopwatch
+    _elapsed_time: float
+    _run: bool
+
+    def __init__(
+        self,
+        model: Model,
+        metrics: List[str],
+        gang: Gang,
+        data_reader: DataReader[BatchT],
+        wall_watch: Stopwatch,
+        dp_gang: Optional[Gang] = None,
+        tp_gang: Optional[Gang] = None,
+        tb_dir: Optional[Path] = None,
+    ) -> None:
+        """
+        :param model:
+            The fairseq2 machine learning model to be evaluate
+        :param metrics:
+            The list of metric names implemented in HuggingFace.evaluate
+        :param gang:
+            The gang to use for distributed evaluation.
+        :param data_reader:
+            The data reader of the eval split.
+        :param wall_watch:
+            The stopwatch to track process wall-time.
+        :param tb_dir:
+            The TensorBoard log directory to dump metrics.
+        """
+        try:
+            evaluate = importlib.import_module("evaluate")
+        except ImportError as exc:
+            raise ImportError(
+                "HFMetric requires the library `evaluate`, for instance via `pip install evaluate`"
+            ) from exc
+
+        self._model = model
+
+        self._root_gang = gang
+
+        self._data_reader = data_reader
+
+        #########################################################
+        # FIXME: Implement the loading of evaluate metrics here,
+        # the remove the placeholder 'self,_metrics = None` below
+        #
+        #########################################################
+        self._metrics = None
+
+        if self._tp_gang.rank == 0 and self._dp_gang.rank == 0:
+            self._metric_recorders = [LogMetricRecorder(log)]
+
+            if tb_dir is not None:
+                self._metric_recorders.append(TensorBoardRecorder(tb_dir))
+        else:
+            self._metric_recorders = []
+
+        self._wall_watch = wall_watch
+
+        self._elapsed_time = 0.0
+
+        self._run = False
+
+    @override
+    def __call__(self) -> None:
+        if self._run:
+            raise RuntimeError("The evaluator can only be run once.")
+
+        self._run = True
+
+        log.info("Running evaluation on {} device(s).", self._root_gang.size)
+
+        try:
+            ##########################################################
+            # FIXME: Integrate the update_batch() of the evaluate here
+            # See StandardEvaluator._do_run() for an example
+            #
+            ##########################################################
+
+            self._publish_evaluation_metrics()
+        except KeyboardInterrupt:
+            log.info("Evaluation terminated")
+
+            raise
+
+        elapsed_time = self._wall_watch.get_elapsed_time()
+
+        log.info("Evaluation complete in {:,} seconds", int(elapsed_time))
+
+    def _publish_evaluation_metrics(self) -> None:
+        """
+        publish evaluation metrics to log and TensorBoard folder.
+        Note that contrast to fairseq2.metrics, which rely on torcheval,
+
+        HuggingFace's evaluate has an internal support for distributed
+        evaluation (see
+        https://huggingface.co/docs/evaluate/en/a_quick_tour#distributed-evaluation),
+        so we do not to call explicitly sync_and_compute_metrics(), but simply
+        evaluate.compute()
+        """
+
+        ##########################################################
+        # FIXME: Integrate the compute() of the evaluate here
+        # then remove the placeholder "values = None" right below.
+        #
+        ##########################################################
+        values = None
+
+        # In all other rank, values will be zero
+        if self._tp_gang.rank != 0 or self._dp_gang.rank != 0:
+            return
+
+        assert values is not None
+
+        values["elapsed_time"] = self._elapsed_time
+
+        values["wall_time"] = self._wall_watch.get_elapsed_time()
+
+        record_metrics(self._metric_recorders, "eval", values, step_nr=0)
