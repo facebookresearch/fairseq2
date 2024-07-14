@@ -19,7 +19,7 @@ from fairseq2.gang import Gang
 from fairseq2.models.seq2seq import Seq2SeqBatch
 
 try:
-    from datasets import Dataset, DatasetDict  # type: ignore[attr-defined,import-untyped]
+    from datasets import Dataset, DatasetDict  # type: ignore[attr-defined,import-untyped,import-not-found]
 except ImportError:
     has_datasets = False
 else:
