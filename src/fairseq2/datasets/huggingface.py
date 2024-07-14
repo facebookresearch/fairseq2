@@ -7,7 +7,6 @@
 import abc
 from typing import Any, Callable, Dict, Optional
 
-
 from fairseq2.data.data_pipeline import (
     Collater,
     DataPipelineBuilder,
@@ -19,7 +18,10 @@ from fairseq2.gang import Gang
 from fairseq2.models.seq2seq import Seq2SeqBatch
 
 try:
-    from datasets import Dataset, DatasetDict  # type: ignore[attr-defined,import-untyped,import-not-found]
+    from datasets import (  # type: ignore[attr-defined,import-untyped,import-not-found]
+        Dataset,
+        DatasetDict,
+    )
 except ImportError:
     has_datasets = False
 else:
