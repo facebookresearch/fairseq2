@@ -13,10 +13,10 @@ def _add_wav2vev2_asr_eval_cli(group: CliGroup) -> None:
     handler = RecipeCommandHandler(
         load_wav2vec2_asr_evaluator,
         preset_configs=hf_presets,
-        default_preset="wav2vec2_on_librispeech_asr",
+        default_preset="librispeech_asr",
     )
     group.add_command(
-        "wav2vec2_asr",
+        "wav2vec2-asr",
         handler,
         help="evaluate a wav2vec 2.0 ASR model in downstream benchmark",
     )

@@ -57,15 +57,13 @@ class AsrEvalConfig(HFEvalConfig):
     """The data type of the model."""
 
 
-hf_presets.decorator("wav2vec2_on_librispeech_asr")
-
-
+hf_presets.decorator("librispeech_asr")
 def _librispeech_asr_config() -> AsrEvalConfig:
     def librispeech_asr_to_batch(examples: Example) -> Seq2SeqBatch:
         # FIXME: Implement the function to convert the collated data loaded from HF dataset
         # "librispeech_asr" to Seq2SeqBatch
         raise NotImplementedError()
-
+    
     return AsrEvalConfig(
         dataset_name="librispeech_asr",
         model_name="wav2vec2_asr_base_10h",
@@ -77,7 +75,7 @@ def load_wav2vec2_asr_evaluator(
     config: HFEvalConfig, output_dir: Path
 ) -> HFEvaluator[Seq2SeqBatch]:
     """
-    Load the evaluator used for downstream evaluation of the model
+    Load the evaluator used for downstream evaluation of the model 
     in a downstream dataset and report BLEU scores
     """
     if not isinstance(config, AsrEvalConfig):
