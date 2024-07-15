@@ -4,13 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from fairseq2.config_registry import ConfigRegistry
-from fairseq2.models.w2vbert.factory import W2VBertConfig
+from fairseq2.models.w2vbert.factory import W2VBertConfig, w2vbert_arch
 from fairseq2.models.wav2vec2 import Wav2Vec2EncoderConfig, wav2vec2_encoder_arch
-
-w2vbert_archs = ConfigRegistry[W2VBertConfig]()
-
-w2vbert_arch = w2vbert_archs.decorator
 
 
 @w2vbert_arch("600m")

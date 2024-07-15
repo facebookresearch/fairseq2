@@ -11,11 +11,13 @@ from fairseq2.models.config_loader import ModelConfigLoader as ModelConfigLoader
 from fairseq2.models.config_loader import (
     StandardModelConfigLoader as StandardModelConfigLoader,
 )
+from fairseq2.models.factory import DelegatingModelFactory as DelegatingModelFactory
+from fairseq2.models.factory import ModelFactory as ModelFactory
+from fairseq2.models.factory import create_model as create_model
 from fairseq2.models.loader import CheckpointConverter as CheckpointConverter
 from fairseq2.models.loader import DelegatingModelLoader as DelegatingModelLoader
-from fairseq2.models.loader import DenseModelFactory as DenseModelFactory
-from fairseq2.models.loader import DenseModelLoader as DenseModelLoader
 from fairseq2.models.loader import ModelLoader as ModelLoader
+from fairseq2.models.loader import StandardModelLoader as StandardModelLoader
 from fairseq2.models.loader import load_model as load_model
 from fairseq2.models.model import Model as Model
 

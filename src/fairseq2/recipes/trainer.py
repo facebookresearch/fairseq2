@@ -894,7 +894,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         if not unit_scores:
             if self._root_gang.rank == 0:
                 raise RuntimeError(
-                    "None of the validation units returned a score metric value. Please file a bug report with the recipe author."
+                    "None of the validation units returned a score metric value. Please file a bug report to the recipe author."
                 )
 
             return None

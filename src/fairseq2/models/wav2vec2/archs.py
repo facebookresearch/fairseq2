@@ -4,13 +4,13 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from fairseq2.config_registry import ConfigRegistry
-from fairseq2.models.wav2vec2.factory import Wav2Vec2Config, Wav2Vec2EncoderConfig
+from fairseq2.models.wav2vec2.factory import (
+    Wav2Vec2Config,
+    Wav2Vec2EncoderConfig,
+    wav2vec2_arch,
+    wav2vec2_encoder_arch,
+)
 from fairseq2.nn.transformer import TransformerNormOrder
-
-wav2vec2_archs = ConfigRegistry[Wav2Vec2Config]()
-
-wav2vec2_arch = wav2vec2_archs.decorator
 
 
 @wav2vec2_arch("base")
@@ -51,6 +51,7 @@ def _large_lv60k() -> Wav2Vec2Config:
 @wav2vec2_arch("pseudo_dinosr_base")
 def _pseudo_dinosr_base() -> Wav2Vec2Config:
     layer_descs = [(512, 10, 5)] + [(512, 3, 2)] * 4 + [(512, 2, 2)] * 3
+
     encoder_config = Wav2Vec2EncoderConfig(
         model_dim=768,
         max_seq_len=100000,
@@ -79,6 +80,7 @@ def _pseudo_dinosr_base() -> Wav2Vec2Config:
         norm_order=TransformerNormOrder.POST,
         depthwise_conv_kernel_size=31,
     )
+
     return Wav2Vec2Config(
         encoder_config,
         final_dim=256,
@@ -94,11 +96,6 @@ def _pseudo_dinosr_base() -> Wav2Vec2Config:
         num_distractors=100,
         logit_temp=0.1,
     )
-
-
-wav2vec2_encoder_archs = ConfigRegistry[Wav2Vec2EncoderConfig]()
-
-wav2vec2_encoder_arch = wav2vec2_encoder_archs.decorator
 
 
 @wav2vec2_encoder_arch("base")

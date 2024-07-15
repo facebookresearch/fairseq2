@@ -9,8 +9,10 @@ from typing import Final, Optional
 
 from torch.nn import SiLU
 
+from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data import VocabularyInfo
 from fairseq2.models.conformer import ConformerBlock, ConformerConvolution
+from fairseq2.models.factory import create_model
 from fairseq2.models.s2t_transformer.feature_extractor import Conv1dFbankSubsampler
 from fairseq2.models.s2t_transformer.frontend import S2TTransformerFrontend
 from fairseq2.models.transformer import (
@@ -102,6 +104,11 @@ class S2TTransformerConfig:
 
     depthwise_conv_kernel_size: int = 0
     """The kernel size of depthwise convolutions in Conformer blocks."""
+
+
+s2t_transformer_archs = ConfigRegistry[S2TTransformerConfig]()
+
+s2t_transformer_arch = s2t_transformer_archs.decorator
 
 
 class S2TTransformerBuilder:
@@ -398,3 +405,11 @@ def create_s2t_transformer_model(
     model = S2TTransformerBuilder(config, device=device, dtype=dtype).build_model()
 
     return model.set_family(S2T_TRANSFORMER_FAMILY)
+
+
+create_model.register(
+    family=S2T_TRANSFORMER_FAMILY,
+    factory=create_s2t_transformer_model,
+    config_kls=S2TTransformerConfig,
+    arch_configs=s2t_transformer_archs,
+)

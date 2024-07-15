@@ -11,12 +11,12 @@ from fairseq2.data.text import (
     load_text_tokenizer,
 )
 from fairseq2.models.config_loader import StandardModelConfigLoader
-from fairseq2.models.loader import DenseModelLoader, load_model
-from fairseq2.models.mistral.archs import mistral_archs
+from fairseq2.models.loader import StandardModelLoader, load_model
 from fairseq2.models.mistral.factory import (
     MISTRAL_FAMILY,
     MistralConfig,
     create_mistral_model,
+    mistral_archs,
 )
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
 
@@ -54,7 +54,7 @@ def convert_mistral_checkpoint(
     return {"model": checkpoint}
 
 
-load_mistral_model = DenseModelLoader(
+load_mistral_model = StandardModelLoader(
     config_loader=load_mistral_config,
     factory=create_mistral_model,
     checkpoint_converter=convert_mistral_checkpoint,

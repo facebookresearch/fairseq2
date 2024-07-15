@@ -4,13 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from fairseq2.config_registry import ConfigRegistry
-from fairseq2.models.wav2vec2.archs import wav2vec2_encoder_archs
-from fairseq2.models.wav2vec2.asr.factory import Wav2Vec2AsrConfig
-
-wav2vec2_asr_archs = ConfigRegistry[Wav2Vec2AsrConfig]()
-
-wav2vec2_asr_arch = wav2vec2_asr_archs.decorator
+from fairseq2.models.wav2vec2.asr.factory import Wav2Vec2AsrConfig, wav2vec2_asr_arch
+from fairseq2.models.wav2vec2.factory import wav2vec2_encoder_archs
 
 
 @wav2vec2_asr_arch("base_10h")

@@ -23,16 +23,11 @@ from fairseq2.datasets import LengthBatching
 from fairseq2.datasets.asr import GenericAsrDataset, load_asr_dataset
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
+from fairseq2.models import create_model
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2 import load_wav2vec2_model
-from fairseq2.models.wav2vec2.asr import (
-    Wav2Vec2AsrConfig,
-    Wav2Vec2AsrModel,
-    Wav2Vec2AsrOutput,
-    create_wav2vec2_asr_model,
-    wav2vec2_asr_archs,
-)
+from fairseq2.models.wav2vec2.asr import Wav2Vec2AsrModel, Wav2Vec2AsrOutput
 from fairseq2.nn.utils.module import freeze_parameters, share_parameters, to_device
 from fairseq2.optim import AdamW
 from fairseq2.optim.lr_scheduler import TriStageLR
@@ -43,11 +38,10 @@ from fairseq2.recipes.utils.setup import (
     compile_model,
     setup_root_gang,
     to_data_parallel,
-    update_model_config,
 )
 from fairseq2.recipes.wav2vec2.asr.common import Wav2Vec2AsrMetricBag
 from fairseq2.recipes.wav2vec2.asr.eval import Wav2Vec2AsrEvalUnit
-from fairseq2.typing import META, DataType, override
+from fairseq2.typing import DataType, override
 from fairseq2.utils.profiler import Stopwatch
 
 log = get_log_writer(__name__)
@@ -98,6 +92,9 @@ class Wav2Vec2AsrTrainConfig:
     # Model
     pretrained_model: Union[str, Path] = "wav2vec2_base"
     """The name or path to the asset card of the wav2vec 2.0 model to finetune."""
+
+    model_family: str = "wav2vec2_asr"
+    """The family of the model."""
 
     model_arch: Optional[str] = "base_10h"
     """The architecture of the model."""
@@ -259,21 +256,19 @@ def load_wav2vec2_asr_trainer(
 
         dataset = GenericAsrDataset.from_path(path)
 
-    # Initialize the model configuration.
-    if config.model_arch is None:
-        model_config = Wav2Vec2AsrConfig()
-    else:
-        model_config = wav2vec2_asr_archs.get(config.model_arch)
+    # Initialize the model
+    try:
+        model, model_config = create_model(
+            config.model_family, config.model_arch, config.model_config
+        )
+    except ValueError as ex:
+        raise ValueError(
+            "The model cannot be initialized. See nested exception for details."
+        ) from ex
 
-    if config.model_config is not None:
-        update_model_config(model_config, config.model_config)
-
-    model_config.vocab_info = tokenizer.vocab_info
+    check_model_type(model, Wav2Vec2AsrModel)
 
     log_model_config(model_config, log)
-
-    # Initialize the model.
-    model = create_wav2vec2_asr_model(model_config, device=META, dtype=torch.float32)
 
     checkpoint_manager.save_model_metadata(
         family=model.family, config=model_config, tokenizer_name=tokenizer_card.name

@@ -7,7 +7,9 @@
 from dataclasses import dataclass, field
 from typing import Final, Optional
 
+from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data import VocabularyInfo
+from fairseq2.models.factory import create_model
 from fairseq2.models.transformer import (
     TransformerDecoderModel,
     TransformerEmbeddingFrontend,
@@ -79,6 +81,11 @@ class LLaMAConfig:
 
     dropout_p: float = 0.1
     """The dropout probability on outputs of Transformer layers."""
+
+
+llama_archs = ConfigRegistry[LLaMAConfig]()
+
+llama_arch = llama_archs.decorator
 
 
 class LLaMABuilder:
@@ -257,6 +264,14 @@ def create_llama_model(
     model = LLaMABuilder(config, device=device, dtype=dtype).build_model()
 
     return model.set_family(LLAMA_FAMILY)
+
+
+create_model.register(
+    family=LLAMA_FAMILY,
+    factory=create_llama_model,
+    config_kls=LLaMAConfig,
+    arch_configs=llama_archs,
+)
 
 
 def get_llama_lora_config() -> LoRAConfig:
