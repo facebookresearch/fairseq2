@@ -18,7 +18,6 @@ from fairseq2.logging import get_log_writer
 from fairseq2.models.llama import load_llama_config
 from fairseq2.models.llama.integ import convert_to_reference_checkpoint
 from fairseq2.recipes.cli import CliCommandHandler
-from fairseq2.recipes.logging import setup_basic_logging
 from fairseq2.typing import override
 from fairseq2.utils.file import dump_tensors, load_tensors
 
@@ -51,8 +50,6 @@ class ConvertCheckpointCommandHandler(CliCommandHandler):
 
     @override
     def __call__(self, args: Namespace) -> None:
-        setup_basic_logging()
-
         if not args.input_dir.exists() or not args.input_dir.is_dir():
             log.error("`input_dir` must be a directory.")
 

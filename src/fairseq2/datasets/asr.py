@@ -325,7 +325,7 @@ class GenericAsrDataset(AsrDataset):
         except ValueError:
             raise DatasetError(
                 f"The first line of {manifest_file} must point to a data directory."
-            )
+            ) from None
 
     def _read_manifest(self, split: str) -> DataPipelineBuilder:
         def read_tsv_file() -> DataPipelineBuilder:

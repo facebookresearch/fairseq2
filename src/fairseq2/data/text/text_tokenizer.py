@@ -281,7 +281,7 @@ class DelegatingTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
         except KeyError:
             raise AssetError(
                 f"The value of the field 'tokenizer_family' of the asset card '{card.name}' must be a supported tokenizer family, but '{family}' has no registered loader."
-            )
+            ) from None
 
         return loader(card, force=force, progress=progress)
 

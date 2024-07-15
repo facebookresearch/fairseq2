@@ -255,7 +255,7 @@ def load_instruction_finetuner(
         except ValueError:
             raise AssetNotFoundError(
                 config.dataset, f"An asset with the name '{config.dataset}' cannot be found."  # type: ignore[arg-type]
-            )
+            ) from None
 
         dataset = GenericInstructionDataset.from_path(path)
 

@@ -236,7 +236,7 @@ def load_text_translator(
         except ValueError:
             raise AssetNotFoundError(
                 config.dataset, f"An asset with the name '{config.dataset}' cannot be found."  # type: ignore[arg-type]
-            )
+            ) from None
 
         dataset = GenericTextDataset.from_path(path)
 
@@ -379,7 +379,7 @@ class TextTranslationUnit(AbstractGeneratorUnit[SequenceBatch]):
         try:
             srcs = batch.example["text"]
         except KeyError:
-            raise ValueError("`batch.example` must contain a 'text' item.")
+            raise ValueError("`batch.example` must contain a 'text' item.") from None
 
         hyps, output = self._converter.batch_convert(batch.seqs, batch.padding_mask)
 

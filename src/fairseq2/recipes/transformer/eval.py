@@ -159,7 +159,7 @@ def load_transformer_evaluator(
         except ValueError:
             raise AssetNotFoundError(
                 config.dataset, f"An asset with the name '{config.dataset}' cannot be found."  # type: ignore[arg-type]
-            )
+            ) from None
 
         dataset = GenericParallelTextDataset.from_path(path)
 
@@ -433,12 +433,16 @@ class TransformerBleuChrfEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
         try:
             srcs = batch.example["source_text"]
         except KeyError:
-            raise ValueError("`batch.example` must contain a 'source_text' item.")
+            raise ValueError(
+                "`batch.example` must contain a 'source_text' item."
+            ) from None
 
         try:
             refs = batch.example["target_text"]
         except KeyError:
-            raise ValueError("`batch.example` must contain a 'target_text' item.")
+            raise ValueError(
+                "`batch.example` must contain a 'target_text' item."
+            ) from None
 
         hyps, output = self._converter.batch_convert(
             batch.source_seqs, batch.source_padding_mask

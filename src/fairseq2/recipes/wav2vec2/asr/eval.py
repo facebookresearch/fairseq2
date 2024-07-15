@@ -136,7 +136,7 @@ def load_wav2vec2_asr_evaluator(
         except ValueError:
             raise AssetNotFoundError(
                 config.dataset, f"An asset with the name '{config.dataset}' cannot be found."  # type: ignore[arg-type]
-            )
+            ) from None
 
         dataset = GenericAsrDataset.from_path(path)
 

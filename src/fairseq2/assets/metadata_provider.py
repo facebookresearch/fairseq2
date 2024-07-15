@@ -58,7 +58,7 @@ class AbstractAssetMetadataProvider(AssetMetadataProvider):
         except KeyError:
             raise AssetNotFoundError(
                 name, f"An asset with the name '{name}' cannot be found."
-            )
+            ) from None
 
     @final
     @override
@@ -220,7 +220,7 @@ def _load_metadata_file(file: Path) -> List[Tuple[str, Dict[str, Any]]]:
             except KeyError:
                 raise AssetMetadataError(
                     f"The asset metadata at index {idx} in {file} does not have a name entry."
-                )
+                ) from None
 
             try:
                 canonical_name = _canonicalize_name(name)
@@ -260,7 +260,7 @@ class InProcAssetMetadataProvider(AssetMetadataProvider):
             except KeyError:
                 raise AssetMetadataError(
                     f"The asset metadata at index {idx} in `metadata` does not have a name entry."
-                )
+                ) from None
 
             try:
                 canonical_name = _canonicalize_name(name_)
@@ -285,7 +285,7 @@ class InProcAssetMetadataProvider(AssetMetadataProvider):
         except KeyError:
             raise AssetNotFoundError(
                 name, f"An asset with the name '{name}' cannot be found."
-            )
+            ) from None
 
     @override
     def get_names(self) -> List[str]:

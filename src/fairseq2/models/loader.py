@@ -295,7 +295,7 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         except KeyError:
             raise AssetError(
                 f"The checkpoint of {card.name} does not contain a '{model_key}' entry."
-            )
+            ) from None
 
         # Remove DDP 'module' prefix.
         consume_prefix_in_state_dict_if_present(state_dict, prefix="module.")
@@ -356,7 +356,7 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
         except KeyError:
             raise AssetError(
                 f"The value of the field 'model_family' of the asset card '{card.name}' must be a supported model family, but '{family}' has no registered loader."
-            )
+            ) from None
 
         return loader(
             model_name_or_card,

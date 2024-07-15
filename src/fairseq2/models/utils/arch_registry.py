@@ -60,7 +60,7 @@ class ArchitectureRegistry(Generic[ModelConfigT]):
         except KeyError:
             raise ValueError(
                 f"The registry of '{self._model_type}' does not contain an architecture named '{arch_name}'."
-            )
+            ) from None
 
     def names(self) -> AbstractSet[str]:
         """Return the names of all supported architectures."""
