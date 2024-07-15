@@ -205,7 +205,7 @@ class GenericInstructionDataset(InstructionDataset):
             def raise_error() -> NoReturn:
                 raise DatasetError(
                     f"Each line in {manifest_file} must represent a path to a JSONL file and a weight, but line {idx} is '{line}' instead."
-                )
+                ) from None
 
             fields = line.rstrip().split("\t")
 

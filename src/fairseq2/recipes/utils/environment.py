@@ -38,7 +38,7 @@ class SlurmEnvironmentSetter(EnvironmentSetter):
         except KeyError:
             raise RuntimeError(
                 "Slurm not detected. `SLURM_JOB_ID` environment variable cannot be found."
-            )
+            ) from None
 
         try:
             self._job_id = int(job_id)
@@ -123,7 +123,7 @@ class EnvironmentSetterRegistry:
         except KeyError:
             raise ValueError(
                 f"`cluster` must be a registered cluster name, but is '{cluster}' instead."
-            )
+            ) from None
 
         try:
             return kls()

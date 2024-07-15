@@ -58,7 +58,9 @@ class AssetCard:
         try:
             name = metadata["name"]
         except KeyError:
-            raise AssetCardError("`metadata` must contain a key named 'name'.")
+            raise AssetCardError(
+                "`metadata` must contain a key named 'name'."
+            ) from None
 
         if not isinstance(name, str):
             raise AssetCardError(

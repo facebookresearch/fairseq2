@@ -103,7 +103,7 @@ class ValueConverter:
 
             raise ValueError(
                 f"`type_hint` of `obj` must be of one of the following, but is `{type_hint}` instead: {supported}"
-            )
+            ) from None
 
         try:
             return fn(kls, kls_args, obj)
@@ -195,7 +195,7 @@ class ValueConverter:
             except KeyError:
                 raise ValueError(
                     f"`obj` must be one of the following enumeration values, but is '{obj}' instead: {', '.join(e.name for e in enum_kls)}."
-                )
+                ) from None
 
         raise TypeError(
             f"`obj` must be of type `{kls}` or `{str}`, but is of type `{type(obj)}` instead."
@@ -315,7 +315,7 @@ class ValueConverter:
 
             raise TypeError(
                 f"`obj` must be of one of the following types, but is of type `{type(obj)}` instead: {supported_types}"
-            )
+            ) from None
 
         return fn(kls, obj)
 

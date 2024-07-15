@@ -26,7 +26,7 @@ from fairseq2.recipes.utils.environment import (
     EnvironmentSetterRegistry,
     default_env_setters,
 )
-from fairseq2.recipes.utils.log import exception_logger, log_config
+from fairseq2.recipes.utils.log import log_config
 from fairseq2.recipes.utils.sweep import SweepTagger, default_sweep_tagger
 from fairseq2.typing import DataClass, override
 from fairseq2.utils.dataclass import FieldError, dump_dataclass, update_dataclass
@@ -102,7 +102,7 @@ class Cli:
         except KeyError:
             raise ValueError(
                 f"`name` must be a registered group name, but is '{name}' instead."
-            )
+            ) from None
 
     def init_parser(self, parser: ArgumentParser) -> None:
         """Initialize ``parser`` with program-specific arguments."""
@@ -131,8 +131,7 @@ class Cli:
         """Run the program."""
         set_console(Console(highlight=False))
 
-        with exception_logger(log):
-            self._run_command()
+        self._run_command()
 
     def _run_command(self) -> None:
         parser = ArgumentParser(self._name, description=self._description)
@@ -262,7 +261,7 @@ class CliGroup:
         except KeyError:
             raise ValueError(
                 f"`name` must be a registered group name, but is '{name}' instead."
-            )
+            ) from None
 
     def get_command(self, name: str) -> CliCommand:
         """Return the command of ``name``."""
@@ -271,7 +270,7 @@ class CliGroup:
         except KeyError:
             raise ValueError(
                 f"`name` must be a registered command name, but is '{name}' instead."
-            )
+            ) from None
 
     def init_parser(self, parser: ArgumentParser) -> None:
         """Initialize ``parser`` with command group-specific arguments."""

@@ -21,7 +21,6 @@ from fairseq2.assets import (
 from fairseq2.console import get_console
 from fairseq2.logging import get_log_writer
 from fairseq2.recipes.cli import Cli, CliCommandHandler
-from fairseq2.recipes.logging import setup_basic_logging
 from fairseq2.typing import override
 
 log = get_log_writer(__name__)
@@ -70,8 +69,6 @@ class ListAssetsCommand(CliCommandHandler):
 
     @override
     def __call__(self, args: Namespace) -> None:
-        setup_basic_logging()
-
         usr_assets = self._retrieve_assets(args, user=True)
         glb_assets = self._retrieve_assets(args, user=False)
 
@@ -189,8 +186,6 @@ class ShowAssetCommand(CliCommandHandler):
 
     @override
     def __call__(self, args: Namespace) -> None:
-        setup_basic_logging()
-
         try:
             card: Optional[AssetCard] = self._asset_store.retrieve_card(
                 args.name, envs=args.envs, scope=args.scope

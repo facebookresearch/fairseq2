@@ -214,7 +214,7 @@ class GenericParallelTextDataset(ParallelTextDataset):
                 def raise_error() -> NoReturn:
                     raise DatasetError(
                         f"Each line in {manifest_file} must represent a valid direction and a weight, but line {idx} is '{line}' instead."
-                    )
+                    ) from None
 
                 fields = line.rstrip().split("\t")
 
@@ -502,7 +502,7 @@ class GenericParallelTextDataset(ParallelTextDataset):
     def _raise_split_error(self, split: str) -> NoReturn:
         raise ValueError(
             f"`split` must be one of the following splits, but is '{split}' instead: {', '.join(sorted(self._splits.keys()))}"
-        )
+        ) from None
 
 
 @final

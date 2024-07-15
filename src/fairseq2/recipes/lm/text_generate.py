@@ -270,7 +270,7 @@ def load_text_generator(
         except ValueError:
             raise AssetNotFoundError(
                 config.dataset, f"An asset with the name '{config.dataset}' cannot be found."  # type: ignore[arg-type]
-            )
+            ) from None
 
         dataset = GenericInstructionDataset.from_path(path)
 
@@ -400,7 +400,7 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
         try:
             prompts = batch.example["prompt"]
         except KeyError:
-            raise ValueError("`batch.example` must contain a 'prompt' item.")
+            raise ValueError("`batch.example` must contain a 'prompt' item.") from None
 
         ids = batch.example["id"]
 
