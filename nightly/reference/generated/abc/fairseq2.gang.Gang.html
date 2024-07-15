@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Gang &mdash; fairseq2 0.3.0.dev202407080142+gaabc7fb documentation</title>
+  <title>Gang &mdash; fairseq2 0.3.0.dev202407150143+ga662709 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -35,7 +35,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202407080142+gaabc7fb
+                0.3.0.dev202407150143+ga662709
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -228,9 +228,23 @@
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.gang.Gang.broadcast">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">broadcast</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_rank</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/gang.html#Gang.broadcast"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.gang.Gang.broadcast" title="Permalink to this definition"></a></dt>
+<dd><p>Broadcast <code class="docutils literal notranslate"><span class="pre">tensor</span></code> from <code class="docutils literal notranslate"><span class="pre">source_rank</span></code> to all processes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>tensor</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.3)"><em>Tensor</em></a>) – The tensor to be sent from <code class="docutils literal notranslate"><span class="pre">source_rank</span></code>.</p></li>
+<li><p><strong>source_rank</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.12)"><em>int</em></a>) – The rank of the process from which to broadcast <code class="docutils literal notranslate"><span class="pre">tensor</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="fairseq2.gang.Gang.broadcast_objects">
 <em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">broadcast_objects</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">objects</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_rank</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/gang.html#Gang.broadcast_objects"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.gang.Gang.broadcast_objects" title="Permalink to this definition"></a></dt>
-<dd><p>Broadcast picklable <code class="docutils literal notranslate"><span class="pre">objects</span></code> from <code class="docutils literal notranslate"><span class="pre">source_rank</span></code>.</p>
+<dd><p>Broadcast picklable <code class="docutils literal notranslate"><span class="pre">objects</span></code> from <code class="docutils literal notranslate"><span class="pre">source_rank</span></code> to all processes.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">

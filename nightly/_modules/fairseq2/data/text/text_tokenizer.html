@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.data.text.text_tokenizer &mdash; fairseq2 0.3.0.dev202407080142+gaabc7fb documentation</title>
+  <title>fairseq2.data.text.text_tokenizer &mdash; fairseq2 0.3.0.dev202407150143+ga662709 documentation</title>
       <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202407080142+gaabc7fb
+                0.3.0.dev202407150143+ga662709
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
@@ -428,17 +428,17 @@
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TextTokenizerT</span><span class="p">:</span>
         <span class="n">card</span> <span class="o">=</span> <span class="n">retrieve_asset_card</span><span class="p">(</span><span class="n">tokenizer_name_or_card</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_asset_store</span><span class="p">)</span>
 
-        <span class="n">tokenizer_ref</span> <span class="o">=</span> <span class="n">card</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;tokenizer_ref&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">get_as_</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">tokenizer_ref</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="p">(</span><span class="n">tokenizer_ref</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="n">force</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="n">progress</span><span class="p">)</span>
+        <span class="n">ref</span> <span class="o">=</span> <span class="n">card</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;tokenizer_ref&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">get_as_</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">ref</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="p">(</span><span class="n">ref</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="n">force</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="n">progress</span><span class="p">)</span>
 
-        <span class="n">tokenizer_family</span> <span class="o">=</span> <span class="n">card</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;tokenizer_family&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">as_</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+        <span class="n">family</span> <span class="o">=</span> <span class="n">card</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;tokenizer_family&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">as_</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
 
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">loader</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loaders</span><span class="p">[</span><span class="n">tokenizer_family</span><span class="p">]</span>
+            <span class="n">loader</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loaders</span><span class="p">[</span><span class="n">family</span><span class="p">]</span>
         <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">AssetError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;The value of the field &#39;tokenizer_family&#39; of the asset card &#39;</span><span class="si">{</span><span class="n">card</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; must be a supported tokenizer family, but &#39;</span><span class="si">{</span><span class="n">tokenizer_family</span><span class="si">}</span><span class="s2">&#39; has no registered loader.&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;The value of the field &#39;tokenizer_family&#39; of the asset card &#39;</span><span class="si">{</span><span class="n">card</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; must be a supported tokenizer family, but &#39;</span><span class="si">{</span><span class="n">family</span><span class="si">}</span><span class="s2">&#39; has no registered loader.&quot;</span>
             <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">loader</span><span class="p">(</span><span class="n">card</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="n">force</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="n">progress</span><span class="p">)</span>
@@ -461,6 +461,18 @@
             <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_loaders</span><span class="p">[</span><span class="n">family</span><span class="p">]</span> <span class="o">=</span> <span class="n">loader</span>
+
+    <span class="k">def</span> <span class="nf">supports</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tokenizer_name_or_card</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">AssetCard</span><span class="p">,</span> <span class="n">Path</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return ``True`` if the specified tokenizer has a registered loader.&quot;&quot;&quot;</span>
+        <span class="n">card</span> <span class="o">=</span> <span class="n">retrieve_asset_card</span><span class="p">(</span><span class="n">tokenizer_name_or_card</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_asset_store</span><span class="p">)</span>
+
+        <span class="n">ref</span> <span class="o">=</span> <span class="n">card</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;tokenizer_ref&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">get_as_</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">ref</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">supports</span><span class="p">(</span><span class="n">ref</span><span class="p">)</span>
+
+        <span class="n">family</span> <span class="o">=</span> <span class="n">card</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;tokenizer_family&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">as_</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">family</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loaders</span>
 
 
 <span class="n">load_text_tokenizer</span> <span class="o">=</span> <span class="n">DelegatingTextTokenizerLoader</span><span class="p">[</span><span class="n">TextTokenizer</span><span class="p">]()</span>
