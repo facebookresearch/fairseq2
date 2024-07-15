@@ -9,12 +9,12 @@ from typing import Any, Dict
 import torch
 
 from fairseq2.models.config_loader import StandardModelConfigLoader
-from fairseq2.models.loader import DenseModelLoader, load_model
-from fairseq2.models.transformer.archs import transformer_archs
+from fairseq2.models.loader import StandardModelLoader, load_model
 from fairseq2.models.transformer.factory import (
     TRANSFORMER_FAMILY,
     TransformerConfig,
     create_transformer_model,
+    transformer_archs,
 )
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
 
@@ -86,7 +86,7 @@ def convert_transformer_checkpoint(
     return checkpoint
 
 
-load_transformer_model = DenseModelLoader(
+load_transformer_model = StandardModelLoader(
     config_loader=load_transformer_config,
     factory=create_transformer_model,
     checkpoint_converter=convert_transformer_checkpoint,

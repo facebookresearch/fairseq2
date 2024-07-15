@@ -27,7 +27,7 @@ from fairseq2.recipes.cli import CliCommandHandler
 from fairseq2.recipes.logging import setup_basic_logging
 from fairseq2.recipes.utils.argparse import parse_dtype
 from fairseq2.recipes.utils.environment import default_env_setters
-from fairseq2.recipes.utils.setup import setup_gangs
+from fairseq2.recipes.utils.setup import check_model_type, setup_gangs
 from fairseq2.typing import CPU, override
 from fairseq2.utils.rng import RngBag
 
@@ -145,10 +145,7 @@ class ChatbotCommandHandler(CliCommandHandler):
 
         model = load_model(args.model_name, gangs=gangs, dtype=args.dtype)
 
-        if not isinstance(model, DecoderModel):
-            log.error("The model must be a decoder model.")
-
-            sys.exit(1)
+        check_model_type(model, DecoderModel)
 
         log.info("Model loaded.")
 
@@ -156,7 +153,7 @@ class ChatbotCommandHandler(CliCommandHandler):
         sampler = TopPSampler(p=args.top_p)
 
         generator = SamplingSequenceGenerator(
-            model, sampler, temperature=args.temperature, max_gen_len=args.max_gen_len
+            model, sampler, temperature=args.temperature, max_gen_len=args.max_gen_len  # type: ignore[arg-type]
         )
 
         chatbot = create_chatbot(generator, tokenizer)

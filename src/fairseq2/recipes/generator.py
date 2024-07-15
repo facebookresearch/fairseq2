@@ -18,13 +18,13 @@ from fairseq2.datasets import DataReader
 from fairseq2.gang import FakeGang, Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.metrics import (
-    FileMetricRecorder,
+    JsonFileMetricRecorder,
     LogMetricRecorder,
     MetricBag,
     MetricRecorder,
     record_metrics,
 )
-from fairseq2.recipes.common_metrics import compute_throughput
+from fairseq2.recipes.common_metrics import set_throughput
 from fairseq2.recipes.utils.cli import create_rich_progress
 from fairseq2.typing import CPU, override
 from fairseq2.utils.profiler import Stopwatch
@@ -117,8 +117,7 @@ class Generator(Generic[BatchT]):
         :param dp_gang:
             The data parallel gang. If ``None``, ``gang`` will be used.
         :param tp_gang:
-            The tensor parallel gang. Only required for tensor parallel models
-            such as LLaMA 70B.
+            The tensor parallel gang. Only required for tensor parallel models.
         :param metrics_dir:
             The directory to dump metrics.
         :param seed:
@@ -139,11 +138,17 @@ class Generator(Generic[BatchT]):
         else:
             raise ValueError("`dp_gang` and `tp_gang` must be both specified.")
 
-        if self._tp_gang.rank == 0 and self._dp_gang.rank == 0:
+        if root_gang.rank == 0:
+            if self._dp_gang.rank != 0 or self._tp_gang.rank != 0:
+                raise ValueError(
+                    f"The coordinator process of `root_gang` (i.e. rank 0) must be rank 0 in `dp_gang` and `tp_gang`, but is {self._dp_gang.rank} and {self._tp_gang.rank} instead."
+                )
+
+        if root_gang.rank == 0:
             self._metric_recorders = [LogMetricRecorder(log)]
 
             if metrics_dir is not None:
-                self._metric_recorders.append(FileMetricRecorder(metrics_dir))
+                self._metric_recorders.append(JsonFileMetricRecorder(metrics_dir))
         else:
             self._metric_recorders = []
 
@@ -210,12 +215,12 @@ class Generator(Generic[BatchT]):
 
         values = self._unit.metric_bag.sync_and_compute_metrics()
 
-        if self._dp_gang.rank != 0:
+        if self._root_gang.rank != 0:
             return
 
         assert values is not None
 
-        compute_throughput(values, self._unit.throughput_metric_name, elapsed_time)
+        set_throughput(values, self._unit.throughput_metric_name, elapsed_time)
 
         values["elapsed_time"] = elapsed_time
 

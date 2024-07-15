@@ -29,9 +29,10 @@ from fairseq2.generation import Seq2SeqGenerator
 from fairseq2.generation.text import SequenceToTextConverter
 from fairseq2.logging import get_log_writer
 from fairseq2.metrics.text import BleuMetric, ChrfMetric
+from fairseq2.models import load_model
+from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.seq2seq import Seq2SeqBatch, as_auto_regressive_input
 from fairseq2.models.sequence import SequenceModelOutput
-from fairseq2.models.transformer import load_transformer_model
 from fairseq2.recipes.common_metrics import Seq2SeqGenerationMetricBag, Seq2SeqMetricBag
 from fairseq2.recipes.evaluator import AbstractEvalUnit, Evaluator, EvalUnit
 from fairseq2.recipes.transformer.translate import (
@@ -40,7 +41,11 @@ from fairseq2.recipes.transformer.translate import (
     _create_sequence_generator,
 )
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import broadcast_model, setup_root_gang
+from fairseq2.recipes.utils.setup import (
+    broadcast_model,
+    check_model_type,
+    setup_root_gang,
+)
 from fairseq2.typing import META, DataType, override
 from fairseq2.utils.profiler import Stopwatch
 
@@ -154,7 +159,7 @@ def load_transformer_evaluator(
         except ValueError:
             raise AssetNotFoundError(
                 config.dataset, f"An asset with the name '{config.dataset}' cannot be found."  # type: ignore[arg-type]
-            )
+            ) from None
 
         dataset = GenericParallelTextDataset.from_path(path)
 
@@ -166,7 +171,9 @@ def load_transformer_evaluator(
     else:
         init_device = META
 
-    model = load_transformer_model(model_card, device=init_device, dtype=config.dtype)
+    model = load_model(model_card, device=init_device, dtype=config.dtype)
+
+    check_model_type(model, EncoderDecoderModel)
 
     gang.barrier()
 
@@ -180,7 +187,7 @@ def load_transformer_evaluator(
 
     # Initialize the sequence generator.
     generator = _create_sequence_generator(
-        model, config.generator_mode, config.beam_search, config.sampling
+        model, config.generator_mode, config.beam_search, config.sampling  # type: ignore[arg-type]
     )
 
     # Initialize the evaluation units.
@@ -189,7 +196,7 @@ def load_transformer_evaluator(
     if generator_max_num_batches is not None:
         if generator_max_num_batches % gang.size != 0:
             raise ValueError(
-                f"`config.generator_max_num_batches` must be divisible by the size of the gang ({gang.size}), but is {generator_max_num_batches} instead."
+                f"`generator_max_num_batches` must be divisible by the size of the gang ({gang.size}), but is {generator_max_num_batches} instead."
             )
 
         generator_max_num_batches //= gang.size
@@ -332,6 +339,8 @@ class TransformerLossEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
         """
         super().__init__(model, display_name=f"loss/{direction}")
 
+        check_model_type(model, EncoderDecoderModel)
+
         self._label_smoothing = label_smoothing
 
         self._metric_bag = Seq2SeqMetricBag(gang)
@@ -424,12 +433,16 @@ class TransformerBleuChrfEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
         try:
             srcs = batch.example["source_text"]
         except KeyError:
-            raise ValueError("`batch.example` must contain a 'source_text' item.")
+            raise ValueError(
+                "`batch.example` must contain a 'source_text' item."
+            ) from None
 
         try:
             refs = batch.example["target_text"]
         except KeyError:
-            raise ValueError("`batch.example` must contain a 'target_text' item.")
+            raise ValueError(
+                "`batch.example` must contain a 'target_text' item."
+            ) from None
 
         hyps, output = self._converter.batch_convert(
             batch.source_seqs, batch.source_padding_mask

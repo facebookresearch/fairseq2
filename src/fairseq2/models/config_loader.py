@@ -87,34 +87,33 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
                 f"The value of the field 'model_family' of the asset card '{card.name}' must be '{self._family}', but is '{model_family}' instead."
             )
 
-        arch = None
+        try:
+            arch = card.field("model_arch").as_(str)
+        except AssetCardFieldNotFoundError:
+            arch = None
 
-        if self._arch_configs is not None:
-            try:
-                # Ensure that the card has a valid model architecture.
-                arch = card.field("model_arch").as_one_of(self._arch_configs.names())
-            except AssetCardFieldNotFoundError:
-                pass
-
-        # Load the model configuration.
+        # Load the configuration.
         if arch is None:
             try:
                 config = self._config_kls()
             except TypeError as ex:
                 raise AssetError(
-                    f"The {self._family} model family has no default configuration."
+                    f"The '{self._family}' model family has no default configuration."
                 ) from ex
         else:
-            assert self._arch_configs is not None
+            if self._arch_configs is None:
+                raise AssetError(
+                    f"The '{self._family}' model family has no architecture named '{arch}'."
+                )
 
             try:
                 config = self._arch_configs.get(arch)
-            except ValueError as ex:
+            except ValueError:
                 raise AssetError(
-                    f"The {self._family} model family has no architecture named '{arch}'."
-                ) from ex
+                    f"The '{self._family}' model family has no architecture named '{arch}'."
+                ) from None
 
-        # Check whether to override anything in the default model configuration.
+        # Check whether to override anything in the default configuration.
         if config_overrides := card.field("model_config").get_as_(Dict[str, Any]):
             try:
                 unknown_fields = update_dataclass(

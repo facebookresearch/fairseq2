@@ -44,7 +44,7 @@ class DelegatingChatbotFactory(ChatbotFactory):
         except KeyError:
             raise ValueError(
                 f"`generator.model.family` must be a supported model family, but '{family}' has no registered chatbot."
-            )
+            ) from None
 
         return factory(generator, tokenizer)
 

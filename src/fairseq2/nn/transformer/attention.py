@@ -142,7 +142,7 @@ class TorchSDPA(SDPA):
             mask = mask.expand(-1, seqs.size(1), -1, -1)
 
             if attn_mask is not None:
-                # (N, H, 1, S_kv) + ([H], S, S_kv) -> (N, H, S, S_kv)
+                # (N, H, 1, S_kv) + ([N, H], S, S_kv) -> (N, H, S, S_kv)
                 mask = mask + attn_mask.materialize()
         elif isinstance(attn_mask, CausalAttentionMask):
             # PyTorch SDPA supports only full causal attention.
@@ -151,10 +151,10 @@ class TorchSDPA(SDPA):
 
                 is_causal = True
             else:
-                # ([H], S, S_kv)
+                # ([N, H], S, S_kv)
                 mask = attn_mask.materialize()
         elif attn_mask is not None:
-            # ([H], S, S_kv)
+            # ([N, H], S, S_kv)
             mask = attn_mask.materialize()
         else:
             mask = None
@@ -262,10 +262,10 @@ def _naive_scaled_dot_product_attention(
     attn_weights = attn_weights * (seqs.size(-1) ** -0.5)
 
     if attn_mask is not None:
-        # (S, S_kv)
+        # ([N, H], S, S_kv)
         m = attn_mask.materialize()
 
-        # (N, H, S, S_kv) + (S, S_kv) -> (N, H, S, S_kv)
+        # (N, H, S, S_kv) + ([N, H], S, S_kv) -> (N, H, S, S_kv)
         attn_weights = attn_weights + m
 
     if key_padding_mask is not None:

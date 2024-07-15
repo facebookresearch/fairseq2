@@ -4,7 +4,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-import logging
 import os
 import platform
 import socket
@@ -97,7 +96,7 @@ def log_environment_info(
 
 def log_system_info(log: LogWriter, device: Optional[Device] = None) -> None:
     """Log information about the host system."""
-    if not log.is_enabled_for(logging.INFO):
+    if not log.is_enabled_for_info():
         return
 
     def read_dist_name() -> Optional[str]:
@@ -215,7 +214,7 @@ def log_system_info(log: LogWriter, device: Optional[Device] = None) -> None:
 
 def log_software_info(log: LogWriter, device: Optional[Device] = None) -> None:
     """Log information about the installed software."""
-    if not log.is_enabled_for(logging.INFO):
+    if not log.is_enabled_for_info():
         return
 
     s = f"Python: {platform.python_version()} | PyTorch: {torch.__version__}"
@@ -245,7 +244,7 @@ def log_software_info(log: LogWriter, device: Optional[Device] = None) -> None:
 
 def log_environment_variables(log: LogWriter) -> None:
     """Log the environment variables."""
-    if not log.is_enabled_for(logging.INFO):
+    if not log.is_enabled_for_info():
         return
 
     kv = []
@@ -267,7 +266,7 @@ def log_model(model: Module, log: LogWriter, *, rank: Optional[int] = None) -> N
     # TODO: move to module scope.
     from fairseq2.nn.utils.module import get_module_size
 
-    if not log.is_enabled_for(logging.INFO):
+    if not log.is_enabled_for_info():
         return
 
     if rank is None:

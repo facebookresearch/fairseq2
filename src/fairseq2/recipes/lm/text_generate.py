@@ -40,7 +40,7 @@ from fairseq2.models.sequence import SequenceBatch
 from fairseq2.recipes.common_metrics import SequenceGenerationMetricBag
 from fairseq2.recipes.generator import AbstractGeneratorUnit, Generator
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import broadcast_model, setup_gangs
+from fairseq2.recipes.utils.setup import broadcast_model, check_model_type, setup_gangs
 from fairseq2.typing import META, DataType, override
 from fairseq2.utils.profiler import Stopwatch
 
@@ -270,7 +270,7 @@ def load_text_generator(
         except ValueError:
             raise AssetNotFoundError(
                 config.dataset, f"An asset with the name '{config.dataset}' cannot be found."  # type: ignore[arg-type]
-            )
+            ) from None
 
         dataset = GenericInstructionDataset.from_path(path)
 
@@ -284,12 +284,11 @@ def load_text_generator(
 
     model = load_model(model_card, gangs=gangs, device=init_device, dtype=config.dtype)
 
+    check_model_type(model, DecoderModel)
+
     root_gang.barrier()
 
     log.info("Model loaded on data parallel rank 0.")
-
-    if not isinstance(model, DecoderModel):
-        raise ValueError("`config.model` must specify a decoder model.")
 
     # Distribute the model to all processes in the gang.
     if dp_gang.size != 1:
@@ -299,7 +298,7 @@ def load_text_generator(
 
     # Initialize the sequence generator.
     generator = _create_sequence_generator(
-        model, config.mode, config.beam_search, config.sampling
+        model, config.mode, config.beam_search, config.sampling  # type: ignore[arg-type]
     )
 
     # Initialize the generator unit.
@@ -401,9 +400,9 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
         try:
             prompts = batch.example["prompt"]
         except KeyError:
-            raise ValueError("`batch.example` must contain a 'prompt' item.")
+            raise ValueError("`batch.example` must contain a 'prompt' item.") from None
 
-        sample_ids = batch.example["id"]
+        ids = batch.example["id"]
 
         output = self._generator(batch.seqs, batch.padding_mask)
 
@@ -413,9 +412,7 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
         if not self._text_output_stream and not self._json_output_stream:
             return
 
-        for sample_id, prompt, hypotheses in zip(
-            sample_ids, prompts, output.hypotheses
-        ):
+        for id_, prompt, hypotheses in zip(ids, prompts, output.hypotheses):
             if len(hypotheses) == 0:
                 raise RuntimeError(
                     "The sequence generator returned no hypothesis. Please file a bug report."
@@ -441,6 +438,12 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
 
             # Dump as text.
             if stream := self._text_output_stream:
+                if id_ is not None:
+                    stream.write("<<<<< ID >>>>>")
+                    stream.write("\n")
+                    stream.write(f"{id_}")
+                    stream.write("\n\n")
+
                 stream.write("<<<<< PROMPT >>>>>")
                 stream.write("\n")
                 stream.write(prompt)
@@ -459,14 +462,12 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
                     stream.write("\n\n")
                     stream.write("<<<<< SCORE >>>>>")
                     stream.write("\n")
-
                     stream.write(f"{score:.8f}")
 
                 if step_scores is not None:
                     stream.write("\n\n")
                     stream.write("<<<<< STEP SCORES >>>>>")
                     stream.write("\n")
-
                     stream.write(", ".join(f"{s:.8f}" for s in step_scores))
 
                 stream.write("\n\n\n============================\n\n\n")
@@ -474,7 +475,7 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
             # Dump as JSON.
             if stream := self._json_output_stream:
                 json_output = {
-                    "id": sample_id,
+                    "id": id_,
                     "prompt": prompt,
                     "response": response,
                     "token_indices": token_indices,
@@ -511,7 +512,7 @@ def _create_sequence_generator(
         return _create_beam_search_generator(model, beam_search_config)
 
     raise ValueError(
-        f"`config.mode` must be 'sampling' or 'beam_search', but is '{mode}' instead."
+        f"`generator_mode` must be 'sampling' or 'beam_search', but is '{mode}' instead."
     )
 
 
@@ -526,7 +527,7 @@ def _create_sampling_generator(
         sampler = TopKSampler(config.top_k)
     else:
         raise ValueError(
-            f"`config.sampling.sampler` must be 'top-p' or 'top-k', but is '{config.sampler}' instead."
+            f"`sampling.sampler` must be 'top-p' or 'top-k', but is '{config.sampler}' instead."
         )
 
     return SamplingSequenceGenerator(
@@ -553,7 +554,7 @@ def _create_beam_search_generator(
         algorithm = StandardBeamSearchAlgorithm()
     else:
         raise ValueError(
-            f"`config.beam_search.algorithm` must be 'standard', but is '{config.algorithm}' instead."
+            f"`beam_search.algorithm` must be 'standard', but is '{config.algorithm}' instead."
         )
 
     return BeamSearchSequenceGenerator(

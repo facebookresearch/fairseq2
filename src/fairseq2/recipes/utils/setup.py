@@ -20,8 +20,6 @@ from fairseq2.nn.ddp import to_ddp
 from fairseq2.nn.fsdp import to_fsdp
 from fairseq2.nn.utils.module import broadcast_module, to_device
 from fairseq2.recipes.utils.log import log_environment_info
-from fairseq2.typing import DataClass
-from fairseq2.utils.dataclass import FieldError, update_dataclass
 
 
 def setup_root_gang(
@@ -81,7 +79,7 @@ def setup_gangs(
         gangs = setup_parallel_gangs(root_gang, tp_size=tp_size)
     except ValueError as ex:
         raise RuntimeError(
-            f"The size of the root gang ({root_gang.size}) is not divisible by `config.tensor_parallel_size` ({tp_size})."
+            f"The size of the root gang ({root_gang.size}) is not divisible by `tensor_parallel_size` ({tp_size})."
         ) from ex
 
     log.info("Data and tensor parallel gangs initialized.")
@@ -179,7 +177,7 @@ def to_data_parallel(
         return model
 
     raise ValueError(
-        f"`config.data_parallelism` must be 'ddp' or 'fsdp', but is '{parallelism}' instead."
+        f"`data_parallelism` must be 'ddp' or 'fsdp', but is '{parallelism}' instead."
     )
 
 
@@ -199,20 +197,5 @@ def check_model_type(model: Module, kls: Type[Module]) -> None:
 
     if not isinstance(model, kls):
         raise ValueError(
-            f"`model` must be of type `{kls}`, but is of type `{type(model)}` instead."
-        )
-
-
-def update_model_config(config: DataClass, overrides: Dict[str, Any]) -> None:
-    """Update ``config`` with the data contained in ``overrides``."""
-    try:
-        unknown_fields = update_dataclass(config, overrides)
-    except FieldError as ex:
-        raise ValueError(
-            f"`model_config` must be a valid model configuration, but the value of the configuration field '{ex.field_name}' is invalid. See nested exception for details."
-        ) from ex
-
-    if unknown_fields:
-        raise ValueError(
-            f"`model_config` must be a valid model configuration, but the following configuration fields are unknown: {', '.join(unknown_fields)}"
+            f"The specified model must be of type `{kls}`, but is of type `{type(model)}` instead."
         )

@@ -133,8 +133,8 @@ class LLaMA3Chatbot(AbstractChatbot):
             eot_idx = tokenizer.encoding.encode_single_token("<|eot_id|>")
         except KeyError:
             raise RuntimeError(
-                "One or more special symbols required for the chatbot are not found in the tokenizer. Please file a bug report."
-            )
+                "One or more special symbols required for the chatbot are not found in the tokenizer. Please file a bug report to the model author."
+            ) from None
 
         self._bos_idx = torch.tensor([bos_idx], device=device)
         self._boh_idx = torch.tensor([boh_idx], device=device)

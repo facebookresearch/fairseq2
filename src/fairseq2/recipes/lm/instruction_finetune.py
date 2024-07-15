@@ -31,7 +31,6 @@ from fairseq2.models import load_model
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.sequence import (
     SequenceBatch,
-    SequenceModel,
     SequenceModelOutput,
     as_auto_regressive_input,
 )
@@ -138,7 +137,7 @@ class InstructionFinetuneConfig:
     """The step interval at which to checkpoint."""
 
     keep_last_n_checkpoints: Optional[int] = 1
-    """The number of checkpoints to keep. If ``None``, none will be deleted."""
+    """The number of checkpoints to keep."""
 
     keep_last_n_models: Optional[int] = None
     """The number of checkpoint models to keep."""
@@ -256,7 +255,7 @@ def load_instruction_finetuner(
         except ValueError:
             raise AssetNotFoundError(
                 config.dataset, f"An asset with the name '{config.dataset}' cannot be found."  # type: ignore[arg-type]
-            )
+            ) from None
 
         dataset = GenericInstructionDataset.from_path(path)
 
@@ -285,8 +284,7 @@ def load_instruction_finetuner(
 
         log.info("Model loaded on data parallel rank 0.")
 
-    if not isinstance(model, DecoderModel):
-        raise ValueError("`config.model` must specify a decoder model.")
+    check_model_type(model, DecoderModel)
 
     checkpoint_manager.save_model_metadata(
         base_asset=model_card.name, family=model.family
@@ -392,7 +390,7 @@ class InstructionFinetuneUnit(AbstractTrainUnit[SequenceBatch]):
         """
         super().__init__(model)
 
-        check_model_type(model, SequenceModel)
+        check_model_type(model, DecoderModel)
 
         self._metric_bag = SequenceMetricBag(gang)
 

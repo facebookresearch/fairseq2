@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -158,6 +157,15 @@ def register_metric_formatter(
     _metric_formatters[name] = _MetricFormatter(display_name, priority, fn, log)
 
 
+def format_metric_value(name: str, value: Any) -> str:
+    """Format the specified metric along with its value as a string."""
+    formatter = _metric_formatters.get(name)
+    if formatter is None:
+        return f"{name}: {value}"
+
+    return f"{formatter.display_name}: {formatter.fn(value)}"
+
+
 class MetricRecorder(ABC):
     """Records metric values."""
 
@@ -237,7 +245,7 @@ class LogMetricRecorder(MetricRecorder):
         *,
         flush: bool = True,
     ) -> None:
-        if not self._log.is_enabled_for(logging.INFO):
+        if not self._log.is_enabled_for_info():
             return
 
         values_and_formatters = []
@@ -275,7 +283,7 @@ class LogMetricRecorder(MetricRecorder):
 
 
 @final
-class FileMetricRecorder(MetricRecorder):
+class JsonFileMetricRecorder(MetricRecorder):
     """Records metric values to JSONL files."""
 
     _RUN_PART_REGEX: Final = re.compile("^[-_a-zA-Z0-9]+$")

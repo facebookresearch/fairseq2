@@ -36,7 +36,7 @@ class ConfigRegistry(Generic[ConfigT]):
         except KeyError:
             raise ValueError(
                 f"`name` must be a registered configuration name, but is '{name}' instead."
-            )
+            ) from None
 
     def register(self, name: str, config_factory: ConfigFactory[ConfigT]) -> None:
         """Register a new configuration.
