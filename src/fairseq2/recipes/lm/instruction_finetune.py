@@ -243,22 +243,6 @@ def load_instruction_finetuner(
     dataset = load_instruction_dataset(dataset_card)
     log.info("Dataset loaded.")
 
-    data_reader = dataset.create_reader(
-        tokenizer,
-        dp_gang,
-        config.max_seq_len,
-        batching=LengthBatching(config.max_num_tokens),
-        example_shuffle_window=config.example_shuffle_window,
-        batch_shuffle_window=config.batch_shuffle_window,
-        num_accumulate=config.gradient_accumulation,
-        num_prefetch=config.num_prefetch,
-        seed=config.seed,
-    )
-    for item in data_reader:
-        print(item)
-        exit(0)
-
-
     # Load the model.
     init_device = META
 

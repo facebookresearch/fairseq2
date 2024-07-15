@@ -6,11 +6,9 @@
 
 from fairseq2.recipes.cli import Cli, RecipeCommandHandler
 from fairseq2.recipes.lm.chatbot import ChatbotCommandHandler
-from fairseq2.recipes.lm.instruction_finetune import (
-    instruction_finetune_presets,
-    load_instruction_finetuner,
-)
 
+from fairseq2.recipes.speech_llm.speech_text_eval import load_speech_text_evaluator, speech_text_eval_presets
+from fairseq2.recipes.speech_llm.mmlu_eval import mmlu_eval_presets, load_mmlu_evaluator
 from fairseq2.recipes.speech_llm.speech_text_align import speech_text_presets, load_speech_text_trainer
 
 def _setup_speech_llm_cli(cli: Cli) -> None:
@@ -26,4 +24,30 @@ def _setup_speech_llm_cli(cli: Cli) -> None:
         name="speech_text_align",
         handler=representation_align_pretrain_handler,
         help="align speech to text repr with pre-computed alignment",
+    )
+
+    # Eval
+    eval_handler = RecipeCommandHandler(
+        loader=load_speech_text_evaluator,
+        preset_configs=speech_text_eval_presets,
+        default_preset="librispeech_similarity",
+    )
+
+    group.add_command(
+        name="eval",
+        handler=eval_handler,
+        help="evaluate the trained Speech-Text alignment Model",
+    )
+
+    # MMLU evaluation (Speech and Text version)
+    mmlu_eval_handler = RecipeCommandHandler(
+        loader=load_mmlu_evaluator,
+        preset_configs=mmlu_eval_presets,
+        default_preset="speech_mmlu",
+    )
+
+    group.add_command(
+        name="eval_mmlu",
+        handler=mmlu_eval_handler,
+        help="evaluate the trained Speech-Text alignment Model",
     )

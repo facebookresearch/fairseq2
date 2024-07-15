@@ -107,32 +107,13 @@ class SemanticModel:
         self.output_layer_idx = output_layer_idx
         self.device = device
 
-    def __call__(self, x):
+    def __call__(self, x: SequenceBatch):
+        seqs = x.seqs
+        x.seqs = F.layer_norm(seqs, normalized_shape=(seqs.shape[1],))
         features = self.unit_extractor.model(x, self.output_layer_idx).squeeze(0)
-        return features
-        # print(features.shape)
-        # print(features[0, -1, :])
-        # print(features[0, 0, :])
-        # exit(0)
-        # print(x.shape)
-        # x = x.transpose(0, 1) # bz x seqlen -> seqlen, bz
-        # print(x.shape)
-        # decoded_audio = {
-        #     "waveform": x.to(dtype=torch.float32),
-        #     "sample_rate": 16000,
-        #     "format": -1,
-        # }
-        # src = self.unit_extractor.collate(decoded_audio)["waveform"]
-        # print(src)
-        # exit(0)
-        # seqs, padding_mask = get_seqs_and_padding_mask(src)
-        # seqs = seqs.view(1, -1)
-        # seqs = F.layer_norm(seqs, seqs.shape)
-        # batch = SequenceBatch(seqs=seqs, padding_mask=padding_mask)
-        # # print(features.shape, flush=True)
-        # return features
-    
-        
+        if seqs.shape[0] == 1: #otherwise somehow the first dimension is removed for some reason
+            return features.unsqueeze(0)
+        return features        
 
 
 class LLaMABuilder:

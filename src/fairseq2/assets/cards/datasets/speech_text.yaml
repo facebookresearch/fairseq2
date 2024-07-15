@@ -15,3 +15,11 @@ name: librispeech_align
 data: /fsx-ust/steventan0110/dataset/dinosr_eval/cont_librispeech/clean
 dataset_family: align_speech_text_librispeech
 data_path: /fsx-ust/steventan0110/dataset/dinosr_eval/cont_librispeech/clean
+
+
+---
+
+name: mmlu
+data: /fsx-ust/steventan0110/dataset/dinosr_eval/cont_mmlu_tts
+dataset_family: speech_text_mmlu
+data_path: /fsx-ust/steventan0110/dataset/dinosr_eval/cont_mmlu_tts

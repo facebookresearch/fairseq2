@@ -80,7 +80,7 @@ def _retrieve_alignment(tokenizer, unity_toks, unity_duration, text, audio_size)
         else:
             return alignment, output_toks
     elif alignment[-1] > audio_size // 640:
-        print("Audio shorter than expected, will cause indexing error, skip this sample")
+        print(f"Audio {audio_size} shorter than alignment last index {alignment[-1]}")
         return None, None
     else:
         return alignment, output_toks

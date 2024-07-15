@@ -162,6 +162,28 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
             embeds = self.dropout(embeds)
 
         return embeds, padding_mask
+    
+    def forward_with_embed(
+        self,
+        embeds: Tensor,
+        padding_mask: Optional[PaddingMask],
+        *,
+        state_bag: Optional[IncrementalStateBag] = None,
+        return_raw_embed: bool =False,
+    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+        if self.scale != 1.0:
+            embeds = embeds * self.scale
+
+        if self.pos_encoder is not None:
+            embeds = self.pos_encoder(embeds, padding_mask, state_bag=state_bag)
+
+        if self.layer_norm is not None:
+            embeds = self.layer_norm(embeds)
+
+        if self.dropout is not None:
+            embeds = self.dropout(embeds)
+
+        return embeds, padding_mask
 
     def extra_repr(self) -> str:
         """:meta private:"""

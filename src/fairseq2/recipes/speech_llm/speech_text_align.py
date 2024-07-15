@@ -34,6 +34,7 @@ from fairseq2.models.sequence import (
     as_auto_regressive_input,
     SpeechTextReprOutput
 )
+from torch.nn.parallel import DistributedDataParallel
 from fairseq2.nn.checkpointing import use_layerwise_activation_checkpointing
 from fairseq2.nn.transformer import enable_memory_efficient_torch_sdpa
 from fairseq2.optim import AdamW
@@ -143,6 +144,7 @@ class SpeechTextAlignConfig:
 
     keep_last_n_checkpoints: Optional[int] = 2
     """The number of checkpoints to keep. If ``None``, none will be deleted."""
+    keep_every_N_checkpoints: Optional[int] = None
 
     keep_last_n_models: Optional[int] = None
     """The number of checkpoint models to keep."""
@@ -166,7 +168,8 @@ class SpeechTextAlignConfig:
 
     anomaly_detection: bool = False
     """If ``True``, turns on anomaly detection feature in ``torch.autograd``."""
-    validate_after_n_steps: int = 1000
+    validate_after_n_steps: int = 1
+    validate_every_n_steps: int = 1000
 
 
 speech_text_presets = ConfigRegistry[SpeechTextAlignConfig]()
@@ -184,6 +187,11 @@ def _llama3_8b_instruct() -> SpeechTextAlignConfig:
     config.num_prefetch = 10
     config.lr = 1e-4
     config.num_lr_warmup_steps = 2000
+    config.checkpoint_every_n_steps = 2000
+    config.keep_every_N_checkpoints = 10000 # otherwise only 2 checkpoints will be kept
+    config.validate_every_n_steps=1000
+    config.max_gradient_norm = 5
+    config.gradient_accumulation = 1
     return config
 
 
@@ -362,7 +370,9 @@ def load_speech_text_trainer(
         checkpoint_every_n_steps=config.checkpoint_every_n_steps,
         keep_last_n_checkpoints=config.keep_last_n_checkpoints,
         keep_last_n_models=config.keep_last_n_models,
+        keep_every_N_checkpoints=config.keep_every_N_checkpoints,
         validate_after_n_steps=config.validate_after_n_steps,
+        validate_every_n_steps=config.validate_every_n_steps,
         tb_dir=output_dir.joinpath("tb"),
         metrics_dir=output_dir.joinpath("metrics"),
         publish_metrics_every_n_steps=config.publish_metrics_every_n_steps,
@@ -434,9 +444,14 @@ class SpeechTextAlignEvalUnit(AbstractEvalUnit[SpeechTextAlignBatch]):
     @override
     def __call__(self, batch: SpeechTextAlignBatch) -> Tuple[Tensor, int]:
         output = self._forward(batch)
-        embed_table = self._model.decoder_frontend.embed.weight
+        if isinstance(self._model, DistributedDataParallel):
+            embed_table = self._model.module.decoder_frontend.embed.weight
+        else:
+            embed_table = self._model.decoder_frontend.embed.weight
+        # log.info("loaded embed table")
         text_tokens = batch.text_tokens.seqs
         loss = output.compute_loss(embed_table=embed_table, text_tokens=text_tokens, compute_acc=True)
+  
         num_target_elements = loss["target_size"]
         self._metric_bag.update_loss(
             mse_loss=loss["mse_loss"].item(), 

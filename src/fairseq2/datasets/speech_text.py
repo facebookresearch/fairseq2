@@ -38,6 +38,8 @@ from fairseq2.models.sequence import SequenceBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
 from fairseq2.typing import override
 from dataclasses import dataclass
+from fairseq2.logging import get_log_writer
+log = get_log_writer(__name__)
 
 @dataclass
 class SpeechTextAlignBatch:
@@ -102,7 +104,7 @@ class AlignSpeechTextDataset(SpeechTextDataset):
         **extras: Any,
     ) -> DataPipelineReader[SpeechTextAlignBatch]:
         if self.load_librispeech:
-            builder = list_files(self._data_dir, pattern="*test_small.jsonl")
+            builder = list_files(self._data_dir, pattern="*test.jsonl")
         else:
             builder = list_files(self._data_dir, pattern="*.jsonl")
         # Shuffle files. Must be consistent across all processes.
@@ -149,7 +151,7 @@ class AlignSpeechTextDataset(SpeechTextDataset):
         # Collate bucketed examples into a batch.
         override_opts = [
             CollateOptionsOverride("alignment", pad_value=0),
-            CollateOptionsOverride("file_id", pad_value=1, pad_to_multiple=2),
+            CollateOptionsOverride("file_id", pad_value=0, pad_to_multiple=2),
         ]
         collater = Collater(pad_value=tokenizer.vocab_info.pad_idx or 0, overrides=override_opts)
 
@@ -223,10 +225,7 @@ class AlignSpeechTextDataset(SpeechTextDataset):
 
         
 
-    def _read_jsonl(self, path: str, tokenizer: TextTokenizer) -> DataPipeline:
-        def _lower_case_text(x):
-            return x.lower()
-            
+    def _read_jsonl(self, path: str, tokenizer: TextTokenizer) -> DataPipeline:            
         text_encoder = tokenizer.create_encoder(mode="speech_text_align")
         lines = []
         # currently we only read json file, later needs to add in the hubert file as well
@@ -299,10 +298,14 @@ class AlignSpeechTextDataset(SpeechTextDataset):
                 item = process_alignment(text_encoder=text_encoder, data=item)
                 if item is not None:
                     output_data.append(item)
+            else:
+                log.info("Audio file is corrupted and cannot be loaded")
             # alignment_time += time.time() - prev_time
             # prev_time = time.time()
-
+        if len(output_data) < 1:
+            log.error("No Valid Example in current bucket, error would occur")
         # print(f'forloop load_time: {audio_load_time}, alignment time : {alignment_time}')
+
         return output_data
 
 

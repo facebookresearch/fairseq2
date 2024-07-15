@@ -93,8 +93,8 @@ model_arch: llama3_8b
 name: speech_llama3_8b
 base: llama3
 model_arch: speech_llama3_8b
-checkpoint: /fsx-ram/shared/Meta-Llama-3-8B/consolidated.00.pth
-
+# checkpoint: /fsx-ram/shared/Meta-Llama-3-8B/consolidated.00.pth
+checkpoint: "/fsx-checkpoints/steventan0110/tmp/preset_llama3_8b_speech_text_align.ws_8/checkpoints/step_70000/model.pt"
 ---
 
 name: llama3_8b_instruct

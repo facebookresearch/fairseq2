@@ -636,12 +636,13 @@ class FileCheckpointManager(CheckpointManager):
         self._root_gang.barrier()
 
     @override
-    def keep_last_n_checkpoints(self, n: int, *, preserve_model: bool = False) -> None:
+    def keep_last_n_checkpoints(self, n: int, *, preserve_model: bool = False, keep_every_N_steps: Optional[int] = None) -> None:
         step_numbers = self.get_step_numbers()
 
         self._root_gang.barrier()
-
         for step_number in step_numbers[:-n]:
+            if keep_every_N_steps and step_number % keep_every_N_steps == 0:
+                continue
             self.delete_checkpoint(step_number, preserve_model=preserve_model)
 
     # compat

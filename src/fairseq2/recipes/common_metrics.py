@@ -398,6 +398,7 @@ class RepresentationAlignMetricBag(MetricBag):
     _mse_loss: Mean
     _cosine_loss: Mean
     _acc: Mean
+    _wer: Mean
     _batch_size: Mean
     _elements_per_batch: Mean
     _num_examples: Sum
@@ -419,6 +420,7 @@ class RepresentationAlignMetricBag(MetricBag):
         self.register_metric("_mse_loss", Mean(device=d), persistent=False)
         self.register_metric("_cosine_loss", Mean(device=d), persistent=False)
         self.register_metric("_acc", Mean(device=d), persistent=False)
+        self.register_metric("_wer", Mean(device=d), persistent=False)
 
         self.register_metric("_batch_size", Mean(device=d), persistent=False)
 
@@ -443,6 +445,10 @@ class RepresentationAlignMetricBag(MetricBag):
 
     def update_matches(self, acc: int, num_target_elements):
         self._acc.update(acc, weight=num_target_elements)
+
+    def update_wer(self, wer: float, wer_lens: int) -> None:
+        self._wer.update(wer, weight=wer_lens)
+
 
     @torch.inference_mode()
     def update_batch_metrics(self, batch: SequenceBatch) -> None:

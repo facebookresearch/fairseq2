@@ -147,6 +147,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     _checkpoint_manager: CheckpointManager
     _checkpoint_after_n_steps: int
     _checkpoint_every_n_steps: Optional[int]
+    _keep_every_N_checkpoints: Optional[int]
     _keep_last_n_checkpoints: Optional[int]
     _keep_best_n_checkpoints: Optional[int]
     _keep_last_n_models: Optional[int]
@@ -188,6 +189,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         checkpoint_after_n_steps: int = 0,
         checkpoint_every_n_steps: Optional[int] = None,
         keep_last_n_checkpoints: Optional[int] = None,
+        keep_every_N_checkpoints: Optional[int] = None,
         keep_best_n_checkpoints: Optional[int] = None,
         keep_last_n_models: Optional[int] = None,
         keep_best_n_models: Optional[int] = None,
@@ -354,6 +356,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._checkpoint_after_n_steps = checkpoint_after_n_steps
         self._checkpoint_every_n_steps = checkpoint_every_n_steps
+        self._keep_every_N_checkpoints = keep_every_N_checkpoints
 
         if keep_last_n_checkpoints == 0:
             raise ValueError("`keep_last_n_checkpoints` must be greater than zero.")
@@ -643,7 +646,13 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
     def _compute_loss(self, batch: BatchT) -> Tuple[Tensor, int]:
         with self._maybe_autocast():
-            return self._unit(batch)
+            loss_to_return, n_elements = self._unit(batch)
+            if torch.isnan(loss_to_return).any():
+                print("NaN loss detected from batch")
+                print(batch)
+                exit(0)
+
+            return loss_to_return, n_elements
 
     def _maybe_autocast(self) -> ContextManager[None]:
         if self._dtype == torch.float32:
@@ -696,7 +705,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         if self._step_nr < self._validate_after_n_steps:
             return False
-
+ 
         return self._should_do(self._validate_every_n_steps)
 
     @torch.inference_mode()
@@ -730,7 +739,6 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             self._progress.update(valid_task, advance=1)
 
             log.debug("Running validation step {}.", step_nr)
-
             try:
                 batches = next(data_reader)
             except StopIteration:
@@ -745,6 +753,9 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         self._progress.remove_task(valid_task)
 
         data_reader.reset()
+
+        if self._dp_gang.rank == 4:
+            print('publish metrics')
 
         self._publish_validation_metrics(unit, watch.get_elapsed_time())
 
@@ -819,12 +830,10 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         if nm:
             assert nc
-
             self._checkpoint_manager.keep_last_n_checkpoints(nm)
-
             self._checkpoint_manager.keep_last_n_checkpoints(nc, preserve_model=True)
         elif nc:
-            self._checkpoint_manager.keep_last_n_checkpoints(nc)
+            self._checkpoint_manager.keep_last_n_checkpoints(nc, keep_every_N_steps=self._keep_every_N_checkpoints)
 
     def _should_do(self, n_step: int) -> bool:
         if self._eod:
@@ -832,5 +841,4 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         if self._max_num_steps and self._step_nr >= self._max_num_steps:
             return True
-
         return self._step_nr % n_step == 0

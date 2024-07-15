@@ -19,7 +19,7 @@ from fairseq2.data import VocabularyInfo
 from fairseq2.models.model import Model
 from fairseq2.nn.functional import nll_loss
 from fairseq2.nn.padding import PaddingMask
-
+import editdistance
 
 class SequenceModel(Model, ABC):
     """Represents a sequence model."""
@@ -233,6 +233,8 @@ class SpeechTextReprOutput:
         cosine_sim_loss = (1 - cosine_sim).mean()
         
         num_matches=None
+        # check if best matches is the corresponding index
+        num_elements = target_mask.sum().item()
         if compute_acc:
             assert embed_table is not None
             assert text_tokens is not None
@@ -244,8 +246,7 @@ class SpeechTextReprOutput:
             target_toks = text_tokens[target_mask]
             num_matches = (closest_indices == target_toks).sum()
 
-        # check if best matches is the corresponding index
-        num_elements = target_mask.sum().item()
+
         acc = (num_matches / num_elements).item() if compute_acc else None
         out = {
             "mse_loss": mse_loss, 
@@ -254,3 +255,70 @@ class SpeechTextReprOutput:
             "target_size": num_elements
         }
         return out
+    
+    def compute_asr(self, embed_table=None, text_tokens=None, tokenizer=None) -> Dict[Tensor]:
+        if self.mask is not None:
+            target_mask = self.mask.materialize()
+        else:
+            # no padding for the text tokens
+            target_mask = torch.ones((text_tokens.shape[0], text_tokens.shape[1]), device=text_tokens.device).bool()
+        target_lens = target_mask.sum(dim=1)
+        norm_speech_repr = F.normalize(self.speech_repr, dim=2, p=2)
+        norm_embed = F.normalize(embed_table, p=2, dim=1)
+        # (bz, seq_len, dim) x (dim, vocab 0) --> (bz, seq_len, vocab)
+        text_sim = norm_speech_repr @ (norm_embed.T)
+        pred_indices = torch.argmax(text_sim, dim=2)
+
+        word_len, all_wer = 0, 0
+        for i in range(text_tokens.shape[0]):
+            ref_text = tokenizer(text_tokens[i, :target_lens[i]])
+            ref_words = ref_text.split()
+            pred_text = tokenizer(pred_indices[i, :target_lens[i]])
+            pred_words = pred_text.split()
+            wer =  editdistance.eval(pred_words, ref_words)
+            all_wer += wer
+            word_len += len(pred_words)
+
+        return {"wer": all_wer, "wer_lens": word_len}
+    
+
+
+
+@final
+@dataclass
+class SpeechTextPPLOutput:
+    target_tokens: Tensor
+    target_mask: Tensor
+    logits: Tensor
+    pad_idx: Optional[int] = 0
+ 
+    def compute_loss(self, label_smoothing: float = 0.0,) -> Dict[Tensor]:
+        lprobs = log_softmax(self.logits, dim=-1, dtype=torch.float32)
+        # sum: (), none: (N, S)
+        loss = nll_loss(
+            lprobs,
+            self.target_tokens,
+            self.pad_idx,
+            label_smoothing=label_smoothing,
+            reduction="none",
+        )
+        num_target_elements = self.target_mask.sum()
+        nll_sum = (loss * self.target_mask).sum()
+        return nll_sum, num_target_elements
+    
+    def compute_acc(self, answer_idx):
+        num_tokens = self.target_mask.sum(dim=-1) # should be [1,1,1,1] for mmlu
+        lprobs = log_softmax(self.logits, dim=-1, dtype=torch.float32)
+        target_tokens = self.target_tokens
+        target_tokens[~self.target_mask] = 0
+
+        loss = nll_loss(
+            lprobs,
+            self.target_tokens,
+            0,
+            reduction="none",
+        )
+        nll = loss.sum(dim=1)
+        nll_token_value, nll_token_idx = (nll / num_tokens).min(dim=-1)
+        acc_token = 100.0 * (nll_token_idx == answer_idx)
+        return nll_token_value.item(), acc_token
