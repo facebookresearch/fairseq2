@@ -23,9 +23,10 @@ from fairseq2.datasets.asr import GenericAsrDataset, load_asr_dataset
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.metrics.text import WerMetric
+from fairseq2.models import load_model
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
-from fairseq2.models.wav2vec2.asr import Wav2Vec2AsrModel, load_wav2vec2_asr_model
+from fairseq2.models.wav2vec2.asr import Wav2Vec2AsrModel
 from fairseq2.models.wav2vec2.asr.model import Wav2Vec2AsrOutput
 from fairseq2.nn.utils.module import remove_parametrizations
 from fairseq2.recipes.evaluator import AbstractEvalUnit, Evaluator
@@ -147,7 +148,9 @@ def load_wav2vec2_asr_evaluator(
     else:
         init_device = META
 
-    model = load_wav2vec2_asr_model(model_card, device=init_device, dtype=config.dtype)
+    model = load_model(model_card, device=init_device, dtype=config.dtype)
+
+    check_model_type(model, Wav2Vec2AsrModel)
 
     gang.barrier()
 

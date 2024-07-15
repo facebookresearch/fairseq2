@@ -31,7 +31,6 @@ from fairseq2.models import load_model
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.sequence import (
     SequenceBatch,
-    SequenceModel,
     SequenceModelOutput,
     as_auto_regressive_input,
 )
@@ -285,8 +284,7 @@ def load_instruction_finetuner(
 
         log.info("Model loaded on data parallel rank 0.")
 
-    if not isinstance(model, DecoderModel):
-        raise ValueError("`model` must specify a decoder model.")
+    check_model_type(model, DecoderModel)
 
     checkpoint_manager.save_model_metadata(
         base_asset=model_card.name, family=model.family
@@ -392,7 +390,7 @@ class InstructionFinetuneUnit(AbstractTrainUnit[SequenceBatch]):
         """
         super().__init__(model)
 
-        check_model_type(model, SequenceModel)
+        check_model_type(model, DecoderModel)
 
         self._metric_bag = SequenceMetricBag(gang)
 

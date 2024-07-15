@@ -9,13 +9,13 @@ from typing import Any, Dict
 import torch
 
 from fairseq2.models.config_loader import StandardModelConfigLoader
-from fairseq2.models.loader import DenseModelLoader, load_model
+from fairseq2.models.loader import StandardModelLoader, load_model
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
-from fairseq2.models.wav2vec2.archs import wav2vec2_archs
 from fairseq2.models.wav2vec2.factory import (
     WAV2VEC2_FAMILY,
     Wav2Vec2Config,
     create_wav2vec2_model,
+    wav2vec2_archs,
 )
 from fairseq2.nn.transformer import TransformerNormOrder
 
@@ -70,7 +70,7 @@ def convert_wav2vec2_checkpoint(
     return convert_fairseq_checkpoint(checkpoint, key_map)
 
 
-load_wav2vec2_model = DenseModelLoader(
+load_wav2vec2_model = StandardModelLoader(
     config_loader=load_wav2vec2_config,
     factory=create_wav2vec2_model,
     checkpoint_converter=convert_wav2vec2_checkpoint,

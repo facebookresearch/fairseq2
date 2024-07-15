@@ -40,7 +40,7 @@ from fairseq2.models.sequence import SequenceBatch
 from fairseq2.recipes.common_metrics import SequenceGenerationMetricBag
 from fairseq2.recipes.generator import AbstractGeneratorUnit, Generator
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import broadcast_model, setup_gangs
+from fairseq2.recipes.utils.setup import broadcast_model, check_model_type, setup_gangs
 from fairseq2.typing import META, DataType, override
 from fairseq2.utils.profiler import Stopwatch
 
@@ -284,12 +284,11 @@ def load_text_generator(
 
     model = load_model(model_card, gangs=gangs, device=init_device, dtype=config.dtype)
 
+    check_model_type(model, DecoderModel)
+
     root_gang.barrier()
 
     log.info("Model loaded on data parallel rank 0.")
-
-    if not isinstance(model, DecoderModel):
-        raise ValueError("`model` must specify a decoder model.")
 
     # Distribute the model to all processes in the gang.
     if dp_gang.size != 1:
@@ -299,7 +298,7 @@ def load_text_generator(
 
     # Initialize the sequence generator.
     generator = _create_sequence_generator(
-        model, config.mode, config.beam_search, config.sampling
+        model, config.mode, config.beam_search, config.sampling  # type: ignore[arg-type]
     )
 
     # Initialize the generator unit.

@@ -7,7 +7,9 @@
 from dataclasses import dataclass, field
 from typing import Final, Optional
 
+from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data import VocabularyInfo
+from fairseq2.models.factory import create_model
 from fairseq2.models.wav2vec2.asr.model import Wav2Vec2AsrModel
 from fairseq2.models.wav2vec2.factory import (
     Wav2Vec2EncoderBuilder,
@@ -70,6 +72,11 @@ class Wav2Vec2AsrConfig:
 
     min_num_spatial_mask_spans: int = 2
     """The minimum number of spatial masks sampled per sequence."""
+
+
+wav2vec2_asr_archs = ConfigRegistry[Wav2Vec2AsrConfig]()
+
+wav2vec2_asr_arch = wav2vec2_asr_archs.decorator
 
 
 class Wav2Vec2AsrBuilder:
@@ -167,3 +174,11 @@ def create_wav2vec2_asr_model(
     builder = Wav2Vec2AsrBuilder(config, encoder_builder, device=device, dtype=dtype)
 
     return builder.build_model().set_family(WAV2VEC2_ASR_FAMILY)
+
+
+create_model.register(
+    family=WAV2VEC2_ASR_FAMILY,
+    factory=create_wav2vec2_asr_model,
+    config_kls=Wav2Vec2AsrConfig,
+    arch_configs=wav2vec2_asr_archs,
+)

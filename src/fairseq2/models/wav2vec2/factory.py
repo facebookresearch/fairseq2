@@ -4,12 +4,16 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from typing import Final, List, Optional, Tuple
 
 from torch.nn import GELU, SiLU
 
+from fairseq2.config_registry import ConfigRegistry
 from fairseq2.models.conformer import ConformerBlock, ConformerConvolution
+from fairseq2.models.factory import create_model
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
 from fairseq2.models.wav2vec2.feature_extractor import (
     Wav2Vec2FbankFeatureExtractor,
@@ -45,6 +49,74 @@ from fairseq2.nn.transformer import (
 from fairseq2.typing import DataType, Device
 
 WAV2VEC2_FAMILY: Final = "wav2vec2"
+
+
+@dataclass
+class Wav2Vec2Config:
+    """Holds the configuration of a wav2vec 2.0 model.
+
+    The default values correspond to the base architecture as described in
+    :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`.
+    """
+
+    encoder_config: Wav2Vec2EncoderConfig = field(
+        default_factory=lambda: Wav2Vec2EncoderConfig()
+    )
+    """The configuration of the wav2vec 2.0 encoder."""
+
+    final_dim: int = 256
+    """The dimensionality of the final projection that is applied to context
+    network outputs and quantized targets."""
+
+    final_proj_bias: bool = True
+    """If ``True``, the final projection learns an additive bias."""
+
+    # Mask
+    temporal_mask_span_len: int = 10
+    """The length of each temporal mask span that is applied over time steps."""
+
+    max_temporal_mask_prob: float = 0.65
+    """The maximum probability of masking a time step. Note that, due to mask
+    span overlap, the effective probability will be lower."""
+
+    min_num_temporal_mask_spans: int = 2
+    """The minimum number of temporal masks sampled per sequence."""
+
+    spatial_mask_span_len: int = 10
+    """The length of each spatial mask span that is applied over features."""
+
+    max_spatial_mask_prob: float = 0.0
+    """The maximum probability of masking a feature. Note that, due to mask span
+    overlap, the effective probability will be lower."""
+
+    min_num_spatial_mask_spans: int = 2
+    """The minimum number of spatial masks sampled per sequence."""
+
+    # Quantization
+    quantized_dim: int = 256
+    """The output dimensionality of vector quantizer."""
+
+    num_codebooks: int = 2
+    """The number of codebooks."""
+
+    num_codebook_entries: int = 320
+    """The number of entries per codebook."""
+
+    codebook_sampling_temperature: Tuple[float, float, float] = (2.0, 0.5, 0.999995)
+    """A tuple of start temperature, end temperature, and decay factor for
+    codebook entry sampling."""
+
+    # Loss
+    num_distractors: int = 100
+    """The number of distractors to use in contrastive prediction."""
+
+    logit_temp: float = 0.1
+    """The temperature to divide logits by."""
+
+
+wav2vec2_archs = ConfigRegistry[Wav2Vec2Config]()
+
+wav2vec2_arch = wav2vec2_archs.decorator
 
 
 @dataclass
@@ -150,65 +222,96 @@ class Wav2Vec2EncoderConfig:
     """The kernel size of depthwise convolutions in Conformer blocks."""
 
 
-@dataclass
-class Wav2Vec2Config:
-    """Holds the configuration of a wav2vec 2.0 model.
+wav2vec2_encoder_archs = ConfigRegistry[Wav2Vec2EncoderConfig]()
 
-    The default values correspond to the base architecture as described in
+wav2vec2_encoder_arch = wav2vec2_encoder_archs.decorator
+
+
+class Wav2Vec2Builder:
+    """Builds modules of a wav2vec 2.0 model as described in
     :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`.
+
+    To tweak the architecture, you can derive from this class and override the
+    corresponding methods.
     """
 
-    encoder_config: Wav2Vec2EncoderConfig = field(default_factory=Wav2Vec2EncoderConfig)
-    """The configuration of the wav2vec 2.0 encoder."""
+    _config: Wav2Vec2Config
+    _encoder_builder: Wav2Vec2EncoderBuilder
+    _device: Optional[Device]
+    _dtype: Optional[DataType]
 
-    final_dim: int = 256
-    """The dimensionality of the final projection that is applied to context
-    network outputs and quantized targets."""
+    def __init__(
+        self,
+        config: Wav2Vec2Config,
+        encoder_builder: Wav2Vec2EncoderBuilder,
+        *,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
+    ) -> None:
+        """
+        :param config:
+            The configuration.
+        :param encoder_builder:
+            The encoder builder.
+        :param device:
+            The device on which to initialize modules.
+        :param dtype:
+            The data type of module parameters and buffers.
+        """
+        self._config = config
 
-    final_proj_bias: bool = True
-    """If ``True``, the final projection learns an additive bias."""
+        self._encoder_builder = encoder_builder
 
-    # Mask
-    temporal_mask_span_len: int = 10
-    """The length of each temporal mask span that is applied over time steps."""
+        self._device, self._dtype = device, dtype
 
-    max_temporal_mask_prob: float = 0.65
-    """The maximum probability of masking a time step. Note that, due to mask
-    span overlap, the effective probability will be lower."""
+    def build_model(self) -> Wav2Vec2Model:
+        """Build a model."""
+        encoder_frontend = self._encoder_builder.build_frontend()
 
-    min_num_temporal_mask_spans: int = 2
-    """The minimum number of temporal masks sampled per sequence."""
+        encoder = self._encoder_builder.build_encoder()
 
-    spatial_mask_span_len: int = 10
-    """The length of each spatial mask span that is applied over features."""
+        masker = self.build_masker()
 
-    max_spatial_mask_prob: float = 0.0
-    """The maximum probability of masking a feature. Note that, due to mask span
-    overlap, the effective probability will be lower."""
+        quantizer = self.build_quantizer()
 
-    min_num_spatial_mask_spans: int = 2
-    """The minimum number of spatial masks sampled per sequence."""
+        return Wav2Vec2Model(
+            encoder_frontend,
+            encoder,
+            masker,
+            quantizer,
+            self._config.final_dim,
+            final_proj_bias=self._config.final_proj_bias,
+            num_distractors=self._config.num_distractors,
+            logit_temp=self._config.logit_temp,
+            device=self._device,
+            dtype=self._dtype,
+        )
 
-    # Quantization
-    quantized_dim: int = 256
-    """The output dimensionality of vector quantizer."""
+    def build_masker(self) -> Wav2Vec2Masker:
+        """Build a feature masker."""
+        return Wav2Vec2Masker(
+            self._config.encoder_config.model_dim,
+            self._config.temporal_mask_span_len,
+            self._config.max_temporal_mask_prob,
+            self._config.min_num_temporal_mask_spans,
+            self._config.spatial_mask_span_len,
+            self._config.max_spatial_mask_prob,
+            self._config.min_num_spatial_mask_spans,
+            device=self._device,
+            dtype=self._dtype,
+        )
 
-    num_codebooks: int = 2
-    """The number of codebooks."""
-
-    num_codebook_entries: int = 320
-    """The number of entries per codebook."""
-
-    codebook_sampling_temperature: Tuple[float, float, float] = (2.0, 0.5, 0.999995)
-    """A tuple of start temperature, end temperature, and decay factor for
-    codebook entry sampling."""
-
-    # Loss
-    num_distractors: int = 100
-    """The number of distractors to use in contrastive prediction."""
-
-    logit_temp: float = 0.1
-    """The temperature to divide logits by."""
+    def build_quantizer(self) -> VectorQuantizer:
+        """Build a vector quantizer."""
+        return GumbelVectorQuantizer(
+            self._config.encoder_config.feature_dim,
+            self._config.quantized_dim,
+            self._config.num_codebooks,
+            self._config.num_codebook_entries,
+            codebook_sampling_temperature=self._config.codebook_sampling_temperature,
+            device=self._device,
+            dtype=self._dtype,
+        )
 
 
 class Wav2Vec2EncoderBuilder:
@@ -427,93 +530,6 @@ class Wav2Vec2EncoderBuilder:
         )
 
 
-class Wav2Vec2Builder:
-    """Builds modules of a wav2vec 2.0 model as described in
-    :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`.
-
-    To tweak the architecture, you can derive from this class and override the
-    corresponding methods.
-    """
-
-    _config: Wav2Vec2Config
-    _encoder_builder: Wav2Vec2EncoderBuilder
-    _device: Optional[Device]
-    _dtype: Optional[DataType]
-
-    def __init__(
-        self,
-        config: Wav2Vec2Config,
-        encoder_builder: Wav2Vec2EncoderBuilder,
-        *,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
-    ) -> None:
-        """
-        :param config:
-            The configuration.
-        :param encoder_builder:
-            The encoder builder.
-        :param device:
-            The device on which to initialize modules.
-        :param dtype:
-            The data type of module parameters and buffers.
-        """
-        self._config = config
-
-        self._encoder_builder = encoder_builder
-
-        self._device, self._dtype = device, dtype
-
-    def build_model(self) -> Wav2Vec2Model:
-        """Build a model."""
-        encoder_frontend = self._encoder_builder.build_frontend()
-
-        encoder = self._encoder_builder.build_encoder()
-
-        masker = self.build_masker()
-
-        quantizer = self.build_quantizer()
-
-        return Wav2Vec2Model(
-            encoder_frontend,
-            encoder,
-            masker,
-            quantizer,
-            self._config.final_dim,
-            final_proj_bias=self._config.final_proj_bias,
-            num_distractors=self._config.num_distractors,
-            logit_temp=self._config.logit_temp,
-            device=self._device,
-            dtype=self._dtype,
-        )
-
-    def build_masker(self) -> Wav2Vec2Masker:
-        """Build a feature masker."""
-        return Wav2Vec2Masker(
-            self._config.encoder_config.model_dim,
-            self._config.temporal_mask_span_len,
-            self._config.max_temporal_mask_prob,
-            self._config.min_num_temporal_mask_spans,
-            self._config.spatial_mask_span_len,
-            self._config.max_spatial_mask_prob,
-            self._config.min_num_spatial_mask_spans,
-            device=self._device,
-            dtype=self._dtype,
-        )
-
-    def build_quantizer(self) -> VectorQuantizer:
-        """Build a vector quantizer."""
-        return GumbelVectorQuantizer(
-            self._config.encoder_config.feature_dim,
-            self._config.quantized_dim,
-            self._config.num_codebooks,
-            self._config.num_codebook_entries,
-            codebook_sampling_temperature=self._config.codebook_sampling_temperature,
-            device=self._device,
-            dtype=self._dtype,
-        )
-
-
 def create_wav2vec2_model(
     config: Wav2Vec2Config,
     *,
@@ -536,3 +552,11 @@ def create_wav2vec2_model(
     builder = Wav2Vec2Builder(config, encoder_builder, device=device, dtype=dtype)
 
     return builder.build_model().set_family(WAV2VEC2_FAMILY)
+
+
+create_model.register(
+    family=WAV2VEC2_FAMILY,
+    factory=create_wav2vec2_model,
+    config_kls=Wav2Vec2Config,
+    arch_configs=wav2vec2_archs,
+)
