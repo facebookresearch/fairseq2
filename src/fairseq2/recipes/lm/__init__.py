@@ -6,12 +6,14 @@
 
 from fairseq2.recipes.cli import Cli, RecipeCommandHandler
 from fairseq2.recipes.lm.chatbot import ChatbotCommandHandler
-from fairseq2.recipes.lm.dpo_finetune import dpo_finetune_presets
 from fairseq2.recipes.lm.instruction_finetune import (
     instruction_finetune_presets,
     load_instruction_finetuner,
 )
-from fairseq2.recipes.lm.preference_finetune import load_preference_finetuner
+from fairseq2.recipes.lm.preference_finetune import (
+    load_preference_finetuner,
+    preference_finetune_presets,
+)
 from fairseq2.recipes.lm.text_generate import load_text_generator, text_generate_presets
 
 
@@ -51,15 +53,15 @@ def _setup_lm_cli(cli: Cli) -> None:
         help="generate text",
     )
 
-    # DPO Finetune
-    dpo_finetune_handler = RecipeCommandHandler(
+    # Preference Finetune
+    preference_finetune_handler = RecipeCommandHandler(
         loader=load_preference_finetuner,
-        preset_configs=dpo_finetune_presets,
+        preset_configs=preference_finetune_presets,
         default_preset="llama3_8b_instruct",
     )
 
     group.add_command(
-        name="dpo_finetune",
-        handler=dpo_finetune_handler,
-        help="dpo-finetune a language model",
+        name="preference_finetune",
+        handler=preference_finetune_handler,
+        help="preferece-finetune a language model using DPO",
     )

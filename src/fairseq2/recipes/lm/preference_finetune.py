@@ -10,6 +10,7 @@ from torch.nn import Module
 
 from fairseq2.assets import AssetNotFoundError, default_asset_store
 from fairseq2.checkpoint import CheckpointModelMetadataProvider, FileCheckpointManager
+from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_text_tokenizer
 from fairseq2.datasets import LengthBatching
 from fairseq2.datasets.preference import (
@@ -25,7 +26,10 @@ from fairseq2.nn.transformer import enable_memory_efficient_torch_sdpa
 from fairseq2.nn.utils.module import freeze_parameters
 from fairseq2.optim import AdamW
 from fairseq2.optim.lr_scheduler import CosineAnnealingLR
-from fairseq2.recipes.lm.preference_units.dpo_unit import DpoFinetuneConfig, DpoFinetuneUnit
+from fairseq2.recipes.lm.preference_units.dpo_unit import (
+    DpoFinetuneConfig,
+    DpoFinetuneUnit,
+)
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
 from fairseq2.recipes.utils.asset import retrieve_asset_card
 from fairseq2.recipes.utils.log import log_model
@@ -63,7 +67,9 @@ class PreferenceOptimizationConfig:  # TODO: Should this just inherit from Instr
     criterion: str = "dpo"
     """The type of preference optimization to perform"""
 
-    criterion_config: dict[str, Any] = field(default_factory=lambda: DpoFinetuneConfig()) # TODO: is there a better way to do this than a dict?
+    criterion_config: dict[str, Any] = field(
+        default_factory=lambda: DpoFinetuneConfig()
+    )  # TODO: is there a better way to do this than a dict?
     """The hyperparameters specific to the criterion_type"""
 
     # Model
@@ -163,7 +169,34 @@ class PreferenceOptimizationConfig:  # TODO: Should this just inherit from Instr
     """If ``True``, turns on anomaly detection feature in ``torch.autograd``."""
 
 
-# TODO: Planning for config registries to be in their own DPO, SimPO, ORPO, etc. files
+preference_finetune_presets = ConfigRegistry[PreferenceOptimizationConfig]()
+
+preference_finetune_preset = preference_finetune_presets.decorator
+
+
+@preference_finetune_preset("llama3_8b_instruct")
+def _llama3_8b_instruct() -> PreferenceOptimizationConfig:
+    cfg = PreferenceOptimizationConfig()
+    cfg.max_num_tokens = 1000
+    cfg.max_seq_len = 1000
+    cfg.max_gradient_norm = 1.0
+    return cfg
+
+
+# batch size and min lengths are tuned for OA2 in this preset!
+@preference_finetune_preset("llama3_70b_instruct_openassistant2")
+def _llama3_70b_instruct_openassistant2() -> PreferenceOptimizationConfig:
+    cfg = PreferenceOptimizationConfig()
+    cfg.model = "llama3_70b_instruct"
+    cfg.criterion_config = DpoFinetuneConfig()
+    cfg.tensor_parallel_size = 8
+    cfg.max_num_tokens = (
+        200  # 70B DPO training might catch OOM, tune the effective batch size if needed
+    )
+    cfg.max_seq_len = 200
+    cfg.max_gradient_norm = 1.0
+    cfg.gradient_accumulation = 8  # to address small batch size
+    return cfg
 
 
 def load_preference_finetuner(
@@ -278,9 +311,7 @@ def load_preference_finetuner(
     log_model(dp_model, log, rank=root_gang.rank)
 
     # Load the reference model.
-    def _get_reference_model(
-        criterion_config: dict[str, Any]
-    ) -> Union[Module, None]:
+    def _get_reference_model(criterion_config: dict[str, Any]) -> Union[Module, None]:
         if criterion_config.get("reference_model") is None:
             return None
 
@@ -290,7 +321,10 @@ def load_preference_finetuner(
 
         # TODO: figure out how to load the reference model onto its own gangs
         reference_model = load_model(
-            reference_model_card, gangs=gangs, device=init_device, dtype=criterion_config["reference_dtype"]
+            reference_model_card,
+            gangs=gangs,
+            device=init_device,
+            dtype=criterion_config["reference_dtype"],
         )
 
         root_gang.barrier()
@@ -316,24 +350,28 @@ def load_preference_finetuner(
 
         return dp_reference_model
 
-    dp_reference_model = _get_reference_model(config)
+    dp_reference_model = _get_reference_model(config.criterion_config)
 
     def _create_preference_unit(
         config: PreferenceOptimizationConfig,
     ) -> AbstractTrainUnit[PreferenceOptimizationBatch]:
         # TODO: setup registers for TrainUnits to replace this
         if config.criterion == "dpo":
-            assert type(config.criterion_config) is DpoFinetuneConfig  # TODO: better way to do this?
+            assert (
+                type(config.criterion_config) is DpoFinetuneConfig
+            )  # TODO: better way to do this?
             return DpoFinetuneUnit(
-                dp_model, dp_reference_model, dp_gang, config.dpo_beta, config.nll_scale
+                dp_model,
+                dp_reference_model,
+                dp_gang,
+                config.criterion_config["dpo_beta"],
+                config.criterion_config["nll_scale"],
             )
         if config.criterion == "SimPO":
             print("SimPOTrainUnit")  # TODO: implement SimPO
             raise NotImplementedError
         # TODO: build an exception for this. is there one already?
-        raise Exception(
-            f"config.criterion_type '{config.criterion}' cannot be found."
-        )
+        raise Exception(f"config.criterion_type '{config.criterion}' cannot be found.")
 
     # Initialize the train unit
     unit = _create_preference_unit(config)

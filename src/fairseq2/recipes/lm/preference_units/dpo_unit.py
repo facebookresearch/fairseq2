@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Tuple, Union, cast, final, Any
+from typing import Any, Tuple, Union, cast, final
 
 import torch
 import torch.distributed
@@ -10,7 +10,6 @@ from torch import Tensor
 from torch.nn import Module
 from torcheval.metrics import Mean
 
-from fairseq2.config_registry import ConfigRegistry
 from fairseq2.datasets.preference import PreferenceOptimizationBatch
 from fairseq2.gang import Gang, get_rank
 from fairseq2.logging import get_log_writer
@@ -22,7 +21,7 @@ from fairseq2.models.sequence import (
 )
 from fairseq2.recipes.common_metrics import SequenceMetricBag
 from fairseq2.recipes.trainer import AbstractTrainUnit
-from fairseq2.typing import override, DataType
+from fairseq2.typing import DataType, override
 
 log = get_log_writer(__name__)
 
@@ -31,10 +30,10 @@ log = get_log_writer(__name__)
 class DpoFinetuneConfig(dict[str, Any]):
     """Holds the DPO-finetuning configuration of a language model."""
 
-    # Hyperparameters 
+    # Hyperparameters
     dpo_beta: float = 0.1
 
-    nll_scale: float = 1.0
+    nll_scale: float = 0.0
 
     # Reference Model
     reference_model: Union[str, Path] = "llama3_8b_instruct"
@@ -45,36 +44,6 @@ class DpoFinetuneConfig(dict[str, Any]):
 
     reference_tensor_parallel_size: int = 1
     """The size of tensor parallelism."""
-
-
-dpo_finetune_presets = ConfigRegistry[DpoFinetuneConfig]()
-
-dpo_finetune_preset = dpo_finetune_presets.decorator
-
-
-@dpo_finetune_preset("llama3_8b_instruct")
-def _llama3_8b_instruct() -> DpoFinetuneConfig:
-    cfg = DpoFinetuneConfig()
-    cfg.max_num_tokens = 1000
-    cfg.max_seq_len = 1000
-    cfg.max_gradient_norm = 1.0
-    return cfg
-
-
-# batch size and min lengths are tuned for OA2 in this preset!
-@dpo_finetune_preset("llama3_70b_instruct_openassistant2")
-def _llama3_70b_instruct_openassistant2() -> DpoFinetuneConfig:
-    cfg = DpoFinetuneConfig()
-    cfg.model = "llama3_70b_instruct"
-    cfg.reference_model = "llama3_70b_instruct"
-    cfg.tensor_parallel_size = 8
-    cfg.max_num_tokens = (
-        200  # 70B DPO training might catch OOM, tune the effective batch size if needed
-    )
-    cfg.max_seq_len = 200
-    cfg.max_gradient_norm = 1.0
-    cfg.gradient_accumulation = 8  # to address small batch size
-    return cfg
 
 
 @final
