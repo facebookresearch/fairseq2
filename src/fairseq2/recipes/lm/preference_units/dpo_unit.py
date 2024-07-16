@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Tuple, Union, cast, final
+from pathlib import Path
+from typing import Tuple, Union, cast, final, Any
 
 import torch
 import torch.distributed
@@ -20,20 +21,30 @@ from fairseq2.models.sequence import (
     as_auto_regressive_input,
 )
 from fairseq2.recipes.common_metrics import SequenceMetricBag
-from fairseq2.recipes.lm.preference_finetune import PreferenceOptimizationConfig
 from fairseq2.recipes.trainer import AbstractTrainUnit
-from fairseq2.typing import override
+from fairseq2.typing import override, DataType
 
 log = get_log_writer(__name__)
 
 
 @dataclass
-class DpoFinetuneConfig(PreferenceOptimizationConfig):
+class DpoFinetuneConfig(dict[str, Any]):
     """Holds the DPO-finetuning configuration of a language model."""
 
+    # Hyperparameters 
     dpo_beta: float = 0.1
 
     nll_scale: float = 1.0
+
+    # Reference Model
+    reference_model: Union[str, Path] = "llama3_8b_instruct"
+    """The name or path to the asset card of the reference model to use."""
+
+    reference_dtype: DataType = torch.bfloat16
+    """The data type of the reference model."""
+
+    reference_tensor_parallel_size: int = 1
+    """The size of tensor parallelism."""
 
 
 dpo_finetune_presets = ConfigRegistry[DpoFinetuneConfig]()

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal, Optional, Tuple, Union
 
@@ -25,7 +25,7 @@ from fairseq2.nn.transformer import enable_memory_efficient_torch_sdpa
 from fairseq2.nn.utils.module import freeze_parameters
 from fairseq2.optim import AdamW
 from fairseq2.optim.lr_scheduler import CosineAnnealingLR
-from fairseq2.recipes.lm.dpo_finetune import DpoFinetuneConfig, DpoFinetuneUnit
+from fairseq2.recipes.lm.preference_units.dpo_unit import DpoFinetuneConfig, DpoFinetuneUnit
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
 from fairseq2.recipes.utils.asset import retrieve_asset_card
 from fairseq2.recipes.utils.log import log_model
@@ -60,12 +60,10 @@ class PreferenceOptimizationConfig:  # TODO: Should this just inherit from Instr
     """The number of batches to prefetch in background."""
 
     # Criterion
-    criterion_type: str = "dpo"
+    criterion: str = "dpo"
     """The type of preference optimization to perform"""
 
-    criterion: dict[
-        str, Any
-    ] = dict()  # TODO: is there a better way to do this than a dict?
+    criterion_config: dict[str, Any] = field(default_factory=lambda: DpoFinetuneConfig()) # TODO: is there a better way to do this than a dict?
     """The hyperparameters specific to the criterion_type"""
 
     # Model
@@ -102,16 +100,6 @@ class PreferenceOptimizationConfig:  # TODO: Should this just inherit from Instr
         False  # TODO is it fine to assume the reference model will always use the same?
     )
     """If ``True``, applies ``torch.compile()`` to the decoder. (experimental)"""
-
-    # Reference Model
-    reference_model: Optional[Union[str, Path]] = "llama3_8b_instruct"
-    """The name or path to the asset card of the reference model to use."""
-
-    reference_dtype: DataType = torch.bfloat16
-    """The data type of the reference model."""
-
-    reference_tensor_parallel_size: int = 1
-    """The size of tensor parallelism."""
 
     # Optimizer, LR, and Loss
     lr: float = 5.5e-06
@@ -291,18 +279,18 @@ def load_preference_finetuner(
 
     # Load the reference model.
     def _get_reference_model(
-        reference_model_path: Union[str, Path, None]
+        criterion_config: dict[str, Any]
     ) -> Union[Module, None]:
-        if reference_model_path is None:
+        if criterion_config.get("reference_model") is None:
             return None
 
-        reference_model_card = retrieve_asset_card(reference_model_path)
+        reference_model_card = retrieve_asset_card(criterion_config["reference_model"])
 
         log.info("Loading {} reference model on data parallel rank 0 (per shard).", reference_model_card.name)  # fmt: skip
 
         # TODO: figure out how to load the reference model onto its own gangs
         reference_model = load_model(
-            reference_model_card, gangs=gangs, device=init_device, dtype=torch.float32
+            reference_model_card, gangs=gangs, device=init_device, dtype=criterion_config["reference_dtype"]
         )
 
         root_gang.barrier()
@@ -328,25 +316,23 @@ def load_preference_finetuner(
 
         return dp_reference_model
 
-    dp_reference_model = _get_reference_model(config.reference_model)
-
-    dp_reference_model  # to make flake8 happy, remove once used
+    dp_reference_model = _get_reference_model(config)
 
     def _create_preference_unit(
         config: PreferenceOptimizationConfig,
     ) -> AbstractTrainUnit[PreferenceOptimizationBatch]:
         # TODO: setup registers for TrainUnits to replace this
-        if config.criterion_type == "dpo":
-            assert type(config) is DpoFinetuneConfig  # TODO: better way to do this?
+        if config.criterion == "dpo":
+            assert type(config.criterion_config) is DpoFinetuneConfig  # TODO: better way to do this?
             return DpoFinetuneUnit(
                 dp_model, dp_reference_model, dp_gang, config.dpo_beta, config.nll_scale
             )
-        if config.criterion_type == "SimPO":
+        if config.criterion == "SimPO":
             print("SimPOTrainUnit")  # TODO: implement SimPO
             raise NotImplementedError
         # TODO: build an exception for this. is there one already?
         raise Exception(
-            f"config.criterion_type '{config.criterion_type}' cannot be found."
+            f"config.criterion_type '{config.criterion}' cannot be found."
         )
 
     # Initialize the train unit
