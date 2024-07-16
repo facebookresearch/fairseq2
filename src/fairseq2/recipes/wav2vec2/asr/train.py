@@ -162,7 +162,8 @@ class Wav2Vec2AsrTrainConfig:
     """The step interval at which to checkpoint."""
 
     keep_best_n_checkpoints: Optional[int] = None
-    """The number of checkpoints to keep based on their validation score."""
+    """The number of checkpoints to keep based on their validation score. If
+    ``None``, none will be deleted."""
 
     publish_metrics_every_n_steps: int = 200
     """The step interval at which to publish metrics."""

@@ -137,10 +137,10 @@ class InstructionFinetuneConfig:
     """The step interval at which to checkpoint."""
 
     keep_last_n_checkpoints: Optional[int] = 1
-    """The number of checkpoints to keep."""
+    """The number of checkpoints to keep. If ``None``, none will be deleted."""
 
     keep_last_n_models: Optional[int] = None
-    """The number of checkpoint models to keep."""
+    """The number of checkpoint models to keep. If ``None``, none will be deleted."""
 
     publish_metrics_every_n_steps: int = 10
     """The step interval at which to publish training metrics."""

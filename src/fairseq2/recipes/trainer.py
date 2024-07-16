@@ -261,11 +261,10 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         :param checkpoint_every_n_steps:
             The step interval at which to checkpoint.
         :param keep_last_n_checkpoints:
-            The number of checkpoints to keep. If ``None``, no checkpoint will
-            be deleted.
+            The number of checkpoints to keep. If ``None``, none will be deleted.
         :param keep_best_n_checkpoints:
             The number of checkpoints to keep based on their validation score.
-            If ``None``, no checkpoint will be deleted.
+            If ``None``, none will be deleted.
         :param keep_last_n_models:
             The number of checkpoint models to keep. Must be greater than or
             equal to ``keep_last_n_checkpoints``.
