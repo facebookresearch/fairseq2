@@ -14,7 +14,6 @@ import torch
 from torch.nn import Module
 
 from fairseq2.assets import AssetNotFoundError, default_asset_store
-from fairseq2.assets.utils import retrieve_asset_card
 from fairseq2.checkpoint import CheckpointModelMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import TextTokenDecoder, TextTokenizer, load_text_tokenizer
@@ -30,6 +29,7 @@ from fairseq2.models.wav2vec2.asr import Wav2Vec2AsrModel
 from fairseq2.models.wav2vec2.asr.model import Wav2Vec2AsrOutput
 from fairseq2.nn.utils.module import remove_parametrizations
 from fairseq2.recipes.evaluator import AbstractEvalUnit, Evaluator
+from fairseq2.recipes.utils.asset import asset_as_path, retrieve_asset_card
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.recipes.utils.setup import (
     broadcast_model,
@@ -109,9 +109,9 @@ def load_wav2vec2_asr_evaluator(
 
     seed = config.seed
 
-    # Load the tokenizer.
     model_card = retrieve_asset_card(config.model)
 
+    # Load the tokenizer.
     log.info("Loading {} tokenizer.", model_card.name)
 
     tokenizer = load_text_tokenizer(model_card)
@@ -131,14 +131,9 @@ def load_wav2vec2_asr_evaluator(
 
         log.info("Dataset loaded.")
     else:
-        try:
-            path = Path(config.dataset)
-        except ValueError:
-            raise AssetNotFoundError(
-                config.dataset, f"An asset with the name '{config.dataset}' cannot be found."  # type: ignore[arg-type]
-            ) from None
+        dataset_path = asset_as_path(config.dataset)
 
-        dataset = GenericAsrDataset.from_path(path)
+        dataset = GenericAsrDataset.from_path(dataset_path)
 
     # Load the model.
     log.info("Loading {} model on rank 0.", model_card.name)
@@ -148,7 +143,12 @@ def load_wav2vec2_asr_evaluator(
     else:
         init_device = META
 
-    model = load_model(model_card, device=init_device, dtype=config.dtype)
+    try:
+        model = load_model(model_card, device=init_device, dtype=config.dtype)
+    except ValueError as ex:
+        raise ValueError(
+            "The model cannot be initialized. See nested exception for details."
+        ) from ex
 
     check_model_type(model, Wav2Vec2AsrModel)
 

@@ -4,7 +4,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from pathlib import Path
 from typing import Any, Dict, Optional, Protocol, Type, TypeVar, Union, final
 
 from fairseq2.assets import (
@@ -15,7 +14,6 @@ from fairseq2.assets import (
     AssetStore,
     default_asset_store,
 )
-from fairseq2.assets.utils import retrieve_asset_card
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.typing import DataClass
 from fairseq2.utils.dataclass import FieldError, update_dataclass
@@ -29,13 +27,10 @@ ModelConfigT_co = TypeVar("ModelConfigT_co", bound=DataClass, covariant=True)
 class ModelConfigLoader(Protocol[ModelConfigT_co]):
     """Loads model configurations of type ``ModelConfigT``."""
 
-    def __call__(
-        self, model_name_or_card: Union[str, AssetCard, Path]
-    ) -> ModelConfigT_co:
+    def __call__(self, model_name_or_card: Union[str, AssetCard]) -> ModelConfigT_co:
         """
         :param model_name_or_card:
-            The name, asset card, or path to the asset card file of the model
-            whose configuration to load.
+            The name or the asset card of the model whole configuration to load.
         """
 
 
@@ -78,8 +73,11 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
         self._arch_configs = arch_configs
         self._value_converter = value_converter or default_value_converter
 
-    def __call__(self, model_name_or_card: Union[str, AssetCard, Path]) -> ModelConfigT:
-        card = retrieve_asset_card(model_name_or_card, self._asset_store)
+    def __call__(self, model_name_or_card: Union[str, AssetCard]) -> ModelConfigT:
+        if isinstance(model_name_or_card, AssetCard):
+            card = model_name_or_card
+        else:
+            card = self._asset_store.retrieve_card(model_name_or_card)
 
         model_family = card.field("model_family").as_(str)
         if model_family != self._family:

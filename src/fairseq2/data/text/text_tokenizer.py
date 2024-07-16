@@ -21,7 +21,6 @@ from fairseq2.assets import (
     default_asset_store,
     default_download_manager,
 )
-from fairseq2.assets.utils import retrieve_asset_card
 from fairseq2.data.vocabulary_info import VocabularyInfo
 from fairseq2.typing import Device, override
 
@@ -163,15 +162,14 @@ class TextTokenizerLoader(Protocol[TextTokenizerT_co]):
 
     def __call__(
         self,
-        tokenizer_name_or_card: Union[str, AssetCard, Path],
+        tokenizer_name_or_card: Union[str, AssetCard],
         *,
         force: bool = False,
         progress: bool = True,
     ) -> TextTokenizerT_co:
         """
         :param tokenizer_name_or_card:
-            The name, asset card, or path to the asset card file of the
-            tokenizer to load.
+            The name or the asset card of the tokenizer to load.
         :param force:
             If ``True``, downloads the tokenizer even if it is already in cache.
         :param progress:
@@ -205,12 +203,15 @@ class AbstractTextTokenizerLoader(ABC, TextTokenizerLoader[TextTokenizerT]):
     @final
     def __call__(
         self,
-        tokenizer_name_or_card: Union[str, AssetCard, Path],
+        tokenizer_name_or_card: Union[str, AssetCard],
         *,
         force: bool = False,
         progress: bool = True,
     ) -> TextTokenizerT:
-        card = retrieve_asset_card(tokenizer_name_or_card, self._asset_store)
+        if isinstance(tokenizer_name_or_card, AssetCard):
+            card = tokenizer_name_or_card
+        else:
+            card = self._asset_store.retrieve_card(tokenizer_name_or_card)
 
         tokenizer_ref = card.field("tokenizer_ref").get_as_(str)
         if tokenizer_ref is not None:
@@ -263,12 +264,15 @@ class DelegatingTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
 
     def __call__(
         self,
-        tokenizer_name_or_card: Union[str, AssetCard, Path],
+        tokenizer_name_or_card: Union[str, AssetCard],
         *,
         force: bool = False,
         progress: bool = True,
     ) -> TextTokenizerT:
-        card = retrieve_asset_card(tokenizer_name_or_card, self._asset_store)
+        if isinstance(tokenizer_name_or_card, AssetCard):
+            card = tokenizer_name_or_card
+        else:
+            card = self._asset_store.retrieve_card(tokenizer_name_or_card)
 
         ref = card.field("tokenizer_ref").get_as_(str)
         if ref is not None:
@@ -304,9 +308,12 @@ class DelegatingTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
 
         self._loaders[family] = loader
 
-    def supports(self, tokenizer_name_or_card: Union[str, AssetCard, Path]) -> bool:
+    def supports(self, tokenizer_name_or_card: Union[str, AssetCard]) -> bool:
         """Return ``True`` if the specified tokenizer has a registered loader."""
-        card = retrieve_asset_card(tokenizer_name_or_card, self._asset_store)
+        if isinstance(tokenizer_name_or_card, AssetCard):
+            card = tokenizer_name_or_card
+        else:
+            card = self._asset_store.retrieve_card(tokenizer_name_or_card)
 
         ref = card.field("tokenizer_ref").get_as_(str)
         if ref is not None:

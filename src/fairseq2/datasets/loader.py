@@ -19,7 +19,6 @@ from fairseq2.assets import (
     default_asset_store,
     default_download_manager,
 )
-from fairseq2.assets.utils import retrieve_asset_card
 
 DatasetT = TypeVar("DatasetT")
 
@@ -31,15 +30,14 @@ class DatasetLoader(Protocol[DatasetT_co]):
 
     def __call__(
         self,
-        dataset_name_or_card: Union[str, AssetCard, Path],
+        dataset_name_or_card: Union[str, AssetCard],
         *,
         force: bool = False,
         progress: bool = True,
     ) -> DatasetT_co:
         """
         :param dataset_name_or_card:
-            The name, asset card, or path to the asset card file of the dataset
-            to load.
+            The name or the asset card of the dataset to load.
         :param force:
             If ``True``, downloads the dataset even if it is already in cache.
         :param progress:
@@ -73,12 +71,15 @@ class AbstractDatasetLoader(ABC, DatasetLoader[DatasetT]):
     @final
     def __call__(
         self,
-        dataset_name_or_card: Union[str, AssetCard, Path],
+        dataset_name_or_card: Union[str, AssetCard],
         *,
         force: bool = False,
         progress: bool = True,
     ) -> DatasetT:
-        card = retrieve_asset_card(dataset_name_or_card, self._asset_store)
+        if isinstance(dataset_name_or_card, AssetCard):
+            card = dataset_name_or_card
+        else:
+            card = self._asset_store.retrieve_card(dataset_name_or_card)
 
         dataset_uri = card.field("data").as_uri()
 
@@ -127,12 +128,15 @@ class DelegatingDatasetLoader(DatasetLoader[DatasetT]):
 
     def __call__(
         self,
-        dataset_name_or_card: Union[str, AssetCard, Path],
+        dataset_name_or_card: Union[str, AssetCard],
         *,
         force: bool = False,
         progress: bool = True,
     ) -> DatasetT:
-        card = retrieve_asset_card(dataset_name_or_card, self._asset_store)
+        if isinstance(dataset_name_or_card, AssetCard):
+            card = dataset_name_or_card
+        else:
+            card = self._asset_store.retrieve_card(dataset_name_or_card)
 
         family = card.field("dataset_family").as_(str)
 
@@ -161,9 +165,12 @@ class DelegatingDatasetLoader(DatasetLoader[DatasetT]):
 
         self._loaders[family] = loader
 
-    def supports(self, dataset_name_or_card: Union[str, AssetCard, Path]) -> bool:
+    def supports(self, dataset_name_or_card: Union[str, AssetCard]) -> bool:
         """Return ``True`` if the specified dataset has a registered loader."""
-        card = retrieve_asset_card(dataset_name_or_card, self._asset_store)
+        if isinstance(dataset_name_or_card, AssetCard):
+            card = dataset_name_or_card
+        else:
+            card = self._asset_store.retrieve_card(dataset_name_or_card)
 
         family = card.field("dataset_family").as_(str)
 

@@ -15,7 +15,6 @@ from torch import Tensor
 from torch.nn import Module
 
 from fairseq2.assets import AssetNotFoundError, default_asset_store
-from fairseq2.assets.utils import retrieve_asset_card
 from fairseq2.checkpoint import CheckpointModelMetadataProvider, FileCheckpointManager
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_text_tokenizer
@@ -32,6 +31,7 @@ from fairseq2.nn.utils.module import freeze_parameters, share_parameters, to_dev
 from fairseq2.optim import AdamW
 from fairseq2.optim.lr_scheduler import TriStageLR
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
+from fairseq2.recipes.utils.asset import asset_as_path, retrieve_asset_card
 from fairseq2.recipes.utils.log import log_model, log_model_config
 from fairseq2.recipes.utils.setup import (
     check_model_type,
@@ -41,7 +41,7 @@ from fairseq2.recipes.utils.setup import (
 )
 from fairseq2.recipes.wav2vec2.asr.common import Wav2Vec2AsrMetricBag
 from fairseq2.recipes.wav2vec2.asr.eval import Wav2Vec2AsrEvalUnit
-from fairseq2.typing import DataType, override
+from fairseq2.typing import META, DataType, override
 from fairseq2.utils.profiler import Stopwatch
 
 log = get_log_writer(__name__)
@@ -162,7 +162,8 @@ class Wav2Vec2AsrTrainConfig:
     """The step interval at which to checkpoint."""
 
     keep_best_n_checkpoints: Optional[int] = None
-    """The number of checkpoints to keep based on their validation score."""
+    """The number of checkpoints to keep based on their validation score. If
+    ``None``, none will be deleted."""
 
     publish_metrics_every_n_steps: int = 200
     """The step interval at which to publish metrics."""
@@ -225,12 +226,12 @@ def load_wav2vec2_asr_trainer(
 
     seed = config.seed
 
-    # Load the tokenizer.
     tokenizer_card = retrieve_asset_card(config.tokenizer)
 
+    # Load the tokenizer.
     log.info("Loading {} tokenizer.", tokenizer_card.name)
 
-    tokenizer = load_text_tokenizer(config.tokenizer)
+    tokenizer = load_text_tokenizer(tokenizer_card)
 
     log.info("Tokenizer loaded.")
 
@@ -247,19 +248,18 @@ def load_wav2vec2_asr_trainer(
 
         log.info("Dataset loaded.")
     else:
-        try:
-            path = Path(config.dataset)
-        except ValueError:
-            raise AssetNotFoundError(
-                config.dataset, f"An asset with the name '{config.dataset}' cannot be found."  # type: ignore[arg-type]
-            ) from None
+        dataset_path = asset_as_path(config.dataset)
 
-        dataset = GenericAsrDataset.from_path(path)
+        dataset = GenericAsrDataset.from_path(dataset_path)
 
     # Initialize the model
     try:
         model, model_config = create_model(
-            config.model_family, config.model_arch, config.model_config
+            config.model_family,
+            config.model_arch,
+            config.model_config,
+            device=META,
+            dtype=torch.float32,
         )
     except ValueError as ex:
         raise ValueError(

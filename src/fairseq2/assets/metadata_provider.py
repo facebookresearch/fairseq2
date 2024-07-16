@@ -120,7 +120,7 @@ class FileAssetMetadataProvider(AbstractAssetMetadataProvider):
                 if file.suffix != ".yaml" and file.suffix != ".yml":
                     continue
 
-                for name, metadata in _load_metadata_file(file):
+                for name, metadata in load_metadata_file(file):
                     if name in cache:
                         raise AssetMetadataError(
                             f"Two assets under the directory '{self._base_dir}' have the same name '{name}'."
@@ -159,7 +159,7 @@ class PackageAssetMetadataProvider(AbstractAssetMetadataProvider):
             if file.suffix != ".yaml" and file.suffix != ".yml":
                 continue
 
-            for name, metadata in _load_metadata_file(file):
+            for name, metadata in load_metadata_file(file):
                 if name in cache:
                     raise AssetMetadataError(
                         f"Two assets under the namespace package '{self._package_name}' have the same name '{name}'."
@@ -191,7 +191,8 @@ class PackageAssetMetadataProvider(AbstractAssetMetadataProvider):
         return files
 
 
-def _load_metadata_file(file: Path) -> List[Tuple[str, Dict[str, Any]]]:
+def load_metadata_file(file: Path) -> List[Tuple[str, Dict[str, Any]]]:
+    """Load asset metadata included in ``file``."""
     output = []
 
     try:

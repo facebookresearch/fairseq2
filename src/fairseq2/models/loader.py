@@ -4,7 +4,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from pathlib import Path
 from pickle import PickleError
 from typing import Any, Dict, Generic, Optional, Protocol, TypeVar, Union, final
 
@@ -20,7 +19,6 @@ from fairseq2.assets import (
     default_asset_store,
     default_download_manager,
 )
-from fairseq2.assets.utils import retrieve_asset_card
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.models.config_loader import ModelConfigLoader
@@ -53,7 +51,7 @@ class ModelLoader(Protocol[ModelT_co]):
 
     def __call__(
         self,
-        model_name_or_card: Union[str, AssetCard, Path],
+        model_name_or_card: Union[str, AssetCard],
         *,
         gangs: Optional[Dict[str, Gang]] = None,
         device: Optional[Device] = None,
@@ -63,8 +61,7 @@ class ModelLoader(Protocol[ModelT_co]):
     ) -> ModelT_co:
         """
         :param model_name_or_card:
-            The name, asset card, or path to the asset card file of the model to
-            load.
+            The name or the asset card of the model to load.
         :param gangs:
             The gangs over which to shard the model (e.g. for tensor or pipeline
             parallelism).
@@ -157,7 +154,7 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
     @final
     def __call__(
         self,
-        model_name_or_card: Union[str, AssetCard, Path],
+        model_name_or_card: Union[str, AssetCard],
         *,
         gangs: Optional[Dict[str, Gang]] = None,
         device: Optional[Device] = None,
@@ -165,7 +162,10 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         force: bool = False,
         progress: bool = True,
     ) -> ModelT:
-        card = retrieve_asset_card(model_name_or_card, self._asset_store)
+        if isinstance(model_name_or_card, AssetCard):
+            card = model_name_or_card
+        else:
+            card = self._asset_store.retrieve_card(model_name_or_card)
 
         # Retrieve the gang for tensor parallelism.
         gang = gangs.get("tp") if gangs is not None else None
@@ -339,7 +339,7 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
 
     def __call__(
         self,
-        model_name_or_card: Union[str, AssetCard, Path],
+        model_name_or_card: Union[str, AssetCard],
         *,
         gangs: Optional[Dict[str, Gang]] = None,
         device: Optional[Device] = None,
@@ -347,7 +347,10 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
         force: bool = False,
         progress: bool = True,
     ) -> ModelT:
-        card = retrieve_asset_card(model_name_or_card, self._asset_store)
+        if isinstance(model_name_or_card, AssetCard):
+            card = model_name_or_card
+        else:
+            card = self._asset_store.retrieve_card(model_name_or_card)
 
         family = card.field("model_family").as_(str)
 
@@ -383,9 +386,12 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
 
         self._loaders[family] = loader
 
-    def supports(self, model_name_or_card: Union[str, AssetCard, Path]) -> bool:
+    def supports(self, model_name_or_card: Union[str, AssetCard]) -> bool:
         """Return ``True`` if the specified model has a registered loader."""
-        card = retrieve_asset_card(model_name_or_card, self._asset_store)
+        if isinstance(model_name_or_card, AssetCard):
+            card = model_name_or_card
+        else:
+            card = self._asset_store.retrieve_card(model_name_or_card)
 
         family = card.field("model_family").as_(str)
 
