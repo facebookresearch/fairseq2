@@ -34,7 +34,7 @@ from fairseq2.models.seq2seq import Seq2SeqBatch, as_auto_regressive_input
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.recipes.common_metrics import Seq2SeqGenerationMetricBag, Seq2SeqMetricBag
 from fairseq2.recipes.evaluator import AbstractEvalUnit, Evaluator, EvalUnit
-from fairseq2.recipes.transformer.translate import (
+from fairseq2.recipes.mt.translate import (
     BeamSearchConfig,
     SamplingConfig,
     _create_sequence_generator,
@@ -53,8 +53,8 @@ log = get_log_writer(__name__)
 
 
 @dataclass
-class TransformerEvalConfig:
-    """Holds the configuration of a Transformer model evaluation task."""
+class MTEvalConfig:
+    """Holds the configuration of a machine translation evaluation task."""
 
     # Data
     dataset: Union[str, Path] = "foo"  # TODO: change!
@@ -107,20 +107,20 @@ class TransformerEvalConfig:
     """The random number generator seed to use."""
 
 
-transformer_eval_presets = ConfigRegistry[TransformerEvalConfig]()
+mt_eval_presets = ConfigRegistry[MTEvalConfig]()
 
-transformer_eval_preset = transformer_eval_presets.decorator
-
-
-@transformer_eval_preset("nllb_dense_600m")
-def _nllb_dense_600m() -> TransformerEvalConfig:
-    return TransformerEvalConfig()
+mt_eval_preset = mt_eval_presets.decorator
 
 
-def load_transformer_evaluator(
-    config: TransformerEvalConfig, output_dir: Path
+@mt_eval_preset("nllb_dense_600m")
+def _nllb_dense_600m() -> MTEvalConfig:
+    return MTEvalConfig()
+
+
+def load_mt_evaluator(
+    config: MTEvalConfig, output_dir: Path
 ) -> Evaluator[Seq2SeqBatch]:
-    """Load an :class:`Evaluator` for Transformer model evaluation."""
+    """Load an :class:`Evaluator` for machine translation evaluation."""
     wall_watch = Stopwatch(start=True)
 
     if config.checkpoint_dir is not None:
@@ -207,7 +207,7 @@ def load_transformer_evaluator(
 
     for direction in dataset.directions(config.split):
         # Loss Evaluation
-        loss_unit = TransformerLossEvalUnit(
+        loss_unit = MTLossEvalUnit(
             model,
             direction,
             gang,
@@ -231,7 +231,7 @@ def load_transformer_evaluator(
 
         data_readers.append(data_reader)
 
-        # BLEU Evaluation
+        # BLEU/chrF++ Evaluation
         src_output_file = output_dir.joinpath(
             f"translations/{direction}/rank_{gang.rank}.src.txt"
         )
@@ -272,7 +272,7 @@ def load_transformer_evaluator(
                 f"The output file '{hyp_output_file}' cannot be created. See nested exception for details."
             ) from ex
 
-        bleu_unit = TransformerBleuChrfEvalUnit(
+        bleu_unit = MTBleuChrfEvalUnit(
             direction,
             generator,
             tokenizer,
@@ -313,8 +313,8 @@ def load_transformer_evaluator(
 
 
 @final
-class TransformerLossEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
-    """Represents a Transformer model loss evaluation unit."""
+class MTLossEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
+    """Represents a machine translation loss evaluation unit."""
 
     _label_smoothing: float
     _metric_bag: Seq2SeqMetricBag
@@ -329,7 +329,7 @@ class TransformerLossEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
     ) -> None:
         """
         :param model:
-            The Transformer model. Might be wrapped with DDP or FSDP.
+            The encoder-decoder model. Might be wrapped with DDP or FSDP.
         :param direction:
             The language direction to evaluate.
         :param gang:
@@ -369,8 +369,8 @@ class TransformerLossEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
 
 
 @final
-class TransformerBleuChrfEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
-    """Represents a Transformer model BLEU/chrF++ evaluation unit."""
+class MTBleuChrfEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
+    """Represents a machine translation BLEU/chrF++ evaluation unit."""
 
     _converter: SequenceToTextConverter
     _src_output_stream: Optional[TextIO]
