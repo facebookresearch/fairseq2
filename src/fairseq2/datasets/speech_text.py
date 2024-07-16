@@ -81,10 +81,12 @@ class AlignSpeechTextDataset(SpeechTextDataset):
     """Represents a generic JSONL instruction dataset."""
     _data_dir: Path
     load_librispeech: bool=False
+    require_alignment: bool=True
 
-    def __init__(self, data_dir: Path, load_librispeech=False) -> None:
+    def __init__(self, data_dir: Path, load_librispeech=False, require_alignment=True) -> None:
         self._data_dir = data_dir
         self.load_librispeech = load_librispeech
+        self.require_alignment = require_alignment
 
 
     @override
@@ -162,51 +164,10 @@ class AlignSpeechTextDataset(SpeechTextDataset):
         # Wrap examples with `SequenceBatch`.
         def to_batch(example: Dict[str, Any]) -> SpeechTextAlignBatch:
             token_seqs, token_padding_mask = get_seqs_and_padding_mask(cast(SequenceData, example["text_tok"]), gang.device)
-            # if example["file_id"]["seq_lens"].max().item() % 640 == 0:
-            #     # if divisible by 640, the audio repr will be 1 length smaller, 
-            #     # so we manually append a padding token to avoid out-of-index error
-            #     tmp_pad = example["file_id"]["seqs"].new_full((example["file_id"]["seqs"].shape[0], 100), 1.0)
-            #     example["file_id"]["seqs"] = torch.cat((example["file_id"]["seqs"], tmp_pad), dim=1)
-            #     # example["file_id"]["seq_lens"] += 1
             audio_seqs, audio_padding_mask = get_seqs_and_padding_mask(cast(SequenceData, example["file_id"]), gang.device)
             audio_batch = SequenceBatch(audio_seqs, audio_padding_mask, example=example["file_id"])
             token_batch =  SequenceBatch(token_seqs, token_padding_mask, example=example["text_tok"])
-            
-            ################# prepare attention mask ######################
-            # repr_lens = torch.floor(example["file_id"]["seq_lens"] / 640).long()
-            # token_lens = example["text_tok"]["seq_lens"]
-            # max_seq_len = repr_lens.max().item()
-            
-            # batch_size = repr_lens.shape[0]
-            # attention_map = audio_seqs.new_full((max_seq_len, max_seq_len), 1).long()
-            # attention_map.tril_(diagonal=0)
-            # # bz x max_seq_len x max_seq_len
-            # # Note that we have to use repeat rather then expand to assign memory!!
-            # attention_map = attention_map.unsqueeze(0).repeat(batch_size, 1, 1)
-            # before_attn_time = time.time()
-
-            # for i in range(batch_size):
-            #     # print(boundary_index[i, :])
-            #     cur_repr_len = repr_lens[i]
-            #     if cur_repr_len < max_seq_len:
-            #         # this is actually not necessary since the padding mask inside self-attention will achieve the same thing
-            #         attention_map[i, :, cur_repr_len:] = 0
-                
-            #     cur_token_len = token_lens[i]
-            #     if boundary_index[i, cur_token_len-1] >= cur_repr_len - 1:
-            #         boundary_index[i, cur_token_len-1] = cur_repr_len - 1
-            #     # create blockwise masks
-            #     # TODO: optimize this code. this double for-loop is slow especially if number of boundary index is large
-            #     for boundary_id in range(cur_token_len):
-            #         boundary_column = boundary_index[i, boundary_id]
-            #         if boundary_column + 1 < max_seq_len:
-            #             # we could use :boundary_column + 1 as well, but I want it to be able to 
-            #             # attend to 1 more repr before in case of bad alignment
-            #             # we can also adjust this window size to allow for more lenient window
-            #             attention_map[i, boundary_column+1:, :boundary_column] = 0
-            # end_time = time.time()
-            # print(f"Batching before attn {before_attn_time-start_time}, after attn: {end_time-before_attn_time}")
-            boundary_index = example["alignment"]["seqs"] - 1
+            boundary_index = example["alignment"]["seqs"] - 1 if self.require_alignment else None
             return SpeechTextAlignBatch(
                 audios=audio_batch, 
                 text_tokens=token_batch, 
@@ -254,28 +215,35 @@ class AlignSpeechTextDataset(SpeechTextDataset):
                 wav = None
             return wav
         
-        def process_alignment(text_encoder, data):
+        def process_alignment(text_encoder, data, require_alignment):
             """
             retrieve tokens and alignment information from unity_duration
             prepare alignment array as well audios
             """
             if not self.load_librispeech:
                 del data["time"]
-            unity_toks, unity_duration = data["unity_toks"], data["unity_duration"]
-            # obtain the alignment btw tokenized text and the unity duration
-            alignment, filterd_toks = _retrieve_alignment(
-                tokenizer=text_encoder, 
-                unity_toks=unity_toks,
-                unity_duration=unity_duration,
-                text=data["text"], # already tokenized
-                audio_size=data["file_id"].shape[0] # audio is 1xseq_len
-            )
-            if alignment is None:
-                return None
+            if require_alignment:
+                unity_toks, unity_duration = data["unity_toks"], data["unity_duration"]
+                # obtain the alignment btw tokenized text and the unity duration
+                alignment, filterd_toks = _retrieve_alignment(
+                    tokenizer=text_encoder, 
+                    unity_toks=unity_toks,
+                    unity_duration=unity_duration,
+                    text=data["text"], # already tokenized
+                    audio_size=data["file_id"].shape[0] # audio is 1xseq_len
+                )
+                if alignment is None:
+                    return None
 
-            data["alignment"] = torch.tensor(alignment)
-            data["text_tok"] = torch.tensor(filterd_toks)
-            data["text"] = text_encoder.decode(filterd_toks)
+                data["alignment"] = torch.tensor(alignment)
+                data["text_tok"] = torch.tensor(filterd_toks)
+                data["text"] = text_encoder.decode(filterd_toks)
+            else:
+                text_tok = data["text"]
+                raw_text = text_encoder.decode(text_tok.tolist())
+                data["text_tok"] = text_tok
+                data["text"] = raw_text
+
             del data["unity_toks"]
             del data["unity_duration"]
             return data
@@ -295,7 +263,7 @@ class AlignSpeechTextDataset(SpeechTextDataset):
             # prev_time = time.time() 
             if wav is not None:
                 item["file_id"] = wav.squeeze(0)
-                item = process_alignment(text_encoder=text_encoder, data=item)
+                item = process_alignment(text_encoder=text_encoder, data=item, require_alignment=self.require_alignment)
                 if item is not None:
                     output_data.append(item)
             else:

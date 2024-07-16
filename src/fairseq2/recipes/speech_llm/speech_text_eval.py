@@ -201,10 +201,10 @@ def load_speech_text_evaluator(
 
     # Initialize the evaluator.
     return Evaluator[Seq2SeqBatch](
-        # units=[text_ppl_unit, wer_unit, ppl_unit],
-        # data_readers=[text_ppl_reader, wer_reader, ppl_reader],
-        units=[text_ppl_unit],
-        data_readers=[text_ppl_reader],
+        units=[text_ppl_unit, wer_unit, ppl_unit],
+        data_readers=[text_ppl_reader, wer_reader, ppl_reader],
+        # units=[text_ppl_unit],
+        # data_readers=[text_ppl_reader],
         root_gang=gang,
         tb_dir=output_dir.joinpath("tb"),
         metrics_dir=output_dir.joinpath("metrics"),

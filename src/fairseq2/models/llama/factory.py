@@ -13,13 +13,15 @@ from fairseq2.models.transformer import (
     TransformerEmbeddingFrontend,
     TransformerFrontend,
     init_final_projection,
-    SpeechTransformerDecoderModel
+    SpeechTransformerDecoderModel,
+    SpeechCIFTransformerDecoderModel
 )
 
 from fairseq2.nn import LayerNorm, Linear, RMSNorm, RotaryEncoder, StandardEmbedding
 from fairseq2.nn.lora import LoRAConfig
 from fairseq2.nn.transformer import (
     FeedForwardNetwork,
+    StandardFeedForwardNetwork,
     GLUFeedForwardNetwork,
     MultiheadAttention,
     StandardMultiheadAttention,
@@ -90,10 +92,11 @@ class LLaMAConfig:
 
     dropout_p: float = 0.1
     """The dropout probability on outputs of Transformer layers."""
-
+    speech_feature_dim: int = 768 # hard-coded for dinosr based encoder
     use_speech_decoder: bool = False
     speech_decoder_layers: int = 4
     freeze_text_llama: bool = False
+    use_cif: bool = False
     """The number of layer for the causal decoder for speech representation"""
 
 
@@ -176,7 +179,7 @@ class LLaMABuilder:
             device = torch.device("cuda") 
             speech_encoder = SemanticModel("dinosr_base", semantic_model_km_path, device)
             # map encoded speech (hard coded as 768) to model dimension
-            dim_adapter = Linear(768, self._config.model_dim, 
+            dim_adapter = Linear(self._config.speech_feature_dim, self._config.model_dim, 
                                  bias=False, 
                                  init_fn=init_final_projection,
                                  device=self._device,
@@ -188,7 +191,41 @@ class LLaMABuilder:
                 self._freeze_module(decoder_frontend)
                 self._freeze_module(decoder)
                 self._freeze_module(final_proj)
-                
+
+            if self._config.use_cif:
+                log.info("Adding CIF scorer component")
+                # we use a stack of two FFNs
+                cif_scorer = torch.nn.ModuleList(
+                    [StandardFeedForwardNetwork(
+                        self._config.speech_feature_dim, # speech feature dim
+                        2 * self._config.speech_feature_dim,
+                        bias=True,
+                        inner_dropout_p=self._config.dropout_p,
+                        device=self._device,
+                        dtype=self._dtype,
+                    ),
+                    StandardFeedForwardNetwork(
+                        self._config.speech_feature_dim, # speech feature dim
+                        2* self._config.speech_feature_dim,
+                        bias=True,
+                        inner_dropout_p=self._config.dropout_p,
+                        device=self._device,
+                        dtype=self._dtype,
+                        output_dim=1,
+                    )]
+                )
+
+                return SpeechCIFTransformerDecoderModel(
+                    decoder_frontend,
+                    decoder,
+                    final_proj,
+                    self._config.max_seq_len,
+                    self._config.vocab_info,
+                    speech_encoder,
+                    dim_adapter,
+                    speech_decoder,
+                    cif_scorer
+                )
             return SpeechTransformerDecoderModel(
                 decoder_frontend,
                 decoder,

@@ -46,6 +46,7 @@ def _retrieve_alignment(tokenizer, unity_toks, unity_duration, text, audio_size)
         cum_dur += dur
         dur_list.append(cum_dur)
     words_to_find = [tokenizer.decode([tok]).lstrip() for tok in text_toks]
+
     cur_idx = 0
     alignment = []
     found_word = []

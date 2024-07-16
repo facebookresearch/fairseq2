@@ -52,6 +52,7 @@ class MMLUBatch:
     audios: Optional[SequenceBatch] = None
     boundary_index: Optional[Tensor] = None
     speech_positions: Optional[Tensor] = None
+    text_seq_lens: Optional[Tensor] = None
 
 
 
@@ -123,7 +124,7 @@ class SpeechTextMMLUDataset(MMLUDataset):
                             tokenizer=tokenizer, 
                             dev_data=dev_data,
                             num_shots=num_shots),
-                            num_parallel_calls=1)
+                            num_parallel_calls=npc)
         
         def to_batch(example):
             mapping = {"A": 0, "B": 1, "C": 2, "D": 3}
@@ -131,6 +132,132 @@ class SpeechTextMMLUDataset(MMLUDataset):
             return MMLUBatch(input_tokens=example["input_tokens"].to(gang.device), 
                       output_tokens=example["output_tokens"].to(gang.device), 
                       answer=answr_index)
+        
+        pipeline = builder.map(to_batch).and_return()
+        return DataPipelineReader[MMLUBatch](
+            pipeline,
+            gang,
+            num_accumulate=num_accumulate,
+            drop_remainder=False,
+            sync_batches=True,
+        )
+    
+
+    def create_speech_data_reader(
+        self,
+        data_path,
+        tokenizer: TextTokenizer,
+        gang: Gang,
+        num_accumulate: int = 1,
+        num_prefetch: int = 1,
+        seed: int = 2,
+        num_shots: int= 0,
+    ):
+        builder = list_files(data_path, pattern="*test.jsonl")
+        # process text tokens and laod audios
+        builder.yield_from(partial(self._read_jsonl))
+        # Shard.
+        builder.shard(gang.rank, gang.size, allow_uneven=True)
+
+        seed += gang.rank
+
+        builder.map(partial(self.prepare_speech_prompt, 
+                            tokenizer=tokenizer),
+                            num_parallel_calls=npc)
+        
+        def to_batch(example):
+            mapping = {"A": 0, "B": 1, "C": 2, "D": 3}
+            answr_index = mapping[example["answer"]]
+            audio = example["audio"].repeat(4, 1).to(gang.device)
+            audio_seq_data = SequenceData(
+                seqs=audio,
+                is_ragged=False,
+                seq_lens=(torch.ones(4) * audio.shape[1]).long().to(gang.device)
+            )
+            audio_seqs, audio_padding_mask = get_seqs_and_padding_mask(audio_seq_data, gang.device)
+            audio_batch = SequenceBatch(audio_seqs, audio_padding_mask, example=audio_seq_data)
+            boundary_index = torch.tensor(example["alignment"]) - 1
+            boundary_index = boundary_index.unsqueeze(0).repeat(4, 1).to(gang.device)
+            text_seq_lens = (torch.ones(4) * example["prompt_lens"]).long().to(gang.device)
+            return MMLUBatch(
+                input_tokens=example["input_tokens"].to(gang.device), 
+                output_tokens=example["output_tokens"].to(gang.device), 
+                answer=answr_index,
+                audios=audio_batch,
+                boundary_index=boundary_index,
+                text_seq_lens=text_seq_lens
+            )
+        
+        pipeline = builder.map(to_batch).and_return()
+        return DataPipelineReader[MMLUBatch](
+            pipeline,
+            gang,
+            num_accumulate=num_accumulate,
+            drop_remainder=False,
+            sync_batches=True,
+        )
+    
+
+    def create_speech_text_data_reader(
+        self,
+        data_path,
+        tokenizer: TextTokenizer,
+        gang: Gang,
+        num_accumulate: int = 1,
+        num_prefetch: int = 1,
+        seed: int = 2,
+        num_shots: int= 0,
+    ):
+        dev_file = f"{data_path}/dev.jsonl"
+        if not os.path.isfile(dev_file):
+            # I forget to copy some of the dev to my dir, use original file
+            dev_file = dev_file.replace("/fsx-ust/steventan0110/dataset/dinosr_eval/cont_mmlu_tts", "/fsx-ust/steventan0110/dataset/dinosr_eval/mmlu")
+
+        dev_data = [] # list of dict
+        with open(dev_file, "r") as dev_f:
+            for line in dev_f:
+                jsonl_obj = json.loads(line)
+                dev_data.append(jsonl_obj)
+        
+        builder = list_files(data_path, pattern="*test.jsonl")
+        # process text tokens and laod audios
+        builder.yield_from(partial(self._read_jsonl))
+        # Shard.
+        builder.shard(gang.rank, gang.size, allow_uneven=True)
+
+        seed += gang.rank
+
+        builder.map(partial(self.prepare_speech_text_prompt, 
+                            tokenizer=tokenizer,
+                            dev_data=dev_data,
+                            num_shots=num_shots),
+                            num_parallel_calls=1,
+                            )
+        
+        def to_batch(example):
+            mapping = {"A": 0, "B": 1, "C": 2, "D": 3}
+            answr_index = mapping[example["answer"]]
+            audio = example["audio"].repeat(4, 1).to(gang.device)
+            audio_seq_data = SequenceData(
+                seqs=audio,
+                is_ragged=False,
+                seq_lens=(torch.ones(4) * audio.shape[1]).long().to(gang.device)
+            )
+            audio_seqs, audio_padding_mask = get_seqs_and_padding_mask(audio_seq_data, gang.device)
+            audio_batch = SequenceBatch(audio_seqs, audio_padding_mask, example=audio_seq_data)
+            boundary_index = torch.tensor(example["alignment"]) - 1
+            boundary_index = boundary_index.unsqueeze(0).repeat(4, 1).to(gang.device)
+            text_seq_lens = (torch.ones(4) * example["prompt_lens"]).long().to(gang.device)
+            speech_positions = example["speech_position"].unsqueeze(0).repeat(4, 1).to(gang.device)
+            return MMLUBatch(
+                input_tokens=example["input_tokens"].to(gang.device), 
+                output_tokens=example["output_tokens"].to(gang.device), 
+                answer=answr_index,
+                audios=audio_batch,
+                boundary_index=boundary_index,
+                text_seq_lens=text_seq_lens,
+                speech_positions=speech_positions
+            )
         
         pipeline = builder.map(to_batch).and_return()
         return DataPipelineReader[MMLUBatch](
@@ -166,12 +293,28 @@ class SpeechTextMMLUDataset(MMLUDataset):
                     num_accumulate,
                     num_prefetch,
                     seed,
-                    num_shots = 5 # hard-code to be consistent with spirit-lm baselines
+                    num_shots = 5# hard-code to be consistent with spirit-lm baselines
                 )
             elif mode == "speech":
-                pass
+                dataloader =  self.create_speech_data_reader(
+                    f"{self._data_dir}/{task}",
+                    tokenizer,
+                    gang,
+                    num_accumulate,
+                    num_prefetch,
+                    seed,
+                    num_shots = 0 # not supported as there are no waveforms
+                )
             elif mode == "speech_text":
-                pass
+                dataloader =  self.create_speech_text_data_reader(
+                    f"{self._data_dir}/{task}",
+                    tokenizer,
+                    gang,
+                    num_accumulate,
+                    num_prefetch,
+                    seed,
+                    num_shots = 0 # not supported as there are no waveforms
+                )
             else:
                 raise RuntimeError(f"{self.mode} not supported!")
             mmlu_dataloader_dict[task] = dataloader
@@ -180,12 +323,8 @@ class SpeechTextMMLUDataset(MMLUDataset):
 
     def _read_jsonl(self, path: str) -> DataPipeline:  
         def _remove_columns(data):
-            # del data["wav_path"]
             del data["hubert"]
             del data["prosody"]
-            del data["unity_toks"]
-            del data["unity_duration"]
-            del data["wav_path"]
             del data["dataset"]
             return data
         
@@ -241,80 +380,124 @@ class SpeechTextMMLUDataset(MMLUDataset):
         input_tokens = torch.tensor(all_inputs)
         output_tokens = torch.tensor(all_outputs)
         return {"input_tokens": input_tokens, "output_tokens": output_tokens, "answer": answer}
+    
 
-    def _process_alignment(self, input_data, tokenizer):
-        def obtain_audio_file(file_id):
-            if self.load_librispeech:
-                audio_file = file_id
-            else:
-                file_prefix = file_id.split("/")[-1]
-                subdirs = file_prefix.split("_")
-                audio_file = f"/datasets01/mls/mls_english/train/audio/{subdirs[0]}/{subdirs[1]}/{file_prefix}.flac"
-            # return audio_file
-            try:
-                wav, sr = torchaudio.load(audio_file)
-            except Exception:
-                wav = None
-            return wav
+    def prepare_speech_prompt(self, input_data, tokenizer):
+        text_tokenizer = tokenizer.create_encoder(mode="prompt")
+        # now append the actual question and answer and prepare masking
+        question = input_data["question"].replace("?", "")
+        choices = input_data["choices"]
+        answer = input_data["answer"]
+        choice_str =  " ".join([f"{l} {choices[l]}" for l in ["A", "B", "C", "D"]])
+        transcript = question.lower() + " " + choice_str.lower()
+        audio_path = input_data["wav_path"].replace("/data/users/yagaur/", "/fsx-onellm/benjaminmuller/speechlm/eval_dino/")
+        audio, _ = torchaudio.load(audio_path)
+
+        unity_toks, unity_duration = input_data["unity_toks"], input_data["unity_duration"]
+        # obtain the alignment btw tokenized text and the unity duration
+        alignment, filterd_toks = _retrieve_alignment(
+            tokenizer=tokenizer.create_encoder(mode="speech_text_align"), 
+            unity_toks=unity_toks,
+            unity_duration=unity_duration,
+            text=transcript, # already tokenized
+            audio_size=audio.shape[1] # audio is 1xseq_len
+        )
+        # find alignment btw transcript and audio
+        assert alignment is not None, input_data
+        decoder = tokenizer.create_decoder()
+        filtered_text = decoder(torch.tensor(filterd_toks))    
+        prompt_lens = len(filterd_toks)    
+        output_prompt = f"{filtered_text}\nThe answer is: "
+
+        all_inputs, all_outputs = [], []
+        for option in ["A", "B", "C", "D"]:
+            cur_full_text = f"{output_prompt}{option}"
+            input_seqs, output_seqs = self.get_input_output_tokens(cur_full_text, option, text_tokenizer)
+            all_inputs.append(input_seqs)
+            all_outputs.append(output_seqs)
+        input_tokens = torch.tensor(all_inputs)
+        output_tokens = torch.tensor(all_outputs)
+        return {
+            "input_tokens": input_tokens, 
+            "output_tokens": output_tokens, 
+            "answer": answer,
+            "audio": audio,
+            "alignment": alignment,
+            "prompt_lens": prompt_lens
+        }
+    
+    def prepare_speech_text_prompt(self, input_data, tokenizer, dev_data, num_shots):
+        text_tokenizer = tokenizer.create_encoder(mode="prompt")
+
+        demo = []
+        if num_shots > 0:
+            assert len(dev_data) >= num_shots, f"Num shots {num_shots} larger than the dev size"
+            for i in range(num_shots):
+                fewshot_example = dev_data[i]
+                question = fewshot_example["question"]
+                choices = fewshot_example["choices"]
+                answer = fewshot_example["answer"]
+                choice_str =  "\n".join([f"{l}. {choices[l]}" for l in ["A", "B", "C", "D"]])
+                cur_out = f"{question}\n{choice_str}\nAnswer: {answer}"
+                demo.append(cur_out)
+            demos = "\n".join(demo) + "\n"
+
+        # now append the actual question and answer and prepare masking
+        question = input_data["question"].replace("?", "")
+        choices = input_data["choices"]
+        answer = input_data["answer"]
+        choice_str =  "\n".join([f"{l}. {choices[l]}" for l in ["A", "B", "C", "D"]])
         
-        def process_alignment(text_encoder, data):
-            """
-            retrieve tokens and alignment information from unity_duration
-            prepare alignment array as well audios
-            """
-            if not self.load_librispeech:
-                del data["time"]
-            unity_toks, unity_duration = data["unity_toks"], data["unity_duration"]
-            # obtain the alignment btw tokenized text and the unity duration
-            alignment, filterd_toks = _retrieve_alignment(
-                tokenizer=text_encoder, 
-                unity_toks=unity_toks,
-                unity_duration=unity_duration,
-                text=data["text"], # already tokenized
-                audio_size=data["file_id"].shape[0] # audio is 1xseq_len
-            )
-            if alignment is None:
-                return None
+        audio_path = input_data["wav_path"].replace("/data/users/yagaur/", "/fsx-onellm/benjaminmuller/speechlm/eval_dino/")
+        audio, _ = torchaudio.load(audio_path)
 
-            data["alignment"] = torch.tensor(alignment)
-            data["text_tok"] = torch.tensor(filterd_toks)
-            data["text"] = text_encoder.decode(filterd_toks)
-            del data["unity_toks"]
-            del data["unity_duration"]
-            return data
-        # import time
-        # prev_time = time.time()
+        unity_toks, unity_duration = input_data["unity_toks"], input_data["unity_duration"]
+        # obtain the alignment btw tokenized text and the unity duration
+        alignment, filterd_toks = _retrieve_alignment(
+            tokenizer=tokenizer.create_encoder(mode="speech_text_align"), 
+            unity_toks=unity_toks,
+            unity_duration=unity_duration,
+            text=question.lower(), # only obtain the question part's audio
+            audio_size=audio.shape[1] # audio is 1xseq_len
+        )
+
+        # find alignment btw transcript and audio
+        assert alignment is not None, input_data
+        decoder = tokenizer.create_decoder()
+        filtered_text = decoder(torch.tensor(filterd_toks))    
+        prompt_lens = len(filterd_toks)    
+        output_prompt = f"{filtered_text}\n{choice_str}\nAnswer: "
+
+        prefix_len = 1 if num_shots == 0 else len(text_tokenizer(demos))
+        speech_position = torch.arange(prompt_lens) + prefix_len
+
+        all_inputs, all_outputs = [], []
+        for option in ["A", "B", "C", "D"]:
+            cur_full_text = f"{output_prompt}{option}" if num_shots == 0 else f"{demos}{output_prompt}{option}"
+            input_seqs, output_seqs = self.get_input_output_tokens(cur_full_text, option, text_tokenizer)
+            all_inputs.append(input_seqs)
+            all_outputs.append(output_seqs)
         
-        # print(input_data)
-        # audio_load_time, alignment_time = 0, 0
-        text_encoder = tokenizer.create_encoder(mode="speech_text_align")
-        output_data = []
-        for item in input_data:
-            if self.load_librispeech:
-                wav = obtain_audio_file(item["audio_file"])
-            else:
-                wav = obtain_audio_file(item["file_id"])
-            # audio_load_time += time.time() - prev_time
-            # prev_time = time.time() 
-            if wav is not None:
-                item["file_id"] = wav.squeeze(0)
-                item = process_alignment(text_encoder=text_encoder, data=item)
-                if item is not None:
-                    output_data.append(item)
-            else:
-                log.info("Audio file is corrupted and cannot be loaded")
-            # alignment_time += time.time() - prev_time
-            # prev_time = time.time()
-        if len(output_data) < 1:
-            log.error("No Valid Example in current bucket, error would occur")
-        # print(f'forloop load_time: {audio_load_time}, alignment time : {alignment_time}')
+        input_tokens = torch.tensor(all_inputs)
+        output_tokens = torch.tensor(all_outputs)
+        return {
+            "input_tokens": input_tokens, 
+            "output_tokens": output_tokens, 
+            "answer": answer,
+            "audio": audio,
+            "alignment": alignment,
+            "prompt_lens": prompt_lens,
+            "speech_position": speech_position
+        }
 
-        return output_data
+
+
+
 
 
     @override
     def splits(self) -> Set[str]:
-        return {"train"}
+        return {"test"}
 
 
 @final

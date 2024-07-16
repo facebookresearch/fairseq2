@@ -138,3 +138,22 @@ def _speech_llama3_8b() -> LLaMAConfig:
     config.speech_decoder_layers = 4
     return config
 
+
+
+@llama_arch("speech_llama3_cif_8b")
+def _speech_llama3_8b() -> LLaMAConfig:
+    config = _llama2_7b()
+    config.max_seq_len = 8192
+    config.vocab_info = VocabularyInfo(
+        size=128_256, unk_idx=None, bos_idx=128_000, eos_idx=128_001, pad_idx=None
+    )
+
+    config.num_key_value_heads = 8
+    config.ffn_inner_dim = int(4096 * 4 * 1.3)
+    config.ffn_inner_dim_to_multiple = 1024
+    config.rope_theta = 500_000.0
+    config.use_speech_decoder = True
+    config.freeze_text_llama = True
+    config.speech_decoder_layers = 4
+    config.use_cif = True
+    return config

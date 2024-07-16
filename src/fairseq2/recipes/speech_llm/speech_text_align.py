@@ -170,6 +170,7 @@ class SpeechTextAlignConfig:
     """If ``True``, turns on anomaly detection feature in ``torch.autograd``."""
     validate_after_n_steps: int = 1
     validate_every_n_steps: int = 1000
+    prepare_alignment: bool = True
 
 
 speech_text_presets = ConfigRegistry[SpeechTextAlignConfig]()
@@ -192,6 +193,25 @@ def _llama3_8b_instruct() -> SpeechTextAlignConfig:
     config.validate_every_n_steps=1000
     config.max_gradient_norm = 5
     config.gradient_accumulation = 1
+    return config
+
+
+@speech_text_preset("llama3_8b_speech_text_align_cif")
+def _llama3_8b_instruct() -> SpeechTextAlignConfig:
+    config =SpeechTextAlignConfig()
+    config.data_parallelism = "ddp"
+    config.max_seq_len = 512
+    config.max_num_tokens = 512
+    config.num_prefetch = 6
+    config.lr = 1e-4
+    config.num_lr_warmup_steps = 2000
+    config.checkpoint_every_n_steps = 2000
+    config.keep_every_N_checkpoints = 10000 # otherwise only 2 checkpoints will be kept
+    config.validate_every_n_steps=1000
+    config.max_gradient_norm = 5
+    config.gradient_accumulation = 4
+    config.model = "speech_llama3_cif_8b"
+    config.prepare_alignment = False # normal CIF does not require alignment unless we do regularization
     return config
 
 
@@ -238,6 +258,8 @@ def load_speech_text_trainer(
     dataset_card = retrieve_asset_card(config.dataset)
     dataset = load_speech_text_dataset(dataset_card)
     log.info("Train Dataset {} loaded.", dataset_card.name)
+    # CIF-based training could disable alignment and speedup dataloading
+    dataset.require_alignment = config.prepare_alignment
 
     val_dataset_card = retrieve_asset_card(config.val_dataset)
     val_dataset = load_speech_text_dataset(val_dataset_card)
@@ -404,15 +426,19 @@ class SpeechTextAlignUnit(AbstractTrainUnit[SpeechTextAlignBatch]):
     def __call__(self, batch: SpeechTextAlignBatch) -> Tuple[Tensor, int]:
         output = self._forward(batch)
         loss = output.compute_loss()
+
         self._metric_bag.update_loss(
             mse_loss=loss["mse_loss"].item(), 
             cosine_loss=loss["cosine_sim_loss"].item(), 
+            quantity_loss=loss["quantity_loss"].item(),
             num_target_elements=loss["target_size"])
 
         self._metric_bag.update_batch_metrics(batch.text_tokens)
         # aggreagte mse and cosine loss, use hard coded weight for now
         cosine_loss_weight = 5
         loss_to_return = loss["mse_loss"] + cosine_loss_weight * loss["cosine_sim_loss"]
+        if output.quantity_loss is not None:
+            loss_to_return += 0.1 * output.quantity_loss
         return loss_to_return, loss["target_size"]
     
     def _forward(self, batch: SpeechTextAlignBatch) -> SpeechTextReprOutput:

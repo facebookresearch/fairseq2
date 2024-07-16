@@ -36,10 +36,11 @@ from fairseq2.nn.transformer import (
 from fairseq2.typing import override
 from fairseq2.datasets.speech_text import SpeechTextAlignBatch
 from fairseq2.models.sequence import SequenceBatch
+from fairseq2.models.transformer.cif import cif_function
 import pdb
 
 @final
-class SpeechTransformerDecoderModel(DecoderModel):
+class SpeechCIFTransformerDecoderModel(DecoderModel):
     """Represents a Transformer-based decoder model."""
 
     decoder_frontend: TransformerFrontend
@@ -56,6 +57,7 @@ class SpeechTransformerDecoderModel(DecoderModel):
         speech_encoder = None,
         speech_dim_adapter = None,
         speech_decoder = None,
+        cif_scorer = None,
     ) -> None:
         """
         :param decoder_frontend:
@@ -75,67 +77,54 @@ class SpeechTransformerDecoderModel(DecoderModel):
         self.speech_encoder = speech_encoder # is frozen
         self.speech_dim_adapter = speech_dim_adapter
         self.speech_decoder = speech_decoder
+        self.cif_scorer = cif_scorer
         self.final_proj = final_proj # from llama3
 
-
-
-    @staticmethod
-    def prepare_blockwise_attention_mask(audio_repr, audio_seq_lens, token_lens, boundary_index):  
-        repr_lens = torch.floor(audio_seq_lens / 640).long().to(audio_repr.device)
-        if repr_lens.max().item() > audio_repr.shape[1]:
-            repr_lens[repr_lens == repr_lens.max().item()] = audio_repr.shape[1]
-            # print("Audio shorter than its precomputed repr len, reshape repr len")
-            # print(repr_lens, audio_repr.shape[1])
-        audio_repr_padding_mask = PaddingMask(repr_lens, batch_seq_len=audio_repr.shape[1])
-
-        max_seq_len = audio_repr.shape[1]
-        batch_size = repr_lens.shape[0]
-        attention_map = audio_repr.new_full((max_seq_len, max_seq_len), 1).long()
-        attention_map.tril_(diagonal=0)
-        # bz x max_seq_len x max_seq_len
-        # Note that we have to use repeat rather then expand to assign memory!!
-        attention_map = attention_map.unsqueeze(0).repeat(batch_size, 1, 1)
-        for i in range(batch_size):
-            # print(boundary_index[i, :])
-            cur_repr_len = repr_lens[i]
-            if cur_repr_len < max_seq_len:
-                # this is actually not necessary since the padding mask inside self-attention will achieve the same thing
-                attention_map[i, :, cur_repr_len:] = 0
-            
-            cur_token_len = token_lens[i]
-            if boundary_index[i, cur_token_len-1] > cur_repr_len - 1:
-                boundary_index[i, cur_token_len-1] = cur_repr_len - 1
-            # create blockwise masks
-            # TODO: optimize this code. this double for-loop is slow especially if number of boundary index is large
-            for boundary_id in range(cur_token_len):
-                boundary_column = boundary_index[i, boundary_id]
-                if boundary_column + 1 < cur_repr_len:
-                    # we could use :boundary_column + 1 as well, but I want it to be able to 
-                    # attend to 1 more repr before in case of bad alignment
-                    # we can also adjust this window size to allow for more lenient window
-                    attention_map[i, boundary_column+1:, :boundary_column] = 0
-        return attention_map, audio_repr_padding_mask, boundary_index
 
  
     @override
     def forward(self, audio: SequenceBatch, text_token: SequenceBatch, boundary_index: Tensor) -> SpeechTextReprOutput:
         audio_repr = self.speech_encoder(audio).detach() # ensure that no gradient flows back to dinosr encoder
         audio_repr = audio_repr.to(torch.bfloat16)  
-        audio_repr = self.speech_dim_adapter(audio_repr)
-        
-        blockwise_attn_mask, audio_repr_padding_mask, boundary_index = self.prepare_blockwise_attention_mask(
-            audio_repr, audio.example["seq_lens"], text_token.example["seq_lens"], boundary_index)
-        audio_repr, audio_repr_padding_mask = self.speech_decoder(
-            audio_repr, audio_repr_padding_mask, blockwise_attn_mask=blockwise_attn_mask)
 
-        selected_repr = audio_repr[torch.arange(audio_repr.shape[0]).to(audio_repr.device).unsqueeze(1), boundary_index, :]
-        # compute loss against dtext_embedding
+        # compute scores for CIF aggregation
+        repr_for_score = audio_repr
+        for scorer in self.cif_scorer:
+            repr_for_score = scorer(repr_for_score)
+        alphas = torch.sigmoid(repr_for_score).squeeze(-1)
+
+        audio_repr = self.speech_dim_adapter(audio_repr)
+        audio_seq_lens =  audio.example["seq_lens"]
+        repr_lens = torch.floor(audio_seq_lens / 640).long().to(audio_repr.device)
+        if repr_lens.max().item() > audio_repr.shape[1]:
+            repr_lens[repr_lens == repr_lens.max().item()] = audio_repr.shape[1]
+        audio_repr_padding_mask = PaddingMask(repr_lens, batch_seq_len=audio_repr.shape[1])
+        audio_repr, audio_repr_padding_mask = self.speech_decoder(
+            audio_repr, audio_repr_padding_mask)
+
+        # aggregate audio_repr with scores
+        text_lens = text_token.example["seq_lens"].to(audio_repr.device)
+        padding_mask_for_cif = ~audio_repr_padding_mask.materialize()
+        cif_out = cif_function(
+            inputs=audio_repr,
+            alpha=alphas,
+            target_lengths=text_lens,
+            padding_mask=padding_mask_for_cif,
+            beta=1.0
+        )
+        agg_audio_repr = cif_out["cif_out"][0]
+        alphas = alphas.masked_fill(padding_mask_for_cif, 0.0)
+
+        quantity_loss = (alphas.sum(dim=1) - text_lens) ** 2
+        quantity_loss = quantity_loss.mean()
+
         text_seqs, text_mask = text_token.seqs, text_token.padding_mask
         text_embed, _= self.decoder_frontend(text_seqs, text_mask, return_raw_embed=True)
         return SpeechTextReprOutput(
-            speech_repr=selected_repr, 
+            speech_repr=agg_audio_repr, 
             text_repr=text_embed, 
             mask=text_mask,
+            quantity_loss=quantity_loss
         )
     
 
@@ -262,10 +251,8 @@ class SpeechTransformerDecoderModel(DecoderModel):
 
 
 # mypy: disable-error-code="arg-type"
-
-
 def shard_transformer_decoder_model(
-    model: SpeechTransformerDecoderModel, gang: Gang, shard_embed_dim: bool = False
+    model: SpeechCIFTransformerDecoderModel, gang: Gang, shard_embed_dim: bool = False
 ) -> None:
     """Shard ``model`` over ``gang`` for tensor parallelism.
 

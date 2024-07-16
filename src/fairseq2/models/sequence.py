@@ -215,6 +215,7 @@ class SpeechTextReprOutput:
     speech_repr: Tensor
     text_repr: Tensor
     mask: PaddingMask
+    quantity_loss: Optional[Tensor] = None
     mse_loss_fn = nn.MSELoss(reduce=None, reduction="none")
 
     def compute_loss(self, embed_table=None, text_tokens=None, compute_acc=False) -> Dict[Tensor]:
@@ -252,7 +253,8 @@ class SpeechTextReprOutput:
             "mse_loss": mse_loss, 
             "cosine_sim_loss": cosine_sim_loss, 
             "acc": acc,
-            "target_size": num_elements
+            "target_size": num_elements,
+            "quantity_loss": self.quantity_loss,
         }
         return out
     

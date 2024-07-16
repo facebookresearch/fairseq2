@@ -74,6 +74,7 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         layer_norm_factory: Optional[LayerNormFactory] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
+        output_dim: Optional[int] = None
     ) -> None:
         """
         :param model_dim:
@@ -116,9 +117,11 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
             )
         else:
             self.register_module("inner_layer_norm", None)
-
+     
         self.output_proj = Linear(
-            inner_dim, model_dim, bias, device=device, dtype=dtype
+            inner_dim, 
+            output_dim if output_dim is not None else model_dim, 
+            bias, device=device, dtype=dtype
         )
 
     @override

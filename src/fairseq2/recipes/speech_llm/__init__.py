@@ -13,7 +13,7 @@ from fairseq2.recipes.speech_llm.speech_text_align import speech_text_presets, l
 
 def _setup_speech_llm_cli(cli: Cli) -> None:
     group = cli.add_group("speech_llm", help="Speech LLM modality-fusion recipes")
-    # Instruction Finetune
+    ########################### Stage 1: Speech to text Alignment Learning ##########################
     representation_align_pretrain_handler = RecipeCommandHandler(
         loader=load_speech_text_trainer,
         preset_configs=speech_text_presets,
@@ -26,7 +26,22 @@ def _setup_speech_llm_cli(cli: Cli) -> None:
         help="align speech to text repr with pre-computed alignment",
     )
 
-    # Eval
+    cif_representation_align_pretrain_handler = RecipeCommandHandler(
+        loader=load_speech_text_trainer,
+        preset_configs=speech_text_presets,
+        default_preset="llama3_8b_speech_text_align_cif",
+    )
+
+    group.add_command(
+        name="speech_text_cif_align",
+        handler=cif_representation_align_pretrain_handler,
+        help="align speech to text repr with CIF",
+    )
+
+
+
+
+    ########################### PPL, Similarity, ACC Eval ##########################
     eval_handler = RecipeCommandHandler(
         loader=load_speech_text_evaluator,
         preset_configs=speech_text_eval_presets,
@@ -39,7 +54,7 @@ def _setup_speech_llm_cli(cli: Cli) -> None:
         help="evaluate the trained Speech-Text alignment Model",
     )
 
-    # MMLU evaluation (Speech and Text version)
+    ########################## MMLU evaluation (Speech and Text version) ##########################
     mmlu_eval_handler = RecipeCommandHandler(
         loader=load_mmlu_evaluator,
         preset_configs=mmlu_eval_presets,

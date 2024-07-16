@@ -156,10 +156,21 @@ def load_mmlu_evaluator(
         mode="speech"
     )
 
-    for item in speech_dataset_reader["management"]:
-        print(item)
-        exit(0)
-        
+    speech_text_dataset_reader = dataset.create_reader(
+        tokenizer,
+        gang,
+        num_prefetch=config.num_prefetch,
+        seed=config.seed,
+        mode="speech_text"
+    )
+    # for item in speech_text_dataset_reader["management"]:
+    #     print(item)
+    #     exit(0)
+
+    # for item in speech_dataset_reader["management"]:
+    #     print(item)
+    #     exit(0)
+
     # Load the model.
     log.info("Loading {} model on rank 0.", model_card.name)
 
@@ -191,8 +202,8 @@ def load_mmlu_evaluator(
     speech_unit = SpeechMMLUEval(model, gang, task_to_eval, display_name=f"speech_mmlu_{task_to_eval}")
     # Initialize the evaluator.
     return Evaluator[Seq2SeqBatch](
-        units=[speech_unit, text_unit],
-        data_readers=[speech_dataset_reader[task_to_eval], text_dataset_reader[task_to_eval]],
+        units=[speech_unit, speech_unit],
+        data_readers=[speech_dataset_reader[task_to_eval], speech_text_dataset_reader[task_to_eval]],
         root_gang=gang,
         tb_dir=output_dir.joinpath("tb"),
         metrics_dir=output_dir.joinpath("metrics"),
@@ -253,22 +264,20 @@ class SpeechMMLUEval(AbstractEvalUnit[MMLUBatch]):
     @override
     def __call__(self, batch: MMLUBatch) -> Tuple[Tensor, int]:
         output = self._forward(batch)
-        nll, num_elements = output.compute_loss()
-        self._metric_bag.update_nll(nll, num_elements)
-        self._metric_bag.update_batch_metrics(batch.text_tokens)
+        nll, acc = output.compute_acc(batch.answer)
+        self._metric_bag.update_nll(acc, nll)
        
 
     @torch.inference_mode()
     def _forward(self, batch: MMLUBatch) -> SpeechTextPPLOutput:
-        input_seqs, output_seqs, target_mask, padding_mask = self.get_input_output_texts(batch, self.bos_id)
-        return self._model.forward_nll(
+        # print(batch)
+        return self._model.forward_nll_mmlu(
             batch.audios,
-            batch.text_tokens,
             batch.boundary_index, 
-            input_seqs, 
-            output_seqs, 
-            target_mask,
-            padding_mask
+            batch.text_seq_lens,
+            batch.input_tokens,
+            batch.output_tokens,
+            batch.speech_positions
         )
 
     @property
