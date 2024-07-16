@@ -33,7 +33,7 @@ from torch.nn import Module
 from fairseq2.assets.metadata_provider import (
     AbstractAssetMetadataProvider,
     AssetMetadataError,
-    _load_metadata_file,
+    load_metadata_file,
 )
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
@@ -730,7 +730,7 @@ class CheckpointModelMetadataProvider(AbstractAssetMetadataProvider):
                 f"The checkpoint model metadata (model.yaml) cannot be found under {self._checkpoint_dir}. Make sure that the specified directory is the *base* checkpoint directory used during training (i.e. directory passed to `FileCheckpointManager.save_model_metadata()`)."
             )
 
-        cache = dict(_load_metadata_file(metadata_file))
+        cache = dict(load_metadata_file(metadata_file))
 
         try:
             metadata = cache["checkpoint@"]
