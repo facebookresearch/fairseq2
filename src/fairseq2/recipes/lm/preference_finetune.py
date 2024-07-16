@@ -9,7 +9,6 @@ import torch.distributed
 from torch.nn import Module
 
 from fairseq2.assets import AssetNotFoundError, default_asset_store
-from fairseq2.recipes.utils.asset import retrieve_asset_card
 from fairseq2.checkpoint import CheckpointModelMetadataProvider, FileCheckpointManager
 from fairseq2.data.text import load_text_tokenizer
 from fairseq2.datasets import LengthBatching
@@ -26,8 +25,9 @@ from fairseq2.nn.transformer import enable_memory_efficient_torch_sdpa
 from fairseq2.nn.utils.module import freeze_parameters
 from fairseq2.optim import AdamW
 from fairseq2.optim.lr_scheduler import CosineAnnealingLR
-from fairseq2.recipes.lm.dpo_finetune import DpoFinetuneUnit
+from fairseq2.recipes.lm.dpo_finetune import DpoFinetuneConfig, DpoFinetuneUnit
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
+from fairseq2.recipes.utils.asset import retrieve_asset_card
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.recipes.utils.setup import compile_model, setup_gangs, to_data_parallel
 from fairseq2.typing import META, DataType
@@ -337,7 +337,7 @@ def load_preference_finetuner(
     ) -> AbstractTrainUnit[PreferenceOptimizationBatch]:
         # TODO: setup registers for TrainUnits to replace this
         if config.criterion_type == "dpo":
-            # assert config is a DpoFinetuneConfig
+            assert type(config) is DpoFinetuneConfig  # TODO: better way to do this?
             return DpoFinetuneUnit(
                 dp_model, dp_reference_model, dp_gang, config.dpo_beta, config.nll_scale
             )

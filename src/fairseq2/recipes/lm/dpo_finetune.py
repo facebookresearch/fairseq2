@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Tuple, cast, final
+from typing import Tuple, Union, cast, final
 
 import torch
 import torch.distributed
@@ -78,13 +78,16 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
     def __init__(
         self,
         model: Module,
-        reference_model: Module,
+        reference_model: Union[Module | None],
         gang: Gang,
         beta=0.1,
         nll_scale=1.0,
     ) -> None:
         super().__init__(model)
 
+        assert (
+            reference_model is not None
+        )  # is this the best way to asset this? Is there an error already built for this?
         self._reference_model = reference_model
         self._beta = beta
         self._nll_scale = nll_scale
