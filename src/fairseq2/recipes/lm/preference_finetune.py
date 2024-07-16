@@ -9,7 +9,7 @@ import torch.distributed
 from torch.nn import Module
 
 from fairseq2.assets import AssetNotFoundError, default_asset_store
-from fairseq2.assets.utils import retrieve_asset_card
+from fairseq2.recipes.utils.asset import retrieve_asset_card
 from fairseq2.checkpoint import CheckpointModelMetadataProvider, FileCheckpointManager
 from fairseq2.data.text import load_text_tokenizer
 from fairseq2.datasets import LengthBatching
