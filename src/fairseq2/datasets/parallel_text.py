@@ -386,14 +386,14 @@ class GenericParallelTextDataset(ParallelTextDataset):
         builder.map(encode, num_parallel_calls=npc)
 
         if isinstance(batching, LengthBatching):
-            # Bucket by the length of the source or target sequence. The longer
-            # one will be considered the length of the example.
             bucket_sizes = create_bucket_sizes(
                 max_seq_len=max_seq_len,
                 min_seq_len=min_seq_len,
                 max_num_elements=batching.max_num_elements,
             )
 
+            # Bucket by the length of the source or target sequence. The longer
+            # one will be considered the length of the example.
             builder.bucket_by_length(
                 bucket_sizes,
                 selector="source_indices,target_indices",
@@ -444,7 +444,7 @@ class GenericParallelTextDataset(ParallelTextDataset):
             gang,
             num_accumulate=num_accumulate,
             drop_remainder=False,
-            sync_batches=not static_batching and sync_batches,
+            sync_batches=sync_batches,
         )
 
     def _read_direction(self, split: str, direction: Direction) -> DataPipelineBuilder:
