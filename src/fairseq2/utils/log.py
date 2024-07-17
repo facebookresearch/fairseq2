@@ -12,7 +12,7 @@ from contextlib import contextmanager
 from logging import Logger
 from pathlib import Path
 from signal import SIG_DFL, SIGINT, raise_signal, signal
-from typing import Generator, Optional, Union
+from typing import Iterator, Optional, Union
 
 import fairseq2n
 import psutil
@@ -28,7 +28,7 @@ from fairseq2.utils.dataclass import dump_dataclass
 
 
 @contextmanager
-def exception_logger(log: LogWriter) -> Generator[None, None, None]:
+def exception_logger(log: LogWriter) -> Iterator[None]:
     """Log exceptions and CUDA OOM errors raised within the context."""
     try:
         yield
