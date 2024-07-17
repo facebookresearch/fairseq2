@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.assets.metadata_provider &mdash; fairseq2 0.3.0.dev202407150143+ga662709 documentation</title>
+  <title>fairseq2.assets.metadata_provider &mdash; fairseq2 0.3.0.dev202407171539+g9cf68cf documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202407150143+ga662709
+                0.3.0.dev202407171539+g9cf68cf
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -216,7 +216,7 @@
         <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">AssetNotFoundError</span><span class="p">(</span>
                 <span class="n">name</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;An asset with the name &#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; cannot be found.&quot;</span>
-            <span class="p">)</span>
+            <span class="p">)</span> <span class="kn">from</span> <span class="kc">None</span>
 
     <span class="nd">@final</span>
     <span class="nd">@override</span>
@@ -278,7 +278,7 @@
                 <span class="k">if</span> <span class="n">file</span><span class="o">.</span><span class="n">suffix</span> <span class="o">!=</span> <span class="s2">&quot;.yaml&quot;</span> <span class="ow">and</span> <span class="n">file</span><span class="o">.</span><span class="n">suffix</span> <span class="o">!=</span> <span class="s2">&quot;.yml&quot;</span><span class="p">:</span>
                     <span class="k">continue</span>
 
-                <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">metadata</span> <span class="ow">in</span> <span class="n">_load_metadata_file</span><span class="p">(</span><span class="n">file</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">metadata</span> <span class="ow">in</span> <span class="n">load_metadata_file</span><span class="p">(</span><span class="n">file</span><span class="p">):</span>
                     <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">cache</span><span class="p">:</span>
                         <span class="k">raise</span> <span class="n">AssetMetadataError</span><span class="p">(</span>
                             <span class="sa">f</span><span class="s2">&quot;Two assets under the directory &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_base_dir</span><span class="si">}</span><span class="s2">&#39; have the same name &#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
@@ -317,7 +317,7 @@
             <span class="k">if</span> <span class="n">file</span><span class="o">.</span><span class="n">suffix</span> <span class="o">!=</span> <span class="s2">&quot;.yaml&quot;</span> <span class="ow">and</span> <span class="n">file</span><span class="o">.</span><span class="n">suffix</span> <span class="o">!=</span> <span class="s2">&quot;.yml&quot;</span><span class="p">:</span>
                 <span class="k">continue</span>
 
-            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">metadata</span> <span class="ow">in</span> <span class="n">_load_metadata_file</span><span class="p">(</span><span class="n">file</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">metadata</span> <span class="ow">in</span> <span class="n">load_metadata_file</span><span class="p">(</span><span class="n">file</span><span class="p">):</span>
                 <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">cache</span><span class="p">:</span>
                     <span class="k">raise</span> <span class="n">AssetMetadataError</span><span class="p">(</span>
                         <span class="sa">f</span><span class="s2">&quot;Two assets under the namespace package &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_package_name</span><span class="si">}</span><span class="s2">&#39; have the same name &#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
@@ -349,7 +349,8 @@
         <span class="k">return</span> <span class="n">files</span>
 
 
-<span class="k">def</span> <span class="nf">_load_metadata_file</span><span class="p">(</span><span class="n">file</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]]:</span>
+<span class="k">def</span> <span class="nf">load_metadata_file</span><span class="p">(</span><span class="n">file</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load asset metadata included in ``file``.&quot;&quot;&quot;</span>
     <span class="n">output</span> <span class="o">=</span> <span class="p">[]</span>
 
     <span class="k">try</span><span class="p">:</span>
@@ -378,7 +379,7 @@
             <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="n">AssetMetadataError</span><span class="p">(</span>
                     <span class="sa">f</span><span class="s2">&quot;The asset metadata at index </span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s2"> in </span><span class="si">{</span><span class="n">file</span><span class="si">}</span><span class="s2"> does not have a name entry.&quot;</span>
-                <span class="p">)</span>
+                <span class="p">)</span> <span class="kn">from</span> <span class="kc">None</span>
 
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">canonical_name</span> <span class="o">=</span> <span class="n">_canonicalize_name</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
@@ -418,7 +419,7 @@
             <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="n">AssetMetadataError</span><span class="p">(</span>
                     <span class="sa">f</span><span class="s2">&quot;The asset metadata at index </span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s2"> in `metadata` does not have a name entry.&quot;</span>
-                <span class="p">)</span>
+                <span class="p">)</span> <span class="kn">from</span> <span class="kc">None</span>
 
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">canonical_name</span> <span class="o">=</span> <span class="n">_canonicalize_name</span><span class="p">(</span><span class="n">name_</span><span class="p">)</span>
@@ -443,7 +444,7 @@
         <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">AssetNotFoundError</span><span class="p">(</span>
                 <span class="n">name</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;An asset with the name &#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; cannot be found.&quot;</span>
-            <span class="p">)</span>
+            <span class="p">)</span> <span class="kn">from</span> <span class="kc">None</span>
 
     <span class="nd">@override</span>
     <span class="k">def</span> <span class="nf">get_names</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
