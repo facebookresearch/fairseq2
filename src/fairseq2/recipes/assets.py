@@ -90,9 +90,14 @@ class ListAssetsCommand(CliCommandHandler):
         names = self._asset_store.retrieve_names(scope="user" if user else "global")
 
         for name in names:
-            card = self._asset_store.retrieve_card(
-                name, scope="all" if user else "global"
-            )
+            try:
+                card = self._asset_store.retrieve_card(
+                    name, scope="all" if user else "global"
+                )
+            except AssetNotFoundError:
+                log.warning("The asset '{}' has an invalid card. Skipping.", name)
+
+                continue
 
             if name[-1] == "@":
                 name = name[:-1]
