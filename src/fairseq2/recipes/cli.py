@@ -11,7 +11,18 @@ from abc import ABC, abstractmethod
 from argparse import OPTIONAL, ArgumentParser, Namespace
 from copy import deepcopy
 from pathlib import Path
-from typing import Callable, Dict, Generic, Optional, Protocol, TypeVar, final
+from signal import SIGUSR1, signal
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generic,
+    Optional,
+    Protocol,
+    TypeVar,
+    final,
+    runtime_checkable,
+)
 
 import yaml
 from rich.console import Console
@@ -381,6 +392,14 @@ class CliCommandHandler(ABC):
         """Run the command."""
 
 
+@runtime_checkable
+class Stoppable(Protocol):
+    """Represents a task that supports graceful stopping."""
+
+    def request_stop(self) -> None:
+        ...
+
+
 RecipeConfigT = TypeVar("RecipeConfigT", bound=DataClass)
 
 RecipeConfigT_contra = TypeVar(
@@ -657,5 +676,15 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
 
         # Load and run the recipe.
         recipe = self._loader(config, output_dir)
+
+        # If the recipe is stoppable, use SIGUSR1 as the stop signal.
+        if isinstance(recipe, Stoppable):
+
+            def request_stop(signum: int, frame: Any) -> None:
+                log.info("SIGUSR1 received. Requesting recipe to stop.")
+
+                recipe.request_stop()
+
+            signal(SIGUSR1, request_stop)
 
         recipe()

@@ -59,7 +59,7 @@ class TextGenerateConfig:
     """The maximum sequence length."""
 
     batch_size: int = 1
-    """The input batch size."""
+    """The number of prompts per batch."""
 
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
@@ -346,6 +346,7 @@ def load_text_generator(
         dp_gang,
         config.max_seq_len,
         batching=StaticBatching(config.batch_size),
+        sync_batches=False,
         num_prefetch=config.num_prefetch,
         seed=seed,
     )

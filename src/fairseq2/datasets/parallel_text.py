@@ -72,6 +72,8 @@ class ParallelTextDataset(ABC):
         sample: bool = False,
         example_shuffle_window: int = 1,
         batch_shuffle_window: int = 1,
+        drop_remainder: bool = False,
+        sync_batches: bool = True,
         max_num_batches: Optional[int] = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
@@ -106,6 +108,15 @@ class ParallelTextDataset(ABC):
             The size of the sliding window for shuffling batches. If ``1``, no
             shuffling is performed; if ``0``, true shuffling is performed by
             loading the entire dataset.
+        :param drop_remainder:
+            If ``True``, drops the last set of batches if they have in total
+            fewer examples than requested.
+        :param sync_batches:
+            If ``True``, ensures that each process in ``gang`` reads the same
+            number of batches. Typically used when the amount of data to be read
+            can vary per process (e.g. due to unbalanced sharding or non-static
+            batching) and it is critical for each process to iterate over the
+            same number of batches (e.g. during training).
         :param max_num_batches:
             The maximum number of batches to return.
         :param num_accumulate:
@@ -284,6 +295,8 @@ class GenericParallelTextDataset(ParallelTextDataset):
         sample: bool = False,
         example_shuffle_window: int = 1,
         batch_shuffle_window: int = 1,
+        drop_remainder: bool = False,
+        sync_batches: bool = True,
         max_num_batches: Optional[int] = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
@@ -350,7 +363,12 @@ class GenericParallelTextDataset(ParallelTextDataset):
         static_batching = isinstance(batching, StaticBatching)
 
         # Shard.
-        builder.shard(gang.rank, gang.size, allow_uneven=not static_batching)
+        if static_batching:
+            allow_uneven = not sync_batches
+        else:
+            allow_uneven = True
+
+        builder.shard(gang.rank, gang.size, allow_uneven=allow_uneven)
 
         seed += gang.rank
 
@@ -368,20 +386,21 @@ class GenericParallelTextDataset(ParallelTextDataset):
         builder.map(encode, num_parallel_calls=npc)
 
         if isinstance(batching, LengthBatching):
-            # Bucket by the length of the source or target sequence. The longer
-            # one will be considered the length of the example.
             bucket_sizes = create_bucket_sizes(
                 max_seq_len=max_seq_len,
                 min_seq_len=min_seq_len,
                 max_num_elements=batching.max_num_elements,
             )
 
+            # Bucket by the length of the source or target sequence. The longer
+            # one will be considered the length of the example.
             builder.bucket_by_length(
                 bucket_sizes,
                 selector="source_indices,target_indices",
                 min_data_len=min_seq_len,
                 skip_below_min_examples=True,
                 skip_above_max_examples=True,
+                drop_remainder=drop_remainder,
             )
         else:
             # Filter out out-of-range examples.
@@ -396,7 +415,7 @@ class GenericParallelTextDataset(ParallelTextDataset):
             builder.filter(skip)
 
             # Bucket `batch_size` examples.
-            builder.bucket(batching.batch_size)
+            builder.bucket(batching.batch_size, drop_remainder=drop_remainder)
 
         # Shuffle buckets.
         if batch_shuffle_window != 1:
@@ -425,7 +444,7 @@ class GenericParallelTextDataset(ParallelTextDataset):
             gang,
             num_accumulate=num_accumulate,
             drop_remainder=False,
-            sync_batches=not static_batching,
+            sync_batches=sync_batches,
         )
 
     def _read_direction(self, split: str, direction: Direction) -> DataPipelineBuilder:

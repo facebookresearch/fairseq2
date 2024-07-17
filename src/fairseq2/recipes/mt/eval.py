@@ -86,7 +86,7 @@ class MTEvalConfig:
     label_smoothing: float = 0.1
     """The amount of label smoothing to apply while computing the loss."""
 
-    # Generation
+    # BLEU/chrF++
     generator_mode: Literal["beam_search", "sampling"] = "beam_search"
     """The mode of sequence generation."""
 
@@ -96,11 +96,8 @@ class MTEvalConfig:
     sampling: SamplingConfig = field(default_factory=lambda: SamplingConfig())
     """The configuration for sampling-based sequence generation."""
 
-    generator_batch_size: int = 1
-    """The input batch size to the sequence generator."""
-
-    generator_max_num_batches: Optional[int] = None
-    """The maximum number of batches to feed to the sequence generator."""
+    generator_batch_size: int = 8
+    """The number of sentences per generator batch."""
 
     # Misc
     seed: int = 2
@@ -191,16 +188,6 @@ def load_mt_evaluator(
     )
 
     # Initialize the evaluation units.
-    generator_max_num_batches = config.generator_max_num_batches
-
-    if generator_max_num_batches is not None:
-        if generator_max_num_batches % gang.size != 0:
-            raise ValueError(
-                f"`generator_max_num_batches` must be divisible by the size of the gang ({gang.size}), but is {generator_max_num_batches} instead."
-            )
-
-        generator_max_num_batches //= gang.size
-
     units: List[EvalUnit[Seq2SeqBatch]] = []
 
     data_readers = []
@@ -223,6 +210,7 @@ def load_mt_evaluator(
             config.max_seq_len,
             batching=LengthBatching(config.max_num_tokens),
             direction=direction,
+            sync_batches=False,
             num_prefetch=config.num_prefetch,
             seed=seed,
         )
@@ -272,7 +260,7 @@ def load_mt_evaluator(
                 f"The output file '{hyp_output_file}' cannot be created. See nested exception for details."
             ) from ex
 
-        bleu_unit = MTBleuChrfEvalUnit(
+        score_unit = MTBleuChrfEvalUnit(
             direction,
             generator,
             tokenizer,
@@ -282,7 +270,7 @@ def load_mt_evaluator(
             hyp_output_stream=hyp_output_fp,
         )
 
-        units.append(bleu_unit)
+        units.append(score_unit)
 
         data_reader = dataset.create_reader(
             config.split,
@@ -291,7 +279,7 @@ def load_mt_evaluator(
             config.max_seq_len,
             batching=StaticBatching(config.generator_batch_size),
             direction=direction,
-            max_num_batches=generator_max_num_batches,
+            sync_batches=False,
             num_prefetch=config.num_prefetch,
             seed=seed,
         )
@@ -405,7 +393,7 @@ class MTBleuChrfEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
         :param hyp_output_stream:
             The output stream to dump hypotheses.
         """
-        super().__init__(generator.model, display_name=f"bleu/{direction}")
+        super().__init__(generator.model, display_name=f"score/{direction}")
 
         self._converter = SequenceToTextConverter(
             generator, tokenizer, "translation", direction.target_lang

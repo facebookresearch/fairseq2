@@ -38,7 +38,7 @@ from torcheval.metrics import Mean
 from fairseq2.checkpoint import CheckpointManager, CheckpointNotFoundError
 from fairseq2.datasets import DataReader
 from fairseq2.early_stopper import EarlyStopper
-from fairseq2.gang import FakeGang, Gang, broadcast_flag
+from fairseq2.gang import FakeGang, Gang, all_sum, broadcast_flag
 from fairseq2.logging import get_log_writer
 from fairseq2.metrics import (
     JsonFileMetricRecorder,
@@ -49,6 +49,7 @@ from fairseq2.metrics import (
     format_metric_value,
     record_metrics,
 )
+from fairseq2.nn.fsdp import summon_fsdp_for_validation
 from fairseq2.nn.utils.gradient import (
     check_gradient_norms,
     clip_gradient_norm,
@@ -348,6 +349,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._max_num_data_epochs = max_num_data_epochs
 
+        self._read_data = False
+
         self._eod = max_num_data_epochs == 0
 
         self._should_stop = False
@@ -511,6 +514,12 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._progress = create_rich_progress()
 
+    def request_stop(self) -> None:
+        """Request a graceful stop of the training."""
+        log.info("Stopping training after a final validation and saving checkpoint.")
+
+        self._should_stop = True
+
     @override
     def __call__(self) -> None:
         if self._run:
@@ -538,7 +547,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             raise
 
         if self._should_stop:
-            log.info("Training terminated at step {}!", self._step_nr)
+            log.info("Training stopped at step {}!", self._step_nr)
 
             return
 
@@ -692,11 +701,15 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     def _next_batches(self) -> List[BatchT]:
         while True:
             try:
-                return next(self._data_reader)
+                batches = next(self._data_reader)
+
+                self._read_data = True
+
+                return batches
             except StopIteration:
                 log.info("End of epoch {} reached at training step {}.", self._data_epoch_nr, self._step_nr)  # fmt: skip
 
-                if self._step_nr == 1:  # Means the dataset is empty.
+                if not self._read_data:  # Means the dataset is empty.
                     break
 
                 if self._max_num_data_epochs is not None:
@@ -725,7 +738,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         if self._dtype == torch.float32:
             return nullcontext()
 
-        if isinstance(self._model, (DDP, FSDP)):
+        if self._model.training and isinstance(self._model, (DDP, FSDP)):
             if self._model.mixed_precision is not None:
                 return nullcontext()
 
@@ -777,25 +790,26 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
     @torch.inference_mode()
     def _validate(self) -> None:
-        self._model.eval()
-
         log.info("Starting validation after step {}.", self._step_nr)
 
-        unit_scores = []
+        with summon_fsdp_for_validation(self._model):
+            self._model.eval()
 
-        for unit, data_reader in zip(self._valid_units, self._valid_data_readers):
-            if unit.display_name:
-                log.info("Validating {}.", unit.display_name)
+            unit_scores = []
 
-            unit_score = self._validate_unit(unit, data_reader)
-            if unit_score is not None:
-                unit_scores.append(unit_score)
+            for unit, data_reader in zip(self._valid_units, self._valid_data_readers):
+                if unit.display_name:
+                    log.info("Validating {}.", unit.display_name)
 
-        self._valid_score = self._compute_valid_score(unit_scores)
+                unit_score = self._validate_unit(unit, data_reader)
+                if unit_score is not None:
+                    unit_scores.append(unit_score)
+
+            self._valid_score = self._compute_valid_score(unit_scores)
+
+            self._model.train()
 
         log.info("Validation complete.")
-
-        self._model.train()
 
     def _validate_unit(
         self, unit: EvalUnit[BatchT], data_reader: DataReader[BatchT]
@@ -816,13 +830,14 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             try:
                 batches = next(data_reader)
             except StopIteration:
-                break
+                batches = []
 
             for batch in batches:
                 with self._maybe_autocast():
                     unit(batch)
 
-            self._root_gang.barrier()
+            if self._is_valid_eod(batches):
+                break
 
         self._progress.remove_task(valid_task)
 
@@ -833,6 +848,11 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         metric_values = self._publish_validation_metrics(unit, time)
 
         return self._get_unit_score(metric_values)
+
+    def _is_valid_eod(self, batches: List[BatchT]) -> bool:
+        total_num_batches = all_sum(self._dp_gang, len(batches))
+
+        return bool(total_num_batches == 0)
 
     def _publish_validation_metrics(
         self, unit: EvalUnit[BatchT], elapsed_time: float

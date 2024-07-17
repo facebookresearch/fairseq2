@@ -15,7 +15,7 @@ import torch
 from torch.nn import Module
 
 from fairseq2.datasets import DataReader
-from fairseq2.gang import FakeGang, Gang
+from fairseq2.gang import FakeGang, Gang, all_sum
 from fairseq2.logging import get_log_writer
 from fairseq2.metrics import (
     JsonFileMetricRecorder,
@@ -242,14 +242,20 @@ class Evaluator(Generic[BatchT]):
                 try:
                     batches = next(data_reader)
                 except StopIteration:
-                    break
+                    batches = []
 
                 for batch in batches:
                     unit(batch)
 
-                self._root_gang.barrier()
+                if self._is_eod(batches):
+                    break
 
         self._publish_metrics(unit, watch.get_elapsed_time())
+
+    def _is_eod(self, batches: List[BatchT]) -> bool:
+        total_num_batches = all_sum(self._dp_gang, len(batches))
+
+        return bool(total_num_batches == 0)
 
     def _publish_metrics(self, unit: EvalUnit[BatchT], elapsed_time: float) -> None:
         log.debug("Syncing metrics.")

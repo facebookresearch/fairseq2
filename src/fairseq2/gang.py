@@ -10,7 +10,7 @@ import os
 from abc import ABC, abstractmethod
 from datetime import timedelta
 from enum import Enum
-from typing import Any, Dict, List, Optional, Sequence, final
+from typing import Any, Dict, List, Optional, Sequence, Union, final
 
 import torch
 import torch.distributed as dist
@@ -719,3 +719,15 @@ def broadcast_flag(gang: Gang, flag: bool, source_rank: int = 0) -> bool:
     gang.broadcast(tmp, source_rank)
 
     return bool(tmp)
+
+
+def all_sum(gang: Gang, value: Union[float, int, Tensor]) -> Tensor:
+    """Sum ``value`` over all processes in ``gang``."""
+    if isinstance(value, Tensor):
+        output = value
+    else:
+        output = torch.tensor(value, device=gang.device)
+
+    gang.all_reduce(output, ReduceOperation.SUM)
+
+    return output
