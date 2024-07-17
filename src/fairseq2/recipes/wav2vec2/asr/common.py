@@ -12,48 +12,22 @@ import torch
 from torch import Tensor
 
 from fairseq2.gang import Gang
-from fairseq2.metrics import MetricBag
-from fairseq2.metrics.aggregation import Mean, Sum
+from fairseq2.metrics.aggregation import Mean
 from fairseq2.models.seq2seq import Seq2SeqBatch
+from fairseq2.recipes.common_metrics import TaskMetricBag
 
 
-class Wav2Vec2AsrMetricBag(MetricBag):
+class Wav2Vec2AsrMetricBag(TaskMetricBag):
     """Holds the metrics of a wav2vec 2.0 ASR model training or evaluation task."""
 
     _ctc_loss: Mean
-    _batch_size: Mean
-    _elements_per_batch: Mean
-    _num_examples: Sum
-    _num_source_elements: Sum
-    _num_target_elements: Sum
-    _total_num_examples: Sum
-    _total_num_source_elements: Sum
-    _total_num_target_elements: Sum
 
-    def __init__(self, gang: Gang) -> None:
-        """
-        :param gang:
-            The gang over which to sync metrics.
-        """
-        super().__init__(gang)
+    def __init__(self, gang: Gang, train: bool = True) -> None:
+        super().__init__(gang, train=train)
 
         d = gang.device
 
         self.register_metric("_ctc_loss", Mean(device=d), persistent=False)
-
-        self.register_metric("_batch_size", Mean(device=d), persistent=False)
-
-        self.register_metric("_elements_per_batch", Mean(device=d), persistent=False)
-
-        self.register_metric("_num_examples", Sum(device=d), persistent=False)
-
-        self.register_metric("_num_source_elements", Sum(device=d), persistent=False)
-        self.register_metric("_num_target_elements", Sum(device=d), persistent=False)
-
-        self._total_num_examples = Sum(device=d)
-
-        self._total_num_source_elements = Sum(device=d)
-        self._total_num_target_elements = Sum(device=d)
 
     @torch.inference_mode()
     def update_ctc_loss(self, batch: Seq2SeqBatch, loss: Tensor) -> None:
@@ -75,21 +49,17 @@ class Wav2Vec2AsrMetricBag(MetricBag):
         :param batch:
             The batch processed by the model.
         """
-        batch_size = batch.batch_size
+        num_examples = batch.batch_size
+        num_elements = batch.num_source_elements()
 
-        num_source_elements = batch.num_source_elements()
-        num_target_elements = batch.num_target_elements()
+        self._num_batches.update(1)
 
-        self._batch_size.update(batch_size * self._gang.size)
+        self._num_examples.update(num_examples)
+        self._num_elements.update(num_elements)
 
-        self._elements_per_batch.update(num_source_elements * self._gang.size)
+        if self._train:
+            assert self._total_num_examples is not None
+            assert self._total_num_elements is not None
 
-        self._num_examples.update(batch_size)
-
-        self._num_source_elements.update(num_source_elements)
-        self._num_target_elements.update(num_target_elements)
-
-        self._total_num_examples.update(batch_size)
-
-        self._total_num_source_elements.update(num_source_elements)
-        self._total_num_target_elements.update(num_target_elements)
+            self._total_num_examples.update(num_examples)
+            self._total_num_elements.update(num_elements)

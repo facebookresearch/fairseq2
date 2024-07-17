@@ -335,11 +335,6 @@ class Wav2Vec2AsrEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
     def metric_bag(self) -> Wav2Vec2AsrEvalMetricBag:
         return self._metric_bag
 
-    @property
-    @override
-    def throughput_metric_name(self) -> Optional[str]:
-        return "num_source_elements"
-
 
 class Wav2Vec2AsrEvalMetricBag(Wav2Vec2AsrMetricBag):
     """Holds the metrics of a wav2vec 2.0 ASR model evaluation task."""
@@ -351,7 +346,7 @@ class Wav2Vec2AsrEvalMetricBag(Wav2Vec2AsrMetricBag):
         :param gang:
             The gang over which to sync metrics.
         """
-        super().__init__(gang)
+        super().__init__(gang, train=False)
 
         self.register_metric("wer", WerMetric(device=gang.device), persistent=False)
 

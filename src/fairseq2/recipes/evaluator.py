@@ -25,7 +25,7 @@ from fairseq2.metrics import (
     TensorBoardRecorder,
     record_metrics,
 )
-from fairseq2.recipes.common_metrics import set_throughput
+from fairseq2.recipes.common_metrics import set_throughput_value
 from fairseq2.recipes.utils.cli import create_rich_progress
 from fairseq2.typing import CPU, override
 from fairseq2.utils.profiler import Stopwatch
@@ -65,11 +65,6 @@ class EvalUnit(ABC, Generic[BatchT_contra]):
     def metric_bag(self) -> MetricBag:
         """The evaluation-related metrics."""
 
-    @property
-    @abstractmethod
-    def throughput_metric_name(self) -> Optional[str]:
-        """The name of the metric to use for throughput calculation."""
-
 
 class AbstractEvalUnit(EvalUnit[BatchT]):
     """Provides a skeletal implementation of :class:`EvalUnit`."""
@@ -96,11 +91,6 @@ class AbstractEvalUnit(EvalUnit[BatchT]):
     @override
     def display_name(self) -> Optional[str]:
         return self._display_name
-
-    @property
-    @override
-    def throughput_metric_name(self) -> Optional[str]:
-        return "num_elements"
 
 
 @final
@@ -272,7 +262,7 @@ class Evaluator(Generic[BatchT]):
 
         assert values is not None
 
-        set_throughput(values, unit.throughput_metric_name, elapsed_time)
+        set_throughput_value(values, elapsed_time)
 
         values["elapsed_time"] = elapsed_time
 
