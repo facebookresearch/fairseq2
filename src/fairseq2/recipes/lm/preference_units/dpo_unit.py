@@ -27,7 +27,7 @@ log = get_log_writer(__name__)
 
 
 @dataclass
-class DpoFinetuneConfig(dict[str, Any]):
+class DpoFinetuneConfig(dict):
     """Holds the DPO-finetuning configuration of a language model."""
 
     # Hyperparameters
@@ -60,8 +60,8 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
         model: Module,
         reference_model: Union[Module | None],
         gang: Gang,
-        beta=0.1,
-        nll_scale=1.0,
+        beta: float = 0.1,
+        nll_scale: float = 1.0,
     ) -> None:
         super().__init__(model)
 
