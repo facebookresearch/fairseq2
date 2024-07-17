@@ -109,6 +109,7 @@ class InstructionDataset(ABC):
         max_seq_len: int,
         batching: StaticBatching,
         *,
+        drop_remainder: bool = False,
         sync_batches: bool = True,
         num_prefetch: int = 1,
         **extras: Any,
@@ -124,6 +125,15 @@ class InstructionDataset(ABC):
             this value will be dropped.
         :param batching:
             The batching strategy for returned examples.
+        :param drop_remainder:
+            If ``True``, drops the last batch if it has fewer examples than
+            requested.
+        :param sync_batches:
+            If ``True``, ensures that each process in ``gang`` reads the same
+            number of batches. Typically used when the amount of data to be read
+            can vary per process (e.g. due to unbalanced sharding or non-static
+            batching) and it is critical for each process to iterate over the
+            same number of batches (e.g. during training).
         :param num_prefetch:
             The number of batches to prefetch in background.
         :param extras:
@@ -398,6 +408,7 @@ class GenericInstructionDataset(InstructionDataset):
         max_seq_len: int,
         batching: StaticBatching,
         *,
+        drop_remainder: bool = False,
         sync_batches: bool = True,
         num_prefetch: int = 1,
         **extras: Any,
@@ -438,7 +449,7 @@ class GenericInstructionDataset(InstructionDataset):
         builder.filter(skip)
 
         # Bucket `batch_size` examples.
-        builder.bucket(batching.batch_size, drop_remainder=False)
+        builder.bucket(batching.batch_size, drop_remainder=drop_remainder)
 
         # Collate bucketed examples into a batch.
         collater = Collater(pad_value=tokenizer.vocab_info.pad_idx or 0)
@@ -459,7 +470,7 @@ class GenericInstructionDataset(InstructionDataset):
         pipeline = builder.map(to_batch).and_return()
 
         return DataPipelineReader[SequenceBatch](
-            pipeline, gang, drop_remainder=False, sync_batches=False
+            pipeline, gang, drop_remainder=drop_remainder, sync_batches=False
         )
 
     def _read_jsonl(self, path: Path, tokenizer: TextTokenizer) -> DataPipelineBuilder:
