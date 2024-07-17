@@ -325,7 +325,7 @@ class GenericAsrDataset(AsrDataset):
             gang,
             num_accumulate=num_accumulate,
             drop_remainder=False,
-            sync_batches=not static_batching and sync_batches,
+            sync_batches=sync_batches,
         )
 
     def _retrieve_data_directory(self, split: str) -> Path:

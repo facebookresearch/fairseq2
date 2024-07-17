@@ -248,7 +248,7 @@ class GenericTextDataset(TextDataset):
             gang,
             num_accumulate=num_accumulate,
             drop_remainder=drop_remainder,
-            sync_batches=not static_batching and sync_batches,
+            sync_batches=sync_batches,
         )
 
     @staticmethod
