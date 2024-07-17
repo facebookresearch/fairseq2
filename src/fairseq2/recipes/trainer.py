@@ -514,6 +514,12 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._progress = create_rich_progress()
 
+    def request_stop(self) -> None:
+        """Request a graceful stop of the training."""
+        log.info("Stopping training after a final validation and saving checkpoint.")
+
+        self._should_stop = True
+
     @override
     def __call__(self) -> None:
         if self._run:
@@ -541,7 +547,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             raise
 
         if self._should_stop:
-            log.info("Training terminated at step {}!", self._step_nr)
+            log.info("Training stopped at step {}!", self._step_nr)
 
             return
 
