@@ -52,6 +52,8 @@ class PreferenceOptimizationDataset(ABC):
         sample: bool = False,
         example_shuffle_window: int = 1,
         batch_shuffle_window: int = 1,
+        drop_remainder: bool = False,
+        sync_batches: bool = True,
         max_num_batches: Optional[int] = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
@@ -80,6 +82,15 @@ class PreferenceOptimizationDataset(ABC):
             The size of the sliding window for shuffling batches. If ``1``, no
             shuffling is performed; if ``0``, true shuffling is performed by
             loading the entire dataset.
+        :param drop_remainder:
+            If ``True``, drops the last set of batches if they have in total
+            fewer examples than requested.
+        :param sync_batches:
+            If ``True``, ensures that each process in ``gang`` reads the same
+            number of batches. Typically used when the amount of data to be read
+            can vary per process (e.g. due to unbalanced sharding or non-static
+            batching) and it is critical for each process to iterate over the
+            same number of batches (e.g. during training).
         :param max_num_batches:
             The maximum number of batches to return.
         :param num_accumulate:
@@ -223,6 +234,8 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
         sample: bool = False,
         example_shuffle_window: int = 1,
         batch_shuffle_window: int = 1,
+        drop_remainder: bool = False,
+        sync_batches: bool = True,
         max_num_batches: Optional[int] = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
@@ -254,11 +267,6 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
 
         seed += 1
 
-        static_batching = isinstance(batching, StaticBatching)
-
-        # Shard.
-        builder.shard(gang.rank, gang.size, allow_uneven=not static_batching)
-
         seed += gang.rank
 
         # Encode prompt and target texts.
@@ -268,6 +276,19 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
         builder.map(prompt_encoder, selector="src", num_parallel_calls=npc)
         builder.map(target_encoder, selector="tgt_chosen", num_parallel_calls=npc)
         builder.map(target_encoder, selector="tgt_rejected", num_parallel_calls=npc)
+
+        # Filter out long examples.
+        def skip(example: Dict[str, Any]) -> bool:
+            chosen_len = len(example["src"]) + len(example["tgt_chosen"])
+            rejected_len = len(example["src"]) + len(example["tgt_rejected"])
+            return chosen_len <= max_seq_len and rejected_len <= max_seq_len
+
+        builder.filter(skip)
+
+        static_batching = isinstance(batching, StaticBatching)
+
+        # Shard.
+        builder.shard(gang.rank, gang.size, allow_uneven=not static_batching)
 
         def cat_source_and_target(example: Dict[str, Any]) -> Dict[str, Any]:
             sample_id = example.get("id", None)
@@ -303,18 +324,11 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
 
             # Bucket by the sequence length.
             builder.bucket_by_length(
-                bucket_sizes, selector="indices_chosen", skip_above_max_examples=True
+                bucket_sizes,
+                selector="indices_chosen,indices_rejected",
+                skip_above_max_examples=True,
             )
         else:
-            # Filter out long examples.
-            def skip(example: Dict[str, Any]) -> bool:
-                return (
-                    len(example["indices_chosen"]) <= max_seq_len
-                    and len(example["indices_rejected"]) <= max_seq_len
-                )
-
-            builder.filter(skip)
-
             # Bucket `batch_size` examples.
             builder.bucket(batching.batch_size)
 
@@ -378,8 +392,8 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
             pipeline,
             gang,
             num_accumulate=num_accumulate,
-            drop_remainder=False,
-            sync_batches=not static_batching,
+            drop_remainder=drop_remainder,
+            sync_batches=sync_batches,
         )
 
     def _read_jsonl(self, path: Path, tokenizer: TextTokenizer) -> DataPipelineBuilder:
