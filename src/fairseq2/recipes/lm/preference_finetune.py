@@ -67,9 +67,9 @@ class PreferenceOptimizationConfig:  # TODO: Should this just inherit from Instr
     criterion: str = "dpo"
     """The type of preference optimization to perform"""
 
-    criterion_config: dict[str, Any] = field(
+    criterion_config: Any = field(
         default_factory=lambda: DpoFinetuneConfig()
-    )  # TODO: is there a better way to do this than a dict?
+    )  # TODO: is there a better way to do this?
     """The hyperparameters specific to the criterion_type"""
 
     # Model
