@@ -158,7 +158,7 @@ class BeamSearchConfig:
     min_gen_len: int = 1
     """The minimum generation length."""
 
-    max_gen_len: int = 512
+    max_gen_len: int = 2048
     """The maximum generation length."""
 
     max_seq_len: Optional[int] = None
