@@ -630,7 +630,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
             num_targets = 0
 
-            self._metric_bag.begin_updates()
+            if self._loss_scaler.is_enabled:
+                self._metric_bag.begin_updates()
 
             # Accumulate.
             for batch_nr, batch in enumerate(batches):
@@ -677,7 +678,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             else:
                 self._lr_scheduler.step()
 
-                self._metric_bag.commit_updates()
+                if self._loss_scaler.is_enabled:
+                    self._metric_bag.commit_updates()
 
                 self._metric_bag.gradient_norm.update(grad_norm)
 
