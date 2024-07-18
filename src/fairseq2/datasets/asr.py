@@ -208,15 +208,8 @@ class GenericAsrDataset(AsrDataset):
 
         seed += 1
 
-        static_batching = isinstance(batching, StaticBatching)
-
         # Shard.
-        if static_batching:
-            allow_uneven = not sync_batches
-        else:
-            allow_uneven = True
-
-        builder.shard(gang.rank, gang.size, allow_uneven=allow_uneven)
+        builder.shard(gang.rank, gang.size, allow_uneven=True)
 
         seed += gang.rank
 
@@ -324,7 +317,7 @@ class GenericAsrDataset(AsrDataset):
             pipeline,
             gang,
             num_accumulate=num_accumulate,
-            drop_remainder=False,
+            drop_remainder=drop_remainder,
             sync_batches=sync_batches,
         )
 
