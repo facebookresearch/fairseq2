@@ -251,6 +251,7 @@ def load_preference_finetuner(
             )
 
         dataset = GenericPreferenceOptimizationDataset.from_path(path)
+        log.info("Dataset loaded from path {}.", path)
 
     # Load the model.
     init_device = META
@@ -311,11 +312,13 @@ def load_preference_finetuner(
     log_model(dp_model, log, rank=root_gang.rank)
 
     # Load the reference model.
-    def _get_reference_model(criterion_config: dict[str, Any]) -> Union[Module, None]:
-        if criterion_config.get("reference_model") is None:
+    def _get_reference_model(criterion_config: Any) -> Union[Module, None]:
+        try:
+            criterion_config.reference_model
+        except ValueError:
             return None
 
-        reference_model_card = retrieve_asset_card(criterion_config["reference_model"])
+        reference_model_card = retrieve_asset_card(criterion_config.reference_model)
 
         log.info("Loading {} reference model on data parallel rank 0 (per shard).", reference_model_card.name)  # fmt: skip
 
@@ -324,7 +327,7 @@ def load_preference_finetuner(
             reference_model_card,
             gangs=gangs,
             device=init_device,
-            dtype=criterion_config["reference_dtype"],
+            dtype=criterion_config.reference_dtype,
         )
 
         root_gang.barrier()
@@ -364,8 +367,8 @@ def load_preference_finetuner(
                 dp_model,
                 dp_reference_model,
                 dp_gang,
-                config.criterion_config["dpo_beta"],
-                config.criterion_config["nll_scale"],
+                config.criterion_config.dpo_beta,
+                config.criterion_config.nll_scale,
             )
         if config.criterion == "SimPO":
             print("SimPOTrainUnit")  # TODO: implement SimPO

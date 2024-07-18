@@ -63,5 +63,5 @@ def _setup_lm_cli(cli: Cli) -> None:
     group.add_command(
         name="preference_finetune",
         handler=preference_finetune_handler,
-        help="preferece-finetune a language model using DPO",
+        help="preference-finetune a language model",
     )

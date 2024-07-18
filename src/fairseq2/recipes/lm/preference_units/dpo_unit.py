@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Tuple, Union, cast, final
+from typing import Tuple, Union, cast, final
 
 import torch
 import torch.distributed
@@ -27,13 +27,15 @@ log = get_log_writer(__name__)
 
 
 @dataclass
-class DpoFinetuneConfig(dict):
+class DpoFinetuneConfig:
     """Holds the DPO-finetuning configuration of a language model."""
 
     # Hyperparameters
     dpo_beta: float = 0.1
+    """The coefficient of regularization towards the reference model."""
 
     nll_scale: float = 0.0
+    """The coefficient of NLL loss added to the DPO loss."""
 
     # Reference Model
     reference_model: Union[str, Path] = "llama3_8b_instruct"
@@ -43,7 +45,7 @@ class DpoFinetuneConfig(dict):
     """The data type of the reference model."""
 
     reference_tensor_parallel_size: int = 1
-    """The size of tensor parallelism."""
+    """The size of tensor parallelism for the reference model."""
 
 
 @final
@@ -116,7 +118,7 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
         loss = dpo_loss + self._nll_scale * nll_loss
 
         log.info(
-            f"Step:{self._step_nr} Rank:{get_rank()} IDs:{','.join(batch.chosen.example['id'])}, DPO loss: {dpo_loss.item()}"
+            f"Step:{self._step_nr} Rank:{get_rank()} IDs:{[str(idx) for idx in batch.chosen.example['id']]}, DPO loss: {dpo_loss.item()}"
         )
 
         self._metric_bag.update_nll_loss(chosen_batch, nll_loss)
