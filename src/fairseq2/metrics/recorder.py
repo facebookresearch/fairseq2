@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -36,7 +37,10 @@ from fairseq2.typing import override
 
 def format_as_int(value: Any, *, postfix: Optional[str] = None) -> str:
     """Format metric ``value`` as integer."""
-    i = int(value)
+    try:
+        i = int(value)
+    except ValueError:
+        return f"{value}"
 
     s = "<1" if i == 0 and isinstance(value, float) else f"{i:,}"
 
@@ -52,7 +56,10 @@ format_as_seconds = partial(format_as_int, postfix="s")
 
 def format_as_float(value: Any, *, postfix: Optional[str] = None) -> str:
     """Format metric ``value`` as float."""
-    s = f"{float(value):g}"
+    try:
+        s = f"{float(value):g}"
+    except ValueError:
+        return f"{value}"
 
     if postfix:
         s += postfix
@@ -67,7 +74,13 @@ def format_as_byte_size(value: Any) -> str:
     """Format metric ``value`` in byte units."""
     unit_idx = 0
 
-    size = float(value)
+    try:
+        size = float(value)
+    except ValueError:
+        return f"{value}"
+
+    if not math.isfinite(size) or size <= 0.0:
+        return "0 B"
 
     while size >= 1024:
         size /= 1024
@@ -336,7 +349,10 @@ class JsonFileMetricRecorder(MetricRecorder):
                 value = value.item()
 
             if formatter.fn is format_as_int:
-                value = int(value)
+                try:
+                    value = int(value)
+                except ValueError:
+                    pass
 
             return value
 

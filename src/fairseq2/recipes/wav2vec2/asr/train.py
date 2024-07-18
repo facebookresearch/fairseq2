@@ -491,8 +491,3 @@ class Wav2Vec2AsrTrainUnit(AbstractTrainUnit[Seq2SeqBatch]):
     @override
     def metric_bag(self) -> Wav2Vec2AsrMetricBag:
         return self._metric_bag
-
-    @property
-    @override
-    def throughput_metric_name(self) -> Optional[str]:
-        return "num_source_elements"
