@@ -470,7 +470,7 @@ class GenericInstructionDataset(InstructionDataset):
         pipeline = builder.map(to_batch).and_return()
 
         return DataPipelineReader[SequenceBatch](
-            pipeline, gang, drop_remainder=drop_remainder, sync_batches=True
+            pipeline, gang, drop_remainder=drop_remainder, sync_batches=sync_batches
         )
 
     def _read_jsonl(self, path: Path, tokenizer: TextTokenizer) -> DataPipelineBuilder:

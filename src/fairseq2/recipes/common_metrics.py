@@ -63,9 +63,15 @@ class TaskMetricBag(MetricBag):
         num_examples = values["num_examples"]
         num_elements = values["num_elements"]
 
-        values["batch_size"] = num_examples // num_batches
+        if num_batches > 0:
+            values["batch_size"] = num_examples // num_batches
+        else:
+            values["batch_size"] = 0
 
-        values["elements_per_batch"] = num_elements // num_batches
+        if num_batches > 0:
+            values["elements_per_batch"] = num_elements // num_batches
+        else:
+            values["elements_per_batch"] = 0
 
 
 class SequenceMetricBag(TaskMetricBag):
