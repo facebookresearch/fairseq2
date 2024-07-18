@@ -303,15 +303,8 @@ class GenericInstructionDataset(InstructionDataset):
 
         seed += 1
 
-        static_batching = isinstance(batching, StaticBatching)
-
         # Shard.
-        if static_batching:
-            allow_uneven = not sync_batches
-        else:
-            allow_uneven = True
-
-        builder.shard(gang.rank, gang.size, allow_uneven=allow_uneven)
+        builder.shard(gang.rank, gang.size, allow_uneven=True)
 
         seed += gang.rank
 
@@ -396,7 +389,7 @@ class GenericInstructionDataset(InstructionDataset):
             pipeline,
             gang,
             num_accumulate=num_accumulate,
-            drop_remainder=False,
+            drop_remainder=drop_remainder,
             sync_batches=sync_batches,
         )
 
@@ -426,7 +419,7 @@ class GenericInstructionDataset(InstructionDataset):
             builder = DataPipeline.concat(pipelines)
 
         # Shard
-        builder.shard(gang.rank, gang.size, allow_uneven=not sync_batches)
+        builder.shard(gang.rank, gang.size, allow_uneven=True)
 
         # Encode prompt texts.
         text_encoder = tokenizer.create_encoder(mode="prompt")
