@@ -926,10 +926,17 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         if log.is_enabled_for_info():
             best_step_nr, best_score = self._best_step_and_score  # type: ignore[misc]
 
+            if len(unit_scores) > 1:
+                m1 = "Mean "
+                m2 = "Best Mean "
+            else:
+                m1 = ""
+                m2 = "Best "
+
             s1 = format_metric_value(self._score_metric_name, score)
             s2 = format_metric_value(self._score_metric_name, best_score)
 
-            log.info("Score (step {}) - {} | Best {} at step {}", self._step_nr, s1, s2, best_step_nr)  # fmt: skip
+            log.info("Score (step {}) - {}{} | {}{} at step {}", self._step_nr, m1, s1, m2, s2, best_step_nr)  # fmt: skip
 
         return score
 
