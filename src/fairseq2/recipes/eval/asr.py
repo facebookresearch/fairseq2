@@ -22,8 +22,8 @@ from fairseq2.typing import DataType
 class AsrEvalConfig(HFEvalConfig):
     """Holds the configuration of a ASR evaluation recipe."""
 
-    converter: Callable[[Example], Seq2SeqBatch]
-    """The converter function to convert collated data into Seq2SeqBatch"""
+    # converter: Callable[[Example], Seq2SeqBatch]
+    # """The converter function to convert collated data into Seq2SeqBatch"""
 
     tokenizer_name: str = "librispeech_asr"
     """The tokenizer to use."""
@@ -56,18 +56,17 @@ class AsrEvalConfig(HFEvalConfig):
     dtype: DataType = torch.float16
     """The data type of the model."""
 
+def _librispeech_asr_to_batch(examples: Example) -> Seq2SeqBatch:
+    # FIXME: Implement the function to convert the collated data loaded from HF dataset
+    # "librispeech_asr" to Seq2SeqBatch
+    raise NotImplementedError()
 
-hf_presets.decorator("librispeech_asr")
+@hf_presets.decorator("librispeech_asr")
 def _librispeech_asr_config() -> AsrEvalConfig:
-    def librispeech_asr_to_batch(examples: Example) -> Seq2SeqBatch:
-        # FIXME: Implement the function to convert the collated data loaded from HF dataset
-        # "librispeech_asr" to Seq2SeqBatch
-        raise NotImplementedError()
-    
     return AsrEvalConfig(
         dataset_name="librispeech_asr",
         model_name="wav2vec2_asr_base_10h",
-        converter=librispeech_asr_to_batch,
+        # converter=librispeech_asr_to_batch,
     )
 
 
