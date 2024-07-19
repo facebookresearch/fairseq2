@@ -175,3 +175,13 @@ class DelegatingDatasetLoader(DatasetLoader[DatasetT]):
         family = card.field("dataset_family").as_(str)
 
         return family in self._loaders
+
+
+def is_dataset_card(card: AssetCard) -> bool:
+    """Return ``True`` if ``card`` specifies a dataset."""
+    return card.field("dataset_family").exists()
+
+
+def get_dataset_family(card: AssetCard) -> str:
+    """Return the dataset family name contained in ``card``."""
+    return card.field("dataset_family").as_(str)  # type: ignore[no-any-return]

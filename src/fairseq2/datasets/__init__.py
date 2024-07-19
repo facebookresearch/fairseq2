@@ -12,6 +12,8 @@ from fairseq2.datasets.error import DatasetError as DatasetError
 from fairseq2.datasets.loader import AbstractDatasetLoader as AbstractDatasetLoader
 from fairseq2.datasets.loader import DatasetLoader as DatasetLoader
 from fairseq2.datasets.loader import DelegatingDatasetLoader as DelegatingDatasetLoader
+from fairseq2.datasets.loader import get_dataset_family as get_dataset_family
+from fairseq2.datasets.loader import is_dataset_card as is_dataset_card
 
 # isort: split
 

@@ -164,18 +164,6 @@ class AssetCard:
             f"The asset card '{self.name}' must have a field named 'model_type', 'dataset_type', or 'tokenizer_type'."
         )
 
-    def asset_family(self) -> str:
-        """Return the family of the asset represented by this card."""
-        for field in ["model_family", "dataset_family", "tokenizer_family"]:
-            try:
-                return self.field(field).as_(str)  # type: ignore[no-any-return]
-            except AssetCardFieldNotFoundError:
-                continue
-
-        raise AssetCardFieldNotFoundError(
-            f"The asset card '{self.name}' must have a field named 'model_family', 'dataset_family', or 'tokenizer_family'."
-        )
-
     @property
     def name(self) -> str:
         """The name of the asset."""
