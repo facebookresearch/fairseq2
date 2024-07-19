@@ -325,3 +325,13 @@ class DelegatingTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
 
 
 load_text_tokenizer = DelegatingTextTokenizerLoader[TextTokenizer]()
+
+
+def is_tokenizer_card(card: AssetCard) -> bool:
+    """Return ``True`` if ``card`` specifies a tokenizer."""
+    return card.field("tokenizer_family").exists()
+
+
+def get_tokenizer_family(card: AssetCard) -> str:
+    """Return the tokenizer family name contained in ``card``."""
+    return card.field("tokenizer_family").as_(str)  # type: ignore[no-any-return]

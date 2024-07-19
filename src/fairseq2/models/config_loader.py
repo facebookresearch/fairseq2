@@ -79,7 +79,7 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
         else:
             card = self._asset_store.retrieve_card(model_name_or_card)
 
-        model_family = card.field("model_family").as_(str)
+        model_family = get_model_family(card)
         if model_family != self._family:
             raise AssetCardError(
                 f"The value of the field 'model_family' of the asset card '{card.name}' must be '{self._family}', but is '{model_family}' instead."
@@ -128,3 +128,24 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
                 )
 
         return config
+
+
+def is_model_card(card: AssetCard) -> bool:
+    """Return ``True`` if ``card`` specifies a model."""
+    return card.field("model_family").exists() or card.field("model_type").exists()
+
+
+def get_model_family(card: AssetCard) -> str:
+    """Return the model family name contained in ``card``."""
+    try:
+        return card.field("model_family").as_(str)  # type: ignore[no-any-return]
+    except AssetCardFieldNotFoundError:
+        pass
+
+    try:
+        # Compatibility with older fairseq2 versions.
+        return card.field("model_type").as_(str)  # type: ignore[no-any-return]
+    except AssetCardFieldNotFoundError:
+        raise AssetCardFieldNotFoundError(
+            f"The asset card '{card.name}' must have a field named 'model_family."
+        ) from None
