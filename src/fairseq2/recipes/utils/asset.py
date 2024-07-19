@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from pathlib import Path
 from typing import Union
 
@@ -27,6 +29,9 @@ def retrieve_asset_card(name_or_card: Union[str, AssetCard, Path]) -> AssetCard:
         return name_or_card
 
     if isinstance(name_or_card, Path):
+        if name_or_card.is_dir():
+            raise AssetNotFoundError(f"{name_or_card}", "The asset cannot be found.")
+
         return _card_from_file(name_or_card)
 
     name = name_or_card

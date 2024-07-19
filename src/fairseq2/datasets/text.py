@@ -174,15 +174,8 @@ class GenericTextDataset(TextDataset):
 
         seed += 1
 
-        static_batching = isinstance(batching, StaticBatching)
-
         # Shard.
-        if static_batching:
-            allow_uneven = not sync_batches
-        else:
-            allow_uneven = True
-
-        builder.shard(gang.rank, gang.size, allow_uneven=allow_uneven)
+        builder.shard(gang.rank, gang.size, allow_uneven=True)
 
         seed += gang.rank
 

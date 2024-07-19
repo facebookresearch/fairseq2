@@ -58,7 +58,7 @@ class InstructionFinetuneConfig:
     """Holds the configuration of a language model instruction-finetuning task."""
 
     # Data
-    dataset: Union[str, Path] = "openeft"  # TODO: change!
+    dataset: Union[str, Path] = "foo"  # TODO: change!
     """The name, path, or path to the asset card of the instruction dataset."""
 
     max_seq_len: int = 8192

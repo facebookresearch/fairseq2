@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from pickle import PickleError
 from typing import Any, Dict, Generic, Optional, Protocol, TypeVar, Union, final
 
@@ -21,7 +23,7 @@ from fairseq2.assets import (
 )
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
-from fairseq2.models.config_loader import ModelConfigLoader
+from fairseq2.models.config_loader import ModelConfigLoader, get_model_family
 from fairseq2.models.factory import ModelFactory
 from fairseq2.nn.utils.module import (
     infer_device,
@@ -352,7 +354,7 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
         else:
             card = self._asset_store.retrieve_card(model_name_or_card)
 
-        family = card.field("model_family").as_(str)
+        family = get_model_family(card)
 
         try:
             loader = self._loaders[family]
@@ -393,7 +395,7 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
         else:
             card = self._asset_store.retrieve_card(model_name_or_card)
 
-        family = card.field("model_family").as_(str)
+        family = get_model_family(card)
 
         return family in self._loaders
 

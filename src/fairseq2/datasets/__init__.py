@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from fairseq2.datasets.batching import LengthBatching as LengthBatching
 from fairseq2.datasets.batching import StaticBatching as StaticBatching
 from fairseq2.datasets.data_reader import DataPipelineReader as DataPipelineReader
@@ -12,6 +14,8 @@ from fairseq2.datasets.error import DatasetError as DatasetError
 from fairseq2.datasets.loader import AbstractDatasetLoader as AbstractDatasetLoader
 from fairseq2.datasets.loader import DatasetLoader as DatasetLoader
 from fairseq2.datasets.loader import DelegatingDatasetLoader as DelegatingDatasetLoader
+from fairseq2.datasets.loader import get_dataset_family as get_dataset_family
+from fairseq2.datasets.loader import is_dataset_card as is_dataset_card
 
 # isort: split
 

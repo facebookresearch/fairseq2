@@ -52,7 +52,7 @@ class TextGenerateConfig:
     """Holds the configuration of a text generation task."""
 
     # Data
-    dataset: Union[str, Path] = "oa2_gsm8k_safety"  # TODO: change!
+    dataset: Union[str, Path] = "foo"  # TODO: change!
     """The name, path, or path to the asset card of the instruction dataset."""
 
     max_seq_len: int = 8192
@@ -158,7 +158,7 @@ class BeamSearchConfig:
     min_gen_len: int = 1
     """The minimum generation length."""
 
-    max_gen_len: int = 512
+    max_gen_len: int = 2048
     """The maximum generation length."""
 
     max_seq_len: Optional[int] = None

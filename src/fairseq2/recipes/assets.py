@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import sys
 from argparse import ArgumentParser, Namespace
 from collections import defaultdict
@@ -19,7 +21,10 @@ from fairseq2.assets import (
     default_asset_store,
 )
 from fairseq2.console import get_console
+from fairseq2.data.text import is_tokenizer_card
+from fairseq2.datasets import is_dataset_card
 from fairseq2.logging import get_log_writer
+from fairseq2.models import is_model_card
 from fairseq2.recipes.cli import Cli, CliCommandHandler
 from fairseq2.typing import override
 
@@ -110,19 +115,16 @@ class ListAssetsCommand(CliCommandHandler):
             types = []
 
             if args.type == "all" or args.type == "model":
-                if card.field("model_family").exists():
+                if is_model_card(card):
                     types.append("model")
 
             if args.type == "all" or args.type == "dataset":
-                if card.field("dataset_family").exists():
+                if is_dataset_card(card):
                     types.append("dataset")
 
             if args.type == "all" or args.type == "tokenizer":
-                for field_name in ("tokenizer_family", "tokenizer"):
-                    if card.field(field_name).exists():
-                        types.append("tokenizer")
-
-                        break
+                if is_tokenizer_card(card):
+                    types.append("tokenizer")
 
             if args.type == "all" and not types:
                 types.append("other")
@@ -224,10 +226,6 @@ class ShowAssetCommand(CliCommandHandler):
         for key, value in items:
             # Skip dunder keys (e.g. __base_path__).
             if len(key) > 4 and key.startswith("__") and key.endswith("__"):
-                continue
-
-            # compat
-            if key == "model_type":
                 continue
 
             console.print(f"  [bold]{key:<16}:[/bold] {pretty_repr(value)}")

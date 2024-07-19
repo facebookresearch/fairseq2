@@ -24,7 +24,7 @@ from fairseq2.metrics import (
     MetricRecorder,
     record_metrics,
 )
-from fairseq2.recipes.common_metrics import set_throughput
+from fairseq2.recipes.common_metrics import set_throughput_value
 from fairseq2.recipes.utils.cli import create_rich_progress
 from fairseq2.typing import CPU, override
 from fairseq2.utils.profiler import Stopwatch
@@ -55,11 +55,6 @@ class GeneratorUnit(ABC, Generic[BatchT_contra]):
     def metric_bag(self) -> MetricBag:
         """The generation-related metrics."""
 
-    @property
-    @abstractmethod
-    def throughput_metric_name(self) -> Optional[str]:
-        """The name of the metric to use for throughput calculation."""
-
 
 class AbstractGeneratorUnit(GeneratorUnit[BatchT]):
     """Provides a skeletal implementation of :class:`GeneratorUnit`."""
@@ -72,11 +67,6 @@ class AbstractGeneratorUnit(GeneratorUnit[BatchT]):
     @override
     def model(self) -> Module:
         return self._model
-
-    @property
-    @override
-    def throughput_metric_name(self) -> Optional[str]:
-        return "num_elements"
 
 
 @final
@@ -226,7 +216,7 @@ class Generator(Generic[BatchT]):
 
         assert values is not None
 
-        set_throughput(values, self._unit.throughput_metric_name, elapsed_time)
+        set_throughput_value(values, elapsed_time)
 
         values["elapsed_time"] = elapsed_time
 

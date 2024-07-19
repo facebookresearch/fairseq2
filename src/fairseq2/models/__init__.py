@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from fairseq2.models.chatbot import ChatbotFactory as ChatbotFactory
 from fairseq2.models.chatbot import DelegatingChatbotFactory as DelegatingChatbotFactory
 from fairseq2.models.chatbot import create_chatbot as create_chatbot
@@ -11,6 +13,8 @@ from fairseq2.models.config_loader import ModelConfigLoader as ModelConfigLoader
 from fairseq2.models.config_loader import (
     StandardModelConfigLoader as StandardModelConfigLoader,
 )
+from fairseq2.models.config_loader import get_model_family as get_model_family
+from fairseq2.models.config_loader import is_model_card as is_model_card
 from fairseq2.models.factory import DelegatingModelFactory as DelegatingModelFactory
 from fairseq2.models.factory import ModelFactory as ModelFactory
 from fairseq2.models.factory import create_model as create_model

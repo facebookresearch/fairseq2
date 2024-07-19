@@ -331,7 +331,7 @@ class MTLossEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
 
         self._label_smoothing = label_smoothing
 
-        self._metric_bag = Seq2SeqMetricBag(gang)
+        self._metric_bag = Seq2SeqMetricBag(gang, train=False)
 
     @override
     def __call__(self, batch: Seq2SeqBatch) -> None:

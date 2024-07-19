@@ -57,7 +57,7 @@ from fairseq2.nn.utils.gradient import (
 )
 from fairseq2.optim import DynamicLossScaler
 from fairseq2.optim.lr_scheduler import LRScheduler, NoopLR, get_effective_lr
-from fairseq2.recipes.common_metrics import set_throughput
+from fairseq2.recipes.common_metrics import set_throughput_value
 from fairseq2.recipes.evaluator import EvalUnit
 from fairseq2.recipes.utils.cli import create_rich_progress
 from fairseq2.typing import CPU, DataType, override
@@ -98,11 +98,6 @@ class TrainUnit(ABC, Generic[BatchT_contra]):
     def metric_bag(self) -> MetricBag:
         """The training-related metrics."""
 
-    @property
-    @abstractmethod
-    def throughput_metric_name(self) -> Optional[str]:
-        """The name of the metric to use for throughput calculation."""
-
 
 class AbstractTrainUnit(TrainUnit[BatchT]):
     """Provides a skeletal implementation of :class:`TrainUnit`."""
@@ -119,11 +114,6 @@ class AbstractTrainUnit(TrainUnit[BatchT]):
     @override
     def model(self) -> Module:
         return self._model
-
-    @property
-    @override
-    def throughput_metric_name(self) -> Optional[str]:
-        return "num_elements"
 
 
 @final
@@ -640,7 +630,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
             num_targets = 0
 
-            self._metric_bag.begin_updates()
+            if self._loss_scaler.is_enabled:
+                self._metric_bag.begin_updates()
 
             # Accumulate.
             for batch_nr, batch in enumerate(batches):
@@ -687,7 +678,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             else:
                 self._lr_scheduler.step()
 
-                self._metric_bag.commit_updates()
+                if self._loss_scaler.is_enabled:
+                    self._metric_bag.commit_updates()
 
                 self._metric_bag.gradient_norm.update(grad_norm)
 
@@ -771,7 +763,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         values["lr"] = get_effective_lr(self._lr_scheduler)
 
-        set_throughput(values, self._unit.throughput_metric_name, elapsed_time)
+        set_throughput_value(values, elapsed_time)
 
         values["elapsed_time"] = elapsed_time
 
@@ -871,7 +863,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         assert values is not None
 
-        set_throughput(values, unit.throughput_metric_name, elapsed_time)
+        set_throughput_value(values, elapsed_time)
 
         values["elapsed_time"] = elapsed_time
 
@@ -934,10 +926,17 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         if log.is_enabled_for_info():
             best_step_nr, best_score = self._best_step_and_score  # type: ignore[misc]
 
+            if len(unit_scores) > 1:
+                m1 = "Mean "
+                m2 = "Best Mean "
+            else:
+                m1 = ""
+                m2 = "Best "
+
             s1 = format_metric_value(self._score_metric_name, score)
             s2 = format_metric_value(self._score_metric_name, best_score)
 
-            log.info("Score (step {}) - {} | Best {} at step {}", self._step_nr, s1, s2, best_step_nr)  # fmt: skip
+            log.info("Score (step {}) - {}{} | {}{} at step {}", self._step_nr, m1, s1, m2, s2, best_step_nr)  # fmt: skip
 
         return score
 

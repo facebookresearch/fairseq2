@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from fairseq2.recipes.cli import Cli, RecipeCommandHandler
 from fairseq2.recipes.utils.sweep import default_sweep_tagger
 from fairseq2.recipes.wav2vec2.asr.eval import (

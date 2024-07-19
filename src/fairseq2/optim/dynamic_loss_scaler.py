@@ -200,9 +200,6 @@ class DynamicLossScaler:
 
         self._grad_scaler.unscale_(self._optimizer)
 
-    # compat
-    unscale_optimizer_grads_ = unscale_gradients_
-
     def backward(self, loss: Tensor) -> None:
         """Compute the gradient of ``loss`` after scaling it to avoid underflow."""
         self._grad_scaler.scale(loss).backward()
@@ -213,12 +210,6 @@ class DynamicLossScaler:
 
     @property
     def is_enabled(self) -> bool:
-        """``True`` if the loss scaling is enabled."""
-        return self._is_enabled
-
-    # compat
-    @property
-    def enabled(self) -> bool:
         """``True`` if the loss scaling is enabled."""
         return self._is_enabled
 
