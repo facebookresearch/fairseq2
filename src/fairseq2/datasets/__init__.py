@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from fairseq2.datasets.batching import LengthBatching as LengthBatching
 from fairseq2.datasets.batching import StaticBatching as StaticBatching
 from fairseq2.datasets.data_reader import DataPipelineReader as DataPipelineReader

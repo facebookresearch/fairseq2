@@ -4,6 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
 
 from fairseq2.models.w2vbert.factory import W2VBERT_FAMILY as W2VBERT_FAMILY
 from fairseq2.models.w2vbert.factory import W2VBertBuilder as W2VBertBuilder
