@@ -16,7 +16,8 @@ from fairseq2.generation import (
     TextTranslator,
 )
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
-from fairseq2.models.nllb import load_nllb_model, load_nllb_tokenizer
+from fairseq2.models.nllb import load_nllb_tokenizer
+from fairseq2.models.transformer import load_transformer_model
 from tests.common import device
 
 BANNED_ENG_SENTENCES: Final = [
@@ -64,7 +65,7 @@ class TestBannedSequenceProcessor:
     def setup_class(cls) -> None:
         model_name = "nllb-200_dense_distill_600m"
 
-        cls.model = load_nllb_model(
+        cls.model = load_transformer_model(
             model_name, device=device, dtype=torch.float32, progress=False
         )
 

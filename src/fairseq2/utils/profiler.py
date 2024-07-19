@@ -22,11 +22,6 @@ from typing_extensions import Self
 from fairseq2.gang import Gang
 from fairseq2.typing import Device
 
-# compat
-from fairseq2.utils.log import (  # noqa: F401
-    log_environment_info as log_environment_info,
-)
-
 
 @final
 class Profiler:

@@ -12,10 +12,3 @@ from fairseq2.models.nllb.tokenizer import NllbTokenizer as NllbTokenizer
 # isort: split
 
 import fairseq2.models.nllb.archs  # Register architectures.
-
-# isort: split
-
-# compat
-from fairseq2.models.transformer import load_transformer_model
-
-load_nllb_model = load_transformer_model

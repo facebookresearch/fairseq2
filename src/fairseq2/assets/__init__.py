@@ -44,8 +44,3 @@ from fairseq2.assets.store import AssetStore as AssetStore
 from fairseq2.assets.store import EnvironmentResolver as EnvironmentResolver
 from fairseq2.assets.store import StandardAssetStore as StandardAssetStore
 from fairseq2.assets.store import default_asset_store as default_asset_store
-
-# For backwards-compatibility with v0.2
-# compat
-asset_store = default_asset_store
-download_manager = default_download_manager
