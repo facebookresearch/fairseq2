@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from fairseq2.nn.embedding import Embedding as Embedding
 from fairseq2.nn.embedding import ShardedEmbedding as ShardedEmbedding
 from fairseq2.nn.embedding import StandardEmbedding as StandardEmbedding

@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from torch.nn import Parameter
 
 from fairseq2.models.transformer import create_transformer_model, transformer_archs

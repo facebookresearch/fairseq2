@@ -52,7 +52,7 @@ class TextGenerateConfig:
     """Holds the configuration of a text generation task."""
 
     # Data
-    dataset: Union[str, Path] = "oa2_gsm8k_safety"  # TODO: change!
+    dataset: Union[str, Path] = "foo"  # TODO: change!
     """The name, path, or path to the asset card of the instruction dataset."""
 
     max_seq_len: int = 8192
