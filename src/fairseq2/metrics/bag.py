@@ -117,6 +117,10 @@ class MetricBag:
 
         self._metrics, self._original_metrics = self._original_metrics, None
 
+        for name, metric in self._metrics.items():
+            if name in self._persistent_metrics:
+                self._persistent_metrics[name] = metric
+
     @final
     def reset_metrics(self) -> None:
         """Reset the metrics to their initial state."""
