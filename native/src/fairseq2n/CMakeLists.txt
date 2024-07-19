@@ -8,6 +8,8 @@
 # Target: fairseq2n
 # ------------------------------------------------------------
 
+set(CMAKE_BUILD_TYPE Debug)
+
 add_library(fairseq2n SHARED)
 
 target_sources(fairseq2n
@@ -33,6 +35,7 @@ target_sources(fairseq2n
         data/file_stream.cc
         data/filter_data_source.cc
         data/immutable_string.cc
+        data/iterator_data_source.cc
         data/list_data_source.cc
         data/map_data_source.cc
         data/memory_stream.cc
@@ -110,16 +113,25 @@ else()
     set(system SYSTEM)
 endif()
 
+find_package(PythonLibs REQUIRED)
+
+add_subdirectory(${PROJECT_SOURCE_DIR}/third-party/pybind11 build EXCLUDE_FROM_ALL)
+
 target_include_directories(fairseq2n ${system}
     PUBLIC
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
         $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/src>
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/third-party/pybind11/include
+        ${PYTHON_INCLUDE_DIRS}
 )
 
 target_link_libraries(fairseq2n
     PRIVATE
         ${CMAKE_DL_LIBS}
+        ${PYTHON_LIBRARIES}
     PRIVATE
+        pybind11::module
         fmt::fmt
         Iconv::Iconv
         kaldi-native-fbank::core

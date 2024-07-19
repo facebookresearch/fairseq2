@@ -21,6 +21,7 @@
 #include "fairseq2n/data/detail/file_system.h"
 #include "fairseq2n/data/dynamic_bucket_data_source.h"
 #include "fairseq2n/data/filter_data_source.h"
+#include "fairseq2n/data/iterator_data_source.h"
 #include "fairseq2n/data/list_data_source.h"
 #include "fairseq2n/data/map_data_source.h"
 #include "fairseq2n/data/prefetch_data_source.h"
@@ -591,5 +592,17 @@ read_zipped_records(std::string pathname)
 
     return data_pipeline_builder{std::move(factory)};
 }
+
+data_pipeline_builder
+read_iterator(pybind11::iterator iterator)
+{
+    auto factory = [iterator = std::move(iterator)]() mutable
+    {
+        return std::make_unique<iterator_data_source>(std::move(iterator));
+    };
+
+    return data_pipeline_builder{std::move(factory)};
+}
+
 
 }  // namespace fairseq2n
