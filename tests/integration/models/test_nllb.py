@@ -10,7 +10,8 @@ import pytest
 import torch
 
 from fairseq2.generation import BeamSearchSeq2SeqGenerator, TextTranslator
-from fairseq2.models.nllb import load_nllb_model, load_nllb_tokenizer
+from fairseq2.models.nllb import load_nllb_tokenizer
+from fairseq2.models.transformer import load_transformer_model
 from tests.common import device
 
 ENG_SENTENCE: Final = "On Monday, scientists from the Stanford University School of Medicine announced the invention of a new diagnostic tool that can sort cells by type: a tiny printable chip that can be manufactured using standard inkjet printers for possibly about one U.S. cent each."
@@ -20,7 +21,7 @@ DEU_SENTENCE: Final = "Am Montag kündigten Wissenschaftler der Medizinischen Fa
 def test_load_dense_distill_600m() -> None:
     model_name = "nllb-200_dense_distill_600m"
 
-    model = load_nllb_model(
+    model = load_transformer_model(
         model_name, device=device, dtype=torch.float32, progress=False
     )
 

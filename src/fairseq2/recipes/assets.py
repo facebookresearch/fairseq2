@@ -228,10 +228,6 @@ class ShowAssetCommand(CliCommandHandler):
             if len(key) > 4 and key.startswith("__") and key.endswith("__"):
                 continue
 
-            # compat
-            if key == "model_type":
-                continue
-
             console.print(f"  [bold]{key:<16}:[/bold] {pretty_repr(value)}")
 
         console.print()

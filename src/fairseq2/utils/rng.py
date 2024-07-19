@@ -168,7 +168,3 @@ def temporary_manual_seed(
     rng_bag = RngBag.from_device_defaults(*devices)
 
     return rng_bag.temporary_manual_seed(seed)
-
-
-# compat
-RNGBag = RngBag
