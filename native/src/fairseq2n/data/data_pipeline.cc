@@ -232,7 +232,10 @@ data_pipeline::count(std::int64_t start, std::int64_t step, std::optional<std::s
 }
 
 data_pipeline_builder
-data_pipeline::round_robin(std::vector<data_pipeline> pipelines, bool stop_at_shortest)
+data_pipeline::round_robin(
+    std::vector<data_pipeline> pipelines, 
+    bool stop_at_shortest, 
+    bool allow_repeats)
 {
     bool is_broken = std::any_of(
         pipelines.begin(), pipelines.end(), [](const data_pipeline &pipeline)
@@ -246,9 +249,12 @@ data_pipeline::round_robin(std::vector<data_pipeline> pipelines, bool stop_at_sh
 
     auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
 
-    auto factory = [tmp, stop_at_shortest]() mutable
+    auto factory = [tmp, stop_at_shortest, allow_repeats]() mutable
     {
-        return std::make_unique<round_robin_data_source>(std::move(*tmp), stop_at_shortest);
+        return std::make_unique<round_robin_data_source>(
+            std::move(*tmp), 
+            stop_at_shortest, 
+            allow_repeats);
     };
 
     return data_pipeline_builder{std::move(factory)};
@@ -258,7 +264,8 @@ data_pipeline_builder
 data_pipeline::sample(
     std::vector<data_pipeline> pipelines,
     std::optional<std::vector<float32>> maybe_weights,
-    std::optional<std::uint64_t> maybe_seed)
+    std::optional<std::uint64_t> maybe_seed,
+    bool allow_repeats)
 {
     bool is_broken = std::any_of(
         pipelines.begin(), pipelines.end(), [](const data_pipeline &pipeline)
@@ -296,8 +303,12 @@ data_pipeline::sample(
 
     auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
 
-    auto factory = [tmp, weights=std::move(weights), maybe_seed]() mutable {
-        return std::make_unique<sample_data_source>(std::move(*tmp), std::move(weights), maybe_seed);
+    auto factory = [tmp, weights=std::move(weights), maybe_seed, allow_repeats]() mutable {
+        return std::make_unique<sample_data_source>(
+            std::move(*tmp), 
+            std::move(weights), 
+            maybe_seed, 
+            allow_repeats);
     };
 
     return data_pipeline_builder{std::move(factory)};

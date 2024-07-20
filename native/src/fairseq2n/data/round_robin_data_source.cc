@@ -11,10 +11,13 @@
 namespace fairseq2n::detail {
 
 round_robin_data_source::round_robin_data_source(
-    std::vector<data_pipeline> &&pipelines, bool stop_at_shortest)
+    std::vector<data_pipeline> &&pipelines, 
+    bool stop_at_shortest,
+    bool allow_repeats)
   : pipelines_(std::move(pipelines)),
     is_epoch_done_(pipelines_.size()),
-    stop_at_shortest_{stop_at_shortest}
+    stop_at_shortest_{stop_at_shortest},
+    allow_repeats_{allow_repeats}
 {
     buffer_.reserve(pipelines_.size());
 
@@ -135,10 +138,12 @@ round_robin_data_source::next_in_pipeline(std::size_t pipeline_idx)
     if (!maybe_example) {
         is_epoch_done_[pipeline_idx] = true;
 
-        pipeline.reset();
+        if (allow_repeats_) {
+            pipeline.reset();
 
-        // Circle back to the first example.
-        maybe_example = pipeline.next();
+            // Circle back to the first example.
+            maybe_example = pipeline.next();
+        }
     } else if (pipeline.finitude_type() == data_source_finitude_type::pseudo_infinite)
         is_epoch_done_[pipeline_idx] = true;
 
