@@ -50,8 +50,7 @@ struct data_pipeline_deleter {
         // that might happen due to Python callbacks.
         try {
             pipeline->reset();
-        } catch (const data_pipeline_error &) {
-        }
+        } catch (const data_pipeline_error &) {}
 
         // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
         delete pipeline;
