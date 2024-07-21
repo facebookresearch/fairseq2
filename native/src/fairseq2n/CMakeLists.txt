@@ -33,7 +33,6 @@ target_sources(fairseq2n
         data/file_stream.cc
         data/filter_data_source.cc
         data/immutable_string.cc
-        data/iterator_data_source.cc
         data/list_data_source.cc
         data/map_data_source.cc
         data/memory_stream.cc
@@ -111,22 +110,16 @@ else()
     set(system SYSTEM)
 endif()
 
-find_package(Python COMPONENTS Development)
-
 target_include_directories(fairseq2n ${system}
     PUBLIC
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
         $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/src>
-    PRIVATE
-        ${Python_INCLUDE_DIRS}
 )
 
 target_link_libraries(fairseq2n
     PRIVATE
         ${CMAKE_DL_LIBS}
-        ${Python_LIBRARIES}
     PRIVATE
-        pybind11::module
         fmt::fmt
         Iconv::Iconv
         kaldi-native-fbank::core

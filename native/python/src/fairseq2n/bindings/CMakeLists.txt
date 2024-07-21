@@ -19,6 +19,7 @@ target_sources(py_bindings
         data/audio.cc
         data/image.cc
         data/data_pipeline.cc
+        data/iterator_data_source.cc
         data/init.cc
         data/image.cc
         data/text/converters.cc

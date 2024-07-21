@@ -23,8 +23,6 @@
 #include "fairseq2n/data/data_source.h"
 #include "fairseq2n/data/tape.h"
 
-#include <pybind11/pybind11.h>
-
 namespace fairseq2n {
 
 using data_source_factory = std::function<std::unique_ptr<data_source>()>;
@@ -119,7 +117,6 @@ using cost_fn = std::function<float64(const data &)>;
 
 using yield_fn = std::function<data_pipeline(const data &)>;
 
-using reset_fn = std::function<void(pybind11::iterator &)>;
 
 class FAIRSEQ2_API data_pipeline_builder {
 public:
@@ -238,8 +235,5 @@ read_list(data_list list);
 
 FAIRSEQ2_API data_pipeline_builder
 read_zipped_records(std::string pathname);
-
-FAIRSEQ2_API data_pipeline_builder
-read_iterator(pybind11::iterator iterator, reset_fn fn, bool infinite);
 
 }  // namespace fairseq2n

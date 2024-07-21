@@ -8,8 +8,14 @@
 
 #include "fairseq2n/data/data_pipeline.h"
 #include "fairseq2n/data/data_source.h"
+#include "fairseq2n/bindings/type_casters/py.h"
 
 #include <pybind11/pybind11.h>
+
+
+namespace py = pybind11;
+
+using reset_fn = std::function<void(py::iterator &)>;
 
 namespace fairseq2n::detail {
 
@@ -17,10 +23,10 @@ class iterator_data_source final : public data_source {
 public:
     explicit
     iterator_data_source(
-        pybind11::iterator &&iterator, 
+        py::iterator &&iterator, 
         reset_fn &&fn, 
         bool infinite)
-      : iterator_{new pybind11::iterator{std::move(iterator)}},
+      : iterator_{new py::iterator{std::move(iterator)}},
         reset_fn_{std::move(fn)},
         infinite_{infinite}
     {
@@ -44,15 +50,15 @@ public:
 
 private:
     struct iterator_deleter {
-        void operator()(pybind11::iterator* it) {
-            pybind11::gil_scoped_acquire acquire;
+        void operator()(py::iterator* it) {
+            py::gil_scoped_acquire acquire;
 
             // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
             delete it;
         }
     };
 
-    std::unique_ptr<pybind11::iterator,  iterator_deleter> iterator_;
+    std::unique_ptr<py::iterator,  iterator_deleter> iterator_;
     reset_fn reset_fn_;
     bool infinite_;
     std::optional<data> to_return_;
