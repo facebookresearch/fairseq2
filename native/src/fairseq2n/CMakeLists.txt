@@ -111,20 +111,20 @@ else()
     set(system SYSTEM)
 endif()
 
-find_package(PythonLibs REQUIRED)
+find_package(Python COMPONENTS Development)
 
 target_include_directories(fairseq2n ${system}
     PUBLIC
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
         $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/src>
     PRIVATE
-        ${PYTHON_INCLUDE_DIRS}
+        ${Python_INCLUDE_DIRS}
 )
 
 target_link_libraries(fairseq2n
     PRIVATE
         ${CMAKE_DL_LIBS}
-        ${PYTHON_LIBRARIES}
+        ${Python_LIBRARIES}
     PRIVATE
         pybind11::module
         fmt::fmt
