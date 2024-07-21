@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from typing import AbstractSet, Callable, Dict, Generic, Protocol, TypeVar, final
 
 from fairseq2.typing import DataClass
@@ -36,7 +38,7 @@ class ConfigRegistry(Generic[ConfigT]):
         except KeyError:
             raise ValueError(
                 f"`name` must be a registered configuration name, but is '{name}' instead."
-            )
+            ) from None
 
     def register(self, name: str, config_factory: ConfigFactory[ConfigT]) -> None:
         """Register a new configuration.

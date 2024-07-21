@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-import logging
+from __future__ import annotations
 
 import torch
 
@@ -25,7 +25,7 @@ def _reduce_num_batches(num_batches: int, gang: Gang, log: LogWriter) -> int:
 
     # If not all processes have reached end of data, report the ones that have
     # reached for debugging purposes.
-    if log.is_enabled_for(logging.DEBUG) and all_num_batches.sum() > 0:
+    if log.is_enabled_for_debug() and all_num_batches.sum() > 0:
         ranks = all_num_batches.bool().logical_not_().nonzero().squeeze(-1).tolist()
 
         s = ", ".join(str(r) for r in ranks)

@@ -13,7 +13,6 @@ from typing import Literal, Optional, TextIO, Tuple, Union, final
 import torch
 
 from fairseq2.assets import AssetNotFoundError, default_asset_store
-from fairseq2.assets.utils import retrieve_asset_card
 from fairseq2.checkpoint import CheckpointModelMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import TextTokenizer, load_text_tokenizer
@@ -31,13 +30,18 @@ from fairseq2.generation import (
 )
 from fairseq2.generation.text import SequenceToTextConverter
 from fairseq2.logging import get_log_writer
+from fairseq2.models import load_model
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.sequence import SequenceBatch
-from fairseq2.models.transformer import load_transformer_model
 from fairseq2.recipes.common_metrics import Seq2SeqGenerationMetricBag
 from fairseq2.recipes.generator import AbstractGeneratorUnit, Generator
+from fairseq2.recipes.utils.asset import asset_as_path, retrieve_asset_card
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import broadcast_model, setup_root_gang
+from fairseq2.recipes.utils.setup import (
+    broadcast_model,
+    check_model_type,
+    setup_root_gang,
+)
 from fairseq2.typing import META, DataType, override
 from fairseq2.utils.profiler import Stopwatch
 
@@ -62,7 +66,7 @@ class TextTranslateConfig:
     """The maximum sequence length."""
 
     batch_size: int = 1
-    """The input batch size."""
+    """The number of sentences per batch."""
 
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
@@ -143,10 +147,10 @@ class SamplingConfig:
     sampler: Literal["top-p", "top-k"] = "top-p"
     """The sampling algorithm."""
 
-    top_p: float = 0.9
+    top_p: float = 1.0
     """The cumulative probability threshold for top-p sampling."""
 
-    top_k = 10
+    top_k = 1
     """The number of top candidates to select from for top-k sampling."""
 
     min_gen_len: int = 1
@@ -164,7 +168,7 @@ class SamplingConfig:
     normalize_scores: bool = True
     """If ``True``, normalizes scores by lengths of generated sequences."""
 
-    temperature: float = 0.6
+    temperature: float = 1.0
     """The logit temperature."""
 
     unk_penalty: float = 0.0
@@ -205,9 +209,9 @@ def load_text_translator(
 
     seed = config.seed
 
-    # Load the tokenizer.
     model_card = retrieve_asset_card(config.model)
 
+    # Load the tokenizer.
     log.info("Loading {} tokenizer.", model_card.name)
 
     tokenizer = load_text_tokenizer(model_card)
@@ -227,14 +231,9 @@ def load_text_translator(
 
         log.info("Dataset loaded.")
     else:
-        try:
-            path = Path(config.dataset)
-        except ValueError:
-            raise AssetNotFoundError(
-                config.dataset, f"An asset with the name '{config.dataset}' cannot be found."  # type: ignore[arg-type]
-            )
+        dataset_path = asset_as_path(config.dataset)
 
-        dataset = GenericTextDataset.from_path(path)
+        dataset = GenericTextDataset.from_path(dataset_path)
 
     # Load the model.
     log.info("Loading {} model on rank 0.", model_card.name)
@@ -244,7 +243,14 @@ def load_text_translator(
     else:
         init_device = META
 
-    model = load_transformer_model(model_card, device=init_device, dtype=config.dtype)
+    try:
+        model = load_model(model_card, device=init_device, dtype=config.dtype)
+    except ValueError as ex:
+        raise ValueError(
+            "The model cannot be initialized. See nested exception for details."
+        ) from ex
+
+    check_model_type(model, EncoderDecoderModel)
 
     gang.barrier()
 
@@ -258,7 +264,7 @@ def load_text_translator(
 
     # Initialize the sequence generator.
     generator = _create_sequence_generator(
-        model, config.generator_mode, config.beam_search, config.sampling
+        model, config.generator_mode, config.beam_search, config.sampling  # type: ignore[arg-type]
     )
 
     # Initialize the generator unit.
@@ -305,6 +311,7 @@ def load_text_translator(
         gang,
         config.max_seq_len,
         batching=StaticBatching(config.batch_size),
+        sync_batches=False,
         num_prefetch=config.num_prefetch,
         seed=seed,
     )
@@ -373,7 +380,7 @@ class TextTranslationUnit(AbstractGeneratorUnit[SequenceBatch]):
         try:
             srcs = batch.example["text"]
         except KeyError:
-            raise ValueError("`batch.example` must contain a 'text' item.")
+            raise ValueError("`batch.example` must contain a 'text' item.") from None
 
         hyps, output = self._converter.batch_convert(batch.seqs, batch.padding_mask)
 
@@ -416,7 +423,7 @@ def _create_sequence_generator(
         return _create_sampling_generator(model, sampling_config)
 
     raise ValueError(
-        f"`config.generator_mode` must be 'sampling' or 'beam_search', but is '{mode}' instead."
+        f"`generator_mode` must be 'sampling' or 'beam_search', but is '{mode}' instead."
     )
 
 
@@ -427,7 +434,7 @@ def _create_beam_search_generator(
         algorithm = StandardBeamSearchAlgorithm()
     else:
         raise ValueError(
-            f"`config.beam_search.algorithm` must be 'standard', but is '{config.algorithm}' instead."
+            f"`beam_search.algorithm` must be 'standard', but is '{config.algorithm}' instead."
         )
 
     return BeamSearchSeq2SeqGenerator(
@@ -457,7 +464,7 @@ def _create_sampling_generator(
         sampler = TopKSampler(config.top_k)
     else:
         raise ValueError(
-            f"`config.sampling.sampler` must be 'top-p' or 'top-k', but is '{config.sampler}' instead."
+            f"`sampling.sampler` must be 'top-p' or 'top-k', but is '{config.sampler}' instead."
         )
 
     return SamplingSeq2SeqGenerator(

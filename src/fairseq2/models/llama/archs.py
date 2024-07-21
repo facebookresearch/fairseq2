@@ -4,13 +4,10 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from fairseq2.config_registry import ConfigRegistry
+from __future__ import annotations
+
 from fairseq2.data import VocabularyInfo
-from fairseq2.models.llama.factory import LLaMAConfig
-
-llama_archs = ConfigRegistry[LLaMAConfig]()
-
-llama_arch = llama_archs.decorator
+from fairseq2.models.llama.factory import LLaMAConfig, llama_arch
 
 
 @llama_arch("7b")

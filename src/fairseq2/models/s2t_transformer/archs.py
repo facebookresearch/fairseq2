@@ -4,13 +4,13 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from fairseq2.config_registry import ConfigRegistry
+from __future__ import annotations
+
 from fairseq2.data import VocabularyInfo
-from fairseq2.models.s2t_transformer.factory import S2TTransformerConfig
-
-s2t_transformer_archs = ConfigRegistry[S2TTransformerConfig]()
-
-s2t_transformer_arch = s2t_transformer_archs.decorator
+from fairseq2.models.s2t_transformer.factory import (
+    S2TTransformerConfig,
+    s2t_transformer_arch,
+)
 
 
 @s2t_transformer_arch("tiny")

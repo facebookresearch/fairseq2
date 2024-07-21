@@ -4,10 +4,14 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from typing import Final, Optional
 
+from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data import VocabularyInfo
+from fairseq2.models.factory import create_model
 from fairseq2.models.transformer.frontend import (
     TransformerEmbeddingFrontend,
     TransformerFrontend,
@@ -82,6 +86,11 @@ class TransformerConfig:
 
     dropout_p: float = 0.1
     """The dropout probability on outputs of Transformer layers."""
+
+
+transformer_archs = ConfigRegistry[TransformerConfig]()
+
+transformer_arch = transformer_archs.decorator
 
 
 class TransformerBuilder:
@@ -265,3 +274,11 @@ def create_transformer_model(
     model = TransformerBuilder(config, device=device, dtype=dtype).build_model()
 
     return model.set_family(TRANSFORMER_FAMILY)
+
+
+create_model.register(
+    family=TRANSFORMER_FAMILY,
+    factory=create_transformer_model,
+    config_kls=TransformerConfig,
+    arch_configs=transformer_archs,
+)

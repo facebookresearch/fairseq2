@@ -5,7 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 
 name: nllb-200
-model_type: transformer  # compat
 model_family: transformer
 tokenizer: "https://tinyurl.com/flores200sacrebleuspm"
 tokenizer_family: nllb

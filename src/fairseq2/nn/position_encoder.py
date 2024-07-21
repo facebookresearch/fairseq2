@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import math
 from abc import ABC, abstractmethod
 from typing import Optional, final
@@ -18,6 +20,7 @@ from torch.nn.parameter import Parameter
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.typing import DataType, Device, override
+from fairseq2.utils.version import torch_greater_or_equal
 
 
 class PositionEncoder(Module, ABC):
@@ -351,9 +354,10 @@ class RotaryEncoder(PositionEncoder):
 
         device = self.freqs.device
 
-        # As of PyTorch 2.0, `torch.polar` does not support meta device.
-        if device.type == "meta":
-            return
+        # In PyTorch 2.0 and 2.1, `torch.polar` does not support meta device.
+        if not torch_greater_or_equal(2, 2):
+            if device.type == "meta":
+                return
 
         complex_freqs = torch.view_as_complex(self.freqs)
 

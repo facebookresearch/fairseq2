@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import json
-import logging
+import math
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -37,7 +37,10 @@ from fairseq2.typing import override
 
 def format_as_int(value: Any, *, postfix: Optional[str] = None) -> str:
     """Format metric ``value`` as integer."""
-    i = int(value)
+    try:
+        i = int(value)
+    except ValueError:
+        return f"{value}"
 
     s = "<1" if i == 0 and isinstance(value, float) else f"{i:,}"
 
@@ -53,7 +56,10 @@ format_as_seconds = partial(format_as_int, postfix="s")
 
 def format_as_float(value: Any, *, postfix: Optional[str] = None) -> str:
     """Format metric ``value`` as float."""
-    s = f"{float(value):g}"
+    try:
+        s = f"{float(value):g}"
+    except ValueError:
+        return f"{value}"
 
     if postfix:
         s += postfix
@@ -68,7 +74,13 @@ def format_as_byte_size(value: Any) -> str:
     """Format metric ``value`` in byte units."""
     unit_idx = 0
 
-    size = float(value)
+    try:
+        size = float(value)
+    except ValueError:
+        return f"{value}"
+
+    if not math.isfinite(size) or size <= 0.0:
+        return "0 B"
 
     while size >= 1024:
         size /= 1024
@@ -158,6 +170,15 @@ def register_metric_formatter(
     _metric_formatters[name] = _MetricFormatter(display_name, priority, fn, log)
 
 
+def format_metric_value(name: str, value: Any) -> str:
+    """Format the specified metric along with its value as a string."""
+    formatter = _metric_formatters.get(name)
+    if formatter is None:
+        return f"{name}: {value}"
+
+    return f"{formatter.display_name}: {formatter.fn(value)}"
+
+
 class MetricRecorder(ABC):
     """Records metric values."""
 
@@ -237,7 +258,7 @@ class LogMetricRecorder(MetricRecorder):
         *,
         flush: bool = True,
     ) -> None:
-        if not self._log.is_enabled_for(logging.INFO):
+        if not self._log.is_enabled_for_info():
             return
 
         values_and_formatters = []
@@ -275,7 +296,7 @@ class LogMetricRecorder(MetricRecorder):
 
 
 @final
-class FileMetricRecorder(MetricRecorder):
+class JsonFileMetricRecorder(MetricRecorder):
     """Records metric values to JSONL files."""
 
     _RUN_PART_REGEX: Final = re.compile("^[-_a-zA-Z0-9]+$")
@@ -328,7 +349,10 @@ class FileMetricRecorder(MetricRecorder):
                 value = value.item()
 
             if formatter.fn is format_as_int:
-                value = int(value)
+                try:
+                    value = int(value)
+                except ValueError:
+                    pass
 
             return value
 

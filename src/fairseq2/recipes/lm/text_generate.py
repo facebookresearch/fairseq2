@@ -14,7 +14,6 @@ from typing import Literal, Optional, TextIO, Union, final
 import torch
 
 from fairseq2.assets import AssetNotFoundError, default_asset_store
-from fairseq2.assets.utils import retrieve_asset_card
 from fairseq2.checkpoint import CheckpointModelMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import TextTokenDecoder, TextTokenizer, load_text_tokenizer
@@ -39,8 +38,9 @@ from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.recipes.common_metrics import SequenceGenerationMetricBag
 from fairseq2.recipes.generator import AbstractGeneratorUnit, Generator
+from fairseq2.recipes.utils.asset import asset_as_path, retrieve_asset_card
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import broadcast_model, setup_gangs
+from fairseq2.recipes.utils.setup import broadcast_model, check_model_type, setup_gangs
 from fairseq2.typing import META, DataType, override
 from fairseq2.utils.profiler import Stopwatch
 
@@ -52,14 +52,14 @@ class TextGenerateConfig:
     """Holds the configuration of a text generation task."""
 
     # Data
-    dataset: Union[str, Path] = "oa2_gsm8k_safety"  # TODO: change!
+    dataset: Union[str, Path] = "foo"  # TODO: change!
     """The name, path, or path to the asset card of the instruction dataset."""
 
     max_seq_len: int = 8192
     """The maximum sequence length."""
 
     batch_size: int = 1
-    """The input batch size."""
+    """The number of prompts per batch."""
 
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
@@ -102,10 +102,10 @@ class SamplingConfig:
     sampler: Literal["top-p", "top-k"] = "top-p"
     """The sampling algorithm."""
 
-    top_p: float = 0.9
+    top_p: float = 1.0
     """The cumulative probability threshold for top-p sampling."""
 
-    top_k = 10
+    top_k = 1
     """The number of top candidates to select from for top-k sampling."""
 
     min_gen_len: int = 1
@@ -126,7 +126,7 @@ class SamplingConfig:
     normalize_scores: bool = True
     """If ``True``, normalizes scores by lengths of generated sequences."""
 
-    temperature: float = 0.6
+    temperature: float = 1.0
     """The logit temperature."""
 
     unk_penalty: float = 0.0
@@ -158,7 +158,7 @@ class BeamSearchConfig:
     min_gen_len: int = 1
     """The minimum generation length."""
 
-    max_gen_len: int = 512
+    max_gen_len: int = 2048
     """The maximum generation length."""
 
     max_seq_len: Optional[int] = None
@@ -243,9 +243,9 @@ def load_text_generator(
 
     seed = config.seed
 
-    # Load the tokenizer.
     model_card = retrieve_asset_card(config.model)
 
+    # Load the tokenizer.
     log.info("Loading {} tokenizer.", model_card.name)
 
     tokenizer = load_text_tokenizer(model_card)
@@ -265,14 +265,9 @@ def load_text_generator(
 
         log.info("Dataset loaded.")
     else:
-        try:
-            path = Path(config.dataset)
-        except ValueError:
-            raise AssetNotFoundError(
-                config.dataset, f"An asset with the name '{config.dataset}' cannot be found."  # type: ignore[arg-type]
-            )
+        dataset_path = asset_as_path(config.dataset)
 
-        dataset = GenericInstructionDataset.from_path(path)
+        dataset = GenericInstructionDataset.from_path(dataset_path)
 
     # Load the model.
     log.info("Loading {} model on data parallel rank 0 (per shard).", model_card.name)
@@ -282,14 +277,20 @@ def load_text_generator(
     else:
         init_device = META
 
-    model = load_model(model_card, gangs=gangs, device=init_device, dtype=config.dtype)
+    try:
+        model = load_model(
+            model_card, gangs=gangs, device=init_device, dtype=config.dtype
+        )
+    except ValueError as ex:
+        raise ValueError(
+            "The model cannot be initialized. See nested exception for details."
+        ) from ex
+
+    check_model_type(model, DecoderModel)
 
     root_gang.barrier()
 
     log.info("Model loaded on data parallel rank 0.")
-
-    if not isinstance(model, DecoderModel):
-        raise ValueError("`config.model` must specify a decoder model.")
 
     # Distribute the model to all processes in the gang.
     if dp_gang.size != 1:
@@ -299,7 +300,7 @@ def load_text_generator(
 
     # Initialize the sequence generator.
     generator = _create_sequence_generator(
-        model, config.mode, config.beam_search, config.sampling
+        model, config.mode, config.beam_search, config.sampling  # type: ignore[arg-type]
     )
 
     # Initialize the generator unit.
@@ -345,6 +346,7 @@ def load_text_generator(
         dp_gang,
         config.max_seq_len,
         batching=StaticBatching(config.batch_size),
+        sync_batches=False,
         num_prefetch=config.num_prefetch,
         seed=seed,
     )
@@ -401,9 +403,9 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
         try:
             prompts = batch.example["prompt"]
         except KeyError:
-            raise ValueError("`batch.example` must contain a 'prompt' item.")
+            raise ValueError("`batch.example` must contain a 'prompt' item.") from None
 
-        sample_ids = batch.example["id"]
+        ids = batch.example["id"]
 
         output = self._generator(batch.seqs, batch.padding_mask)
 
@@ -413,9 +415,7 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
         if not self._text_output_stream and not self._json_output_stream:
             return
 
-        for sample_id, prompt, hypotheses in zip(
-            sample_ids, prompts, output.hypotheses
-        ):
+        for id_, prompt, hypotheses in zip(ids, prompts, output.hypotheses):
             if len(hypotheses) == 0:
                 raise RuntimeError(
                     "The sequence generator returned no hypothesis. Please file a bug report."
@@ -441,6 +441,12 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
 
             # Dump as text.
             if stream := self._text_output_stream:
+                if id_ is not None:
+                    stream.write("<<<<< ID >>>>>")
+                    stream.write("\n")
+                    stream.write(f"{id_}")
+                    stream.write("\n\n")
+
                 stream.write("<<<<< PROMPT >>>>>")
                 stream.write("\n")
                 stream.write(prompt)
@@ -459,14 +465,12 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
                     stream.write("\n\n")
                     stream.write("<<<<< SCORE >>>>>")
                     stream.write("\n")
-
                     stream.write(f"{score:.8f}")
 
                 if step_scores is not None:
                     stream.write("\n\n")
                     stream.write("<<<<< STEP SCORES >>>>>")
                     stream.write("\n")
-
                     stream.write(", ".join(f"{s:.8f}" for s in step_scores))
 
                 stream.write("\n\n\n============================\n\n\n")
@@ -474,7 +478,7 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
             # Dump as JSON.
             if stream := self._json_output_stream:
                 json_output = {
-                    "id": sample_id,
+                    "id": id_,
                     "prompt": prompt,
                     "response": response,
                     "token_indices": token_indices,
@@ -511,7 +515,7 @@ def _create_sequence_generator(
         return _create_beam_search_generator(model, beam_search_config)
 
     raise ValueError(
-        f"`config.mode` must be 'sampling' or 'beam_search', but is '{mode}' instead."
+        f"`generator_mode` must be 'sampling' or 'beam_search', but is '{mode}' instead."
     )
 
 
@@ -526,7 +530,7 @@ def _create_sampling_generator(
         sampler = TopKSampler(config.top_k)
     else:
         raise ValueError(
-            f"`config.sampling.sampler` must be 'top-p' or 'top-k', but is '{config.sampler}' instead."
+            f"`sampling.sampler` must be 'top-p' or 'top-k', but is '{config.sampler}' instead."
         )
 
     return SamplingSequenceGenerator(
@@ -553,7 +557,7 @@ def _create_beam_search_generator(
         algorithm = StandardBeamSearchAlgorithm()
     else:
         raise ValueError(
-            f"`config.beam_search.algorithm` must be 'standard', but is '{config.algorithm}' instead."
+            f"`beam_search.algorithm` must be 'standard', but is '{config.algorithm}' instead."
         )
 
     return BeamSearchSequenceGenerator(

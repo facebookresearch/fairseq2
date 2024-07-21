@@ -60,6 +60,8 @@ class AsrDataset(ABC):
         normalize_audio: bool = False,
         example_shuffle_window: int = 1,
         batch_shuffle_window: int = 1,
+        drop_remainder: bool = False,
+        sync_batches: bool = True,
         max_num_batches: Optional[int] = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
@@ -94,6 +96,15 @@ class AsrDataset(ABC):
             The size of the sliding window for shuffling batches. If ``1``, no
             shuffling is performed; if ``0``, true shuffling is performed by
             loading the entire dataset.
+        :param drop_remainder:
+            If ``True``, drops the last set of batches if they have in total
+            fewer examples than requested.
+        :param sync_batches:
+            If ``True``, ensures that each process in ``gang`` reads the same
+            number of batches. Typically used when the amount of data to be read
+            can vary per process (e.g. due to unbalanced sharding or non-static
+            batching) and it is critical for each process to iterate over the
+            same number of batches (e.g. during training).
         :param max_num_batches:
             The maximum number of batches to return.
         :param num_accumulate:
@@ -168,6 +179,8 @@ class GenericAsrDataset(AsrDataset):
         normalize_audio: bool = False,
         example_shuffle_window: int = 1,
         batch_shuffle_window: int = 1,
+        drop_remainder: bool = False,
+        sync_batches: bool = True,
         max_num_batches: Optional[int] = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
@@ -195,10 +208,8 @@ class GenericAsrDataset(AsrDataset):
 
         seed += 1
 
-        static_batching = isinstance(batching, StaticBatching)
-
         # Shard.
-        builder.shard(gang.rank, gang.size, allow_uneven=not static_batching)
+        builder.shard(gang.rank, gang.size, allow_uneven=True)
 
         seed += gang.rank
 
@@ -217,6 +228,7 @@ class GenericAsrDataset(AsrDataset):
                 min_data_len=min_audio_len,
                 skip_below_min_examples=True,
                 skip_above_max_examples=True,
+                drop_remainder=drop_remainder,
             )
         else:
             # Filter out out-of-range audios.
@@ -228,7 +240,7 @@ class GenericAsrDataset(AsrDataset):
             builder.filter(skip)
 
             # Bucket `batch_size` examples.
-            builder.bucket(batching.batch_size)
+            builder.bucket(batching.batch_size, drop_remainder=drop_remainder)
 
         # Shuffle buckets.
         if batch_shuffle_window != 1:
@@ -305,8 +317,8 @@ class GenericAsrDataset(AsrDataset):
             pipeline,
             gang,
             num_accumulate=num_accumulate,
-            drop_remainder=False,
-            sync_batches=not static_batching,
+            drop_remainder=drop_remainder,
+            sync_batches=sync_batches,
         )
 
     def _retrieve_data_directory(self, split: str) -> Path:
@@ -325,7 +337,7 @@ class GenericAsrDataset(AsrDataset):
         except ValueError:
             raise DatasetError(
                 f"The first line of {manifest_file} must point to a data directory."
-            )
+            ) from None
 
     def _read_manifest(self, split: str) -> DataPipelineBuilder:
         def read_tsv_file() -> DataPipelineBuilder:

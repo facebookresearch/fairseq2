@@ -15,50 +15,85 @@ from torcheval.metrics import Throughput
 from fairseq2.gang import Gang
 from fairseq2.generation import Seq2SeqGeneratorOutput, SequenceGeneratorOutput
 from fairseq2.metrics import MetricBag
-from fairseq2.metrics.aggregation import Max, Mean, Sum
+from fairseq2.metrics.aggregation import Max, MaxSum, Mean, Sum
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
+from fairseq2.typing import override
 
 
-class SequenceMetricBag(MetricBag):
-    """Holds the metrics of a sequence model training or evaluation task."""
+class TaskMetricBag(MetricBag):
+    """Holds the metrics of a machine learning task."""
 
-    _nll_loss: Mean
-    _batch_size: Mean
-    _elements_per_batch: Mean
+    _train: bool
+    _num_batches: MaxSum
     _num_examples: Sum
     _num_elements: Sum
-    _num_target_elements: Sum
-    _total_num_examples: Sum
-    _total_num_elements: Sum
-    _total_num_target_elements: Sum
+    _total_num_examples: Optional[Sum]
+    _total_num_elements: Optional[Sum]
 
-    def __init__(self, gang: Gang) -> None:
+    def __init__(self, gang: Gang, train: bool) -> None:
         """
-        :param gang:
-            The gang over which to sync metrics.
+        :para train:
+            If ``True``, indicates that this bag is used in a training task.
         """
         super().__init__(gang)
 
         d = gang.device
 
-        self.register_metric("_nll_loss", Mean(device=d), persistent=False)
+        self._train = train
 
-        self.register_metric("_batch_size", Mean(device=d), persistent=False)
-
-        self.register_metric("_elements_per_batch", Mean(device=d), persistent=False)
+        self.register_metric("_num_batches", MaxSum(device=d), persistent=False)
 
         self.register_metric("_num_examples", Sum(device=d), persistent=False)
-
         self.register_metric("_num_elements", Sum(device=d), persistent=False)
+
+        if train:
+            self._total_num_examples = Sum(device=d)
+            self._total_num_elements = Sum(device=d)
+        else:
+            self._total_num_examples = None
+            self._total_num_elements = None
+
+    @override
+    def process_metric_values(self, values: Dict[str, Any]) -> None:
+        super().process_metric_values(values)
+
+        num_batches = values.pop("num_batches")
+
+        num_examples = values["num_examples"]
+        num_elements = values["num_elements"]
+
+        if num_batches > 0:
+            values["batch_size"] = num_examples // num_batches
+        else:
+            values["batch_size"] = 0
+
+        if num_batches > 0:
+            values["elements_per_batch"] = num_elements // num_batches
+        else:
+            values["elements_per_batch"] = 0
+
+
+class SequenceMetricBag(TaskMetricBag):
+    """Holds the metrics of a sequence model training or evaluation task."""
+
+    _nll_loss: Mean
+    _num_target_elements: Sum
+    _total_num_target_elements: Optional[Sum]
+
+    def __init__(self, gang: Gang, train: bool = True) -> None:
+        super().__init__(gang, train=train)
+
+        d = gang.device
+
+        self.register_metric("_nll_loss", Mean(device=d), persistent=False)
 
         self.register_metric("_num_target_elements", Sum(device=d), persistent=False)
 
-        self._total_num_examples = Sum(device=d)
-
-        self._total_num_elements = Sum(device=d)
-
-        self._total_num_target_elements = Sum(device=d)
+        if train:
+            self._total_num_target_elements = Sum(device=d)
+        else:
+            self._total_num_target_elements = None
 
     @torch.inference_mode()
     def update_nll_loss(self, batch: SequenceBatch, loss: Tensor) -> None:
@@ -71,9 +106,7 @@ class SequenceMetricBag(MetricBag):
         """
         num_target_elements = batch.num_target_elements()
 
-        normalized_loss = loss / num_target_elements
-
-        self._nll_loss.update(normalized_loss, weight=num_target_elements)
+        self._nll_loss.update(loss / num_target_elements, weight=num_target_elements)
 
     @torch.inference_mode()
     def update_batch_metrics(self, batch: SequenceBatch) -> None:
@@ -82,72 +115,54 @@ class SequenceMetricBag(MetricBag):
         :param batch:
             The batch processed by the model.
         """
-        batch_size = batch.batch_size
-
+        num_examples = batch.batch_size
         num_elements = batch.num_elements()
 
         num_target_elements = batch.num_target_elements()
 
-        self._batch_size.update(batch_size * self._gang.size)
+        self._num_batches.update(1)
 
-        self._elements_per_batch.update(num_elements * self._gang.size)
-
-        self._num_examples.update(batch_size)
-
+        self._num_examples.update(num_examples)
         self._num_elements.update(num_elements)
 
         self._num_target_elements.update(num_target_elements)
 
-        self._total_num_examples.update(batch_size)
+        if self._train:
+            assert self._total_num_examples is not None
+            assert self._total_num_elements is not None
+            assert self._total_num_target_elements is not None
 
-        self._total_num_elements.update(num_elements)
+            self._total_num_examples.update(num_examples)
+            self._total_num_elements.update(num_elements)
 
-        self._total_num_target_elements.update(num_target_elements)
+            self._total_num_target_elements.update(num_target_elements)
 
 
-class Seq2SeqMetricBag(MetricBag):
+class Seq2SeqMetricBag(TaskMetricBag):
     """Holds the metrics of a sequence-to-sequence model training or evaluation task."""
 
     _nll_loss: Mean
-    _batch_size: Mean
-    _elements_per_batch: Mean
-    _num_examples: Sum
-    _num_elements: Sum
     _num_source_elements: Sum
     _num_target_elements: Sum
-    _total_num_examples: Sum
-    _total_num_elements: Sum
-    _total_num_source_elements: Sum
-    _total_num_target_elements: Sum
+    _total_num_source_elements: Optional[Sum]
+    _total_num_target_elements: Optional[Sum]
 
-    def __init__(self, gang: Gang) -> None:
-        """
-        :param gang:
-            The gang over which to sync metrics.
-        """
-        super().__init__(gang)
+    def __init__(self, gang: Gang, train: bool = True) -> None:
+        super().__init__(gang, train=train)
 
         d = gang.device
 
         self.register_metric("_nll_loss", Mean(device=d), persistent=False)
 
-        self.register_metric("_batch_size", Mean(device=d), persistent=False)
-
-        self.register_metric("_elements_per_batch", Mean(device=d), persistent=False)
-
-        self.register_metric("_num_examples", Sum(device=d), persistent=False)
-
-        self.register_metric("_num_elements", Sum(device=d), persistent=False)
-
         self.register_metric("_num_source_elements", Sum(device=d), persistent=False)
         self.register_metric("_num_target_elements", Sum(device=d), persistent=False)
 
-        self._total_num_examples = Sum(device=d)
-
-        self._total_num_elements = Sum(device=d)
-
-        self._total_num_source_elements = Sum(device=d)
-        self._total_num_target_elements = Sum(device=d)
+        if train:
+            self._total_num_source_elements = Sum(device=d)
+            self._total_num_target_elements = Sum(device=d)
+        else:
+            self._total_num_source_elements = None
+            self._total_num_target_elements = None
 
     @torch.inference_mode()
     def update_nll_loss(self, batch: Seq2SeqBatch, loss: Tensor) -> None:
@@ -160,9 +175,7 @@ class Seq2SeqMetricBag(MetricBag):
         """
         num_target_elements = batch.num_target_elements()
 
-        normalized_loss = loss / num_target_elements
-
-        self._nll_loss.update(normalized_loss, weight=num_target_elements)
+        self._nll_loss.update(loss / num_target_elements, weight=num_target_elements)
 
     @torch.inference_mode()
     def update_batch_metrics(self, batch: Seq2SeqBatch) -> None:
@@ -171,39 +184,38 @@ class Seq2SeqMetricBag(MetricBag):
         :param batch:
             The batch processed by the model.
         """
-        batch_size = batch.batch_size
+        num_examples = batch.batch_size
 
         num_source_elements = batch.num_source_elements()
         num_target_elements = batch.num_target_elements()
 
         num_elements = num_source_elements + num_target_elements
 
-        self._batch_size.update(batch_size * self._gang.size)
+        self._num_batches.update(1)
 
-        self._elements_per_batch.update(num_elements * self._gang.size)
-
-        self._num_examples.update(batch_size)
-
+        self._num_examples.update(num_examples)
         self._num_elements.update(num_elements)
 
         self._num_source_elements.update(num_source_elements)
         self._num_target_elements.update(num_target_elements)
 
-        self._total_num_examples.update(batch_size)
+        if self._train:
+            assert self._total_num_examples is not None
+            assert self._total_num_elements is not None
 
-        self._total_num_elements.update(num_elements)
+            assert self._total_num_source_elements is not None
+            assert self._total_num_target_elements is not None
 
-        self._total_num_source_elements.update(num_source_elements)
-        self._total_num_target_elements.update(num_target_elements)
+            self._total_num_examples.update(num_examples)
+            self._total_num_elements.update(num_elements)
+
+            self._total_num_source_elements.update(num_source_elements)
+            self._total_num_target_elements.update(num_target_elements)
 
 
-class SequenceGenerationMetricBag(MetricBag):
+class SequenceGenerationMetricBag(TaskMetricBag):
     """Holds the metrics of a sequence generation task."""
 
-    _batch_size: Mean
-    _elements_per_batch: Mean
-    _num_examples: Sum
-    _num_elements: Sum
     _generator_prefill_size: Sum
     _generator_num_elements: Sum
     _generator_elements_per_second: Throughput
@@ -211,21 +223,9 @@ class SequenceGenerationMetricBag(MetricBag):
     _generator_cache_capacity: Max
 
     def __init__(self, gang: Gang) -> None:
-        """
-        :param gang:
-            The gang over which to sync metrics.
-        """
-        super().__init__(gang)
+        super().__init__(gang, train=False)
 
         d = gang.device
-
-        self._batch_size = Mean(device=d)
-
-        self._elements_per_batch = Mean(device=d)
-
-        self._num_examples = Sum(device=d)
-
-        self._num_elements = Sum(device=d)
 
         self._generator_prefill_size = Sum(device=d)
 
@@ -242,9 +242,9 @@ class SequenceGenerationMetricBag(MetricBag):
         """Update the batch metrics.
 
         :param output:
-            The output returned by a :class:`SequenceGenerator`.
+            The :class:`SequenceGenerator` output.
         """
-        batch_size = len(output.hypotheses)
+        num_examples = len(output.hypotheses)
 
         prefill_size = output.counters.prefill_size
 
@@ -252,12 +252,9 @@ class SequenceGenerationMetricBag(MetricBag):
 
         num_elements = prefill_size + num_generated_elements
 
-        self._batch_size.update(batch_size * self._gang.size)
+        self._num_batches.update(1)
 
-        self._elements_per_batch.update(num_elements * self._gang.size)
-
-        self._num_examples.update(batch_size)
-
+        self._num_examples.update(num_examples)
         self._num_elements.update(num_elements)
 
         self._generator_prefill_size.update(prefill_size)
@@ -273,13 +270,9 @@ class SequenceGenerationMetricBag(MetricBag):
         self._generator_cache_capacity.update(output.counters.cache_capacity)
 
 
-class Seq2SeqGenerationMetricBag(MetricBag):
+class Seq2SeqGenerationMetricBag(TaskMetricBag):
     """Holds the metrics of a sequence-to-sequence generation task."""
 
-    _batch_size: Mean
-    _elements_per_batch: Mean
-    _num_examples: Sum
-    _num_elements: Sum
     _num_source_elements: Sum
     _generator_prefill_size: Sum
     _generator_num_elements: Sum
@@ -288,21 +281,9 @@ class Seq2SeqGenerationMetricBag(MetricBag):
     _generator_cache_capacity: Max
 
     def __init__(self, gang: Gang) -> None:
-        """
-        :param gang:
-            The gang over which to sync metrics.
-        """
-        super().__init__(gang)
+        super().__init__(gang, train=False)
 
         d = gang.device
-
-        self._batch_size = Mean(device=d)
-
-        self._elements_per_batch = Mean(device=d)
-
-        self._num_examples = Sum(device=d)
-
-        self._num_elements = Sum(device=d)
 
         self._num_source_elements = Sum(device=d)
 
@@ -323,11 +304,11 @@ class Seq2SeqGenerationMetricBag(MetricBag):
         """Update the batch metrics.
 
         :param output:
-            The output returned by a :class:`Seq2SeqGenerator`.
+            The :class:`Seq2SeqGenerator` output.
         :param num_source_elements:
-            The number of source elements processed by the underlying model.
+            The number of source elements processed by the model.
         """
-        batch_size = len(output.hypotheses)
+        num_examples = len(output.hypotheses)
 
         prefill_size = output.counters.prefill_size
 
@@ -335,12 +316,9 @@ class Seq2SeqGenerationMetricBag(MetricBag):
 
         num_elements = num_source_elements + prefill_size + num_generated_elements
 
-        self._batch_size.update(batch_size * self._gang.size)
+        self._num_batches.update(1)
 
-        self._elements_per_batch.update(num_elements * self._gang.size)
-
-        self._num_examples.update(batch_size)
-
+        self._num_examples.update(num_examples)
         self._num_elements.update(num_elements)
 
         self._num_source_elements.update(num_source_elements)
@@ -358,25 +336,10 @@ class Seq2SeqGenerationMetricBag(MetricBag):
         self._generator_cache_capacity.update(output.counters.cache_capacity)
 
 
-def compute_throughput(
-    metric_values: Dict[str, Any],
-    throughput_metric_name: Optional[str],
-    elapsed_time: float,
-) -> None:
-    """Computes the task throughput.
-
-    :param metric_values:
-        The metric values computed by a :class:`MetricBag`.
-    :param throughput_metric_name:
-        The name of the throughput metric (e.g. num_elements).
-    :param elapsed_time:
-        The time elapsed since the last throughput call.
-    """
-    if throughput_metric_name is None:
-        return
-
+def set_throughput_value(metric_values: Dict[str, Any], elapsed_time: float) -> None:
+    """Set the throughput value in ``metric_values``."""
     try:
-        num_elements = metric_values[throughput_metric_name]
+        num_elements = metric_values["num_elements"]
     except KeyError:
         return
 

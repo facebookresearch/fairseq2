@@ -49,6 +49,8 @@ class InstructionDataset(ABC):
         sample: bool = False,
         example_shuffle_window: int = 1,
         batch_shuffle_window: int = 1,
+        drop_remainder: bool = False,
+        sync_batches: bool = True,
         max_num_batches: Optional[int] = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
@@ -77,6 +79,15 @@ class InstructionDataset(ABC):
             The size of the sliding window for shuffling batches. If ``1``, no
             shuffling is performed; if ``0``, true shuffling is performed by
             loading the entire dataset.
+        :param drop_remainder:
+            If ``True``, drops the last set of batches if they have in total
+            fewer examples than requested.
+        :param sync_batches:
+            If ``True``, ensures that each process in ``gang`` reads the same
+            number of batches. Typically used when the amount of data to be read
+            can vary per process (e.g. due to unbalanced sharding or non-static
+            batching) and it is critical for each process to iterate over the
+            same number of batches (e.g. during training).
         :param max_num_batches:
             The maximum number of batches to return.
         :param num_accumulate:
@@ -98,6 +109,8 @@ class InstructionDataset(ABC):
         max_seq_len: int,
         batching: StaticBatching,
         *,
+        drop_remainder: bool = False,
+        sync_batches: bool = True,
         num_prefetch: int = 1,
         **extras: Any,
     ) -> DataPipelineReader[SequenceBatch]:
@@ -112,6 +125,15 @@ class InstructionDataset(ABC):
             this value will be dropped.
         :param batching:
             The batching strategy for returned examples.
+        :param drop_remainder:
+            If ``True``, drops the last batch if it has fewer examples than
+            requested.
+        :param sync_batches:
+            If ``True``, ensures that each process in ``gang`` reads the same
+            number of batches. Typically used when the amount of data to be read
+            can vary per process (e.g. due to unbalanced sharding or non-static
+            batching) and it is critical for each process to iterate over the
+            same number of batches (e.g. during training).
         :param num_prefetch:
             The number of batches to prefetch in background.
         :param extras:
@@ -205,7 +227,7 @@ class GenericInstructionDataset(InstructionDataset):
             def raise_error() -> NoReturn:
                 raise DatasetError(
                     f"Each line in {manifest_file} must represent a path to a JSONL file and a weight, but line {idx} is '{line}' instead."
-                )
+                ) from None
 
             fields = line.rstrip().split("\t")
 
@@ -248,6 +270,8 @@ class GenericInstructionDataset(InstructionDataset):
         sample: bool = False,
         example_shuffle_window: int = 1,
         batch_shuffle_window: int = 1,
+        drop_remainder: bool = False,
+        sync_batches: bool = True,
         max_num_batches: Optional[int] = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
@@ -279,10 +303,8 @@ class GenericInstructionDataset(InstructionDataset):
 
         seed += 1
 
-        static_batching = isinstance(batching, StaticBatching)
-
         # Shard.
-        builder.shard(gang.rank, gang.size, allow_uneven=not static_batching)
+        builder.shard(gang.rank, gang.size, allow_uneven=True)
 
         seed += gang.rank
 
@@ -294,7 +316,7 @@ class GenericInstructionDataset(InstructionDataset):
         builder.map(target_encoder, selector="tgt", num_parallel_calls=npc)
 
         def cat_source_and_target(example: Dict[str, Any]) -> Dict[str, Any]:
-            sample_id = example.get("id", None)
+            id_ = example.get("id")
 
             prompt_indices = example["src"]
             target_indices = example["tgt"]
@@ -303,7 +325,7 @@ class GenericInstructionDataset(InstructionDataset):
 
             target_mask = torch.arange(len(indices)) >= len(prompt_indices)
 
-            return {"indices": indices, "target_mask": target_mask, "id": sample_id}
+            return {"id": id_, "indices": indices, "target_mask": target_mask}
 
         builder.map(cat_source_and_target, num_parallel_calls=npc)
 
@@ -314,7 +336,10 @@ class GenericInstructionDataset(InstructionDataset):
 
             # Bucket by the sequence length.
             builder.bucket_by_length(
-                bucket_sizes, selector="indices", skip_above_max_examples=True
+                bucket_sizes,
+                selector="indices",
+                skip_above_max_examples=True,
+                drop_remainder=drop_remainder,
             )
         else:
             # Filter out long examples.
@@ -324,7 +349,7 @@ class GenericInstructionDataset(InstructionDataset):
             builder.filter(skip)
 
             # Bucket `batch_size` examples.
-            builder.bucket(batching.batch_size)
+            builder.bucket(batching.batch_size, drop_remainder=drop_remainder)
 
         # Shuffle buckets.
         if batch_shuffle_window != 1:
@@ -364,8 +389,8 @@ class GenericInstructionDataset(InstructionDataset):
             pipeline,
             gang,
             num_accumulate=num_accumulate,
-            drop_remainder=False,
-            sync_batches=not static_batching,
+            drop_remainder=drop_remainder,
+            sync_batches=sync_batches,
         )
 
     @override
@@ -376,6 +401,8 @@ class GenericInstructionDataset(InstructionDataset):
         max_seq_len: int,
         batching: StaticBatching,
         *,
+        drop_remainder: bool = False,
+        sync_batches: bool = True,
         num_prefetch: int = 1,
         **extras: Any,
     ) -> DataPipelineReader[SequenceBatch]:
@@ -392,16 +419,19 @@ class GenericInstructionDataset(InstructionDataset):
             builder = DataPipeline.concat(pipelines)
 
         # Shard
-        builder.shard(gang.rank, gang.size)
+        builder.shard(gang.rank, gang.size, allow_uneven=True)
 
         # Encode prompt texts.
         text_encoder = tokenizer.create_encoder(mode="prompt")
 
         def encode(example: Dict[str, Any]) -> Dict[str, Any]:
-            sample_id = example.get("id", None)
+            id_ = example.get("id")
+
             prompt = example["src"]
 
-            return {"prompt": prompt, "indices": text_encoder(prompt), "id": sample_id}
+            indices = text_encoder(prompt)
+
+            return {"id": id_, "prompt": prompt, "indices": indices}
 
         builder.map(encode, num_parallel_calls=npc)
 
@@ -412,7 +442,7 @@ class GenericInstructionDataset(InstructionDataset):
         builder.filter(skip)
 
         # Bucket `batch_size` examples.
-        builder.bucket(batching.batch_size)
+        builder.bucket(batching.batch_size, drop_remainder=drop_remainder)
 
         # Collate bucketed examples into a batch.
         collater = Collater(pad_value=tokenizer.vocab_info.pad_idx or 0)
@@ -432,7 +462,9 @@ class GenericInstructionDataset(InstructionDataset):
 
         pipeline = builder.map(to_batch).and_return()
 
-        return DataPipelineReader[SequenceBatch](pipeline, gang)
+        return DataPipelineReader[SequenceBatch](
+            pipeline, gang, drop_remainder=drop_remainder, sync_batches=sync_batches
+        )
 
     def _read_jsonl(self, path: Path, tokenizer: TextTokenizer) -> DataPipelineBuilder:
         lines = []

@@ -5,7 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 
 name: s2t_transformer_mustc_asr_de_s
-model_type: s2t_transformer  # compat
 model_family: s2t_transformer
 model_arch: small
 model_config:
@@ -20,7 +19,6 @@ tokenizer_family: s2t_transformer
 ---
 
 name: s2t_transformer_mustc_asr_es_s
-model_type: s2t_transformer  # compat
 model_family: s2t_transformer
 model_arch: small
 model_config:
@@ -35,7 +33,6 @@ tokenizer_family: s2t_transformer
 ---
 
 name: s2t_transformer_mustc_asr_jt_m
-model_type: s2t_transformer  # compat
 model_family: s2t_transformer
 model_arch: medium
 task: transcription
@@ -47,7 +44,6 @@ tokenizer_family: s2t_transformer
 ---
 
 name: s2t_transformer_mustc_st_de_s
-model_type: s2t_transformer  # compat
 model_family: s2t_transformer
 model_arch: small
 model_config:
@@ -62,7 +58,6 @@ tokenizer_family: s2t_transformer
 ---
 
 name: s2t_transformer_mustc_st_jt_m
-model_type: s2t_transformer  # compat
 model_family: s2t_transformer
 model_arch: medium
 task: translation

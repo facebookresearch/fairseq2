@@ -4,12 +4,9 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from fairseq2.config_registry import ConfigRegistry
-from fairseq2.models.transformer.factory import TransformerConfig
+from __future__ import annotations
 
-transformer_archs = ConfigRegistry[TransformerConfig]()
-
-transformer_arch = transformer_archs.decorator
+from fairseq2.models.transformer.factory import TransformerConfig, transformer_arch
 
 
 @transformer_arch("base")

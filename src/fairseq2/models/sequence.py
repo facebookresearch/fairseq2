@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Optional, Tuple, final
 
 import torch
@@ -122,12 +122,6 @@ def as_auto_regressive_input(
     return batch, target_batch
 
 
-# compat
-@dataclass
-class BCVocabInfo:
-    pad_idx: Optional[int] = None
-
-
 @final
 @dataclass
 class SequenceModelOutput:
@@ -140,13 +134,6 @@ class SequenceModelOutput:
 
     pad_idx: Optional[int]
     """The index of the PAD symbols in the vocabulary."""
-
-    # compat
-    vocab_info: BCVocabInfo = field(default_factory=BCVocabInfo)
-
-    # compat
-    def __post_init__(self) -> None:
-        self.vocab_info.pad_idx = self.pad_idx
 
     def compute_loss(
         self,

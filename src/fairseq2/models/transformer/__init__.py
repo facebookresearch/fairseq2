@@ -4,8 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from fairseq2.models.transformer.archs import transformer_arch as transformer_arch
-from fairseq2.models.transformer.archs import transformer_archs as transformer_archs
+from __future__ import annotations
+
 from fairseq2.models.transformer.decoder_model import (
     TransformerDecoderModel as TransformerDecoderModel,
 )
@@ -18,6 +18,8 @@ from fairseq2.models.transformer.factory import TransformerConfig as Transformer
 from fairseq2.models.transformer.factory import (
     create_transformer_model as create_transformer_model,
 )
+from fairseq2.models.transformer.factory import transformer_arch as transformer_arch
+from fairseq2.models.transformer.factory import transformer_archs as transformer_archs
 from fairseq2.models.transformer.frontend import (
     TransformerEmbeddingFrontend as TransformerEmbeddingFrontend,
 )
@@ -34,3 +36,7 @@ from fairseq2.models.transformer.model import TransformerModel as TransformerMod
 from fairseq2.models.transformer.model import (
     init_final_projection as init_final_projection,
 )
+
+# isort: split
+
+import fairseq2.models.transformer.archs  # Register architectures.

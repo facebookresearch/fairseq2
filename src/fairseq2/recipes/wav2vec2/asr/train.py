@@ -15,7 +15,6 @@ from torch import Tensor
 from torch.nn import Module
 
 from fairseq2.assets import AssetNotFoundError, default_asset_store
-from fairseq2.assets.utils import retrieve_asset_card
 from fairseq2.checkpoint import CheckpointModelMetadataProvider, FileCheckpointManager
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_text_tokenizer
@@ -23,27 +22,22 @@ from fairseq2.datasets import LengthBatching
 from fairseq2.datasets.asr import GenericAsrDataset, load_asr_dataset
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
+from fairseq2.models import create_model
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2 import load_wav2vec2_model
-from fairseq2.models.wav2vec2.asr import (
-    Wav2Vec2AsrConfig,
-    Wav2Vec2AsrModel,
-    Wav2Vec2AsrOutput,
-    create_wav2vec2_asr_model,
-    wav2vec2_asr_archs,
-)
+from fairseq2.models.wav2vec2.asr import Wav2Vec2AsrModel, Wav2Vec2AsrOutput
 from fairseq2.nn.utils.module import freeze_parameters, share_parameters, to_device
 from fairseq2.optim import AdamW
 from fairseq2.optim.lr_scheduler import TriStageLR
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
+from fairseq2.recipes.utils.asset import asset_as_path, retrieve_asset_card
 from fairseq2.recipes.utils.log import log_model, log_model_config
 from fairseq2.recipes.utils.setup import (
     check_model_type,
     compile_model,
     setup_root_gang,
     to_data_parallel,
-    update_model_config,
 )
 from fairseq2.recipes.wav2vec2.asr.common import Wav2Vec2AsrMetricBag
 from fairseq2.recipes.wav2vec2.asr.eval import Wav2Vec2AsrEvalUnit
@@ -98,6 +92,9 @@ class Wav2Vec2AsrTrainConfig:
     # Model
     pretrained_model: Union[str, Path] = "wav2vec2_base"
     """The name or path to the asset card of the wav2vec 2.0 model to finetune."""
+
+    model_family: str = "wav2vec2_asr"
+    """The family of the model."""
 
     model_arch: Optional[str] = "base_10h"
     """The architecture of the model."""
@@ -164,6 +161,10 @@ class Wav2Vec2AsrTrainConfig:
     checkpoint_every_n_steps: int = 1000
     """The step interval at which to checkpoint."""
 
+    keep_best_n_checkpoints: Optional[int] = None
+    """The number of checkpoints to keep based on their validation score. If
+    ``None``, none will be deleted."""
+
     publish_metrics_every_n_steps: int = 200
     """The step interval at which to publish metrics."""
 
@@ -225,12 +226,12 @@ def load_wav2vec2_asr_trainer(
 
     seed = config.seed
 
-    # Load the tokenizer.
     tokenizer_card = retrieve_asset_card(config.tokenizer)
 
+    # Load the tokenizer.
     log.info("Loading {} tokenizer.", tokenizer_card.name)
 
-    tokenizer = load_text_tokenizer(config.tokenizer)
+    tokenizer = load_text_tokenizer(tokenizer_card)
 
     log.info("Tokenizer loaded.")
 
@@ -247,30 +248,27 @@ def load_wav2vec2_asr_trainer(
 
         log.info("Dataset loaded.")
     else:
-        try:
-            path = Path(config.dataset)
-        except ValueError:
-            raise AssetNotFoundError(
-                config.dataset, f"An asset with the name '{config.dataset}' cannot be found."  # type: ignore[arg-type]
-            )
+        dataset_path = asset_as_path(config.dataset)
 
-        dataset = GenericAsrDataset.from_path(path)
+        dataset = GenericAsrDataset.from_path(dataset_path)
 
-    # Initialize the model configuration.
-    if config.model_arch is None:
-        model_config = Wav2Vec2AsrConfig()
-    else:
-        model_config = wav2vec2_asr_archs.get(config.model_arch)
+    # Initialize the model
+    try:
+        model, model_config = create_model(
+            config.model_family,
+            config.model_arch,
+            config.model_config,
+            device=META,
+            dtype=torch.float32,
+        )
+    except ValueError as ex:
+        raise ValueError(
+            "The model cannot be initialized. See nested exception for details."
+        ) from ex
 
-    if config.model_config is not None:
-        update_model_config(model_config, config.model_config)
-
-    model_config.vocab_info = tokenizer.vocab_info
+    check_model_type(model, Wav2Vec2AsrModel)
 
     log_model_config(model_config, log)
-
-    # Initialize the model.
-    model = create_wav2vec2_asr_model(model_config, device=META, dtype=torch.float32)
 
     checkpoint_manager.save_model_metadata(
         family=model.family, config=model_config, tokenizer_name=tokenizer_card.name
@@ -314,9 +312,7 @@ def load_wav2vec2_asr_trainer(
 
     if config.data_parallelism == "fsdp":
         if config.freeze_encoder_for_n_steps != 0:
-            raise ValueError(
-                "`config.freeze_encoder_for_n_steps` must be 0 when using FSDP."
-            )
+            raise ValueError("`freeze_encoder_for_n_steps` must be 0 when using FSDP.")
 
     dp_model = to_data_parallel(
         model,
@@ -399,6 +395,8 @@ def load_wav2vec2_asr_trainer(
         max_gradient_norm=config.max_gradient_norm,
         max_num_steps=config.max_num_steps,
         max_num_data_epochs=config.max_num_data_epochs,
+        score_metric_name="wer",
+        lower_better=True,
         valid_units=[valid_unit],
         valid_data_readers=[valid_data_reader],
         validate_after_n_steps=config.validate_after_n_steps,
@@ -406,6 +404,7 @@ def load_wav2vec2_asr_trainer(
         checkpoint_manager=checkpoint_manager,
         checkpoint_after_n_steps=config.checkpoint_after_n_steps,
         checkpoint_every_n_steps=config.checkpoint_every_n_steps,
+        keep_best_n_checkpoints=config.keep_best_n_checkpoints,
         tb_dir=output_dir.joinpath("tb"),
         metrics_dir=output_dir.joinpath("metrics"),
         publish_metrics_every_n_steps=config.publish_metrics_every_n_steps,
@@ -492,8 +491,3 @@ class Wav2Vec2AsrTrainUnit(AbstractTrainUnit[Seq2SeqBatch]):
     @override
     def metric_bag(self) -> Wav2Vec2AsrMetricBag:
         return self._metric_bag
-
-    @property
-    @override
-    def throughput_metric_name(self) -> Optional[str]:
-        return "num_source_elements"

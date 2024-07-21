@@ -58,7 +58,9 @@ class AssetCard:
         try:
             name = metadata["name"]
         except KeyError:
-            raise AssetCardError("`metadata` must contain a key named 'name'.")
+            raise AssetCardError(
+                "`metadata` must contain a key named 'name'."
+            ) from None
 
         if not isinstance(name, str):
             raise AssetCardError(
@@ -148,31 +150,6 @@ class AssetCard:
 
     def __repr__(self) -> str:
         return repr(self._metadata)
-
-    # compat
-    def asset_type(self) -> str:
-        """Return the type of the asset represented by this card."""
-        for field in ["model_type", "dataset_type", "tokenizer_type"]:
-            try:
-                return self.field(field).as_(str)  # type: ignore[no-any-return]
-            except AssetCardFieldNotFoundError:
-                continue
-
-        raise AssetCardFieldNotFoundError(
-            f"The asset card '{self.name}' must have a field named 'model_type', 'dataset_type', or 'tokenizer_type'."
-        )
-
-    def asset_family(self) -> str:
-        """Return the family of the asset represented by this card."""
-        for field in ["model_family", "dataset_family", "tokenizer_family"]:
-            try:
-                return self.field(field).as_(str)  # type: ignore[no-any-return]
-            except AssetCardFieldNotFoundError:
-                continue
-
-        raise AssetCardFieldNotFoundError(
-            f"The asset card '{self.name}' must have a field named 'model_family', 'dataset_family', or 'tokenizer_family'."
-        )
 
     @property
     def name(self) -> str:

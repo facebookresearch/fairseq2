@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from contextlib import nullcontext
 from pathlib import Path
@@ -33,7 +35,7 @@ from torch.nn import Module
 from fairseq2.assets.metadata_provider import (
     AbstractAssetMetadataProvider,
     AssetMetadataError,
-    _load_metadata_file,
+    load_metadata_file,
 )
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
@@ -81,11 +83,6 @@ class CheckpointManager(ABC):
         :param model:
             The model to save.
         """
-
-    # compat
-    @abstractmethod
-    def save_consolidated_model(self, step_nr: int, model: Module) -> None:
-        ...
 
     @abstractmethod
     def load_checkpoint(self, step_nr: int) -> Dict[str, Any]:
@@ -148,15 +145,6 @@ class CheckpointManager(ABC):
     @abstractmethod
     def get_step_numbers(self) -> List[int]:
         """Return the numbers of the training steps that have a checkpoint."""
-
-    # compat
-    @abstractmethod
-    def get_last_step_number(self, *, with_model: bool = False) -> Optional[int]:
-        """Return the number of the last training step that has a checkpoint.
-
-        :param with_model:
-            If ``True``, only considers training steps with a saved model.
-        """
 
 
 @final
@@ -487,11 +475,6 @@ class FileCheckpointManager(CheckpointManager):
 
         self._root_gang.barrier()
 
-    # compat
-    @override
-    def save_consolidated_model(self, step_nr: int, model: Module) -> None:
-        self.save_consolidated_fsdp_model(step_nr, model)
-
     @override
     def load_checkpoint(self, step_nr: int) -> Dict[str, Any]:
         def raise_error(cause: Exception) -> NoReturn:
@@ -655,7 +638,11 @@ class FileCheckpointManager(CheckpointManager):
             the last model in the training.
         """
         if step_nr is None:
-            step_nr = self.get_last_step_number(with_model=True)
+            step_numbers = self.get_step_numbers()
+            if not step_numbers:
+                return None
+
+            step_nr = step_numbers[-1]
 
         if step_nr is None:
             return None
@@ -680,14 +667,6 @@ class FileCheckpointManager(CheckpointManager):
         step_numbers.sort()
 
         return step_numbers
-
-    # compat
-    @override
-    def get_last_step_number(self, *, with_model: bool = False) -> Optional[int]:
-        if step_numbers := self.get_step_numbers():
-            return step_numbers[-1]
-
-        return None
 
     def _iter_step_numbers(self) -> Iterator[int]:
         try:
@@ -730,7 +709,7 @@ class CheckpointModelMetadataProvider(AbstractAssetMetadataProvider):
                 f"The checkpoint model metadata (model.yaml) cannot be found under {self._checkpoint_dir}. Make sure that the specified directory is the *base* checkpoint directory used during training (i.e. directory passed to `FileCheckpointManager.save_model_metadata()`)."
             )
 
-        cache = dict(_load_metadata_file(metadata_file))
+        cache = dict(load_metadata_file(metadata_file))
 
         try:
             metadata = cache["checkpoint@"]
