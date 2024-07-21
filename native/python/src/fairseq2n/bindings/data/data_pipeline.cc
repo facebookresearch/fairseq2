@@ -18,7 +18,6 @@
 #include <utility>
 #include <variant>
 #include <vector>
-#include <iostream>
 
 #include <fairseq2n/exception.h>
 #include <fairseq2n/data/byte_stream.h>
@@ -51,7 +50,8 @@ struct data_pipeline_deleter {
         // that might happen due to Python callbacks.
         try {
             pipeline->reset();
-        } catch (const data_pipeline_error &) {}
+        } catch (const data_pipeline_error &) {
+        }
 
         // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
         delete pipeline;
@@ -650,7 +650,11 @@ def_data_pipeline(py::module_ &data_module)
 
     m.def("read_zipped_records", &read_zipped_records, py::arg("path"));
 
-    m.def("read_iterator", &read_iterator, py::arg("iterator")); //, py::call_guard<py::gil_scoped_release>{});
+    m.def("read_iterator",
+            &read_iterator,
+            py::arg("iterator"),
+            py::arg("reset_fn"),
+            py::arg("infinite"));
 
     // Collater
     py::class_<collate_options_override>(m, "CollateOptionsOverride")

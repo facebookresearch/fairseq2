@@ -594,11 +594,11 @@ read_zipped_records(std::string pathname)
 }
 
 data_pipeline_builder
-read_iterator(pybind11::iterator iterator)
+read_iterator(pybind11::iterator iterator, reset_fn fn, bool infinite)
 {
-    auto factory = [iterator = std::move(iterator)]() mutable
+    auto factory = [iterator = std::move(iterator), fn = std::move(fn), infinite]() mutable
     {
-        return std::make_unique<iterator_data_source>(std::move(iterator));
+        return std::make_unique<iterator_data_source>(std::move(iterator), std::move(fn), infinite);
     };
 
     return data_pipeline_builder{std::move(factory)};

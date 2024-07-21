@@ -17,18 +17,13 @@
 #include <string_view>
 #include <utility>
 #include <vector>
-#include <iostream>
 
 #include "fairseq2n/api.h"
 #include "fairseq2n/data/data.h"
 #include "fairseq2n/data/data_source.h"
 #include "fairseq2n/data/tape.h"
 
-#include <pybind11/functional.h>
-#include <pybind11/operators.h>
 #include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-#include <pybind11/stl/filesystem.h>
 
 namespace fairseq2n {
 
@@ -67,30 +62,6 @@ public:
     is_broken() const noexcept
     {
         return is_broken_;
-    }
-
-    data_pipeline(data_pipeline&& other) {
-        pybind11::gil_scoped_acquire acquire;
-        //std::cout << "data pipeline move constructor called\n";
-        factory_ = std::move(other.factory_);
-        source_ = std::move(other.source_);
-    }
-
-    data_pipeline& operator=(data_pipeline&& other) {
-        pybind11::gil_scoped_acquire acquire;
-        //std::cout << "data pipeline move asignment called\n";
-        factory_ = std::move(other.factory_);
-        source_ = std::move(other.source_);
-        return *this;
-    }
-
-    ~data_pipeline() {
-        pybind11::gil_scoped_acquire acquire;
-        //std::cout << "data pipeline destructor called\n";
-        factory_.~data_source_factory();
-        //std::cout << "factory detroyed\n";
-        source_.~unique_ptr<data_source>();
-        //std::cout << "data pipeline destructor complete\n";
     }
 
 private:
@@ -148,6 +119,8 @@ using cost_fn = std::function<float64(const data &)>;
 
 using yield_fn = std::function<data_pipeline(const data &)>;
 
+using reset_fn = std::function<void(pybind11::iterator &)>;
+
 class FAIRSEQ2_API data_pipeline_builder {
 public:
     explicit
@@ -161,7 +134,7 @@ public:
     data_pipeline_builder(data_pipeline_builder &&) noexcept = default;
     data_pipeline_builder &operator=(data_pipeline_builder &&) noexcept = default;
 
-    ~data_pipeline_builder() = default; 
+   ~data_pipeline_builder() = default;
 
     data_pipeline_builder
     bucket(std::size_t bucket_size, bool drop_remainder = false) &&;
@@ -252,7 +225,6 @@ public:
         return recoverable_;
     }
 
-
 private:
     std::optional<data> maybe_example_{};
     bool recoverable_;
@@ -268,6 +240,6 @@ FAIRSEQ2_API data_pipeline_builder
 read_zipped_records(std::string pathname);
 
 FAIRSEQ2_API data_pipeline_builder
-read_iterator(pybind11::iterator iterator);
+read_iterator(pybind11::iterator iterator, reset_fn fn, bool infinite);
 
 }  // namespace fairseq2n

@@ -6,8 +6,6 @@
 
 cmake_minimum_required(VERSION 3.21.0)
 
-set(CMAKE_BUILD_TYPE Debug)
-
 project(fairseq2n VERSION 0.3.0 LANGUAGES C CXX)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)

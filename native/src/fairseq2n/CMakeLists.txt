@@ -8,8 +8,6 @@
 # Target: fairseq2n
 # ------------------------------------------------------------
 
-set(CMAKE_BUILD_TYPE Debug)
-
 add_library(fairseq2n SHARED)
 
 target_sources(fairseq2n
@@ -115,14 +113,11 @@ endif()
 
 find_package(PythonLibs REQUIRED)
 
-add_subdirectory(${PROJECT_SOURCE_DIR}/third-party/pybind11 build EXCLUDE_FROM_ALL)
-
 target_include_directories(fairseq2n ${system}
     PUBLIC
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
         $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/src>
     PRIVATE
-        ${PROJECT_SOURCE_DIR}/third-party/pybind11/include
         ${PYTHON_INCLUDE_DIRS}
 )
 

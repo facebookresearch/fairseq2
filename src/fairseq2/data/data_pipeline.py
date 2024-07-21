@@ -386,11 +386,15 @@ if TYPE_CHECKING or DOC_MODE:
         """Read each file in a zip archive"""
         ...
 
-    def read_iterator(iterator: Iterator[Any]) -> DataPipelineBuilder:
+    def read_iterator(iterator: Iterator[Any], reset_fn: Callable[[Iterator], None], infinite: bool) -> DataPipelineBuilder:
         """Read each element of ``iterator``.
 
         :param iterator:
             The iterator to read.
+        :param reset_fn:
+            Function to reset iterator.
+        :param infinite:
+            Whether iterator is infinite or not.
         """
 
     class CollateOptionsOverride:

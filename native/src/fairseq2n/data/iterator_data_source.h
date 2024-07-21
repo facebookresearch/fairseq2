@@ -6,35 +6,26 @@
 
 #pragma once
 
-#include <utility>
-#include <vector>
-
+#include "fairseq2n/data/data_pipeline.h"
 #include "fairseq2n/data/data_source.h"
-#include "fairseq2n/data/py.h"
-#include "../python/src/fairseq2n/bindings/type_casters/py.h"
 
-#include <pybind11/functional.h>
-#include <pybind11/operators.h>
 #include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-#include <pybind11/stl/filesystem.h>
 
 namespace fairseq2n::detail {
 
 class iterator_data_source final : public data_source {
 public:
     explicit
-    iterator_data_source(pybind11::iterator &&iterator) noexcept
-      : iterator_(std::move(iterator))
-    { }
-
-    iterator_data_source(const iterator_data_source& other);
-
-    //iterator_data_source(iterator_data_source&& other);
-
-    iterator_data_source& operator=(const iterator_data_source& other);
-
-    //iterator_data_source& operator=(iterator_data_source&& other);
+    iterator_data_source(
+        pybind11::iterator &&iterator, 
+        reset_fn &&fn, 
+        bool infinite)
+      : iterator_{new pybind11::iterator{std::move(iterator)}},
+        reset_fn_{std::move(fn)},
+        infinite_{infinite}
+    {
+        reset(true);
+    }
 
     std::optional<data>
     next() override;
@@ -51,10 +42,21 @@ public:
     data_source_finitude_type
     finitude_type() const noexcept override;
 
-    //~iterator_data_source() override;
-
 private:
-    pybind11::iterator iterator_;
+    struct iterator_deleter {
+        void operator()(pybind11::iterator* it) {
+            pybind11::gil_scoped_acquire acquire;
+
+            // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
+            delete it;
+        }
+    };
+
+    std::unique_ptr<pybind11::iterator,  iterator_deleter> iterator_;
+    reset_fn reset_fn_;
+    bool infinite_;
+    std::optional<data> to_return_;
+    bool reloaded_{false};
 };
 
 }  // namespace fairseq2n::detail
