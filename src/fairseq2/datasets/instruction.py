@@ -182,9 +182,10 @@ class GenericInstructionDataset(InstructionDataset):
         manifest_file = path.joinpath("MANIFEST")
 
         try:
-            fp = manifest_file.open()
+            with manifest_file.open() as fp:
+                content = list(fp)
         except FileNotFoundError:
-            fp = None
+            content = None
         except OSError as ex:
             raise RuntimeError(
                 f"{manifest_file} cannot be read. See nested exception for details."
@@ -192,7 +193,7 @@ class GenericInstructionDataset(InstructionDataset):
 
         # If the directory does not contain a MANIFEST file, treat all JSONL
         # files as part of the dataset with equal weight.
-        if fp is None:
+        if content is None:
             try:
                 files = list(path.glob("**/*.jsonl"))
             except OSError as ex:
@@ -203,15 +204,6 @@ class GenericInstructionDataset(InstructionDataset):
             weights = [1.0 for _ in range(len(files))]
 
             return GenericInstructionDataset(files, weights=weights)
-
-        try:
-            content = list(fp)
-        except OSError as ex:
-            raise RuntimeError(
-                f"{manifest_file} cannot be read. See nested exception for details."
-            ) from ex
-        finally:
-            fp.close()
 
         # Sort the JSONL files in alphabetical order.
         content.sort()

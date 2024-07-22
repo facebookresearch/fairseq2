@@ -12,8 +12,8 @@ from argparse import OPTIONAL, ArgumentParser, Namespace
 from copy import deepcopy
 from pathlib import Path
 from signal import SIGUSR1, signal
+from types import FrameType
 from typing import (
-    Any,
     Callable,
     Dict,
     Generic,
@@ -573,20 +573,12 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
         if args.config_files:
             for config_file in args.config_files:
                 try:
-                    fp = config_file.open()
-                except OSError:
-                    log.exception("Configuration file '{}' cannot be read.", config_file)  # fmt: skip
-
-                    sys.exit(1)
-
-                try:
-                    config_overrides = yaml.safe_load(fp)
+                    with config_file.open() as fp:
+                        config_overrides = yaml.safe_load(fp)
                 except (OSError, YAMLError):
                     log.exception("Configuration file '{}' cannot be read.", config_file)  # fmt: skip
 
                     sys.exit(1)
-                finally:
-                    fp.close()
 
                 if not isinstance(config_overrides, dict):
                     log.error("Configuration file '{}' must contain a dictionary.", config_file)  # fmt: skip
@@ -680,7 +672,7 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
         # If the recipe is stoppable, use SIGUSR1 as the stop signal.
         if isinstance(recipe, Stoppable):
 
-            def request_stop(signum: int, frame: Any) -> None:
+            def request_stop(signum: int, frame: FrameType) -> None:
                 log.info("SIGUSR1 received. Requesting recipe to stop.")
 
                 recipe.request_stop()
