@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal, Optional, Tuple, Union
+from typing import Literal, Optional, Tuple, Union
 
 import torch
 import torch.distributed
@@ -30,6 +30,9 @@ from fairseq2.recipes.lm.preference_units.dpo_unit import (
     DpoFinetuneConfig,
     DpoFinetuneUnit,
 )
+from fairseq2.recipes.lm.preference_units.preference_criterion_config import (
+    PreferenceCriterionConfig,
+)
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
 from fairseq2.recipes.utils.asset import retrieve_asset_card
 from fairseq2.recipes.utils.log import log_model
@@ -42,11 +45,11 @@ log = get_log_writer(__name__)
 
 @dataclass
 class PreferenceOptimizationConfig:  # TODO: Should this just inherit from InstructionFinetuneConfig? The potential reason not to is that a later version may take two datasets (one positive, one negative)?
-    """Holds the configuration of a language model instruction-finetuning task."""
+    """Holds the configuration of a language model preference-finetuning task."""
 
     # Data
     dataset: Union[str, Path] = "openeft"  # TODO: change!
-    """The name, path, or path to the asset card of the instruction dataset."""
+    """The name, path, or path to the asset card of the preference optimization dataset."""
 
     max_seq_len: int = 8192
     """The maximum sequence length."""
@@ -67,7 +70,7 @@ class PreferenceOptimizationConfig:  # TODO: Should this just inherit from Instr
     criterion: str = "dpo"
     """The type of preference optimization to perform"""
 
-    criterion_config: Any = field(
+    criterion_config: PreferenceCriterionConfig = field(
         default_factory=lambda: DpoFinetuneConfig()
     )  # TODO: is there a better way to do this?
     """The hyperparameters specific to the criterion_type"""
@@ -312,7 +315,9 @@ def load_preference_finetuner(
     log_model(dp_model, log, rank=root_gang.rank)
 
     # Load the reference model.
-    def _get_reference_model(criterion_config: Any) -> Union[Module, None]:
+    def _get_reference_model(
+        criterion_config: PreferenceCriterionConfig,
+    ) -> Union[Module, None]:
         try:
             criterion_config.reference_model
         except ValueError:
@@ -360,8 +365,8 @@ def load_preference_finetuner(
     ) -> AbstractTrainUnit[PreferenceOptimizationBatch]:
         # TODO: setup registers for TrainUnits to replace this
         if config.criterion == "dpo":
-            assert (
-                type(config.criterion_config) is DpoFinetuneConfig
+            assert isinstance(
+                config.criterion_config, DpoFinetuneConfig
             )  # TODO: better way to do this?
             return DpoFinetuneUnit(
                 dp_model,
