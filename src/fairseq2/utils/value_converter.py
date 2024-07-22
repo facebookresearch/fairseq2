@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import sys
 from enum import Enum
 from pathlib import Path, PosixPath
 from typing import (
@@ -75,6 +76,13 @@ class ValueConverter:
             tuple:     self._unstructure_sequence,
             # fmt: on
         }
+
+        if sys.version_info >= (3, 10):
+            from types import UnionType
+
+            # Unions types in PEP 604 (i.e. pipe) syntax are represented by
+            # `types.UnionType`.
+            self._structure_fns[UnionType] = self._structure_union
 
     def structure(self, obj: Any, type_hint: Any) -> Any:
         """
