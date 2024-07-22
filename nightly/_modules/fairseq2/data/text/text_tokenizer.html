@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.data.text.text_tokenizer &mdash; fairseq2 0.3.0.dev202407171539+g9cf68cf documentation</title>
+  <title>fairseq2.data.text.text_tokenizer &mdash; fairseq2 0.3.0.dev202407220143+g7840d33 documentation</title>
       <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202407171539+g9cf68cf
+                0.3.0.dev202407220143+g7840d33
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
@@ -483,6 +483,16 @@
 
 
 <span class="n">load_text_tokenizer</span> <span class="o">=</span> <span class="n">DelegatingTextTokenizerLoader</span><span class="p">[</span><span class="n">TextTokenizer</span><span class="p">]()</span>
+
+
+<span class="k">def</span> <span class="nf">is_tokenizer_card</span><span class="p">(</span><span class="n">card</span><span class="p">:</span> <span class="n">AssetCard</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return ``True`` if ``card`` specifies a tokenizer.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">card</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;tokenizer_family&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span>
+
+
+<span class="k">def</span> <span class="nf">get_tokenizer_family</span><span class="p">(</span><span class="n">card</span><span class="p">:</span> <span class="n">AssetCard</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the tokenizer family name contained in ``card``.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">card</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;tokenizer_family&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">as_</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>  <span class="c1"># type: ignore[no-any-return]</span>
 </pre></div>
 
            </div>
