@@ -991,11 +991,12 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         log.info("Trainer state saved.")
 
-        log.info("Saving validation score.")
+        if self._score_metric_name is not None:
+            log.info("Saving checkpoint score.")
 
-        self._checkpoint_manager.save_score(self._valid_score)
+            self._checkpoint_manager.save_score(self._valid_score)
 
-        log.info("Validation score saved.")
+            log.info("Checkpoint score saved.")
 
         if isinstance(self._model, FSDP):
             log.info("Saving consolidated FSDP model.")
