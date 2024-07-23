@@ -19,6 +19,7 @@ from typing import (
     Sequence,
     Tuple,
     TypedDict,
+    TypeVar,
     Union,
     final,
 )
@@ -386,6 +387,23 @@ if TYPE_CHECKING or DOC_MODE:
         """Read each file in a zip archive"""
         ...
 
+    T = TypeVar("T", bound=Iterator[Any])
+
+    def read_iterator(
+        iterator: T,
+        reset_fn: Callable[[T], T],
+        infinite: bool,
+    ) -> DataPipelineBuilder:
+        """Read each element of ``iterator``.
+
+        :param iterator:
+            The iterator to read.
+        :param reset_fn:
+            Function to reset iterator.
+        :param infinite:
+            Whether iterator is infinite or not.
+        """
+
     class CollateOptionsOverride:
         """Overrides how the collater should create batch for a particular column.
 
@@ -525,6 +543,7 @@ else:
         get_last_failed_example as get_last_failed_example,
     )
     from fairseq2n.bindings.data.data_pipeline import list_files as list_files
+    from fairseq2n.bindings.data.data_pipeline import read_iterator as read_iterator
     from fairseq2n.bindings.data.data_pipeline import read_sequence as read_sequence
     from fairseq2n.bindings.data.data_pipeline import (
         read_zipped_records as read_zipped_records,
@@ -544,6 +563,7 @@ else:
             list_files,
             read_sequence,
             read_zipped_records,
+            read_iterator,
         ]
 
         for t in ctypes:

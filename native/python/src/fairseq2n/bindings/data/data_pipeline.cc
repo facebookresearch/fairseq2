@@ -5,6 +5,7 @@
 // LICENSE file in the root directory of this source tree.
 
 #include "fairseq2n/bindings/module.h"
+#include "fairseq2n/bindings/data/iterator_data_source.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -648,6 +649,19 @@ def_data_pipeline(py::module_ &data_module)
     m.def("read_sequence", &read_list, py::arg("seq"));
 
     m.def("read_zipped_records", &read_zipped_records, py::arg("path"));
+
+    m.def("read_iterator",
+            [](py::iterator iterator, reset_fn fn, bool infinite) {
+                auto factory = [iterator = std::move(iterator), fn = std::move(fn), infinite]() mutable
+                {
+                    return std::make_unique<iterator_data_source>(std::move(iterator), std::move(fn), infinite);
+                };
+
+                return data_pipeline_builder{std::move(factory)};
+            },
+            py::arg("iterator"),
+            py::arg("reset_fn"),
+            py::arg("infinite"));
 
     // Collater
     py::class_<collate_options_override>(m, "CollateOptionsOverride")
