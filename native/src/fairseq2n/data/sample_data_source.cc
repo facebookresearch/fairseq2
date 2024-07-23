@@ -219,13 +219,6 @@ sample_data_source::block(std::size_t idx)
     }
 }
 
-void
-sample_data_source::sum_weights()
-{
-    weight_cumsums_.clear();
-
-}
-
 bool
 sample_data_source::are_all_done() noexcept
 {
