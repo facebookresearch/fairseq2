@@ -104,6 +104,7 @@ def create_hf_reader(
     batcher: Optional[Batcher] = None,
     num_accumulate: int = 1,
     num_prefetch: int = 1,
+    pad_value: Optional[int] = None,
     **extra: Any,
 ) -> DataPipelineReader[Seq2SeqBatch]:
     """
@@ -162,7 +163,7 @@ def create_hf_reader(
     if batcher is None:
         data = dataset.data.to_batches()  # list of RecordBatch
     else:
-        data = dataset.to_list()
+        data = dataset
     builder = read_sequence(data)
 
     # Shard.
@@ -175,7 +176,7 @@ def create_hf_reader(
         builder = batcher.batch(builder, **extra)
 
         # collate to python dict
-        builder.map(Collater())
+        builder.map(Collater(pad_value=pad_value))
 
     # Prefetch `num_prefetch` examples in background.
     builder.prefetch(num_prefetch)
