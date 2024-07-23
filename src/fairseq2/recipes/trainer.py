@@ -549,7 +549,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         log.info("Attempting to load the last checkpoint.")
 
         try:
-            step_nr, checkpoint = self._checkpoint_manager.load_last_checkpoint()
+            step_nr, state = self._checkpoint_manager.load_last_checkpoint()
         except CheckpointNotFoundError:
             log.info("No checkpoint found. Starting training.")
 
@@ -559,7 +559,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._step_nr = step_nr
 
-        self.load_state_dict(checkpoint)
+        self.load_state_dict(state)
 
         self._root_gang.barrier()
 
@@ -970,29 +970,46 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         log.info("Saving checkpoint after step {}.", step_nr)
 
-        checkpoint = self.state_dict()
+        log.info("Extracting trainer state.")
 
-        log.info("State dictionary of the trainer extracted.")
+        state = self.state_dict()
+
+        log.info("Trainer state extracted.")
+
+        self._checkpoint_manager.begin_checkpoint(step_nr)
+
+        log.info("Saving trainer state.")
 
         if self._dp_gang.size > 1 and isinstance(self._model, DDP):
             replicated_keys = {"_model", "_optimizer"}
         else:
             replicated_keys = None
 
-        self._checkpoint_manager.save_checkpoint(
-            step_nr, checkpoint, model_key="_model", replicated_keys=replicated_keys
+        self._checkpoint_manager.save_state(
+            state, model_key="_model", replicated_keys=replicated_keys
         )
 
-        log.info("Checkpoint saved.")
+        log.info("Trainer state saved.")
+
+        if self._score_metric_name is not None:
+            log.info("Saving checkpoint score.")
+
+            self._checkpoint_manager.save_score(self._valid_score)
+
+            log.info("Checkpoint score saved.")
 
         if isinstance(self._model, FSDP):
-            log.info("Saving consolidated FSDP model after step {}.", step_nr)
+            log.info("Saving consolidated FSDP model.")
 
-            self._checkpoint_manager.save_consolidated_fsdp_model(step_nr, self._model)
+            self._checkpoint_manager.save_consolidated_fsdp_model(self._model)
 
-            log.info("Model saved.")
+            log.info("Consolidated model saved.")
 
-        # Clean up checkpoints.
+        self._checkpoint_manager.commit_checkpoint()
+
+        log.info("Checkpoint complete.")
+
+        # Clean up the checkpoints.
         nc = self._keep_last_n_checkpoints
         nm = self._keep_last_n_models
 
@@ -1003,6 +1020,17 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             self._checkpoint_manager.keep_last_n_checkpoints(nc, preserve_model=True)
         elif nc is not None:
             self._checkpoint_manager.keep_last_n_checkpoints(nc)
+
+        nc = self._keep_best_n_checkpoints
+        nm = self._keep_best_n_models
+
+        if nm is not None:
+            assert nc is not None
+
+            self._checkpoint_manager.keep_best_n_checkpoints(nm)
+            self._checkpoint_manager.keep_best_n_checkpoints(nc, preserve_model=True)
+        elif nc is not None:
+            self._checkpoint_manager.keep_best_n_checkpoints(nc)
 
     def _should_do(self, after_n_steps: int, n_steps: int) -> bool:
         if self._eod or self._should_stop:

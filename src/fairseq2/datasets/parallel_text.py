@@ -196,20 +196,12 @@ class GenericParallelTextDataset(ParallelTextDataset):
             manifest_file = path.joinpath(split).joinpath("MANIFEST")
 
             try:
-                fp = manifest_file.open()
+                with manifest_file.open() as fp:
+                    content = list(fp)
             except OSError as ex:
                 raise RuntimeError(
                     f"{manifest_file} cannot be read. See nested exception for details."
                 ) from ex
-
-            try:
-                content = list(fp)
-            except OSError as ex:
-                raise RuntimeError(
-                    f"{manifest_file} cannot be read. See nested exception for details."
-                ) from ex
-            finally:
-                fp.close()
 
             # Sort the directions in alphabetical order.
             content.sort()

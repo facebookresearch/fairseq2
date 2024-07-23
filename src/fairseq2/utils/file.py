@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import warnings
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Protocol, Union
+from typing import Any, Callable, Dict, Mapping, Optional, Protocol, Union
 from warnings import catch_warnings
 
 import torch
@@ -46,7 +46,7 @@ class TensorLoader(Protocol):
 class TensorDumper(Protocol):
     """Dumps tensors to files."""
 
-    def __call__(self, data: Dict[str, Any], path: Path) -> None:
+    def __call__(self, data: Mapping[str, Any], path: Path) -> None:
         """
         :param data:
             The dictionary containing tensors and other auxiliary data.
@@ -72,6 +72,6 @@ def load_tensors(
     return data
 
 
-def dump_tensors(data: Dict[str, Any], path: Path) -> None:
+def dump_tensors(data: Mapping[str, Any], path: Path) -> None:
     """Dump ``data`` to a PyTorch tensor file under ``path``."""
     torch.save(data, path)
