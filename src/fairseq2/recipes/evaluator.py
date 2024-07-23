@@ -12,6 +12,7 @@ from itertools import count
 from pathlib import Path
 from typing import Any, Dict, Generic, List, Optional, TypeVar, final
 
+from fairseq2.models.sequence import SequenceBatch
 from torch import Tensor
 
 from fairseq2.datasets import DataReader
@@ -259,7 +260,7 @@ class HFEvaluator(Evaluator, Generic[BatchT]):
         # the remove the placeholder 'self,_metrics = None` below
         #
         #########################################################
-        self._metrics = None
+        self._metrics = [evaluate.load(metric) for metric in metrics]
 
         if self._tp_gang.rank == 0 and self._dp_gang.rank == 0:
             self._metric_recorders = [LogMetricRecorder(log)]
@@ -290,7 +291,7 @@ class HFEvaluator(Evaluator, Generic[BatchT]):
             # See StandardEvaluator._do_run() for an example
             #
             ##########################################################
-
+            self._do_run()
             self._publish_evaluation_metrics()
         except KeyboardInterrupt:
             log.info("Evaluation terminated")
@@ -300,6 +301,37 @@ class HFEvaluator(Evaluator, Generic[BatchT]):
         elapsed_time = self._wall_watch.get_elapsed_time()
 
         log.info("Evaluation complete in {:,} seconds", int(elapsed_time))
+
+    def _do_run(self) -> None:
+        with create_rich_progress() as progress:
+            eval_task = progress.add_task("eval", total=None)
+
+            watch = Stopwatch(start=True, device=self._root_gang.device)
+
+            for step_nr in count(start=1):
+                self._step_nr = step_nr
+
+                try:
+                    batches = next(self._data_reader)
+                except StopIteration:
+                    break
+
+                progress.update(eval_task, refresh=True, advance=1)
+
+                log.debug("Running step {}.", step_nr)
+
+                for batch in batches:
+                    # Update the metrics with the batch results
+                    inputs = SequenceBatch(batch.source_seqs, batch.source_padding_mask)
+                    labels = [batch.target_seqs]
+                    outputs = self._model(inputs)
+                    predictions, _ = outputs.genegenerate_hypotheses(pad_idx=pad_idx)
+                    for metric in self._metrics:
+                        metric.add_batch(predictions=predictions, references=labels)
+
+                self._root_gang.barrier()
+
+            self._elapsed_time = watch.get_elapsed_time()
 
     def _publish_evaluation_metrics(self) -> None:
         """
@@ -318,7 +350,10 @@ class HFEvaluator(Evaluator, Generic[BatchT]):
         # then remove the placeholder "values = None" right below.
         #
         ##########################################################
-        values = None
+        values = {}
+        for metric in self._metrics:
+            results = metric.compute()
+            values.update(results)
 
         # In all other rank, values will be zero
         if self._tp_gang.rank != 0 or self._dp_gang.rank != 0:
