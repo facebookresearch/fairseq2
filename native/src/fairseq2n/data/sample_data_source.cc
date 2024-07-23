@@ -23,8 +23,11 @@ namespace fairseq2n::detail {
 sample_data_source::sample_data_source(
     std::vector<data_pipeline> &&pipelines,
     std::vector<float32> &&weights,
-    std::optional<std::uint64_t> maybe_seed)
-  : pipelines_(std::move(pipelines)), is_epoch_done_(pipelines_.size())
+    std::optional<std::uint64_t> maybe_seed,
+    bool allow_repeats)
+  : pipelines_(std::move(pipelines)), 
+    is_epoch_done_(pipelines_.size()),
+    allow_repeats_{allow_repeats}
 {
     seed_ = maybe_seed ? *maybe_seed : pseudo_random();
 
@@ -45,6 +48,9 @@ sample_data_source::sample_data_source(
         for (float32 &s : weight_cumsums_)
             s /= sum;
     }
+
+    if (!allow_repeats_)
+        original_weight_cumsums_ = weight_cumsums_;
 
     buffer_.reserve(pipelines_.size());
 
@@ -73,7 +79,6 @@ sample_data_source::next()
     }
 
     std::size_t pipeline_idx = random_pipeline_index();
-
     return std::exchange(buffer_[pipeline_idx], next_in_pipeline(pipeline_idx));
 }
 
@@ -88,6 +93,9 @@ sample_data_source::reset(bool reset_rng)
 
     if (reset_rng)
         generator_.set_current_seed(seed_);
+
+    if (!allow_repeats_)
+        weight_cumsums_ = original_weight_cumsums_;
 
     for (data_pipeline &pipeline : pipelines_)
         pipeline.reset(reset_rng);
@@ -106,6 +114,8 @@ sample_data_source::record_position(tape &t, bool strict) const
 
     t.record(generator_.get_state());
 
+    t.record(weight_cumsums_);
+
     for (const data_pipeline &pipeline : pipelines_)
         pipeline.record_position(t, strict);
 }
@@ -114,7 +124,7 @@ void
 sample_data_source::reload_position(tape &t, bool strict)
 {
     if (strict) {
-        buffer_ = t.read<std::vector<data>>();
+        buffer_ = t.read<std::vector<std::optional<data>>>();
 
         is_epoch_done_ = t.read<std::vector<bool>>();
     } else {
@@ -128,6 +138,8 @@ sample_data_source::reload_position(tape &t, bool strict)
     seed_ = t.read<std::uint64_t>();
 
     generator_.set_state(t.read<at::Tensor>());
+
+    weight_cumsums_ = t.read<std::vector<float32>>();
 
     for (data_pipeline &pipeline : pipelines_)
         pipeline.reload_position(t);
@@ -161,7 +173,7 @@ sample_data_source::random_pipeline_index()
     return lptr;
 }
 
-data
+std::optional<data>
 sample_data_source::next_in_pipeline(std::size_t pipeline_idx)
 {
     data_pipeline &pipeline = pipelines_[pipeline_idx];
@@ -170,17 +182,42 @@ sample_data_source::next_in_pipeline(std::size_t pipeline_idx)
     if (!maybe_example) {
         is_epoch_done_[pipeline_idx] = true;
 
-        pipeline.reset();
+        if (allow_repeats_) {
+            pipeline.reset();
 
-        // Circle back to the first example.
-        maybe_example = pipeline.next();
-        if (!maybe_example)
-            throw_data_pipeline_error(/*maybe_example=*/std::nullopt, /*recoverable=*/false,
-                "The data pipeline at index {} is empty and cannot be sampled.", pipeline_idx);
+            // Circle back to the first example.
+            maybe_example = pipeline.next();
+            if (!maybe_example)
+                throw_data_pipeline_error(/*maybe_example=*/std::nullopt, /*recoverable=*/false,
+                    "The data pipeline at index {} is empty and cannot be sampled.", pipeline_idx);
+        } else
+            block(pipeline_idx);
     } else if (pipeline.finitude_type() == data_source_finitude_type::pseudo_infinite)
         is_epoch_done_[pipeline_idx] = true;
 
-    return std::move(*maybe_example);
+    return maybe_example;
+}
+
+void
+sample_data_source::block(std::size_t idx)
+{
+    float32 weight = weight_cumsums_[idx];
+    if (idx > 0) {
+        weight -= weight_cumsums_[idx - 1];
+        weight_cumsums_[idx] = weight_cumsums_[idx - 1];
+    } else {
+        weight_cumsums_[idx] = 0.0F;
+    }
+    for (std::size_t i = idx + 1; i < weight_cumsums_.size(); ++i) {
+        weight_cumsums_[i] -= weight;
+    }
+
+    float32 sum = weight_cumsums_.back();
+
+    if (!are_close(sum, 1.0F)) {
+        for (float32 &s : weight_cumsums_)
+            s /= sum;
+    }
 }
 
 bool

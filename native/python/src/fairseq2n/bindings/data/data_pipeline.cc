@@ -323,7 +323,9 @@ def_data_pipeline(py::module_ &data_module)
         .def_static(
             "round_robin",
             [](
-                std::vector<std::reference_wrapper<data_pipeline>> &refs, bool stop_at_shortest)
+                std::vector<std::reference_wrapper<data_pipeline>> &refs, 
+                bool stop_at_shortest,
+                bool allow_repeats)
             {
                 std::vector<data_pipeline> pipelines{};
 
@@ -334,16 +336,18 @@ def_data_pipeline(py::module_ &data_module)
                         return std::move(r.get());
                     });
 
-                return data_pipeline::round_robin(std::move(pipelines), stop_at_shortest);
+                return data_pipeline::round_robin(std::move(pipelines), stop_at_shortest, allow_repeats);
             },
             py::arg("pipelines"),
-            py::arg("stop_at_shortest") = false)
+            py::arg("stop_at_shortest") = false,
+            py::arg("allow_repeats") = true)
         .def_static(
             "sample",
             [](
                 std::vector<std::reference_wrapper<data_pipeline>> &refs,
                 std::optional<std::vector<float>> maybe_weights,
-                std::optional<std::uint64_t> maybe_seed)
+                std::optional<std::uint64_t> maybe_seed,
+                bool allow_repeats)
             {
                 std::vector<data_pipeline> pipelines{};
 
@@ -355,11 +359,12 @@ def_data_pipeline(py::module_ &data_module)
                     });
 
                 return data_pipeline::sample(
-                    std::move(pipelines), std::move(maybe_weights), maybe_seed);
+                    std::move(pipelines), std::move(maybe_weights), maybe_seed, allow_repeats);
             },
             py::arg("pipelines"),
             py::arg("weights") = std::nullopt,
-            py::arg("seed") = std::nullopt)
+            py::arg("seed") = std::nullopt,
+            py::arg("allow_repeats") = true)
         .def_static(
             "zip",
             [](
