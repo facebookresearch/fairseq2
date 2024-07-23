@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DataPipeline &mdash; fairseq2 0.3.0.dev202407220143+g7840d33 documentation</title>
+  <title>DataPipeline &mdash; fairseq2 0.3.0.dev202407232201+g77bd579 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -35,7 +35,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202407220143+g7840d33
+                0.3.0.dev202407232201+g77bd579
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -270,15 +270,16 @@ where the key is <code class="docutils literal notranslate"><span class="pre">ke
 
 <dl class="py method">
 <dt class="sig sig-object py" id="fairseq2.data.DataPipeline.round_robin">
-<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">round_robin</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pipelines</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stop_at_shortest</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipeline.round_robin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.DataPipeline.round_robin" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">round_robin</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pipelines</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stop_at_shortest</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_repeats</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipeline.round_robin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.DataPipeline.round_robin" title="Permalink to this definition"></a></dt>
 <dd><p>Extract examples from <code class="docutils literal notranslate"><span class="pre">pipelines</span></code> in round robin.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>pipelines</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Sequence" title="(in Python v3.12)"><em>Sequence</em></a><em>[</em><a class="reference internal" href="#fairseq2.data.DataPipeline" title="fairseq2.data.data_pipeline.DataPipeline"><em>DataPipeline</em></a><em>]</em>) – The data pipelines to round robin.</p></li>
-<li><p><strong>stop_at_shortest</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.12)"><em>bool</em></a>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, stop round_robin when first pipeline reaches its end.
-If <code class="docutils literal notranslate"><span class="pre">False</span></code>, circle around finished pipelines until all pipelines
-reach their end.</p></li>
+<li><p><strong>stop_at_shortest</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.12)"><em>bool</em></a>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, stops round_robin when first pipeline reaches its end.</p></li>
+<li><p><strong>allow_repeats</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.12)"><em>bool</em></a>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, circles around finished pipelines until all pipelines
+reach their end.
+If <code class="docutils literal notranslate"><span class="pre">False</span></code>, does not repeat pipelines that have reached their end.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
@@ -289,7 +290,7 @@ reach their end.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="fairseq2.data.DataPipeline.sample">
-<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">sample</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pipelines</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weights</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipeline.sample"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.DataPipeline.sample" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">sample</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pipelines</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weights</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_repeats</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipeline.sample"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.DataPipeline.sample" title="Permalink to this definition"></a></dt>
 <dd><p>Extract examples from <code class="docutils literal notranslate"><span class="pre">pipelines</span></code> by sampling based on
 <code class="docutils literal notranslate"><span class="pre">weights</span></code>. Circles around pipelines until all have reached their
 end at least once.</p>
@@ -298,6 +299,9 @@ end at least once.</p>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>data_pipelines</strong> – The data pipelines to sample from.</p></li>
 <li><p><strong>weights</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Sequence" title="(in Python v3.12)"><em>Sequence</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.12)"><em>float</em></a><em>] </em><em>| </em><em>None</em>) – Desired distribution of pipelines. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, use uniform distribution.</p></li>
+<li><p><strong>allow_repeats</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.12)"><em>bool</em></a>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, circles around finished pipelines until all pipelines
+reach their end.
+If <code class="docutils literal notranslate"><span class="pre">False</span></code>, does not repeat pipelines that have reached their end.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>

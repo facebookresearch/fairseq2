@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.data.data_pipeline &mdash; fairseq2 0.3.0.dev202407220143+g7840d33 documentation</title>
+  <title>fairseq2.data.data_pipeline &mdash; fairseq2 0.3.0.dev202407232201+g77bd579 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202407220143+g7840d33
+                0.3.0.dev202407232201+g77bd579
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -177,6 +177,7 @@
     <span class="n">Sequence</span><span class="p">,</span>
     <span class="n">Tuple</span><span class="p">,</span>
     <span class="n">TypedDict</span><span class="p">,</span>
+    <span class="n">TypeVar</span><span class="p">,</span>
     <span class="n">Union</span><span class="p">,</span>
     <span class="n">final</span><span class="p">,</span>
 <span class="p">)</span>
@@ -299,16 +300,20 @@
 
 <div class="viewcode-block" id="DataPipeline.round_robin"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.round_robin">[docs]</a>        <span class="nd">@staticmethod</span>
         <span class="k">def</span> <span class="nf">round_robin</span><span class="p">(</span>
-            <span class="n">pipelines</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">DataPipeline</span><span class="p">],</span> <span class="n">stop_at_shortest</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="n">pipelines</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">DataPipeline</span><span class="p">],</span>
+            <span class="n">stop_at_shortest</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+            <span class="n">allow_repeats</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
 <span class="w">            </span><span class="sd">&quot;&quot;&quot;Extract examples from ``pipelines`` in round robin.</span>
 
 <span class="sd">            :param pipelines:</span>
 <span class="sd">                The data pipelines to round robin.</span>
 <span class="sd">            :param stop_at_shortest:</span>
-<span class="sd">                If ``True``, stop round_robin when first pipeline reaches its end.</span>
-<span class="sd">                If ``False``, circle around finished pipelines until all pipelines</span>
+<span class="sd">                If ``True``, stops round_robin when first pipeline reaches its end.</span>
+<span class="sd">            :param allow_repeats:</span>
+<span class="sd">                If ``True``, circles around finished pipelines until all pipelines</span>
 <span class="sd">                reach their end.</span>
+<span class="sd">                If ``False``, does not repeat pipelines that have reached their end.</span>
 <span class="sd">            &quot;&quot;&quot;</span></div>
 
 <div class="viewcode-block" id="DataPipeline.sample"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.sample">[docs]</a>        <span class="nd">@staticmethod</span>
@@ -316,6 +321,7 @@
             <span class="n">pipelines</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">DataPipeline</span><span class="p">],</span>
             <span class="n">weights</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">allow_repeats</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
 <span class="w">            </span><span class="sd">&quot;&quot;&quot;Extract examples from ``pipelines`` by sampling based on</span>
 <span class="sd">            ``weights``. Circles around pipelines until all have reached their</span>
@@ -325,6 +331,10 @@
 <span class="sd">                The data pipelines to sample from.</span>
 <span class="sd">            :param weights:</span>
 <span class="sd">                Desired distribution of pipelines. If ``None``, use uniform distribution.</span>
+<span class="sd">            :param allow_repeats:</span>
+<span class="sd">                If ``True``, circles around finished pipelines until all pipelines</span>
+<span class="sd">                reach their end.</span>
+<span class="sd">                If ``False``, does not repeat pipelines that have reached their end.</span>
 <span class="sd">            &quot;&quot;&quot;</span></div>
 
 <div class="viewcode-block" id="DataPipeline.zip"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.zip">[docs]</a>        <span class="nd">@staticmethod</span>
@@ -544,6 +554,23 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Read each file in a zip archive&quot;&quot;&quot;</span>
         <span class="o">...</span></div>
 
+    <span class="n">T</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;T&quot;</span><span class="p">,</span> <span class="n">bound</span><span class="o">=</span><span class="n">Iterator</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span>
+
+    <span class="k">def</span> <span class="nf">read_iterator</span><span class="p">(</span>
+        <span class="n">iterator</span><span class="p">:</span> <span class="n">T</span><span class="p">,</span>
+        <span class="n">reset_fn</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">T</span><span class="p">],</span> <span class="n">T</span><span class="p">],</span>
+        <span class="n">infinite</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Read each element of ``iterator``.</span>
+
+<span class="sd">        :param iterator:</span>
+<span class="sd">            The iterator to read.</span>
+<span class="sd">        :param reset_fn:</span>
+<span class="sd">            Function to reset iterator.</span>
+<span class="sd">        :param infinite:</span>
+<span class="sd">            Whether iterator is infinite or not.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
 <div class="viewcode-block" id="CollateOptionsOverride"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.CollateOptionsOverride.html#fairseq2.data.CollateOptionsOverride">[docs]</a>    <span class="k">class</span> <span class="nc">CollateOptionsOverride</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Overrides how the collater should create batch for a particular column.</span>
 
@@ -683,6 +710,7 @@
         <span class="n">get_last_failed_example</span> <span class="k">as</span> <span class="n">get_last_failed_example</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="kn">from</span> <span class="nn">fairseq2n.bindings.data.data_pipeline</span> <span class="kn">import</span> <span class="n">list_files</span> <span class="k">as</span> <span class="n">list_files</span>
+    <span class="kn">from</span> <span class="nn">fairseq2n.bindings.data.data_pipeline</span> <span class="kn">import</span> <span class="n">read_iterator</span> <span class="k">as</span> <span class="n">read_iterator</span>
     <span class="kn">from</span> <span class="nn">fairseq2n.bindings.data.data_pipeline</span> <span class="kn">import</span> <span class="n">read_sequence</span> <span class="k">as</span> <span class="n">read_sequence</span>
     <span class="kn">from</span> <span class="nn">fairseq2n.bindings.data.data_pipeline</span> <span class="kn">import</span> <span class="p">(</span>
         <span class="n">read_zipped_records</span> <span class="k">as</span> <span class="n">read_zipped_records</span><span class="p">,</span>
@@ -702,6 +730,7 @@
             <span class="n">list_files</span><span class="p">,</span>
             <span class="n">read_sequence</span><span class="p">,</span>
             <span class="n">read_zipped_records</span><span class="p">,</span>
+            <span class="n">read_iterator</span><span class="p">,</span>
         <span class="p">]</span>
 
         <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">ctypes</span><span class="p">:</span>
