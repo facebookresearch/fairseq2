@@ -6,8 +6,12 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Final, Optional
+
+import torch
+from torch import Tensor
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data import VocabularyInfo
@@ -80,6 +84,9 @@ class LLaMAConfig:
 
     rope_theta: float = 10_000.0
     """The coefficient of the long-term decay of the Rotary position encoder."""
+
+    use_scaled_rope: bool = False
+    """If ``True``, scales Rotary encoding frequencies to LLaMA 3.1 context length."""
 
     dropout_p: float = 0.1
     """The dropout probability on outputs of Transformer layers."""
@@ -206,10 +213,16 @@ class LLaMABuilder:
         sdpa = create_default_sdpa(attn_dropout_p=self._config.dropout_p)
 
         if self._pos_encoder is None:
+            if self._config.use_scaled_rope:
+                freqs_init_fn = self._init_scaled_freqs
+            else:
+                freqs_init_fn = None
+
             self._pos_encoder = RotaryEncoder(
                 self._config.model_dim // num_heads,
                 self._config.max_seq_len,
                 theta=self._config.rope_theta,
+                freqs_init_fn=freqs_init_fn,
                 device=self._device,
             )
 
@@ -246,6 +259,44 @@ class LLaMABuilder:
     ) -> LayerNorm:
         """Build a Layer Normalization module."""
         return RMSNorm(model_dim, bias=False, device=device, dtype=dtype)
+
+    @staticmethod
+    def _init_scaled_freqs(pos_encoder: RotaryEncoder) -> Tensor:
+        device = pos_encoder.freqs.device
+
+        # (E / 2)
+        indices = torch.arange(
+            0, pos_encoder.encoding_dim, step=2, device=device, dtype=torch.float32
+        )
+
+        freqs = 1.0 / (pos_encoder.theta ** (indices / pos_encoder.encoding_dim))
+
+        if device.type == "meta":
+            return freqs  # type: ignore[no-any-return]
+
+        old_context_len = 8192  # The context length of LLaMA 3.
+
+        scale_factor = 8.0
+
+        l_freq_factor = 1
+        h_freq_factor = 5
+
+        l_freq_wavelen = old_context_len / l_freq_factor
+        h_freq_wavelen = old_context_len / h_freq_factor
+
+        new_freqs = []
+
+        for freq in freqs.tolist():
+            wavelen = 2 * math.pi / freq
+            if wavelen < h_freq_wavelen:
+                new_freqs.append(freq)
+            elif wavelen > l_freq_wavelen:
+                new_freqs.append(freq / scale_factor)
+            else:
+                smooth = (old_context_len / wavelen - l_freq_factor) / (h_freq_factor - l_freq_factor)  # fmt: skip
+                new_freqs.append((1 - smooth) * freq / scale_factor + smooth * freq)
+
+        return torch.tensor(new_freqs, dtype=freqs.dtype, device=device)
 
 
 def create_llama_model(

@@ -114,3 +114,23 @@ def _llama3_70b() -> LLaMAConfig:
     config.rope_theta = 500_000.0
 
     return config
+
+
+@llama_arch("llama3_1_8b")
+def _llama3_1_8b() -> LLaMAConfig:
+    config = _llama3_8b()
+
+    config.max_seq_len = 131_072
+    config.use_scaled_rope = True
+
+    return config
+
+
+@llama_arch("llama3_1_70b")
+def _llama3_1_70b() -> LLaMAConfig:
+    config = _llama3_70b()
+
+    config.max_seq_len = 131_072
+    config.use_scaled_rope = True
+
+    return config

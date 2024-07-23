@@ -92,7 +92,7 @@ class Linear(Projection):
         :param bias:
             If ``True``, learns an additive bias.
         :param init_fn:
-            The callable to use for parameter initialization.
+            The callable to initialize the weight and bias.
         """
         super().__init__(input_dim, output_dim)
 
@@ -209,7 +209,7 @@ class ColumnShardedLinear(Projection):
         :param gather_output:
             If ``True``, gather the sharded output into a single tensor.
         :param init_fn:
-            The callable to use for parameter initialization.
+            The callable to initialize the weight and bias.
         """
         super().__init__(input_dim, output_dim)
 
@@ -410,7 +410,7 @@ class RowShardedLinear(Projection):
             If ``True``, scatters the input tensor; otherwise, considers it
             already sharded.
         :param init_fn:
-            The callable to use for parameter initialization.
+            The callable to initialize the weight and bias.
         """
         super().__init__(input_dim, output_dim)
 

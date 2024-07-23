@@ -106,3 +106,31 @@ base: llama3_instruct
 model_arch: llama3_70b
 num_shards: 8
 shard_embed_dim: false
+
+---
+
+name: llama3_1_8b
+base: llama3
+model_arch: llama3_1_8b
+
+---
+
+name: llama3_1_8b_instruct
+base: llama3_instruct
+model_arch: llama3_1_8b
+
+---
+
+name: llama3_1_70b
+base: llama3
+model_arch: llama3_1_70b
+num_shards: 8
+shard_embed_dim: false
+
+---
+
+name: llama3_1_70b_instruct
+base: llama3_instruct
+model_arch: llama3_1_70b
+num_shards: 8
+shard_embed_dim: false
