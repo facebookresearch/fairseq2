@@ -49,7 +49,8 @@ sample_data_source::sample_data_source(
             s /= sum;
     }
 
-    original_weight_cumsums_ = weight_cumsums_;
+    if (!allow_repeats_)
+        original_weight_cumsums_ = weight_cumsums_;
 
     buffer_.reserve(pipelines_.size());
 
