@@ -8,11 +8,13 @@
 from dataclasses import dataclass
 import math
 from pathlib import Path
-from typing import Callable, Optional
-
-from fairseq2.recipes.utils.setup import setup_root_gang
+from typing import Callable, Optional, cast
 import torch
 
+from fairseq2.data.data_pipeline import SequenceData
+from fairseq2.data.text import load_text_tokenizer
+from fairseq2.nn.padding import get_seqs_and_padding_mask
+from fairseq2.recipes.utils.setup import setup_root_gang
 from fairseq2.datasets.huggingface import Example, create_hf_reader, BatcherBySize
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.recipes.evaluator import HFEvaluator
@@ -66,7 +68,19 @@ class AsrEvalConfig(HFEvalConfig):
 def _librispeech_asr_to_batch(examples: Example) -> Seq2SeqBatch:
     # FIXME: Implement the function to convert the collated data loaded from HF dataset
     # "librispeech_asr" to Seq2SeqBatch
-    raise NotImplementedError()
+    source_data = cast(SequenceData, examples['audio'])
+    target_data = cast(SequenceData, examples['text'])
+
+    source_seqs, source_padding_mask = get_seqs_and_padding_mask(source_data)
+    target_seqs, target_padding_mask = get_seqs_and_padding_mask(target_data)
+
+    return Seq2SeqBatch(
+        source_seqs,
+        source_padding_mask,
+        target_seqs,
+        target_padding_mask,
+        examples,
+    )
 
 @hf_presets.decorator("librispeech_asr")
 def _librispeech_asr_config() -> AsrEvalConfig:
@@ -97,15 +111,42 @@ def load_wav2vec2_asr_evaluator(
     ##########################################################################
     
     # Load dataset
-    iterable_ds = load_dataset(config.dataset_name, config.split, streaming=True)
+    iterable_ds = load_dataset(config.dataset_name, split=config.split, streaming=True)
     max_samples = config.max_samples if config.max_samples is not None else math.inf
     # Load a subset of the dataset if max_samples is set
     ds = Dataset.from_generator(lambda: (yield from (item for idx, item in enumerate(iterable_ds) if idx < max_samples)), features=iterable_ds.features)
 
-    # Create data pipeline from dataset
+    # Setup GANG
     gang = setup_root_gang(log)
+
+    # Load tokenizer
+    tokenizer = load_text_tokenizer(config.tokenizer_name)
+
+    encoder = tokenizer.create_encoder(device=gang.device)
+    decoder = tokenizer.create_decoder()
+
+    # Preprocess dataset
+    def _preprocess_example(example):
+        """
+        Preprocesses an individual example by converting the audio array to a PyTorch tensor
+        and encoding the text.
+
+        Args:
+            example (dict): A dictionary containing "audio" and "text" keys.
+
+        Returns:
+            dict: A dictionary with "audio" and "text" as PyTorch tensors.
+        """
+        audio_tensor = torch.from_numpy(example["audio"]['array']).to(torch.float16).to(gang.device)
+        text_tensor = encoder(example['text'].lower()).to(gang.device)
+        return {"audio": audio_tensor, "text": text_tensor}
+    
+    ds = ds.map(_preprocess_example)
+    ds.set_format("torch", columns=['audio', 'text'])
+
+    # Create data pipeline from dataset
     batcher = BatcherBySize(bucket_size=config.max_num_elements)
-    pipeline = create_hf_reader(dataset=ds, gang=gang, converter=_librispeech_asr_to_batch, batcher=batcher, num_prefetch=config.num_prefetch)
+    pipeline = create_hf_reader(dataset=ds, gang=gang, converter=_librispeech_asr_to_batch, batcher=batcher, num_prefetch=config.num_prefetch, pad_value=tokenizer.vocab_info.pad_idx)
 
     # Load model
     if gang.rank == 0:
@@ -117,7 +158,7 @@ def load_wav2vec2_asr_evaluator(
 
     # Load BLEU from evaluate library
     # bleu = load_metric("bleu")
-
+    
     raise HFEvaluator[Seq2SeqBatch](
         model=model,
         metrics=["bleu"],
