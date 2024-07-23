@@ -51,8 +51,8 @@ private:
     std::size_t buffer_idx_ = 0;
     std::vector<bool> is_epoch_done_;
     bool is_eod_ = false;
-    bool allow_repeats_;
     bool stop_at_shortest_;
+    bool allow_repeats_;
     data_source_finitude_type finitude_type_;
 };
 
