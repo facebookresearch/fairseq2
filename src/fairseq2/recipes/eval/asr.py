@@ -6,17 +6,24 @@
 
 
 from dataclasses import dataclass
+import math
 from pathlib import Path
 from typing import Callable, Optional
 
+from fairseq2.recipes.utils.setup import setup_root_gang
 import torch
 
-from fairseq2.datasets.huggingface import Example
+from fairseq2.datasets.huggingface import Example, create_hf_reader, BatcherBySize
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.recipes.evaluator import HFEvaluator
 from fairseq2.recipes.eval.configs import HFEvalConfig, hf_presets
-from fairseq2.typing import DataType
+from fairseq2.models.wav2vec2.asr import load_wav2vec2_asr_model
+from fairseq2.typing import META, DataType
+from fairseq2.logging import get_log_writer
+from datasets import load_dataset, Dataset
+from evaluate import load as load_metric
 
+log = get_log_writer(__name__)
 
 @dataclass
 class AsrEvalConfig(HFEvalConfig):
@@ -66,9 +73,9 @@ def _librispeech_asr_config() -> AsrEvalConfig:
     return AsrEvalConfig(
         dataset_name="librispeech_asr",
         model_name="wav2vec2_asr_base_10h",
+        split="test.other"
         # converter=librispeech_asr_to_batch,
     )
-
 
 def load_wav2vec2_asr_evaluator(
     config: HFEvalConfig, output_dir: Path
@@ -88,4 +95,32 @@ def load_wav2vec2_asr_evaluator(
     # - Load BLEU from evaluate library
     # - Build the HFEvaluator accordingly
     ##########################################################################
-    raise NotImplementedError()
+    
+    # Load dataset
+    iterable_ds = load_dataset(config.dataset_name, config.split, streaming=True)
+    max_samples = config.max_samples if config.max_samples is not None else math.inf
+    # Load a subset of the dataset if max_samples is set
+    ds = Dataset.from_generator(lambda: (yield from (item for idx, item in enumerate(iterable_ds) if idx < max_samples)), features=iterable_ds.features)
+
+    # Create data pipeline from dataset
+    gang = setup_root_gang(log)
+    batcher = BatcherBySize(bucket_size=config.max_num_elements)
+    pipeline = create_hf_reader(dataset=ds, gang=gang, converter=_librispeech_asr_to_batch, batcher=batcher, num_prefetch=config.num_prefetch)
+
+    # Load model
+    if gang.rank == 0:
+        init_device = gang.device
+    else:
+        init_device = META
+
+    model = load_wav2vec2_asr_model(config.model_name, device=init_device, dtype=config.dtype)
+
+    # Load BLEU from evaluate library
+    # bleu = load_metric("bleu")
+
+    raise HFEvaluator[Seq2SeqBatch](
+        model=model,
+        metrics=["bleu"],
+        gang=gang,
+        data_reader=pipeline,
+    )
