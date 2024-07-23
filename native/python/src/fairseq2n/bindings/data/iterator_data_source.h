@@ -15,7 +15,7 @@
 
 namespace py = pybind11;
 
-using reset_fn = std::function<void(py::iterator &)>;
+using reset_fn = std::function<py::iterator(py::iterator &)>;
 
 namespace fairseq2n::detail {
 
@@ -37,7 +37,7 @@ public:
     next() override;
 
     void
-    reset(bool reset_rng) override;
+    reset(bool reset_rng) noexcept override;
 
     void
     record_position(tape &t, bool strict) const override;
@@ -63,6 +63,7 @@ private:
     bool infinite_;
     std::optional<data> to_return_;
     bool reloaded_{false};
+    bool reset_{false};
 };
 
 }  // namespace fairseq2n::detail

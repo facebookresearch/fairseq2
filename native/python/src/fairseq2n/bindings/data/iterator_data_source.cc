@@ -14,12 +14,26 @@ std::optional<data>
 iterator_data_source::next()
 {
     py::gil_scoped_acquire acquire;
-    if (reloaded_) {
+
+    if (reset_) {
+
+        reloaded_ = false;
+        reset_ = false;
+        *iterator_ = reset_fn_(*iterator_);
+        ++*iterator_;
+
+    } else if (reloaded_) {
+        // Saving/reloading the iterator may skip over an example,
+        // so we check if this iterator has been reloaded and 
+        // return the potentially missing example here.
+
         if (to_return_) {
             reloaded_ = false;
         }
         return to_return_;
+
     }
+
     if (*iterator_ == py::iterator::sentinel()) {
         return std::nullopt;
     }
@@ -27,13 +41,9 @@ iterator_data_source::next()
 }
 
 void
-iterator_data_source::reset(bool)
+iterator_data_source::reset(bool) noexcept
 {
-    py::gil_scoped_acquire acquire;
-
-    reloaded_ = false;
-    reset_fn_(*iterator_);
-    ++*iterator_;
+    reset_ = true;
 }
 
 void
@@ -41,16 +51,17 @@ iterator_data_source::record_position(tape &t, bool) const
 {
     py::gil_scoped_acquire acquire;
 
-    t.record(
-        py::module::import("pickle").attr("dumps")(
-            *iterator_).cast<py_object>());
     std::optional<data> to_return;
-
     if (*iterator_ != py::iterator::sentinel()) {
         to_return = (*iterator_)->cast<py_object>();
     }
 
+    py::function pickle_dump_fn = py::module::import("pickle").attr("dumps");
+    t.record(pickle_dump_fn(*iterator_).cast<py_object>());
+
     t.record(to_return);
+
+    t.record(reset_);
 }
 
 void
@@ -58,10 +69,13 @@ iterator_data_source::reload_position(tape &t, bool)
 {
     py::gil_scoped_acquire acquire;
 
-    *iterator_ = py::module::import("pickle").attr("loads")(
-        py::cast(t.read<py_object>()));
+    py::function pickle_load_fn = py::module::import("pickle").attr("loads");
+    const auto& pickled_iterator = py::cast(t.read<py_object>());
+    *iterator_ = pickle_load_fn(pickled_iterator);
 
     to_return_ = t.read<std::optional<data>>();
+
+    reset_ = t.read<bool>();
 
     reloaded_ = true;
 }

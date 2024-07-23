@@ -117,7 +117,6 @@ using cost_fn = std::function<float64(const data &)>;
 
 using yield_fn = std::function<data_pipeline(const data &)>;
 
-
 class FAIRSEQ2_API data_pipeline_builder {
 public:
     explicit

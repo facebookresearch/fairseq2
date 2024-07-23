@@ -4,41 +4,36 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from typing import Iterator, TypeVar, Union
+
 import pytest
+from typing_extensions import Self
 
 from fairseq2.data import DataPipelineError, read_iterator, read_sequence
 
 
-class DefaultIterator:
-    def __init__(self):
+class DefaultIterator(Iterator[int]):
+    def __init__(self) -> None:
         self.i = 0
 
-    def reset(self):
-        self.i = 0
-
-    def __iter__(self):
-        self.reset()
+    def __iter__(self) -> Self:
         return self
 
-    def __next__(self):
+    def __next__(self) -> int:
         ret = self.i
         self.i += 1
         return ret
 
 
-class EarlyStopIterator:
-    def __init__(self, n):
+class EarlyStopIterator(Iterator[int]):
+    def __init__(self, n: int):
         self.i = 0
         self.n = n
 
-    def reset(self):
-        self.i = 0
-
-    def __iter__(self):
-        self.reset()
+    def __iter__(self) -> Self:
         return self
 
-    def __next__(self):
+    def __next__(self) -> int:
         ret = self.i
         if ret >= self.n:
             raise StopIteration
@@ -46,8 +41,12 @@ class EarlyStopIterator:
         return ret
 
 
-def reset_fn(iterator):
+T = TypeVar("T", DefaultIterator, EarlyStopIterator)
+
+
+def reset_fn(iterator: T) -> T:
     iterator.i = 0
+    return iterator
 
 
 class TestReadIteratorOp:
@@ -63,6 +62,21 @@ class TestReadIteratorOp:
             assert next(it) == 2
 
             pipeline.reset()
+
+    def test_op_works_with_range(self) -> None:
+        pipeline = read_iterator(
+            iter(range(5)), lambda x: iter(range(5)), infinite=True
+        ).and_return()
+        it = iter(pipeline)
+
+        for _ in range(2):
+            assert next(it) == 0
+            assert next(it) == 1
+            assert next(it) == 2
+
+            pipeline.reset()
+
+        assert list(pipeline) == [*range(5)]
 
     def test_op_stops(self) -> None:
         pipeline = read_iterator(

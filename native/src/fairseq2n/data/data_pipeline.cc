@@ -592,6 +592,4 @@ read_zipped_records(std::string pathname)
     return data_pipeline_builder{std::move(factory)};
 }
 
-
-
 }  // namespace fairseq2n
