@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Tuple, Union, final
+from typing import Any, Dict, List, Literal, Optional, Tuple, final
 
 import torch
 from torch import Tensor
@@ -40,7 +40,11 @@ from fairseq2.recipes.mt.translate import (
     _create_sequence_generator,
 )
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
-from fairseq2.recipes.utils.asset import asset_as_path, retrieve_asset_card
+from fairseq2.recipes.utils.asset import (
+    AssetReference,
+    asset_as_path,
+    retrieve_asset_card,
+)
 from fairseq2.recipes.utils.log import log_model, log_model_config
 from fairseq2.recipes.utils.setup import (
     check_model_type,
@@ -62,7 +66,7 @@ class MTTrainConfig:
     """
 
     # Data
-    dataset: Union[str, Path] = "foo"  # TODO: change!
+    dataset: AssetReference = "foo"  # TODO: change!
     """The name, path, or path to the asset card of the parallel text dataset."""
 
     split: str = "train"
@@ -86,7 +90,7 @@ class MTTrainConfig:
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
 
-    tokenizer: Union[str, Path] = "nllb-200"
+    tokenizer: AssetReference = "nllb-200"
     """The name or path to the asset card of the tokenizer to use."""
 
     # Model

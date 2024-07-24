@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Literal, Optional, TextIO, Union, final
+from typing import List, Literal, Optional, TextIO, final
 
 import torch
 from torch.nn import Module
@@ -39,7 +39,11 @@ from fairseq2.recipes.mt.translate import (
     SamplingConfig,
     _create_sequence_generator,
 )
-from fairseq2.recipes.utils.asset import asset_as_path, retrieve_asset_card
+from fairseq2.recipes.utils.asset import (
+    AssetReference,
+    asset_as_path,
+    retrieve_asset_card,
+)
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.recipes.utils.setup import (
     broadcast_model,
@@ -57,7 +61,7 @@ class MTEvalConfig:
     """Holds the configuration of a machine translation evaluation task."""
 
     # Data
-    dataset: Union[str, Path] = "foo"  # TODO: change!
+    dataset: AssetReference = "foo"  # TODO: change!
     """The name, path, or path to the asset card of the parallel text dataset."""
 
     split: str = "test"
@@ -73,7 +77,7 @@ class MTEvalConfig:
     """The number of batches to prefetch in background."""
 
     # Model
-    model: Union[str, Path] = "nllb-200_dense_distill_600m"
+    model: AssetReference = "nllb-200_dense_distill_600m"
     """The name of the model to evaluate."""
 
     checkpoint_dir: Optional[Path] = None

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Literal, Optional, Tuple, Union, final
+from typing import Any, Dict, Literal, Optional, Tuple, final
 
 import torch
 from torch import Tensor
@@ -31,7 +31,11 @@ from fairseq2.nn.utils.module import freeze_parameters, share_parameters, to_dev
 from fairseq2.optim import AdamW
 from fairseq2.optim.lr_scheduler import TriStageLR
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
-from fairseq2.recipes.utils.asset import asset_as_path, retrieve_asset_card
+from fairseq2.recipes.utils.asset import (
+    AssetReference,
+    asset_as_path,
+    retrieve_asset_card,
+)
 from fairseq2.recipes.utils.log import log_model, log_model_config
 from fairseq2.recipes.utils.setup import (
     check_model_type,
@@ -56,7 +60,7 @@ class Wav2Vec2AsrTrainConfig:
     """
 
     # Data
-    dataset: Union[str, Path] = "librilight_asr_10h"
+    dataset: AssetReference = "librilight_asr_10h"
     """The name, path, or path to the asset card of the ASR dataset."""
 
     train_split: str = "train"
@@ -86,11 +90,11 @@ class Wav2Vec2AsrTrainConfig:
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
 
-    tokenizer: Union[str, Path] = "librispeech_asr"
+    tokenizer: AssetReference = "librispeech_asr"
     """The name or path to the asset card of the tokenizer to use."""
 
     # Model
-    pretrained_model: Union[str, Path] = "wav2vec2_base"
+    pretrained_model: AssetReference = "wav2vec2_base"
     """The name or path to the asset card of the wav2vec 2.0 model to finetune."""
 
     model_family: str = "wav2vec2_asr"

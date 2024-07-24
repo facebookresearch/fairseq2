@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, Optional, TextIO, Union, final
+from typing import Literal, Optional, TextIO, final
 
 import torch
 
@@ -38,7 +38,11 @@ from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.recipes.common_metrics import SequenceGenerationMetricBag
 from fairseq2.recipes.generator import AbstractGeneratorUnit, Generator
-from fairseq2.recipes.utils.asset import asset_as_path, retrieve_asset_card
+from fairseq2.recipes.utils.asset import (
+    AssetReference,
+    asset_as_path,
+    retrieve_asset_card,
+)
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.recipes.utils.setup import broadcast_model, check_model_type, setup_gangs
 from fairseq2.typing import META, DataType, override
@@ -52,7 +56,7 @@ class TextGenerateConfig:
     """Holds the configuration of a text generation task."""
 
     # Data
-    dataset: Union[str, Path] = "foo"  # TODO: change!
+    dataset: AssetReference = "foo"  # TODO: change!
     """The name, path, or path to the asset card of the instruction dataset."""
 
     max_seq_len: int = 8192
@@ -65,7 +69,7 @@ class TextGenerateConfig:
     """The number of batches to prefetch in background."""
 
     # Model
-    model: Union[str, Path] = "llama3_8b_instruct"
+    model: AssetReference = "llama3_8b_instruct"
     """The name of the model to generate with."""
 
     checkpoint_dir: Optional[Path] = None

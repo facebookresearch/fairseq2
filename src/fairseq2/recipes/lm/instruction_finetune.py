@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Optional, Tuple, Union, final
+from typing import Literal, Optional, Tuple, final
 
 import torch
 import torch.distributed
@@ -39,7 +39,11 @@ from fairseq2.optim import AdamW
 from fairseq2.optim.lr_scheduler import CosineAnnealingLR
 from fairseq2.recipes.common_metrics import SequenceMetricBag
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
-from fairseq2.recipes.utils.asset import asset_as_path, retrieve_asset_card
+from fairseq2.recipes.utils.asset import (
+    AssetReference,
+    asset_as_path,
+    retrieve_asset_card,
+)
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.recipes.utils.setup import (
     check_model_type,
@@ -58,7 +62,7 @@ class InstructionFinetuneConfig:
     """Holds the configuration of a language model instruction-finetuning task."""
 
     # Data
-    dataset: Union[str, Path] = "foo"  # TODO: change!
+    dataset: AssetReference = "foo"  # TODO: change!
     """The name, path, or path to the asset card of the instruction dataset."""
 
     max_seq_len: int = 8192
@@ -77,7 +81,7 @@ class InstructionFinetuneConfig:
     """The number of batches to prefetch in background."""
 
     # Model
-    model: Union[str, Path] = "llama3_8b_instruct"
+    model: AssetReference = "llama3_8b_instruct"
     """The name or path to the asset card of the language model to finetune."""
 
     dtype: DataType = torch.bfloat16
