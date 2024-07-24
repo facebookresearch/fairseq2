@@ -33,6 +33,10 @@ from fairseq2.recipes.lm.preference_units.dpo_unit import (
 from fairseq2.recipes.lm.preference_units.preference_criterion_config import (
     PreferenceCriterionConfig,
 )
+from fairseq2.recipes.lm.preference_units.simpo_unit import (
+    SimpoFinetuneConfig,
+    SimpoFinetuneUnit,
+)
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
 from fairseq2.recipes.utils.asset import retrieve_asset_card
 from fairseq2.recipes.utils.log import log_model
@@ -71,7 +75,7 @@ class PreferenceOptimizationConfig:  # TODO: Should this just inherit from Instr
     """The type of preference optimization to perform"""
 
     criterion_config: PreferenceCriterionConfig = field(
-        default_factory=lambda: DpoFinetuneConfig()
+        default_factory=lambda: SimpoFinetuneConfig()
     )  # TODO: is there a better way to do this?
     """The hyperparameters specific to the criterion_type"""
 
@@ -175,6 +179,15 @@ class PreferenceOptimizationConfig:  # TODO: Should this just inherit from Instr
 preference_finetune_presets = ConfigRegistry[PreferenceOptimizationConfig]()
 
 preference_finetune_preset = preference_finetune_presets.decorator
+
+
+@preference_finetune_preset("simpo")
+def _simpo() -> PreferenceOptimizationConfig:
+    cfg = PreferenceOptimizationConfig()
+    cfg.max_num_tokens = 1200
+    cfg.max_seq_len = 600
+    cfg.model = "llama3_8b"
+    cfg.criterion_config = SimpoFinetuneConfig()
 
 
 @preference_finetune_preset("llama3_8b_instruct")
@@ -318,9 +331,7 @@ def load_preference_finetuner(
     def _get_reference_model(
         criterion_config: PreferenceCriterionConfig,
     ) -> Union[Module, None]:
-        try:
-            criterion_config.reference_model
-        except ValueError:
+        if criterion_config.reference_model is None:
             return None
 
         reference_model_card = retrieve_asset_card(criterion_config.reference_model)
@@ -368,6 +379,8 @@ def load_preference_finetuner(
             assert isinstance(
                 config.criterion_config, DpoFinetuneConfig
             )  # TODO: better way to do this?
+            assert dp_reference_model is not None
+            log.info("Using DPO.")
             return DpoFinetuneUnit(
                 dp_model,
                 dp_reference_model,
@@ -375,9 +388,18 @@ def load_preference_finetuner(
                 config.criterion_config.dpo_beta,
                 config.criterion_config.nll_scale,
             )
-        if config.criterion == "SimPO":
-            print("SimPOTrainUnit")  # TODO: implement SimPO
-            raise NotImplementedError
+        if config.criterion == "simpo":
+            assert isinstance(
+                config.criterion_config, SimpoFinetuneConfig
+            )  # TODO: better way to do this?
+            log.info("Using SimPO.")
+            return SimpoFinetuneUnit(
+                dp_model,
+                dp_gang,
+                config.criterion_config.simpo_beta,
+                config.criterion_config.simpo_gamma,
+                config.criterion_config.nll_scale,
+            )
         # TODO: build an exception for this. is there one already?
         raise Exception(f"config.criterion_type '{config.criterion}' cannot be found.")
 
