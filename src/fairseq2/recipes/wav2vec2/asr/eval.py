@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional, TextIO, Union, final
+from typing import Any, Dict, Optional, TextIO, final
 
 import torch
 from torch.nn import Module
@@ -29,7 +29,11 @@ from fairseq2.models.wav2vec2.asr import Wav2Vec2AsrModel
 from fairseq2.models.wav2vec2.asr.model import Wav2Vec2AsrOutput
 from fairseq2.nn.utils.module import remove_parametrizations
 from fairseq2.recipes.evaluator import AbstractEvalUnit, Evaluator
-from fairseq2.recipes.utils.asset import asset_as_path, retrieve_asset_card
+from fairseq2.recipes.utils.asset import (
+    AssetReference,
+    asset_as_path,
+    retrieve_asset_card,
+)
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.recipes.utils.setup import (
     broadcast_model,
@@ -48,7 +52,7 @@ class Wav2Vec2AsrEvalConfig:
     """Holds the configuration of a wav2vec 2.0 ASR model evaluation task."""
 
     # Data
-    dataset: Union[str, Path] = "librilight_asr_10h"
+    dataset: AssetReference = "librilight_asr_10h"
     """The name, path, or path to the asset card of the ASR dataset."""
 
     split: str = "test_other"
@@ -70,7 +74,7 @@ class Wav2Vec2AsrEvalConfig:
     """The number of batches to prefetch in background."""
 
     # Model
-    model: Union[str, Path] = "wav2vec2_asr_base_10h"
+    model: AssetReference = "wav2vec2_asr_base_10h"
     """The name or path to the asset card of the wav2vec 2.0 ASR model to evaluate."""
 
     checkpoint_dir: Optional[Path] = None

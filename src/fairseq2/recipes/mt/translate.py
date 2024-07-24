@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, Optional, TextIO, Tuple, Union, final
+from typing import Literal, Optional, TextIO, Tuple, final
 
 import torch
 
@@ -35,7 +35,11 @@ from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.recipes.common_metrics import Seq2SeqGenerationMetricBag
 from fairseq2.recipes.generator import AbstractGeneratorUnit, Generator
-from fairseq2.recipes.utils.asset import asset_as_path, retrieve_asset_card
+from fairseq2.recipes.utils.asset import (
+    AssetReference,
+    asset_as_path,
+    retrieve_asset_card,
+)
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.recipes.utils.setup import (
     broadcast_model,
@@ -53,7 +57,7 @@ class TextTranslateConfig:
     """Holds the configuration of a text translation task."""
 
     # Data
-    dataset: Union[str, Path] = "foo"  # TODO: change!
+    dataset: AssetReference = "foo"  # TODO: change!
     """The name, path, or path to the asset card of the text dataset."""
 
     source_lang: str = "eng_Latn"
@@ -72,7 +76,7 @@ class TextTranslateConfig:
     """The number of batches to prefetch in background."""
 
     # Model
-    model: Union[str, Path] = "nllb-200_dense_distill_600m"
+    model: AssetReference = "nllb-200_dense_distill_600m"
     """The name of the model to translate with."""
 
     checkpoint_dir: Optional[Path] = None
