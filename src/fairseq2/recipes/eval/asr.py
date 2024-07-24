@@ -21,6 +21,7 @@ from fairseq2.recipes.evaluator import HFEvaluator
 from fairseq2.recipes.eval.configs import HFEvalConfig, hf_presets
 from fairseq2.models.wav2vec2.asr import load_wav2vec2_asr_model
 from fairseq2.typing import META, DataType
+from fairseq2.utils.profiler import Stopwatch
 from fairseq2.logging import get_log_writer
 from datasets import load_dataset, Dataset
 from evaluate import load as load_metric
@@ -142,11 +143,11 @@ def load_wav2vec2_asr_evaluator(
     # Load tokenizer
     tokenizer = load_text_tokenizer(config.tokenizer_name)
 
-    encoder = tokenizer.create_encoder(device=gang.device)
+    encoder = tokenizer.create_encoder(device=init_device)
     decoder = tokenizer.create_decoder()
 
     # Preprocess dataset
-    ds = ds.map(lambda x: _preprocess_example(x, encoder, gang.device))
+    ds = ds.map(lambda x: _preprocess_example(x, encoder, init_device))
     ds.set_format("torch", columns=['audio', 'text'])
 
     # Create data pipeline from dataset
@@ -155,10 +156,14 @@ def load_wav2vec2_asr_evaluator(
 
     # Load model
     model = load_wav2vec2_asr_model(config.model_name, device=init_device, dtype=config.dtype)
+
+    # Setup watch
+    wall_watch = Stopwatch(start=True, device=init_device)
     
-    raise HFEvaluator[Seq2SeqBatch](
+    return HFEvaluator[Seq2SeqBatch](
         model=model,
         metrics=["bleu"],
         gang=gang,
         data_reader=pipeline,
+        wall_watch=wall_watch,
     )
