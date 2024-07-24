@@ -6,13 +6,9 @@
 
 from typing import Any, Callable, Dict, Optional, Union
 
-from fairseq2.data.data_pipeline import (
-    Collater,
-    create_bucket_sizes,
-    read_sequence,
-)
+from fairseq2.data.data_pipeline import Collater, create_bucket_sizes, read_sequence
 from fairseq2.datasets.batching import LengthBatching, StaticBatching
-from fairseq2.datasets.data_reader import DataPipelineReader, BatchT
+from fairseq2.datasets.data_reader import BatchT, DataPipelineReader
 from fairseq2.gang import Gang
 
 try:
@@ -52,7 +48,7 @@ def create_hf_reader(
     as a convenient wrapper over some small HuggingFace datasets for
     quick iteration.
 
-    **Batching**: 
+    **Batching**:
 
     :param gang:
         The gang over which to shard the dataset.
@@ -107,12 +103,16 @@ def create_hf_reader(
 
     if batching:
         if max_seq_len is None:
-            raise ValueError("`max_seq_len` is required if batching strategy is specified")
+            raise ValueError(
+                "`max_seq_len` is required if batching strategy is specified"
+            )
         if isinstance(batching, StaticBatching):
             if seq_len_col:
+
                 def skip(example: Example) -> bool:
                     _len = len(example[seq_len_col])
                     return _len >= min_seq_len and _len <= max_seq_len
+
                 builder.filter(skip)
 
             builder = builder.bucket(batching.batch_size, drop_remainder=drop_remainder)
