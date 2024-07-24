@@ -13,7 +13,7 @@ from fairseq2.data.data_pipeline import (
     create_bucket_sizes,
     read_sequence,
 )
-from fairseq2.datasets.data_reader import DataPipelineReader
+from fairseq2.datasets.data_reader import DataPipelineReader, BatchT
 from fairseq2.gang import Gang
 from fairseq2.models.seq2seq import Seq2SeqBatch
 
@@ -101,13 +101,13 @@ class BatcherBySeqLength(Batcher):
 def create_hf_reader(
     dataset: Dataset,
     gang: Gang,
-    converter: Callable[[Example], Seq2SeqBatch],
+    converter: Callable[[Example], BatchT],
     *,
     batcher: Optional[Batcher] = None,
     num_accumulate: int = 1,
     num_prefetch: int = 1,
     **extra: Any,
-) -> DataPipelineReader[Seq2SeqBatch]:
+) -> DataPipelineReader[BatchT]:
     """
     Convert HF Dataset into a fairseq2 PipelineReader.
     The HF-specific processing logic is assumed to be
@@ -183,7 +183,7 @@ def create_hf_reader(
     builder.prefetch(num_prefetch)
 
     pipeline = builder.map(converter).and_return()
-    return DataPipelineReader[Seq2SeqBatch](
+    return DataPipelineReader[BatchT](
         pipeline,
         gang,
         num_accumulate=num_accumulate,
