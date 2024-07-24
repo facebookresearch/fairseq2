@@ -8,7 +8,7 @@
 from dataclasses import dataclass
 import math
 from pathlib import Path
-from typing import Callable, Optional, cast
+from typing import Any, Callable, Optional, cast
 import torch
 
 from fairseq2.data.data_pipeline import SequenceData
@@ -82,6 +82,21 @@ def _librispeech_asr_to_batch(examples: Example) -> Seq2SeqBatch:
         examples,
     )
 
+def _preprocess_example(example: Example, encoder: Any, device: torch.device) -> dict:
+    """
+    Preprocesses an individual example by converting the audio array to a PyTorch tensor
+    and encoding the text.
+
+    Args:
+        example (dict): A dictionary containing "audio" and "text" keys.
+
+    Returns:
+        dict: A dictionary with "audio" and "text" as PyTorch tensors.
+    """
+    audio_tensor = torch.from_numpy(example["audio"]['array']).to(torch.float16).to(device)
+    text_tensor = encoder(example['text'].lower()).to(device)
+    return {"audio": audio_tensor, "text": text_tensor}
+
 @hf_presets.decorator("librispeech_asr")
 def _librispeech_asr_config() -> AsrEvalConfig:
     return AsrEvalConfig(
@@ -90,7 +105,7 @@ def _librispeech_asr_config() -> AsrEvalConfig:
         split="test.other"
         # converter=librispeech_asr_to_batch,
     )
-
+    
 def load_wav2vec2_asr_evaluator(
     config: HFEvalConfig, output_dir: Path
 ) -> HFEvaluator[Seq2SeqBatch]:
@@ -119,6 +134,11 @@ def load_wav2vec2_asr_evaluator(
     # Setup GANG
     gang = setup_root_gang(log)
 
+    if gang.rank == 0:
+        init_device = gang.device
+    else:
+        init_device = META
+
     # Load tokenizer
     tokenizer = load_text_tokenizer(config.tokenizer_name)
 
@@ -126,22 +146,7 @@ def load_wav2vec2_asr_evaluator(
     decoder = tokenizer.create_decoder()
 
     # Preprocess dataset
-    def _preprocess_example(example):
-        """
-        Preprocesses an individual example by converting the audio array to a PyTorch tensor
-        and encoding the text.
-
-        Args:
-            example (dict): A dictionary containing "audio" and "text" keys.
-
-        Returns:
-            dict: A dictionary with "audio" and "text" as PyTorch tensors.
-        """
-        audio_tensor = torch.from_numpy(example["audio"]['array']).to(torch.float16).to(gang.device)
-        text_tensor = encoder(example['text'].lower()).to(gang.device)
-        return {"audio": audio_tensor, "text": text_tensor}
-    
-    ds = ds.map(_preprocess_example)
+    ds = ds.map(lambda x: _preprocess_example(x, encoder, gang.device))
     ds.set_format("torch", columns=['audio', 'text'])
 
     # Create data pipeline from dataset
@@ -149,15 +154,7 @@ def load_wav2vec2_asr_evaluator(
     pipeline = create_hf_reader(dataset=ds, gang=gang, converter=_librispeech_asr_to_batch, batcher=batcher, num_prefetch=config.num_prefetch, pad_value=tokenizer.vocab_info.pad_idx)
 
     # Load model
-    if gang.rank == 0:
-        init_device = gang.device
-    else:
-        init_device = META
-
     model = load_wav2vec2_asr_model(config.model_name, device=init_device, dtype=config.dtype)
-
-    # Load BLEU from evaluate library
-    # bleu = load_metric("bleu")
     
     raise HFEvaluator[Seq2SeqBatch](
         model=model,
