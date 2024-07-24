@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Literal, Optional, Tuple, final
+from typing import Any, Literal, Optional, Tuple, final
 
 import torch
 from torch import Tensor
@@ -103,8 +103,8 @@ class Wav2Vec2AsrTrainConfig:
     model_arch: Optional[str] = "base_10h"
     """The architecture of the model."""
 
-    model_config: Optional[Dict[str, Any]] = None
-    """The model configuration overrides."""
+    model_config: Any = None
+    """The model configuration."""
 
     dtype: DataType = torch.float16
     """The data type of the model."""
