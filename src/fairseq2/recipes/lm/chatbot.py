@@ -47,7 +47,7 @@ class ChatbotCommandHandler(CliCommandHandler):
             "--model",
             dest="model_name",
             metavar="MODEL_NAME",
-            default="llama3_8b_instruct",
+            default="llama3_1_8b_instruct",
             help="instruct model name (default: %(default)s)",
         )
 
@@ -89,7 +89,7 @@ class ChatbotCommandHandler(CliCommandHandler):
         parser.add_argument(
             "--max-gen-len",
             type=int,
-            default=512,
+            default=2048,
             help="maximum sequence generation length (default: %(default)s)",
         )
 

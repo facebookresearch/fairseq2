@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import math
 from abc import ABC, abstractmethod
-from typing import Optional, final
+from typing import Callable, Optional, final
 
 import torch
 import torch.nn as nn
@@ -313,6 +313,7 @@ class RotaryEncoder(PositionEncoder):
 
     freqs: Tensor
     theta: float
+    freqs_init_fn: Optional[Callable[[RotaryEncoder], Tensor]]
 
     def __init__(
         self,
@@ -320,12 +321,15 @@ class RotaryEncoder(PositionEncoder):
         max_seq_len: int,
         *,
         theta: float = 10_000.0,
+        freqs_init_fn: Optional[Callable[[RotaryEncoder], Tensor]] = None,
         device: Optional[Device] = None,
     ) -> None:
         """
         :param theta:
             The coefficient of the long-term decay as described in section 3.3
             of the reference paper.
+        :param freqs_init_fn:
+            The callable to initialize the frequency table.
         """
         super().__init__(encoding_dim, max_seq_len)
 
@@ -341,6 +345,7 @@ class RotaryEncoder(PositionEncoder):
         self.register_buffer("freqs", freqs, persistent=False)
 
         self.theta = theta
+        self.freqs_init_fn = freqs_init_fn
 
         self.reset_parameters()
 
@@ -364,12 +369,15 @@ class RotaryEncoder(PositionEncoder):
         # (S)
         steps = torch.arange(self.max_seq_len, device=device, dtype=torch.float32)
 
-        # (E / 2)
-        indices = torch.arange(
-            0, self.encoding_dim, step=2, device=device, dtype=torch.float32
-        )
+        if self.freqs_init_fn is None:
+            # (E / 2)
+            indices = torch.arange(
+                0, self.encoding_dim, step=2, device=device, dtype=torch.float32
+            )
 
-        freqs = 1.0 / (self.theta ** (indices / self.encoding_dim))
+            freqs = 1.0 / (self.theta ** (indices / self.encoding_dim))
+        else:
+            freqs = self.freqs_init_fn(self)
 
         # (S) x (E / 2) -> (S, E / 2)
         freqs = torch.outer(steps, freqs)
