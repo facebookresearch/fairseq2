@@ -278,13 +278,13 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
     def _build_model(
         self,
         config: ModelConfigT,
-        factory: ModelFactory,
+        factory: ModelFactory[ModelConfigT, ModelT],
         card: AssetCard,
         device: Device,
         gang: Optional[Gang] = None,
         gangs: Optional[Dict[str, Gang]] = None,
         dtype: Optional[DataType] = None,
-        sharder: Optional[Callable] = None,
+        sharder: Optional[Callable] = None, # type: ignore[type-arg]
     ) -> tuple[ModelT, Device]:
         model = None
 
@@ -302,7 +302,7 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
             if gang is not None and gang.size > 1:
                 sharder(model, gangs, card)  # type: ignore
 
-            return model
+            return model, device
 
         if not self._skip_meta_init:
             try:
@@ -388,7 +388,7 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
                 f"The checkpoint of {card.name} does not contain a '{model_key}' entry."
             ) from None
 
-        return state_dict
+        return state_dict # type: ignore[no-any-return]
 
     def _shard(self, model: ModelT, gangs: Dict[str, Gang], card: AssetCard) -> None:
         raise RuntimeError(
