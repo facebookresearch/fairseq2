@@ -7,8 +7,19 @@
 from __future__ import annotations
 
 from pickle import PickleError
-from typing import Any, Dict, Generic, Optional, Protocol, TypeVar, Union, final
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generic,
+    Optional,
+    Protocol,
+    TypeVar,
+    Union,
+    final,
+)
 
+from torch import Tensor
 from torch.nn import Module
 from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
 
@@ -170,6 +181,63 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
             card = self._asset_store.retrieve_card(model_name_or_card)
 
         # Retrieve the gang for tensor parallelism.
+        gang, device = self._retrieve_gang_and_device(
+            card=card,
+            gangs=gangs,
+            device=device,
+        )
+
+        # Load model config.
+        config = self._config_loader(card)
+
+        # Build model.
+        model, model_device = self._build_model(
+            config=config,
+            factory=self._factory,
+            card=card,
+            device=device,
+            gang=gang,
+            gangs=gangs,
+            dtype=dtype,
+            sharder=self._shard,
+        )
+
+        if device.type == "meta":
+            return model
+
+        # Load state_dict from checkpoint
+        state_dict = self._load_checkpoint(
+            card=card,
+            gang=gang,
+            force=force,
+            progress=progress,
+            config=config,
+        )
+
+        # Remove DDP 'module' prefix.
+        consume_prefix_in_state_dict_if_present(state_dict, prefix="module.")
+
+        # Load state_dict to model.
+        try:
+            load_state_dict(model, state_dict)
+        except (KeyError, ValueError) as ex:
+            raise AssetError(
+                f"{card.name} cannot be loaded. See nested exception for details."
+            ) from ex
+
+        if model_device.type == "meta":
+            # Non-persistent buffers are not included in the checkpoint, so we
+            # have to explicitly initialize them.
+            reset_non_persistent_buffers(model)
+
+        return model
+
+    def _retrieve_gang_and_device(
+        self,
+        card: AssetCard,
+        gangs: Optional[Dict[str, Gang]] = None,
+        device: Optional[Device] = None,
+    ) -> tuple[Gang | None, Device]:
         gang = gangs.get("tp") if gangs is not None else None
 
         if gang is not None:
@@ -205,13 +273,24 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
                     f"`gangs['tp'].size` must be 1 since the checkpoint of {card.name} is not sharded, but is {gang.size} instead."
                 )
 
-        model = None
+        return gang, device
 
-        config = self._config_loader(card)
+    def _build_model(
+        self,
+        config: ModelConfigT,
+        factory: ModelFactory,
+        card: AssetCard,
+        device: Device,
+        gang: Optional[Gang] = None,
+        gangs: Optional[Dict[str, Gang]] = None,
+        dtype: Optional[DataType] = None,
+        sharder: Optional[Callable] = None,
+    ) -> tuple[ModelT, Device]:
+        model = None
 
         if device.type == "meta":
             try:
-                model = self._factory(config, device=META, dtype=dtype)
+                model = factory(config, device=META, dtype=dtype)
             except NotImplementedError as ex:
                 if not "'Meta' backend" in str(ex):
                     raise
@@ -221,10 +300,51 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
                 ) from ex
 
             if gang is not None and gang.size > 1:
-                self._shard(model, gangs, card)  # type: ignore[arg-type]
+                sharder(model, gangs, card)  # type: ignore
 
             return model
 
+        if not self._skip_meta_init:
+            try:
+                # Try to construct the model on the meta device.
+                model = factory(config, device=META, dtype=dtype)
+            except NotImplementedError as ex:
+                if not "'Meta' backend" in str(ex):
+                    raise
+
+                log.warning("One or more operators in {} constructor do not support the meta device. Skipping meta device initialization.", card.name)  # fmt: skip
+
+        if model is None:
+            # If the model is sharded, load on CPU to avoid OOM errors.
+            init_device = CPU if gang is not None and gang.size > 1 else device
+
+            model = factory(config, device=init_device, dtype=dtype)
+
+        if gang is not None and gang.size > 1:
+            sharder(model, gangs, card)  # type: ignore
+
+        try:
+            model_device = infer_device(model, name="model")
+        except ValueError as ex:
+            raise RuntimeError(
+                "`factory` returned a model that is not constructed correctly. See nested exception for details."
+            ) from ex
+
+        if model_device != device:
+            # Move the model to the actual device without initializing. Its
+            # state will be overwritten by the checkpoint anyways.
+            to_empty(model, device=device)
+
+        return model, model_device
+
+    def _load_checkpoint(
+        self,
+        card: AssetCard,
+        gang: Optional[Gang] = None,
+        force: bool = False,
+        progress: bool = True,
+        config: Optional[ModelConfigT] = None,
+    ) -> Dict[str, Tensor]:
         # Load the checkpoint.
         checkpoint_uri = card.field("checkpoint").as_uri()
 
@@ -249,44 +369,13 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
             )
 
             if self._checkpoint_converter is not None:
-                checkpoint = self._checkpoint_converter(checkpoint, config)
+                checkpoint = self._checkpoint_converter(checkpoint, config) # type: ignore[arg-type]
         except (RuntimeError, OSError, KeyError, ValueError, PickleError) as ex:
             raise AssetError(
                 f"The checkpoint of {card.name} cannot be loaded. See nested exception for details."
             ) from ex
 
-        if not self._skip_meta_init:
-            try:
-                # Try to construct the model on the meta device.
-                model = self._factory(config, device=META, dtype=dtype)
-            except NotImplementedError as ex:
-                if not "'Meta' backend" in str(ex):
-                    raise
-
-                log.warning("One or more operators in {} constructor do not support the meta device. Skipping meta device initialization.", card.name)  # fmt: skip
-
-        if model is None:
-            # If the model is sharded, load on CPU to avoid OOM errors.
-            init_device = CPU if gang is not None and gang.size > 1 else device
-
-            model = self._factory(config, device=init_device, dtype=dtype)
-
-        if gang is not None and gang.size > 1:
-            self._shard(model, gangs, card)  # type: ignore[arg-type]
-
-        try:
-            model_device = infer_device(model, name="model")
-        except ValueError as ex:
-            raise RuntimeError(
-                "`factory` returned a model that is not constructed correctly. See nested exception for details."
-            ) from ex
-
-        if model_device != device:
-            # Move the model to the actual device without initializing. Its
-            # state will be overwritten by the checkpoint anyways.
-            to_empty(model, device=device)
-
-        # Load the model.
+        # Load the state dict.
         try:
             model_key = checkpoint["model_key"]
         except KeyError:
@@ -299,22 +388,7 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
                 f"The checkpoint of {card.name} does not contain a '{model_key}' entry."
             ) from None
 
-        # Remove DDP 'module' prefix.
-        consume_prefix_in_state_dict_if_present(state_dict, prefix="module.")
-
-        try:
-            load_state_dict(model, state_dict)
-        except (KeyError, ValueError) as ex:
-            raise AssetError(
-                f"{card.name} cannot be loaded. See nested exception for details."
-            ) from ex
-
-        if model_device.type == "meta":
-            # Non-persistent buffers are not included in the checkpoint, so we
-            # have to explicitly initialize them.
-            reset_non_persistent_buffers(model)
-
-        return model
+        return state_dict
 
     def _shard(self, model: ModelT, gangs: Dict[str, Gang], card: AssetCard) -> None:
         raise RuntimeError(
