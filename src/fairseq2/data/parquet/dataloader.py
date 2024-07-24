@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from enum import Enum
 from functools import partial
@@ -13,7 +15,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from fairseq2.data.data_pipeline import DataPipeline, DataPipelineBuilder
-from fairseq2.data.parquet_tools import (
+from fairseq2.data.parquet.tools import (
     BatchOutputType,
     _TableWrapper,
     _to_real_object,

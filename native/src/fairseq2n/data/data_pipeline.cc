@@ -19,6 +19,7 @@
 #include "fairseq2n/data/constant_data_source.h"
 #include "fairseq2n/data/count_data_source.h"
 #include "fairseq2n/data/detail/file_system.h"
+#include "fairseq2n/data/dynamic_bucket_data_source.h"
 #include "fairseq2n/data/filter_data_source.h"
 #include "fairseq2n/data/list_data_source.h"
 #include "fairseq2n/data/map_data_source.h"
@@ -141,17 +142,17 @@ data_pipeline::reload_position(tape &t)
         reset();
 }
 
-bool
-data_pipeline::is_infinite() const
+data_source_finitude_type
+data_pipeline::finitude_type() const
 {
     check_if_broken();
 
     ensure_initialized();
 
     if (!source_)
-        return false;
+        return data_source_finitude_type::finite;
 
-    return source_->is_infinite();
+    return source_->finitude_type();
 }
 
 inline bool
@@ -231,7 +232,10 @@ data_pipeline::count(std::int64_t start, std::int64_t step, std::optional<std::s
 }
 
 data_pipeline_builder
-data_pipeline::round_robin(std::vector<data_pipeline> pipelines, bool stop_at_shortest)
+data_pipeline::round_robin(
+    std::vector<data_pipeline> pipelines, 
+    bool stop_at_shortest, 
+    bool allow_repeats)
 {
     bool is_broken = std::any_of(
         pipelines.begin(), pipelines.end(), [](const data_pipeline &pipeline)
@@ -245,9 +249,12 @@ data_pipeline::round_robin(std::vector<data_pipeline> pipelines, bool stop_at_sh
 
     auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
 
-    auto factory = [tmp, stop_at_shortest]() mutable
+    auto factory = [tmp, stop_at_shortest, allow_repeats]() mutable
     {
-        return std::make_unique<round_robin_data_source>(std::move(*tmp), stop_at_shortest);
+        return std::make_unique<round_robin_data_source>(
+            std::move(*tmp), 
+            stop_at_shortest, 
+            allow_repeats);
     };
 
     return data_pipeline_builder{std::move(factory)};
@@ -257,7 +264,8 @@ data_pipeline_builder
 data_pipeline::sample(
     std::vector<data_pipeline> pipelines,
     std::optional<std::vector<float32>> maybe_weights,
-    std::optional<std::uint64_t> maybe_seed)
+    std::optional<std::uint64_t> maybe_seed,
+    bool allow_repeats)
 {
     bool is_broken = std::any_of(
         pipelines.begin(), pipelines.end(), [](const data_pipeline &pipeline)
@@ -295,8 +303,12 @@ data_pipeline::sample(
 
     auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
 
-    auto factory = [tmp, weights=std::move(weights), maybe_seed]() mutable {
-        return std::make_unique<sample_data_source>(std::move(*tmp), std::move(weights), maybe_seed);
+    auto factory = [tmp, weights=std::move(weights), maybe_seed, allow_repeats]() mutable {
+        return std::make_unique<sample_data_source>(
+            std::move(*tmp), 
+            std::move(weights), 
+            maybe_seed, 
+            allow_repeats);
     };
 
     return data_pipeline_builder{std::move(factory)};
@@ -385,6 +397,38 @@ data_pipeline_builder::bucket_by_length(
             min_data_len,
             skip_below_min_examples,
             skip_above_max_examples,
+            drop_remainder);
+    };
+
+    return std::move(*this);
+}
+
+data_pipeline_builder
+data_pipeline_builder::dynamic_bucket(
+    float64 threshold,
+    cost_fn fn,
+    std::optional<std::size_t> maybe_min_num_examples,
+    std::optional<std::size_t> maybe_max_num_examples,
+    bool drop_remainder) &&
+{
+    if (threshold <= 0)
+        throw_<std::invalid_argument>("`threshold` must be greater than zero.");
+    if (maybe_max_num_examples && *maybe_max_num_examples == 0)
+        throw_<std::invalid_argument>("`max_num_examples` must be greater than zero.");
+    if (maybe_max_num_examples && 
+        maybe_min_num_examples && 
+        *maybe_max_num_examples < *maybe_min_num_examples) {
+        throw_<std::invalid_argument>("`max_num_examples` must be greater than or equal to `min_num_examples`.");
+    }
+
+    factory_ = [=, fn = std::move(fn), inner = std::move(factory_)]() mutable
+    {
+        return std::make_unique<dynamic_bucket_data_source>(
+            inner(), 
+            threshold, 
+            std::move(fn), 
+            maybe_min_num_examples, 
+            maybe_max_num_examples, 
             drop_remainder);
     };
 

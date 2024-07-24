@@ -15,7 +15,6 @@ from torch import Tensor
 from fairseq2.assets import (
     AssetCard,
     AssetCardError,
-    AssetCardFieldNotFoundError,
     AssetDownloadManager,
     AssetError,
     AssetStore,
@@ -46,9 +45,9 @@ class TextTokenizer(ABC):
         subclasses for more information.
 
         :param task:
-            The task for which to generate token indices. Typically, multi-task
-            jobs use ``task`` to distinguish between different tasks such as
-            'translation' or 'transcription'.
+            The task for which to generate token indices. Typically, ``task`` is
+            used to distinguish between different tasks such as 'translation' or
+            'transcription'.
         :param lang:
             The language of generated token indices. Typically, multilingual
             translation tasks use ``lang`` to distinguish between different
@@ -170,7 +169,7 @@ class TextTokenizerLoader(Protocol[TextTokenizerT_co]):
     ) -> TextTokenizerT_co:
         """
         :param tokenizer_name_or_card:
-            The name or asset card of the tokenizer to load.
+            The name or the asset card of the tokenizer to load.
         :param force:
             If ``True``, downloads the tokenizer even if it is already in cache.
         :param progress:
@@ -192,13 +191,16 @@ class AbstractTextTokenizerLoader(ABC, TextTokenizerLoader[TextTokenizerT]):
     ) -> None:
         """
         :param asset_store:
-            The asset store where to check for available tokenizers.
+            The asset store where to check for available tokenizers. If ``None``,
+            the default asset store will be used.
         :param download_manager:
-            The download manager.
+            The download manager. If ``None``, the default download manager will
+            be used.
         """
         self._asset_store = asset_store or default_asset_store
         self._download_manager = download_manager or default_download_manager
 
+    @final
     def __call__(
         self,
         tokenizer_name_or_card: Union[str, AssetCard],
@@ -211,11 +213,15 @@ class AbstractTextTokenizerLoader(ABC, TextTokenizerLoader[TextTokenizerT]):
         else:
             card = self._asset_store.retrieve_card(tokenizer_name_or_card)
 
-        uri = card.field("tokenizer").as_uri()
+        tokenizer_ref = card.field("tokenizer_ref").get_as_(str)
+        if tokenizer_ref is not None:
+            return self(tokenizer_ref, force=force, progress=progress)
+
+        tokenizer_uri = card.field("tokenizer").as_uri()
 
         try:
             path = self._download_manager.download_tokenizer(
-                uri, card.name, force=force, progress=progress
+                tokenizer_uri, card.name, force=force, progress=progress
             )
         except ValueError as ex:
             raise AssetCardError(
@@ -249,7 +255,8 @@ class DelegatingTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
     def __init__(self, *, asset_store: Optional[AssetStore] = None) -> None:
         """
         :param asset_store:
-            The asset store where to check for available tokenizers.
+            The asset store where to check for available tokenizers. If ``None``,
+            the default asset store will be used.
         """
         self._asset_store = asset_store or default_asset_store
 
@@ -267,25 +274,18 @@ class DelegatingTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
         else:
             card = self._asset_store.retrieve_card(tokenizer_name_or_card)
 
-        family = None
+        ref = card.field("tokenizer_ref").get_as_(str)
+        if ref is not None:
+            return self(ref, force=force, progress=progress)
 
-        for field_name in ["model_family", "dataset_family", "tokenizer_family"]:
-            try:
-                family = card.field(field_name).as_(str)
-            except AssetCardFieldNotFoundError:
-                continue
-
-        if family is None:
-            raise AssetCardFieldNotFoundError(
-                f"The asset card '{card.name}' must have a field named 'tokenizer_family', 'model_family', or 'dataset_family'."
-            )
+        family = card.field("tokenizer_family").as_(str)
 
         try:
             loader = self._loaders[family]
         except KeyError:
             raise AssetError(
-                f"The value of the field '{field_name}' of the asset card '{card.name}' must be a supported tokenizer family, but '{family}' has no registered loader."
-            )
+                f"The value of the field 'tokenizer_family' of the asset card '{card.name}' must be a supported tokenizer family, but '{family}' has no registered loader."
+            ) from None
 
         return loader(card, force=force, progress=progress)
 
@@ -308,5 +308,30 @@ class DelegatingTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
 
         self._loaders[family] = loader
 
+    def supports(self, tokenizer_name_or_card: Union[str, AssetCard]) -> bool:
+        """Return ``True`` if the specified tokenizer has a registered loader."""
+        if isinstance(tokenizer_name_or_card, AssetCard):
+            card = tokenizer_name_or_card
+        else:
+            card = self._asset_store.retrieve_card(tokenizer_name_or_card)
+
+        ref = card.field("tokenizer_ref").get_as_(str)
+        if ref is not None:
+            return self.supports(ref)
+
+        family = card.field("tokenizer_family").as_(str)
+
+        return family in self._loaders
+
 
 load_text_tokenizer = DelegatingTextTokenizerLoader[TextTokenizer]()
+
+
+def is_tokenizer_card(card: AssetCard) -> bool:
+    """Return ``True`` if ``card`` specifies a tokenizer."""
+    return card.field("tokenizer_family").exists()
+
+
+def get_tokenizer_family(card: AssetCard) -> str:
+    """Return the tokenizer family name contained in ``card``."""
+    return card.field("tokenizer_family").as_(str)  # type: ignore[no-any-return]

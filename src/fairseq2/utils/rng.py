@@ -129,7 +129,9 @@ class RngBag:
         try:
             states = state_dict["generators"]
         except KeyError:
-            raise ValueError("`state_dict` must contain an item named `generators`.")
+            raise ValueError(
+                "`state_dict` must contain an item named `generators`."
+            ) from None
 
         if not isinstance(states, list):
             raise TypeError(
@@ -166,7 +168,3 @@ def temporary_manual_seed(
     rng_bag = RngBag.from_device_defaults(*devices)
 
     return rng_bag.temporary_manual_seed(seed)
-
-
-# compat
-RNGBag = RngBag

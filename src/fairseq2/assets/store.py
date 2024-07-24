@@ -82,6 +82,7 @@ class StandardAssetStore(AssetStore):
         *,
         envs: Optional[Sequence[str]] = None,
         scope: Literal["all", "global", "user"] = "all",
+        extra_provider: Optional[AssetMetadataProvider] = None,
     ) -> AssetCard:
         name_env_pair = name.split("@", maxsplit=1)
 
@@ -99,7 +100,7 @@ class StandardAssetStore(AssetStore):
         if envs is None:
             envs = self._resolve_envs()
 
-        return self._do_retrieve_card(name, envs, scope)
+        return self._do_retrieve_card(name, envs, scope, extra_provider)
 
     def _resolve_envs(self) -> List[str]:
         # This is a special, always available environment for users to override
@@ -114,14 +115,20 @@ class StandardAssetStore(AssetStore):
         return envs
 
     def _do_retrieve_card(
-        self, name: str, envs: Sequence[str], scope: str
+        self,
+        name: str,
+        envs: Sequence[str],
+        scope: str,
+        extra_provider: Optional[AssetMetadataProvider],
     ) -> AssetCard:
-        metadata = self._get_metadata(f"{name}@", scope)
+        metadata = self._get_metadata(f"{name}@", scope, extra_provider)
 
         # If we have environment-specific metadata, merge it with `metadata`.
         for env in reversed(envs):
             try:
-                env_metadata = self._get_metadata(f"{name}@{env}", scope)
+                env_metadata = self._get_metadata(
+                    f"{name}@{env}", scope, extra_provider
+                )
 
                 # Do not allow overriding 'name'.
                 try:
@@ -148,13 +155,21 @@ class StandardAssetStore(AssetStore):
                     f"The value of the field 'base' of the asset card '{name}' must be of type `{str}`, but is of type `{type(base_name)}` instead."
                 )
 
-            base_card = self._do_retrieve_card(base_name, envs, scope)
+            base_card = self._do_retrieve_card(base_name, envs, scope, extra_provider)
 
         metadata["name"] = name
 
         return AssetCard(metadata, base_card)
 
-    def _get_metadata(self, name: str, scope: str) -> Dict[str, Any]:
+    def _get_metadata(
+        self, name: str, scope: str, extra_provider: Optional[AssetMetadataProvider]
+    ) -> Dict[str, Any]:
+        if extra_provider is not None:
+            try:
+                return extra_provider.get_metadata(name)
+            except AssetNotFoundError:
+                pass
+
         if scope == "all" or scope == "user":
             for provider in reversed(self.user_metadata_providers):
                 try:

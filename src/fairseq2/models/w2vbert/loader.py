@@ -4,18 +4,20 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from typing import Any, Dict
 
 import torch
 
 from fairseq2.models.config_loader import StandardModelConfigLoader
-from fairseq2.models.loader import DenseModelLoader
+from fairseq2.models.loader import StandardModelLoader, load_model
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
-from fairseq2.models.w2vbert.archs import w2vbert_archs
 from fairseq2.models.w2vbert.factory import (
     W2VBERT_FAMILY,
     W2VBertConfig,
     create_w2vbert_model,
+    w2vbert_archs,
 )
 
 load_w2vbert_config = StandardModelConfigLoader(
@@ -27,14 +29,13 @@ def convert_w2vbert_checkpoint(
     checkpoint: Dict[str, Any], config: W2VBertConfig
 ) -> Dict[str, Any]:
     """Convert a fairseq w2v-BERT checkpoint to fairseq2 format."""
-    state_dict = checkpoint["model"]
-
     # Check if we have a fairseq2 checkpoint.
-    if "w2v2_model.final_target_proj.weight" in state_dict:
+    try:
+        state_dict = checkpoint["model"]
+    except KeyError:
         return checkpoint
 
-    # Check if we have a DDP wrapped fairseq2 checkpoint.
-    if "module.w2v2_model.final_target_proj.weight" in state_dict:
+    if "mlm_proj.weight" not in state_dict:
         return checkpoint
 
     state_dict["w2v2_model.quantizer.num_updates"] = torch.zeros((), device="cpu")
@@ -74,8 +75,10 @@ def convert_w2vbert_checkpoint(
     return convert_fairseq_checkpoint(checkpoint, key_map)
 
 
-load_w2vbert_model = DenseModelLoader(
+load_w2vbert_model = StandardModelLoader(
     config_loader=load_w2vbert_config,
     factory=create_w2vbert_model,
     checkpoint_converter=convert_w2vbert_checkpoint,
 )
+
+load_model.register(W2VBERT_FAMILY, load_w2vbert_model)

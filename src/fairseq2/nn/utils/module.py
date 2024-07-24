@@ -4,10 +4,11 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import re
 from dataclasses import dataclass
 from itertools import chain
-from logging import Logger
 from typing import (
     Any,
     Callable,
@@ -21,7 +22,6 @@ from typing import (
     Sequence,
     Set,
     Tuple,
-    Union,
     runtime_checkable,
 )
 
@@ -31,21 +31,11 @@ from torch.nn import Module, Parameter
 from torch.nn.utils import remove_weight_norm  # type: ignore[attr-defined]
 
 from fairseq2.gang import Gang
-from fairseq2.logging import LogWriter, get_log_writer
+from fairseq2.logging import get_log_writer
 from fairseq2.typing import CPU, Device
 from fairseq2.utils.rng import temporary_manual_seed
 
 log = get_log_writer(__name__)
-
-
-# compat
-def log_module(module: Module, log: Union[LogWriter, Logger]) -> None:
-    from fairseq2.utils.log import log_model
-
-    if isinstance(log, Logger):
-        log = LogWriter(log)
-
-    log_model(module, log)
 
 
 @runtime_checkable
@@ -450,9 +440,7 @@ def broadcast_module(
         tensors.append(param.detach())
 
         if not warned and param.grad is not None:
-            log.warning(
-                "`broadcast_module()` does not support syncing gradients, but one or more parameters of `module` have their `grads` defined."
-            )
+            log.warning("`broadcast_module()` does not support syncing gradients, but one or more parameters of `module` have their `grads` defined.")  # fmt: skip
 
             warned = True
 

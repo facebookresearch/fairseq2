@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from typing import Dict, Protocol
 
 from fairseq2.data.text import TextTokenizer
@@ -44,7 +46,7 @@ class DelegatingChatbotFactory(ChatbotFactory):
         except KeyError:
             raise ValueError(
                 f"`generator.model.family` must be a supported model family, but '{family}' has no registered chatbot."
-            )
+            ) from None
 
         return factory(generator, tokenizer)
 

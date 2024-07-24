@@ -37,10 +37,10 @@ list_data_source::reload_position(tape &t, bool)
     pos_ = list_.begin() + t.read<std::ptrdiff_t>();
 }
 
-bool
-list_data_source::is_infinite() const noexcept
+data_source_finitude_type
+list_data_source::finitude_type() const noexcept
 {
-    return false;
+    return data_source_finitude_type::finite;
 }
 
 }

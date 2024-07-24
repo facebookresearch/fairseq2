@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import os
 from abc import ABC, abstractmethod
 from copy import deepcopy
@@ -58,7 +60,7 @@ class AbstractAssetMetadataProvider(AssetMetadataProvider):
         except KeyError:
             raise AssetNotFoundError(
                 name, f"An asset with the name '{name}' cannot be found."
-            )
+            ) from None
 
     @final
     @override
@@ -120,7 +122,7 @@ class FileAssetMetadataProvider(AbstractAssetMetadataProvider):
                 if file.suffix != ".yaml" and file.suffix != ".yml":
                     continue
 
-                for name, metadata in _load_metadata_file(file):
+                for name, metadata in load_metadata_file(file):
                     if name in cache:
                         raise AssetMetadataError(
                             f"Two assets under the directory '{self._base_dir}' have the same name '{name}'."
@@ -159,7 +161,7 @@ class PackageAssetMetadataProvider(AbstractAssetMetadataProvider):
             if file.suffix != ".yaml" and file.suffix != ".yml":
                 continue
 
-            for name, metadata in _load_metadata_file(file):
+            for name, metadata in load_metadata_file(file):
                 if name in cache:
                     raise AssetMetadataError(
                         f"Two assets under the namespace package '{self._package_name}' have the same name '{name}'."
@@ -191,7 +193,8 @@ class PackageAssetMetadataProvider(AbstractAssetMetadataProvider):
         return files
 
 
-def _load_metadata_file(file: Path) -> List[Tuple[str, Dict[str, Any]]]:
+def load_metadata_file(file: Path) -> List[Tuple[str, Dict[str, Any]]]:
+    """Load asset metadata included in ``file``."""
     output = []
 
     try:
@@ -212,21 +215,21 @@ def _load_metadata_file(file: Path) -> List[Tuple[str, Dict[str, Any]]]:
         for idx, metadata in enumerate(all_metadata):
             if not isinstance(metadata, dict):
                 raise AssetMetadataError(
-                    f"The asset metadata at index {idx} in the file '{file}' has an invalid format."
+                    f"The asset metadata at index {idx} in {file} has an invalid format."
                 )
 
             try:
                 name = metadata.pop("name")
             except KeyError:
                 raise AssetMetadataError(
-                    f"The asset metadata at index {idx} in the file '{file}' does not have a name entry."
-                )
+                    f"The asset metadata at index {idx} in {file} does not have a name entry."
+                ) from None
 
             try:
                 canonical_name = _canonicalize_name(name)
             except ValueError as ex:
                 raise AssetMetadataError(
-                    f"The asset metadata at index {idx} in the file '{file}' has an invalid name. See nested exception for details."
+                    f"The asset metadata at index {idx} in {file} has an invalid name. See nested exception for details."
                 ) from ex
 
             metadata["__base_path__"] = file.parent
@@ -260,7 +263,7 @@ class InProcAssetMetadataProvider(AssetMetadataProvider):
             except KeyError:
                 raise AssetMetadataError(
                     f"The asset metadata at index {idx} in `metadata` does not have a name entry."
-                )
+                ) from None
 
             try:
                 canonical_name = _canonicalize_name(name_)
@@ -285,7 +288,7 @@ class InProcAssetMetadataProvider(AssetMetadataProvider):
         except KeyError:
             raise AssetNotFoundError(
                 name, f"An asset with the name '{name}' cannot be found."
-            )
+            ) from None
 
     @override
     def get_names(self) -> List[str]:

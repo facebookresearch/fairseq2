@@ -78,10 +78,10 @@ zip_file_data_source::reload_position(tape &t, bool)
         next();
 }
 
-bool
-zip_file_data_source::is_infinite() const noexcept
+data_source_finitude_type
+zip_file_data_source::finitude_type() const noexcept
 {
-    return false;
+    return data_source_finitude_type::finite;
 }
 
 void

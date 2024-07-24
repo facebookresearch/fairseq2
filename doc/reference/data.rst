@@ -57,6 +57,41 @@ accept them as a comma separated list of selectors.
 For example ``.map(lambda x: x * 10, selector="foo[1].y,bar")``
 will multiply the values 4 and 6 by 10, but leave others unmodified.
 
+Pseudo-infinite and Infinite Pipelines
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The :py:func:`DataPipeline.count` and :py:func:`DataPipeline.constant` static methods create pseudo-infinite pipelines.
+When used with operators that combine multiple pipelines (e.g. :py:func:`DataPipeline.sample`,
+:py:func:`DataPipeline.round_robin`, :py:func:`DataPipeline.zip`),
+they will only yield examples as long as the other pipelines yield examples.
+
+For example::
+
+    from fairseq2.data import DataPipeline, read_sequence
+
+    pipeline1 = DataPipeline.constant(0).and_return()
+    pipeline2 = read_sequence([1, 2, 3]).and_return()
+
+    for example in DataPipeline.round_robin(pipeline1, pipeline2).and_return():
+        print(example)
+
+only produces 0, 1, 0, 2, 0, 3.
+
+Infinite pipelines (pipelines created through :py:func:`DataPipelineBuilder.repeat` with no arguments)
+do not exhibit this behavior; they will yield examples indefinitely even when combined with other pipelines.
+
+For example::
+
+    from fairseq2.data import DataPipeline, read_sequence
+
+    pipeline1 = read_sequence([0]).repeat().and_return()
+    pipeline2 = read_sequence([1, 2, 3]).and_return()
+
+    for example in DataPipeline.round_robin(pipeline1, pipeline2).and_return():
+        print(example)
+
+produces 0, 1, 0, 2, 0, 3, 0, 1, 0, 2, 0, 3... indefinitely.
+
 
 Public classes used in fairseq2 API:
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

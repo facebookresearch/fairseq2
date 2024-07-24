@@ -4,17 +4,19 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from typing import Any, Dict
 
 import torch
 
 from fairseq2.models.config_loader import StandardModelConfigLoader
-from fairseq2.models.loader import DenseModelLoader
-from fairseq2.models.transformer.archs import transformer_archs
+from fairseq2.models.loader import StandardModelLoader, load_model
 from fairseq2.models.transformer.factory import (
     TRANSFORMER_FAMILY,
     TransformerConfig,
     create_transformer_model,
+    transformer_archs,
 )
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
 
@@ -29,14 +31,12 @@ def convert_transformer_checkpoint(
     checkpoint: Dict[str, Any], config: TransformerConfig
 ) -> Dict[str, Any]:
     """Convert a fairseq Transformer checkpoint to fairseq2 format."""
-    state_dict = checkpoint["model"]
-
-    # Check if we have a fairseq2 checkpoint.
-    if "decoder_frontend.embed.weight" in state_dict:
+    try:
+        state_dict = checkpoint["model"]
+    except KeyError:
         return checkpoint
 
-    # Check if we have a DDP wrapped fairseq2 checkpoint.
-    if "module.decoder_frontend.embed.weight" in state_dict:
+    if "decoder.output_projection.weight" not in state_dict:
         return checkpoint
 
     key_map = {
@@ -88,9 +88,11 @@ def convert_transformer_checkpoint(
     return checkpoint
 
 
-load_transformer_model = DenseModelLoader(
+load_transformer_model = StandardModelLoader(
     config_loader=load_transformer_config,
     factory=create_transformer_model,
     checkpoint_converter=convert_transformer_checkpoint,
     restrict_checkpoints=False,
 )
+
+load_model.register(TRANSFORMER_FAMILY, load_transformer_model)

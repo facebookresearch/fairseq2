@@ -101,6 +101,9 @@ class SequenceGeneratorOutput:
     hypotheses: List[List[Hypothesis]]
     """The list of hypothesis generated per prompt, ordered by score."""
 
+    counters: GenerationCounters
+    """The performance counters of the call."""
+
 
 class Seq2SeqGenerator(ABC):
     """Represents a sequence-to-sequence generator."""
@@ -203,6 +206,9 @@ class Seq2SeqGeneratorOutput:
     where :math:`N` is the batch size and :math:`S_{enc}` is the encoder output
     sequence length."""
 
+    counters: GenerationCounters
+    """The performance counters of the call."""
+
 
 @final
 @dataclass
@@ -217,8 +223,28 @@ class Hypothesis:
     """The score of the hypothesis. *Shape:* Scalar."""
 
     step_scores: Optional[Tensor]
-    """The score of each sequence step. *Shape:* :math:`(S)`, where :math:`S` is
-    the sequence length."""
+    """The score of each sequence step. *Shape:* Same as ``seq``."""
+
+
+@final
+@dataclass
+class GenerationCounters:
+    """Holds the performance counters of a generator call."""
+
+    prefill_size: int = 0
+    """The number of elements processed during the prefill step."""
+
+    num_generated_elements: int = 0
+    """The number of generated elements."""
+
+    generation_time: float = 0
+    """The generation time excluding prefill."""
+
+    cache_size: int = 0
+    """The final size of the incremental cache in bytes."""
+
+    cache_capacity: int = 0
+    """The final reserved capacity of the incremental cache in bytes."""
 
 
 class StepHook(Protocol):

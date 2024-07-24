@@ -15,6 +15,7 @@ from torch import Tensor
 from torch.nn import Dropout
 from torch.nn.functional import ctc_loss, log_softmax
 
+from fairseq2.data import VocabularyInfo
 from fairseq2.models.model import Model
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2.frontend import Wav2Vec2Frontend
@@ -35,12 +36,13 @@ class Wav2Vec2AsrModel(Model):
     masker: Optional[Wav2Vec2Masker]
     final_dropout: Optional[Dropout]
     final_proj: Linear
+    target_vocab_info: VocabularyInfo
 
     def __init__(
         self,
         encoder_frontend: Wav2Vec2Frontend,
         encoder: TransformerEncoder,
-        final_dim: int,
+        target_vocab_info: VocabularyInfo,
         *,
         masker: Optional[Wav2Vec2Masker] = None,
         final_dropout_p: float = 0.0,
@@ -52,9 +54,8 @@ class Wav2Vec2AsrModel(Model):
             The encoder frontend.
         :param encoder:
             The encoder (i.e. context network).
-        :param final_dim:
-            The dimensionality of the final projection that is applied to
-            context network outputs.
+        :param target_vocab_info:
+            The vocabulary information of sequences produced by the model.
         :param masker:
             The feature masker.
         :param final_dropout_p:
@@ -76,12 +77,14 @@ class Wav2Vec2AsrModel(Model):
 
         self.final_proj = Linear(
             self.model_dim,
-            final_dim,
+            target_vocab_info.size,
             bias=True,
             init_fn=init_final_projection,
             device=device,
             dtype=dtype,
         )
+
+        self.target_vocab_info = target_vocab_info
 
     def forward(self, batch: SequenceBatch) -> Wav2Vec2AsrOutput:
         """

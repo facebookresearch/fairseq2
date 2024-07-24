@@ -6,8 +6,9 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Dict, Final, Optional, Protocol, Sequence, Set, final
+from typing import Any, Dict, Final, Iterator, Optional, Protocol, Sequence, Set, final
 
 import torch
 from torch import Tensor
@@ -291,3 +292,38 @@ class FSDPParameterInitializer:
             reset_non_persistent_buffers(module, recurse=False)
 
         self._module_memo.add(module)
+
+
+# mypy: disable-error-code="method-assign"
+
+
+@contextmanager
+def summon_fsdp_for_validation(module: Module) -> Iterator[None]:
+    """Unshard the parameters of ``module`` and use the non-FSDP forward method."""
+    if not isinstance(module, FSDP):
+        yield
+    else:
+        # This is ugly, but our only option. We monkey-patch FSDP modules to
+        # replace their `forward` methods with the wrapped `forward` methods.
+        # Otherwise, FSDP fails to shard parameters at the end of the call.
+        def disable_fsdp_forward(module_: Module) -> None:
+            for m in module_.modules():
+                if isinstance(m, FSDP):
+                    m._fs2_backup_forward = m.forward  # type: ignore[assignment]
+
+                    m.forward = m.module.forward
+
+        def enable_fsdp_forward(module_: Module) -> None:
+            for m in module_.modules():
+                if isinstance(m, FSDP):
+                    m.forward = m._fs2_backup_forward
+
+                    del m._fs2_backup_forward
+
+        with FSDP.summon_full_params(module, writeback=False):
+            disable_fsdp_forward(module)
+
+            try:
+                yield
+            finally:
+                enable_fsdp_forward(module)

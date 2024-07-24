@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from pathlib import Path
 from typing import Final, Optional, final
 
@@ -31,18 +33,19 @@ class LLaMA3Tokenizer(TiktokenTokenizer):
             "<|end_of_text|>",
             "<|reserved_special_token_0|>",
             "<|reserved_special_token_1|>",
-            "<|reserved_special_token_2|>",
-            "<|reserved_special_token_3|>",
+            "<|finetune_right_pad_id|>",
+            "<|step_id|>",
             "<|start_header_id|>",
             "<|end_header_id|>",
-            "<|reserved_special_token_4|>",
+            "<|eom_id|>",  # end-of-message
             "<|eot_id|>",  # end-of-turn
+            "<|python_tag|>",
         ]
 
         num_reserved_special_tokens = 256
 
-        for i in range(5, num_reserved_special_tokens - 5):
-            special_tokens.append(f"<|reserved_special_token_{i}|>")
+        for i in range(num_reserved_special_tokens - len(special_tokens)):
+            special_tokens.append(f"<|reserved_special_token_{2 + i}|>")
 
         self._eos_token = "<|eot_id|>" if instruct else "<|end_of_text|>"
 
@@ -52,7 +55,7 @@ class LLaMA3Tokenizer(TiktokenTokenizer):
             unk_token=None,
             bos_token="<|begin_of_text|>",
             eos_token=self._eos_token,
-            pad_token=None,
+            pad_token="<|finetune_right_pad_id|>",
             special_tokens=special_tokens,
         )
 

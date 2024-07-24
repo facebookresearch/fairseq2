@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from typing import Any, Dict, Optional, Protocol, Type, TypeVar, Union, final
 
 from fairseq2.assets import (
@@ -30,7 +32,7 @@ class ModelConfigLoader(Protocol[ModelConfigT_co]):
     def __call__(self, model_name_or_card: Union[str, AssetCard]) -> ModelConfigT_co:
         """
         :param model_name_or_card:
-            The name or asset card of the model whose configuration to load.
+            The name or the asset card of the model whole configuration to load.
         """
 
 
@@ -61,7 +63,8 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
         :param arch_configs:
             The registry containing all supported model architectures.
         :param asset_store:
-            The asset store where to check for available models.
+            The asset store where to check for available models. If ``None``,
+            the default asset store will be used.
         :param value_converter:
             The :class:`ValueConverter` instance to use. If ``None``, the
             default instance will be used.
@@ -78,40 +81,39 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
         else:
             card = self._asset_store.retrieve_card(model_name_or_card)
 
-        family = card.field("model_family").as_(str)
-        if family != self._family:
+        model_family = get_model_family(card)
+        if model_family != self._family:
             raise AssetCardError(
-                f"The value of the field 'model_family' of the asset card '{card.name}' must be '{self._family}', but is '{family}' instead."
+                f"The value of the field 'model_family' of the asset card '{card.name}' must be '{self._family}', but is '{model_family}' instead."
             )
 
-        arch = None
+        try:
+            arch = card.field("model_arch").as_(str)
+        except AssetCardFieldNotFoundError:
+            arch = None
 
-        if self._arch_configs is not None:
-            try:
-                # Ensure that the card has a valid model architecture.
-                arch = card.field("model_arch").as_one_of(self._arch_configs.names())
-            except AssetCardFieldNotFoundError:
-                pass
-
-        # Load the model configuration.
+        # Load the configuration.
         if arch is None:
             try:
                 config = self._config_kls()
             except TypeError as ex:
                 raise AssetError(
-                    f"The {self._family} model family has no default configuration."
+                    f"The '{self._family}' model family has no default configuration."
                 ) from ex
         else:
-            assert self._arch_configs is not None
+            if self._arch_configs is None:
+                raise AssetError(
+                    f"The '{self._family}' model family has no architecture named '{arch}'."
+                )
 
             try:
                 config = self._arch_configs.get(arch)
-            except ValueError as ex:
+            except ValueError:
                 raise AssetError(
-                    f"The {self._family} model family has no architecture named '{arch}'."
-                ) from ex
+                    f"The '{self._family}' model family has no architecture named '{arch}'."
+                ) from None
 
-        # Check whether to override anything in the default model configuration.
+        # Check whether to override anything in the default configuration.
         if config_overrides := card.field("model_config").get_as_(Dict[str, Any]):
             try:
                 unknown_fields = update_dataclass(
@@ -128,3 +130,24 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
                 )
 
         return config
+
+
+def is_model_card(card: AssetCard) -> bool:
+    """Return ``True`` if ``card`` specifies a model."""
+    return card.field("model_family").exists() or card.field("model_type").exists()
+
+
+def get_model_family(card: AssetCard) -> str:
+    """Return the model family name contained in ``card``."""
+    try:
+        return card.field("model_family").as_(str)  # type: ignore[no-any-return]
+    except AssetCardFieldNotFoundError:
+        pass
+
+    try:
+        # Compatibility with older fairseq2 versions.
+        return card.field("model_type").as_(str)  # type: ignore[no-any-return]
+    except AssetCardFieldNotFoundError:
+        raise AssetCardFieldNotFoundError(
+            f"The asset card '{card.name}' must have a field named 'model_family."
+        ) from None

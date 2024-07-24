@@ -11,7 +11,18 @@ from abc import ABC, abstractmethod
 from argparse import OPTIONAL, ArgumentParser, Namespace
 from copy import deepcopy
 from pathlib import Path
-from typing import Callable, Dict, Generic, Optional, Protocol, TypeVar, final
+from signal import SIGUSR1, signal
+from types import FrameType
+from typing import (
+    Callable,
+    Dict,
+    Generic,
+    Optional,
+    Protocol,
+    TypeVar,
+    final,
+    runtime_checkable,
+)
 
 import yaml
 from rich.console import Console
@@ -26,7 +37,7 @@ from fairseq2.recipes.utils.environment import (
     EnvironmentSetterRegistry,
     default_env_setters,
 )
-from fairseq2.recipes.utils.log import exception_logger, log_config
+from fairseq2.recipes.utils.log import log_config
 from fairseq2.recipes.utils.sweep import SweepTagger, default_sweep_tagger
 from fairseq2.typing import DataClass, override
 from fairseq2.utils.dataclass import FieldError, dump_dataclass, update_dataclass
@@ -102,7 +113,7 @@ class Cli:
         except KeyError:
             raise ValueError(
                 f"`name` must be a registered group name, but is '{name}' instead."
-            )
+            ) from None
 
     def init_parser(self, parser: ArgumentParser) -> None:
         """Initialize ``parser`` with program-specific arguments."""
@@ -131,8 +142,7 @@ class Cli:
         """Run the program."""
         set_console(Console(highlight=False))
 
-        with exception_logger(log):
-            self._run_command()
+        self._run_command()
 
     def _run_command(self) -> None:
         parser = ArgumentParser(self._name, description=self._description)
@@ -140,6 +150,11 @@ class Cli:
         self.init_parser(parser)
 
         args = parser.parse_args()
+
+        if not hasattr(args, "command"):
+            parser.print_usage(sys.stderr)
+
+            sys.exit(2)
 
         args.command(args)
 
@@ -257,7 +272,7 @@ class CliGroup:
         except KeyError:
             raise ValueError(
                 f"`name` must be a registered group name, but is '{name}' instead."
-            )
+            ) from None
 
     def get_command(self, name: str) -> CliCommand:
         """Return the command of ``name``."""
@@ -266,7 +281,7 @@ class CliGroup:
         except KeyError:
             raise ValueError(
                 f"`name` must be a registered command name, but is '{name}' instead."
-            )
+            ) from None
 
     def init_parser(self, parser: ArgumentParser) -> None:
         """Initialize ``parser`` with command group-specific arguments."""
@@ -375,6 +390,14 @@ class CliCommandHandler(ABC):
     @abstractmethod
     def __call__(self, args: Namespace) -> None:
         """Run the command."""
+
+
+@runtime_checkable
+class Stoppable(Protocol):
+    """Represents a task that supports graceful stopping."""
+
+    def request_stop(self) -> None:
+        ...
 
 
 RecipeConfigT = TypeVar("RecipeConfigT", bound=DataClass)
@@ -550,20 +573,12 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
         if args.config_files:
             for config_file in args.config_files:
                 try:
-                    fp = config_file.open()
-                except OSError:
-                    log.exception("Configuration file '{}' cannot be read.", config_file)  # fmt: skip
-
-                    sys.exit(1)
-
-                try:
-                    config_overrides = yaml.safe_load(fp)
+                    with config_file.open() as fp:
+                        config_overrides = yaml.safe_load(fp)
                 except (OSError, YAMLError):
                     log.exception("Configuration file '{}' cannot be read.", config_file)  # fmt: skip
 
                     sys.exit(1)
-                finally:
-                    fp.close()
 
                 if not isinstance(config_overrides, dict):
                     log.error("Configuration file '{}' must contain a dictionary.", config_file)  # fmt: skip
@@ -653,5 +668,15 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
 
         # Load and run the recipe.
         recipe = self._loader(config, output_dir)
+
+        # If the recipe is stoppable, use SIGUSR1 as the stop signal.
+        if isinstance(recipe, Stoppable):
+
+            def request_stop(signum: int, frame: FrameType) -> None:
+                log.info("SIGUSR1 received. Requesting recipe to stop.")
+
+                recipe.request_stop()
+
+            signal(SIGUSR1, request_stop)
 
         recipe()

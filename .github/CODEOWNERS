@@ -1,1 +1,3 @@
 * @cbalioglu
+src/fairseq2/data/parquet/ @artemru
+tests/integration/parquet/ @artemru

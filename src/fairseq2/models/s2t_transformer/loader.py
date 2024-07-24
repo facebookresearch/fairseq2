@@ -4,18 +4,20 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from pathlib import Path
 from typing import Any, Dict, Final, List, final
 
 from fairseq2.assets import AssetCard
-from fairseq2.data.text import AbstractTextTokenizerLoader
+from fairseq2.data.text import AbstractTextTokenizerLoader, load_text_tokenizer
 from fairseq2.models.config_loader import StandardModelConfigLoader
-from fairseq2.models.loader import DenseModelLoader
-from fairseq2.models.s2t_transformer.archs import s2t_transformer_archs
+from fairseq2.models.loader import StandardModelLoader, load_model
 from fairseq2.models.s2t_transformer.factory import (
     S2T_TRANSFORMER_FAMILY,
     S2TTransformerConfig,
     create_s2t_transformer_model,
+    s2t_transformer_archs,
 )
 from fairseq2.models.s2t_transformer.tokenizer import S2TTransformerTokenizer
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
@@ -32,14 +34,12 @@ def convert_s2t_transformer_checkpoint(
     checkpoint: Dict[str, Any], config: S2TTransformerConfig
 ) -> Dict[str, Any]:
     """Convert a fairseq S2T Transformer checkpoint to fairseq2 format."""
-    state_dict = checkpoint["model"]
-
-    # Check if we have a fairseq2 checkpoint.
-    if "decoder_frontend.embed.weight" in state_dict:
+    try:
+        state_dict = checkpoint["model"]
+    except KeyError:
         return checkpoint
 
-    # Check if we have a DDP wrapped fairseq2 checkpoint.
-    if "module.decoder_frontend.embed.weight" in state_dict:
+    if "decoder.output_projection.weight" not in state_dict:
         return checkpoint
 
     key_map = {
@@ -89,12 +89,14 @@ def convert_s2t_transformer_checkpoint(
     return convert_fairseq_checkpoint(checkpoint, key_map)
 
 
-load_s2t_transformer_model = DenseModelLoader(
+load_s2t_transformer_model = StandardModelLoader(
     config_loader=load_s2t_transformer_config,
     factory=create_s2t_transformer_model,
     checkpoint_converter=convert_s2t_transformer_checkpoint,
     restrict_checkpoints=False,
 )
+
+load_model.register(S2T_TRANSFORMER_FAMILY, load_s2t_transformer_model)
 
 
 @final
@@ -117,3 +119,5 @@ class S2TTransformerTokenizerLoader(
 
 
 load_s2t_transformer_tokenizer = S2TTransformerTokenizerLoader()
+
+load_text_tokenizer.register(S2T_TRANSFORMER_FAMILY, load_s2t_transformer_tokenizer)

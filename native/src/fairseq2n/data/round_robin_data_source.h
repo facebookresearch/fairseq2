@@ -18,7 +18,10 @@ namespace fairseq2n::detail {
 class round_robin_data_source final : public data_source {
 public:
     explicit
-    round_robin_data_source(std::vector<data_pipeline> &&pipelines, bool stop_at_shortest);
+    round_robin_data_source(
+        std::vector<data_pipeline> &&pipelines, 
+        bool stop_at_shortest,
+        bool allow_repeats);
 
     std::optional<data>
     next() override;
@@ -32,8 +35,8 @@ public:
     void
     reload_position(tape &t, bool strict) override;
 
-    bool
-    is_infinite() const noexcept override;
+    data_source_finitude_type
+    finitude_type() const noexcept override;
 
 private:
     std::optional<data>
@@ -49,7 +52,8 @@ private:
     std::vector<bool> is_epoch_done_;
     bool is_eod_ = false;
     bool stop_at_shortest_;
-    bool is_infinite_;
+    bool allow_repeats_;
+    data_source_finitude_type finitude_type_;
 };
 
 }  // namespace fairseq2n::detail

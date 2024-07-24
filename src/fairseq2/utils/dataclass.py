@@ -106,9 +106,9 @@ class FieldError(RuntimeError):
         return self._field_name
 
 
-def dump_dataclass(obj: DataClass, fp: TextIO) -> None:
+def dump_dataclass(obj: DataClass, output_stream: TextIO) -> None:
     """Dump ``obj`` to ``fp`` in YAML format."""
-    yaml.safe_dump(to_safe_dict(obj), fp, sort_keys=False)
+    yaml.safe_dump(to_safe_dict(obj), output_stream, sort_keys=False)
 
 
 def to_safe_dict(

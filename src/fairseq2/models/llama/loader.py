@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from pathlib import Path
 from typing import Any, Dict, final
 
@@ -12,13 +14,18 @@ from fairseq2.data.text import (
     AbstractTextTokenizerLoader,
     BasicSentencePieceTokenizer,
     TextTokenizer,
+    load_text_tokenizer,
 )
 from fairseq2.gang import Gang
 from fairseq2.models.config_loader import StandardModelConfigLoader
-from fairseq2.models.llama.archs import llama_archs
-from fairseq2.models.llama.factory import LLAMA_FAMILY, LLaMAConfig, create_llama_model
+from fairseq2.models.llama.factory import (
+    LLAMA_FAMILY,
+    LLaMAConfig,
+    create_llama_model,
+    llama_archs,
+)
 from fairseq2.models.llama.tokenizer import LLaMA3Tokenizer
-from fairseq2.models.loader import DenseModelLoader
+from fairseq2.models.loader import StandardModelLoader, load_model
 from fairseq2.models.transformer import (
     TransformerDecoderModel,
     shard_transformer_decoder_model,
@@ -32,7 +39,7 @@ load_llama_config = StandardModelConfigLoader(
 
 
 @final
-class LLaMAModelLoader(DenseModelLoader[TransformerDecoderModel, LLaMAConfig]):
+class LLaMAModelLoader(StandardModelLoader[TransformerDecoderModel, LLaMAConfig]):
     """Loads LLaMA models."""
 
     @override
@@ -51,7 +58,7 @@ def convert_llama_checkpoint(
 ) -> Dict[str, Any]:
     """Convert a reference LLaMA checkpoint to fairseq2 format."""
     # Check if we have a fairseq2 checkpoint.
-    if "model" in checkpoint:
+    if "output.weight" not in checkpoint:
         return checkpoint
 
     key_map = {
@@ -85,6 +92,8 @@ load_llama_model = LLaMAModelLoader(
     checkpoint_converter=convert_llama_checkpoint,
 )
 
+load_model.register(LLAMA_FAMILY, load_llama_model)
+
 
 @final
 class LLaMATokenizerLoader(AbstractTextTokenizerLoader[TextTokenizer]):
@@ -103,3 +112,5 @@ class LLaMATokenizerLoader(AbstractTextTokenizerLoader[TextTokenizer]):
 
 
 load_llama_tokenizer = LLaMATokenizerLoader()
+
+load_text_tokenizer.register(LLAMA_FAMILY, load_llama_tokenizer)

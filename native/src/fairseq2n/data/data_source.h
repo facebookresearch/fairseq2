@@ -15,6 +15,8 @@
 
 namespace fairseq2n {
 
+enum class data_source_finitude_type { finite, pseudo_infinite, infinite };
+
 class FAIRSEQ2_API data_source {
 public:
     data_source() noexcept = default;
@@ -40,8 +42,8 @@ public:
     virtual void
     reload_position(tape &t, bool strict) = 0;
 
-    virtual bool
-    is_infinite() const noexcept = 0;
+    virtual data_source_finitude_type
+    finitude_type() const noexcept = 0;
 };
 
 }  // namespace fairseq2n

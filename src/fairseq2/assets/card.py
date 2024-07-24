@@ -7,11 +7,13 @@
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 from typing import (
     AbstractSet,
     Any,
     Dict,
+    Final,
     List,
     Mapping,
     MutableMapping,
@@ -22,7 +24,6 @@ from typing import (
 from urllib.parse import urlparse, urlunparse
 
 from fairseq2.assets.error import AssetError
-from fairseq2.assets.utils import _starts_with_scheme
 from fairseq2.utils.value_converter import ValueConverter, default_value_converter
 
 T = TypeVar("T")
@@ -57,7 +58,9 @@ class AssetCard:
         try:
             name = metadata["name"]
         except KeyError:
-            raise AssetCardError("`metadata` must contain a key named 'name'.")
+            raise AssetCardError(
+                "`metadata` must contain a key named 'name'."
+            ) from None
 
         if not isinstance(name, str):
             raise AssetCardError(
@@ -147,31 +150,6 @@ class AssetCard:
 
     def __repr__(self) -> str:
         return repr(self._metadata)
-
-    # compat
-    def asset_type(self) -> str:
-        """Return the type of the asset represented by this card."""
-        for field in ["model_type", "dataset_type", "tokenizer_type"]:
-            try:
-                return self.field(field).as_(str)  # type: ignore[no-any-return]
-            except AssetCardFieldNotFoundError:
-                continue
-
-        raise AssetCardFieldNotFoundError(
-            f"The asset card '{self.name}' must have a field named 'model_type', 'dataset_type', or 'tokenizer_type'."
-        )
-
-    def asset_family(self) -> str:
-        """Return the family of the asset represented by this card."""
-        for field in ["model_family", "dataset_family", "tokenizer_family"]:
-            try:
-                return self.field(field).as_(str)  # type: ignore[no-any-return]
-            except AssetCardFieldNotFoundError:
-                continue
-
-        raise AssetCardFieldNotFoundError(
-            f"The asset card '{self.name}' must have a field named 'model_family', 'dataset_family', or 'tokenizer_family'."
-        )
 
     @property
     def name(self) -> str:
@@ -350,3 +328,10 @@ class AssetCardError(AssetError):
 
 class AssetCardFieldNotFoundError(AssetCardError):
     """Raised when an asset card field cannot be found."""
+
+
+_SCHEME_REGEX: Final = re.compile("^[a-zA-Z0-9]+://")
+
+
+def _starts_with_scheme(s: str) -> bool:
+    return re.match(_SCHEME_REGEX, s) is not None

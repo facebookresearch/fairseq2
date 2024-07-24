@@ -4,6 +4,10 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
+__version__ = "0.3.0.dev0"
+
 import platform
 import site
 from ctypes import CDLL, RTLD_GLOBAL
@@ -18,8 +22,6 @@ from fairseq2n.config import (
     _TORCH_VARIANT,
     _TORCH_VERSION,
 )
-
-__version__ = "0.3.0.dev0"
 
 
 def get_lib() -> Path:

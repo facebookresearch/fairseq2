@@ -4,7 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from pathlib import Path
+from __future__ import annotations
+
 from pickle import PickleError
 from typing import Any, Dict, Generic, Optional, Protocol, TypeVar, Union, final
 
@@ -16,14 +17,14 @@ from fairseq2.assets import (
     AssetCardError,
     AssetDownloadManager,
     AssetError,
-    AssetNotFoundError,
     AssetStore,
     default_asset_store,
     default_download_manager,
 )
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
-from fairseq2.models.config_loader import ModelConfigLoader
+from fairseq2.models.config_loader import ModelConfigLoader, get_model_family
+from fairseq2.models.factory import ModelFactory
 from fairseq2.nn.utils.module import (
     infer_device,
     load_state_dict,
@@ -62,7 +63,7 @@ class ModelLoader(Protocol[ModelT_co]):
     ) -> ModelT_co:
         """
         :param model_name_or_card:
-            The name or asset card of the model to load.
+            The name or the asset card of the model to load.
         :param gangs:
             The gangs over which to shard the model (e.g. for tensor or pipeline
             parallelism).
@@ -95,35 +96,15 @@ class CheckpointConverter(Protocol[ModelConfigT_contra]):
         """
 
 
-class DenseModelFactory(Protocol[ModelConfigT_contra, ModelT_co]):
-    """Constructs dense models of type ``ModelT``."""
-
-    def __call__(
-        self,
-        config: ModelConfigT_contra,
-        *,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
-    ) -> ModelT_co:
-        """
-        :param config:
-            The model configuration.
-        :param device:
-            The device on which to initialize the model.
-        :param dtype:
-            The data type of the model parameters and buffers.
-        """
-
-
-class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
-    """Loads dense models of type ``ModelT``."""
+class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
+    """Loads models of type ``ModelT``."""
 
     _asset_store: AssetStore
     _download_manager: AssetDownloadManager
     _tensor_loader: TensorLoader
     _checkpoint_converter: Optional[CheckpointConverter[ModelConfigT]]
     _config_loader: ModelConfigLoader[ModelConfigT]
-    _factory: DenseModelFactory[ModelConfigT, ModelT]
+    _factory: ModelFactory[ModelConfigT, ModelT]
     _restrict_checkpoints: bool
     _skip_meta_init: bool
 
@@ -131,7 +112,7 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         self,
         *,
         config_loader: ModelConfigLoader[ModelConfigT],
-        factory: DenseModelFactory[ModelConfigT, ModelT],
+        factory: ModelFactory[ModelConfigT, ModelT],
         restrict_checkpoints: bool = True,
         skip_meta_init: bool = False,
         asset_store: Optional[AssetStore] = None,
@@ -152,9 +133,11 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
             model directly on the requested device. Should be used with models
             that do not support PyTorch's ``reset_parameters()`` convention.
         :param asset_store:
-            The asset store where to check for available models.
+            The asset store where to check for available models. If ``None``,
+            the default asset store will be used.
         :param download_manager:
-            The download manager to download checkpoints.
+            The download manager. If ``None``, the default download manager will
+            be used.
         :param tensor_loader:
             The tensor loader to load checkpoints into memory.
         :param checkpoint_converter:
@@ -181,6 +164,11 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         force: bool = False,
         progress: bool = True,
     ) -> ModelT:
+        if isinstance(model_name_or_card, AssetCard):
+            card = model_name_or_card
+        else:
+            card = self._asset_store.retrieve_card(model_name_or_card)
+
         # Retrieve the gang for tensor parallelism.
         gang = gangs.get("tp") if gangs is not None else None
 
@@ -194,11 +182,6 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
 
         if device is None:
             device = CPU
-
-        if isinstance(model_name_or_card, AssetCard):
-            card = model_name_or_card
-        else:
-            card = self._asset_store.retrieve_card(model_name_or_card)
 
         num_shards = card.field("num_shards").get_as_(int, default=1)
         if num_shards < 1:
@@ -230,6 +213,9 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
             try:
                 model = self._factory(config, device=META, dtype=dtype)
             except NotImplementedError as ex:
+                if not "'Meta' backend" in str(ex):
+                    raise
+
                 raise RuntimeError(
                     f"One or more operators in {card.name} constructor do not support the meta device. See nested exception for details."
                 ) from ex
@@ -240,13 +226,17 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
             return model
 
         # Load the checkpoint.
-        uri = card.field("checkpoint").as_uri()
+        checkpoint_uri = card.field("checkpoint").as_uri()
 
         shard_idx = gang.rank if gang is not None and gang.size != 1 else None
 
         try:
             path = self._download_manager.download_checkpoint(
-                uri, card.name, shard_idx=shard_idx, force=force, progress=progress
+                checkpoint_uri,
+                card.name,
+                shard_idx=shard_idx,
+                force=force,
+                progress=progress,
             )
         except ValueError as ex:
             raise AssetCardError(
@@ -269,7 +259,10 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
             try:
                 # Try to construct the model on the meta device.
                 model = self._factory(config, device=META, dtype=dtype)
-            except NotImplementedError:
+            except NotImplementedError as ex:
+                if not "'Meta' backend" in str(ex):
+                    raise
+
                 log.warning("One or more operators in {} constructor do not support the meta device. Skipping meta device initialization.", card.name)  # fmt: skip
 
         if model is None:
@@ -304,7 +297,7 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         except KeyError:
             raise AssetError(
                 f"The checkpoint of {card.name} does not contain a '{model_key}' entry."
-            )
+            ) from None
 
         # Remove DDP 'module' prefix.
         consume_prefix_in_state_dict_if_present(state_dict, prefix="module.")
@@ -325,7 +318,7 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
 
     def _shard(self, model: ModelT, gangs: Dict[str, Gang], card: AssetCard) -> None:
         raise RuntimeError(
-            f"{card.name} has a sharded checkpoint, but has no model sharder. Please file a bug report."
+            f"{card.name} has a sharded checkpoint, but has no model sharder. Please file a bug report to the model author."
         )
 
 
@@ -339,7 +332,8 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
     def __init__(self, *, asset_store: Optional[AssetStore] = None) -> None:
         """
         :param asset_store:
-            The asset store where to check for available models.
+            The asset store where to check for available models. If ``None``,
+            the default asset store will be used.
         """
         self._asset_store = asset_store or default_asset_store
 
@@ -358,28 +352,16 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
         if isinstance(model_name_or_card, AssetCard):
             card = model_name_or_card
         else:
-            try:
-                card = self._asset_store.retrieve_card(model_name_or_card)
-            except AssetNotFoundError as err:
-                model_path = Path(model_name_or_card)
-                # If the card is not found, try looking it up by interpreting model_name as a path to the yaml card.
-                if model_path.exists() and model_path.suffix == ".yaml":
-                    import yaml
+            card = self._asset_store.retrieve_card(model_name_or_card)
 
-                    with open(model_path, "r", encoding="utf-8") as f:
-                        card_data = yaml.safe_load(f)
-                        card = AssetCard(card_data)
-                else:
-                    raise err
-
-        family = card.field("model_family").as_(str)
+        family = get_model_family(card)
 
         try:
             loader = self._loaders[family]
         except KeyError:
             raise AssetError(
                 f"The value of the field 'model_family' of the asset card '{card.name}' must be a supported model family, but '{family}' has no registered loader."
-            )
+            ) from None
 
         return loader(
             model_name_or_card,
@@ -405,6 +387,17 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
             )
 
         self._loaders[family] = loader
+
+    def supports(self, model_name_or_card: Union[str, AssetCard]) -> bool:
+        """Return ``True`` if the specified model has a registered loader."""
+        if isinstance(model_name_or_card, AssetCard):
+            card = model_name_or_card
+        else:
+            card = self._asset_store.retrieve_card(model_name_or_card)
+
+        family = get_model_family(card)
+
+        return family in self._loaders
 
 
 load_model = DelegatingModelLoader[Module]()

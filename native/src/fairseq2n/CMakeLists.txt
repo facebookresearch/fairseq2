@@ -25,6 +25,7 @@ target_sources(fairseq2n
         data/data_length_extractor.cc
         data/data_pipeline.cc
         data/data_source.cc
+        data/dynamic_bucket_data_source.cc
         data/element_mapper.cc
         data/element_selector.cc
         data/file.cc

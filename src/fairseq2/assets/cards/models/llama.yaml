@@ -5,10 +5,10 @@
 # LICENSE file in the root directory of this source tree.
 
 name: llama
-model_type: llama  # compat
 model_family: llama
 checkpoint: "https://ai.meta.com/llama/;gated=true"
 tokenizer: "https://ai.meta.com/llama/;gated=true"
+tokenizer_family: llama
 
 ---
 
@@ -19,10 +19,10 @@ model_arch: 7b
 ---
 
 name: llama2
-model_type: llama  # compat
 model_family: llama
 checkpoint: "https://ai.meta.com/llama/;gated=true"
 tokenizer: "https://ai.meta.com/llama/;gated=true"
+tokenizer_family: llama
 
 ---
 
@@ -65,10 +65,10 @@ num_shards: 8
 ---
 
 name: llama3
-model_type: llama  # compat
 model_family: llama
 checkpoint: "https://ai.meta.com/llama/;gated=true"
 tokenizer: "https://ai.meta.com/llama/;gated=true"
+tokenizer_family: llama
 use_v2_tokenizer: true
 
 ---
@@ -104,5 +104,33 @@ shard_embed_dim: false
 name: llama3_70b_instruct
 base: llama3_instruct
 model_arch: llama3_70b
+num_shards: 8
+shard_embed_dim: false
+
+---
+
+name: llama3_1_8b
+base: llama3
+model_arch: llama3_1_8b
+
+---
+
+name: llama3_1_8b_instruct
+base: llama3_instruct
+model_arch: llama3_1_8b
+
+---
+
+name: llama3_1_70b
+base: llama3
+model_arch: llama3_1_70b
+num_shards: 8
+shard_embed_dim: false
+
+---
+
+name: llama3_1_70b_instruct
+base: llama3_instruct
+model_arch: llama3_1_70b
 num_shards: 8
 shard_embed_dim: false

@@ -5,7 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 
 name: wav2vec2_base
-model_type: wav2vec2  # compat
 model_family: wav2vec2
 model_arch: base
 checkpoint: "https://dl.fbaipublicfiles.com/fairseq/wav2vec/wav2vec2_fs2_small.pt"
@@ -13,7 +12,6 @@ checkpoint: "https://dl.fbaipublicfiles.com/fairseq/wav2vec/wav2vec2_fs2_small.p
 ---
 
 name: wav2vec2_large
-model_type: wav2vec2  # compat
 model_family: wav2vec2
 model_arch: large
 checkpoint: "https://dl.fbaipublicfiles.com/fairseq/wav2vec/wav2vec2_fs2_large_ls960.pt"
@@ -21,7 +19,6 @@ checkpoint: "https://dl.fbaipublicfiles.com/fairseq/wav2vec/wav2vec2_fs2_large_l
 ---
 
 name: wav2vec2_large_lv60k
-model_type: wav2vec2  # compat
 model_family: wav2vec2
 model_arch: large_lv60k
 checkpoint: "https://dl.fbaipublicfiles.com/fairseq/wav2vec/wav2vec2_fs2_large_lv60k.pt"
@@ -29,15 +26,14 @@ checkpoint: "https://dl.fbaipublicfiles.com/fairseq/wav2vec/wav2vec2_fs2_large_l
 ---
 
 name: wav2vec2_asr_base_10h
-model_type: wav2vec2_asr  # compat
 model_family: wav2vec2_asr
 model_arch: base_10h
 checkpoint: "https://dl.fbaipublicfiles.com/fairseq/wav2vec/wav2vec2_asr_fs2_base_10h.pt"
+tokenizer_ref: librispeech_asr
 
 ---
 
 name: dinosr_base
-model_type: wav2vec2  # compat
 model_family: wav2vec2
 model_arch: pseudo_dinosr_base
 checkpoint: "https://ai.meta.com/pseudo_dinosr_base/;gated=true"

@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from setuptools import find_namespace_packages, setup
 
 version = "0.3.0.dev0"
@@ -56,6 +58,7 @@ setup(
         "psutil~=5.9",
         "pyyaml~=6.0",
         "rich~=13.7",
+        "sacrebleu~=2.4",
         "tiktoken~=0.7",
         "torcheval~=0.0.6",
         "tqdm~=4.62",

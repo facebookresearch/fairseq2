@@ -11,18 +11,26 @@
 namespace fairseq2n::detail {
 
 round_robin_data_source::round_robin_data_source(
-    std::vector<data_pipeline> &&pipelines, bool stop_at_shortest)
+    std::vector<data_pipeline> &&pipelines, 
+    bool stop_at_shortest,
+    bool allow_repeats)
   : pipelines_(std::move(pipelines)),
     is_epoch_done_(pipelines_.size()),
-    stop_at_shortest_{stop_at_shortest}
+    stop_at_shortest_{stop_at_shortest},
+    allow_repeats_{allow_repeats}
 {
     buffer_.reserve(pipelines_.size());
 
-    is_infinite_ = std::all_of(
-        pipelines_.begin(), pipelines_.end(), [](const data_pipeline &p)
-        {
-            return p.is_infinite();
-        });
+    if (pipelines_.empty())
+        finitude_type_ = data_source_finitude_type::finite;
+    else {
+        auto max_cardinality_pipeline_it = std::max_element(
+            pipelines_.begin(), pipelines_.end(), [](const data_pipeline &a, const data_pipeline &b)
+            {
+                return a.finitude_type() < b.finitude_type();
+            });
+        finitude_type_ = max_cardinality_pipeline_it->finitude_type();
+    }
 }
 
 std::optional<data>
@@ -115,10 +123,10 @@ round_robin_data_source::reload_position(tape &t, bool strict)
         pipeline.reload_position(t);
 }
 
-bool
-round_robin_data_source::is_infinite() const noexcept
+data_source_finitude_type
+round_robin_data_source::finitude_type() const noexcept
 {
-    return is_infinite_;
+    return finitude_type_;
 }
 
 std::optional<data>
@@ -130,11 +138,13 @@ round_robin_data_source::next_in_pipeline(std::size_t pipeline_idx)
     if (!maybe_example) {
         is_epoch_done_[pipeline_idx] = true;
 
-        pipeline.reset();
+        if (allow_repeats_) {
+            pipeline.reset();
 
-        // Circle back to the first example.
-        maybe_example = pipeline.next();
-    } else if (pipeline.is_infinite())
+            // Circle back to the first example.
+            maybe_example = pipeline.next();
+        }
+    } else if (pipeline.finitude_type() == data_source_finitude_type::pseudo_infinite)
         is_epoch_done_[pipeline_idx] = true;
 
     return maybe_example;

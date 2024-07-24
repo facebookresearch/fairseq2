@@ -41,10 +41,10 @@ count_data_source::reload_position(tape &t, bool)
     counter_ = t.read<std::int64_t>();
 }
 
-bool
-count_data_source::is_infinite() const noexcept
+data_source_finitude_type
+count_data_source::finitude_type() const noexcept
 {
-    return true;
+    return data_source_finitude_type::pseudo_infinite;
 }
 
 }

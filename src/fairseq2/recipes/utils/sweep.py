@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import os
 import re
 from dataclasses import fields
@@ -17,37 +19,56 @@ from fairseq2.typing import DataClass, DataType, is_dataclass_instance
 class SweepTagger:
     """Generates a sweep tag from the diff of two recipe configurations."""
 
-    _DEFAULT_SKIP_SET: Final = {
-        "activation_checkpointing",
-        "anomaly_detection",
-        "checkpoint_after_n_steps",
-        "checkpoint_every_n_steps",
-        "keep_best_n_checkpoints",
-        "keep_last_n_checkpoints",
-        "max_num_data_epochs",
-        "monitored_gang",
-        "num_prefetch",
-        "profile",
-        "publish_metrics_after_n_steps",
-        "publish_metrics_every_n_steps",
-        "torch_compile",
-        "validate_after_n_steps",
-        "validate_every_n_steps",
+    _DEFAULT_ALLOW_SET: Final = {
+        "batch_shuffle_window",
+        "betas",
+        "data_parallelism",
+        "dataset",
+        "dtype",
+        "example_shuffle_window",
+        "final_lr_ratio",
+        "final_lr_scale",
+        "fp16_loss_scale",
+        "fsdp_reshard_after_forward",
+        "fsdp_wrap_granularity",
+        "gradient_accumulation",
+        "label_smoothing",
+        "lr",
+        "lr_stage_ratios",
+        "max_gradient_norm",
+        "max_num_elements",
+        "max_num_steps",
+        "max_num_tokens",
+        "max_seq_len",
+        "model",
+        "model_arch",
+        "model_config",
+        "num_lr_warmup_steps",
+        "pretrained_model",
+        "seed",
+        "split",
+        "start_lr",
+        "start_lr_scale",
+        "tensor_parallel_size",
+        "tokenizer",
+        "train_split",
+        "valid_split",
+        "weight_decay",
     }
 
-    def __init__(self, *, skip_set: Optional[Set[str]] = None) -> None:
+    def __init__(self, *, allow_set: Optional[Set[str]] = None) -> None:
         """
-        :param skip_set:
-            The configuration field names to skip while generating the sweep tag.
+        :param allow_set:
+            The configuration field names allowed while generating the sweep tag.
         """
-        if skip_set is None:
-            skip_set = self._DEFAULT_SKIP_SET.copy()
+        if allow_set is None:
+            allow_set = self._DEFAULT_ALLOW_SET.copy()
 
-        self._skip_set = skip_set
+        self._allow_set = allow_set
 
-    def extend_skip_set(self, extras: Set[str]) -> None:
-        """Extend the skipped configuration field names with ``extras``."""
-        self._skip_set.update(extras)
+    def extend_allow_set(self, *extras: str) -> None:
+        """Extend the allowed configuration field names with ``extras``."""
+        self._allow_set.update(extras)
 
     def __call__(self, preset: str, preset_config: DataClass, config: DataClass) -> str:
         """
@@ -73,9 +94,6 @@ class SweepTagger:
         output.append(f"ws_{world_size}")
 
         def abbrv(s: str) -> str:
-            if s.endswith("_name"):
-                s = s[:-5]
-
             if s.startswith("num_"):
                 s = f"n_{s[4:]}"
 
@@ -87,7 +105,7 @@ class SweepTagger:
 
                 if is_dataclass_instance(value):
                     generate(config)
-                elif not field.name in self._skip_set:
+                elif field.name in self._allow_set:
                     if s := self._to_tag_value(value):
                         output.append(f"{abbrv(field.name)}_{s}")
 
@@ -102,7 +120,7 @@ class SweepTagger:
                         generate_from_diff(preset_value, value)
                     else:
                         generate(value)
-                elif not field.name in self._skip_set:
+                elif field.name in self._allow_set:
                     if preset_value == value:
                         continue
 
@@ -113,7 +131,13 @@ class SweepTagger:
 
         s = ".".join(output)
 
-        return s[:128]  # Cap to maximum 128 characters.
+        # Cap to maximum of 128 characters.
+        if len(s) > 128:
+            # Make sure we avoid name conflicts by prepending the hash of the
+            # whole tag to the truncated one.
+            s = s[:120] + self._hash(s)
+
+        return s
 
     @classmethod
     def _to_tag_value(cls, value: Any) -> Optional[str]:
@@ -125,9 +149,7 @@ class SweepTagger:
             if len(s) < 16:
                 return s
 
-            s = sha1(s.encode("utf-8")).hexdigest()
-
-            return s[:8]
+            return cls._hash(s)
 
         if isinstance(value, bool):
             return "t" if value else "f"
@@ -179,6 +201,12 @@ class SweepTagger:
     @staticmethod
     def _remove_non_word(s: str) -> str:
         return re.sub(r"[^-_\w]", "", s)
+
+    @staticmethod
+    def _hash(s: str) -> str:
+        s = sha1(s.encode("utf-8")).hexdigest()
+
+        return s[:8]
 
 
 default_sweep_tagger = SweepTagger()

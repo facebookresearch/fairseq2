@@ -4,9 +4,13 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from typing import Final, Optional
 
+from fairseq2.config_registry import ConfigRegistry
+from fairseq2.models.factory import create_model
 from fairseq2.models.w2vbert.model import W2VBertModel
 from fairseq2.models.wav2vec2 import (
     Wav2Vec2Builder,
@@ -81,6 +85,11 @@ class W2VBertConfig:
 
     num_target_codebooks: int = 1
     """The number of consecutive codebooks to use as masked prediction targets."""
+
+
+w2vbert_archs = ConfigRegistry[W2VBertConfig]()
+
+w2vbert_arch = w2vbert_archs.decorator
 
 
 class W2VBertBuilder:
@@ -174,3 +183,11 @@ def create_w2vbert_model(
     builder = W2VBertBuilder(config, w2v2_builder, device=device, dtype=dtype)
 
     return builder.build_model().set_family(W2VBERT_FAMILY)
+
+
+create_model.register(
+    family=W2VBERT_FAMILY,
+    factory=create_w2vbert_model,
+    config_kls=W2VBertConfig,
+    arch_configs=w2vbert_archs,
+)

@@ -4,9 +4,11 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import math
 from abc import ABC, abstractmethod
-from typing import Optional, final
+from typing import Callable, Optional, final
 
 import torch
 import torch.nn as nn
@@ -18,6 +20,7 @@ from torch.nn.parameter import Parameter
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.typing import DataType, Device, override
+from fairseq2.utils.version import torch_greater_or_equal
 
 
 class PositionEncoder(Module, ABC):
@@ -310,6 +313,7 @@ class RotaryEncoder(PositionEncoder):
 
     freqs: Tensor
     theta: float
+    freqs_init_fn: Optional[Callable[[RotaryEncoder], Tensor]]
 
     def __init__(
         self,
@@ -317,12 +321,15 @@ class RotaryEncoder(PositionEncoder):
         max_seq_len: int,
         *,
         theta: float = 10_000.0,
+        freqs_init_fn: Optional[Callable[[RotaryEncoder], Tensor]] = None,
         device: Optional[Device] = None,
     ) -> None:
         """
         :param theta:
             The coefficient of the long-term decay as described in section 3.3
             of the reference paper.
+        :param freqs_init_fn:
+            The callable to initialize the frequency table.
         """
         super().__init__(encoding_dim, max_seq_len)
 
@@ -338,6 +345,7 @@ class RotaryEncoder(PositionEncoder):
         self.register_buffer("freqs", freqs, persistent=False)
 
         self.theta = theta
+        self.freqs_init_fn = freqs_init_fn
 
         self.reset_parameters()
 
@@ -351,21 +359,25 @@ class RotaryEncoder(PositionEncoder):
 
         device = self.freqs.device
 
-        # As of PyTorch 2.0, `torch.polar` does not support meta device.
-        if device.type == "meta":
-            return
+        # In PyTorch 2.0 and 2.1, `torch.polar` does not support meta device.
+        if not torch_greater_or_equal(2, 2):
+            if device.type == "meta":
+                return
 
         complex_freqs = torch.view_as_complex(self.freqs)
 
         # (S)
         steps = torch.arange(self.max_seq_len, device=device, dtype=torch.float32)
 
-        # (E / 2)
-        indices = torch.arange(
-            0, self.encoding_dim, step=2, device=device, dtype=torch.float32
-        )
+        if self.freqs_init_fn is None:
+            # (E / 2)
+            indices = torch.arange(
+                0, self.encoding_dim, step=2, device=device, dtype=torch.float32
+            )
 
-        freqs = 1.0 / (self.theta ** (indices / self.encoding_dim))
+            freqs = 1.0 / (self.theta ** (indices / self.encoding_dim))
+        else:
+            freqs = self.freqs_init_fn(self)
 
         # (S) x (E / 2) -> (S, E / 2)
         freqs = torch.outer(steps, freqs)
