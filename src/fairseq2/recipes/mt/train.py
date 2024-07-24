@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Tuple, final
+from typing import Any, List, Literal, Optional, Tuple, final
 
 import torch
 from torch import Tensor
@@ -100,8 +100,8 @@ class MTTrainConfig:
     model_arch: Optional[str] = "nllb_dense_600m"
     """The architecture of the model."""
 
-    model_config: Optional[Dict[str, Any]] = None
-    """The model configuration overrides."""
+    model_config: Any = None
+    """The model configuration."""
 
     dtype: DataType = torch.float16
     """The data type of the model."""
