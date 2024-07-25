@@ -338,7 +338,7 @@ class HFEvaluator(Evaluator, Generic[BatchT]):
                     # Update the metrics with the batch results
                     inputs = SequenceBatch(batch.source_seqs, batch.source_padding_mask)
                     outputs = self._model(inputs)
-                    hypotheses, _ = outputs.genegenerate_hypotheses(pad_idx=0) # FIXME: correctly assign the pad_idx
+                    hypotheses, _ = outputs.generate_hypotheses(pad_idx=0) # FIXME: correctly assign the pad_idx
                     for metric in self._metrics:
                         predictions=self.postprocess(hypotheses)
                         references=self.postprocess(batch.target_seqs.to(torch.int32))
