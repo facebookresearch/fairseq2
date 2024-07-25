@@ -10,7 +10,9 @@ from abc import ABC, abstractmethod
 import importlib
 from itertools import count
 from pathlib import Path
-from typing import Any, Dict, Generic, List, Optional, TypeVar, final
+from typing import Any, Callable, Dict, Generic, List, Optional, Sequence, TypeVar, final
+
+import torch
 
 from fairseq2.models.sequence import SequenceBatch
 from torch import Tensor
@@ -224,6 +226,7 @@ class HFEvaluator(Evaluator, Generic[BatchT]):
         gang: Gang,
         data_reader: DataReader[BatchT],
         wall_watch: Stopwatch,
+        postprocess: Optional[Callable[[Sequence], Any]] = None,
         dp_gang: Optional[Gang] = None,
         tp_gang: Optional[Gang] = None,
         tb_dir: Optional[Path] = None,
@@ -253,6 +256,15 @@ class HFEvaluator(Evaluator, Generic[BatchT]):
 
         self._root_gang = gang
 
+        if dp_gang is not None and tp_gang is not None:
+            self._dp_gang = dp_gang
+            self._tp_gang = tp_gang
+        elif dp_gang is None and tp_gang is None:
+            self._dp_gang = gang
+            self._tp_gang = FakeGang(device=gang.device)
+        else:
+            raise ValueError("`dp_gang` and `tp_gang` must be both specified.")
+
         self._data_reader = data_reader
 
         #########################################################
@@ -261,6 +273,8 @@ class HFEvaluator(Evaluator, Generic[BatchT]):
         #
         #########################################################
         self._metrics = [evaluate.load(metric) for metric in metrics]
+
+        self.postprocess = postprocess
 
         if self._tp_gang.rank == 0 and self._dp_gang.rank == 0:
             self._metric_recorders = [LogMetricRecorder(log)]
@@ -323,11 +337,12 @@ class HFEvaluator(Evaluator, Generic[BatchT]):
                 for batch in batches:
                     # Update the metrics with the batch results
                     inputs = SequenceBatch(batch.source_seqs, batch.source_padding_mask)
-                    labels = [batch.target_seqs]
                     outputs = self._model(inputs)
-                    predictions, _ = outputs.genegenerate_hypotheses(pad_idx=pad_idx)
+                    hypotheses, _ = outputs.genegenerate_hypotheses(pad_idx=0) # FIXME: correctly assign the pad_idx
                     for metric in self._metrics:
-                        metric.add_batch(predictions=predictions, references=labels)
+                        predictions=self.postprocess(hypotheses)
+                        references=self.postprocess(batch.target_seqs.to(torch.int32))
+                        metric.add_batch(predictions=predictions, references=references)
 
                 self._root_gang.barrier()
 

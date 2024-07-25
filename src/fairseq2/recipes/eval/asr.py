@@ -98,6 +98,19 @@ def _preprocess_example(example: Example, encoder: Any, device: torch.device) ->
     text_tensor = encoder(example['text'].lower()).to(device)
     return {"audio": audio_tensor, "text": text_tensor}
 
+def postprocess_outputs(outputs: Any, decoder: Any) -> str:
+    """
+    Postprocesses the output of the model by decoding the text tensor.
+
+    Args:
+        output (Any): The output of the model.
+        decoder (Any): The decoder used to decode the text tensor.
+
+    Returns:
+        str: The decoded text.
+    """
+    return [decoder(item) for item in outputs]
+
 @hf_presets.decorator("librispeech_asr")
 def _librispeech_asr_config() -> AsrEvalConfig:
     return AsrEvalConfig(
@@ -148,11 +161,12 @@ def load_wav2vec2_asr_evaluator(
 
     # Preprocess dataset
     ds = ds.map(lambda x: _preprocess_example(x, encoder, init_device))
-    ds.set_format("torch", columns=['audio', 'text'])
+    format = {'type': 'torch', 'format_kwargs' :{'dtype': torch.float16, "device": init_device}}
+    ds.set_format(**format, columns=['audio', 'text'])
 
     # Create data pipeline from dataset
     batcher = BatcherBySize(bucket_size=config.max_num_elements)
-    pipeline = create_hf_reader(dataset=ds, gang=gang, converter=_librispeech_asr_to_batch, batcher=batcher, num_prefetch=config.num_prefetch, pad_value=tokenizer.vocab_info.pad_idx)
+    pipeline_reader = create_hf_reader(dataset=ds, gang=gang, converter=_librispeech_asr_to_batch, batcher=batcher, num_prefetch=config.num_prefetch, pad_value=tokenizer.vocab_info.pad_idx)
 
     # Load model
     model = load_wav2vec2_asr_model(config.model_name, device=init_device, dtype=config.dtype)
@@ -164,6 +178,7 @@ def load_wav2vec2_asr_evaluator(
         model=model,
         metrics=["bleu"],
         gang=gang,
-        data_reader=pipeline,
+        data_reader=pipeline_reader,
         wall_watch=wall_watch,
+        postprocess=lambda x: postprocess_outputs(x, decoder),
     )
