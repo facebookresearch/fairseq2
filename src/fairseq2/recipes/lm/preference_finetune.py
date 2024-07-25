@@ -33,7 +33,12 @@ from fairseq2.recipes.lm.preference_units.dpo_unit import (
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
 from fairseq2.recipes.utils.asset import retrieve_asset_card
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import compile_model, setup_gangs, to_data_parallel
+from fairseq2.recipes.utils.setup import (
+    broadcast_model,
+    compile_model,
+    setup_gangs,
+    to_data_parallel,
+)
 from fairseq2.typing import META, DataType
 from fairseq2.utils.profiler import Stopwatch
 
@@ -309,6 +314,11 @@ def load_preference_finetuner(
 
         log.info("Loading {} reference model on data parallel rank 0 (per shard).", reference_model_card.name)  # fmt: skip
 
+        if dp_gang.rank == 0:
+            init_device = dp_gang.device
+        else:
+            init_device = META
+
         # TODO: figure out how to load the reference model onto its own gangs
         reference_model = load_model(
             reference_model_card,
@@ -325,20 +335,10 @@ def load_preference_finetuner(
 
         freeze_parameters(reference_model)
 
-        dp_reference_model = to_data_parallel(
-            reference_model,
-            dp_gang,
-            config.data_parallelism,
-            log,
-            fsdp_skip_init=True,
-            fsdp_broadcast_state=not has_checkpoint,
-            fsdp_reshard_after_forward=config.fsdp_reshard_after_forward,
-            fsdp_mixed_precision_dtype=config.dtype,
-            fsdp_fp32_reduce=True,
-            fsdp_wrap_granularity=config.fsdp_wrap_granularity,
-        )
+        if dp_gang.size != 1:
+            broadcast_model(reference_model, dp_gang, log)
 
-        return dp_reference_model
+        return reference_model
 
     def _create_preference_unit(
         config: PreferenceOptimizationConfig,
