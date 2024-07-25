@@ -30,9 +30,6 @@ from fairseq2.recipes.lm.preference_units.dpo_unit import (
     DpoFinetuneConfig,
     DpoFinetuneUnit,
 )
-from fairseq2.recipes.lm.preference_units.preference_criterion_config import (
-    PreferenceCriterionConfig,
-)
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
 from fairseq2.recipes.utils.asset import retrieve_asset_card
 from fairseq2.recipes.utils.log import log_model
@@ -44,7 +41,7 @@ log = get_log_writer(__name__)
 
 
 @dataclass
-class PreferenceOptimizationConfig:  # TODO: Should this just inherit from InstructionFinetuneConfig? The potential reason not to is that a later version may take two datasets (one positive, one negative)?
+class PreferenceOptimizationConfig:
     """Holds the configuration of a language model preference-finetuning task."""
 
     # Data
@@ -67,13 +64,11 @@ class PreferenceOptimizationConfig:  # TODO: Should this just inherit from Instr
     """The number of batches to prefetch in background."""
 
     # Criterion
-    criterion: str = "dpo"
-    """The type of preference optimization to perform"""
+    criterion: Literal["dpo"] = "dpo"
+    """The type of preference optimization to perform."""
 
-    criterion_config: PreferenceCriterionConfig = field(
-        default_factory=lambda: DpoFinetuneConfig()
-    )  # TODO: is there a better way to do this?
-    """The hyperparameters specific to the criterion_type"""
+    dpo: DpoFinetuneConfig = field(default_factory=lambda: DpoFinetuneConfig())
+    """The configuration for Direct Preference Optimization."""
 
     # Model
     model: Union[str, Path] = "llama3_8b_instruct"
@@ -82,32 +77,22 @@ class PreferenceOptimizationConfig:  # TODO: Should this just inherit from Instr
     dtype: DataType = torch.bfloat16
     """The data type of the model."""
 
-    data_parallelism: Literal[
-        "ddp", "fsdp"
-    ] = "fsdp"  # TODO is it fine to assume the reference model will use the same data_parallelism?
+    data_parallelism: Literal["ddp", "fsdp"] = "fsdp"
     """The data parallelism API to use."""
 
-    fsdp_wrap_granularity: Literal[
-        "layer", "stack", "model"
-    ] = "layer"  # TODO is it fine to assume the reference model will never need this?
+    fsdp_wrap_granularity: Literal["layer", "stack", "model"] = "layer"
     """The granularity at which to wrap the model."""
 
-    fsdp_reshard_after_forward: bool = (
-        True  # TODO is it fine to assume the reference model will never need this?
-    )
+    fsdp_reshard_after_forward: bool = True
     """If ``True``, reshards the parameters only after the backward pass."""
 
     tensor_parallel_size: int = 1
     """The size of tensor parallelism."""
 
-    activation_checkpointing: bool = (
-        True  # TODO is it fine to assume the reference model will never need this?
-    )
+    activation_checkpointing: bool = True
     """If ``True``, uses layer-wise activation checkpointing."""
 
-    torch_compile: bool = (
-        False  # TODO is it fine to assume the reference model will always use the same?
-    )
+    torch_compile: bool = False
     """If ``True``, applies ``torch.compile()`` to the decoder. (experimental)"""
 
     # Optimizer, LR, and Loss
@@ -191,7 +176,7 @@ def _llama3_8b_instruct() -> PreferenceOptimizationConfig:
 def _llama3_70b_instruct_openassistant2() -> PreferenceOptimizationConfig:
     cfg = PreferenceOptimizationConfig()
     cfg.model = "llama3_70b_instruct"
-    cfg.criterion_config = DpoFinetuneConfig()
+    cfg.dpo = DpoFinetuneConfig()
     cfg.tensor_parallel_size = 8
     cfg.max_num_tokens = (
         200  # 70B DPO training might catch OOM, tune the effective batch size if needed
@@ -315,15 +300,12 @@ def load_preference_finetuner(
     log_model(dp_model, log, rank=root_gang.rank)
 
     # Load the reference model.
-    def _get_reference_model(
-        criterion_config: PreferenceCriterionConfig,
-    ) -> Union[Module, None]:
-        try:
-            criterion_config.reference_model
-        except ValueError:
-            return None
-
-        reference_model_card = retrieve_asset_card(criterion_config.reference_model)
+    def _load_reference_model(
+        reference_model_path: Union[str, Path],
+        reference_dtype: DataType,
+        reference_tensor_parallel_size: int,
+    ) -> Module:
+        reference_model_card = retrieve_asset_card(reference_model_path)
 
         log.info("Loading {} reference model on data parallel rank 0 (per shard).", reference_model_card.name)  # fmt: skip
 
@@ -332,7 +314,7 @@ def load_preference_finetuner(
             reference_model_card,
             gangs=gangs,
             device=init_device,
-            dtype=criterion_config.reference_dtype,
+            dtype=reference_dtype,
         )
 
         root_gang.barrier()
@@ -358,28 +340,28 @@ def load_preference_finetuner(
 
         return dp_reference_model
 
-    dp_reference_model = _get_reference_model(config.criterion_config)
-
     def _create_preference_unit(
         config: PreferenceOptimizationConfig,
     ) -> AbstractTrainUnit[PreferenceOptimizationBatch]:
         # TODO: setup registers for TrainUnits to replace this
         if config.criterion == "dpo":
-            assert isinstance(
-                config.criterion_config, DpoFinetuneConfig
-            )  # TODO: better way to do this?
+            dp_reference_model = _load_reference_model(
+                config.dpo.reference_model,
+                config.dpo.reference_dtype,
+                config.dpo.reference_tensor_parallel_size,
+            )
             return DpoFinetuneUnit(
                 dp_model,
                 dp_reference_model,
                 dp_gang,
-                config.criterion_config.dpo_beta,
-                config.criterion_config.nll_scale,
+                config.dpo.dpo_beta,
+                config.dpo.nll_scale,
             )
-        if config.criterion == "SimPO":
+        if config.criterion == "simpo":
             print("SimPOTrainUnit")  # TODO: implement SimPO
             raise NotImplementedError
         # TODO: build an exception for this. is there one already?
-        raise Exception(f"config.criterion_type '{config.criterion}' cannot be found.")
+        raise ValueError(f"config.criterion_type '{config.criterion}' cannot be found.")
 
     # Initialize the train unit
     unit = _create_preference_unit(config)
