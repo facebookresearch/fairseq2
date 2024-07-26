@@ -98,7 +98,7 @@ class AbstractEvalUnit(EvalUnit[BatchT]):
         return self._display_name
 
 
-@final
+# @final
 class Evaluator(Generic[BatchT]):
     """Evaluates a machine learning model."""
 
