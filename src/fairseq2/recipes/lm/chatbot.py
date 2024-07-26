@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import sys
 from argparse import ArgumentParser, Namespace
 from datetime import timedelta
@@ -27,7 +29,7 @@ from fairseq2.recipes.cli import CliCommandHandler
 from fairseq2.recipes.logging import setup_basic_logging
 from fairseq2.recipes.utils.argparse import parse_dtype
 from fairseq2.recipes.utils.environment import default_env_setters
-from fairseq2.recipes.utils.setup import setup_gangs
+from fairseq2.recipes.utils.setup import check_model_type, setup_gangs
 from fairseq2.typing import CPU, override
 from fairseq2.utils.rng import RngBag
 
@@ -35,7 +37,7 @@ log = get_log_writer(__name__)
 
 
 @final
-class ChatbotCommand(CliCommandHandler):
+class ChatbotCommandHandler(CliCommandHandler):
     """Runs a chatbot."""
 
     @override
@@ -45,7 +47,7 @@ class ChatbotCommand(CliCommandHandler):
             "--model",
             dest="model_name",
             metavar="MODEL_NAME",
-            default="llama3_8b_instruct",
+            default="llama3_1_8b_instruct",
             help="instruct model name (default: %(default)s)",
         )
 
@@ -87,7 +89,7 @@ class ChatbotCommand(CliCommandHandler):
         parser.add_argument(
             "--max-gen-len",
             type=int,
-            default=512,
+            default=2048,
             help="maximum sequence generation length (default: %(default)s)",
         )
 
@@ -133,35 +135,35 @@ class ChatbotCommand(CliCommandHandler):
         if gangs["dp"].size > 1:
             log.warning("Using redundant data parallelism which may slow down response times. It is recommended to use one device per model shard (i.e. a single device for a non-sharded model).")  # fmt: skip
 
-        log.info("Loading {} model.", args.model_name)
-
-        model = load_model(args.model_name, gangs=gangs, dtype=args.dtype)
-
-        if not isinstance(model, DecoderModel):
-            log.error("The model must be a decoder model.")
-
-            sys.exit(1)
-
-        log.info("Model loaded.")
-
+        # Load the tokenizer.
         log.info("Loading {} tokenizer.", args.model_name)
 
         tokenizer = load_text_tokenizer(args.model_name)
 
         log.info("Tokenizer loaded.")
 
+        # Load the model.
+        log.info("Loading {} model.", args.model_name)
+
+        model = load_model(args.model_name, gangs=gangs, dtype=args.dtype)
+
+        check_model_type(model, DecoderModel)
+
+        log.info("Model loaded.")
+
+        # Initialize the chatbot.
+        sampler = TopPSampler(p=args.top_p)
+
+        generator = SamplingSequenceGenerator(
+            model, sampler, temperature=args.temperature, max_gen_len=args.max_gen_len  # type: ignore[arg-type]
+        )
+
+        chatbot = create_chatbot(generator, tokenizer)
+
         rng_bag = RngBag.from_device_defaults(CPU, root_gang.device)
 
         # Set the seed for sequence generation.
         rng_bag.manual_seed(args.seed)
-
-        sampler = TopPSampler(p=args.top_p)
-
-        generator = SamplingSequenceGenerator(
-            model, sampler, temperature=args.temperature, max_gen_len=args.max_gen_len
-        )
-
-        chatbot = create_chatbot(generator, tokenizer)
 
         self._do_run(args.model_name, chatbot, root_gang)
 

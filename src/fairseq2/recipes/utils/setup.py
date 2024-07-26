@@ -4,11 +4,15 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from datetime import timedelta
-from typing import Any, Dict, Literal, Optional, Tuple
+from typing import Any, Dict, Literal, Optional, Tuple, Type
 
 import torch
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn import Module
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 from fairseq2.device import determine_default_device
 from fairseq2.gang import Gang, setup_default_gang, setup_parallel_gangs
@@ -77,7 +81,7 @@ def setup_gangs(
         gangs = setup_parallel_gangs(root_gang, tp_size=tp_size)
     except ValueError as ex:
         raise RuntimeError(
-            f"The size of the root gang ({root_gang.size}) is not divisible by `config.tensor_parallel_size` ({tp_size})."
+            f"The size of the root gang ({root_gang.size}) is not divisible by `tensor_parallel_size` ({tp_size})."
         ) from ex
 
     log.info("Data and tensor parallel gangs initialized.")
@@ -175,7 +179,7 @@ def to_data_parallel(
         return model
 
     raise ValueError(
-        f"`config.data_parallelism` must be 'ddp' or 'fsdp', but is '{parallelism}' instead."
+        f"`data_parallelism` must be 'ddp' or 'fsdp', but is '{parallelism}' instead."
     )
 
 
@@ -186,3 +190,14 @@ def compile_model(model: Module, log: LogWriter, *, dynamic: bool = True) -> Mod
     return torch.compile(  # type: ignore[return-value]
         model, dynamic=dynamic, options={"shape_padding": dynamic}
     )
+
+
+def check_model_type(model: Module, kls: Type[Module]) -> None:
+    """Check if a potentially DDP or FSDP wrapped `model` is of type `kls`."""
+    if isinstance(model, (DDP, FSDP)):
+        model = model.module
+
+    if not isinstance(model, kls):
+        raise ValueError(
+            f"The specified model must be of type `{kls}`, but is of type `{type(model)}` instead."
+        )

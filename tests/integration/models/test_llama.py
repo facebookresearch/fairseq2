@@ -8,7 +8,7 @@ import os
 
 import pytest
 
-from fairseq2.assets import asset_store, download_manager
+from fairseq2.assets import default_asset_store, default_download_manager
 from fairseq2.models.llama import create_llama_model, llama_archs
 from fairseq2.models.llama.integ import convert_to_reference_checkpoint
 from fairseq2.models.llama.loader import convert_llama_checkpoint
@@ -23,9 +23,9 @@ from tests.common import device
 def test_convert_to_reference_checkpoint() -> None:
     model_config = llama_archs.get("llama2_7b")
 
-    card = asset_store.retrieve_card("llama2_7b")
+    card = default_asset_store.retrieve_card("llama2_7b")
 
-    path = download_manager.download_checkpoint(
+    path = default_download_manager.download_checkpoint(
         card.field("checkpoint").as_uri(), model_name="llama2_7b", progress=False
     )
 

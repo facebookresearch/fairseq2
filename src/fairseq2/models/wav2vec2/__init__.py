@@ -4,14 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from fairseq2.models.wav2vec2.archs import wav2vec2_arch as wav2vec2_arch
-from fairseq2.models.wav2vec2.archs import wav2vec2_archs as wav2vec2_archs
-from fairseq2.models.wav2vec2.archs import (
-    wav2vec2_encoder_arch as wav2vec2_encoder_arch,
-)
-from fairseq2.models.wav2vec2.archs import (
-    wav2vec2_encoder_archs as wav2vec2_encoder_archs,
-)
+from __future__ import annotations
+
 from fairseq2.models.wav2vec2.factory import WAV2VEC2_FAMILY as WAV2VEC2_FAMILY
 from fairseq2.models.wav2vec2.factory import Wav2Vec2Builder as Wav2Vec2Builder
 from fairseq2.models.wav2vec2.factory import Wav2Vec2Config as Wav2Vec2Config
@@ -23,6 +17,14 @@ from fairseq2.models.wav2vec2.factory import (
 )
 from fairseq2.models.wav2vec2.factory import (
     create_wav2vec2_model as create_wav2vec2_model,
+)
+from fairseq2.models.wav2vec2.factory import wav2vec2_arch as wav2vec2_arch
+from fairseq2.models.wav2vec2.factory import wav2vec2_archs as wav2vec2_archs
+from fairseq2.models.wav2vec2.factory import (
+    wav2vec2_encoder_arch as wav2vec2_encoder_arch,
+)
+from fairseq2.models.wav2vec2.factory import (
+    wav2vec2_encoder_archs as wav2vec2_encoder_archs,
 )
 from fairseq2.models.wav2vec2.feature_extractor import (
     Wav2Vec2FbankFeatureExtractor as Wav2Vec2FbankFeatureExtractor,
@@ -47,11 +49,4 @@ from fairseq2.models.wav2vec2.position_encoder import (
 
 # isort: split
 
-from fairseq2.models.loader import load_model
-from fairseq2.models.wav2vec2.archs import _register_wav2vec2_archs
-
-
-def _register_wav2vec2() -> None:
-    _register_wav2vec2_archs()
-
-    load_model.register(WAV2VEC2_FAMILY, load_wav2vec2_model)
+import fairseq2.models.wav2vec2.archs  # Register architectures.

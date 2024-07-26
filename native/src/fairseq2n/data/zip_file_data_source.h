@@ -37,8 +37,8 @@ public:
     void
     reload_position(tape &t, bool strict) override;
 
-    bool
-    is_infinite() const noexcept override;
+    data_source_finitude_type
+    finitude_type() const noexcept override;
 
 private:
     memory_block

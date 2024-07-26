@@ -53,8 +53,8 @@ public:
     void
     reload_position(tape &t);
 
-    bool
-    is_infinite() const;
+    data_source_finitude_type
+    finitude_type() const;
 
     bool
     is_broken() const noexcept
@@ -83,13 +83,17 @@ public:
     count(std::int64_t start = 0, std::int64_t step = 1, std::optional<std::string> key = {});
 
     static data_pipeline_builder
-    round_robin(std::vector<data_pipeline> pipelines, bool stop_at_shortest = false);
+    round_robin(
+        std::vector<data_pipeline> pipelines, 
+        bool stop_at_shortest = false, 
+        bool allow_repeats = true);
 
     static data_pipeline_builder
     sample(
         std::vector<data_pipeline> pipelines,
         std::optional<std::vector<float>> maybe_weights = {},
-        std::optional<std::uint64_t> maybe_seed = {});
+        std::optional<std::uint64_t> maybe_seed = {},
+        bool allow_repeats = true);
 
     static data_pipeline_builder
     zip(
@@ -112,6 +116,8 @@ using data_length_fn = std::function<std::size_t(const data &)>;
 using map_fn = std::function<data(data &&)>;
 
 using predicate_fn = std::function<bool(const data &)>;
+
+using cost_fn = std::function<float64(const data &)>;
 
 using yield_fn = std::function<data_pipeline(const data &)>;
 
@@ -140,6 +146,14 @@ public:
         std::size_t min_data_len = 1,
         bool skip_below_min_examples = false,
         bool skip_above_max_examples = false,
+        bool drop_remainder = false) &&;
+
+    data_pipeline_builder
+    dynamic_bucket(
+        float64 threshold,
+        cost_fn fn,
+        std::optional<std::size_t> maybe_min_num_examples = std::nullopt,
+        std::optional<std::size_t> maybe_max_num_examples = std::nullopt,
         bool drop_remainder = false) &&;
 
     data_pipeline_builder

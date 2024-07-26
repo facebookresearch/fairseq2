@@ -4,11 +4,13 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from pathlib import Path
 from typing import List, final
 
 from fairseq2.assets import AssetCard
-from fairseq2.data.text import AbstractTextTokenizerLoader
+from fairseq2.data.text import AbstractTextTokenizerLoader, load_text_tokenizer
 from fairseq2.models.nllb.tokenizer import NllbTokenizer
 from fairseq2.typing import override
 
@@ -27,3 +29,5 @@ class NllbTokenizerLoader(AbstractTextTokenizerLoader[NllbTokenizer]):
 
 
 load_nllb_tokenizer = NllbTokenizerLoader()
+
+load_text_tokenizer.register("nllb", load_nllb_tokenizer)

@@ -101,7 +101,7 @@ class StandardEmbedding(Embedding):
             gradient; therefore, the embedding at ``pad_idx`` is not updated
             during training.
         :param init_fn:
-            The callable to use for parameter initialization.
+            The callable to initialize the embedding table.
         """
         super().__init__(num_embeddings, embedding_dim, pad_idx)
 
@@ -208,7 +208,7 @@ class VocabShardedEmbedding(Embedding):
             gradient; therefore, the embedding at ``pad_idx`` is not updated
             during training.
         :param init_fn:
-            The callable to use for parameter initialization.
+            The callable to initialize the embedding table.
         """
         super().__init__(num_embeddings, embedding_dim, pad_idx)
 
@@ -388,7 +388,7 @@ class ShardedEmbedding(Embedding):
             gradient; therefore, the embedding at ``pad_idx`` is not updated
             during training.
         :param init_fn:
-            The callable to use for parameter initialization.
+            The callable to initialize the embedding table.
         """
         super().__init__(num_embeddings, embedding_dim, pad_idx)
 

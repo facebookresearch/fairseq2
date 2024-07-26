@@ -5,9 +5,9 @@
 # LICENSE file in the root directory of this source tree.
 
 name: nllb-200
-model_type: transformer  # compat
 model_family: transformer
 tokenizer: "https://tinyurl.com/flores200sacrebleuspm"
+tokenizer_family: nllb
 default_lang: eng_Latn
 langs:
   - ace_Arab
@@ -217,26 +217,26 @@ langs:
 
 name: nllb-200_dense_1b
 base: nllb-200
-model_arch: nllb-200_dense_1b
+model_arch: nllb_dense_1b
 checkpoint: "https://tinyurl.com/nllb200dense1bcheckpoint"
 
 ---
 
 name: nllb-200_dense_3b
 base: nllb-200
-model_arch: nllb-200_dense_3b
+model_arch: nllb_dense_3b
 checkpoint: "https://tinyurl.com/nllb200dense3bcheckpoint"
 
 ---
 
 name: nllb-200_dense_distill_1b
 base: nllb-200
-model_arch: nllb-200_dense_1b
+model_arch: nllb_dense_1b
 checkpoint: "https://tinyurl.com/nllb200densedst1bcheckpoint"
 
 ---
 
 name: nllb-200_dense_distill_600m
 base: nllb-200
-model_arch: nllb-200_dense_600m
+model_arch: nllb_dense_600m
 checkpoint: "https://tinyurl.com/nllb200densedst600mcheckpoint"

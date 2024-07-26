@@ -13,6 +13,9 @@ on:
       - 'ci/**'
       - 'doc/**'
 
+env:
+    ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+
 jobs:
   build_wheel-linux:
     name: Build wheels (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }}, ${{ matrix.sanitizers }})

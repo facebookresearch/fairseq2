@@ -18,6 +18,7 @@ from fairseq2.data import VocabularyInfo
 from fairseq2.generation.generator import (
     AbstractSeq2SeqGenerator,
     AbstractSequenceGenerator,
+    GenerationCounters,
     Hypothesis,
     Seq2SeqGeneratorOutput,
     SequenceGeneratorOutput,
@@ -30,6 +31,7 @@ from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.typing import override
+from fairseq2.utils.profiler import Stopwatch
 
 
 @final
@@ -48,7 +50,7 @@ class BeamSearchSequenceGenerator(AbstractSequenceGenerator):
     _len_penalty: float
     _prefill_chunk_size: Optional[int]
     _decode_capacity_increment: Optional[int]
-    _step_processors: List[StepProcessor]
+    _step_processors: Sequence[StepProcessor]
 
     def __init__(
         self,
@@ -150,7 +152,7 @@ class BeamSearchSequenceGenerator(AbstractSequenceGenerator):
         self._decode_capacity_increment = decode_capacity_increment
 
         if step_processors:
-            self._step_processors = list(step_processors)
+            self._step_processors = step_processors
         else:
             self._step_processors = []
 
@@ -179,9 +181,9 @@ class BeamSearchSequenceGenerator(AbstractSequenceGenerator):
             self._step_hooks,
         )
 
-        hypotheses = op()
+        hypotheses, counters = op()
 
-        return SequenceGeneratorOutput(hypotheses)
+        return SequenceGeneratorOutput(hypotheses, counters)
 
 
 @final
@@ -200,7 +202,7 @@ class BeamSearchSeq2SeqGenerator(AbstractSeq2SeqGenerator):
     _len_penalty: float
     _prefill_chunk_size: Optional[int]
     _decode_capacity_increment: Optional[int]
-    _step_processors: List[StepProcessor]
+    _step_processors: Sequence[StepProcessor]
 
     def __init__(
         self,
@@ -293,7 +295,7 @@ class BeamSearchSeq2SeqGenerator(AbstractSeq2SeqGenerator):
         self._decode_capacity_increment = decode_capacity_increment
 
         if step_processors:
-            self._step_processors = list(step_processors)
+            self._step_processors = step_processors
         else:
             self._step_processors = []
 
@@ -354,9 +356,11 @@ class BeamSearchSeq2SeqGenerator(AbstractSeq2SeqGenerator):
             self._step_hooks,
         )
 
-        hypotheses = op()
+        hypotheses, counters = op()
 
-        return Seq2SeqGeneratorOutput(hypotheses, encoder_output, encoder_padding_mask)
+        return Seq2SeqGeneratorOutput(
+            hypotheses, encoder_output, encoder_padding_mask, counters
+        )
 
 
 class BeamSearchAlgorithm(ABC):
@@ -467,7 +471,7 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
     _unk_penalty: float
     _len_penalty: float
     _prefill_chunk_size: Optional[int]
-    _step_processors: List[StepProcessor]
+    _step_processors: Sequence[StepProcessor]
     _step_hooks: Dict[int, StepHook]
     _step_nr: int
     _state_bag: IncrementalStateBag
@@ -478,6 +482,7 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
     _seqs: Tensor
     _step_scores: Tensor
     _output: List[List[Hypothesis]]
+    _counters: GenerationCounters
 
     def __init__(
         self,
@@ -496,7 +501,7 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
         len_penalty: float,
         prefill_chunk_size: Optional[int],
         decode_capacity_increment: Optional[int],
-        step_processors: List[StepProcessor],
+        step_processors: Sequence[StepProcessor],
         step_hooks: Dict[int, StepHook],
     ) -> None:
         self._algorithm = algorithm
@@ -592,18 +597,27 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
         # Holds the sequences that have reached EOS.
         self._output = [[] for _ in range(num_prompts)]
 
-    def __call__(self) -> List[List[Hypothesis]]:
+        self._counters = GenerationCounters()
+
+    def __call__(self) -> Tuple[List[List[Hypothesis]], GenerationCounters]:
         self._prepare_state()
+
+        watch = Stopwatch(start=True, device=self._seqs.device)
 
         for self._step_nr in range(self._min_prompt_len, self._max_seq_len):
             if not self._step():
                 break
 
+        self._counters.generation_time = watch.get_elapsed_time()
+
+        self._counters.cache_size = self._state_bag.size_bytes()
+        self._counters.cache_capacity = self._state_bag.capacity_bytes()
+
         # Sort the hypotheses by their scores before returning.
         for hypotheses in self._output:
             hypotheses.sort(key=lambda h: h.score, reverse=True)  # type: ignore[arg-type, return-value]
 
-        return self._output
+        return self._output, self._counters
 
     def _prepare_state(self) -> None:
         # Fast-forward to the first step that needs to be generated.
@@ -668,11 +682,15 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
             for hook in self._step_hooks.values():
                 hook(self._prompt_indices, seqs, step_scores, prefill=True)
 
+        self._counters.prefill_size += prefill_len * self._seqs.size(0)
+
     def _step(self) -> bool:
         # Generate the next step output.
         model_output = self._decode(self._seqs[:, self._step_nr - 1 : self._step_nr])
 
         self._state_bag.increment_step_nr()
+
+        self._counters.num_generated_elements += self._seqs.size(0)
 
         logits = model_output.logits
 
@@ -926,7 +944,7 @@ class _BeamSearchSequenceGeneratorOp(_AbstractBeamSearchSequenceGeneratorOp):
         len_penalty: float,
         prefill_chunk_size: Optional[int],
         decode_capacity_increment: Optional[int],
-        step_processors: List[StepProcessor],
+        step_processors: Sequence[StepProcessor],
         step_hooks: Dict[int, StepHook],
     ) -> None:
         super().__init__(
@@ -987,7 +1005,7 @@ class _BeamSearchSeq2SeqGeneratorOp(_AbstractBeamSearchSequenceGeneratorOp):
         len_penalty: float,
         prefill_chunk_size: Optional[int],
         decode_capacity_increment: Optional[int],
-        step_processors: List[StepProcessor],
+        step_processors: Sequence[StepProcessor],
         step_hooks: Dict[int, StepHook],
     ) -> None:
         super().__init__(

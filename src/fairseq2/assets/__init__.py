@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from fairseq2.assets.card import AssetCard as AssetCard
 from fairseq2.assets.card import AssetCardError as AssetCardError
 from fairseq2.assets.card import (
@@ -37,11 +39,8 @@ from fairseq2.assets.metadata_provider import (
 from fairseq2.assets.metadata_provider import (
     PackageAssetMetadataProvider as PackageAssetMetadataProvider,
 )
+from fairseq2.assets.metadata_provider import load_metadata_file as load_metadata_file
 from fairseq2.assets.store import AssetStore as AssetStore
 from fairseq2.assets.store import EnvironmentResolver as EnvironmentResolver
 from fairseq2.assets.store import StandardAssetStore as StandardAssetStore
 from fairseq2.assets.store import default_asset_store as default_asset_store
-
-# For backwards-compatibility with v0.2
-asset_store = default_asset_store
-download_manager = default_download_manager

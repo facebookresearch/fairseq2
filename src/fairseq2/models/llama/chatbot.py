@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from typing import List, final
 
 import torch
@@ -17,6 +19,8 @@ from fairseq2.generation import (
     ChatMessage,
     SequenceGenerator,
 )
+from fairseq2.models.chatbot import create_chatbot
+from fairseq2.models.llama.factory import LLAMA_FAMILY
 from fairseq2.models.llama.tokenizer import LLaMA3Tokenizer
 from fairseq2.nn.utils.module import infer_device
 from fairseq2.typing import override
@@ -131,8 +135,8 @@ class LLaMA3Chatbot(AbstractChatbot):
             eot_idx = tokenizer.encoding.encode_single_token("<|eot_id|>")
         except KeyError:
             raise RuntimeError(
-                "One or more special symbols required for the chatbot are not found in the tokenizer. Please file a bug report."
-            )
+                "One or more special symbols required for the chatbot are not found in the tokenizer. Please file a bug report to the model author."
+            ) from None
 
         self._bos_idx = torch.tensor([bos_idx], device=device)
         self._boh_idx = torch.tensor([boh_idx], device=device)
@@ -210,3 +214,6 @@ def create_llama_chatbot(
         return LLaMA3Chatbot(generator, tokenizer)
 
     return LLaMAChatbot(generator, tokenizer)
+
+
+create_chatbot.register(LLAMA_FAMILY, create_llama_chatbot)

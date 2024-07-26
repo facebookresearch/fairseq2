@@ -8,20 +8,24 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Optional, Tuple, cast, final
+from typing import Literal, Optional, Tuple, final
 
 import torch
 import torch.distributed
 from torch import Tensor
 from torch.nn import Module
 
-from fairseq2.checkpoint import FileCheckpointManager
+from fairseq2.assets import AssetNotFoundError, default_asset_store
+from fairseq2.checkpoint import CheckpointModelMetadataProvider, FileCheckpointManager
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_text_tokenizer
-from fairseq2.datasets.instruction import load_instruction_dataset
+from fairseq2.datasets import LengthBatching
+from fairseq2.datasets.instruction import (
+    GenericInstructionDataset,
+    load_instruction_dataset,
+)
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
-from fairseq2.metrics import MetricBag
 from fairseq2.models import load_model
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.sequence import (
@@ -33,11 +37,20 @@ from fairseq2.nn.checkpointing import use_layerwise_activation_checkpointing
 from fairseq2.nn.transformer import enable_memory_efficient_torch_sdpa
 from fairseq2.optim import AdamW
 from fairseq2.optim.lr_scheduler import CosineAnnealingLR
-from fairseq2.recipes.criterion import AbstractCriterion
-from fairseq2.recipes.metrics import SequenceModelMetricBag
-from fairseq2.recipes.trainer import StandardTrainer
+from fairseq2.recipes.common_metrics import SequenceMetricBag
+from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
+from fairseq2.recipes.utils.asset import (
+    AssetReference,
+    asset_as_path,
+    retrieve_asset_card,
+)
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import compile_model, setup_gangs, to_data_parallel
+from fairseq2.recipes.utils.setup import (
+    check_model_type,
+    compile_model,
+    setup_gangs,
+    to_data_parallel,
+)
 from fairseq2.typing import META, DataType, override
 from fairseq2.utils.profiler import Stopwatch
 
@@ -46,13 +59,11 @@ log = get_log_writer(__name__)
 
 @dataclass
 class InstructionFinetuneConfig:
-    """Holds the configuration of an instruction-finetuning recipe."""
+    """Holds the configuration of a language model instruction-finetuning task."""
 
-    dataset_name: str = "openeft"  # TODO: change!
-    """The dataset to train with. Should match the fairseq2 asset name."""
-
-    tokenizer_name: str = "llama3_instruct"
-    """The tokenizer to use."""
+    # Data
+    dataset: AssetReference = "foo"  # TODO: change!
+    """The name, path, or path to the asset card of the instruction dataset."""
 
     max_seq_len: int = 8192
     """The maximum sequence length."""
@@ -70,8 +81,8 @@ class InstructionFinetuneConfig:
     """The number of batches to prefetch in background."""
 
     # Model
-    model_name: str = "llama3_8b_instruct"
-    """The name of the model to finetune."""
+    model: AssetReference = "llama3_8b_instruct"
+    """The name or path to the asset card of the language model to finetune."""
 
     dtype: DataType = torch.bfloat16
     """The data type of the model."""
@@ -86,7 +97,7 @@ class InstructionFinetuneConfig:
     """If ``True``, reshards the parameters only after the backward pass."""
 
     tensor_parallel_size: int = 1
-    """The size of Megatron-style tensor parallelism."""
+    """The size of tensor parallelism."""
 
     activation_checkpointing: bool = True
     """If ``True``, uses layer-wise activation checkpointing."""
@@ -132,8 +143,15 @@ class InstructionFinetuneConfig:
     keep_last_n_checkpoints: Optional[int] = 1
     """The number of checkpoints to keep. If ``None``, none will be deleted."""
 
+    keep_last_n_models: Optional[int] = None
+    """The number of checkpoint models to keep. If ``None``, none will be deleted."""
+
     publish_metrics_every_n_steps: int = 10
     """The step interval at which to publish training metrics."""
+
+    # Checkpointing
+    resume_checkpoint_dir: Optional[Path] = None
+    """If not ``None``, adds the specified path to the default asset store."""
 
     # Misc
     seed: int = 2
@@ -154,6 +172,27 @@ instruction_finetune_presets = ConfigRegistry[InstructionFinetuneConfig]()
 instruction_finetune_preset = instruction_finetune_presets.decorator
 
 
+@instruction_finetune_preset("llama2_7b_chat")
+def _llama2_7b_chat() -> InstructionFinetuneConfig:
+    config = _llama3_8b_instruct()
+
+    config.max_seq_len = 4096
+    config.max_num_tokens = 4096 * 2
+    config.model = "llama2_7b_chat"
+
+    return config
+
+
+@instruction_finetune_preset("llama2_70b_chat")
+def _llama2_70b_chat() -> InstructionFinetuneConfig:
+    config = _llama2_7b_chat()
+
+    config.model = "llama2_70b_chat"
+    config.tensor_parallel_size = 8
+
+    return config
+
+
 @instruction_finetune_preset("llama3_8b_instruct")
 def _llama3_8b_instruct() -> InstructionFinetuneConfig:
     return InstructionFinetuneConfig()
@@ -163,29 +202,7 @@ def _llama3_8b_instruct() -> InstructionFinetuneConfig:
 def _llama3_70b_instruct() -> InstructionFinetuneConfig:
     config = _llama3_8b_instruct()
 
-    config.model_name = "llama3_70b_instruct"
-    config.tensor_parallel_size = 8
-
-    return config
-
-
-@instruction_finetune_preset("llama2_7b_chat")
-def _llama2_7b_chat() -> InstructionFinetuneConfig:
-    config = _llama3_8b_instruct()
-
-    config.model_name = "llama2_7b_chat"
-    config.tokenizer_name = "llama2"
-    config.max_seq_len = 4096
-    config.max_num_tokens = 4096 * 2
-
-    return config
-
-
-@instruction_finetune_preset("llama2_70b_chat")
-def _llama2_70b_chat() -> InstructionFinetuneConfig:
-    config = _llama2_7b_chat()
-
-    config.model_name = "llama2_70b_chat"
+    config.model = "llama3_70b_instruct"
     config.tensor_parallel_size = 8
 
     return config
@@ -193,8 +210,8 @@ def _llama2_70b_chat() -> InstructionFinetuneConfig:
 
 def load_instruction_finetuner(
     config: InstructionFinetuneConfig, output_dir: Path
-) -> StandardTrainer[SequenceBatch]:
-    """Load a :class:`Trainer` for instruction finetuning."""
+) -> Trainer[SequenceBatch]:
+    """Load a :class:`Trainer` for language model instruction-finetuning."""
     wall_watch = Stopwatch(start=True)
 
     root_gang, gangs = setup_gangs(
@@ -204,73 +221,82 @@ def load_instruction_finetuner(
     dp_gang = gangs["dp"]  # data
     tp_gang = gangs["tp"]  # tensor
 
-    log.info("Loading {} tokenizer.", config.tokenizer_name)
-
-    tokenizer = load_text_tokenizer(config.tokenizer_name)
-
-    log.info("Tokenizer loaded.")
-
-    log.info("Loading {} dataset.", config.dataset_name)
-
-    dataset = load_instruction_dataset(config.dataset_name)
-
-    data_reader = dataset.create_reader(
-        split="train",
-        tokenizer=tokenizer,
-        gang=dp_gang,
-        max_seq_len=config.max_seq_len,
-        max_num_tokens=config.max_num_tokens,
-        example_shuffle_window=config.example_shuffle_window,
-        batch_shuffle_window=config.batch_shuffle_window,
-        num_accumulate=config.gradient_accumulation,
-        num_prefetch=config.num_prefetch,
-        seed=config.seed,
-    )
-
-    data_readers = {"train": data_reader}
-
-    log.info("Dataset loaded.")
-
-    # Initialize the model.
-    init_device = META
-
-    # Set up the checkpoint manager.
     checkpoint_manager = FileCheckpointManager(
         output_dir.joinpath("checkpoints"), root_gang, dp_gang=dp_gang, tp_gang=tp_gang
     )
 
+    if config.resume_checkpoint_dir is not None:
+        default_asset_store.metadata_providers.append(
+            CheckpointModelMetadataProvider(config.resume_checkpoint_dir)
+        )
+
+    seed = config.seed
+
+    model_card = retrieve_asset_card(config.model)
+
+    # Load the tokenizer.
+    log.info("Loading {} tokenizer.", model_card.name)
+
+    tokenizer = load_text_tokenizer(model_card)
+
+    log.info("Tokenizer loaded.")
+
+    # Load the dataset.
+    try:
+        dataset_card = retrieve_asset_card(config.dataset)
+    except AssetNotFoundError:
+        dataset_card = None
+
+    if dataset_card is not None:
+        log.info("Loading {} instruction dataset.", dataset_card.name)
+
+        dataset = load_instruction_dataset(dataset_card)
+
+        log.info("Dataset loaded.")
+    else:
+        dataset_path = asset_as_path(config.dataset)
+
+        dataset = GenericInstructionDataset.from_path(dataset_path)
+
+    # Load the model.
+    init_device = META
+
     has_checkpoint = checkpoint_manager.has_checkpoint()
 
     if has_checkpoint:
-        model = load_model(
-            config.model_name, gangs=gangs, device=init_device, dtype=torch.float32
-        )
+        try:
+            model = load_model(
+                model_card, gangs=gangs, device=init_device, dtype=torch.float32
+            )
+        except ValueError as ex:
+            raise ValueError(
+                "The model cannot be initialized. See nested exception for details."
+            ) from ex
     # If we don't have a checkpoint, load the pretrained model on rank 0 and
     # broadcast it to the gang.
     else:
-        log.info("Loading {} model on data parallel rank 0 (per shard).", config.model_name)  # fmt: skip
+        log.info("Loading {} model on data parallel rank 0 (per shard).", model_card.name)  # fmt: skip
 
         if dp_gang.rank == 0:
             init_device = root_gang.device
 
-        model = load_model(
-            config.model_name, gangs=gangs, device=init_device, dtype=torch.float32
-        )
+        try:
+            model = load_model(
+                model_card, gangs=gangs, device=init_device, dtype=torch.float32
+            )
+        except ValueError as ex:
+            raise ValueError(
+                "The model cannot be initialized. See nested exception for details."
+            ) from ex
 
         root_gang.barrier()
 
         log.info("Model loaded on data parallel rank 0.")
 
-    if not isinstance(model, DecoderModel):
-        raise ValueError("`config.model_name` must specify a decoder model.")
-
-    if model.vocab_info != tokenizer.vocab_info:
-        raise ValueError(
-            "`vocab_info` of the model and `vocab_info` of the tokenizer do not match."
-        )
+    check_model_type(model, DecoderModel)
 
     checkpoint_manager.save_model_metadata(
-        base_asset=config.model_name, family=model.family
+        base_asset=model_card.name, family=model.family
     )
 
     dp_model = to_data_parallel(
@@ -299,8 +325,22 @@ def load_instruction_finetuner(
 
     log_model(dp_model, log, rank=root_gang.rank)
 
-    # Initialize the criterion and the optimizer.
-    criterion = InstructionFinetuneCriterion(dp_model, dp_gang)
+    # Initialize the train unit and the optimizer.
+    unit = InstructionFinetuneUnit(dp_model, dp_gang)
+
+    data_reader = dataset.create_reader(
+        tokenizer,
+        dp_gang,
+        config.max_seq_len,
+        batching=LengthBatching(config.max_num_tokens),
+        example_shuffle_window=config.example_shuffle_window,
+        batch_shuffle_window=config.batch_shuffle_window,
+        num_accumulate=config.gradient_accumulation,
+        num_prefetch=config.num_prefetch,
+        seed=seed,
+    )
+
+    seed += 1
 
     optimizer = AdamW(
         model.parameters(),
@@ -316,10 +356,11 @@ def load_instruction_finetuner(
         final_lr=config.lr * config.final_lr_ratio,
     )
 
-    # Set up the finetuner.
-    return StandardTrainer[SequenceBatch](
-        criterion=criterion,
-        gang=root_gang,
+    # Initialize the trainer.
+    return Trainer[SequenceBatch](
+        unit=unit,
+        data_reader=data_reader,
+        root_gang=root_gang,
         dp_gang=dp_gang,
         tp_gang=tp_gang,
         dtype=config.dtype,
@@ -327,57 +368,61 @@ def load_instruction_finetuner(
         lr_scheduler=lr_scheduler,
         fp16_loss_scale=config.fp16_loss_scale,
         max_gradient_norm=config.max_gradient_norm,
-        data_readers=data_readers,
         max_num_steps=config.max_num_steps,
         max_num_data_epochs=config.max_num_data_epochs,
         checkpoint_manager=checkpoint_manager,
         checkpoint_every_n_steps=config.checkpoint_every_n_steps,
         keep_last_n_checkpoints=config.keep_last_n_checkpoints,
+        keep_last_n_models=config.keep_last_n_models,
         tb_dir=output_dir.joinpath("tb"),
+        metrics_dir=output_dir.joinpath("metrics"),
         publish_metrics_every_n_steps=config.publish_metrics_every_n_steps,
         profile=config.profile,
         anomaly_detection=config.anomaly_detection,
-        seed=config.seed,
+        seed=seed,
         wall_watch=wall_watch,
     )
 
 
 @final
-class InstructionFinetuneCriterion(AbstractCriterion[SequenceBatch]):
-    """Computes cross entropy loss of a Language Model."""
+class InstructionFinetuneUnit(AbstractTrainUnit[SequenceBatch]):
+    """Represents a language model instruction-finetuning unit."""
 
-    _train_metric_bag: SequenceModelMetricBag
-    _valid_metric_bag: MetricBag
+    _metric_bag: SequenceMetricBag
 
     def __init__(self, model: Module, gang: Gang) -> None:
+        """
+        :param model:
+            The language model. Might be wrapped with DDP or FSDP.
+        :param gang:
+            The gang for distributed training.
+        """
         super().__init__(model)
 
-        self._train_metric_bag = SequenceModelMetricBag(gang)
-        self._valid_metric_bag = MetricBag(gang)
+        check_model_type(model, DecoderModel)
+
+        self._metric_bag = SequenceMetricBag(gang)
 
     @override
-    def compute_loss(self, batch: SequenceBatch) -> Tuple[Tensor, int]:
-        batch, target_batch = as_auto_regressive_input(batch)
+    def __call__(self, batch: SequenceBatch) -> Tuple[Tensor, int]:
+        input_batch, target_batch = as_auto_regressive_input(batch)
 
-        output = cast(SequenceModelOutput, self._model(batch))
+        output = self._forward(input_batch)
 
         loss = output.compute_loss(
             target_batch.seqs, loss_mask=target_batch.target_mask
         )
 
-        if self._model.training:
-            self._train_metric_bag.update(target_batch, loss)
+        self._metric_bag.update_nll_loss(target_batch, loss.detach())
+
+        self._metric_bag.update_batch_metrics(target_batch)
 
         return loss, target_batch.num_target_elements()
 
-    @final
-    @property
-    @override
-    def train_metric_bag(self) -> SequenceModelMetricBag:
-        return self._train_metric_bag
+    def _forward(self, batch: SequenceBatch) -> SequenceModelOutput:
+        return self._model(batch)  # type: ignore[no-any-return]
 
-    @final
     @property
     @override
-    def valid_metric_bag(self) -> MetricBag:
-        return self._valid_metric_bag
+    def metric_bag(self) -> SequenceMetricBag:
+        return self._metric_bag

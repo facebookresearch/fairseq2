@@ -4,8 +4,10 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import Any, Optional, Sequence, Tuple, Union, final
+from typing import Any, Literal, Optional, Sequence, Tuple, Union, final
 
 import torch
 import torch.nn as nn
@@ -127,38 +129,42 @@ class RMSNorm(LayerNorm):
     """Applies Root Mean Square Layer Normalization to incoming data as
     described in :cite:t:`https://doi.org/10.48550/arxiv.1910.07467`."""
 
-    _supports_apex: bool
+    _impl: str
+    _use_apex: bool
 
     def __init__(
-        self, *args: Any, use_apex: Optional[bool] = None, **kwargs: Any
+        self, *args: Any, impl: Literal["auto", "py", "apex"] = "auto", **kwargs: Any
     ) -> None:
         """
         See :class:`LayerNorm` for ``args`` and ``kwargs``.
 
-        :param use_apex:
-            If ``True``, uses the APEX implementation. If ``None``, attempts to
-            use the APEX implementation only if it is available.
+        :param impl:
+            The underlying implementation. If 'auto', attempts to use APEX if
+            installed; otherwise, falls back to Python.
         """
         super().__init__(*args, **kwargs)
 
-        if use_apex is None:
-            use_apex = _has_apex and self.bias is None
-        elif use_apex:
+        if impl == "auto":
+            impl = "apex" if _has_apex and self.bias is None else "py"
+
+        if impl == "apex":
             if not _has_apex:
                 raise RuntimeError(
-                    "`use_apex` is `True`, but no APEX installation can be found."
+                    "`impl` is 'apex', but no APEX installation can be found."
                 )
 
             if self.bias is not None:
                 raise RuntimeError(
-                    "`use_apex is `True`, but APEX does not support the `bias` parameter."
+                    "`impl` is 'apex', but APEX does not support the `bias` parameter."
                 )
 
-        self._supports_apex = use_apex
+        self._impl = impl
+
+        self._use_apex = impl == "apex"
 
     @override
     def forward(self, x: Tensor) -> Tensor:
-        if self._supports_apex and x.is_cuda:
+        if self._use_apex and x.is_cuda:
             return self._apex_forward(x)
 
         # For numerical stability normalize in single precision.
@@ -186,15 +192,15 @@ class RMSNorm(LayerNorm):
         return x * torch.rsqrt(x.pow(2).mean(dims, keepdim=True) + self.eps)
 
     @property
-    def supports_apex(self) -> bool:
-        """``True`` if this instance supports APEX."""
-        return self._supports_apex
+    def impl(self) -> str:
+        """The underlying implementation."""
+        return self._impl
 
     def extra_repr(self) -> str:
         """:meta private:"""
         s = super().extra_repr()
 
-        if self._supports_apex:
-            s = f"{s}, supports_apex=True"
+        if self._impl != "py":
+            s = f"{s}, impl={self._impl}"
 
         return s

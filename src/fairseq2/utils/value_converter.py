@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import sys
 from enum import Enum
 from pathlib import Path, PosixPath
 from typing import (
@@ -76,6 +77,13 @@ class ValueConverter:
             # fmt: on
         }
 
+        if sys.version_info >= (3, 10):
+            from types import UnionType
+
+            # Unions types in PEP 604 (i.e. pipe) syntax are represented by
+            # `types.UnionType`.
+            self._structure_fns[UnionType] = self._structure_union
+
     def structure(self, obj: Any, type_hint: Any) -> Any:
         """
         :param obj:
@@ -103,7 +111,7 @@ class ValueConverter:
 
             raise ValueError(
                 f"`type_hint` of `obj` must be of one of the following, but is `{type_hint}` instead: {supported}"
-            )
+            ) from None
 
         try:
             return fn(kls, kls_args, obj)
@@ -112,7 +120,8 @@ class ValueConverter:
                 f"`obj` cannot be structured to type `{type_hint}`. See nested exception for details."
             ) from ex
 
-    def _structure_identity(cls, kls: Any, kls_args: Any, obj: Any) -> Any:
+    @staticmethod
+    def _structure_identity(kls: Any, kls_args: Any, obj: Any) -> Any:
         if isinstance(obj, kls):
             return obj
 
@@ -194,7 +203,7 @@ class ValueConverter:
             except KeyError:
                 raise ValueError(
                     f"`obj` must be one of the following enumeration values, but is '{obj}' instead: {', '.join(e.name for e in enum_kls)}."
-                )
+                ) from None
 
         raise TypeError(
             f"`obj` must be of type `{kls}` or `{str}`, but is of type `{type(obj)}` instead."
@@ -314,7 +323,7 @@ class ValueConverter:
 
             raise TypeError(
                 f"`obj` must be of one of the following types, but is of type `{type(obj)}` instead: {supported_types}"
-            )
+            ) from None
 
         return fn(kls, obj)
 

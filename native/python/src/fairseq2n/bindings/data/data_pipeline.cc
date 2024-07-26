@@ -5,6 +5,7 @@
 // LICENSE file in the root directory of this source tree.
 
 #include "fairseq2n/bindings/module.h"
+#include "fairseq2n/bindings/data/iterator_data_source.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -223,7 +224,7 @@ def_data_pipeline(py::module_ &data_module)
             py::arg("reset_rng") = false,
             py::call_guard<py::gil_scoped_release>{})
 
-        .def("is_infinite", &data_pipeline::is_infinite)
+        .def("finitude_type", &data_pipeline::finitude_type)
 
         .def_property_readonly("is_broken", &data_pipeline::is_broken)
 
@@ -322,7 +323,9 @@ def_data_pipeline(py::module_ &data_module)
         .def_static(
             "round_robin",
             [](
-                std::vector<std::reference_wrapper<data_pipeline>> &refs, bool stop_at_shortest)
+                std::vector<std::reference_wrapper<data_pipeline>> &refs, 
+                bool stop_at_shortest,
+                bool allow_repeats)
             {
                 std::vector<data_pipeline> pipelines{};
 
@@ -333,16 +336,18 @@ def_data_pipeline(py::module_ &data_module)
                         return std::move(r.get());
                     });
 
-                return data_pipeline::round_robin(std::move(pipelines), stop_at_shortest);
+                return data_pipeline::round_robin(std::move(pipelines), stop_at_shortest, allow_repeats);
             },
             py::arg("pipelines"),
-            py::arg("stop_at_shortest") = false)
+            py::arg("stop_at_shortest") = false,
+            py::arg("allow_repeats") = true)
         .def_static(
             "sample",
             [](
                 std::vector<std::reference_wrapper<data_pipeline>> &refs,
                 std::optional<std::vector<float>> maybe_weights,
-                std::optional<std::uint64_t> maybe_seed)
+                std::optional<std::uint64_t> maybe_seed,
+                bool allow_repeats)
             {
                 std::vector<data_pipeline> pipelines{};
 
@@ -354,11 +359,12 @@ def_data_pipeline(py::module_ &data_module)
                     });
 
                 return data_pipeline::sample(
-                    std::move(pipelines), std::move(maybe_weights), maybe_seed);
+                    std::move(pipelines), std::move(maybe_weights), maybe_seed, allow_repeats);
             },
             py::arg("pipelines"),
             py::arg("weights") = std::nullopt,
-            py::arg("seed") = std::nullopt)
+            py::arg("seed") = std::nullopt,
+            py::arg("allow_repeats") = true)
         .def_static(
             "zip",
             [](
@@ -472,6 +478,30 @@ def_data_pipeline(py::module_ &data_module)
             py::arg("pad_to_multiple") = 1,
             py::arg("overrides") = std::nullopt,
             py::arg("num_parallel_calls") = 1)
+        .def(
+            "dynamic_bucket",
+            [](
+                data_pipeline_builder &self,
+                float64 threshold,
+                cost_fn fn,
+                std::optional<std::size_t> maybe_min_num_examples,
+                std::optional<std::size_t> maybe_max_num_examples,
+                bool drop_remainder) -> data_pipeline_builder &
+            {
+                self = std::move(self).dynamic_bucket(
+                    threshold,
+                    std::move(fn),
+                    maybe_min_num_examples,
+                    maybe_max_num_examples,
+                    drop_remainder);
+
+                return self;
+            },
+            py::arg("threshold"),
+            py::arg("fn"),
+            py::arg("min_num_examples") = std::nullopt,
+            py::arg("max_num_examples") = std::nullopt,
+            py::arg("drop_remainder") = false)
         .def(
             "filter",
             [](data_pipeline_builder &self, predicate_fn fn) -> data_pipeline_builder &
@@ -624,6 +654,19 @@ def_data_pipeline(py::module_ &data_module)
     m.def("read_sequence", &read_list, py::arg("seq"));
 
     m.def("read_zipped_records", &read_zipped_records, py::arg("path"));
+
+    m.def("read_iterator",
+            [](py::iterator iterator, reset_fn fn, bool infinite) {
+                auto factory = [iterator = std::move(iterator), fn = std::move(fn), infinite]() mutable
+                {
+                    return std::make_unique<iterator_data_source>(std::move(iterator), std::move(fn), infinite);
+                };
+
+                return data_pipeline_builder{std::move(factory)};
+            },
+            py::arg("iterator"),
+            py::arg("reset_fn"),
+            py::arg("infinite"));
 
     // Collater
     py::class_<collate_options_override>(m, "CollateOptionsOverride")

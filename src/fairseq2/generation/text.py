@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from typing import List, Optional, Sequence, Tuple, final
 
 from torch import Tensor
@@ -161,6 +163,7 @@ class TextTranslator:
         tokenizer: TextTokenizer,
         source_lang: Optional[str] = None,
         target_lang: Optional[str] = None,
+        *,
         max_source_len: Optional[int] = None,
     ) -> None:
         """

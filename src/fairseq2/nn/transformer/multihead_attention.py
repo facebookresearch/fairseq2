@@ -711,6 +711,18 @@ class FullAttentionState(AttentionState):
         self._k = self._k.index_select(0, new_order)
         self._v = self._v.index_select(0, new_order)
 
+    @override
+    def size_bytes(self) -> int:
+        batch_size, num_heads, _, head_dim = self._k.shape
+
+        numel = 2 * batch_size * num_heads * self._seq_len * head_dim
+
+        return numel * self._k.dtype.itemsize
+
+    @override
+    def capacity_bytes(self) -> int:
+        return 2 * self._k.numel() * self._k.dtype.itemsize
+
 
 @final
 class LocalAttentionState(AttentionState):
@@ -843,6 +855,21 @@ class LocalAttentionState(AttentionState):
         self._k = self._k.index_select(0, new_order)
         self._v = self._v.index_select(0, new_order)
 
+    @override
+    def size_bytes(self) -> int:
+        if self._seq_len >= self._attn_window_len:
+            return self.capacity_bytes()
+
+        batch_size, num_heads, _, head_dim = self._k.shape
+
+        numel = 2 * batch_size * num_heads * self._seq_len * head_dim
+
+        return numel * self._k.dtype.itemsize
+
+    @override
+    def capacity_bytes(self) -> int:
+        return 2 * self._k.numel() * self._k.dtype.itemsize
+
 
 @final
 class LocalAttentionStateFactory(AttentionStateFactory):
@@ -899,3 +926,11 @@ class StaticAttentionState(AttentionState):
         if new_order.size(0) != self._k.size(0):
             self._k = self._k.index_select(0, new_order)
             self._v = self._v.index_select(0, new_order)
+
+    @override
+    def size_bytes(self) -> int:
+        return self.capacity_bytes()
+
+    @override
+    def capacity_bytes(self) -> int:
+        return 2 * self._k.numel() * self._k.dtype.itemsize

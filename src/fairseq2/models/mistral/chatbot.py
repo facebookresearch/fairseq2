@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from typing import List, final
 
 import torch
@@ -11,6 +13,8 @@ from torch import Tensor
 
 from fairseq2.data.text import TextTokenEncoder, TextTokenizer
 from fairseq2.generation import AbstractChatbot, ChatDialog, SequenceGenerator
+from fairseq2.models.chatbot import create_chatbot
+from fairseq2.models.mistral.factory import MISTRAL_FAMILY
 from fairseq2.nn.utils.module import infer_device
 from fairseq2.typing import override
 
@@ -83,3 +87,6 @@ class MistralChatbot(AbstractChatbot):
     @override
     def supports_system_prompt(self) -> bool:
         return False
+
+
+create_chatbot.register(MISTRAL_FAMILY, MistralChatbot)

@@ -4,8 +4,10 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import logging
-from typing import Any, Optional, Tuple
+from typing import Any, Optional, Tuple, Union
 
 import torch
 from torch import Tensor
@@ -14,7 +16,7 @@ from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn import Module
 from torch.nn.utils import clip_grad_norm_  # type: ignore[attr-defined]
 
-from fairseq2.gang import Gang, ReduceOperation
+from fairseq2.gang import Gang, all_sum
 from fairseq2.logging import get_log_writer
 
 log = get_log_writer(__name__)
@@ -30,15 +32,13 @@ def normalize_gradients(module: Module, gang: Gang, num_targets: int) -> None:
     :param num_target:
         The number of targets used in loss computation in this process.
     """
-    total_num_targets = torch.tensor(num_targets, device=gang.device, dtype=torch.int64)
-
-    gang.all_reduce(total_num_targets, ReduceOperation.SUM)
+    total_num_targets = all_sum(gang, num_targets)
 
     # Both DDP and FSDP divide gradients by the world size which we also undo.
     scale_gradients(module, gang.size / total_num_targets)
 
 
-def scale_gradients(module: Module, value: float) -> None:
+def scale_gradients(module: Module, value: Union[float, Tensor]) -> None:
     """Scale gradients of ``module`` by ``value``.
 
     :param module:

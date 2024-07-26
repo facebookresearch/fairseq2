@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from pathlib import Path
 
 import pytest
@@ -46,7 +48,7 @@ class TestRoundRobinOp:
 
             pipeline.reset()
 
-    def test_op_works_when_infinite_pipeline_is_specified(self) -> None:
+    def test_op_works_when_pseudo_infinite_pipeline_is_specified(self) -> None:
         pipeline1 = read_sequence([1, 2, 3, 4]).and_return()
         pipeline2 = DataPipeline.constant(0).and_return()
         pipeline3 = read_sequence([0, 2, 4, 6]).and_return()
@@ -57,6 +59,22 @@ class TestRoundRobinOp:
 
         for _ in range(2):
             assert list(pipeline) == [1, 0, 0, 2, 0, 2, 3, 0, 4, 4, 0, 6]
+
+            pipeline.reset()
+
+    def test_op_works_when_infinite_pipeline_is_specified(self) -> None:
+        pipeline1 = read_sequence([1, 2, 3, 4]).and_return()
+        pipeline2 = read_sequence([0]).repeat().and_return()
+        pipeline3 = read_sequence([0, 2, 4, 6]).and_return()
+
+        pipeline = DataPipeline.round_robin(
+            [pipeline1, pipeline2, pipeline3]
+        ).and_return()
+
+        for _ in range(2):
+            it = iter(pipeline)
+
+            [next(it) for i in range(15)] == [1, 0, 0, 2, 0, 2, 3, 0, 4, 4, 0, 6, 1, 0, 0]  # fmt: skip
 
             pipeline.reset()
 
@@ -102,6 +120,22 @@ class TestRoundRobinOp:
         ).and_return()
 
         seq = [1, 5, 7, 2, 6, 8]
+
+        for _ in range(2):
+            assert list(pipeline) == seq
+
+            pipeline.reset()
+
+    def test_op_works_when_pipelines_allow_repeats_false_is_specified(self) -> None:
+        pipeline1 = read_sequence([1, 2, 3, 4]).and_return()
+        pipeline2 = read_sequence([5, 6]).and_return()
+        pipeline3 = read_sequence([7, 8, 9, 0, 1, 2]).and_return()
+
+        pipeline = DataPipeline.round_robin(
+            [pipeline1, pipeline2, pipeline3], allow_repeats=False
+        ).and_return()
+
+        seq = [1, 5, 7, 2, 6, 8, 3, 9, 4, 0, 1, 2]
 
         for _ in range(2):
             assert list(pipeline) == seq

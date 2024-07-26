@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from pathlib import Path
 from typing import Optional, Sequence, Set, final
 
@@ -99,7 +101,7 @@ class NllbTokenizer(SentencePieceTokenizer):
             # Target sequences are expected to start with an EOS, followed by
             # the language token.
             prefix_tokens = ["</s>", f"__{lang}__"]
-            suffix_tokens = []
+            suffix_tokens = ["</s>"]
         else:
             raise ValueError(
                 f"`mode` must be 'source' or 'target', but is '{mode}' instead."

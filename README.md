@@ -27,6 +27,7 @@ As of today, the following models are available in fairseq2:
  * [LLaMA](src/fairseq2/models/llama)
  * [LLaMA 2](src/fairseq2/models/llama)
  * [LLaMA 3](src/fairseq2/models/llama)
+ * [LLaMA 3.1](src/fairseq2/models/llama)
  * [Mistral 7B](src/fairseq2/mistral)
  * [NLLB-200](src/fairseq2/models/nllb)
  * [S2T Transformer + Conformer](src/fairseq2/models/s2t_transformer)

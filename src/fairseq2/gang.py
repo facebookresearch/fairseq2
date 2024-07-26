@@ -6,12 +6,11 @@
 
 from __future__ import annotations
 
-import logging
 import os
 from abc import ABC, abstractmethod
 from datetime import timedelta
 from enum import Enum
-from typing import Any, Dict, List, Optional, Sequence, final
+from typing import Any, Dict, List, Optional, Sequence, Union, final
 
 import torch
 import torch.distributed as dist
@@ -93,8 +92,18 @@ class Gang(ABC):
         """
 
     @abstractmethod
+    def broadcast(self, tensor: Tensor, source_rank: int = 0) -> None:
+        """Broadcast ``tensor`` from ``source_rank`` to all processes.
+
+        :param tensor:
+            The tensor to be sent from ``source_rank``.
+        :param source_rank:
+            The rank of the process from which to broadcast ``tensor``.
+        """
+
+    @abstractmethod
     def broadcast_objects(self, objects: List[Any], source_rank: int = 0) -> None:
-        """Broadcast picklable ``objects`` from ``source_rank``.
+        """Broadcast picklable ``objects`` from ``source_rank`` to all processes.
 
         :param objects:
             The list of picklable objects to broadcast. Each process must
@@ -267,6 +276,13 @@ class FakeGang(AbstractGang):
 
         for i in range(self._size):
             output_tensors[i].copy_(input_tensor)
+
+    @override
+    def broadcast(self, tensor: Tensor, source_rank: int = 0) -> None:
+        if source_rank != self._rank:
+            raise ValueError(
+                f"`source_rank` must be {self._rank}, but is {source_rank} instead."
+            )
 
     @override
     def broadcast_objects(self, objects: List[Any], source_rank: int = 0) -> None:
@@ -517,10 +533,16 @@ class ProcessGroupGang(AbstractGang):
         dist.all_gather(output_tensors, input_tensor, group=self._pg)
 
     @override
+    def broadcast(self, tensor: Tensor, source_rank: int = 0) -> None:
+        self._maybe_monitored_barrier()
+
+        dist.broadcast(tensor, source_rank, group=self._pg)
+
+    @override
     def broadcast_objects(self, objects: List[Any], source_rank: int = 0) -> None:
         self._maybe_monitored_barrier()
 
-        dist.broadcast_object_list(objects, source_rank)
+        dist.broadcast_object_list(objects, source_rank, group=self._pg)
 
     def _maybe_monitored_barrier(self) -> None:
         if self._monitor_pg is None:
@@ -650,7 +672,7 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Dict[str, Gang
 
     dp_size = root_gang.size // tp_size
 
-    if log.is_enabled_for(logging.INFO):
+    if log.is_enabled_for_info():
         for name, size in [("data", dp_size), ("tensor", tp_size)]:
             log.info("Initializing {} parallelism with a gang of size {}.", name, size)
 
@@ -688,3 +710,24 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Dict[str, Gang
     assert tp_gang is not None
 
     return {"root": root_gang, "dp": dp_gang, "tp": tp_gang}
+
+
+def broadcast_flag(gang: Gang, flag: bool, source_rank: int = 0) -> bool:
+    """Broadcast ``flag`` to  all processes in ``gang`` from ``source_rank``."""
+    tmp = torch.tensor(flag, device=gang.device)
+
+    gang.broadcast(tmp, source_rank)
+
+    return bool(tmp)
+
+
+def all_sum(gang: Gang, value: Union[float, int, Tensor]) -> Tensor:
+    """Sum ``value`` over all processes in ``gang``."""
+    if isinstance(value, Tensor):
+        output = value
+    else:
+        output = torch.tensor(value, device=gang.device)
+
+    gang.all_reduce(output, ReduceOperation.SUM)
+
+    return output

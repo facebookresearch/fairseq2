@@ -4,7 +4,9 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import List, Optional, Sequence, Tuple, final
+from __future__ import annotations
+
+from typing import Optional, Sequence, Tuple, final
 
 import torch
 import torch.nn as nn
@@ -26,7 +28,7 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
     :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`."""
 
     layers: Sequential
-    layer_descs: List[Tuple[int, int, int]]
+    layer_descs: Sequence[Tuple[int, int, int]]
     num_channels: int
     gradient_scale: float
 
@@ -119,7 +121,7 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
 
             input_dim = output_dim
 
-        self.layer_descs = list(layer_descs)
+        self.layer_descs = layer_descs
 
         if gradient_scale <= 0.0 or gradient_scale > 1.0:
             raise ValueError(

@@ -45,10 +45,10 @@ take_data_source::reload_position(tape &t, bool strict)
     inner_->reload_position(t, strict);
 }
 
-bool
-take_data_source::is_infinite() const noexcept
+data_source_finitude_type
+take_data_source::finitude_type() const noexcept
 {
-    return false;
+    return data_source_finitude_type::finite;
 }
 
 }  // namespace fairseq2n::detail

@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import os
 from pathlib import Path
 from typing import Optional
@@ -29,7 +31,7 @@ def get_int_from_env(var_name: str, allow_zero: bool = False) -> Optional[int]:
     except ValueError:
         raise RuntimeError(
             f"The value of the `{var_name}` environment variable must be an integer, but is '{s}' instead."
-        )
+        ) from None
 
     if not allow_zero:
         if not value >= 1:

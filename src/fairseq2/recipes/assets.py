@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import sys
 from argparse import ArgumentParser, Namespace
 from collections import defaultdict
@@ -19,9 +21,11 @@ from fairseq2.assets import (
     default_asset_store,
 )
 from fairseq2.console import get_console
+from fairseq2.data.text import is_tokenizer_card
+from fairseq2.datasets import is_dataset_card
 from fairseq2.logging import get_log_writer
+from fairseq2.models import is_model_card
 from fairseq2.recipes.cli import Cli, CliCommandHandler
-from fairseq2.recipes.logging import setup_basic_logging
 from fairseq2.typing import override
 
 log = get_log_writer(__name__)
@@ -54,7 +58,8 @@ class ListAssetsCommand(CliCommandHandler):
     def __init__(self, asset_store: Optional[AssetStore] = None) -> None:
         """
         :param asset_store:
-            The asset store from which to retrieve the asset cards.
+            The asset store from which to retrieve the asset cards. If ``None``,
+            the default asset store will be used.
         """
         self._asset_store = asset_store or default_asset_store
 
@@ -69,8 +74,6 @@ class ListAssetsCommand(CliCommandHandler):
 
     @override
     def __call__(self, args: Namespace) -> None:
-        setup_basic_logging()
-
         usr_assets = self._retrieve_assets(args, user=True)
         glb_assets = self._retrieve_assets(args, user=False)
 
@@ -92,9 +95,14 @@ class ListAssetsCommand(CliCommandHandler):
         names = self._asset_store.retrieve_names(scope="user" if user else "global")
 
         for name in names:
-            card = self._asset_store.retrieve_card(
-                name, scope="all" if user else "global"
-            )
+            try:
+                card = self._asset_store.retrieve_card(
+                    name, scope="all" if user else "global"
+                )
+            except AssetNotFoundError:
+                log.warning("The asset '{}' has an invalid card. Skipping.", name)
+
+                continue
 
             if name[-1] == "@":
                 name = name[:-1]
@@ -107,19 +115,16 @@ class ListAssetsCommand(CliCommandHandler):
             types = []
 
             if args.type == "all" or args.type == "model":
-                if card.field("model_family").exists():
+                if is_model_card(card):
                     types.append("model")
 
             if args.type == "all" or args.type == "dataset":
-                if card.field("dataset_family").exists():
+                if is_dataset_card(card):
                     types.append("dataset")
 
             if args.type == "all" or args.type == "tokenizer":
-                for field_name in ("tokenizer_family", "tokenizer"):
-                    if card.field(field_name).exists():
-                        types.append("tokenizer")
-
-                        break
+                if is_tokenizer_card(card):
+                    types.append("tokenizer")
 
             if args.type == "all" and not types:
                 types.append("other")
@@ -162,7 +167,8 @@ class ShowAssetCommand(CliCommandHandler):
     def __init__(self, asset_store: Optional[AssetStore] = None) -> None:
         """
         :param asset_store:
-            The asset store from which to retrieve the asset cards.
+            The asset store from which to retrieve the asset cards. If ``None``,
+            the default asset store will be used.
         """
         self._asset_store = asset_store or default_asset_store
 
@@ -187,8 +193,6 @@ class ShowAssetCommand(CliCommandHandler):
 
     @override
     def __call__(self, args: Namespace) -> None:
-        setup_basic_logging()
-
         try:
             card: Optional[AssetCard] = self._asset_store.retrieve_card(
                 args.name, envs=args.envs, scope=args.scope
@@ -222,10 +226,6 @@ class ShowAssetCommand(CliCommandHandler):
         for key, value in items:
             # Skip dunder keys (e.g. __base_path__).
             if len(key) > 4 and key.startswith("__") and key.endswith("__"):
-                continue
-
-            # compat
-            if key == "model_type":
                 continue
 
             console.print(f"  [bold]{key:<16}:[/bold] {pretty_repr(value)}")

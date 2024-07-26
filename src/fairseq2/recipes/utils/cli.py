@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from rich.progress import (
     BarColumn,
     Progress,
@@ -34,9 +36,7 @@ def create_rich_progress() -> Progress:
 
     rank = get_rank()
 
-    return Progress(
-        *columns, auto_refresh=False, transient=True, console=console, disable=rank != 0
-    )
+    return Progress(*columns, transient=True, console=console, disable=rank != 0)
 
 
 class BasicMofNCompleteColumn(ProgressColumn):

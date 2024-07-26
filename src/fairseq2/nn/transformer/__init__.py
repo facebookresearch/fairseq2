@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from fairseq2.nn.transformer.attention import SDPA as SDPA
 from fairseq2.nn.transformer.attention import NaiveSDPA as NaiveSDPA
 from fairseq2.nn.transformer.attention import SDPAFactory as SDPAFactory

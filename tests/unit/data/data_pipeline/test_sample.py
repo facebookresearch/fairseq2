@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import math
 from pathlib import Path
 
@@ -41,6 +43,23 @@ class TestSampleOp:
 
             pipeline.reset(reset_rng=True)
 
+    def test_op_works_when_allow_repeats_false_is_specified(self) -> None:
+        pipeline1 = read_sequence([1, 2, 3, 4]).and_return()
+        pipeline2 = read_sequence([5, 6]).and_return()
+        pipeline3 = read_sequence([7, 8, 9, 10, 11, 12]).and_return()
+
+        pipeline = DataPipeline.sample(
+            [pipeline1, pipeline2, pipeline3],
+            weights=[0.3, 0.6, 0.1],
+            allow_repeats=False,
+            seed=1234,
+        ).and_return()
+
+        for _ in range(2):
+            assert list(pipeline) == [1, 5, 2, 6, 3, 4, 7, 8, 9, 10, 11, 12]
+
+            pipeline.reset(reset_rng=True)
+
     def test_op_works_when_a_single_pipeline_is_specified(self) -> None:
         pipeline1 = read_sequence([1, 2, 3, 4]).and_return()
 
@@ -60,7 +79,7 @@ class TestSampleOp:
 
             pipeline.reset(reset_rng=True)
 
-    def test_op_works_when_infinite_pipeline_is_specified(self) -> None:
+    def test_op_works_when_pseudo_infinite_pipeline_is_specified(self) -> None:
         pipeline1 = read_sequence([1, 2, 3, 4]).and_return()
         pipeline2 = DataPipeline.count(5).and_return()
 
@@ -72,6 +91,18 @@ class TestSampleOp:
             assert list(pipeline) == [1, 5, 2, 3, 4]
 
             pipeline.reset(reset_rng=True)
+
+    def test_op_works_when_infinite_pipeline_is_specified(self) -> None:
+        pipeline1 = read_sequence([1, 2, 3, 4]).and_return()
+        pipeline2 = read_sequence([5, 6, 7, 8]).repeat().and_return()
+
+        pipeline = DataPipeline.sample(
+            [pipeline1, pipeline2], weights=[0.4, 0.6], seed=1234
+        ).and_return()
+
+        it = iter(pipeline)
+
+        assert [next(it) for i in range(10)] == [1, 5, 2, 3, 4, 6, 1, 7, 8, 2]
 
     def test_op_raises_error_when_pipeline_is_empty(self) -> None:
         pipeline1 = read_sequence([1, 2]).and_return()
@@ -190,3 +221,35 @@ class TestSampleOp:
 
         with pytest.raises(StopIteration):
             next(iter(pipeline))
+
+    def test_op_saves_and_restores_state_when_allow_repeats_false_is_specified(
+        self,
+    ) -> None:
+        pipeline1 = read_sequence([1, 2, 3, 4]).and_return()
+        pipeline2 = read_sequence([5, 6]).and_return()
+        pipeline3 = read_sequence([7, 8, 9, 10, 11, 12]).and_return()
+
+        pipeline = DataPipeline.sample(
+            [pipeline1, pipeline2, pipeline3],
+            weights=[0.3, 0.6, 0.1],
+            allow_repeats=False,
+            seed=1234,
+        ).and_return()
+
+        it = iter(pipeline)
+
+        for _ in range(2):
+            assert next(it) == 1
+            assert next(it) == 5
+            assert next(it) == 2
+            assert next(it) == 6
+
+            state_dict = pipeline.state_dict()
+
+            assert list(pipeline) == [3, 4, 7, 8, 9, 10, 11, 12]
+
+            pipeline.load_state_dict(state_dict)
+
+            assert list(pipeline) == [3, 4, 7, 8, 9, 10, 11, 12]
+
+            pipeline.reset(reset_rng=True)
