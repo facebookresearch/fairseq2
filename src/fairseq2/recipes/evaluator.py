@@ -6,18 +6,27 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 import importlib
+from abc import ABC, abstractmethod
 from itertools import count
 from pathlib import Path
-from typing import Any, Callable, Dict, Generic, List, Optional, Sequence, TypeVar, final
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generic,
+    List,
+    Optional,
+    Sequence,
+    TypeVar,
+    final,
+)
 
 import torch
 from torch import Tensor
 from torch.nn import Module
 
 from fairseq2.data.text.text_tokenizer import TextTokenizer
-from fairseq2.models.sequence import SequenceBatch
 from fairseq2.datasets import DataReader
 from fairseq2.gang import FakeGang, Gang, all_sum
 from fairseq2.logging import get_log_writer
@@ -30,6 +39,7 @@ from fairseq2.metrics import (
     record_metrics,
 )
 from fairseq2.models.model import Model
+from fairseq2.models.sequence import SequenceBatch
 from fairseq2.recipes.common_metrics import set_throughput_value
 from fairseq2.recipes.utils.cli import create_rich_progress
 from fairseq2.typing import CPU, override
@@ -419,9 +429,13 @@ class HFEvaluator(Generic[BatchT]):
                     inputs = SequenceBatch(batch.source_seqs, batch.source_padding_mask)
                     outputs = self._model(inputs)
                     hypotheses, _ = outputs.generate_hypotheses(pad_idx=pad_idx)
-                    predictions=[decoder(item) for item in hypotheses]
-                    references=[decoder(item) for item in batch.target_seqs.to(torch.int32)]
-                    self._metrics.add_batch(predictions=predictions, references=references)
+                    predictions = [decoder(item) for item in hypotheses]
+                    references = [
+                        decoder(item) for item in batch.target_seqs.to(torch.int32)
+                    ]
+                    self._metrics.add_batch(
+                        predictions=predictions, references=references
+                    )
 
                 self._root_gang.barrier()
 
@@ -445,7 +459,7 @@ class HFEvaluator(Generic[BatchT]):
         #
         ##########################################################
         values = self._metrics.compute()
-        
+
         # In all other rank, values will be zero
         if self._tp_gang.rank != 0 or self._dp_gang.rank != 0:
             return
