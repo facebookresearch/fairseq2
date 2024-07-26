@@ -349,7 +349,7 @@ class HFEvaluator(Evaluator, Generic[BatchT]):
         # the remove the placeholder 'self,_metrics = None` below
         #
         #########################################################
-        self._metrics = [evaluate.load(metric) for metric in metrics]
+        self._metrics = evaluate.combine(metrics)
 
         self._tokenizer = tokenizer
 
@@ -419,10 +419,9 @@ class HFEvaluator(Evaluator, Generic[BatchT]):
                     inputs = SequenceBatch(batch.source_seqs, batch.source_padding_mask)
                     outputs = self._model(inputs)
                     hypotheses, _ = outputs.generate_hypotheses(pad_idx=pad_idx)
-                    for metric in self._metrics:
-                        predictions=[decoder(item) for item in hypotheses]
-                        references=[decoder(item) for item in batch.target_seqs.to(torch.int32)]
-                        metric.add_batch(predictions=predictions, references=references)
+                    predictions=[decoder(item) for item in hypotheses]
+                    references=[decoder(item) for item in batch.target_seqs.to(torch.int32)]
+                    self._metrics.add_batch(predictions=predictions, references=references)
 
                 self._root_gang.barrier()
 
@@ -445,11 +444,8 @@ class HFEvaluator(Evaluator, Generic[BatchT]):
         # then remove the placeholder "values = None" right below.
         #
         ##########################################################
-        values = {}
-        for metric in self._metrics:
-            results = metric.compute()
-            values.update(results)
-
+        values = self._metrics.compute()
+        
         # In all other rank, values will be zero
         if self._tp_gang.rank != 0 or self._dp_gang.rank != 0:
             return
