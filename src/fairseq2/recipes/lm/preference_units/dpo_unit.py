@@ -20,9 +20,6 @@ from fairseq2.models.sequence import (
     as_auto_regressive_input,
 )
 from fairseq2.recipes.common_metrics import SequenceMetricBag
-from fairseq2.recipes.lm.preference_units.preference_criterion_config import (
-    PreferenceCriterionConfig,
-)
 from fairseq2.recipes.trainer import AbstractTrainUnit
 from fairseq2.typing import DataType, override
 
@@ -30,7 +27,7 @@ log = get_log_writer(__name__)
 
 
 @dataclass
-class DpoFinetuneConfig(PreferenceCriterionConfig):
+class DpoFinetuneConfig:
     """Holds the DPO-finetuning configuration of a language model."""
 
     # Hyperparameters
@@ -63,16 +60,13 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
     def __init__(
         self,
         model: Module,
-        reference_model: Union[Module | None],
+        reference_model: Module,
         gang: Gang,
         beta: float = 0.1,
         nll_scale: float = 1.0,
     ) -> None:
         super().__init__(model)
 
-        assert (
-            reference_model is not None
-        )  # is this the best way to asset this? Is there an error already built for this?
         self._reference_model = reference_model
         self._beta = beta
         self._nll_scale = nll_scale
