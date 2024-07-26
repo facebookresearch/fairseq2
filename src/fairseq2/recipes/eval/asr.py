@@ -72,8 +72,15 @@ class AsrEvalConfig(HFEvalConfig):
 
 
 def _librispeech_asr_to_batch(examples: Example) -> Seq2SeqBatch:
-    # FIXME: Implement the function to convert the collated data loaded from HF dataset
-    # "librispeech_asr" to Seq2SeqBatch
+    """
+    Converts a collated batch of examples into a Seq2SeqBatch.
+
+    Args:
+        examples (dict): A dictionary containing "audio" and "text" keys.
+
+    Returns:
+        Seq2SeqBatch: A batch of audio and text sequences.
+    """
     source_data = cast(SequenceData, examples["audio"])
     target_data = cast(SequenceData, examples["text"])
 
@@ -125,20 +132,17 @@ def load_wav2vec2_asr_evaluator(
     """
     Load the evaluator used for downstream evaluation of the model
     in a downstream dataset and report BLEU scores
+
+    Args:
+        config (HFEvalConfig): The configuration for the evaluation.
+        output_dir (Path): The output directory to store the evaluation results.
+
+    Returns:
+        HFEvaluator: Evaluation process results.
     """
     if not isinstance(config, AsrEvalConfig):
         raise ValueError(f"Expect AsrEvalConfig, get {type(config)}")
 
-    ##########################################################################
-    # FIXME: Implement the evaluator loader that:
-    # - Construct the DataPipelineReader from its dataset_name and split
-    #   using fairseq2.datasets.huggingface.create_hf_reader()
-    # - Load wav2vec2 ASR model where the model card is given in `model_name`
-    # - Load BLEU from evaluate library
-    # - Build the HFEvaluator accordingly
-    ##########################################################################
-
-    # Load dataset
     iterable_ds = load_dataset(config.dataset_name, split=config.split, streaming=True)
     max_samples = config.max_samples if config.max_samples is not None else math.inf
     # Load a subset of the dataset if max_samples is set
@@ -151,7 +155,6 @@ def load_wav2vec2_asr_evaluator(
         features=iterable_ds.features,
     )
 
-    # Setup GANG
     gang = setup_root_gang(log)
 
     if gang.rank == 0:
@@ -159,12 +162,9 @@ def load_wav2vec2_asr_evaluator(
     else:
         init_device = META
 
-    # Load tokenizer
     tokenizer = load_text_tokenizer(config.tokenizer_name)
-
     encoder = tokenizer.create_encoder(device=init_device)
 
-    # Preprocess dataset
     ds = ds.map(lambda x: _preprocess_example(x, encoder, init_device))
     format = {
         "type": "torch",
@@ -172,7 +172,6 @@ def load_wav2vec2_asr_evaluator(
     }
     ds.set_format(**format, columns=["audio", "text"])
 
-    # Create data pipeline from dataset
     pipeline_reader = create_hf_reader(
         dataset=ds,
         gang=gang,
@@ -183,12 +182,10 @@ def load_wav2vec2_asr_evaluator(
         max_seq_len=config.max_audio_len,
     )
 
-    # Load model
     model = load_wav2vec2_asr_model(
         config.model_name, device=init_device, dtype=config.dtype
     )
 
-    # Setup watch
     wall_watch = Stopwatch(start=True, device=init_device)
 
     return HFEvaluator[Seq2SeqBatch](

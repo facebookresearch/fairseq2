@@ -329,6 +329,12 @@ class HFEvaluator(Generic[BatchT]):
             The data reader of the eval split.
         :param wall_watch:
             The stopwatch to track process wall-time.
+        :param tokenizer:
+            The tokenizer to use for decoding the model outputs.
+        :param dp_gang:
+            The data parallel gang. If ``None``, ``gang`` will be used.
+        :param tp_gang:
+            The tensor parallel gang. Only required for tensor parallel models.
         :param tb_dir:
             The TensorBoard log directory to dump metrics.
         """
@@ -354,11 +360,6 @@ class HFEvaluator(Generic[BatchT]):
 
         self._data_reader = data_reader
 
-        #########################################################
-        # FIXME: Implement the loading of evaluate metrics here,
-        # the remove the placeholder 'self,_metrics = None` below
-        #
-        #########################################################
         self._metrics = evaluate.combine(metrics)
 
         self._tokenizer = tokenizer
@@ -387,11 +388,6 @@ class HFEvaluator(Generic[BatchT]):
         log.info("Running evaluation on {} device(s).", self._root_gang.size)
 
         try:
-            ##########################################################
-            # FIXME: Integrate the update_batch() of the evaluate here
-            # See StandardEvaluator._do_run() for an example
-            #
-            ##########################################################
             self._do_run()
             self._publish_evaluation_metrics()
         except KeyboardInterrupt:
@@ -452,12 +448,6 @@ class HFEvaluator(Generic[BatchT]):
         so we do not to call explicitly sync_and_compute_metrics(), but simply
         evaluate.compute()
         """
-
-        ##########################################################
-        # FIXME: Integrate the compute() of the evaluate here
-        # then remove the placeholder "values = None" right below.
-        #
-        ##########################################################
         values = self._metrics.compute()
 
         # In all other rank, values will be zero

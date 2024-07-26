@@ -26,5 +26,3 @@ def _setup_eval_cli(cli: Cli) -> None:
     group = cli.add_group("eval", help="Evaluate fairseq2 models in downstream tasks")
 
     _add_wav2vev2_asr_eval_cli(group)
-    # Bonus FIXME: Add an external ASR model (Whisper) to evaluate under the same benchmark
-    # _add_whisper_eval_cli(group)
