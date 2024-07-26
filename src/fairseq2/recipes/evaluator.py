@@ -98,7 +98,7 @@ class AbstractEvalUnit(EvalUnit[BatchT]):
         return self._display_name
 
 
-# @final
+@final
 class Evaluator(Generic[BatchT]):
     """Evaluates a machine learning model."""
 
@@ -282,7 +282,7 @@ class Evaluator(Generic[BatchT]):
 
 
 @final
-class HFEvaluator(Evaluator, Generic[BatchT]):
+class HFEvaluator(Generic[BatchT]):
     """Evaluate a machine learning model with HuggingFace's evaluate.Metric library"""
 
     _model: Model
