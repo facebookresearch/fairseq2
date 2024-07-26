@@ -39,6 +39,7 @@ from fairseq2.metrics import (
     record_metrics,
 )
 from fairseq2.models.model import Model
+from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.recipes.common_metrics import set_throughput_value
 from fairseq2.recipes.utils.cli import create_rich_progress
@@ -49,7 +50,7 @@ from fairseq2.utils.rng import RngBag
 log = get_log_writer(__name__)
 
 
-BatchT = TypeVar("BatchT")
+BatchT = TypeVar("BatchT", bound=Seq2SeqBatch)
 
 BatchT_contra = TypeVar("BatchT_contra", contravariant=True)
 
@@ -421,7 +422,6 @@ class HFEvaluator(Generic[BatchT]):
                 log.debug("Running step {}.", step_nr)
 
                 for batch in batches:
-                    # Update the metrics with the batch results
                     inputs = SequenceBatch(batch.source_seqs, batch.source_padding_mask)
                     outputs = self._model(inputs)
                     hypotheses, _ = outputs.generate_hypotheses(pad_idx=pad_idx)

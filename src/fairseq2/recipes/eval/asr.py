@@ -11,8 +11,8 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional, cast
 
 import torch
-from datasets import Dataset, load_dataset
-from evaluate import load as load_metric
+from datasets import Dataset, load_dataset # type: ignore[import-untyped]
+from evaluate import load as load_metric # type: ignore[import-untyped]
 
 from fairseq2.data.data_pipeline import SequenceData
 from fairseq2.data.text import load_text_tokenizer
