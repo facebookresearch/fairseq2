@@ -11,7 +11,10 @@ from pathlib import Path
 from typing import Optional, cast
 
 import torch
-from datasets import Dataset, load_dataset  # type: ignore[attr-defined,import-untyped,import-not-found]
+from datasets import (  # type: ignore[attr-defined,import-untyped,import-not-found]
+    Dataset,
+    load_dataset,
+)
 
 from fairseq2.data.data_pipeline import SequenceData
 from fairseq2.data.text import load_text_tokenizer
