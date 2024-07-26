@@ -10,20 +10,9 @@ import importlib
 from abc import ABC, abstractmethod
 from itertools import count
 from pathlib import Path
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Generic,
-    List,
-    Optional,
-    Sequence,
-    TypeVar,
-    final,
-)
+from typing import Generic, List, Optional, Sequence, TypeVar, final
 
 import torch
-from torch import Tensor
 from torch.nn import Module
 
 from fairseq2.data.text.text_tokenizer import TextTokenizer
