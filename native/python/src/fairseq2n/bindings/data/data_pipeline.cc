@@ -656,7 +656,12 @@ def_data_pipeline(py::module_ &data_module)
     m.def("read_zipped_records", &read_zipped_records, py::arg("path"));
 
     m.def("read_iterator",
-            [](py::iterator iterator, reset_fn fn, bool infinite) {
+            [](py::iterator iterator, reset_fn fn, bool infinite, bool allow_unpickleable) {
+                if (!allow_unpickleable) {
+                    py::gil_scoped_acquire acquire;
+                    py::function pickle_dump_fn = py::module::import("pickle").attr("dumps");
+                    pickle_dump_fn(iterator);
+                }
                 auto factory = [iterator = std::move(iterator), fn = std::move(fn), infinite]() mutable
                 {
                     return std::make_unique<iterator_data_source>(std::move(iterator), std::move(fn), infinite);
@@ -666,7 +671,8 @@ def_data_pipeline(py::module_ &data_module)
             },
             py::arg("iterator"),
             py::arg("reset_fn"),
-            py::arg("infinite"));
+            py::arg("infinite"),
+            py::arg("allow_unpickleable") = false);
 
     // Collater
     py::class_<collate_options_override>(m, "CollateOptionsOverride")

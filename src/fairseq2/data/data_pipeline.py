@@ -402,6 +402,7 @@ if TYPE_CHECKING or DOC_MODE:
         iterator: T,
         reset_fn: Callable[[T], T],
         infinite: bool,
+        allow_unpickleable: bool = False,
     ) -> DataPipelineBuilder:
         """Read each element of ``iterator``.
 
