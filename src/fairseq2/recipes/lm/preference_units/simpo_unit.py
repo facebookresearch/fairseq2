@@ -9,7 +9,6 @@ from torch import Tensor
 from torch.nn import Module
 from torcheval.metrics import Mean
 
-from fairseq2.config_registry import ConfigRegistry
 from fairseq2.datasets.preference import PreferenceOptimizationBatch
 from fairseq2.gang import Gang, get_rank
 from fairseq2.logging import get_log_writer
@@ -20,9 +19,6 @@ from fairseq2.models.sequence import (
     as_auto_regressive_input,
 )
 from fairseq2.recipes.common_metrics import SequenceMetricBag
-from fairseq2.recipes.lm.preference_units.preference_criterion_config import (
-    PreferenceCriterionConfig,
-)
 from fairseq2.recipes.trainer import AbstractTrainUnit
 from fairseq2.typing import override
 
@@ -30,7 +26,7 @@ log = get_log_writer(__name__)
 
 
 @dataclass
-class SimpoFinetuneConfig(PreferenceCriterionConfig):
+class SimpoFinetuneConfig:
     """Holds the SimPO-finetuning configuration of a language model."""
 
     # Hyperparameters

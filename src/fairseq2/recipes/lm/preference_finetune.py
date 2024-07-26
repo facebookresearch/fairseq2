@@ -30,6 +30,10 @@ from fairseq2.recipes.lm.preference_units.dpo_unit import (
     DpoFinetuneConfig,
     DpoFinetuneUnit,
 )
+from fairseq2.recipes.lm.preference_units.simpo_unit import (
+    SimpoFinetuneConfig,
+    SimpoFinetuneUnit,
+)
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
 from fairseq2.recipes.utils.asset import retrieve_asset_card
 from fairseq2.recipes.utils.log import log_model
@@ -69,11 +73,14 @@ class PreferenceOptimizationConfig:
     """The number of batches to prefetch in background."""
 
     # Criterion
-    criterion: Literal["dpo"] = "dpo"
+    criterion: Literal["dpo", "simpo"] = "dpo"
     """The type of preference optimization to perform."""
 
     dpo: DpoFinetuneConfig = field(default_factory=lambda: DpoFinetuneConfig())
     """The configuration for Direct Preference Optimization."""
+
+    simpo: SimpoFinetuneConfig = field(default_factory=lambda: SimpoFinetuneConfig())
+    """The configuration for SimPO."""
 
     # Model
     model: Union[str, Path] = "llama3_8b_instruct"
@@ -173,7 +180,8 @@ def _simpo() -> PreferenceOptimizationConfig:
     cfg.max_num_tokens = 1200
     cfg.max_seq_len = 600
     cfg.model = "llama3_8b"
-    cfg.criterion_config = SimpoFinetuneConfig()
+    cfg.simpo = SimpoFinetuneConfig()
+    return cfg
 
 
 @preference_finetune_preset("llama3_8b_instruct")
@@ -367,8 +375,13 @@ def load_preference_finetuner(
                 config.dpo.nll_scale,
             )
         if config.criterion == "simpo":
-            print("SimPOTrainUnit")  # TODO: implement SimPO
-            raise NotImplementedError
+            return SimpoFinetuneUnit(
+                dp_model,
+                dp_gang,
+                config.simpo.simpo_beta,
+                config.simpo.simpo_gamma,
+                config.simpo.nll_scale,
+            )
         # TODO: build an exception for this. is there one already?
         raise ValueError(f"config.criterion_type '{config.criterion}' cannot be found.")
 
