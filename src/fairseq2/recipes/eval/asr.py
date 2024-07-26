@@ -13,6 +13,7 @@ import torch
 
 from fairseq2.data.data_pipeline import SequenceData
 from fairseq2.data.text import load_text_tokenizer
+from fairseq2.data.text.text_tokenizer import TextTokenEncoder
 from fairseq2.nn.padding import get_seqs_and_padding_mask
 from fairseq2.recipes.utils.setup import setup_root_gang
 from fairseq2.datasets.huggingface import Example, create_hf_reader, BatcherBySize
@@ -83,7 +84,7 @@ def _librispeech_asr_to_batch(examples: Example) -> Seq2SeqBatch:
         examples,
     )
 
-def _preprocess_example(example: Example, encoder: Any, device: torch.device) -> dict:
+def _preprocess_example(example: Example, encoder: TextTokenEncoder, device: torch.device) -> dict:
     """
     Preprocesses an individual example by converting the audio array to a PyTorch tensor
     and encoding the text.
@@ -97,19 +98,6 @@ def _preprocess_example(example: Example, encoder: Any, device: torch.device) ->
     audio_tensor = torch.from_numpy(example["audio"]['array']).to(torch.float16).to(device)
     text_tensor = encoder(example['text'].lower()).to(device)
     return {"audio": audio_tensor, "text": text_tensor}
-
-def postprocess_outputs(outputs: Any, decoder: Any) -> str:
-    """
-    Postprocesses the output of the model by decoding the text tensor.
-
-    Args:
-        output (Any): The output of the model.
-        decoder (Any): The decoder used to decode the text tensor.
-
-    Returns:
-        str: The decoded text.
-    """
-    return [decoder(item) for item in outputs]
 
 @hf_presets.decorator("librispeech_asr")
 def _librispeech_asr_config() -> AsrEvalConfig:
@@ -157,7 +145,6 @@ def load_wav2vec2_asr_evaluator(
     tokenizer = load_text_tokenizer(config.tokenizer_name)
 
     encoder = tokenizer.create_encoder(device=init_device)
-    decoder = tokenizer.create_decoder()
 
     # Preprocess dataset
     ds = ds.map(lambda x: _preprocess_example(x, encoder, init_device))
@@ -180,5 +167,5 @@ def load_wav2vec2_asr_evaluator(
         gang=gang,
         data_reader=pipeline_reader,
         wall_watch=wall_watch,
-        postprocess=lambda x: postprocess_outputs(x, decoder),
+        tokenizer=tokenizer,
     )

@@ -14,6 +14,7 @@ from typing import Any, Callable, Dict, Generic, List, Optional, Sequence, TypeV
 
 import torch
 
+from fairseq2.data.text.text_tokenizer import TextTokenizer
 from fairseq2.models.sequence import SequenceBatch
 from torch import Tensor
 
@@ -210,6 +211,7 @@ class HFEvaluator(Evaluator, Generic[BatchT]):
     """Evaluate a machine learning model with HuggingFace's evaluate.Metric library"""
 
     _model: Model
+    _tokenizer: TextTokenizer
     _root_gang: Gang
     _dp_gang: Gang
     _tp_gang: Gang
@@ -226,7 +228,7 @@ class HFEvaluator(Evaluator, Generic[BatchT]):
         gang: Gang,
         data_reader: DataReader[BatchT],
         wall_watch: Stopwatch,
-        postprocess: Optional[Callable[[Sequence], Any]] = None,
+        tokenizer: TextTokenizer,
         dp_gang: Optional[Gang] = None,
         tp_gang: Optional[Gang] = None,
         tb_dir: Optional[Path] = None,
@@ -274,7 +276,7 @@ class HFEvaluator(Evaluator, Generic[BatchT]):
         #########################################################
         self._metrics = [evaluate.load(metric) for metric in metrics]
 
-        self.postprocess = postprocess
+        self._tokenizer = tokenizer
 
         if self._tp_gang.rank == 0 and self._dp_gang.rank == 0:
             self._metric_recorders = [LogMetricRecorder(log)]
@@ -322,6 +324,9 @@ class HFEvaluator(Evaluator, Generic[BatchT]):
 
             watch = Stopwatch(start=True, device=self._root_gang.device)
 
+            decoder = self._tokenizer.create_decoder()
+            pad_idx = self._tokenizer.vocab_info.pad_idx
+
             for step_nr in count(start=1):
                 self._step_nr = step_nr
 
@@ -338,10 +343,10 @@ class HFEvaluator(Evaluator, Generic[BatchT]):
                     # Update the metrics with the batch results
                     inputs = SequenceBatch(batch.source_seqs, batch.source_padding_mask)
                     outputs = self._model(inputs)
-                    hypotheses, _ = outputs.generate_hypotheses(pad_idx=0) # FIXME: correctly assign the pad_idx
+                    hypotheses, _ = outputs.generate_hypotheses(pad_idx=pad_idx)
                     for metric in self._metrics:
-                        predictions=self.postprocess(hypotheses)
-                        references=self.postprocess(batch.target_seqs.to(torch.int32))
+                        predictions=[decoder(item) for item in hypotheses]
+                        references=[decoder(item) for item in batch.target_seqs.to(torch.int32)]
                         metric.add_batch(predictions=predictions, references=references)
 
                 self._root_gang.barrier()
