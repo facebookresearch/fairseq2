@@ -14,9 +14,10 @@ import torch
 from fairseq2.data.data_pipeline import SequenceData
 from fairseq2.data.text import load_text_tokenizer
 from fairseq2.data.text.text_tokenizer import TextTokenEncoder
+from fairseq2.datasets.batching import StaticBatching
 from fairseq2.nn.padding import get_seqs_and_padding_mask
 from fairseq2.recipes.utils.setup import setup_root_gang
-from fairseq2.datasets.huggingface import Example, create_hf_reader, BatcherBySize
+from fairseq2.datasets.huggingface import Example, create_hf_reader
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.recipes.evaluator import HFEvaluator
 from fairseq2.recipes.eval.configs import HFEvalConfig, hf_presets
@@ -152,8 +153,15 @@ def load_wav2vec2_asr_evaluator(
     ds.set_format(**format, columns=['audio', 'text'])
 
     # Create data pipeline from dataset
-    batcher = BatcherBySize(bucket_size=config.max_num_elements)
-    pipeline_reader = create_hf_reader(dataset=ds, gang=gang, converter=_librispeech_asr_to_batch, batcher=batcher, num_prefetch=config.num_prefetch, pad_value=tokenizer.vocab_info.pad_idx)
+    pipeline_reader = create_hf_reader(
+        dataset=ds, 
+        gang=gang, 
+        converter=_librispeech_asr_to_batch, 
+        batching=StaticBatching(config.max_num_elements), 
+        num_prefetch=config.num_prefetch, 
+        pad_value=tokenizer.vocab_info.pad_idx,
+        max_seq_len=config.max_audio_len,
+    )
 
     # Load model
     model = load_wav2vec2_asr_model(config.model_name, device=init_device, dtype=config.dtype)
