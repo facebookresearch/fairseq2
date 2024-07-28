@@ -8,7 +8,7 @@
 import math
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, cast
+from typing import Optional, Tuple, cast
 
 import torch
 from datasets import (  # type: ignore[attr-defined,import-untyped,import-not-found]
@@ -23,6 +23,7 @@ from fairseq2.datasets.batching import StaticBatching
 from fairseq2.datasets.huggingface import Example, create_hf_reader
 from fairseq2.logging import get_log_writer
 from fairseq2.models.seq2seq import Seq2SeqBatch
+from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2.asr import load_wav2vec2_asr_model
 from fairseq2.nn.padding import get_seqs_and_padding_mask
 from fairseq2.recipes.eval.configs import HFEvalConfig, hf_presets
@@ -118,6 +119,12 @@ def _preprocess_example(
     return {"audio": audio_tensor, "text": text_tensor}
 
 
+def seq2seq_preprocessor(batch: Seq2SeqBatch) -> Tuple[SequenceBatch, SequenceBatch]:
+    return SequenceBatch(batch.source_seqs, batch.source_padding_mask), SequenceBatch(
+        batch.target_seqs, batch.target_padding_mask
+    )
+
+
 @hf_presets.decorator("librispeech_asr")
 def _librispeech_asr_config() -> AsrEvalConfig:
     return AsrEvalConfig(
@@ -197,4 +204,5 @@ def load_wav2vec2_asr_evaluator(
         data_reader=pipeline_reader,
         wall_watch=wall_watch,
         tokenizer=tokenizer,
+        preprocessor=seq2seq_preprocessor,
     )

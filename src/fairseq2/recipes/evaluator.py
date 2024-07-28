@@ -10,7 +10,7 @@ import importlib
 from abc import ABC, abstractmethod
 from itertools import count
 from pathlib import Path
-from typing import Generic, List, Optional, Sequence, TypeVar, final
+from typing import Callable, Generic, List, Optional, Sequence, Tuple, TypeVar, final
 
 import torch
 from torch.nn import Module
@@ -28,7 +28,6 @@ from fairseq2.metrics import (
     record_metrics,
 )
 from fairseq2.models.model import Model
-from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.recipes.common_metrics import set_throughput_value
 from fairseq2.recipes.utils.cli import create_rich_progress
@@ -39,7 +38,7 @@ from fairseq2.utils.rng import RngBag
 log = get_log_writer(__name__)
 
 
-BatchT = TypeVar("BatchT", bound=Seq2SeqBatch)
+BatchT = TypeVar("BatchT")
 
 BatchT_contra = TypeVar("BatchT_contra", contravariant=True)
 
@@ -287,6 +286,7 @@ class HFEvaluator(Generic[BatchT]):
 
     _model: Model
     _tokenizer: TextTokenizer
+    _preprocessor: Callable[[BatchT], Tuple[SequenceBatch, SequenceBatch]]
     _root_gang: Gang
     _dp_gang: Gang
     _tp_gang: Gang
@@ -304,6 +304,7 @@ class HFEvaluator(Generic[BatchT]):
         data_reader: DataReader[BatchT],
         wall_watch: Stopwatch,
         tokenizer: TextTokenizer,
+        preprocessor: Callable[[BatchT], Tuple[SequenceBatch, SequenceBatch]],
         dp_gang: Optional[Gang] = None,
         tp_gang: Optional[Gang] = None,
         tb_dir: Optional[Path] = None,
@@ -353,6 +354,8 @@ class HFEvaluator(Generic[BatchT]):
         self._metrics = evaluate.combine(metrics)
 
         self._tokenizer = tokenizer
+
+        self._preprocessor = preprocessor
 
         if self._tp_gang.rank == 0 and self._dp_gang.rank == 0:
             self._metric_recorders = [LogMetricRecorder(log)]
@@ -411,12 +414,12 @@ class HFEvaluator(Generic[BatchT]):
                 log.debug("Running step {}.", step_nr)
 
                 for batch in batches:
-                    inputs = SequenceBatch(batch.source_seqs, batch.source_padding_mask)
+                    inputs, targets = self._preprocessor(batch)
                     outputs = self._model(inputs)
                     hypotheses, _ = outputs.generate_hypotheses(pad_idx=pad_idx)
                     predictions = [decoder(item) for item in hypotheses]
                     references = [
-                        decoder(item) for item in batch.target_seqs.to(torch.int32)
+                        decoder(item) for item in targets.seqs.to(torch.int32)
                     ]
                     self._metrics.add_batch(
                         predictions=predictions, references=references
@@ -449,4 +452,4 @@ class HFEvaluator(Generic[BatchT]):
 
         values["wall_time"] = self._wall_watch.get_elapsed_time()
 
-        record_metrics(self._metric_recorders, "eval", values, step_nr=0)
+        record_metrics(self._metric_recorders, "eval", values)
