@@ -18,6 +18,7 @@ try:
     )
 except ImportError:
     has_datasets = False
+    Dataset = Any
 else:
     has_datasets = True
 

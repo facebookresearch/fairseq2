@@ -11,10 +11,16 @@ from pathlib import Path
 from typing import Optional, Tuple, cast
 
 import torch
-from datasets import (  # type: ignore[attr-defined,import-untyped,import-not-found]
-    Dataset,
-    load_dataset,
-)
+
+try:
+    from datasets import (  # type: ignore[attr-defined,import-untyped,import-not-found]
+        Dataset,
+        load_dataset,
+    )
+except ImportError:
+    has_datasets = False
+else:
+    has_datasets = True
 
 from fairseq2.data.data_pipeline import SequenceData
 from fairseq2.data.text import load_text_tokenizer
@@ -151,6 +157,10 @@ def load_wav2vec2_asr_evaluator(
     """
     if not isinstance(config, AsrEvalConfig):
         raise ValueError(f"Expect AsrEvalConfig, get {type(config)}")
+    if not has_datasets:
+        raise ModuleNotFoundError(
+            "`datasets` is required but not found. Please install it with `pip install datasets`."
+        )  # fmt: skip
 
     iterable_ds = load_dataset(config.dataset_name, split=config.split, streaming=True)
     max_samples = config.max_samples if config.max_samples is not None else math.inf
