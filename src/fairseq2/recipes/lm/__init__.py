@@ -12,6 +12,10 @@ from fairseq2.recipes.lm.instruction_finetune import (
     instruction_finetune_presets,
     load_instruction_finetuner,
 )
+from fairseq2.recipes.lm.preference_finetune import (
+    load_preference_finetuner,
+    preference_finetune_presets,
+)
 from fairseq2.recipes.lm.text_generate import load_text_generator, text_generate_presets
 
 
@@ -49,4 +53,17 @@ def _setup_lm_cli(cli: Cli) -> None:
         name="generate",
         handler=text_generate_handler,
         help="generate text",
+    )
+
+    # Preference Finetune
+    preference_finetune_handler = RecipeCommandHandler(
+        loader=load_preference_finetuner,
+        preset_configs=preference_finetune_presets,
+        default_preset="llama3_8b_instruct",
+    )
+
+    group.add_command(
+        name="preference_finetune",
+        handler=preference_finetune_handler,
+        help="preference-finetune a language model",
     )
