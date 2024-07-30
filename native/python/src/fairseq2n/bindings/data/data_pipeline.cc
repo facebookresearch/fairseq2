@@ -656,8 +656,8 @@ def_data_pipeline(py::module_ &data_module)
     m.def("read_zipped_records", &read_zipped_records, py::arg("path"));
 
     m.def("read_iterator",
-            [](py::iterator iterator, reset_fn fn, bool infinite, bool allow_unpickleable) {
-                if (!allow_unpickleable) {
+            [](py::iterator iterator, reset_fn fn, bool infinite, bool skip_pickling_check) {
+                if (!skip_pickling_check) {
                     py::gil_scoped_acquire acquire;
                     py::function pickle_dump_fn = py::module::import("pickle").attr("dumps");
                     try { 
@@ -665,7 +665,8 @@ def_data_pipeline(py::module_ &data_module)
                     } catch (const py::error_already_set &e) {
                         if (e.matches(PyExc_TypeError))
                             throw py::type_error(
-                                "`allow_unpickleable` is False, but `iterator` is not pickleable.");
+                                "`iterator` is not pickleable; set `skip_pickling_check` to True to bypass"
+                                " (see `read_iterator` documentation for details).");
                         else
                             throw;
                     }
@@ -680,7 +681,7 @@ def_data_pipeline(py::module_ &data_module)
             py::arg("iterator"),
             py::arg("reset_fn"),
             py::arg("infinite"),
-            py::arg("allow_unpickleable") = false);
+            py::arg("skip_pickling_check") = false);
 
     // Collater
     py::class_<collate_options_override>(m, "CollateOptionsOverride")

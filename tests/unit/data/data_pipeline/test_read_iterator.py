@@ -87,7 +87,8 @@ class TestReadIteratorOp:
 
         with pytest.raises(
             TypeError,
-            match=r"^`allow_unpickleable` is False, but `iterator` is not pickleable.$",
+            match=r"^`iterator` is not pickleable; set `skip_pickling_check` to True"
+            r" to bypass \(see `read_iterator` documentation for details\)\.$",
         ):
             pipeline = read_iterator(
                 generator_fn(), lambda x: generator_fn(), infinite=True
@@ -97,7 +98,7 @@ class TestReadIteratorOp:
             generator_fn(),
             lambda x: generator_fn(),
             infinite=True,
-            allow_unpickleable=True,
+            skip_pickling_check=True,
         ).and_return()
 
         it = iter(pipeline)
