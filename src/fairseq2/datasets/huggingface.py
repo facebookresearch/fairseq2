@@ -8,21 +8,15 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, Optional, Union
 
+from datasets import (  # type: ignore[attr-defined,import-untyped,import-not-found]
+    Dataset,
+    DatasetDict,
+)
+
 from fairseq2.data.data_pipeline import Collater, create_bucket_sizes, read_sequence
 from fairseq2.datasets.batching import LengthBatching, StaticBatching
 from fairseq2.datasets.data_reader import BatchT, DataPipelineReader
 from fairseq2.gang import Gang
-
-try:
-    from datasets import (  # type: ignore[attr-defined,import-untyped,import-not-found]
-        Dataset,
-        DatasetDict,
-    )
-except ImportError:
-    has_datasets = False
-else:
-    has_datasets = True
-
 
 Example = Dict[str, Any]
 
@@ -78,11 +72,6 @@ def create_hf_reader(
         The extra parameters specific to the dataset
         implementation.
     """
-    if not has_datasets:
-        raise ModuleNotFoundError(
-            "`datasets` is required but not found. Please install it with `pip install datasets`."
-        )  # fmt: skip
-
     # Make sure the dataset is a proper arrow dataset
     if not isinstance(dataset, Dataset):
         # One common mistake is pass a DatasetDict (e.g. with all splits) as inputs

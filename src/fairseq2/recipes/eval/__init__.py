@@ -4,8 +4,11 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from fairseq2.logging import get_log_writer
 from fairseq2.recipes.cli import Cli, CliGroup, RecipeCommandHandler
 from fairseq2.recipes.eval.configs import hf_presets
+
+log = get_log_writer(__name__)
 
 
 def _add_wav2vev2_asr_eval_cli(group: CliGroup) -> None:
@@ -23,7 +26,34 @@ def _add_wav2vev2_asr_eval_cli(group: CliGroup) -> None:
     )
 
 
+def has_datasets() -> bool:
+    try:
+        import datasets  # type: ignore[attr-defined,import-untyped,import-not-found]
+
+        return True
+    except ImportError:
+        log.warning(
+            "`datasets` is required but not found. Please install it with `pip install datasets`. "
+            "Some functions will be disabled"
+        )
+        return False
+
+
+def has_evaluate() -> bool:
+    try:
+        import evaluate  # type: ignore[attr-defined,import-untyped,import-not-found]
+
+        return True
+    except ImportError:
+        log.warning(
+            "`evaluate` is required but not found. Please install it with `pip install evaluate`. "
+            "Some functions will be disabled"
+        )
+        return False
+
+
 def _setup_eval_cli(cli: Cli) -> None:
     group = cli.add_group("eval", help="Evaluate fairseq2 models in downstream tasks")
 
-    _add_wav2vev2_asr_eval_cli(group)
+    if all((has_datasets(), has_evaluate())):
+        _add_wav2vev2_asr_eval_cli(group)
