@@ -1,4 +1,3 @@
-import pickle
 from typing import Callable, Iterator, Tuple, TypeVar
 
 from typing_extensions import Self
