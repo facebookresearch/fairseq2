@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.data.data_pipeline &mdash; fairseq2 0.3.0.dev202407290143+gc5629ac documentation</title>
+  <title>fairseq2.data.data_pipeline &mdash; fairseq2 0.3.0.dev202407302052+g1d95f15 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202407290143+gc5629ac
+                0.3.0.dev202407302052+g1d95f15
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -560,8 +560,17 @@
         <span class="n">iterator</span><span class="p">:</span> <span class="n">T</span><span class="p">,</span>
         <span class="n">reset_fn</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">T</span><span class="p">],</span> <span class="n">T</span><span class="p">],</span>
         <span class="n">infinite</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+        <span class="n">skip_pickling_check</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Read each element of ``iterator``.</span>
+
+<span class="sd">        Iterators must be pickleable in order for ``state_dict`` saving/reloading to</span>
+<span class="sd">        work. To avoid surprises, by default, upon creation, ``read_iterator`` will</span>
+<span class="sd">        perform a test pickle of ``iterator`` to ensure pickleability and will raise</span>
+<span class="sd">        an error if pickling fails. To skip this pickling check performed upon</span>
+<span class="sd">        creation (if, for example, you do not need to save/reload the ``state_dict``</span>
+<span class="sd">        or want to avoid incurring the cost of pickling on creation), set</span>
+<span class="sd">        ``skip_pickling_check`` to ``True``.</span>
 
 <span class="sd">        :param iterator:</span>
 <span class="sd">            The iterator to read.</span>
@@ -569,6 +578,8 @@
 <span class="sd">            Function to reset iterator.</span>
 <span class="sd">        :param infinite:</span>
 <span class="sd">            Whether iterator is infinite or not.</span>
+<span class="sd">        :param skip_pickling_check:</span>
+<span class="sd">            Whether to skip the pickling check or not.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
 <div class="viewcode-block" id="CollateOptionsOverride"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.CollateOptionsOverride.html#fairseq2.data.CollateOptionsOverride">[docs]</a>    <span class="k">class</span> <span class="nc">CollateOptionsOverride</span><span class="p">:</span>
