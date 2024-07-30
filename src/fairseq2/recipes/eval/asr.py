@@ -8,7 +8,7 @@
 import math
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Tuple, cast
+from typing import Any, List, Optional, Tuple, cast
 
 import torch
 
@@ -24,7 +24,7 @@ else:
 
 from fairseq2.data.data_pipeline import SequenceData
 from fairseq2.data.text import load_text_tokenizer
-from fairseq2.data.text.text_tokenizer import TextTokenEncoder
+from fairseq2.data.text.text_tokenizer import TextTokenEncoder, TextTokenizer
 from fairseq2.datasets.batching import StaticBatching
 from fairseq2.datasets.huggingface import Example, create_hf_reader
 from fairseq2.logging import get_log_writer
@@ -131,6 +131,19 @@ def seq2seq_preprocessor(batch: Seq2SeqBatch) -> Tuple[SequenceBatch, SequenceBa
     )
 
 
+def postprocesser(
+    outputs: Any, targets: SequenceBatch, tokenizer: TextTokenizer
+) -> Tuple[List[str], List[str]]:
+    decoder = tokenizer.create_decoder()
+    pad_idx = tokenizer.vocab_info.pad_idx
+
+    hypotheses, _ = outputs.generate_hypotheses(pad_idx=pad_idx)
+    predictions = [decoder(item) for item in hypotheses]
+    references = [decoder(item) for item in targets.seqs.to(torch.int32)]
+
+    return predictions, references
+
+
 @hf_presets.decorator("librispeech_asr")
 def _librispeech_asr_config() -> AsrEvalConfig:
     return AsrEvalConfig(
@@ -213,6 +226,6 @@ def load_wav2vec2_asr_evaluator(
         gang=gang,
         data_reader=pipeline_reader,
         wall_watch=wall_watch,
-        tokenizer=tokenizer,
         preprocessor=seq2seq_preprocessor,
+        postprocessor=lambda x, y: postprocesser(x, y, tokenizer),
     )

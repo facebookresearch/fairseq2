@@ -10,12 +10,21 @@ import importlib
 from abc import ABC, abstractmethod
 from itertools import count
 from pathlib import Path
-from typing import Callable, Generic, List, Optional, Sequence, Tuple, TypeVar, final
+from typing import (
+    Any,
+    Callable,
+    Generic,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    TypeVar,
+    final,
+)
 
 import torch
 from torch.nn import Module
 
-from fairseq2.data.text.text_tokenizer import TextTokenizer
 from fairseq2.datasets import DataReader
 from fairseq2.gang import FakeGang, Gang, all_sum
 from fairseq2.logging import get_log_writer
@@ -285,8 +294,8 @@ class HFEvaluator(Generic[BatchT]):
     """Evaluate a machine learning model with HuggingFace's evaluate.Metric library"""
 
     _model: Model
-    _tokenizer: TextTokenizer
     _preprocessor: Callable[[BatchT], Tuple[SequenceBatch, SequenceBatch]]
+    _postprocessor: Callable[[Any, SequenceBatch], Tuple[List[str], List[str]]]
     _root_gang: Gang
     _dp_gang: Gang
     _tp_gang: Gang
@@ -303,8 +312,8 @@ class HFEvaluator(Generic[BatchT]):
         gang: Gang,
         data_reader: DataReader[BatchT],
         wall_watch: Stopwatch,
-        tokenizer: TextTokenizer,
         preprocessor: Callable[[BatchT], Tuple[SequenceBatch, SequenceBatch]],
+        postprocessor: Callable[[Any, SequenceBatch], Tuple[List[str], List[str]]],
         dp_gang: Optional[Gang] = None,
         tp_gang: Optional[Gang] = None,
         tb_dir: Optional[Path] = None,
@@ -320,8 +329,10 @@ class HFEvaluator(Generic[BatchT]):
             The data reader of the eval split.
         :param wall_watch:
             The stopwatch to track process wall-time.
-        :param tokenizer:
-            The tokenizer to use for decoding the model outputs.
+        :param preprocessor:
+            The preprocessor to convert the batch into inputs and targets SequenceBatch objects.
+        :param postprocessor:
+            The postprocessor to convert the model outputs and target sequences into predictions and references.
         :param dp_gang:
             The data parallel gang. If ``None``, ``gang`` will be used.
         :param tp_gang:
@@ -353,9 +364,9 @@ class HFEvaluator(Generic[BatchT]):
 
         self._metrics = evaluate.combine(metrics)
 
-        self._tokenizer = tokenizer
-
         self._preprocessor = preprocessor
+
+        self._postprocessor = postprocessor
 
         if self._tp_gang.rank == 0 and self._dp_gang.rank == 0:
             self._metric_recorders = [LogMetricRecorder(log)]
@@ -398,9 +409,6 @@ class HFEvaluator(Generic[BatchT]):
 
             watch = Stopwatch(start=True, device=self._root_gang.device)
 
-            decoder = self._tokenizer.create_decoder()
-            pad_idx = self._tokenizer.vocab_info.pad_idx
-
             for step_nr in count(start=1):
                 self._step_nr = step_nr
 
@@ -416,11 +424,8 @@ class HFEvaluator(Generic[BatchT]):
                 for batch in batches:
                     inputs, targets = self._preprocessor(batch)
                     outputs = self._model(inputs)
-                    hypotheses, _ = outputs.generate_hypotheses(pad_idx=pad_idx)
-                    predictions = [decoder(item) for item in hypotheses]
-                    references = [
-                        decoder(item) for item in targets.seqs.to(torch.int32)
-                    ]
+                    predictions, references = self._postprocessor(outputs, targets)
+
                     self._metrics.add_batch(
                         predictions=predictions, references=references
                     )
