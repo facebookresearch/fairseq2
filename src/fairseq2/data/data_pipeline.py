@@ -402,8 +402,17 @@ if TYPE_CHECKING or DOC_MODE:
         iterator: T,
         reset_fn: Callable[[T], T],
         infinite: bool,
+        skip_pickling_check: bool = False,
     ) -> DataPipelineBuilder:
         """Read each element of ``iterator``.
+
+        Iterators must be pickleable in order for ``state_dict`` saving/reloading to
+        work. To avoid surprises, by default, upon creation, ``read_iterator`` will
+        perform a test pickle of ``iterator`` to ensure pickleability and will raise
+        an error if pickling fails. To skip this pickling check performed upon
+        creation (if, for example, you do not need to save/reload the ``state_dict``
+        or want to avoid incurring the cost of pickling on creation), set
+        ``skip_pickling_check`` to ``True``.
 
         :param iterator:
             The iterator to read.
@@ -411,6 +420,8 @@ if TYPE_CHECKING or DOC_MODE:
             Function to reset iterator.
         :param infinite:
             Whether iterator is infinite or not.
+        :param skip_pickling_check:
+            Whether to skip the pickling check or not.
         """
 
     class CollateOptionsOverride:

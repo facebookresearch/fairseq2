@@ -78,6 +78,41 @@ class TestReadIteratorOp:
 
         assert list(pipeline) == [*range(5)]
 
+    def test_op_works_with_generator(self) -> None:
+        def generator_fn() -> Iterator[int]:
+            i = 0
+            while True:
+                yield i
+                i += 1
+
+        with pytest.raises(
+            TypeError,
+            match=r"^`iterator` is not pickleable; set `skip_pickling_check` to True"
+            r" to bypass \(see `read_iterator` documentation for details\)\.$",
+        ):
+            pipeline = read_iterator(
+                generator_fn(), lambda x: generator_fn(), infinite=True
+            ).and_return()
+
+        pipeline = read_iterator(
+            generator_fn(),
+            lambda x: generator_fn(),
+            infinite=True,
+            skip_pickling_check=True,
+        ).and_return()
+
+        it = iter(pipeline)
+
+        for _ in range(2):
+            assert next(it) == 0
+            assert next(it) == 1
+            assert next(it) == 2
+
+            pipeline.reset()
+
+        with pytest.raises(TypeError, match=r"^cannot pickle 'generator' object$"):
+            pipeline.state_dict()
+
     def test_op_stops(self) -> None:
         pipeline = read_iterator(
             EarlyStopIterator(3), reset_fn, infinite=False
