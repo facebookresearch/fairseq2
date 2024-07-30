@@ -85,7 +85,10 @@ class TestReadIteratorOp:
                 yield i
                 i += 1
 
-        with pytest.raises(TypeError, match=r"^cannot pickle 'generator' object$"):
+        with pytest.raises(
+            TypeError,
+            match=r"^`allow_unpickleable` is False, but `iterator` is not pickleable.$",
+        ):
             pipeline = read_iterator(
                 generator_fn(), lambda x: generator_fn(), infinite=True
             ).and_return()

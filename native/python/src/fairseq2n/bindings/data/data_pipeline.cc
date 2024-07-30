@@ -660,7 +660,15 @@ def_data_pipeline(py::module_ &data_module)
                 if (!allow_unpickleable) {
                     py::gil_scoped_acquire acquire;
                     py::function pickle_dump_fn = py::module::import("pickle").attr("dumps");
-                    pickle_dump_fn(iterator);
+                    try { 
+                        pickle_dump_fn(iterator);
+                    } catch (const py::error_already_set &e) {
+                        if (e.matches(PyExc_TypeError))
+                            throw py::type_error(
+                                "`allow_unpickleable` is False, but `iterator` is not pickleable.");
+                        else
+                            throw;
+                    }
                 }
                 auto factory = [iterator = std::move(iterator), fn = std::move(fn), infinite]() mutable
                 {
