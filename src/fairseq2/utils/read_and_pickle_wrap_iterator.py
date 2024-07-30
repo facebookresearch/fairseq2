@@ -1,3 +1,4 @@
+import pickle
 from typing import Callable, Iterator, Tuple, TypeVar
 
 from typing_extensions import Self
@@ -8,9 +9,9 @@ T = TypeVar("T")
 
 
 class IteratorPickleWrapper(Iterator[T]):
-    def __init__(self, iterator_fn: Callable[[], Iterator[T]]) -> None:
-        self.iterator_fn = iterator_fn
-        self.iterator: Iterator[T] = self.iterator_fn()
+    def __init__(self, iterator_factory: Callable[[], Iterator[T]]) -> None:
+        self.iterator_factory = iterator_factory
+        self.iterator: Iterator[T] = self.iterator_factory()
         self.counter = 0
 
     def __iter__(self) -> Self:
@@ -22,21 +23,27 @@ class IteratorPickleWrapper(Iterator[T]):
         return out
 
     def __getstate__(self) -> Tuple[Callable[[], Iterator[T]], int]:
-        return self.iterator_fn, self.counter
+        return self.iterator_factory, self.counter
 
     def __setstate__(self, state: Tuple[Callable[[], Iterator[T]], int]) -> None:
-        self.iterator_fn, counter = state
-        self.iterator = self.iterator_fn()
+        self.iterator_factory, counter = state
+        self.iterator = self.iterator_factory()
         for i in range(counter):
             next(self.iterator)
         self.counter = counter
 
 
 def read_and_pickle_wrap_iterator(
-    iterator_fn: Callable[[], Iterator[T]]
+    iterator_factory: Callable[[], Iterator[T]]
 ) -> DataPipelineBuilder:
-    return read_iterator(
-        IteratorPickleWrapper(iterator_fn),
-        reset_fn=lambda x: IteratorPickleWrapper(iterator_fn),
-        infinite=False,
-    )
+    iterator = iterator_factory()
+    try:
+        return read_iterator(
+            iterator, reset_fn=lambda x: iterator_factory(), infinite=False
+        )
+    except TypeError:
+        return read_iterator(
+            IteratorPickleWrapper(iterator_factory),
+            reset_fn=lambda x: IteratorPickleWrapper(iterator_factory),
+            infinite=False,
+        )
