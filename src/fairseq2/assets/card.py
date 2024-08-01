@@ -36,14 +36,9 @@ class AssetCard:
     _name: str
     _metadata: MutableMapping[str, Any]
     _base: Optional[AssetCard]
-    _value_converter: ValueConverter
 
     def __init__(
-        self,
-        metadata: MutableMapping[str, Any],
-        base: Optional[AssetCard] = None,
-        *,
-        value_converter: Optional[ValueConverter] = None,
+        self, metadata: MutableMapping[str, Any], base: Optional[AssetCard] = None
     ) -> None:
         """
         :param metadata:
@@ -51,9 +46,6 @@ class AssetCard:
             contain a specific piece of information about the asset.
         :param base:
             The card that this card derives from.
-        :param value_converter:
-            The :class:`ValueConverter` instance to use. If ``None``, the
-            default instance will be used.
         """
         try:
             name = metadata["name"]
@@ -70,7 +62,6 @@ class AssetCard:
         self._name = name
         self._metadata = metadata
         self._base = base
-        self._value_converter = value_converter or default_value_converter
 
     def field(self, name: str) -> AssetCardField:
         """Return a field of this card.
@@ -201,18 +192,36 @@ class AssetCardField:
         except AssetCardFieldNotFoundError:
             return False
 
-    def as_(self, type_hint: Any, *, allow_empty: bool = False) -> Any:
+    def as_(
+        self,
+        type_hint: Any,
+        *,
+        allow_empty: bool = False,
+        value_converter: Optional[ValueConverter] = None,
+        set_empty: bool = False,
+    ) -> Any:
         """Return the value of this field.
 
         :param type_hint:
             The type hint of the field.
         :param allow_empty:
             If ``True``, allows the field to be empty.
+        :param value_converter:
+            The :class:`ValueConverter` instance to use. If ``None``, the
+            default instance will be used.
+        :param set_empty:
+            If ``True``, dataclass fields that are not present in the returned
+            object will have their values set to ``EMPTY``.
         """
+        if value_converter is None:
+            value_converter = default_value_converter
+
         unstructured_value = self._card._get_field_value(self._card.name, self._path)
 
         try:
-            value = self._card._value_converter.structure(unstructured_value, type_hint)
+            value = value_converter.structure(
+                unstructured_value, type_hint, set_empty=set_empty
+            )
         except ValueError as ex:
             raise ValueError(
                 "`type_hint` must be a supported type annotation. See nested exception for details."
@@ -221,7 +230,7 @@ class AssetCardField:
             pathname = ".".join(self._path)
 
             raise AssetCardError(
-                f"The value of the field '{pathname}' of the asset card '{self._card.name}' cannot be retrieved as `{type_hint}`. See nested exception for details."
+                f"The value of the field '{pathname}' of the asset card '{self._card.name}' cannot be parsed as `{type_hint}`. See nested exception for details."
             ) from ex
 
         if value is None:
@@ -296,7 +305,13 @@ class AssetCardField:
         return value  # type: ignore[no-any-return]
 
     def get_as_(
-        self, type_hint: Any, default: Optional[T] = None, *, allow_empty: bool = False
+        self,
+        type_hint: Any,
+        default: Optional[T] = None,
+        *,
+        allow_empty: bool = False,
+        value_converter: Optional[ValueConverter] = None,
+        set_empty: bool = False,
     ) -> Any:
         """Return the value of this field if it exists; otherwise, return ``default``.
 
@@ -304,16 +319,48 @@ class AssetCardField:
             The default value.
         :param allow_empty:
             If ``True``, allows the field to be empty.
+        :param value_converter:
+            The :class:`ValueConverter` instance to use. If ``None``, the
+            default instance will be used.
+        :param set_empty:
+            If ``True``, dataclass fields that are not present in the returned
+            object will have their values set to ``EMPTY``.
         """
         try:
-            return self.as_(type_hint, allow_empty=True)
+            return self.as_(
+                type_hint,
+                allow_empty=allow_empty,
+                value_converter=value_converter,
+                set_empty=set_empty,
+            )
         except AssetCardFieldNotFoundError:
             return default
 
-    def set(self, value: Any) -> None:
-        """Set the value of this field."""
+    def set(
+        self,
+        value: Any,
+        *,
+        type_hint: Any = None,
+        value_converter: Optional[ValueConverter] = None,
+    ) -> None:
+        """Set the value of this field.
+
+        :param value:
+            The value to set.
+        :type_hint:
+            The type hint for ``value``.
+        :param value_converter:
+            The :class:`ValueConverter` instance to use. If ``None``, the
+            default instance will be used.
+        """
+        if type_hint is None:
+            type_hint = type(value)
+
+        if value_converter is None:
+            value_converter = default_value_converter
+
         try:
-            unstructured_value = self._card._value_converter.unstructure(value)
+            unstructured_value = value_converter.unstructure(value, type_hint)
         except TypeError as ex:
             raise TypeError(
                 "`value` must be of a supported type. See nested exception for details."

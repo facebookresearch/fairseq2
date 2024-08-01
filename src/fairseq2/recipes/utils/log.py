@@ -19,6 +19,7 @@ from typing import Iterator, Optional
 import fairseq2n
 import psutil
 import torch
+import yaml
 from rich.pretty import pretty_repr
 from torch.cuda import OutOfMemoryError
 from torch.nn import Module
@@ -27,7 +28,7 @@ import fairseq2
 from fairseq2.logging import LogWriter
 from fairseq2.nn.utils.module import get_module_size
 from fairseq2.typing import DataClass, Device
-from fairseq2.utils.dataclass import dump_dataclass
+from fairseq2.utils.value_converter import ValueConverter, default_value_converter
 
 
 @contextmanager
@@ -38,7 +39,7 @@ def exception_logger(log: LogWriter) -> Iterator[None]:
     except OutOfMemoryError:
         s = torch.cuda.memory_summary()
 
-        log.exception("CUDA run out of memory. See memory stats and exception details below.\n{}", s)  # fmt: skip
+        log.exception("CUDA run out of memory. See memory stats below.\n{}", s)  # fmt: skip
 
         sys.exit(1)
     except KeyboardInterrupt:
@@ -48,12 +49,18 @@ def exception_logger(log: LogWriter) -> Iterator[None]:
 
         raise_signal(SIGINT)
     except Exception:
-        log.exception("Command has failed. See exception details below.")
+        log.exception("Command has failed.")
 
         sys.exit(1)
 
 
-def log_config(config: DataClass, log: LogWriter, file: Optional[Path] = None) -> None:
+def log_config(
+    config: DataClass,
+    log: LogWriter,
+    file: Optional[Path] = None,
+    *,
+    value_converter: Optional[ValueConverter] = None,
+) -> None:
     """Log ``config``.
 
     :param config:
@@ -62,10 +69,25 @@ def log_config(config: DataClass, log: LogWriter, file: Optional[Path] = None) -
         The log to write to.
     :param file:
         The output file to write ``config`` in YAML format.
+    :param value_converter:
+        The :class:`ValueConverter` instance to use. If ``None``, the default
+        instance will be used.
     """
     if file is not None:
-        with file.open("w") as fp:
-            dump_dataclass(config, fp)
+        if value_converter is None:
+            value_converter = default_value_converter
+
+        unstructured_config = value_converter.unstructure(
+            config, type_hint=type(config)
+        )
+
+        try:
+            with file.open("w") as fp:
+                yaml.safe_dump(unstructured_config, fp, sort_keys=False)
+        except (OSError, RuntimeError) as ex:
+            raise RuntimeError(
+                "The configuration cannot be logged to file. See nested exception for details."
+            ) from ex
 
     log.info("Config:\n{}", pretty_repr(config, max_width=88))
 
