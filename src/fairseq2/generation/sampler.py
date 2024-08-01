@@ -27,8 +27,7 @@ class Sampler(Protocol):
         """
 
 
-# TODO: Remove once Python 3.9 support is dropped.
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # compat: remove when Python 3.9 support is dropped.
     sampler_factories = ConfigBoundFactoryRegistry[[], Sampler]()
 else:
     sampler_factories = ConfigBoundFactoryRegistry()

@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional, Tuple
+from typing import TYPE_CHECKING, Optional, Tuple
 
 from fairseq2.factory_registry import ConfigBoundFactoryRegistry
 from fairseq2.generation.beam_search import BeamSearchSeq2SeqGenerator
@@ -18,9 +18,12 @@ from fairseq2.generation.sampling import SamplingSeq2SeqGenerator
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.typing import DataClass
 
-generator_factories = ConfigBoundFactoryRegistry[
-    [EncoderDecoderModel], Seq2SeqGenerator
-]()
+if TYPE_CHECKING:  # compat: remove when Python 3.9 support is dropped.
+    generator_factories = ConfigBoundFactoryRegistry[
+        [EncoderDecoderModel], Seq2SeqGenerator
+    ]()
+else:
+    generator_factories = ConfigBoundFactoryRegistry()
 
 
 @dataclass

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, List, Literal, Optional, Tuple, final
+from typing import List, Literal, Optional, Tuple, final
 
 import torch
 from torch import Tensor
@@ -24,21 +24,18 @@ from fairseq2.datasets.parallel_text import (
     load_parallel_text_dataset,
 )
 from fairseq2.gang import Gang
+from fairseq2.generation.encoder_decoder import BeamSearchConfig, generator_factories
 from fairseq2.logging import get_log_writer
-from fairseq2.models import create_model
+from fairseq2.models import model_factories
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.seq2seq import Seq2SeqBatch, as_auto_regressive_input
 from fairseq2.models.sequence import SequenceModelOutput
+from fairseq2.models.transformer import transformer_archs
 from fairseq2.optim import AdamW
 from fairseq2.optim.lr_scheduler import MyleLR
 from fairseq2.recipes.common_metrics import Seq2SeqMetricBag
 from fairseq2.recipes.evaluator import EvalUnit
 from fairseq2.recipes.mt.eval import MTBleuChrfEvalUnit, MTLossEvalUnit
-from fairseq2.recipes.mt.translate import (
-    BeamSearchConfig,
-    SamplingConfig,
-    _create_sequence_generator,
-)
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
 from fairseq2.recipes.utils.asset import (
     AssetReference,
@@ -51,7 +48,7 @@ from fairseq2.recipes.utils.setup import (
     setup_root_gang,
     to_data_parallel,
 )
-from fairseq2.typing import META, DataType, override
+from fairseq2.typing import META, DataClass, DataType, override
 from fairseq2.utils.profiler import Stopwatch
 
 log = get_log_writer(__name__)
@@ -100,8 +97,12 @@ class MTTrainConfig:
     model_arch: Optional[str] = "nllb_dense_600m"
     """The architecture of the model."""
 
-    model_config: Any = None
-    """The model configuration."""
+    model_config: Optional[DataClass] = field(
+        default_factory=lambda: transformer_archs.get(
+            "nllb_dense_600m", return_empty=True
+        )
+    )
+    """The configuration of the model."""
 
     dtype: DataType = torch.float16
     """The data type of the model."""
@@ -167,17 +168,16 @@ class MTTrainConfig:
     compute_bleu_chrf: bool = True
     """If ``True``, computes BLEU and chrF++ during validation."""
 
-    generator_mode: Literal["beam_search", "sampling"] = "beam_search"
-    """The mode of sequence generation."""
+    generator: str = "beam_search"
+    """The sequence generator."""
 
-    beam_search: BeamSearchConfig = field(default_factory=lambda: BeamSearchConfig())
-    """The configuration for beam search-based sequence generation."""
-
-    sampling: SamplingConfig = field(default_factory=lambda: SamplingConfig())
-    """The configuration for sampling-based sequence generation."""
+    generator_config: Optional[DataClass] = field(
+        default_factory=lambda: BeamSearchConfig()
+    )
+    """The configuration of the sequence generator."""
 
     generator_batch_size: int = 8
-    """The number of sentences per generator batch."""
+    """The number of sentences per batch."""
 
     # Misc
     seed: int = 2
@@ -200,10 +200,12 @@ mt_train_preset = mt_train_presets.decorator
 
 @mt_train_preset("nllb_dense_300m")
 def _nllb_dense_300m() -> MTTrainConfig:
+    model_config = transformer_archs.get("nllb_dense_300m", return_empty=True)
+
     config = _nllb_dense_600m()
 
     config.model_arch = "nllb_dense_300m"
-    config.model_config = {"dropout_p": 0.3}
+    config.model_config = model_config
     config.num_lr_warmup_steps = 400
     config.gradient_accumulation = 4
     config.max_num_steps = 10_000
@@ -261,24 +263,27 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
 
     # Initialize the model
     try:
-        model, model_config = create_model(
-            config.model_family,
-            config.model_arch,
-            config.model_config,
-            device=META,
-            dtype=torch.float32,
+        model_factory = model_factories.get(
+            config.model_family, config.model_config, config.model_arch
         )
+
+        model = model_factory(device=META, dtype=torch.float32)
     except ValueError as ex:
         raise ValueError(
             "The model cannot be initialized. See nested exception for details."
         ) from ex
 
-    check_model_type(model, EncoderDecoderModel)
+    if not isinstance(model, EncoderDecoderModel):
+        raise ValueError(
+            f"The model must be of type `{EncoderDecoderModel}`, but is of type `{type(model)}` instead."
+        )
 
-    log_model_config(model_config, log)
+    log_model_config(model_factory.config, log)
 
     checkpoint_manager.save_model_metadata(
-        family=model.family, config=model_config, tokenizer_name=tokenizer_card.name
+        family=model.family,
+        config=model_factory.config,
+        tokenizer_name=tokenizer_card.name,
     )
 
     has_checkpoint = checkpoint_manager.has_checkpoint()
@@ -326,9 +331,16 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
 
     # Initialize the sequence generator.
     if config.compute_bleu_chrf:
-        generator = _create_sequence_generator(
-            model, config.generator_mode, config.beam_search, config.sampling  # type: ignore[arg-type]
-        )
+        try:
+            generator_factory = generator_factories.get(
+                config.generator, config.generator_config
+            )
+
+            generator = generator_factory(model)
+        except ValueError as ex:
+            raise ValueError(
+                "The sequence generator cannot be created. See nested exception for details."
+            ) from ex
     else:
         generator = None
 

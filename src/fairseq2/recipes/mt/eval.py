@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Literal, Optional, TextIO, final
+from typing import List, Optional, TextIO, final
 
 import torch
 from torch.nn import Module
@@ -25,6 +25,7 @@ from fairseq2.datasets.parallel_text import (
 )
 from fairseq2.gang import Gang
 from fairseq2.generation import Seq2SeqGenerator
+from fairseq2.generation.encoder_decoder import BeamSearchConfig, generator_factories
 from fairseq2.generation.text import SequenceToTextConverter
 from fairseq2.logging import get_log_writer
 from fairseq2.metrics.text import BleuMetric, ChrfMetric
@@ -34,11 +35,6 @@ from fairseq2.models.seq2seq import Seq2SeqBatch, as_auto_regressive_input
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.recipes.common_metrics import Seq2SeqGenerationMetricBag, Seq2SeqMetricBag
 from fairseq2.recipes.evaluator import AbstractEvalUnit, Evaluator, EvalUnit
-from fairseq2.recipes.mt.translate import (
-    BeamSearchConfig,
-    SamplingConfig,
-    _create_sequence_generator,
-)
 from fairseq2.recipes.utils.asset import (
     AssetReference,
     asset_as_path,
@@ -50,7 +46,7 @@ from fairseq2.recipes.utils.setup import (
     check_model_type,
     setup_root_gang,
 )
-from fairseq2.typing import META, DataType, override
+from fairseq2.typing import META, DataClass, DataType, override
 from fairseq2.utils.profiler import Stopwatch
 
 log = get_log_writer(__name__)
@@ -91,17 +87,16 @@ class MTEvalConfig:
     """The amount of label smoothing to apply while computing the loss."""
 
     # BLEU/chrF++
-    generator_mode: Literal["beam_search", "sampling"] = "beam_search"
-    """The mode of sequence generation."""
+    generator: str = "beam_search"
+    """The sequence generator."""
 
-    beam_search: BeamSearchConfig = field(default_factory=lambda: BeamSearchConfig())
-    """The configuration for beam search-based sequence generation."""
-
-    sampling: SamplingConfig = field(default_factory=lambda: SamplingConfig())
-    """The configuration for sampling-based sequence generation."""
+    generator_config: Optional[DataClass] = field(
+        default_factory=lambda: BeamSearchConfig()
+    )
+    """The configuration of the sequence generator."""
 
     generator_batch_size: int = 8
-    """The number of sentences per generator batch."""
+    """The number of sentences per batch."""
 
     # Misc
     seed: int = 2
@@ -174,7 +169,10 @@ def load_mt_evaluator(
             "The model cannot be initialized. See nested exception for details."
         ) from ex
 
-    check_model_type(model, EncoderDecoderModel)
+    if not isinstance(model, EncoderDecoderModel):
+        raise ValueError(
+            f"The model must be of type `{EncoderDecoderModel}`, but is of type `{type(model)}` instead."
+        )
 
     gang.barrier()
 
@@ -187,9 +185,16 @@ def load_mt_evaluator(
     log_model(model, log)
 
     # Initialize the sequence generator.
-    generator = _create_sequence_generator(
-        model, config.generator_mode, config.beam_search, config.sampling  # type: ignore[arg-type]
-    )
+    try:
+        generator_factory = generator_factories.get(
+            config.generator, config.generator_config
+        )
+
+        generator = generator_factory(model)
+    except ValueError as ex:
+        raise ValueError(
+            "The sequence generator cannot be created. See nested exception for details."
+        ) from ex
 
     # Initialize the evaluation units.
     units: List[EvalUnit[Seq2SeqBatch]] = []

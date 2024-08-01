@@ -85,11 +85,11 @@ class BeamStep:
         return BeamStep(seq_indices, vocab_indices, scores)
 
 
-# TODO: Remove once Python 3.9 support is dropped.
 # typing_extensions in Python<=3.9 has a bug that causes this line to fail with:
 #    Parameters to generic types must be types. Got []
 # See https://stackoverflow.com/questions/73974069/generic-paramspec-on-python-3-9.
-if TYPE_CHECKING:
+# See https://github.com/python/typing/discussions/908
+if TYPE_CHECKING:  # compat: remove when Python 3.9 support is dropped.
     beam_search_factories = ConfigBoundFactoryRegistry[[], BeamSearchAlgorithm]()
 else:
     beam_search_factories = ConfigBoundFactoryRegistry()

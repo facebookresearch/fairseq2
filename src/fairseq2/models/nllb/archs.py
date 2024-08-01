@@ -22,6 +22,7 @@ def _dense_300m() -> TransformerConfig:
     config.num_encoder_layers = 6
     config.num_decoder_layers = 6
     config.ffn_inner_dim = 1024 * 4
+    config.dropout_p = 0.3
 
     return config
 

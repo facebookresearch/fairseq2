@@ -156,7 +156,10 @@ def load_wav2vec2_asr_evaluator(
             "The model cannot be initialized. See nested exception for details."
         ) from ex
 
-    check_model_type(model, Wav2Vec2AsrModel)
+    if not isinstance(model, Wav2Vec2AsrModel):
+        raise ValueError(
+            f"The model must be of type `{Wav2Vec2AsrModel}`, but is of type `{type(model)}` instead."
+        )
 
     gang.barrier()
 
