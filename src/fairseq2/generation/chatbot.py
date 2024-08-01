@@ -9,7 +9,17 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from contextlib import nullcontext
 from dataclasses import dataclass
-from typing import Any, ContextManager, List, Literal, Optional, Sequence, Tuple, final
+from typing import (
+    Any,
+    ContextManager,
+    List,
+    Literal,
+    Optional,
+    Protocol,
+    Sequence,
+    Tuple,
+    final,
+)
 
 from torch import Tensor
 from typing_extensions import TypeAlias
@@ -18,6 +28,7 @@ from fairseq2.data.text import TextTokenDecoder, TextTokenizer
 from fairseq2.generation.generator import SequenceGenerator, SequenceGeneratorOutput
 from fairseq2.generation.utils import _StdOutPrintHook
 from fairseq2.nn.padding import PaddingMask, pad_seqs
+from fairseq2.registry import Registry
 from fairseq2.typing import override
 
 
@@ -164,3 +175,20 @@ class AbstractChatbot(Chatbot):
         :param param_name:
             The parameter name to use in case of an argument error.
         """
+
+
+class ChatbotFactory(Protocol):
+    """Constructs instances of :class:`Chatbot`."""
+
+    def __call__(
+        self, generator: SequenceGenerator, tokenizer: TextTokenizer
+    ) -> Chatbot:
+        """
+        :param generator:
+            The sequence generator.
+        :param tokenizer:
+            The text tokenizer.
+        """
+
+
+chatbot_factories = Registry[ChatbotFactory]()

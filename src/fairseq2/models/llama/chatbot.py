@@ -18,8 +18,8 @@ from fairseq2.generation import (
     ChatDialog,
     ChatMessage,
     SequenceGenerator,
+    chatbot_factories,
 )
-from fairseq2.models.chatbot import create_chatbot
 from fairseq2.models.llama.factory import LLAMA_FAMILY
 from fairseq2.models.llama.tokenizer import LLaMA3Tokenizer
 from fairseq2.nn.utils.module import infer_device
@@ -216,4 +216,4 @@ def create_llama_chatbot(
     return LLaMAChatbot(generator, tokenizer)
 
 
-create_chatbot.register(LLAMA_FAMILY, create_llama_chatbot)
+chatbot_factories.register(LLAMA_FAMILY, create_llama_chatbot)

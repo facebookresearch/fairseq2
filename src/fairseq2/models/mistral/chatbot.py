@@ -12,8 +12,12 @@ import torch
 from torch import Tensor
 
 from fairseq2.data.text import TextTokenEncoder, TextTokenizer
-from fairseq2.generation import AbstractChatbot, ChatDialog, SequenceGenerator
-from fairseq2.models.chatbot import create_chatbot
+from fairseq2.generation import (
+    AbstractChatbot,
+    ChatDialog,
+    SequenceGenerator,
+    chatbot_factories,
+)
 from fairseq2.models.mistral.factory import MISTRAL_FAMILY
 from fairseq2.nn.utils.module import infer_device
 from fairseq2.typing import override
@@ -89,4 +93,4 @@ class MistralChatbot(AbstractChatbot):
         return False
 
 
-create_chatbot.register(MISTRAL_FAMILY, MistralChatbot)
+chatbot_factories.register(MISTRAL_FAMILY, MistralChatbot)
