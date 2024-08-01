@@ -158,7 +158,7 @@ class EnvironmentSetterRegistry:
         """
         if cluster in self._factories:
             raise ValueError(
-                f"`cluster` must be a unique cluster name, but '{cluster}' has already a registered environment setter."
+                f"`cluster` must be a unique cluster name, but '{cluster}' is already registered."
             )
 
         self._factories[cluster] = factory

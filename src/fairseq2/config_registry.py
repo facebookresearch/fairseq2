@@ -61,7 +61,7 @@ class ConfigRegistry(Generic[ConfigT]):
             config = self._configs[name]()
         except KeyError:
             raise ValueError(
-                f"`name` must be a registered name, but is '{name}' instead."
+                f"`name` must be a registered configuration name, but is '{name}' instead."
             ) from None
 
         if overwrite is not None:
@@ -82,7 +82,7 @@ class ConfigRegistry(Generic[ConfigT]):
         """
         if name in self._configs:
             raise ValueError(
-                f"`name` must be a unique name, but '{name}' is already registered."
+                f"`name` must be a unique configuration name, but '{name}' is already registered."
             )
 
         self._configs[name] = config_factory
