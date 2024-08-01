@@ -21,7 +21,7 @@ disable_error_code = "type-abstract,typeddict-unknown-key"
 disallow_untyped_calls = false
 disallow_untyped_decorators = false
 files = "setup.py,src,tests"
-python_version = 3.8
+python_version = 3.9
 show_error_codes = true
 show_error_context = true
 strict = true
@@ -30,7 +30,7 @@ warn_unused_configs = false
 warn_unused_ignores = false
 
 [[tool.mypy.overrides]]
-module = "torch.distributed.*"
+module = "torch.distributed.*,torch.optim.*"
 implicit_reexport = true
 
 # TODO: fix!

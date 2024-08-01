@@ -9,10 +9,10 @@ on:
     inputs:
       torch:
         type: string
-        default: '2.3.0'
+        default: '2.4.0'
       py:
         type: string
-        default: '3.11'
+        default: '3.12'
       version_override:
         type: string
         default: ''
