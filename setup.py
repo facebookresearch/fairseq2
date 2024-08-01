@@ -53,6 +53,7 @@ setup(
         "fairseq2n" + fairseq2n_version_spec,
         "importlib_metadata~=7.0",
         "importlib_resources~=6.4",
+        "mypy-extensions~=1.0",
         "numpy~=1.23",
         "packaging~=23.1",
         "psutil~=5.9",
@@ -62,7 +63,7 @@ setup(
         "tiktoken~=0.7",
         "torcheval~=0.0.6",
         "tqdm~=4.62",
-        "typing_extensions~=4.3;python_version<'3.10'",
+        "typing_extensions~=4.12;python_version<'3.10'",
     ],
     extras_require={
         "arrow": ["pyarrow>=13.0.0", "pandas~=2.0.0"],

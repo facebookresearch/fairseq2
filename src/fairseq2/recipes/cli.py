@@ -40,7 +40,7 @@ from fairseq2.recipes.utils.environment import (
 from fairseq2.recipes.utils.log import log_config
 from fairseq2.recipes.utils.sweep import SweepTagger, default_sweep_tagger
 from fairseq2.typing import DataClass, override
-from fairseq2.utils.dataclass import FieldError, dump_dataclass, update_dataclass
+from fairseq2.utils.dataclass import update_dataclass
 from fairseq2.utils.value_converter import ValueConverter, default_value_converter
 
 log = get_log_writer(__name__)
@@ -567,56 +567,59 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
 
             sys.exit(1)
 
-        config = deepcopy(preset_config)
+        try:
+            config = deepcopy(preset_config)
+        except Exception:
+            log.error("Preset configuration '{}' cannot be copied. Please file a bug report to the recipe author.", args.preset)  # fmt: skip
+
+            sys.exit(1)
 
         # Update the configuration with `--config-file`.
         if args.config_files:
             for config_file in args.config_files:
                 try:
                     with config_file.open() as fp:
-                        config_overrides = yaml.safe_load(fp)
+                        file_content = yaml.safe_load(fp)
                 except (OSError, YAMLError):
                     log.exception("Configuration file '{}' cannot be read.", config_file)  # fmt: skip
 
                     sys.exit(1)
 
-                if not isinstance(config_overrides, dict):
-                    log.error("Configuration file '{}' must contain a dictionary.", config_file)  # fmt: skip
-
-                    sys.exit(1)
-
                 try:
-                    unknown_fields = update_dataclass(
-                        config, config_overrides, value_converter=self._value_converter
+                    config_overrides = self._value_converter.structure(
+                        file_content, type_hint=type(config), set_empty=True
                     )
-                except FieldError as ex:
-                    log.exception("Value of the field '{}' in the configuration file '{}' is invalid.", ex.field_name, config_file)  # fmt: skip
+                except TypeError:
+                    log.exception("Configuration file '{}' cannot be parsed.")
 
                     sys.exit(1)
 
-                if unknown_fields:
-                    log.error("Following fields in the configuration file '{}' are unknown: {}", config_file, ", ".join(unknown_fields))  # fmt: skip
-
-                    sys.exit(1)
+                update_dataclass(config, config_overrides)
 
         # Update the configuration with `--config`.
         if args.config_overrides:
             try:
-                unknown_fields = update_dataclass(
-                    config, args.config_overrides, value_converter=self._value_converter
+                config_overrides = self._value_converter.structure(
+                    args.config_overrides, type_hint=type(config), set_empty=True
                 )
-            except FieldError as ex:
-                log.exception("Value of the field '{}' in `--config` is invalid.", ex.field_name)  # fmt: skip
+            except TypeError:
+                log.exception("`--config` cannot be parsed.")
 
                 sys.exit(1)
 
-            if unknown_fields:
-                log.error("Following fields in `--config` are unknown: {}", ", ".join(unknown_fields))  # fmt: skip
-
-                sys.exit(1)
+            update_dataclass(config, config_overrides)
 
         if args.dump_config:
-            dump_dataclass(config, sys.stdout)
+            unstructured_config = self._value_converter.unstructure(
+                config, type_hint=type(config)
+            )
+
+            try:
+                yaml.safe_dump(unstructured_config, sys.stdout, sort_keys=False)
+            except (OSError, RuntimeError):
+                log.exception("Configuration cannot be dumped to file.")
+
+                sys.exit(1)
 
             sys.exit()
 

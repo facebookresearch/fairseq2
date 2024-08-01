@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Protocol, Type, TypeVar, Union, final
+from typing import Optional, Protocol, Type, TypeVar, Union, final
 
 from fairseq2.assets import (
     AssetCard,
@@ -18,7 +18,7 @@ from fairseq2.assets import (
 )
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.typing import DataClass
-from fairseq2.utils.dataclass import FieldError, update_dataclass
+from fairseq2.utils.dataclass import update_dataclass
 from fairseq2.utils.value_converter import ValueConverter, default_value_converter
 
 ModelConfigT = TypeVar("ModelConfigT", bound=DataClass)
@@ -44,7 +44,6 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
     _family: str
     _config_kls: Type[ModelConfigT]
     _arch_configs: Optional[ConfigRegistry[ModelConfigT]]
-    _value_converter: ValueConverter
 
     def __init__(
         self,
@@ -87,6 +86,8 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
                 f"The value of the field 'model_family' of the asset card '{card.name}' must be '{self._family}', but is '{model_family}' instead."
             )
 
+        config_kls = self._config_kls
+
         try:
             arch = card.field("model_arch").as_(str)
         except AssetCardFieldNotFoundError:
@@ -95,7 +96,7 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
         # Load the configuration.
         if arch is None:
             try:
-                config = self._config_kls()
+                config = config_kls()
             except TypeError as ex:
                 raise AssetError(
                     f"The '{self._family}' model family has no default configuration."
@@ -113,21 +114,23 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
                     f"The '{self._family}' model family has no architecture named '{arch}'."
                 ) from None
 
-        # Check whether to override anything in the default configuration.
-        if config_overrides := card.field("model_config").get_as_(Dict[str, Any]):
-            try:
-                unknown_fields = update_dataclass(
-                    config, config_overrides, value_converter=self._value_converter
-                )
-            except FieldError as ex:
-                raise AssetCardError(
-                    f"The value of the field 'model_config' of the asset card '{card.name}' must be a valid model configuration, but the value of the configuration field '{ex.field_name}' is invalid. See nested exception for details."
-                ) from ex
+        # Override the default architecture configuration if needed.
+        config_overrides = []
 
-            if unknown_fields:
-                raise AssetCardError(
-                    f"The value of the field 'model_config' of the asset card '{card.name}' must be a valid model configuration, but the following configuration fields are unknown: {', '.join(unknown_fields)}"
+        card_: Optional[AssetCard] = card
+
+        while card_ is not None:
+            if "model_config" in card_.metadata:
+                cfg = card_.field("model_config").as_(
+                    config_kls, value_converter=self._value_converter, set_empty=True
                 )
+
+                config_overrides.append(cfg)
+
+            card_ = card_.base
+
+        for cfg in reversed(config_overrides):
+            update_dataclass(config, cfg)
 
         return config
 

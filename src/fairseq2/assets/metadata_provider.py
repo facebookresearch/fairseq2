@@ -56,11 +56,18 @@ class AbstractAssetMetadataProvider(AssetMetadataProvider):
         cache = self._ensure_cache_loaded()
 
         try:
-            return deepcopy(cache[name])
+            metadata = cache[name]
         except KeyError:
             raise AssetNotFoundError(
                 name, f"An asset with the name '{name}' cannot be found."
             ) from None
+
+        try:
+            return deepcopy(metadata)
+        except Exception as ex:
+            raise AssetMetadataError(
+                f"The metadata of the asset '{name}' cannot be copied. See nested exception for details and please file a bug report to the asset owner."
+            ) from ex
 
     @final
     @override

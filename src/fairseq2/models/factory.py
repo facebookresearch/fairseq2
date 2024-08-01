@@ -6,24 +6,13 @@
 
 from __future__ import annotations
 
-from typing import (
-    Any,
-    Dict,
-    Generic,
-    Mapping,
-    Optional,
-    Protocol,
-    Tuple,
-    Type,
-    TypeVar,
-    final,
-)
+from typing import Any, Dict, Generic, Optional, Protocol, Tuple, Type, TypeVar, final
 
 from torch.nn import Module
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.typing import DataClass, DataType, Device
-from fairseq2.utils.dataclass import FieldError, update_dataclass
+from fairseq2.utils.dataclass import update_dataclass
 from fairseq2.utils.value_converter import ValueConverter, default_value_converter
 
 ModelT = TypeVar("ModelT", bound=Module)
@@ -159,24 +148,7 @@ class StandardGenericModelFactory(GenericModelFactory, Generic[ModelT, ModelConf
                 ) from None
 
         if config is not None:
-            if not isinstance(config, Mapping):
-                raise ValueError(
-                    f"`config` must be of type `{self._config_kls}` or `{Mapping}`, but is of type `{type(config)}` instead."
-                )
-
-            try:
-                unknown_fields = update_dataclass(
-                    config_, config, value_converter=self._value_converter
-                )
-            except FieldError as ex:
-                raise ValueError(
-                    f"`config` must be a valid model configuration, but the value of the configuration field '{ex.field_name}' is invalid. See nested exception for details."
-                ) from ex
-
-            if unknown_fields:
-                raise ValueError(
-                    f"`config` must be a valid model configuration, but the following configuration fields are unknown: {', '.join(unknown_fields)}"
-                )
+            update_dataclass(config_, config)
 
         model = self._factory(config_, device=device, dtype=dtype)
 

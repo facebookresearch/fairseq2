@@ -85,7 +85,7 @@ class ConfigAction(Action):
 
                     tmp[field] = d
 
-                    tmp = d
+                tmp = d
 
             tmp[fields[-1]] = parsed_value
 

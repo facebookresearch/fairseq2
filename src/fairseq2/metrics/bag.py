@@ -99,7 +99,12 @@ class MetricBag:
         if self._original_metrics is not None:
             raise ValueError("`begin_updates()` has already been called.")
 
-        self._original_metrics = deepcopy(self._metrics)
+        try:
+            self._original_metrics = deepcopy(self._metrics)
+        except Exception as ex:
+            raise RuntimeError(
+                f"The metrics in the bag cannot be copied. See nested exception for details and please file a bug report to the author of `{type(self)}`."
+            ) from ex
 
     @final
     def commit_updates(self) -> None:
