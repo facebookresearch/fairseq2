@@ -6,9 +6,19 @@
 
 from __future__ import annotations
 
-from typing import AbstractSet, Callable, Dict, Generic, Protocol, TypeVar, final
+from typing import (
+    AbstractSet,
+    Callable,
+    Dict,
+    Generic,
+    Optional,
+    Protocol,
+    TypeVar,
+    final,
+)
 
 from fairseq2.typing import DataClass
+from fairseq2.utils.dataclass import empty, update_dataclass
 
 ConfigT = TypeVar("ConfigT", bound=DataClass)
 
@@ -31,14 +41,36 @@ class ConfigRegistry(Generic[ConfigT]):
     def __init__(self) -> None:
         self._configs = {}
 
-    def get(self, name: str) -> ConfigT:
-        """Return the configuration of ``name``."""
+    def get(
+        self,
+        name: str,
+        *,
+        overwrite: Optional[ConfigT] = None,
+        return_empty: bool = False,
+    ) -> ConfigT:
+        """Return the configuration of ``name``.
+
+        :param overwrite:
+            The configuration whose non-empty fields will overwrite the returned
+            configuration.
+        :param return_empty:
+            If ``True``, all fields of the returned configuration will be set to
+            empty (i.e. ``EMPTY``).
+        """
         try:
-            return self._configs[name]()
+            config = self._configs[name]()
         except KeyError:
             raise ValueError(
-                f"`name` must be a registered configuration name, but is '{name}' instead."
+                f"`name` must be a registered name, but is '{name}' instead."
             ) from None
+
+        if overwrite is not None:
+            update_dataclass(config, overwrite)
+
+        if return_empty:
+            empty(config)
+
+        return config
 
     def register(self, name: str, config_factory: ConfigFactory[ConfigT]) -> None:
         """Register a new configuration.
@@ -50,7 +82,7 @@ class ConfigRegistry(Generic[ConfigT]):
         """
         if name in self._configs:
             raise ValueError(
-                f"`name` must be a unique configuration name, but '{name}' has already a registered configuration factory."
+                f"`name` must be a unique name, but '{name}' is already registered."
             )
 
         self._configs[name] = config_factory

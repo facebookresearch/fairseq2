@@ -34,8 +34,8 @@ from torch.nn import Module
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.typing import CPU, DataClass, override
-from fairseq2.utils.dataclass import to_safe_dict
 from fairseq2.utils.file import TensorDumper, TensorLoader, dump_tensors, load_tensors
+from fairseq2.utils.value_converter import default_value_converter
 
 log = get_log_writer(__name__)
 
@@ -253,7 +253,9 @@ class FileCheckpointManager(CheckpointManager):
                 metadata["model_family"] = family
 
             if config is not None:
-                metadata["model_config"] = to_safe_dict(config)
+                metadata["model_config"] = default_value_converter.unstructure(
+                    config, type_hint=type(config)
+                )
 
             if self._num_shards != 1:
                 metadata["num_shards"] = self._num_shards

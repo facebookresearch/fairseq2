@@ -10,7 +10,7 @@ import os
 import subprocess
 from abc import ABC, abstractmethod
 from random import Random
-from typing import AbstractSet, Dict, Type, final
+from typing import AbstractSet, Callable, Dict, final
 
 from fairseq2.typing import override
 
@@ -113,62 +113,59 @@ class _NoneEnvironmentSetter(EnvironmentSetter):
 class EnvironmentSetterRegistry:
     """Holds cluster type to :class:`EnvironmentSetter` mappings."""
 
-    _types: Dict[str, Type[EnvironmentSetter]]
+    _factories: Dict[str, Callable[[], EnvironmentSetter]]
 
     def __init__(self) -> None:
-        self._types = {"slurm": SlurmEnvironmentSetter, "none": _NoneEnvironmentSetter}
+        self._factories = {
+            "slurm": SlurmEnvironmentSetter,
+            "none": _NoneEnvironmentSetter,
+        }
 
     def get(self, cluster: str) -> EnvironmentSetter:
         """Return the :class:`EnvironmentSetter` of the specified cluster type."""
         try:
-            kls = self._types[cluster]
+            factory = self._factories[cluster]
         except KeyError:
             raise ValueError(
                 f"`cluster` must be a registered cluster name, but is '{cluster}' instead."
             ) from None
 
-        try:
-            return kls()
-        except TypeError as ex:
-            raise RuntimeError(f"`{kls}` has no default constructor.") from ex
+        return factory()
 
     def get_for_inferred_cluster(self) -> EnvironmentSetter:
         """Return the :class:`EnvironmentSetter` of the inferred cluster."""
         if "TORCHELASTIC_RUN_ID" in os.environ:  # means we are in `torchrun`.
             return self.get("none")
 
-        for cluster, kls in self._types.items():
+        for cluster, factory in self._factories.items():
             if cluster == "none":
                 continue
 
             try:
-                return kls()
+                return factory()
             except RuntimeError:
                 pass
-            except TypeError as ex:
-                raise RuntimeError(f"`{kls}` has no default constructor.") from ex
 
         return self.get("none")
 
-    def register(self, cluster: str, kls: Type[EnvironmentSetter]) -> None:
+    def register(self, cluster: str, factory: Callable[[], EnvironmentSetter]) -> None:
         """Register a new :class:`EnvironmentSetter`.
 
         :param cluster:
             The cluster type.
-        :param kls:
-            The :class:`EnvironmentSetter` subclass. Must have an ``__init__``
-            method that takes no arguments.
+        :param factory:
+            The factory to construct an :class:`EnvironmentSetter`.
         """
-        if cluster in self._types:
+        if cluster in self._factories:
             raise ValueError(
                 f"`cluster` must be a unique cluster name, but '{cluster}' has already a registered environment setter."
             )
 
-        self._types[cluster] = kls
+        self._factories[cluster] = factory
 
     def names(self) -> AbstractSet[str]:
         """Return the supported cluster types."""
-        return self._types.keys()
+        return self._factories.keys()
 
 
 default_env_setters = EnvironmentSetterRegistry()

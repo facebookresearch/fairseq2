@@ -199,5 +199,5 @@ def check_model_type(model: Module, kls: Type[Module]) -> None:
 
     if not isinstance(model, kls):
         raise ValueError(
-            f"The specified model must be of type `{kls}`, but is of type `{type(model)}` instead."
+            f"`model` must be of type `{kls}`, but is of type `{type(model)}` instead."
         )

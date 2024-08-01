@@ -156,9 +156,8 @@ class StatefulObjectBag:
             is_explicit, state_handler = self._is_explicit(name)
 
             if is_explicit:
-                try:
-                    state = state_dict_.pop(name)
-                except KeyError:
+                state = state_dict_.pop(name, None)
+                if state is None:
                     missing_stateful_attrs.append(name)
 
                     continue
@@ -171,9 +170,8 @@ class StatefulObjectBag:
                 else:
                     state_handler.set_state(obj, state)
             elif isinstance(obj, Stateful) and not self._is_dunder(name):
-                try:
-                    state = state_dict_.pop(name)
-                except KeyError:
+                state = state_dict_.pop(name, None)
+                if state is None:
                     missing_stateful_attrs.append(name)
 
                     continue
