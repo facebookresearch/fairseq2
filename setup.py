@@ -47,7 +47,7 @@ setup(
         "jiwer~=3.0",
         "numpy~=1.23",
         "overrides~=7.3",
-        "packaging~=23.1",
+        "packaging>=23,<25",
         "pyyaml~=6.0",
         "sacrebleu~=2.3",
         "torch>=1.12.1",
