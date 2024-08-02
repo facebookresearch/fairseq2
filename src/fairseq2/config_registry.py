@@ -18,8 +18,6 @@ ConfigT_co = TypeVar("ConfigT_co", bound=DataClass, covariant=True)
 
 
 class ConfigFactory(Protocol[ConfigT_co]):
-    """Constructs instances of ``ConfigT``."""
-
     def __call__(self) -> ConfigT_co:
         ...
 

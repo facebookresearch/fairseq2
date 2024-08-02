@@ -23,7 +23,7 @@ from fairseq2.models.mistral.factory import (
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
 
 load_mistral_config = StandardModelConfigLoader(
-    family=MISTRAL_FAMILY, config_kls=MistralConfig, arch_configs=mistral_archs
+    MISTRAL_FAMILY, MistralConfig, mistral_archs
 )
 
 

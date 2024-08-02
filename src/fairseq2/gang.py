@@ -23,7 +23,6 @@ from fairseq2.device import determine_default_cuda_device, determine_default_dev
 from fairseq2.logging import get_log_writer
 from fairseq2.typing import CPU, Device
 from fairseq2.utils.env import get_int_from_env
-from fairseq2.utils.version import torch_greater_or_equal
 
 log = get_log_writer(__name__)
 
@@ -248,6 +247,10 @@ class FakeGang(AbstractGang):
             tensor *= self._size
         elif op == ReduceOperation.PRODUCT:
             tensor.pow_(self._size)
+        else:
+            raise ValueError(
+                "`FakeGang` supports only `SUM` and `PRODUCT` reduce operations."
+            )
 
     @override
     def all_gather(self, output_tensor: Tensor, input_tensor: Tensor) -> None:
@@ -387,18 +390,8 @@ class ProcessGroupGang(AbstractGang):
             )
 
         if device.type == "cuda":
-            nccl_env_name = "NCCL_ASYNC_ERROR_HANDLING"
-
-            if torch_greater_or_equal(2, 2):
-                try:
-                    del os.environ[nccl_env_name]  # Suppress the deprecation warning.
-                except KeyError:
-                    pass
-
-                nccl_env_name = "TORCH_NCCL_ASYNC_ERROR_HANDLING"
-
             # See https://github.com/pytorch/pytorch/issues/46874.
-            os.environ[nccl_env_name] = "1"
+            os.environ["TORCH_NCCL_ASYNC_ERROR_HANDLING"] = "1"
 
         if timeout is None:
             timeout = timedelta(minutes=15)

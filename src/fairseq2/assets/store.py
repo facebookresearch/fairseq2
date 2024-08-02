@@ -86,6 +86,11 @@ class StandardAssetStore(AssetStore):
         scope: Literal["all", "global", "user"] = "all",
         extra_provider: Optional[AssetMetadataProvider] = None,
     ) -> AssetCard:
+        if scope not in ("all", "global", "user"):
+            raise ValueError(
+                f"`scope` must be 'all', 'global', or 'user', but is '{scope}' instead."
+            )
+
         name_env_pair = name.split("@", maxsplit=1)
 
         name = name_env_pair[0]
@@ -197,6 +202,11 @@ class StandardAssetStore(AssetStore):
     def retrieve_names(
         self, *, scope: Literal["all", "global", "user"] = "all"
     ) -> list[str]:
+        if scope not in ("all", "global", "user"):
+            raise ValueError(
+                f"`scope` must be 'all', 'global', or 'user', but is '{scope}' instead."
+            )
+
         names = []
 
         if scope == "all" or scope == "user":

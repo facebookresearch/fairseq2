@@ -22,7 +22,7 @@ from fairseq2.models.wav2vec2.factory import (
 from fairseq2.nn.transformer import TransformerNormOrder
 
 load_wav2vec2_config = StandardModelConfigLoader(
-    family=WAV2VEC2_FAMILY, config_kls=Wav2Vec2Config, arch_configs=wav2vec2_archs
+    WAV2VEC2_FAMILY, Wav2Vec2Config, wav2vec2_archs
 )
 
 

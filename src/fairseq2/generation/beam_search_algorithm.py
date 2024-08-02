@@ -96,6 +96,9 @@ else:
     beam_search_factories = ConfigBoundFactoryRegistry()
 
 
+register_beam_search = beam_search_factories.decorator
+
+
 @final
 class StandardBeamSearchAlgorithm(BeamSearchAlgorithm):
     """Represents a standard beam search algoritm."""

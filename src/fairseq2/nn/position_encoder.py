@@ -21,7 +21,6 @@ from typing_extensions import override
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.typing import DataType, Device
-from fairseq2.utils.version import torch_greater_or_equal
 
 
 class PositionEncoder(Module, ABC):
@@ -359,11 +358,6 @@ class RotaryEncoder(PositionEncoder):
         assert self.max_seq_len is not None
 
         device = self.freqs.device
-
-        # In PyTorch 2.0 and 2.1, `torch.polar` does not support meta device.
-        if not torch_greater_or_equal(2, 2):
-            if device.type == "meta":
-                return
 
         complex_freqs = torch.view_as_complex(self.freqs)
 
