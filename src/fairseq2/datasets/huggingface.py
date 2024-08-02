@@ -8,11 +8,6 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, Optional, Union
 
-from datasets import (  # type: ignore[attr-defined,import-untyped,import-not-found]
-    Dataset,
-    DatasetDict,
-)
-
 from fairseq2.data.data_pipeline import Collater, create_bucket_sizes, read_sequence
 from fairseq2.datasets.batching import LengthBatching, StaticBatching
 from fairseq2.datasets.data_reader import BatchT, DataPipelineReader
