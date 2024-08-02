@@ -7,19 +7,7 @@
 from __future__ import annotations
 
 from functools import partial
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Generic,
-    Optional,
-    Protocol,
-    Tuple,
-    Type,
-    TypeVar,
-    cast,
-    final,
-)
+from typing import Any, Callable, Generic, Optional, Protocol, TypeVar, cast, final
 
 from typing_extensions import Concatenate, ParamSpec
 
@@ -50,8 +38,8 @@ class ConfigBoundFactory(Protocol[P, R_co]):
 class ConfigBoundFactoryRegistry(Generic[P, R]):
     """Holds factories with parameter(s) ``P`` and return type ``R``."""
 
-    _factories: Dict[
-        str, Tuple[Callable[..., R], Type[DataClass], Optional[ConfigRegistry[Any]]]
+    _factories: dict[
+        str, tuple[Callable[..., R], type[DataClass], Optional[ConfigRegistry[Any]]]
     ]
 
     def __init__(self) -> None:
@@ -114,7 +102,7 @@ class ConfigBoundFactoryRegistry(Generic[P, R]):
         self,
         name: str,
         factory: Callable[Concatenate[ConfigT, P], R],
-        config_kls: Type[ConfigT],
+        config_kls: type[ConfigT],
         config_registry: Optional[ConfigRegistry[ConfigT]] = None,
     ) -> None:
         """Register ``factory`` with ``name``."""

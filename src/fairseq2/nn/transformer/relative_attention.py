@@ -7,19 +7,20 @@
 from __future__ import annotations
 
 import math
-from typing import Optional, Tuple, final
+from typing import Optional, final
 
 import torch
 import torch.nn as nn
 from torch import Tensor
 from torch.nn import Module, Parameter
 from torch.nn.functional import pad
+from typing_extensions import override
 
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.projection import Linear
 from fairseq2.nn.transformer.attention import SDPA, create_default_sdpa
 from fairseq2.nn.transformer.attention_mask import AttentionMask, CustomAttentionMask
-from fairseq2.typing import DataType, Device, override
+from fairseq2.typing import DataType, Device
 
 
 @final
@@ -107,7 +108,7 @@ class RelativePositionSDPA(SDPA):
         *,
         attn_mask: Optional[AttentionMask] = None,
         needs_weights: bool = False,
-    ) -> Tuple[Tensor, Optional[Tensor]]:
+    ) -> tuple[Tensor, Optional[Tensor]]:
         q = seqs
         k = keys
 

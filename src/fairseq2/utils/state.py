@@ -8,32 +8,20 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import (
-    Any,
-    Dict,
-    Generic,
-    Mapping,
-    Optional,
-    Protocol,
-    Set,
-    Tuple,
-    TypeVar,
-    final,
-    runtime_checkable,
-)
+from collections.abc import Mapping
+from typing import Any, Generic, Optional, Protocol, TypeVar, final, runtime_checkable
 
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn import Module
 from torch.optim import Optimizer
-
-from fairseq2.typing import override
+from typing_extensions import override
 
 
 @runtime_checkable
 class Stateful(Protocol):
     """Represents an object that follows the ``state_dict`` convention."""
 
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         ...
 
     def load_state_dict(self, state_dict: Mapping[str, Any]) -> None:
@@ -46,8 +34,8 @@ StatefulT = TypeVar("StatefulT")
 class StatefulObjectBag:
     """Holds a collection of stateful objects."""
 
-    _non_stateful_attrs: Set[str]
-    _explicit_stateful_attrs: Dict[str, Optional[StateHandler[Any]]]
+    _non_stateful_attrs: set[str]
+    _explicit_stateful_attrs: dict[str, Optional[StateHandler[Any]]]
 
     def __init__(self) -> None:
         super().__init__()  # play nicely as a mixin.
@@ -115,7 +103,7 @@ class StatefulObjectBag:
         setattr(self, name, obj)
 
     @final
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         state_dict = {}
 
         state: Any
@@ -194,7 +182,7 @@ class StatefulObjectBag:
                 f"`state_dict` must only contain the states of the attributes of this object, but it contains the following extra keys: {', '.join(extra_keys)}"
             )
 
-    def _is_explicit(self, name: str) -> Tuple[bool, Optional[StateHandler[Any]]]:
+    def _is_explicit(self, name: str) -> tuple[bool, Optional[StateHandler[Any]]]:
         try:
             state_handler = self._explicit_stateful_attrs[name]
 

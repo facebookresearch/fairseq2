@@ -6,16 +6,8 @@
 
 from __future__ import annotations
 
-from typing import (
-    AbstractSet,
-    Callable,
-    Dict,
-    Generic,
-    Optional,
-    Protocol,
-    TypeVar,
-    final,
-)
+from collections.abc import Set
+from typing import Callable, Generic, Optional, Protocol, TypeVar, final
 
 from fairseq2.typing import DataClass
 from fairseq2.utils.dataclass import empty, update_dataclass
@@ -36,7 +28,7 @@ class ConfigFactory(Protocol[ConfigT_co]):
 class ConfigRegistry(Generic[ConfigT]):
     """Holds configurations of type ``ConfigT``."""
 
-    _configs: Dict[str, ConfigFactory[ConfigT]]
+    _configs: dict[str, ConfigFactory[ConfigT]]
 
     def __init__(self) -> None:
         self._configs = {}
@@ -99,6 +91,6 @@ class ConfigRegistry(Generic[ConfigT]):
 
         return register
 
-    def names(self) -> AbstractSet[str]:
+    def names(self) -> Set[str]:
         """Return the names of all configurations."""
         return self._configs.keys()

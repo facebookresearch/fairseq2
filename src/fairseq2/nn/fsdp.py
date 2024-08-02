@@ -6,9 +6,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Dict, Final, Iterator, Optional, Protocol, Sequence, Set, final
+from typing import Any, Final, Optional, Protocol, final
 
 import torch
 from torch import Tensor
@@ -142,7 +143,7 @@ def to_fsdp(
             buffer_dtype=None,
         )
 
-    kwargs: Dict[str, Any] = {}
+    kwargs: dict[str, Any] = {}
 
     # As of PyTorch 2.0, FSDP initialization fails in certain settings when an
     # empty `ignored_states` is specified (e.g. `sync_module_states` is set).
@@ -255,8 +256,8 @@ class FSDPParameterInitializer:
     ... )
     """
 
-    _module_memo: Set[Module]
-    _memo: Dict[Tensor, Tensor]
+    _module_memo: set[Module]
+    _memo: dict[Tensor, Tensor]
     _device: Device
     _skip_init: bool
 

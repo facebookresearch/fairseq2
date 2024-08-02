@@ -10,9 +10,9 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple, Union, cast, final
+from typing import Any, NoReturn, Optional, Union, cast, final
 
-from typing_extensions import NoReturn
+from typing_extensions import override
 
 from fairseq2.assets import AssetCard, AssetError
 from fairseq2.data import (
@@ -30,7 +30,7 @@ from fairseq2.datasets.loader import AbstractDatasetLoader, DelegatingDatasetLoa
 from fairseq2.gang import Gang
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
-from fairseq2.typing import Device, override
+from fairseq2.typing import Device
 
 
 @dataclass(unsafe_hash=True)  # Due to FSDP, we cannot freeze.
@@ -131,11 +131,11 @@ class ParallelTextDataset(ABC):
         """
 
     @abstractmethod
-    def splits(self) -> Set[str]:
+    def splits(self) -> set[str]:
         """Return the set of splits."""
 
     @abstractmethod
-    def directions(self, split: str) -> List[Direction]:
+    def directions(self, split: str) -> list[Direction]:
         """Return the directions included ``split``."""
 
 
@@ -151,13 +151,13 @@ class GenericParallelTextDataset(ParallelTextDataset):
     """Represents a generic file-based parallel text dataset."""
 
     _data_dir: Path
-    _splits: Dict[str, Tuple[List[Direction], List[float]]]
+    _splits: dict[str, tuple[list[Direction], list[float]]]
 
     def __init__(
         self,
         *,
         data_dir: Path,
-        splits: Dict[str, Tuple[List[Direction], List[float]]],
+        splits: dict[str, tuple[list[Direction], list[float]]],
     ) -> None:
         """
         :param data_dir:
@@ -358,7 +358,7 @@ class GenericParallelTextDataset(ParallelTextDataset):
         seed += gang.rank
 
         # Encode source and target texts.
-        def encode(example: Dict[str, Any]) -> Dict[str, Any]:
+        def encode(example: dict[str, Any]) -> dict[str, Any]:
             direction = example["direction"]
 
             source_encoder, target_encoder = text_encoders[direction]
@@ -389,7 +389,7 @@ class GenericParallelTextDataset(ParallelTextDataset):
             )
         else:
             # Filter out out-of-range examples.
-            def skip(example: Dict[str, Any]) -> bool:
+            def skip(example: dict[str, Any]) -> bool:
                 source_len = len(example["source_indices"])
                 target_len = len(example["target_indices"])
 
@@ -471,7 +471,7 @@ class GenericParallelTextDataset(ParallelTextDataset):
         )
 
     @staticmethod
-    def _to_batch(example: Dict[str, Any], device: Device) -> Seq2SeqBatch:
+    def _to_batch(example: dict[str, Any], device: Device) -> Seq2SeqBatch:
         source_data = cast(SequenceData, example["source_indices"])
         target_data = cast(SequenceData, example["target_indices"])
 
@@ -491,11 +491,11 @@ class GenericParallelTextDataset(ParallelTextDataset):
         )
 
     @override
-    def splits(self) -> Set[str]:
+    def splits(self) -> set[str]:
         return set(self._splits.keys())
 
     @override
-    def directions(self, split: str) -> List[Direction]:
+    def directions(self, split: str) -> list[Direction]:
         try:
             directions, _ = self._splits[split]
         except KeyError:

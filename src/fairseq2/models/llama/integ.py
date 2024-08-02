@@ -6,12 +6,12 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
 
 
-def convert_to_reference_checkpoint(checkpoint: Dict[str, Any]) -> Dict[str, Any]:
+def convert_to_reference_checkpoint(checkpoint: dict[str, Any]) -> dict[str, Any]:
     """Convert a fairseq2 LLaMA checkpoint to the reference format."""
     try:
         model_key = checkpoint["model_key"]

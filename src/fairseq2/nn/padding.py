@@ -6,7 +6,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional, Sequence, Tuple, cast, final
+from collections.abc import Sequence
+from typing import Any, Optional, cast, final
 
 import torch
 from torch import Tensor
@@ -162,7 +163,7 @@ def apply_padding_mask(
 
 def get_seqs_and_padding_mask(
     data: SequenceData, device: Optional[Device] = None
-) -> Tuple[Tensor, Optional[PaddingMask]]:
+) -> tuple[Tensor, Optional[PaddingMask]]:
     """Return the sequences along with their padding mask from ``data``.
 
     :returns:
@@ -187,7 +188,7 @@ def get_seqs_and_padding_mask(
 
 def pad_seqs(
     seqs: Sequence[Tensor], pad_value: int = 0, pad_to_multiple: int = 1
-) -> Tuple[Tensor, Optional[PaddingMask]]:
+) -> tuple[Tensor, Optional[PaddingMask]]:
     """Stack ``seqs`` along a new batch dimension and pad them to equal length.
 
     :param seqs:

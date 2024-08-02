@@ -7,12 +7,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List, final
+from typing import final
+
+from typing_extensions import override
 
 from fairseq2.assets import AssetCard
 from fairseq2.data.text import AbstractTextTokenizerLoader, load_text_tokenizer
 from fairseq2.models.nllb.tokenizer import NllbTokenizer
-from fairseq2.typing import override
 
 
 @final
@@ -21,7 +22,7 @@ class NllbTokenizerLoader(AbstractTextTokenizerLoader[NllbTokenizer]):
 
     @override
     def _load(self, path: Path, card: AssetCard) -> NllbTokenizer:
-        langs = card.field("langs").as_(List[str])
+        langs = card.field("langs").as_(list[str])
 
         default_lang = card.field("default_lang").as_(str)
 

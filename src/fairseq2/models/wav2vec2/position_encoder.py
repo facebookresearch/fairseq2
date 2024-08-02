@@ -15,11 +15,12 @@ import torch.nn as nn
 from torch import Tensor
 from torch.nn import GELU, Conv1d, Module, Sequential
 from torch.nn.utils import remove_weight_norm, weight_norm  # type: ignore[attr-defined]
+from typing_extensions import override
 
 from fairseq2.nn import LayerNorm, PositionEncoder, StandardLayerNorm
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask, apply_padding_mask
-from fairseq2.typing import DataType, Device, override
+from fairseq2.typing import DataType, Device
 from fairseq2.utils.version import torch_greater_or_equal
 
 

@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, Generic, TypeVar
+from typing import Generic, TypeVar
 
 T = TypeVar("T")
 
@@ -14,7 +14,7 @@ T = TypeVar("T")
 class Registry(Generic[T]):
     """Holds objects of type ``T``."""
 
-    _objects: Dict[str, T]
+    _objects: dict[str, T]
 
     def __init__(self) -> None:
         self._objects = {}

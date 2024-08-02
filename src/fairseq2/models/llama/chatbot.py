@@ -6,10 +6,11 @@
 
 from __future__ import annotations
 
-from typing import List, final
+from typing import final
 
 import torch
 from torch import Tensor
+from typing_extensions import override
 
 from fairseq2.data.text import TextTokenEncoder, TextTokenizer
 from fairseq2.generation import (
@@ -23,7 +24,6 @@ from fairseq2.generation import (
 from fairseq2.models.llama.factory import LLAMA_FAMILY
 from fairseq2.models.llama.tokenizer import LLaMA3Tokenizer
 from fairseq2.nn.utils.module import infer_device
-from fairseq2.typing import override
 
 
 @final
@@ -78,7 +78,7 @@ class LLaMAChatbot(AbstractChatbot):
 
             dialog = [first_message] + list(dialog[2:])
 
-        dialog_contents: List[Tensor] = []
+        dialog_contents: list[Tensor] = []
 
         for user, bot in zip(dialog[::2], dialog[1::2]):
             if user.role != "user" or bot.role != "bot":
@@ -159,7 +159,7 @@ class LLaMA3Chatbot(AbstractChatbot):
                 f"The last message of `{param_name}` must have the role 'user'."
             )
 
-        dialog_contents: List[Tensor] = [self._bos_idx]
+        dialog_contents: list[Tensor] = [self._bos_idx]
 
         def encode_role(role: str) -> None:
             seq = self._text_encoder(role)

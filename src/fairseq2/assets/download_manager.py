@@ -8,24 +8,25 @@ from __future__ import annotations
 
 import os
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from contextlib import ExitStack
 from hashlib import sha1
 from pathlib import Path
 from shutil import rmtree
 from tarfile import TarFile, is_tarfile
 from tempfile import NamedTemporaryFile
-from typing import Dict, Iterator, Optional, final
+from typing import Optional, final
 from urllib.error import HTTPError, URLError
 from urllib.parse import unquote, urlparse
 from urllib.request import Request, urlopen
 from zipfile import BadZipFile, ZipFile
 
 from tqdm import tqdm  # type: ignore[import]
+from typing_extensions import override
 
 from fairseq2.assets.card import _starts_with_scheme
 from fairseq2.assets.error import AssetError
 from fairseq2.logging import get_log_writer
-from fairseq2.typing import override
 from fairseq2.utils.env import get_path_from_env
 
 log = get_log_writer(__name__)
@@ -189,7 +190,7 @@ class InProcAssetDownloadManager(AssetDownloadManager):
 class _AssetDownloadOp:
     _cache_dir: Path
     _uri: str
-    _uri_params: Dict[str, str]
+    _uri_params: dict[str, str]
     _asset_dir: Optional[Path]
     _display_name: str
     _force: bool

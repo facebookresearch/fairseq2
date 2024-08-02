@@ -7,7 +7,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, final
+from typing import Any, final
+
+from typing_extensions import override
 
 from fairseq2.assets import AssetCard
 from fairseq2.data.text import (
@@ -31,7 +33,6 @@ from fairseq2.models.transformer import (
     shard_transformer_decoder_model,
 )
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
-from fairseq2.typing import override
 
 load_llama_config = StandardModelConfigLoader(
     family=LLAMA_FAMILY, config_kls=LLaMAConfig, arch_configs=llama_archs
@@ -44,7 +45,7 @@ class LLaMAModelLoader(StandardModelLoader[TransformerDecoderModel, LLaMAConfig]
 
     @override
     def _shard(
-        self, model: TransformerDecoderModel, gangs: Dict[str, Gang], card: AssetCard
+        self, model: TransformerDecoderModel, gangs: dict[str, Gang], card: AssetCard
     ) -> None:
         gang = gangs["tp"]  # tensor parallel
 
@@ -54,8 +55,8 @@ class LLaMAModelLoader(StandardModelLoader[TransformerDecoderModel, LLaMAConfig]
 
 
 def convert_llama_checkpoint(
-    checkpoint: Dict[str, Any], config: LLaMAConfig
-) -> Dict[str, Any]:
+    checkpoint: dict[str, Any], config: LLaMAConfig
+) -> dict[str, Any]:
     """Convert a reference LLaMA checkpoint to fairseq2 format."""
     # Check if we have a fairseq2 checkpoint.
     if "output.weight" not in checkpoint:

@@ -7,11 +7,13 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Sequence, Tuple, Union, final
+from collections.abc import Sequence
+from typing import Optional, Union, final
 
 import torch
 from torch import Tensor
 from torch.nn.functional import log_softmax
+from typing_extensions import override
 
 from fairseq2.data import VocabularyInfo
 from fairseq2.generation.beam_search_algorithm import (
@@ -34,7 +36,6 @@ from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.typing import override
 from fairseq2.utils.profiler import Stopwatch
 
 
@@ -197,7 +198,7 @@ class BeamSearchSeq2SeqGenerator(AbstractSeq2SeqGenerator):
     _algorithm: BeamSearchAlgorithm
     _beam_size: int
     _min_gen_len: int
-    _max_gen_len: Tuple[int, int]
+    _max_gen_len: tuple[int, int]
     _max_seq_len: int
     _echo_prompt: bool
     _normalize_scores: bool
@@ -215,7 +216,7 @@ class BeamSearchSeq2SeqGenerator(AbstractSeq2SeqGenerator):
         algorithm: Optional[BeamSearchAlgorithm] = None,
         beam_size: int = 5,
         min_gen_len: int = 1,
-        max_gen_len: Tuple[int, int] = (1, 128),
+        max_gen_len: tuple[int, int] = (1, 128),
         max_seq_len: Optional[int] = None,
         echo_prompt: bool = False,
         normalize_scores: bool = True,
@@ -384,16 +385,16 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
     _len_penalty: float
     _prefill_chunk_size: Optional[int]
     _step_processors: Sequence[StepProcessor]
-    _step_hooks: Dict[int, StepHook]
+    _step_hooks: dict[int, StepHook]
     _step_nr: int
     _state_bag: IncrementalStateBag
     _prompt_lens: Optional[Tensor]
     _prompt_mask: Optional[Tensor]
-    _beam_sizes: List[int]
+    _beam_sizes: list[int]
     _prompt_indices: Tensor
     _seqs: Tensor
     _step_scores: Tensor
-    _output: List[List[Hypothesis]]
+    _output: list[list[Hypothesis]]
     _counters: GenerationCounters
 
     def __init__(
@@ -414,7 +415,7 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
         prefill_chunk_size: Optional[int],
         decode_capacity_increment: Optional[int],
         step_processors: Sequence[StepProcessor],
-        step_hooks: Dict[int, StepHook],
+        step_hooks: dict[int, StepHook],
     ) -> None:
         self._algorithm = algorithm
 
@@ -511,7 +512,7 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
 
         self._counters = GenerationCounters()
 
-    def __call__(self) -> Tuple[List[List[Hypothesis]], GenerationCounters]:
+    def __call__(self) -> tuple[list[list[Hypothesis]], GenerationCounters]:
         self._prepare_state()
 
         watch = Stopwatch(start=True, device=self._seqs.device)
@@ -644,9 +645,9 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
 
         batch_offset = 0
 
-        new_beam_sizes: List[int] = []
+        new_beam_sizes: list[int] = []
 
-        beam_next_step_list: List[BeamStep] = []
+        beam_next_step_list: list[BeamStep] = []
 
         # We split the batch by `beam_sizes` and treat each beam separately.
         for beam_idx, (beam_lprobs, beam_step_scores) in enumerate(
@@ -857,7 +858,7 @@ class _BeamSearchSequenceGeneratorOp(_AbstractBeamSearchSequenceGeneratorOp):
         prefill_chunk_size: Optional[int],
         decode_capacity_increment: Optional[int],
         step_processors: Sequence[StepProcessor],
-        step_hooks: Dict[int, StepHook],
+        step_hooks: dict[int, StepHook],
     ) -> None:
         super().__init__(
             prompt_seqs,
@@ -918,7 +919,7 @@ class _BeamSearchSeq2SeqGeneratorOp(_AbstractBeamSearchSequenceGeneratorOp):
         prefill_chunk_size: Optional[int],
         decode_capacity_increment: Optional[int],
         step_processors: Sequence[StepProcessor],
-        step_hooks: Dict[int, StepHook],
+        step_hooks: dict[int, StepHook],
     ) -> None:
         super().__init__(
             prompt_seqs,

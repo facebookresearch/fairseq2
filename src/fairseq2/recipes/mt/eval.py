@@ -8,10 +8,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional, TextIO, final
+from typing import Optional, TextIO, final
 
 import torch
 from torch.nn import Module
+from typing_extensions import override
 
 from fairseq2.assets import AssetNotFoundError, default_asset_store
 from fairseq2.checkpoint import CheckpointModelMetadataProvider
@@ -46,7 +47,7 @@ from fairseq2.recipes.utils.setup import (
     check_model_type,
     setup_root_gang,
 )
-from fairseq2.typing import META, DataClass, DataType, override
+from fairseq2.typing import META, DataClass, DataType
 from fairseq2.utils.profiler import Stopwatch
 
 log = get_log_writer(__name__)
@@ -197,7 +198,7 @@ def load_mt_evaluator(
         ) from ex
 
     # Initialize the evaluation units.
-    units: List[EvalUnit[Seq2SeqBatch]] = []
+    units: list[EvalUnit[Seq2SeqBatch]] = []
 
     data_readers = []
 

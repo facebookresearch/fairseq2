@@ -7,33 +7,23 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from contextlib import nullcontext
+from collections.abc import Iterator, Mapping, Set
+from contextlib import AbstractContextManager, nullcontext
 from pathlib import Path
 from pickle import PickleError
 from shutil import rmtree
-from typing import (
-    AbstractSet,
-    Any,
-    ContextManager,
-    Dict,
-    Iterator,
-    List,
-    Mapping,
-    NoReturn,
-    Optional,
-    Tuple,
-    final,
-)
+from typing import Any, NoReturn, Optional, final
 
 import yaml
 from torch.distributed._shard import load_with_process_group
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.api import FullStateDictConfig, StateDictType
 from torch.nn import Module
+from typing_extensions import override
 
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
-from fairseq2.typing import CPU, DataClass, override
+from fairseq2.typing import CPU, DataClass
 from fairseq2.utils.file import TensorDumper, TensorLoader, dump_tensors, load_tensors
 from fairseq2.utils.value_converter import default_value_converter
 
@@ -57,7 +47,7 @@ class CheckpointManager(ABC):
         state: Mapping[str, Any],
         *,
         model_key: str = "model",
-        replicated_keys: Optional[AbstractSet[str]] = None,
+        replicated_keys: Optional[Set[str]] = None,
     ) -> None:
         """Save the training state.
 
@@ -91,11 +81,11 @@ class CheckpointManager(ABC):
         """Commit the checkpoint after which it will be considered saved."""
 
     @abstractmethod
-    def load_checkpoint(self, step_nr: int) -> Dict[str, Any]:
+    def load_checkpoint(self, step_nr: int) -> dict[str, Any]:
         """Load the checkpoint of the specified training step."""
 
     @abstractmethod
-    def load_last_checkpoint(self) -> Tuple[int, Dict[str, Any]]:
+    def load_last_checkpoint(self) -> tuple[int, dict[str, Any]]:
         """Load the last checkpoint in the training.
 
         :returns:
@@ -104,7 +94,7 @@ class CheckpointManager(ABC):
         """
 
     @abstractmethod
-    def load_metadata(self, step_nr: int) -> Optional[Dict[str, Any]]:
+    def load_metadata(self, step_nr: int) -> Optional[dict[str, Any]]:
         """Load the checkpoint metadata of the specified training step."""
 
     @abstractmethod
@@ -151,7 +141,7 @@ class CheckpointManager(ABC):
         """
 
     @abstractmethod
-    def get_step_numbers(self) -> List[int]:
+    def get_step_numbers(self) -> list[int]:
         """Return the numbers of the training steps that have a checkpoint."""
 
 
@@ -244,7 +234,7 @@ class FileCheckpointManager(CheckpointManager):
             The name of the tokenizer that the model is trained with.
         """
         if self._root_gang.rank == 0:
-            metadata: Dict[str, Any] = {"name": "checkpoint"}
+            metadata: dict[str, Any] = {"name": "checkpoint"}
 
             if base_asset is not None:
                 metadata["base"] = base_asset
@@ -309,7 +299,7 @@ class FileCheckpointManager(CheckpointManager):
         state: Mapping[str, Any],
         *,
         model_key: str = "model",
-        replicated_keys: Optional[AbstractSet[str]] = None,
+        replicated_keys: Optional[Set[str]] = None,
     ) -> None:
         step_nr = self._get_checkpoint_step_nr()
 
@@ -505,13 +495,13 @@ class FileCheckpointManager(CheckpointManager):
         return step_nr
 
     @override
-    def load_checkpoint(self, step_nr: int) -> Dict[str, Any]:
+    def load_checkpoint(self, step_nr: int) -> dict[str, Any]:
         def raise_error(cause: Exception) -> NoReturn:
             raise RuntimeError(
                 f"The checkpoint of training step {step_nr} cannot be loaded. See nested exception for details."
             ) from cause
 
-        def maybe_with_dp_process_group() -> ContextManager[None]:
+        def maybe_with_dp_process_group() -> AbstractContextManager[None]:
             try:
                 pg = self._dp_gang.as_process_group()
             except RuntimeError:
@@ -521,7 +511,7 @@ class FileCheckpointManager(CheckpointManager):
 
         step_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}")
 
-        def load_part(filename: str) -> Dict[str, Any]:
+        def load_part(filename: str) -> dict[str, Any]:
             with maybe_with_dp_process_group():  # Required for `ShardedTensor`.
                 try:
                     part = self._tensor_loader(
@@ -569,7 +559,7 @@ class FileCheckpointManager(CheckpointManager):
         return checkpoint
 
     @override
-    def load_last_checkpoint(self) -> Tuple[int, Dict[str, Any]]:
+    def load_last_checkpoint(self) -> tuple[int, dict[str, Any]]:
         step_numbers = self.get_step_numbers()
         if not step_numbers:
             raise CheckpointNotFoundError("No checkpoint found.")
@@ -581,7 +571,7 @@ class FileCheckpointManager(CheckpointManager):
         return last_step_nr, checkpoint
 
     @override
-    def load_metadata(self, step_nr: int) -> Optional[Dict[str, Any]]:
+    def load_metadata(self, step_nr: int) -> Optional[dict[str, Any]]:
         metadata_file = self._checkpoint_dir.joinpath(
             f"step_{step_nr}/metadata{self._shard_suffix}.pt"
         )
@@ -683,7 +673,7 @@ class FileCheckpointManager(CheckpointManager):
             if step_nr != last_step_nr:
                 self.delete_checkpoint(step_nr, preserve_model=preserve_model)
 
-    def _load_scores(self, step_numbers: List[int]) -> List[Tuple[float, int]]:
+    def _load_scores(self, step_numbers: list[int]) -> list[tuple[float, int]]:
         scores = []
 
         for step_nr in step_numbers:
@@ -723,7 +713,7 @@ class FileCheckpointManager(CheckpointManager):
         return step_nr in it
 
     @override
-    def get_step_numbers(self) -> List[int]:
+    def get_step_numbers(self) -> list[int]:
         step_numbers = list(self._iter_step_numbers())
 
         step_numbers.sort()

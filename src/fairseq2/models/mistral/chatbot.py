@@ -6,10 +6,11 @@
 
 from __future__ import annotations
 
-from typing import List, final
+from typing import final
 
 import torch
 from torch import Tensor
+from typing_extensions import override
 
 from fairseq2.data.text import TextTokenEncoder, TextTokenizer
 from fairseq2.generation import (
@@ -20,7 +21,6 @@ from fairseq2.generation import (
 )
 from fairseq2.models.mistral.factory import MISTRAL_FAMILY
 from fairseq2.nn.utils.module import infer_device
-from fairseq2.typing import override
 
 
 @final
@@ -67,7 +67,7 @@ class MistralChatbot(AbstractChatbot):
                 f"The last message of `{param_name}` must have the role 'user'."
             )
 
-        dialog_contents: List[Tensor] = [self._bos_idx]
+        dialog_contents: list[Tensor] = [self._bos_idx]
 
         for user, bot in zip(dialog[::2], dialog[1::2]):
             if user.role != "user" or bot.role != "bot":

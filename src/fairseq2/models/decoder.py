@@ -7,15 +7,15 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Optional, Tuple
+from typing import Optional
 
 from torch import Tensor
+from typing_extensions import override
 
 from fairseq2.data import VocabularyInfo
 from fairseq2.models.sequence import SequenceBatch, SequenceModel, SequenceModelOutput
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.typing import override
 
 
 class DecoderModel(SequenceModel):
@@ -53,7 +53,7 @@ class DecoderModel(SequenceModel):
         padding_mask: Optional[PaddingMask],
         *,
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+    ) -> tuple[Tensor, Optional[PaddingMask]]:
         """Decode the specified sequences.
 
         :param seqs:

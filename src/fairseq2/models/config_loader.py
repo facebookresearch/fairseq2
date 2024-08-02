@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Optional, Protocol, Type, TypeVar, Union, final
+from typing import Optional, Protocol, TypeVar, Union, final
 
 from fairseq2.assets import (
     AssetCard,
@@ -42,14 +42,14 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
 
     _asset_store: AssetStore
     _family: str
-    _config_kls: Type[ModelConfigT]
+    _config_kls: type[ModelConfigT]
     _arch_configs: Optional[ConfigRegistry[ModelConfigT]]
 
     def __init__(
         self,
         *,
         family: str,
-        config_kls: Type[ModelConfigT],
+        config_kls: type[ModelConfigT],
         arch_configs: Optional[ConfigRegistry[ModelConfigT]],
         asset_store: Optional[AssetStore] = None,
         value_converter: Optional[ValueConverter] = None,

@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Tuple, Union, cast, final
+from typing import Union, cast, final
 
 import torch
 import torch.distributed
 from torch import Tensor
 from torch.nn import Module
 from torcheval.metrics import Mean
+from typing_extensions import override
 
 from fairseq2.datasets.preference import PreferenceOptimizationBatch
 from fairseq2.gang import Gang, get_rank
@@ -21,7 +22,7 @@ from fairseq2.models.sequence import (
 )
 from fairseq2.recipes.common_metrics import SequenceMetricBag
 from fairseq2.recipes.trainer import AbstractTrainUnit
-from fairseq2.typing import DataType, override
+from fairseq2.typing import DataType
 
 log = get_log_writer(__name__)
 
@@ -75,7 +76,7 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
         self._gang = gang
 
     @override
-    def __call__(self, batch: PreferenceOptimizationBatch) -> Tuple[Tensor, int]:
+    def __call__(self, batch: PreferenceOptimizationBatch) -> tuple[Tensor, int]:
         chosen_batch = batch.chosen
         chosen_input_batch, chosen_target_batch = as_auto_regressive_input(chosen_batch)
         rejected_batch = batch.rejected
@@ -140,7 +141,7 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
         ref_chosen_logps: Tensor,
         rejected_logps: Tensor,
         ref_rejected_logps: Tensor,
-    ) -> Tuple[Tensor, Tensor, Tensor]:
+    ) -> tuple[Tensor, Tensor, Tensor]:
         logp_ratio_chosen = self._beta * (chosen_logps - ref_chosen_logps)
         logp_ratio_rejected = self._beta * (rejected_logps - ref_rejected_logps)
         dpo_loss = -torch.nn.functional.logsigmoid(
