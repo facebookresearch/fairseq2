@@ -22,7 +22,7 @@ def _add_wav2vev2_asr_eval_cli(group: CliGroup) -> None:
     group.add_command(
         "wav2vec2-asr",
         handler,
-        help="evaluate a wav2vec 2.0 ASR model in downstream benchmark",
+        help="evaluate a wav2vec 2.0 ASR model on a downstream benchmark (default: librispeech_asr)",
     )
 
 

@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 
+import itertools
 import math
 from dataclasses import dataclass
 from pathlib import Path
@@ -100,7 +101,7 @@ def _librispeech_asr_to_batch(examples: Example) -> Seq2SeqBatch:
 
 
 def _preprocess_example(
-    example: Example, encoder: TextTokenEncoder, device: torch.device
+    example: Example, tokenizer_name: str, device: torch.device
 ) -> Example:
     """
     Preprocesses an individual example by converting the audio array to a PyTorch tensor
@@ -108,10 +109,14 @@ def _preprocess_example(
 
     Args:
         example (dict): A dictionary containing "audio" and "text" keys.
+        tokenizer_name (str): The name of the tokenizer to use.
+        device (torch.device): The device to store the tensors.
 
     Returns:
         dict: A dictionary with "audio" and "text" as PyTorch tensors.
     """
+    tokenizer = load_text_tokenizer(tokenizer_name)
+    encoder = tokenizer.create_encoder(device=device)
     audio_tensor = (
         torch.from_numpy(example["audio"]["array"]).to(torch.float16).to(device)
     )
@@ -143,7 +148,7 @@ def _librispeech_asr_config() -> AsrEvalConfig:
     return AsrEvalConfig(
         dataset_name="librispeech_asr",
         model_name="wav2vec2_asr_base_10h",
-        split="test.other"
+        split="test.other",
         # converter=librispeech_asr_to_batch,
     )
 
@@ -169,11 +174,7 @@ def load_wav2vec2_asr_evaluator(
     max_samples = config.max_samples if config.max_samples is not None else math.inf
     # Load a subset of the dataset if max_samples is set
     ds = Dataset.from_generator(
-        lambda: (
-            yield from (
-                item for idx, item in enumerate(iterable_ds) if idx < max_samples
-            )
-        ),
+        lambda: itertools.islice(iterable_ds, 0, max_samples),
         features=iterable_ds.features,
     )
 
@@ -184,15 +185,14 @@ def load_wav2vec2_asr_evaluator(
     else:
         init_device = META
 
-    tokenizer = load_text_tokenizer(config.tokenizer_name)
-    encoder = tokenizer.create_encoder(device=init_device)
-
-    ds = ds.map(lambda x: _preprocess_example(x, encoder, init_device))
+    ds = ds.map(lambda x: _preprocess_example(x, config.tokenizer_name, init_device))
     format = {
         "type": "torch",
         "format_kwargs": {"dtype": torch.float16, "device": init_device},
     }
     ds.set_format(**format, columns=["audio", "text"])
+
+    tokenizer = load_text_tokenizer(config.tokenizer_name)
 
     pipeline_reader = create_hf_reader(
         dataset=ds,
