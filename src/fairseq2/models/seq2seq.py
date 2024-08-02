@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Optional, Tuple, final
+from typing import Any, Optional, final
 
 from torch import Tensor
 
@@ -96,7 +96,7 @@ class Seq2SeqBatch:
         return int(self.target_padding_mask.seq_lens.sum())
 
 
-def as_auto_regressive_input(batch: Seq2SeqBatch) -> Tuple[Seq2SeqBatch, SequenceBatch]:
+def as_auto_regressive_input(batch: Seq2SeqBatch) -> tuple[Seq2SeqBatch, SequenceBatch]:
     """Use ``batch`` to train an auto-regressive model.
 
     :returns:

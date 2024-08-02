@@ -7,11 +7,13 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Protocol, Sequence, Tuple, Union, final
+from collections.abc import Sequence
+from typing import Optional, Union, final
 
 import torch
 from torch import Tensor
 from torch.nn.functional import softmax
+from typing_extensions import override
 
 from fairseq2.data import VocabularyInfo
 from fairseq2.generation.generator import (
@@ -23,6 +25,7 @@ from fairseq2.generation.generator import (
     SequenceGeneratorOutput,
     StepHook,
 )
+from fairseq2.generation.sampler import Sampler
 from fairseq2.generation.step_processor import StepProcessor
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
@@ -30,7 +33,6 @@ from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.ops import repeat_interleave
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.typing import override
 from fairseq2.utils.profiler import Stopwatch
 
 
@@ -199,7 +201,7 @@ class SamplingSeq2SeqGenerator(AbstractSeq2SeqGenerator):
     _sampler: Sampler
     _num_gens: int
     _min_gen_len: int
-    _max_gen_len: Tuple[int, int]
+    _max_gen_len: tuple[int, int]
     _max_seq_len: int
     _echo_prompt: bool
     _compute_scores: bool
@@ -218,7 +220,7 @@ class SamplingSeq2SeqGenerator(AbstractSeq2SeqGenerator):
         *,
         num_gens: int = 1,
         min_gen_len: int = 1,
-        max_gen_len: Tuple[int, int] = (1, 128),
+        max_gen_len: tuple[int, int] = (1, 128),
         max_seq_len: Optional[int] = None,
         echo_prompt: bool = False,
         compute_scores: bool = False,
@@ -375,97 +377,6 @@ class SamplingSeq2SeqGenerator(AbstractSeq2SeqGenerator):
         )
 
 
-class Sampler(Protocol):
-    """Represents a sampling algorithm."""
-
-    def __call__(self, probs: Tensor) -> Tensor:
-        """
-        :param probs:
-            The next-step probability of each vocabulary entry. *Shape:*
-            :math:`(N,V)`, where :math:`N` is the batch size and :math:`V` is
-            the size of the vocabulary.
-        """
-
-
-@final
-class TopPSampler(Sampler):
-    """Selects the next step randomly from the smallest set of candidates for
-    which the cumulative probability exceeds a specified value p.
-
-    Also known as Nucleus Sampling as described in
-    :cite:t:`https://doi.org/10.48550/arxiv.1904.09751`.
-    """
-
-    _p: float
-
-    def __init__(self, p: float = 0.9) -> None:
-        """
-        :param p:
-            The cumulative probability threshold.
-        """
-        self._p = p
-
-    def __call__(self, probs: Tensor) -> Tensor:
-        # Previous operations in the generation like step processors might have
-        # modified the probabilities. Normalize the distribution.
-        probs = probs / probs.sum(dim=-1, keepdim=True)
-
-        sorted_probs, sorted_indices = torch.sort(probs, dim=-1, descending=True)
-
-        # (N, V)
-        cumsum_probs = torch.cumsum(sorted_probs, dim=-1)
-
-        mask = (cumsum_probs - sorted_probs) > self._p
-
-        sorted_probs[mask] = 0.0
-
-        # Normalize.
-        sorted_probs /= sorted_probs.sum(dim=-1, keepdim=True)
-
-        # (N, 1)
-        indices = sorted_indices.gather(
-            dim=-1, index=torch.multinomial(sorted_probs, num_samples=1)
-        )
-
-        # (N, 1) -> (N)
-        return indices.squeeze(-1)  # type: ignore[no-any-return]
-
-
-@final
-class TopKSampler(Sampler):
-    """Selects the next step randomly from the k mosty likely candidates."""
-
-    _k: int
-
-    def __init__(self, k: int) -> None:
-        """
-        :param k:
-            The number of candidates to select from.
-        """
-        self._k = k
-
-    def __call__(self, probs: Tensor) -> Tensor:
-        k = min(self._k, probs.size(1))
-
-        if k == 1:
-            # (N, 1)
-            indices = torch.argmax(probs, dim=-1, keepdim=True)
-        else:
-            # (N, V) -> (N, K)
-            topk_probs, topk_indices = torch.topk(probs, k=k, dim=-1, sorted=False)
-
-            # Normalize.
-            topk_probs /= topk_probs.sum(dim=-1, keepdim=True)
-
-            # (N, 1)
-            indices = topk_indices.gather(
-                dim=-1, index=torch.multinomial(topk_probs, num_samples=1)
-            )
-
-        # (N, 1) -> (N)
-        return indices.squeeze(-1)
-
-
 class _AbstractSamplingSequenceGeneratorOp(ABC):
     _sampler: Sampler
     _eos_idx: int
@@ -484,7 +395,7 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
     _len_penalty: float
     _prefill_chunk_size: Optional[int]
     _step_processors: Sequence[StepProcessor]
-    _step_hooks: Dict[int, StepHook]
+    _step_hooks: dict[int, StepHook]
     _step_nr: int
     _state_bag: IncrementalStateBag
     _prompt_lens: Optional[Tensor]
@@ -492,7 +403,7 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
     _prompt_indices: Tensor
     _seqs: Tensor
     _step_scores: Optional[Tensor]
-    _output: List[List[Hypothesis]]
+    _output: list[list[Hypothesis]]
     _counters: GenerationCounters
 
     def __init__(
@@ -514,7 +425,7 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
         prefill_chunk_size: Optional[int],
         decode_capacity_increment: Optional[int],
         step_processors: Sequence[StepProcessor],
-        step_hooks: Dict[int, StepHook],
+        step_hooks: dict[int, StepHook],
     ) -> None:
         self._sampler = sampler
 
@@ -612,7 +523,7 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
 
         self._counters = GenerationCounters()
 
-    def __call__(self) -> Tuple[List[List[Hypothesis]], GenerationCounters]:
+    def __call__(self) -> tuple[list[list[Hypothesis]], GenerationCounters]:
         self._prepare_state()
 
         watch = Stopwatch(start=True, device=self._seqs.device)
@@ -918,7 +829,7 @@ class _SamplingSequenceGeneratorOp(_AbstractSamplingSequenceGeneratorOp):
         prefill_chunk_size: Optional[int],
         decode_capacity_increment: Optional[int],
         step_processors: Sequence[StepProcessor],
-        step_hooks: Dict[int, StepHook],
+        step_hooks: dict[int, StepHook],
     ) -> None:
         super().__init__(
             prompt_seqs,
@@ -981,7 +892,7 @@ class _SamplingSeq2SeqGeneratorOp(_AbstractSamplingSequenceGeneratorOp):
         prefill_chunk_size: Optional[int],
         decode_capacity_increment: Optional[int],
         step_processors: Sequence[StepProcessor],
-        step_hooks: Dict[int, StepHook],
+        step_hooks: dict[int, StepHook],
     ) -> None:
         super().__init__(
             prompt_seqs,

@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, Tuple, final
+from typing import Optional, final
 
 import torch
 from torch import Tensor
@@ -136,7 +136,7 @@ class Wav2Vec2Model(Model):
 
     def run_frontend(
         self, seqs: Tensor, padding_mask: Optional[PaddingMask]
-    ) -> Tuple[Tensor, Optional[PaddingMask], Tensor, Tensor]:
+    ) -> tuple[Tensor, Optional[PaddingMask], Tensor, Tensor]:
         """Run the encoder frontend in pretraining mode.
 
         :param seqs:

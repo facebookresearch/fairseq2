@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Tuple, cast, final
+from typing import cast, final
 
 import torch
 import torch.distributed
 from torch import Tensor
 from torch.nn import Module
 from torcheval.metrics import Mean
+from typing_extensions import override
 
 from fairseq2.datasets.preference import PreferenceOptimizationBatch
 from fairseq2.gang import Gang, get_rank
@@ -20,7 +21,6 @@ from fairseq2.models.sequence import (
 )
 from fairseq2.recipes.common_metrics import SequenceMetricBag
 from fairseq2.recipes.trainer import AbstractTrainUnit
-from fairseq2.typing import override
 
 log = get_log_writer(__name__)
 
@@ -67,7 +67,7 @@ class SimpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
         self._gang = gang
 
     @override
-    def __call__(self, batch: PreferenceOptimizationBatch) -> Tuple[Tensor, int]:
+    def __call__(self, batch: PreferenceOptimizationBatch) -> tuple[Tensor, int]:
         chosen_batch = batch.chosen
         chosen_input_batch, chosen_target_batch = as_auto_regressive_input(chosen_batch)
         rejected_batch = batch.rejected
@@ -109,7 +109,7 @@ class SimpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
 
     def _gather_lprobs(
         self, output: SequenceModelOutput, target: SequenceBatch
-    ) -> Tuple[Tensor, Tensor]:
+    ) -> tuple[Tensor, Tensor]:
         logprobs = torch.log_softmax(output.logits, dim=-1)
         per_token_logps = torch.gather(logprobs, -1, target.seqs.unsqueeze(-1)).squeeze(
             -1

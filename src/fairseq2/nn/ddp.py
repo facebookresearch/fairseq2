@@ -6,8 +6,6 @@
 
 from __future__ import annotations
 
-from typing import List
-
 import torch.distributed as dist
 from torch import Tensor
 from torch.distributed import GradBucket
@@ -68,7 +66,7 @@ def _allreduce_hook(gang: Gang, bucket: GradBucket) -> Future[Tensor]:
 
     ft = dist.all_reduce(bucket.buffer(), group=pg, async_op=True).get_future()
 
-    def return_reduced_bucket(f: Future[List[Tensor]]) -> Tensor:
+    def return_reduced_bucket(f: Future[list[Tensor]]) -> Tensor:
         output = f.value()
 
         # Skip division by the world size.

@@ -7,22 +7,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from contextlib import nullcontext
+from collections.abc import Sequence
+from contextlib import AbstractContextManager, nullcontext
 from itertools import count
 from pathlib import Path
 from statistics import mean
-from typing import (
-    Any,
-    ContextManager,
-    Dict,
-    Generic,
-    List,
-    Optional,
-    Sequence,
-    Tuple,
-    TypeVar,
-    final,
-)
+from typing import Any, Generic, Optional, TypeVar, final
 
 import torch
 import torch.distributed
@@ -34,6 +24,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.optim import Optimizer
 from torch.profiler import record_function
 from torcheval.metrics import Mean
+from typing_extensions import override
 
 from fairseq2.checkpoint import CheckpointManager, CheckpointNotFoundError
 from fairseq2.datasets import DataReader
@@ -60,7 +51,7 @@ from fairseq2.optim.lr_scheduler import LRScheduler, NoopLR, get_effective_lr
 from fairseq2.recipes.common_metrics import set_throughput_value
 from fairseq2.recipes.evaluator import EvalUnit
 from fairseq2.recipes.utils.cli import create_rich_progress
-from fairseq2.typing import CPU, DataType, override
+from fairseq2.typing import CPU, DataType
 from fairseq2.utils.profiler import Profiler, Stopwatch
 from fairseq2.utils.rng import RngBag
 from fairseq2.utils.state import FSDPOptimizerStateHandler, StatefulObjectBag
@@ -77,7 +68,7 @@ class TrainUnit(ABC, Generic[BatchT_contra]):
     """Represents a unit to be used with :class:`Trainer`."""
 
     @abstractmethod
-    def __call__(self, batch: BatchT_contra) -> Tuple[Tensor, int]:
+    def __call__(self, batch: BatchT_contra) -> tuple[Tensor, int]:
         """Process ``batch``.
 
         :returns:
@@ -140,7 +131,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     _score_metric_name: Optional[str]
     _lower_better: bool
     _early_stopper: Optional[EarlyStopper]
-    _best_step_and_score: Optional[Tuple[int, float]]
+    _best_step_and_score: Optional[tuple[int, float]]
     _valid_score: Optional[float]
     _valid_units: Sequence[EvalUnit[BatchT]]
     _valid_data_readers: Sequence[DataReader[BatchT]]
@@ -154,7 +145,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     _keep_last_n_models: Optional[int]
     _keep_best_n_models: Optional[int]
     _metric_bag: MetricBag
-    _metric_recorders: List[MetricRecorder]
+    _metric_recorders: list[MetricRecorder]
     _publish_metrics_after_n_steps: int
     _publish_metrics_every_n_steps: int
     _profiler: Profiler
@@ -179,7 +170,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         dp_gang: Optional[Gang] = None,
         tp_gang: Optional[Gang] = None,
         lr_scheduler: Optional[LRScheduler] = None,
-        fp16_loss_scale: Tuple[float, float] = (128.0, 0.0001),
+        fp16_loss_scale: tuple[float, float] = (128.0, 0.0001),
         max_gradient_norm: Optional[float] = None,
         max_num_steps: Optional[int] = 1000,
         max_num_data_epochs: Optional[int] = None,
@@ -200,7 +191,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         metrics_dir: Optional[Path] = None,
         publish_metrics_after_n_steps: int = 0,
         publish_metrics_every_n_steps: int = 100,
-        profile: Optional[Tuple[int, int]] = None,
+        profile: Optional[tuple[int, int]] = None,
         anomaly_detection: bool = False,
         seed: int = 2,
     ) -> None:
@@ -510,7 +501,6 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._should_stop = True
 
-    @override
     def __call__(self) -> None:
         if self._run:
             raise RuntimeError("The trainer can only be run once.")
@@ -690,7 +680,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._step_time += watch.get_elapsed_time()
 
-    def _next_batches(self) -> List[BatchT]:
+    def _next_batches(self) -> list[BatchT]:
         while True:
             try:
                 batches = next(self._data_reader)
@@ -716,17 +706,19 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         raise StopIteration()
 
-    def _maybe_no_sync(self, batch_nr: int, num_batches: int) -> ContextManager[None]:
+    def _maybe_no_sync(
+        self, batch_nr: int, num_batches: int
+    ) -> AbstractContextManager[None]:
         if batch_nr < num_batches - 1 and self._dp_gang.size > 1:
             return self._model.no_sync()  # type: ignore[no-any-return]
 
         return nullcontext()
 
-    def _compute_loss(self, batch: BatchT) -> Tuple[Tensor, int]:
+    def _compute_loss(self, batch: BatchT) -> tuple[Tensor, int]:
         with self._maybe_autocast():
             return self._unit(batch)
 
-    def _maybe_autocast(self) -> ContextManager[None]:
+    def _maybe_autocast(self) -> AbstractContextManager[None]:
         if self._dtype == torch.float32:
             return nullcontext()
 
@@ -841,14 +833,14 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         return self._get_unit_score(metric_values)
 
-    def _is_valid_eod(self, batches: List[BatchT]) -> bool:
+    def _is_valid_eod(self, batches: list[BatchT]) -> bool:
         total_num_batches = all_sum(self._dp_gang, len(batches))
 
         return bool(total_num_batches == 0)
 
     def _publish_validation_metrics(
         self, unit: EvalUnit[BatchT], elapsed_time: float
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[dict[str, Any]]:
         log.debug("Syncing validation metrics.")
 
         if self._tp_gang.rank == 0:
@@ -879,7 +871,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         return values
 
     def _get_unit_score(
-        self, metric_values: Optional[Dict[str, Any]]
+        self, metric_values: Optional[dict[str, Any]]
     ) -> Optional[float]:
         if metric_values is None:
             return None
@@ -898,7 +890,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         return float(score)
 
-    def _compute_valid_score(self, unit_scores: List[float]) -> Optional[float]:
+    def _compute_valid_score(self, unit_scores: list[float]) -> Optional[float]:
         if self._score_metric_name is None:
             return None
 

@@ -6,10 +6,11 @@
 
 from __future__ import annotations
 
-from typing import Optional, Tuple, final
+from typing import Optional, final
 
 from torch import Tensor
 from torch.nn import Dropout
+from typing_extensions import override
 
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
 from fairseq2.models.transformer import TransformerFrontend
@@ -17,7 +18,7 @@ from fairseq2.models.wav2vec2.masker import Wav2Vec2Masker
 from fairseq2.nn import LayerNorm, Linear, PositionEncoder, StandardLayerNorm
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.typing import DataType, Device, override
+from fairseq2.typing import DataType, Device
 
 
 @final
@@ -125,7 +126,7 @@ class Wav2Vec2Frontend(TransformerFrontend):
         padding_mask: Optional[PaddingMask],
         *,
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+    ) -> tuple[Tensor, Optional[PaddingMask]]:
         if state_bag is not None:
             raise ValueError(
                 "`Wav2Vec2Frontend` does not support incremental decoding."
@@ -139,7 +140,7 @@ class Wav2Vec2Frontend(TransformerFrontend):
 
     def extract_features(
         self, seqs: Tensor, padding_mask: Optional[PaddingMask]
-    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+    ) -> tuple[Tensor, Optional[PaddingMask]]:
         """Extract features from the specified sequences.
 
         :param seqs:
@@ -172,7 +173,7 @@ class Wav2Vec2Frontend(TransformerFrontend):
         seqs: Tensor,
         padding_mask: Optional[PaddingMask],
         masker: Optional[Wav2Vec2Masker] = None,
-    ) -> Tuple[Tensor, Optional[PaddingMask], Tensor]:
+    ) -> tuple[Tensor, Optional[PaddingMask], Tensor]:
         """Process extracted features.
 
         :param seqs:

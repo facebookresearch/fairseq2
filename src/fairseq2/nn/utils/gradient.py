@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 import torch
 from torch import Tensor
@@ -78,7 +78,7 @@ class _GradientScaleFunction(Function):
         return x.detach().clone().requires_grad_(True)
 
     @staticmethod
-    def backward(ctx: Any, grad_output: Tensor) -> Tuple[Tensor, None]:  # type: ignore[override]
+    def backward(ctx: Any, grad_output: Tensor) -> tuple[Tensor, None]:  # type: ignore[override]
         return grad_output * ctx.scale, None
 
 

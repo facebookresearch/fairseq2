@@ -6,18 +6,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
-    Dict,
-    Iterator,
-    List,
-    Mapping,
     Optional,
-    Sequence,
-    Tuple,
     TypedDict,
     TypeVar,
     Union,
@@ -68,7 +63,7 @@ if TYPE_CHECKING or DOC_MODE:
             :class:`DataPipelineError`.
             """
 
-        def state_dict(self, strict: bool = True) -> Dict[str, Any]:
+        def state_dict(self, strict: bool = True) -> dict[str, Any]:
             """Return a dictionary containing the state of the data pipeline.
 
             The current position of the data pipeline can be restored by passing
@@ -220,7 +215,7 @@ if TYPE_CHECKING or DOC_MODE:
 
         def bucket_by_length(
             self,
-            bucket_sizes: Sequence[Tuple[int, int]],
+            bucket_sizes: Sequence[tuple[int, int]],
             selector: Optional[str] = None,
             min_data_len: int = 1,
             skip_below_min_examples: bool = False,
@@ -609,7 +604,7 @@ def create_bucket_sizes(
     max_seq_len: int,
     min_seq_len: int = 1,
     num_seqs_multiple_of: int = 1,
-) -> List[Tuple[int, int]]:
+) -> list[tuple[int, int]]:
     """Create optimal bucket sizes for :meth:`DataPipeline.bucket_by_length`.
 
     :param max_num_elements:

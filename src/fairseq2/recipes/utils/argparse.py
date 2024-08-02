@@ -15,7 +15,7 @@ from argparse import (
     ArgumentTypeError,
     Namespace,
 )
-from typing import Any, Dict, List, Optional, final
+from typing import Any, Optional, final
 
 import torch
 import yaml
@@ -30,7 +30,7 @@ class ConfigAction(Action):
 
     def __init__(
         self,
-        option_strings: List[str],
+        option_strings: list[str],
         dest: str,
         help: Optional[str] = None,
     ) -> None:
@@ -49,7 +49,7 @@ class ConfigAction(Action):
         values: Any,
         option_string: Optional[str] = None,
     ) -> None:
-        data: Dict[str, Any] = {}
+        data: dict[str, Any] = {}
 
         for item in values:
             key_value = item.split("=", maxsplit=1)
@@ -98,7 +98,7 @@ class BooleanOptionalAction(Action):
 
     def __init__(
         self,
-        option_strings: List[str],
+        option_strings: list[str],
         dest: str,
         default: Any = None,
         help: Optional[str] = None,

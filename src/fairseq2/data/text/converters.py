@@ -6,7 +6,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Union, final
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Optional, Union, final
 
 from fairseq2n import DOC_MODE
 from torch import Tensor
@@ -49,7 +50,7 @@ if TYPE_CHECKING or DOC_MODE:
         ) -> None:
             ...
 
-        def __call__(self, s: str) -> Union[List[str], Dict[str, str]]:
+        def __call__(self, s: str) -> Union[list[str], dict[str, str]]:
             ...
 
     @final

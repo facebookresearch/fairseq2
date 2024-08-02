@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Dict, Optional, Protocol, TypeVar, Union, final
+from typing import Optional, Protocol, TypeVar, Union, final
 
 from fairseq2.assets import (
     AssetCard,
@@ -114,7 +114,7 @@ class DelegatingDatasetLoader(DatasetLoader[DatasetT]):
     """Loads datasets of type ``DatasetT`` using registered loaders."""
 
     _asset_store: AssetStore
-    _loaders: Dict[str, DatasetLoader[DatasetT]]
+    _loaders: dict[str, DatasetLoader[DatasetT]]
 
     def __init__(self, *, asset_store: Optional[AssetStore] = None) -> None:
         """

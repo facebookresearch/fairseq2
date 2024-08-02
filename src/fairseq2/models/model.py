@@ -6,10 +6,14 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
+from mypy_extensions import DefaultNamedArg
 from torch.nn import Module
 from typing_extensions import Self
+
+from fairseq2.factory_registry import ConfigBoundFactoryRegistry
+from fairseq2.typing import DataType, Device
 
 
 class Model(Module):
@@ -37,3 +41,11 @@ class Model(Module):
     def family(self) -> Optional[str]:
         """The family of the model."""
         return self._family
+
+
+if TYPE_CHECKING:  # compat: remove when Python 3.9 support is dropped.
+    model_factories = ConfigBoundFactoryRegistry[
+        [DefaultNamedArg(Device, "device"), DefaultNamedArg(DataType, "dtype")], Module
+    ]()
+else:
+    model_factories = ConfigBoundFactoryRegistry()

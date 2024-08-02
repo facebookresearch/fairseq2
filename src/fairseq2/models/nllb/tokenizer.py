@@ -6,18 +6,21 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Optional, Sequence, Set, final
+from typing import Optional, final
+
+from typing_extensions import override
 
 from fairseq2.data.text import SentencePieceEncoder, SentencePieceTokenizer
-from fairseq2.typing import Device, override
+from fairseq2.typing import Device
 
 
 @final
 class NllbTokenizer(SentencePieceTokenizer):
     """Represents an NLLB tokenizer."""
 
-    _langs: Set[str]
+    _langs: set[str]
     _default_lang: str
 
     def __init__(self, path: Path, langs: Sequence[str], default_lang: str) -> None:

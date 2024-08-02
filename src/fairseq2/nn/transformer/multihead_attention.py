@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections import OrderedDict
-from typing import Dict, MutableSequence, Optional, Protocol, Tuple, final
+from typing import MutableSequence, Optional, Protocol, final
 
 import torch
 import torch.nn as nn
@@ -16,6 +16,7 @@ from torch import Tensor
 from torch.nn import Module
 from torch.nn.parameter import Parameter
 from torch.utils.hooks import RemovableHandle
+from typing_extensions import override
 
 from fairseq2.nn.incremental_state import IncrementalState, IncrementalStateBag
 from fairseq2.nn.ops import repeat_interleave
@@ -24,7 +25,7 @@ from fairseq2.nn.position_encoder import PositionEncoder
 from fairseq2.nn.projection import Linear, Projection
 from fairseq2.nn.transformer.attention import SDPA, create_default_sdpa
 from fairseq2.nn.transformer.attention_mask import AttentionMask, AttentionMaskFactory
-from fairseq2.typing import DataType, Device, override
+from fairseq2.typing import DataType, Device
 
 
 class MultiheadAttention(Module, ABC):
@@ -33,7 +34,7 @@ class MultiheadAttention(Module, ABC):
     num_heads: int
     model_dim: int
 
-    _attn_weight_hooks: Dict[int, AttentionWeightHook]
+    _attn_weight_hooks: dict[int, AttentionWeightHook]
 
     def __init__(self, model_dim: int, num_heads: int) -> None:
         """
@@ -149,9 +150,9 @@ class AttentionWeightStoreHook(AttentionWeightHook):
         This class follows the :class:`AttentionWeightHook` protocol.
     """
 
-    _storage: MutableSequence[Tuple[Tensor, Tensor]]
+    _storage: MutableSequence[tuple[Tensor, Tensor]]
 
-    def __init__(self, storage: MutableSequence[Tuple[Tensor, Tensor]]) -> None:
+    def __init__(self, storage: MutableSequence[tuple[Tensor, Tensor]]) -> None:
         """
         :param storage:
             The storage in which to store attention weights.
@@ -512,7 +513,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         key_padding_mask: Optional[PaddingMask],
         values: Tensor,
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tuple[Tensor, Tensor]:
+    ) -> tuple[Tensor, Tensor]:
         # (N, S, K) -> (N, S, K_proj)
         k = self.k_proj(keys)
         # (N, S, V) -> (N, S, V_proj)
@@ -582,7 +583,7 @@ class AttentionState(IncrementalState):
         """
 
     @abstractmethod
-    def get(self) -> Tuple[Tensor, Tensor]:
+    def get(self) -> tuple[Tensor, Tensor]:
         """Return the state that should be used to compute the attention.
 
         :returns:
@@ -700,7 +701,7 @@ class FullAttentionState(AttentionState):
         self._v = v
 
     @override
-    def get(self) -> Tuple[Tensor, Tensor]:
+    def get(self) -> tuple[Tensor, Tensor]:
         k = self._k[:, :, : self._seq_len]
         v = self._v[:, :, : self._seq_len]
 
@@ -844,7 +845,7 @@ class LocalAttentionState(AttentionState):
         self._v = v
 
     @override
-    def get(self) -> Tuple[Tensor, Tensor]:
+    def get(self) -> tuple[Tensor, Tensor]:
         k = self._k[:, :, : self._seq_len]
         v = self._v[:, :, : self._seq_len]
 
@@ -918,7 +919,7 @@ class StaticAttentionState(AttentionState):
         raise ValueError(" `StaticAttentionState` does not support `append()`.")
 
     @override
-    def get(self) -> Tuple[Tensor, Tensor]:
+    def get(self) -> tuple[Tensor, Tensor]:
         return self._k, self._v
 
     @override

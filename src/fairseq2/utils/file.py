@@ -7,8 +7,9 @@
 from __future__ import annotations
 
 import warnings
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Callable, Dict, Mapping, Optional, Protocol, Union
+from typing import Any, Callable, Optional, Protocol, Union
 from warnings import catch_warnings
 
 import torch
@@ -18,7 +19,7 @@ from typing_extensions import TypeAlias
 from fairseq2.typing import Device
 
 MapLocation: TypeAlias = Optional[
-    Union[Callable[[Tensor, str], Tensor], Device, str, Dict[str, str]]
+    Union[Callable[[Tensor, str], Tensor], Device, str, dict[str, str]]
 ]
 
 
@@ -31,7 +32,7 @@ class TensorLoader(Protocol):
         *,
         map_location: MapLocation = None,
         restrict: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         :param path:
             The path to the file.
@@ -60,13 +61,13 @@ def load_tensors(
     *,
     map_location: MapLocation = None,
     restrict: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Load the PyTorch tensor file stored under ``path``."""
     with catch_warnings():
         warnings.simplefilter("ignore")  # Suppress the deprecation warning.
 
-        data: Dict[str, Any] = torch.load(
-            str(path), map_location, weights_only=restrict
+        data: dict[str, Any] = torch.load(
+            str(path), map_location, weights_only=restrict  # type: ignore[arg-type]
         )
 
     return data

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Optional, Tuple, final
+from typing import Any, Optional, final
 
 import torch
 from torch import Tensor
@@ -90,7 +90,7 @@ class SequenceBatch:
 
 def as_auto_regressive_input(
     batch: SequenceBatch,
-) -> Tuple[SequenceBatch, SequenceBatch]:
+) -> tuple[SequenceBatch, SequenceBatch]:
     """Use ``batch`` to train an auto-regressive model.
 
     :returns:

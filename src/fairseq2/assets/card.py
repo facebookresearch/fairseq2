@@ -8,19 +8,9 @@ from __future__ import annotations
 
 import os
 import re
+from collections.abc import Mapping, MutableMapping, Set
 from pathlib import Path
-from typing import (
-    AbstractSet,
-    Any,
-    Dict,
-    Final,
-    List,
-    Mapping,
-    MutableMapping,
-    Optional,
-    TypeVar,
-    final,
-)
+from typing import Any, Final, Optional, TypeVar, final
 from urllib.parse import urlparse, urlunparse
 
 from fairseq2.assets.error import AssetError
@@ -74,7 +64,7 @@ class AssetCard:
         """
         return AssetCardField(self, path=[name])
 
-    def _get_field_value(self, name: str, path: List[str]) -> Any:
+    def _get_field_value(self, name: str, path: list[str]) -> Any:
         assert len(path) > 0
 
         metadata = self._metadata
@@ -113,7 +103,7 @@ class AssetCard:
 
         return metadata
 
-    def _set_field_value(self, path: List[str], value: Any) -> None:
+    def _set_field_value(self, path: list[str], value: Any) -> None:
         assert len(path) > 0
 
         metadata = self._metadata
@@ -122,7 +112,7 @@ class AssetCard:
             try:
                 metadata = metadata[field]
             except KeyError:
-                tmp: Dict[str, Any] = {}
+                tmp: dict[str, Any] = {}
 
                 metadata[field] = tmp
 
@@ -163,9 +153,9 @@ class AssetCardField:
     """Represents a field of an asset card."""
 
     _card: AssetCard
-    _path: List[str]
+    _path: list[str]
 
-    def __init__(self, card: AssetCard, path: List[str]) -> None:
+    def __init__(self, card: AssetCard, path: list[str]) -> None:
         """
         :param card:
             The card owning this field.
@@ -245,7 +235,7 @@ class AssetCardField:
 
         return value
 
-    def as_one_of(self, valid_values: AbstractSet[str]) -> str:
+    def as_one_of(self, valid_values: Set[str]) -> str:
         """Return the value of this field as one of the values in ``valid_values``
 
         :param values:

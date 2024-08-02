@@ -7,12 +7,13 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 
 def convert_model_state_dict(
-    state_dict: Dict[str, Any], key_map: Mapping[str, str]
-) -> Dict[str, Any]:
+    state_dict: dict[str, Any], key_map: Mapping[str, str]
+) -> dict[str, Any]:
     """Convert a model state dictionary to fairseq2.
 
     :param state_dict:
@@ -42,8 +43,8 @@ def convert_model_state_dict(
 
 
 def convert_fairseq_checkpoint(
-    checkpoint: Dict[str, Any], key_map: Mapping[str, str]
-) -> Dict[str, Any]:
+    checkpoint: dict[str, Any], key_map: Mapping[str, str]
+) -> dict[str, Any]:
     """Convert a fairseq checkpoint to fairseq2.
 
     :param checkpoint:

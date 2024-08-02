@@ -15,7 +15,7 @@ from torch import Tensor
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data import VocabularyInfo
-from fairseq2.models.factory import create_model
+from fairseq2.models.model import model_factories
 from fairseq2.models.transformer import (
     TransformerDecoderModel,
     TransformerEmbeddingFrontend,
@@ -319,12 +319,7 @@ def create_llama_model(
     return model.set_family(LLAMA_FAMILY)
 
 
-create_model.register(
-    family=LLAMA_FAMILY,
-    factory=create_llama_model,
-    config_kls=LLaMAConfig,
-    arch_configs=llama_archs,
-)
+model_factories.register(LLAMA_FAMILY, create_llama_model, LLaMAConfig, llama_archs)
 
 
 def get_llama_lora_config() -> LoRAConfig:

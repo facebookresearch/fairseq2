@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Optional, Tuple
+from typing import Optional
 
 import torch
 from torch import Tensor
@@ -31,7 +31,7 @@ def to_float_mask(mask: Tensor, dtype: Optional[DataType] = None) -> Tensor:
 
 
 def compute_row_mask(
-    shape: Tuple[int, int],
+    shape: tuple[int, int],
     span_len: int,
     max_mask_prob: float,
     row_lens: Optional[Tensor] = None,

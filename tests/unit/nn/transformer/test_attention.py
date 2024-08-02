@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import pytest
 import torch
@@ -51,7 +51,7 @@ class TestScaledDotProductAttention:
     @staticmethod
     def _get_sdpa_args(
         use_key_padding_mask: bool, use_attn_mask: bool
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         batch_size = 2
 
         num_heads = 4

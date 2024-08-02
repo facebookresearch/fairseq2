@@ -8,11 +8,12 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, Optional, Set, Union, cast, final
+from typing import Any, Optional, Union, cast, final
 
 import torch
 from torch import Tensor
 from torch.nn.functional import layer_norm
+from typing_extensions import override
 
 from fairseq2.assets import AssetCard, AssetError
 from fairseq2.data import (
@@ -40,7 +41,7 @@ from fairseq2.datasets.loader import AbstractDatasetLoader, DelegatingDatasetLoa
 from fairseq2.gang import Gang
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
-from fairseq2.typing import DataType, override
+from fairseq2.typing import DataType
 
 
 class AsrDataset(ABC):
@@ -119,7 +120,7 @@ class AsrDataset(ABC):
         """
 
     @abstractmethod
-    def splits(self) -> Set[str]:
+    def splits(self) -> set[str]:
         """Return the set of splits."""
 
 
@@ -136,9 +137,9 @@ class GenericAsrDataset(AsrDataset):
     """Represents a generic manifest-based ASR dataset."""
 
     _manifest_dir: Path
-    _splits: Set[str]
+    _splits: set[str]
 
-    def __init__(self, manifest_dir: Path, splits: Set[str]) -> None:
+    def __init__(self, manifest_dir: Path, splits: set[str]) -> None:
         """
         :param manifest_dir:
             The directory under which the manifest files resides.
@@ -232,7 +233,7 @@ class GenericAsrDataset(AsrDataset):
             )
         else:
             # Filter out out-of-range audios.
-            def skip(example: Dict[str, Any]) -> bool:
+            def skip(example: dict[str, Any]) -> bool:
                 audio_len = cast(int, example["audio_size"])
 
                 return audio_len >= min_audio_len and audio_len <= max_audio_len
@@ -292,7 +293,7 @@ class GenericAsrDataset(AsrDataset):
         builder.prefetch(num_prefetch)
 
         # Wrap examples with `Seq2SeqBatch`.
-        def to_batch(example: Dict[str, Any]) -> Seq2SeqBatch:
+        def to_batch(example: dict[str, Any]) -> Seq2SeqBatch:
             source_data = cast(SequenceData, example["audio"]["data"]["waveform"])
             target_data = cast(SequenceData, example["text"])
 
@@ -372,7 +373,7 @@ class GenericAsrDataset(AsrDataset):
         return read_sequence(manifest)
 
     @override
-    def splits(self) -> Set[str]:
+    def splits(self) -> set[str]:
         return self._splits
 
 

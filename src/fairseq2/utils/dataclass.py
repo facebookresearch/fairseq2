@@ -6,8 +6,9 @@
 
 from __future__ import annotations
 
+from collections.abc import MutableMapping
 from dataclasses import fields
-from typing import Any, MutableMapping
+from typing import Any
 
 from typing_extensions import Self
 

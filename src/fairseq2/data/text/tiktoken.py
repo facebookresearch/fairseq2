@@ -6,13 +6,15 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
-from typing import List, Optional, Sequence, final
+from typing import Optional, final
 
 import torch
 from tiktoken import Encoding
 from tiktoken.load import load_tiktoken_bpe
 from torch import Tensor
+from typing_extensions import override
 
 from fairseq2.data.text.text_tokenizer import (
     AbstractTextTokenizer,
@@ -20,7 +22,7 @@ from fairseq2.data.text.text_tokenizer import (
     TextTokenEncoder,
 )
 from fairseq2.data.vocabulary_info import VocabularyInfo
-from fairseq2.typing import Device, override
+from fairseq2.typing import Device
 
 
 class TiktokenTokenizer(AbstractTextTokenizer):
@@ -113,8 +115,8 @@ class TiktokenTokenizer(AbstractTextTokenizer):
 class TiktokenEncoder(TextTokenEncoder):
     """Represents a tiktoken decoder."""
 
-    _prefix_indices: List[int]
-    _suffix_indices: List[int]
+    _prefix_indices: list[int]
+    _suffix_indices: list[int]
     _prefix_index_tensor: Optional[Tensor]
     _suffix_index_tensor: Optional[Tensor]
     _device: Optional[Device]
@@ -189,7 +191,7 @@ class TiktokenEncoder(TextTokenEncoder):
         )
 
     @override
-    def encode_as_tokens(self, text: str) -> List[str]:
+    def encode_as_tokens(self, text: str) -> list[str]:
         indices = self(text).tolist()
 
         b = self._encoding.decode_tokens_bytes(indices)

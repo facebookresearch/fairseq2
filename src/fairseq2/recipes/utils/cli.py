@@ -16,10 +16,10 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 from rich.text import Text
+from typing_extensions import override
 
 from fairseq2.console import get_error_console
 from fairseq2.gang import get_rank
-from fairseq2.typing import override
 
 
 def create_rich_progress() -> Progress:

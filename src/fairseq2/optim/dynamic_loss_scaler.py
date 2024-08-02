@@ -7,8 +7,9 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Mapping, Optional, Tuple, Union, cast, final
+from typing import Any, Callable, Optional, Union, cast, final
 
 import torch
 from torch import Tensor
@@ -18,7 +19,7 @@ from torch.optim import Optimizer
 
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
-from fairseq2.typing import Device, override
+from fairseq2.typing import Device
 
 log = get_log_writer(__name__)
 
@@ -33,7 +34,7 @@ class DynamicLossScaler:
     _min_scale: float
     _is_enabled: bool
 
-    # TODO: consolidate into `GradScaler` once we cease support for PT2.2
+    # compat: consolidate into `GradScaler` once we cease support for PT2.2
     _grad_scaler: Union[GradScaler, ShardedGradScaler]
 
     def __init__(
@@ -126,7 +127,7 @@ class DynamicLossScaler:
         self._min_scale = min_scale
         self._is_enabled = enabled
 
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         return {"grad_scaler": self._grad_scaler.state_dict()}
 
     def load_state_dict(self, state_dict: Mapping[str, Any]) -> None:
@@ -139,7 +140,7 @@ class DynamicLossScaler:
 
     def run_optimizer_step(
         self, step_nr: int, closure: Optional[Callable[[], float]] = None
-    ) -> Tuple[Optional[float], LossScaleResult]:
+    ) -> tuple[Optional[float], LossScaleResult]:
         """Perform a single optimization step.
 
         :param step_nr:
@@ -240,10 +241,10 @@ def supports_manual_gradient_scaling(optimizer: Optimizer) -> bool:
 
 # An ugly hack.
 class _InternalGradScaler(GradScaler):
-    @override
+    # override
     def _unscale_grads_(
         self, optimizer: Optimizer, inv_scale: Tensor, found_inf: Tensor, _: bool
-    ) -> Dict[Device, Tensor]:
+    ) -> dict[Device, Tensor]:
         # `GradScaler` artificially limits fp16 gradients only to optimizers
         # that natively support AMP. Here, we hijack `_unscale_grads_()` and
         # always pass `allow_fp16=True` to the real function.

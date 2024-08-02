@@ -11,7 +11,7 @@ from typing import Final, Optional
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data import VocabularyInfo
-from fairseq2.models.factory import create_model
+from fairseq2.models.model import model_factories
 from fairseq2.models.transformer import (
     TransformerDecoderModel,
     TransformerEmbeddingFrontend,
@@ -265,9 +265,6 @@ def create_mistral_model(
     return model.set_family(MISTRAL_FAMILY)
 
 
-create_model.register(
-    family=MISTRAL_FAMILY,
-    factory=create_mistral_model,
-    config_kls=MistralConfig,
-    arch_configs=mistral_archs,
+model_factories.register(
+    MISTRAL_FAMILY, create_mistral_model, MistralConfig, mistral_archs
 )

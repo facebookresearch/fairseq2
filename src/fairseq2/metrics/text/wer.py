@@ -6,20 +6,21 @@
 
 from __future__ import annotations
 
-from typing import Iterable, Optional, Sequence, Tuple, final
+from collections.abc import Iterable, Sequence
+from typing import Optional, final
 
 import editdistance
 import torch
 from torch import Tensor
 from torcheval.metrics import Metric
-from typing_extensions import Self
+from typing_extensions import Self, override
 
 from fairseq2.nn.padding import PaddingMask, get_seq_lens
-from fairseq2.typing import Device, override
+from fairseq2.typing import Device
 
 
 @final
-class WerMetric(Metric[Tuple[Tensor, Tensor]]):
+class WerMetric(Metric[tuple[Tensor, Tensor]]):
     """Computes the WER (Word Error Rate)."""
 
     unit_err: Tensor
@@ -98,7 +99,7 @@ class WerMetric(Metric[Tuple[Tensor, Tensor]]):
 
     @override
     @torch.inference_mode()
-    def compute(self) -> Tuple[Tensor, Tensor]:
+    def compute(self) -> tuple[Tensor, Tensor]:
         if self.unit_len and self.word_len:
             uer = self.unit_err * 100.0 / self.unit_len
             wer = self.word_err * 100.0 / self.word_len

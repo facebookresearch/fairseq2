@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, Optional, Tuple, Union
+from typing import Literal, Optional, Union
 
 import torch
 import torch.distributed
@@ -111,7 +111,7 @@ class PreferenceOptimizationConfig:
     lr: float = 5.5e-06
     """The initial (post-warm-up) learning rate."""
 
-    betas: Tuple[float, float] = (0.9, 0.95)
+    betas: tuple[float, float] = (0.9, 0.95)
     """The coefficients of AdamW."""
 
     final_lr_ratio: float = 0.2
@@ -129,7 +129,7 @@ class PreferenceOptimizationConfig:
     max_gradient_norm: Optional[float] = None
     """The maximum gradient norm. If ``None``, no clipping will be applied."""
 
-    fp16_loss_scale: Tuple[float, float] = (128.0, 0.0001)
+    fp16_loss_scale: tuple[float, float] = (128.0, 0.0001)
     """The initial and minimum loss scale for fp16 training."""
 
     # Regime
@@ -159,7 +159,7 @@ class PreferenceOptimizationConfig:
     seed: int = 2
     """The random number generator seed to use."""
 
-    profile: Optional[Tuple[int, int]] = None
+    profile: Optional[tuple[int, int]] = None
     """The number of steps that the PyTorch profiler should skip and then record."""
 
     monitored_gang: bool = False

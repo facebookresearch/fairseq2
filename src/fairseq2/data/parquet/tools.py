@@ -6,8 +6,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Dict, Generator, List, Optional, Union
+from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -40,8 +41,8 @@ def torch_random_seed(seed: Optional[int] = None) -> Generator[None, None, None]
     yield
 
 
-NestedDict = Dict[str, "NestedDictValue"]
-NestedDictValue = Union[torch.Tensor, List[str], pd.Series, NestedDict]
+NestedDict = dict[str, "NestedDictValue"]
+NestedDictValue = Union[torch.Tensor, list[str], pd.Series, NestedDict]
 BatchOutputType = Union[pa.Table, pd.DataFrame, NestedDict]
 
 
@@ -120,7 +121,7 @@ def init_parquet_dataset(
 
 def get_dataset_fragments(
     dataset: pq.ParquetDataset, filters: pa.dataset.Expression
-) -> List[pa.dataset.Fragment]:
+) -> list[pa.dataset.Fragment]:
     """
     This could be simplified once `split_row_groups=True` is implemented at `pq.ParquetDataset`.
     We could also return a generator instead of list (when getting full infos from S3 may be slow)
@@ -130,12 +131,12 @@ def get_dataset_fragments(
 
 def split_fragment_in_row_groups(
     fragment: pa.dataset.Fragment,
-) -> List[pa.dataset.Fragment]:
+) -> list[pa.dataset.Fragment]:
     return list(fragment.split_by_row_group())
 
 
 def add_partitioning_values(
-    table: pa.Table, fragment: pa.dataset.Fragment, columns: Optional[List[str]]
+    table: pa.Table, fragment: pa.dataset.Fragment, columns: Optional[list[str]]
 ) -> pa.Table:
     """
     When loading a single fragment, pyarrow does not add the partitioning columns,
@@ -151,7 +152,7 @@ def add_partitioning_values(
 
 
 def load_one_fragment(
-    fragment: pa.dataset.Fragment, columns: Optional[List[str]] = None
+    fragment: pa.dataset.Fragment, columns: Optional[list[str]] = None
 ) -> pa.Table:
     fragment_columns = columns
     if fragment_columns is not None:
@@ -175,7 +176,7 @@ def apply_filter(
     return table
 
 
-def concat_table(tables: List[pa.Table], combine: bool = True) -> pa.Table:
+def concat_table(tables: list[pa.Table], combine: bool = True) -> pa.Table:
     result = pa.concat_tables(
         tables,
         promote_options="permissive",  # needed to get deal with empty segments
@@ -187,7 +188,7 @@ def concat_table(tables: List[pa.Table], combine: bool = True) -> pa.Table:
 
 def compute_length_splits(
     length_col: NDArray[np.int32], max_tokens: int
-) -> List[NDArray[np.int32]]:
+) -> list[NDArray[np.int32]]:
     """split sequence of length_col in the chunks such that total length is ~ max_tokens
         countint the padding to max length of elements in a chunk
 
@@ -196,7 +197,7 @@ def compute_length_splits(
         max_tokens (int):
 
     Returns:
-        List[np.ndarray]: splits that contain indices over the original length_col
+        list[np.ndarray]: splits that contain indices over the original length_col
     """
     argsort_ind = np.argsort(length_col)
     # TODO: remove 0 lengths
@@ -264,7 +265,7 @@ def table_func_wrap(func):  # type: ignore
 def list_parquet_fragments(
     parquet_path: str,
     filters: Optional[pa.dataset.Expression] = None,
-    columns: Optional[List[str]] = None,
+    columns: Optional[list[str]] = None,
     split_to_row_groups: bool = True,
     filesystem: Optional[pa.fs.FileSystem] = None,
     shuffle_window: Optional[int] = None,

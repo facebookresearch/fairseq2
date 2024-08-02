@@ -11,7 +11,7 @@ import os
 import time
 from logging import DEBUG, INFO, FileHandler, Formatter, Handler, NullHandler, getLogger
 from pathlib import Path
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from fairseq2n import DOC_MODE
 from rich.logging import RichHandler
@@ -90,7 +90,7 @@ def _do_setup_logging(rank: int, debug: bool = False, utc_time: bool = False) ->
     if utc_time:
         Formatter.converter = time.gmtime
 
-    handlers: List[Handler] = []
+    handlers: list[Handler] = []
 
     if rank == 0:
         console = get_error_console()

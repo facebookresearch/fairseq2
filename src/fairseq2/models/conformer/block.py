@@ -6,10 +6,11 @@
 
 from __future__ import annotations
 
-from typing import Optional, Tuple, final
+from typing import Optional, final
 
 from torch import Tensor
 from torch.nn import Dropout
+from typing_extensions import override
 
 from fairseq2.models.conformer.convolution import ConformerConvolution
 from fairseq2.nn import LayerNorm
@@ -22,7 +23,7 @@ from fairseq2.nn.transformer import (
     TransformerEncoderLayer,
     create_standard_layer_norm,
 )
-from fairseq2.typing import DataType, Device, override
+from fairseq2.typing import DataType, Device
 
 
 @final
@@ -124,7 +125,7 @@ class ConformerBlock(TransformerEncoderLayer):
         seqs: Tensor,
         padding_mask: Optional[PaddingMask],
         self_attn_mask: Optional[AttentionMask] = None,
-    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+    ) -> tuple[Tensor, Optional[PaddingMask]]:
         seqs = self._forward_ffn1(seqs)
 
         seqs = self._forward_self_attn(seqs, padding_mask, self_attn_mask)

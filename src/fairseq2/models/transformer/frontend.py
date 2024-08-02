@@ -8,16 +8,17 @@ from __future__ import annotations
 
 import math
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple, final
+from typing import Optional, final
 
 from torch import Tensor
 from torch.nn import Dropout, Module
+from typing_extensions import override
 
 from fairseq2.nn import Embedding, LayerNorm, PositionEncoder
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.transformer import LayerNormFactory, create_standard_layer_norm
-from fairseq2.typing import DataType, Device, override
+from fairseq2.typing import DataType, Device
 
 
 class TransformerFrontend(Module, ABC):
@@ -41,7 +42,7 @@ class TransformerFrontend(Module, ABC):
         padding_mask: Optional[PaddingMask],
         *,
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+    ) -> tuple[Tensor, Optional[PaddingMask]]:
         """
         :param seqs:
             The sequences to process. *Shape:* :math:`(N,S,*)`, where :math:`N`
@@ -145,7 +146,7 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
         padding_mask: Optional[PaddingMask],
         *,
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+    ) -> tuple[Tensor, Optional[PaddingMask]]:
         embeds = self.embed(seqs)
 
         if self.scale != 1.0:

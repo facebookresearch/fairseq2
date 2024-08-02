@@ -10,29 +10,19 @@ import json
 import math
 import re
 from abc import ABC, abstractmethod
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from functools import partial
 from logging import Logger
 from pathlib import Path
 from string import capwords
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Final,
-    Mapping,
-    Optional,
-    Sequence,
-    TextIO,
-    Union,
-    final,
-)
+from typing import Any, Callable, Final, Optional, TextIO, Union, final
 
 from torch import Tensor
+from typing_extensions import override
 
 from fairseq2.logging import LogWriter, get_log_writer
-from fairseq2.typing import override
 
 
 def format_as_int(value: Any, *, postfix: Optional[str] = None) -> str:
@@ -101,7 +91,7 @@ class _MetricFormatter:
     log: bool = True
 
 
-_metric_formatters: Dict[str, _MetricFormatter] = {
+_metric_formatters: dict[str, _MetricFormatter] = {
     # fmt: off
     "ctc_loss":                      _MetricFormatter("CTC Loss",                        100, format_as_float),
     "nll_loss":                      _MetricFormatter("NLL Loss",                        100, format_as_float),
@@ -302,7 +292,7 @@ class JsonFileMetricRecorder(MetricRecorder):
     _RUN_PART_REGEX: Final = re.compile("^[-_a-zA-Z0-9]+$")
 
     _output_dir: Path
-    _streams: Dict[str, TextIO]
+    _streams: dict[str, TextIO]
 
     def __init__(self, output_dir: Path) -> None:
         """
@@ -356,7 +346,7 @@ class JsonFileMetricRecorder(MetricRecorder):
 
             return value
 
-        output: Dict[str, Any] = {"Time": datetime.utcnow().isoformat()}
+        output: dict[str, Any] = {"Time": datetime.utcnow().isoformat()}
 
         if step_nr is not None:
             output["Step"] = step_nr
@@ -418,7 +408,7 @@ class TensorBoardRecorder(MetricRecorder):
     """Records metric values to TensorBoard."""
 
     _log_dir: Path
-    _writers: Dict[str, SummaryWriter]
+    _writers: dict[str, SummaryWriter]
 
     def __init__(self, log_dir: Path) -> None:
         """

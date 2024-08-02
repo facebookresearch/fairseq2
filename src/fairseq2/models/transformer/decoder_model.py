@@ -6,9 +6,10 @@
 
 from __future__ import annotations
 
-from typing import Optional, Tuple, final
+from typing import Optional, final
 
 from torch import Tensor
+from typing_extensions import override
 
 from fairseq2.data import VocabularyInfo
 from fairseq2.gang import Gang
@@ -35,7 +36,6 @@ from fairseq2.nn.transformer import (
     StandardMultiheadAttention,
     TransformerDecoder,
 )
-from fairseq2.typing import override
 
 
 @final
@@ -80,7 +80,7 @@ class TransformerDecoderModel(DecoderModel):
         padding_mask: Optional[PaddingMask],
         *,
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tuple[Tensor, PaddingMask]:
+    ) -> tuple[Tensor, PaddingMask]:
         seqs, padding_mask = self.decoder_frontend(
             seqs, padding_mask, state_bag=state_bag
         )

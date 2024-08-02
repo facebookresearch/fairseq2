@@ -6,7 +6,8 @@
 
 from __future__ import annotations
 
-from typing import Iterable, Optional, Union
+from collections.abc import Iterable
+from typing import Optional, Union
 
 import torch
 from torch import Tensor
@@ -15,9 +16,9 @@ from torcheval.metrics import Mean as MeanBase
 from torcheval.metrics import Metric
 from torcheval.metrics import Min as MinBase
 from torcheval.metrics import Sum as SumBase
-from typing_extensions import Self
+from typing_extensions import Self, override
 
-from fairseq2.typing import Device, override
+from fairseq2.typing import Device
 
 
 class Min(MinBase):

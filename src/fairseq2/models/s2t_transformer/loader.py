@@ -7,7 +7,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, Final, List, final
+from typing import Any, Final, final
+
+from typing_extensions import override
 
 from fairseq2.assets import AssetCard
 from fairseq2.data.text import AbstractTextTokenizerLoader, load_text_tokenizer
@@ -21,7 +23,6 @@ from fairseq2.models.s2t_transformer.factory import (
 )
 from fairseq2.models.s2t_transformer.tokenizer import S2TTransformerTokenizer
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
-from fairseq2.typing import override
 
 load_s2t_transformer_config = StandardModelConfigLoader(
     family=S2T_TRANSFORMER_FAMILY,
@@ -31,8 +32,8 @@ load_s2t_transformer_config = StandardModelConfigLoader(
 
 
 def convert_s2t_transformer_checkpoint(
-    checkpoint: Dict[str, Any], config: S2TTransformerConfig
-) -> Dict[str, Any]:
+    checkpoint: dict[str, Any], config: S2TTransformerConfig
+) -> dict[str, Any]:
     """Convert a fairseq S2T Transformer checkpoint to fairseq2 format."""
     try:
         state_dict = checkpoint["model"]
@@ -111,7 +112,7 @@ class S2TTransformerTokenizerLoader(
     def _load(self, path: Path, card: AssetCard) -> S2TTransformerTokenizer:
         task = card.field("task").as_one_of(self._VALID_TASKS)
 
-        target_langs = card.field("target_langs").as_(List[str])
+        target_langs = card.field("target_langs").as_(list[str])
 
         return S2TTransformerTokenizer(
             path, task, set(target_langs), default_target_lang=target_langs[0]

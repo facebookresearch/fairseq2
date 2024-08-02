@@ -10,7 +10,7 @@ import math
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, List, Literal, Optional, final
+from typing import Any, Literal, Optional, final
 
 import torch
 import torch.nn as nn
@@ -29,7 +29,7 @@ class LoRAConfig:
     r: int
     alpha: float
     dropout_p: float
-    keys: List[str]
+    keys: list[str]
 
 
 class LoRALayer(ABC):
@@ -326,7 +326,7 @@ def unmerge_lora(module: nn.Module) -> None:
             submodule.unmerge()
 
 
-def lora_state_dict(module: nn.Module) -> Dict[str, Any]:
+def lora_state_dict(module: nn.Module) -> dict[str, Any]:
     lora_names = []
     for name, submodule in module.named_modules():
         if isinstance(submodule, LoRALayer):
@@ -359,6 +359,6 @@ def freeze_non_lora(
                     param.requires_grad = False
 
 
-def _is_target_module(name: str, target_keys: List[str]) -> bool:
+def _is_target_module(name: str, target_keys: list[str]) -> bool:
     # Check if the `name` matches any of the `target_keys``.
     return any(name == key or re.match(key, name) for key in target_keys)

@@ -9,15 +9,15 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Protocol, final
+from typing import Optional, Protocol, final
 
 from torch import Tensor
 from torch.utils.hooks import RemovableHandle
+from typing_extensions import override
 
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.typing import override
 
 
 class SequenceGenerator(ABC):
@@ -59,7 +59,7 @@ class AbstractSequenceGenerator(SequenceGenerator):
     """Provides a skeletal implementation of :class:`SequenceGenerator`."""
 
     _model: DecoderModel
-    _step_hooks: Dict[int, StepHook]
+    _step_hooks: dict[int, StepHook]
 
     def __init__(self, model: DecoderModel) -> None:
         """
@@ -98,7 +98,7 @@ class AbstractSequenceGenerator(SequenceGenerator):
 class SequenceGeneratorOutput:
     """Holds the output of a sequence generator."""
 
-    hypotheses: List[List[Hypothesis]]
+    hypotheses: list[list[Hypothesis]]
     """The list of hypothesis generated per prompt, ordered by score."""
 
     counters: GenerationCounters
@@ -155,7 +155,7 @@ class AbstractSeq2SeqGenerator(Seq2SeqGenerator):
     """Provides a skeletal implementation of :class:`Seq2SeqGenerator`."""
 
     _model: EncoderDecoderModel
-    _step_hooks: Dict[int, StepHook]
+    _step_hooks: dict[int, StepHook]
 
     def __init__(self, model: EncoderDecoderModel) -> None:
         """
@@ -192,7 +192,7 @@ class AbstractSeq2SeqGenerator(Seq2SeqGenerator):
 @final
 @dataclass
 class Seq2SeqGeneratorOutput:
-    hypotheses: List[List[Hypothesis]]
+    hypotheses: list[list[Hypothesis]]
     """The list of hypothesis generated per prompt, ordered by score."""
 
     encoder_output: Tensor

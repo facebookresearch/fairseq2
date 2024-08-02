@@ -9,7 +9,7 @@ on:
     inputs:
       py:
         type: string
-        default: '3.11'
+        default: '3.12'
 
 env:
     ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true

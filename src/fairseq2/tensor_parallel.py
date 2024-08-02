@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Tuple
+from typing import Any
 
 import torch
 from torch import Tensor
@@ -36,7 +36,7 @@ class _ReduceFunction(Function):
         return x
 
     @staticmethod
-    def backward(ctx: Any, grad_output: Tensor) -> Tuple[Tensor, None, None]:
+    def backward(ctx: Any, grad_output: Tensor) -> tuple[Tensor, None, None]:
         return grad_output, None, None
 
 
@@ -58,7 +58,7 @@ class _ScatterFunction(Function):
         return _do_scatter(x, gang, dim)
 
     @staticmethod
-    def backward(ctx: Any, grad_output: Tensor) -> Tuple[Tensor, None, None]:
+    def backward(ctx: Any, grad_output: Tensor) -> tuple[Tensor, None, None]:
         x = _do_gather(grad_output, ctx.gang, ctx.dim)
 
         return x, None, None
@@ -82,7 +82,7 @@ class _GatherFunction(Function):
         return _do_gather(x, gang, dim)
 
     @staticmethod
-    def backward(ctx: Any, grad_output: Tensor) -> Tuple[Tensor, None, None]:
+    def backward(ctx: Any, grad_output: Tensor) -> tuple[Tensor, None, None]:
         x = _do_scatter(grad_output, ctx.gang, ctx.dim)
 
         return x, None, None
@@ -101,7 +101,7 @@ class _ReduceOnBackwardFunction(Function):
         return x
 
     @staticmethod
-    def backward(ctx: Any, grad_output: Tensor) -> Tuple[Tensor, None]:
+    def backward(ctx: Any, grad_output: Tensor) -> tuple[Tensor, None]:
         ctx.gang.all_reduce(grad_output, ReduceOperation.SUM)
 
         return grad_output, None

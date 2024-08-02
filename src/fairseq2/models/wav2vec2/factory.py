@@ -7,14 +7,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Final, List, Optional, Tuple
+from typing import Final, Optional
 
 from torch.nn import GELU, SiLU
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.models.conformer import ConformerBlock, ConformerConvolution
-from fairseq2.models.factory import create_model
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
+from fairseq2.models.model import model_factories
 from fairseq2.models.wav2vec2.feature_extractor import (
     Wav2Vec2FbankFeatureExtractor,
     Wav2Vec2FeatureExtractor,
@@ -102,7 +102,7 @@ class Wav2Vec2Config:
     num_codebook_entries: int = 320
     """The number of entries per codebook."""
 
-    codebook_sampling_temperature: Tuple[float, float, float] = (2.0, 0.5, 0.999995)
+    codebook_sampling_temperature: tuple[float, float, float] = (2.0, 0.5, 0.999995)
     """A tuple of start temperature, end temperature, and decay factor for
     codebook entry sampling."""
 
@@ -148,7 +148,7 @@ class Wav2Vec2EncoderConfig:
     """If ``True``, applies Layer Normalization to extracted features."""
 
     # Waveform Feature Extractor
-    feature_extractor_layer_descs: List[Tuple[int, int, int]] = field(
+    feature_extractor_layer_descs: list[tuple[int, int, int]] = field(
         default_factory=lambda: [(512, 10, 5)] + [(512, 3, 2)] * 4 + [(512, 2, 2)] * 2
     )
     """A tuple of output dimension, kernel size, and stride for each feature
@@ -554,9 +554,6 @@ def create_wav2vec2_model(
     return builder.build_model().set_family(WAV2VEC2_FAMILY)
 
 
-create_model.register(
-    family=WAV2VEC2_FAMILY,
-    factory=create_wav2vec2_model,
-    config_kls=Wav2Vec2Config,
-    arch_configs=wav2vec2_archs,
+model_factories.register(
+    WAV2VEC2_FAMILY, create_wav2vec2_model, Wav2Vec2Config, wav2vec2_archs
 )
