@@ -7,10 +7,15 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Callable, Optional, final
+from collections.abc import Iterable
+from typing import Any, Callable, Optional, Union, final
 
 import torch
+from torch import Tensor
 from torch.optim import Optimizer
+from typing_extensions import TypeAlias
+
+ParameterCollection: TypeAlias = Union[Iterable[Tensor], Iterable[dict[str, Any]]]
 
 
 class AbstractOptimizer(ABC, Optimizer):

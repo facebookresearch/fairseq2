@@ -17,13 +17,13 @@ from fairseq2.generation import (
     AbstractChatbot,
     ChatDialog,
     SequenceGenerator,
-    register_chatbot,
+    chatbot_factory,
 )
 from fairseq2.models.mistral.factory import MISTRAL_FAMILY
 from fairseq2.nn.utils.module import infer_device
 
 
-@register_chatbot(MISTRAL_FAMILY)
+@chatbot_factory(MISTRAL_FAMILY)
 @final
 class MistralChatbot(AbstractChatbot):
     """Represents a Mistral chatbot."""

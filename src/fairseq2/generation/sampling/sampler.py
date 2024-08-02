@@ -6,13 +6,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol, final
+from typing import Protocol, final
 
 import torch
 from torch import Tensor
-
-from fairseq2.factory_registry import ConfigBoundFactoryRegistry
 
 
 class Sampler(Protocol):
@@ -25,15 +22,6 @@ class Sampler(Protocol):
             :math:`(N,V)`, where :math:`N` is the batch size and :math:`V` is
             the size of the vocabulary.
         """
-
-
-if TYPE_CHECKING:  # compat: remove when Python 3.9 support is dropped.
-    sampler_factories = ConfigBoundFactoryRegistry[[], Sampler]()
-else:
-    sampler_factories = ConfigBoundFactoryRegistry()
-
-
-register_sampler = sampler_factories.decorator
 
 
 @final
@@ -80,19 +68,6 @@ class TopPSampler(Sampler):
         return indices.squeeze(-1)  # type: ignore[no-any-return]
 
 
-@dataclass
-class TopPSamplerConfig:
-    """Holds the configuration of a :class:`TopPSampler`."""
-
-    p: float = 1.0
-    """The cumulative probability threshold."""
-
-
-@register_sampler("top-p")
-def create_top_p_sampler(config: TopPSamplerConfig) -> TopPSampler:
-    return TopPSampler(p=config.p)
-
-
 @final
 class TopKSampler(Sampler):
     """Selects the next step randomly from the k mosty likely candidates."""
@@ -126,16 +101,3 @@ class TopKSampler(Sampler):
 
         # (N, 1) -> (N)
         return indices.squeeze(-1)
-
-
-@dataclass
-class TopKSamplerConfig:
-    """Holds the configuration of a :class:`TopKSampler`."""
-
-    k: int = 1
-    """The number of candidates to select from."""
-
-
-@register_sampler("top-k")
-def create_top_k_sampler(config: TopKSamplerConfig) -> TopKSampler:
-    return TopKSampler(k=config.k)

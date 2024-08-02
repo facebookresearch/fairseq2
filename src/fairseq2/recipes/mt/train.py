@@ -25,15 +25,15 @@ from fairseq2.datasets.parallel_text import (
     load_parallel_text_dataset,
 )
 from fairseq2.gang import Gang
-from fairseq2.generation.encoder_decoder import BeamSearchConfig, generator_factories
+from fairseq2.generation import BeamSearchConfig, seq2seq_generator_factories
 from fairseq2.logging import get_log_writer
 from fairseq2.models import model_factories
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.seq2seq import Seq2SeqBatch, as_auto_regressive_input
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.models.transformer import transformer_archs
-from fairseq2.optim import AdamW
-from fairseq2.optim.lr_scheduler import MyleLR
+from fairseq2.optim import AdamWConfig, optimizer_factories
+from fairseq2.optim.lr_scheduler import MyleLRConfig, lr_scheduler_factories
 from fairseq2.recipes.common_metrics import Seq2SeqMetricBag
 from fairseq2.recipes.evaluator import EvalUnit
 from fairseq2.recipes.mt.eval import MTBleuChrfEvalUnit, MTLossEvalUnit
@@ -115,17 +115,21 @@ class MTTrainConfig:
     """The granularity at which to wrap the ASR model."""
 
     # Optimizer, LR, and Loss
-    lr: float = 0.001
-    """The initial (post-warm-up) learning rate."""
+    optimizer: str = "adamw"
+    """The optimizer."""
 
-    start_lr: float = 1e-7
-    """The initial warm-up learning rate."""
+    optimizer_config: Optional[DataClass] = field(
+        default_factory=lambda: AdamWConfig(lr=0.001, betas=(0.9, 0.98))
+    )
+    """The configuration of the optimizer."""
 
-    num_lr_warmup_steps: int = 8000
-    """The number of learning rate warm-up steps."""
+    lr_scheduler: str = "myle"
+    """The learning rate scheduler."""
 
-    betas: tuple[float, float] = (0.9, 0.98)
-    """The coefficients of AdamW."""
+    lr_scheduler_config: Optional[DataClass] = field(
+        default_factory=lambda: MyleLRConfig(start_lr=1e-7, num_warmup_steps=8000)
+    )
+    """The configuration of the learning rate scheduler."""
 
     max_gradient_norm: Optional[float] = None
     """The maximum gradient norm. If ``None``, no clipping will be applied."""
@@ -173,7 +177,7 @@ class MTTrainConfig:
     """The sequence generator."""
 
     generator_config: Optional[DataClass] = field(
-        default_factory=lambda: BeamSearchConfig()
+        default_factory=lambda: BeamSearchConfig(max_gen_len=(1, 256), echo_prompt=True)
     )
     """The configuration of the sequence generator."""
 
@@ -205,9 +209,11 @@ def _nllb_dense_300m() -> MTTrainConfig:
 
     config = _nllb_dense_600m()
 
+    assert isinstance(config.lr_scheduler_config, MyleLRConfig)
+
     config.model_arch = "nllb_dense_300m"
     config.model_config = model_config
-    config.num_lr_warmup_steps = 400
+    config.lr_scheduler_config.num_warmup_steps = 400
     config.gradient_accumulation = 4
     config.max_num_steps = 10_000
     config.validate_every_n_steps = 1000
@@ -322,18 +328,32 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
 
     seed += 1
 
-    optimizer = AdamW(dp_model.parameters(), lr=config.lr, betas=config.betas)
+    try:
+        optimizer_factory = optimizer_factories.get(
+            config.optimizer, config.optimizer_config
+        )
 
-    lr_scheduler = MyleLR(
-        optimizer,
-        num_warmup_steps=config.num_lr_warmup_steps,
-        start_lr=config.start_lr,
-    )
+        optimizer = optimizer_factory(dp_model.parameters())
+    except ValueError as ex:
+        raise ValueError(
+            "The optimizer cannot be created. See nested exception for details."
+        ) from ex
+
+    try:
+        lr_scheduler_factory = lr_scheduler_factories.get(
+            config.lr_scheduler, config.lr_scheduler_config
+        )
+
+        lr_scheduler = lr_scheduler_factory(optimizer, config.max_num_steps)
+    except ValueError as ex:
+        raise ValueError(
+            "The learning rate scheduler cannot be created. See nested exception for details."
+        ) from ex
 
     # Initialize the sequence generator.
     if config.compute_bleu_chrf:
         try:
-            generator_factory = generator_factories.get(
+            generator_factory = seq2seq_generator_factories.get(
                 config.generator, config.generator_config
             )
 

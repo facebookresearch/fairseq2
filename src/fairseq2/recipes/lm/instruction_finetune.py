@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, Optional, final
 
@@ -36,8 +36,8 @@ from fairseq2.models.sequence import (
 )
 from fairseq2.nn.checkpointing import use_layerwise_activation_checkpointing
 from fairseq2.nn.transformer import enable_memory_efficient_torch_sdpa
-from fairseq2.optim import AdamW
-from fairseq2.optim.lr_scheduler import CosineAnnealingLR
+from fairseq2.optim import AdamWConfig, optimizer_factories
+from fairseq2.optim.lr_scheduler import CosineAnnealingLRConfig, lr_scheduler_factories
 from fairseq2.recipes.common_metrics import SequenceMetricBag
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
 from fairseq2.recipes.utils.asset import (
@@ -52,7 +52,7 @@ from fairseq2.recipes.utils.setup import (
     setup_gangs,
     to_data_parallel,
 )
-from fairseq2.typing import META, DataType
+from fairseq2.typing import META, DataClass, DataType
 from fairseq2.utils.profiler import Stopwatch
 
 log = get_log_writer(__name__)
@@ -107,20 +107,23 @@ class InstructionFinetuneConfig:
     """If ``True``, applies ``torch.compile()`` to the decoder. (experimental)"""
 
     # Optimizer, LR, and Loss
-    lr: float = 5.5e-06
-    """The initial (post-warm-up) learning rate."""
+    optimizer: str = "adamw"
+    """The optimizer."""
 
-    betas: tuple[float, float] = (0.9, 0.95)
-    """The coefficients of AdamW."""
+    optimizer_config: Optional[DataClass] = field(
+        default_factory=lambda: AdamWConfig(
+            lr=5.5e-06, betas=(0.9, 0.95), weight_decay=0.1
+        )
+    )
+    """The configuration of the optimizer."""
 
-    final_lr_ratio: float = 0.2
-    """The ratio of the final learning rate to :attr:`lr`."""
+    lr_scheduler: str = "cosine-annealing"
+    """The learning rate scheduler."""
 
-    weight_decay: float = 0.1
-    """The weight decay coefficient of AdamW."""
-
-    num_lr_warmup_steps: int = 0
-    """The number of learning rate warm-up steps."""
+    lr_scheduler_config: Optional[DataClass] = field(
+        default_factory=lambda: CosineAnnealingLRConfig(final_lr=5.5e-06 * 0.2)
+    )
+    """The configuration of the learning rate scheduler."""
 
     gradient_accumulation: int = 1
     """The number of steps to accumulate gradients before an optimizer update."""
@@ -344,19 +347,27 @@ def load_instruction_finetuner(
 
     seed += 1
 
-    optimizer = AdamW(
-        model.parameters(),
-        lr=config.lr,
-        betas=config.betas,
-        weight_decay=config.weight_decay,
-    )
+    try:
+        optimizer_factory = optimizer_factories.get(
+            config.optimizer, config.optimizer_config
+        )
 
-    lr_scheduler = CosineAnnealingLR(
-        optimizer,
-        cycle_len=config.max_num_steps - config.num_lr_warmup_steps,
-        num_warmup_steps=config.num_lr_warmup_steps,
-        final_lr=config.lr * config.final_lr_ratio,
-    )
+        optimizer = optimizer_factory(dp_model.parameters())
+    except ValueError as ex:
+        raise ValueError(
+            "The optimizer cannot be created. See nested exception for details."
+        ) from ex
+
+    try:
+        lr_scheduler_factory = lr_scheduler_factories.get(
+            config.lr_scheduler, config.lr_scheduler_config
+        )
+
+        lr_scheduler = lr_scheduler_factory(optimizer, config.max_num_steps)
+    except ValueError as ex:
+        raise ValueError(
+            "The learning rate scheduler cannot be created. See nested exception for details."
+        ) from ex
 
     # Initialize the trainer.
     return Trainer[SequenceBatch](

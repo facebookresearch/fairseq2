@@ -14,7 +14,7 @@ from torch.nn import SiLU
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data import VocabularyInfo
 from fairseq2.models.conformer import ConformerBlock, ConformerConvolution
-from fairseq2.models.model import model_factories
+from fairseq2.models.factory import model_factories
 from fairseq2.models.s2t_transformer.feature_extractor import Conv1dFbankSubsampler
 from fairseq2.models.s2t_transformer.frontend import S2TTransformerFrontend
 from fairseq2.models.transformer import (

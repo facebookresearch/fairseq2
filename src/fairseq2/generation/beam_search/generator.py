@@ -16,7 +16,7 @@ from torch.nn.functional import log_softmax
 from typing_extensions import override
 
 from fairseq2.data import VocabularyInfo
-from fairseq2.generation.beam_search_algorithm import (
+from fairseq2.generation.beam_search.algo import (
     BeamSearchAlgorithm,
     BeamStep,
     StandardBeamSearchAlgorithm,

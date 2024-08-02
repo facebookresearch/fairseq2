@@ -24,8 +24,11 @@ from fairseq2.datasets.instruction import (
     load_instruction_dataset,
 )
 from fairseq2.gang import Gang
-from fairseq2.generation import SequenceGenerator
-from fairseq2.generation.decoder import SamplingConfig, generator_factories
+from fairseq2.generation import (
+    SamplingConfig,
+    SequenceGenerator,
+    seq_generator_factories,
+)
 from fairseq2.logging import get_log_writer
 from fairseq2.models import load_model
 from fairseq2.models.decoder import DecoderModel
@@ -206,7 +209,7 @@ def load_text_generator(
 
     # Initialize the sequence generator.
     try:
-        generator_factory = generator_factories.get(
+        generator_factory = seq_generator_factories.get(
             config.generator, config.generator_config
         )
 

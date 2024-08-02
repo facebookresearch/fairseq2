@@ -33,8 +33,8 @@ from fairseq2.models.wav2vec2.asr import (
     wav2vec2_asr_archs,
 )
 from fairseq2.nn.utils.module import freeze_parameters, share_parameters, to_device
-from fairseq2.optim import AdamW
-from fairseq2.optim.lr_scheduler import TriStageLR
+from fairseq2.optim import AdamWConfig, optimizer_factories
+from fairseq2.optim.lr_scheduler import TriStageLRConfig, lr_scheduler_factories
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
 from fairseq2.recipes.utils.asset import (
     AssetReference,
@@ -126,11 +126,23 @@ class Wav2Vec2AsrTrainConfig:
     """If ``True``, applies ``torch.compile()`` to the encoder. (experimental)"""
 
     # Optimizer, LR, and Loss
-    lr: float = 5e-05
-    """The initial (post-warm-up) learning rate."""
+    optimizer: str = "adamw"
+    """The optimizer."""
 
-    betas: tuple[float, float] = (0.9, 0.98)
-    """The coefficients of AdamW."""
+    optimizer_config: Optional[DataClass] = field(
+        default_factory=lambda: AdamWConfig(lr=5e-05, betas=(0.9, 0.98))
+    )
+    """The configuration of the optimizer."""
+
+    lr_scheduler: str = "tri-stage"
+    """The learning rate scheduler."""
+
+    lr_scheduler_config: Optional[DataClass] = field(
+        default_factory=lambda: TriStageLRConfig(
+            stage_ratio=(0.1, 0.4, 0.5), start_lr_scale=0.01, final_lr_scale=0.05
+        )
+    )
+    """The configuration of the learning rate scheduler."""
 
     lr_stage_ratios: tuple[float, float, float] = (0.1, 0.4, 0.5)
     """The ratios of tri-stage learning rate scheduler."""
@@ -213,10 +225,12 @@ def _base_100h() -> Wav2Vec2AsrTrainConfig:
 
     config = _base_10h()
 
+    assert isinstance(config.optimizer_config, AdamWConfig)
+
     config.dataset = "librispeech_asr_100h"
     config.model_arch = "base_100h"
     config.model_config = model_config
-    config.lr = 0.00003
+    config.optimizer_config.lr = 0.00003
     config.max_num_steps = 50_000
     config.freeze_encoder_for_n_steps = 0
 
@@ -376,15 +390,27 @@ def load_wav2vec2_asr_trainer(
 
     seed += 1
 
-    optimizer = AdamW(dp_model.parameters(), lr=config.lr, betas=config.betas)
+    try:
+        optimizer_factory = optimizer_factories.get(
+            config.optimizer, config.optimizer_config
+        )
 
-    lr_scheduler = TriStageLR(
-        optimizer,
-        config.max_num_steps,
-        config.lr_stage_ratios,
-        start_lr_scale=config.start_lr_scale,
-        final_lr_scale=config.final_lr_scale,
-    )
+        optimizer = optimizer_factory(dp_model.parameters())
+    except ValueError as ex:
+        raise ValueError(
+            "The optimizer cannot be created. See nested exception for details."
+        ) from ex
+
+    try:
+        lr_scheduler_factory = lr_scheduler_factories.get(
+            config.lr_scheduler, config.lr_scheduler_config
+        )
+
+        lr_scheduler = lr_scheduler_factory(optimizer, config.max_num_steps)
+    except ValueError as ex:
+        raise ValueError(
+            "The learning rate scheduler cannot be created. See nested exception for details."
+        ) from ex
 
     # Initialize the validation unit.
     valid_unit = Wav2Vec2AsrEvalUnit(dp_model, gang, tokenizer)
