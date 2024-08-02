@@ -25,9 +25,7 @@ from fairseq2.models.s2t_transformer.tokenizer import S2TTransformerTokenizer
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
 
 load_s2t_transformer_config = StandardModelConfigLoader(
-    family=S2T_TRANSFORMER_FAMILY,
-    config_kls=S2TTransformerConfig,
-    arch_configs=s2t_transformer_archs,
+    S2T_TRANSFORMER_FAMILY, S2TTransformerConfig, s2t_transformer_archs
 )
 
 

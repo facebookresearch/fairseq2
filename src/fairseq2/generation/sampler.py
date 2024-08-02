@@ -33,6 +33,9 @@ else:
     sampler_factories = ConfigBoundFactoryRegistry()
 
 
+register_sampler = sampler_factories.decorator
+
+
 @final
 class TopPSampler(Sampler):
     """Selects the next step randomly from the smallest set of candidates for
@@ -85,11 +88,9 @@ class TopPSamplerConfig:
     """The cumulative probability threshold."""
 
 
+@register_sampler("top-p")
 def create_top_p_sampler(config: TopPSamplerConfig) -> TopPSampler:
     return TopPSampler(p=config.p)
-
-
-sampler_factories.register("top-p", create_top_p_sampler, TopPSamplerConfig)
 
 
 @final
@@ -135,8 +136,6 @@ class TopKSamplerConfig:
     """The number of candidates to select from."""
 
 
+@register_sampler("top-k")
 def create_top_k_sampler(config: TopKSamplerConfig) -> TopKSampler:
     return TopKSampler(k=config.k)
-
-
-sampler_factories.register("top-k", create_top_k_sampler, TopKSamplerConfig)

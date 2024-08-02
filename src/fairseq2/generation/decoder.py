@@ -26,6 +26,9 @@ else:
     generator_factories = ConfigBoundFactoryRegistry()
 
 
+register_generator = generator_factories.decorator
+
+
 @dataclass
 class SamplingConfig:
     """Holds the configuration of a :class:`SamplingSequenceGenerator`."""
@@ -72,6 +75,7 @@ class SamplingConfig:
     """The sequence length capacity will be incremented by multiplies of this value."""
 
 
+@register_generator("sampling")
 def create_sampling_generator(
     config: SamplingConfig, model: DecoderModel
 ) -> SamplingSequenceGenerator:
@@ -99,9 +103,6 @@ def create_sampling_generator(
         prefill_chunk_size=config.prefill_chunk_size,
         decode_capacity_increment=config.decode_capacity_increment,
     )
-
-
-generator_factories.register("sampling", create_sampling_generator, SamplingConfig)
 
 
 @dataclass
@@ -148,6 +149,7 @@ class BeamSearchConfig:
     """The sequence length capacity will be incremented by multiplies of this value."""
 
 
+@register_generator("beam_search")
 def create_beam_search_generator(
     config: BeamSearchConfig, model: DecoderModel
 ) -> BeamSearchSequenceGenerator:
@@ -176,8 +178,3 @@ def create_beam_search_generator(
         prefill_chunk_size=config.prefill_chunk_size,
         decode_capacity_increment=config.decode_capacity_increment,
     )
-
-
-generator_factories.register(
-    "beam_search", create_beam_search_generator, BeamSearchConfig
-)

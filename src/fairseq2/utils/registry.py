@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Generic, TypeVar
+from typing import Callable, Generic, TypeVar
 
 T = TypeVar("T")
 
@@ -36,3 +36,13 @@ class Registry(Generic[T]):
             )
 
         self._objects[name] = obj
+
+    def decorator(self, name: str) -> Callable[[T], T]:
+        """Register ``name`` with the decorated object."""
+
+        def register(obj: T) -> T:
+            self.register(name, obj)
+
+            return obj
+
+        return register

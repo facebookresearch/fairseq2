@@ -25,6 +25,7 @@ from fairseq2.generation.chatbot import ChatbotFactory as ChatbotFactory
 from fairseq2.generation.chatbot import ChatDialog as ChatDialog
 from fairseq2.generation.chatbot import ChatMessage as ChatMessage
 from fairseq2.generation.chatbot import chatbot_factories as chatbot_factories
+from fairseq2.generation.chatbot import register_chatbot as register_chatbot
 from fairseq2.generation.generator import (
     AbstractSeq2SeqGenerator as AbstractSeq2SeqGenerator,
 )
