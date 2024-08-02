@@ -54,7 +54,7 @@ setup(
         "importlib_resources~=6.4",
         "mypy-extensions~=1.0",
         "numpy~=1.23",
-        "packaging~=23.1",
+        "packaging~=24.1",
         "psutil~=5.9",
         "pyyaml~=6.0",
         "rich~=13.7",
