@@ -4,7 +4,9 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Callable, Optional, Union
+from __future__ import annotations
+
+from typing import Any, Callable, Dict, Optional, Union
 
 from fairseq2.data.data_pipeline import Collater, create_bucket_sizes, read_sequence
 from fairseq2.datasets.batching import LengthBatching, StaticBatching
@@ -21,12 +23,11 @@ except ImportError:
 else:
     has_datasets = True
 
-
-Example = dict[str, Any]
+Example = Dict[str, Any]
 
 
 def create_hf_reader(
-    dataset: Dataset,
+    dataset: "Dataset",
     gang: Gang,
     converter: Callable[[Example], BatchT],
     *,
@@ -76,7 +77,6 @@ def create_hf_reader(
         The extra parameters specific to the dataset
         implementation.
     """
-
     if not has_datasets:
         raise ModuleNotFoundError(
             "`datasets` is required but not found. Please install it with `pip install datasets`."
