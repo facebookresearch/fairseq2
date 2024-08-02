@@ -47,10 +47,10 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
 
     def __init__(
         self,
-        *,
         family: str,
         config_kls: type[ModelConfigT],
         arch_configs: Optional[ConfigRegistry[ModelConfigT]],
+        *,
         asset_store: Optional[AssetStore] = None,
         value_converter: Optional[ValueConverter] = None,
     ) -> None:

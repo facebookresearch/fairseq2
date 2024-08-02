@@ -20,9 +20,7 @@ from fairseq2.models.wav2vec2.asr.factory import (
 from fairseq2.nn.transformer import TransformerNormOrder
 
 load_wav2vec2_asr_config = StandardModelConfigLoader(
-    family=WAV2VEC2_ASR_FAMILY,
-    config_kls=Wav2Vec2AsrConfig,
-    arch_configs=wav2vec2_asr_archs,
+    WAV2VEC2_ASR_FAMILY, Wav2Vec2AsrConfig, wav2vec2_asr_archs
 )
 
 

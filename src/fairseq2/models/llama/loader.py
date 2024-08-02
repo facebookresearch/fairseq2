@@ -34,9 +34,7 @@ from fairseq2.models.transformer import (
 )
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
 
-load_llama_config = StandardModelConfigLoader(
-    family=LLAMA_FAMILY, config_kls=LLaMAConfig, arch_configs=llama_archs
-)
+load_llama_config = StandardModelConfigLoader(LLAMA_FAMILY, LLaMAConfig, llama_archs)
 
 
 @final
