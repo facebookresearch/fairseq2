@@ -7,70 +7,60 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Union
 
 import pytest
 
-from fairseq2.utils.dataclass import FieldError, update_dataclass
-
-
-@dataclass
-class Foo2:
-    x: Optional[int]
-    y: str
+from fairseq2.utils.dataclass import EMPTY, update_dataclass
 
 
 @dataclass
 class Foo1:
     a: int
-    b: str
-    c: Foo2
-    d: Optional[Foo2]
+    b: Union[Foo2, Foo3]
+    c: str
 
 
-class TestUpdateDataclassFunction:
-    def test_call_works(self) -> None:
-        obj = Foo1(a=1, b="b", c=Foo2(x=2, y="foo3"), d=Foo2(x=3, y="foo3"))
+@dataclass
+class Foo2:
+    x: int
 
-        overrides = {"b": "a", "c": {"x": None, "y": "foo4"}, "d": None}
 
-        unknown_fields = update_dataclass(obj, overrides)
+@dataclass
+class Foo3:
+    y: int = 1
+    z: int = 2
 
-        assert obj == Foo1(a=1, b="a", c=Foo2(x=None, y="foo4"), d=None)
 
-        assert unknown_fields == []
+def test_update_dataclass_works() -> None:
+    target = Foo1(a=3, b=Foo2(x=1), c="foo")
+    source = Foo1(a=2, b=Foo3(y=EMPTY, z=3), c=EMPTY)  # type: ignore[arg-type]
 
-    def test_call_works_when_overrides_is_empty(self) -> None:
-        obj = Foo1(a=1, b="b", c=Foo2(x=2, y="foo3"), d=Foo2(x=3, y="foo3"))
+    update_dataclass(target, source)
 
-        update_dataclass(obj, {})
+    assert target == Foo1(a=2, b=Foo3(y=1, z=3), c="foo")
 
-        assert obj == Foo1(a=1, b="b", c=Foo2(x=2, y="foo3"), d=Foo2(x=3, y="foo3"))
+    target = Foo1(a=3, b=Foo3(y=1), c="foo")
+    source = Foo1(a=EMPTY, b=Foo3(y=2, z=EMPTY), c="foo")  # type: ignore[arg-type]
 
-        unknown_fields = update_dataclass(obj, {"c": {}})
+    update_dataclass(target, source)
 
-        assert obj == Foo1(a=1, b="b", c=Foo2(x=2, y="foo3"), d=Foo2(x=3, y="foo3"))
+    assert target == Foo1(a=3, b=Foo3(y=2, z=2), c="foo")
 
-        assert unknown_fields == []
+    target = Foo1(a=3, b=Foo2(x=1), c="foo")
+    source = Foo1(a=2, b=EMPTY, c="foo")  # type: ignore[arg-type]
 
-    def test_call_raises_error_when_there_are_invalid_overrides(self) -> None:
-        obj = Foo1(a=1, b="b", c=Foo2(x=2, y=3), d=Foo2(x=3, y="foo3"))  # type: ignore[arg-type]
+    update_dataclass(target, source)
 
-        overrides = {"c": 4}  # type: ignore[dict-item]
+    assert target == Foo1(a=2, b=Foo2(x=1), c="foo")
 
-        with pytest.raises(
-            FieldError,
-            match=rf"^The field 'c' is expected to be of type `{Foo2}`, but is of type `{int}` instead\.$",
-        ):
-            update_dataclass(obj, overrides)
 
-    def test_call_works_when_there_are_unknown_overrides(self) -> None:
-        obj = Foo1(a=1, b="b", c=Foo2(x=2, y="foo3"), d=Foo2(x=3, y="foo3"))
+def test_update_dataclass_raises_error_when_types_mismatch() -> None:
+    target = Foo1(a=3, b=Foo2(x=1), c="foo")
+    source = Foo3()
 
-        overrides = {"b": "a", "c": {"y": "foo4", "z": 2}, "e": 4}
-
-        unknown_fields = update_dataclass(obj, overrides)
-
-        assert obj == Foo1(a=1, b="a", c=Foo2(x=2, y="foo4"), d=Foo2(x=3, y="foo3"))
-
-        assert unknown_fields == ["c.z", "e"]
+    with pytest.raises(
+        TypeError,
+        match=rf"^`target` and `source` must be of the same type, but they are of types `{Foo1}` and `{Foo3}` instead\.$",
+    ):
+        update_dataclass(target, source)

@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
-from typing import Any, Dict, Literal, Optional, Tuple, Type
+from typing import Any, Literal, Optional
 
 import torch
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
@@ -61,7 +61,7 @@ def setup_gangs(
     tp_size: int = 1,
     timeout: Optional[timedelta] = None,
     monitored: bool = False,
-) -> Tuple[Gang, Dict[str, Gang]]:
+) -> tuple[Gang, dict[str, Gang]]:
     """Set up the root, data, and tensor parallel gangs.
 
     :param log:
@@ -192,12 +192,12 @@ def compile_model(model: Module, log: LogWriter, *, dynamic: bool = True) -> Mod
     )
 
 
-def check_model_type(model: Module, kls: Type[Module]) -> None:
+def check_model_type(model: Module, kls: type[Module]) -> None:
     """Check if a potentially DDP or FSDP wrapped `model` is of type `kls`."""
     if isinstance(model, (DDP, FSDP)):
         model = model.module
 
     if not isinstance(model, kls):
         raise ValueError(
-            f"The specified model must be of type `{kls}`, but is of type `{type(model)}` instead."
+            f"`model` must be of type `{kls}`, but is of type `{type(model)}` instead."
         )

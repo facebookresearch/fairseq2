@@ -6,10 +6,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Generator
 from dataclasses import dataclass
 from enum import Enum
 from functools import partial
-from typing import Any, Generator, List, Optional, Union
+from typing import Any, Optional, Union
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -55,10 +56,10 @@ class ParquetBasicDataloaderConfig:
     ``batch_size`` to reduce the memory footprint.
     """
 
-    columns: Optional[List[str]] = None
+    columns: Optional[list[str]] = None
     """The list of columns to load."""
 
-    filters: Optional[Union[List[Any], pa.dataset.Expression]] = None
+    filters: Optional[Union[list[Any], pa.dataset.Expression]] = None
     """See https://arrow.apache.org/docs/python/generated/pyarrow.dataset.Expression.html#pyarrow.dataset.Expression
 
     Some examples :

@@ -6,18 +6,9 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager, nullcontext
-from typing import (
-    Any,
-    ContextManager,
-    Dict,
-    Iterable,
-    Iterator,
-    List,
-    Mapping,
-    Optional,
-    final,
-)
+from collections.abc import Iterable, Iterator, Mapping
+from contextlib import AbstractContextManager, contextmanager, nullcontext
+from typing import Any, Optional, final
 
 import torch
 from torch import Generator, Tensor
@@ -43,7 +34,7 @@ def use_deterministic(value: bool, warn_only: bool = False) -> None:
 class RngBag:
     """Holds a collection of random number generators."""
 
-    _generators: List[Generator]
+    _generators: list[Generator]
 
     def __init__(self, *generators: Generator) -> None:
         """
@@ -122,7 +113,7 @@ class RngBag:
             for g, s in zip(self._generators, original_states):
                 g.set_state(s)
 
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         return {"generators": [g.get_state() for g in self._generators]}
 
     def load_state_dict(self, state_dict: Mapping[str, Any]) -> None:
@@ -154,7 +145,7 @@ class RngBag:
 
 def temporary_manual_seed(
     devices: Iterable[Device], seed: Optional[int]
-) -> ContextManager[None]:
+) -> AbstractContextManager[None]:
     """Temporarily change the seed of the random number generators of ``devices``.
 
     :param devices:

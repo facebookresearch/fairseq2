@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import Optional
 
 import pytest
 
@@ -72,13 +72,13 @@ class TestAssetCard:
     def test_as_raises_error_when_field_type_is_incorrect(self) -> None:
         with pytest.raises(
             AssetCardError,
-            match=rf"^The value of the field 'field1' of the asset card 'test-card' cannot be retrieved as `{int}`. See nested exception for details\.$",
+            match=rf"^The value of the field 'field1' of the asset card 'test-card' cannot be parsed as `{int}`. See nested exception for details\.$",
         ):
             self.card.field("field1").as_(int)
 
         with pytest.raises(
             AssetCardError,
-            match=rf"^The value of the field 'field2\.sub-field1' of the asset card 'test-card' cannot be retrieved as `{int}`. See nested exception for details\.$",
+            match=rf"^The value of the field 'field2\.sub-field1' of the asset card 'test-card' cannot be parsed as `{int}`. See nested exception for details\.$",
         ):
             self.card.field("field2").field("sub-field1").as_(int)
 
@@ -106,52 +106,52 @@ class TestAssetCard:
             AssetCardError,
             match=r"^The value of the field 'field5' of the asset card 'test-card' must not be empty\.$",
         ):
-            self.card.field("field5").as_(List[str])
+            self.card.field("field5").as_(list[str])
 
     def test_as_works_when_allow_empty_is_true(self) -> None:
         value1 = self.card.field("field4").as_(str, allow_empty=True)
 
         assert value1 == ""
 
-        value2 = self.card.field("field5").as_(List[str], allow_empty=True)
+        value2 = self.card.field("field5").as_(list[str], allow_empty=True)
 
         assert value2 == []
 
     def test_as_list_works(self) -> None:
-        value = self.card.field("field7").as_(List[int])
+        value = self.card.field("field7").as_(list[int])
 
         assert value == [1, 3, 2]
 
     def test_as_list_raises_error_when_field_is_not_a_valid_list(self) -> None:
         with pytest.raises(
             AssetCardError,
-            match=r"The value of the field 'field7' of the asset card 'test-card' cannot be retrieved as `typing\.List\[str\]`. See nested exception for details\.$",
+            match=r"The value of the field 'field7' of the asset card 'test-card' cannot be parsed as `list\[str\]`. See nested exception for details\.$",
         ):
-            self.card.field("field7").as_(List[str])
+            self.card.field("field7").as_(list[str])
 
     def test_as_dict_works(self) -> None:
-        value = self.card.field("field2").as_(Dict[str, str])
+        value = self.card.field("field2").as_(dict[str, str])
 
         assert value == {"sub-field2": "sub-foo2"}
 
     def test_as_dict_raises_error_when_field_is_not_a_valid_dict(self) -> None:
         with pytest.raises(
             AssetCardError,
-            match=r"The value of the field 'field2' of the asset card 'test-card' cannot be retrieved as `typing\.Dict\[str, int\]`. See nested exception for details\.$",
+            match=r"The value of the field 'field2' of the asset card 'test-card' cannot be parsed as `dict\[str, int\]`. See nested exception for details\.$",
         ):
-            self.card.field("field2").as_(Dict[str, int])
+            self.card.field("field2").as_(dict[str, int])
 
     def test_as_set_works(self) -> None:
-        value = self.card.field("field7").as_(Set[int])
+        value = self.card.field("field7").as_(set[int])
 
         assert value == {1, 2, 3}
 
     def test_as_set_raises_error_when_field_is_not_a_valid_set(self) -> None:
         with pytest.raises(
             AssetCardError,
-            match=r"The value of the field 'field7' of the asset card 'test-card' cannot be retrieved as `typing\.Set\[str\]`. See nested exception for details\.$",
+            match=r"The value of the field 'field7' of the asset card 'test-card' cannot be parsed as `set\[str\]`. See nested exception for details\.$",
         ):
-            self.card.field("field7").as_(Set[str])
+            self.card.field("field7").as_(set[str])
 
     def test_as_one_of_works(self) -> None:
         value = self.card.field("field1").as_one_of({"foo2", "foo1"})
@@ -185,7 +185,7 @@ class TestAssetCard:
     def test_as_uri_raises_error_when_field_type_is_incorrect(self) -> None:
         with pytest.raises(
             AssetCardError,
-            match=rf"The value of the field 'field3' of the asset card 'test-card' cannot be retrieved as `{str}`. See nested exception for details\.$",
+            match=rf"The value of the field 'field3' of the asset card 'test-card' cannot be parsed as `{str}`. See nested exception for details\.$",
         ):
             self.card.field("field3").as_uri()
 

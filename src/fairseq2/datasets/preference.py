@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import json
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional, Sequence, Union, cast, final
+from typing import Any, NoReturn, Optional, Union, cast, final
 
 import torch
-from typing_extensions import NoReturn
+from typing_extensions import override
 
 from fairseq2.assets import AssetCard, AssetError
 from fairseq2.data import (
@@ -27,7 +28,6 @@ from fairseq2.datasets.loader import AbstractDatasetLoader, DelegatingDatasetLoa
 from fairseq2.gang import Gang
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
-from fairseq2.typing import override
 
 
 @dataclass
@@ -278,7 +278,7 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
         builder.map(target_encoder, selector="tgt_rejected", num_parallel_calls=npc)
 
         # Filter out long examples.
-        def skip(example: Dict[str, Any]) -> bool:
+        def skip(example: dict[str, Any]) -> bool:
             chosen_len = len(example["src"]) + len(example["tgt_chosen"])
             rejected_len = len(example["src"]) + len(example["tgt_rejected"])
             return chosen_len <= max_seq_len and rejected_len <= max_seq_len
@@ -290,7 +290,7 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
         # Shard.
         builder.shard(gang.rank, gang.size, allow_uneven=not static_batching)
 
-        def cat_source_and_target(example: Dict[str, Any]) -> Dict[str, Any]:
+        def cat_source_and_target(example: dict[str, Any]) -> dict[str, Any]:
             sample_id = example.get("id", None)
 
             prompt_indices = example["src"]
@@ -356,7 +356,7 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
         builder.prefetch(num_prefetch)
 
         # Wrap examples with `SequenceBatch`.
-        def to_batch(example: Dict[str, Any]) -> PreferenceOptimizationBatch:
+        def to_batch(example: dict[str, Any]) -> PreferenceOptimizationBatch:
             indices_chosen = cast(SequenceData, example["indices_chosen"])
             indices_rejected = cast(SequenceData, example["indices_rejected"])
 

@@ -6,10 +6,11 @@
 
 from __future__ import annotations
 
-from typing import Optional, Tuple, final
+from typing import Optional, final
 
 import torch.nn as nn
 from torch import Tensor
+from typing_extensions import override
 
 from fairseq2.data import VocabularyInfo
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
@@ -19,7 +20,6 @@ from fairseq2.nn import Linear, Projection
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.transformer import TransformerDecoder, TransformerEncoder
-from fairseq2.typing import override
 
 
 @final
@@ -72,7 +72,7 @@ class TransformerModel(EncoderDecoderModel):
     @override
     def encode(
         self, seqs: Tensor, padding_mask: Optional[PaddingMask]
-    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+    ) -> tuple[Tensor, Optional[PaddingMask]]:
         seqs, padding_mask = self.encoder_frontend(seqs, padding_mask)
 
         return self.encoder(seqs, padding_mask)  # type: ignore[no-any-return]
@@ -86,7 +86,7 @@ class TransformerModel(EncoderDecoderModel):
         encoder_padding_mask: Optional[PaddingMask],
         *,
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+    ) -> tuple[Tensor, Optional[PaddingMask]]:
         seqs, padding_mask = self.decoder_frontend(
             seqs, padding_mask, state_bag=state_bag
         )

@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from pickle import PickleError
-from typing import Any, Dict, Generic, Optional, Protocol, TypeVar, Union, final
+from typing import Any, Generic, Optional, Protocol, TypeVar, Union, final
 
 from torch.nn import Module
 from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
@@ -24,7 +24,6 @@ from fairseq2.assets import (
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.models.config_loader import ModelConfigLoader, get_model_family
-from fairseq2.models.factory import ModelFactory
 from fairseq2.nn.utils.module import (
     infer_device,
     load_state_dict,
@@ -48,6 +47,26 @@ ModelConfigT_contra = TypeVar(
 )
 
 
+class ModelFactory(Protocol[ModelConfigT_contra, ModelT_co]):
+    """Constructs models of type ``ModelT``."""
+
+    def __call__(
+        self,
+        config: ModelConfigT_contra,
+        *,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
+    ) -> ModelT_co:
+        """
+        :param config:
+            The model configuration.
+        :param device:
+            The device on which to initialize the model.
+        :param dtype:
+            The data type of the model parameters and buffers.
+        """
+
+
 class ModelLoader(Protocol[ModelT_co]):
     """Loads models of type ``ModelT``."""
 
@@ -55,7 +74,7 @@ class ModelLoader(Protocol[ModelT_co]):
         self,
         model_name_or_card: Union[str, AssetCard],
         *,
-        gangs: Optional[Dict[str, Gang]] = None,
+        gangs: Optional[dict[str, Gang]] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
         force: bool = False,
@@ -86,8 +105,8 @@ class CheckpointConverter(Protocol[ModelConfigT_contra]):
     """Converts checkpoints to fairseq2 format."""
 
     def __call__(
-        self, checkpoint: Dict[str, Any], config: ModelConfigT_contra
-    ) -> Dict[str, Any]:
+        self, checkpoint: dict[str, Any], config: ModelConfigT_contra
+    ) -> dict[str, Any]:
         """
         :param checkpoint:
             The checkpoint to convert.
@@ -158,7 +177,7 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         self,
         model_name_or_card: Union[str, AssetCard],
         *,
-        gangs: Optional[Dict[str, Gang]] = None,
+        gangs: Optional[dict[str, Gang]] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
         force: bool = False,
@@ -316,7 +335,7 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
 
         return model
 
-    def _shard(self, model: ModelT, gangs: Dict[str, Gang], card: AssetCard) -> None:
+    def _shard(self, model: ModelT, gangs: dict[str, Gang], card: AssetCard) -> None:
         raise RuntimeError(
             f"{card.name} has a sharded checkpoint, but has no model sharder. Please file a bug report to the model author."
         )
@@ -327,7 +346,7 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
     """Loads models of type ``ModelT`` using registered loaders."""
 
     _asset_store: AssetStore
-    _loaders: Dict[str, ModelLoader[ModelT]]
+    _loaders: dict[str, ModelLoader[ModelT]]
 
     def __init__(self, *, asset_store: Optional[AssetStore] = None) -> None:
         """
@@ -343,7 +362,7 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
         self,
         model_name_or_card: Union[str, AssetCard],
         *,
-        gangs: Optional[Dict[str, Gang]] = None,
+        gangs: Optional[dict[str, Gang]] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
         force: bool = False,

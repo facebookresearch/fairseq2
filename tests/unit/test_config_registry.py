@@ -50,7 +50,7 @@ class TestConfigRegistry:
 
         with pytest.raises(
             ValueError,
-            match=r"^`name` must be a unique configuration name, but 'name' has already a registered configuration factory\.$",
+            match=r"^`name` must be a unique configuration name, but 'name' is already registered\.$",
         ):
             registry.register("name", lambda: Foo("config"))
 

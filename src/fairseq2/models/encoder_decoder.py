@@ -7,16 +7,16 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Optional, Tuple
+from typing import Optional
 
 from torch import Tensor
+from typing_extensions import override
 
 from fairseq2.data import VocabularyInfo
 from fairseq2.models.seq2seq import Seq2SeqBatch, Seq2SeqModel
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.typing import override
 
 
 class EncoderDecoderModel(Seq2SeqModel):
@@ -57,7 +57,7 @@ class EncoderDecoderModel(Seq2SeqModel):
     @abstractmethod
     def encode(
         self, seqs: Tensor, padding_mask: Optional[PaddingMask]
-    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+    ) -> tuple[Tensor, Optional[PaddingMask]]:
         """Encode the specified source sequences.
 
         :param seqs:
@@ -88,7 +88,7 @@ class EncoderDecoderModel(Seq2SeqModel):
         encoder_padding_mask: Optional[PaddingMask],
         *,
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+    ) -> tuple[Tensor, Optional[PaddingMask]]:
         """Decode the specified target sequences.
 
         :param seqs:

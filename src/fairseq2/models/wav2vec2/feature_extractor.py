@@ -6,19 +6,21 @@
 
 from __future__ import annotations
 
-from typing import Optional, Sequence, Tuple, final
+from collections.abc import Sequence
+from typing import Optional, final
 
 import torch
 import torch.nn as nn
 from torch import Tensor
 from torch.nn import GELU, Conv1d, Dropout, GroupNorm, Module, Sequential
 from torch.nn.functional import group_norm, layer_norm
+from typing_extensions import override
 
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
 from fairseq2.nn import LayerNorm
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.utils.gradient import scale_gradient
-from fairseq2.typing import DataType, Device, override
+from fairseq2.typing import DataType, Device
 
 
 @final
@@ -28,13 +30,13 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
     :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`."""
 
     layers: Sequential
-    layer_descs: Sequence[Tuple[int, int, int]]
+    layer_descs: Sequence[tuple[int, int, int]]
     num_channels: int
     gradient_scale: float
 
     def __init__(
         self,
-        layer_descs: Sequence[Tuple[int, int, int]],
+        layer_descs: Sequence[tuple[int, int, int]],
         bias: bool,
         *,
         num_channels: int = 1,
@@ -133,7 +135,7 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
     @override
     def forward(
         self, seqs: Tensor, padding_mask: Optional[PaddingMask]
-    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+    ) -> tuple[Tensor, Optional[PaddingMask]]:
         """See the base :meth:`SequenceFeatureExtractor.forward`.
 
         :param seqs:
@@ -301,7 +303,7 @@ class Wav2Vec2FbankFeatureExtractor(SequenceFeatureExtractor):
     @override
     def forward(
         self, seqs: Tensor, padding_mask: Optional[PaddingMask]
-    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+    ) -> tuple[Tensor, Optional[PaddingMask]]:
         """See the base :meth:`SequenceFeatureExtractor.forward`.
 
         :param seqs:

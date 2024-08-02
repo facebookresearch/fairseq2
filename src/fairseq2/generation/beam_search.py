@@ -7,14 +7,20 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Dict, List, Optional, Sequence, Tuple, Union, final
+from collections.abc import Sequence
+from typing import Optional, Union, final
 
 import torch
 from torch import Tensor
 from torch.nn.functional import log_softmax
+from typing_extensions import override
 
 from fairseq2.data import VocabularyInfo
+from fairseq2.generation.beam_search_algorithm import (
+    BeamSearchAlgorithm,
+    BeamStep,
+    StandardBeamSearchAlgorithm,
+)
 from fairseq2.generation.generator import (
     AbstractSeq2SeqGenerator,
     AbstractSequenceGenerator,
@@ -30,7 +36,6 @@ from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.typing import override
 from fairseq2.utils.profiler import Stopwatch
 
 
@@ -193,7 +198,7 @@ class BeamSearchSeq2SeqGenerator(AbstractSeq2SeqGenerator):
     _algorithm: BeamSearchAlgorithm
     _beam_size: int
     _min_gen_len: int
-    _max_gen_len: Tuple[int, int]
+    _max_gen_len: tuple[int, int]
     _max_seq_len: int
     _echo_prompt: bool
     _normalize_scores: bool
@@ -211,7 +216,7 @@ class BeamSearchSeq2SeqGenerator(AbstractSeq2SeqGenerator):
         algorithm: Optional[BeamSearchAlgorithm] = None,
         beam_size: int = 5,
         min_gen_len: int = 1,
-        max_gen_len: Tuple[int, int] = (1, 128),
+        max_gen_len: tuple[int, int] = (1, 128),
         max_seq_len: Optional[int] = None,
         echo_prompt: bool = False,
         normalize_scores: bool = True,
@@ -363,98 +368,6 @@ class BeamSearchSeq2SeqGenerator(AbstractSeq2SeqGenerator):
         )
 
 
-class BeamSearchAlgorithm(ABC):
-    """Represents a beam search algorithm."""
-
-    @abstractmethod
-    def __call__(self, beam_size: int, lprobs: Tensor, step_scores: Tensor) -> BeamStep:
-        """Take a single step.
-
-        A subclass implementation is expected to return the best 2 x `beam_size`
-        candidates. The sequence generator will choose the first `beam_size` of
-        these which don't predict EOS to continue with.
-
-        :param beam_size:
-            The beam size.
-        :param lprobs:
-            The next-step log probability of each vocabulary entry. *Shape:*
-            :math:`(N,V)`, where :math:`N` is the batch size and :math:`V` is
-            the size of the vocabulary.
-        :param step_scores:
-            The cumulative score of each step in the beam. *Shape:* :math:`(N,S)`,
-            where :math:`N` is the batch size and :math:`S` is the length of the
-            beam.
-        """
-
-
-@final
-@dataclass
-class BeamStep:
-    """Represents the output of a beam search algorithm."""
-
-    seq_indices: Tensor
-    """The beam sequence indices. *Shape:* :math:`(B)`, where :math:`B` is the
-    beam size."""
-
-    vocab_indices: Tensor
-    """The vocabulary indices. *Shape:* Same as ``seq_indices``."""
-
-    scores: Tensor
-    """The scores. *Shape:* Same as ``seq_indices``."""
-
-    def masked_select(self, mask: Tensor) -> BeamStep:
-        """Reduce the beam to the sequences included in ``mask``."""
-        seq_indices = self.seq_indices.masked_select(mask)
-
-        vocab_indices = self.vocab_indices.masked_select(mask)
-
-        scores = self.scores.masked_select(mask)
-
-        return BeamStep(seq_indices, vocab_indices, scores)
-
-    def first(self, count: int) -> BeamStep:
-        """Slice the beam to the first ``count`` sequences."""
-        seq_indices = self.seq_indices[:count]
-
-        vocab_indices = self.vocab_indices[:count]
-
-        scores = self.scores[:count]
-
-        return BeamStep(seq_indices, vocab_indices, scores)
-
-    @staticmethod
-    def merge(steps: Sequence[BeamStep]) -> BeamStep:
-        """Merge ``steps`` into a single beam."""
-        seq_indices = torch.cat([s.seq_indices for s in steps])
-
-        vocab_indices = torch.cat([s.vocab_indices for s in steps])
-
-        scores = torch.cat([s.scores for s in steps])
-
-        return BeamStep(seq_indices, vocab_indices, scores)
-
-
-@final
-class StandardBeamSearchAlgorithm(BeamSearchAlgorithm):
-    """Represents a standard beam search algoritm."""
-
-    @override
-    def __call__(self, beam_size: int, lprobs: Tensor, step_scores: Tensor) -> BeamStep:
-        vocab_size = lprobs.size(1)
-
-        # Make the probabilities contain cumulative scores for each hypothesis.
-        # (N, V) + (N, 1) = (N, V)
-        lprobs = lprobs + step_scores[:, -1].unsqueeze(-1)
-
-        # (N, V) -> (N x V)
-        lprobs = lprobs.view(-1)
-
-        # (2 x B)
-        top_scores, top_indices = torch.topk(lprobs, k=min(2 * beam_size, vocab_size))
-
-        return BeamStep(top_indices // vocab_size, top_indices % vocab_size, top_scores)
-
-
 class _AbstractBeamSearchSequenceGeneratorOp(ABC):
     _algorithm: BeamSearchAlgorithm
     _eos_idx: int
@@ -472,16 +385,16 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
     _len_penalty: float
     _prefill_chunk_size: Optional[int]
     _step_processors: Sequence[StepProcessor]
-    _step_hooks: Dict[int, StepHook]
+    _step_hooks: dict[int, StepHook]
     _step_nr: int
     _state_bag: IncrementalStateBag
     _prompt_lens: Optional[Tensor]
     _prompt_mask: Optional[Tensor]
-    _beam_sizes: List[int]
+    _beam_sizes: list[int]
     _prompt_indices: Tensor
     _seqs: Tensor
     _step_scores: Tensor
-    _output: List[List[Hypothesis]]
+    _output: list[list[Hypothesis]]
     _counters: GenerationCounters
 
     def __init__(
@@ -502,7 +415,7 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
         prefill_chunk_size: Optional[int],
         decode_capacity_increment: Optional[int],
         step_processors: Sequence[StepProcessor],
-        step_hooks: Dict[int, StepHook],
+        step_hooks: dict[int, StepHook],
     ) -> None:
         self._algorithm = algorithm
 
@@ -599,7 +512,7 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
 
         self._counters = GenerationCounters()
 
-    def __call__(self) -> Tuple[List[List[Hypothesis]], GenerationCounters]:
+    def __call__(self) -> tuple[list[list[Hypothesis]], GenerationCounters]:
         self._prepare_state()
 
         watch = Stopwatch(start=True, device=self._seqs.device)
@@ -732,9 +645,9 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
 
         batch_offset = 0
 
-        new_beam_sizes: List[int] = []
+        new_beam_sizes: list[int] = []
 
-        beam_next_step_list: List[BeamStep] = []
+        beam_next_step_list: list[BeamStep] = []
 
         # We split the batch by `beam_sizes` and treat each beam separately.
         for beam_idx, (beam_lprobs, beam_step_scores) in enumerate(
@@ -945,7 +858,7 @@ class _BeamSearchSequenceGeneratorOp(_AbstractBeamSearchSequenceGeneratorOp):
         prefill_chunk_size: Optional[int],
         decode_capacity_increment: Optional[int],
         step_processors: Sequence[StepProcessor],
-        step_hooks: Dict[int, StepHook],
+        step_hooks: dict[int, StepHook],
     ) -> None:
         super().__init__(
             prompt_seqs,
@@ -1006,7 +919,7 @@ class _BeamSearchSeq2SeqGeneratorOp(_AbstractBeamSearchSequenceGeneratorOp):
         prefill_chunk_size: Optional[int],
         decode_capacity_increment: Optional[int],
         step_processors: Sequence[StepProcessor],
-        step_hooks: Dict[int, StepHook],
+        step_hooks: dict[int, StepHook],
     ) -> None:
         super().__init__(
             prompt_seqs,

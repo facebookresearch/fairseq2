@@ -8,10 +8,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional, TextIO, final
+from typing import Any, Optional, TextIO, final
 
 import torch
 from torch.nn import Module
+from typing_extensions import override
 
 from fairseq2.assets import AssetNotFoundError, default_asset_store
 from fairseq2.checkpoint import CheckpointModelMetadataProvider
@@ -41,7 +42,7 @@ from fairseq2.recipes.utils.setup import (
     setup_root_gang,
 )
 from fairseq2.recipes.wav2vec2.asr.common import Wav2Vec2AsrMetricBag
-from fairseq2.typing import META, DataType, override
+from fairseq2.typing import META, DataType
 from fairseq2.utils.profiler import Stopwatch
 
 log = get_log_writer(__name__)
@@ -156,7 +157,10 @@ def load_wav2vec2_asr_evaluator(
             "The model cannot be initialized. See nested exception for details."
         ) from ex
 
-    check_model_type(model, Wav2Vec2AsrModel)
+    if not isinstance(model, Wav2Vec2AsrModel):
+        raise ValueError(
+            f"The model must be of type `{Wav2Vec2AsrModel}`, but is of type `{type(model)}` instead."
+        )
 
     gang.barrier()
 
@@ -357,7 +361,7 @@ class Wav2Vec2AsrEvalMetricBag(Wav2Vec2AsrMetricBag):
         self.register_metric("wer", WerMetric(device=gang.device), persistent=False)
 
     @override
-    def process_metric_values(self, values: Dict[str, Any]) -> None:
+    def process_metric_values(self, values: dict[str, Any]) -> None:
         super().process_metric_values(values)
 
         uer, wer = values.pop("wer")

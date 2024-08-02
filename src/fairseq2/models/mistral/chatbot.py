@@ -6,17 +6,21 @@
 
 from __future__ import annotations
 
-from typing import List, final
+from typing import final
 
 import torch
 from torch import Tensor
+from typing_extensions import override
 
 from fairseq2.data.text import TextTokenEncoder, TextTokenizer
-from fairseq2.generation import AbstractChatbot, ChatDialog, SequenceGenerator
-from fairseq2.models.chatbot import create_chatbot
+from fairseq2.generation import (
+    AbstractChatbot,
+    ChatDialog,
+    SequenceGenerator,
+    chatbot_factories,
+)
 from fairseq2.models.mistral.factory import MISTRAL_FAMILY
 from fairseq2.nn.utils.module import infer_device
-from fairseq2.typing import override
 
 
 @final
@@ -41,7 +45,7 @@ class MistralChatbot(AbstractChatbot):
 
         if bos_idx is None or eos_idx is None:
             raise RuntimeError(
-                "One or more required control symbols requierd for the chatbot are not found in the tokenizer. Please make sure that you are using the right tokenizer."
+                "One or more required control symbols for the chatbot are not found in the tokenizer. Please make sure that you are using the right tokenizer."
             )
 
         device = infer_device(generator.model, name="generator.model")
@@ -63,7 +67,7 @@ class MistralChatbot(AbstractChatbot):
                 f"The last message of `{param_name}` must have the role 'user'."
             )
 
-        dialog_contents: List[Tensor] = [self._bos_idx]
+        dialog_contents: list[Tensor] = [self._bos_idx]
 
         for user, bot in zip(dialog[::2], dialog[1::2]):
             if user.role != "user" or bot.role != "bot":
@@ -89,4 +93,4 @@ class MistralChatbot(AbstractChatbot):
         return False
 
 
-create_chatbot.register(MISTRAL_FAMILY, MistralChatbot)
+chatbot_factories.register(MISTRAL_FAMILY, MistralChatbot)

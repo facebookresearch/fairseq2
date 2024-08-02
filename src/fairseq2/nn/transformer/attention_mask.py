@@ -11,9 +11,10 @@ from typing import Optional, Protocol, final
 
 import torch
 from torch import Tensor
+from typing_extensions import override
 
 from fairseq2.nn.incremental_state import IncrementalStateBag
-from fairseq2.typing import DataType, Device, override
+from fairseq2.typing import DataType, Device
 
 
 class AttentionMask(ABC):

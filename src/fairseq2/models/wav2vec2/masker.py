@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Optional, Tuple, final
+from typing import Optional, final
 
 import torch
 import torch.nn as nn
@@ -82,7 +82,7 @@ class Wav2Vec2Masker(Module):
 
     def forward(
         self, seqs: Tensor, padding_mask: Optional[PaddingMask]
-    ) -> Tuple[Tensor, Tensor]:
+    ) -> tuple[Tensor, Tensor]:
         """
         :param seqs:
             The sequences to mask. *Shape:* :math:`(N,S,M)`, where :math:`N` is

@@ -7,7 +7,8 @@
 from __future__ import annotations
 
 import sys
-from typing import List, Optional, Protocol, Sequence, final
+from collections.abc import Sequence
+from typing import Optional, Protocol, final
 
 import torch
 from torch import Tensor
@@ -55,7 +56,7 @@ class BannedSequenceProcessor(StepProcessor):
         max_seq_len = 0
         min_seq_len = sys.maxsize
 
-        seq_lens: List[int] = []
+        seq_lens: list[int] = []
 
         for idx, seq in enumerate(banned_seqs):
             seq_len = len(seq)

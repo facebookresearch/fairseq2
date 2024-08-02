@@ -9,13 +9,12 @@ from __future__ import annotations
 import math
 import warnings
 from abc import ABC, abstractmethod
-from typing import List, Optional, Sequence, Tuple, Union, final
+from collections.abc import Sequence
+from typing import Optional, Union, final
 
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler
-from typing_extensions import TypeAlias
-
-from fairseq2.typing import override
+from typing_extensions import TypeAlias, override
 
 LRScheduler: TypeAlias = _LRScheduler
 
@@ -30,7 +29,7 @@ class AbstractLRScheduler(ABC, LRScheduler):
 
     @final
     @override
-    def get_lr(self) -> List[float]:  # type: ignore[override]
+    def get_lr(self) -> list[float]:  # type: ignore[override]
         if not self._get_lr_called_within_step:  # type: ignore[attr-defined]
             warnings.warn(
                 "To get the last learning rate computed by the scheduler, use `get_last_lr()`."
@@ -39,7 +38,7 @@ class AbstractLRScheduler(ABC, LRScheduler):
         return self._compute_lrs()
 
     @abstractmethod
-    def _compute_lrs(self) -> List[float]:
+    def _compute_lrs(self) -> list[float]:
         """Compute the learning rate of each parameter group."""
 
 
@@ -51,7 +50,7 @@ class NoopLR(AbstractLRScheduler):
         super().__init__(optimizer, last_epoch)
 
     @override
-    def _compute_lrs(self) -> List[float]:
+    def _compute_lrs(self) -> list[float]:
         return self.base_lrs
 
 
@@ -140,7 +139,7 @@ class CosineAnnealingLR(AbstractLRScheduler):
         super().__init__(optimizer, last_epoch)
 
     @override
-    def _compute_lrs(self) -> List[float]:
+    def _compute_lrs(self) -> list[float]:
         base_lrs = self.base_lrs
 
         # Linearly increase the learning rate to its base value during warmup.
@@ -246,7 +245,7 @@ class MyleLR(AbstractLRScheduler):
         super().__init__(optimizer, last_epoch)
 
     @override
-    def _compute_lrs(self) -> List[float]:
+    def _compute_lrs(self) -> list[float]:
         base_lrs = self.base_lrs
 
         # Linearly increase the learning rate to its base value during warmup.
@@ -305,7 +304,7 @@ class NoamLR(AbstractLRScheduler):
         super().__init__(optimizer, last_epoch)
 
     @override
-    def _compute_lrs(self) -> List[float]:
+    def _compute_lrs(self) -> list[float]:
         # Linearly increase the learning rate during warmup.
         if self.last_epoch < self._num_warmup_steps:
             c = self.last_epoch * self._num_warmup_steps**-1.5
@@ -396,7 +395,7 @@ class PolynomialDecayLR(AbstractLRScheduler):
         super().__init__(optimizer, last_epoch)
 
     @override
-    def _compute_lrs(self) -> List[float]:
+    def _compute_lrs(self) -> list[float]:
         base_lrs = self.base_lrs
 
         # The decay is already complete, return the final learning rate.
@@ -449,7 +448,7 @@ class TriStageLR(AbstractLRScheduler):
         self,
         optimizer: Optimizer,
         num_steps: int,
-        stage_ratio: Tuple[float, float, float],
+        stage_ratio: tuple[float, float, float],
         *,
         start_lr_scale: Union[float, Sequence[float]] = 0.01,
         final_lr_scale: Union[float, Sequence[float]] = 0.01,
@@ -491,7 +490,7 @@ class TriStageLR(AbstractLRScheduler):
         super().__init__(optimizer, last_epoch)
 
     @override
-    def _compute_lrs(self) -> List[float]:
+    def _compute_lrs(self) -> list[float]:
         base_lrs = self.base_lrs
 
         # Due to `LRScheduler`'s constructor quirks, we delay the initialization

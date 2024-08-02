@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import importlib
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from itertools import count
 from pathlib import Path
 from typing import (
@@ -24,6 +25,7 @@ from typing import (
 
 import torch
 from torch.nn import Module
+from typing_extensions import override
 
 from fairseq2.datasets import DataReader
 from fairseq2.gang import FakeGang, Gang, all_sum
@@ -40,7 +42,7 @@ from fairseq2.models.model import Model
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.recipes.common_metrics import set_throughput_value
 from fairseq2.recipes.utils.cli import create_rich_progress
-from fairseq2.typing import CPU, override
+from fairseq2.typing import CPU
 from fairseq2.utils.profiler import Stopwatch
 from fairseq2.utils.rng import RngBag
 
@@ -115,7 +117,7 @@ class Evaluator(Generic[BatchT]):
     _root_gang: Gang
     _dp_gang: Gang
     _tp_gang: Gang
-    _metric_recorders: List[MetricRecorder]
+    _metric_recorders: list[MetricRecorder]
     _seed: int
     _wall_watch: Stopwatch
     _run: bool
@@ -255,7 +257,7 @@ class Evaluator(Generic[BatchT]):
 
         self._publish_metrics(unit, watch.get_elapsed_time())
 
-    def _is_eod(self, batches: List[BatchT]) -> bool:
+    def _is_eod(self, batches: list[BatchT]) -> bool:
         total_num_batches = all_sum(self._dp_gang, len(batches))
 
         return bool(total_num_batches == 0)

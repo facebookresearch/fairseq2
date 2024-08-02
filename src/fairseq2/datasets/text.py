@@ -7,9 +7,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, Optional, Sequence, Union, cast, final
+from typing import Any, Optional, Union, cast, final
+
+from typing_extensions import override
 
 from fairseq2.assets import AssetCard, AssetError
 from fairseq2.data import (
@@ -26,7 +29,7 @@ from fairseq2.datasets.loader import AbstractDatasetLoader, DelegatingDatasetLoa
 from fairseq2.gang import Gang
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
-from fairseq2.typing import Device, override
+from fairseq2.typing import Device
 
 
 class TextDataset(ABC):
@@ -179,7 +182,7 @@ class GenericTextDataset(TextDataset):
 
         seed += gang.rank
 
-        def encode(example: Dict[str, Any]) -> Dict[str, Any]:
+        def encode(example: dict[str, Any]) -> dict[str, Any]:
             example["indices"] = text_encoder(example["text"])
 
             return example
@@ -204,7 +207,7 @@ class GenericTextDataset(TextDataset):
             )
         else:
             # Filter out out-of-range examples.
-            def skip(example: Dict[str, Any]) -> bool:
+            def skip(example: dict[str, Any]) -> bool:
                 seq_len = len(example["indices"])
 
                 return seq_len >= min_seq_len and seq_len <= max_seq_len
@@ -245,7 +248,7 @@ class GenericTextDataset(TextDataset):
         )
 
     @staticmethod
-    def _to_batch(example: Dict[str, Any], device: Device) -> SequenceBatch:
+    def _to_batch(example: dict[str, Any], device: Device) -> SequenceBatch:
         data = cast(SequenceData, example["indices"])
 
         seqs, padding_mask = get_seqs_and_padding_mask(data, device)

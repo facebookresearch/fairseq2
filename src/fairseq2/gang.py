@@ -8,20 +8,21 @@ from __future__ import annotations
 
 import os
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from datetime import timedelta
 from enum import Enum
-from typing import Any, Dict, List, Optional, Sequence, Union, final
+from typing import Any, Optional, Union, final
 
 import torch
 import torch.distributed as dist
 from torch import Tensor
 from torch.distributed import Backend, ProcessGroup, ReduceOp
+from typing_extensions import override
 
 from fairseq2.device import determine_default_cuda_device, determine_default_device
 from fairseq2.logging import get_log_writer
-from fairseq2.typing import CPU, Device, override
+from fairseq2.typing import CPU, Device
 from fairseq2.utils.env import get_int_from_env
-from fairseq2.utils.version import torch_greater_or_equal
 
 log = get_log_writer(__name__)
 
@@ -81,7 +82,7 @@ class Gang(ABC):
 
     @abstractmethod
     def all_gather_to_list(
-        self, output_tensors: List[Tensor], input_tensor: Tensor
+        self, output_tensors: list[Tensor], input_tensor: Tensor
     ) -> None:
         """Gather tensors from all processes and put them in ``output_tensors``.
 
@@ -102,7 +103,7 @@ class Gang(ABC):
         """
 
     @abstractmethod
-    def broadcast_objects(self, objects: List[Any], source_rank: int = 0) -> None:
+    def broadcast_objects(self, objects: list[Any], source_rank: int = 0) -> None:
         """Broadcast picklable ``objects`` from ``source_rank`` to all processes.
 
         :param objects:
@@ -246,6 +247,10 @@ class FakeGang(AbstractGang):
             tensor *= self._size
         elif op == ReduceOperation.PRODUCT:
             tensor.pow_(self._size)
+        else:
+            raise ValueError(
+                "`FakeGang` supports only `SUM` and `PRODUCT` reduce operations."
+            )
 
     @override
     def all_gather(self, output_tensor: Tensor, input_tensor: Tensor) -> None:
@@ -267,7 +272,7 @@ class FakeGang(AbstractGang):
 
     @override
     def all_gather_to_list(
-        self, output_tensors: List[Tensor], input_tensor: Tensor
+        self, output_tensors: list[Tensor], input_tensor: Tensor
     ) -> None:
         if len(output_tensors) != self._size:
             raise ValueError(
@@ -285,7 +290,7 @@ class FakeGang(AbstractGang):
             )
 
     @override
-    def broadcast_objects(self, objects: List[Any], source_rank: int = 0) -> None:
+    def broadcast_objects(self, objects: list[Any], source_rank: int = 0) -> None:
         if source_rank != self._rank:
             raise ValueError(
                 f"`source_rank` must be {self._rank}, but is {source_rank} instead."
@@ -385,18 +390,8 @@ class ProcessGroupGang(AbstractGang):
             )
 
         if device.type == "cuda":
-            nccl_env_name = "NCCL_ASYNC_ERROR_HANDLING"
-
-            if torch_greater_or_equal(2, 2):
-                try:
-                    del os.environ[nccl_env_name]  # Suppress the deprecation warning.
-                except KeyError:
-                    pass
-
-                nccl_env_name = "TORCH_NCCL_ASYNC_ERROR_HANDLING"
-
             # See https://github.com/pytorch/pytorch/issues/46874.
-            os.environ[nccl_env_name] = "1"
+            os.environ["TORCH_NCCL_ASYNC_ERROR_HANDLING"] = "1"
 
         if timeout is None:
             timeout = timedelta(minutes=15)
@@ -526,7 +521,7 @@ class ProcessGroupGang(AbstractGang):
 
     @override
     def all_gather_to_list(
-        self, output_tensors: List[Tensor], input_tensor: Tensor
+        self, output_tensors: list[Tensor], input_tensor: Tensor
     ) -> None:
         self._maybe_monitored_barrier()
 
@@ -539,7 +534,7 @@ class ProcessGroupGang(AbstractGang):
         dist.broadcast(tensor, source_rank, group=self._pg)
 
     @override
-    def broadcast_objects(self, objects: List[Any], source_rank: int = 0) -> None:
+    def broadcast_objects(self, objects: list[Any], source_rank: int = 0) -> None:
         self._maybe_monitored_barrier()
 
         dist.broadcast_object_list(objects, source_rank, group=self._pg)
@@ -636,7 +631,7 @@ def setup_default_gang(
     )
 
 
-def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Dict[str, Gang]:
+def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> dict[str, Gang]:
     """Set up gangs to be used for data and tensor parallelism.
 
     For instance; if we have 8 devices denoted by g0 to g7 and 2 devices are
