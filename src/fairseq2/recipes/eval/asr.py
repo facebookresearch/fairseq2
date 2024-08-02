@@ -19,7 +19,7 @@ from datasets import (  # type: ignore[attr-defined,import-untyped,import-not-fo
 
 from fairseq2.data.data_pipeline import SequenceData
 from fairseq2.data.text import load_text_tokenizer
-from fairseq2.data.text.text_tokenizer import TextTokenEncoder, TextTokenizer
+from fairseq2.data.text.text_tokenizer import TextTokenizer
 from fairseq2.datasets.batching import StaticBatching
 from fairseq2.datasets.huggingface import Example, create_hf_reader
 from fairseq2.logging import get_log_writer
@@ -171,7 +171,9 @@ def load_wav2vec2_asr_evaluator(
         raise ValueError(f"Expect AsrEvalConfig, get {type(config)}")
 
     iterable_ds = load_dataset(config.dataset_name, split=config.split, streaming=True)
-    max_samples = config.max_samples if config.max_samples is not None else math.inf
+    max_samples = cast(
+        int, config.max_samples if config.max_samples is not None else math.inf
+    )
     # Load a subset of the dataset if max_samples is set
     ds = Dataset.from_generator(
         lambda: itertools.islice(iterable_ds, 0, max_samples),

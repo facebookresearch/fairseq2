@@ -11,17 +11,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from itertools import count
 from pathlib import Path
-from typing import (
-    Any,
-    Callable,
-    Generic,
-    List,
-    Optional,
-    Sequence,
-    Tuple,
-    TypeVar,
-    final,
-)
+from typing import Any, Callable, Generic, List, Optional, Tuple, TypeVar, final
 
 import torch
 from torch.nn import Module
@@ -384,7 +374,6 @@ class HFEvaluator(Generic[BatchT]):
 
         self._run = False
 
-    @override
     def __call__(self) -> None:
         if self._run:
             raise RuntimeError("The evaluator can only be run once.")
