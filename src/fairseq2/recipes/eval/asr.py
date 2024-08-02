@@ -8,6 +8,7 @@
 import itertools
 import math
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, List, Optional, Tuple, cast
 
@@ -100,6 +101,11 @@ def _librispeech_asr_to_batch(examples: Example) -> Seq2SeqBatch:
     )
 
 
+@lru_cache(maxsize=None)
+def get_cached_tokenizer(tokenizer_name: str) -> TextTokenizer:
+    return load_text_tokenizer(tokenizer_name)
+
+
 def _preprocess_example(
     example: Example, tokenizer_name: str, device: torch.device
 ) -> Example:
@@ -115,7 +121,7 @@ def _preprocess_example(
     Returns:
         dict: A dictionary with "audio" and "text" as PyTorch tensors.
     """
-    tokenizer = load_text_tokenizer(tokenizer_name)
+    tokenizer = get_cached_tokenizer(tokenizer_name)
     encoder = tokenizer.create_encoder(device=device)
     audio_tensor = (
         torch.from_numpy(example["audio"]["array"]).to(torch.float16).to(device)
@@ -194,7 +200,7 @@ def load_wav2vec2_asr_evaluator(
     }
     ds.set_format(**format, columns=["audio", "text"])
 
-    tokenizer = load_text_tokenizer(config.tokenizer_name)
+    tokenizer = get_cached_tokenizer(config.tokenizer_name)
 
     pipeline_reader = create_hf_reader(
         dataset=ds,
