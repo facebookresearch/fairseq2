@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 import torch
 
@@ -21,15 +21,13 @@ from fairseq2.models.transformer.factory import (
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
 
 load_transformer_config = StandardModelConfigLoader(
-    family=TRANSFORMER_FAMILY,
-    config_kls=TransformerConfig,
-    arch_configs=transformer_archs,
+    TRANSFORMER_FAMILY, TransformerConfig, transformer_archs
 )
 
 
 def convert_transformer_checkpoint(
-    checkpoint: Dict[str, Any], config: TransformerConfig
-) -> Dict[str, Any]:
+    checkpoint: dict[str, Any], config: TransformerConfig
+) -> dict[str, Any]:
     """Convert a fairseq Transformer checkpoint to fairseq2 format."""
     try:
         state_dict = checkpoint["model"]

@@ -11,7 +11,7 @@ from typing import Final, Optional
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data import VocabularyInfo
-from fairseq2.models.factory import create_model
+from fairseq2.models.model import model_factories
 from fairseq2.models.wav2vec2.asr.model import Wav2Vec2AsrModel
 from fairseq2.models.wav2vec2.factory import (
     Wav2Vec2EncoderBuilder,
@@ -178,9 +178,9 @@ def create_wav2vec2_asr_model(
     return builder.build_model().set_family(WAV2VEC2_ASR_FAMILY)
 
 
-create_model.register(
-    family=WAV2VEC2_ASR_FAMILY,
-    factory=create_wav2vec2_asr_model,
-    config_kls=Wav2Vec2AsrConfig,
-    arch_configs=wav2vec2_asr_archs,
+model_factories.register(
+    WAV2VEC2_ASR_FAMILY,
+    create_wav2vec2_asr_model,
+    Wav2Vec2AsrConfig,
+    wav2vec2_asr_archs,
 )

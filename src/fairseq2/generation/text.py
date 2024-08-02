@@ -6,7 +6,8 @@
 
 from __future__ import annotations
 
-from typing import List, Optional, Sequence, Tuple, final
+from collections.abc import Sequence
+from typing import Optional, final
 
 from torch import Tensor
 
@@ -65,7 +66,7 @@ class SequenceToTextConverter:
 
         self._text_decoder = tokenizer.create_decoder()
 
-    def __call__(self, source_seq: Tensor) -> Tuple[str, Seq2SeqGeneratorOutput]:
+    def __call__(self, source_seq: Tensor) -> tuple[str, Seq2SeqGeneratorOutput]:
         """
         :param source_seq:
             The source sequence. *Shape:* :math:`(S,*)`, where :math:`S` is the
@@ -86,7 +87,7 @@ class SequenceToTextConverter:
         self,
         source_seqs: Tensor,
         source_padding_mask: Optional[PaddingMask],
-    ) -> Tuple[List[str], Seq2SeqGeneratorOutput]:
+    ) -> tuple[list[str], Seq2SeqGeneratorOutput]:
         """
         :param source_seqs:
             The source sequences. *Shape:* :math:`(N,S,*)`, where :math:`N` is
@@ -111,7 +112,7 @@ class SequenceToTextConverter:
         self,
         source_seqs: Tensor,
         source_padding_mask: Optional[PaddingMask],
-    ) -> Tuple[List[str], Seq2SeqGeneratorOutput]:
+    ) -> tuple[list[str], Seq2SeqGeneratorOutput]:
         """A subclass should call this method for actual text conversion.
 
         :param source_seqs:
@@ -135,7 +136,7 @@ class SequenceToTextConverter:
             source_seqs, source_padding_mask, target_prefix_seqs, None
         )
 
-        texts: List[str] = []
+        texts: list[str] = []
 
         for idx, hypotheses in enumerate(generator_output.hypotheses):
             if len(hypotheses) == 0:
@@ -204,7 +205,7 @@ class TextTranslator:
 
         self._max_source_len = max_source_len
 
-    def __call__(self, source_text: str) -> Tuple[str, Seq2SeqGeneratorOutput]:
+    def __call__(self, source_text: str) -> tuple[str, Seq2SeqGeneratorOutput]:
         """
         :param source_text:
             The text in the source language.
@@ -222,7 +223,7 @@ class TextTranslator:
 
     def batch_translate(
         self, source_texts: Sequence[str]
-    ) -> Tuple[List[str], Seq2SeqGeneratorOutput]:
+    ) -> tuple[list[str], Seq2SeqGeneratorOutput]:
         """
         :param source_texts:
             The texts in the source language.
@@ -268,7 +269,7 @@ class TextCompleter:
         self._text_encoder = tokenizer.create_encoder(mode="prompt", device=device)
         self._text_decoder = tokenizer.create_decoder()
 
-    def __call__(self, prompt: str) -> Tuple[str, SequenceGeneratorOutput]:
+    def __call__(self, prompt: str) -> tuple[str, SequenceGeneratorOutput]:
         """
         :param prompt:
             The text prompt.
@@ -287,7 +288,7 @@ class TextCompleter:
 
     def batch_complete(
         self, prompts: Sequence[str]
-    ) -> Tuple[List[str], SequenceGeneratorOutput]:
+    ) -> tuple[list[str], SequenceGeneratorOutput]:
         """
         :param prompts:
             The text prompts.
@@ -309,10 +310,10 @@ class TextCompleter:
 
     def _do_complete(
         self, prompt_seqs: Tensor, prompt_padding_mask: Optional[PaddingMask]
-    ) -> Tuple[List[str], SequenceGeneratorOutput]:
+    ) -> tuple[list[str], SequenceGeneratorOutput]:
         generator_output = self._generator(prompt_seqs, prompt_padding_mask)
 
-        texts: List[str] = []
+        texts: list[str] = []
 
         for idx, hypotheses in enumerate(generator_output.hypotheses):
             if len(hypotheses) == 0:

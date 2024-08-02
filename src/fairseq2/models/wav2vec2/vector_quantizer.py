@@ -8,16 +8,17 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional, Tuple, final
+from typing import Optional, final
 
 import torch
 import torch.nn as nn
 from torch import Tensor
 from torch.nn import Module, Parameter
 from torch.nn.functional import gumbel_softmax
+from typing_extensions import override
 
 from fairseq2.nn import Linear
-from fairseq2.typing import DataType, Device, override
+from fairseq2.typing import DataType, Device
 
 
 class VectorQuantizer(Module, ABC):
@@ -83,7 +84,7 @@ class GumbelVectorQuantizer(VectorQuantizer):
         num_codebooks: int,
         num_codebook_entries: int,
         *,
-        codebook_sampling_temperature: Tuple[float, float, float],
+        codebook_sampling_temperature: tuple[float, float, float],
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ):

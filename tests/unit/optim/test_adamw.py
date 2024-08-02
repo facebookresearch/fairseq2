@@ -6,8 +6,6 @@
 
 from __future__ import annotations
 
-from typing import Tuple
-
 import pytest
 import torch
 from torch import Tensor
@@ -57,7 +55,7 @@ class TestAdamW:
             if not torch.isnan(p2).any() and not torch.isinf(p2).any():
                 assert_close(p1, p2)
 
-    def run_step(self, dtype: DataType) -> Tuple[Module, Module]:
+    def run_step(self, dtype: DataType) -> tuple[Module, Module]:
         with temporary_manual_seed([device], seed=2):
             net1 = AdamWTestNet(dtype)
 

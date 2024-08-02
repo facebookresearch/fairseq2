@@ -6,20 +6,26 @@
 
 from __future__ import annotations
 
-from fairseq2.generation.beam_search import BeamSearchAlgorithm as BeamSearchAlgorithm
 from fairseq2.generation.beam_search import (
     BeamSearchSeq2SeqGenerator as BeamSearchSeq2SeqGenerator,
 )
 from fairseq2.generation.beam_search import (
     BeamSearchSequenceGenerator as BeamSearchSequenceGenerator,
 )
-from fairseq2.generation.beam_search import (
+from fairseq2.generation.beam_search_algorithm import (
+    BeamSearchAlgorithm as BeamSearchAlgorithm,
+)
+from fairseq2.generation.beam_search_algorithm import BeamStep as BeamStep
+from fairseq2.generation.beam_search_algorithm import (
     StandardBeamSearchAlgorithm as StandardBeamSearchAlgorithm,
 )
 from fairseq2.generation.chatbot import AbstractChatbot as AbstractChatbot
 from fairseq2.generation.chatbot import Chatbot as Chatbot
+from fairseq2.generation.chatbot import ChatbotFactory as ChatbotFactory
 from fairseq2.generation.chatbot import ChatDialog as ChatDialog
 from fairseq2.generation.chatbot import ChatMessage as ChatMessage
+from fairseq2.generation.chatbot import chatbot_factories as chatbot_factories
+from fairseq2.generation.chatbot import register_chatbot as register_chatbot
 from fairseq2.generation.generator import (
     AbstractSeq2SeqGenerator as AbstractSeq2SeqGenerator,
 )
@@ -36,15 +42,15 @@ from fairseq2.generation.generator import (
     SequenceGeneratorOutput as SequenceGeneratorOutput,
 )
 from fairseq2.generation.generator import StepHook as StepHook
-from fairseq2.generation.sampling import Sampler as Sampler
+from fairseq2.generation.sampler import Sampler as Sampler
+from fairseq2.generation.sampler import TopKSampler as TopKSampler
+from fairseq2.generation.sampler import TopPSampler as TopPSampler
 from fairseq2.generation.sampling import (
     SamplingSeq2SeqGenerator as SamplingSeq2SeqGenerator,
 )
 from fairseq2.generation.sampling import (
     SamplingSequenceGenerator as SamplingSequenceGenerator,
 )
-from fairseq2.generation.sampling import TopKSampler as TopKSampler
-from fairseq2.generation.sampling import TopPSampler as TopPSampler
 from fairseq2.generation.step_processor import (
     BannedSequenceProcessor as BannedSequenceProcessor,
 )

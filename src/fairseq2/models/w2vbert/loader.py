@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 import torch
 
@@ -21,13 +21,13 @@ from fairseq2.models.w2vbert.factory import (
 )
 
 load_w2vbert_config = StandardModelConfigLoader(
-    family=W2VBERT_FAMILY, config_kls=W2VBertConfig, arch_configs=w2vbert_archs
+    W2VBERT_FAMILY, W2VBertConfig, w2vbert_archs
 )
 
 
 def convert_w2vbert_checkpoint(
-    checkpoint: Dict[str, Any], config: W2VBertConfig
-) -> Dict[str, Any]:
+    checkpoint: dict[str, Any], config: W2VBertConfig
+) -> dict[str, Any]:
     """Convert a fairseq w2v-BERT checkpoint to fairseq2 format."""
     # Check if we have a fairseq2 checkpoint.
     try:

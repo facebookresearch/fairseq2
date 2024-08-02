@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 import torch
 
@@ -22,13 +22,13 @@ from fairseq2.models.wav2vec2.factory import (
 from fairseq2.nn.transformer import TransformerNormOrder
 
 load_wav2vec2_config = StandardModelConfigLoader(
-    family=WAV2VEC2_FAMILY, config_kls=Wav2Vec2Config, arch_configs=wav2vec2_archs
+    WAV2VEC2_FAMILY, Wav2Vec2Config, wav2vec2_archs
 )
 
 
 def convert_wav2vec2_checkpoint(
-    checkpoint: Dict[str, Any], config: Wav2Vec2Config
-) -> Dict[str, Any]:
+    checkpoint: dict[str, Any], config: Wav2Vec2Config
+) -> dict[str, Any]:
     """Convert a fairseq wav2vec 2.0 checkpoint to fairseq2 format."""
     try:
         state_dict = checkpoint["model"]

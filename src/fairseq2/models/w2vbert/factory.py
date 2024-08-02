@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from typing import Final, Optional
 
 from fairseq2.config_registry import ConfigRegistry
-from fairseq2.models.factory import create_model
+from fairseq2.models.model import model_factories
 from fairseq2.models.w2vbert.model import W2VBertModel
 from fairseq2.models.wav2vec2 import (
     Wav2Vec2Builder,
@@ -185,9 +185,6 @@ def create_w2vbert_model(
     return builder.build_model().set_family(W2VBERT_FAMILY)
 
 
-create_model.register(
-    family=W2VBERT_FAMILY,
-    factory=create_w2vbert_model,
-    config_kls=W2VBertConfig,
-    arch_configs=w2vbert_archs,
+model_factories.register(
+    W2VBERT_FAMILY, create_w2vbert_model, W2VBertConfig, w2vbert_archs
 )

@@ -7,17 +7,18 @@
 from __future__ import annotations
 
 import math
-from typing import Optional, Tuple, final
+from typing import Optional, final
 
 from torch import Tensor
 from torch.nn import Dropout
+from typing_extensions import override
 
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
 from fairseq2.models.transformer import TransformerFrontend
 from fairseq2.nn import Linear, PositionEncoder, Projection
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.typing import DataType, Device, override
+from fairseq2.typing import DataType, Device
 
 
 @final
@@ -100,7 +101,7 @@ class S2TTransformerFrontend(TransformerFrontend):
         padding_mask: Optional[PaddingMask],
         *,
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+    ) -> tuple[Tensor, Optional[PaddingMask]]:
         if state_bag is not None:
             raise ValueError(
                 "`S2TTransformerFrontend` does not support incremental decoding."

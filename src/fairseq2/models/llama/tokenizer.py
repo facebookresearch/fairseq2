@@ -9,8 +9,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Final, Optional, final
 
+from typing_extensions import override
+
 from fairseq2.data.text import TiktokenEncoder, TiktokenTokenizer
-from fairseq2.typing import Device, override
+from fairseq2.typing import Device
 
 
 @final

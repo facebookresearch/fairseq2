@@ -6,9 +6,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Dict, Final, Iterator, Optional, Protocol, Sequence, Set, final
+from typing import Any, Final, Optional, Protocol, final
 
 import torch
 from torch import Tensor
@@ -33,7 +34,6 @@ from fairseq2.nn.utils.module import (
     to_empty,
 )
 from fairseq2.typing import DataType, Device
-from fairseq2.utils.version import torch_greater_or_equal
 
 log = get_log_writer(__name__)
 
@@ -119,15 +119,7 @@ def to_fsdp(
 
     module_device = infer_device(module)
     if module_device.type == "meta":
-        if not torch_greater_or_equal(2, 1):
-            log.warning("FSDP meta initialization is only supported on PyTorch 2.1.0 and later.")  # fmt: skip
-
-            to_empty(module, gang.device)
-
-            if not broadcast_state:
-                reset_parameters(module)
-        else:
-            param_init_fn = FSDPParameterInitializer(gang.device, skip_init)
+        param_init_fn = FSDPParameterInitializer(gang.device, skip_init)
 
     if mixed_precision_dtype is None:
         mp = None
@@ -142,7 +134,7 @@ def to_fsdp(
             buffer_dtype=None,
         )
 
-    kwargs: Dict[str, Any] = {}
+    kwargs: dict[str, Any] = {}
 
     # As of PyTorch 2.0, FSDP initialization fails in certain settings when an
     # empty `ignored_states` is specified (e.g. `sync_module_states` is set).
@@ -255,8 +247,8 @@ class FSDPParameterInitializer:
     ... )
     """
 
-    _module_memo: Set[Module]
-    _memo: Dict[Tensor, Tensor]
+    _module_memo: set[Module]
+    _memo: dict[Tensor, Tensor]
     _device: Device
     _skip_init: bool
 

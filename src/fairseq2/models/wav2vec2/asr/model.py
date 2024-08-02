@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, Tuple, final
+from typing import Optional, final
 
 import torch
 import torch.nn as nn
@@ -169,7 +169,7 @@ class Wav2Vec2AsrOutput:
 
     def generate_hypotheses(
         self, pad_idx: int, blank_label: int = 0
-    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+    ) -> tuple[Tensor, Optional[PaddingMask]]:
         """Generate hypotheses using greedy search.
 
         :param pad_idx:

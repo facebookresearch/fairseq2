@@ -7,18 +7,19 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from contextlib import nullcontext
+from collections.abc import Sequence
+from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
-from typing import Any, ContextManager, List, Literal, Optional, Sequence, Tuple, final
+from typing import Any, Literal, Optional, Protocol, final
 
 from torch import Tensor
-from typing_extensions import TypeAlias
+from typing_extensions import TypeAlias, override
 
 from fairseq2.data.text import TextTokenDecoder, TextTokenizer
 from fairseq2.generation.generator import SequenceGenerator, SequenceGeneratorOutput
 from fairseq2.generation.utils import _StdOutPrintHook
 from fairseq2.nn.padding import PaddingMask, pad_seqs
-from fairseq2.typing import override
+from fairseq2.utils.registry import Registry
 
 
 @final
@@ -42,7 +43,7 @@ class Chatbot(ABC):
     @abstractmethod
     def __call__(
         self, dialog: ChatDialog, *, stdout: bool = False
-    ) -> Tuple[ChatMessage, SequenceGeneratorOutput]:
+    ) -> tuple[ChatMessage, SequenceGeneratorOutput]:
         """
         :param dialog:
             The chat dialog that the bot should respond to.
@@ -57,7 +58,7 @@ class Chatbot(ABC):
     @abstractmethod
     def batch_response(
         self, dialogs: Sequence[ChatDialog]
-    ) -> Tuple[List[ChatMessage], SequenceGeneratorOutput]:
+    ) -> tuple[list[ChatMessage], SequenceGeneratorOutput]:
         """
         :param dialogs:
             The chat dialogs that the bot should respond to.
@@ -94,10 +95,10 @@ class AbstractChatbot(Chatbot):
     @override
     def __call__(
         self, dialog: ChatDialog, *, stdout: bool = False
-    ) -> Tuple[ChatMessage, SequenceGeneratorOutput]:
+    ) -> tuple[ChatMessage, SequenceGeneratorOutput]:
         dialog_seq = self._encode_dialog(dialog, "dialog")
 
-        cm: ContextManager[Any]
+        cm: AbstractContextManager[Any]
 
         if stdout:
             hook = _StdOutPrintHook(self._text_decoder)
@@ -117,7 +118,7 @@ class AbstractChatbot(Chatbot):
     @override
     def batch_response(
         self, dialogs: Sequence[ChatDialog]
-    ) -> Tuple[List[ChatMessage], SequenceGeneratorOutput]:
+    ) -> tuple[list[ChatMessage], SequenceGeneratorOutput]:
         """
         :param dialogs:
             The chat dialogs that the bot should respond to.
@@ -136,10 +137,10 @@ class AbstractChatbot(Chatbot):
 
     def __do_response(
         self, dialog_seqs: Tensor, dialog_padding_mask: Optional[PaddingMask]
-    ) -> Tuple[List[ChatMessage], SequenceGeneratorOutput]:
+    ) -> tuple[list[ChatMessage], SequenceGeneratorOutput]:
         generator_output = self._generator(dialog_seqs, dialog_padding_mask)
 
-        responses: List[ChatMessage] = []
+        responses: list[ChatMessage] = []
 
         for idx, hypotheses in enumerate(generator_output.hypotheses):
             if len(hypotheses) == 0:
@@ -164,3 +165,23 @@ class AbstractChatbot(Chatbot):
         :param param_name:
             The parameter name to use in case of an argument error.
         """
+
+
+class ChatbotFactory(Protocol):
+    """Constructs instances of :class:`Chatbot`."""
+
+    def __call__(
+        self, generator: SequenceGenerator, tokenizer: TextTokenizer
+    ) -> Chatbot:
+        """
+        :param generator:
+            The sequence generator.
+        :param tokenizer:
+            The text tokenizer.
+        """
+
+
+chatbot_factories = Registry[ChatbotFactory]()
+
+
+register_chatbot = chatbot_factories.decorator

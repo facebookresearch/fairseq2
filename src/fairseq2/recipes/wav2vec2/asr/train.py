@@ -6,13 +6,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal, Optional, Tuple, final
+from typing import Literal, Optional, final
 
 import torch
 from torch import Tensor
 from torch.nn import Module
+from typing_extensions import override
 
 from fairseq2.assets import AssetNotFoundError, default_asset_store
 from fairseq2.checkpoint import CheckpointModelMetadataProvider, FileCheckpointManager
@@ -22,11 +23,15 @@ from fairseq2.datasets import LengthBatching
 from fairseq2.datasets.asr import GenericAsrDataset, load_asr_dataset
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
-from fairseq2.models import create_model
+from fairseq2.models import model_factories
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2 import load_wav2vec2_model
-from fairseq2.models.wav2vec2.asr import Wav2Vec2AsrModel, Wav2Vec2AsrOutput
+from fairseq2.models.wav2vec2.asr import (
+    Wav2Vec2AsrModel,
+    Wav2Vec2AsrOutput,
+    wav2vec2_asr_archs,
+)
 from fairseq2.nn.utils.module import freeze_parameters, share_parameters, to_device
 from fairseq2.optim import AdamW
 from fairseq2.optim.lr_scheduler import TriStageLR
@@ -45,7 +50,7 @@ from fairseq2.recipes.utils.setup import (
 )
 from fairseq2.recipes.wav2vec2.asr.common import Wav2Vec2AsrMetricBag
 from fairseq2.recipes.wav2vec2.asr.eval import Wav2Vec2AsrEvalUnit
-from fairseq2.typing import META, DataType, override
+from fairseq2.typing import META, DataClass, DataType
 from fairseq2.utils.profiler import Stopwatch
 
 log = get_log_writer(__name__)
@@ -103,8 +108,10 @@ class Wav2Vec2AsrTrainConfig:
     model_arch: Optional[str] = "base_10h"
     """The architecture of the model."""
 
-    model_config: Any = None
-    """The model configuration."""
+    model_config: Optional[DataClass] = field(
+        default_factory=lambda: wav2vec2_asr_archs.get("base_10h", return_empty=True)
+    )
+    """The configuration of the model."""
 
     dtype: DataType = torch.float16
     """The data type of the model."""
@@ -122,10 +129,10 @@ class Wav2Vec2AsrTrainConfig:
     lr: float = 5e-05
     """The initial (post-warm-up) learning rate."""
 
-    betas: Tuple[float, float] = (0.9, 0.98)
+    betas: tuple[float, float] = (0.9, 0.98)
     """The coefficients of AdamW."""
 
-    lr_stage_ratios: Tuple[float, float, float] = (0.1, 0.4, 0.5)
+    lr_stage_ratios: tuple[float, float, float] = (0.1, 0.4, 0.5)
     """The ratios of tri-stage learning rate scheduler."""
 
     start_lr_scale: float = 0.01
@@ -137,7 +144,7 @@ class Wav2Vec2AsrTrainConfig:
     max_gradient_norm: Optional[float] = None
     """The maximum gradient norm. If ``None``, no clipping will be applied."""
 
-    fp16_loss_scale: Tuple[float, float] = (128.0, 0.0001)
+    fp16_loss_scale: tuple[float, float] = (128.0, 0.0001)
     """The initial and minimum loss scale for fp16 training."""
 
     gradient_accumulation: int = 4
@@ -180,7 +187,7 @@ class Wav2Vec2AsrTrainConfig:
     seed: int = 2
     """The random number generator seed to use."""
 
-    profile: Optional[Tuple[int, int]] = None
+    profile: Optional[tuple[int, int]] = None
     """The number of steps that the PyTorch profiler should skip and then record."""
 
     monitored_gang: bool = False
@@ -202,10 +209,13 @@ def _base_10h() -> Wav2Vec2AsrTrainConfig:
 
 @wav2vec2_asr_train_preset("base_100h")
 def _base_100h() -> Wav2Vec2AsrTrainConfig:
+    model_config = wav2vec2_asr_archs.get("base_100h", return_empty=True)
+
     config = _base_10h()
 
     config.dataset = "librispeech_asr_100h"
     config.model_arch = "base_100h"
+    config.model_config = model_config
     config.lr = 0.00003
     config.max_num_steps = 50_000
     config.freeze_encoder_for_n_steps = 0
@@ -262,24 +272,27 @@ def load_wav2vec2_asr_trainer(
 
     # Initialize the model
     try:
-        model, model_config = create_model(
-            config.model_family,
-            config.model_arch,
-            config.model_config,
-            device=META,
-            dtype=torch.float32,
+        model_factory = model_factories.get(
+            config.model_family, config.model_config, config.model_arch
         )
+
+        model = model_factory(device=META, dtype=torch.float32)
     except ValueError as ex:
         raise ValueError(
             "The model cannot be initialized. See nested exception for details."
         ) from ex
 
-    check_model_type(model, Wav2Vec2AsrModel)
+    if not isinstance(model, Wav2Vec2AsrModel):
+        raise ValueError(
+            f"The model must be of type `{Wav2Vec2AsrModel}`, but is of type `{type(model)}` instead."
+        )
 
-    log_model_config(model_config, log)
+    log_model_config(model_factory.config, log)
 
     checkpoint_manager.save_model_metadata(
-        family=model.family, config=model_config, tokenizer_name=tokenizer_card.name
+        family=model.family,
+        config=model_factory.config,
+        tokenizer_name=tokenizer_card.name,
     )
 
     has_checkpoint = checkpoint_manager.has_checkpoint()
@@ -454,7 +467,7 @@ class Wav2Vec2AsrTrainUnit(AbstractTrainUnit[Seq2SeqBatch]):
         self._metric_bag = Wav2Vec2AsrMetricBag(gang)
 
     @override
-    def __call__(self, batch: Seq2SeqBatch) -> Tuple[Tensor, int]:
+    def __call__(self, batch: Seq2SeqBatch) -> tuple[Tensor, int]:
         input_batch = SequenceBatch(batch.source_seqs, batch.source_padding_mask)
 
         output = self._forward(input_batch)

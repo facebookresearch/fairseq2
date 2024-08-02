@@ -6,16 +6,17 @@
 
 from __future__ import annotations
 
-from typing import Iterable, Optional, Sequence, final
+from collections.abc import Iterable, Sequence
+from typing import Optional, final
 
 import torch
 from sacrebleu import corpus_bleu
 from sacrebleu.metrics.bleu import BLEU, MAX_NGRAM_ORDER
 from torch import Tensor
 from torcheval.metrics import Metric
-from typing_extensions import Self
+from typing_extensions import Self, override
 
-from fairseq2.typing import Device, override
+from fairseq2.typing import Device
 
 
 @final

@@ -7,10 +7,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Dict, List, Optional, Protocol, Sequence, TypeVar, Union, final
+from typing import Optional, Protocol, TypeVar, Union, final
 
 from torch import Tensor
+from typing_extensions import override
 
 from fairseq2.assets import (
     AssetCard,
@@ -22,7 +24,7 @@ from fairseq2.assets import (
     default_download_manager,
 )
 from fairseq2.data.vocabulary_info import VocabularyInfo
-from fairseq2.typing import Device, override
+from fairseq2.typing import Device
 
 
 class TextTokenizer(ABC):
@@ -115,7 +117,7 @@ class TextTokenEncoder(ABC):
         """
 
     @abstractmethod
-    def encode_as_tokens(self, text: str) -> List[str]:
+    def encode_as_tokens(self, text: str) -> list[str]:
         """
         :param text:
             The text to encode.
@@ -250,7 +252,7 @@ class DelegatingTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
     """Loads text tokenizers of type ``TextTokenizerT`` using registered loaders."""
 
     _asset_store: AssetStore
-    _loaders: Dict[str, TextTokenizerLoader[TextTokenizerT]]
+    _loaders: dict[str, TextTokenizerLoader[TextTokenizerT]]
 
     def __init__(self, *, asset_store: Optional[AssetStore] = None) -> None:
         """
