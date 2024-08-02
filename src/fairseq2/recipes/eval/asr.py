@@ -177,12 +177,9 @@ def load_wav2vec2_asr_evaluator(
         raise ValueError(f"Expect AsrEvalConfig, get {type(config)}")
 
     iterable_ds = load_dataset(config.dataset_name, split=config.split, streaming=True)
-    max_samples = cast(
-        int, config.max_samples if config.max_samples is not None else math.inf
-    )
     # Load a subset of the dataset if max_samples is set
     ds = Dataset.from_generator(
-        lambda: itertools.islice(iterable_ds, 0, max_samples),
+        lambda: itertools.islice(iterable_ds, 0, config.max_samples),
         features=iterable_ds.features,
     )
 
