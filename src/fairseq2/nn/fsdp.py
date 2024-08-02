@@ -34,7 +34,6 @@ from fairseq2.nn.utils.module import (
     to_empty,
 )
 from fairseq2.typing import DataType, Device
-from fairseq2.utils.version import torch_greater_or_equal
 
 log = get_log_writer(__name__)
 
@@ -120,15 +119,7 @@ def to_fsdp(
 
     module_device = infer_device(module)
     if module_device.type == "meta":
-        if not torch_greater_or_equal(2, 1):
-            log.warning("FSDP meta initialization is only supported on PyTorch 2.1.0 and later.")  # fmt: skip
-
-            to_empty(module, gang.device)
-
-            if not broadcast_state:
-                reset_parameters(module)
-        else:
-            param_init_fn = FSDPParameterInitializer(gang.device, skip_init)
+        param_init_fn = FSDPParameterInitializer(gang.device, skip_init)
 
     if mixed_precision_dtype is None:
         mp = None

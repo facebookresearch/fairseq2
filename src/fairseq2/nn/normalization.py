@@ -159,6 +159,10 @@ class RMSNorm(LayerNorm):
                 raise RuntimeError(
                     "`impl` is 'apex', but APEX does not support the `bias` parameter."
                 )
+        elif impl != "py":
+            raise ValueError(
+                f"`impl` must be 'auto', 'py', or 'apex', but is '{impl}' instead."
+            )
 
         self._impl = impl
 
