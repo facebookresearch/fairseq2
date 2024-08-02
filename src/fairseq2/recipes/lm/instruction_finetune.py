@@ -293,11 +293,12 @@ def load_instruction_finetuner(
 
         log.info("Model loaded on data parallel rank 0.")
 
-    check_model_type(model, DecoderModel)
+    if not isinstance(model, DecoderModel):
+        raise ValueError(
+            f"The model must be of type `{DecoderModel}`, but is of type `{type(model)}` instead."
+        )
 
-    checkpoint_manager.save_model_metadata(
-        base_asset=model_card.name, family=model.family
-    )
+    checkpoint_manager.save_model_metadata(base_asset=model_card.name)
 
     dp_model = to_data_parallel(
         model,

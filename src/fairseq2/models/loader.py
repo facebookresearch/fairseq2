@@ -24,7 +24,6 @@ from fairseq2.assets import (
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.models.config_loader import ModelConfigLoader, get_model_family
-from fairseq2.models.factory import ModelFactory
 from fairseq2.nn.utils.module import (
     infer_device,
     load_state_dict,
@@ -46,6 +45,26 @@ ModelConfigT = TypeVar("ModelConfigT", bound=DataClass)
 ModelConfigT_contra = TypeVar(
     "ModelConfigT_contra", bound=DataClass, contravariant=True
 )
+
+
+class ModelFactory(Protocol[ModelConfigT_contra, ModelT_co]):
+    """Constructs models of type ``ModelT``."""
+
+    def __call__(
+        self,
+        config: ModelConfigT_contra,
+        *,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
+    ) -> ModelT_co:
+        """
+        :param config:
+            The model configuration.
+        :param device:
+            The device on which to initialize the model.
+        :param dtype:
+            The data type of the model parameters and buffers.
+        """
 
 
 class ModelLoader(Protocol[ModelT_co]):

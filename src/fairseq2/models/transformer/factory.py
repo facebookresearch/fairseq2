@@ -11,7 +11,7 @@ from typing import Final, Optional
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data import VocabularyInfo
-from fairseq2.models.factory import create_model
+from fairseq2.models.model import model_factories
 from fairseq2.models.transformer.frontend import (
     TransformerEmbeddingFrontend,
     TransformerFrontend,
@@ -276,9 +276,6 @@ def create_transformer_model(
     return model.set_family(TRANSFORMER_FAMILY)
 
 
-create_model.register(
-    family=TRANSFORMER_FAMILY,
-    factory=create_transformer_model,
-    config_kls=TransformerConfig,
-    arch_configs=transformer_archs,
+model_factories.register(
+    TRANSFORMER_FAMILY, create_transformer_model, TransformerConfig, transformer_archs
 )

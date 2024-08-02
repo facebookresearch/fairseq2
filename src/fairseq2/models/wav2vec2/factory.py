@@ -13,8 +13,8 @@ from torch.nn import GELU, SiLU
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.models.conformer import ConformerBlock, ConformerConvolution
-from fairseq2.models.factory import create_model
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
+from fairseq2.models.model import model_factories
 from fairseq2.models.wav2vec2.feature_extractor import (
     Wav2Vec2FbankFeatureExtractor,
     Wav2Vec2FeatureExtractor,
@@ -554,9 +554,6 @@ def create_wav2vec2_model(
     return builder.build_model().set_family(WAV2VEC2_FAMILY)
 
 
-create_model.register(
-    family=WAV2VEC2_FAMILY,
-    factory=create_wav2vec2_model,
-    config_kls=Wav2Vec2Config,
-    arch_configs=wav2vec2_archs,
+model_factories.register(
+    WAV2VEC2_FAMILY, create_wav2vec2_model, Wav2Vec2Config, wav2vec2_archs
 )

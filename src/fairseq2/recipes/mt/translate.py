@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, Optional, TextIO, Tuple, final
+from typing import Optional, TextIO, final
 
 import torch
 
@@ -19,15 +19,8 @@ from fairseq2.data.text import TextTokenizer, load_text_tokenizer
 from fairseq2.datasets import StaticBatching
 from fairseq2.datasets.text import GenericTextDataset, load_text_dataset
 from fairseq2.gang import Gang
-from fairseq2.generation import (
-    BeamSearchSeq2SeqGenerator,
-    Sampler,
-    SamplingSeq2SeqGenerator,
-    Seq2SeqGenerator,
-    StandardBeamSearchAlgorithm,
-    TopKSampler,
-    TopPSampler,
-)
+from fairseq2.generation import Seq2SeqGenerator
+from fairseq2.generation.encoder_decoder import BeamSearchConfig, generator_factories
 from fairseq2.generation.text import SequenceToTextConverter
 from fairseq2.logging import get_log_writer
 from fairseq2.models import load_model
@@ -41,12 +34,8 @@ from fairseq2.recipes.utils.asset import (
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import (
-    broadcast_model,
-    check_model_type,
-    setup_root_gang,
-)
-from fairseq2.typing import META, DataType, override
+from fairseq2.recipes.utils.setup import broadcast_model, setup_root_gang
+from fairseq2.typing import META, DataClass, DataType, override
 from fairseq2.utils.profiler import Stopwatch
 
 log = get_log_writer(__name__)
@@ -86,106 +75,17 @@ class TextTranslateConfig:
     """The data type of the model."""
 
     # Generation
-    generator_mode: Literal["beam_search", "sampling"] = "beam_search"
-    """The mode of sequence generation."""
+    generator: str = "beam_search"
+    """The sequence generator."""
 
-    beam_search: BeamSearchConfig = field(default_factory=lambda: BeamSearchConfig())
-    """The configuration for beam search-based sequence generation."""
-
-    sampling: SamplingConfig = field(default_factory=lambda: SamplingConfig())
-    """The configuration for sampling-based sequence generation."""
+    generator_config: Optional[DataClass] = field(
+        default_factory=lambda: BeamSearchConfig()
+    )
+    """The configuration of the sequence generator."""
 
     # Misc
     seed: int = 2
     """The random number generator seed to use."""
-
-
-@dataclass
-class BeamSearchConfig:
-    """Holds the configuration for beam search-based sequence generation.
-
-    See :class:`BeamSearchSeq2SeqGenerator` for more info.
-    """
-
-    algorithm: Literal["standard"] = "standard"
-    """The beam search algorithm."""
-
-    beam_size: int = 5
-    """The beam size."""
-
-    min_gen_len: int = 1
-    """The minimum generation length."""
-
-    max_gen_len: Tuple[int, int] = (1, 128)
-    """The maximum generation length."""
-
-    max_seq_len: Optional[int] = None
-    """The maximum sequence length including prompt."""
-
-    normalize_scores: bool = True
-    """If ``True``, normalizes scores by lengths of generated sequences."""
-
-    temperature: float = 1.0
-    """The logit temperature."""
-
-    unk_penalty: float = 0.0
-    """The UNK symbol penalty."""
-
-    len_penalty: float = 1.0
-    """The length penalty."""
-
-    prefill_chunk_size: Optional[int] = 512
-    """The prefill will be performed incrementally by chunks of this size."""
-
-    decode_capacity_increment: Optional[int] = 16
-    """The sequence length capacity will be incremented by multiplies of this value."""
-
-
-@dataclass
-class SamplingConfig:
-    """Holds the configuration for sampling-based sequence generation.
-
-    See :class:`SamplingSeq2SeqGenerator` for more info.
-    """
-
-    sampler: Literal["top-p", "top-k"] = "top-p"
-    """The sampling algorithm."""
-
-    top_p: float = 1.0
-    """The cumulative probability threshold for top-p sampling."""
-
-    top_k = 1
-    """The number of top candidates to select from for top-k sampling."""
-
-    min_gen_len: int = 1
-    """The minimum generation length."""
-
-    max_gen_len: Tuple[int, int] = (1, 128)
-    """The maximum generation length."""
-
-    max_seq_len: Optional[int] = None
-    """The maximum sequence length including prompt."""
-
-    compute_scores: bool = False
-    """If ``True``, computes scores of generated sequences."""
-
-    normalize_scores: bool = True
-    """If ``True``, normalizes scores by lengths of generated sequences."""
-
-    temperature: float = 1.0
-    """The logit temperature."""
-
-    unk_penalty: float = 0.0
-    """The UNK symbol penalty."""
-
-    len_penalty: float = 1.0
-    """The length penalty."""
-
-    prefill_chunk_size: Optional[int] = 512
-    """The prefill will be performed incrementally by chunks of this size."""
-
-    decode_capacity_increment: Optional[int] = 16
-    """The sequence length capacity will be incremented by multiplies of this value."""
 
 
 text_translate_presets = ConfigRegistry[TextTranslateConfig]()
@@ -254,7 +154,10 @@ def load_text_translator(
             "The model cannot be initialized. See nested exception for details."
         ) from ex
 
-    check_model_type(model, EncoderDecoderModel)
+    if not isinstance(model, EncoderDecoderModel):
+        raise ValueError(
+            f"The model must be of type `{EncoderDecoderModel}`, but is of type `{type(model)}` instead."
+        )
 
     gang.barrier()
 
@@ -267,9 +170,16 @@ def load_text_translator(
     log_model(model, log)
 
     # Initialize the sequence generator.
-    generator = _create_sequence_generator(
-        model, config.generator_mode, config.beam_search, config.sampling  # type: ignore[arg-type]
-    )
+    try:
+        generator_factory = generator_factories.get(
+            config.generator, config.generator_config
+        )
+
+        generator = generator_factory(model)
+    except ValueError as ex:
+        raise ValueError(
+            "The sequence generator cannot be created. See nested exception for details."
+        ) from ex
 
     # Initialize the generator unit.
     src_output_file = output_dir.joinpath(
@@ -412,77 +322,3 @@ class TextTranslationUnit(AbstractGeneratorUnit[SequenceBatch]):
     @override
     def metric_bag(self) -> Seq2SeqGenerationMetricBag:
         return self._metric_bag
-
-
-def _create_sequence_generator(
-    model: EncoderDecoderModel,
-    mode: str,
-    beam_search_config: BeamSearchConfig,
-    sampling_config: SamplingConfig,
-) -> Seq2SeqGenerator:
-    if mode == "beam_search":
-        return _create_beam_search_generator(model, beam_search_config)
-
-    if mode == "sampling":
-        return _create_sampling_generator(model, sampling_config)
-
-    raise ValueError(
-        f"`generator_mode` must be 'sampling' or 'beam_search', but is '{mode}' instead."
-    )
-
-
-def _create_beam_search_generator(
-    model: EncoderDecoderModel, config: BeamSearchConfig
-) -> BeamSearchSeq2SeqGenerator:
-    if config.algorithm == "standard":
-        algorithm = StandardBeamSearchAlgorithm()
-    else:
-        raise ValueError(
-            f"`beam_search.algorithm` must be 'standard', but is '{config.algorithm}' instead."
-        )
-
-    return BeamSearchSeq2SeqGenerator(
-        model,
-        algorithm=algorithm,
-        beam_size=config.beam_size,
-        min_gen_len=config.min_gen_len,
-        max_gen_len=config.max_gen_len,
-        echo_prompt=True,
-        normalize_scores=config.normalize_scores,
-        temperature=config.temperature,
-        unk_penalty=config.unk_penalty,
-        len_penalty=config.len_penalty,
-        prefill_chunk_size=config.prefill_chunk_size,
-        decode_capacity_increment=config.decode_capacity_increment,
-    )
-
-
-def _create_sampling_generator(
-    model: EncoderDecoderModel, config: SamplingConfig
-) -> SamplingSeq2SeqGenerator:
-    sampler: Sampler
-
-    if config.sampler == "top-p":
-        sampler = TopPSampler(config.top_p)
-    elif config.sampler == "top-k":
-        sampler = TopKSampler(config.top_k)
-    else:
-        raise ValueError(
-            f"`sampling.sampler` must be 'top-p' or 'top-k', but is '{config.sampler}' instead."
-        )
-
-    return SamplingSeq2SeqGenerator(
-        model,
-        sampler,
-        min_gen_len=config.min_gen_len,
-        max_gen_len=config.max_gen_len,
-        max_seq_len=config.max_seq_len,
-        echo_prompt=True,
-        compute_scores=config.compute_scores,
-        normalize_scores=config.normalize_scores,
-        temperature=config.temperature,
-        unk_penalty=config.unk_penalty,
-        len_penalty=config.len_penalty,
-        prefill_chunk_size=config.prefill_chunk_size,
-        decode_capacity_increment=config.decode_capacity_increment,
-    )

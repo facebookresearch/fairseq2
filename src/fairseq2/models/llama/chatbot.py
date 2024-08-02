@@ -48,7 +48,7 @@ class LLaMAChatbot(AbstractChatbot):
 
         if bos_idx is None or eos_idx is None:
             raise RuntimeError(
-                "One or more required control symbols requierd for the chatbot are not found in the tokenizer. Please make sure that you are using the right tokenizer."
+                "One or more required control symbols for the chatbot are not found in the tokenizer. Please make sure that you are using the right tokenizer."
             )
 
         device = infer_device(generator.model, name="generator.model")
