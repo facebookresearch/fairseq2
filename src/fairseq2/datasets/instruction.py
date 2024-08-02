@@ -8,11 +8,12 @@ from __future__ import annotations
 
 import json
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Dict, Optional, Sequence, Union, cast, final
+from typing import Any, NoReturn, Optional, Union, cast, final
 
 import torch
-from typing_extensions import NoReturn
+from typing_extensions import override
 
 from fairseq2.assets import AssetCard, AssetError
 from fairseq2.data import (
@@ -32,7 +33,6 @@ from fairseq2.datasets.loader import AbstractDatasetLoader, DelegatingDatasetLoa
 from fairseq2.gang import Gang
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
-from fairseq2.typing import override
 
 
 class InstructionDataset(ABC):
@@ -307,7 +307,7 @@ class GenericInstructionDataset(InstructionDataset):
         builder.map(prompt_encoder, selector="src", num_parallel_calls=npc)
         builder.map(target_encoder, selector="tgt", num_parallel_calls=npc)
 
-        def cat_source_and_target(example: Dict[str, Any]) -> Dict[str, Any]:
+        def cat_source_and_target(example: dict[str, Any]) -> dict[str, Any]:
             id_ = example.get("id")
 
             prompt_indices = example["src"]
@@ -335,7 +335,7 @@ class GenericInstructionDataset(InstructionDataset):
             )
         else:
             # Filter out long examples.
-            def skip(example: Dict[str, Any]) -> bool:
+            def skip(example: dict[str, Any]) -> bool:
                 return len(example["indices"]) <= max_seq_len
 
             builder.filter(skip)
@@ -366,7 +366,7 @@ class GenericInstructionDataset(InstructionDataset):
         builder.prefetch(num_prefetch)
 
         # Wrap examples with `SequenceBatch`.
-        def to_batch(example: Dict[str, Any]) -> SequenceBatch:
+        def to_batch(example: dict[str, Any]) -> SequenceBatch:
             indices = cast(SequenceData, example["indices"])
 
             seqs, padding_mask = get_seqs_and_padding_mask(indices, gang.device)
@@ -416,7 +416,7 @@ class GenericInstructionDataset(InstructionDataset):
         # Encode prompt texts.
         text_encoder = tokenizer.create_encoder(mode="prompt")
 
-        def encode(example: Dict[str, Any]) -> Dict[str, Any]:
+        def encode(example: dict[str, Any]) -> dict[str, Any]:
             id_ = example.get("id")
 
             prompt = example["src"]
@@ -428,7 +428,7 @@ class GenericInstructionDataset(InstructionDataset):
         builder.map(encode, num_parallel_calls=npc)
 
         # Filter out long examples.
-        def skip(example: Dict[str, Any]) -> bool:
+        def skip(example: dict[str, Any]) -> bool:
             return len(example["indices"]) <= max_seq_len
 
         builder.filter(skip)
@@ -445,7 +445,7 @@ class GenericInstructionDataset(InstructionDataset):
         builder.prefetch(num_prefetch)
 
         # Wrap examples with `SequenceBatch`.
-        def to_batch(example: Dict[str, Any]) -> SequenceBatch:
+        def to_batch(example: dict[str, Any]) -> SequenceBatch:
             indices = cast(SequenceData, example["indices"])
 
             seqs, padding_mask = get_seqs_and_padding_mask(indices, gang.device)

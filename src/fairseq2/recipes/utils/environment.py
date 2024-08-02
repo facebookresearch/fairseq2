@@ -9,10 +9,11 @@ from __future__ import annotations
 import os
 import subprocess
 from abc import ABC, abstractmethod
+from collections.abc import Set
 from random import Random
-from typing import AbstractSet, Callable, Dict, final
+from typing import Callable, final
 
-from fairseq2.typing import override
+from typing_extensions import override
 
 
 class EnvironmentSetter(ABC):
@@ -113,7 +114,7 @@ class _NoneEnvironmentSetter(EnvironmentSetter):
 class EnvironmentSetterRegistry:
     """Holds cluster type to :class:`EnvironmentSetter` mappings."""
 
-    _factories: Dict[str, Callable[[], EnvironmentSetter]]
+    _factories: dict[str, Callable[[], EnvironmentSetter]]
 
     def __init__(self) -> None:
         self._factories = {
@@ -163,7 +164,7 @@ class EnvironmentSetterRegistry:
 
         self._factories[cluster] = factory
 
-    def names(self) -> AbstractSet[str]:
+    def names(self) -> Set[str]:
         """Return the supported cluster types."""
         return self._factories.keys()
 

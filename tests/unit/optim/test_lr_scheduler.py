@@ -7,7 +7,8 @@
 from __future__ import annotations
 
 import math
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
 
 import pytest
 from torch import Tensor

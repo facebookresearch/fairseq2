@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import os
 import re
+from collections.abc import Mapping, Sequence
 from dataclasses import fields
 from enum import Enum
 from hashlib import sha1
-from typing import Any, Final, Mapping, Optional, Sequence, Set
+from typing import Any, Final, Optional
 
 from fairseq2.typing import DataClass, DataType, is_dataclass_instance
 
@@ -56,7 +57,7 @@ class SweepTagger:
         "weight_decay",
     }
 
-    def __init__(self, *, allow_set: Optional[Set[str]] = None) -> None:
+    def __init__(self, *, allow_set: Optional[set[str]] = None) -> None:
         """
         :param allow_set:
             The configuration field names allowed while generating the sweep tag.

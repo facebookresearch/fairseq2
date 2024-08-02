@@ -7,11 +7,13 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Sequence, Tuple, Union, final
+from collections.abc import Sequence
+from typing import Optional, Union, final
 
 import torch
 from torch import Tensor
 from torch.nn.functional import softmax
+from typing_extensions import override
 
 from fairseq2.data import VocabularyInfo
 from fairseq2.generation.generator import (
@@ -31,7 +33,6 @@ from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.ops import repeat_interleave
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.typing import override
 from fairseq2.utils.profiler import Stopwatch
 
 
@@ -200,7 +201,7 @@ class SamplingSeq2SeqGenerator(AbstractSeq2SeqGenerator):
     _sampler: Sampler
     _num_gens: int
     _min_gen_len: int
-    _max_gen_len: Tuple[int, int]
+    _max_gen_len: tuple[int, int]
     _max_seq_len: int
     _echo_prompt: bool
     _compute_scores: bool
@@ -219,7 +220,7 @@ class SamplingSeq2SeqGenerator(AbstractSeq2SeqGenerator):
         *,
         num_gens: int = 1,
         min_gen_len: int = 1,
-        max_gen_len: Tuple[int, int] = (1, 128),
+        max_gen_len: tuple[int, int] = (1, 128),
         max_seq_len: Optional[int] = None,
         echo_prompt: bool = False,
         compute_scores: bool = False,
@@ -394,7 +395,7 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
     _len_penalty: float
     _prefill_chunk_size: Optional[int]
     _step_processors: Sequence[StepProcessor]
-    _step_hooks: Dict[int, StepHook]
+    _step_hooks: dict[int, StepHook]
     _step_nr: int
     _state_bag: IncrementalStateBag
     _prompt_lens: Optional[Tensor]
@@ -402,7 +403,7 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
     _prompt_indices: Tensor
     _seqs: Tensor
     _step_scores: Optional[Tensor]
-    _output: List[List[Hypothesis]]
+    _output: list[list[Hypothesis]]
     _counters: GenerationCounters
 
     def __init__(
@@ -424,7 +425,7 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
         prefill_chunk_size: Optional[int],
         decode_capacity_increment: Optional[int],
         step_processors: Sequence[StepProcessor],
-        step_hooks: Dict[int, StepHook],
+        step_hooks: dict[int, StepHook],
     ) -> None:
         self._sampler = sampler
 
@@ -522,7 +523,7 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
 
         self._counters = GenerationCounters()
 
-    def __call__(self) -> Tuple[List[List[Hypothesis]], GenerationCounters]:
+    def __call__(self) -> tuple[list[list[Hypothesis]], GenerationCounters]:
         self._prepare_state()
 
         watch = Stopwatch(start=True, device=self._seqs.device)
@@ -828,7 +829,7 @@ class _SamplingSequenceGeneratorOp(_AbstractSamplingSequenceGeneratorOp):
         prefill_chunk_size: Optional[int],
         decode_capacity_increment: Optional[int],
         step_processors: Sequence[StepProcessor],
-        step_hooks: Dict[int, StepHook],
+        step_hooks: dict[int, StepHook],
     ) -> None:
         super().__init__(
             prompt_seqs,
@@ -891,7 +892,7 @@ class _SamplingSeq2SeqGeneratorOp(_AbstractSamplingSequenceGeneratorOp):
         prefill_chunk_size: Optional[int],
         decode_capacity_increment: Optional[int],
         step_processors: Sequence[StepProcessor],
-        step_hooks: Dict[int, StepHook],
+        step_hooks: dict[int, StepHook],
     ) -> None:
         super().__init__(
             prompt_seqs,

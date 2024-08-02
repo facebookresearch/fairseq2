@@ -7,10 +7,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional, Set, final
+from typing import Optional, final
+
+from typing_extensions import override
 
 from fairseq2.data.text import SentencePieceEncoder, SentencePieceTokenizer
-from fairseq2.typing import Device, override
+from fairseq2.typing import Device
 
 
 @final
@@ -18,14 +20,14 @@ class S2TTransformerTokenizer(SentencePieceTokenizer):
     """Represents an S2T Transformer tokenizer."""
 
     _task: str
-    _target_langs: Set[str]
+    _target_langs: set[str]
     _default_target_lang: str
 
     def __init__(
         self,
         path: Path,
         task: str,
-        target_langs: Set[str],
+        target_langs: set[str],
         default_target_lang: str,
     ) -> None:
         """

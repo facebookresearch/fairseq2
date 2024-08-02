@@ -7,23 +7,10 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from itertools import chain
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Iterable,
-    Iterator,
-    List,
-    Mapping,
-    Optional,
-    Protocol,
-    Sequence,
-    Set,
-    Tuple,
-    runtime_checkable,
-)
+from typing import Any, Callable, Optional, Protocol, runtime_checkable
 
 import torch
 from torch import Tensor
@@ -62,7 +49,7 @@ def reset_parameters(
             m.reset_parameters()
 
     if seed is None:
-        devices: List[Device] = []
+        devices: list[Device] = []
     else:
         device = infer_device(module, recurse=recurse)
         if device.type == "meta":
@@ -102,7 +89,7 @@ def visit_module(
     *,
     recurse: bool = True,
     post_order: bool = True,
-    memo: Optional[Set[Module]] = None,
+    memo: Optional[set[Module]] = None,
 ) -> None:
     """Run ``visitor`` on ``module``.
 
@@ -136,7 +123,7 @@ def to_device(module: Module, device: Device, *, seed: Optional[int] = None) -> 
         The random number generator seed to use during parameter initialization
         if ``module`` is on the meta device.
     """
-    modules: List[Tuple[Module, Device]] = []
+    modules: list[tuple[Module, Device]] = []
 
     for name, m in _get_named_modules(module, prefix="module", post_order=True):
         if m is None:
@@ -151,7 +138,7 @@ def to_device(module: Module, device: Device, *, seed: Optional[int] = None) -> 
     if not modules:
         return
 
-    memo: Dict[Tensor, Tensor] = {}
+    memo: dict[Tensor, Tensor] = {}
 
     if seed is None or device.type == "meta":
         devices = []
@@ -173,7 +160,7 @@ def to_empty(
     device: Device,
     *,
     recurse: bool = True,
-    memo: Optional[Dict[Tensor, Tensor]] = None,
+    memo: Optional[dict[Tensor, Tensor]] = None,
 ) -> None:
     """Move the parameters and buffers of ``module`` to ``device`` without
     copying storage.
@@ -251,7 +238,7 @@ def apply_to_parameters(
     fn: Callable[[Tensor], Tensor],
     *,
     recurse: bool = True,
-    memo: Optional[Dict[Tensor, Tensor]] = None,
+    memo: Optional[dict[Tensor, Tensor]] = None,
     no_memo: bool = False,
 ) -> None:
     """Apply ``fn`` to the parameters and buffers of ``module``.
@@ -331,7 +318,7 @@ def freeze_parameters(module: Optional[Module], value: bool = True) -> None:
 
 def select_parameters(
     module: Module, names: Sequence[str], *, exclude: bool = False
-) -> Iterable[Tuple[str, Parameter]]:
+) -> Iterable[tuple[str, Parameter]]:
     """Select the parameters of ``module`` and its descendant modules whose
     names match ``names``.
 
@@ -427,7 +414,7 @@ def broadcast_module(
 
     warned = False
 
-    memo: Set[Tensor] = set()
+    memo: set[Tensor] = set()
 
     tensors = []
 
@@ -501,8 +488,8 @@ def _get_named_modules(
     prefix: str = "",
     recurse: bool = True,
     post_order: bool = False,
-    memo: Optional[Set[Module]] = None,
-) -> Iterator[Tuple[str, Optional[Module]]]:
+    memo: Optional[set[Module]] = None,
+) -> Iterator[tuple[str, Optional[Module]]]:
     if module is None:
         yield prefix, None
 

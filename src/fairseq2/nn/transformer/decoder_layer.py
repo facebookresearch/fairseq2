@@ -7,13 +7,14 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple, cast, final
+from typing import Optional, cast, final
 
 import torch
 import torch.nn as nn
 from torch import Tensor
 from torch.nn import Dropout, Module
 from torch.nn.parameter import Parameter
+from typing_extensions import override
 
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.normalization import LayerNorm
@@ -26,7 +27,7 @@ from fairseq2.nn.transformer.layer_norm import (
 )
 from fairseq2.nn.transformer.multihead_attention import MultiheadAttention
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
-from fairseq2.typing import DataType, Device, override
+from fairseq2.typing import DataType, Device
 
 
 class TransformerDecoderLayer(Module, ABC):
@@ -53,7 +54,7 @@ class TransformerDecoderLayer(Module, ABC):
         encoder_padding_mask: Optional[PaddingMask] = None,
         *,
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+    ) -> tuple[Tensor, Optional[PaddingMask]]:
         """
         :param seqs:
             The sequences to process. *Shape:* :math:`(N,S,M)`, where :math:`N`
@@ -230,7 +231,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         encoder_padding_mask: Optional[PaddingMask] = None,
         *,
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+    ) -> tuple[Tensor, Optional[PaddingMask]]:
         seqs = self._forward_self_attn(seqs, padding_mask, self_attn_mask, state_bag)
 
         seqs = self._forward_encoder_decoder_attn(

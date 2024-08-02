@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 from fairseq2.models.config_loader import StandardModelConfigLoader
 from fairseq2.models.loader import StandardModelLoader, load_model
@@ -27,8 +27,8 @@ load_wav2vec2_asr_config = StandardModelConfigLoader(
 
 
 def convert_wav2vec2_asr_checkpoint(
-    checkpoint: Dict[str, Any], config: Wav2Vec2AsrConfig
-) -> Dict[str, Any]:
+    checkpoint: dict[str, Any], config: Wav2Vec2AsrConfig
+) -> dict[str, Any]:
     """Convert a fairseq wav2vec 2.0 ASR checkpoint to fairseq2 format."""
     try:
         state_dict = checkpoint["model"]

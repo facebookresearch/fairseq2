@@ -15,7 +15,6 @@ from signal import SIGUSR1, signal
 from types import FrameType
 from typing import (
     Callable,
-    Dict,
     Generic,
     Optional,
     Protocol,
@@ -26,6 +25,7 @@ from typing import (
 
 import yaml
 from rich.console import Console
+from typing_extensions import override
 from yaml import YAMLError
 
 from fairseq2.config_registry import ConfigRegistry
@@ -39,7 +39,7 @@ from fairseq2.recipes.utils.environment import (
 )
 from fairseq2.recipes.utils.log import log_config
 from fairseq2.recipes.utils.sweep import SweepTagger, default_sweep_tagger
-from fairseq2.typing import DataClass, override
+from fairseq2.typing import DataClass
 from fairseq2.utils.dataclass import update_dataclass
 from fairseq2.utils.value_converter import ValueConverter, default_value_converter
 
@@ -53,7 +53,7 @@ class Cli:
     _origin_module: str
     _version: str
     _description: Optional[str]
-    _groups: Dict[str, CliGroup]
+    _groups: dict[str, CliGroup]
 
     def __init__(
         self,
@@ -185,8 +185,8 @@ class CliGroup:
     _name: str
     _origin_module: str
     _help: Optional[str]
-    _groups: Dict[str, CliGroup]
-    _commands: Dict[str, CliCommand]
+    _groups: dict[str, CliGroup]
+    _commands: dict[str, CliCommand]
 
     def __init__(
         self,

@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Optional, TextIO, final
 
 import torch
+from typing_extensions import override
 
 from fairseq2.assets import AssetNotFoundError, default_asset_store
 from fairseq2.checkpoint import CheckpointModelMetadataProvider
@@ -38,7 +39,7 @@ from fairseq2.recipes.utils.asset import (
 )
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.recipes.utils.setup import broadcast_model, setup_gangs
-from fairseq2.typing import META, DataClass, DataType, override
+from fairseq2.typing import META, DataClass, DataType
 from fairseq2.utils.profiler import Stopwatch
 
 log = get_log_writer(__name__)

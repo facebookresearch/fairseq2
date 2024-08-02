@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Optional, Tuple
+from typing import TYPE_CHECKING, Optional
 
 from fairseq2.factory_registry import ConfigBoundFactoryRegistry
 from fairseq2.generation.beam_search import BeamSearchSeq2SeqGenerator
@@ -42,7 +42,7 @@ class BeamSearchConfig:
     min_gen_len: int = 1
     """The minimum generation length."""
 
-    max_gen_len: Tuple[int, int] = (1, 256)
+    max_gen_len: tuple[int, int] = (1, 256)
     """The maximum generation length."""
 
     max_seq_len: Optional[int] = None
@@ -120,7 +120,7 @@ class SamplingConfig:
     min_gen_len: int = 1
     """The minimum generation length."""
 
-    max_gen_len: Tuple[int, int] = (1, 256)
+    max_gen_len: tuple[int, int] = (1, 256)
     """The maximum generation length."""
 
     max_seq_len: Optional[int] = None

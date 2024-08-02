@@ -8,11 +8,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Literal, Optional, Tuple, final
+from typing import Literal, Optional, final
 
 import torch
 from torch import Tensor
 from torch.nn import Module
+from typing_extensions import override
 
 from fairseq2.assets import AssetNotFoundError, default_asset_store
 from fairseq2.checkpoint import CheckpointModelMetadataProvider, FileCheckpointManager
@@ -48,7 +49,7 @@ from fairseq2.recipes.utils.setup import (
     setup_root_gang,
     to_data_parallel,
 )
-from fairseq2.typing import META, DataClass, DataType, override
+from fairseq2.typing import META, DataClass, DataType
 from fairseq2.utils.profiler import Stopwatch
 
 log = get_log_writer(__name__)
@@ -123,13 +124,13 @@ class MTTrainConfig:
     num_lr_warmup_steps: int = 8000
     """The number of learning rate warm-up steps."""
 
-    betas: Tuple[float, float] = (0.9, 0.98)
+    betas: tuple[float, float] = (0.9, 0.98)
     """The coefficients of AdamW."""
 
     max_gradient_norm: Optional[float] = None
     """The maximum gradient norm. If ``None``, no clipping will be applied."""
 
-    fp16_loss_scale: Tuple[float, float] = (128.0, 0.0001)
+    fp16_loss_scale: tuple[float, float] = (128.0, 0.0001)
     """The initial and minimum loss scale for fp16 training."""
 
     gradient_accumulation: int = 2
@@ -183,7 +184,7 @@ class MTTrainConfig:
     seed: int = 2
     """The random number generator seed to use."""
 
-    profile: Optional[Tuple[int, int]] = None
+    profile: Optional[tuple[int, int]] = None
     """The number of steps that the PyTorch profiler should skip and then record."""
 
     monitored_gang: bool = False
@@ -345,7 +346,7 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
         generator = None
 
     # Initialize the validation units.
-    valid_units: List[EvalUnit[Seq2SeqBatch]] = []
+    valid_units: list[EvalUnit[Seq2SeqBatch]] = []
 
     valid_data_readers = []
 
@@ -453,7 +454,7 @@ class MTTrainUnit(AbstractTrainUnit[Seq2SeqBatch]):
         self._metric_bag = Seq2SeqMetricBag(gang)
 
     @override
-    def __call__(self, batch: Seq2SeqBatch) -> Tuple[Tensor, int]:
+    def __call__(self, batch: Seq2SeqBatch) -> tuple[Tensor, int]:
         input_batch, target_batch = as_auto_regressive_input(batch)
 
         output = self._forward(input_batch)

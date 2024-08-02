@@ -10,11 +10,12 @@ import os
 import platform
 import socket
 import sys
+from collections.abc import Iterator
 from contextlib import contextmanager
 from logging import Logger
 from pathlib import Path
 from signal import SIG_DFL, SIGINT, raise_signal, signal
-from typing import Iterator, Optional
+from typing import Optional
 
 import fairseq2n
 import psutil

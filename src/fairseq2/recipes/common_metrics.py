@@ -6,11 +6,12 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import torch
 from torch import Tensor
 from torcheval.metrics import Throughput
+from typing_extensions import override
 
 from fairseq2.gang import Gang
 from fairseq2.generation import Seq2SeqGeneratorOutput, SequenceGeneratorOutput
@@ -18,7 +19,6 @@ from fairseq2.metrics import MetricBag
 from fairseq2.metrics.aggregation import Max, MaxSum, Mean, Sum
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
-from fairseq2.typing import override
 
 
 class TaskMetricBag(MetricBag):
@@ -55,7 +55,7 @@ class TaskMetricBag(MetricBag):
             self._total_num_elements = None
 
     @override
-    def process_metric_values(self, values: Dict[str, Any]) -> None:
+    def process_metric_values(self, values: dict[str, Any]) -> None:
         super().process_metric_values(values)
 
         num_batches = values.pop("num_batches")
@@ -336,7 +336,7 @@ class Seq2SeqGenerationMetricBag(TaskMetricBag):
         self._generator_cache_capacity.update(output.counters.cache_capacity)
 
 
-def set_throughput_value(metric_values: Dict[str, Any], elapsed_time: float) -> None:
+def set_throughput_value(metric_values: dict[str, Any], elapsed_time: float) -> None:
     """Set the throughput value in ``metric_values``."""
     try:
         num_elements = metric_values["num_elements"]

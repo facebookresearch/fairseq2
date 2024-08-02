@@ -7,15 +7,15 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Iterator, List, Mapping, TypeVar, final
+from collections.abc import Iterator, Mapping
+from typing import Any, TypeVar, final
 
-from typing_extensions import Self
+from typing_extensions import Self, override
 
 from fairseq2.data import DataPipeline
 from fairseq2.datasets.utils import _reduce_num_batches
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
-from fairseq2.typing import override
 
 log = get_log_writer(__name__)
 
@@ -25,7 +25,7 @@ BatchT = TypeVar("BatchT")
 BatchT_co = TypeVar("BatchT_co", covariant=True)
 
 
-class DataReader(ABC, Iterator[List[BatchT_co]]):
+class DataReader(ABC, Iterator[list[BatchT_co]]):
     """Reads batches of examples from a dataset."""
 
     @abstractmethod
@@ -33,7 +33,7 @@ class DataReader(ABC, Iterator[List[BatchT_co]]):
         ...
 
     @abstractmethod
-    def __next__(self) -> List[BatchT_co]:
+    def __next__(self) -> list[BatchT_co]:
         ...
 
     @abstractmethod
@@ -41,7 +41,7 @@ class DataReader(ABC, Iterator[List[BatchT_co]]):
         """Reset state and move back to the first batch."""
 
     @abstractmethod
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         ...
 
     @abstractmethod
@@ -104,7 +104,7 @@ class DataPipelineReader(DataReader[BatchT]):
         return self
 
     @override
-    def __next__(self) -> List[BatchT]:
+    def __next__(self) -> list[BatchT]:
         if self._eod:
             raise StopIteration()
 
@@ -142,7 +142,7 @@ class DataPipelineReader(DataReader[BatchT]):
         self._pipeline.reset()
 
     @override
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         return self._pipeline.state_dict()
 
     @override

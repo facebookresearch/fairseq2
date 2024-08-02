@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
 import torch
 
@@ -27,8 +27,8 @@ load_wav2vec2_config = StandardModelConfigLoader(
 
 
 def convert_wav2vec2_checkpoint(
-    checkpoint: Dict[str, Any], config: Wav2Vec2Config
-) -> Dict[str, Any]:
+    checkpoint: dict[str, Any], config: Wav2Vec2Config
+) -> dict[str, Any]:
     """Convert a fairseq wav2vec 2.0 checkpoint to fairseq2 format."""
     try:
         state_dict = checkpoint["model"]

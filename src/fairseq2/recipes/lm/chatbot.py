@@ -9,9 +9,10 @@ from __future__ import annotations
 import sys
 from argparse import ArgumentParser, Namespace
 from datetime import timedelta
-from typing import List, Optional, final
+from typing import Optional, final
 
 import torch
+from typing_extensions import override
 
 from fairseq2.console import get_console
 from fairseq2.data.text import load_text_tokenizer
@@ -31,7 +32,7 @@ from fairseq2.recipes.logging import setup_basic_logging
 from fairseq2.recipes.utils.argparse import parse_dtype
 from fairseq2.recipes.utils.environment import default_env_setters
 from fairseq2.recipes.utils.setup import setup_gangs
-from fairseq2.typing import CPU, override
+from fairseq2.typing import CPU
 from fairseq2.utils.rng import RngBag
 
 log = get_log_writer(__name__)
@@ -232,7 +233,7 @@ class ChatbotCommandHandler(CliCommandHandler):
                 raise
         else:
             while True:
-                message_buffer: List[Optional[ChatMessage]] = [None]
+                message_buffer: list[Optional[ChatMessage]] = [None]
 
                 gang.broadcast_objects(message_buffer)
 

@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Dict, Optional, Type, TypeVar, final
+from typing import Optional, TypeVar, final
 
 from torch import Tensor
 from torch.nn import Module
@@ -55,7 +55,7 @@ class IncrementalStateBag:
     _step_nr: int
     _max_num_steps: int
     _capacity_increment: Optional[int]
-    _module_states: Dict[Module, IncrementalState]
+    _module_states: dict[Module, IncrementalState]
 
     def __init__(
         self, max_num_steps: int, *, capacity_increment: Optional[int] = 16
@@ -97,7 +97,7 @@ class IncrementalStateBag:
 
         self._step_nr = step_nr
 
-    def get_state(self, m: Module, kls: Type[T]) -> Optional[T]:
+    def get_state(self, m: Module, kls: type[T]) -> Optional[T]:
         """Get the state of ``m`` if present in the bag.
 
         :param m:

@@ -8,22 +8,16 @@ from __future__ import annotations
 
 import builtins
 import sys
+from collections.abc import Mapping, Sequence, Set
 from dataclasses import fields, is_dataclass
 from enum import Enum
 from importlib import import_module
 from pathlib import Path
 from typing import (
-    AbstractSet,
     Any,
     Callable,
-    Dict,
     Final,
     Literal,
-    Mapping,
-    Sequence,
-    Set,
-    Tuple,
-    Type,
     Union,
     get_args,
     get_origin,
@@ -44,8 +38,8 @@ NoneType = type(None)
 class ValueConverter:
     """Structures and unstructures objects using provided type hints."""
 
-    _structure_fns: Dict[object, Callable[[Any, Tuple[Any, ...], Any, bool], Any]]
-    _unstructure_fns: Dict[object, Callable[[Any, Tuple[Any, ...], Any], Any]]
+    _structure_fns: dict[object, Callable[[Any, tuple[Any, ...], Any, bool], Any]]
+    _unstructure_fns: dict[object, Callable[[Any, tuple[Any, ...], Any], Any]]
 
     def __init__(self) -> None:
         self._structure_fns = {
@@ -71,22 +65,22 @@ class ValueConverter:
 
         self._unstructure_fns = {
             # fmt: off
-            bool:        self._unstructure_identity,
-            DataClass:   self._unstructure_dataclass,
-            DataType:    self._unstructure_dtype,
-            Device:      self._unstructure_device,
-            float:       self._unstructure_identity,
-            Enum:        self._unstructure_enum,
-            int:         self._unstructure_identity,
-            list:        self._unstructure_list,
-            Literal:     self._unstructure_literal,
-            Mapping:     self._unstructure_mapping,
-            NoneType:    self._unstructure_identity,
-            Path:        self._unstructure_path,
-            AbstractSet: self._unstructure_set,
-            str:         self._unstructure_identity,
-            tuple:       self._unstructure_tuple,
-            Union:       self._unstructure_union,
+            bool:      self._unstructure_identity,
+            DataClass: self._unstructure_dataclass,
+            DataType:  self._unstructure_dtype,
+            Device:    self._unstructure_device,
+            float:     self._unstructure_identity,
+            Enum:      self._unstructure_enum,
+            int:       self._unstructure_identity,
+            list:      self._unstructure_list,
+            Literal:   self._unstructure_literal,
+            Mapping:   self._unstructure_mapping,
+            NoneType:  self._unstructure_identity,
+            Path:      self._unstructure_path,
+            Set:       self._unstructure_set,
+            str:       self._unstructure_identity,
+            tuple:     self._unstructure_tuple,
+            Union:     self._unstructure_union,
             # fmt: on
         }
 
@@ -142,7 +136,7 @@ class ValueConverter:
 
     @staticmethod
     def _structure_primitive(
-        kls: Any, kls_args: Tuple[Any, ...], obj: Any, set_empty: bool
+        kls: Any, kls_args: tuple[Any, ...], obj: Any, set_empty: bool
     ) -> Any:
         if isinstance(obj, kls):
             return obj
@@ -151,7 +145,7 @@ class ValueConverter:
 
     @staticmethod
     def _structure_identity(
-        kls: Any, kls_args: Tuple[Any, ...], obj: Any, set_empty: bool
+        kls: Any, kls_args: tuple[Any, ...], obj: Any, set_empty: bool
     ) -> Any:
         if isinstance(obj, kls):
             return obj
@@ -161,7 +155,7 @@ class ValueConverter:
         )
 
     def _structure_dataclass(
-        self, kls: Any, kls_args: Tuple[Any, ...], obj: Any, set_empty: bool
+        self, kls: Any, kls_args: tuple[Any, ...], obj: Any, set_empty: bool
     ) -> Any:
         if kls is DataClass:
             return self._structure_unbounded_dataclass(kls, obj, set_empty)
@@ -174,7 +168,7 @@ class ValueConverter:
             return self._create_dataclass(kls, values, set_empty=set_empty)
 
         if isinstance(obj, Mapping):
-            values = self.structure(obj, Dict[str, Any])
+            values = self.structure(obj, dict[str, Any])
 
             sub_kls_name = values.pop("_type_", None)
             if isinstance(sub_kls_name, str):
@@ -195,7 +189,7 @@ class ValueConverter:
         self, kls: Any, obj: Any, set_empty: bool
     ) -> Any:
         if isinstance(obj, Mapping):
-            values = self.structure(obj, Dict[str, Any])
+            values = self.structure(obj, dict[str, Any])
 
             kls_name = values.pop("_type_", None)
             if not isinstance(kls_name, str):
@@ -218,7 +212,7 @@ class ValueConverter:
         return self._create_dataclass(kls, values, set_empty=set_empty)
 
     def _create_dataclass(
-        self, kls: Type[DataClass], values: Dict[str, Any], set_empty: bool
+        self, kls: type[DataClass], values: dict[str, Any], set_empty: bool
     ) -> DataClass:
         type_hints = get_type_hints(kls)
 
@@ -268,7 +262,7 @@ class ValueConverter:
 
     @staticmethod
     def _structure_dtype(
-        kls: Any, kls_args: Tuple[Any, ...], obj: Any, set_empty: bool
+        kls: Any, kls_args: tuple[Any, ...], obj: Any, set_empty: bool
     ) -> Any:
         if isinstance(obj, DataType):
             return obj
@@ -290,7 +284,7 @@ class ValueConverter:
 
     @staticmethod
     def _structure_device(
-        kls: Any, kls_args: Tuple[Any, ...], obj: Any, set_empty: bool
+        kls: Any, kls_args: tuple[Any, ...], obj: Any, set_empty: bool
     ) -> Any:
         if isinstance(obj, Device):
             return obj
@@ -306,7 +300,7 @@ class ValueConverter:
         )
 
     def _structure_dict(
-        self, kls: Any, kls_args: Tuple[Any, ...], obj: Any, set_empty: bool
+        self, kls: Any, kls_args: tuple[Any, ...], obj: Any, set_empty: bool
     ) -> Any:
         if isinstance(obj, Mapping):
             if len(kls_args) != 2:
@@ -328,7 +322,7 @@ class ValueConverter:
 
     @staticmethod
     def _structure_enum(
-        kls: Any, kls_args: Tuple[Any, ...], obj: Any, set_empty: bool
+        kls: Any, kls_args: tuple[Any, ...], obj: Any, set_empty: bool
     ) -> Any:
         if isinstance(obj, kls):
             return obj
@@ -348,7 +342,7 @@ class ValueConverter:
         )
 
     def _structure_list(
-        self, kls: Any, kls_args: Tuple[Any, ...], obj: Any, set_empty: bool
+        self, kls: Any, kls_args: tuple[Any, ...], obj: Any, set_empty: bool
     ) -> Any:
         if isinstance(obj, Sequence):
             if len(kls_args) != 1:
@@ -362,7 +356,7 @@ class ValueConverter:
 
     @staticmethod
     def _structure_literal(
-        kls: Any, kls_args: Tuple[Any, ...], obj: Any, set_empty: bool
+        kls: Any, kls_args: tuple[Any, ...], obj: Any, set_empty: bool
     ) -> Any:
         if isinstance(obj, str):
             if obj in kls_args:
@@ -380,7 +374,7 @@ class ValueConverter:
 
     @staticmethod
     def _structure_path(
-        kls: Any, kls_args: Tuple[Any, ...], obj: Any, set_empty: bool
+        kls: Any, kls_args: tuple[Any, ...], obj: Any, set_empty: bool
     ) -> Any:
         if isinstance(obj, Path):
             return obj
@@ -393,9 +387,9 @@ class ValueConverter:
         )
 
     def _structure_set(
-        self, kls: Any, kls_args: Tuple[Any, ...], obj: Any, set_empty: bool
+        self, kls: Any, kls_args: tuple[Any, ...], obj: Any, set_empty: bool
     ) -> Any:
-        if isinstance(obj, Set):
+        if isinstance(obj, set):
             if len(kls_args) != 1:
                 raise TypeError(f"`type_hint` has no type annotation for `{kls}`.")
 
@@ -421,7 +415,7 @@ class ValueConverter:
         )
 
     def _structure_tuple(
-        self, kls: Any, kls_args: Tuple[Any, ...], obj: Any, set_empty: bool
+        self, kls: Any, kls_args: tuple[Any, ...], obj: Any, set_empty: bool
     ) -> Any:
         if isinstance(obj, Sequence):
             num_args = len(kls_args)
@@ -451,7 +445,7 @@ class ValueConverter:
         )
 
     def _structure_union(
-        self, kls: Any, kls_args: Tuple[Any, ...], obj: Any, set_empty: bool
+        self, kls: Any, kls_args: tuple[Any, ...], obj: Any, set_empty: bool
     ) -> Any:
         is_optional = len(kls_args) == 2 and NoneType in kls_args
 
@@ -493,8 +487,8 @@ class ValueConverter:
                 lookup_kls = Mapping
             elif issubclass(kls, Path):
                 lookup_kls = Path
-            elif issubclass(kls, AbstractSet):
-                lookup_kls = AbstractSet
+            elif issubclass(kls, Set):
+                lookup_kls = Set
 
         try:
             fn = self._unstructure_fns[lookup_kls]
@@ -514,14 +508,14 @@ class ValueConverter:
 
     @classmethod
     def _unstructure_identity(
-        cls, kls: Any, kls_args: Tuple[Any, ...], obj: Any
+        cls, kls: Any, kls_args: tuple[Any, ...], obj: Any
     ) -> Any:
         cls._check_type(obj, kls)
 
         return obj
 
     def _unstructure_dataclass(
-        self, kls: Any, kls_args: Tuple[Any, ...], obj: Any
+        self, kls: Any, kls_args: tuple[Any, ...], obj: Any
     ) -> Any:
         if kls is DataClass:
             if not is_dataclass_instance(obj):
@@ -559,25 +553,25 @@ class ValueConverter:
         return output
 
     @classmethod
-    def _unstructure_dtype(cls, kls: Any, kls_args: Tuple[Any, ...], obj: Any) -> Any:
+    def _unstructure_dtype(cls, kls: Any, kls_args: tuple[Any, ...], obj: Any) -> Any:
         cls._check_type(obj, DataType)
 
         return str(obj)[6:]  # strip 'torch.'
 
     @classmethod
-    def _unstructure_device(cls, kls: Any, kls_args: Tuple[Any, ...], obj: Any) -> Any:
+    def _unstructure_device(cls, kls: Any, kls_args: tuple[Any, ...], obj: Any) -> Any:
         cls._check_type(obj, Device)
 
         return str(obj)
 
     @classmethod
-    def _unstructure_enum(cls, kls: Any, kls_args: Tuple[Any, ...], obj: Any) -> Any:
+    def _unstructure_enum(cls, kls: Any, kls_args: tuple[Any, ...], obj: Any) -> Any:
         cls._check_type(obj, kls)
 
         return obj.name
 
     @classmethod
-    def _unstructure_literal(cls, kls: Any, kls_args: Tuple[Any, ...], obj: Any) -> Any:
+    def _unstructure_literal(cls, kls: Any, kls_args: tuple[Any, ...], obj: Any) -> Any:
         cls._check_type(obj, str)
 
         if obj not in kls_args:
@@ -590,7 +584,7 @@ class ValueConverter:
         return obj
 
     def _unstructure_mapping(
-        self, kls: Any, kls_args: Tuple[Any, ...], obj: Any
+        self, kls: Any, kls_args: tuple[Any, ...], obj: Any
     ) -> Any:
         self._check_type(obj, Mapping)
 
@@ -608,12 +602,12 @@ class ValueConverter:
         return output
 
     @classmethod
-    def _unstructure_path(cls, kls: Any, kls_args: Tuple[Any, ...], obj: Any) -> Any:
+    def _unstructure_path(cls, kls: Any, kls_args: tuple[Any, ...], obj: Any) -> Any:
         cls._check_type(obj, Path)
 
         return str(obj)
 
-    def _unstructure_list(self, kls: Any, kls_args: Tuple[Any, ...], obj: Any) -> Any:
+    def _unstructure_list(self, kls: Any, kls_args: tuple[Any, ...], obj: Any) -> Any:
         self._check_type(obj, Sequence)
 
         if len(kls_args) != 1:
@@ -621,15 +615,15 @@ class ValueConverter:
 
         return [self.unstructure(e, kls_args[0]) for e in obj]
 
-    def _unstructure_set(self, kls: Any, kls_args: Tuple[Any, ...], obj: Any) -> Any:
-        self._check_type(obj, AbstractSet)
+    def _unstructure_set(self, kls: Any, kls_args: tuple[Any, ...], obj: Any) -> Any:
+        self._check_type(obj, Set)
 
         if len(kls_args) != 1:
             raise TypeError(f"`type_hint` has no type annotation for `{kls}`.")
 
         return [self.unstructure(e, kls_args[0]) for e in obj]
 
-    def _unstructure_tuple(self, kls: Any, kls_args: Tuple[Any, ...], obj: Any) -> Any:
+    def _unstructure_tuple(self, kls: Any, kls_args: tuple[Any, ...], obj: Any) -> Any:
         self._check_type(obj, tuple)
 
         num_args = len(kls_args)
@@ -647,7 +641,7 @@ class ValueConverter:
 
         return output
 
-    def _unstructure_union(self, kls: Any, kls_args: Tuple[Any, ...], obj: Any) -> Any:
+    def _unstructure_union(self, kls: Any, kls_args: tuple[Any, ...], obj: Any) -> Any:
         is_optional = len(kls_args) == 2 and NoneType in kls_args
 
         if is_optional and obj is None:
