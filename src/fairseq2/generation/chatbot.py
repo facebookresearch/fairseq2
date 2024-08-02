@@ -19,7 +19,7 @@ from fairseq2.data.text import TextTokenDecoder, TextTokenizer
 from fairseq2.generation.generator import SequenceGenerator, SequenceGeneratorOutput
 from fairseq2.generation.utils import _StdOutPrintHook
 from fairseq2.nn.padding import PaddingMask, pad_seqs
-from fairseq2.registry import Registry
+from fairseq2.utils.registry import Registry
 
 
 @final
