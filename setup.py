@@ -54,7 +54,7 @@ setup(
         "importlib_metadata~=7.0",
         "importlib_resources~=6.4",
         "numpy~=1.23",
-        "packaging~=23.1",
+        "packaging~=24.1",
         "psutil~=5.9",
         "pyyaml~=6.0",
         "rich~=13.7",
