@@ -4,7 +4,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-
 import itertools
 from dataclasses import dataclass
 from functools import lru_cache
@@ -17,18 +16,18 @@ from datasets import (  # type: ignore[attr-defined,import-untyped,import-not-fo
     load_dataset,
 )
 
+from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.data_pipeline import SequenceData
 from fairseq2.data.text import load_text_tokenizer
 from fairseq2.data.text.text_tokenizer import TextTokenizer
 from fairseq2.datasets.batching import StaticBatching
-from fairseq2.datasets.huggingface import Example, create_hf_reader
 from fairseq2.logging import get_log_writer
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2.asr import load_wav2vec2_asr_model
 from fairseq2.nn.padding import get_seqs_and_padding_mask
-from fairseq2.recipes.eval.configs import HFEvalConfig, hf_presets
-from fairseq2.recipes.evaluator import HFEvaluator
+from fairseq2.recipes.hg.dataset import Example, create_hf_reader
+from fairseq2.recipes.hg.evaluator import HFEvaluator
 from fairseq2.recipes.utils.setup import setup_root_gang
 from fairseq2.typing import META, DataType
 from fairseq2.utils.profiler import Stopwatch
@@ -37,8 +36,16 @@ log = get_log_writer(__name__)
 
 
 @dataclass
-class AsrEvalConfig(HFEvalConfig):
+class AsrEvalConfig:
     """Holds the configuration of a ASR evaluation recipe."""
+
+    # Data
+    dataset_name: str
+    """The HF dataset to evaluate with."""
+
+    # Model
+    model_name: str
+    """The name of the model to evaluate."""
 
     # converter: Callable[[Example], Seq2SeqBatch]
     # """The converter function to convert collated data into Seq2SeqBatch"""
@@ -73,6 +80,21 @@ class AsrEvalConfig(HFEvalConfig):
 
     dtype: DataType = torch.float16
     """The data type of the model."""
+
+
+asr_eval_presets = ConfigRegistry[AsrEvalConfig]()
+
+asr_eval_preset = asr_eval_presets.decorator
+
+
+@asr_eval_preset("librispeech_asr")
+def _librispeech_asr_config() -> AsrEvalConfig:
+    return AsrEvalConfig(
+        dataset_name="librispeech_asr",
+        model_name="wav2vec2_asr_base_10h",
+        split="test.other",
+        # converter=librispeech_asr_to_batch,
+    )
 
 
 def _librispeech_asr_to_batch(examples: Example) -> Seq2SeqBatch:
@@ -148,18 +170,8 @@ def postprocesser(
     return predictions, references
 
 
-@hf_presets.decorator("librispeech_asr")
-def _librispeech_asr_config() -> AsrEvalConfig:
-    return AsrEvalConfig(
-        dataset_name="librispeech_asr",
-        model_name="wav2vec2_asr_base_10h",
-        split="test.other",
-        # converter=librispeech_asr_to_batch,
-    )
-
-
 def load_wav2vec2_asr_evaluator(
-    config: HFEvalConfig, output_dir: Path
+    config: AsrEvalConfig, output_dir: Path
 ) -> HFEvaluator[Seq2SeqBatch]:
     """
     Load the evaluator used for downstream evaluation of the model
