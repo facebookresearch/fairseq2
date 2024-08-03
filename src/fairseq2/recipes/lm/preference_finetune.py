@@ -151,7 +151,7 @@ class PreferenceOptimizationConfig:
     publish_metrics_every_n_steps: int = 10
     """The step interval at which to publish training metrics."""
 
-    # Checkpointing
+    # Checkpoint
     resume_checkpoint_dir: Optional[Path] = None
     """If not ``None``, adds the specified path to the default asset store."""
 

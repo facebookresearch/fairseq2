@@ -165,7 +165,7 @@ class MTTrainConfig:
     publish_metrics_every_n_steps: int = 200
     """The step interval at which to publish metrics."""
 
-    # Checkpointing
+    # Checkpoint
     resume_checkpoint_dir: Optional[Path] = None
     """If not ``None``, adds the specified path to the default asset store."""
 

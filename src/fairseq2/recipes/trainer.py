@@ -16,7 +16,7 @@ from typing import Any, Generic, Optional, TypeVar, final
 
 import torch
 import torch.distributed
-from rich.progress import Progress
+from rich.progress import Progress, TaskID
 from torch import Tensor
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn import Module
@@ -126,7 +126,10 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     _max_num_steps: Optional[int]
     _data_epoch_nr: int
     _max_num_data_epochs: Optional[int]
-    _eod: bool
+    _repeat_step: bool
+    _read_data: bool
+    _end_of_data_epoch: bool
+    _end_of_data: bool
     _should_stop: bool
     _score_metric_name: Optional[str]
     _lower_better: bool
@@ -136,10 +139,14 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     _valid_units: Sequence[EvalUnit[BatchT]]
     _valid_data_readers: Sequence[DataReader[BatchT]]
     _validate_after_n_steps: int
-    _validate_every_n_steps: int
+    _validate_every_n_steps: Optional[int]
+    _validate_after_n_data_epochs: int
+    _validate_every_n_data_epochs: Optional[int]
     _checkpoint_manager: CheckpointManager
     _checkpoint_after_n_steps: int
     _checkpoint_every_n_steps: Optional[int]
+    _checkpoint_after_n_data_epochs: int
+    _checkpoint_every_n_data_epochs: Optional[int]
     _keep_last_n_checkpoints: Optional[int]
     _keep_best_n_checkpoints: Optional[int]
     _keep_last_n_models: Optional[int]
@@ -147,7 +154,9 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     _metric_bag: MetricBag
     _metric_recorders: list[MetricRecorder]
     _publish_metrics_after_n_steps: int
-    _publish_metrics_every_n_steps: int
+    _publish_metrics_every_n_steps: Optional[int]
+    _publish_metrics_after_n_data_epochs: int
+    _publish_metrics_every_n_data_epochs: Optional[int]
     _profiler: Profiler
     _anomaly_detection: bool
     _seed: int
@@ -156,6 +165,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     _step_time: float
     _run: bool
     _progress: Progress
+    _train_task_id: TaskID
 
     def __init__(
         self,
@@ -172,7 +182,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         lr_scheduler: Optional[LRScheduler] = None,
         fp16_loss_scale: tuple[float, float] = (128.0, 0.0001),
         max_gradient_norm: Optional[float] = None,
-        max_num_steps: Optional[int] = 1000,
+        max_num_steps: Optional[int] = None,
         max_num_data_epochs: Optional[int] = None,
         score_metric_name: Optional[str] = None,
         lower_better: bool = False,
@@ -180,9 +190,13 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         valid_units: Optional[Sequence[EvalUnit[BatchT]]] = None,
         valid_data_readers: Optional[Sequence[DataReader[BatchT]]] = None,
         validate_after_n_steps: int = 0,
-        validate_every_n_steps: int = 100,
+        validate_every_n_steps: Optional[int] = None,
+        validate_after_n_data_epochs: int = 0,
+        validate_every_n_data_epochs: Optional[int] = None,
         checkpoint_after_n_steps: int = 0,
         checkpoint_every_n_steps: Optional[int] = None,
+        checkpoint_after_n_data_epochs: int = 0,
+        checkpoint_every_n_data_epochs: Optional[int] = None,
         keep_last_n_checkpoints: Optional[int] = None,
         keep_best_n_checkpoints: Optional[int] = None,
         keep_last_n_models: Optional[int] = None,
@@ -190,7 +204,9 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         tb_dir: Optional[Path] = None,
         metrics_dir: Optional[Path] = None,
         publish_metrics_after_n_steps: int = 0,
-        publish_metrics_every_n_steps: int = 100,
+        publish_metrics_every_n_steps: Optional[int] = None,
+        publish_metrics_after_n_data_epochs: int = 0,
+        publish_metrics_every_n_data_epochs: Optional[int] = None,
         profile: Optional[tuple[int, int]] = None,
         anomaly_detection: bool = False,
         seed: int = 2,
@@ -238,10 +254,18 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             The number of steps after which to start validating the model.
         :param validate_every_n_steps:
             The step interval at which to validate the model.
+        :param validate_after_n_data_epochs:
+            The number of data epochs after which to start validating the model.
+        :param validate_every_n_data_epochs:
+            The data epoch interval at which to validate the model.
         :param checkpoint_after_n_steps:
             The number of steps after which to start checkpointing.
         :param checkpoint_every_n_steps:
             The step interval at which to checkpoint.
+        :param checkpoint_after_n_data_epochs:
+            The number of data epochs after which to start checkpointing.
+        :param checkpoint_every_n_data_epochs:
+            The data epoch interval at which to checkpoint.
         :param keep_last_n_checkpoints:
             The number of checkpoints to keep. If ``None``, none will be deleted.
         :param keep_best_n_checkpoints:
@@ -262,6 +286,10 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             The number of steps after which to start publishing metrics.
         :param publish_metrics_every_n_steps:
             The step interval at which to publish metrics.
+        :param publish_metrics_after_n_data_epochs:
+            The number of data epochs after which to start publishing metrics.
+        :param publish_metrics_every_n_data_epochs:
+            The data epoch interval at which to publish metrics.
         :param profile:
             The number of steps that the PyTorch profiler should skip and then
             record.
@@ -324,15 +352,24 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self.register_stateful("_step_nr", 0)
 
+        if max_num_steps == 0:
+            raise ValueError("`max_num_steps` must be greater than zero.")
+
         self._max_num_steps = max_num_steps
 
         self.register_stateful("_data_epoch_nr", 1)
 
+        if max_num_data_epochs == 0:
+            raise ValueError("`max_num_data_epochs` must be greater than zero.")
+
         self._max_num_data_epochs = max_num_data_epochs
 
-        self._read_data = False
+        self._repeat_step = False
 
-        self._eod = max_num_data_epochs == 0
+        self._read_data = False  # Indicates whether we have read any data.
+
+        self._end_of_data_epoch = False
+        self._end_of_data = False
 
         self._should_stop = False
 
@@ -381,6 +418,14 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         self._validate_after_n_steps = validate_after_n_steps
         self._validate_every_n_steps = validate_every_n_steps
 
+        if validate_every_n_data_epochs == 0:
+            raise ValueError(
+                "`validate_every_n_data_epochs` must be greater than zero."
+            )
+
+        self._validate_after_n_data_epochs = validate_after_n_data_epochs
+        self._validate_every_n_data_epochs = validate_every_n_data_epochs
+
         self._checkpoint_manager = checkpoint_manager
 
         if checkpoint_every_n_steps == 0:
@@ -388,6 +433,14 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._checkpoint_after_n_steps = checkpoint_after_n_steps
         self._checkpoint_every_n_steps = checkpoint_every_n_steps
+
+        if checkpoint_every_n_data_epochs == 0:
+            raise ValueError(
+                "`checkpoint_every_n_data_epochs` must be greater than zero."
+            )
+
+        self._checkpoint_after_n_data_epochs = checkpoint_after_n_data_epochs
+        self._checkpoint_every_n_data_epochs = checkpoint_every_n_data_epochs
 
         if keep_last_n_checkpoints is not None and keep_best_n_checkpoints is not None:
             raise ValueError(
@@ -405,6 +458,11 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
                 if score_metric_name is None:
                     raise ValueError(
                         "`score_metric_name` must be specified when `keep_best_n_checkpoints` is specified."
+                    )
+
+                if validate_every_n_steps is None:
+                    raise ValueError(
+                        "`validate_every_n_steps` must be specified when `keep_best_n_checkpoints` is specified."
                     )
 
                 if checkpoint_every_n_steps % validate_every_n_steps != 0:
@@ -464,6 +522,14 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._publish_metrics_after_n_steps = publish_metrics_after_n_steps
         self._publish_metrics_every_n_steps = publish_metrics_every_n_steps
+
+        if publish_metrics_every_n_data_epochs == 0:
+            raise ValueError(
+                "`publish_metrics_every_n_data_epochs` must be greater than zero."
+            )
+
+        self._publish_metrics_after_n_data_epochs = publish_metrics_after_n_data_epochs
+        self._publish_metrics_every_n_data_epochs = publish_metrics_every_n_data_epochs
 
         if profile is None or tb_dir is None:
             if profile is not None and tb_dir is None:
@@ -557,14 +623,14 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
     def _do_run(self) -> None:
         with self._progress, self._profiler:
-            train_task = self._progress.add_task(
+            self._train_task_id = self._progress.add_task(
                 "train", total=self._max_num_steps, completed=self._step_nr
             )
 
             while self._should_run_step():
-                self._step_nr += 1
+                self._maybe_advance_data_epoch()
 
-                self._progress.update(train_task, advance=1)
+                self._advance_step()
 
                 detect_anomaly = torch.autograd.set_detect_anomaly(  # type: ignore[attr-defined]
                     self._anomaly_detection, check_nan=True
@@ -572,10 +638,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
                 with detect_anomaly:
                     with record_function(f"step_{self._step_nr}"):
-                        try:
-                            self._run_step()
-                        except StopIteration:
-                            self._eod = True
+                        self._run_step()
 
                 if self._should_publish_metrics():
                     self._publish_metrics()
@@ -593,7 +656,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
                 self._valid_score = None
 
     def _should_run_step(self) -> bool:
-        if self._eod or self._should_stop:
+        if self._end_of_data or self._should_stop:
             return False
 
         if self._max_num_steps is None:
@@ -601,108 +664,130 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         return self._step_nr < self._max_num_steps
 
+    def _maybe_advance_data_epoch(self) -> None:
+        if not self._end_of_data_epoch:
+            return
+
+        self._data_epoch_nr += 1
+
+        self._end_of_data_epoch = False
+
+    def _advance_step(self, value: int = 1) -> None:
+        self._step_nr += value
+
+        self._progress.update(self._train_task_id, advance=value)
+
     def _run_step(self) -> None:
         step_nr = self._step_nr
 
-        log.debug("Running training step {}.", step_nr)
-
-        stepped = False
+        log.debug("{} training step {}.", "Repeating" if self._repeat_step else "Running", step_nr)  # fmt: skip
 
         watch = Stopwatch(start=True, device=self._root_gang.device)
 
-        with record_function(f"step_{step_nr}_prologue"):
-            self._unit.set_step_nr(step_nr)
-
-        while not stepped:
-            # Collect the batches.
-            with record_function(f"step_{step_nr}_data_load"):
+        # Collect the batches.
+        with record_function(f"step_{step_nr}_data_load"):
+            try:
                 batches = self._next_batches()
+            except StopIteration:
+                return
 
-            num_targets = 0
+        # Prepare the unit.
+        if not self._repeat_step:
+            with record_function(f"step_{step_nr}_unit_setup"):
+                self._unit.set_step_nr(step_nr)
 
-            if self._loss_scaler.is_enabled:
-                self._metric_bag.begin_updates()
+        num_targets = 0
 
-            # Accumulate.
-            for batch_nr, batch in enumerate(batches):
-                with self._maybe_no_sync(batch_nr, len(batches)):
-                    with record_function(f"step_{step_nr}_{batch_nr}_forward"):
-                        batch_loss, num_batch_targets = self._compute_loss(batch)
+        if self._loss_scaler.is_enabled:
+            self._metric_bag.begin_updates()
 
-                    with record_function(f"step_{step_nr}_{batch_nr}_backward"):
-                        self._loss_scaler.backward(batch_loss)
+        # Accumulate.
+        for batch_nr, batch in enumerate(batches):
+            with self._maybe_no_sync(batch_nr, len(batches)):
+                with record_function(f"step_{step_nr}_{batch_nr}_forward"):
+                    batch_loss, num_batch_targets = self._compute_loss(batch)
 
-                num_targets += num_batch_targets
+                with record_function(f"step_{step_nr}_{batch_nr}_backward"):
+                    self._loss_scaler.backward(batch_loss)
 
-            # Normalize.
-            normalize_gradients(self._model, self._dp_gang, num_targets=num_targets)
+            num_targets += num_batch_targets
 
-            # Clip.
-            with record_function(f"step_{step_nr}_grad_norm"):
-                self._loss_scaler.unscale_gradients_()
+        # Normalize.
+        normalize_gradients(self._model, self._dp_gang, num_targets=num_targets)
 
-                # TODO(balioglu): Support tensor parallelism!
-                grad_norm = clip_gradient_norm(
-                    self._model, max_norm=self._max_gradient_norm
+        # Clip.
+        with record_function(f"step_{step_nr}_grad_norm"):
+            self._loss_scaler.unscale_gradients_()
+
+            # TODO(balioglu): Support tensor parallelism!
+            grad_norm = clip_gradient_norm(
+                self._model, max_norm=self._max_gradient_norm
+            )
+
+            # Sanity check.
+            if not check_gradient_norms(grad_norm, self._dp_gang, step_nr):
+                raise FloatingPointError(
+                    f"The gradients are inconsistent between processes at step {step_nr}. Training cannot continue."
                 )
 
-                # Sanity check.
-                if not check_gradient_norms(grad_norm, self._dp_gang, step_nr):
-                    raise FloatingPointError(
-                        f"The gradients are inconsistent between processes at step {step_nr}. Training cannot continue."
-                    )
+        # Update the parameters.
+        with record_function(f"step_{step_nr}_optimizer"):
+            _, scale_result = self._loss_scaler.run_optimizer_step(step_nr)
 
-            # Update the parameters.
-            with record_function(f"step_{step_nr}_optimizer"):
-                _, scale_result = self._loss_scaler.run_optimizer_step(step_nr)
+        if scale_result.overflow:
+            self._metric_bag.rollback_updates()
 
-            if scale_result.overflow:
-                self._metric_bag.rollback_updates()
+            if scale_result.min_reached:
+                raise FloatingPointError(
+                    f"The gradients are scaled down to minimum at step {step_nr}. Training cannot continue."
+                )
 
-                if scale_result.min_reached:
-                    raise FloatingPointError(
-                        f"The gradients are scaled down to minimum at step {step_nr}. Training cannot continue."
-                    )
+            self._advance_step(-1)
 
-                log.debug("Repeating step {}.", step_nr)
-            else:
-                self._lr_scheduler.step()
+            self._repeat_step = True
+        else:
+            self._lr_scheduler.step()
 
-                if self._loss_scaler.is_enabled:
-                    self._metric_bag.commit_updates()
+            if self._loss_scaler.is_enabled:
+                self._metric_bag.commit_updates()
 
-                self._metric_bag.gradient_norm.update(grad_norm)
+            self._metric_bag.gradient_norm.update(grad_norm)
 
-                stepped = True
+            self._repeat_step = False
 
-            # Reset.
-            self._optimizer.zero_grad(set_to_none=True)
+        # Reset.
+        self._optimizer.zero_grad(set_to_none=True)
 
         self._step_time += watch.get_elapsed_time()
 
     def _next_batches(self) -> list[BatchT]:
-        while True:
-            try:
-                batches = next(self._data_reader)
+        try:
+            batches = next(self._data_reader)
 
-                self._read_data = True
+            self._read_data = True
 
-                return batches
-            except StopIteration:
-                log.info("End of epoch {} reached at training step {}.", self._data_epoch_nr, self._step_nr)  # fmt: skip
+            return batches
+        except StopIteration:
+            pass
 
-                if not self._read_data:  # Means the dataset is empty.
-                    break
+        self._end_of_data_epoch = True
 
-                if self._max_num_data_epochs is not None:
-                    if self._data_epoch_nr >= self._max_num_data_epochs:
-                        break
+        log.info("End of epoch {} reached at training step {}.", self._data_epoch_nr, self._step_nr)  # fmt: skip
 
-                self._data_epoch_nr += 1
+        if not self._read_data:  # Means the dataset is empty.
+            self._end_of_data = True
+        elif self._max_num_data_epochs is not None:
+            if self._data_epoch_nr >= self._max_num_data_epochs:
+                self._end_of_data = True
 
-            self._data_reader.reset()
+        if self._end_of_data:
+            log.info("End of data reached.", self._step_nr)
+        else:
+            self._repeat_step = True
 
-        log.info("End of data reached at training step {}.", self._step_nr)
+        self._advance_step(-1)
+
+        self._data_reader.reset()
 
         raise StopIteration()
 
@@ -732,7 +817,13 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         after_n_steps = self._publish_metrics_after_n_steps
         every_n_steps = self._publish_metrics_every_n_steps
 
-        return self._should_do(after_n_steps, every_n_steps)
+        if self._should_do_at_step(after_n_steps, every_n_steps):
+            return True
+
+        after_n_data_epochs = self._publish_metrics_after_n_data_epochs
+        every_n_data_epochs = self._publish_metrics_every_n_data_epochs
+
+        return self._should_do_at_data_epoch(after_n_data_epochs, every_n_data_epochs)
 
     def _publish_metrics(self) -> None:
         log.debug("Syncing metrics.")
@@ -770,7 +861,13 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         after_n_steps = self._validate_after_n_steps
         every_n_steps = self._validate_every_n_steps
 
-        return self._should_do(after_n_steps, every_n_steps)
+        if self._should_do_at_step(after_n_steps, every_n_steps):
+            return True
+
+        after_n_data_epochs = self._validate_after_n_data_epochs
+        every_n_data_epochs = self._validate_every_n_data_epochs
+
+        return self._should_do_at_data_epoch(after_n_data_epochs, every_n_data_epochs)
 
     @torch.inference_mode()
     def _validate(self) -> None:
@@ -820,7 +917,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
                 with self._maybe_autocast():
                     unit(batch)
 
-            if self._is_valid_eod(batches):
+            if self._is_valid_end_of_data(batches):
                 break
 
         self._progress.remove_task(valid_task)
@@ -833,7 +930,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         return self._get_unit_score(metric_values)
 
-    def _is_valid_eod(self, batches: list[BatchT]) -> bool:
+    def _is_valid_end_of_data(self, batches: list[BatchT]) -> bool:
         total_num_batches = all_sum(self._dp_gang, len(batches))
 
         return bool(total_num_batches == 0)
@@ -952,10 +1049,13 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         after_n_steps = self._checkpoint_after_n_steps
         every_n_steps = self._checkpoint_every_n_steps
 
-        if every_n_steps is None:
-            return False
+        if self._should_do_at_step(after_n_steps, every_n_steps):
+            return True
 
-        return self._should_do(after_n_steps, every_n_steps)
+        after_n_data_epochs = self._checkpoint_after_n_data_epochs
+        every_n_data_epochs = self._checkpoint_every_n_data_epochs
+
+        return self._should_do_at_data_epoch(after_n_data_epochs, every_n_data_epochs)
 
     def _checkpoint(self) -> None:
         step_nr = self._step_nr
@@ -995,7 +1095,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
             self._checkpoint_manager.save_consolidated_fsdp_model(self._model)
 
-            log.info("Consolidated model saved.")
+            log.info("Consolidated FSDP model saved.")
 
         self._checkpoint_manager.commit_checkpoint()
 
@@ -1024,15 +1124,38 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         elif nc is not None:
             self._checkpoint_manager.keep_best_n_checkpoints(nc)
 
-    def _should_do(self, after_n_steps: int, n_steps: int) -> bool:
-        if self._eod or self._should_stop:
-            return True
+    def _should_do_at_step(self, after_n_steps: int, n_steps: Optional[int]) -> bool:
+        if self._end_of_data or self._should_stop:
+            return self._read_data
 
-        if self._step_nr < after_n_steps:
+        if self._repeat_step:
             return False
 
         if self._max_num_steps is not None:
             if self._step_nr >= self._max_num_steps:
                 return True
 
+        if n_steps is None:
+            return False
+
+        if self._step_nr < after_n_steps:
+            return False
+
         return self._step_nr % n_steps == 0
+
+    def _should_do_at_data_epoch(
+        self, after_n_data_epochs: int, n_data_epochs: Optional[int]
+    ) -> bool:
+        if self._end_of_data or self._should_stop:
+            return self._read_data
+
+        if not self._end_of_data_epoch:
+            return False
+
+        if n_data_epochs is None:
+            return False
+
+        if self._data_epoch_nr < after_n_data_epochs:
+            return False
+
+        return self._data_epoch_nr % n_data_epochs == 0
