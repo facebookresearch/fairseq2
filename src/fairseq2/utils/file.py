@@ -7,20 +7,19 @@
 from __future__ import annotations
 
 import warnings
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Any, Callable, Optional, Protocol, Union
+from typing import Any, Protocol, TypeAlias
 from warnings import catch_warnings
 
 import torch
 from torch import Tensor
-from typing_extensions import TypeAlias
 
 from fairseq2.typing import Device
 
-MapLocation: TypeAlias = Optional[
-    Union[Callable[[Tensor, str], Tensor], Device, str, dict[str, str]]
-]
+MapLocation: TypeAlias = (
+    Callable[[Tensor, str], Tensor] | Device | str | dict[str, str] | None
+)
 
 
 class TensorLoader(Protocol):

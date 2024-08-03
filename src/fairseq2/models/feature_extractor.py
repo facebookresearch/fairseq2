@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Optional
 
 from torch import Tensor
 from torch.nn import Module
@@ -31,8 +30,8 @@ class SequenceFeatureExtractor(Module, ABC):
 
     @abstractmethod
     def forward(
-        self, seqs: Tensor, padding_mask: Optional[PaddingMask]
-    ) -> tuple[Tensor, Optional[PaddingMask]]:
+        self, seqs: Tensor, padding_mask: PaddingMask | None
+    ) -> tuple[Tensor, PaddingMask | None]:
         """
         :param seqs:
             The sequences from which to extract features. *Shape:*

@@ -9,7 +9,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Literal, Optional, Protocol, final
+from typing import Any, Literal, Protocol, final
 
 from typing_extensions import override
 
@@ -34,7 +34,7 @@ class AssetStore(ABC):
         self,
         name: str,
         *,
-        envs: Optional[Sequence[str]] = None,
+        envs: Sequence[str] | None = None,
         scope: Literal["all", "global", "user"] = "all",
     ) -> AssetCard:
         """Retrieve the card of the specified asset.
@@ -82,9 +82,9 @@ class StandardAssetStore(AssetStore):
         self,
         name: str,
         *,
-        envs: Optional[Sequence[str]] = None,
+        envs: Sequence[str] | None = None,
         scope: Literal["all", "global", "user"] = "all",
-        extra_provider: Optional[AssetMetadataProvider] = None,
+        extra_provider: AssetMetadataProvider | None = None,
     ) -> AssetCard:
         if scope not in ("all", "global", "user"):
             raise ValueError(
@@ -126,7 +126,7 @@ class StandardAssetStore(AssetStore):
         name: str,
         envs: Sequence[str],
         scope: str,
-        extra_provider: Optional[AssetMetadataProvider],
+        extra_provider: AssetMetadataProvider | None,
     ) -> AssetCard:
         metadata = self._get_metadata(f"{name}@", scope, extra_provider)
 
@@ -152,7 +152,7 @@ class StandardAssetStore(AssetStore):
         except KeyError:
             base_name = None
 
-        base_card: Optional[AssetCard] = None
+        base_card: AssetCard | None = None
 
         # If the metadata has a base specified, we have to recursively load the
         # entire chain up to the root.
@@ -169,7 +169,7 @@ class StandardAssetStore(AssetStore):
         return AssetCard(metadata, base_card)
 
     def _get_metadata(
-        self, name: str, scope: str, extra_provider: Optional[AssetMetadataProvider]
+        self, name: str, scope: str, extra_provider: AssetMetadataProvider | None
     ) -> dict[str, Any]:
         if extra_provider is not None:
             try:
@@ -255,7 +255,7 @@ class EnvironmentResolver(Protocol):
     loaded in due to legal or technical requirements.
     """
 
-    def __call__(self) -> Optional[str]:
+    def __call__(self) -> str | None:
         ...
 
 

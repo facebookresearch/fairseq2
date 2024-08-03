@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Final, Optional
+from typing import Final
 
 from torch.nn import SiLU
 
@@ -53,7 +53,7 @@ from fairseq2.typing import DataType, Device
 S2T_TRANSFORMER_FAMILY: Final = "s2t_transformer"
 
 
-@dataclass
+@dataclass(kw_only=True)
 class S2TTransformerConfig:
     """Holds the configuration of an S2T Transformer model.
 
@@ -122,16 +122,16 @@ class S2TTransformerBuilder:
     """
 
     _config: S2TTransformerConfig
-    _device: Optional[Device]
-    _dtype: Optional[DataType]
-    _rel_pos_encoding: Optional[RelativePositionalEncoding]
+    _device: Device | None
+    _dtype: DataType | None
+    _rel_pos_encoding: RelativePositionalEncoding | None
 
     def __init__(
         self,
         config: S2TTransformerConfig,
         *,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param config:
@@ -218,7 +218,7 @@ class S2TTransformerBuilder:
             dtype=self._dtype,
         )
 
-    def build_source_position_encoder(self) -> Optional[PositionEncoder]:
+    def build_source_position_encoder(self) -> PositionEncoder | None:
         """Build a position encoder for source sequences."""
         if self._config.use_relative_pos:
             return None
@@ -392,8 +392,8 @@ class S2TTransformerBuilder:
 def create_s2t_transformer_model(
     config: S2TTransformerConfig,
     *,
-    device: Optional[Device] = None,
-    dtype: Optional[DataType] = None,
+    device: Device | None = None,
+    dtype: DataType | None = None,
 ) -> TransformerModel:
     """Create an S2T Transformer model.
 

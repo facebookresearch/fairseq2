@@ -15,7 +15,7 @@ from argparse import (
     ArgumentTypeError,
     Namespace,
 )
-from typing import Any, Optional, final
+from typing import Any, final
 
 import torch
 import yaml
@@ -32,7 +32,7 @@ class ConfigAction(Action):
         self,
         option_strings: list[str],
         dest: str,
-        help: Optional[str] = None,
+        help: str | None = None,
     ) -> None:
         super().__init__(
             option_strings,
@@ -47,7 +47,7 @@ class ConfigAction(Action):
         parser: ArgumentParser,
         namespace: Namespace,
         values: Any,
-        option_string: Optional[str] = None,
+        option_string: str | None = None,
     ) -> None:
         data: dict[str, Any] = {}
 
@@ -101,7 +101,7 @@ class BooleanOptionalAction(Action):
         option_strings: list[str],
         dest: str,
         default: Any = None,
-        help: Optional[str] = None,
+        help: str | None = None,
     ) -> None:
         all_option_strings = []
 
@@ -124,7 +124,7 @@ class BooleanOptionalAction(Action):
         parser: ArgumentParser,
         namespace: Namespace,
         values: Any,
-        option_string: Optional[str] = None,
+        option_string: str | None = None,
     ) -> None:
         if option_string and option_string in self.option_strings:
             setattr(namespace, self.dest, not option_string.startswith("--no-"))

@@ -33,7 +33,6 @@ setup(
         "Intended Audience :: Science/Research",
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
@@ -46,7 +45,7 @@ setup(
         "fairseq2.assets.cards": ["**/*.yaml"],
     },
     zip_safe=False,
-    python_requires=">=3.9",
+    python_requires=">=3.10",
     install_requires=[
         "editdistance~=0.8",
         "fairseq2n" + fairseq2n_version_spec,
@@ -62,7 +61,7 @@ setup(
         "tiktoken~=0.7",
         "torcheval~=0.0.6",
         "tqdm~=4.62",
-        "typing_extensions~=4.12;python_version<'3.10'",
+        "typing_extensions~=4.12",
     ],
     extras_require={
         "arrow": ["pyarrow>=13.0.0", "pandas~=2.0.0"],

@@ -6,8 +6,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from torch.nn import Module
 from typing_extensions import Self
 
@@ -15,7 +13,7 @@ from typing_extensions import Self
 class Model(Module):
     """Represents a machine learning model."""
 
-    _family: Optional[str]
+    _family: str | None
 
     def __init__(self) -> None:
         super().__init__()
@@ -34,6 +32,6 @@ class Model(Module):
         return self
 
     @property
-    def family(self) -> Optional[str]:
+    def family(self) -> str | None:
         """The family of the model."""
         return self._family

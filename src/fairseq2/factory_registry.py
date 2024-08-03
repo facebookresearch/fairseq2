@@ -6,22 +6,20 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import is_dataclass
 from functools import partial
 from inspect import isfunction
 from typing import (
     Any,
-    Callable,
     Generic,
-    Optional,
+    ParamSpec,
     Protocol,
     TypeVar,
     cast,
     final,
     get_type_hints,
 )
-
-from typing_extensions import ParamSpec
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.typing import DataClass
@@ -58,7 +56,7 @@ class ConfigBoundFactoryRegistry(Generic[P, R]):
     """Holds factories with parameter(s) ``P`` and return type ``R``."""
 
     _factories: dict[
-        str, tuple[Callable[..., R], type[DataClass], Optional[ConfigRegistry[Any]]]
+        str, tuple[Callable[..., R], type[DataClass], ConfigRegistry[Any] | None]
     ]
 
     def __init__(self) -> None:
@@ -67,8 +65,8 @@ class ConfigBoundFactoryRegistry(Generic[P, R]):
     def get(
         self,
         name: str,
-        config: Optional[DataClass] = None,
-        base_config_name: Optional[str] = None,
+        config: DataClass | None = None,
+        base_config_name: str | None = None,
     ) -> ConfigBoundFactory[P, R]:
         """Return the factory with ``name``.
 
@@ -122,7 +120,7 @@ class ConfigBoundFactoryRegistry(Generic[P, R]):
         name: str,
         factory: Factory[ConfigT, P, R],
         config_kls: type[ConfigT],
-        config_registry: Optional[ConfigRegistry[ConfigT]] = None,
+        config_registry: ConfigRegistry[ConfigT] | None = None,
     ) -> None:
         """Register ``factory`` with ``name``."""
         if name in self._factories:

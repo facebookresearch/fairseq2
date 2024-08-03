@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional
 
 from torch.optim import Optimizer
 
@@ -19,19 +18,16 @@ from fairseq2.optim.lr_scheduler.noam import NoamLR
 from fairseq2.optim.lr_scheduler.polynomial import PolynomialDecayLR
 from fairseq2.optim.lr_scheduler.tri_stage import TriStageLR
 
-if TYPE_CHECKING:  # compat: remove when Python 3.9 support is dropped.
-    lr_scheduler_factories = ConfigBoundFactoryRegistry[
-        [Optimizer, Optional[int]], LRScheduler
-    ]()
-else:
-    lr_scheduler_factories = ConfigBoundFactoryRegistry()
+lr_scheduler_factories = ConfigBoundFactoryRegistry[
+    [Optimizer, int | None], LRScheduler
+]()
 
 lr_scheduler_factory = lr_scheduler_factories.decorator
 
 
-@dataclass
+@dataclass(kw_only=True)
 class CosineAnnealingLRConfig:
-    cycle_len: Optional[int] = None
+    cycle_len: int | None = None
     """The number of steps within the first cycle. If ``None``, will be set to
     ``max_num_steps - num_warmup_steps``."""
 
@@ -54,7 +50,7 @@ class CosineAnnealingLRConfig:
 
 @lr_scheduler_factory("cosine-annealing")
 def create_cosine_annealing_lr(
-    config: CosineAnnealingLRConfig, optimizer: Optimizer, max_num_steps: Optional[int]
+    config: CosineAnnealingLRConfig, optimizer: Optimizer, max_num_steps: int | None
 ) -> CosineAnnealingLR:
     if config.cycle_len is None:
         if max_num_steps is None:
@@ -77,7 +73,7 @@ def create_cosine_annealing_lr(
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class MyleLRConfig:
     """Holds the configuration of a :class:`MyleLR`."""
 
@@ -90,12 +86,12 @@ class MyleLRConfig:
 
 @lr_scheduler_factory("myle")
 def create_myle_lr(
-    config: MyleLRConfig, optimizer: Optimizer, max_num_steps: Optional[int]
+    config: MyleLRConfig, optimizer: Optimizer, max_num_steps: int | None
 ) -> MyleLR:
     return MyleLR(optimizer, config.num_warmup_steps, start_lr=config.start_lr)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class NoamLRConfig:
     """Holds the configuration of a :class:`NoamLR`."""
 
@@ -105,16 +101,16 @@ class NoamLRConfig:
 
 @lr_scheduler_factory("noam")
 def create_noam_lr(
-    config: NoamLRConfig, optimizer: Optimizer, max_num_steps: Optional[int]
+    config: NoamLRConfig, optimizer: Optimizer, max_num_steps: int | None
 ) -> NoamLR:
     return NoamLR(optimizer, config.num_warmup_steps)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class PolynomialDecayLRConfig:
     """Holds the configuration of a :class:`PolynomialDecayLR`."""
 
-    num_steps: Optional[int] = None
+    num_steps: int | None = None
     """The total number of steps, including, warmup, over which to decay the
     learning rate."""
 
@@ -133,7 +129,7 @@ class PolynomialDecayLRConfig:
 
 @lr_scheduler_factory("polynomial-decay")
 def create_polynomial_decay_lr(
-    config: PolynomialDecayLRConfig, optimizer: Optimizer, max_num_steps: Optional[int]
+    config: PolynomialDecayLRConfig, optimizer: Optimizer, max_num_steps: int | None
 ) -> PolynomialDecayLR:
     num_steps = config.num_steps
     if num_steps is None:
@@ -154,11 +150,11 @@ def create_polynomial_decay_lr(
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class TriStageLRConfig:
     """Holds the configuration of a :class:`TriStageLR`."""
 
-    num_steps: Optional[int] = None
+    num_steps: int | None = None
     """The total number of steps over which to adjust the learning rate."""
 
     stage_ratio: tuple[float, float, float] = (0.0, 0.0, 1.0)
@@ -173,7 +169,7 @@ class TriStageLRConfig:
 
 @lr_scheduler_factory("tri-stage")
 def create_tri_stage_lr(
-    config: TriStageLRConfig, optimizer: Optimizer, max_num_steps: Optional[int]
+    config: TriStageLRConfig, optimizer: Optimizer, max_num_steps: int | None
 ) -> TriStageLR:
     num_steps = config.num_steps
     if num_steps is None:

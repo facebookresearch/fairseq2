@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Optional, final
+from typing import Any, final
 
 from torch import Tensor
 
@@ -58,7 +58,7 @@ class Seq2SeqBatch:
     the batch size, :math:`S_{src}` is the source sequence length, and :math:`*`
     is any number of sequence-specific dimensions including none."""
 
-    source_padding_mask: Optional[PaddingMask]
+    source_padding_mask: PaddingMask | None
     """The padding mask of :attr:`source_seqs`. *Shape:* :math:`(N,S_{src})`,
     where :math:`N` is the batch size and :math:`S_{src}` is the source sequence
     length."""
@@ -68,7 +68,7 @@ class Seq2SeqBatch:
     the batch size, :math:`S_{tgt}` is the target sequence length, and :math:`*`
     is any number of sequence-specific dimensions including none."""
 
-    target_padding_mask: Optional[PaddingMask]
+    target_padding_mask: PaddingMask | None
     """The padding mask of :attr:`target_seqs`. *Shape:* :math:`(N,S_{tgt})`,
     where :math:`N` is the batch size and :math:`S_{tgt}` is the target sequence
     length."""

@@ -7,9 +7,10 @@
 from __future__ import annotations
 
 import importlib
+from collections.abc import Callable
 from itertools import count
 from pathlib import Path
-from typing import Any, Callable, Generic, List, Optional, Tuple, TypeVar, final
+from typing import Any, Generic, TypeVar, final
 
 from fairseq2.datasets import DataReader
 from fairseq2.gang import FakeGang, Gang
@@ -36,13 +37,13 @@ class HFEvaluator(Generic[BatchT]):
     """Evaluate a machine learning model with HuggingFace's evaluate.Metric library"""
 
     _model: Model
-    _preprocessor: Callable[[BatchT], Tuple[SequenceBatch, SequenceBatch]]
-    _postprocessor: Callable[[Any, SequenceBatch], Tuple[List[str], List[str]]]
+    _preprocessor: Callable[[BatchT], tuple[SequenceBatch, SequenceBatch]]
+    _postprocessor: Callable[[Any, SequenceBatch], tuple[list[str], list[str]]]
     _root_gang: Gang
     _dp_gang: Gang
     _tp_gang: Gang
     _data_reader: DataReader[BatchT]
-    _metric_recorders: List[MetricRecorder]
+    _metric_recorders: list[MetricRecorder]
     _wall_watch: Stopwatch
     _elapsed_time: float
     _run: bool
@@ -50,15 +51,15 @@ class HFEvaluator(Generic[BatchT]):
     def __init__(
         self,
         model: Model,
-        metrics: List[str],
+        metrics: list[str],
         gang: Gang,
         data_reader: DataReader[BatchT],
         wall_watch: Stopwatch,
-        preprocessor: Callable[[BatchT], Tuple[SequenceBatch, SequenceBatch]],
-        postprocessor: Callable[[Any, SequenceBatch], Tuple[List[str], List[str]]],
-        dp_gang: Optional[Gang] = None,
-        tp_gang: Optional[Gang] = None,
-        tb_dir: Optional[Path] = None,
+        preprocessor: Callable[[BatchT], tuple[SequenceBatch, SequenceBatch]],
+        postprocessor: Callable[[Any, SequenceBatch], tuple[list[str], list[str]]],
+        dp_gang: Gang | None = None,
+        tp_gang: Gang | None = None,
+        tb_dir: Path | None = None,
     ) -> None:
         """
         :param model:

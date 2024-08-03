@@ -9,7 +9,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from collections.abc import Iterable, Iterator
-from typing import Optional, Protocol, final
+from typing import Protocol, final
 
 import torch
 from torch import Generator, Tensor
@@ -57,12 +57,12 @@ class TransformerDecoder(Module, ABC):
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
-        encoder_output: Optional[Tensor] = None,
-        encoder_padding_mask: Optional[PaddingMask] = None,
+        padding_mask: PaddingMask | None,
+        encoder_output: Tensor | None = None,
+        encoder_padding_mask: PaddingMask | None = None,
         *,
-        state_bag: Optional[IncrementalStateBag] = None,
-    ) -> tuple[Tensor, Optional[PaddingMask]]:
+        state_bag: IncrementalStateBag | None = None,
+    ) -> tuple[Tensor, PaddingMask | None]:
         """
         :param seqs:
             The sequences to decode. *Shape:* :math:`(N,S,M)`, where :math:`N`
@@ -122,7 +122,7 @@ class DecoderLayerOutputHook(Protocol):
         self,
         layer_idx: int,
         layer_output: Tensor,
-        layer_padding_mask: Optional[PaddingMask],
+        layer_padding_mask: PaddingMask | None,
         num_layers: int,
     ) -> bool:
         """
@@ -147,10 +147,10 @@ class StandardTransformerDecoder(TransformerDecoder):
     """Represents a Transformer decoder as described in
     :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`."""
 
-    self_attn_mask_factory: Optional[AttentionMaskFactory]
+    self_attn_mask_factory: AttentionMaskFactory | None
     layer_drop_p: float
-    generator: Optional[Generator]
-    layer_norm: Optional[LayerNorm]
+    generator: Generator | None
+    layer_norm: LayerNorm | None
     dropout_p: float
     norm_order: TransformerNormOrder
 
@@ -158,15 +158,15 @@ class StandardTransformerDecoder(TransformerDecoder):
         self,
         layers: Iterable[TransformerDecoderLayer],
         *,
-        self_attn_mask_factory: Optional[AttentionMaskFactory] = None,
+        self_attn_mask_factory: AttentionMaskFactory | None = None,
         use_causal_attn_mask: bool = True,
         layer_drop_p: float = 0.0,
-        generator: Optional[Generator] = None,
+        generator: Generator | None = None,
         dropout_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
-        layer_norm_factory: Optional[LayerNormFactory] = None,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        layer_norm_factory: LayerNormFactory | None = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param layers:
@@ -229,12 +229,12 @@ class StandardTransformerDecoder(TransformerDecoder):
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
-        encoder_output: Optional[Tensor] = None,
-        encoder_padding_mask: Optional[PaddingMask] = None,
+        padding_mask: PaddingMask | None,
+        encoder_output: Tensor | None = None,
+        encoder_padding_mask: PaddingMask | None = None,
         *,
-        state_bag: Optional[IncrementalStateBag] = None,
-    ) -> tuple[Tensor, Optional[PaddingMask]]:
+        state_bag: IncrementalStateBag | None = None,
+    ) -> tuple[Tensor, PaddingMask | None]:
         if self._layer_output_hooks and self.layer_drop_p > 0.0 and self.training:
             raise RuntimeError(
                 "The layer output hooks cannot be run when LayerDrop is enabled."

@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Union, final
+from typing import final
 
 from torch.optim import Optimizer
 from typing_extensions import override
@@ -51,8 +51,8 @@ class PolynomialDecayLR(AbstractLRScheduler):
         num_warmup_steps: int,
         *,
         power: float = 1.0,
-        start_lr: Union[float, Sequence[float]] = 0.0,
-        final_lr: Union[float, Sequence[float]] = 0.0,
+        start_lr: float | Sequence[float] = 0.0,
+        final_lr: float | Sequence[float] = 0.0,
         last_epoch: int = -1,
     ) -> None:
         """

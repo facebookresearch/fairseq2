@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, NoReturn, Optional, Union, cast, final
+from typing import Any, NoReturn, cast, final
 
 import torch
 from typing_extensions import override
@@ -47,14 +47,14 @@ class PreferenceOptimizationDataset(ABC):
         tokenizer: TextTokenizer,
         gang: Gang,
         max_seq_len: int,
-        batching: Union[StaticBatching, LengthBatching],
+        batching: StaticBatching | LengthBatching,
         *,
         sample: bool = False,
         example_shuffle_window: int = 1,
         batch_shuffle_window: int = 1,
         drop_remainder: bool = False,
         sync_batches: bool = True,
-        max_num_batches: Optional[int] = None,
+        max_num_batches: int | None = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         seed: int = 2,
@@ -229,14 +229,14 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
         tokenizer: TextTokenizer,
         gang: Gang,
         max_seq_len: int,
-        batching: Union[StaticBatching, LengthBatching],
+        batching: StaticBatching | LengthBatching,
         *,
         sample: bool = False,
         example_shuffle_window: int = 1,
         batch_shuffle_window: int = 1,
         drop_remainder: bool = False,
         sync_batches: bool = True,
-        max_num_batches: Optional[int] = None,
+        max_num_batches: int | None = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         seed: int = 2,

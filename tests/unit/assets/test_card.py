@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 import pytest
 
@@ -65,7 +64,7 @@ class TestAssetCard:
 
         assert int_value == 3
 
-        none_value = self.card.field("field10").as_(Optional[str])
+        none_value = self.card.field("field10").as_(str | None)
 
         assert none_value is None
 

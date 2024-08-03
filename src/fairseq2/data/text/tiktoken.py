@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Optional, final
+from typing import final
 
 import torch
 from tiktoken import Encoding
@@ -36,11 +36,11 @@ class TiktokenTokenizer(AbstractTextTokenizer):
         path: Path,
         split_regex: str,
         *,
-        unk_token: Optional[str] = None,
-        bos_token: Optional[str] = None,
-        eos_token: Optional[str] = None,
-        pad_token: Optional[str] = None,
-        special_tokens: Optional[Sequence[str]] = None,
+        unk_token: str | None = None,
+        bos_token: str | None = None,
+        eos_token: str | None = None,
+        pad_token: str | None = None,
+        special_tokens: Sequence[str] | None = None,
     ) -> None:
         """
         :param path:
@@ -78,7 +78,7 @@ class TiktokenTokenizer(AbstractTextTokenizer):
             special_tokens=special_token_map,
         )
 
-        def maybe_index(token: Optional[str]) -> Optional[int]:
+        def maybe_index(token: str | None) -> int | None:
             if token:
                 return self._encoding.encode_single_token(token)
 
@@ -96,7 +96,7 @@ class TiktokenTokenizer(AbstractTextTokenizer):
 
     @override
     def create_raw_encoder(
-        self, *, device: Optional[Device] = None, pin_memory: bool = False
+        self, *, device: Device | None = None, pin_memory: bool = False
     ) -> TiktokenEncoder:
         return TiktokenEncoder(self._encoding, device=device, pin_memory=pin_memory)
 
@@ -117,18 +117,18 @@ class TiktokenEncoder(TextTokenEncoder):
 
     _prefix_indices: list[int]
     _suffix_indices: list[int]
-    _prefix_index_tensor: Optional[Tensor]
-    _suffix_index_tensor: Optional[Tensor]
-    _device: Optional[Device]
+    _prefix_index_tensor: Tensor | None
+    _suffix_index_tensor: Tensor | None
+    _device: Device | None
     _pin_memory: bool
 
     def __init__(
         self,
         encoding: Encoding,
         *,
-        prefix_tokens: Optional[Sequence[str]] = None,
-        suffix_tokens: Optional[Sequence[str]] = None,
-        device: Optional[Device] = None,
+        prefix_tokens: Sequence[str] | None = None,
+        suffix_tokens: Sequence[str] | None = None,
+        device: Device | None = None,
         pin_memory: bool = False,
     ) -> None:
         """
@@ -200,12 +200,12 @@ class TiktokenEncoder(TextTokenEncoder):
 
     @property
     @override
-    def prefix_indices(self) -> Optional[Tensor]:
+    def prefix_indices(self) -> Tensor | None:
         return self._prefix_index_tensor
 
     @property
     @override
-    def suffix_indices(self) -> Optional[Tensor]:
+    def suffix_indices(self) -> Tensor | None:
         return self._suffix_index_tensor
 
 

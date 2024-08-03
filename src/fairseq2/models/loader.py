@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from pickle import PickleError
-from typing import Any, Generic, Optional, Protocol, TypeVar, Union, final
+from typing import Any, Generic, Protocol, TypeVar, final
 
 from torch.nn import Module
 from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
@@ -54,8 +54,8 @@ class ModelFactory(Protocol[ModelConfigT_contra, ModelT_co]):
         self,
         config: ModelConfigT_contra,
         *,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> ModelT_co:
         """
         :param config:
@@ -72,11 +72,11 @@ class ModelLoader(Protocol[ModelT_co]):
 
     def __call__(
         self,
-        model_name_or_card: Union[str, AssetCard],
+        model_name_or_card: str | AssetCard,
         *,
-        gangs: Optional[dict[str, Gang]] = None,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        gangs: dict[str, Gang] | None = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
         force: bool = False,
         progress: bool = True,
     ) -> ModelT_co:
@@ -121,7 +121,7 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
     _asset_store: AssetStore
     _download_manager: AssetDownloadManager
     _tensor_loader: TensorLoader
-    _checkpoint_converter: Optional[CheckpointConverter[ModelConfigT]]
+    _checkpoint_converter: CheckpointConverter[ModelConfigT] | None
     _config_loader: ModelConfigLoader[ModelConfigT]
     _factory: ModelFactory[ModelConfigT, ModelT]
     _restrict_checkpoints: bool
@@ -134,10 +134,10 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         factory: ModelFactory[ModelConfigT, ModelT],
         restrict_checkpoints: bool = True,
         skip_meta_init: bool = False,
-        asset_store: Optional[AssetStore] = None,
-        download_manager: Optional[AssetDownloadManager] = None,
-        tensor_loader: Optional[TensorLoader] = None,
-        checkpoint_converter: Optional[CheckpointConverter[ModelConfigT]] = None,
+        asset_store: AssetStore | None = None,
+        download_manager: AssetDownloadManager | None = None,
+        tensor_loader: TensorLoader | None = None,
+        checkpoint_converter: CheckpointConverter[ModelConfigT] | None = None,
     ) -> None:
         """
         :param config_loader:
@@ -175,11 +175,11 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
     @final
     def __call__(
         self,
-        model_name_or_card: Union[str, AssetCard],
+        model_name_or_card: str | AssetCard,
         *,
-        gangs: Optional[dict[str, Gang]] = None,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        gangs: dict[str, Gang] | None = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
         force: bool = False,
         progress: bool = True,
     ) -> ModelT:
@@ -348,7 +348,7 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
     _asset_store: AssetStore
     _loaders: dict[str, ModelLoader[ModelT]]
 
-    def __init__(self, *, asset_store: Optional[AssetStore] = None) -> None:
+    def __init__(self, *, asset_store: AssetStore | None = None) -> None:
         """
         :param asset_store:
             The asset store where to check for available models. If ``None``,
@@ -360,11 +360,11 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
 
     def __call__(
         self,
-        model_name_or_card: Union[str, AssetCard],
+        model_name_or_card: str | AssetCard,
         *,
-        gangs: Optional[dict[str, Gang]] = None,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        gangs: dict[str, Gang] | None = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
         force: bool = False,
         progress: bool = True,
     ) -> ModelT:
@@ -407,7 +407,7 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
 
         self._loaders[family] = loader
 
-    def supports(self, model_name_or_card: Union[str, AssetCard]) -> bool:
+    def supports(self, model_name_or_card: str | AssetCard) -> bool:
         """Return ``True`` if the specified model has a registered loader."""
         if isinstance(model_name_or_card, AssetCard):
             card = model_name_or_card

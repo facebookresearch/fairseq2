@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
-from typing import Any, Optional, final
+from typing import Any, final
 
 from torcheval.metrics import Metric
 from torcheval.metrics.toolkit import sync_and_compute_collection
@@ -23,7 +23,7 @@ class MetricBag:
     _gang: Gang
     _metrics: dict[str, Metric[Any]]
     _persistent_metrics: dict[str, Metric[Any]]
-    _original_metrics: Optional[dict[str, Metric[Any]]]
+    _original_metrics: dict[str, Metric[Any]] | None
 
     def __init__(self, gang: Gang) -> None:
         """
@@ -141,7 +141,7 @@ class MetricBag:
                 metric.reset()
 
     @final
-    def sync_and_compute_metrics(self) -> Optional[dict[str, Any]]:
+    def sync_and_compute_metrics(self) -> dict[str, Any] | None:
         """Sync the metrics across all processes and compute their values."""
         return sync_and_compute_metrics([self])
 
@@ -187,7 +187,7 @@ def reset_non_persistent_metrics(bags: Sequence[MetricBag]) -> None:
         bag.reset_non_persistent_metrics()
 
 
-def sync_and_compute_metrics(bags: Sequence[MetricBag]) -> Optional[dict[str, Any]]:
+def sync_and_compute_metrics(bags: Sequence[MetricBag]) -> dict[str, Any] | None:
     """Sync the metrics across all processes and and compute their values."""
     if not bags:
         return None

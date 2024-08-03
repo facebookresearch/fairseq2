@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Optional, final
+from typing import final
 
 import torch
 import torch.nn as nn
@@ -43,8 +43,8 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
         dropout_p: float = 0.0,
         layer_norm: bool = False,
         gradient_scale: float = 1.0,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param layer_descs:
@@ -134,8 +134,8 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
 
     @override
     def forward(
-        self, seqs: Tensor, padding_mask: Optional[PaddingMask]
-    ) -> tuple[Tensor, Optional[PaddingMask]]:
+        self, seqs: Tensor, padding_mask: PaddingMask | None
+    ) -> tuple[Tensor, PaddingMask | None]:
         """See the base :meth:`SequenceFeatureExtractor.forward`.
 
         :param seqs:
@@ -197,9 +197,9 @@ class Wav2Vec2FeatureExtractionLayer(Module):
     :class:`Wav2Vec2FeatureExtractor`."""
 
     conv: Conv1d
-    dropout: Optional[Dropout]
-    group_norm: Optional[GroupNorm]
-    layer_norm: Optional[LayerNorm]
+    dropout: Dropout | None
+    group_norm: GroupNorm | None
+    layer_norm: LayerNorm | None
     activation: GELU
 
     def __init__(
@@ -211,10 +211,10 @@ class Wav2Vec2FeatureExtractionLayer(Module):
         bias: bool,
         *,
         dropout_p: float = 0.0,
-        group_norm: Optional[GroupNorm] = None,
-        layer_norm: Optional[LayerNorm] = None,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        group_norm: GroupNorm | None = None,
+        layer_norm: LayerNorm | None = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         super().__init__()
 
@@ -302,8 +302,8 @@ class Wav2Vec2FbankFeatureExtractor(SequenceFeatureExtractor):
 
     @override
     def forward(
-        self, seqs: Tensor, padding_mask: Optional[PaddingMask]
-    ) -> tuple[Tensor, Optional[PaddingMask]]:
+        self, seqs: Tensor, padding_mask: PaddingMask | None
+    ) -> tuple[Tensor, PaddingMask | None]:
         """See the base :meth:`SequenceFeatureExtractor.forward`.
 
         :param seqs:

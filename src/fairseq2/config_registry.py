@@ -6,8 +6,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Set
-from typing import Callable, Generic, Optional, Protocol, TypeVar, final
+from collections.abc import Callable, Set
+from typing import Generic, Protocol, TypeVar, final
 
 from fairseq2.typing import DataClass
 from fairseq2.utils.dataclass import empty, update_dataclass
@@ -35,7 +35,7 @@ class ConfigRegistry(Generic[ConfigT]):
         self,
         name: str,
         *,
-        overwrite: Optional[ConfigT] = None,
+        overwrite: ConfigT | None = None,
         return_empty: bool = False,
     ) -> ConfigT:
         """Return the configuration of ``name``.

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, Optional, Union
+from typing import Literal
 
 import torch
 import torch.distributed
@@ -49,12 +49,12 @@ from fairseq2.utils.profiler import Stopwatch
 log = get_log_writer(__name__)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class PreferenceOptimizationConfig:
     """Holds the configuration of a language model preference-finetuning task."""
 
     # Data
-    dataset: Union[str, Path] = "openeft"  # TODO: change!
+    dataset: str | Path = "openeft"  # TODO: change!
     """The name, path, or path to the asset card of the preference optimization dataset."""
 
     max_seq_len: int = 8192
@@ -83,7 +83,7 @@ class PreferenceOptimizationConfig:
     """The configuration for SimPO."""
 
     # Model
-    model: Union[str, Path] = "llama3_8b_instruct"
+    model: str | Path = "llama3_8b_instruct"
     """The name or path to the asset card of the language model to finetune."""
 
     dtype: DataType = torch.bfloat16
@@ -126,7 +126,7 @@ class PreferenceOptimizationConfig:
     gradient_accumulation: int = 1
     """The number of steps to accumulate gradients before an optimizer update."""
 
-    max_gradient_norm: Optional[float] = None
+    max_gradient_norm: float | None = None
     """The maximum gradient norm. If ``None``, no clipping will be applied."""
 
     fp16_loss_scale: tuple[float, float] = (128.0, 0.0001)
@@ -136,30 +136,30 @@ class PreferenceOptimizationConfig:
     max_num_steps: int = 5000
     """The maximum number of steps to train for."""
 
-    max_num_data_epochs: Optional[int] = None
+    max_num_data_epochs: int | None = None
     """The maximum number of data epochs to train for."""
 
     checkpoint_every_n_steps: int = 1000
     """The step interval at which to checkpoint."""
 
-    keep_last_n_checkpoints: Optional[int] = 1
+    keep_last_n_checkpoints: int | None = 1
     """The number of checkpoints to keep. If ``None``, none will be deleted."""
 
-    keep_last_n_models: Optional[int] = None
+    keep_last_n_models: int | None = None
     """The number of checkpoint models to keep."""
 
     publish_metrics_every_n_steps: int = 10
     """The step interval at which to publish training metrics."""
 
     # Checkpoint
-    resume_checkpoint_dir: Optional[Path] = None
+    resume_checkpoint_dir: Path | None = None
     """If not ``None``, adds the specified path to the default asset store."""
 
     # Misc
     seed: int = 2
     """The random number generator seed to use."""
 
-    profile: Optional[tuple[int, int]] = None
+    profile: tuple[int, int] | None = None
     """The number of steps that the PyTorch profiler should skip and then record."""
 
     monitored_gang: bool = False
@@ -323,7 +323,7 @@ def load_preference_finetuner(
 
     # Load the reference model.
     def _load_reference_model(
-        reference_model_path: Union[str, Path],
+        reference_model_path: str | Path,
         reference_dtype: DataType,
         reference_tensor_parallel_size: int,
     ) -> Module:

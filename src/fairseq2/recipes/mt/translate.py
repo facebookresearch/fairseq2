@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, TextIO, final
+from typing import TextIO, final
 
 import torch
 from typing_extensions import override
@@ -45,7 +45,7 @@ from fairseq2.utils.profiler import Stopwatch
 log = get_log_writer(__name__)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class TextTranslateConfig:
     """Holds the configuration of a text translation task."""
 
@@ -72,7 +72,7 @@ class TextTranslateConfig:
     model: AssetReference = "nllb-200_dense_distill_600m"
     """The name of the model to translate with."""
 
-    checkpoint_dir: Optional[Path] = None
+    checkpoint_dir: Path | None = None
     """The checkpoint directory containing models saved by :class:`FileCheckpointManager`."""
 
     dtype: DataType = torch.float16
@@ -82,7 +82,7 @@ class TextTranslateConfig:
     generator: str = "beam_search"
     """The sequence generator."""
 
-    generator_config: Optional[DataClass] = field(
+    generator_config: DataClass | None = field(
         default_factory=lambda: BeamSearchConfig(max_gen_len=(1, 256), echo_prompt=True)
     )
     """The configuration of the sequence generator."""

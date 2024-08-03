@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Optional, Union
 
 from fairseq2.factory_registry import ConfigBoundFactoryRegistry
 from fairseq2.generation.beam_search.factory import beam_search_factories
@@ -25,33 +24,27 @@ from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.typing import DataClass
 
-if TYPE_CHECKING:  # compat: remove when Python 3.9 support is dropped.
-    seq_generator_factories = ConfigBoundFactoryRegistry[
-        [DecoderModel], SequenceGenerator
-    ]()
-else:
-    seq_generator_factories = ConfigBoundFactoryRegistry()
+seq_generator_factories = ConfigBoundFactoryRegistry[
+    [DecoderModel], SequenceGenerator
+]()
 
 seq_generator_factory = seq_generator_factories.decorator
 
-if TYPE_CHECKING:  # compat: remove when Python 3.9 support is dropped.
-    seq2seq_generator_factories = ConfigBoundFactoryRegistry[
-        [EncoderDecoderModel], Seq2SeqGenerator
-    ]()
-else:
-    seq2seq_generator_factories = ConfigBoundFactoryRegistry()
+seq2seq_generator_factories = ConfigBoundFactoryRegistry[
+    [EncoderDecoderModel], Seq2SeqGenerator
+]()
 
 seq2seq_generator_factory = seq2seq_generator_factories.decorator
 
 
-@dataclass
+@dataclass(kw_only=True)
 class SamplingConfig:
     """Holds the configuration of a :class:`SamplingSequenceGenerator`."""
 
     sampler: str = "top-p"
     """The sampler."""
 
-    sampler_config: Optional[DataClass] = field(
+    sampler_config: DataClass | None = field(
         default_factory=lambda: TopPSamplerConfig()
     )
     """The configuration of the sampler."""
@@ -59,10 +52,10 @@ class SamplingConfig:
     min_gen_len: int = 1
     """The minimum generation length."""
 
-    max_gen_len: Union[int, tuple[int, int]] = 2048
+    max_gen_len: int | tuple[int, int] = 2048
     """The maximum generation length."""
 
-    max_seq_len: Optional[int] = None
+    max_seq_len: int | None = None
     """The maximum sequence length including prompt."""
 
     echo_prompt: bool = False
@@ -83,10 +76,10 @@ class SamplingConfig:
     len_penalty: float = 1.0
     """The length penalty."""
 
-    prefill_chunk_size: Optional[int] = 512
+    prefill_chunk_size: int | None = 512
     """The prefill will be performed incrementally by chunks of this size."""
 
-    decode_capacity_increment: Optional[int] = 16
+    decode_capacity_increment: int | None = 16
     """The sequence length capacity will be incremented by multiplies of this value."""
 
 
@@ -163,14 +156,14 @@ def create_sampling_seq2seq_generator(
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class BeamSearchConfig:
     """Holds the configuration of a :class:`BeamSearchSequenceGenerator`."""
 
     algorithm: str = "standard"
     """The beam search algorithm."""
 
-    algorithm_config: Optional[DataClass] = None
+    algorithm_config: DataClass | None = None
     """The configuration of the beam-search algorithm."""
 
     beam_size: int = 5
@@ -179,10 +172,10 @@ class BeamSearchConfig:
     min_gen_len: int = 1
     """The minimum generation length."""
 
-    max_gen_len: Union[int, tuple[int, int]] = 2048
+    max_gen_len: int | tuple[int, int] = 2048
     """The maximum generation length."""
 
-    max_seq_len: Optional[int] = None
+    max_seq_len: int | None = None
     """The maximum sequence length including prompt."""
 
     echo_prompt: bool = False
@@ -200,10 +193,10 @@ class BeamSearchConfig:
     len_penalty: float = 1.0
     """The length penalty."""
 
-    prefill_chunk_size: Optional[int] = 512
+    prefill_chunk_size: int | None = 512
     """The prefill will be performed incrementally by chunks of this size."""
 
-    decode_capacity_increment: Optional[int] = 16
+    decode_capacity_increment: int | None = 16
     """The sequence length capacity will be incremented by multiplies of this value."""
 
 

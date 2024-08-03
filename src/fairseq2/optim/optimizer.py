@@ -7,15 +7,14 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Iterable
-from typing import Any, Callable, Optional, Union, final
+from collections.abc import Callable, Iterable
+from typing import Any, TypeAlias, final
 
 import torch
 from torch import Tensor
 from torch.optim import Optimizer
-from typing_extensions import TypeAlias
 
-ParameterCollection: TypeAlias = Union[Iterable[Tensor], Iterable[dict[str, Any]]]
+ParameterCollection: TypeAlias = Iterable[Tensor] | Iterable[dict[str, Any]]
 
 
 class AbstractOptimizer(ABC, Optimizer):
@@ -23,8 +22,8 @@ class AbstractOptimizer(ABC, Optimizer):
 
     @final
     def step(  # type: ignore[override]
-        self, closure: Optional[Callable[[], float]] = None
-    ) -> Optional[float]:
+        self, closure: Callable[[], float] | None = None
+    ) -> float | None:
         loss = None
 
         prev_grad = torch.is_grad_enabled()

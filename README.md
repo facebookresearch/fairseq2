@@ -93,19 +93,19 @@ matrix shows the supported combinations.
     <tr>
       <td rowspan=3><code>HEAD</code></td>
       <td><code>2.4.0</code></td>
-      <td><code>&gt;=3.9</code>, <code>&lt;=3.12</code></td>
+      <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
       <td><code>cpu</code>, <code>cu118</code>, <code>cu121</code></td>
       <td><code>x86_64</code></td>
     </tr>
     <tr>
       <td><code>2.3.0</code>, <code>2.3.1</code></td>
-      <td><code>&gt;=3.9</code>, <code>&lt;=3.12</code></td>
+      <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
       <td><code>cpu</code>, <code>cu118</code>, <code>cu121</code></td>
       <td><code>x86_64</code></td>
     </tr>
     <tr>
       <td><code>2.2.0</code>, <code>2.2.1</code>, <code>2.2.2</code></td>
-      <td><code>&gt;=3.9</code>, <code>&lt;=3.12</code></td>
+      <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
       <td><code>cpu</code>, <code>cu118</code>, <code>cu121</code></td>
       <td><code>x86_64</code></td>
     </tr>

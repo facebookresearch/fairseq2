@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Union, cast, final
+from typing import cast, final
 
 import torch
 import torch.distributed
@@ -27,7 +27,7 @@ from fairseq2.typing import DataType
 log = get_log_writer(__name__)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class DpoFinetuneConfig:
     """Holds the DPO-finetuning configuration of a language model."""
 
@@ -39,7 +39,7 @@ class DpoFinetuneConfig:
     """The coefficient of NLL loss added to the DPO loss."""
 
     # Reference Model
-    reference_model: Union[str, Path] = "llama3_8b_instruct"
+    reference_model: str | Path = "llama3_8b_instruct"
     """The name or path to the asset card of the reference model to use."""
 
     reference_dtype: DataType = torch.bfloat16

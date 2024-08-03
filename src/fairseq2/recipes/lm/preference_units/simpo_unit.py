@@ -25,7 +25,7 @@ from fairseq2.recipes.trainer import AbstractTrainUnit
 log = get_log_writer(__name__)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class SimpoFinetuneConfig:
     """Holds the SimPO-finetuning configuration of a language model."""
 

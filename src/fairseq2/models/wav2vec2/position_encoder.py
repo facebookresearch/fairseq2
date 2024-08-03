@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import Optional, final
+from typing import final
 from warnings import catch_warnings
 
 import torch.nn as nn
@@ -37,8 +37,8 @@ class Wav2Vec2PositionEncoder(PositionEncoder):
         kernel_size: int,
         num_groups: int,
         *,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param model_dim:
@@ -68,8 +68,8 @@ class Wav2Vec2PositionEncoder(PositionEncoder):
     def _do_forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
-        state_bag: Optional[IncrementalStateBag],
+        padding_mask: PaddingMask | None,
+        state_bag: IncrementalStateBag | None,
     ) -> Tensor:
         """:meta private:"""
         if state_bag is not None:
@@ -151,8 +151,8 @@ class Wav2Vec2StackedPositionEncoder(PositionEncoder):
         num_groups: int,
         num_layers: int,
         *,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param model_dim:
@@ -186,8 +186,8 @@ class Wav2Vec2StackedPositionEncoder(PositionEncoder):
     def _do_forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
-        state_bag: Optional[IncrementalStateBag],
+        padding_mask: PaddingMask | None,
+        state_bag: IncrementalStateBag | None,
     ) -> Tensor:
         """:meta private:"""
         if state_bag is not None:
@@ -225,8 +225,8 @@ class Wav2Vec2PositionEncoderLayer(Module):
         kernel_size: int,
         num_groups: int,
         *,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         super().__init__()
 

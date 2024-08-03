@@ -9,7 +9,7 @@ from __future__ import annotations
 import sys
 from argparse import ArgumentParser, Namespace
 from datetime import timedelta
-from typing import Optional, final
+from typing import final
 
 import torch
 from typing_extensions import override
@@ -233,7 +233,7 @@ class ChatbotCommandHandler(CliCommandHandler):
                 raise
         else:
             while True:
-                message_buffer: list[Optional[ChatMessage]] = [None]
+                message_buffer: list[ChatMessage | None] = [None]
 
                 gang.broadcast_objects(message_buffer)
 

@@ -6,7 +6,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Optional, Union
+from collections.abc import Callable
+from typing import Any
 
 from fairseq2.data.data_pipeline import Collater, create_bucket_sizes, read_sequence
 from fairseq2.datasets.batching import LengthBatching, StaticBatching
@@ -23,7 +24,7 @@ except ImportError:
 else:
     has_datasets = True
 
-Example = Dict[str, Any]
+Example = dict[str, Any]
 
 
 def create_hf_reader(
@@ -31,14 +32,14 @@ def create_hf_reader(
     gang: Gang,
     converter: Callable[[Example], BatchT],
     *,
-    batching: Optional[Union[StaticBatching, LengthBatching]] = None,
-    max_seq_len: Optional[int] = None,
+    batching: StaticBatching | LengthBatching | None = None,
+    max_seq_len: int | None = None,
     drop_remainder: bool = False,
     min_seq_len: int = 0,
-    seq_len_col: Optional[str] = None,
+    seq_len_col: str | None = None,
     num_accumulate: int = 1,
     num_prefetch: int = 1,
-    pad_value: Optional[int] = None,
+    pad_value: int | None = None,
     **extra: Any,
 ) -> DataPipelineReader[BatchT]:
     """

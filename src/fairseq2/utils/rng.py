@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Iterator, Mapping
 from contextlib import AbstractContextManager, contextmanager, nullcontext
-from typing import Any, Optional, final
+from typing import Any, final
 
 import torch
 from torch import Generator, Tensor
@@ -144,7 +144,7 @@ class RngBag:
 
 
 def temporary_manual_seed(
-    devices: Iterable[Device], seed: Optional[int]
+    devices: Iterable[Device], seed: int | None
 ) -> AbstractContextManager[None]:
     """Temporarily change the seed of the random number generators of ``devices``.
 

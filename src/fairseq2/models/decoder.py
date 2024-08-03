@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Optional
 
 from torch import Tensor
 from typing_extensions import override
@@ -50,10 +49,10 @@ class DecoderModel(SequenceModel):
     def decode(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
+        padding_mask: PaddingMask | None,
         *,
-        state_bag: Optional[IncrementalStateBag] = None,
-    ) -> tuple[Tensor, Optional[PaddingMask]]:
+        state_bag: IncrementalStateBag | None = None,
+    ) -> tuple[Tensor, PaddingMask | None]:
         """Decode the specified sequences.
 
         :param seqs:
@@ -77,7 +76,7 @@ class DecoderModel(SequenceModel):
 
     @abstractmethod
     def project(
-        self, decoder_output: Tensor, decoder_padding_mask: Optional[PaddingMask]
+        self, decoder_output: Tensor, decoder_padding_mask: PaddingMask | None
     ) -> SequenceModelOutput:
         """Produce logits for next-step prediction.
 

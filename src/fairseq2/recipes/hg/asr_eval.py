@@ -8,7 +8,7 @@ import itertools
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, List, Optional, Tuple, cast
+from typing import Any, cast
 
 import torch
 from datasets import (  # type: ignore[attr-defined,import-untyped,import-not-found]
@@ -35,7 +35,7 @@ from fairseq2.utils.profiler import Stopwatch
 log = get_log_writer(__name__)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class AsrEvalConfig:
     """Holds the configuration of a ASR evaluation recipe."""
 
@@ -68,14 +68,14 @@ class AsrEvalConfig:
     normalize_audio: bool = False
     """If ``True``, normalizes audio to have zero mean and unit variance."""
 
-    max_samples: Optional[int] = None
+    max_samples: int | None = None
     """Maximum number of samples from the dataset to be evaluated. Used
     e.g. for debugging. Default is None, meaning all samples will be evaluated"""
 
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
 
-    checkpoint_dir: Optional[Path] = None
+    checkpoint_dir: Path | None = None
     """The checkpoint directory containing models saved by a :class:`FileCheckpointManager`."""
 
     dtype: DataType = torch.float16
@@ -151,7 +151,7 @@ def _preprocess_example(
     return {"audio": audio_tensor, "text": text_tensor}
 
 
-def seq2seq_preprocessor(batch: Seq2SeqBatch) -> Tuple[SequenceBatch, SequenceBatch]:
+def seq2seq_preprocessor(batch: Seq2SeqBatch) -> tuple[SequenceBatch, SequenceBatch]:
     return SequenceBatch(batch.source_seqs, batch.source_padding_mask), SequenceBatch(
         batch.target_seqs, batch.target_padding_mask
     )
@@ -159,7 +159,7 @@ def seq2seq_preprocessor(batch: Seq2SeqBatch) -> Tuple[SequenceBatch, SequenceBa
 
 def postprocesser(
     outputs: Any, targets: SequenceBatch, tokenizer: TextTokenizer
-) -> Tuple[List[str], List[str]]:
+) -> tuple[list[str], list[str]]:
     decoder = tokenizer.create_decoder()
     pad_idx = tokenizer.vocab_info.pad_idx
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections import OrderedDict
-from typing import MutableSequence, Optional, Protocol, final
+from typing import MutableSequence, Protocol, final
 
 import torch
 import torch.nn as nn
@@ -54,13 +54,13 @@ class MultiheadAttention(Module, ABC):
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
+        padding_mask: PaddingMask | None,
         keys: Tensor,
-        key_padding_mask: Optional[PaddingMask],
+        key_padding_mask: PaddingMask | None,
         values: Tensor,
         *,
-        attn_mask: Optional[AttentionMask] = None,
-        state_bag: Optional[IncrementalStateBag] = None,
+        attn_mask: AttentionMask | None = None,
+        state_bag: IncrementalStateBag | None = None,
     ) -> Tensor:
         """
         :param seqs:
@@ -175,35 +175,35 @@ class StandardMultiheadAttention(MultiheadAttention):
     q_proj: Projection
     k_proj: Projection
     v_proj: Projection
-    attn_mask_factory: Optional[AttentionMaskFactory]
-    pos_encoder: Optional[PositionEncoder]
-    bias_k: Optional[Parameter]
-    bias_v: Optional[Parameter]
+    attn_mask_factory: AttentionMaskFactory | None
+    pos_encoder: PositionEncoder | None
+    bias_k: Parameter | None
+    bias_v: Parameter | None
     add_zero_attn: bool
     sdpa: SDPA
-    head_scale_weight: Optional[Parameter]
+    head_scale_weight: Parameter | None
     output_proj: Projection
-    state_factory: Optional[AttentionStateFactory]
+    state_factory: AttentionStateFactory | None
 
     def __init__(
         self,
         model_dim: int,
         num_heads: int,
         *,
-        kv_dim: Optional[int] = None,
-        num_key_value_heads: Optional[int] = None,
-        q_proj: Optional[Projection] = None,
-        k_proj: Optional[Projection] = None,
-        v_proj: Optional[Projection] = None,
-        attn_mask_factory: Optional[AttentionMaskFactory] = None,
-        pos_encoder: Optional[PositionEncoder] = None,
-        sdpa: Optional[SDPA] = None,
+        kv_dim: int | None = None,
+        num_key_value_heads: int | None = None,
+        q_proj: Projection | None = None,
+        k_proj: Projection | None = None,
+        v_proj: Projection | None = None,
+        attn_mask_factory: AttentionMaskFactory | None = None,
+        pos_encoder: PositionEncoder | None = None,
+        sdpa: SDPA | None = None,
         scale_heads: bool = False,
-        output_proj: Optional[Projection] = None,
+        output_proj: Projection | None = None,
         bias: bool = True,
-        state_factory: Optional[AttentionStateFactory] = None,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        state_factory: AttentionStateFactory | None = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param model_dim:
@@ -387,13 +387,13 @@ class StandardMultiheadAttention(MultiheadAttention):
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
+        padding_mask: PaddingMask | None,
         keys: Tensor,
-        key_padding_mask: Optional[PaddingMask],
+        key_padding_mask: PaddingMask | None,
         values: Tensor,
         *,
-        attn_mask: Optional[AttentionMask] = None,
-        state_bag: Optional[IncrementalStateBag] = None,
+        attn_mask: AttentionMask | None = None,
+        state_bag: IncrementalStateBag | None = None,
     ) -> Tensor:
         # (N, S, M) -> (N, H, S, K_h)
         q = self._project_q(seqs, padding_mask, state_bag)
@@ -493,8 +493,8 @@ class StandardMultiheadAttention(MultiheadAttention):
     def _project_q(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
-        state_bag: Optional[IncrementalStateBag] = None,
+        padding_mask: PaddingMask | None,
+        state_bag: IncrementalStateBag | None = None,
     ) -> Tensor:
         # (N, S, M) -> (N, S, K_proj)
         q = self.q_proj(seqs)
@@ -510,9 +510,9 @@ class StandardMultiheadAttention(MultiheadAttention):
     def _project_kv(
         self,
         keys: Tensor,
-        key_padding_mask: Optional[PaddingMask],
+        key_padding_mask: PaddingMask | None,
         values: Tensor,
-        state_bag: Optional[IncrementalStateBag] = None,
+        state_bag: IncrementalStateBag | None = None,
     ) -> tuple[Tensor, Tensor]:
         # (N, S, K) -> (N, S, K_proj)
         k = self.k_proj(keys)
@@ -596,7 +596,7 @@ class AttentionStateFactory(Protocol):
     """Constructs instances of :class:`AttentionState`."""
 
     def __call__(
-        self, k: Tensor, v: Tensor, max_seq_len: int, capacity_increment: Optional[int]
+        self, k: Tensor, v: Tensor, max_seq_len: int, capacity_increment: int | None
     ) -> AttentionState:
         """
         :param k:
@@ -632,12 +632,12 @@ class FullAttentionState(AttentionState):
     is the number of heads, :math:`S_{rsv}` is the reserved sequence length
     capacity, and :math:`V_{proj}` is the projected value size."""
 
-    _capacity_increment: Optional[int]
+    _capacity_increment: int | None
     """The sequence length capacity of :attr:`k` and :attr:`v` is incremented by
     multiples of this value."""
 
     def __init__(
-        self, k: Tensor, v: Tensor, max_seq_len: int, capacity_increment: Optional[int]
+        self, k: Tensor, v: Tensor, max_seq_len: int, capacity_increment: int | None
     ) -> None:
         if capacity_increment is not None and capacity_increment < 1:
             raise ValueError(
@@ -754,7 +754,7 @@ class LocalAttentionState(AttentionState):
     reserved sequence length capacity, and :math:`V_{proj}` is the projected
     value size."""
 
-    _capacity_increment: Optional[int]
+    _capacity_increment: int | None
     """The sequence length capacity of :attr:`k` and :attr:`v` is incremented by
     multiples of this value."""
 
@@ -764,7 +764,7 @@ class LocalAttentionState(AttentionState):
         v: Tensor,
         max_seq_len: int,
         attn_window_len: int,
-        capacity_increment: Optional[int],
+        capacity_increment: int | None,
     ) -> None:
         if capacity_increment is not None and capacity_increment < 1:
             raise ValueError(
@@ -890,7 +890,7 @@ class LocalAttentionStateFactory(AttentionStateFactory):
         k: Tensor,
         v: Tensor,
         max_seq_len: int,
-        capacity_increment: Optional[int],
+        capacity_increment: int | None,
     ) -> LocalAttentionState:
         return LocalAttentionState(
             k, v, max_seq_len, self._attn_window_len, capacity_increment
@@ -909,7 +909,7 @@ class StaticAttentionState(AttentionState):
     _v: Tensor
 
     def __init__(
-        self, k: Tensor, v: Tensor, max_seq_len: int, capacity_increment: Optional[int]
+        self, k: Tensor, v: Tensor, max_seq_len: int, capacity_increment: int | None
     ) -> None:
         self._k = k
         self._v = v

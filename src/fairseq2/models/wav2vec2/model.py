@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, final
+from typing import final
 
 import torch
 from torch import Tensor
@@ -54,8 +54,8 @@ class Wav2Vec2Model(Model):
         final_proj_bias: bool = True,
         num_distractors: int = 100,
         logit_temp: float = 0.1,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param encoder_frontend:
@@ -135,8 +135,8 @@ class Wav2Vec2Model(Model):
         )
 
     def run_frontend(
-        self, seqs: Tensor, padding_mask: Optional[PaddingMask]
-    ) -> tuple[Tensor, Optional[PaddingMask], Tensor, Tensor]:
+        self, seqs: Tensor, padding_mask: PaddingMask | None
+    ) -> tuple[Tensor, PaddingMask | None, Tensor, Tensor]:
         """Run the encoder frontend in pretraining mode.
 
         :param seqs:
@@ -307,7 +307,7 @@ class Wav2Vec2Features:
     :math:`N` is the batch size, :math:`S_{enc}` is the encoder output sequence
     length, and :math:`M` is the dimensionality of the model."""
 
-    encoder_padding_mask: Optional[PaddingMask]
+    encoder_padding_mask: PaddingMask | None
     """The padding mask of :attr:`encoder_output`. *Shape:* :math:`(N,S_{enc})`,
     where :math:`N` is the batch size and :math:`S_{enc}` is the encoder output
     sequence length."""
@@ -354,7 +354,7 @@ class Wav2Vec2Output:
     :math:`N` is the batch size, :math:`S_{enc}` is the encoder output sequence
     length, and :math:`M` is the dimensionality of the model."""
 
-    encoder_padding_mask: Optional[PaddingMask]
+    encoder_padding_mask: PaddingMask | None
     """The padding mask of :attr:`encoder_output`. *Shape:* :math:`(N,S_{enc})`,
     where :math:`N` is the batch size and :math:`S_{enc}` is the encoder output
     sequence length."""

@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import math
 from abc import ABC, abstractmethod
-from typing import Callable, Optional, final
+from collections.abc import Callable
+from typing import final
 
 import torch
 import torch.nn as nn
@@ -27,9 +28,9 @@ class PositionEncoder(Module, ABC):
     """Encodes sequences with positional information."""
 
     encoding_dim: int
-    max_seq_len: Optional[int]
+    max_seq_len: int | None
 
-    def __init__(self, encoding_dim: int, max_seq_len: Optional[int]) -> None:
+    def __init__(self, encoding_dim: int, max_seq_len: int | None) -> None:
         """
         :param encoding_dim:
             The dimensionality of positional encodings.
@@ -44,9 +45,9 @@ class PositionEncoder(Module, ABC):
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
+        padding_mask: PaddingMask | None,
         *,
-        state_bag: Optional[IncrementalStateBag] = None,
+        state_bag: IncrementalStateBag | None = None,
     ) -> Tensor:
         """
         :param seqs:
@@ -82,8 +83,8 @@ class PositionEncoder(Module, ABC):
     def _do_forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
-        state_bag: Optional[IncrementalStateBag],
+        padding_mask: PaddingMask | None,
+        state_bag: IncrementalStateBag | None,
     ) -> Tensor:
         """
         :param seqs:
@@ -161,8 +162,8 @@ class SinusoidalPositionEncoder(PositionEncoder):
         encoding_dim: int,
         max_seq_len: int,
         *,
-        _legacy_pad_idx: Optional[int] = None,
-        device: Optional[Device] = None,
+        _legacy_pad_idx: int | None = None,
+        device: Device | None = None,
     ) -> None:
         super().__init__(encoding_dim, max_seq_len)
 
@@ -226,8 +227,8 @@ class SinusoidalPositionEncoder(PositionEncoder):
     def _do_forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
-        state_bag: Optional[IncrementalStateBag],
+        padding_mask: PaddingMask | None,
+        state_bag: IncrementalStateBag | None,
     ) -> Tensor:
         """:meta private:"""
         seq_len = seqs.size(-2)
@@ -269,8 +270,8 @@ class LearnedPositionEncoder(PositionEncoder):
         encoding_dim: int,
         max_seq_len: int,
         *,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         super().__init__(encoding_dim, max_seq_len)
 
@@ -288,8 +289,8 @@ class LearnedPositionEncoder(PositionEncoder):
     def _do_forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
-        state_bag: Optional[IncrementalStateBag],
+        padding_mask: PaddingMask | None,
+        state_bag: IncrementalStateBag | None,
     ) -> Tensor:
         """:meta private:"""
         seq_len = seqs.size(-2)
@@ -313,7 +314,7 @@ class RotaryEncoder(PositionEncoder):
 
     freqs: Tensor
     theta: float
-    freqs_init_fn: Optional[Callable[[RotaryEncoder], Tensor]]
+    freqs_init_fn: Callable[[RotaryEncoder], Tensor] | None
 
     def __init__(
         self,
@@ -321,8 +322,8 @@ class RotaryEncoder(PositionEncoder):
         max_seq_len: int,
         *,
         theta: float = 10_000.0,
-        freqs_init_fn: Optional[Callable[[RotaryEncoder], Tensor]] = None,
-        device: Optional[Device] = None,
+        freqs_init_fn: Callable[[RotaryEncoder], Tensor] | None = None,
+        device: Device | None = None,
     ) -> None:
         """
         :param theta:
@@ -384,8 +385,8 @@ class RotaryEncoder(PositionEncoder):
     def _do_forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
-        state_bag: Optional[IncrementalStateBag],
+        padding_mask: PaddingMask | None,
+        state_bag: IncrementalStateBag | None,
     ) -> Tensor:
         """:meta private:"""
         seq_len = seqs.size(-2)

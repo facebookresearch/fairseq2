@@ -9,7 +9,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from itertools import count
 from pathlib import Path
-from typing import Generic, Optional, TypeVar, final
+from typing import Generic, TypeVar, final
 
 import torch
 from torch.nn import Module
@@ -91,9 +91,9 @@ class Generator(Generic[BatchT]):
         data_reader: DataReader[BatchT],
         root_gang: Gang,
         wall_watch: Stopwatch,
-        dp_gang: Optional[Gang] = None,
-        tp_gang: Optional[Gang] = None,
-        metrics_dir: Optional[Path] = None,
+        dp_gang: Gang | None = None,
+        tp_gang: Gang | None = None,
+        metrics_dir: Path | None = None,
         seed: int = 2,
     ) -> None:
         """

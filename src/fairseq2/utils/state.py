@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
-from typing import Any, Generic, Optional, Protocol, TypeVar, final, runtime_checkable
+from typing import Any, Generic, Protocol, TypeVar, final, runtime_checkable
 
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn import Module
@@ -35,7 +35,7 @@ class StatefulObjectBag:
     """Holds a collection of stateful objects."""
 
     _non_stateful_attrs: set[str]
-    _explicit_stateful_attrs: dict[str, Optional[StateHandler[Any]]]
+    _explicit_stateful_attrs: dict[str, StateHandler[Any] | None]
 
     def __init__(self) -> None:
         super().__init__()  # play nicely as a mixin.
@@ -62,7 +62,7 @@ class StatefulObjectBag:
         self,
         name: str,
         obj: StatefulT,
-        state_handler: Optional[StateHandler[StatefulT]] = None,
+        state_handler: StateHandler[StatefulT] | None = None,
     ) -> None:
         """Add ``obj`` to the bag and preserve its state in ``state_dict``.
 
@@ -182,7 +182,7 @@ class StatefulObjectBag:
                 f"`state_dict` must only contain the states of the attributes of this object, but it contains the following extra keys: {', '.join(extra_keys)}"
             )
 
-    def _is_explicit(self, name: str) -> tuple[bool, Optional[StateHandler[Any]]]:
+    def _is_explicit(self, name: str) -> tuple[bool, StateHandler[Any] | None]:
         try:
             state_handler = self._explicit_stateful_attrs[name]
 

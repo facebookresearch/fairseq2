@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -35,19 +34,19 @@ def pyarrow_cpu(nb_cpu: int) -> Generator[None, None, None]:
 
 
 @contextmanager
-def torch_random_seed(seed: Optional[int] = None) -> Generator[None, None, None]:
+def torch_random_seed(seed: int | None = None) -> Generator[None, None, None]:
     if seed is not None:
         torch.manual_seed(seed)
     yield
 
 
 NestedDict = dict[str, "NestedDictValue"]
-NestedDictValue = Union[torch.Tensor, list[str], pd.Series, NestedDict]
-BatchOutputType = Union[pa.Table, pd.DataFrame, NestedDict]
+NestedDictValue = torch.Tensor | list[str] | pd.Series | NestedDict
+BatchOutputType = pa.Table | pd.DataFrame | NestedDict
 
 
 def from_pyarrow_to_torch_tensor(
-    arr: Union[pa.Array, pa.ChunkedArray], strict: bool = True
+    arr: pa.Array | pa.ChunkedArray, strict: bool = True
 ) -> NestedDictValue:
     """
     struct_array = pa.Array.from_pandas([{"x": 4, "y": "RR"}] * 10)
@@ -113,8 +112,8 @@ def pyarrow_table_to_torch_dict(tt: pa.Table, strict: bool = True) -> NestedDict
 
 def init_parquet_dataset(
     parquet_path: str,
-    filters: Optional[pa.dataset.Expression] = None,
-    filesystem: Optional[pa.fs.FileSystem] = None,
+    filters: pa.dataset.Expression | None = None,
+    filesystem: pa.fs.FileSystem | None = None,
 ) -> pq.ParquetDataset:
     return pq.ParquetDataset(parquet_path, filters=filters, filesystem=filesystem)
 
@@ -136,7 +135,7 @@ def split_fragment_in_row_groups(
 
 
 def add_partitioning_values(
-    table: pa.Table, fragment: pa.dataset.Fragment, columns: Optional[list[str]]
+    table: pa.Table, fragment: pa.dataset.Fragment, columns: list[str] | None
 ) -> pa.Table:
     """
     When loading a single fragment, pyarrow does not add the partitioning columns,
@@ -152,7 +151,7 @@ def add_partitioning_values(
 
 
 def load_one_fragment(
-    fragment: pa.dataset.Fragment, columns: Optional[list[str]] = None
+    fragment: pa.dataset.Fragment, columns: list[str] | None = None
 ) -> pa.Table:
     fragment_columns = columns
     if fragment_columns is not None:
@@ -166,7 +165,7 @@ def load_one_fragment(
 
 def apply_filter(
     table: pa.Table,
-    filters: Optional[pa.dataset.Expression] = None,
+    filters: pa.dataset.Expression | None = None,
     drop_null: bool = True,
 ) -> pa.Table:
     if drop_null:
@@ -240,7 +239,7 @@ class _TableWrapper:
         self.table: pa.Table = table
 
 
-def _to_real_object(x: Union[_TableWrapper, NestedDict]) -> BatchOutputType:
+def _to_real_object(x: _TableWrapper | NestedDict) -> BatchOutputType:
     if isinstance(x, _TableWrapper):
         return x.table
     elif isinstance(x, list):
@@ -264,11 +263,11 @@ def table_func_wrap(func):  # type: ignore
 
 def list_parquet_fragments(
     parquet_path: str,
-    filters: Optional[pa.dataset.Expression] = None,
-    columns: Optional[list[str]] = None,
+    filters: pa.dataset.Expression | None = None,
+    columns: list[str] | None = None,
     split_to_row_groups: bool = True,
-    filesystem: Optional[pa.fs.FileSystem] = None,
-    shuffle_window: Optional[int] = None,
+    filesystem: pa.fs.FileSystem | None = None,
+    shuffle_window: int | None = None,
     seed: int = 2,
 ) -> DataPipelineBuilder:
     dataset = init_parquet_dataset(parquet_path, filters=filters, filesystem=filesystem)
@@ -300,11 +299,11 @@ def list_parquet_fragments(
 
 def build_iterator_over_one_table(
     table: pa.Table,
-    order_by_length: Optional[str] = None,
-    batch_size: Optional[int] = None,
-    max_tokens: Optional[int] = None,
+    order_by_length: str | None = None,
+    batch_size: int | None = None,
+    max_tokens: int | None = None,
     shuffle: bool = True,
-    seed: Optional[int] = None,
+    seed: int | None = None,
     num_parallel_calls: int = 8,
 ) -> DataPipeline:
     random_state = np.random.RandomState(seed)

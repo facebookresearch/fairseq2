@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Optional, final
+from typing import final
 
 import torch
 import torch.nn as nn
@@ -30,7 +30,7 @@ class ShawRelativePositionSDPA(SDPA):
     max_left_rel_pos: int
     max_right_rel_pos: int
     rel_k_embed: StandardEmbedding
-    rel_v_embed: Optional[StandardEmbedding]
+    rel_v_embed: StandardEmbedding | None
     inner_sdpa: SDPA
 
     def __init__(
@@ -39,11 +39,11 @@ class ShawRelativePositionSDPA(SDPA):
         num_heads: int,
         max_left_rel_pos: int,
         *,
-        max_right_rel_pos: Optional[int] = None,
+        max_right_rel_pos: int | None = None,
         use_rel_pos_values: bool = False,
-        inner_sdpa: Optional[SDPA] = None,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        inner_sdpa: SDPA | None = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param model_dim:
@@ -104,12 +104,12 @@ class ShawRelativePositionSDPA(SDPA):
         self,
         seqs: Tensor,
         keys: Tensor,
-        key_padding_mask: Optional[PaddingMask],
+        key_padding_mask: PaddingMask | None,
         values: Tensor,
         *,
-        attn_mask: Optional[AttentionMask] = None,
+        attn_mask: AttentionMask | None = None,
         needs_weights: bool = False,
-    ) -> tuple[Tensor, Optional[Tensor]]:
+    ) -> tuple[Tensor, Tensor | None]:
         q_len = seqs.size(2)
 
         # (S_kv, S_kv)
