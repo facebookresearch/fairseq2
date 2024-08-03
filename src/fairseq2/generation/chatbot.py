@@ -183,5 +183,4 @@ class ChatbotFactory(Protocol):
 
 chatbot_factories = Registry[ChatbotFactory]()
 
-
-register_chatbot = chatbot_factories.decorator
+chatbot_factory = chatbot_factories.decorator

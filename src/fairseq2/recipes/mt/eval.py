@@ -25,9 +25,12 @@ from fairseq2.datasets.parallel_text import (
     load_parallel_text_dataset,
 )
 from fairseq2.gang import Gang
-from fairseq2.generation import Seq2SeqGenerator
-from fairseq2.generation.encoder_decoder import BeamSearchConfig, generator_factories
-from fairseq2.generation.text import SequenceToTextConverter
+from fairseq2.generation import (
+    BeamSearchConfig,
+    Seq2SeqGenerator,
+    SequenceToTextConverter,
+    seq2seq_generator_factories,
+)
 from fairseq2.logging import get_log_writer
 from fairseq2.metrics.text import BleuMetric, ChrfMetric
 from fairseq2.models import load_model
@@ -92,7 +95,7 @@ class MTEvalConfig:
     """The sequence generator."""
 
     generator_config: Optional[DataClass] = field(
-        default_factory=lambda: BeamSearchConfig()
+        default_factory=lambda: BeamSearchConfig(max_gen_len=(1, 256), echo_prompt=True)
     )
     """The configuration of the sequence generator."""
 
@@ -187,7 +190,7 @@ def load_mt_evaluator(
 
     # Initialize the sequence generator.
     try:
-        generator_factory = generator_factories.get(
+        generator_factory = seq2seq_generator_factories.get(
             config.generator, config.generator_config
         )
 

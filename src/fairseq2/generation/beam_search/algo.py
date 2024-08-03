@@ -8,12 +8,10 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol, final
+from typing import Protocol, final
 
 import torch
 from torch import Tensor
-
-from fairseq2.factory_registry import ConfigBoundFactoryRegistry
 
 
 class BeamSearchAlgorithm(Protocol):
@@ -37,6 +35,26 @@ class BeamSearchAlgorithm(Protocol):
             where :math:`N` is the batch size and :math:`S` is the length of the
             beam.
         """
+
+
+@final
+class StandardBeamSearchAlgorithm(BeamSearchAlgorithm):
+    """Represents a standard beam search algoritm."""
+
+    def __call__(self, beam_size: int, lprobs: Tensor, step_scores: Tensor) -> BeamStep:
+        vocab_size = lprobs.size(1)
+
+        # Make the probabilities contain cumulative scores for each hypothesis.
+        # (N, V) + (N, 1) = (N, V)
+        lprobs = lprobs + step_scores[:, -1].unsqueeze(-1)
+
+        # (N, V) -> (N x V)
+        lprobs = lprobs.view(-1)
+
+        # (2 x B)
+        top_scores, top_indices = torch.topk(lprobs, k=min(2 * beam_size, vocab_size))
+
+        return BeamStep(top_indices // vocab_size, top_indices % vocab_size, top_scores)
 
 
 @final
@@ -84,46 +102,3 @@ class BeamStep:
         scores = torch.cat([s.scores for s in steps])
 
         return BeamStep(seq_indices, vocab_indices, scores)
-
-
-# typing_extensions in Python<=3.9 has a bug that causes this line to fail with:
-#    Parameters to generic types must be types. Got []
-# See https://stackoverflow.com/questions/73974069/generic-paramspec-on-python-3-9.
-# See https://github.com/python/typing/discussions/908
-if TYPE_CHECKING:  # compat: remove when Python 3.9 support is dropped.
-    beam_search_factories = ConfigBoundFactoryRegistry[[], BeamSearchAlgorithm]()
-else:
-    beam_search_factories = ConfigBoundFactoryRegistry()
-
-
-register_beam_search = beam_search_factories.decorator
-
-
-@final
-class StandardBeamSearchAlgorithm(BeamSearchAlgorithm):
-    """Represents a standard beam search algoritm."""
-
-    def __call__(self, beam_size: int, lprobs: Tensor, step_scores: Tensor) -> BeamStep:
-        vocab_size = lprobs.size(1)
-
-        # Make the probabilities contain cumulative scores for each hypothesis.
-        # (N, V) + (N, 1) = (N, V)
-        lprobs = lprobs + step_scores[:, -1].unsqueeze(-1)
-
-        # (N, V) -> (N x V)
-        lprobs = lprobs.view(-1)
-
-        # (2 x B)
-        top_scores, top_indices = torch.topk(lprobs, k=min(2 * beam_size, vocab_size))
-
-        return BeamStep(top_indices // vocab_size, top_indices % vocab_size, top_scores)
-
-
-@dataclass
-class StandardBeamSearchConfig:
-    """Holds the configuration of a :class:`StandardBeamSearchConfig`."""
-
-
-beam_search_factories.register(
-    "standard", lambda _: StandardBeamSearchAlgorithm(), StandardBeamSearchConfig
-)

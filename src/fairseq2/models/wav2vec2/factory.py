@@ -13,8 +13,8 @@ from torch.nn import GELU, SiLU
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.models.conformer import ConformerBlock, ConformerConvolution
+from fairseq2.models.factory import model_factories
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
-from fairseq2.models.model import model_factories
 from fairseq2.models.wav2vec2.feature_extractor import (
     Wav2Vec2FbankFeatureExtractor,
     Wav2Vec2FeatureExtractor,

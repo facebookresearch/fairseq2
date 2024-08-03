@@ -25,7 +25,7 @@ from fairseq2.generation.generator import (
     SequenceGeneratorOutput,
     StepHook,
 )
-from fairseq2.generation.sampler import Sampler
+from fairseq2.generation.sampling.sampler import Sampler
 from fairseq2.generation.step_processor import StepProcessor
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.encoder_decoder import EncoderDecoderModel

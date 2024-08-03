@@ -6,16 +6,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from itertools import chain
-from typing import Any, Literal, Union, cast, final
+from typing import Any, Literal, cast, final
 
 import torch
 from torch import Tensor
 from torch.optim.adamw import adamw  # type: ignore[attr-defined]
 from typing_extensions import override
 
-from fairseq2.optim.optimizer import AbstractOptimizer
+from fairseq2.optim.optimizer import AbstractOptimizer, ParameterCollection
 
 
 @final
@@ -29,7 +28,7 @@ class AdamW(AbstractOptimizer):
 
     def __init__(
         self,
-        params: Union[Iterable[Tensor], Iterable[dict[str, Any]]],
+        params: ParameterCollection,
         *,
         lr: float = 1e-3,
         betas: tuple[float, float] = (0.9, 0.999),
@@ -57,8 +56,7 @@ class AdamW(AbstractOptimizer):
         :param amsgrad:
             If ``True``, uses the AMSGrad variant.
         :param maximize:
-            If ``True``, maximizes the parameters based on the objective,
-            instead of minimizing.
+            If ``True``, maximizes the parameters instead of minimizing.
         :param capturable:
             If ``True``, it is safe to capture this instance in a CUDA graph.
         :param differentiable:
@@ -67,10 +65,9 @@ class AdamW(AbstractOptimizer):
             The implementation variant. See :class:`torch.optim.AdamW` for
             details.
         :param use_fp32:
-            If ``True``, stores the optimizer state (e.g. momentum) in single
-            precision (i.e. ``torch.float32``) and, during a ``step()`` call,
-            converts gradients on-the-fly to single precision for better
-            numerical stability for low-precision training.
+            If ``True``, stores the optimizer state in single precision and
+            converts gradients on-the-fly to single precision for numerical
+            stability.
         """
         defaults = {
             "lr": lr,

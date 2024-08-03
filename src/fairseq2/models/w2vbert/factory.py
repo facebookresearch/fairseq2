@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from typing import Final, Optional
 
 from fairseq2.config_registry import ConfigRegistry
-from fairseq2.models.model import model_factories
+from fairseq2.models.factory import model_factories
 from fairseq2.models.w2vbert.model import W2VBertModel
 from fairseq2.models.wav2vec2 import (
     Wav2Vec2Builder,
