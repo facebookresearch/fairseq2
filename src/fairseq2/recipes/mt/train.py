@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, Optional, final
+from typing import Literal, final
 
 import torch
 from torch import Tensor
@@ -55,7 +55,7 @@ from fairseq2.utils.profiler import Stopwatch
 log = get_log_writer(__name__)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class MTTrainConfig:
     """Holds the configuration of a machine translation training task.
 
@@ -95,10 +95,10 @@ class MTTrainConfig:
     model_family: str = "transformer"
     """The family of the model."""
 
-    model_arch: Optional[str] = "nllb_dense_600m"
+    model_arch: str | None = "nllb_dense_600m"
     """The architecture of the model."""
 
-    model_config: Optional[DataClass] = field(
+    model_config: DataClass | None = field(
         default_factory=lambda: transformer_archs.get(
             "nllb_dense_600m", return_empty=True
         )
@@ -118,7 +118,7 @@ class MTTrainConfig:
     optimizer: str = "adamw"
     """The optimizer."""
 
-    optimizer_config: Optional[DataClass] = field(
+    optimizer_config: DataClass | None = field(
         default_factory=lambda: AdamWConfig(lr=0.001, betas=(0.9, 0.98))
     )
     """The configuration of the optimizer."""
@@ -126,12 +126,12 @@ class MTTrainConfig:
     lr_scheduler: str = "myle"
     """The learning rate scheduler."""
 
-    lr_scheduler_config: Optional[DataClass] = field(
+    lr_scheduler_config: DataClass | None = field(
         default_factory=lambda: MyleLRConfig(start_lr=1e-7, num_warmup_steps=8000)
     )
     """The configuration of the learning rate scheduler."""
 
-    max_gradient_norm: Optional[float] = None
+    max_gradient_norm: float | None = None
     """The maximum gradient norm. If ``None``, no clipping will be applied."""
 
     fp16_loss_scale: tuple[float, float] = (128.0, 0.0001)
@@ -147,7 +147,7 @@ class MTTrainConfig:
     max_num_steps: int = 100_000
     """The maximum number of steps to train for."""
 
-    max_num_data_epochs: Optional[int] = None
+    max_num_data_epochs: int | None = None
     """The maximum number of data epochs to train for."""
 
     validate_after_n_steps: int = 0
@@ -166,7 +166,7 @@ class MTTrainConfig:
     """The step interval at which to publish metrics."""
 
     # Checkpoint
-    resume_checkpoint_dir: Optional[Path] = None
+    resume_checkpoint_dir: Path | None = None
     """If not ``None``, adds the specified path to the default asset store."""
 
     # BLEU/chrF++
@@ -176,7 +176,7 @@ class MTTrainConfig:
     generator: str = "beam_search"
     """The sequence generator."""
 
-    generator_config: Optional[DataClass] = field(
+    generator_config: DataClass | None = field(
         default_factory=lambda: BeamSearchConfig(max_gen_len=(1, 256), echo_prompt=True)
     )
     """The configuration of the sequence generator."""
@@ -188,7 +188,7 @@ class MTTrainConfig:
     seed: int = 2
     """The random number generator seed to use."""
 
-    profile: Optional[tuple[int, int]] = None
+    profile: tuple[int, int] | None = None
     """The number of steps that the PyTorch profiler should skip and then record."""
 
     monitored_gang: bool = False

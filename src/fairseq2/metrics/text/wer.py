@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
-from typing import Optional, final
+from typing import final
 
 import editdistance
 import torch
@@ -28,7 +28,7 @@ class WerMetric(Metric[tuple[Tensor, Tensor]]):
     word_err: Tensor
     word_len: Tensor
 
-    def __init__(self, *, device: Optional[Device] = None) -> None:
+    def __init__(self, *, device: Device | None = None) -> None:
         super().__init__(device=device)
 
         dtype = torch.int64
@@ -51,10 +51,10 @@ class WerMetric(Metric[tuple[Tensor, Tensor]]):
         self,
         refs: Sequence[str],
         ref_seqs: Tensor,
-        ref_padding_mask: Optional[PaddingMask],
+        ref_padding_mask: PaddingMask | None,
         hyps: Sequence[str],
         hyp_seqs: Tensor,
-        hyp_padding_mask: Optional[PaddingMask],
+        hyp_padding_mask: PaddingMask | None,
     ) -> Self:
         """
         :param refs:

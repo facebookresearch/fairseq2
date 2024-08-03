@@ -15,7 +15,6 @@ from contextlib import contextmanager
 from logging import Logger
 from pathlib import Path
 from signal import SIG_DFL, SIGINT, raise_signal, signal
-from typing import Optional
 
 import fairseq2n
 import psutil
@@ -58,9 +57,9 @@ def exception_logger(log: LogWriter) -> Iterator[None]:
 def log_config(
     config: DataClass,
     log: LogWriter,
-    file: Optional[Path] = None,
+    file: Path | None = None,
     *,
-    value_converter: Optional[ValueConverter] = None,
+    value_converter: ValueConverter | None = None,
 ) -> None:
     """Log ``config``.
 
@@ -104,7 +103,7 @@ def log_model_config(config: DataClass, log: LogWriter) -> None:
     log.info("Model Config:\n{}", pretty_repr(config, max_width=88))
 
 
-def log_environment_info(log: LogWriter, device: Optional[Device] = None) -> None:
+def log_environment_info(log: LogWriter, device: Device | None = None) -> None:
     """Log information about the host system and the installed software."""
     if isinstance(log, Logger):
         log = LogWriter(log)
@@ -116,12 +115,12 @@ def log_environment_info(log: LogWriter, device: Optional[Device] = None) -> Non
     log_environment_variables(log)
 
 
-def log_system_info(log: LogWriter, device: Optional[Device] = None) -> None:
+def log_system_info(log: LogWriter, device: Device | None = None) -> None:
     """Log information about the host system."""
     if not log.is_enabled_for_info():
         return
 
-    def read_dist_name() -> Optional[str]:
+    def read_dist_name() -> str | None:
         try:
             fp = open("/etc/os-release")
         except OSError:
@@ -234,7 +233,7 @@ def log_system_info(log: LogWriter, device: Optional[Device] = None) -> None:
     log.info("Device - {}", s)
 
 
-def log_software_info(log: LogWriter, device: Optional[Device] = None) -> None:
+def log_software_info(log: LogWriter, device: Device | None = None) -> None:
     """Log information about the installed software."""
     if not log.is_enabled_for_info():
         return
@@ -282,7 +281,7 @@ def log_environment_variables(log: LogWriter) -> None:
     log.info("Environment Variables - {}", ", ".join(kv))
 
 
-def log_model(model: Module, log: LogWriter, *, rank: Optional[int] = None) -> None:
+def log_model(model: Module, log: LogWriter, *, rank: int | None = None) -> None:
     """Log information about ``model``."""
     if not log.is_enabled_for_info():
         return

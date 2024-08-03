@@ -9,9 +9,9 @@ from __future__ import annotations
 import os
 import subprocess
 from abc import ABC, abstractmethod
-from collections.abc import Set
+from collections.abc import Callable, Set
 from random import Random
-from typing import Callable, final
+from typing import final
 
 from typing_extensions import override
 

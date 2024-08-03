@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Final, Optional
+from typing import Final
 
 from torch.nn import GELU, SiLU
 
@@ -51,7 +51,7 @@ from fairseq2.typing import DataType, Device
 WAV2VEC2_FAMILY: Final = "wav2vec2"
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Wav2Vec2Config:
     """Holds the configuration of a wav2vec 2.0 model.
 
@@ -119,7 +119,7 @@ wav2vec2_archs = ConfigRegistry[Wav2Vec2Config]()
 wav2vec2_arch = wav2vec2_archs.decorator
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Wav2Vec2EncoderConfig:
     """Holds the configuration of a wav2vec 2.0 encoder.
 
@@ -237,16 +237,16 @@ class Wav2Vec2Builder:
 
     _config: Wav2Vec2Config
     _encoder_builder: Wav2Vec2EncoderBuilder
-    _device: Optional[Device]
-    _dtype: Optional[DataType]
+    _device: Device | None
+    _dtype: DataType | None
 
     def __init__(
         self,
         config: Wav2Vec2Config,
         encoder_builder: Wav2Vec2EncoderBuilder,
         *,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param config:
@@ -323,16 +323,16 @@ class Wav2Vec2EncoderBuilder:
     """
 
     _config: Wav2Vec2EncoderConfig
-    _device: Optional[Device]
-    _dtype: Optional[DataType]
-    _rel_pos_encoding: Optional[RelativePositionalEncoding]
+    _device: Device | None
+    _dtype: DataType | None
+    _rel_pos_encoding: RelativePositionalEncoding | None
 
     def __init__(
         self,
         config: Wav2Vec2EncoderConfig,
         *,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param config:
@@ -371,7 +371,7 @@ class Wav2Vec2EncoderBuilder:
             dtype=self._dtype,
         )
 
-    def build_feature_extractor(self) -> Optional[SequenceFeatureExtractor]:
+    def build_feature_extractor(self) -> SequenceFeatureExtractor | None:
         """Build a feature extractor."""
         if self._config.use_fbank:
             return Wav2Vec2FbankFeatureExtractor(
@@ -389,7 +389,7 @@ class Wav2Vec2EncoderBuilder:
             dtype=self._dtype,
         )
 
-    def build_position_encoder(self) -> Optional[PositionEncoder]:
+    def build_position_encoder(self) -> PositionEncoder | None:
         """Build a position encoder."""
         if self._config.pos_encoder_type != "conv":
             return None
@@ -533,8 +533,8 @@ class Wav2Vec2EncoderBuilder:
 def create_wav2vec2_model(
     config: Wav2Vec2Config,
     *,
-    device: Optional[Device] = None,
-    dtype: Optional[DataType] = None,
+    device: Device | None = None,
+    dtype: DataType | None = None,
 ) -> Wav2Vec2Model:
     """Create a wav2vec 2.0 model.
 

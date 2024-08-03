@@ -7,20 +7,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 from fairseq2.factory_registry import ConfigBoundFactoryRegistry
 from fairseq2.generation.sampling.sampler import Sampler, TopKSampler, TopPSampler
 
-if TYPE_CHECKING:  # compat: remove when Python 3.9 support is dropped.
-    sampler_factories = ConfigBoundFactoryRegistry[[], Sampler]()
-else:
-    sampler_factories = ConfigBoundFactoryRegistry()
+sampler_factories = ConfigBoundFactoryRegistry[[], Sampler]()
 
 sampler_factory = sampler_factories.decorator
 
 
-@dataclass
+@dataclass(kw_only=True)
 class TopPSamplerConfig:
     """Holds the configuration of a :class:`TopPSampler`."""
 
@@ -33,7 +29,7 @@ def create_top_p_sampler(config: TopPSamplerConfig) -> TopPSampler:
     return TopPSampler(p=config.p)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class TopKSamplerConfig:
     """Holds the configuration of a :class:`TopKSampler`."""
 

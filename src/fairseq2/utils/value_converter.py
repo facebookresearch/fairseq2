@@ -7,22 +7,13 @@
 from __future__ import annotations
 
 import builtins
-import sys
-from collections.abc import Mapping, Sequence, Set
+from collections.abc import Callable, Mapping, Sequence, Set
 from dataclasses import fields, is_dataclass
 from enum import Enum
 from importlib import import_module
 from pathlib import Path
-from typing import (
-    Any,
-    Callable,
-    Final,
-    Literal,
-    Union,
-    get_args,
-    get_origin,
-    get_type_hints,
-)
+from types import UnionType
+from typing import Any, Final, Literal, Union, get_args, get_origin, get_type_hints
 
 import torch
 
@@ -60,6 +51,7 @@ class ValueConverter:
             str:       self._structure_identity,
             tuple:     self._structure_tuple,
             Union:     self._structure_union,
+            UnionType: self._structure_union,
             # fmt: on
         }
 
@@ -81,14 +73,9 @@ class ValueConverter:
             str:       self._unstructure_identity,
             tuple:     self._unstructure_tuple,
             Union:     self._unstructure_union,
+            UnionType: self._unstructure_union,
             # fmt: on
         }
-
-        if sys.version_info >= (3, 10):
-            from types import UnionType
-
-            # Union types in PEP 604 (i.e. pipe) syntax use `types.UnionType`.
-            self._structure_fns[UnionType] = self._structure_union
 
     def structure(self, obj: Any, type_hint: Any, *, set_empty: bool = False) -> Any:
         """

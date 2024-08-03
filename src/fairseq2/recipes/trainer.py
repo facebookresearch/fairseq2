@@ -12,7 +12,7 @@ from contextlib import AbstractContextManager, nullcontext
 from itertools import count
 from pathlib import Path
 from statistics import mean
-from typing import Any, Generic, Optional, TypeVar, final
+from typing import Any, Generic, TypeVar, final
 
 import torch
 import torch.distributed
@@ -121,42 +121,42 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     _optimizer: Optimizer
     _lr_scheduler: LRScheduler
     _loss_scaler: DynamicLossScaler
-    _max_gradient_norm: Optional[float]
+    _max_gradient_norm: float | None
     _step_nr: int
-    _max_num_steps: Optional[int]
+    _max_num_steps: int | None
     _data_epoch_nr: int
-    _max_num_data_epochs: Optional[int]
+    _max_num_data_epochs: int | None
     _repeat_step: bool
     _read_data: bool
     _end_of_data_epoch: bool
     _end_of_data: bool
     _should_stop: bool
-    _score_metric_name: Optional[str]
+    _score_metric_name: str | None
     _lower_better: bool
-    _early_stopper: Optional[EarlyStopper]
-    _best_step_and_score: Optional[tuple[int, float]]
-    _valid_score: Optional[float]
+    _early_stopper: EarlyStopper | None
+    _best_step_and_score: tuple[int, float] | None
+    _valid_score: float | None
     _valid_units: Sequence[EvalUnit[BatchT]]
     _valid_data_readers: Sequence[DataReader[BatchT]]
     _validate_after_n_steps: int
-    _validate_every_n_steps: Optional[int]
+    _validate_every_n_steps: int | None
     _validate_after_n_data_epochs: int
-    _validate_every_n_data_epochs: Optional[int]
+    _validate_every_n_data_epochs: int | None
     _checkpoint_manager: CheckpointManager
     _checkpoint_after_n_steps: int
-    _checkpoint_every_n_steps: Optional[int]
+    _checkpoint_every_n_steps: int | None
     _checkpoint_after_n_data_epochs: int
-    _checkpoint_every_n_data_epochs: Optional[int]
-    _keep_last_n_checkpoints: Optional[int]
-    _keep_best_n_checkpoints: Optional[int]
-    _keep_last_n_models: Optional[int]
-    _keep_best_n_models: Optional[int]
+    _checkpoint_every_n_data_epochs: int | None
+    _keep_last_n_checkpoints: int | None
+    _keep_best_n_checkpoints: int | None
+    _keep_last_n_models: int | None
+    _keep_best_n_models: int | None
     _metric_bag: MetricBag
     _metric_recorders: list[MetricRecorder]
     _publish_metrics_after_n_steps: int
-    _publish_metrics_every_n_steps: Optional[int]
+    _publish_metrics_every_n_steps: int | None
     _publish_metrics_after_n_data_epochs: int
-    _publish_metrics_every_n_data_epochs: Optional[int]
+    _publish_metrics_every_n_data_epochs: int | None
     _profiler: Profiler
     _anomaly_detection: bool
     _seed: int
@@ -177,37 +177,37 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         checkpoint_manager: CheckpointManager,
         wall_watch: Stopwatch,
         dtype: DataType = torch.float32,
-        dp_gang: Optional[Gang] = None,
-        tp_gang: Optional[Gang] = None,
-        lr_scheduler: Optional[LRScheduler] = None,
+        dp_gang: Gang | None = None,
+        tp_gang: Gang | None = None,
+        lr_scheduler: LRScheduler | None = None,
         fp16_loss_scale: tuple[float, float] = (128.0, 0.0001),
-        max_gradient_norm: Optional[float] = None,
-        max_num_steps: Optional[int] = None,
-        max_num_data_epochs: Optional[int] = None,
-        score_metric_name: Optional[str] = None,
+        max_gradient_norm: float | None = None,
+        max_num_steps: int | None = None,
+        max_num_data_epochs: int | None = None,
+        score_metric_name: str | None = None,
         lower_better: bool = False,
-        early_stopper: Optional[EarlyStopper] = None,
-        valid_units: Optional[Sequence[EvalUnit[BatchT]]] = None,
-        valid_data_readers: Optional[Sequence[DataReader[BatchT]]] = None,
+        early_stopper: EarlyStopper | None = None,
+        valid_units: Sequence[EvalUnit[BatchT]] | None = None,
+        valid_data_readers: Sequence[DataReader[BatchT]] | None = None,
         validate_after_n_steps: int = 0,
-        validate_every_n_steps: Optional[int] = None,
+        validate_every_n_steps: int | None = None,
         validate_after_n_data_epochs: int = 0,
-        validate_every_n_data_epochs: Optional[int] = None,
+        validate_every_n_data_epochs: int | None = None,
         checkpoint_after_n_steps: int = 0,
-        checkpoint_every_n_steps: Optional[int] = None,
+        checkpoint_every_n_steps: int | None = None,
         checkpoint_after_n_data_epochs: int = 0,
-        checkpoint_every_n_data_epochs: Optional[int] = None,
-        keep_last_n_checkpoints: Optional[int] = None,
-        keep_best_n_checkpoints: Optional[int] = None,
-        keep_last_n_models: Optional[int] = None,
-        keep_best_n_models: Optional[int] = None,
-        tb_dir: Optional[Path] = None,
-        metrics_dir: Optional[Path] = None,
+        checkpoint_every_n_data_epochs: int | None = None,
+        keep_last_n_checkpoints: int | None = None,
+        keep_best_n_checkpoints: int | None = None,
+        keep_last_n_models: int | None = None,
+        keep_best_n_models: int | None = None,
+        tb_dir: Path | None = None,
+        metrics_dir: Path | None = None,
         publish_metrics_after_n_steps: int = 0,
-        publish_metrics_every_n_steps: Optional[int] = None,
+        publish_metrics_every_n_steps: int | None = None,
         publish_metrics_after_n_data_epochs: int = 0,
-        publish_metrics_every_n_data_epochs: Optional[int] = None,
-        profile: Optional[tuple[int, int]] = None,
+        publish_metrics_every_n_data_epochs: int | None = None,
+        profile: tuple[int, int] | None = None,
         anomaly_detection: bool = False,
         seed: int = 2,
     ) -> None:
@@ -894,7 +894,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
     def _validate_unit(
         self, unit: EvalUnit[BatchT], data_reader: DataReader[BatchT]
-    ) -> Optional[float]:
+    ) -> float | None:
         watch = Stopwatch(start=True, device=self._root_gang.device)
 
         unit.model.eval()
@@ -937,7 +937,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
     def _publish_validation_metrics(
         self, unit: EvalUnit[BatchT], elapsed_time: float
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         log.debug("Syncing validation metrics.")
 
         if self._tp_gang.rank == 0:
@@ -967,9 +967,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         return values
 
-    def _get_unit_score(
-        self, metric_values: Optional[dict[str, Any]]
-    ) -> Optional[float]:
+    def _get_unit_score(self, metric_values: dict[str, Any] | None) -> float | None:
         if metric_values is None:
             return None
 
@@ -987,7 +985,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         return float(score)
 
-    def _compute_valid_score(self, unit_scores: list[float]) -> Optional[float]:
+    def _compute_valid_score(self, unit_scores: list[float]) -> float | None:
         if self._score_metric_name is None:
             return None
 
@@ -1124,7 +1122,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         elif nc is not None:
             self._checkpoint_manager.keep_best_n_checkpoints(nc)
 
-    def _should_do_at_step(self, after_n_steps: int, n_steps: Optional[int]) -> bool:
+    def _should_do_at_step(self, after_n_steps: int, n_steps: int | None) -> bool:
         if self._end_of_data or self._should_stop:
             return self._read_data
 
@@ -1144,7 +1142,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         return self._step_nr % n_steps == 0
 
     def _should_do_at_data_epoch(
-        self, after_n_data_epochs: int, n_data_epochs: Optional[int]
+        self, after_n_data_epochs: int, n_data_epochs: int | None
     ) -> bool:
         if self._end_of_data or self._should_stop:
             return self._read_data

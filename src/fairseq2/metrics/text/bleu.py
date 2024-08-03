@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
-from typing import Optional, final
+from typing import final
 
 import torch
 from sacrebleu import corpus_bleu
@@ -28,7 +28,7 @@ class BleuMetric(Metric[Tensor]):
     valid_ngrams: Tensor
     total_ngrams: Tensor
 
-    def __init__(self, *, device: Optional[Device] = None) -> None:
+    def __init__(self, *, device: Device | None = None) -> None:
         super().__init__(device=device)
 
         dtype = torch.int64

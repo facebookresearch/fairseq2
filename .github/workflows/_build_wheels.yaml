@@ -25,7 +25,7 @@ jobs:
       fail-fast: false
       matrix:
         torch: ['2.2.0', '2.2.1', '2.2.2']
-        py: ['3.9', '3.10', '3.11', '3.12']
+        py: ['3.10', '3.11', '3.12']
         variant: ['cpu', 'cu118', 'cu121']
         sanitizers: ['nosan']
     with:
@@ -42,7 +42,7 @@ jobs:
       fail-fast: false
       matrix:
         torch: ['2.3.0', '2.3.1']
-        py: ['3.9', '3.10', '3.11', '3.12']
+        py: ['3.10', '3.11', '3.12']
         variant: ['cpu', 'cu118', 'cu121']
         sanitizers: ['nosan']
     with:
@@ -59,7 +59,7 @@ jobs:
       fail-fast: false
       matrix:
         torch: ['2.4.0']
-        py: ['3.9', '3.10', '3.11', '3.12']
+        py: ['3.10', '3.11', '3.12']
         variant: ['cpu', 'cu118', 'cu121']
         sanitizers: ['nosan']
         include:
@@ -93,7 +93,7 @@ jobs:
       fail-fast: false
       matrix:
         torch: ['2.4.0']
-        py: ['3.9', '3.10', '3.11', '3.12']
+        py: ['3.10', '3.11', '3.12']
     with:
       torch: ${{ matrix.torch }}
       py: ${{ matrix.py }}
@@ -107,7 +107,7 @@ jobs:
       fail-fast: false
       matrix:
         torch: ['2.4.0']
-        py: ['3.9', '3.10', '3.11', '3.12']
+        py: ['3.10', '3.11', '3.12']
         variant: ['cu121']
     with:
       torch: ${{ matrix.torch }}
@@ -125,7 +125,7 @@ jobs:
       fail-fast: false
       matrix:
         torch: ['2.4.0']
-        py: ['3.9', '3.10', '3.11', '3.12']
+        py: ['3.10', '3.11', '3.12']
     with:
       torch: ${{ matrix.torch }}
       py: ${{ matrix.py }}

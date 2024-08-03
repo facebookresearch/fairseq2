@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from itertools import count
 from pathlib import Path
-from typing import Generic, Optional, TypeVar, final
+from typing import Generic, TypeVar, final
 
 import torch
 from torch.nn import Module
@@ -59,7 +59,7 @@ class EvalUnit(ABC, Generic[BatchT_contra]):
 
     @property
     @abstractmethod
-    def display_name(self) -> Optional[str]:
+    def display_name(self) -> str | None:
         """The display name of the unit for reporting purposes."""
 
     @property
@@ -72,9 +72,9 @@ class AbstractEvalUnit(EvalUnit[BatchT]):
     """Provides a skeletal implementation of :class:`EvalUnit`."""
 
     _model: Module
-    _display_name: Optional[str]
+    _display_name: str | None
 
-    def __init__(self, model: Module, *, display_name: Optional[str] = None) -> None:
+    def __init__(self, model: Module, *, display_name: str | None = None) -> None:
         self._model = model
         self._display_name = display_name
 
@@ -91,7 +91,7 @@ class AbstractEvalUnit(EvalUnit[BatchT]):
     @final
     @property
     @override
-    def display_name(self) -> Optional[str]:
+    def display_name(self) -> str | None:
         return self._display_name
 
 
@@ -116,10 +116,10 @@ class Evaluator(Generic[BatchT]):
         data_readers: Sequence[DataReader[BatchT]],
         root_gang: Gang,
         wall_watch: Stopwatch,
-        dp_gang: Optional[Gang] = None,
-        tp_gang: Optional[Gang] = None,
-        tb_dir: Optional[Path] = None,
-        metrics_dir: Optional[Path] = None,
+        dp_gang: Gang | None = None,
+        tp_gang: Gang | None = None,
+        tb_dir: Path | None = None,
+        metrics_dir: Path | None = None,
         seed: int = 2,
     ) -> None:
         """

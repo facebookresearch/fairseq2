@@ -10,14 +10,14 @@ import json
 import math
 import re
 from abc import ABC, abstractmethod
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from functools import partial
 from logging import Logger
 from pathlib import Path
 from string import capwords
-from typing import Any, Callable, Final, Optional, TextIO, Union, final
+from typing import Any, Final, TextIO, final
 
 from torch import Tensor
 from typing_extensions import override
@@ -25,7 +25,7 @@ from typing_extensions import override
 from fairseq2.logging import LogWriter, get_log_writer
 
 
-def format_as_int(value: Any, *, postfix: Optional[str] = None) -> str:
+def format_as_int(value: Any, *, postfix: str | None = None) -> str:
     """Format metric ``value`` as integer."""
     try:
         i = int(value)
@@ -44,7 +44,7 @@ format_as_seconds = partial(format_as_int, postfix="s")
 """Format metric ``value`` as duration in seconds."""
 
 
-def format_as_float(value: Any, *, postfix: Optional[str] = None) -> str:
+def format_as_float(value: Any, *, postfix: str | None = None) -> str:
     """Format metric ``value`` as float."""
     try:
         s = f"{float(value):g}"
@@ -177,7 +177,7 @@ class MetricRecorder(ABC):
         self,
         run: str,
         values: Mapping[str, Any],
-        step_nr: Optional[int] = None,
+        step_nr: int | None = None,
         *,
         flush: bool = True,
     ) -> None:
@@ -202,7 +202,7 @@ def record_metrics(
     recorders: Sequence[MetricRecorder],
     run: str,
     values: Mapping[str, Any],
-    step_nr: Optional[int] = None,
+    step_nr: int | None = None,
     *,
     flush: bool = True,
 ) -> None:
@@ -229,7 +229,7 @@ class LogMetricRecorder(MetricRecorder):
 
     _log: LogWriter
 
-    def __init__(self, log: Union[LogWriter, Logger]) -> None:
+    def __init__(self, log: LogWriter | Logger) -> None:
         """
         :param log:
             The log writer or logger to use.
@@ -244,7 +244,7 @@ class LogMetricRecorder(MetricRecorder):
         self,
         run: str,
         values: Mapping[str, Any],
-        step_nr: Optional[int] = None,
+        step_nr: int | None = None,
         *,
         flush: bool = True,
     ) -> None:
@@ -308,7 +308,7 @@ class JsonFileMetricRecorder(MetricRecorder):
         self,
         run: str,
         values: Mapping[str, Any],
-        step_nr: Optional[int] = None,
+        step_nr: int | None = None,
         *,
         flush: bool = True,
     ) -> None:
@@ -429,7 +429,7 @@ class TensorBoardRecorder(MetricRecorder):
         self,
         run: str,
         values: Mapping[str, Any],
-        step_nr: Optional[int] = None,
+        step_nr: int | None = None,
         *,
         flush: bool = True,
     ) -> None:
@@ -449,7 +449,7 @@ class TensorBoardRecorder(MetricRecorder):
         if flush:
             writer.flush()
 
-    def _get_writer(self, run: str) -> Optional[SummaryWriter]:
+    def _get_writer(self, run: str) -> SummaryWriter | None:
         if not has_tensorboard:
             return None
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, final
+from typing import TYPE_CHECKING, final
 
 from fairseq2n import DOC_MODE
 from torch import Tensor
@@ -29,7 +29,7 @@ if TYPE_CHECKING or DOC_MODE:
     @final
     class SentencePieceModel:
         def __init__(
-            self, path: Path, control_symbols: Optional[Sequence[str]] = None
+            self, path: Path, control_symbols: Sequence[str] | None = None
         ) -> None:
             ...
 
@@ -40,19 +40,19 @@ if TYPE_CHECKING or DOC_MODE:
             ...
 
         @property
-        def unk_idx(self) -> Optional[int]:
+        def unk_idx(self) -> int | None:
             ...
 
         @property
-        def bos_idx(self) -> Optional[int]:
+        def bos_idx(self) -> int | None:
             ...
 
         @property
-        def eos_idx(self) -> Optional[int]:
+        def eos_idx(self) -> int | None:
             ...
 
         @property
-        def pad_idx(self) -> Optional[int]:
+        def pad_idx(self) -> int | None:
             ...
 
         @property
@@ -64,13 +64,13 @@ if TYPE_CHECKING or DOC_MODE:
         def __init__(
             self,
             model: SentencePieceModel,
-            prefix_tokens: Optional[Sequence[str]] = None,
-            suffix_tokens: Optional[Sequence[str]] = None,
+            prefix_tokens: Sequence[str] | None = None,
+            suffix_tokens: Sequence[str] | None = None,
             reverse: bool = False,
             enable_sampling: bool = False,
             nbest_size: int = -1,
             alpha: float = 0.1,
-            device: Optional[Device] = None,
+            device: Device | None = None,
             pin_memory: bool = False,
         ) -> None:
             ...
@@ -85,12 +85,12 @@ if TYPE_CHECKING or DOC_MODE:
 
         @property
         @override
-        def prefix_indices(self) -> Optional[Tensor]:
+        def prefix_indices(self) -> Tensor | None:
             ...
 
         @property
         @override
-        def suffix_indices(self) -> Optional[Tensor]:
+        def suffix_indices(self) -> Tensor | None:
             ...
 
     @final
@@ -135,7 +135,7 @@ class SentencePieceTokenizer(AbstractTextTokenizer):
     _model: SentencePieceModel
 
     def __init__(
-        self, path: Path, control_symbols: Optional[Sequence[str]] = None
+        self, path: Path, control_symbols: Sequence[str] | None = None
     ) -> None:
         """
         :param path:
@@ -151,7 +151,7 @@ class SentencePieceTokenizer(AbstractTextTokenizer):
 
     @override
     def create_raw_encoder(
-        self, *, device: Optional[Device] = None, pin_memory: bool = False
+        self, *, device: Device | None = None, pin_memory: bool = False
     ) -> SentencePieceEncoder:
         return SentencePieceEncoder(self._model, device=device, pin_memory=pin_memory)
 
@@ -180,10 +180,10 @@ class BasicSentencePieceTokenizer(SentencePieceTokenizer):
     def create_encoder(
         self,
         *,
-        task: Optional[str] = None,
-        lang: Optional[str] = None,
-        mode: Optional[str] = None,
-        device: Optional[Device] = None,
+        task: str | None = None,
+        lang: str | None = None,
+        mode: str | None = None,
+        device: Device | None = None,
         pin_memory: bool = False,
     ) -> SentencePieceEncoder:
         """Create a token encoder.
@@ -206,20 +206,21 @@ class BasicSentencePieceTokenizer(SentencePieceTokenizer):
         if lang is not None:
             raise ValueError(f"`lang` must be `None`, but is '{lang}' instead.")
 
-        if mode is None or mode == "default":
-            prefix_tokens = ["<s>"]
-            suffix_tokens = ["</s>"]
-        elif mode == "prompt":
-            prefix_tokens = ["<s>"]
-            # In prompt mode, we expect the generator to finish the sequence.
-            suffix_tokens = None
-        elif mode == "prompt_response":
-            prefix_tokens = []
-            suffix_tokens = ["</s>"]
-        else:
-            raise ValueError(
-                f"`mode` must be 'default' or 'prompt', but is '{mode}' instead."
-            )
+        match mode:
+            case None | "default":
+                prefix_tokens = ["<s>"]
+                suffix_tokens = ["</s>"]
+            case "prompt":
+                prefix_tokens = ["<s>"]
+                # In prompt mode, we expect the generator to finish the sequence.
+                suffix_tokens = []
+            case "prompt_response":
+                prefix_tokens = []
+                suffix_tokens = ["</s>"]
+            case _:
+                raise ValueError(
+                    f"`mode` must be 'default' or 'prompt', but is '{mode}' instead."
+                )
 
         return SentencePieceEncoder(
             self._model,
@@ -259,10 +260,10 @@ class RawSentencePieceTokenizer(SentencePieceTokenizer):
     def create_encoder(
         self,
         *,
-        task: Optional[str] = None,
-        lang: Optional[str] = None,
-        mode: Optional[str] = None,
-        device: Optional[Device] = None,
+        task: str | None = None,
+        lang: str | None = None,
+        mode: str | None = None,
+        device: Device | None = None,
         pin_memory: bool = False,
     ) -> SentencePieceEncoder:
         """Create a token encoder.

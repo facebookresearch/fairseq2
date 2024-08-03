@@ -9,7 +9,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Optional, Protocol, final
+from typing import Protocol, final
 
 from torch import Tensor
 from torch.utils.hooks import RemovableHandle
@@ -25,7 +25,7 @@ class SequenceGenerator(ABC):
 
     @abstractmethod
     def __call__(
-        self, prompt_seqs: Tensor, prompt_padding_mask: Optional[PaddingMask]
+        self, prompt_seqs: Tensor, prompt_padding_mask: PaddingMask | None
     ) -> SequenceGeneratorOutput:
         """
         :param prompt_seqs:
@@ -112,9 +112,9 @@ class Seq2SeqGenerator(ABC):
     def __call__(
         self,
         source_seqs: Tensor,
-        source_padding_mask: Optional[PaddingMask],
+        source_padding_mask: PaddingMask | None,
         prompt_seqs: Tensor,
-        prompt_padding_mask: Optional[PaddingMask],
+        prompt_padding_mask: PaddingMask | None,
     ) -> Seq2SeqGeneratorOutput:
         """
         :param source_seqs:
@@ -201,7 +201,7 @@ class Seq2SeqGeneratorOutput:
     the encoder output sequence length, and :math:`M` is the dimensionality of
     the model."""
 
-    encoder_padding_mask: Optional[PaddingMask]
+    encoder_padding_mask: PaddingMask | None
     """The padding mask of :attr:`encoder_output`. *Shape:* :math:`(N,S_{enc})`,
     where :math:`N` is the batch size and :math:`S_{enc}` is the encoder output
     sequence length."""
@@ -219,10 +219,10 @@ class Hypothesis:
     """The generated sequence. *Shape:* :math:`(S)`, where :math:`S` is the
     sequence length."""
 
-    score: Optional[Tensor]
+    score: Tensor | None
     """The score of the hypothesis. *Shape:* Scalar."""
 
-    step_scores: Optional[Tensor]
+    step_scores: Tensor | None
     """The score of each sequence step. *Shape:* Same as ``seq``."""
 
 
@@ -255,7 +255,7 @@ class StepHook(Protocol):
         self,
         prompt_indices: Tensor,
         seqs: Tensor,
-        step_scores: Optional[Tensor],
+        step_scores: Tensor | None,
         prefill: bool,
     ) -> None:
         """

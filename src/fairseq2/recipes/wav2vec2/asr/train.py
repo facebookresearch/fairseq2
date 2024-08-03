@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, Optional, final
+from typing import Literal, final
 
 import torch
 from torch import Tensor
@@ -56,7 +56,7 @@ from fairseq2.utils.profiler import Stopwatch
 log = get_log_writer(__name__)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Wav2Vec2AsrTrainConfig:
     """Holds the configuration of a wav2vec 2.0 ASR model training task.
 
@@ -105,10 +105,10 @@ class Wav2Vec2AsrTrainConfig:
     model_family: str = "wav2vec2_asr"
     """The family of the model."""
 
-    model_arch: Optional[str] = "base_10h"
+    model_arch: str | None = "base_10h"
     """The architecture of the model."""
 
-    model_config: Optional[DataClass] = field(
+    model_config: DataClass | None = field(
         default_factory=lambda: wav2vec2_asr_archs.get("base_10h", return_empty=True)
     )
     """The configuration of the model."""
@@ -129,7 +129,7 @@ class Wav2Vec2AsrTrainConfig:
     optimizer: str = "adamw"
     """The optimizer."""
 
-    optimizer_config: Optional[DataClass] = field(
+    optimizer_config: DataClass | None = field(
         default_factory=lambda: AdamWConfig(lr=5e-05, betas=(0.9, 0.98))
     )
     """The configuration of the optimizer."""
@@ -137,7 +137,7 @@ class Wav2Vec2AsrTrainConfig:
     lr_scheduler: str = "tri-stage"
     """The learning rate scheduler."""
 
-    lr_scheduler_config: Optional[DataClass] = field(
+    lr_scheduler_config: DataClass | None = field(
         default_factory=lambda: TriStageLRConfig(
             stage_ratio=(0.1, 0.4, 0.5), start_lr_scale=0.01, final_lr_scale=0.05
         )
@@ -153,7 +153,7 @@ class Wav2Vec2AsrTrainConfig:
     final_lr_scale: float = 0.05
     """The scale of the final learning rate."""
 
-    max_gradient_norm: Optional[float] = None
+    max_gradient_norm: float | None = None
     """The maximum gradient norm. If ``None``, no clipping will be applied."""
 
     fp16_loss_scale: tuple[float, float] = (128.0, 0.0001)
@@ -166,7 +166,7 @@ class Wav2Vec2AsrTrainConfig:
     max_num_steps: int = 20_000
     """The maximum number of steps to train for."""
 
-    max_num_data_epochs: Optional[int] = None
+    max_num_data_epochs: int | None = None
     """The maximum number of data epochs to train for."""
 
     freeze_encoder_for_n_steps: int = 10_000
@@ -184,7 +184,7 @@ class Wav2Vec2AsrTrainConfig:
     checkpoint_every_n_steps: int = 1000
     """The step interval at which to checkpoint."""
 
-    keep_best_n_checkpoints: Optional[int] = None
+    keep_best_n_checkpoints: int | None = None
     """The number of checkpoints to keep based on their validation score. If
     ``None``, none will be deleted."""
 
@@ -192,14 +192,14 @@ class Wav2Vec2AsrTrainConfig:
     """The step interval at which to publish metrics."""
 
     # Checkpoint
-    resume_checkpoint_dir: Optional[Path] = None
+    resume_checkpoint_dir: Path | None = None
     """If not ``None``, adds the specified path to the default asset store."""
 
     # Misc
     seed: int = 2
     """The random number generator seed to use."""
 
-    profile: Optional[tuple[int, int]] = None
+    profile: tuple[int, int] | None = None
     """The number of steps that the PyTorch profiler should skip and then record."""
 
     monitored_gang: bool = False

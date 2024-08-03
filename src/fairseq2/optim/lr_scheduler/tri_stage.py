@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Sequence
-from typing import Optional, Union, final
+from typing import final
 
 from torch.optim import Optimizer
 from typing_extensions import override
@@ -37,8 +37,8 @@ class TriStageLR(AbstractLRScheduler):
     _num_steps: int
     _start_lr_scales: Sequence[float]
     _final_lr_scales: Sequence[float]
-    _start_lrs: Optional[Sequence[float]]
-    _final_lrs: Optional[Sequence[float]]
+    _start_lrs: Sequence[float] | None
+    _final_lrs: Sequence[float] | None
     _num_stage1_steps: int
     _num_stage2_steps: int
     _num_stage3_steps: int
@@ -49,8 +49,8 @@ class TriStageLR(AbstractLRScheduler):
         num_steps: int,
         stage_ratio: tuple[float, float, float],
         *,
-        start_lr_scale: Union[float, Sequence[float]] = 0.01,
-        final_lr_scale: Union[float, Sequence[float]] = 0.01,
+        start_lr_scale: float | Sequence[float] = 0.01,
+        final_lr_scale: float | Sequence[float] = 0.01,
         last_epoch: int = -1,
     ) -> None:
         """

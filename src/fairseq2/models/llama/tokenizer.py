@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Final, Optional, final
+from typing import Final, final
 
 from typing_extensions import override
 
@@ -65,10 +65,10 @@ class LLaMA3Tokenizer(TiktokenTokenizer):
     def create_encoder(
         self,
         *,
-        task: Optional[str] = None,
-        lang: Optional[str] = None,
-        mode: Optional[str] = None,
-        device: Optional[Device] = None,
+        task: str | None = None,
+        lang: str | None = None,
+        mode: str | None = None,
+        device: Device | None = None,
         pin_memory: bool = False,
     ) -> TiktokenEncoder:
         if task is not None:
@@ -77,20 +77,21 @@ class LLaMA3Tokenizer(TiktokenTokenizer):
         if lang is not None:
             raise ValueError(f"`lang` must be `None`, but is '{lang}' instead.")
 
-        if mode is None or mode == "default":
-            prefix_tokens = ["<|begin_of_text|>"]
-            suffix_tokens = [self._eos_token]
-        elif mode == "prompt":
-            prefix_tokens = ["<|begin_of_text|>"]
-            # In prompt mode, we expect the generator to finish the sequence.
-            suffix_tokens = None
-        elif mode == "prompt_response":
-            prefix_tokens = []
-            suffix_tokens = [self._eos_token]
-        else:
-            raise ValueError(
-                f"`mode` must be 'default' or 'prompt', but is '{mode}' instead."
-            )
+        match mode:
+            case None | "default":
+                prefix_tokens = ["<|begin_of_text|>"]
+                suffix_tokens = [self._eos_token]
+            case "prompt":
+                prefix_tokens = ["<|begin_of_text|>"]
+                # In prompt mode, we expect the generator to finish the sequence.
+                suffix_tokens = []
+            case "prompt_response":
+                prefix_tokens = []
+                suffix_tokens = [self._eos_token]
+            case _:
+                raise ValueError(
+                    f"`mode` must be 'default' or 'prompt', but is '{mode}' instead."
+                )
 
         return TiktokenEncoder(
             self._encoding,

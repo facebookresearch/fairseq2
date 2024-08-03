@@ -10,7 +10,7 @@ import os
 import re
 from collections.abc import Mapping, MutableMapping, Set
 from pathlib import Path
-from typing import Any, Final, Optional, TypeVar, final
+from typing import Any, Final, TypeVar, final
 from urllib.parse import urlparse, urlunparse
 
 from fairseq2.assets.error import AssetError
@@ -25,10 +25,10 @@ class AssetCard:
 
     _name: str
     _metadata: MutableMapping[str, Any]
-    _base: Optional[AssetCard]
+    _base: AssetCard | None
 
     def __init__(
-        self, metadata: MutableMapping[str, Any], base: Optional[AssetCard] = None
+        self, metadata: MutableMapping[str, Any], base: AssetCard | None = None
     ) -> None:
         """
         :param metadata:
@@ -143,7 +143,7 @@ class AssetCard:
         return self._metadata
 
     @property
-    def base(self) -> Optional[AssetCard]:
+    def base(self) -> AssetCard | None:
         """The card that this card derives from."""
         return self._base
 
@@ -187,7 +187,7 @@ class AssetCardField:
         type_hint: Any,
         *,
         allow_empty: bool = False,
-        value_converter: Optional[ValueConverter] = None,
+        value_converter: ValueConverter | None = None,
         set_empty: bool = False,
     ) -> Any:
         """Return the value of this field.
@@ -297,10 +297,10 @@ class AssetCardField:
     def get_as_(
         self,
         type_hint: Any,
-        default: Optional[T] = None,
+        default: T | None = None,
         *,
         allow_empty: bool = False,
-        value_converter: Optional[ValueConverter] = None,
+        value_converter: ValueConverter | None = None,
         set_empty: bool = False,
     ) -> Any:
         """Return the value of this field if it exists; otherwise, return ``default``.
@@ -331,7 +331,7 @@ class AssetCardField:
         value: Any,
         *,
         type_hint: Any = None,
-        value_converter: Optional[ValueConverter] = None,
+        value_converter: ValueConverter | None = None,
     ) -> None:
         """Set the value of this field.
 

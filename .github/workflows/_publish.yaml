@@ -20,7 +20,7 @@ jobs:
     strategy:
       matrix:
         torch: ['2.2.0', '2.2.1', '2.2.2']
-        py: ['3.9', '3.10', '3.11', '3.12']
+        py: ['3.10', '3.11', '3.12']
         variant: ['cpu', 'cu118', 'cu121']
       max-parallel: 1
     uses: ./.github/workflows/_publish_s3.yaml
@@ -36,7 +36,7 @@ jobs:
     strategy:
       matrix:
         torch: ['2.3.0', '2.3.1']
-        py: ['3.9', '3.10', '3.11', '3.12']
+        py: ['3.10', '3.11', '3.12']
         variant: ['cpu', 'cu118', 'cu121']
       max-parallel: 1
     uses: ./.github/workflows/_publish_s3.yaml
@@ -52,7 +52,7 @@ jobs:
     strategy:
       matrix:
         torch: ['2.4.0']
-        py: ['3.9', '3.10', '3.11', '3.12']
+        py: ['3.10', '3.11', '3.12']
         variant: ['cpu', 'cu118', 'cu121']
       max-parallel: 1
     uses: ./.github/workflows/_publish_s3.yaml
@@ -68,7 +68,7 @@ jobs:
     strategy:
       matrix:
         torch: ['2.4.0']
-        py: ['3.9', '3.10', '3.11', '3.12']
+        py: ['3.10', '3.11', '3.12']
       max-parallel: 1
     uses: ./.github/workflows/_publish_s3.yaml
     with:
@@ -91,7 +91,7 @@ jobs:
     strategy:
       matrix:
         torch: ['2.4.0']
-        py: ['3.9', '3.10', '3.11', '3.12']
+        py: ['3.10', '3.11', '3.12']
         variant: ['cu121']
       max-parallel: 1
     with:
@@ -109,7 +109,7 @@ jobs:
     strategy:
       matrix:
         torch: ['2.4.0']
-        py: ['3.9', '3.10', '3.11', '3.12']
+        py: ['3.10', '3.11', '3.12']
       max-parallel: 1
     with:
       os: 'macos'

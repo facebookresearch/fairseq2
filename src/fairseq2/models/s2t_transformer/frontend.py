@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import math
-from typing import Optional, final
+from typing import final
 
 from torch import Tensor
 from torch.nn import Dropout
@@ -26,22 +26,22 @@ class S2TTransformerFrontend(TransformerFrontend):
     """Represents a Transformer encoder front-end as described in Section 2.1 of
     :cite:t:`https://doi.org/10.48550/arxiv.1911.08460`."""
 
-    feature_extractor: Optional[SequenceFeatureExtractor]
+    feature_extractor: SequenceFeatureExtractor | None
     scale: float
-    pos_encoder: Optional[PositionEncoder]
-    proj: Optional[Projection]
-    dropout: Optional[Dropout]
+    pos_encoder: PositionEncoder | None
+    proj: Projection | None
+    dropout: Dropout | None
 
     def __init__(
         self,
         model_dim: int,
-        feature_extractor: Optional[SequenceFeatureExtractor],
-        pos_encoder: Optional[PositionEncoder],
+        feature_extractor: SequenceFeatureExtractor | None,
+        pos_encoder: PositionEncoder | None,
         *,
         proj: bool = False,
         dropout_p: float = 0.0,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param model_dim:
@@ -98,10 +98,10 @@ class S2TTransformerFrontend(TransformerFrontend):
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
+        padding_mask: PaddingMask | None,
         *,
-        state_bag: Optional[IncrementalStateBag] = None,
-    ) -> tuple[Tensor, Optional[PaddingMask]]:
+        state_bag: IncrementalStateBag | None = None,
+    ) -> tuple[Tensor, PaddingMask | None]:
         if state_bag is not None:
             raise ValueError(
                 "`S2TTransformerFrontend` does not support incremental decoding."

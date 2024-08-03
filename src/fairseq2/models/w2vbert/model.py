@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, final
+from typing import final
 
 from torch import Tensor
 from torch.nn.functional import cross_entropy
@@ -42,8 +42,8 @@ class W2VBertModel(Model):
         num_bert_encoder_layers: int,
         *,
         num_target_codebooks: int = 1,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param w2v2_model:
@@ -88,7 +88,7 @@ class W2VBertModel(Model):
         def hook(
             layer_idx: int,
             layer_output: Tensor,
-            layer_padding_mask: Optional[PaddingMask],
+            layer_padding_mask: PaddingMask | None,
             num_layers: int,
         ) -> bool:
             nonlocal w2v2_layer_output

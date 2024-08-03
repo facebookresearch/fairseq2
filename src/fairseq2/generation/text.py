@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Optional, final
+from typing import final
 
 from torch import Tensor
 
@@ -35,7 +35,7 @@ class SequenceToTextConverter:
         generator: Seq2SeqGenerator,
         tokenizer: TextTokenizer,
         task: str,
-        target_lang: Optional[str] = None,
+        target_lang: str | None = None,
     ) -> None:
         """
         :param generator:
@@ -86,7 +86,7 @@ class SequenceToTextConverter:
     def batch_convert(
         self,
         source_seqs: Tensor,
-        source_padding_mask: Optional[PaddingMask],
+        source_padding_mask: PaddingMask | None,
     ) -> tuple[list[str], Seq2SeqGeneratorOutput]:
         """
         :param source_seqs:
@@ -111,7 +111,7 @@ class SequenceToTextConverter:
     def _do_convert(
         self,
         source_seqs: Tensor,
-        source_padding_mask: Optional[PaddingMask],
+        source_padding_mask: PaddingMask | None,
     ) -> tuple[list[str], Seq2SeqGeneratorOutput]:
         """A subclass should call this method for actual text conversion.
 
@@ -156,16 +156,16 @@ class TextTranslator:
     _converter: SequenceToTextConverter
     _pad_idx: int
     _source_text_encoder: TextTokenEncoder
-    _max_source_len: Optional[int]
+    _max_source_len: int | None
 
     def __init__(
         self,
         generator: Seq2SeqGenerator,
         tokenizer: TextTokenizer,
-        source_lang: Optional[str] = None,
-        target_lang: Optional[str] = None,
+        source_lang: str | None = None,
+        target_lang: str | None = None,
         *,
-        max_source_len: Optional[int] = None,
+        max_source_len: int | None = None,
     ) -> None:
         """
         :param generator:
@@ -309,7 +309,7 @@ class TextCompleter:
         return self._do_complete(prompt_seqs, prompt_padding_mask)
 
     def _do_complete(
-        self, prompt_seqs: Tensor, prompt_padding_mask: Optional[PaddingMask]
+        self, prompt_seqs: Tensor, prompt_padding_mask: PaddingMask | None
     ) -> tuple[list[str], SequenceGeneratorOutput]:
         generator_output = self._generator(prompt_seqs, prompt_padding_mask)
 

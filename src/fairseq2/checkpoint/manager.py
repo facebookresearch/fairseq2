@@ -12,7 +12,7 @@ from contextlib import AbstractContextManager, nullcontext
 from pathlib import Path
 from pickle import PickleError
 from shutil import rmtree
-from typing import Any, NoReturn, Optional, final
+from typing import Any, NoReturn, final
 
 import yaml
 from torch.distributed._shard import load_with_process_group
@@ -47,7 +47,7 @@ class CheckpointManager(ABC):
         state: Mapping[str, Any],
         *,
         model_key: str = "model",
-        replicated_keys: Optional[Set[str]] = None,
+        replicated_keys: Set[str] | None = None,
     ) -> None:
         """Save the training state.
 
@@ -69,7 +69,7 @@ class CheckpointManager(ABC):
         """
 
     @abstractmethod
-    def save_score(self, score: Optional[float]) -> None:
+    def save_score(self, score: float | None) -> None:
         """Save the score of the checkpoint."""
 
     @abstractmethod
@@ -94,7 +94,7 @@ class CheckpointManager(ABC):
         """
 
     @abstractmethod
-    def load_metadata(self, step_nr: int) -> Optional[dict[str, Any]]:
+    def load_metadata(self, step_nr: int) -> dict[str, Any] | None:
         """Load the checkpoint metadata of the specified training step."""
 
     @abstractmethod
@@ -132,7 +132,7 @@ class CheckpointManager(ABC):
         """
 
     @abstractmethod
-    def has_checkpoint(self, step_nr: Optional[int] = None) -> bool:
+    def has_checkpoint(self, step_nr: int | None = None) -> bool:
         """Return ``True`` if the manager holds a checkpoint.
 
         :param step_nr:
@@ -157,17 +157,17 @@ class FileCheckpointManager(CheckpointManager):
     _tensor_loader: TensorLoader
     _tensor_dumper: TensorDumper
     _lower_score_better: bool
-    _checkpoint_step_nr: Optional[int]
+    _checkpoint_step_nr: int | None
 
     def __init__(
         self,
         checkpoint_dir: Path,
         gang: Gang,
         *,
-        dp_gang: Optional[Gang] = None,
-        tp_gang: Optional[Gang] = None,
-        tensor_loader: Optional[TensorLoader] = None,
-        tensor_dumper: Optional[TensorDumper] = None,
+        dp_gang: Gang | None = None,
+        tp_gang: Gang | None = None,
+        tensor_loader: TensorLoader | None = None,
+        tensor_dumper: TensorDumper | None = None,
         lower_score_better: bool = False,
     ) -> None:
         """
@@ -217,10 +217,10 @@ class FileCheckpointManager(CheckpointManager):
     def save_model_metadata(
         self,
         *,
-        base_asset: Optional[str] = None,
-        family: Optional[str] = None,
-        config: Optional[DataClass] = None,
-        tokenizer_name: Optional[str] = None,
+        base_asset: str | None = None,
+        family: str | None = None,
+        config: DataClass | None = None,
+        tokenizer_name: str | None = None,
     ) -> None:
         """Set the model metadata.
 
@@ -299,7 +299,7 @@ class FileCheckpointManager(CheckpointManager):
         state: Mapping[str, Any],
         *,
         model_key: str = "model",
-        replicated_keys: Optional[Set[str]] = None,
+        replicated_keys: Set[str] | None = None,
     ) -> None:
         step_nr = self._get_checkpoint_step_nr()
 
@@ -417,7 +417,7 @@ class FileCheckpointManager(CheckpointManager):
         self._root_gang.barrier()
 
     @override
-    def save_score(self, score: Optional[float]) -> None:
+    def save_score(self, score: float | None) -> None:
         step_nr = self._get_checkpoint_step_nr()
 
         if self._root_gang.rank == 0:
@@ -571,7 +571,7 @@ class FileCheckpointManager(CheckpointManager):
         return last_step_nr, checkpoint
 
     @override
-    def load_metadata(self, step_nr: int) -> Optional[dict[str, Any]]:
+    def load_metadata(self, step_nr: int) -> dict[str, Any] | None:
         metadata_file = self._checkpoint_dir.joinpath(
             f"step_{step_nr}/metadata{self._shard_suffix}.pt"
         )
@@ -704,7 +704,7 @@ class FileCheckpointManager(CheckpointManager):
         return scores
 
     @override
-    def has_checkpoint(self, step_nr: Optional[int] = None) -> bool:
+    def has_checkpoint(self, step_nr: int | None = None) -> bool:
         it = self._iter_step_numbers()
 
         if step_nr is None:

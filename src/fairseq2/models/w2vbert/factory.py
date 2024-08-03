@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Final, Optional
+from typing import Final
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.models.factory import model_factories
@@ -24,7 +24,7 @@ from fairseq2.typing import DataType, Device
 W2VBERT_FAMILY: Final = "w2vbert"
 
 
-@dataclass
+@dataclass(kw_only=True)
 class W2VBertConfig:
     """Holds the configuration of a w2v-BERT model.
 
@@ -102,16 +102,16 @@ class W2VBertBuilder:
 
     _config: W2VBertConfig
     _w2v2_builder: Wav2Vec2Builder
-    _device: Optional[Device]
-    _dtype: Optional[DataType]
+    _device: Device | None
+    _dtype: DataType | None
 
     def __init__(
         self,
         config: W2VBertConfig,
         w2v2_builder: Wav2Vec2Builder,
         *,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param config:
@@ -160,8 +160,8 @@ class W2VBertBuilder:
 def create_w2vbert_model(
     config: W2VBertConfig,
     *,
-    device: Optional[Device] = None,
-    dtype: Optional[DataType] = None,
+    device: Device | None = None,
+    dtype: DataType | None = None,
 ) -> W2VBertModel:
     """Create a w2v-BERT model.
 

@@ -9,11 +9,11 @@ from __future__ import annotations
 import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from typing import Union, final
+from typing import TypeAlias, final
 
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler
-from typing_extensions import TypeAlias, override
+from typing_extensions import override
 
 LRScheduler: TypeAlias = _LRScheduler
 
@@ -54,7 +54,7 @@ class NoopLR(AbstractLRScheduler):
 
 
 def _get_per_param_group(
-    optimizer: Optimizer, name: str, value: Union[float, Sequence[float]]
+    optimizer: Optimizer, name: str, value: float | Sequence[float]
 ) -> Sequence[float]:
     num_param_groups = len(optimizer.param_groups)
 

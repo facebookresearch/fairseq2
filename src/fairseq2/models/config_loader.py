@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Optional, Protocol, TypeVar, Union, final
+from typing import Protocol, TypeVar, final
 
 from fairseq2.assets import (
     AssetCard,
@@ -29,7 +29,7 @@ ModelConfigT_co = TypeVar("ModelConfigT_co", bound=DataClass, covariant=True)
 class ModelConfigLoader(Protocol[ModelConfigT_co]):
     """Loads model configurations of type ``ModelConfigT``."""
 
-    def __call__(self, model_name_or_card: Union[str, AssetCard]) -> ModelConfigT_co:
+    def __call__(self, model_name_or_card: str | AssetCard) -> ModelConfigT_co:
         """
         :param model_name_or_card:
             The name or the asset card of the model whole configuration to load.
@@ -43,16 +43,16 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
     _asset_store: AssetStore
     _family: str
     _config_kls: type[ModelConfigT]
-    _arch_configs: Optional[ConfigRegistry[ModelConfigT]]
+    _arch_configs: ConfigRegistry[ModelConfigT] | None
 
     def __init__(
         self,
         family: str,
         config_kls: type[ModelConfigT],
-        arch_configs: Optional[ConfigRegistry[ModelConfigT]],
+        arch_configs: ConfigRegistry[ModelConfigT] | None,
         *,
-        asset_store: Optional[AssetStore] = None,
-        value_converter: Optional[ValueConverter] = None,
+        asset_store: AssetStore | None = None,
+        value_converter: ValueConverter | None = None,
     ) -> None:
         """
         :param family:
@@ -74,7 +74,7 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
         self._arch_configs = arch_configs
         self._value_converter = value_converter or default_value_converter
 
-    def __call__(self, model_name_or_card: Union[str, AssetCard]) -> ModelConfigT:
+    def __call__(self, model_name_or_card: str | AssetCard) -> ModelConfigT:
         if isinstance(model_name_or_card, AssetCard):
             card = model_name_or_card
         else:
@@ -117,7 +117,7 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
         # Override the default architecture configuration if needed.
         config_overrides = []
 
-        card_: Optional[AssetCard] = card
+        card_: AssetCard | None = card
 
         while card_ is not None:
             if "model_config" in card_.metadata:

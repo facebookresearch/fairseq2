@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, TextIO, final
+from typing import TextIO, final
 
 import torch
 from torch.nn import Module
@@ -56,7 +56,7 @@ from fairseq2.utils.profiler import Stopwatch
 log = get_log_writer(__name__)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class MTEvalConfig:
     """Holds the configuration of a machine translation evaluation task."""
 
@@ -80,7 +80,7 @@ class MTEvalConfig:
     model: AssetReference = "nllb-200_dense_distill_600m"
     """The name of the model to evaluate."""
 
-    checkpoint_dir: Optional[Path] = None
+    checkpoint_dir: Path | None = None
     """The checkpoint directory containing models saved by :class:`FileCheckpointManager`."""
 
     dtype: DataType = torch.float16
@@ -94,7 +94,7 @@ class MTEvalConfig:
     generator: str = "beam_search"
     """The sequence generator."""
 
-    generator_config: Optional[DataClass] = field(
+    generator_config: DataClass | None = field(
         default_factory=lambda: BeamSearchConfig(max_gen_len=(1, 256), echo_prompt=True)
     )
     """The configuration of the sequence generator."""
@@ -374,9 +374,9 @@ class MTBleuChrfEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
     """Represents a machine translation BLEU/chrF++ evaluation unit."""
 
     _converter: SequenceToTextConverter
-    _src_output_stream: Optional[TextIO]
-    _ref_output_stream: Optional[TextIO]
-    _hyp_output_stream: Optional[TextIO]
+    _src_output_stream: TextIO | None
+    _ref_output_stream: TextIO | None
+    _hyp_output_stream: TextIO | None
     _metric_bag: Seq2SeqGenerationMetricBag
 
     def __init__(
@@ -386,9 +386,9 @@ class MTBleuChrfEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
         tokenizer: TextTokenizer,
         gang: Gang,
         *,
-        src_output_stream: Optional[TextIO] = None,
-        ref_output_stream: Optional[TextIO] = None,
-        hyp_output_stream: Optional[TextIO] = None,
+        src_output_stream: TextIO | None = None,
+        ref_output_stream: TextIO | None = None,
+        hyp_output_stream: TextIO | None = None,
     ) -> None:
         """
         :param direction:

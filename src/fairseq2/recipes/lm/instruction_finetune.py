@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, Optional, final
+from typing import Literal, final
 
 import torch
 import torch.distributed
@@ -58,7 +58,7 @@ from fairseq2.utils.profiler import Stopwatch
 log = get_log_writer(__name__)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class InstructionFinetuneConfig:
     """Holds the configuration of a language model instruction-finetuning task."""
 
@@ -110,7 +110,7 @@ class InstructionFinetuneConfig:
     optimizer: str = "adamw"
     """The optimizer."""
 
-    optimizer_config: Optional[DataClass] = field(
+    optimizer_config: DataClass | None = field(
         default_factory=lambda: AdamWConfig(
             lr=5.5e-06, betas=(0.9, 0.95), weight_decay=0.1
         )
@@ -120,7 +120,7 @@ class InstructionFinetuneConfig:
     lr_scheduler: str = "cosine-annealing"
     """The learning rate scheduler."""
 
-    lr_scheduler_config: Optional[DataClass] = field(
+    lr_scheduler_config: DataClass | None = field(
         default_factory=lambda: CosineAnnealingLRConfig(final_lr=5.5e-06 * 0.2)
     )
     """The configuration of the learning rate scheduler."""
@@ -128,7 +128,7 @@ class InstructionFinetuneConfig:
     gradient_accumulation: int = 1
     """The number of steps to accumulate gradients before an optimizer update."""
 
-    max_gradient_norm: Optional[float] = None
+    max_gradient_norm: float | None = None
     """The maximum gradient norm. If ``None``, no clipping will be applied."""
 
     fp16_loss_scale: tuple[float, float] = (128.0, 0.0001)
@@ -138,36 +138,36 @@ class InstructionFinetuneConfig:
     max_num_steps: int = 5000
     """The maximum number of steps to train for."""
 
-    max_num_data_epochs: Optional[int] = None
+    max_num_data_epochs: int | None = None
     """The maximum number of data epochs to train for."""
 
     checkpoint_every_n_steps: int = 1000
     """The step interval at which to checkpoint."""
 
-    checkpoint_every_n_data_epochs: Optional[int] = None
+    checkpoint_every_n_data_epochs: int | None = None
     """The data epoch interval at which to checkpoint."""
 
-    keep_last_n_checkpoints: Optional[int] = 1
+    keep_last_n_checkpoints: int | None = 1
     """The number of checkpoints to keep. If ``None``, none will be deleted."""
 
-    keep_last_n_models: Optional[int] = None
+    keep_last_n_models: int | None = None
     """The number of checkpoint models to keep. If ``None``, none will be deleted."""
 
     publish_metrics_every_n_steps: int = 10
     """The step interval at which to publish training metrics."""
 
-    publish_metrics_every_n_data_epochs: Optional[int] = None
+    publish_metrics_every_n_data_epochs: int | None = None
     """The data epoch interval at which to publish training metrics."""
 
     # Checkpoint
-    resume_checkpoint_dir: Optional[Path] = None
+    resume_checkpoint_dir: Path | None = None
     """If not ``None``, adds the specified path to the default asset store."""
 
     # Misc
     seed: int = 2
     """The random number generator seed to use."""
 
-    profile: Optional[tuple[int, int]] = None
+    profile: tuple[int, int] | None = None
     """The number of steps that the PyTorch profiler should skip and then record."""
 
     monitored_gang: bool = False

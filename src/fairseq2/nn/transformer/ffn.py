@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Optional, final
+from typing import final
 
 from torch import Tensor
 from torch.nn import Dropout, Module, ReLU, SiLU
@@ -61,8 +61,8 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
 
     inner_proj: Projection
     inner_activation: Module
-    inner_dropout: Optional[Dropout]
-    inner_norm: Optional[LayerNorm]
+    inner_dropout: Dropout | None
+    inner_norm: LayerNorm | None
     output_proj: Projection
 
     def __init__(
@@ -71,12 +71,12 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         inner_dim: int,
         bias: bool,
         *,
-        inner_activation: Optional[Module] = None,
+        inner_activation: Module | None = None,
         inner_dropout_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
-        layer_norm_factory: Optional[LayerNormFactory] = None,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        layer_norm_factory: LayerNormFactory | None = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param model_dim:
@@ -151,7 +151,7 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
     inner_dim_scale: float
     inner_dim_to_multiple: int
     inner_proj: Projection
-    inner_dropout: Optional[Dropout]
+    inner_dropout: Dropout | None
     output_proj: Projection
 
     def __init__(
@@ -160,12 +160,12 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
         inner_dim: int,
         bias: bool,
         *,
-        gate_activation: Optional[Module] = None,
+        gate_activation: Module | None = None,
         inner_dim_scale: float = 2 / 3,
         inner_dim_to_multiple: int = 1,
         inner_dropout_p: float = 0.0,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param model_dim:

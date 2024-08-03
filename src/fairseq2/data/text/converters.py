@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Optional, Union, final
+from typing import TYPE_CHECKING, final
 
 from fairseq2n import DOC_MODE
 from torch import Tensor
@@ -44,13 +44,13 @@ if TYPE_CHECKING or DOC_MODE:
         def __init__(
             self,
             sep: str = "\t",
-            names: Optional[Sequence[str]] = None,
-            indices: Optional[Sequence[int]] = None,
+            names: Sequence[str] | None = None,
+            indices: Sequence[int] | None = None,
             exclude: bool = False,
         ) -> None:
             ...
 
-        def __call__(self, s: str) -> Union[list[str], dict[str, str]]:
+        def __call__(self, s: str) -> list[str] | dict[str, str]:
             ...
 
     @final
@@ -67,8 +67,8 @@ if TYPE_CHECKING or DOC_MODE:
     class StrToTensorConverter:
         def __init__(
             self,
-            size: Optional[Sequence[int]] = None,
-            dtype: Optional[DataType] = None,
+            size: Sequence[int] | None = None,
+            dtype: DataType | None = None,
         ) -> None:
             ...
 

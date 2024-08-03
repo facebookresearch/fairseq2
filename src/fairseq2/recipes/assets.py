@@ -9,7 +9,7 @@ from __future__ import annotations
 import sys
 from argparse import ArgumentParser, Namespace
 from collections import defaultdict
-from typing import Any, Optional, final
+from typing import Any, final
 
 from rich.console import Console
 from rich.pretty import pretty_repr
@@ -55,7 +55,7 @@ class ListAssetsCommand(CliCommandHandler):
 
     _asset_store: AssetStore
 
-    def __init__(self, asset_store: Optional[AssetStore] = None) -> None:
+    def __init__(self, asset_store: AssetStore | None = None) -> None:
         """
         :param asset_store:
             The asset store from which to retrieve the asset cards. If ``None``,
@@ -164,7 +164,7 @@ class ShowAssetCommand(CliCommandHandler):
 
     _asset_store: AssetStore
 
-    def __init__(self, asset_store: Optional[AssetStore] = None) -> None:
+    def __init__(self, asset_store: AssetStore | None = None) -> None:
         """
         :param asset_store:
             The asset store from which to retrieve the asset cards. If ``None``,
@@ -194,7 +194,7 @@ class ShowAssetCommand(CliCommandHandler):
     @override
     def __call__(self, args: Namespace) -> None:
         try:
-            card: Optional[AssetCard] = self._asset_store.retrieve_card(
+            card: AssetCard | None = self._asset_store.retrieve_card(
                 args.name, envs=args.envs, scope=args.scope
             )
         except AssetNotFoundError:

@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 from torch.optim import Optimizer
 
@@ -15,15 +15,12 @@ from fairseq2.factory_registry import ConfigBoundFactoryRegistry
 from fairseq2.optim.adamw import AdamW
 from fairseq2.optim.optimizer import ParameterCollection
 
-if TYPE_CHECKING:  # compat: remove when Python 3.9 support is dropped.
-    optimizer_factories = ConfigBoundFactoryRegistry[[ParameterCollection], Optimizer]()
-else:
-    optimizer_factories = ConfigBoundFactoryRegistry()
+optimizer_factories = ConfigBoundFactoryRegistry[[ParameterCollection], Optimizer]()
 
 optimizer_factory = optimizer_factories.decorator
 
 
-@dataclass
+@dataclass(kw_only=True)
 class AdamWConfig:
     """Holds the configuration of a :class:`AdamW`."""
 

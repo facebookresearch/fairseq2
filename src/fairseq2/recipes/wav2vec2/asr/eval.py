@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional, TextIO, final
+from typing import Any, TextIO, final
 
 import torch
 from torch.nn import Module
@@ -48,7 +48,7 @@ from fairseq2.utils.profiler import Stopwatch
 log = get_log_writer(__name__)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Wav2Vec2AsrEvalConfig:
     """Holds the configuration of a wav2vec 2.0 ASR model evaluation task."""
 
@@ -78,7 +78,7 @@ class Wav2Vec2AsrEvalConfig:
     model: AssetReference = "wav2vec2_asr_base_10h"
     """The name or path to the asset card of the wav2vec 2.0 ASR model to evaluate."""
 
-    checkpoint_dir: Optional[Path] = None
+    checkpoint_dir: Path | None = None
     """The checkpoint directory containing models saved by :class:`FileCheckpointManager`."""
 
     dtype: DataType = torch.float16
@@ -242,8 +242,8 @@ class Wav2Vec2AsrEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
     _text_decoder: TextTokenDecoder
     _pad_idx: int
     _blank_label: int
-    _ref_output_stream: Optional[TextIO]
-    _hyp_output_stream: Optional[TextIO]
+    _ref_output_stream: TextIO | None
+    _hyp_output_stream: TextIO | None
     _metric_bag: Wav2Vec2AsrEvalMetricBag
 
     def __init__(
@@ -253,8 +253,8 @@ class Wav2Vec2AsrEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
         tokenizer: TextTokenizer,
         *,
         blank_label: int = 0,
-        ref_output_stream: Optional[TextIO] = None,
-        hyp_output_stream: Optional[TextIO] = None,
+        ref_output_stream: TextIO | None = None,
+        hyp_output_stream: TextIO | None = None,
     ) -> None:
         """
         :param model:

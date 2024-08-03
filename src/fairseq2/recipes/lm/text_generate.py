@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, TextIO, final
+from typing import TextIO, final
 
 import torch
 from typing_extensions import override
@@ -48,7 +48,7 @@ from fairseq2.utils.profiler import Stopwatch
 log = get_log_writer(__name__)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class TextGenerateConfig:
     """Holds the configuration of a text generation task."""
 
@@ -69,7 +69,7 @@ class TextGenerateConfig:
     model: AssetReference = "llama3_8b_instruct"
     """The name of the model to generate with."""
 
-    checkpoint_dir: Optional[Path] = None
+    checkpoint_dir: Path | None = None
     """The checkpoint directory containing models saved by :class:`FileCheckpointManager`."""
 
     dtype: DataType = torch.bfloat16
@@ -82,9 +82,7 @@ class TextGenerateConfig:
     generator: str = "sampling"
     """The sequence generator."""
 
-    generator_config: Optional[DataClass] = field(
-        default_factory=lambda: SamplingConfig()
-    )
+    generator_config: DataClass | None = field(default_factory=lambda: SamplingConfig())
     """The configuration of the sequence generator."""
 
     # Misc
@@ -288,8 +286,8 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
 
     _generator: SequenceGenerator
     _text_decoder: TextTokenDecoder
-    _text_output_stream: Optional[TextIO]
-    _json_output_stream: Optional[TextIO]
+    _text_output_stream: TextIO | None
+    _json_output_stream: TextIO | None
     _metric_bag: SequenceGenerationMetricBag
 
     def __init__(
@@ -297,8 +295,8 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
         generator: SequenceGenerator,
         tokenizer: TextTokenizer,
         gang: Gang,
-        text_output_stream: Optional[TextIO],
-        json_output_stream: Optional[TextIO],
+        text_output_stream: TextIO | None,
+        json_output_stream: TextIO | None,
     ) -> None:
         super().__init__(generator.model)
 

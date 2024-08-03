@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, Optional, final
+from typing import Literal, final
 
 from torch import Tensor
 from torch.nn import GLU, BatchNorm1d, Conv1d, Module, SiLU
@@ -27,8 +27,8 @@ class ConformerConvolution(Module):
     pointwise_conv1_activation: GLU
     depthwise_conv: Conv1d
     causal_depthwise_conv: bool
-    batch_norm: Optional[BatchNorm1d]
-    layer_norm: Optional[LayerNorm]
+    batch_norm: BatchNorm1d | None
+    layer_norm: LayerNorm | None
     depthwise_activation: Module
     pointwise_conv2: Conv1d
 
@@ -39,9 +39,9 @@ class ConformerConvolution(Module):
         *,
         causal_depthwise_conv: bool = False,
         norm_type: Literal["batch_norm", "layer_norm"] = "batch_norm",
-        depthwise_activation: Optional[Module] = None,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        depthwise_activation: Module | None = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param model_dim:
@@ -115,7 +115,7 @@ class ConformerConvolution(Module):
             model_dim, model_dim, kernel_size=1, bias=False, device=device, dtype=dtype
         )
 
-    def forward(self, seqs: Tensor, padding_mask: Optional[PaddingMask]) -> Tensor:
+    def forward(self, seqs: Tensor, padding_mask: PaddingMask | None) -> Tensor:
         """
         :param seqs:
             The sequences to process. *Shape:* :math:`(N,S,M)`, where :math:`N`

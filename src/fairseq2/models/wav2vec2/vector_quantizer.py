@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional, final
+from typing import final
 
 import torch
 import torch.nn as nn
@@ -85,8 +85,8 @@ class GumbelVectorQuantizer(VectorQuantizer):
         num_codebook_entries: int,
         *,
         codebook_sampling_temperature: tuple[float, float, float],
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ):
         """
         :param input_dim:

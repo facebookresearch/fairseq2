@@ -11,7 +11,7 @@ import string
 import tempfile
 from collections import Counter
 from collections.abc import Generator
-from typing import Any, Union
+from typing import Any
 
 import pytest
 
@@ -39,7 +39,7 @@ def gen_random_string(length: int) -> str:
 
 def generate_random_pandas_df(size: int, seed: int = 123) -> pd.DataFrame:
     np_rs = np.random.RandomState(seed)
-    df: dict[str, Union[NDArray[Any], list[Any]]] = {}
+    df: dict[str, NDArray[Any] | list[Any]] = {}
     df["int_col"] = np_rs.randint(0, 200, size)
     df["float_col"] = np_rs.randn(size)
 

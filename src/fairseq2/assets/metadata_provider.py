@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, NoReturn, Optional, Union, final
+from typing import Any, NoReturn, final
 
 import yaml
 from importlib_resources import files
@@ -45,7 +45,7 @@ class AssetMetadataProvider(ABC):
 class AbstractAssetMetadataProvider(AssetMetadataProvider):
     """Provides a skeletal implementation of :class:`AssetMetadataProvider`."""
 
-    _cache: Optional[dict[str, dict[str, Any]]]
+    _cache: dict[str, dict[str, Any]] | None
 
     def __init__(self) -> None:
         self._cache = None
@@ -183,7 +183,7 @@ class PackageAssetMetadataProvider(AbstractAssetMetadataProvider):
     def _list_files(self) -> list[Path]:
         files = []
 
-        def collect_files(p: Union[MultiplexedPath, Path]) -> None:
+        def collect_files(p: MultiplexedPath | Path) -> None:
             if p.is_file():
                 if not isinstance(p, Path):
                     raise RuntimeError(
@@ -250,11 +250,11 @@ def load_metadata_file(file: Path) -> list[tuple[str, dict[str, Any]]]:
 class InProcAssetMetadataProvider(AssetMetadataProvider):
     """Provides asset metadata stored in memory."""
 
-    _name: Optional[str]
+    _name: str | None
     _metadata: dict[str, dict[str, Any]]
 
     def __init__(
-        self, metadata: Sequence[dict[str, Any]], *, name: Optional[str] = None
+        self, metadata: Sequence[dict[str, Any]], *, name: str | None = None
     ) -> None:
         self._name = name
         self._metadata = {}

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Optional, Union, cast, final
+from typing import Any, cast, final
 
 import torch
 from torch import Tensor
@@ -54,7 +54,7 @@ class AsrDataset(ABC):
         tokenizer: TextTokenizer,
         gang: Gang,
         max_audio_len: int,
-        batching: Union[StaticBatching, LengthBatching],
+        batching: StaticBatching | LengthBatching,
         *,
         dtype: DataType = torch.float32,
         min_audio_len: int = 1,
@@ -63,7 +63,7 @@ class AsrDataset(ABC):
         batch_shuffle_window: int = 1,
         drop_remainder: bool = False,
         sync_batches: bool = True,
-        max_num_batches: Optional[int] = None,
+        max_num_batches: int | None = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         seed: int = 2,
@@ -173,7 +173,7 @@ class GenericAsrDataset(AsrDataset):
         tokenizer: TextTokenizer,
         gang: Gang,
         max_audio_len: int,
-        batching: Union[StaticBatching, LengthBatching],
+        batching: StaticBatching | LengthBatching,
         *,
         dtype: DataType = torch.float32,
         min_audio_len: int = 1,
@@ -182,7 +182,7 @@ class GenericAsrDataset(AsrDataset):
         batch_shuffle_window: int = 1,
         drop_remainder: bool = False,
         sync_batches: bool = True,
-        max_num_batches: Optional[int] = None,
+        max_num_batches: int | None = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         seed: int = 2,

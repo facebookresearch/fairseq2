@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional, Protocol, TypeVar, Union, final
+from typing import Protocol, TypeVar, final
 
 from fairseq2.assets import (
     AssetCard,
@@ -30,7 +30,7 @@ class DatasetLoader(Protocol[DatasetT_co]):
 
     def __call__(
         self,
-        dataset_name_or_card: Union[str, AssetCard],
+        dataset_name_or_card: str | AssetCard,
         *,
         force: bool = False,
         progress: bool = True,
@@ -54,8 +54,8 @@ class AbstractDatasetLoader(ABC, DatasetLoader[DatasetT]):
     def __init__(
         self,
         *,
-        asset_store: Optional[AssetStore] = None,
-        download_manager: Optional[AssetDownloadManager] = None,
+        asset_store: AssetStore | None = None,
+        download_manager: AssetDownloadManager | None = None,
     ) -> None:
         """
         :param asset_store:
@@ -71,7 +71,7 @@ class AbstractDatasetLoader(ABC, DatasetLoader[DatasetT]):
     @final
     def __call__(
         self,
-        dataset_name_or_card: Union[str, AssetCard],
+        dataset_name_or_card: str | AssetCard,
         *,
         force: bool = False,
         progress: bool = True,
@@ -116,7 +116,7 @@ class DelegatingDatasetLoader(DatasetLoader[DatasetT]):
     _asset_store: AssetStore
     _loaders: dict[str, DatasetLoader[DatasetT]]
 
-    def __init__(self, *, asset_store: Optional[AssetStore] = None) -> None:
+    def __init__(self, *, asset_store: AssetStore | None = None) -> None:
         """
         :param asset_store:
             The asset store where to check for available datasets. If ``None``,
@@ -128,7 +128,7 @@ class DelegatingDatasetLoader(DatasetLoader[DatasetT]):
 
     def __call__(
         self,
-        dataset_name_or_card: Union[str, AssetCard],
+        dataset_name_or_card: str | AssetCard,
         *,
         force: bool = False,
         progress: bool = True,
@@ -165,7 +165,7 @@ class DelegatingDatasetLoader(DatasetLoader[DatasetT]):
 
         self._loaders[family] = loader
 
-    def supports(self, dataset_name_or_card: Union[str, AssetCard]) -> bool:
+    def supports(self, dataset_name_or_card: str | AssetCard) -> bool:
         """Return ``True`` if the specified dataset has a registered loader."""
         if isinstance(dataset_name_or_card, AssetCard):
             card = dataset_name_or_card
