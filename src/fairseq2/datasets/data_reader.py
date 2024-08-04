@@ -72,7 +72,7 @@ class DataPipelineReader(DataReader[BatchT]):
         *,
         num_accumulate: int = 1,
         drop_remainder: bool = True,
-        sync_batches: bool = False,
+        sync_batches: bool = True,
     ) -> None:
         """
         :param pipeline:
@@ -118,17 +118,22 @@ class DataPipelineReader(DataReader[BatchT]):
 
             batches.append(batch)
 
-        if self._sync_batches and self._gang.size > 1:
-            num_batches = _reduce_num_batches(len(batches), self._gang, log)
-
-            batches = batches[:num_batches]
-
         # If we read less than `num_accumulate` batches, it means we reached end
         # of data.
         if self._drop_remainder and len(batches) != self._num_accumulate:
             batches.clear()
 
-        self._eod = len(batches) == 0
+        local_num_batches = len(batches)
+
+        if self._sync_batches and self._gang.size > 1:
+            num_batches = _reduce_num_batches(local_num_batches, self._gang, log)
+
+            if num_batches != local_num_batches:
+                batches = batches[:num_batches]
+        else:
+            num_batches = local_num_batches
+
+        self._eod = num_batches == 0
 
         if self._eod:
             raise StopIteration()
