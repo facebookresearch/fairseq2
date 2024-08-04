@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import sys
+import shtab  # for completion magic
 from abc import ABC, abstractmethod
 from argparse import OPTIONAL, ArgumentParser, Namespace
 from copy import deepcopy
@@ -146,6 +147,7 @@ class Cli:
 
     def _run_command(self) -> None:
         parser = ArgumentParser(self._name, description=self._description)
+        shtab.add_argument_to(parser, ["-s", "--print-completion"])
 
         self.init_parser(parser)
 
