@@ -51,7 +51,7 @@ class ConfigRegistry(Generic[ConfigT]):
             config = self._configs[name]()
         except KeyError:
             raise ValueError(
-                f"`name` must be a registered configuration name, but is '{name}' instead."
+                f"`name` must be a registered configuration name, but '{name}' is not registered."
             ) from None
 
         if overwrite is not None:

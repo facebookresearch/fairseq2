@@ -23,6 +23,9 @@ from fairseq2.optim.lr_scheduler.factory import TriStageLRConfig as TriStageLRCo
 from fairseq2.optim.lr_scheduler.factory import (
     create_cosine_annealing_lr as create_cosine_annealing_lr,
 )
+from fairseq2.optim.lr_scheduler.factory import (
+    create_lr_scheduler as create_lr_scheduler,
+)
 from fairseq2.optim.lr_scheduler.factory import create_myle_lr as create_myle_lr
 from fairseq2.optim.lr_scheduler.factory import create_noam_lr as create_noam_lr
 from fairseq2.optim.lr_scheduler.factory import (

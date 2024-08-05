@@ -29,7 +29,7 @@ from fairseq2.generation import (
     BeamSearchConfig,
     Seq2SeqGenerator,
     SequenceToTextConverter,
-    seq2seq_generator_factories,
+    create_seq2seq_generator,
 )
 from fairseq2.logging import get_log_writer
 from fairseq2.metrics.text import BleuMetric, ChrfMetric
@@ -190,11 +190,9 @@ def load_mt_evaluator(
 
     # Initialize the sequence generator.
     try:
-        generator_factory = seq2seq_generator_factories.get(
-            config.generator, config.generator_config
+        generator = create_seq2seq_generator(
+            config.generator, model, config.generator_config
         )
-
-        generator = generator_factory(model)
     except ValueError as ex:
         raise ValueError(
             "The sequence generator cannot be created. See nested exception for details."
@@ -216,17 +214,22 @@ def load_mt_evaluator(
 
         units.append(loss_unit)
 
-        data_reader = dataset.create_reader(
-            config.split,
-            tokenizer,
-            gang,
-            config.max_seq_len,
-            batching=LengthBatching(config.max_num_tokens),
-            direction=direction,
-            sync_batches=False,
-            num_prefetch=config.num_prefetch,
-            seed=seed,
-        )
+        try:
+            data_reader = dataset.create_reader(
+                config.split,
+                tokenizer,
+                gang,
+                config.max_seq_len,
+                batching=LengthBatching(config.max_num_tokens),
+                direction=direction,
+                sync_batches=False,
+                num_prefetch=config.num_prefetch,
+                seed=seed,
+            )
+        except ValueError as ex:
+            raise ValueError(
+                f"The data reader for '{direction}' cannot be initialized. See nested exception for details."
+            ) from ex
 
         seed += 1
 
@@ -285,17 +288,22 @@ def load_mt_evaluator(
 
         units.append(score_unit)
 
-        data_reader = dataset.create_reader(
-            config.split,
-            tokenizer,
-            gang,
-            config.max_seq_len,
-            batching=StaticBatching(config.generator_batch_size),
-            direction=direction,
-            sync_batches=False,
-            num_prefetch=config.num_prefetch,
-            seed=seed,
-        )
+        try:
+            data_reader = dataset.create_reader(
+                config.split,
+                tokenizer,
+                gang,
+                config.max_seq_len,
+                batching=StaticBatching(config.generator_batch_size),
+                direction=direction,
+                sync_batches=False,
+                num_prefetch=config.num_prefetch,
+                seed=seed,
+            )
+        except ValueError as ex:
+            raise ValueError(
+                f"The data reader for '{direction}' cannot be initialized. See nested exception for details."
+            ) from ex
 
         seed += 1
 

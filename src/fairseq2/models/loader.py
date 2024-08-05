@@ -379,7 +379,7 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
             loader = self._loaders[family]
         except KeyError:
             raise AssetError(
-                f"The value of the field 'model_family' of the asset card '{card.name}' must be a supported model family, but '{family}' has no registered loader."
+                f"The value of the field 'model_family' of the asset card '{card.name}' must be a supported model family, but is '{family}' instead."
             ) from None
 
         return loader(
@@ -402,7 +402,7 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
         """
         if family in self._loaders:
             raise ValueError(
-                f"`family` must be a unique model family name, but '{family}' has already a registered loader."
+                f"`family` must be a unique model family name, but '{family}' is already registered."
             )
 
         self._loaders[family] = loader

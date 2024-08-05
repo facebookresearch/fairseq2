@@ -24,11 +24,7 @@ from fairseq2.datasets.instruction import (
     load_instruction_dataset,
 )
 from fairseq2.gang import Gang
-from fairseq2.generation import (
-    SamplingConfig,
-    SequenceGenerator,
-    seq_generator_factories,
-)
+from fairseq2.generation import SamplingConfig, SequenceGenerator, create_seq_generator
 from fairseq2.logging import get_log_writer
 from fairseq2.models import load_model
 from fairseq2.models.decoder import DecoderModel
@@ -207,11 +203,9 @@ def load_text_generator(
 
     # Initialize the sequence generator.
     try:
-        generator_factory = seq_generator_factories.get(
-            config.generator, config.generator_config
+        generator = create_seq_generator(
+            config.generator, model, config.generator_config
         )
-
-        generator = generator_factory(model)
     except ValueError as ex:
         raise ValueError(
             "The sequence generator cannot be created. See nested exception for details."
@@ -255,15 +249,20 @@ def load_text_generator(
         json_output_stream=json_output_fp,
     )
 
-    data_reader = dataset.create_prompt_reader(
-        tokenizer,
-        dp_gang,
-        config.max_seq_len,
-        batching=StaticBatching(config.batch_size),
-        sync_batches=False,
-        num_prefetch=config.num_prefetch,
-        seed=seed,
-    )
+    try:
+        data_reader = dataset.create_prompt_reader(
+            tokenizer,
+            dp_gang,
+            config.max_seq_len,
+            batching=StaticBatching(config.batch_size),
+            sync_batches=False,
+            num_prefetch=config.num_prefetch,
+            seed=seed,
+        )
+    except ValueError as ex:
+        raise ValueError(
+            "The data reader cannot be initialized. See nested exception for details."
+        ) from ex
 
     seed += 1
 

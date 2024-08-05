@@ -59,6 +59,6 @@ class TestConfigRegistry:
 
         with pytest.raises(
             ValueError,
-            match=r"^`name` must be a registered configuration name, but is 'foo' instead\.$",
+            match=r"^`name` must be a registered configuration name, but 'foo' is not registered\.$",
         ):
             registry.get("foo")
