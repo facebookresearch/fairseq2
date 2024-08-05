@@ -333,6 +333,7 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
 
     seed += 1
 
+    # Initialize the optimizer.
     try:
         optimizer = create_optimizer(
             config.optimizer, dp_model, config.optimizer_config
@@ -342,6 +343,7 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
             "The optimizer cannot be created. See nested exception for details."
         ) from ex
 
+    # Initialize the learning rate scheduler.
     try:
         lr_scheduler = create_lr_scheduler(
             config.lr_scheduler,

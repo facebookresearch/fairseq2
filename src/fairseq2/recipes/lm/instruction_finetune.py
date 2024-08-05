@@ -218,6 +218,24 @@ def _llama3_70b_instruct() -> InstructionFinetuneConfig:
     return config
 
 
+@instruction_finetune_preset("llama3_1_8b_instruct")
+def _llama3_1_8b_instruct() -> InstructionFinetuneConfig:
+    config = _llama3_8b_instruct()
+
+    config.model = "llama3_1_8b_instruct"
+
+    return config
+
+
+@instruction_finetune_preset("llama3_1_70b_instruct")
+def _llama3_1_70b_instruct() -> InstructionFinetuneConfig:
+    config = _llama3_70b_instruct()
+
+    config.model = "llama3_1_70b_instruct"
+
+    return config
+
+
 def load_instruction_finetuner(
     config: InstructionFinetuneConfig, output_dir: Path
 ) -> Trainer[SequenceBatch]:
@@ -358,6 +376,7 @@ def load_instruction_finetuner(
 
     seed += 1
 
+    # Initialize the optimizer.
     try:
         optimizer = create_optimizer(
             config.optimizer, dp_model, config.optimizer_config
@@ -367,6 +386,7 @@ def load_instruction_finetuner(
             "The optimizer cannot be created. See nested exception for details."
         ) from ex
 
+    # Initialize the learning rate scheduler.
     try:
         lr_scheduler = create_lr_scheduler(
             config.lr_scheduler,

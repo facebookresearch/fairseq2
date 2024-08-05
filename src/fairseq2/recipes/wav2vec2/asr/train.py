@@ -395,15 +395,17 @@ def load_wav2vec2_asr_trainer(
 
     seed += 1
 
+    # Initialize the optimizer.
     try:
         optimizer = create_optimizer(
             config.optimizer, dp_model, config.optimizer_config
         )
     except ValueError as ex:
         raise ValueError(
-            "The optimizer cannot be initialized. See nested exception for details."
+            "The optimizer cannot be created. See nested exception for details."
         ) from ex
 
+    # Initialize the learning rate scheduler.
     try:
         lr_scheduler = create_lr_scheduler(
             config.lr_scheduler,
@@ -413,7 +415,7 @@ def load_wav2vec2_asr_trainer(
         )
     except ValueError as ex:
         raise ValueError(
-            "The learning rate scheduler cannot be initialized. See nested exception for details."
+            "The learning rate scheduler cannot be created. See nested exception for details."
         ) from ex
 
     # Initialize the validation unit.

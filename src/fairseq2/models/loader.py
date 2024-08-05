@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from pickle import PickleError
-from typing import Any, Generic, Protocol, TypeVar, final
+from typing import Any, Generic, Mapping, Protocol, TypeVar, final
 
 from torch.nn import Module
 from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
@@ -74,7 +74,7 @@ class ModelLoader(Protocol[ModelT_co]):
         self,
         model_name_or_card: str | AssetCard,
         *,
-        gangs: dict[str, Gang] | None = None,
+        gangs: Mapping[str, Gang] | None = None,
         device: Device | None = None,
         dtype: DataType | None = None,
         force: bool = False,
@@ -177,7 +177,7 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         self,
         model_name_or_card: str | AssetCard,
         *,
-        gangs: dict[str, Gang] | None = None,
+        gangs: Mapping[str, Gang] | None = None,
         device: Device | None = None,
         dtype: DataType | None = None,
         force: bool = False,
@@ -362,7 +362,7 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
         self,
         model_name_or_card: str | AssetCard,
         *,
-        gangs: dict[str, Gang] | None = None,
+        gangs: Mapping[str, Gang] | None = None,
         device: Device | None = None,
         dtype: DataType | None = None,
         force: bool = False,

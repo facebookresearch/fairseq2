@@ -42,6 +42,19 @@ def _setup_lm_cli(cli: Cli) -> None:
         help="instruction-finetune a language model",
     )
 
+    # Preference Finetune
+    preference_finetune_handler = RecipeCommandHandler(
+        loader=load_preference_finetuner,
+        preset_configs=preference_finetune_presets,
+        default_preset="llama3_8b_instruct",
+    )
+
+    group.add_command(
+        name="preference_finetune",
+        handler=preference_finetune_handler,
+        help="preference-finetune a language model (e.g. DPO, SimPO).",
+    )
+
     # Text Generate
     text_generate_handler = RecipeCommandHandler(
         loader=load_text_generator,
@@ -53,17 +66,4 @@ def _setup_lm_cli(cli: Cli) -> None:
         name="generate",
         handler=text_generate_handler,
         help="generate text",
-    )
-
-    # Preference Finetune
-    preference_finetune_handler = RecipeCommandHandler(
-        loader=load_preference_finetuner,
-        preset_configs=preference_finetune_presets,
-        default_preset="llama3_8b_instruct",
-    )
-
-    group.add_command(
-        name="preference_finetune",
-        handler=preference_finetune_handler,
-        help="preference-finetune a language model",
     )

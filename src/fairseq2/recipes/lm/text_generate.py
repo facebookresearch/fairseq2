@@ -125,6 +125,24 @@ def _llama3_70b_instruct() -> TextGenerateConfig:
     return config
 
 
+@text_generate_preset("llama3_1_8b_instruct")
+def _llama3_1_8b_instruct() -> TextGenerateConfig:
+    config = _llama3_8b_instruct()
+
+    config.model = "llama3_1_8b_instruct"
+
+    return config
+
+
+@text_generate_preset("llama3_1_70b_instruct")
+def _llama3_1_70b_instruct() -> TextGenerateConfig:
+    config = _llama3_70b_instruct()
+
+    config.model = "llama3_1_70b_instruct"
+
+    return config
+
+
 def load_text_generator(
     config: TextGenerateConfig, output_dir: Path
 ) -> Generator[SequenceBatch]:
