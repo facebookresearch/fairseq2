@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DataPipeline &mdash; fairseq2 0.3.0.dev202407302052+g1d95f15 documentation</title>
+  <title>DataPipeline &mdash; fairseq2 0.3.0.dev202408050143+g6656248 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -35,7 +35,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202407302052+g1d95f15
+                0.3.0.dev202408050143+g6656248
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -178,7 +178,7 @@ and sharing the same state, so it will behave inconcistently.</p>
 so it’s not safe to have several iterators over the same DataPipeline.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Iterator" title="(in Python v3.12)"><em>Iterator</em></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.12)"><em>Any</em></a>]</p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterator" title="(in Python v3.12)"><em>Iterator</em></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.12)"><em>Any</em></a>]</p>
 </dd>
 </dl>
 </dd></dl>
@@ -189,7 +189,7 @@ so it’s not safe to have several iterators over the same DataPipeline.</p>
 <dd><p>Concatenate examples from <code class="docutils literal notranslate"><span class="pre">pipelines</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>pipelines</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Sequence" title="(in Python v3.12)"><em>Sequence</em></a><em>[</em><a class="reference internal" href="#fairseq2.data.DataPipeline" title="fairseq2.data.data_pipeline.DataPipeline"><em>DataPipeline</em></a><em>]</em>) – The data pipelines to concatenate.</p>
+<dd class="field-odd"><p><strong>pipelines</strong> (<a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.12)"><em>Sequence</em></a><em>[</em><a class="reference internal" href="#fairseq2.data.DataPipeline" title="fairseq2.data.data_pipeline.DataPipeline"><em>DataPipeline</em></a><em>]</em>) – The data pipelines to concatenate.</p>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p><a class="reference internal" href="fairseq2.data.DataPipelineBuilder.html#fairseq2.data.DataPipelineBuilder" title="fairseq2.data.data_pipeline.DataPipelineBuilder"><em>DataPipelineBuilder</em></a></p>
@@ -252,7 +252,7 @@ where the key is <code class="docutils literal notranslate"><span class="pre">ke
 <dd><p>Restore the state of the data pipeline from <code class="docutils literal notranslate"><span class="pre">state_dict</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>state_dict</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Mapping" title="(in Python v3.12)"><em>Mapping</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.12)"><em>Any</em></a><em>]</em>) – A state dictionary previously returned by <a class="reference internal" href="#fairseq2.data.DataPipeline.state_dict" title="fairseq2.data.DataPipeline.state_dict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">state_dict()</span></code></a>.</p>
+<dd class="field-odd"><p><strong>state_dict</strong> (<a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Mapping" title="(in Python v3.12)"><em>Mapping</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.12)"><em>Any</em></a><em>]</em>) – A state dictionary previously returned by <a class="reference internal" href="#fairseq2.data.DataPipeline.state_dict" title="fairseq2.data.DataPipeline.state_dict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">state_dict()</span></code></a>.</p>
 </dd>
 </dl>
 </dd></dl>
@@ -275,7 +275,7 @@ where the key is <code class="docutils literal notranslate"><span class="pre">ke
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>pipelines</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Sequence" title="(in Python v3.12)"><em>Sequence</em></a><em>[</em><a class="reference internal" href="#fairseq2.data.DataPipeline" title="fairseq2.data.data_pipeline.DataPipeline"><em>DataPipeline</em></a><em>]</em>) – The data pipelines to round robin.</p></li>
+<li><p><strong>pipelines</strong> (<a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.12)"><em>Sequence</em></a><em>[</em><a class="reference internal" href="#fairseq2.data.DataPipeline" title="fairseq2.data.data_pipeline.DataPipeline"><em>DataPipeline</em></a><em>]</em>) – The data pipelines to round robin.</p></li>
 <li><p><strong>stop_at_shortest</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.12)"><em>bool</em></a>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, stops round_robin when first pipeline reaches its end.</p></li>
 <li><p><strong>allow_repeats</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.12)"><em>bool</em></a>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, circles around finished pipelines until all pipelines
 reach their end.
@@ -298,7 +298,7 @@ end at least once.</p>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>data_pipelines</strong> – The data pipelines to sample from.</p></li>
-<li><p><strong>weights</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Sequence" title="(in Python v3.12)"><em>Sequence</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.12)"><em>float</em></a><em>] </em><em>| </em><em>None</em>) – Desired distribution of pipelines. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, use uniform distribution.</p></li>
+<li><p><strong>weights</strong> (<a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.12)"><em>Sequence</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.12)"><em>float</em></a><em>] </em><em>| </em><em>None</em>) – Desired distribution of pipelines. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, use uniform distribution.</p></li>
 <li><p><strong>allow_repeats</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.12)"><em>bool</em></a>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, circles around finished pipelines until all pipelines
 reach their end.
 If <code class="docutils literal notranslate"><span class="pre">False</span></code>, does not repeat pipelines that have reached their end.</p></li>
@@ -324,7 +324,7 @@ be lost, but for large buffers this can significantly increase
 the state size and the time to restore the data pipeline.</p>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.12)"><em>Dict</em></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)">str</a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.12)"><em>Any</em></a>]</p>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.12)">dict</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)">str</a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.12)"><em>Any</em></a>]</p>
 </dd>
 </dl>
 </dd></dl>
@@ -336,8 +336,8 @@ the state size and the time to restore the data pipeline.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>pipelines</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Sequence" title="(in Python v3.12)"><em>Sequence</em></a><em>[</em><a class="reference internal" href="#fairseq2.data.DataPipeline" title="fairseq2.data.data_pipeline.DataPipeline"><em>DataPipeline</em></a><em>]</em>) – The data pipelines to zip.</p></li>
-<li><p><strong>names</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Sequence" title="(in Python v3.12)"><em>Sequence</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><em>str</em></a><em>] </em><em>| </em><em>None</em>) – The names to assign to the data pipelines. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, yields examples as lists.</p></li>
+<li><p><strong>pipelines</strong> (<a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.12)"><em>Sequence</em></a><em>[</em><a class="reference internal" href="#fairseq2.data.DataPipeline" title="fairseq2.data.data_pipeline.DataPipeline"><em>DataPipeline</em></a><em>]</em>) – The data pipelines to zip.</p></li>
+<li><p><strong>names</strong> (<a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.12)"><em>Sequence</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><em>str</em></a><em>] </em><em>| </em><em>None</em>) – The names to assign to the data pipelines. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, yields examples as lists.</p></li>
 <li><p><strong>zip_to_shortest</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.12)"><em>bool</em></a>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, stops yielding examples after shortest pipeline terminates.
 Otherwise, all pipelines (that are not pseudo-infinite)
 must have the same number of examples.</p></li>

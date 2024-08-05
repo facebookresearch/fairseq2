@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NoamLR &mdash; fairseq2 0.3.0.dev202407302052+g1d95f15 documentation</title>
+  <title>NoamLR &mdash; fairseq2 0.3.0.dev202408050143+g6656248 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -36,7 +36,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202407302052+g1d95f15
+                0.3.0.dev202408050143+g6656248
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -164,7 +164,7 @@
 <h1>NoamLR<a class="headerlink" href="#noamlr" title="Permalink to this heading"></a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.optim.lr_scheduler.NoamLR">
-<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.optim.lr_scheduler.</span></span><span class="sig-name descname"><span class="pre">NoamLR</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">optimizer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_warmup_steps</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">last_epoch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/optim/lr_scheduler.html#NoamLR"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.optim.lr_scheduler.NoamLR" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.optim.lr_scheduler.</span></span><span class="sig-name descname"><span class="pre">NoamLR</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">optimizer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_warmup_steps</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">last_epoch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/optim/lr_scheduler/noam.html#NoamLR"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.optim.lr_scheduler.NoamLR" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractLRScheduler</span></code></p>
 <p>Represents the learning rate schedule described in Section 5.3 of
 <span id="id1">Vaswani <em>et al.</em> [<a class="reference internal" href="../../../bibliography.html#id5" title="Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N. Gomez, Lukasz Kaiser, and Illia Polosukhin. Attention is all you need. 2017. URL: https://arxiv.org/abs/1706.03762, doi:10.48550/ARXIV.1706.03762.">VSP+17</a>]</span>.</p>
@@ -194,6 +194,11 @@ the paper, Noam Shazeer.</p>
 <dt class="sig sig-object py" id="fairseq2.optim.lr_scheduler.NoamLR.get_last_lr">
 <span class="sig-name descname"><span class="pre">get_last_lr</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fairseq2.optim.lr_scheduler.NoamLR.get_last_lr" title="Permalink to this definition"></a></dt>
 <dd><p>Return last computed learning rate by current scheduler.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.12)"><em>List</em></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.12)">float</a>]</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py method">
@@ -207,12 +212,20 @@ the paper, Noam Shazeer.</p>
 </dl>
 </dd>
 </dl>
+<dl class="field-list simple">
+</dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="fairseq2.optim.lr_scheduler.NoamLR.print_lr">
 <span class="sig-name descname"><span class="pre">print_lr</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">is_verbose</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">epoch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fairseq2.optim.lr_scheduler.NoamLR.print_lr" title="Permalink to this definition"></a></dt>
 <dd><p>Display the current learning rate.</p>
+<div class="deprecated">
+<p><span class="versionmodified deprecated">Deprecated since version 2.4: </span><code class="docutils literal notranslate"><span class="pre">print_lr()</span></code> is deprecated. Please use <code class="docutils literal notranslate"><span class="pre">get_last_lr()</span></code> to access the
+learning rate.</p>
+</div>
+<dl class="field-list simple">
+</dl>
 </dd></dl>
 
 <dl class="py method">

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.data.text.text_reader &mdash; fairseq2 0.3.0.dev202408050143+g6656248 documentation</title>
+  <title>fairseq2.optim.lr_scheduler.noam &mdash; fairseq2 0.3.0.dev202408050143+g6656248 documentation</title>
       <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -146,7 +146,7 @@
   <ul class="wy-breadcrumbs">
       <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
-      <li class="breadcrumb-item active">fairseq2.data.text.text_reader</li>
+      <li class="breadcrumb-item active">fairseq2.optim.lr_scheduler.noam</li>
       <li class="wy-breadcrumbs-aside">
       </li>
   </ul>
@@ -155,7 +155,7 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <h1>Source code for fairseq2.data.text.text_reader</h1><div class="highlight"><pre>
+  <h1>Source code for fairseq2.optim.lr_scheduler.noam</h1><div class="highlight"><pre>
 <span></span><span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
 <span class="c1"># All rights reserved.</span>
 <span class="c1">#</span>
@@ -164,44 +164,72 @@
 
 <span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
-<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TYPE_CHECKING</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">final</span>
 
-<span class="kn">from</span> <span class="nn">fairseq2n</span> <span class="kn">import</span> <span class="n">DOC_MODE</span>
+<span class="kn">from</span> <span class="nn">torch.optim</span> <span class="kn">import</span> <span class="n">Optimizer</span>
+<span class="kn">from</span> <span class="nn">typing_extensions</span> <span class="kn">import</span> <span class="n">override</span>
 
-<span class="kn">from</span> <span class="nn">fairseq2.data.data_pipeline</span> <span class="kn">import</span> <span class="n">DataPipelineBuilder</span>
+<span class="kn">from</span> <span class="nn">fairseq2.optim.lr_scheduler.base</span> <span class="kn">import</span> <span class="n">AbstractLRScheduler</span>
 
-<span class="k">if</span> <span class="n">TYPE_CHECKING</span> <span class="ow">or</span> <span class="n">DOC_MODE</span><span class="p">:</span>
 
-<div class="viewcode-block" id="LineEnding"><a class="viewcode-back" href="../../../../reference/generated/data_text/fairseq2.data.text.LineEnding.html#fairseq2.data.text.LineEnding">[docs]</a>    <span class="k">class</span> <span class="nc">LineEnding</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
-        <span class="n">INFER</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="n">LF</span> <span class="o">=</span> <span class="mi">1</span>
-        <span class="n">CRLF</span> <span class="o">=</span> <span class="mi">2</span></div>
+<div class="viewcode-block" id="NoamLR"><a class="viewcode-back" href="../../../../reference/generated/classes/fairseq2.optim.lr_scheduler.NoamLR.html#fairseq2.optim.lr_scheduler.NoamLR">[docs]</a><span class="nd">@final</span>
+<span class="k">class</span> <span class="nc">NoamLR</span><span class="p">(</span><span class="n">AbstractLRScheduler</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents the learning rate schedule described in Section 5.3 of</span>
+<span class="sd">    :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`.</span>
 
-<div class="viewcode-block" id="read_text"><a class="viewcode-back" href="../../../../reference/generated/data/fairseq2.data.text.read_text.html#fairseq2.data.text.read_text">[docs]</a>    <span class="k">def</span> <span class="nf">read_text</span><span class="p">(</span>
-        <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
-        <span class="n">key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">encoding</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">line_ending</span><span class="p">:</span> <span class="n">LineEnding</span> <span class="o">=</span> <span class="n">LineEnding</span><span class="o">.</span><span class="n">INFER</span><span class="p">,</span>
-        <span class="n">ltrim</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-        <span class="n">rtrim</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-        <span class="n">skip_empty</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-        <span class="n">memory_map</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-        <span class="n">block_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Open a text file and return a data pipeline reading lines one by one.&quot;&quot;&quot;</span>
-        <span class="o">...</span></div>
+<span class="sd">    .. math::</span>
+<span class="sd">        \\eta_t = \\eta_{base} \\min(\\frac{1}{\\sqrt{t}}, \\frac{t}{T_{warmup}} \\frac{1}{\\sqrt{T_{warmup}}})</span>
 
-<span class="k">else</span><span class="p">:</span>
-    <span class="kn">from</span> <span class="nn">fairseq2n.bindings.data.text.text_reader</span> <span class="kn">import</span> <span class="n">LineEnding</span> <span class="k">as</span> <span class="n">LineEnding</span>
-    <span class="kn">from</span> <span class="nn">fairseq2n.bindings.data.text.text_reader</span> <span class="kn">import</span> <span class="n">read_text</span> <span class="k">as</span> <span class="n">read_text</span>
+<span class="sd">    This corresponds to increasing the learning rate linearly for the first</span>
+<span class="sd">    :math:`T_{warmup}` training steps, and decreasing it thereafter</span>
+<span class="sd">    proportionally to the inverse square root of the step number. In the paper,</span>
+<span class="sd">    the authors use the square root of the dimensionality of the model as</span>
+<span class="sd">    :math:`\\eta_{base}`.</span>
 
-    <span class="k">def</span> <span class="nf">_set_module_name</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="p">[</span><span class="n">LineEnding</span><span class="p">,</span> <span class="n">read_text</span><span class="p">]:</span>
-            <span class="n">t</span><span class="o">.</span><span class="vm">__module__</span> <span class="o">=</span> <span class="vm">__name__</span>
+<span class="sd">    This scheduler is commonly referred to as Noam, after the second author of</span>
+<span class="sd">    the paper, Noam Shazeer.</span>
 
-    <span class="n">_set_module_name</span><span class="p">()</span>
+<span class="sd">    .. note::</span>
+<span class="sd">        This scheduler is not chainable.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">_num_warmup_steps</span><span class="p">:</span> <span class="nb">int</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">optimizer</span><span class="p">:</span> <span class="n">Optimizer</span><span class="p">,</span>
+        <span class="n">num_warmup_steps</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">last_epoch</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param optimizer:</span>
+<span class="sd">            The associated optimizer.</span>
+<span class="sd">        :param num_warmup_steps:</span>
+<span class="sd">            The number of warmup steps.</span>
+<span class="sd">        :param last_epoch:</span>
+<span class="sd">            The index of the last epoch.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_num_warmup_steps</span> <span class="o">=</span> <span class="n">num_warmup_steps</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">last_epoch</span><span class="p">)</span>
+
+    <span class="nd">@override</span>
+    <span class="k">def</span> <span class="nf">_compute_lrs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+        <span class="c1"># Linearly increase the learning rate during warmup.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_epoch</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_warmup_steps</span><span class="p">:</span>
+            <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_epoch</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_warmup_steps</span><span class="o">**-</span><span class="mf">1.5</span>
+
+        <span class="c1"># No warmup requested, decay from the base learning rate.</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_epoch</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">c</span> <span class="o">=</span> <span class="mf">1.0</span>
+
+        <span class="c1"># After the warmup, decay the learning rate proportional to the inverse</span>
+        <span class="c1"># square root of the step number.</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_epoch</span><span class="o">**-</span><span class="mf">0.5</span>
+
+        <span class="k">return</span> <span class="p">[</span><span class="n">b</span> <span class="o">*</span> <span class="n">c</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">base_lrs</span><span class="p">]</span></div>
 </pre></div>
 
            </div>

@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Collater &mdash; fairseq2 0.3.0.dev202407302052+g1d95f15 documentation</title>
+  <title>Collater &mdash; fairseq2 0.3.0.dev202408050143+g6656248 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -35,7 +35,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202407302052+g1d95f15
+                0.3.0.dev202408050143+g6656248
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -185,10 +185,10 @@ For a dict of lists, it returns a dict of lists.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>pad_value</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.12)"><em>int</em></a><em>]</em>) – When concatenating tensors of different lengths,
+<li><p><strong>pad_value</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.12)"><em>int</em></a><em> | </em><em>None</em>) – When concatenating tensors of different lengths,
 the value used to pad the shortest tensor</p></li>
 <li><p><strong>pad_to_multiple</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.12)"><em>int</em></a>) – Always pad to a length of that multiple.</p></li>
-<li><p><strong>overrides</strong> (<em>Optional</em><em>[</em><em>Sequence</em><em>[</em><a class="reference internal" href="fairseq2.data.CollateOptionsOverride.html#fairseq2.data.CollateOptionsOverride" title="fairseq2.data.CollateOptionsOverride"><em>CollateOptionsOverride</em></a><em>]</em><em>]</em>) – List of overrides <a class="reference internal" href="fairseq2.data.CollateOptionsOverride.html#fairseq2.data.CollateOptionsOverride" title="fairseq2.data.CollateOptionsOverride"><code class="xref py py-class docutils literal notranslate"><span class="pre">CollateOptionsOverride</span></code></a>.
+<li><p><strong>overrides</strong> (<em>Sequence</em><em>[</em><a class="reference internal" href="fairseq2.data.CollateOptionsOverride.html#fairseq2.data.CollateOptionsOverride" title="fairseq2.data.CollateOptionsOverride"><em>CollateOptionsOverride</em></a><em>] </em><em>| </em><em>None</em>) – List of overrides <a class="reference internal" href="fairseq2.data.CollateOptionsOverride.html#fairseq2.data.CollateOptionsOverride" title="fairseq2.data.CollateOptionsOverride"><code class="xref py py-class docutils literal notranslate"><span class="pre">CollateOptionsOverride</span></code></a>.
 Allows to override <code class="docutils literal notranslate"><span class="pre">pad_value</span></code> and <code class="docutils literal notranslate"><span class="pre">pad_to_multiple</span></code> for specific columns.</p></li>
 </ul>
 </dd>

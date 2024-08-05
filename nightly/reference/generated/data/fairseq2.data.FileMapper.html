@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FileMapper &mdash; fairseq2 0.3.0.dev202407302052+g1d95f15 documentation</title>
+  <title>FileMapper &mdash; fairseq2 0.3.0.dev202408050143+g6656248 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -35,7 +35,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202407302052+g1d95f15
+                0.3.0.dev202408050143+g6656248
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -171,9 +171,9 @@
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>root_dir</strong> (<em>Optional</em><em>[</em><em>Path</em><em>]</em>) – Root directory for looking up relative file names.
+<li><p><strong>root_dir</strong> (<em>Path</em><em> | </em><em>None</em>) – Root directory for looking up relative file names.
 Warning, this is not enforced, FileMapper will happily read any file on the system.</p></li>
-<li><p><strong>cached_fd_count</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.12)"><em>int</em></a><em>]</em>) – Enables an LRU cache on the last <code class="docutils literal notranslate"><span class="pre">cached_fd_count</span></code> files read.
+<li><p><strong>cached_fd_count</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.12)"><em>int</em></a><em> | </em><em>None</em>) – Enables an LRU cache on the last <code class="docutils literal notranslate"><span class="pre">cached_fd_count</span></code> files read.
 <code class="docutils literal notranslate"><span class="pre">FileMapper</span></code> will memory map all the cached file,
 so this is especially useful for reading several slices of the same file.</p></li>
 </ul>
