@@ -286,7 +286,7 @@ class DelegatingTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
             loader = self._loaders[family]
         except KeyError:
             raise AssetError(
-                f"The value of the field 'tokenizer_family' of the asset card '{card.name}' must be a supported tokenizer family, but '{family}' has no registered loader."
+                f"The value of the field 'tokenizer_family' of the asset card '{card.name}' must be a supported tokenizer family, but is '{family}' instead."
             ) from None
 
         return loader(card, force=force, progress=progress)
@@ -305,7 +305,7 @@ class DelegatingTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
         """
         if family in self._loaders:
             raise ValueError(
-                f"`family` must be a unique text tokenizer family name, but '{family}' has already a registered loader."
+                f"`family` must be a unique text tokenizer family name, but '{family}' is already registered."
             )
 
         self._loaders[family] = loader

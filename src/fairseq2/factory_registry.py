@@ -79,7 +79,7 @@ class ConfigBoundFactoryRegistry(Generic[P, R]):
             factory, config_kls, config_registry = self._factories[name]
         except KeyError:
             raise ValueError(
-                f"`name` must be a registered name, but is '{name}' instead."
+                f"`name` must be a registered name, but '{name}' is not registered."
             ) from None
 
         if config is not None:

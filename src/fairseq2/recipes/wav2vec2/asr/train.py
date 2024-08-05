@@ -23,7 +23,7 @@ from fairseq2.datasets import LengthBatching
 from fairseq2.datasets.asr import GenericAsrDataset, load_asr_dataset
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
-from fairseq2.models import model_factories
+from fairseq2.models import create_model
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2 import load_wav2vec2_model
@@ -33,8 +33,8 @@ from fairseq2.models.wav2vec2.asr import (
     wav2vec2_asr_archs,
 )
 from fairseq2.nn.utils.module import freeze_parameters, share_parameters, to_device
-from fairseq2.optim import AdamWConfig, optimizer_factories
-from fairseq2.optim.lr_scheduler import TriStageLRConfig, lr_scheduler_factories
+from fairseq2.optim import AdamWConfig, create_optimizer
+from fairseq2.optim.lr_scheduler import TriStageLRConfig, create_lr_scheduler
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
 from fairseq2.recipes.utils.asset import (
     AssetReference,
@@ -286,11 +286,13 @@ def load_wav2vec2_asr_trainer(
 
     # Initialize the model
     try:
-        model_factory = model_factories.get(
-            config.model_family, config.model_config, config.model_arch
+        model, model_config = create_model(
+            config.model_family,
+            config.model_arch,
+            config.model_config,
+            device=META,
+            dtype=torch.float32,
         )
-
-        model = model_factory(device=META, dtype=torch.float32)
     except ValueError as ex:
         raise ValueError(
             "The model cannot be initialized. See nested exception for details."
@@ -301,12 +303,10 @@ def load_wav2vec2_asr_trainer(
             f"The model must be of type `{Wav2Vec2AsrModel}`, but is of type `{type(model)}` instead."
         )
 
-    log_model_config(model_factory.config, log)
+    log_model_config(model_config, log)
 
     checkpoint_manager.save_model_metadata(
-        family=model.family,
-        config=model_factory.config,
-        tokenizer_name=tokenizer_card.name,
+        family=model.family, config=model_config, tokenizer_name=tokenizer_card.name
     )
 
     has_checkpoint = checkpoint_manager.has_checkpoint()
@@ -372,61 +372,70 @@ def load_wav2vec2_asr_trainer(
         dp_model, gang, freeze_encoder_for_n_steps=config.freeze_encoder_for_n_steps
     )
 
-    data_reader = dataset.create_reader(
-        config.train_split,
-        tokenizer,
-        gang,
-        batching=LengthBatching(config.max_num_elements),
-        dtype=config.dtype,
-        min_audio_len=config.min_audio_len,
-        max_audio_len=config.max_audio_len,
-        normalize_audio=config.normalize_audio,
-        example_shuffle_window=config.example_shuffle_window,
-        batch_shuffle_window=config.batch_shuffle_window,
-        num_accumulate=config.gradient_accumulation,
-        num_prefetch=config.num_prefetch,
-        seed=seed,
-    )
+    try:
+        data_reader = dataset.create_reader(
+            config.train_split,
+            tokenizer,
+            gang,
+            batching=LengthBatching(config.max_num_elements),
+            dtype=config.dtype,
+            min_audio_len=config.min_audio_len,
+            max_audio_len=config.max_audio_len,
+            normalize_audio=config.normalize_audio,
+            example_shuffle_window=config.example_shuffle_window,
+            batch_shuffle_window=config.batch_shuffle_window,
+            num_accumulate=config.gradient_accumulation,
+            num_prefetch=config.num_prefetch,
+            seed=seed,
+        )
+    except ValueError as ex:
+        raise ValueError(
+            "The data reader cannot be initialized. See nested exception for details."
+        ) from ex
 
     seed += 1
 
     try:
-        optimizer_factory = optimizer_factories.get(
-            config.optimizer, config.optimizer_config
+        optimizer = create_optimizer(
+            config.optimizer, dp_model, config.optimizer_config
         )
-
-        optimizer = optimizer_factory(dp_model.parameters())
     except ValueError as ex:
         raise ValueError(
-            "The optimizer cannot be created. See nested exception for details."
+            "The optimizer cannot be initialized. See nested exception for details."
         ) from ex
 
     try:
-        lr_scheduler_factory = lr_scheduler_factories.get(
-            config.lr_scheduler, config.lr_scheduler_config
+        lr_scheduler = create_lr_scheduler(
+            config.lr_scheduler,
+            optimizer,
+            config.lr_scheduler_config,
+            max_num_steps=config.max_num_steps,
         )
-
-        lr_scheduler = lr_scheduler_factory(optimizer, config.max_num_steps)
     except ValueError as ex:
         raise ValueError(
-            "The learning rate scheduler cannot be created. See nested exception for details."
+            "The learning rate scheduler cannot be initialized. See nested exception for details."
         ) from ex
 
     # Initialize the validation unit.
     valid_unit = Wav2Vec2AsrEvalUnit(dp_model, gang, tokenizer)
 
-    valid_data_reader = dataset.create_reader(
-        config.valid_split,
-        tokenizer,
-        gang,
-        batching=LengthBatching(config.max_num_elements),
-        dtype=config.dtype,
-        min_audio_len=config.min_audio_len,
-        max_audio_len=config.max_audio_len,
-        normalize_audio=config.normalize_audio,
-        num_prefetch=config.num_prefetch,
-        seed=seed,
-    )
+    try:
+        valid_data_reader = dataset.create_reader(
+            config.valid_split,
+            tokenizer,
+            gang,
+            batching=LengthBatching(config.max_num_elements),
+            dtype=config.dtype,
+            min_audio_len=config.min_audio_len,
+            max_audio_len=config.max_audio_len,
+            normalize_audio=config.normalize_audio,
+            num_prefetch=config.num_prefetch,
+            seed=seed,
+        )
+    except ValueError as ex:
+        raise ValueError(
+            "The data reader for the valid split cannot be initialized. See nested exception for details."
+        ) from ex
 
     seed += 1
 

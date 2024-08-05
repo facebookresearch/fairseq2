@@ -207,19 +207,24 @@ def load_wav2vec2_asr_evaluator(
         hyp_output_stream=hyp_output_fp,
     )
 
-    data_reader = dataset.create_reader(
-        config.split,
-        tokenizer,
-        gang,
-        batching=LengthBatching(config.max_num_elements),
-        dtype=config.dtype,
-        min_audio_len=config.min_audio_len,
-        max_audio_len=config.max_audio_len,
-        normalize_audio=config.normalize_audio,
-        sync_batches=False,
-        num_prefetch=config.num_prefetch,
-        seed=seed,
-    )
+    try:
+        data_reader = dataset.create_reader(
+            config.split,
+            tokenizer,
+            gang,
+            batching=LengthBatching(config.max_num_elements),
+            dtype=config.dtype,
+            min_audio_len=config.min_audio_len,
+            max_audio_len=config.max_audio_len,
+            normalize_audio=config.normalize_audio,
+            sync_batches=False,
+            num_prefetch=config.num_prefetch,
+            seed=seed,
+        )
+    except ValueError as ex:
+        raise ValueError(
+            "The data reader cannot be initialized. See nested exception for details."
+        ) from ex
 
     seed += 1
 

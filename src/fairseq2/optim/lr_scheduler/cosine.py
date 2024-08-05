@@ -71,7 +71,7 @@ class CosineAnnealingLR(AbstractLRScheduler):
     ) -> None:
         """
         :param optimizer:
-            The associated optimizer.
+            The optimizer to associate.
         :param cycle_len:
             The number of steps within the first cycle.
         :param num_warmup_steps:

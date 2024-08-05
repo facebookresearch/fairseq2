@@ -26,7 +26,7 @@ class Registry(Generic[T]):
             return self._objects[name]
         except KeyError:
             raise ValueError(
-                f"`name` must be a registered name, but is '{name}' instead."
+                f"`name` must be a registered name, but '{name}' is not registered."
             ) from None
 
     def register(self, name: str, obj: T) -> None:
