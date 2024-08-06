@@ -493,7 +493,7 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
             type=Path,
             nargs="*",
             help="yaml configuration file(s)",
-        )
+        ).complete = shtab.FILE
 
         parser.add_argument(
             "--config",
@@ -536,7 +536,7 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
             type=Path,
             nargs=OPTIONAL,
             help="directory to store recipe artifacts",
-        )
+        ).complete = shtab.DIRECTORY
 
     @override
     def __call__(self, args: Namespace) -> None:
