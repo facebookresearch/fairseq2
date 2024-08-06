@@ -193,8 +193,8 @@ class BasicSentencePieceTokenizer(SentencePieceTokenizer):
         :param lang:
             Must be ``None``.
         :param mode:
-            Must be 'default', 'prompt', or 'prompt_response'. If ``None``,
-            defaults to 'default'.
+            Must be 'default', 'prompt', 'prompt_response', or 'no_bos_eos'.
+            If ``None``, defaults to 'default'.
         :param device:
             The device on which to construct tensors.
         :param pin_memory:
@@ -217,9 +217,12 @@ class BasicSentencePieceTokenizer(SentencePieceTokenizer):
             case "prompt_response":
                 prefix_tokens = []
                 suffix_tokens = ["</s>"]
+            case "no_bos_eos":
+                prefix_tokens = []
+                suffix_tokens = []
             case _:
                 raise ValueError(
-                    f"`mode` must be 'default' or 'prompt', but is '{mode}' instead."
+                    f"`mode` must be 'default', 'prompt' or 'no_bos_eos', but is '{mode}' instead."
                 )
 
         return SentencePieceEncoder(
