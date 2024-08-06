@@ -7,6 +7,10 @@
 from __future__ import annotations
 
 from setuptools import find_namespace_packages, setup
+from setuptools.command.install import install
+from setuptools.command.develop import develop
+import subprocess
+import os
 
 version = "0.3.0.dev0"
 
@@ -16,6 +20,36 @@ if version.endswith(".dev0"):
     fairseq2n_version_spec = f">={version},<={version[:-5]}"
 else:
     fairseq2n_version_spec = f"=={version}"
+
+class PostInstallCommand:
+    """Base class for post-installation commands."""
+    def _post_install(self):
+        completion_scripts = {
+            'bash': '/etc/bash_completion.d/fairseq2.sh',
+            'zsh': '/usr/share/zsh/site-functions/_fairseq2',
+            'tcsh': '/etc/profile.d/fairseq2.csh',
+        }
+        for shell, path in completion_scripts.items():
+            try:
+                output = subprocess.check_output(['my_cli', '--print-completions', shell], text=True)
+                with open(path, 'w') as f:
+                    f.write(output)
+                print(f"Installed completion for {shell} in {path}")
+            except Exception as e:
+                print(f"Could not install completion for {shell}: {e}")
+
+class DevelopCommand(develop, PostInstallCommand):
+    """Post-installation for development mode."""
+    def run(self):
+        print("Running develop command")
+        develop.run(self)
+        self._post_install()
+
+class InstallCommand(install, PostInstallCommand):
+    """Post-installation for installation mode."""
+    def run(self):
+        install.run(self)
+        self._post_install()
 
 setup(
     name="fairseq2",
@@ -68,4 +102,8 @@ setup(
         "arrow": ["pyarrow>=13.0.0", "pandas~=2.0.0"],
     },
     entry_points={"console_scripts": ["fairseq2=fairseq2.recipes:main"]},
+    cmdclass={
+        'install': InstallCommand,
+        'develop': DevelopCommand,
+    },
 )
