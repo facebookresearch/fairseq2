@@ -14,12 +14,7 @@ from torch.nn.functional import cross_entropy
 
 from fairseq2.models.model import Model
 from fairseq2.models.sequence import SequenceBatch
-from fairseq2.models.wav2vec2 import (
-    Wav2Vec2Features,
-    Wav2Vec2Loss,
-    Wav2Vec2Model,
-    Wav2Vec2Output,
-)
+from fairseq2.models.wav2vec2 import Wav2Vec2Loss, Wav2Vec2Model, Wav2Vec2Output
 from fairseq2.models.wav2vec2.masker import extract_masked_elements
 from fairseq2.nn import Linear
 from fairseq2.nn.padding import PaddingMask
@@ -78,12 +73,7 @@ class W2VBertModel(Model):
         :param batch:
             The batch of sequences to process.
         """
-        seqs, padding_mask, targets, temporal_mask = self.w2v2_model.run_frontend(
-            batch.seqs, batch.padding_mask
-        )
-
-        w2v2_layer_output = None
-        w2v2_layer_padding_mask = None
+        w2v2_features = self.w2v2_model.run_frontend(batch.seqs, batch.padding_mask)
 
         def hook(
             layer_idx: int,
@@ -91,27 +81,21 @@ class W2VBertModel(Model):
             layer_padding_mask: PaddingMask | None,
             num_layers: int,
         ) -> bool:
-            nonlocal w2v2_layer_output
-            nonlocal w2v2_layer_padding_mask
+            nonlocal w2v2_features
 
             if layer_idx == num_layers - self.num_bert_encoder_layers - 1:
-                w2v2_layer_output = layer_output
-                w2v2_layer_padding_mask = layer_padding_mask
+                w2v2_features.seqs = layer_output
 
             return True
 
         with self.w2v2_model.encoder.register_layer_output_hook(hook):
-            encoder_output, _ = self.w2v2_model.encoder(seqs, padding_mask)
+            encoder_output, _ = self.w2v2_model.encoder(
+                w2v2_features.seqs, w2v2_features.padding_mask
+            )
 
-        assert w2v2_layer_output is not None
+        w2v2_output = self.w2v2_model.quantize_and_contrast(w2v2_features)
 
-        features = Wav2Vec2Features(
-            w2v2_layer_output, w2v2_layer_padding_mask, targets, temporal_mask
-        )
-
-        w2v2_output = self.w2v2_model.quantize_and_contrast(features)
-
-        seqs = extract_masked_elements(encoder_output, temporal_mask)
+        seqs = extract_masked_elements(encoder_output, w2v2_features.temporal_mask)
 
         bert_logits = self.final_bert_proj(seqs)
 
@@ -178,10 +162,12 @@ class W2VBertOutput:
 
         w2v2_loss = self.w2v2_output.compute_loss()
 
-        l1 = bert_loss_weight * bert_loss
-        l2 = w2v2_loss_weight * w2v2_loss.total
+        weighted_bert_loss = bert_loss_weight * bert_loss
+        weighted_w2v2_loss = w2v2_loss_weight * w2v2_loss.total
 
-        return W2VBertLoss(l1 + l2, bert_loss, w2v2_loss)
+        return W2VBertLoss(
+            weighted_bert_loss + weighted_w2v2_loss, bert_loss, w2v2_loss
+        )
 
     def compute_bert_loss(self, *, label_smoothing: float = 0.0) -> Tensor:
         """Compute the masked prediction loss.
@@ -189,11 +175,11 @@ class W2VBertOutput:
         :param label_smoothing:
             The amount of label smoothing when computing masked prediction loss.
         """
+        # For numerical stability in low-precision.
+        logits = self.bert_logits.float()
+
         return cross_entropy(
-            self.bert_logits,
-            self.bert_targets,
-            reduction="sum",
-            label_smoothing=label_smoothing,
+            logits, self.bert_targets, reduction="sum", label_smoothing=label_smoothing
         )
 
 
@@ -210,7 +196,3 @@ class W2VBertLoss:
 
     w2v2: Wav2Vec2Loss
     """The loss of the wav2vec 2.0 model."""
-
-    def detach(self) -> W2VBertLoss:
-        """Return a copy detached from the autograd graph."""
-        return W2VBertLoss(self.total.detach(), self.bert.detach(), self.w2v2.detach())

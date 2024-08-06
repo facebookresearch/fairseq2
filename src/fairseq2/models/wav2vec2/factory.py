@@ -76,7 +76,7 @@ class Wav2Vec2Config:
     temporal_mask_span_len: int = 10
     """The length of each temporal mask span that is applied over time steps."""
 
-    max_temporal_mask_prob: float = 0.65
+    max_temporal_mask_prob: float = 0.69
     """The maximum probability of masking a time step. Note that, due to mask
     span overlap, the effective probability will be lower."""
 
