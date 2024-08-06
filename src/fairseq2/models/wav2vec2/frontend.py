@@ -166,7 +166,7 @@ class Wav2Vec2Frontend(TransformerFrontend):
         if self.feature_extractor is not None:
             seqs, padding_mask = self.feature_extractor(seqs, padding_mask)
 
-        raw_features = seqs
+        raw_features = seqs.clone()
 
         seqs = self.post_extract_layer_norm(seqs)
 
