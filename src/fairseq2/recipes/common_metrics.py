@@ -106,7 +106,9 @@ class SequenceMetricBag(TaskMetricBag):
         """
         num_target_elements = batch.num_target_elements()
 
-        self._nll_loss.update(loss / num_target_elements, weight=num_target_elements)
+        self._nll_loss.update(
+            loss.detach() / num_target_elements, weight=num_target_elements
+        )
 
     @torch.inference_mode()
     def update_batch_metrics(self, batch: SequenceBatch) -> None:
@@ -175,7 +177,9 @@ class Seq2SeqMetricBag(TaskMetricBag):
         """
         num_target_elements = batch.num_target_elements()
 
-        self._nll_loss.update(loss / num_target_elements, weight=num_target_elements)
+        self._nll_loss.update(
+            loss.detach() / num_target_elements, weight=num_target_elements
+        )
 
     @torch.inference_mode()
     def update_batch_metrics(self, batch: Seq2SeqBatch) -> None:

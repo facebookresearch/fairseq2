@@ -458,7 +458,7 @@ class InstructionFinetuneUnit(AbstractTrainUnit[SequenceBatch]):
             target_batch.seqs, loss_mask=target_batch.target_mask
         )
 
-        self._metric_bag.update_nll_loss(target_batch, loss.detach())
+        self._metric_bag.update_nll_loss(target_batch, loss)
 
         self._metric_bag.update_batch_metrics(target_batch)
 

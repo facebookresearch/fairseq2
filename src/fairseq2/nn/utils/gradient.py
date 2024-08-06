@@ -75,7 +75,7 @@ class _GradientScaleFunction(Function):
 
         ctx.scale = scale
 
-        return x.detach().clone().requires_grad_(True)
+        return x.detach().clone()
 
     @staticmethod
     def backward(ctx: Any, grad_output: Tensor) -> tuple[Tensor, None]:  # type: ignore[override]

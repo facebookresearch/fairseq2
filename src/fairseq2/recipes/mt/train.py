@@ -497,7 +497,7 @@ class MTTrainUnit(AbstractTrainUnit[Seq2SeqBatch]):
             target_batch.seqs, label_smoothing=self._label_smoothing
         )
 
-        self._metric_bag.update_nll_loss(input_batch, loss.detach())
+        self._metric_bag.update_nll_loss(input_batch, loss)
 
         self._metric_bag.update_batch_metrics(input_batch)
 
