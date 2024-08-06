@@ -511,7 +511,7 @@ class Wav2Vec2AsrTrainUnit(AbstractTrainUnit[Seq2SeqBatch]):
 
         loss = output.compute_loss(batch.target_seqs, batch.target_padding_mask)
 
-        self._metric_bag.update_ctc_loss(batch, loss.detach())
+        self._metric_bag.update_ctc_loss(batch, loss)
 
         self._metric_bag.update_batch_metrics(batch)
 
