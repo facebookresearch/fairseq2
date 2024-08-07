@@ -16,6 +16,7 @@ from datasets import (  # type: ignore[attr-defined,import-untyped,import-not-fo
     load_dataset,
 )
 
+from fairseq2.assets.metadata_provider import AssetNotFoundError
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.data_pipeline import SequenceData
 from fairseq2.data.text import load_text_tokenizer
@@ -28,6 +29,7 @@ from fairseq2.models.wav2vec2.asr import load_wav2vec2_asr_model
 from fairseq2.nn.padding import get_seqs_and_padding_mask
 from fairseq2.recipes.hg.dataset import Example, create_hf_reader
 from fairseq2.recipes.hg.evaluator import HFEvaluator
+from fairseq2.recipes.utils.asset import retrieve_asset_card
 from fairseq2.recipes.utils.setup import setup_root_gang
 from fairseq2.typing import META, DataType
 from fairseq2.utils.profiler import Stopwatch
@@ -87,8 +89,8 @@ asr_eval_presets = ConfigRegistry[AsrEvalConfig]()
 asr_eval_preset = asr_eval_presets.decorator
 
 
-@asr_eval_preset("librispeech_asr")
-def _librispeech_asr_config() -> AsrEvalConfig:
+@asr_eval_preset("wav2vec2_librispeech_asr")
+def _wav2vec2_librispeech_asr_config() -> AsrEvalConfig:
     return AsrEvalConfig(
         dataset_name="librispeech_asr",
         model_name="wav2vec2_asr_base_10h",
@@ -96,6 +98,13 @@ def _librispeech_asr_config() -> AsrEvalConfig:
         # converter=librispeech_asr_to_batch,
     )
 
+@asr_eval_preset("whisper_librispeech_asr")
+def _whisper_librispeech_asr_config() -> AsrEvalConfig:
+    return AsrEvalConfig(
+        dataset_name="librispeech_asr",
+        model_name="whisper",
+        split="test.other",
+    )
 
 def _librispeech_asr_to_batch(examples: Example) -> Seq2SeqBatch:
     """
