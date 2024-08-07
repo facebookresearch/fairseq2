@@ -34,7 +34,8 @@ def convert_transformer_checkpoint(
     except KeyError:
         return checkpoint
 
-    if "decoder.output_projection.weight" not in state_dict:
+    # Check if we have a fairseq2 checkpoint.
+    if "final_proj.weight" in state_dict:
         return checkpoint
 
     key_map = {

@@ -35,7 +35,8 @@ def convert_wav2vec2_checkpoint(
     except KeyError:
         return checkpoint
 
-    if "project_q.weight" not in state_dict:
+    # Check if we have a fairseq2 checkpoint.
+    if "final_target_proj.weight" in state_dict:
         return checkpoint
 
     if config.encoder_config.norm_order == TransformerNormOrder.POST:

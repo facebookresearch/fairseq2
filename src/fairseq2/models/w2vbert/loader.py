@@ -35,7 +35,8 @@ def convert_w2vbert_checkpoint(
     except KeyError:
         return checkpoint
 
-    if "mlm_proj.weight" not in state_dict:
+    # Check if we have a fairseq2 checkpoint.
+    if "final_bert_proj.weight" in state_dict:
         return checkpoint
 
     state_dict["w2v2_model.quantizer.num_updates"] = torch.zeros((), device="cpu")
