@@ -484,6 +484,8 @@ def_data_pipeline(py::module_ &data_module)
                 data_pipeline_builder &self,
                 float64 threshold,
                 cost_fn fn,
+                std::optional<bucket_creation_fn> maybe_bucket_fn,
+                std::optional<postprocess_remainder_fn> maybe_remainder_fn,
                 std::optional<std::size_t> maybe_min_num_examples,
                 std::optional<std::size_t> maybe_max_num_examples,
                 bool drop_remainder) -> data_pipeline_builder &
@@ -491,6 +493,8 @@ def_data_pipeline(py::module_ &data_module)
                 self = std::move(self).dynamic_bucket(
                     threshold,
                     std::move(fn),
+                    std::move(maybe_bucket_fn),
+                    std::move(maybe_remainder_fn),
                     maybe_min_num_examples,
                     maybe_max_num_examples,
                     drop_remainder);
@@ -499,6 +503,8 @@ def_data_pipeline(py::module_ &data_module)
             },
             py::arg("threshold"),
             py::arg("fn"),
+            py::arg("bucket_creation_fn") = std::nullopt,
+            py::arg("postprocess_remainder_fn") = std::nullopt,
             py::arg("min_num_examples") = std::nullopt,
             py::arg("max_num_examples") = std::nullopt,
             py::arg("drop_remainder") = false)

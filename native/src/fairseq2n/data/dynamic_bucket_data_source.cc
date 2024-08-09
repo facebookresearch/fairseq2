@@ -14,12 +14,16 @@ dynamic_bucket_data_source::dynamic_bucket_data_source(
     std::unique_ptr<data_source> &&inner, 
     float64 threshold, 
     cost_fn &&fn, 
+    std::optional<bucket_creation_fn> &&maybe_bucket_fn,
+    std::optional<postprocess_remainder_fn> &&maybe_remainder_fn,
     std::optional<std::size_t> maybe_min_num_examples, 
     std::optional<std::size_t> maybe_max_num_examples, 
     bool drop_remainder) noexcept
   : inner_{std::move(inner)}, 
     threshold_{threshold}, 
     cost_fn_{std::move(fn)}, 
+    maybe_bucket_creation_fn_{std::move(maybe_bucket_fn)},
+    maybe_postprocess_remainder_fn_{std::move(maybe_remainder_fn)},
     maybe_min_num_examples_{maybe_min_num_examples}, 
     maybe_max_num_examples_{maybe_max_num_examples}, 
     drop_remainder_{drop_remainder}
@@ -28,10 +32,8 @@ dynamic_bucket_data_source::dynamic_bucket_data_source(
 std::optional<data>
 dynamic_bucket_data_source::next()
 {
-    data_list output{};
-
     if (maybe_min_num_examples_)
-        output.reserve(*maybe_min_num_examples_);
+        buffer_.reserve(*maybe_min_num_examples_);
 
     float64 cost = 0;
 
@@ -40,13 +42,13 @@ dynamic_bucket_data_source::next()
 
         bool minimum_size_met = true;
         if (maybe_min_num_examples_)
-            minimum_size_met = output.size() >= *maybe_min_num_examples_;
+            minimum_size_met = buffer_.size() >= *maybe_min_num_examples_;
 
         if (cost_threshold_met && minimum_size_met) return true;
 
         bool maximum_size_met = false;
         if (maybe_max_num_examples_)
-            maximum_size_met = output.size() >= *maybe_max_num_examples_;
+            maximum_size_met = buffer_.size() >= *maybe_max_num_examples_;
 
         return maximum_size_met;
     };
@@ -56,33 +58,58 @@ dynamic_bucket_data_source::next()
         if (!maybe_example)
             break;
         cost += cost_fn_(*maybe_example);
-        output.push_back(*std::move(maybe_example));
+        buffer_.push_back(*std::move(maybe_example));
     }
 
-    if (output.empty())
+    if (buffer_.empty())
         return std::nullopt;
 
-    if (drop_remainder_ && !bucket_ready())
-        return std::nullopt;
+    if (bucket_ready()) {
+        if (maybe_bucket_creation_fn_) {
+            const bucket_creation_fn& fn = *maybe_bucket_creation_fn_;
+            auto&& [output, new_buffer] = fn(std::move(buffer_));
+            buffer_ = std::move(new_buffer);
+            return output;
+        } 
+    } else {
+        if (drop_remainder_) {
+            buffer_.clear();
+            return std::nullopt;
+        } else if (maybe_postprocess_remainder_fn_) {
+            const postprocess_remainder_fn& fn = *maybe_postprocess_remainder_fn_;
+            data_list output = fn(std::move(buffer_));
+            buffer_.clear();
+            return output;
+        } 
+    }
 
+    data_list output = std::move(buffer_);
+    buffer_.clear();
     return output;
 }
 
 void
 dynamic_bucket_data_source::reset(bool reset_rng)
 {
+    buffer_.clear();
     inner_->reset(reset_rng);
 }
 
 void
 dynamic_bucket_data_source::record_position(tape &t, bool strict) const
 {
+    if (maybe_bucket_creation_fn_) {
+        t.record(buffer_);
+    }
     inner_->record_position(t, strict);
 }
 
 void
 dynamic_bucket_data_source::reload_position(tape &t, bool strict)
 {
+    if (maybe_bucket_creation_fn_) {
+        buffer_ = t.read<data_list>();
+    }
     inner_->reload_position(t, strict);
 }
 
