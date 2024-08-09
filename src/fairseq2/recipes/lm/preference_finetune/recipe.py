@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, Mapping, Optional
+from typing import Literal, Mapping
 
 import torch
 import torch.distributed
@@ -140,7 +140,7 @@ class PreferenceOptimizationConfig:
     checkpoint_every_n_steps: int = 1000
     """The step interval at which to checkpoint."""
 
-    checkpoint_every_n_data_epochs: Optional[int] = None
+    checkpoint_every_n_data_epochs: int | None = None
     """The data epoch interval at which to checkpoint."""
 
     keep_last_n_checkpoints: int | None = 1
@@ -152,7 +152,7 @@ class PreferenceOptimizationConfig:
     publish_metrics_every_n_steps: int = 10
     """The step interval at which to publish training metrics."""
 
-    publish_metrics_every_n_data_epochs: Optional[int] = None
+    publish_metrics_every_n_data_epochs: int | None = None
     """The data epoch interval at which to publish training metrics."""
 
     # Checkpoint
