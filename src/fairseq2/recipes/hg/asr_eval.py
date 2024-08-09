@@ -28,6 +28,7 @@ from fairseq2.data.text import load_text_tokenizer
 from fairseq2.data.text.text_tokenizer import TextTokenizer
 from fairseq2.datasets.batching import StaticBatching
 from fairseq2.logging import get_log_writer
+from fairseq2.models.model import Model
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2.asr import load_wav2vec2_asr_model
@@ -125,14 +126,16 @@ def to_batch(examples: Example, model_type: str, device: Device) -> Seq2SeqBatch
         Seq2SeqBatch: A batch of audio and text sequences.
     """
     source_data = cast(SequenceData, examples["audio"])
-    target_data = cast(SequenceData, examples["text"])
+    target_data = cast(torch.Tensor, examples["text"])
 
     if model_type == "wav2vec2":
         source_seqs, source_padding_mask = get_seqs_and_padding_mask(source_data)
         source_seqs = source_seqs.to(device)
-        source_padding_mask = source_padding_mask.to(device)
+        source_padding_mask = (
+            source_padding_mask.to(device) if source_padding_mask is not None else None
+        )
     elif model_type == "whisper":
-        source_seqs = source_data.to(device)
+        source_seqs = cast(torch.Tensor, source_data).to(device)
         source_padding_mask = None
     else:
         raise ValueError(f"Unknown model type: {model_type}")
@@ -185,7 +188,7 @@ def evaluator_postprocesser(
 
     hypotheses, _ = outputs.generate_hypotheses(pad_idx=pad_idx)
     predictions = [decoder(item) for item in hypotheses]
-    references = targets.seqs
+    references = cast(list[str], targets.seqs)
 
     return predictions, references
 
@@ -256,10 +259,10 @@ def load_wav2vec2_asr_evaluator(
 
 
 class HGModelWrapper:
-    def __init__(self, model):
+    def __init__(self, model: WhisperForConditionalGeneration):
         self.model = model
 
-    def __call__(self, batch: SequenceBatch):
+    def __call__(self, batch: SequenceBatch) -> Any:
         return self.model.generate(batch.seqs)
 
 
@@ -316,7 +319,7 @@ def load_hg_asr_evaluator(
     wall_watch = Stopwatch(start=True, device=init_device)
 
     return HFEvaluator[Seq2SeqBatch](
-        model=HGModelWrapper(model),
+        model=cast(Model, HGModelWrapper(model)),
         metrics=["bleu"],
         gang=gang,
         data_reader=pipeline_reader,
@@ -324,6 +327,6 @@ def load_hg_asr_evaluator(
         preprocessor=evaluator_preprocessor,
         postprocessor=lambda x, y: (
             processor.batch_decode(x, skip_special_tokens=True),
-            y.seqs,
+            cast(list[str], y.seqs),
         ),
     )
