@@ -32,6 +32,7 @@
 #include "fairseq2n/data/skip_data_source.h"
 #include "fairseq2n/data/take_data_source.h"
 #include "fairseq2n/data/tape.h"
+#include "fairseq2n/data/unsorted_map_data_source.h"
 #include "fairseq2n/data/yield_from_data_source.h"
 #include "fairseq2n/data/zip_data_source.h"
 #include "fairseq2n/data/zip_file_data_source.h"
@@ -532,6 +533,23 @@ data_pipeline_builder::take(std::size_t num_examples) &&
     factory_ = [=, inner = std::move(factory_)]
     {
         return std::make_unique<take_data_source>(inner(), num_examples);
+    };
+
+    return std::move(*this);
+}
+
+data_pipeline_builder
+data_pipeline_builder::unsorted_map(const map_fn &fn, std::size_t num_parallel_calls) &&
+{
+    if (num_parallel_calls == 0)
+        throw_<std::invalid_argument>(
+            "`num_parallel_calls` must be greater than zero.");
+
+    std::vector<map_fn> fns(num_parallel_calls, fn);
+
+    factory_ = [=, fns = std::move(fns), inner = std::move(factory_)]() mutable
+    {
+        return std::make_unique<unsorted_map_data_source>(inner(), std::move(fns), num_parallel_calls);
     };
 
     return std::move(*this);

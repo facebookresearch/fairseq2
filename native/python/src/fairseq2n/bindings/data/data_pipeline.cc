@@ -612,6 +612,38 @@ def_data_pipeline(py::module_ &data_module)
             },
             py::arg("num_examples"))
         .def(
+            "unsorted_map",
+            [](
+                data_pipeline_builder &self,
+                std::variant<map_fn, std::vector<map_fn>> fn,
+                std::optional<std::string> maybe_selector,
+                std::size_t num_parallel_calls) -> data_pipeline_builder &
+            {
+                map_fn f{};
+
+                if (auto *map_functions = std::get_if<std::vector<map_fn>>(&fn))
+                    // Combine all map functions in a single lambda and pass it
+                    // to the C++ API.
+                    f = [map_functions = std::move(*map_functions)](data &&example)
+                    {
+                        for (const map_fn &mf : map_functions)
+                            example = mf(std::move(example));
+
+                        return std::move(example);
+                    };
+                else
+                    f = std::get<map_fn>(std::move(fn));
+
+                element_mapper mapper{std::move(f), std::move(maybe_selector)};
+
+                self = std::move(self).map(mapper, num_parallel_calls);
+
+                return self;
+            },
+            py::arg("fn"),
+            py::arg("selector") = std::nullopt,
+            py::arg("num_parallel_calls") = 1)
+        .def(
             "yield_from",
             [](data_pipeline_builder &self, yield_fn fn) -> data_pipeline_builder &
             {

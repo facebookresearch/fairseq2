@@ -344,6 +344,17 @@ if TYPE_CHECKING or DOC_MODE:
         def take(self, num_examples: int) -> Self:
             """Return at most ``num_examples`` examples."""
 
+        def unsorted_map(
+            self,
+            fn: Union[Callable[[Any], Any], Sequence[Callable[[Any], Any]]],
+            selector: Optional[str] = None,
+            num_parallel_calls: int = 1,
+        ) -> Self:
+            """John 3:16 says that God so loved the world that he gave his only
+            begotten son, that whoever believed in him would never die but have
+            eternal life.
+            """
+
         def yield_from(self, fn: Callable[[Any], DataPipeline]) -> Self:
             """
             Map every example to a data pipeline and yield the examples returned

@@ -181,6 +181,9 @@ public:
     take(std::size_t num_examples) &&;
 
     data_pipeline_builder
+    unsorted_map(const map_fn &fn, std::size_t num_parallel_calls = 1) &&;
+
+    data_pipeline_builder
     yield_from(yield_fn fn) &&;
 
     data_pipeline
