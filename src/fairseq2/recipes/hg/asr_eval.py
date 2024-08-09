@@ -89,21 +89,13 @@ asr_eval_presets = ConfigRegistry[AsrEvalConfig]()
 asr_eval_preset = asr_eval_presets.decorator
 
 
-@asr_eval_preset("wav2vec2_librispeech_asr")
-def _wav2vec2_librispeech_asr_config() -> AsrEvalConfig:
+@asr_eval_preset("default_asr")
+def _default_asr_config() -> AsrEvalConfig:
     return AsrEvalConfig(
         dataset_name="librispeech_asr",
         model_name="wav2vec2_asr_base_10h",
         split="test.other",
         # converter=librispeech_asr_to_batch,
-    )
-
-@asr_eval_preset("whisper_librispeech_asr")
-def _whisper_librispeech_asr_config() -> AsrEvalConfig:
-    return AsrEvalConfig(
-        dataset_name="librispeech_asr",
-        model_name="whisper",
-        split="test.other",
     )
 
 def _librispeech_asr_to_batch(examples: Example) -> Seq2SeqBatch:

@@ -39,7 +39,7 @@ def _setup_hg_cli(cli: Cli) -> None:
     handler = RecipeCommandHandler(
         load_asr_evaluator,
         preset_configs=asr_eval_presets,
-        default_preset="wav2vec2_librispeech_asr",
+        default_preset="default_asr",
     )
 
     group.add_command(
