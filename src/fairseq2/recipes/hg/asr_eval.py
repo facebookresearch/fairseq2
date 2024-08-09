@@ -16,7 +16,10 @@ from datasets import (  # type: ignore[attr-defined,import-untyped,import-not-fo
     load_dataset,
     load_dataset_builder,
 )
-from transformers import WhisperForConditionalGeneration, WhisperProcessor # type: ignore[attr-defined,import-untyped,import-not-found]
+from transformers import (  # type: ignore[attr-defined,import-untyped,import-not-found]
+    WhisperForConditionalGeneration,
+    WhisperProcessor,
+)
 
 from fairseq2.assets.metadata_provider import AssetNotFoundError
 from fairseq2.config_registry import ConfigRegistry
@@ -84,7 +87,6 @@ class AsrEvalConfig:
 
 
 asr_eval_presets = ConfigRegistry[AsrEvalConfig]()
-
 asr_eval_preset = asr_eval_presets.decorator
 
 
@@ -95,6 +97,21 @@ def _default_asr_config() -> AsrEvalConfig:
         model_name="wav2vec2_asr_base_10h",
         split="test.other",
     )
+
+
+def extract_features(example: Example) -> Example:
+    """
+    Preprocesses an individual example by converting the audio array to a PyTorch tensor
+    and encoding the text.
+
+    Args:
+        example (dict): A dictionary containing "audio" and "text" keys.
+        device (torch.device): The device to store the tensors.
+
+    Returns:
+        dict: A dictionary with "audio" and "text" as PyTorch tensors.
+    """
+    return {"audio": example["audio"]["array"], "text": example["text"].lower()}
 
 
 def to_batch(examples: Example, model_type: str, device: Device) -> Seq2SeqBatch:
@@ -132,40 +149,6 @@ def to_batch(examples: Example, model_type: str, device: Device) -> Seq2SeqBatch
     )
 
 
-def extract_features(example: Example) -> Example:
-    """
-    Preprocesses an individual example by converting the audio array to a PyTorch tensor
-    and encoding the text.
-
-    Args:
-        example (dict): A dictionary containing "audio" and "text" keys.
-        device (torch.device): The device to store the tensors.
-
-    Returns:
-        dict: A dictionary with "audio" and "text" as PyTorch tensors.
-    """
-    return {"audio": example["audio"]["array"], "text": example["text"].lower()}
-
-
-def evaluator_preprocessor(batch: Seq2SeqBatch) -> tuple[SequenceBatch, SequenceBatch]:
-    return SequenceBatch(batch.source_seqs, batch.source_padding_mask), SequenceBatch(
-        batch.target_seqs, batch.target_padding_mask
-    )
-
-
-def evaluator_postprocesser(
-    outputs: Any, targets: SequenceBatch, tokenizer: TextTokenizer
-) -> tuple[list[str], list[str]]:
-    decoder = tokenizer.create_decoder()
-    pad_idx = tokenizer.vocab_info.pad_idx
-
-    hypotheses, _ = outputs.generate_hypotheses(pad_idx=pad_idx)
-    predictions = [decoder(item) for item in hypotheses]
-    references = targets.seqs
-
-    return predictions, references
-
-
 def prepare_dataset(
     config: AsrEvalConfig, processor: Optional[Callable[[Example], Example]] = None
 ) -> Dataset:
@@ -186,6 +169,25 @@ def prepare_dataset(
     ds.set_format(**format, columns=["audio", "text"])
 
     return ds
+
+
+def evaluator_preprocessor(batch: Seq2SeqBatch) -> tuple[SequenceBatch, SequenceBatch]:
+    return SequenceBatch(batch.source_seqs, batch.source_padding_mask), SequenceBatch(
+        batch.target_seqs, batch.target_padding_mask
+    )
+
+
+def evaluator_postprocesser(
+    outputs: Any, targets: SequenceBatch, tokenizer: TextTokenizer
+) -> tuple[list[str], list[str]]:
+    decoder = tokenizer.create_decoder()
+    pad_idx = tokenizer.vocab_info.pad_idx
+
+    hypotheses, _ = outputs.generate_hypotheses(pad_idx=pad_idx)
+    predictions = [decoder(item) for item in hypotheses]
+    references = targets.seqs
+
+    return predictions, references
 
 
 def load_asr_evaluator(
