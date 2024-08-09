@@ -407,6 +407,8 @@ data_pipeline_builder
 data_pipeline_builder::dynamic_bucket(
     float64 threshold,
     cost_fn fn,
+    std::optional<bucket_creation_fn> maybe_bucket_fn,
+    std::optional<postprocess_remainder_fn> maybe_remainder_fn,
     std::optional<std::size_t> maybe_min_num_examples,
     std::optional<std::size_t> maybe_max_num_examples,
     bool drop_remainder) &&
@@ -421,12 +423,19 @@ data_pipeline_builder::dynamic_bucket(
         throw_<std::invalid_argument>("`max_num_examples` must be greater than or equal to `min_num_examples`.");
     }
 
-    factory_ = [=, fn = std::move(fn), inner = std::move(factory_)]() mutable
+    factory_ = [
+        =, 
+        fn = std::move(fn), 
+        maybe_bucket_fn = std::move(maybe_bucket_fn), 
+        maybe_remainder_fn = std::move(maybe_remainder_fn), 
+        inner = std::move(factory_)]() mutable
     {
         return std::make_unique<dynamic_bucket_data_source>(
             inner(), 
             threshold, 
             std::move(fn), 
+            std::move(maybe_bucket_fn),
+            std::move(maybe_remainder_fn),
             maybe_min_num_examples, 
             maybe_max_num_examples, 
             drop_remainder);

@@ -111,13 +111,17 @@ private:
     mutable bool is_broken_ = false;
 };
 
+using bucket_creation_fn = std::function<std::pair<data_list, data_list>(data_list &&)>;
+
+using cost_fn = std::function<float64(const data &)>;
+
 using data_length_fn = std::function<std::size_t(const data &)>;
 
 using map_fn = std::function<data(data &&)>;
 
-using predicate_fn = std::function<bool(const data &)>;
+using postprocess_remainder_fn = std::function<data_list(data_list &&)>;
 
-using cost_fn = std::function<float64(const data &)>;
+using predicate_fn = std::function<bool(const data &)>;
 
 using yield_fn = std::function<data_pipeline(const data &)>;
 
@@ -152,6 +156,8 @@ public:
     dynamic_bucket(
         float64 threshold,
         cost_fn fn,
+        std::optional<bucket_creation_fn> maybe_bucket_fn = std::nullopt,
+        std::optional<postprocess_remainder_fn> maybe_remainder_fn = std::nullopt,
         std::optional<std::size_t> maybe_min_num_examples = std::nullopt,
         std::optional<std::size_t> maybe_max_num_examples = std::nullopt,
         bool drop_remainder = false) &&;
