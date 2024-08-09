@@ -36,8 +36,8 @@ from fairseq2.models.sequence import (
 )
 from fairseq2.nn.checkpointing import use_layerwise_activation_checkpointing
 from fairseq2.nn.transformer import enable_memory_efficient_torch_sdpa
-from fairseq2.optim import AdamWConfig, optimizer_factories
-from fairseq2.optim.lr_scheduler import CosineAnnealingLRConfig, lr_scheduler_factories
+from fairseq2.optim import AdamWConfig, create_optimizer
+from fairseq2.optim.lr_scheduler import CosineAnnealingLRConfig, create_lr_scheduler
 from fairseq2.recipes.common_metrics import SequenceMetricBag
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
 from fairseq2.recipes.utils.asset import (
@@ -218,6 +218,24 @@ def _llama3_70b_instruct() -> InstructionFinetuneConfig:
     return config
 
 
+@instruction_finetune_preset("llama3_1_8b_instruct")
+def _llama3_1_8b_instruct() -> InstructionFinetuneConfig:
+    config = _llama3_8b_instruct()
+
+    config.model = "llama3_1_8b_instruct"
+
+    return config
+
+
+@instruction_finetune_preset("llama3_1_70b_instruct")
+def _llama3_1_70b_instruct() -> InstructionFinetuneConfig:
+    config = _llama3_70b_instruct()
+
+    config.model = "llama3_1_70b_instruct"
+
+    return config
+
+
 def load_instruction_finetuner(
     config: InstructionFinetuneConfig, output_dir: Path
 ) -> Trainer[SequenceBatch]:
@@ -339,37 +357,43 @@ def load_instruction_finetuner(
     # Initialize the train unit and the optimizer.
     unit = InstructionFinetuneUnit(dp_model, dp_gang)
 
-    data_reader = dataset.create_reader(
-        tokenizer,
-        dp_gang,
-        config.max_seq_len,
-        batching=LengthBatching(config.max_num_tokens),
-        example_shuffle_window=config.example_shuffle_window,
-        batch_shuffle_window=config.batch_shuffle_window,
-        num_accumulate=config.gradient_accumulation,
-        num_prefetch=config.num_prefetch,
-        seed=seed,
-    )
+    try:
+        data_reader = dataset.create_reader(
+            tokenizer,
+            dp_gang,
+            config.max_seq_len,
+            batching=LengthBatching(config.max_num_tokens),
+            example_shuffle_window=config.example_shuffle_window,
+            batch_shuffle_window=config.batch_shuffle_window,
+            num_accumulate=config.gradient_accumulation,
+            num_prefetch=config.num_prefetch,
+            seed=seed,
+        )
+    except ValueError as ex:
+        raise ValueError(
+            "The data reader cannot be initialized. See nested exception for details."
+        ) from ex
 
     seed += 1
 
+    # Initialize the optimizer.
     try:
-        optimizer_factory = optimizer_factories.get(
-            config.optimizer, config.optimizer_config
+        optimizer = create_optimizer(
+            config.optimizer, dp_model, config.optimizer_config
         )
-
-        optimizer = optimizer_factory(dp_model.parameters())
     except ValueError as ex:
         raise ValueError(
             "The optimizer cannot be created. See nested exception for details."
         ) from ex
 
+    # Initialize the learning rate scheduler.
     try:
-        lr_scheduler_factory = lr_scheduler_factories.get(
-            config.lr_scheduler, config.lr_scheduler_config
+        lr_scheduler = create_lr_scheduler(
+            config.lr_scheduler,
+            optimizer,
+            config.lr_scheduler_config,
+            max_num_steps=config.max_num_steps,
         )
-
-        lr_scheduler = lr_scheduler_factory(optimizer, config.max_num_steps)
     except ValueError as ex:
         raise ValueError(
             "The learning rate scheduler cannot be created. See nested exception for details."
@@ -434,7 +458,7 @@ class InstructionFinetuneUnit(AbstractTrainUnit[SequenceBatch]):
             target_batch.seqs, loss_mask=target_batch.target_mask
         )
 
-        self._metric_bag.update_nll_loss(target_batch, loss.detach())
+        self._metric_bag.update_nll_loss(target_batch, loss)
 
         self._metric_bag.update_batch_metrics(target_batch)
 

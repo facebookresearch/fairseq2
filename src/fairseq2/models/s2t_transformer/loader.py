@@ -38,6 +38,7 @@ def convert_s2t_transformer_checkpoint(
     except KeyError:
         return checkpoint
 
+    # Check if we have a fairseq2 checkpoint.
     if "decoder.output_projection.weight" not in state_dict:
         return checkpoint
 

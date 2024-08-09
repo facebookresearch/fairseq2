@@ -31,7 +31,8 @@ def convert_mistral_checkpoint(
     checkpoint: dict[str, Any], config: MistralConfig
 ) -> dict[str, Any]:
     """Convert a reference Mistral checkpoint to fairseq2 format."""
-    if "output.weight" not in checkpoint:
+    # Check if we have a fairseq2 checkpoint.
+    if "model" in checkpoint:
         return checkpoint
 
     key_map = {

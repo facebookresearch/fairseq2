@@ -25,15 +25,15 @@ from fairseq2.datasets.parallel_text import (
     load_parallel_text_dataset,
 )
 from fairseq2.gang import Gang
-from fairseq2.generation import BeamSearchConfig, seq2seq_generator_factories
+from fairseq2.generation import BeamSearchConfig, create_seq2seq_generator
 from fairseq2.logging import get_log_writer
-from fairseq2.models import model_factories
+from fairseq2.models import create_model
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.seq2seq import Seq2SeqBatch, as_auto_regressive_input
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.models.transformer import transformer_archs
-from fairseq2.optim import AdamWConfig, optimizer_factories
-from fairseq2.optim.lr_scheduler import MyleLRConfig, lr_scheduler_factories
+from fairseq2.optim import AdamWConfig, create_optimizer
+from fairseq2.optim.lr_scheduler import MyleLRConfig, create_lr_scheduler
 from fairseq2.recipes.common_metrics import Seq2SeqMetricBag
 from fairseq2.recipes.evaluator import EvalUnit
 from fairseq2.recipes.mt.eval import MTBleuChrfEvalUnit, MTLossEvalUnit
@@ -270,11 +270,13 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
 
     # Initialize the model
     try:
-        model_factory = model_factories.get(
-            config.model_family, config.model_config, config.model_arch
+        model, model_config = create_model(
+            config.model_family,
+            config.model_arch,
+            config.model_config,
+            device=META,
+            dtype=torch.float32,
         )
-
-        model = model_factory(device=META, dtype=torch.float32)
     except ValueError as ex:
         raise ValueError(
             "The model cannot be initialized. See nested exception for details."
@@ -285,12 +287,10 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
             f"The model must be of type `{EncoderDecoderModel}`, but is of type `{type(model)}` instead."
         )
 
-    log_model_config(model_factory.config, log)
+    log_model_config(model_config, log)
 
     checkpoint_manager.save_model_metadata(
-        family=model.family,
-        config=model_factory.config,
-        tokenizer_name=tokenizer_card.name,
+        family=model.family, config=model_config, tokenizer_name=tokenizer_card.name
     )
 
     has_checkpoint = checkpoint_manager.has_checkpoint()
@@ -312,39 +312,45 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
     # Initialize the train unit and the optimizer.
     unit = MTTrainUnit(dp_model, gang, label_smoothing=config.label_smoothing)
 
-    data_reader = dataset.create_reader(
-        config.split,
-        tokenizer,
-        gang,
-        config.max_seq_len,
-        batching=LengthBatching(config.max_num_tokens),
-        sample=True,
-        example_shuffle_window=config.example_shuffle_window,
-        batch_shuffle_window=config.batch_shuffle_window,
-        num_accumulate=config.gradient_accumulation,
-        num_prefetch=config.num_prefetch,
-        seed=seed,
-    )
+    try:
+        data_reader = dataset.create_reader(
+            config.split,
+            tokenizer,
+            gang,
+            config.max_seq_len,
+            batching=LengthBatching(config.max_num_tokens),
+            sample=True,
+            example_shuffle_window=config.example_shuffle_window,
+            batch_shuffle_window=config.batch_shuffle_window,
+            num_accumulate=config.gradient_accumulation,
+            num_prefetch=config.num_prefetch,
+            seed=seed,
+        )
+    except ValueError as ex:
+        raise ValueError(
+            "The data reader cannot be initialized. See nested exception for details."
+        ) from ex
 
     seed += 1
 
+    # Initialize the optimizer.
     try:
-        optimizer_factory = optimizer_factories.get(
-            config.optimizer, config.optimizer_config
+        optimizer = create_optimizer(
+            config.optimizer, dp_model, config.optimizer_config
         )
-
-        optimizer = optimizer_factory(dp_model.parameters())
     except ValueError as ex:
         raise ValueError(
             "The optimizer cannot be created. See nested exception for details."
         ) from ex
 
+    # Initialize the learning rate scheduler.
     try:
-        lr_scheduler_factory = lr_scheduler_factories.get(
-            config.lr_scheduler, config.lr_scheduler_config
+        lr_scheduler = create_lr_scheduler(
+            config.lr_scheduler,
+            optimizer,
+            config.lr_scheduler_config,
+            max_num_steps=config.max_num_steps,
         )
-
-        lr_scheduler = lr_scheduler_factory(optimizer, config.max_num_steps)
     except ValueError as ex:
         raise ValueError(
             "The learning rate scheduler cannot be created. See nested exception for details."
@@ -353,11 +359,9 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
     # Initialize the sequence generator.
     if config.compute_bleu_chrf:
         try:
-            generator_factory = seq2seq_generator_factories.get(
-                config.generator, config.generator_config
+            generator = create_seq2seq_generator(
+                config.generator, model, config.generator_config
             )
-
-            generator = generator_factory(model)
         except ValueError as ex:
             raise ValueError(
                 "The sequence generator cannot be created. See nested exception for details."
@@ -381,17 +385,22 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
 
         valid_units.append(valid_loss_unit)
 
-        valid_data_reader = dataset.create_reader(
-            config.valid_split,
-            tokenizer,
-            gang,
-            config.max_seq_len,
-            batching=LengthBatching(config.max_num_tokens),
-            direction=direction,
-            sync_batches=False,
-            num_prefetch=config.num_prefetch,
-            seed=seed,
-        )
+        try:
+            valid_data_reader = dataset.create_reader(
+                config.valid_split,
+                tokenizer,
+                gang,
+                config.max_seq_len,
+                batching=LengthBatching(config.max_num_tokens),
+                direction=direction,
+                sync_batches=False,
+                num_prefetch=config.num_prefetch,
+                seed=seed,
+            )
+        except ValueError as ex:
+            raise ValueError(
+                f"The data reader for '{direction}' cannot be initialized. See nested exception for details."
+            ) from ex
 
         seed += 1
 
@@ -405,17 +414,22 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
 
             valid_units.append(valid_score_unit)
 
-            valid_data_reader = dataset.create_reader(
-                config.valid_split,
-                tokenizer,
-                gang,
-                config.max_seq_len,
-                batching=StaticBatching(config.generator_batch_size),
-                direction=direction,
-                sync_batches=False,
-                num_prefetch=config.num_prefetch,
-                seed=seed,
-            )
+            try:
+                valid_data_reader = dataset.create_reader(
+                    config.valid_split,
+                    tokenizer,
+                    gang,
+                    config.max_seq_len,
+                    batching=StaticBatching(config.generator_batch_size),
+                    direction=direction,
+                    sync_batches=False,
+                    num_prefetch=config.num_prefetch,
+                    seed=seed,
+                )
+            except ValueError as ex:
+                raise ValueError(
+                    f"The data reader for '{direction}' cannot be initialized. See nested exception for details."
+                ) from ex
 
             seed += 1
 
@@ -483,7 +497,7 @@ class MTTrainUnit(AbstractTrainUnit[Seq2SeqBatch]):
             target_batch.seqs, label_smoothing=self._label_smoothing
         )
 
-        self._metric_bag.update_nll_loss(input_batch, loss.detach())
+        self._metric_bag.update_nll_loss(input_batch, loss)
 
         self._metric_bag.update_batch_metrics(input_batch)
 

@@ -105,7 +105,7 @@ class Cli:
             return self._groups[name]
         except KeyError:
             raise ValueError(
-                f"`name` must be a registered group name, but is '{name}' instead."
+                f"`name` must be a registered group name, but '{name}' is not registered."
             ) from None
 
     def init_parser(self, parser: ArgumentParser) -> None:
@@ -264,7 +264,7 @@ class CliGroup:
             return self._groups[name]
         except KeyError:
             raise ValueError(
-                f"`name` must be a registered group name, but is '{name}' instead."
+                f"`name` must be a registered group name, but '{name}' is not registered."
             ) from None
 
     def get_command(self, name: str) -> CliCommand:
@@ -273,7 +273,7 @@ class CliGroup:
             return self._commands[name]
         except KeyError:
             raise ValueError(
-                f"`name` must be a registered command name, but is '{name}' instead."
+                f"`name` must be a registered command name, but '{name}' is not registered."
             ) from None
 
     def init_parser(self, parser: ArgumentParser) -> None:

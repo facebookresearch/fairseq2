@@ -580,3 +580,11 @@ def _init_uniform_weight_and_bias(weight: Tensor, bias: Tensor | None) -> None:
         bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
 
         nn.init.uniform_(bias, -bound, bound)
+
+
+def init_bert_projection(proj: Linear) -> None:
+    """Initialize ``proj`` as a projection to be used in BERT-like models."""
+    nn.init.normal_(proj.weight, mean=0.0, std=0.02)
+
+    if proj.bias is not None:
+        nn.init.zeros_(proj.bias)

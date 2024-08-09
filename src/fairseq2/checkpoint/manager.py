@@ -24,7 +24,12 @@ from typing_extensions import override
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.typing import CPU, DataClass
-from fairseq2.utils.file import TensorDumper, TensorLoader, dump_tensors, load_tensors
+from fairseq2.utils.file import (
+    TensorDumper,
+    TensorLoader,
+    dump_pt_tensors,
+    load_pt_tensors,
+)
 from fairseq2.utils.value_converter import default_value_converter
 
 log = get_log_writer(__name__)
@@ -207,8 +212,8 @@ class FileCheckpointManager(CheckpointManager):
         elif dp_gang is not None or tp_gang is not None:
             raise ValueError("`dp_gang` and `tp_gang` must be both specified.")
 
-        self._tensor_loader = tensor_loader or load_tensors
-        self._tensor_dumper = tensor_dumper or dump_tensors
+        self._tensor_loader = tensor_loader or load_pt_tensors
+        self._tensor_dumper = tensor_dumper or dump_pt_tensors
 
         self._lower_score_better = lower_score_better
 

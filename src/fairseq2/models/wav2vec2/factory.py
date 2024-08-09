@@ -31,6 +31,7 @@ from fairseq2.models.wav2vec2.vector_quantizer import (
     VectorQuantizer,
 )
 from fairseq2.nn import PositionEncoder, RotaryEncoder
+from fairseq2.nn.projection import init_bert_projection
 from fairseq2.nn.transformer import (
     SDPA,
     FeedForwardNetwork,
@@ -75,7 +76,7 @@ class Wav2Vec2Config:
     temporal_mask_span_len: int = 10
     """The length of each temporal mask span that is applied over time steps."""
 
-    max_temporal_mask_prob: float = 0.65
+    max_temporal_mask_prob: float = 0.69
     """The maximum probability of masking a time step. Note that, due to mask
     span overlap, the effective probability will be lower."""
 
@@ -480,8 +481,10 @@ class Wav2Vec2EncoderBuilder:
         return StandardMultiheadAttention(
             self._config.model_dim,
             self._config.num_encoder_attn_heads,
+            qkv_proj_init_fn=init_bert_projection,
             pos_encoder=pos_encoder,
             sdpa=sdpa,
+            output_proj_init_fn=init_bert_projection,
             device=self._device,
             dtype=self._dtype,
         )
@@ -525,6 +528,7 @@ class Wav2Vec2EncoderBuilder:
             inner_activation=SiLU() if use_swish else GELU(),
             inner_dropout_p=self._config.ffn_inner_dropout_p,
             norm_order=self._config.norm_order,
+            proj_init_fn=init_bert_projection,
             device=self._device,
             dtype=self._dtype,
         )

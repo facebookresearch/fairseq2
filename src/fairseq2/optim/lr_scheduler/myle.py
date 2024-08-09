@@ -48,7 +48,7 @@ class MyleLR(AbstractLRScheduler):
     ) -> None:
         """
         :param optimizer:
-            The associated optimizer.
+            The optimizer to associate.
         :param num_warmup_steps:
             The number of warmup steps.
         :param start_lr:

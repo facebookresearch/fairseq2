@@ -57,7 +57,7 @@ class PolynomialDecayLR(AbstractLRScheduler):
     ) -> None:
         """
         :param optimizer:
-            The associated optimizer.
+            The optimizer to associate.
         :param num_steps:
             The total number of steps, including warmup, over which to decay the
             learning rate.
