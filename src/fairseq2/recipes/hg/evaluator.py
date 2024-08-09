@@ -12,6 +12,8 @@ from itertools import count
 from pathlib import Path
 from typing import Any, Generic, TypeVar, final
 
+import torch
+
 from fairseq2.datasets import DataReader
 from fairseq2.gang import FakeGang, Gang
 from fairseq2.logging import get_log_writer
@@ -171,6 +173,11 @@ class HFEvaluator(Generic[BatchT]):
                     self._metrics.add_batch(
                         predictions=predictions, references=references
                     )
+
+                    del inputs 
+                    del targets
+                    del outputs
+                    torch.cuda.empty_cache()
 
                 self._root_gang.barrier()
 
