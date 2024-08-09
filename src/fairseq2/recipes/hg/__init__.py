@@ -31,10 +31,7 @@ def _setup_hg_cli(cli: Cli) -> None:
 
     group = cli.add_group("hg", help="Hugging Face recipes")
 
-    from fairseq2.recipes.hg.asr_eval import (
-        asr_eval_presets,
-        load_asr_evaluator,
-    )
+    from fairseq2.recipes.hg.asr_eval import asr_eval_presets, load_asr_evaluator
 
     handler = RecipeCommandHandler(
         load_asr_evaluator,
