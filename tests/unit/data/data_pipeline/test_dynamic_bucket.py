@@ -225,8 +225,7 @@ class TestDynamicBucketOp:
 
         threshold = 6
         cost_fn = lambda x: x
-        bucket_creation_fn = lambda l: (l[:-1], [l[-1]])
-        postprocess_remainder_fn = lambda l: l
+        bucket_creation_fn = lambda l: ([l[:-1]], [l[-1]])
 
         pipeline = (
             read_sequence(seq)
@@ -234,7 +233,6 @@ class TestDynamicBucketOp:
                 threshold,
                 cost_fn,
                 bucket_creation_fn=bucket_creation_fn,
-                postprocess_remainder_fn=postprocess_remainder_fn,
             )
             .and_return()
         )

@@ -232,10 +232,8 @@ if TYPE_CHECKING or DOC_MODE:
             threshold: float,
             cost_fn: Callable[[Any], float],
             bucket_creation_fn: Callable[
-                [Sequence[Any]], tuple[Sequence[Any], Sequence[Any]]
+                [Sequence[Any]], tuple[Sequence[Sequence[Any]], Sequence[Any]]
             ]
-            | None = None,
-            postprocess_remainder_fn: Callable[[Sequence[Any]], Sequence[Any]]
             | None = None,
             min_num_examples: int | None = None,
             max_num_examples: int | None = None,
@@ -255,13 +253,10 @@ if TYPE_CHECKING or DOC_MODE:
             :param bucket_creation_fn:
                 Function for customizing bucket creation. Called with the bucket of
                 examples that caused the cost threshold to be exceeded.
-                Expected to return a tuple of ``(new_bucket, remainder)``, where
-                the internal buffer is set to ``remainder`` and ``new_bucket`` is
-                the final bucket to be yielded. If ``None``, defaults to the
+                Expected to return a tuple of ``(new_buckets, remainder)``, where
+                the internal buffer is set to ``remainder`` and ``new_buckets`` is
+                a list of buckets to be yielded. If ``None``, defaults to the
                 identity function.
-            :param postprocess_remainder_fn:
-                Function for postprocessing remainder when ``drop_remainder`` is
-                ``False``. Never called when ``drop_remainder`` is ``True``.
             :param min_num_examples:
                 Minimum number of examples per bucket.
             :param max_num_examples:

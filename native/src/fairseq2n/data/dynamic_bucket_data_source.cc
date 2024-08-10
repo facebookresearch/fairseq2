@@ -15,7 +15,6 @@ dynamic_bucket_data_source::dynamic_bucket_data_source(
     float64 threshold, 
     cost_fn &&fn, 
     std::optional<bucket_creation_fn> &&maybe_bucket_fn,
-    std::optional<postprocess_remainder_fn> &&maybe_remainder_fn,
     std::optional<std::size_t> maybe_min_num_examples, 
     std::optional<std::size_t> maybe_max_num_examples, 
     bool drop_remainder) noexcept
@@ -23,7 +22,6 @@ dynamic_bucket_data_source::dynamic_bucket_data_source(
     threshold_{threshold}, 
     cost_fn_{std::move(fn)}, 
     maybe_bucket_creation_fn_{std::move(maybe_bucket_fn)},
-    maybe_postprocess_remainder_fn_{std::move(maybe_remainder_fn)},
     maybe_min_num_examples_{maybe_min_num_examples}, 
     maybe_max_num_examples_{maybe_max_num_examples}, 
     drop_remainder_{drop_remainder}
@@ -32,6 +30,12 @@ dynamic_bucket_data_source::dynamic_bucket_data_source(
 std::optional<data>
 dynamic_bucket_data_source::next()
 {
+    if (!return_buffer_.empty()) {
+        data_list output{return_buffer_.front()};
+        return_buffer_.pop_front();
+        return output;
+    }
+
     if (maybe_min_num_examples_)
         buffer_.reserve(*maybe_min_num_examples_);
 
@@ -67,20 +71,20 @@ dynamic_bucket_data_source::next()
     if (bucket_ready()) {
         if (maybe_bucket_creation_fn_) {
             const bucket_creation_fn& fn = *maybe_bucket_creation_fn_;
-            auto&& [output, new_buffer] = fn(std::move(buffer_));
+            auto&& [return_buffer, new_buffer] = fn(std::move(buffer_));
+
             buffer_ = std::move(new_buffer);
+
+            data_list output{return_buffer.front()};
+            return_buffer.pop_front();
+
+            return_buffer_ = std::move(return_buffer);
+
             return output;
         } 
-    } else {
-        if (drop_remainder_) {
-            buffer_.clear();
-            return std::nullopt;
-        } else if (maybe_postprocess_remainder_fn_) {
-            const postprocess_remainder_fn& fn = *maybe_postprocess_remainder_fn_;
-            data_list output = fn(std::move(buffer_));
-            buffer_.clear();
-            return output;
-        } 
+    } else if (drop_remainder_) {
+        buffer_.clear();
+        return std::nullopt;
     }
 
     data_list output = std::move(buffer_);
