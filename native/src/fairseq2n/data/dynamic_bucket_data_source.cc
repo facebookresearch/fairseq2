@@ -31,7 +31,7 @@ std::optional<data>
 dynamic_bucket_data_source::next()
 {
     if (!return_buffer_.empty()) {
-        data_list output{return_buffer_.front()};
+        data output{return_buffer_.front()};
         return_buffer_.pop_front();
         return output;
     }
@@ -75,7 +75,7 @@ dynamic_bucket_data_source::next()
 
             buffer_ = std::move(new_buffer);
 
-            data_list output{return_buffer.front()};
+            data output{return_buffer.front()};
             return_buffer.pop_front();
 
             return_buffer_ = std::move(return_buffer);

@@ -52,7 +52,7 @@ private:
     bool drop_remainder_;
 
     data_list buffer_{};
-    std::deque<data_list> return_buffer_{};
+    std::deque<data> return_buffer_{};
 
 };
 

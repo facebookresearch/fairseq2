@@ -112,7 +112,7 @@ private:
     mutable bool is_broken_ = false;
 };
 
-using bucket_creation_fn = std::function<std::pair<std::deque<data_list>, data_list>(data_list &&)>;
+using bucket_creation_fn = std::function<std::pair<std::deque<data>, data_list>(data_list &&)>;
 
 using cost_fn = std::function<float64(const data &)>;
 
