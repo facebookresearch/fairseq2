@@ -102,15 +102,13 @@ def _default_asr_config() -> AsrEvalConfig:
 
 def extract_features(example: Example) -> Example:
     """
-    Preprocesses an individual example by converting the audio array to a PyTorch tensor
-    and encoding the text.
+    Extracts source and target features from dataset examples.
 
     Args:
-        example (dict): A dictionary containing "audio" and "text" keys.
-        device (torch.device): The device to store the tensors.
+        example (dict): A dictionary containing source and target keys.
 
     Returns:
-        dict: A dictionary with "audio" and "text" as PyTorch tensors.
+        dict: A dictionary containing the extracted features.
     """
     return {"audio": example["audio"]["array"], "text": example["text"].lower()}
 
@@ -155,6 +153,17 @@ def to_batch(examples: Example, model_type: str, device: Device) -> Seq2SeqBatch
 def prepare_dataset(
     config: AsrEvalConfig, processor: Optional[Callable[[Example], Example]] = None
 ) -> Dataset:
+    """
+    Prepares a dataset for evaluation. The dataset is loaded from the
+    HF datasets and preprocessed using the provided processor.
+
+    Args:
+        config (AsrEvalConfig): The configuration for the evaluation.
+        processor (Callable): A function to preprocess examples.
+
+    Returns:
+        Dataset: The prepared dataset.
+    """
     iterable_ds = load_dataset(config.dataset_name, split=config.split, streaming=True)
     ds = Dataset.from_generator(
         lambda: itertools.islice(iterable_ds, 0, config.max_samples),
@@ -196,6 +205,16 @@ def evaluator_postprocesser(
 def load_asr_evaluator(
     config: AsrEvalConfig, output_dir: Path
 ) -> HFEvaluator[Seq2SeqBatch]:
+    """
+    Load the evaluator based on the model type.
+
+    Args:
+        config (AsrEvalConfig): The configuration for the evaluation.
+        output_dir (Path): The output directory to store the evaluation results.
+
+    Returns:
+        HFEvaluator: Evaluation process.
+    """
     try:
         retrieve_asset_card(config.model_name)
         return load_wav2vec2_asr_evaluator(config, output_dir)
@@ -207,15 +226,14 @@ def load_wav2vec2_asr_evaluator(
     config: AsrEvalConfig, output_dir: Path
 ) -> HFEvaluator[Seq2SeqBatch]:
     """
-    Load the evaluator used for downstream evaluation of the model
-    in a downstream dataset and report BLEU scores
+    Load the evaluator used for downstream evaluation of the wav2vec2 model.
 
     Args:
         config (HFEvalConfig): The configuration for the evaluation.
         output_dir (Path): The output directory to store the evaluation results.
 
     Returns:
-        HFEvaluator: Evaluation process results.
+        HFEvaluator: Evaluation process.
     """
     if not isinstance(config, AsrEvalConfig):
         raise ValueError(f"Expect AsrEvalConfig, get {type(config)}")
@@ -271,14 +289,13 @@ def load_hg_asr_evaluator(
 ) -> HFEvaluator[Seq2SeqBatch]:
     """
     Load the evaluator used for downstream evaluation of the whisper model
-    in a downstream dataset and report BLEU scores
 
     Args:
         config (HFEvalConfig): The configuration for the evaluation.
         output_dir (Path): The output directory to store the evaluation results.
 
     Returns:
-        HFEvaluator: Evaluation process results.
+        HFEvaluator: Evaluation process.
     """
     if not isinstance(config, AsrEvalConfig):
         raise ValueError(f"Expect AsrEvalConfig, get {type(config)}")
