@@ -7,9 +7,9 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Any, Callable, Optional, Union, cast, final
+from typing import Any, cast, final
 
 import torch
 from torch import Tensor
@@ -35,7 +35,7 @@ class DynamicLossScaler:
     _is_enabled: bool
 
     # compat: consolidate into `GradScaler` once we cease support for PT2.2
-    _grad_scaler: Union[GradScaler, ShardedGradScaler]
+    _grad_scaler: GradScaler | ShardedGradScaler
 
     def __init__(
         self,
@@ -45,7 +45,7 @@ class DynamicLossScaler:
         sharded: bool = True,
         init_scale: float = 2.0**15,
         scale_factor: float = 2.0,
-        scale_window: Optional[int] = None,
+        scale_window: int | None = None,
         min_scale: float = 0.0,
         gradient_accumulation: int = 1,
         enabled: bool = True,
@@ -139,8 +139,8 @@ class DynamicLossScaler:
             ) from ex
 
     def run_optimizer_step(
-        self, step_nr: int, closure: Optional[Callable[[], float]] = None
-    ) -> tuple[Optional[float], LossScaleResult]:
+        self, step_nr: int, closure: Callable[[], float] | None = None
+    ) -> tuple[float | None, LossScaleResult]:
         """Perform a single optimization step.
 
         :param step_nr:

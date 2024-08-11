@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional, final
+from typing import final
 
 from typing_extensions import override
 
@@ -56,10 +56,10 @@ class S2TTransformerTokenizer(SentencePieceTokenizer):
     def create_encoder(
         self,
         *,
-        task: Optional[str] = None,
-        lang: Optional[str] = None,
-        mode: Optional[str] = None,
-        device: Optional[Device] = None,
+        task: str | None = None,
+        lang: str | None = None,
+        mode: str | None = None,
+        device: Device | None = None,
         pin_memory: bool = False,
     ) -> SentencePieceEncoder:
         """Create a token encoder.

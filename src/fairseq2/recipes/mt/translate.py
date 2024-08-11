@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, TextIO, final
+from typing import TextIO, final
 
 import torch
 from typing_extensions import override
@@ -20,9 +20,12 @@ from fairseq2.data.text import TextTokenizer, load_text_tokenizer
 from fairseq2.datasets import StaticBatching
 from fairseq2.datasets.text import GenericTextDataset, load_text_dataset
 from fairseq2.gang import Gang
-from fairseq2.generation import Seq2SeqGenerator
-from fairseq2.generation.encoder_decoder import BeamSearchConfig, generator_factories
-from fairseq2.generation.text import SequenceToTextConverter
+from fairseq2.generation import (
+    BeamSearchConfig,
+    Seq2SeqGenerator,
+    SequenceToTextConverter,
+    create_seq2seq_generator,
+)
 from fairseq2.logging import get_log_writer
 from fairseq2.models import load_model
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
@@ -42,7 +45,7 @@ from fairseq2.utils.profiler import Stopwatch
 log = get_log_writer(__name__)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class TextTranslateConfig:
     """Holds the configuration of a text translation task."""
 
@@ -69,7 +72,7 @@ class TextTranslateConfig:
     model: AssetReference = "nllb-200_dense_distill_600m"
     """The name of the model to translate with."""
 
-    checkpoint_dir: Optional[Path] = None
+    checkpoint_dir: Path | None = None
     """The checkpoint directory containing models saved by :class:`FileCheckpointManager`."""
 
     dtype: DataType = torch.float16
@@ -79,8 +82,8 @@ class TextTranslateConfig:
     generator: str = "beam_search"
     """The sequence generator."""
 
-    generator_config: Optional[DataClass] = field(
-        default_factory=lambda: BeamSearchConfig()
+    generator_config: DataClass | None = field(
+        default_factory=lambda: BeamSearchConfig(max_gen_len=(1, 256), echo_prompt=True)
     )
     """The configuration of the sequence generator."""
 
@@ -172,11 +175,9 @@ def load_text_translator(
 
     # Initialize the sequence generator.
     try:
-        generator_factory = generator_factories.get(
-            config.generator, config.generator_config
+        generator = create_seq2seq_generator(
+            config.generator, model, config.generator_config
         )
-
-        generator = generator_factory(model)
     except ValueError as ex:
         raise ValueError(
             "The sequence generator cannot be created. See nested exception for details."
@@ -220,16 +221,21 @@ def load_text_translator(
         task="translation", lang=config.source_lang, mode="source"
     )
 
-    data_reader = dataset.create_reader(
-        text_encoder,
-        tokenizer.vocab_info.pad_idx,
-        gang,
-        config.max_seq_len,
-        batching=StaticBatching(config.batch_size),
-        sync_batches=False,
-        num_prefetch=config.num_prefetch,
-        seed=seed,
-    )
+    try:
+        data_reader = dataset.create_reader(
+            text_encoder,
+            tokenizer.vocab_info.pad_idx,
+            gang,
+            config.max_seq_len,
+            batching=StaticBatching(config.batch_size),
+            sync_batches=False,
+            num_prefetch=config.num_prefetch,
+            seed=seed,
+        )
+    except ValueError as ex:
+        raise ValueError(
+            "The data reader cannot be initialized. See nested exception for details."
+        ) from ex
 
     seed += 1
 

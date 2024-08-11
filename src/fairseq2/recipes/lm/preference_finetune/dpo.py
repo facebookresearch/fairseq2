@@ -1,8 +1,13 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Union, cast, final
+from typing import Mapping, cast, final
 
 import torch
 import torch.distributed
@@ -21,37 +26,18 @@ from fairseq2.models.sequence import (
     as_auto_regressive_input,
 )
 from fairseq2.recipes.common_metrics import SequenceMetricBag
+from fairseq2.recipes.lm.preference_finetune.recipe import preference_unit_factory
+from fairseq2.recipes.lm.preference_finetune.utils import _load_reference_model
 from fairseq2.recipes.trainer import AbstractTrainUnit
+from fairseq2.recipes.utils.asset import AssetReference
 from fairseq2.typing import DataType
 
 log = get_log_writer(__name__)
 
 
-@dataclass
-class DpoFinetuneConfig:
-    """Holds the DPO-finetuning configuration of a language model."""
-
-    # Hyperparameters
-    dpo_beta: float = 0.1
-    """The coefficient of regularization towards the reference model."""
-
-    nll_scale: float = 0.0
-    """The coefficient of NLL loss added to the DPO loss."""
-
-    # Reference Model
-    reference_model: Union[str, Path] = "llama3_8b_instruct"
-    """The name or path to the asset card of the reference model to use."""
-
-    reference_dtype: DataType = torch.bfloat16
-    """The data type of the reference model."""
-
-    reference_tensor_parallel_size: int = 1
-    """The size of tensor parallelism for the reference model."""
-
-
 @final
 class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
-    """Represents the DPO-finetuning unit of a language model."""
+    """Represents the language model DPO-finetuning unit."""
 
     _reference_model: Module
     _beta: float
@@ -73,7 +59,6 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
         self._nll_scale = nll_scale
 
         self._metric_bag = DpoFinetuneMetricBag(gang)
-        self._gang = gang
 
     @override
     def __call__(self, batch: PreferenceOptimizationBatch) -> tuple[Tensor, int]:
@@ -120,6 +105,7 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
         )
 
         self._metric_bag.update_nll_loss(chosen_batch, nll_loss)
+
         self._metric_bag.update_dpo_loss(chosen_batch, dpo_loss)
 
         self._metric_bag.update_batch_metrics(chosen_batch)
@@ -149,14 +135,14 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
         )
         return logp_ratio_chosen, logp_ratio_rejected, dpo_loss.sum()
 
+    @override
+    def set_step_nr(self, step_nr: int) -> None:
+        self._step_nr = step_nr
+
     @property
     @override
     def metric_bag(self) -> DpoFinetuneMetricBag:
         return self._metric_bag
-
-    def set_step_nr(self, step_nr: int) -> None:
-        """Set the current training step number."""
-        self._step_nr = step_nr
 
 
 register_metric_formatter("dpo_loss", "DPO Loss", 0, format_as_float)
@@ -172,8 +158,50 @@ class DpoFinetuneMetricBag(SequenceMetricBag):
 
     @torch.inference_mode()
     def update_dpo_loss(self, batch: SequenceBatch, loss: Tensor) -> None:
-        batch_size = torch.tensor(batch.batch_size)
+        self._dpo_loss.update(loss / batch.batch_size, weight=batch.batch_size)
 
-        normalized_loss = loss.cpu() / batch_size
 
-        self._dpo_loss.update(normalized_loss, weight=batch_size)
+@dataclass(kw_only=True)
+class DpoConfig:
+    """Holds the DPO configuration of a language model preference-finetuning task."""
+
+    # Reference Model
+    reference_model: AssetReference = "llama3_8b_instruct"
+    """The name, path, or path to the asset card of the reference model."""
+
+    reference_dtype: DataType = torch.bfloat16
+    """The data type of the reference model."""
+
+    reference_tensor_parallel_size: int = 1
+    """The size of tensor parallelism for the reference model."""
+
+    # Loss
+    beta: float = 0.1
+    """The coefficient of regularization towards the reference model."""
+
+    nll_scale: float = 0.0
+    """The coefficient of NLL loss added to the DPO loss."""
+
+
+@preference_unit_factory("dpo")
+def create_dpo_unit(
+    config: DpoConfig, model: Module, root_gang: Gang, gangs: Mapping[str, Gang]
+) -> DpoFinetuneUnit:
+    reference_model = _load_reference_model(
+        config.reference_model,
+        config.reference_dtype,
+        root_gang,
+        gangs,
+        config.reference_tensor_parallel_size,
+        log,
+    )
+
+    dp_gang = gangs["dp"]  # data
+
+    return DpoFinetuneUnit(
+        model,
+        reference_model,
+        dp_gang,
+        config.beta,
+        config.nll_scale,
+    )

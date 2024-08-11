@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, Optional
+from typing import Literal
 
 from torch import Tensor
 
@@ -14,7 +14,7 @@ from torch import Tensor
 def nll_loss(
     lprobs: Tensor,
     targets: Tensor,
-    pad_idx: Optional[int],
+    pad_idx: int | None,
     *,
     label_smoothing: float = 0.0,
     reduction: Literal["none", "sum"] = "sum",

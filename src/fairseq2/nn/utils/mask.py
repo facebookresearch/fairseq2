@@ -6,8 +6,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 import torch
 from torch import Tensor
 
@@ -15,7 +13,7 @@ from fairseq2.nn.ops import repeat_interleave
 from fairseq2.typing import DataType, Device
 
 
-def to_float_mask(mask: Tensor, dtype: Optional[DataType] = None) -> Tensor:
+def to_float_mask(mask: Tensor, dtype: DataType | None = None) -> Tensor:
     """Convert a boolean mask to a float mask.
 
     :param mask:
@@ -34,10 +32,10 @@ def compute_row_mask(
     shape: tuple[int, int],
     span_len: int,
     max_mask_prob: float,
-    row_lens: Optional[Tensor] = None,
+    row_lens: Tensor | None = None,
     min_num_spans: int = 0,
-    device: Optional[Device] = None,
-) -> Optional[Tensor]:
+    device: Device | None = None,
+) -> Tensor | None:
     """Compute a random row mask of the specified shape.
 
     :param shape:
@@ -93,7 +91,7 @@ def compute_row_mask(
 
 def _compute_mask_spans(
     row_lens: Tensor, span_len: int, max_mask_prob: float, min_num_spans: int
-) -> Optional[Tensor]:
+) -> Tensor | None:
     """Compute random mask spans of the specified shape."""
     device, dtype = row_lens.device, row_lens.dtype
 

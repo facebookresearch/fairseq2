@@ -7,9 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Union
-
-from typing_extensions import TypeAlias
+from typing import TypeAlias
 
 from fairseq2.assets import (
     AssetCard,
@@ -20,7 +18,7 @@ from fairseq2.assets import (
     load_metadata_file,
 )
 
-AssetReference: TypeAlias = Union[str, AssetCard, Path]
+AssetReference: TypeAlias = str | AssetCard | Path
 
 
 def retrieve_asset_card(name_or_card: AssetReference) -> AssetCard:

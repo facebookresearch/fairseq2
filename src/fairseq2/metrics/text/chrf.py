@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
-from typing import Final, Optional, final
+from typing import Final, final
 
 import torch
 from sacrebleu.metrics.chrf import CHRF
@@ -27,7 +27,7 @@ class ChrfMetric(Metric[Tensor]):
 
     stats: Tensor
 
-    def __init__(self, *, device: Optional[Device] = None) -> None:
+    def __init__(self, *, device: Device | None = None) -> None:
         super().__init__(device=device)
 
         stats_len = 3 * (self.CHAR_ORDER + self.WORD_ORDER)

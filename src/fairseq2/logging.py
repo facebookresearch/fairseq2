@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from logging import Logger, getLogger
-from typing import Any, Final, Optional, final
+from typing import Any, Final, final
 
 
 @final
@@ -88,6 +88,6 @@ class LogWriter:
         return self._logger.isEnabledFor(logging.INFO)
 
 
-def get_log_writer(name: Optional[str] = None) -> LogWriter:
+def get_log_writer(name: str | None = None) -> LogWriter:
     """Return a :class:`LogWriter` for the logger with the specified name."""
     return LogWriter(getLogger(name))

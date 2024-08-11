@@ -6,20 +6,14 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
-
-from mypy_extensions import DefaultNamedArg
 from torch.nn import Module
 from typing_extensions import Self
-
-from fairseq2.factory_registry import ConfigBoundFactoryRegistry
-from fairseq2.typing import DataType, Device
 
 
 class Model(Module):
     """Represents a machine learning model."""
 
-    _family: Optional[str]
+    _family: str | None
 
     def __init__(self) -> None:
         super().__init__()
@@ -38,14 +32,6 @@ class Model(Module):
         return self
 
     @property
-    def family(self) -> Optional[str]:
+    def family(self) -> str | None:
         """The family of the model."""
         return self._family
-
-
-if TYPE_CHECKING:  # compat: remove when Python 3.9 support is dropped.
-    model_factories = ConfigBoundFactoryRegistry[
-        [DefaultNamedArg(Device, "device"), DefaultNamedArg(DataType, "dtype")], Module
-    ]()
-else:
-    model_factories = ConfigBoundFactoryRegistry()

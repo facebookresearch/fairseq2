@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 import pytest
 import torch
@@ -32,12 +32,12 @@ class Foo1:
     f1: int = 0
     f2: dict[str, Path] = field(default_factory=dict)
     f3: list[int] = field(default_factory=list)
-    f4: Union[Foo2, Foo3] = field(default_factory=lambda: Foo2())
+    f4: Foo2 | Foo3 = field(default_factory=lambda: Foo2())
     f5: tuple[float, int] = (1.0, 2)
     f6: set[int] = field(default_factory=set)
-    f7: Optional[FooEnum] = None
+    f7: FooEnum | None = None
     f8: DataType = torch.float32
-    f9: Optional[Foo3] = None
+    f9: Foo3 | None = None
 
 
 @dataclass

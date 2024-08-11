@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import os
-from typing import Optional
 
 import torch
 
@@ -18,7 +17,7 @@ from fairseq2.utils.env import get_int_from_env
 log = get_log_writer(__name__)
 
 
-_default_device: Optional[Device] = None
+_default_device: Device | None = None
 
 
 def determine_default_device() -> Device:
@@ -51,7 +50,7 @@ def determine_default_device() -> Device:
     return _default_device
 
 
-def determine_default_cuda_device() -> Optional[Device]:
+def determine_default_cuda_device() -> Device | None:
     """Determine the default CUDA ``torch.device`` of the process."""
     if not torch.cuda.is_available():
         return None

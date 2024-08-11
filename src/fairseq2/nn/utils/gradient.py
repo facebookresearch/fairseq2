@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional, Union
+from typing import Any
 
 import torch
 from torch import Tensor
@@ -38,7 +38,7 @@ def normalize_gradients(module: Module, gang: Gang, num_targets: int) -> None:
     scale_gradients(module, gang.size / total_num_targets)
 
 
-def scale_gradients(module: Module, value: Union[float, Tensor]) -> None:
+def scale_gradients(module: Module, value: float | Tensor) -> None:
     """Scale gradients of ``module`` by ``value``.
 
     :param module:
@@ -75,7 +75,7 @@ class _GradientScaleFunction(Function):
 
         ctx.scale = scale
 
-        return x.detach().clone().requires_grad_(True)
+        return x.detach().clone()
 
     @staticmethod
     def backward(ctx: Any, grad_output: Tensor) -> tuple[Tensor, None]:  # type: ignore[override]
@@ -83,7 +83,7 @@ class _GradientScaleFunction(Function):
 
 
 def clip_gradient_norm(
-    module: Module, max_norm: Optional[float], norm_type: float = 2.0
+    module: Module, max_norm: float | None, norm_type: float = 2.0
 ) -> Tensor:
     """Clip the gradient norms ``module``.
 

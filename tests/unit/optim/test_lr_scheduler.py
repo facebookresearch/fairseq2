@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import math
 from collections.abc import Sequence
-from typing import Union
 
 import pytest
 from torch import Tensor
@@ -219,7 +218,7 @@ class TestLRSchedulers:
             self.step(scheduler)
 
     @pytest.mark.parametrize("start_lr", [0.0, (0.0, 0.0), [0.02, 0.2]])
-    def test_myle(self, start_lr: Union[float, Sequence[float]]) -> None:
+    def test_myle(self, start_lr: float | Sequence[float]) -> None:
         if isinstance(start_lr, float):
             start_lr1 = start_lr
             start_lr2 = start_lr

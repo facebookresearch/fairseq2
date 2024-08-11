@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Optional, final
+from typing import final
 
 from torch import Tensor
 from torch.nn import Dropout
@@ -27,26 +27,26 @@ class Wav2Vec2Frontend(TransformerFrontend):
     :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`."""
 
     feature_dim: int
-    feature_extractor: Optional[SequenceFeatureExtractor]
+    feature_extractor: SequenceFeatureExtractor | None
     post_extract_layer_norm: LayerNorm
-    model_dim_proj: Optional[Linear]
-    first_pass_dropout: Optional[Dropout]
-    pos_encoder: Optional[PositionEncoder]
-    layer_norm: Optional[LayerNorm]
-    dropout: Optional[Dropout]
+    model_dim_proj: Linear | None
+    first_pass_dropout: Dropout | None
+    pos_encoder: PositionEncoder | None
+    layer_norm: LayerNorm | None
+    dropout: Dropout | None
 
     def __init__(
         self,
         model_dim: int,
         feature_dim: int,
-        feature_extractor: Optional[SequenceFeatureExtractor],
-        pos_encoder: Optional[PositionEncoder],
+        feature_extractor: SequenceFeatureExtractor | None,
+        pos_encoder: PositionEncoder | None,
         *,
         first_pass_dropout_p: float = 0.0,
         layer_norm: bool = False,
         dropout_p: float = 0.0,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param model_dim:
@@ -123,24 +123,24 @@ class Wav2Vec2Frontend(TransformerFrontend):
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
+        padding_mask: PaddingMask | None,
         *,
-        state_bag: Optional[IncrementalStateBag] = None,
-    ) -> tuple[Tensor, Optional[PaddingMask]]:
+        state_bag: IncrementalStateBag | None = None,
+    ) -> tuple[Tensor, PaddingMask | None]:
         if state_bag is not None:
             raise ValueError(
                 "`Wav2Vec2Frontend` does not support incremental decoding."
             )
 
-        seqs, padding_mask = self.extract_features(seqs, padding_mask)
+        seqs, padding_mask, _ = self.extract_features(seqs, padding_mask)
 
         seqs, padding_mask, _ = self.process_features(seqs, padding_mask)
 
         return seqs, padding_mask
 
     def extract_features(
-        self, seqs: Tensor, padding_mask: Optional[PaddingMask]
-    ) -> tuple[Tensor, Optional[PaddingMask]]:
+        self, seqs: Tensor, padding_mask: PaddingMask | None
+    ) -> tuple[Tensor, PaddingMask | None, Tensor]:
         """Extract features from the specified sequences.
 
         :param seqs:
@@ -153,27 +153,31 @@ class Wav2Vec2Frontend(TransformerFrontend):
             is the batch size and :math:`S` is the sequence length.
 
         :returns:
-            - The extracted features. *Shape:* :math:`(N,S_{out},F)`, where
+            - The normalized features. *Shape:* :math:`(N,S_{out},F)`, where
               :math:`N` is the batch size, :math:`S_{out}` is the output
               sequence length, and :math:`F` is the dimensionality of the
               extracted features.
             - The padding mask of the extracted features. *Shape:*
               :math:`(N,S_{out})`, where :math:`N` is the batch size and
               :math:`S_{out}` is the output sequence length.
+            - The raw features. *Shape*: Same as the normalized features (i.e.
+              first element of the returned tuple).
         """
         if self.feature_extractor is not None:
             seqs, padding_mask = self.feature_extractor(seqs, padding_mask)
 
+        raw_features = seqs.clone()
+
         seqs = self.post_extract_layer_norm(seqs)
 
-        return seqs, padding_mask
+        return seqs, padding_mask, raw_features
 
     def process_features(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
-        masker: Optional[Wav2Vec2Masker] = None,
-    ) -> tuple[Tensor, Optional[PaddingMask], Tensor]:
+        padding_mask: PaddingMask | None,
+        masker: Wav2Vec2Masker | None = None,
+    ) -> tuple[Tensor, PaddingMask | None, Tensor | None]:
         """Process extracted features.
 
         :param seqs:

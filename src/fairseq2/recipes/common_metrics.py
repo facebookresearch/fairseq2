@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 import torch
 from torch import Tensor
@@ -28,8 +28,8 @@ class TaskMetricBag(MetricBag):
     _num_batches: MaxSum
     _num_examples: Sum
     _num_elements: Sum
-    _total_num_examples: Optional[Sum]
-    _total_num_elements: Optional[Sum]
+    _total_num_examples: Sum | None
+    _total_num_elements: Sum | None
 
     def __init__(self, gang: Gang, train: bool) -> None:
         """
@@ -79,7 +79,7 @@ class SequenceMetricBag(TaskMetricBag):
 
     _nll_loss: Mean
     _num_target_elements: Sum
-    _total_num_target_elements: Optional[Sum]
+    _total_num_target_elements: Sum | None
 
     def __init__(self, gang: Gang, train: bool = True) -> None:
         super().__init__(gang, train=train)
@@ -106,7 +106,9 @@ class SequenceMetricBag(TaskMetricBag):
         """
         num_target_elements = batch.num_target_elements()
 
-        self._nll_loss.update(loss / num_target_elements, weight=num_target_elements)
+        self._nll_loss.update(
+            loss.detach() / num_target_elements, weight=num_target_elements
+        )
 
     @torch.inference_mode()
     def update_batch_metrics(self, batch: SequenceBatch) -> None:
@@ -144,8 +146,8 @@ class Seq2SeqMetricBag(TaskMetricBag):
     _nll_loss: Mean
     _num_source_elements: Sum
     _num_target_elements: Sum
-    _total_num_source_elements: Optional[Sum]
-    _total_num_target_elements: Optional[Sum]
+    _total_num_source_elements: Sum | None
+    _total_num_target_elements: Sum | None
 
     def __init__(self, gang: Gang, train: bool = True) -> None:
         super().__init__(gang, train=train)
@@ -175,7 +177,9 @@ class Seq2SeqMetricBag(TaskMetricBag):
         """
         num_target_elements = batch.num_target_elements()
 
-        self._nll_loss.update(loss / num_target_elements, weight=num_target_elements)
+        self._nll_loss.update(
+            loss.detach() / num_target_elements, weight=num_target_elements
+        )
 
     @torch.inference_mode()
     def update_batch_metrics(self, batch: Seq2SeqBatch) -> None:

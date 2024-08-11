@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Optional, Union
 
 import torch
 from torch import Tensor
@@ -25,7 +24,7 @@ class Min(MinBase):
     """See :class:`MinBase`."""
 
     @override
-    def update(self, input_: Union[int, float, Tensor]) -> Self:
+    def update(self, input_: int | float | Tensor) -> Self:
         if isinstance(input_, (int, float)):
             input_ = torch.tensor(input_)
 
@@ -38,7 +37,7 @@ class Max(MaxBase):
     """See :class:`MaxBase`."""
 
     @override
-    def update(self, input_: Union[int, float, Tensor]) -> Self:
+    def update(self, input_: int | float | Tensor) -> Self:
         if isinstance(input_, (int, float)):
             input_ = torch.tensor(input_)
 
@@ -53,9 +52,9 @@ class Mean(MeanBase):
     @override
     def update(
         self,
-        input_: Union[int, float, Tensor],
+        input_: int | float | Tensor,
         *,
-        weight: Union[int, float, Tensor] = 1.0,
+        weight: int | float | Tensor = 1.0,
     ) -> Self:
         if isinstance(input_, (int, float)):
             input_ = torch.tensor(input_)
@@ -71,9 +70,9 @@ class Sum(SumBase):
     @override
     def update(
         self,
-        input_: Union[int, float, Tensor],
+        input_: int | float | Tensor,
         *,
-        weight: Union[int, float, Tensor] = 1.0,
+        weight: int | float | Tensor = 1.0,
     ) -> Self:
         if isinstance(input_, (int, float)):
             input_ = torch.tensor(input_)
@@ -89,7 +88,7 @@ class MaxSum(Metric[Tensor]):
 
     sum_: Tensor
 
-    def __init__(self, *, device: Optional[Device] = None) -> None:
+    def __init__(self, *, device: Device | None = None) -> None:
         super().__init__(device=device)
 
         sum_ = torch.zeros((), device=device, dtype=torch.int64)
@@ -98,7 +97,7 @@ class MaxSum(Metric[Tensor]):
 
     @override
     @torch.inference_mode()
-    def update(self, input_: Union[int, Tensor]) -> Self:
+    def update(self, input_: int | Tensor) -> Self:
         self.sum_ += input_
 
         return self

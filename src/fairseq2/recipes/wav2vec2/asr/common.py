@@ -38,7 +38,7 @@ class Wav2Vec2AsrMetricBag(TaskMetricBag):
         :param ctc_loss:
             The loss of ``batch``.
         """
-        normalized_loss = loss / batch.batch_size / math.log(2)
+        normalized_loss = loss.detach() / batch.batch_size / math.log(2)
 
         self._ctc_loss.update(normalized_loss, weight=batch.batch_size)
 

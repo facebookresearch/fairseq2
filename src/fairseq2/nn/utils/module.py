@@ -7,10 +7,10 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from itertools import chain
-from typing import Any, Callable, Optional, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 import torch
 from torch import Tensor
@@ -32,7 +32,7 @@ class ModuleWithParameter(Protocol):
 
 
 def reset_parameters(
-    module: Module, *, recurse: bool = True, seed: Optional[int] = None
+    module: Module, *, recurse: bool = True, seed: int | None = None
 ) -> None:
     """Reset the parameters and buffers of ``module``.
 
@@ -89,7 +89,7 @@ def visit_module(
     *,
     recurse: bool = True,
     post_order: bool = True,
-    memo: Optional[set[Module]] = None,
+    memo: set[Module] | None = None,
 ) -> None:
     """Run ``visitor`` on ``module``.
 
@@ -112,7 +112,7 @@ def visit_module(
             visitor(name, m)
 
 
-def to_device(module: Module, device: Device, *, seed: Optional[int] = None) -> None:
+def to_device(module: Module, device: Device, *, seed: int | None = None) -> None:
     """Move the parameters and buffers of ``module`` to ``device``.
 
     :param module:
@@ -160,7 +160,7 @@ def to_empty(
     device: Device,
     *,
     recurse: bool = True,
-    memo: Optional[dict[Tensor, Tensor]] = None,
+    memo: dict[Tensor, Tensor] | None = None,
 ) -> None:
     """Move the parameters and buffers of ``module`` to ``device`` without
     copying storage.
@@ -238,7 +238,7 @@ def apply_to_parameters(
     fn: Callable[[Tensor], Tensor],
     *,
     recurse: bool = True,
-    memo: Optional[dict[Tensor, Tensor]] = None,
+    memo: dict[Tensor, Tensor] | None = None,
     no_memo: bool = False,
 ) -> None:
     """Apply ``fn`` to the parameters and buffers of ``module``.
@@ -308,7 +308,7 @@ def apply_to_parameters(
         setattr(module, buffer_name, call_fn(buffer))
 
 
-def freeze_parameters(module: Optional[Module], value: bool = True) -> None:
+def freeze_parameters(module: Module | None, value: bool = True) -> None:
     """Set if ``module`` and its descendant modules should stop learning."""
     if module is None:
         return
@@ -483,13 +483,13 @@ def load_state_dict(module: Module, state_dict: Mapping[str, Any]) -> None:
 
 
 def _get_named_modules(
-    module: Optional[Module],
+    module: Module | None,
     *,
     prefix: str = "",
     recurse: bool = True,
     post_order: bool = False,
-    memo: Optional[set[Module]] = None,
-) -> Iterator[tuple[str, Optional[Module]]]:
+    memo: set[Module] | None = None,
+) -> Iterator[tuple[str, Module | None]]:
     if module is None:
         yield prefix, None
 
@@ -529,7 +529,7 @@ def _get_named_modules(
         yield prefix, module
 
 
-@dataclass
+@dataclass(kw_only=True)
 class ModuleSizeInfo:
     """Holds the size information of a module."""
 

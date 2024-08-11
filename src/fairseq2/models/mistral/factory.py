@@ -7,11 +7,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Final, Optional
+from typing import Final
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data import VocabularyInfo
-from fairseq2.models.model import model_factories
+from fairseq2.models.factory import model_factories
 from fairseq2.models.transformer import (
     TransformerDecoderModel,
     TransformerEmbeddingFrontend,
@@ -38,7 +38,7 @@ from fairseq2.typing import DataType, Device
 MISTRAL_FAMILY: Final = "mistral"
 
 
-@dataclass
+@dataclass(kw_only=True)
 class MistralConfig:
     """Holds the configuration of a Mistral model.
 
@@ -92,16 +92,16 @@ class MistralBuilder:
     """
 
     _config: MistralConfig
-    _device: Optional[Device]
-    _dtype: Optional[DataType]
-    _pos_encoder: Optional[RotaryEncoder]
+    _device: Device | None
+    _dtype: DataType | None
+    _pos_encoder: RotaryEncoder | None
 
     def __init__(
         self,
         config: MistralConfig,
         *,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param config:
@@ -238,8 +238,8 @@ class MistralBuilder:
         self,
         model_dim: int,
         *,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> LayerNorm:
         """Build a Layer Normalization module."""
         return RMSNorm(model_dim, bias=False, device=device, dtype=dtype)
@@ -248,8 +248,8 @@ class MistralBuilder:
 def create_mistral_model(
     config: MistralConfig,
     *,
-    device: Optional[Device] = None,
-    dtype: Optional[DataType] = None,
+    device: Device | None = None,
+    dtype: DataType | None = None,
 ) -> TransformerDecoderModel:
     """Create a Mistral model.
 

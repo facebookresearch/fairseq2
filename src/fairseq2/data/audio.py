@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, TypedDict, Union, final
+from typing import TYPE_CHECKING, TypedDict, final
 
 from fairseq2n import DOC_MODE
 from torch import Tensor
@@ -22,8 +22,8 @@ if TYPE_CHECKING or DOC_MODE:
         def __init__(
             self,
             keepdim: bool = False,
-            dtype: Optional[DataType] = None,
-            device: Optional[Device] = None,
+            dtype: DataType | None = None,
+            device: Device | None = None,
             pin_memory: bool = False,
         ) -> None:
             ...
@@ -40,8 +40,8 @@ if TYPE_CHECKING or DOC_MODE:
             channel_last: bool = False,
             standardize: bool = False,
             keep_waveform: bool = False,
-            dtype: Optional[DataType] = None,
-            device: Optional[Device] = None,
+            dtype: DataType | None = None,
+            device: Device | None = None,
             pin_memory: bool = False,
         ) -> None:
             ...
@@ -70,7 +70,7 @@ class AudioDecoderOutput(TypedDict):
 
 class WaveformToFbankInput(TypedDict):
     waveform: Tensor
-    sample_rate: Union[int, float]
+    sample_rate: int | float
 
 
 class WaveformToFbankOutput(TypedDict):

@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, final
+from typing import final
 
 
 @final
@@ -18,14 +18,14 @@ class VocabularyInfo:
     size: int
     """The size of the vocabulary."""
 
-    unk_idx: Optional[int]
+    unk_idx: int | None
     """The index of the symbol that represents an unknown element (UNK)."""
 
-    bos_idx: Optional[int]
+    bos_idx: int | None
     """The index of the symbol that represents the beginning of a sequence (BOS)."""
 
-    eos_idx: Optional[int]
+    eos_idx: int | None
     """The index of the symbol that represents the end of a sequence (EOS)."""
 
-    pad_idx: Optional[int]
+    pad_idx: int | None
     """The index of the symbol that is used to pad a sequence (PAD)."""

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from time import perf_counter
-from typing import Any, Optional, final
+from typing import Any, final
 
 import torch
 from torch.profiler import (
@@ -27,7 +27,7 @@ from fairseq2.typing import Device
 class Profiler:
     """Represents a convenience wrapper for :class:`profile`."""
 
-    _profile: Optional[profile]
+    _profile: profile | None
 
     def __init__(
         self,
@@ -100,7 +100,7 @@ class Profiler:
         self.stop()
 
     @property
-    def wrapped_profile(self) -> Optional[profile]:
+    def wrapped_profile(self) -> profile | None:
         """The wrapped :class:`profile` instance."""
         return self._profile
 
@@ -109,10 +109,10 @@ class Profiler:
 class Stopwatch:
     """Measures elapsed execution time."""
 
-    _start_time: Optional[float]
-    _device: Optional[Device]
+    _start_time: float | None
+    _device: Device | None
 
-    def __init__(self, *, start: bool = False, device: Optional[Device] = None) -> None:
+    def __init__(self, *, start: bool = False, device: Device | None = None) -> None:
         """
         :param start:
             If ``True``, starts the stopwatch immediately.

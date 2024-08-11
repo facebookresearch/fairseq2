@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Union
 
 import pytest
 
@@ -17,7 +16,7 @@ from fairseq2.utils.dataclass import EMPTY, update_dataclass
 @dataclass
 class Foo1:
     a: int
-    b: Union[Foo2, Foo3]
+    b: Foo2 | Foo3
     c: str
 
 

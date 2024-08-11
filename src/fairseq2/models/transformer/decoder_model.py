@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Optional, final
+from typing import final
 
 from torch import Tensor
 from typing_extensions import override
@@ -77,9 +77,9 @@ class TransformerDecoderModel(DecoderModel):
     def decode(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
+        padding_mask: PaddingMask | None,
         *,
-        state_bag: Optional[IncrementalStateBag] = None,
+        state_bag: IncrementalStateBag | None = None,
     ) -> tuple[Tensor, PaddingMask]:
         seqs, padding_mask = self.decoder_frontend(
             seqs, padding_mask, state_bag=state_bag
@@ -93,7 +93,7 @@ class TransformerDecoderModel(DecoderModel):
 
     @override
     def project(
-        self, decoder_output: Tensor, decoder_padding_mask: Optional[PaddingMask]
+        self, decoder_output: Tensor, decoder_padding_mask: PaddingMask | None
     ) -> SequenceModelOutput:
         logits = self.final_proj(decoder_output)
 
