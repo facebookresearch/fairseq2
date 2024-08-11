@@ -14,6 +14,7 @@ other content generation tasks.
 
    reference/data
    reference/asset
+   reference/hg
    reference/all
 
 .. toctree::
