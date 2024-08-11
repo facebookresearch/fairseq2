@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from functools import partial
 from pathlib import Path
-from typing import Any, Optional, Union, cast, final
+from typing import Any, cast, final
 
 from typing_extensions import override
 
@@ -39,17 +39,17 @@ class TextDataset(ABC):
     def create_reader(
         self,
         text_encoder: TextTokenEncoder,
-        pad_idx: Optional[int],
+        pad_idx: int | None,
         gang: Gang,
         max_seq_len: int,
-        batching: Union[StaticBatching, LengthBatching],
+        batching: StaticBatching | LengthBatching,
         *,
         min_seq_len: int = 1,
         example_shuffle_window: int = 1,
         batch_shuffle_window: int = 1,
         drop_remainder: bool = False,
         sync_batches: bool = True,
-        max_num_batches: Optional[int] = None,
+        max_num_batches: int | None = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         seed: int = 2,
@@ -145,17 +145,17 @@ class GenericTextDataset(TextDataset):
     def create_reader(
         self,
         text_encoder: TextTokenEncoder,
-        pad_idx: Optional[int],
+        pad_idx: int | None,
         gang: Gang,
         max_seq_len: int,
-        batching: Union[StaticBatching, LengthBatching],
+        batching: StaticBatching | LengthBatching,
         *,
         min_seq_len: int = 1,
         example_shuffle_window: int = 1,
         batch_shuffle_window: int = 1,
         drop_remainder: bool = False,
         sync_batches: bool = True,
-        max_num_batches: Optional[int] = None,
+        max_num_batches: int | None = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         seed: int = 2,

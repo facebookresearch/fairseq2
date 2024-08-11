@@ -20,9 +20,7 @@ from fairseq2.models.wav2vec2.asr.factory import (
 from fairseq2.nn.transformer import TransformerNormOrder
 
 load_wav2vec2_asr_config = StandardModelConfigLoader(
-    family=WAV2VEC2_ASR_FAMILY,
-    config_kls=Wav2Vec2AsrConfig,
-    arch_configs=wav2vec2_asr_archs,
+    WAV2VEC2_ASR_FAMILY, Wav2Vec2AsrConfig, wav2vec2_asr_archs
 )
 
 
@@ -35,6 +33,7 @@ def convert_wav2vec2_asr_checkpoint(
     except KeyError:
         return checkpoint
 
+    # Check if we have a fairseq2 checkpoint.
     if "w2v_encoder.proj.weight" not in state_dict:
         return checkpoint
 

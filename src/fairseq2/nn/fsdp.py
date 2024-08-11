@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Final, Optional, Protocol, final
+from typing import Any, Final, Protocol, final
 
 import torch
 from torch import Tensor
@@ -41,15 +41,15 @@ log = get_log_writer(__name__)
 def to_fsdp(
     module: Module,
     gang: Gang,
-    wrap_policy: Optional[FSDPWrapPolicy],
+    wrap_policy: FSDPWrapPolicy | None,
     *,
-    ignored_modules: Optional[Sequence[Module]] = None,
+    ignored_modules: Sequence[Module] | None = None,
     skip_init: bool = False,
     broadcast_state: bool = False,
-    memory_policy: Optional[FSDPMemoryPolicy] = None,
+    memory_policy: FSDPMemoryPolicy | None = None,
     reshard_after_forward: bool = True,
-    local_world_size: Optional[int] = None,
-    mixed_precision_dtype: Optional[DataType] = None,
+    local_world_size: int | None = None,
+    mixed_precision_dtype: DataType | None = None,
     fp32_reduce: bool = False,
 ) -> FSDP:
     """Wrap ``module`` with FSDP.
@@ -192,7 +192,7 @@ class FSDPWrapPolicy(Protocol):
 class FSDPMemoryPolicy:
     """Specifies the device memory usage policy of an FSDP module."""
 
-    backward_prefetch: Optional[BackwardPrefetch]
+    backward_prefetch: BackwardPrefetch | None
     """The backward prefetch mode for all-gathers. For more information, check
     out the same named parameter of :class:`FSDP`."""
 

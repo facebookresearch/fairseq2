@@ -6,9 +6,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, Optional, final
+from typing import Literal, final
 
 import torch
 import torch.distributed
@@ -36,8 +36,8 @@ from fairseq2.models.sequence import (
 )
 from fairseq2.nn.checkpointing import use_layerwise_activation_checkpointing
 from fairseq2.nn.transformer import enable_memory_efficient_torch_sdpa
-from fairseq2.optim import AdamW
-from fairseq2.optim.lr_scheduler import CosineAnnealingLR
+from fairseq2.optim import AdamWConfig, create_optimizer
+from fairseq2.optim.lr_scheduler import CosineAnnealingLRConfig, create_lr_scheduler
 from fairseq2.recipes.common_metrics import SequenceMetricBag
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
 from fairseq2.recipes.utils.asset import (
@@ -52,13 +52,13 @@ from fairseq2.recipes.utils.setup import (
     setup_gangs,
     to_data_parallel,
 )
-from fairseq2.typing import META, DataType
+from fairseq2.typing import META, DataClass, DataType
 from fairseq2.utils.profiler import Stopwatch
 
 log = get_log_writer(__name__)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class InstructionFinetuneConfig:
     """Holds the configuration of a language model instruction-finetuning task."""
 
@@ -107,25 +107,28 @@ class InstructionFinetuneConfig:
     """If ``True``, applies ``torch.compile()`` to the decoder. (experimental)"""
 
     # Optimizer, LR, and Loss
-    lr: float = 5.5e-06
-    """The initial (post-warm-up) learning rate."""
+    optimizer: str = "adamw"
+    """The optimizer."""
 
-    betas: tuple[float, float] = (0.9, 0.95)
-    """The coefficients of AdamW."""
+    optimizer_config: DataClass | None = field(
+        default_factory=lambda: AdamWConfig(
+            lr=5.5e-06, betas=(0.9, 0.95), weight_decay=0.1
+        )
+    )
+    """The configuration of the optimizer."""
 
-    final_lr_ratio: float = 0.2
-    """The ratio of the final learning rate to :attr:`lr`."""
+    lr_scheduler: str = "cosine-annealing"
+    """The learning rate scheduler."""
 
-    weight_decay: float = 0.1
-    """The weight decay coefficient of AdamW."""
-
-    num_lr_warmup_steps: int = 0
-    """The number of learning rate warm-up steps."""
+    lr_scheduler_config: DataClass | None = field(
+        default_factory=lambda: CosineAnnealingLRConfig(final_lr=5.5e-06 * 0.2)
+    )
+    """The configuration of the learning rate scheduler."""
 
     gradient_accumulation: int = 1
     """The number of steps to accumulate gradients before an optimizer update."""
 
-    max_gradient_norm: Optional[float] = None
+    max_gradient_norm: float | None = None
     """The maximum gradient norm. If ``None``, no clipping will be applied."""
 
     fp16_loss_scale: tuple[float, float] = (128.0, 0.0001)
@@ -135,30 +138,36 @@ class InstructionFinetuneConfig:
     max_num_steps: int = 5000
     """The maximum number of steps to train for."""
 
-    max_num_data_epochs: Optional[int] = None
+    max_num_data_epochs: int | None = None
     """The maximum number of data epochs to train for."""
 
     checkpoint_every_n_steps: int = 1000
     """The step interval at which to checkpoint."""
 
-    keep_last_n_checkpoints: Optional[int] = 1
+    checkpoint_every_n_data_epochs: int | None = None
+    """The data epoch interval at which to checkpoint."""
+
+    keep_last_n_checkpoints: int | None = 1
     """The number of checkpoints to keep. If ``None``, none will be deleted."""
 
-    keep_last_n_models: Optional[int] = None
+    keep_last_n_models: int | None = None
     """The number of checkpoint models to keep. If ``None``, none will be deleted."""
 
     publish_metrics_every_n_steps: int = 10
     """The step interval at which to publish training metrics."""
 
-    # Checkpointing
-    resume_checkpoint_dir: Optional[Path] = None
+    publish_metrics_every_n_data_epochs: int | None = None
+    """The data epoch interval at which to publish training metrics."""
+
+    # Checkpoint
+    resume_checkpoint_dir: Path | None = None
     """If not ``None``, adds the specified path to the default asset store."""
 
     # Misc
     seed: int = 2
     """The random number generator seed to use."""
 
-    profile: Optional[tuple[int, int]] = None
+    profile: tuple[int, int] | None = None
     """The number of steps that the PyTorch profiler should skip and then record."""
 
     monitored_gang: bool = False
@@ -205,6 +214,24 @@ def _llama3_70b_instruct() -> InstructionFinetuneConfig:
 
     config.model = "llama3_70b_instruct"
     config.tensor_parallel_size = 8
+
+    return config
+
+
+@instruction_finetune_preset("llama3_1_8b_instruct")
+def _llama3_1_8b_instruct() -> InstructionFinetuneConfig:
+    config = _llama3_8b_instruct()
+
+    config.model = "llama3_1_8b_instruct"
+
+    return config
+
+
+@instruction_finetune_preset("llama3_1_70b_instruct")
+def _llama3_1_70b_instruct() -> InstructionFinetuneConfig:
+    config = _llama3_70b_instruct()
+
+    config.model = "llama3_1_70b_instruct"
 
     return config
 
@@ -330,33 +357,47 @@ def load_instruction_finetuner(
     # Initialize the train unit and the optimizer.
     unit = InstructionFinetuneUnit(dp_model, dp_gang)
 
-    data_reader = dataset.create_reader(
-        tokenizer,
-        dp_gang,
-        config.max_seq_len,
-        batching=LengthBatching(config.max_num_tokens),
-        example_shuffle_window=config.example_shuffle_window,
-        batch_shuffle_window=config.batch_shuffle_window,
-        num_accumulate=config.gradient_accumulation,
-        num_prefetch=config.num_prefetch,
-        seed=seed,
-    )
+    try:
+        data_reader = dataset.create_reader(
+            tokenizer,
+            dp_gang,
+            config.max_seq_len,
+            batching=LengthBatching(config.max_num_tokens),
+            example_shuffle_window=config.example_shuffle_window,
+            batch_shuffle_window=config.batch_shuffle_window,
+            num_accumulate=config.gradient_accumulation,
+            num_prefetch=config.num_prefetch,
+            seed=seed,
+        )
+    except ValueError as ex:
+        raise ValueError(
+            "The data reader cannot be initialized. See nested exception for details."
+        ) from ex
 
     seed += 1
 
-    optimizer = AdamW(
-        model.parameters(),
-        lr=config.lr,
-        betas=config.betas,
-        weight_decay=config.weight_decay,
-    )
+    # Initialize the optimizer.
+    try:
+        optimizer = create_optimizer(
+            config.optimizer, dp_model, config.optimizer_config
+        )
+    except ValueError as ex:
+        raise ValueError(
+            "The optimizer cannot be created. See nested exception for details."
+        ) from ex
 
-    lr_scheduler = CosineAnnealingLR(
-        optimizer,
-        cycle_len=config.max_num_steps - config.num_lr_warmup_steps,
-        num_warmup_steps=config.num_lr_warmup_steps,
-        final_lr=config.lr * config.final_lr_ratio,
-    )
+    # Initialize the learning rate scheduler.
+    try:
+        lr_scheduler = create_lr_scheduler(
+            config.lr_scheduler,
+            optimizer,
+            config.lr_scheduler_config,
+            max_num_steps=config.max_num_steps,
+        )
+    except ValueError as ex:
+        raise ValueError(
+            "The learning rate scheduler cannot be created. See nested exception for details."
+        ) from ex
 
     # Initialize the trainer.
     return Trainer[SequenceBatch](
@@ -374,11 +415,13 @@ def load_instruction_finetuner(
         max_num_data_epochs=config.max_num_data_epochs,
         checkpoint_manager=checkpoint_manager,
         checkpoint_every_n_steps=config.checkpoint_every_n_steps,
+        checkpoint_every_n_data_epochs=config.checkpoint_every_n_data_epochs,
         keep_last_n_checkpoints=config.keep_last_n_checkpoints,
         keep_last_n_models=config.keep_last_n_models,
         tb_dir=output_dir.joinpath("tb"),
         metrics_dir=output_dir.joinpath("metrics"),
         publish_metrics_every_n_steps=config.publish_metrics_every_n_steps,
+        publish_metrics_every_n_data_epochs=config.publish_metrics_every_n_data_epochs,
         profile=config.profile,
         anomaly_detection=config.anomaly_detection,
         seed=seed,
@@ -415,7 +458,7 @@ class InstructionFinetuneUnit(AbstractTrainUnit[SequenceBatch]):
             target_batch.seqs, loss_mask=target_batch.target_mask
         )
 
-        self._metric_bag.update_nll_loss(target_batch, loss.detach())
+        self._metric_bag.update_nll_loss(target_batch, loss)
 
         self._metric_bag.update_batch_metrics(target_batch)
 

@@ -21,7 +21,7 @@ from fairseq2.models.w2vbert.factory import (
 )
 
 load_w2vbert_config = StandardModelConfigLoader(
-    family=W2VBERT_FAMILY, config_kls=W2VBertConfig, arch_configs=w2vbert_archs
+    W2VBERT_FAMILY, W2VBertConfig, w2vbert_archs
 )
 
 
@@ -35,6 +35,7 @@ def convert_w2vbert_checkpoint(
     except KeyError:
         return checkpoint
 
+    # Check if we have a fairseq2 checkpoint.
     if "mlm_proj.weight" not in state_dict:
         return checkpoint
 

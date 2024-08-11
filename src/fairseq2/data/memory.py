@@ -7,12 +7,11 @@
 from __future__ import annotations
 
 from array import array
-from typing import TYPE_CHECKING, Optional, Union, final, overload
+from typing import TYPE_CHECKING, TypeAlias, final, overload
 
 from fairseq2n import DOC_MODE
-from typing_extensions import TypeAlias
 
-Buffer: TypeAlias = Union[bytes, bytearray, memoryview, array]  # type: ignore[type-arg]
+Buffer: TypeAlias = bytes | bytearray | memoryview | array  # type: ignore[type-arg]
 
 if TYPE_CHECKING or DOC_MODE:
 
@@ -28,7 +27,7 @@ if TYPE_CHECKING or DOC_MODE:
         def __init__(self, buffer: Buffer, copy: bool = False) -> None:
             ...
 
-        def __init__(self, buffer: Optional[Buffer] = None, copy: bool = False) -> None:
+        def __init__(self, buffer: Buffer | None = None, copy: bool = False) -> None:
             """
             :param buffer:
                 An object that supports the Python buffer protocol.

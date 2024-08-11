@@ -9,7 +9,7 @@ from __future__ import annotations
 import pickle
 from collections.abc import Sequence
 from pathlib import Path
-from typing import ClassVar, Final, Optional
+from typing import ClassVar, Final
 
 import pytest
 import torch
@@ -261,7 +261,7 @@ class TestSentencePieceModel:
 
     @staticmethod
     def build_model(
-        control_symbols: Optional[Sequence[str]] = None,
+        control_symbols: Sequence[str] | None = None,
     ) -> SentencePieceModel:
         symbols = ["<pad>@0"]
 

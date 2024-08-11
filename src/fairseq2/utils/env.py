@@ -8,12 +8,11 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Optional
 
 from fairseq2.logging import LogWriter
 
 
-def get_int_from_env(var_name: str, allow_zero: bool = False) -> Optional[int]:
+def get_int_from_env(var_name: str, allow_zero: bool = False) -> int | None:
     """Return the value of an environment variable as ``int``.
 
     :param var_name:
@@ -49,7 +48,7 @@ def get_int_from_env(var_name: str, allow_zero: bool = False) -> Optional[int]:
 
 def get_path_from_env(
     var_name: str, log: LogWriter, missing_ok: bool = False
-) -> Optional[Path]:
+) -> Path | None:
     """Return the value of an environment variable as :class:`~pathlib.Path`.
 
     :param var_name:

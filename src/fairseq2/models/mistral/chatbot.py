@@ -17,12 +17,13 @@ from fairseq2.generation import (
     AbstractChatbot,
     ChatDialog,
     SequenceGenerator,
-    chatbot_factories,
+    chatbot_factory,
 )
 from fairseq2.models.mistral.factory import MISTRAL_FAMILY
 from fairseq2.nn.utils.module import infer_device
 
 
+@chatbot_factory(MISTRAL_FAMILY)
 @final
 class MistralChatbot(AbstractChatbot):
     """Represents a Mistral chatbot."""
@@ -91,6 +92,3 @@ class MistralChatbot(AbstractChatbot):
     @override
     def supports_system_prompt(self) -> bool:
         return False
-
-
-chatbot_factories.register(MISTRAL_FAMILY, MistralChatbot)

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, TextIO, final
+from typing import TextIO, final
 
 import torch
 from torch.nn import Module
@@ -25,9 +25,12 @@ from fairseq2.datasets.parallel_text import (
     load_parallel_text_dataset,
 )
 from fairseq2.gang import Gang
-from fairseq2.generation import Seq2SeqGenerator
-from fairseq2.generation.encoder_decoder import BeamSearchConfig, generator_factories
-from fairseq2.generation.text import SequenceToTextConverter
+from fairseq2.generation import (
+    BeamSearchConfig,
+    Seq2SeqGenerator,
+    SequenceToTextConverter,
+    create_seq2seq_generator,
+)
 from fairseq2.logging import get_log_writer
 from fairseq2.metrics.text import BleuMetric, ChrfMetric
 from fairseq2.models import load_model
@@ -53,7 +56,7 @@ from fairseq2.utils.profiler import Stopwatch
 log = get_log_writer(__name__)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class MTEvalConfig:
     """Holds the configuration of a machine translation evaluation task."""
 
@@ -77,7 +80,7 @@ class MTEvalConfig:
     model: AssetReference = "nllb-200_dense_distill_600m"
     """The name of the model to evaluate."""
 
-    checkpoint_dir: Optional[Path] = None
+    checkpoint_dir: Path | None = None
     """The checkpoint directory containing models saved by :class:`FileCheckpointManager`."""
 
     dtype: DataType = torch.float16
@@ -91,8 +94,8 @@ class MTEvalConfig:
     generator: str = "beam_search"
     """The sequence generator."""
 
-    generator_config: Optional[DataClass] = field(
-        default_factory=lambda: BeamSearchConfig()
+    generator_config: DataClass | None = field(
+        default_factory=lambda: BeamSearchConfig(max_gen_len=(1, 256), echo_prompt=True)
     )
     """The configuration of the sequence generator."""
 
@@ -187,11 +190,9 @@ def load_mt_evaluator(
 
     # Initialize the sequence generator.
     try:
-        generator_factory = generator_factories.get(
-            config.generator, config.generator_config
+        generator = create_seq2seq_generator(
+            config.generator, model, config.generator_config
         )
-
-        generator = generator_factory(model)
     except ValueError as ex:
         raise ValueError(
             "The sequence generator cannot be created. See nested exception for details."
@@ -213,17 +214,22 @@ def load_mt_evaluator(
 
         units.append(loss_unit)
 
-        data_reader = dataset.create_reader(
-            config.split,
-            tokenizer,
-            gang,
-            config.max_seq_len,
-            batching=LengthBatching(config.max_num_tokens),
-            direction=direction,
-            sync_batches=False,
-            num_prefetch=config.num_prefetch,
-            seed=seed,
-        )
+        try:
+            data_reader = dataset.create_reader(
+                config.split,
+                tokenizer,
+                gang,
+                config.max_seq_len,
+                batching=LengthBatching(config.max_num_tokens),
+                direction=direction,
+                sync_batches=False,
+                num_prefetch=config.num_prefetch,
+                seed=seed,
+            )
+        except ValueError as ex:
+            raise ValueError(
+                f"The data reader for '{direction}' cannot be initialized. See nested exception for details."
+            ) from ex
 
         seed += 1
 
@@ -282,17 +288,22 @@ def load_mt_evaluator(
 
         units.append(score_unit)
 
-        data_reader = dataset.create_reader(
-            config.split,
-            tokenizer,
-            gang,
-            config.max_seq_len,
-            batching=StaticBatching(config.generator_batch_size),
-            direction=direction,
-            sync_batches=False,
-            num_prefetch=config.num_prefetch,
-            seed=seed,
-        )
+        try:
+            data_reader = dataset.create_reader(
+                config.split,
+                tokenizer,
+                gang,
+                config.max_seq_len,
+                batching=StaticBatching(config.generator_batch_size),
+                direction=direction,
+                sync_batches=False,
+                num_prefetch=config.num_prefetch,
+                seed=seed,
+            )
+        except ValueError as ex:
+            raise ValueError(
+                f"The data reader for '{direction}' cannot be initialized. See nested exception for details."
+            ) from ex
 
         seed += 1
 
@@ -353,7 +364,7 @@ class MTLossEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
             target_batch.seqs, label_smoothing=self._label_smoothing
         )
 
-        self._metric_bag.update_nll_loss(input_batch, loss.detach())
+        self._metric_bag.update_nll_loss(input_batch, loss)
 
         self._metric_bag.update_batch_metrics(input_batch)
 
@@ -371,9 +382,9 @@ class MTBleuChrfEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
     """Represents a machine translation BLEU/chrF++ evaluation unit."""
 
     _converter: SequenceToTextConverter
-    _src_output_stream: Optional[TextIO]
-    _ref_output_stream: Optional[TextIO]
-    _hyp_output_stream: Optional[TextIO]
+    _src_output_stream: TextIO | None
+    _ref_output_stream: TextIO | None
+    _hyp_output_stream: TextIO | None
     _metric_bag: Seq2SeqGenerationMetricBag
 
     def __init__(
@@ -383,9 +394,9 @@ class MTBleuChrfEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
         tokenizer: TextTokenizer,
         gang: Gang,
         *,
-        src_output_stream: Optional[TextIO] = None,
-        ref_output_stream: Optional[TextIO] = None,
-        hyp_output_stream: Optional[TextIO] = None,
+        src_output_stream: TextIO | None = None,
+        ref_output_stream: TextIO | None = None,
+        hyp_output_stream: TextIO | None = None,
     ) -> None:
         """
         :param direction:

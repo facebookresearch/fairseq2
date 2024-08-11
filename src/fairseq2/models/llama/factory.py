@@ -8,14 +8,14 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Final, Optional
+from typing import Final
 
 import torch
 from torch import Tensor
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data import VocabularyInfo
-from fairseq2.models.model import model_factories
+from fairseq2.models.factory import model_factories
 from fairseq2.models.transformer import (
     TransformerDecoderModel,
     TransformerEmbeddingFrontend,
@@ -41,7 +41,7 @@ from fairseq2.typing import DataType, Device
 LLAMA_FAMILY: Final = "llama"
 
 
-@dataclass
+@dataclass(kw_only=True)
 class LLaMAConfig:
     """Holds the configuration of a LLaMA model.
 
@@ -107,16 +107,16 @@ class LLaMABuilder:
     """
 
     _config: LLaMAConfig
-    _device: Optional[Device]
-    _dtype: Optional[DataType]
-    _pos_encoder: Optional[RotaryEncoder]
+    _device: Device | None
+    _dtype: DataType | None
+    _pos_encoder: RotaryEncoder | None
 
     def __init__(
         self,
         config: LLaMAConfig,
         *,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param config:
@@ -254,8 +254,8 @@ class LLaMABuilder:
         self,
         model_dim: int,
         *,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> LayerNorm:
         """Build a Layer Normalization module."""
         return RMSNorm(model_dim, bias=False, device=device, dtype=dtype)
@@ -302,8 +302,8 @@ class LLaMABuilder:
 def create_llama_model(
     config: LLaMAConfig,
     *,
-    device: Optional[Device] = None,
-    dtype: Optional[DataType] = None,
+    device: Device | None = None,
+    dtype: DataType | None = None,
 ) -> TransformerDecoderModel:
     """Create a LLaMA model.
 

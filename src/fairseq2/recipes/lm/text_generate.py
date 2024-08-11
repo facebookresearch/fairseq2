@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, TextIO, final
+from typing import TextIO, final
 
 import torch
 from typing_extensions import override
@@ -24,8 +24,7 @@ from fairseq2.datasets.instruction import (
     load_instruction_dataset,
 )
 from fairseq2.gang import Gang
-from fairseq2.generation import SequenceGenerator
-from fairseq2.generation.decoder import SamplingConfig, generator_factories
+from fairseq2.generation import SamplingConfig, SequenceGenerator, create_seq_generator
 from fairseq2.logging import get_log_writer
 from fairseq2.models import load_model
 from fairseq2.models.decoder import DecoderModel
@@ -45,7 +44,7 @@ from fairseq2.utils.profiler import Stopwatch
 log = get_log_writer(__name__)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class TextGenerateConfig:
     """Holds the configuration of a text generation task."""
 
@@ -66,7 +65,7 @@ class TextGenerateConfig:
     model: AssetReference = "llama3_8b_instruct"
     """The name of the model to generate with."""
 
-    checkpoint_dir: Optional[Path] = None
+    checkpoint_dir: Path | None = None
     """The checkpoint directory containing models saved by :class:`FileCheckpointManager`."""
 
     dtype: DataType = torch.bfloat16
@@ -79,9 +78,7 @@ class TextGenerateConfig:
     generator: str = "sampling"
     """The sequence generator."""
 
-    generator_config: Optional[DataClass] = field(
-        default_factory=lambda: SamplingConfig()
-    )
+    generator_config: DataClass | None = field(default_factory=lambda: SamplingConfig())
     """The configuration of the sequence generator."""
 
     # Misc
@@ -124,6 +121,24 @@ def _llama3_70b_instruct() -> TextGenerateConfig:
 
     config.model = "llama3_70b_instruct"
     config.tensor_parallel_size = 8
+
+    return config
+
+
+@text_generate_preset("llama3_1_8b_instruct")
+def _llama3_1_8b_instruct() -> TextGenerateConfig:
+    config = _llama3_8b_instruct()
+
+    config.model = "llama3_1_8b_instruct"
+
+    return config
+
+
+@text_generate_preset("llama3_1_70b_instruct")
+def _llama3_1_70b_instruct() -> TextGenerateConfig:
+    config = _llama3_70b_instruct()
+
+    config.model = "llama3_1_70b_instruct"
 
     return config
 
@@ -206,11 +221,9 @@ def load_text_generator(
 
     # Initialize the sequence generator.
     try:
-        generator_factory = generator_factories.get(
-            config.generator, config.generator_config
+        generator = create_seq_generator(
+            config.generator, model, config.generator_config
         )
-
-        generator = generator_factory(model)
     except ValueError as ex:
         raise ValueError(
             "The sequence generator cannot be created. See nested exception for details."
@@ -254,15 +267,20 @@ def load_text_generator(
         json_output_stream=json_output_fp,
     )
 
-    data_reader = dataset.create_prompt_reader(
-        tokenizer,
-        dp_gang,
-        config.max_seq_len,
-        batching=StaticBatching(config.batch_size),
-        sync_batches=False,
-        num_prefetch=config.num_prefetch,
-        seed=seed,
-    )
+    try:
+        data_reader = dataset.create_prompt_reader(
+            tokenizer,
+            dp_gang,
+            config.max_seq_len,
+            batching=StaticBatching(config.batch_size),
+            sync_batches=False,
+            num_prefetch=config.num_prefetch,
+            seed=seed,
+        )
+    except ValueError as ex:
+        raise ValueError(
+            "The data reader cannot be initialized. See nested exception for details."
+        ) from ex
 
     seed += 1
 
@@ -285,8 +303,8 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
 
     _generator: SequenceGenerator
     _text_decoder: TextTokenDecoder
-    _text_output_stream: Optional[TextIO]
-    _json_output_stream: Optional[TextIO]
+    _text_output_stream: TextIO | None
+    _json_output_stream: TextIO | None
     _metric_bag: SequenceGenerationMetricBag
 
     def __init__(
@@ -294,8 +312,8 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
         generator: SequenceGenerator,
         tokenizer: TextTokenizer,
         gang: Gang,
-        text_output_stream: Optional[TextIO],
-        json_output_stream: Optional[TextIO],
+        text_output_stream: TextIO | None,
+        json_output_stream: TextIO | None,
     ) -> None:
         super().__init__(generator.model)
 

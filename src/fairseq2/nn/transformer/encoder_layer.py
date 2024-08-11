@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Optional, final
+from typing import final
 
 import torch
 import torch.nn as nn
@@ -47,9 +47,9 @@ class TransformerEncoderLayer(Module, ABC):
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
-        self_attn_mask: Optional[AttentionMask] = None,
-    ) -> tuple[Tensor, Optional[PaddingMask]]:
+        padding_mask: PaddingMask | None,
+        self_attn_mask: AttentionMask | None = None,
+    ) -> tuple[Tensor, PaddingMask | None]:
         """
         :param seqs:
             The sequences to process. *Shape:* :math:`(N,S,M)`, where :math:`N`
@@ -81,12 +81,12 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
     """
 
     self_attn: MultiheadAttention
-    self_attn_norm: Optional[LayerNorm]
-    self_attn_dropout: Optional[Dropout]
+    self_attn_norm: LayerNorm | None
+    self_attn_dropout: Dropout | None
     self_attn_layer_norm: LayerNorm
     ffn: FeedForwardNetwork
-    ffn_dropout: Optional[Dropout]
-    residual_scale: Optional[Parameter]
+    ffn_dropout: Dropout | None
+    residual_scale: Parameter | None
     ffn_layer_norm: LayerNorm
     norm_order: TransformerNormOrder
 
@@ -98,9 +98,9 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
         scale_residual: bool = False,
         dropout_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
-        layer_norm_factory: Optional[LayerNormFactory] = None,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        layer_norm_factory: LayerNormFactory | None = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param self_attn:
@@ -183,9 +183,9 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
-        self_attn_mask: Optional[AttentionMask] = None,
-    ) -> tuple[Tensor, Optional[PaddingMask]]:
+        padding_mask: PaddingMask | None,
+        self_attn_mask: AttentionMask | None = None,
+    ) -> tuple[Tensor, PaddingMask | None]:
         seqs = self._forward_self_attn(seqs, padding_mask, self_attn_mask)
 
         seqs = self._forward_ffn(seqs)
@@ -195,8 +195,8 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
     def _forward_self_attn(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
-        self_attn_mask: Optional[AttentionMask],
+        padding_mask: PaddingMask | None,
+        self_attn_mask: AttentionMask | None,
     ) -> Tensor:
         residual = seqs
 

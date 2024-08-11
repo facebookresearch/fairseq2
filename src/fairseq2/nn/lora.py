@@ -10,7 +10,7 @@ import math
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Literal, Optional, final
+from typing import Any, Literal, final
 
 import torch
 import torch.nn as nn
@@ -65,8 +65,8 @@ class LoRAEmbedding(Embedding, LoRALayer):
         self,
         wrapped: Embedding,
         config: LoRAConfig,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param wrapped:
@@ -142,10 +142,10 @@ class LoRAEmbedding(Embedding, LoRALayer):
 class LoRALinear(Projection, LoRALayer):
     wrapped: Projection
     weight: Parameter
-    bias: Optional[Parameter]
+    bias: Parameter | None
     lora_A: Parameter
     lora_B: Parameter
-    dropout: Optional[Dropout]
+    dropout: Dropout | None
     skip_init: bool
     merged: bool
 
@@ -154,8 +154,8 @@ class LoRALinear(Projection, LoRALayer):
         wrapped: Projection,
         config: LoRAConfig,
         skip_init: bool = False,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param wrapped:
@@ -256,7 +256,7 @@ def wrap_lora(
         parent = module.get_submodule(".".join(submodule_path[:-1]))
         submodule_name = submodule_path[-1]
 
-        lora_layer: Optional[LoRALayer] = None
+        lora_layer: LoRALayer | None = None
         if isinstance(submodule, Projection):
             lora_layer = LoRALinear(
                 wrapped=submodule,
@@ -299,7 +299,7 @@ def unwrap_lora(module: nn.Module, merge: bool = True) -> nn.Module:
         parent = module.get_submodule(".".join(submodule_path[:-1]))
         submodule_name = submodule_path[-1]
 
-        unwrapped_layer: Optional[nn.Module] = None
+        unwrapped_layer: nn.Module | None = None
         if isinstance(submodule, LoRALayer):
             unwrapped_layer = submodule.wrapped_module
         else:

@@ -9,19 +9,12 @@ from __future__ import annotations
 import sys
 from abc import ABC, abstractmethod
 from argparse import OPTIONAL, ArgumentParser, Namespace
+from collections.abc import Callable
 from copy import deepcopy
 from pathlib import Path
 from signal import SIGUSR1, signal
 from types import FrameType
-from typing import (
-    Callable,
-    Generic,
-    Optional,
-    Protocol,
-    TypeVar,
-    final,
-    runtime_checkable,
-)
+from typing import Generic, Protocol, TypeVar, final, runtime_checkable
 
 import shtab
 import yaml
@@ -53,7 +46,7 @@ class Cli:
     _name: str
     _origin_module: str
     _version: str
-    _description: Optional[str]
+    _description: str | None
     _groups: dict[str, CliGroup]
 
     def __init__(
@@ -62,7 +55,7 @@ class Cli:
         origin_module: str,
         *,
         version: str,
-        description: Optional[str] = None,
+        description: str | None = None,
     ) -> None:
         """
         :param name:
@@ -84,8 +77,8 @@ class Cli:
         self,
         name: str,
         *,
-        origin_module: Optional[str] = None,
-        help: Optional[str] = None,
+        origin_module: str | None = None,
+        help: str | None = None,
     ) -> CliGroup:
         """Add a command group.
 
@@ -113,7 +106,7 @@ class Cli:
             return self._groups[name]
         except KeyError:
             raise ValueError(
-                f"`name` must be a registered group name, but is '{name}' instead."
+                f"`name` must be a registered group name, but '{name}' is not registered."
             ) from None
 
     def init_parser(self, parser: ArgumentParser) -> None:
@@ -176,7 +169,7 @@ class Cli:
         return self._version
 
     @property
-    def description(self) -> Optional[str]:
+    def description(self) -> str | None:
         """The description of the program."""
         return self._description
 
@@ -186,7 +179,7 @@ class CliGroup:
 
     _name: str
     _origin_module: str
-    _help: Optional[str]
+    _help: str | None
     _groups: dict[str, CliGroup]
     _commands: dict[str, CliCommand]
 
@@ -195,7 +188,7 @@ class CliGroup:
         name: str,
         origin_module: str,
         *,
-        help: Optional[str] = None,
+        help: str | None = None,
     ) -> None:
         self._name = name
         self._origin_module = origin_module
@@ -207,8 +200,8 @@ class CliGroup:
         self,
         name: str,
         *,
-        origin_module: Optional[str] = None,
-        help: Optional[str] = None,
+        origin_module: str | None = None,
+        help: str | None = None,
     ) -> CliGroup:
         """Add a sub-command group.
 
@@ -232,8 +225,8 @@ class CliGroup:
         name: str,
         handler: CliCommandHandler,
         *,
-        origin_module: Optional[str] = None,
-        help: Optional[str] = None,
+        origin_module: str | None = None,
+        help: str | None = None,
     ) -> CliCommand:
         """Add a command.
 
@@ -273,7 +266,7 @@ class CliGroup:
             return self._groups[name]
         except KeyError:
             raise ValueError(
-                f"`name` must be a registered group name, but is '{name}' instead."
+                f"`name` must be a registered group name, but '{name}' is not registered."
             ) from None
 
     def get_command(self, name: str) -> CliCommand:
@@ -282,7 +275,7 @@ class CliGroup:
             return self._commands[name]
         except KeyError:
             raise ValueError(
-                f"`name` must be a registered command name, but is '{name}' instead."
+                f"`name` must be a registered command name, but '{name}' is not registered."
             ) from None
 
     def init_parser(self, parser: ArgumentParser) -> None:
@@ -332,7 +325,7 @@ class CliGroup:
         return self._origin_module
 
     @property
-    def help(self) -> Optional[str]:
+    def help(self) -> str | None:
         """The help text of the command group."""
         return self._help
 
@@ -343,7 +336,7 @@ class CliCommand:
     _name: str
     _handler: CliCommandHandler
     _origin_module: str
-    _help: Optional[str]
+    _help: str | None
 
     def __init__(
         self,
@@ -351,7 +344,7 @@ class CliCommand:
         handler: CliCommandHandler,
         origin_module: str,
         *,
-        help: Optional[str] = None,
+        help: str | None = None,
     ) -> None:
         self._name = name
         self._handler = handler
@@ -377,7 +370,7 @@ class CliCommand:
         return self._origin_module
 
     @property
-    def help(self) -> Optional[str]:
+    def help(self) -> str | None:
         """The help text of the command."""
         return self._help
 
@@ -433,7 +426,7 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
     _env_setters: EnvironmentSetterRegistry
     _value_converter: ValueConverter
     _sweep_tagger: SweepTagger
-    _parser: Optional[ArgumentParser]
+    _parser: ArgumentParser | None
 
     def __init__(
         self,
@@ -441,9 +434,9 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
         preset_configs: ConfigRegistry[RecipeConfigT],
         default_preset: str,
         *,
-        env_setters: Optional[EnvironmentSetterRegistry] = None,
-        value_converter: Optional[ValueConverter] = None,
-        sweep_tagger: Optional[SweepTagger] = None,
+        env_setters: EnvironmentSetterRegistry | None = None,
+        value_converter: ValueConverter | None = None,
+        sweep_tagger: SweepTagger | None = None,
     ) -> None:
         """
         :param loader:

@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Generic, TypeVar
 
 T = TypeVar("T")
@@ -25,7 +26,7 @@ class Registry(Generic[T]):
             return self._objects[name]
         except KeyError:
             raise ValueError(
-                f"`name` must be a registered name, but is '{name}' instead."
+                f"`name` must be a registered name, but '{name}' is not registered."
             ) from None
 
     def register(self, name: str, obj: T) -> None:
@@ -36,3 +37,13 @@ class Registry(Generic[T]):
             )
 
         self._objects[name] = obj
+
+    def decorator(self, name: str) -> Callable[[T], T]:
+        """Register ``name`` with the decorated object."""
+
+        def register(obj: T) -> T:
+            self.register(name, obj)
+
+            return obj
+
+        return register

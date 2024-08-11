@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Optional
 
 from torch import Tensor
 from typing_extensions import override
@@ -56,8 +55,8 @@ class EncoderDecoderModel(Seq2SeqModel):
 
     @abstractmethod
     def encode(
-        self, seqs: Tensor, padding_mask: Optional[PaddingMask]
-    ) -> tuple[Tensor, Optional[PaddingMask]]:
+        self, seqs: Tensor, padding_mask: PaddingMask | None
+    ) -> tuple[Tensor, PaddingMask | None]:
         """Encode the specified source sequences.
 
         :param seqs:
@@ -83,12 +82,12 @@ class EncoderDecoderModel(Seq2SeqModel):
     def decode(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
+        padding_mask: PaddingMask | None,
         encoder_output: Tensor,
-        encoder_padding_mask: Optional[PaddingMask],
+        encoder_padding_mask: PaddingMask | None,
         *,
-        state_bag: Optional[IncrementalStateBag] = None,
-    ) -> tuple[Tensor, Optional[PaddingMask]]:
+        state_bag: IncrementalStateBag | None = None,
+    ) -> tuple[Tensor, PaddingMask | None]:
         """Decode the specified target sequences.
 
         :param seqs:
@@ -123,7 +122,7 @@ class EncoderDecoderModel(Seq2SeqModel):
 
     @abstractmethod
     def project(
-        self, decoder_output: Tensor, decoder_padding_mask: Optional[PaddingMask]
+        self, decoder_output: Tensor, decoder_padding_mask: PaddingMask | None
     ) -> SequenceModelOutput:
         """Produce logits for next-step prediction.
 

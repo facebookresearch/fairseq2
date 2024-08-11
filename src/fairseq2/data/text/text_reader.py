@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from fairseq2n import DOC_MODE
 
@@ -23,14 +23,14 @@ if TYPE_CHECKING or DOC_MODE:
 
     def read_text(
         path: Path,
-        key: Optional[str] = None,
-        encoding: Optional[str] = None,
+        key: str | None = None,
+        encoding: str | None = None,
         line_ending: LineEnding = LineEnding.INFER,
         ltrim: bool = False,
         rtrim: bool = False,
         skip_empty: bool = False,
         memory_map: bool = False,
-        block_size: Optional[int] = None,
+        block_size: int | None = None,
     ) -> DataPipelineBuilder:
         """Open a text file and return a data pipeline reading lines one by one."""
         ...

@@ -1,7 +1,13 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import cast, final
+from typing import Mapping, cast, final
 
 import torch
 import torch.distributed
@@ -20,29 +26,15 @@ from fairseq2.models.sequence import (
     as_auto_regressive_input,
 )
 from fairseq2.recipes.common_metrics import SequenceMetricBag
+from fairseq2.recipes.lm.preference_finetune.recipe import preference_unit_factory
 from fairseq2.recipes.trainer import AbstractTrainUnit
 
 log = get_log_writer(__name__)
 
 
-@dataclass
-class SimpoFinetuneConfig:
-    """Holds the SimPO-finetuning configuration of a language model."""
-
-    # Hyperparameters
-    simpo_beta: float = 1
-    """The coefficient of KL-divergence regularization."""
-
-    simpo_gamma: float = 0.5
-    """Target reward margin between positive and negative completions."""
-
-    nll_scale: float = 0.0
-    """The coefficient of NLL loss added to the SimPO loss."""
-
-
 @final
-class SimpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
-    """Represents the DPO-finetuning unit of a language model."""
+class SimPOFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
+    """Represents the language model SimPO-finetuning unit."""
 
     _beta: float
     _gamma: float
@@ -64,7 +56,6 @@ class SimpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
         self._nll_scale = nll_scale
 
         self._metric_bag = SimpoFinetuneMetricBag(gang)
-        self._gang = gang
 
     @override
     def __call__(self, batch: PreferenceOptimizationBatch) -> tuple[Tensor, int]:
@@ -101,6 +92,7 @@ class SimpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
         )
 
         self._metric_bag.update_nll_loss(chosen_batch, nll_loss)
+
         self._metric_bag.update_simpo_loss(chosen_batch, simpo_loss)
 
         self._metric_bag.update_batch_metrics(chosen_batch)
@@ -123,23 +115,21 @@ class SimpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
         return total_logps, average_logps
 
     def _compute_simpo_loss(
-        self,
-        average_chosen_logps: Tensor,
-        average_rejected_logps: Tensor,
+        self, average_chosen_logps: Tensor, average_rejected_logps: Tensor
     ) -> Tensor:
         simpo_loss = -torch.nn.functional.logsigmoid(
             self._beta * (average_chosen_logps - average_rejected_logps) - self._gamma
         )
         return simpo_loss.sum()
 
+    @override
+    def set_step_nr(self, step_nr: int) -> None:
+        self._step_nr = step_nr
+
     @property
     @override
     def metric_bag(self) -> SimpoFinetuneMetricBag:
         return self._metric_bag
-
-    def set_step_nr(self, step_nr: int) -> None:
-        """Set the current training step number."""
-        self._step_nr = step_nr
 
 
 register_metric_formatter("simpo_loss", "SimPO Loss", 0, format_as_float)
@@ -155,8 +145,29 @@ class SimpoFinetuneMetricBag(SequenceMetricBag):
 
     @torch.inference_mode()
     def update_simpo_loss(self, batch: SequenceBatch, loss: Tensor) -> None:
-        batch_size = torch.tensor(batch.batch_size)
+        self._simpo_loss.update(loss / batch.batch_size, weight=batch.batch_size)
 
-        normalized_loss = loss.cpu() / batch_size
 
-        self._simpo_loss.update(normalized_loss, weight=batch_size)
+@dataclass(kw_only=True)
+class SimPOConfig:
+    """Holds the SimPO configuration of a language model preference-finetuning task."""
+
+    beta: float = 1
+    """The coefficient of KL-divergence regularization."""
+
+    gamma: float = 0.5
+    """The target reward margin between positive and negative completions."""
+
+    nll_scale: float = 0.0
+    """The coefficient of NLL loss added to the SimPO loss."""
+
+
+@preference_unit_factory("simpo")
+def create_simpo_unit(
+    config: SimPOConfig, model: Module, root_gang: Gang, gangs: Mapping[str, Gang]
+) -> SimPOFinetuneUnit:
+    dp_gang = gangs["dp"]  # data
+
+    return SimPOFinetuneUnit(
+        model, dp_gang, config.beta, config.gamma, config.nll_scale
+    )

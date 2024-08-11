@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from typing import Optional, Union, final
+from typing import final
 
 import torch
 from torch import Tensor
@@ -16,7 +16,7 @@ from torch.nn.functional import log_softmax
 from typing_extensions import override
 
 from fairseq2.data import VocabularyInfo
-from fairseq2.generation.beam_search_algorithm import (
+from fairseq2.generation.beam_search.algo import (
     BeamSearchAlgorithm,
     BeamStep,
     StandardBeamSearchAlgorithm,
@@ -53,27 +53,27 @@ class BeamSearchSequenceGenerator(AbstractSequenceGenerator):
     _temperature: float
     _unk_penalty: float
     _len_penalty: float
-    _prefill_chunk_size: Optional[int]
-    _decode_capacity_increment: Optional[int]
+    _prefill_chunk_size: int | None
+    _decode_capacity_increment: int | None
     _step_processors: Sequence[StepProcessor]
 
     def __init__(
         self,
         model: DecoderModel,
         *,
-        algorithm: Optional[BeamSearchAlgorithm] = None,
+        algorithm: BeamSearchAlgorithm | None = None,
         beam_size: int = 5,
         min_gen_len: int = 1,
         max_gen_len: int = 128,
-        max_seq_len: Optional[int] = None,
+        max_seq_len: int | None = None,
         echo_prompt: bool = False,
         normalize_scores: bool = True,
         temperature: float = 1.0,
         unk_penalty: float = 0.0,
         len_penalty: float = 1.0,
-        prefill_chunk_size: Optional[int] = 512,
-        decode_capacity_increment: Optional[int] = 16,
-        step_processors: Optional[Sequence[StepProcessor]] = None,
+        prefill_chunk_size: int | None = 512,
+        decode_capacity_increment: int | None = 16,
+        step_processors: Sequence[StepProcessor] | None = None,
     ) -> None:
         """
         :param model:
@@ -164,7 +164,7 @@ class BeamSearchSequenceGenerator(AbstractSequenceGenerator):
     @torch.inference_mode()
     @override
     def __call__(
-        self, prompt_seqs: Tensor, prompt_padding_mask: Optional[PaddingMask]
+        self, prompt_seqs: Tensor, prompt_padding_mask: PaddingMask | None
     ) -> SequenceGeneratorOutput:
         op = _BeamSearchSequenceGeneratorOp(
             self._model,
@@ -205,27 +205,27 @@ class BeamSearchSeq2SeqGenerator(AbstractSeq2SeqGenerator):
     _temperature: float
     _unk_penalty: float
     _len_penalty: float
-    _prefill_chunk_size: Optional[int]
-    _decode_capacity_increment: Optional[int]
+    _prefill_chunk_size: int | None
+    _decode_capacity_increment: int | None
     _step_processors: Sequence[StepProcessor]
 
     def __init__(
         self,
         model: EncoderDecoderModel,
         *,
-        algorithm: Optional[BeamSearchAlgorithm] = None,
+        algorithm: BeamSearchAlgorithm | None = None,
         beam_size: int = 5,
         min_gen_len: int = 1,
         max_gen_len: tuple[int, int] = (1, 128),
-        max_seq_len: Optional[int] = None,
+        max_seq_len: int | None = None,
         echo_prompt: bool = False,
         normalize_scores: bool = True,
         temperature: float = 1.0,
         unk_penalty: float = 0.0,
         len_penalty: float = 1.0,
-        prefill_chunk_size: Optional[int] = 512,
-        decode_capacity_increment: Optional[int] = 16,
-        step_processors: Optional[Sequence[StepProcessor]] = None,
+        prefill_chunk_size: int | None = 512,
+        decode_capacity_increment: int | None = 16,
+        step_processors: Sequence[StepProcessor] | None = None,
     ) -> None:
         """
         :param model:
@@ -309,9 +309,9 @@ class BeamSearchSeq2SeqGenerator(AbstractSeq2SeqGenerator):
     def __call__(
         self,
         source_seqs: Tensor,
-        source_padding_mask: Optional[PaddingMask],
+        source_padding_mask: PaddingMask | None,
         prompt_seqs: Tensor,
-        prompt_padding_mask: Optional[PaddingMask],
+        prompt_padding_mask: PaddingMask | None,
     ) -> Seq2SeqGeneratorOutput:
         # (P, S)
         encoder_output, encoder_padding_mask = self.model.encode(
@@ -371,8 +371,8 @@ class BeamSearchSeq2SeqGenerator(AbstractSeq2SeqGenerator):
 class _AbstractBeamSearchSequenceGeneratorOp(ABC):
     _algorithm: BeamSearchAlgorithm
     _eos_idx: int
-    _pad_idx: Optional[int]
-    _unk_idx: Optional[int]
+    _pad_idx: int | None
+    _unk_idx: int | None
     _beam_size: int
     _min_prompt_len: int
     _max_prompt_len: int
@@ -383,13 +383,13 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
     _temperature: float
     _unk_penalty: float
     _len_penalty: float
-    _prefill_chunk_size: Optional[int]
+    _prefill_chunk_size: int | None
     _step_processors: Sequence[StepProcessor]
     _step_hooks: dict[int, StepHook]
     _step_nr: int
     _state_bag: IncrementalStateBag
-    _prompt_lens: Optional[Tensor]
-    _prompt_mask: Optional[Tensor]
+    _prompt_lens: Tensor | None
+    _prompt_mask: Tensor | None
     _beam_sizes: list[int]
     _prompt_indices: Tensor
     _seqs: Tensor
@@ -400,7 +400,7 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
     def __init__(
         self,
         prompt_seqs: Tensor,
-        prompt_padding_mask: Optional[PaddingMask],
+        prompt_padding_mask: PaddingMask | None,
         algorithm: BeamSearchAlgorithm,
         vocab_info: VocabularyInfo,
         beam_size: int,
@@ -412,8 +412,8 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
         temperature: float,
         unk_penalty: float,
         len_penalty: float,
-        prefill_chunk_size: Optional[int],
-        decode_capacity_increment: Optional[int],
+        prefill_chunk_size: int | None,
+        decode_capacity_increment: int | None,
         step_processors: Sequence[StepProcessor],
         step_hooks: dict[int, StepHook],
     ) -> None:
@@ -427,8 +427,8 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
 
         self._beam_size = beam_size
 
-        min_prompt_idx: Union[int, Tensor]
-        max_prompt_idx: Union[int, Tensor]
+        min_prompt_idx: int | Tensor
+        max_prompt_idx: int | Tensor
 
         if prompt_padding_mask is None:
             self._min_prompt_len, min_prompt_idx = prompt_seqs.size(1), 0
@@ -702,7 +702,7 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
 
     def _search_beam(
         self, beam_idx: int, batch_offset: int, lprobs: Tensor, step_scores: Tensor
-    ) -> Optional[BeamStep]:
+    ) -> BeamStep | None:
         # Ignore the generated indices for the prompt sequences.
         if self._step_nr < self._max_prompt_len:
             assert self._prompt_mask is not None
@@ -844,7 +844,7 @@ class _BeamSearchSequenceGeneratorOp(_AbstractBeamSearchSequenceGeneratorOp):
         self,
         model: DecoderModel,
         prompt_seqs: Tensor,
-        prompt_padding_mask: Optional[PaddingMask],
+        prompt_padding_mask: PaddingMask | None,
         algorithm: BeamSearchAlgorithm,
         beam_size: int,
         min_gen_len: int,
@@ -855,8 +855,8 @@ class _BeamSearchSequenceGeneratorOp(_AbstractBeamSearchSequenceGeneratorOp):
         temperature: float,
         unk_penalty: float,
         len_penalty: float,
-        prefill_chunk_size: Optional[int],
-        decode_capacity_increment: Optional[int],
+        prefill_chunk_size: int | None,
+        decode_capacity_increment: int | None,
         step_processors: Sequence[StepProcessor],
         step_hooks: dict[int, StepHook],
     ) -> None:
@@ -897,15 +897,15 @@ class _BeamSearchSequenceGeneratorOp(_AbstractBeamSearchSequenceGeneratorOp):
 class _BeamSearchSeq2SeqGeneratorOp(_AbstractBeamSearchSequenceGeneratorOp):
     _model: EncoderDecoderModel
     _encoder_output: Tensor
-    _encoder_padding_mask: Optional[PaddingMask]
+    _encoder_padding_mask: PaddingMask | None
 
     def __init__(
         self,
         model: EncoderDecoderModel,
         encoder_output: Tensor,
-        encoder_padding_mask: Optional[PaddingMask],
+        encoder_padding_mask: PaddingMask | None,
         prompt_seqs: Tensor,
-        prompt_padding_mask: Optional[PaddingMask],
+        prompt_padding_mask: PaddingMask | None,
         algorithm: BeamSearchAlgorithm,
         beam_size: int,
         min_gen_len: int,
@@ -916,8 +916,8 @@ class _BeamSearchSeq2SeqGeneratorOp(_AbstractBeamSearchSequenceGeneratorOp):
         temperature: float,
         unk_penalty: float,
         len_penalty: float,
-        prefill_chunk_size: Optional[int],
-        decode_capacity_increment: Optional[int],
+        prefill_chunk_size: int | None,
+        decode_capacity_increment: int | None,
         step_processors: Sequence[StepProcessor],
         step_hooks: dict[int, StepHook],
     ) -> None:

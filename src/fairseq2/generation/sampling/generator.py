@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from typing import Optional, Union, final
+from typing import final
 
 import torch
 from torch import Tensor
@@ -25,7 +25,7 @@ from fairseq2.generation.generator import (
     SequenceGeneratorOutput,
     StepHook,
 )
-from fairseq2.generation.sampler import Sampler
+from fairseq2.generation.sampling.sampler import Sampler
 from fairseq2.generation.step_processor import StepProcessor
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
@@ -51,8 +51,8 @@ class SamplingSequenceGenerator(AbstractSequenceGenerator):
     _temperature: float
     _unk_penalty: float
     _len_penalty: float
-    _prefill_chunk_size: Optional[int]
-    _decode_capacity_increment: Optional[int]
+    _prefill_chunk_size: int | None
+    _decode_capacity_increment: int | None
     _step_processors: Sequence[StepProcessor]
 
     def __init__(
@@ -63,16 +63,16 @@ class SamplingSequenceGenerator(AbstractSequenceGenerator):
         num_gens: int = 1,
         min_gen_len: int = 1,
         max_gen_len: int = 128,
-        max_seq_len: Optional[int] = None,
+        max_seq_len: int | None = None,
         echo_prompt: bool = False,
         compute_scores: bool = False,
         normalize_scores: bool = True,
         temperature: float = 0.6,
         unk_penalty: float = 0.0,
         len_penalty: float = 1.0,
-        prefill_chunk_size: Optional[int] = 512,
-        decode_capacity_increment: Optional[int] = 16,
-        step_processors: Optional[Sequence[StepProcessor]] = None,
+        prefill_chunk_size: int | None = 512,
+        decode_capacity_increment: int | None = 16,
+        step_processors: Sequence[StepProcessor] | None = None,
     ) -> None:
         """
         :param model:
@@ -166,7 +166,7 @@ class SamplingSequenceGenerator(AbstractSequenceGenerator):
     @torch.inference_mode()
     @override
     def __call__(
-        self, prompt_seqs: Tensor, prompt_padding_mask: Optional[PaddingMask]
+        self, prompt_seqs: Tensor, prompt_padding_mask: PaddingMask | None
     ) -> SequenceGeneratorOutput:
         op = _SamplingSequenceGeneratorOp(
             self._model,
@@ -209,8 +209,8 @@ class SamplingSeq2SeqGenerator(AbstractSeq2SeqGenerator):
     _temperature: float
     _unk_penalty: float
     _len_penalty: float
-    _prefill_chunk_size: Optional[int]
-    _decode_capacity_increment: Optional[int]
+    _prefill_chunk_size: int | None
+    _decode_capacity_increment: int | None
     _step_processors: Sequence[StepProcessor]
 
     def __init__(
@@ -221,16 +221,16 @@ class SamplingSeq2SeqGenerator(AbstractSeq2SeqGenerator):
         num_gens: int = 1,
         min_gen_len: int = 1,
         max_gen_len: tuple[int, int] = (1, 128),
-        max_seq_len: Optional[int] = None,
+        max_seq_len: int | None = None,
         echo_prompt: bool = False,
         compute_scores: bool = False,
         normalize_scores: bool = True,
         temperature: float = 0.6,
         unk_penalty: float = 0.0,
         len_penalty: float = 1.0,
-        prefill_chunk_size: Optional[int] = 512,
-        decode_capacity_increment: Optional[int] = 16,
-        step_processors: Optional[Sequence[StepProcessor]] = None,
+        prefill_chunk_size: int | None = 512,
+        decode_capacity_increment: int | None = 16,
+        step_processors: Sequence[StepProcessor] | None = None,
     ) -> None:
         """
         :param model:
@@ -317,9 +317,9 @@ class SamplingSeq2SeqGenerator(AbstractSeq2SeqGenerator):
     def __call__(
         self,
         source_seqs: Tensor,
-        source_padding_mask: Optional[PaddingMask],
+        source_padding_mask: PaddingMask | None,
         prompt_seqs: Tensor,
-        prompt_padding_mask: Optional[PaddingMask],
+        prompt_padding_mask: PaddingMask | None,
     ) -> Seq2SeqGeneratorOutput:
         # (P, S)
         encoder_output, encoder_padding_mask = self.model.encode(
@@ -380,8 +380,8 @@ class SamplingSeq2SeqGenerator(AbstractSeq2SeqGenerator):
 class _AbstractSamplingSequenceGeneratorOp(ABC):
     _sampler: Sampler
     _eos_idx: int
-    _pad_idx: Optional[int]
-    _unk_idx: Optional[int]
+    _pad_idx: int | None
+    _unk_idx: int | None
     _num_gens: int
     _min_prompt_len: int
     _max_prompt_len: int
@@ -393,23 +393,23 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
     _temperature: float
     _unk_penalty: float
     _len_penalty: float
-    _prefill_chunk_size: Optional[int]
+    _prefill_chunk_size: int | None
     _step_processors: Sequence[StepProcessor]
     _step_hooks: dict[int, StepHook]
     _step_nr: int
     _state_bag: IncrementalStateBag
-    _prompt_lens: Optional[Tensor]
-    _prompt_mask: Optional[Tensor]
+    _prompt_lens: Tensor | None
+    _prompt_mask: Tensor | None
     _prompt_indices: Tensor
     _seqs: Tensor
-    _step_scores: Optional[Tensor]
+    _step_scores: Tensor | None
     _output: list[list[Hypothesis]]
     _counters: GenerationCounters
 
     def __init__(
         self,
         prompt_seqs: Tensor,
-        prompt_padding_mask: Optional[PaddingMask],
+        prompt_padding_mask: PaddingMask | None,
         sampler: Sampler,
         vocab_info: VocabularyInfo,
         num_gens: int,
@@ -422,8 +422,8 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
         temperature: float,
         unk_penalty: float,
         len_penalty: float,
-        prefill_chunk_size: Optional[int],
-        decode_capacity_increment: Optional[int],
+        prefill_chunk_size: int | None,
+        decode_capacity_increment: int | None,
         step_processors: Sequence[StepProcessor],
         step_hooks: dict[int, StepHook],
     ) -> None:
@@ -437,8 +437,8 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
 
         self._num_gens = num_gens
 
-        min_prompt_idx: Union[int, Tensor]
-        max_prompt_idx: Union[int, Tensor]
+        min_prompt_idx: int | Tensor
+        max_prompt_idx: int | Tensor
 
         if prompt_padding_mask is None:
             self._min_prompt_len, min_prompt_idx = prompt_seqs.size(1), 0
@@ -814,7 +814,7 @@ class _SamplingSequenceGeneratorOp(_AbstractSamplingSequenceGeneratorOp):
         self,
         model: DecoderModel,
         prompt_seqs: Tensor,
-        prompt_padding_mask: Optional[PaddingMask],
+        prompt_padding_mask: PaddingMask | None,
         sampler: Sampler,
         num_gens: int,
         min_gen_len: int,
@@ -826,8 +826,8 @@ class _SamplingSequenceGeneratorOp(_AbstractSamplingSequenceGeneratorOp):
         temperature: float,
         unk_penalty: float,
         len_penalty: float,
-        prefill_chunk_size: Optional[int],
-        decode_capacity_increment: Optional[int],
+        prefill_chunk_size: int | None,
+        decode_capacity_increment: int | None,
         step_processors: Sequence[StepProcessor],
         step_hooks: dict[int, StepHook],
     ) -> None:
@@ -869,15 +869,15 @@ class _SamplingSequenceGeneratorOp(_AbstractSamplingSequenceGeneratorOp):
 class _SamplingSeq2SeqGeneratorOp(_AbstractSamplingSequenceGeneratorOp):
     _model: EncoderDecoderModel
     _encoder_output: Tensor
-    _encoder_padding_mask: Optional[PaddingMask]
+    _encoder_padding_mask: PaddingMask | None
 
     def __init__(
         self,
         model: EncoderDecoderModel,
         encoder_output: Tensor,
-        encoder_padding_mask: Optional[PaddingMask],
+        encoder_padding_mask: PaddingMask | None,
         prompt_seqs: Tensor,
-        prompt_padding_mask: Optional[PaddingMask],
+        prompt_padding_mask: PaddingMask | None,
         sampler: Sampler,
         num_gens: int,
         min_gen_len: int,
@@ -889,8 +889,8 @@ class _SamplingSeq2SeqGeneratorOp(_AbstractSamplingSequenceGeneratorOp):
         temperature: float,
         unk_penalty: float,
         len_penalty: float,
-        prefill_chunk_size: Optional[int],
-        decode_capacity_increment: Optional[int],
+        prefill_chunk_size: int | None,
+        decode_capacity_increment: int | None,
         step_processors: Sequence[StepProcessor],
         step_hooks: dict[int, StepHook],
     ) -> None:

@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 import torch
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
@@ -27,7 +27,7 @@ from fairseq2.recipes.utils.log import log_environment_info
 def setup_root_gang(
     log: LogWriter,
     *,
-    timeout: Optional[timedelta] = None,
+    timeout: timedelta | None = None,
     monitored: bool = False,
 ) -> Gang:
     """Set up the root gang.
@@ -59,7 +59,7 @@ def setup_gangs(
     log: LogWriter,
     *,
     tp_size: int = 1,
-    timeout: Optional[timedelta] = None,
+    timeout: timedelta | None = None,
     monitored: bool = False,
 ) -> tuple[Gang, dict[str, Gang]]:
     """Set up the root, data, and tensor parallel gangs.

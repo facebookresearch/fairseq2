@@ -10,10 +10,10 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
-from typing import Any, Literal, Optional, Protocol, final
+from typing import Any, Literal, Protocol, TypeAlias, final
 
 from torch import Tensor
-from typing_extensions import TypeAlias, override
+from typing_extensions import override
 
 from fairseq2.data.text import TextTokenDecoder, TextTokenizer
 from fairseq2.generation.generator import SequenceGenerator, SequenceGeneratorOutput
@@ -136,7 +136,7 @@ class AbstractChatbot(Chatbot):
         return self.__do_response(dialog_seqs, dialog_padding_mask)
 
     def __do_response(
-        self, dialog_seqs: Tensor, dialog_padding_mask: Optional[PaddingMask]
+        self, dialog_seqs: Tensor, dialog_padding_mask: PaddingMask | None
     ) -> tuple[list[ChatMessage], SequenceGeneratorOutput]:
         generator_output = self._generator(dialog_seqs, dialog_padding_mask)
 
@@ -182,3 +182,5 @@ class ChatbotFactory(Protocol):
 
 
 chatbot_factories = Registry[ChatbotFactory]()
+
+chatbot_factory = chatbot_factories.decorator

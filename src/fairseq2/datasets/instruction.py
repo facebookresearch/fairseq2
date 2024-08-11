@@ -10,7 +10,7 @@ import json
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, NoReturn, Optional, Union, cast, final
+from typing import Any, cast, final
 
 import torch
 from typing_extensions import override
@@ -28,8 +28,8 @@ from fairseq2.data import (
 from fairseq2.data.text import TextTokenizer
 from fairseq2.datasets.batching import LengthBatching, StaticBatching
 from fairseq2.datasets.data_reader import DataPipelineReader, DataReader
-from fairseq2.datasets.error import DatasetError
 from fairseq2.datasets.loader import AbstractDatasetLoader, DelegatingDatasetLoader
+from fairseq2.datasets.utils import _load_files_and_weights
 from fairseq2.gang import Gang
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
@@ -44,14 +44,14 @@ class InstructionDataset(ABC):
         tokenizer: TextTokenizer,
         gang: Gang,
         max_seq_len: int,
-        batching: Union[StaticBatching, LengthBatching],
+        batching: StaticBatching | LengthBatching,
         *,
         sample: bool = False,
         example_shuffle_window: int = 1,
         batch_shuffle_window: int = 1,
         drop_remainder: bool = False,
         sync_batches: bool = True,
-        max_num_batches: Optional[int] = None,
+        max_num_batches: int | None = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         seed: int = 2,
@@ -174,80 +174,7 @@ class GenericInstructionDataset(InstructionDataset):
     @classmethod
     def from_path(cls, path: Path) -> GenericInstructionDataset:
         """Load a :class:`InstructionDataset` from ``path``."""
-        path = path.expanduser().resolve()
-
-        if not path.is_dir():
-            return GenericInstructionDataset(files=[path], weights=[1.0])
-
-        manifest_file = path.joinpath("MANIFEST")
-
-        try:
-            with manifest_file.open() as fp:
-                content = list(fp)
-        except FileNotFoundError:
-            content = None
-        except OSError as ex:
-            raise RuntimeError(
-                f"{manifest_file} cannot be read. See nested exception for details."
-            ) from ex
-
-        # If the directory does not contain a MANIFEST file, treat all JSONL
-        # files as part of the dataset with equal weight.
-        if content is None:
-            try:
-                files = list(path.glob("**/*.jsonl"))
-            except OSError as ex:
-                raise RuntimeError(
-                    f"The JSONL files under {path} cannot be retrieved. See nested exception for details."
-                ) from ex
-
-            weights = [1.0 for _ in range(len(files))]
-
-            return GenericInstructionDataset(files, weights=weights)
-
-        # Sort the JSONL files in alphabetical order.
-        content.sort()
-
-        files = []
-
-        weights = []
-
-        # Each line of the MANIFEST file corresponds to the path of a JSONL file
-        # and its weight (e.g. number of examples).
-        for idx, line in enumerate(content):
-
-            def raise_error() -> NoReturn:
-                raise DatasetError(
-                    f"Each line in {manifest_file} must represent a path to a JSONL file and a weight, but line {idx} is '{line}' instead."
-                ) from None
-
-            fields = line.rstrip().split("\t")
-
-            if len(fields) != 2:
-                raise_error()
-
-            file_path = fields[0].strip()
-            if not file_path:
-                raise_error()
-
-            try:
-                file = path.joinpath(file_path)
-            except ValueError:
-                raise_error()
-
-            if not file.exists():
-                raise DatasetError(
-                    f"The file '{file}' referred at line {idx} in {manifest_file} does not exist."
-                )
-
-            files.append(file)
-
-            try:
-                weight = float(fields[1].strip())
-            except ValueError:
-                raise_error()
-
-            weights.append(weight)
+        files, weights = _load_files_and_weights(path)
 
         return GenericInstructionDataset(files, weights)
 
@@ -257,14 +184,14 @@ class GenericInstructionDataset(InstructionDataset):
         tokenizer: TextTokenizer,
         gang: Gang,
         max_seq_len: int,
-        batching: Union[StaticBatching, LengthBatching],
+        batching: StaticBatching | LengthBatching,
         *,
         sample: bool = False,
         example_shuffle_window: int = 1,
         batch_shuffle_window: int = 1,
         drop_remainder: bool = False,
         sync_batches: bool = True,
-        max_num_batches: Optional[int] = None,
+        max_num_batches: int | None = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         seed: int = 2,

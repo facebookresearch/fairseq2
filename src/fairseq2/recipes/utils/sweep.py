@@ -12,7 +12,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import fields
 from enum import Enum
 from hashlib import sha1
-from typing import Any, Final, Optional
+from typing import Any, Final
 
 from fairseq2.typing import DataClass, DataType, is_dataclass_instance
 
@@ -57,7 +57,7 @@ class SweepTagger:
         "weight_decay",
     }
 
-    def __init__(self, *, allow_set: Optional[set[str]] = None) -> None:
+    def __init__(self, *, allow_set: set[str] | None = None) -> None:
         """
         :param allow_set:
             The configuration field names allowed while generating the sweep tag.
@@ -141,8 +141,8 @@ class SweepTagger:
         return s
 
     @classmethod
-    def _to_tag_value(cls, value: Any) -> Optional[str]:
-        s: Optional[str]
+    def _to_tag_value(cls, value: Any) -> str | None:
+        s: str | None
 
         if isinstance(value, str):
             s = cls._remove_non_word(value)

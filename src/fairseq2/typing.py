@@ -6,12 +6,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import Field, is_dataclass
-from typing import Any, Callable, ClassVar, Final, Protocol, TypeVar
+from typing import Any, ClassVar, Final, Protocol, TypeAlias, TypeGuard, TypeVar
 
 import typing_extensions
 from torch import device, dtype
-from typing_extensions import TypeAlias, TypeGuard
 
 
 class DataClass(Protocol):

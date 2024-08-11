@@ -7,11 +7,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Final, Optional
+from typing import Final
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data import VocabularyInfo
-from fairseq2.models.model import model_factories
+from fairseq2.models.factory import model_factories
 from fairseq2.models.transformer.frontend import (
     TransformerEmbeddingFrontend,
     TransformerFrontend,
@@ -45,7 +45,7 @@ from fairseq2.typing import DataType, Device
 TRANSFORMER_FAMILY: Final = "transformer"
 
 
-@dataclass
+@dataclass(kw_only=True)
 class TransformerConfig:
     """Holds the configuration of a Transformer model.
 
@@ -102,15 +102,15 @@ class TransformerBuilder:
     """
 
     _config: TransformerConfig
-    _device: Optional[Device]
-    _dtype: Optional[DataType]
+    _device: Device | None
+    _dtype: DataType | None
 
     def __init__(
         self,
         config: TransformerConfig,
         *,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param config:
@@ -259,8 +259,8 @@ class TransformerBuilder:
 def create_transformer_model(
     config: TransformerConfig,
     *,
-    device: Optional[Device] = None,
-    dtype: Optional[DataType] = None,
+    device: Device | None = None,
+    dtype: DataType | None = None,
 ) -> TransformerModel:
     """Create a Transformer model.
 

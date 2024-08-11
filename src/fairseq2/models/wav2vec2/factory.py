@@ -7,14 +7,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Final, Optional
+from typing import Final
 
 from torch.nn import GELU, SiLU
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.models.conformer import ConformerBlock, ConformerConvolution
+from fairseq2.models.factory import model_factories
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
-from fairseq2.models.model import model_factories
 from fairseq2.models.wav2vec2.feature_extractor import (
     Wav2Vec2FbankFeatureExtractor,
     Wav2Vec2FeatureExtractor,
@@ -31,6 +31,7 @@ from fairseq2.models.wav2vec2.vector_quantizer import (
     VectorQuantizer,
 )
 from fairseq2.nn import PositionEncoder, RotaryEncoder
+from fairseq2.nn.projection import init_bert_projection
 from fairseq2.nn.transformer import (
     SDPA,
     FeedForwardNetwork,
@@ -51,7 +52,7 @@ from fairseq2.typing import DataType, Device
 WAV2VEC2_FAMILY: Final = "wav2vec2"
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Wav2Vec2Config:
     """Holds the configuration of a wav2vec 2.0 model.
 
@@ -75,7 +76,7 @@ class Wav2Vec2Config:
     temporal_mask_span_len: int = 10
     """The length of each temporal mask span that is applied over time steps."""
 
-    max_temporal_mask_prob: float = 0.65
+    max_temporal_mask_prob: float = 0.69
     """The maximum probability of masking a time step. Note that, due to mask
     span overlap, the effective probability will be lower."""
 
@@ -119,7 +120,7 @@ wav2vec2_archs = ConfigRegistry[Wav2Vec2Config]()
 wav2vec2_arch = wav2vec2_archs.decorator
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Wav2Vec2EncoderConfig:
     """Holds the configuration of a wav2vec 2.0 encoder.
 
@@ -237,16 +238,16 @@ class Wav2Vec2Builder:
 
     _config: Wav2Vec2Config
     _encoder_builder: Wav2Vec2EncoderBuilder
-    _device: Optional[Device]
-    _dtype: Optional[DataType]
+    _device: Device | None
+    _dtype: DataType | None
 
     def __init__(
         self,
         config: Wav2Vec2Config,
         encoder_builder: Wav2Vec2EncoderBuilder,
         *,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param config:
@@ -323,16 +324,16 @@ class Wav2Vec2EncoderBuilder:
     """
 
     _config: Wav2Vec2EncoderConfig
-    _device: Optional[Device]
-    _dtype: Optional[DataType]
-    _rel_pos_encoding: Optional[RelativePositionalEncoding]
+    _device: Device | None
+    _dtype: DataType | None
+    _rel_pos_encoding: RelativePositionalEncoding | None
 
     def __init__(
         self,
         config: Wav2Vec2EncoderConfig,
         *,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param config:
@@ -371,7 +372,7 @@ class Wav2Vec2EncoderBuilder:
             dtype=self._dtype,
         )
 
-    def build_feature_extractor(self) -> Optional[SequenceFeatureExtractor]:
+    def build_feature_extractor(self) -> SequenceFeatureExtractor | None:
         """Build a feature extractor."""
         if self._config.use_fbank:
             return Wav2Vec2FbankFeatureExtractor(
@@ -389,7 +390,7 @@ class Wav2Vec2EncoderBuilder:
             dtype=self._dtype,
         )
 
-    def build_position_encoder(self) -> Optional[PositionEncoder]:
+    def build_position_encoder(self) -> PositionEncoder | None:
         """Build a position encoder."""
         if self._config.pos_encoder_type != "conv":
             return None
@@ -480,8 +481,10 @@ class Wav2Vec2EncoderBuilder:
         return StandardMultiheadAttention(
             self._config.model_dim,
             self._config.num_encoder_attn_heads,
+            qkv_proj_init_fn=init_bert_projection,
             pos_encoder=pos_encoder,
             sdpa=sdpa,
+            output_proj_init_fn=init_bert_projection,
             device=self._device,
             dtype=self._dtype,
         )
@@ -525,6 +528,7 @@ class Wav2Vec2EncoderBuilder:
             inner_activation=SiLU() if use_swish else GELU(),
             inner_dropout_p=self._config.ffn_inner_dropout_p,
             norm_order=self._config.norm_order,
+            proj_init_fn=init_bert_projection,
             device=self._device,
             dtype=self._dtype,
         )
@@ -533,8 +537,8 @@ class Wav2Vec2EncoderBuilder:
 def create_wav2vec2_model(
     config: Wav2Vec2Config,
     *,
-    device: Optional[Device] = None,
-    dtype: Optional[DataType] = None,
+    device: Device | None = None,
+    dtype: DataType | None = None,
 ) -> Wav2Vec2Model:
     """Create a wav2vec 2.0 model.
 

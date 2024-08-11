@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, Optional, final
+from typing import Literal, final
 
 import torch
 from torch import Tensor
@@ -23,7 +23,7 @@ from fairseq2.datasets import LengthBatching
 from fairseq2.datasets.asr import GenericAsrDataset, load_asr_dataset
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
-from fairseq2.models import model_factories
+from fairseq2.models import create_model
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2 import load_wav2vec2_model
@@ -33,8 +33,8 @@ from fairseq2.models.wav2vec2.asr import (
     wav2vec2_asr_archs,
 )
 from fairseq2.nn.utils.module import freeze_parameters, share_parameters, to_device
-from fairseq2.optim import AdamW
-from fairseq2.optim.lr_scheduler import TriStageLR
+from fairseq2.optim import AdamWConfig, create_optimizer
+from fairseq2.optim.lr_scheduler import TriStageLRConfig, create_lr_scheduler
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
 from fairseq2.recipes.utils.asset import (
     AssetReference,
@@ -56,7 +56,7 @@ from fairseq2.utils.profiler import Stopwatch
 log = get_log_writer(__name__)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Wav2Vec2AsrTrainConfig:
     """Holds the configuration of a wav2vec 2.0 ASR model training task.
 
@@ -105,10 +105,10 @@ class Wav2Vec2AsrTrainConfig:
     model_family: str = "wav2vec2_asr"
     """The family of the model."""
 
-    model_arch: Optional[str] = "base_10h"
+    model_arch: str | None = "base_10h"
     """The architecture of the model."""
 
-    model_config: Optional[DataClass] = field(
+    model_config: DataClass | None = field(
         default_factory=lambda: wav2vec2_asr_archs.get("base_10h", return_empty=True)
     )
     """The configuration of the model."""
@@ -126,11 +126,23 @@ class Wav2Vec2AsrTrainConfig:
     """If ``True``, applies ``torch.compile()`` to the encoder. (experimental)"""
 
     # Optimizer, LR, and Loss
-    lr: float = 5e-05
-    """The initial (post-warm-up) learning rate."""
+    optimizer: str = "adamw"
+    """The optimizer."""
 
-    betas: tuple[float, float] = (0.9, 0.98)
-    """The coefficients of AdamW."""
+    optimizer_config: DataClass | None = field(
+        default_factory=lambda: AdamWConfig(lr=5e-05, betas=(0.9, 0.98))
+    )
+    """The configuration of the optimizer."""
+
+    lr_scheduler: str = "tri-stage"
+    """The learning rate scheduler."""
+
+    lr_scheduler_config: DataClass | None = field(
+        default_factory=lambda: TriStageLRConfig(
+            stage_ratio=(0.1, 0.4, 0.5), start_lr_scale=0.01, final_lr_scale=0.05
+        )
+    )
+    """The configuration of the learning rate scheduler."""
 
     lr_stage_ratios: tuple[float, float, float] = (0.1, 0.4, 0.5)
     """The ratios of tri-stage learning rate scheduler."""
@@ -141,7 +153,7 @@ class Wav2Vec2AsrTrainConfig:
     final_lr_scale: float = 0.05
     """The scale of the final learning rate."""
 
-    max_gradient_norm: Optional[float] = None
+    max_gradient_norm: float | None = None
     """The maximum gradient norm. If ``None``, no clipping will be applied."""
 
     fp16_loss_scale: tuple[float, float] = (128.0, 0.0001)
@@ -154,7 +166,7 @@ class Wav2Vec2AsrTrainConfig:
     max_num_steps: int = 20_000
     """The maximum number of steps to train for."""
 
-    max_num_data_epochs: Optional[int] = None
+    max_num_data_epochs: int | None = None
     """The maximum number of data epochs to train for."""
 
     freeze_encoder_for_n_steps: int = 10_000
@@ -172,22 +184,22 @@ class Wav2Vec2AsrTrainConfig:
     checkpoint_every_n_steps: int = 1000
     """The step interval at which to checkpoint."""
 
-    keep_best_n_checkpoints: Optional[int] = None
+    keep_best_n_checkpoints: int | None = None
     """The number of checkpoints to keep based on their validation score. If
     ``None``, none will be deleted."""
 
     publish_metrics_every_n_steps: int = 200
     """The step interval at which to publish metrics."""
 
-    # Checkpointing
-    resume_checkpoint_dir: Optional[Path] = None
+    # Checkpoint
+    resume_checkpoint_dir: Path | None = None
     """If not ``None``, adds the specified path to the default asset store."""
 
     # Misc
     seed: int = 2
     """The random number generator seed to use."""
 
-    profile: Optional[tuple[int, int]] = None
+    profile: tuple[int, int] | None = None
     """The number of steps that the PyTorch profiler should skip and then record."""
 
     monitored_gang: bool = False
@@ -213,10 +225,12 @@ def _base_100h() -> Wav2Vec2AsrTrainConfig:
 
     config = _base_10h()
 
+    assert isinstance(config.optimizer_config, AdamWConfig)
+
     config.dataset = "librispeech_asr_100h"
     config.model_arch = "base_100h"
     config.model_config = model_config
-    config.lr = 0.00003
+    config.optimizer_config.lr = 0.00003
     config.max_num_steps = 50_000
     config.freeze_encoder_for_n_steps = 0
 
@@ -272,11 +286,13 @@ def load_wav2vec2_asr_trainer(
 
     # Initialize the model
     try:
-        model_factory = model_factories.get(
-            config.model_family, config.model_config, config.model_arch
+        model, model_config = create_model(
+            config.model_family,
+            config.model_arch,
+            config.model_config,
+            device=META,
+            dtype=torch.float32,
         )
-
-        model = model_factory(device=META, dtype=torch.float32)
     except ValueError as ex:
         raise ValueError(
             "The model cannot be initialized. See nested exception for details."
@@ -287,12 +303,10 @@ def load_wav2vec2_asr_trainer(
             f"The model must be of type `{Wav2Vec2AsrModel}`, but is of type `{type(model)}` instead."
         )
 
-    log_model_config(model_factory.config, log)
+    log_model_config(model_config, log)
 
     checkpoint_manager.save_model_metadata(
-        family=model.family,
-        config=model_factory.config,
-        tokenizer_name=tokenizer_card.name,
+        family=model.family, config=model_config, tokenizer_name=tokenizer_card.name
     )
 
     has_checkpoint = checkpoint_manager.has_checkpoint()
@@ -358,49 +372,72 @@ def load_wav2vec2_asr_trainer(
         dp_model, gang, freeze_encoder_for_n_steps=config.freeze_encoder_for_n_steps
     )
 
-    data_reader = dataset.create_reader(
-        config.train_split,
-        tokenizer,
-        gang,
-        batching=LengthBatching(config.max_num_elements),
-        dtype=config.dtype,
-        min_audio_len=config.min_audio_len,
-        max_audio_len=config.max_audio_len,
-        normalize_audio=config.normalize_audio,
-        example_shuffle_window=config.example_shuffle_window,
-        batch_shuffle_window=config.batch_shuffle_window,
-        num_accumulate=config.gradient_accumulation,
-        num_prefetch=config.num_prefetch,
-        seed=seed,
-    )
+    try:
+        data_reader = dataset.create_reader(
+            config.train_split,
+            tokenizer,
+            gang,
+            batching=LengthBatching(config.max_num_elements),
+            dtype=config.dtype,
+            min_audio_len=config.min_audio_len,
+            max_audio_len=config.max_audio_len,
+            normalize_audio=config.normalize_audio,
+            example_shuffle_window=config.example_shuffle_window,
+            batch_shuffle_window=config.batch_shuffle_window,
+            num_accumulate=config.gradient_accumulation,
+            num_prefetch=config.num_prefetch,
+            seed=seed,
+        )
+    except ValueError as ex:
+        raise ValueError(
+            "The data reader cannot be initialized. See nested exception for details."
+        ) from ex
 
     seed += 1
 
-    optimizer = AdamW(dp_model.parameters(), lr=config.lr, betas=config.betas)
+    # Initialize the optimizer.
+    try:
+        optimizer = create_optimizer(
+            config.optimizer, dp_model, config.optimizer_config
+        )
+    except ValueError as ex:
+        raise ValueError(
+            "The optimizer cannot be created. See nested exception for details."
+        ) from ex
 
-    lr_scheduler = TriStageLR(
-        optimizer,
-        config.max_num_steps,
-        config.lr_stage_ratios,
-        start_lr_scale=config.start_lr_scale,
-        final_lr_scale=config.final_lr_scale,
-    )
+    # Initialize the learning rate scheduler.
+    try:
+        lr_scheduler = create_lr_scheduler(
+            config.lr_scheduler,
+            optimizer,
+            config.lr_scheduler_config,
+            max_num_steps=config.max_num_steps,
+        )
+    except ValueError as ex:
+        raise ValueError(
+            "The learning rate scheduler cannot be created. See nested exception for details."
+        ) from ex
 
     # Initialize the validation unit.
     valid_unit = Wav2Vec2AsrEvalUnit(dp_model, gang, tokenizer)
 
-    valid_data_reader = dataset.create_reader(
-        config.valid_split,
-        tokenizer,
-        gang,
-        batching=LengthBatching(config.max_num_elements),
-        dtype=config.dtype,
-        min_audio_len=config.min_audio_len,
-        max_audio_len=config.max_audio_len,
-        normalize_audio=config.normalize_audio,
-        num_prefetch=config.num_prefetch,
-        seed=seed,
-    )
+    try:
+        valid_data_reader = dataset.create_reader(
+            config.valid_split,
+            tokenizer,
+            gang,
+            batching=LengthBatching(config.max_num_elements),
+            dtype=config.dtype,
+            min_audio_len=config.min_audio_len,
+            max_audio_len=config.max_audio_len,
+            normalize_audio=config.normalize_audio,
+            num_prefetch=config.num_prefetch,
+            seed=seed,
+        )
+    except ValueError as ex:
+        raise ValueError(
+            "The data reader for the valid split cannot be initialized. See nested exception for details."
+        ) from ex
 
     seed += 1
 
@@ -474,7 +511,7 @@ class Wav2Vec2AsrTrainUnit(AbstractTrainUnit[Seq2SeqBatch]):
 
         loss = output.compute_loss(batch.target_seqs, batch.target_padding_mask)
 
-        self._metric_bag.update_ctc_loss(batch, loss.detach())
+        self._metric_bag.update_ctc_loss(batch, loss)
 
         self._metric_bag.update_batch_metrics(batch)
 
