@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import sys
-import shtab  # for completion magic
 from abc import ABC, abstractmethod
 from argparse import OPTIONAL, ArgumentParser, Namespace
 from copy import deepcopy
@@ -24,6 +23,7 @@ from typing import (
     runtime_checkable,
 )
 
+import shtab
 import yaml
 from rich.console import Console
 from typing_extensions import override
@@ -493,7 +493,7 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
             type=Path,
             nargs="*",
             help="yaml configuration file(s)",
-        ).complete = shtab.FILE
+        ).complete = shtab.FILE  # type: ignore[attr-defined]
 
         parser.add_argument(
             "--config",
@@ -536,7 +536,7 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
             type=Path,
             nargs=OPTIONAL,
             help="directory to store recipe artifacts",
-        ).complete = shtab.DIRECTORY
+        ).complete = shtab.DIRECTORY  # type: ignore[attr-defined]
 
     @override
     def __call__(self, args: Namespace) -> None:

@@ -44,13 +44,13 @@ class ConvertCheckpointCommandHandler(CliCommandHandler):
             "input_dir",
             type=Path,
             help="checkpoint directory",
-        ).complete = shtab.DIRECTORY
+        ).complete = shtab.DIRECTORY  # type: ignore[attr-defined]
 
         parser.add_argument(
             "output_dir",
             type=Path,
             help="output directory to store reference checkpoint",
-        ).complete = shtab.DIRECTORY
+        ).complete = shtab.DIRECTORY  # type: ignore[attr-defined]
 
     @override
     def __call__(self, args: Namespace) -> None:
