@@ -17,7 +17,9 @@ The ``fairseq2.recipes.hg`` API allows integration with Hugging Face datasets, m
 Usage Example
 -------------
 
-To evaluate a model using the default preset configuration, which evaluates the Wav2Vec2 model on the LibriSpeech dataset using the BLEU metric, run the following command::
+To evaluate a model using the default preset configuration, which evaluates the Wav2Vec2 model on the LibriSpeech dataset using the BLEU metric, run the following command:
+
+.. code-block:: bash
 
    $ fairseq2 hg asr /path/to/output_dir
 
@@ -58,26 +60,33 @@ The `AsrEvalConfig` class holds the configuration for ASR evaluation. It defines
 
 **Data Processing:**
 
-.. autofunction:: fairseq2.recipes.hg.asr_eval.extract_features
+.. currentmodule:: fairseq2.recipes.hg.asr_eval
 
-.. autofunction:: fairseq2.recipes.hg.asr_eval.to_batch
+.. autosummary::
+    :toctree: generated/hg/data_processing
 
-.. autofunction:: fairseq2.recipes.hg.asr_eval.prepare_dataset
+    extract_features
+    to_batch
+    prepare_dataset
 
 **Evaluation Functions:**
 
-.. autofunction:: fairseq2.recipes.hg.asr_eval.load_asr_evaluator
+.. autosummary::
+    :toctree: generated/hg/evaluation_functions
 
-.. autofunction:: fairseq2.recipes.hg.asr_eval.load_wav2vec2_asr_evaluator
-
-.. autofunction:: fairseq2.recipes.hg.asr_eval.load_hg_asr_evaluator
+    load_asr_evaluator
+    load_wav2vec2_asr_evaluator
+    load_hg_asr_evaluator
 
 Utilities
 ---------
 
-The `create_hf_reader` function converts a Hugging Face Dataset into a Fairseq2 `DataPipelineReader`.
+.. currentmodule:: fairseq2.recipes.hg.dataset
 
-.. autofunction:: fairseq2.recipes.hg.dataset.create_hf_reader
+.. autosummary:: 
+    :toctree: generated/hg/utilities
+
+   create_hf_reader
 
 Extending the Framework
 -----------------------
