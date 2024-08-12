@@ -54,6 +54,7 @@ class Wav2Vec2Model(Model):
         final_proj_bias: bool = True,
         num_distractors: int = 100,
         logit_temp: float = 0.1,
+        quantizer_encoder_grad: bool = True,
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> None:
@@ -151,7 +152,10 @@ class Wav2Vec2Model(Model):
 
         # We use the extracted features as context network targets after masking
         # and quantization.
-        targets = seqs.clone()
+        if self.quantizer_encoder_grad: 
+            targets = seqs.clone()
+        else: 
+            targets = seqs.detach().clone()
 
         if frontend.first_pass_dropout is not None:
             targets = frontend.first_pass_dropout(targets)
