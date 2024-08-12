@@ -19,7 +19,7 @@ Usage Example
 
 To evaluate a model using the default preset configuration, which evaluates the Wav2Vec2 model on the LibriSpeech dataset using the BLEU metric, run the following command::
 
-   fairseq2 hg asr /path/to/output_dir
+   $ fairseq2 hg asr /path/to/output_dir
 
    ...
    [08/11/24 20:23:56] INFO     fairseq2.recipes.hg.evaluator - Running evaluation on 1 device(s).
@@ -34,7 +34,7 @@ You can override the default configuration by specifying parameters directly or 
 
 .. code-block:: bash
 
-   fairseq2 hg asr /tmp/fairseq2/ --config max_samples=2 model_name=openai/whisper-tiny.en dtype=torch.float32
+   $ fairseq2 hg asr /tmp/fairseq2/ --config max_samples=2 model_name=openai/whisper-tiny.en dtype=torch.float32
 
    ...   
    [08/11/24 20:30:35] INFO     fairseq2.recipes.hg.evaluator - Eval Metrics - BLEU: 0.468458 | Elapsed Time: 3s | Wall Time: 4s | brevity_penalty: 1.0 | length_ratio:    
@@ -50,13 +50,11 @@ The module includes specific functionality for ASR evaluation. It supports evalu
 
 **Configuration:**
 
-The `AsrEvalConfig` class holds the configuration for ASR evaluation. It defines parameters for data processing, model evaluation, and other settings.
+The `AsrEvalConfig` class holds the configuration for ASR evaluation. It defines parameters for data processing, model evaluation, and other settings. The configuration can be overridden through the command line or a configuration file.
 
 .. autoclass:: fairseq2.recipes.hg.asr_eval.AsrEvalConfig
    :members:
    :show-inheritance:
-
-The configuration can be overridden through the command line or a configuration file.
 
 **Data Processing:**
 
