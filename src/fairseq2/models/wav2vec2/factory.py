@@ -72,6 +72,11 @@ class Wav2Vec2Config:
     final_proj_bias: bool = True
     """If ``True``, the final projection learns an additive bias."""
 
+    quantizer_encoder_grad: bool = True
+    """If ``True``, gradients are propagated from the quantizer through the convolutional
+    encoder. Otherwise, they are detached and the encoder is only trained with gradients
+    from the transformer. """
+
     # Mask
     temporal_mask_span_len: int = 10
     """The length of each temporal mask span that is applied over time steps."""
@@ -284,6 +289,7 @@ class Wav2Vec2Builder:
             final_proj_bias=self._config.final_proj_bias,
             num_distractors=self._config.num_distractors,
             logit_temp=self._config.logit_temp,
+            quantizer_encoder_grad=self._config.quantizer_encoder_grad,
             device=self._device,
             dtype=self._dtype,
         )
