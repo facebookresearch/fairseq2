@@ -4,7 +4,11 @@ Hugging Face Recipes
 
 .. currentmodule:: fairseq2.recipes.hg
 
-``fairseq2.recipes.hg`` is a tool for evaluating fairseq2 models on HuggingFace's [datasets](https://huggingface.co/docs/datasets/), using different metrics available in the [evaluate](https://huggingface.co/docs/evaluate/en/index) and against [transformers](https://huggingface.co/docs/transformers/en/index) baselines. See example of evaluating Automatic Speech Recognition (ASR) models <asr-example>
+``fairseq2.recipes.hg`` is a tool for evaluating fairseq2 models on HuggingFace's `datasets`_ using different metrics available in the `evaluate`_ and against `transformers`_ baselines. See an example of evaluating Automatic Speech Recognition (ASR) models in the :ref:`asr-example`_.
+
+.. _datasets: https://huggingface.co/docs/datasets/
+.. _evaluate: https://huggingface.co/docs/evaluate/en/index
+.. _transformers: https://huggingface.co/docs/transformers/en/index
 
 For this API to work, you need to have the following libraries installed:
 
