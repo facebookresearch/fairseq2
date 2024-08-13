@@ -4,20 +4,27 @@ Hugging Face Recipes
 
 .. currentmodule:: fairseq2.recipes.hg
 
-``fairseq2.recipes.hg`` provides support for various Hugging Face recipes within the Fairseq2 framework. Currently, it includes functionality for Automatic Speech Recognition (ASR) evaluation, but it is designed to be extendable for other types of Hugging Face recipes as well.
+``fairseq2.recipes.hg`` is a tool for evaluating fairseq2 models on HuggingFace's [datasets](https://huggingface.co/docs/datasets/), using different metrics available in the [evaluate](https://huggingface.co/docs/evaluate/en/index) and against [transformers](https://huggingface.co/docs/transformers/en/index) baselines. See example of evaluating Automatic Speech Recognition (ASR) models <asr-example>
 
-For this API to work, you need to have the following installed:
+For this API to work, you need to have the following libraries installed:
 
 - evaluate
 - datasets
 - transformers
 
-The ``fairseq2.recipes.hg`` API allows integration with Hugging Face datasets, metrics and models for various tasks. It provides tools to evaluate models on Hugging Face datasets, manage configurations, and process data.
+Current supported evaluation tasks in ``fairseq2.recipes.hg``:
+
+- Automatic Speech Recognition (ASR)
+- Machine Translation (MT) - In development
+
+For each task, there is a default preset configuration that manages the dataset, model to be used, as well as the I/O input (where to store the results, precision for model loading, etc.)
+
+.. _asr-example:
 
 Usage Example
 -------------
 
-To evaluate a model using the default preset configuration, which evaluates the Wav2Vec2 model on the LibriSpeech dataset using the BLEU metric, run the following command:
+In the example below, we evaluate a ASR model (default Wav2Vec) using the default preset configuration (LibriSpeech dataset, using the BLEU metric):
 
 .. code-block:: bash
 
@@ -90,5 +97,7 @@ Utilities
 
 Extending the Framework
 -----------------------
+
+(Details come soon..)
 
 While ASR evaluation is currently implemented, the framework is designed to be extensible. You can implement additional recipes and integrate other Hugging Face models and datasets as needed.
