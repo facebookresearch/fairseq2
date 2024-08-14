@@ -63,6 +63,7 @@ class PreferenceOptimizationDataset(ABC):
         max_num_batches: int | None = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
+        mask_src_tokens: bool = True,
         seed: int = 2,
         **extras: Any,
     ) -> DataPipelineReader[PreferenceOptimizationBatch]:
@@ -164,6 +165,7 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
         max_num_batches: int | None = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
+        mask_src_tokens: bool = True,
         seed: int = 2,
         **extras: Any,
     ) -> DataPipelineReader[PreferenceOptimizationBatch]:
@@ -215,7 +217,9 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
             indices_chosen = torch.cat([prompt_indices, target_indices_chosen])
             indices_rejected = torch.cat([prompt_indices, target_indices_rejected])
 
-            prompt_len = len(prompt_indices)
+            prompt_len = 0
+            if mask_src_tokens:
+                prompt_len = len(prompt_indices)
 
             target_mask_chosen = torch.arange(len(indices_chosen)) >= prompt_len
             target_mask_rejected = torch.arange(len(indices_rejected)) >= prompt_len
