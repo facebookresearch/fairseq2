@@ -109,6 +109,7 @@ class Wav2Vec2Model(Model):
 
         self.num_distractors = num_distractors
         self.logit_temp = logit_temp
+        self.quantizer_encoder_grad = quantizer_encoder_grad
 
     def forward(self, batch: SequenceBatch) -> Wav2Vec2Output:
         """
