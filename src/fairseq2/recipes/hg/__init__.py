@@ -33,17 +33,17 @@ def _setup_hg_cli(cli: Cli) -> None:
 
     from fairseq2.recipes.hg.asr_eval import (
         asr_eval_presets,
-        load_wav2vec2_asr_evaluator,
+        load_asr_evaluator,
     )
 
     handler = RecipeCommandHandler(
-        load_wav2vec2_asr_evaluator,
+        load_asr_evaluator,
         preset_configs=asr_eval_presets,
-        default_preset="librispeech_asr",
+        default_preset="default_asr",
     )
 
     group.add_command(
-        "wav2vec2_asr",
+        "asr",
         handler,
-        help="evaluate a wav2vec 2.0 ASR model on a downstream benchmark (default: librispeech_asr)",
+        help="evaluate an ASR model (default: wav2vec2) on a downstream benchmark (default: librispeech_asr)",
     )
