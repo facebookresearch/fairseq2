@@ -42,15 +42,16 @@ class AsrDatasetConfig:
     """The name of the dataset."""
 
     dataset_name: Optional[str] = None
+    """The name of the dataset split."""
+
+    split: str = "test"
+    """The name of the dataset split to evaluate with."""
 
     source_column: List[str] = field(default_factory=list)
     """The path of the column containing the source audio."""
 
     target_column: List[str] = field(default_factory=list)
     """The path of the column containing the target text."""
-
-    tokenizer_name: Optional[str] = None
-    """The name of the tokenizer to use."""
 
     @classmethod
     def from_dict(cls, config_dict: dict[str, Any]) -> "AsrDatasetConfig":
@@ -60,21 +61,17 @@ class AsrDatasetConfig:
             dataset_name=config_dict.get("dataset_name"),
             source_column=config_dict.get("source_column", []),
             target_column=config_dict.get("target_column", []),
-            tokenizer_name=config_dict.get("tokenizer_name"),
+            split=config_dict.get("split", "test"),
         )
 
-    def get_source_data(self, ds: Example) -> List[int]:
+    def get_source_data(self, ds: Example) -> Any:
         """Retrieve the source (audio) data from the dataset."""
         results = self._get_data(ds, self.source_column)
-        if not isinstance(results, list):
-            raise ValueError(f"Invalid source data: {results}")
         return results
 
-    def get_target_data(self, ds: Example) -> str:
+    def get_target_data(self, ds: Example) -> Any:
         """Retrieve the target (text) data from the dataset."""
         results = self._get_data(ds, self.target_column)
-        if not isinstance(results, str):
-            raise ValueError(f"Invalid target data: {results}")
         return results
 
     @staticmethod
@@ -99,8 +96,8 @@ class AsrEvalConfig:
     model_name: str
     """The name of the model to evaluate."""
 
-    split: str = "test"
-    """The name of the dataset split to evaluate with."""
+    tokenizer_name: Optional[str] = None
+    """The name of the tokenizer to use."""
 
     min_audio_len: int = 1
     """The minimum audio sequence length."""
@@ -147,16 +144,14 @@ asr_eval_preset = asr_eval_presets.decorator
 @asr_eval_preset("default_asr")
 def _default_asr_config() -> AsrEvalConfig:
     return AsrEvalConfig(
-        dataset_config=AsrDatasetConfig.from_dict(
-            {
-                "dataset_path": "librispeech_asr",
-                "source_column": ["audio", "array"],
-                "target_column": ["text"],
-                "tokenizer_name": "librispeech_asr",
-            }
+        dataset_config=AsrDatasetConfig(
+            dataset_path="librispeech_asr",
+            source_column=["audio", "array"],
+            target_column=["text"],
+            split="test",
         ),
         model_name="wav2vec2_asr_base_10h",
-        split="test.other",
+        tokenizer_name="librispeech_asr",
     )
 
 
@@ -213,7 +208,7 @@ def prepare_dataset(
     iterable_ds = load_dataset(
         path=config.dataset_config.dataset_path,
         name=config.dataset_config.dataset_name,
-        split=config.split,
+        split=config.dataset_config.split,
         streaming=True,
     )
     ds = Dataset.from_generator(
@@ -280,9 +275,9 @@ def load_asr_evaluator(
     else:
         init_device = META
 
-    if config.dataset_config.tokenizer_name is None:
+    if config.tokenizer_name is None:
         raise ValueError("Tokenizer name is not provided but required.")
-    tokenizer = load_text_tokenizer(config.dataset_config.tokenizer_name)
+    tokenizer = load_text_tokenizer(config.tokenizer_name)
 
     pipeline_reader = create_hf_reader(
         dataset=ds,
