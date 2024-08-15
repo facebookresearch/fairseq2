@@ -8,7 +8,7 @@ import itertools
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, List, Optional, cast
 
 import torch
 from datasets import (  # type: ignore[attr-defined,import-untyped,import-not-found]
@@ -22,10 +22,9 @@ from fairseq2.data.text import load_text_tokenizer
 from fairseq2.data.text.text_tokenizer import TextTokenizer
 from fairseq2.datasets.batching import StaticBatching
 from fairseq2.logging import get_log_writer
-from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2.asr import load_wav2vec2_asr_model
-from fairseq2.nn.padding import get_seqs_and_padding_mask
+from fairseq2.nn.padding import PaddingMask, get_seqs_and_padding_mask
 from fairseq2.recipes.hg.dataset import Example, create_hf_reader
 from fairseq2.recipes.hg.evaluator import HFEvaluator
 from fairseq2.recipes.utils.setup import setup_root_gang
@@ -79,6 +78,18 @@ class AsrEvalConfig:
     """The data type of the model."""
 
 
+@dataclass
+class EvalSeqBatch:
+    source_seqs: torch.Tensor
+    """The source sequences."""
+
+    source_padding_mask: Optional[PaddingMask]
+    """The source padding mask."""
+
+    target_seqs: List[str]
+    """The target sequences."""
+
+
 asr_eval_presets = ConfigRegistry[AsrEvalConfig]()
 asr_eval_preset = asr_eval_presets.decorator
 
@@ -107,40 +118,32 @@ def extract_features(example: Example) -> Example:
     return {"audio": example["audio"]["array"], "text": example["text"].lower()}
 
 
-def to_batch(examples: Example, model_type: str, device: Device) -> Seq2SeqBatch:
+def to_batch(examples: Example, model_type: str, device: Device) -> EvalSeqBatch:
     """
-    Converts a collated batch of examples into a Seq2SeqBatch.
+    Converts a collated batch of examples into a EvalSeqBatch.
 
     Args:
         examples (dict): A dictionary containing "audio" and "text" keys.
 
     Returns:
-        Seq2SeqBatch: A batch of audio and text sequences.
+        EvalSeqBatch: A batch of audio and text sequences.
     """
-    source_data = cast(SequenceData, examples["audio"])
-    target_data = cast(torch.Tensor, examples["text"])
 
     if model_type == "wav2vec2":
-        source_seqs, source_padding_mask = get_seqs_and_padding_mask(source_data)
+        source_seqs, source_padding_mask = get_seqs_and_padding_mask(examples["audio"])
         source_seqs = source_seqs.to(device)
         source_padding_mask = (
             source_padding_mask.to(device) if source_padding_mask is not None else None
         )
-    elif model_type == "whisper":
-        source_seqs = cast(torch.Tensor, source_data).to(device)
-        source_padding_mask = None
     else:
         raise ValueError(f"Unknown model type: {model_type}")
 
-    target_seqs = target_data
-    target_padding_mask = None
+    target_seqs = examples['text']
 
-    return Seq2SeqBatch(
+    return EvalSeqBatch(
         source_seqs,
         source_padding_mask,
         target_seqs,
-        target_padding_mask,
-        examples,
     )
 
 
@@ -166,28 +169,26 @@ def prepare_dataset(
     return ds
 
 
-def evaluator_preprocessor(batch: Seq2SeqBatch) -> tuple[SequenceBatch, SequenceBatch]:
-    return SequenceBatch(batch.source_seqs, batch.source_padding_mask), SequenceBatch(
-        batch.target_seqs, batch.target_padding_mask
-    )
+def evaluator_preprocessor(batch: EvalSeqBatch) -> tuple[SequenceBatch, List[str]]:
+    return SequenceBatch(batch.source_seqs, batch.source_padding_mask), batch.target_seqs
 
 
 def evaluator_postprocesser(
-    outputs: Any, targets: SequenceBatch, tokenizer: TextTokenizer
+    outputs: Any, targets: list[str], tokenizer: TextTokenizer
 ) -> tuple[list[str], list[str]]:
     decoder = tokenizer.create_decoder()
     pad_idx = tokenizer.vocab_info.pad_idx
 
     hypotheses, _ = outputs.generate_hypotheses(pad_idx=pad_idx)
     predictions = [decoder(item) for item in hypotheses]
-    references = cast(list[str], targets.seqs)
+    references = targets
 
     return predictions, references
 
 
 def load_asr_evaluator(
     config: AsrEvalConfig, output_dir: Path
-) -> HFEvaluator[Seq2SeqBatch]:
+) -> HFEvaluator[EvalSeqBatch]:
     """
     Load the evaluator used for downstream evaluation of the model
     in a downstream dataset and report BLEU scores
@@ -229,7 +230,7 @@ def load_asr_evaluator(
 
     wall_watch = Stopwatch(start=True, device=init_device)
 
-    return HFEvaluator[Seq2SeqBatch](
+    return HFEvaluator[EvalSeqBatch](
         model=model,
         metrics=["bleu"],
         gang=gang,
