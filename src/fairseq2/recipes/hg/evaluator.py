@@ -24,7 +24,6 @@ from fairseq2.metrics import (
     record_metrics,
 )
 from fairseq2.models.model import Model
-from fairseq2.models.sequence import SequenceBatch
 from fairseq2.recipes.utils.cli import create_rich_progress
 from fairseq2.utils.profiler import Stopwatch
 

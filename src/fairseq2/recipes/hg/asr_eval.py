@@ -7,8 +7,9 @@
 import itertools
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from functools import partial
 from pathlib import Path
-from typing import Any, List, Optional, Union, cast
+from typing import Any, List, Optional, Union
 
 import torch
 from datasets import (  # type: ignore[attr-defined,import-untyped,import-not-found]
@@ -17,7 +18,6 @@ from datasets import (  # type: ignore[attr-defined,import-untyped,import-not-fo
 )
 
 from fairseq2.config_registry import ConfigRegistry
-from fairseq2.data.data_pipeline import SequenceData
 from fairseq2.data.text import load_text_tokenizer
 from fairseq2.data.text.text_tokenizer import TextTokenizer
 from fairseq2.datasets.batching import StaticBatching
@@ -32,6 +32,7 @@ from fairseq2.typing import META, DataType, Device
 from fairseq2.utils.profiler import Stopwatch
 
 log = get_log_writer(__name__)
+
 
 @dataclass
 class AsrDatasetConfig:
@@ -52,26 +53,32 @@ class AsrDatasetConfig:
     """The name of the tokenizer to use."""
 
     @classmethod
-    def from_dict(cls, config_dict: dict) -> 'AsrDatasetConfig':
+    def from_dict(cls, config_dict: dict[str, Any]) -> "AsrDatasetConfig":
         """Create an AsrDatasetConfig instance from a configuration dictionary."""
         return cls(
-            dataset_path=config_dict.get('dataset_path', ''),
-            dataset_name=config_dict.get('dataset_name'),
-            source_column=config_dict.get('source_column', []),
-            target_column=config_dict.get('target_column', []),
-            tokenizer_name=config_dict.get('tokenizer_name')
+            dataset_path=config_dict.get("dataset_path", ""),
+            dataset_name=config_dict.get("dataset_name"),
+            source_column=config_dict.get("source_column", []),
+            target_column=config_dict.get("target_column", []),
+            tokenizer_name=config_dict.get("tokenizer_name"),
         )
 
-    def get_source_data(self, ds: dict) -> Union[list, dict]:
+    def get_source_data(self, ds: Example) -> List[int]:
         """Retrieve the source (audio) data from the dataset."""
-        return self._get_data(ds, self.source_column)
+        results = self._get_data(ds, self.source_column)
+        if not isinstance(results, list):
+            raise ValueError(f"Invalid source data: {results}")
+        return results
 
-    def get_target_data(self, ds: dict) -> Union[list, dict]:
+    def get_target_data(self, ds: Example) -> str:
         """Retrieve the target (text) data from the dataset."""
-        return self._get_data(ds, self.target_column)
+        results = self._get_data(ds, self.target_column)
+        if not isinstance(results, str):
+            raise ValueError(f"Invalid target data: {results}")
+        return results
 
     @staticmethod
-    def _get_data(ds: dict, path: List[str]) -> Union[list, dict]:
+    def _get_data(ds: Example, path: List[str]) -> Union[Example, List[int], str]:
         """Retrieve data from the dataset using the specified path."""
         current = ds
         for key in path:
@@ -80,6 +87,7 @@ class AsrDatasetConfig:
             else:
                 raise ValueError(f"Invalid path: {path}")
         return current
+
 
 @dataclass(kw_only=True)
 class AsrEvalConfig:
@@ -139,12 +147,14 @@ asr_eval_preset = asr_eval_presets.decorator
 @asr_eval_preset("default_asr")
 def _default_asr_config() -> AsrEvalConfig:
     return AsrEvalConfig(
-        dataset_config=AsrDatasetConfig.from_dict({
-            'dataset_path': 'librispeech_asr',
-            'source_column': ['audio', 'array'],
-            'target_column': ['text'],
-            'tokenizer_name': 'librispeech_asr',
-        }),
+        dataset_config=AsrDatasetConfig.from_dict(
+            {
+                "dataset_path": "librispeech_asr",
+                "source_column": ["audio", "array"],
+                "target_column": ["text"],
+                "tokenizer_name": "librispeech_asr",
+            }
+        ),
         model_name="wav2vec2_asr_base_10h",
         split="test.other",
     )
@@ -162,7 +172,10 @@ def extract_features(example: Example, dataset_config: AsrDatasetConfig) -> Exam
     Returns:
         dict: A dictionary with "audio" and "text" as PyTorch tensors.
     """
-    return {"audio": dataset_config.get_source_data(example), "text": dataset_config.get_target_data(example).lower()}
+    return {
+        "audio": dataset_config.get_source_data(example),
+        "text": dataset_config.get_target_data(example).lower(),
+    }
 
 
 def to_batch(examples: Example, model_type: str, device: Device) -> EvalSeqBatch:
@@ -185,7 +198,7 @@ def to_batch(examples: Example, model_type: str, device: Device) -> EvalSeqBatch
     else:
         raise ValueError(f"Unknown model type: {model_type}")
 
-    target_seqs = examples['text']
+    target_seqs = examples["text"]
 
     return EvalSeqBatch(
         source_seqs,
@@ -197,7 +210,12 @@ def to_batch(examples: Example, model_type: str, device: Device) -> EvalSeqBatch
 def prepare_dataset(
     config: AsrEvalConfig, processor: Optional[Callable[[Example], Example]] = None
 ) -> Dataset:
-    iterable_ds = load_dataset(path=config.dataset_config.dataset_path, name=config.dataset_config.dataset_name, split=config.split, streaming=True)
+    iterable_ds = load_dataset(
+        path=config.dataset_config.dataset_path,
+        name=config.dataset_config.dataset_name,
+        split=config.split,
+        streaming=True,
+    )
     ds = Dataset.from_generator(
         lambda: itertools.islice(iterable_ds, 0, config.max_samples),
         features=iterable_ds.features,
@@ -217,7 +235,10 @@ def prepare_dataset(
 
 
 def evaluator_preprocessor(batch: EvalSeqBatch) -> tuple[SequenceBatch, List[str]]:
-    return SequenceBatch(batch.source_seqs, batch.source_padding_mask), batch.target_seqs
+    return (
+        SequenceBatch(batch.source_seqs, batch.source_padding_mask),
+        batch.target_seqs,
+    )
 
 
 def evaluator_postprocesser(
@@ -259,12 +280,14 @@ def load_asr_evaluator(
     else:
         init_device = META
 
+    if config.dataset_config.tokenizer_name is None:
+        raise ValueError("Tokenizer name is not provided but required.")
     tokenizer = load_text_tokenizer(config.dataset_config.tokenizer_name)
 
     pipeline_reader = create_hf_reader(
         dataset=ds,
         gang=gang,
-        converter=lambda x: to_batch(x, "wav2vec2", init_device),
+        converter=partial(to_batch, model_type="wav2vec2", device=init_device),
         batching=StaticBatching(config.max_num_elements),
         num_prefetch=config.num_prefetch,
         pad_value=tokenizer.vocab_info.pad_idx,
@@ -284,5 +307,5 @@ def load_asr_evaluator(
         data_reader=pipeline_reader,
         wall_watch=wall_watch,
         preprocessor=evaluator_preprocessor,
-        postprocessor=lambda x, y: evaluator_postprocesser(x, y, tokenizer),
+        postprocessor=partial(evaluator_postprocesser, tokenizer=tokenizer),
     )
