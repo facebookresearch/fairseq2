@@ -148,7 +148,7 @@ def _default_asr_config() -> AsrEvalConfig:
             dataset_path="librispeech_asr",
             source_column=["audio", "array"],
             target_column=["text"],
-            split="test",
+            split="test.other",
         ),
         model_name="wav2vec2_asr_base_10h",
         tokenizer_name="librispeech_asr",
