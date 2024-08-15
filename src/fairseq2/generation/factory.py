@@ -30,11 +30,46 @@ seq_generator_factories = ConfigBoundFactoryRegistry[
 
 seq_generator_factory = seq_generator_factories.decorator
 
+
+def create_seq_generator(
+    name: str, model: DecoderModel, config: DataClass | None
+) -> SequenceGenerator:
+    """Create a sequence generator of type registered with ``name``.
+
+    :param name:
+        The name of the sequence generator.
+    :param model:
+        The decoder model to use for generation.
+    :param config:
+        The configuration of the sequence generator.
+    """
+    factory = seq_generator_factories.get(name, config)
+
+    return factory(model)
+
+
 seq2seq_generator_factories = ConfigBoundFactoryRegistry[
     [EncoderDecoderModel], Seq2SeqGenerator
 ]()
 
 seq2seq_generator_factory = seq2seq_generator_factories.decorator
+
+
+def create_seq2seq_generator(
+    name: str, model: EncoderDecoderModel, config: DataClass | None
+) -> Seq2SeqGenerator:
+    """Create a sequence generator of type registered with ``name``.
+
+    :param name:
+        The name of the sequence generator.
+    :param model:
+        The encoder-decoder model to use for generation.
+    :param config:
+        The configuration of the sequence generator.
+    """
+    factory = seq2seq_generator_factories.get(name, config)
+
+    return factory(model)
 
 
 @dataclass(kw_only=True)

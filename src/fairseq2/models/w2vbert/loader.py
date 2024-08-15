@@ -35,6 +35,7 @@ def convert_w2vbert_checkpoint(
     except KeyError:
         return checkpoint
 
+    # Check if we have a fairseq2 checkpoint.
     if "mlm_proj.weight" not in state_dict:
         return checkpoint
 

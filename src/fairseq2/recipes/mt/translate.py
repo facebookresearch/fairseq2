@@ -24,7 +24,7 @@ from fairseq2.generation import (
     BeamSearchConfig,
     Seq2SeqGenerator,
     SequenceToTextConverter,
-    seq2seq_generator_factories,
+    create_seq2seq_generator,
 )
 from fairseq2.logging import get_log_writer
 from fairseq2.models import load_model
@@ -175,11 +175,9 @@ def load_text_translator(
 
     # Initialize the sequence generator.
     try:
-        generator_factory = seq2seq_generator_factories.get(
-            config.generator, config.generator_config
+        generator = create_seq2seq_generator(
+            config.generator, model, config.generator_config
         )
-
-        generator = generator_factory(model)
     except ValueError as ex:
         raise ValueError(
             "The sequence generator cannot be created. See nested exception for details."
@@ -223,16 +221,21 @@ def load_text_translator(
         task="translation", lang=config.source_lang, mode="source"
     )
 
-    data_reader = dataset.create_reader(
-        text_encoder,
-        tokenizer.vocab_info.pad_idx,
-        gang,
-        config.max_seq_len,
-        batching=StaticBatching(config.batch_size),
-        sync_batches=False,
-        num_prefetch=config.num_prefetch,
-        seed=seed,
-    )
+    try:
+        data_reader = dataset.create_reader(
+            text_encoder,
+            tokenizer.vocab_info.pad_idx,
+            gang,
+            config.max_seq_len,
+            batching=StaticBatching(config.batch_size),
+            sync_batches=False,
+            num_prefetch=config.num_prefetch,
+            seed=seed,
+        )
+    except ValueError as ex:
+        raise ValueError(
+            "The data reader cannot be initialized. See nested exception for details."
+        ) from ex
 
     seed += 1
 

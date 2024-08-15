@@ -55,7 +55,7 @@ class TriStageLR(AbstractLRScheduler):
     ) -> None:
         """
         :param optimizer:
-            The associated optimizer.
+            The optimizer to associate.
         :param num_steps:
             The total number of steps over which to adjust the learning rate.
         :param stage_ratio:

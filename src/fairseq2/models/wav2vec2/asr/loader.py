@@ -33,6 +33,7 @@ def convert_wav2vec2_asr_checkpoint(
     except KeyError:
         return checkpoint
 
+    # Check if we have a fairseq2 checkpoint.
     if "w2v_encoder.proj.weight" not in state_dict:
         return checkpoint
 

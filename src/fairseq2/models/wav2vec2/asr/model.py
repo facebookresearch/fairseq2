@@ -91,7 +91,7 @@ class Wav2Vec2AsrModel(Model):
         :param batch:
             The batch of sequences to process.
         """
-        seqs, padding_mask = self.encoder_frontend.extract_features(
+        seqs, padding_mask, _ = self.encoder_frontend.extract_features(
             batch.seqs, batch.padding_mask
         )
 

@@ -68,11 +68,13 @@ class TrainUnit(ABC, Generic[BatchT_contra]):
     """Represents a unit to be used with :class:`Trainer`."""
 
     @abstractmethod
-    def __call__(self, batch: BatchT_contra) -> tuple[Tensor, int]:
+    def __call__(self, batch: BatchT_contra) -> tuple[Tensor, int | None]:
         """Process ``batch``.
 
         :returns:
-            The loss and the number of targets used to compute the loss.
+            - The loss.
+            - The number of targets used to compute the loss. If ``None``, the
+              model gradients won't be normalized.
         """
 
     @abstractmethod
@@ -707,13 +709,20 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
                 with record_function(f"step_{step_nr}_{batch_nr}_forward"):
                     batch_loss, num_batch_targets = self._compute_loss(batch)
 
+                if num_batch_targets is not None:
+                    if num_batch_targets == 0:
+                        raise RuntimeError(
+                            "The train unit returned zero loss targets. Please file a bug report to the recipe author."
+                        )
+
+                    num_targets += num_batch_targets
+
                 with record_function(f"step_{step_nr}_{batch_nr}_backward"):
                     self._loss_scaler.backward(batch_loss)
 
-            num_targets += num_batch_targets
-
         # Normalize.
-        normalize_gradients(self._model, self._dp_gang, num_targets=num_targets)
+        if num_targets > 0:
+            normalize_gradients(self._model, self._dp_gang, num_targets=num_targets)
 
         # Clip.
         with record_function(f"step_{step_nr}_grad_norm"):
@@ -799,7 +808,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         return nullcontext()
 
-    def _compute_loss(self, batch: BatchT) -> tuple[Tensor, int]:
+    def _compute_loss(self, batch: BatchT) -> tuple[Tensor, int | None]:
         with self._maybe_autocast():
             return self._unit(batch)
 
