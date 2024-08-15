@@ -50,6 +50,10 @@ from fairseq2.generation.factory import (
     create_sampling_seq_generator as create_sampling_seq_generator,
 )
 from fairseq2.generation.factory import (
+    create_seq2seq_generator as create_seq2seq_generator,
+)
+from fairseq2.generation.factory import create_seq_generator as create_seq_generator
+from fairseq2.generation.factory import (
     seq2seq_generator_factories as seq2seq_generator_factories,
 )
 from fairseq2.generation.factory import (

@@ -8,7 +8,8 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections import OrderedDict
-from typing import MutableSequence, Protocol, final
+from collections.abc import Callable, MutableSequence
+from typing import Protocol, final
 
 import torch
 import torch.nn as nn
@@ -195,11 +196,13 @@ class StandardMultiheadAttention(MultiheadAttention):
         q_proj: Projection | None = None,
         k_proj: Projection | None = None,
         v_proj: Projection | None = None,
+        qkv_proj_init_fn: Callable[[Linear], None] | None = None,
         attn_mask_factory: AttentionMaskFactory | None = None,
         pos_encoder: PositionEncoder | None = None,
         sdpa: SDPA | None = None,
         scale_heads: bool = False,
         output_proj: Projection | None = None,
+        output_proj_init_fn: Callable[[Linear], None] | None = None,
         bias: bool = True,
         state_factory: AttentionStateFactory | None = None,
         device: Device | None = None,
@@ -228,6 +231,8 @@ class StandardMultiheadAttention(MultiheadAttention):
         :param v_proj:
             The projection to apply to values before computing attention. If
             ``None``, a default projection will be used.
+        :param qkv_proj_init_fn:
+            The callable to initialize the q, k, v projections.
         :param attn_mask_factory:
             The attention mask factory.
         :param pos_encoder:
@@ -241,6 +246,8 @@ class StandardMultiheadAttention(MultiheadAttention):
         :param output_proj:
             The projection to produce final attentions. If ``None``, a default
             projection will be used.
+        :param output_proj_init_fn:
+            The callable to initialize the output projection.
         :param bias:
             If ``True``, query, key, value, and output projections learn an
             additive bias. Ignored for explicitly specified projections.
@@ -276,7 +283,7 @@ class StandardMultiheadAttention(MultiheadAttention):
                 model_dim,
                 model_dim,
                 bias,
-                init_fn=init_qkv_projection,
+                init_fn=qkv_proj_init_fn or init_qkv_projection,
                 device=device,
                 dtype=dtype,
             )
@@ -284,7 +291,7 @@ class StandardMultiheadAttention(MultiheadAttention):
                 self.kv_dim,
                 head_dim * self.num_key_value_heads,
                 bias,
-                init_fn=init_qkv_projection,
+                init_fn=qkv_proj_init_fn or init_qkv_projection,
                 device=device,
                 dtype=dtype,
             )
@@ -292,14 +299,17 @@ class StandardMultiheadAttention(MultiheadAttention):
                 self.kv_dim,
                 head_dim * self.num_key_value_heads,
                 bias,
-                init_fn=init_qkv_projection,
+                init_fn=qkv_proj_init_fn or init_qkv_projection,
                 device=device,
                 dtype=dtype,
             )
         else:
             if q_proj is None or k_proj is None or v_proj is None:
+                raise ValueError("`q_proj`, `k_proj`, `v_proj` must be all specified.")
+
+            if qkv_proj_init_fn is not None:
                 raise ValueError(
-                    "`q_proj`, `k_proj`, and `v_proj` must be all specified."
+                    "`qkv_proj_init_fn` must be `None`, when `q_proj`, `k_proj`, `v_proj` are specified."
                 )
 
             if q_proj.input_dim != self.kv_dim:
@@ -357,11 +367,16 @@ class StandardMultiheadAttention(MultiheadAttention):
                 v_dim,
                 model_dim,
                 bias,
-                init_fn=init_output_projection,
+                init_fn=output_proj_init_fn or init_output_projection,
                 device=device,
                 dtype=dtype,
             )
         else:
+            if output_proj_init_fn is not None:
+                raise ValueError(
+                    "`output_proj_init_fn` must be `None`, when `output_proj` is specified."
+                )
+
             if v_dim != output_proj.input_dim:
                 raise ValueError(
                     f"`output_dim` of `v_proj` (times the number of query groups when GQA) and `input_dim` of `output_proj` must be equal, but are {v_dim} and {output_proj.input_dim} instead."

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 import re
-from collections.abc import Mapping, MutableMapping, Set
+from collections.abc import Mapping, MutableMapping, Set, Sized
 from pathlib import Path
 from typing import Any, Final, TypeVar, final
 from urllib.parse import urlparse, urlunparse
@@ -226,7 +226,7 @@ class AssetCardField:
         if value is None:
             return value
 
-        if not allow_empty and not value:
+        if not allow_empty and isinstance(value, Sized) and len(value) == 0:
             pathname = ".".join(self._path)
 
             raise AssetCardError(
