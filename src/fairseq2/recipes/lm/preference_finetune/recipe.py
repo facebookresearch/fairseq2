@@ -70,7 +70,7 @@ class PreferenceOptimizationConfig:
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
 
-    mask_src_tokens: bool = True
+    mask_source_tokens: bool = True
     """If ``False``, calculates loss on the `src` tokens as well as the `tgt` tokens."""
 
     # Model
@@ -354,7 +354,7 @@ def load_preference_finetuner(
             batch_shuffle_window=config.batch_shuffle_window,
             num_accumulate=config.gradient_accumulation,
             num_prefetch=config.num_prefetch,
-            mask_src_tokens=config.mask_src_tokens,
+            mask_source_tokens=config.mask_source_tokens,
             seed=config.seed,
         )
     except ValueError as ex:
