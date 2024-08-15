@@ -6,9 +6,9 @@
 
 import itertools
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, List, Optional, cast
+from typing import Any, List, Optional, Union, cast
 
 import torch
 from datasets import (  # type: ignore[attr-defined,import-untyped,import-not-found]
@@ -33,21 +33,63 @@ from fairseq2.utils.profiler import Stopwatch
 
 log = get_log_writer(__name__)
 
+@dataclass
+class AsrDatasetConfig:
+    """Configuration for an automatic speech recognition dataset."""
+
+    dataset_path: str
+    """The name of the dataset."""
+
+    dataset_name: Optional[str] = None
+
+    source_column: List[str] = field(default_factory=list)
+    """The path of the column containing the source audio."""
+
+    target_column: List[str] = field(default_factory=list)
+    """The path of the column containing the target text."""
+
+    tokenizer_name: Optional[str] = None
+    """The name of the tokenizer to use."""
+
+    @classmethod
+    def from_dict(cls, config_dict: dict) -> 'AsrDatasetConfig':
+        """Create an AsrDatasetConfig instance from a configuration dictionary."""
+        return cls(
+            dataset_path=config_dict.get('dataset_path', ''),
+            dataset_name=config_dict.get('dataset_name'),
+            source_column=config_dict.get('source_column', []),
+            target_column=config_dict.get('target_column', []),
+            tokenizer_name=config_dict.get('tokenizer_name')
+        )
+
+    def get_source_data(self, ds: dict) -> Union[list, dict]:
+        """Retrieve the source (audio) data from the dataset."""
+        return self._get_data(ds, self.source_column)
+
+    def get_target_data(self, ds: dict) -> Union[list, dict]:
+        """Retrieve the target (text) data from the dataset."""
+        return self._get_data(ds, self.target_column)
+
+    @staticmethod
+    def _get_data(ds: dict, path: List[str]) -> Union[list, dict]:
+        """Retrieve data from the dataset using the specified path."""
+        current = ds
+        for key in path:
+            if key in current:
+                current = current[key]
+            else:
+                raise ValueError(f"Invalid path: {path}")
+        return current
 
 @dataclass(kw_only=True)
 class AsrEvalConfig:
     """Holds the configuration of a ASR evaluation recipe."""
 
-    # Data
-    dataset_name: str
+    dataset_config: AsrDatasetConfig
     """The HF dataset to evaluate with."""
 
-    # Model
     model_name: str
     """The name of the model to evaluate."""
-
-    tokenizer_name: str = "librispeech_asr"
-    """The tokenizer to use."""
 
     split: str = "test"
     """The name of the dataset split to evaluate with."""
@@ -97,13 +139,18 @@ asr_eval_preset = asr_eval_presets.decorator
 @asr_eval_preset("default_asr")
 def _default_asr_config() -> AsrEvalConfig:
     return AsrEvalConfig(
-        dataset_name="librispeech_asr",
+        dataset_config=AsrDatasetConfig.from_dict({
+            'dataset_path': 'librispeech_asr',
+            'source_column': ['audio', 'array'],
+            'target_column': ['text'],
+            'tokenizer_name': 'librispeech_asr',
+        }),
         model_name="wav2vec2_asr_base_10h",
         split="test.other",
     )
 
 
-def extract_features(example: Example) -> Example:
+def extract_features(example: Example, dataset_config: AsrDatasetConfig) -> Example:
     """
     Preprocesses an individual example by converting the audio array to a PyTorch tensor
     and encoding the text.
@@ -115,7 +162,7 @@ def extract_features(example: Example) -> Example:
     Returns:
         dict: A dictionary with "audio" and "text" as PyTorch tensors.
     """
-    return {"audio": example["audio"]["array"], "text": example["text"].lower()}
+    return {"audio": dataset_config.get_source_data(example), "text": dataset_config.get_target_data(example).lower()}
 
 
 def to_batch(examples: Example, model_type: str, device: Device) -> EvalSeqBatch:
@@ -150,12 +197,12 @@ def to_batch(examples: Example, model_type: str, device: Device) -> EvalSeqBatch
 def prepare_dataset(
     config: AsrEvalConfig, processor: Optional[Callable[[Example], Example]] = None
 ) -> Dataset:
-    iterable_ds = load_dataset(config.dataset_name, split=config.split, streaming=True)
+    iterable_ds = load_dataset(path=config.dataset_config.dataset_path, name=config.dataset_config.dataset_name, split=config.split, streaming=True)
     ds = Dataset.from_generator(
         lambda: itertools.islice(iterable_ds, 0, config.max_samples),
         features=iterable_ds.features,
     )
-    ds = ds.map(lambda x: extract_features(x))
+    ds = ds.map(lambda x: extract_features(x, config.dataset_config))
 
     if processor is not None:
         ds = ds.map(processor)
@@ -212,7 +259,7 @@ def load_asr_evaluator(
     else:
         init_device = META
 
-    tokenizer = load_text_tokenizer(config.tokenizer_name)
+    tokenizer = load_text_tokenizer(config.dataset_config.tokenizer_name)
 
     pipeline_reader = create_hf_reader(
         dataset=ds,
