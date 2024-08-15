@@ -110,8 +110,10 @@ def to_batch(examples: Example, model_type: str, device: Device) -> Seq2SeqBatch
 
     if model_type == "wav2vec2":
         source_seqs, source_padding_mask = get_seqs_and_padding_mask(source_data)
+        source_seqs = source_seqs.to(device)
+        source_padding_mask = source_padding_mask.to(device)
     elif model_type == "whisper":
-        source_seqs = cast(source_data)
+        source_seqs = source_data.to(device)
         source_padding_mask = None
     else:
         raise ValueError(f"Unknown model type: {model_type}")
@@ -120,7 +122,7 @@ def to_batch(examples: Example, model_type: str, device: Device) -> Seq2SeqBatch
     target_padding_mask = None
 
     return Seq2SeqBatch(
-        source_seqs.to(device),
+        source_seqs,
         source_padding_mask,
         target_seqs,
         target_padding_mask,
