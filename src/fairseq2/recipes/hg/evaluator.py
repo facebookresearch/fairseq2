@@ -174,7 +174,7 @@ class HFEvaluator(Generic[BatchT]):
                         predictions=predictions, references=references
                     )
 
-                    del inputs 
+                    del inputs
                     del targets
                     del outputs
                     torch.cuda.empty_cache()

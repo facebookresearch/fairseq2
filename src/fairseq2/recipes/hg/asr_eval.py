@@ -16,7 +16,6 @@ from datasets import (  # type: ignore[attr-defined,import-untyped,import-not-fo
     load_dataset,
 )
 
-from fairseq2.assets.metadata_provider import AssetNotFoundError
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.data_pipeline import SequenceData
 from fairseq2.data.text import load_text_tokenizer
@@ -29,7 +28,6 @@ from fairseq2.models.wav2vec2.asr import load_wav2vec2_asr_model
 from fairseq2.nn.padding import get_seqs_and_padding_mask
 from fairseq2.recipes.hg.dataset import Example, create_hf_reader
 from fairseq2.recipes.hg.evaluator import HFEvaluator
-from fairseq2.recipes.utils.asset import retrieve_asset_card
 from fairseq2.recipes.utils.setup import setup_root_gang
 from fairseq2.typing import META, DataType, Device
 from fairseq2.utils.profiler import Stopwatch
@@ -82,7 +80,6 @@ class AsrEvalConfig:
 
 
 asr_eval_presets = ConfigRegistry[AsrEvalConfig]()
-
 asr_eval_preset = asr_eval_presets.decorator
 
 
@@ -92,41 +89,6 @@ def _default_asr_config() -> AsrEvalConfig:
         dataset_name="librispeech_asr",
         model_name="wav2vec2_asr_base_10h",
         split="test.other",
-    )
-
-
-def to_batch(examples: Example, model_type: str, device: Device) -> Seq2SeqBatch:
-    """
-    Converts a collated batch of examples into a Seq2SeqBatch.
-
-    Args:
-        examples (dict): A dictionary containing "audio" and "text" keys.
-
-    Returns:
-        Seq2SeqBatch: A batch of audio and text sequences.
-    """
-    source_data = cast(SequenceData, examples["audio"])
-    target_data = cast(SequenceData, examples["text"])
-
-    if model_type == "wav2vec2":
-        source_seqs, source_padding_mask = get_seqs_and_padding_mask(source_data)
-        source_seqs = source_seqs.to(device)
-        source_padding_mask = source_padding_mask.to(device)
-    elif model_type == "whisper":
-        source_seqs = source_data.to(device)
-        source_padding_mask = None
-    else:
-        raise ValueError(f"Unknown model type: {model_type}")
-
-    target_seqs = target_data
-    target_padding_mask = None
-
-    return Seq2SeqBatch(
-        source_seqs,
-        source_padding_mask,
-        target_seqs,
-        target_padding_mask,
-        examples,
     )
 
 
@@ -145,23 +107,41 @@ def extract_features(example: Example) -> Example:
     return {"audio": example["audio"]["array"], "text": example["text"].lower()}
 
 
-def evaluator_preprocessor(batch: Seq2SeqBatch) -> tuple[SequenceBatch, SequenceBatch]:
-    return SequenceBatch(batch.source_seqs, batch.source_padding_mask), SequenceBatch(
-        batch.target_seqs, batch.target_padding_mask
+def to_batch(examples: Example, model_type: str, device: Device) -> Seq2SeqBatch:
+    """
+    Converts a collated batch of examples into a Seq2SeqBatch.
+
+    Args:
+        examples (dict): A dictionary containing "audio" and "text" keys.
+
+    Returns:
+        Seq2SeqBatch: A batch of audio and text sequences.
+    """
+    source_data = cast(SequenceData, examples["audio"])
+    target_data = cast(torch.Tensor, examples["text"])
+
+    if model_type == "wav2vec2":
+        source_seqs, source_padding_mask = get_seqs_and_padding_mask(source_data)
+        source_seqs = source_seqs.to(device)
+        source_padding_mask = (
+            source_padding_mask.to(device) if source_padding_mask is not None else None
+        )
+    elif model_type == "whisper":
+        source_seqs = cast(torch.Tensor, source_data).to(device)
+        source_padding_mask = None
+    else:
+        raise ValueError(f"Unknown model type: {model_type}")
+
+    target_seqs = target_data
+    target_padding_mask = None
+
+    return Seq2SeqBatch(
+        source_seqs,
+        source_padding_mask,
+        target_seqs,
+        target_padding_mask,
+        examples,
     )
-
-
-def evaluator_postprocesser(
-    outputs: Any, targets: SequenceBatch, tokenizer: TextTokenizer
-) -> tuple[list[str], list[str]]:
-    decoder = tokenizer.create_decoder()
-    pad_idx = tokenizer.vocab_info.pad_idx
-
-    hypotheses, _ = outputs.generate_hypotheses(pad_idx=pad_idx)
-    predictions = [decoder(item) for item in hypotheses]
-    references = targets.seqs
-
-    return predictions, references
 
 
 def prepare_dataset(
@@ -184,6 +164,25 @@ def prepare_dataset(
     ds.set_format(**format, columns=["audio", "text"])
 
     return ds
+
+
+def evaluator_preprocessor(batch: Seq2SeqBatch) -> tuple[SequenceBatch, SequenceBatch]:
+    return SequenceBatch(batch.source_seqs, batch.source_padding_mask), SequenceBatch(
+        batch.target_seqs, batch.target_padding_mask
+    )
+
+
+def evaluator_postprocesser(
+    outputs: Any, targets: SequenceBatch, tokenizer: TextTokenizer
+) -> tuple[list[str], list[str]]:
+    decoder = tokenizer.create_decoder()
+    pad_idx = tokenizer.vocab_info.pad_idx
+
+    hypotheses, _ = outputs.generate_hypotheses(pad_idx=pad_idx)
+    predictions = [decoder(item) for item in hypotheses]
+    references = cast(list[str], targets.seqs)
+
+    return predictions, references
 
 
 def load_asr_evaluator(
