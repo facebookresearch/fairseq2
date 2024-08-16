@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import time
 from itertools import islice
 
 import pytest
