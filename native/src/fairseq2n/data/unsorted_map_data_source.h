@@ -6,12 +6,14 @@
 
 #pragma once
 
+#include <condition_variable>
 #include <cstddef>
+#include <deque>
+#include <exception>
 #include <memory>
-#include <optional>
+#include <mutex>
+#include <thread>
 #include <utility>
-#include <vector>
-#include <atomic>
 
 #include "fairseq2n/data/data_pipeline.h"
 #include "fairseq2n/data/data_source.h"
@@ -19,20 +21,28 @@
 namespace fairseq2n::detail {
 
 class unsorted_map_data_source final : public data_source {
+    enum class unsorted_map_state { not_running, running, eod, faulted };
+
 public:
     explicit
     unsorted_map_data_source(
-        std::unique_ptr<data_source> &&inner,
+        std::unique_ptr<data_source> &&inner, 
         std::vector<map_fn> &&fns,
-        std::size_t num_parallel_calls) 
-    : inner_{std::move(inner)},
-      map_fns_{std::move(fns)},
-      num_parallel_calls_{num_parallel_calls}
-    {
-        for (std::size_t i = 0; i < num_parallel_calls; ++i) {
-            buffer_.emplace_back(std::nullopt);
-        }
-    }
+        std::size_t buffer_size, 
+        std::size_t num_threads) noexcept
+      : inner_{std::move(inner)}, 
+        map_fns_{std::move(fns)},
+        buffer_size_{buffer_size}, 
+        prefetch_threads_(num_threads)
+    {}
+
+    unsorted_map_data_source(const unsorted_map_data_source &) = delete;
+    unsorted_map_data_source & operator=(const unsorted_map_data_source &) = delete;
+
+    unsorted_map_data_source(unsorted_map_data_source &&) = delete;
+    unsorted_map_data_source & operator=(unsorted_map_data_source &&) = delete;
+
+   ~unsorted_map_data_source() override;
 
     std::optional<data>
     next() override;
@@ -50,39 +60,31 @@ public:
     finitude_type() const noexcept override;
 
 private:
-    bool
-    fill_buffer();
-
-    std::optional<data>
-    invoke_function(data &&example, std::size_t fn_idx);
+    void
+    ensure_prefetch_thread_running();
 
     void
-    run_map();
+    prefetch(std::size_t thread_idx);
 
     void
-    ensure_thread_pool_running();
+    stop_prefetch_threads() const noexcept;
 
     void
-    stop_thread_pool();
+    join_all_threads() const noexcept;
 
 private:
     std::unique_ptr<data_source> inner_;
     std::vector<map_fn> map_fns_;
-    std::size_t num_parallel_calls_;
-    std::vector<std::thread> thread_pool_;
-    std::vector<std::atomic<std::optional<data>>> buffer_{};
-
-    bool faulted_{false};
-    bool should_stop_map_{false};
-
-    mutable std::mutex task_queue_mutex_{};
-    mutable std::condition_variable task_queue_condition_{};
-    std::deque<std::vector<std::atomic<std::optional<data>>>::iterator> task_queue_;
-
-    mutable std::mutex result_queue_mutex_{};
-    mutable std::condition_variable result_queue_condition_{};
-    std::deque<std::variant<data, std::exception_ptr>> result_queue_{};
-
+    std::size_t buffer_size_;
+    unsorted_map_state state_ = unsorted_map_state::not_running;
+    mutable std::vector<std::thread> prefetch_threads_{};
+    mutable bool should_stop_prefetch_ = false;
+    mutable std::mutex queue_mutex_{};
+    mutable std::mutex pipeline_mutex_{};
+    mutable std::condition_variable fill_queue_condition_{};
+    mutable std::condition_variable read_queue_condition_{};
+    std::deque<data> fill_queue_{};
+    std::deque<data> next_queue_{};
     std::exception_ptr exception_ptr_{};
 };
 

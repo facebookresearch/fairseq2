@@ -616,8 +616,9 @@ def_data_pipeline(py::module_ &data_module)
             [](
                 data_pipeline_builder &self,
                 std::variant<map_fn, std::vector<map_fn>> fn,
-                std::optional<std::string> maybe_selector,
-                std::size_t num_parallel_calls) -> data_pipeline_builder &
+                std::size_t buffer_size,
+                std::size_t num_threads,
+                std::optional<std::string> maybe_selector) -> data_pipeline_builder &
             {
                 map_fn f{};
 
@@ -636,13 +637,14 @@ def_data_pipeline(py::module_ &data_module)
 
                 element_mapper mapper{std::move(f), std::move(maybe_selector)};
 
-                self = std::move(self).map(mapper, num_parallel_calls);
+                self = std::move(self).unsorted_map(mapper, buffer_size, num_threads);
 
                 return self;
             },
             py::arg("fn"),
-            py::arg("selector") = std::nullopt,
-            py::arg("num_parallel_calls") = 1)
+            py::arg("buffer_size"),
+            py::arg("num_threads"),
+            py::arg("selector") = std::nullopt)
         .def(
             "yield_from",
             [](data_pipeline_builder &self, yield_fn fn) -> data_pipeline_builder &

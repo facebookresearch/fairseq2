@@ -8,51 +8,82 @@
 
 #include <exception>
 
-#include "fairseq2n/data/data_pipeline.h"
-#include "fairseq2n/data/detail/exception.h"
-#include "fairseq2n/detail/parallel.h"
+#include "fairseq2n/data/detail/thread.h"
 
 namespace fairseq2n::detail {
 
-unsorted_map_data_source::unsorted_map_data_source(
-    std::unique_ptr<data_source> &&inner, std::vector<map_fn> &&fns, std::size_t num_parallel_calls)
-  : inner_{std::move(inner)},
-    map_fns_{std::move(fns)},
-    num_parallel_calls_{num_parallel_calls},
-    thread_pool_{num_parallel_calls},
-    buffer_{std::vector(num_parallel_calls)}
-{}
+unsorted_map_data_source::~unsorted_map_data_source()
+{
+    stop_prefetch_threads();
+}
 
 std::optional<data>
 unsorted_map_data_source::next()
 {
-    if (num_parallel_calls_ <= 1) {
-        while (std::optional<data> maybe_example = inner_->next()) {
-            maybe_example = invoke_function(*std::move(maybe_example), 0);
-            if (maybe_example)
-                return maybe_example;
+    if (buffer_size_ == 0) {
+        std::optional<data> maybe_example{inner_->next()};
+        if (maybe_example) {
+            return map_fns_[0](std::move(*maybe_example));
         }
-
         return std::nullopt;
     }
-    
-    if (faulted_) {
-        std::rethrow_exception(exception_ptr_);
+
+    // We pop and return examples from the read queue until we drain it and
+    // then swap it with the fill queue. In parallel, the background threads
+    // continuously push examples read from inner data source to the fill
+    // queue.
+    if (next_queue_.empty()) {
+        ensure_prefetch_thread_running();
+
+        {
+            std::unique_lock<std::mutex> queue_lock{queue_mutex_};
+
+            read_queue_condition_.wait(queue_lock, [this]
+            {
+                return state_ != unsorted_map_state::running || 
+                       !fill_queue_.empty();
+            });
+
+            if (state_ == unsorted_map_state::eod || 
+                state_ == unsorted_map_state::faulted) {
+
+                queue_lock.unlock();
+
+                join_all_threads();
+
+                if (state_ == unsorted_map_state::faulted) {
+                    std::rethrow_exception(exception_ptr_);
+                }
+            }
+
+            std::swap(next_queue_, fill_queue_);
+        }
+
+        fill_queue_condition_.notify_all();
     }
 
-    ensure_thread_pool_running();
+    if (next_queue_.empty())
+        return std::nullopt;
 
-    return fill_buffer();
+    data example = std::move(next_queue_.front());
+
+    next_queue_.pop_front();
+
+    return example;
 }
 
 void
 unsorted_map_data_source::reset(bool reset_rng)
 {
-    faulted_ = false;
+    stop_prefetch_threads();
 
-    for (auto& element : buffer_) {
-        element.store(std::nullopt);
-    }
+    if (state_ == unsorted_map_state::faulted)
+        std::rethrow_exception(exception_ptr_);
+
+    state_ = unsorted_map_state::not_running;
+
+    fill_queue_.clear();
+    next_queue_.clear();
 
     inner_->reset(reset_rng);
 }
@@ -60,41 +91,17 @@ unsorted_map_data_source::reset(bool reset_rng)
 void
 unsorted_map_data_source::record_position(tape &t, bool strict) const
 {
-    stop_thread_pool();
+    stop_prefetch_threads();
 
-    if (faulted_) {
+    if (state_ == unsorted_map_state::faulted)
         std::rethrow_exception(exception_ptr_);
-    }
 
     if (strict) {
-        data_list result_queue_buffer;
-        result_queue_buffer.reserve(result_queue_.size());
-        for (auto& result : result_queue_) {
-            if (std::holds_alternative<std::exception_ptr>(result)) {
-                faulted_ = true;
-                exception_ptr_ = std::get<std::exception_ptr>(result);
-                std::rethrow_exception(exception_ptr_);
-            }
-            result_queue_buffer.push_back(std::get<data>(result));
-        }
+        data_list fill_buffer{fill_queue_.begin(), fill_queue_.end()};
+        data_list next_buffer{next_queue_.begin(), next_queue_.end()};
 
-        t.record(result_queue_buffer);
-
-        std::vector<std::size_t> task_queue_buffer;
-        task_queue_buffer.reserve(task_queue_.size());
-        for (auto& it : task_queue_) {
-            task_queue_buffer.push_back(it - task_queue_.begin());
-        }
-
-        t.record(task_queue_buffer);
-
-        std::vector<std::optional<data>> buffer;
-        buffer.reserve(buffer_.size());
-        for (auto& element : buffer_) {
-            buffer.push_back(element.load());
-        }
-
-        t.record(buffer);
+        t.record(fill_buffer);
+        t.record(next_buffer);
     }
 
     inner_->record_position(t, strict);
@@ -103,29 +110,22 @@ unsorted_map_data_source::record_position(tape &t, bool strict) const
 void
 unsorted_map_data_source::reload_position(tape &t, bool strict)
 {
-    stop_thread_pool();
+    stop_prefetch_threads();
 
-    result_queue_.clear();
-    task_queue_.clear();
+    if (state_ == unsorted_map_state::faulted)
+        std::rethrow_exception(exception_ptr_);
+
+    state_ = unsorted_map_state::not_running;
 
     if (strict) {
+        auto fill_buffer = t.read<data_list>();
+        auto next_buffer = t.read<data_list>();
 
-        for (const data& result : t.read<data_list>()) {
-            result_queue_.push(result);
-        }
-
-        for (const auto& index : t.read<std::vector<std::size_t>>()) {
-            task_queue_.push(buffer_.begin() + index);
-        }
-
-        std::vector<std::optional<data>> buffer{
-            t.read<std::vector<std::optional<data>>>()
-        };
-        for (std::size_t i = 0; i < num_parallel_calls_; ++i) {
-            buffer_[i].store(buffer[i]);
-        }
+        fill_queue_.assign(fill_buffer.begin(), fill_buffer.end());
+        next_queue_.assign(next_buffer.begin(), next_buffer.end());
     } else {
-        buffer_.clear();
+        fill_queue_.clear();
+        next_queue_.clear();
     }
 
     inner_->reload_position(t, strict);
@@ -137,142 +137,113 @@ unsorted_map_data_source::finitude_type() const noexcept
     return inner_->finitude_type();
 }
 
-std::optional<data>
-unsorted_map_data_source::fill_buffer()
+void
+unsorted_map_data_source::ensure_prefetch_thread_running()
 {
-    bool empty_buffer = true;
-    for (auto it = buffer_.begin(); it != buffer_.end(); ++it) {
-        if (*it) { 
-            empty_buffer = false;
-            continue;
-        }
-
-        std::optional<data> maybe_example;
-        try {
-            maybe_example = inner_->next();
-        } catch (const std::exception &) {
-            stop_thread_pool();
-            faulted_ = true;
-            exception_ptr_ = std::current_exception();
-            std::rethrow_exception(std::current_exception());
-        }
-        if (!maybe_example)
-            break;
-
-        {
-            std::unique_lock<std::mutex> queue_lock{task_queue_mutex_};
-            task_queue_.push(it);
-        }
-        task_queue_condition_.notify_one();
-    }
-
-    if (empty_buffer)
-        return std::nullopt;
-
-    
-    std::unique_lock<std::mutex> queue_lock{result_queue_mutex_};
-
-    result_queue_condition_.wait(queue_lock, [this]
     {
-        return !fill_queue_.empty();
-    });
+        std::unique_lock<std::mutex> queue_lock{queue_mutex_};
 
-    auto result = result_queue_.front()->load();
-    if (std::holds_alternative<std::exception_ptr>(result)) {
-        stop_thread_pool();
-        faulted_ = true;
-        exception_ptr_ = std::get<std::exception_ptr>(result);
-        std::rethrow_exception(exception_ptr_);
+        if (state_ == unsorted_map_state::eod || 
+            state_ == unsorted_map_state::faulted)
+            return;
+
+        state_ = unsorted_map_state::running;
+
+        for (std::size_t i = 0; i < prefetch_threads_.size(); ++i) {
+            std::thread& prefetch_thread = prefetch_threads_[i];
+            if (!prefetch_thread.joinable())
+                prefetch_thread = start_thread(&unsorted_map_data_source::prefetch, this, i);
+        }
     }
-    result_queue_.pop();
-    return std::get<data>(result);
-}
-
-std::optional<data>
-unsorted_map_data_source::invoke_function(data &&example, std::size_t fn_idx)
-{
-    return map_fns_[fn_idx](std::move(example));
 }
 
 void
-unsorted_map_data_source::run_map()
+unsorted_map_data_source::prefetch(std::size_t thread_idx)
 {
-    while (true) {
-        std::optional<data> maybe_example;
+    bool running = true;
+    while (running) {
+        std::optional<data> maybe_example{};
         std::exception_ptr exception_ptr;
-        std::vector<std::atomic<std::optional<data>>>::iterator buffer_iterator;
-        {
-            std::unique_lock<std::mutex> queue_lock{task_queue_mutex_};
-
-            task_queue_condition_.wait(queue_lock, [this]
-            {
-                return should_stop_map_ || !task_queue_.empty();
-            });
-
-            if (should_stop_map_) {
-                break;
-            }
-            
-            buffer_iterator = task_queue_.front();
-            maybe_example = buffer_iterator->load();
-            task_queue_.pop();
-        }
-
-        if (!maybe_example) {
-            //Should never happen
-            break;
-        }
-
-        std::size_t buffer_pos = buffer_iterator - buffer_.begin();
         try {
-            maybe_example = invoke_function(*std::move(maybe_example), buffer_pos);
-        } catch (const std::exception&) {
+
+            {
+                std::unique_lock<std::mutex> pipeline_lock{pipeline_mutex_};
+                maybe_example = inner_->next();
+            }
+            if (maybe_example) {
+                maybe_example = map_fns_[thread_idx](std::move(*maybe_example));
+            }
+
+        } catch (const std::exception &) {
             exception_ptr = std::current_exception();
         }
 
         {
-            std::unique_lock<std::mutex> queue_lock{result_queue_mutex_};
-            if (maybe_example) {
-                result_queue_.push(*std::move(maybe_example));
+            std::unique_lock<std::mutex> queue_lock{queue_mutex_};
+
+            fill_queue_condition_.wait(queue_lock, [this]
+            {
+                return state_ != unsorted_map_state::running || 
+                       should_stop_prefetch_ || 
+                       fill_queue_.size() < buffer_size_;
+            });
+
+            if (state_ != unsorted_map_state::running) {
+                //Different thread has stopped thread pool
+
+                if (exception_ptr) {
+                    state_ = unsorted_map_state::faulted;
+                    exception_ptr_ = exception_ptr;
+                }
+                else if (maybe_example) {
+                    fill_queue_.push_back(*std::move(maybe_example));
+                } 
+
+                break;
+            } else if (exception_ptr) {
+                state_ = unsorted_map_state::faulted;
+                exception_ptr_ = exception_ptr;
+                running = false;
+            } else if (!maybe_example) {
+                state_ = unsorted_map_state::eod;
+                running = false;
             } else {
-                result_queue_.push(exception_ptr);
+                fill_queue_.push_back(*std::move(maybe_example));
+
+                if (should_stop_prefetch_) {
+                    state_ = unsorted_map_state::not_running;
+                    running = false;
+                }
             }
         }
 
-        buffer_iterator->store(std::nullopt);
-
-        result_queue_condition_.notify_one();
+        read_queue_condition_.notify_one();
     }
 }
 
 void
-unsorted_map_data_source::ensure_thread_pool_running()
-{
-    for (auto& thread : thread_pool_) {
-        if (prefetch_thread_.joinable())
-            continue;
-        thread = start_thread(&unsorted_map_data_source::run_map, this);
-    }
-}
-
-void
-stop_thread_pool()
+unsorted_map_data_source::stop_prefetch_threads() const noexcept
 {
     {
-        std::unique_lock<std::mutex> task_queue_lock{task_queue_mutex_};
-        std::unique_lock<std::mutex> result_queue_lock{result_queue_mutex_};
+        std::unique_lock<std::mutex> queue_lock{queue_mutex_};
 
-        should_stop_map_ = true;
+        should_stop_prefetch_ = true;
     }
 
-    task_queue_condition_.notify_all();
-    result_queue_condition_.notify_all();
+    fill_queue_condition_.notify_all();
 
-    for (auto& thread : thread_pool_) {
-        thread.join();
+    join_all_threads();
+
+    should_stop_prefetch_ = false;
+}
+
+void
+unsorted_map_data_source::join_all_threads() const noexcept
+{
+    for (std::thread& prefetch_thread : prefetch_threads_) {
+        if (prefetch_thread.joinable())
+            prefetch_thread.join();
     }
-
-    should_stop_map_ = false;
 }
 
 }  // namespace fairseq2n::detail

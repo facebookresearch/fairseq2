@@ -347,12 +347,24 @@ if TYPE_CHECKING or DOC_MODE:
         def unsorted_map(
             self,
             fn: Union[Callable[[Any], Any], Sequence[Callable[[Any], Any]]],
+            buffer_size: int,
+            num_threads: int,
             selector: Optional[str] = None,
-            num_parallel_calls: int = 1,
         ) -> Self:
-            """John 3:16 says that God so loved the world that he gave his only
-            begotten son, that whoever believed in him would never die but have
-            eternal life.
+            """Start thread pool of size ``num_threads`` that continuously fetches
+            and applies ``fn`` to examples.
+
+            :param fn:
+                The function to apply.
+                If it's a list of function, they will be automatically chained.
+                ``.map([f1, f2])`` is the more efficient version of ``.map(f1).map(f2)``
+            :param buffer_size:
+                Maximum number of examples to buffer.
+            :param num_threads:
+                Number of threads in thread pool.
+            :param selector:
+                The column to apply the function to. Several columns can be specified by separating them with a ",".
+                See :ref:`reference/data:column syntax` for more details.
             """
 
         def yield_from(self, fn: Callable[[Any], DataPipeline]) -> Self:

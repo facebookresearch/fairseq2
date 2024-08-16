@@ -539,17 +539,21 @@ data_pipeline_builder::take(std::size_t num_examples) &&
 }
 
 data_pipeline_builder
-data_pipeline_builder::unsorted_map(const map_fn &fn, std::size_t num_parallel_calls) &&
+data_pipeline_builder::unsorted_map(
+    const map_fn &fn, 
+    std::size_t buffer_size, 
+    std::size_t num_threads) &&
 {
-    if (num_parallel_calls == 0)
+    if (num_threads == 0)
         throw_<std::invalid_argument>(
-            "`num_parallel_calls` must be greater than zero.");
+            "`num_threads` must be greater than zero.");
 
-    std::vector<map_fn> fns(num_parallel_calls, fn);
+    std::vector<map_fn> fns(num_threads, fn);
 
     factory_ = [=, fns = std::move(fns), inner = std::move(factory_)]() mutable
     {
-        return std::make_unique<unsorted_map_data_source>(inner(), std::move(fns), num_parallel_calls);
+        return std::make_unique<unsorted_map_data_source>(
+            inner(), std::move(fns), buffer_size, num_threads);
     };
 
     return std::move(*this);
