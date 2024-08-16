@@ -11,7 +11,7 @@ from functools import partial
 from pathlib import Path
 from typing import Any, List, Optional, Union, cast
 
-import hydra
+import hydra  # type: ignore[attr-defined,import-untyped,import-not-found]
 import torch
 from datasets import (  # type: ignore[attr-defined,import-untyped,import-not-found]
     Dataset,
@@ -388,9 +388,7 @@ def load_hg_asr_evaluator(
 
     processor = hydra.utils.get_class(  # type: ignore[attr-defined]
         f"transformers.{config.model_config.tokenizer_class}"
-    ).from_pretrained(
-        config.model_config.tokenizer_name
-    )
+    ).from_pretrained(config.model_config.tokenizer_name)
     model = (
         hydra.utils.get_class(f"transformers.{config.model_config.model_class}")  # type: ignore[attr-defined]
         .from_pretrained(config.model_config.model_name)

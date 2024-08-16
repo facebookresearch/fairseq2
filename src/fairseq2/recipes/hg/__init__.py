@@ -22,11 +22,18 @@ except ImportError:
     _has_hg_evaluate = False
 
 
+try:
+    import transformers  # type: ignore[attr-defined,import-untyped,import-not-found]
+
+    _has_hg_transformers = True
+except ImportError:
+    _has_hg_transformers = False
+
 from fairseq2.recipes.cli import Cli, RecipeCommandHandler
 
 
 def _setup_hg_cli(cli: Cli) -> None:
-    if not _has_hg_datasets or not _has_hg_evaluate:
+    if not _has_hg_datasets or not _has_hg_evaluate and not _has_hg_transformers:
         return
 
     group = cli.add_group("hg", help="Hugging Face recipes")
