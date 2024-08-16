@@ -9,7 +9,7 @@ from typing import Iterator
 import pytest
 
 from fairseq2.data import read_iterator
-from fairseq2.utils import read_and_pickle_wrap_iterator
+from fairseq2.data.utils import read_pickle_wrapped_iterator
 
 
 def example_generator() -> Iterator[int]:
@@ -26,7 +26,7 @@ class TestReadAndPickleWrapIterator:
                 infinite=False,
             ).and_return()
 
-        pipeline = read_and_pickle_wrap_iterator(example_generator).and_return()
+        pipeline = read_pickle_wrapped_iterator(example_generator).and_return()
 
         it = iter(pipeline)
 
