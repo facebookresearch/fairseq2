@@ -11,15 +11,17 @@ from functools import partial
 from pathlib import Path
 from typing import Any, List, Optional, Union, cast
 
-from numpy import dtype
+import hydra
 import torch
 from datasets import (  # type: ignore[attr-defined,import-untyped,import-not-found]
     Dataset,
     load_dataset,
-    load_dataset_builder
+    load_dataset_builder,
+)
+from transformers import (  # type: ignore[attr-defined,import-untyped,import-not-found]
+    PreTrainedModel,
 )
 
-from fairseq2 import checkpoint
 from fairseq2.assets.metadata_provider import AssetNotFoundError
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_text_tokenizer
@@ -36,12 +38,6 @@ from fairseq2.recipes.utils.asset import retrieve_asset_card
 from fairseq2.recipes.utils.setup import setup_root_gang
 from fairseq2.typing import META, DataType, Device
 from fairseq2.utils.profiler import Stopwatch
-from transformers import ( # type: ignore[attr-defined,import-untyped,import-not-found]
-    PreTrainedModel,
-    WhisperForConditionalGeneration,
-    WhisperProcessor,
-)
-import hydra
 
 log = get_log_writer(__name__)
 
@@ -97,6 +93,7 @@ class AsrDatasetConfig:
                 raise ValueError(f"Invalid path: {path}")
         return current
 
+
 @dataclass
 class ModelConfig:
     """Configuration for an ASR model."""
@@ -117,6 +114,8 @@ class ModelConfig:
     """The data type of the model."""
 
     checkpoint_dir: Path | None = None
+    """The directory containing the model checkpoint."""
+
 
 @dataclass(kw_only=True)
 class AsrEvalConfig:
@@ -146,6 +145,7 @@ class AsrEvalConfig:
 
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
+
 
 @dataclass
 class EvalSeqBatch:
@@ -337,7 +337,9 @@ def load_wav2vec2_asr_evaluator(
     )
 
     model = load_wav2vec2_asr_model(
-        config.model_config.model_name, device=init_device, dtype=config.model_config.dtype
+        config.model_config.model_name,
+        device=init_device,
+        dtype=config.model_config.dtype,
     )
 
     wall_watch = Stopwatch(start=True, device=init_device)
@@ -351,6 +353,7 @@ def load_wav2vec2_asr_evaluator(
         preprocessor=evaluator_preprocessor,
         postprocessor=partial(evaluator_postprocesser, tokenizer=tokenizer),
     )
+
 
 class HGModelWrapper:
     def __init__(self, model: PreTrainedModel):
@@ -383,12 +386,20 @@ def load_hg_asr_evaluator(
     else:
         init_device = META
 
-    processor = hydra.utils.get_class(f"transformers.{config.model_config.tokenizer_class}").from_pretrained(config.model_config.tokenizer_name)
-    model = hydra.utils.get_class(f"transformers.{config.model_config.model_class}").from_pretrained(config.model_config.model_name).to(
-        init_device
+    processor = hydra.utils.get_class(  # type: ignore[attr-defined]
+        f"transformers.{config.model_config.tokenizer_class}"
+    ).from_pretrained(
+        config.model_config.tokenizer_name
+    )
+    model = (
+        hydra.utils.get_class(f"transformers.{config.model_config.model_class}")  # type: ignore[attr-defined]
+        .from_pretrained(config.model_config.model_name)
+        .to(init_device)
     )
 
-    ds_builder = load_dataset_builder(config.dataset_config.dataset_path, config.dataset_config.dataset_name)
+    ds_builder = load_dataset_builder(
+        config.dataset_config.dataset_path, config.dataset_config.dataset_name
+    )
 
     def _dataset_processor(x: dict[str, Any]) -> dict[str, torch.Tensor]:
         return {
@@ -415,7 +426,9 @@ def load_hg_asr_evaluator(
 
     wall_watch = Stopwatch(start=True, device=init_device)
 
-    def _custom_postprocessor(outputs: Any, targets: list[str]) -> tuple[list[str], list[str]]:
+    def _custom_postprocessor(
+        outputs: Any, targets: list[str]
+    ) -> tuple[list[str], list[str]]:
         return processor.batch_decode(outputs, skip_special_tokens=True), targets
 
     return HFEvaluator[EvalSeqBatch](
