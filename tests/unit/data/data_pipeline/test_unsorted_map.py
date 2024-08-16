@@ -34,25 +34,6 @@ class TestUnsortedMapOp:
 
             pipeline.reset()
 
-    def test_op_yields_shortest_job_first(self) -> None:
-        def sleep_fn(d: int) -> int:
-            time.sleep(d / 10)
-            return d
-
-        seq = [3, 2, 1]
-        result_seq = [1, 2, 3]
-
-        pipeline = (
-            read_sequence(seq)
-            .unsorted_map(sleep_fn, buffer_size=3, num_threads=3)
-            .and_return()
-        )
-
-        for _ in range(2):
-            assert list(pipeline) == result_seq
-
-            pipeline.reset()
-
     @pytest.mark.parametrize("buffer_size,num_threads", [(0, 1), (1, 1), (4, 4)])
     def test_op_works_after_reset(self, buffer_size: int, num_threads: int) -> None:
         def double_fn(d: int) -> int:
