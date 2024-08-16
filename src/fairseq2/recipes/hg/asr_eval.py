@@ -11,6 +11,7 @@ from functools import partial
 from pathlib import Path
 from typing import Any, List, Optional, Union, cast
 
+from numpy import dtype
 import torch
 from datasets import (  # type: ignore[attr-defined,import-untyped,import-not-found]
     Dataset,
@@ -18,6 +19,7 @@ from datasets import (  # type: ignore[attr-defined,import-untyped,import-not-fo
     load_dataset_builder
 )
 
+from fairseq2 import checkpoint
 from fairseq2.assets.metadata_provider import AssetNotFoundError
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_text_tokenizer
@@ -39,6 +41,7 @@ from transformers import ( # type: ignore[attr-defined,import-untyped,import-not
     WhisperForConditionalGeneration,
     WhisperProcessor,
 )
+import hydra
 
 log = get_log_writer(__name__)
 
@@ -94,6 +97,26 @@ class AsrDatasetConfig:
                 raise ValueError(f"Invalid path: {path}")
         return current
 
+@dataclass
+class ModelConfig:
+    """Configuration for an ASR model."""
+
+    model_name: str
+    """The name of the model."""
+
+    model_class: Optional[str] = None
+    """The class of the model."""
+
+    tokenizer_name: Optional[str] = None
+    """The name of the tokenizer to use."""
+
+    tokenizer_class: Optional[str] = None
+    """The class of the tokenizer."""
+
+    dtype: DataType = torch.float16
+    """The data type of the model."""
+
+    checkpoint_dir: Path | None = None
 
 @dataclass(kw_only=True)
 class AsrEvalConfig:
@@ -102,11 +125,8 @@ class AsrEvalConfig:
     dataset_config: AsrDatasetConfig
     """The HF dataset to evaluate with."""
 
-    model_name: str
-    """The name of the model to evaluate."""
-
-    tokenizer_name: Optional[str] = None
-    """The name of the tokenizer to use."""
+    model_config: ModelConfig
+    """The model configuration."""
 
     min_audio_len: int = 1
     """The minimum audio sequence length."""
@@ -126,13 +146,6 @@ class AsrEvalConfig:
 
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
-
-    checkpoint_dir: Path | None = None
-    """The checkpoint directory containing models saved by a :class:`FileCheckpointManager`."""
-
-    dtype: DataType = torch.float16
-    """The data type of the model."""
-
 
 @dataclass
 class EvalSeqBatch:
@@ -159,8 +172,10 @@ def _default_asr_config() -> AsrEvalConfig:
             target_column=["text"],
             split="test.other",
         ),
-        model_name="wav2vec2_asr_base_10h",
-        tokenizer_name="librispeech_asr",
+        model_config=ModelConfig(
+            model_name="wav2vec2_asr_base_10h",
+            tokenizer_name="librispeech_asr",
+        ),
     )
 
 
@@ -234,7 +249,7 @@ def prepare_dataset(
 
     format = {
         "type": "torch",
-        "format_kwargs": {"dtype": config.dtype},
+        "format_kwargs": {"dtype": config.model_config.dtype},
     }
     ds.set_format(**format, columns=["audio", "text"])
 
@@ -275,7 +290,7 @@ def load_asr_evaluator(
         HFEvaluator: Evaluation process.
     """
     try:
-        retrieve_asset_card(config.model_name)
+        retrieve_asset_card(config.model_config.model_name)
         return load_wav2vec2_asr_evaluator(config, output_dir)
     except AssetNotFoundError:
         return load_hg_asr_evaluator(config, output_dir)
@@ -307,9 +322,9 @@ def load_wav2vec2_asr_evaluator(
     else:
         init_device = META
 
-    if config.tokenizer_name is None:
+    if config.model_config.tokenizer_name is None:
         raise ValueError("Tokenizer name is not provided but required.")
-    tokenizer = load_text_tokenizer(config.tokenizer_name)
+    tokenizer = load_text_tokenizer(config.model_config.tokenizer_name)
 
     pipeline_reader = create_hf_reader(
         dataset=ds,
@@ -322,7 +337,7 @@ def load_wav2vec2_asr_evaluator(
     )
 
     model = load_wav2vec2_asr_model(
-        config.model_name, device=init_device, dtype=config.dtype
+        config.model_config.model_name, device=init_device, dtype=config.model_config.dtype
     )
 
     wall_watch = Stopwatch(start=True, device=init_device)
@@ -368,12 +383,12 @@ def load_hg_asr_evaluator(
     else:
         init_device = META
 
-    processor = WhisperProcessor.from_pretrained(config.model_name)
-    model = WhisperForConditionalGeneration.from_pretrained(config.model_name).to(
+    processor = hydra.utils.get_class(f"transformers.{config.model_config.tokenizer_class}").from_pretrained(config.model_config.tokenizer_name)
+    model = hydra.utils.get_class(f"transformers.{config.model_config.model_class}").from_pretrained(config.model_config.model_name).to(
         init_device
     )
 
-    ds_builder = load_dataset_builder(config.dataset_config.dataset_path)
+    ds_builder = load_dataset_builder(config.dataset_config.dataset_path, config.dataset_config.dataset_name)
 
     def _dataset_processor(x: dict[str, Any]) -> dict[str, torch.Tensor]:
         return {
