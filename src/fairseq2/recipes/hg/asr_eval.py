@@ -9,27 +9,36 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
-from typing import Any, List, Optional, Union
+from typing import Any, List, Optional, Union, cast
 
 import torch
 from datasets import (  # type: ignore[attr-defined,import-untyped,import-not-found]
     Dataset,
     load_dataset,
+    load_dataset_builder
 )
 
+from fairseq2.assets.metadata_provider import AssetNotFoundError
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_text_tokenizer
 from fairseq2.data.text.text_tokenizer import TextTokenizer
 from fairseq2.datasets.batching import StaticBatching
 from fairseq2.logging import get_log_writer
+from fairseq2.models.model import Model
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2.asr import load_wav2vec2_asr_model
 from fairseq2.nn.padding import PaddingMask, get_seqs_and_padding_mask
 from fairseq2.recipes.hg.dataset import Example, create_hf_reader
 from fairseq2.recipes.hg.evaluator import HFEvaluator
+from fairseq2.recipes.utils.asset import retrieve_asset_card
 from fairseq2.recipes.utils.setup import setup_root_gang
 from fairseq2.typing import META, DataType, Device
 from fairseq2.utils.profiler import Stopwatch
+from transformers import ( # type: ignore[attr-defined,import-untyped,import-not-found]
+    PreTrainedModel,
+    WhisperForConditionalGeneration,
+    WhisperProcessor,
+)
 
 log = get_log_writer(__name__)
 
@@ -58,7 +67,7 @@ class AsrDatasetConfig:
         """Create an AsrDatasetConfig instance from a configuration dictionary."""
         return cls(
             dataset_path=config_dict.get("dataset_path", ""),
-            dataset_name=config_dict.get("dataset_name"),
+            dataset_name=config_dict.get("dataset_name", ""),
             source_column=config_dict.get("source_column", []),
             target_column=config_dict.get("target_column", []),
             split=config_dict.get("split", "test"),
@@ -190,6 +199,9 @@ def to_batch(examples: Example, model_type: str, device: Device) -> EvalSeqBatch
         source_padding_mask = (
             source_padding_mask.to(device) if source_padding_mask is not None else None
         )
+    elif model_type == "whisper":
+        source_seqs = examples["audio"].to(device)
+        source_padding_mask = None
     else:
         raise ValueError(f"Unknown model type: {model_type}")
 
@@ -253,6 +265,26 @@ def load_asr_evaluator(
     config: AsrEvalConfig, output_dir: Path
 ) -> HFEvaluator[EvalSeqBatch]:
     """
+    Load the evaluator based on the model type.
+
+    Args:
+        config (AsrEvalConfig): The configuration for the evaluation.
+        output_dir (Path): The output directory to store the evaluation results.
+
+    Returns:
+        HFEvaluator: Evaluation process.
+    """
+    try:
+        retrieve_asset_card(config.model_name)
+        return load_wav2vec2_asr_evaluator(config, output_dir)
+    except AssetNotFoundError:
+        return load_hg_asr_evaluator(config, output_dir)
+
+
+def load_wav2vec2_asr_evaluator(
+    config: AsrEvalConfig, output_dir: Path
+) -> HFEvaluator[EvalSeqBatch]:
+    """
     Load the evaluator used for downstream evaluation of the model
     in a downstream dataset and report BLEU scores
 
@@ -303,4 +335,80 @@ def load_asr_evaluator(
         wall_watch=wall_watch,
         preprocessor=evaluator_preprocessor,
         postprocessor=partial(evaluator_postprocesser, tokenizer=tokenizer),
+    )
+
+class HGModelWrapper:
+    def __init__(self, model: PreTrainedModel):
+        self.model = model
+
+    def __call__(self, batch: SequenceBatch) -> Any:
+        return self.model.generate(batch.seqs)
+
+
+def load_hg_asr_evaluator(
+    config: AsrEvalConfig, output_dir: Path
+) -> HFEvaluator[EvalSeqBatch]:
+    """
+    Load the evaluator used for downstream evaluation of the whisper model
+
+    Args:
+        config (HFEvalConfig): The configuration for the evaluation.
+        output_dir (Path): The output directory to store the evaluation results.
+
+    Returns:
+        HFEvaluator: Evaluation process.
+    """
+    if not isinstance(config, AsrEvalConfig):
+        raise ValueError(f"Expect AsrEvalConfig, get {type(config)}")
+
+    gang = setup_root_gang(log)
+
+    if gang.rank == 0:
+        init_device = gang.device
+    else:
+        init_device = META
+
+    processor = WhisperProcessor.from_pretrained(config.model_name)
+    model = WhisperForConditionalGeneration.from_pretrained(config.model_name).to(
+        init_device
+    )
+
+    ds_builder = load_dataset_builder(config.dataset_config.dataset_path)
+
+    def _dataset_processor(x: dict[str, Any]) -> dict[str, torch.Tensor]:
+        return {
+            "audio": processor(
+                x["audio"],
+                sampling_rate=ds_builder.info.features["audio"].sampling_rate,
+                return_tensors="pt",
+            ).input_features.squeeze(0)
+        }
+
+    ds = prepare_dataset(
+        config,
+        _dataset_processor,
+    )
+
+    pipeline_reader = create_hf_reader(
+        dataset=ds,
+        gang=gang,
+        converter=partial(to_batch, model_type="whisper", device=init_device),
+        batching=StaticBatching(config.max_num_elements),
+        num_prefetch=config.num_prefetch,
+        max_seq_len=config.max_audio_len,
+    )
+
+    wall_watch = Stopwatch(start=True, device=init_device)
+
+    def _custom_postprocessor(outputs: Any, targets: list[str]) -> tuple[list[str], list[str]]:
+        return processor.batch_decode(outputs, skip_special_tokens=True), targets
+
+    return HFEvaluator[EvalSeqBatch](
+        model=cast(Model, HGModelWrapper(model)),
+        metrics=["bleu"],
+        gang=gang,
+        data_reader=pipeline_reader,
+        wall_watch=wall_watch,
+        preprocessor=evaluator_preprocessor,
+        postprocessor=_custom_postprocessor,
     )
