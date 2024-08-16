@@ -346,10 +346,10 @@ if TYPE_CHECKING or DOC_MODE:
 
         def unsorted_map(
             self,
-            fn: Union[Callable[[Any], Any], Sequence[Callable[[Any], Any]]],
+            fn: Callable[[Any], Any] | Sequence[Callable[[Any], Any]],
             buffer_size: int,
             num_threads: int,
-            selector: Optional[str] = None,
+            selector: str | None = None,
         ) -> Self:
             """Start thread pool of size ``num_threads`` that continuously fetches
             and applies ``fn`` to examples.

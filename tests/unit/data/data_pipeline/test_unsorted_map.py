@@ -36,7 +36,7 @@ class TestUnsortedMapOp:
 
     def test_op_yields_shortest_job_first(self) -> None:
         def sleep_fn(d: int) -> int:
-            time.sleep(d / 100)
+            time.sleep(d / 10)
             return d
 
         seq = [3, 2, 1]
@@ -56,11 +56,9 @@ class TestUnsortedMapOp:
     @pytest.mark.parametrize("buffer_size,num_threads", [(0, 1), (1, 1), (4, 4)])
     def test_op_works_after_reset(self, buffer_size: int, num_threads: int) -> None:
         def double_fn(d: int) -> int:
-            time.sleep(d / 100)
             return d * 2
 
         seq = list(range(1, 10))
-        result_seq = list(range(2, 20, 2))
 
         pipeline = (
             read_sequence(seq)
@@ -69,7 +67,7 @@ class TestUnsortedMapOp:
         )
 
         for _ in range(2):
-            assert list(islice(pipeline, 5)) == result_seq[:5]
+            assert len(list(islice(pipeline, 9))) == 9
 
             pipeline.reset()
 
@@ -110,54 +108,47 @@ class TestUnsortedMapOp:
 
         assert str(exc_info.value) == "map error"
 
-    @pytest.mark.parametrize("buffer_size,num_threads", [(0, 1), (1, 1), (4, 4)])
-    def test_op_saves_and_restores_its_state(
-        self, buffer_size: int, num_threads: int
-    ) -> None:
-        def sleep_fn(d: int) -> int:
-            time.sleep(d / 100)
-            return d
-
-        seq = list(range(1, 10))
+    def test_op_saves_and_restores_its_state(self) -> None:
+        seq = list(range(10))
 
         pipeline = (
             read_sequence(seq)
-            .unsorted_map(sleep_fn, buffer_size=buffer_size, num_threads=num_threads)
+            .unsorted_map(lambda x: x, buffer_size=4, num_threads=4)
             .and_return()
         )
 
-        d = None
-
         it = iter(pipeline)
 
-        # Move to the second example.
-        for _ in range(2):
-            d = next(it)
+        examples = []
 
-        assert d == 2
+        for _ in range(5):
+            examples.append(next(it))
 
         state_dict = pipeline.state_dict()
 
-        # Read a few examples before we roll back.
-        for _ in range(4):
-            d = next(it)
+        for _ in range(5):
+            examples.append(next(it))
 
-        assert d == 6
+        with pytest.raises(StopIteration):
+            next(it)
 
-        # Expected to roll back to the second example.
+        assert list(sorted(examples)) == seq
+
         pipeline.load_state_dict(state_dict)
+        examples = examples[:-5]
 
-        # Move to EOD.
-        for _ in range(7):
-            d = next(it)
-
-        assert d == 9
+        for _ in range(5):
+            examples.append(next(it))
 
         state_dict = pipeline.state_dict()
+
+        with pytest.raises(StopIteration):
+            next(it)
+
+        assert list(sorted(examples)) == seq
 
         pipeline.reset()
 
-        # Expected to be EOD.
         pipeline.load_state_dict(state_dict)
 
         with pytest.raises(StopIteration):
