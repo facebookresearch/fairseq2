@@ -14,7 +14,7 @@ namespace fairseq2n::detail {
 
 unsorted_map_data_source::~unsorted_map_data_source()
 {
-    stop_prefetch_threads();
+    stop_thread_pool();
 }
 
 std::optional<data>
@@ -33,7 +33,7 @@ unsorted_map_data_source::next()
     // continuously push examples read from inner data source to the fill
     // queue.
     if (next_queue_.empty()) {
-        ensure_prefetch_thread_running();
+        ensure_thread_pool_running();
 
         {
             std::unique_lock<std::mutex> queue_lock{queue_mutex_};
@@ -75,7 +75,7 @@ unsorted_map_data_source::next()
 void
 unsorted_map_data_source::reset(bool reset_rng)
 {
-    stop_prefetch_threads();
+    stop_thread_pool();
 
     if (state_ == unsorted_map_state::faulted)
         std::rethrow_exception(exception_ptr_);
@@ -91,7 +91,7 @@ unsorted_map_data_source::reset(bool reset_rng)
 void
 unsorted_map_data_source::record_position(tape &t, bool strict) const
 {
-    stop_prefetch_threads();
+    stop_thread_pool();
 
     if (state_ == unsorted_map_state::faulted)
         std::rethrow_exception(exception_ptr_);
@@ -110,7 +110,7 @@ unsorted_map_data_source::record_position(tape &t, bool strict) const
 void
 unsorted_map_data_source::reload_position(tape &t, bool strict)
 {
-    stop_prefetch_threads();
+    stop_thread_pool();
 
     if (state_ == unsorted_map_state::faulted)
         std::rethrow_exception(exception_ptr_);
@@ -138,7 +138,7 @@ unsorted_map_data_source::finitude_type() const noexcept
 }
 
 void
-unsorted_map_data_source::ensure_prefetch_thread_running()
+unsorted_map_data_source::ensure_thread_pool_running()
 {
     {
         std::unique_lock<std::mutex> queue_lock{queue_mutex_};
@@ -149,16 +149,16 @@ unsorted_map_data_source::ensure_prefetch_thread_running()
 
         state_ = unsorted_map_state::running;
 
-        for (std::size_t i = 0; i < prefetch_threads_.size(); ++i) {
-            std::thread& prefetch_thread = prefetch_threads_[i];
-            if (!prefetch_thread.joinable())
-                prefetch_thread = start_thread(&unsorted_map_data_source::prefetch, this, i);
+        for (std::size_t i = 0; i < thread_pool_.size(); ++i) {
+            std::thread& thread = thread_pool_[i];
+            if (!thread.joinable())
+                thread = start_thread(&unsorted_map_data_source::fetch_and_map, this, i);
         }
     }
 }
 
 void
-unsorted_map_data_source::prefetch(std::size_t thread_idx)
+unsorted_map_data_source::fetch_and_map(std::size_t thread_idx)
 {
     bool running = true;
     while (running) {
@@ -184,7 +184,7 @@ unsorted_map_data_source::prefetch(std::size_t thread_idx)
             fill_queue_condition_.wait(queue_lock, [this]
             {
                 return state_ != unsorted_map_state::running || 
-                       should_stop_prefetch_ || 
+                       should_stop_pool_ || 
                        fill_queue_.size() < buffer_size_;
             });
 
@@ -210,7 +210,7 @@ unsorted_map_data_source::prefetch(std::size_t thread_idx)
             } else {
                 fill_queue_.push_back(*std::move(maybe_example));
 
-                if (should_stop_prefetch_) {
+                if (should_stop_pool_) {
                     state_ = unsorted_map_state::not_running;
                     running = false;
                 }
@@ -222,27 +222,27 @@ unsorted_map_data_source::prefetch(std::size_t thread_idx)
 }
 
 void
-unsorted_map_data_source::stop_prefetch_threads() const noexcept
+unsorted_map_data_source::stop_thread_pool() const noexcept
 {
     {
         std::unique_lock<std::mutex> queue_lock{queue_mutex_};
 
-        should_stop_prefetch_ = true;
+        should_stop_pool_ = true;
     }
 
     fill_queue_condition_.notify_all();
 
     join_all_threads();
 
-    should_stop_prefetch_ = false;
+    should_stop_pool_ = false;
 }
 
 void
 unsorted_map_data_source::join_all_threads() const noexcept
 {
-    for (std::thread& prefetch_thread : prefetch_threads_) {
-        if (prefetch_thread.joinable())
-            prefetch_thread.join();
+    for (std::thread& thread : thread_pool_) {
+        if (thread.joinable())
+            thread.join();
     }
 }
 

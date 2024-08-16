@@ -33,7 +33,7 @@ public:
       : inner_{std::move(inner)}, 
         map_fns_{std::move(fns)},
         buffer_size_{buffer_size}, 
-        prefetch_threads_(num_threads)
+        thread_pool_(num_threads)
     {}
 
     unsorted_map_data_source(const unsorted_map_data_source &) = delete;
@@ -61,13 +61,13 @@ public:
 
 private:
     void
-    ensure_prefetch_thread_running();
+    ensure_thread_pool_running();
 
     void
-    prefetch(std::size_t thread_idx);
+    fetch_and_map(std::size_t thread_idx);
 
     void
-    stop_prefetch_threads() const noexcept;
+    stop_thread_pool() const noexcept;
 
     void
     join_all_threads() const noexcept;
@@ -77,8 +77,8 @@ private:
     std::vector<map_fn> map_fns_;
     std::size_t buffer_size_;
     unsorted_map_state state_ = unsorted_map_state::not_running;
-    mutable std::vector<std::thread> prefetch_threads_{};
-    mutable bool should_stop_prefetch_ = false;
+    mutable std::vector<std::thread> thread_pool_{};
+    mutable bool should_stop_pool_ = false;
     mutable std::mutex queue_mutex_{};
     mutable std::mutex pipeline_mutex_{};
     mutable std::condition_variable fill_queue_condition_{};
