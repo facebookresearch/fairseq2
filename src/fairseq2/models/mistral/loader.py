@@ -32,7 +32,7 @@ def convert_mistral_checkpoint(
 ) -> dict[str, Any]:
     """Convert a reference Mistral checkpoint to fairseq2 format."""
     # Check if we have a fairseq2 checkpoint.
-    if "final_proj.weight" in checkpoint:
+    if "model" in checkpoint:
         return checkpoint
 
     key_map = {

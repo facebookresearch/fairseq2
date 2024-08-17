@@ -58,7 +58,7 @@ def convert_llama_checkpoint(
 ) -> dict[str, Any]:
     """Convert a reference or Hugging Face LLaMA checkpoint to fairseq2 format."""
     # Check if we have a fairseq2 checkpoint.
-    if "final_proj.weight" in checkpoint:
+    if "model" in checkpoint:
         return checkpoint
 
     # Check if we have a reference or Hugging Face checkpoint.
