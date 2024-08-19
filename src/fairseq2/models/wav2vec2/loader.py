@@ -49,7 +49,12 @@ def convert_wav2vec2_checkpoint(
         del state_dict["encoder.layer_norm.bias"]
 
     state_dict["quantizer.num_updates"] = torch.zeros((), device="cpu")
+    print("====== DEBUG =====")
+    print(list(state_dict.keys()))
+    print("====== DEBUG =====")
 
+    # err message @ Missing key(s) in state_dict => value
+    # err message @ Unexpected key(s) in state_dict => key
     key_map = {
         # fmt: off
         r"^encoder\.layers\.([0-9]+)\.self_attn\.out_proj\.": r"encoder.layers.\1.self_attn.output_proj.",
@@ -67,6 +72,14 @@ def convert_wav2vec2_checkpoint(
         r"^quantizer\.vars":                                  r"quantizer.entries",
         r"^quantizer\.weight_proj\.":                         r"quantizer.entry_proj.",
         r"^project_q\.":                                      r"final_target_proj.",
+
+
+        # added myself for bugs with mms-300m
+        r"^encoder\.pos_conv\.0\.weight_v":  r"encoder_frontend.pos_encoder.conv.weight_v",
+        r"^encoder\.pos_conv\.0\.weight_g":  r"encoder_frontend.pos_encoder.conv.weight_g",
+        
+        r"^encoder\.pos_conv\.0\.bias" : r"encoder_frontend.pos_encoder.conv.bias", # unsure
+        # r"^feature_extractor\.conv_layers\.0\.2\.1\.weight": r"encoder_frontend.feature_extractor.layers.0.group_norm.weight",
         # fmt: on
     }
 

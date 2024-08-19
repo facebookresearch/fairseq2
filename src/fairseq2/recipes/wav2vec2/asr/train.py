@@ -218,6 +218,33 @@ wav2vec2_asr_train_preset = wav2vec2_asr_train_presets.decorator
 def _base_10h() -> Wav2Vec2AsrTrainConfig:
     return Wav2Vec2AsrTrainConfig()
 
+####################################################################################################
+####################################################################################################
+# Finally register a new wav2vec2_asr_train_preset here:
+# Here you will specify the dataset, pretrained model (in your case the name of the wav2vec2_arch you just registered and all the ASR finetuning dynamics for recipe.
+@wav2vec2_asr_train_preset("asr_eng_accent_preset")
+def _asr_eng_accent() -> Wav2Vec2AsrTrainConfig:
+    config = _base_10h()
+    assert isinstance(config.optimizer_config, AdamWConfig)
+
+    config.pretrained_model = "wav2vec2_mms_base_300m"
+    asr_model_arch = "mms_base_300m_eng_accent"
+    config.model_arch = asr_model_arch
+    config.model_config = wav2vec2_asr_archs.get(asr_model_arch, return_empty=True)
+
+
+    ### hyperparam
+    config.optimizer_config.lr = 0.00003
+    config.max_num_steps = 50_000
+    config.freeze_encoder_for_n_steps = 0
+
+    ### dataset
+    config.dataset = "bible_eng_accent"
+    config.train_split = "train"
+    config.valid_split = "dev"
+    return config
+####################################################################################################
+####################################################################################################
 
 @wav2vec2_asr_train_preset("base_100h")
 def _base_100h() -> Wav2Vec2AsrTrainConfig:

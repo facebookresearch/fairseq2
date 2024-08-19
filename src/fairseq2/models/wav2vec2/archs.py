@@ -20,6 +20,34 @@ def _base() -> Wav2Vec2Config:
     return Wav2Vec2Config()
 
 
+# Register the new wav2vec2_arch which returns a Wav2Vec2Config here (which also needs the Wav2Vec2EncoderConfig): 
+# similar to https://github.com/fairinternal/seamless_communication/blob/f3572d6fc77ca6028230dbdbd7611a1b46789949/src/seamless_communication/models/unit_extractor/wav2vec2_layer_output.py#L56
+@wav2vec2_arch("mms_base_300m")
+def _mms_base_300m() -> Wav2Vec2Config:
+    config = _base()
+
+    # from MMS paper (https://arxiv.org/abs/2305.13516)
+    config.encoder_config.num_encoder_layers = 24  # transformer blocks (B)
+    config.encoder_config.model_dim = 1024  # hidden states (M)
+    config.encoder_config.ffn_inner_dim = 4096  # inner dimension of FF (F)
+    config.encoder_config.num_encoder_attn_heads = 16  # attention heads (A)
+
+    # FIXME: check with Kaushik (added because of error message)
+    config.final_dim = 768
+    config.quantized_dim = 768
+
+    config.encoder_config.layer_norm_features = False
+    config.encoder_config.feature_extractor_bias = True
+    config.encoder_config.feature_extractor_layer_norm_convs = True
+    config.encoder_config.norm_order = TransformerNormOrder.PRE # I've checked `self.layer_norm_first` in fairseq/fairseq/models/wav2vec/wav2vec2.py for loading MMS-ASR
+
+    ##### from wav2vec2 paper (https://arxiv.org/pdf/2006.11477): do I follow it?
+    # config.encoder_config.layer_drop_p = 0.2
+    # config.encoder_config.dropout_p = 0.1
+
+    return config
+
+
 @wav2vec2_arch("large")
 def _large() -> Wav2Vec2Config:
     config = _base()
@@ -117,5 +145,11 @@ def _large_encoder() -> Wav2Vec2EncoderConfig:
 @wav2vec2_encoder_arch("large_lv60k")  # LibriVox 60k
 def _large_lv60k_encoder() -> Wav2Vec2EncoderConfig:
     config = _large_lv60k()
+
+    return config.encoder_config
+
+@wav2vec2_encoder_arch("mms_base_300m")  # MMS pretrained 300m
+def _mms_base_300m_encoder() -> Wav2Vec2EncoderConfig:
+    config = _mms_base_300m()
 
     return config.encoder_config

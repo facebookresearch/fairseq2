@@ -10,6 +10,25 @@ model_arch: base
 checkpoint: "https://dl.fbaipublicfiles.com/fairseq/wav2vec/wav2vec2_fs2_small.pt"
 
 ---
+#######################
+# Add an asset for the new wav2vec2 model here
+name: wav2vec2_mms_base_300m
+model_family: wav2vec2
+model_arch: mms_base_300m
+checkpoint: "https://dl.fbaipublicfiles.com/mms/pretraining/base_300m.pt"
+tokenizer_ref: librispeech_asr
+
+---
+# FIXME: doesn't work. how do I write an asset preset for eval?
+name: wav2vec2_mms_asr_base_300m
+model_family: wav2vec2_asr
+model_arch: mms_base_300m
+checkpoint: "https://dl.fbaipublicfiles.com/mms/pretraining/base_300m.pt"
+tokenizer_ref: librispeech_asr
+
+#######################
+---
+
 
 name: wav2vec2_large
 model_family: wav2vec2
