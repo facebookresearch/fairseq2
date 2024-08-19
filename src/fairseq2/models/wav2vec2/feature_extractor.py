@@ -64,14 +64,14 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
             value less than 1.0 allows the feature extractor to learn at a lower
             rate than the rest of the model.
         """
-        # The output dimensionality of the last feature extraction layer.
-        feature_dim = layer_descs[-1][0]
-
-        super().__init__(feature_dim)
-
         if len(layer_descs) == 0:
             raise ValueError("`layer_descs` must be non-empty.")
-
+            
+        # The output dimensionality of the last feature extraction layer.
+        feature_dim = layer_descs[-1][0]
+        
+        super().__init__(feature_dim)
+        
         self.layers = Sequential()
 
         if num_channels < 1:
