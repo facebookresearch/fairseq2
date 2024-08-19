@@ -66,12 +66,12 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
         """
         if len(layer_descs) == 0:
             raise ValueError("`layer_descs` must be non-empty.")
-            
+
         # The output dimensionality of the last feature extraction layer.
         feature_dim = layer_descs[-1][0]
-        
+
         super().__init__(feature_dim)
-        
+
         self.layers = Sequential()
 
         if num_channels < 1:
