@@ -98,6 +98,14 @@ wav2vec2_asr_eval_preset = wav2vec2_asr_eval_presets.decorator
 def _base_10h() -> Wav2Vec2AsrEvalConfig:
     return Wav2Vec2AsrEvalConfig()
 
+@wav2vec2_asr_eval_preset("eval_asr_bible_eng_accent")
+def _asr_bible_eng_accent() -> Wav2Vec2AsrEvalConfig:
+    config = _base_10h()
+
+    config.dataset = "bible_eng_accent"
+    config.split = "test"
+    return config
+
 
 def load_wav2vec2_asr_evaluator(
     config: Wav2Vec2AsrEvalConfig, output_dir: Path
@@ -111,6 +119,8 @@ def load_wav2vec2_asr_evaluator(
                 config.checkpoint_dir, lower_score_better=True
             )
         )
+
+        print("<<<<<<< CKPT <<<<<<", config.checkpoint_dir)
 
     gang = setup_root_gang(log)
 
@@ -177,6 +187,8 @@ def load_wav2vec2_asr_evaluator(
     # Initialize the evaluation unit.
     ref_output_file = output_dir.joinpath(f"transcriptions/rank_{gang.rank}.ref.txt")
     hyp_output_file = output_dir.joinpath(f"transcriptions/rank_{gang.rank}.hyp.txt")
+    print(f">>>> OUT (REF) >>>>>>>>> {str(ref_output_file)}")
+    print(f">>>> OUT (HYP) >>>>>>>>> {str(hyp_output_file)}")
 
     try:
         ref_output_file.parent.mkdir(parents=True, exist_ok=True)
