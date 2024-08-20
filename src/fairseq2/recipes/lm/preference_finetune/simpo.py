@@ -152,6 +152,12 @@ class SimpoFinetuneMetricBag(SequenceMetricBag):
         super().__init__(gang)
 
         self.register_metric("_simpo_loss", Mean(device=gang.device), persistent=False)
+        self.register_metric(
+            "_simpo_chosen_logps", Mean(device=gang.device), persistent=False
+        )
+        self.register_metric(
+            "_simpo_rejected_logps", Mean(device=gang.device), persistent=False
+        )
 
     @torch.inference_mode()
     def update_simpo_loss(self, batch: SequenceBatch, loss: Tensor) -> None:
