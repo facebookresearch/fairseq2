@@ -9,7 +9,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
-from typing import Any, List, Optional, Union
+from typing import Any, List, Optional
 
 import torch
 from datasets import (  # type: ignore[attr-defined,import-untyped,import-not-found]
@@ -39,30 +39,19 @@ class AsrDatasetConfig:
     """Configuration for an automatic speech recognition dataset."""
 
     dataset_path: str
-    """The name of the dataset."""
+    """The path to the dataset."""
 
     dataset_name: Optional[str] = None
-    """The name of the dataset split."""
+    """The name of the dataset configuration."""
 
     split: str = "test"
-    """The name of the dataset split to evaluate with."""
+    """Which split of the data to load."""
 
     source_column: List[str] = field(default_factory=list)
-    """The path of the column containing the source audio."""
+    """The path to the column containing the source audio."""
 
     target_column: List[str] = field(default_factory=list)
-    """The path of the column containing the target text."""
-
-    @classmethod
-    def from_dict(cls, config_dict: dict[str, Any]) -> "AsrDatasetConfig":
-        """Create an AsrDatasetConfig instance from a configuration dictionary."""
-        return cls(
-            dataset_path=config_dict.get("dataset_path", ""),
-            dataset_name=config_dict.get("dataset_name"),
-            source_column=config_dict.get("source_column", []),
-            target_column=config_dict.get("target_column", []),
-            split=config_dict.get("split", "test"),
-        )
+    """The path to the column containing the target text."""
 
     def get_source_data(self, ds: Example) -> Any:
         """Retrieve the source (audio) data from the dataset."""
@@ -75,7 +64,7 @@ class AsrDatasetConfig:
         return results
 
     @staticmethod
-    def _get_data(ds: Example, path: List[str]) -> Union[Example, List[int], str]:
+    def _get_data(ds: Example, path: List[str]) -> Example | List[int] | str:
         """Retrieve data from the dataset using the specified path."""
         current = ds
         for key in path:
