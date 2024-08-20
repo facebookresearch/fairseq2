@@ -6,7 +6,9 @@
 
 from __future__ import annotations
 
+from fairseq2.recipes.lm.preference_finetune.cpo import CPOConfig as CPOConfig
 from fairseq2.recipes.lm.preference_finetune.dpo import DpoConfig as DpoConfig
+from fairseq2.recipes.lm.preference_finetune.orpo import ORPOConfig as ORPOConfig
 from fairseq2.recipes.lm.preference_finetune.recipe import (
     load_preference_finetuner as load_preference_finetuner,
 )
@@ -23,5 +25,7 @@ from fairseq2.recipes.lm.preference_finetune.simpo import SimPOConfig as SimPOCo
 
 # isort: split
 
+import fairseq2.recipes.lm.preference_finetune.cpo
 import fairseq2.recipes.lm.preference_finetune.dpo
+import fairseq2.recipes.lm.preference_finetune.orpo
 import fairseq2.recipes.lm.preference_finetune.simpo
