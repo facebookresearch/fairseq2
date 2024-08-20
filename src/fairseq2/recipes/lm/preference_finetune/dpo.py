@@ -108,6 +108,8 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
 
         self._metric_bag.update_dpo_loss(chosen_batch, dpo_loss)
 
+        self.metric_bag.update_dpo_logps(chosen_batch, chosen_logps, rejected_logps)
+
         self._metric_bag.update_batch_metrics(chosen_batch)
 
         return loss, chosen_target_batch.batch_size
@@ -146,19 +148,44 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
 
 
 register_metric_formatter("dpo_loss", "DPO Loss", 0, format_as_float)
+register_metric_formatter(
+    "dpo_chosen_logps", "Chosen Sequence Log Probabilities", 0, format_as_float
+)
+register_metric_formatter(
+    "dpo_rejected_logps", "Rejected Sequence Log Probabilities", 0, format_as_float
+)
 
 
 class DpoFinetuneMetricBag(SequenceMetricBag):
     _dpo_loss: Mean
+    _dpo_chosen_logps: Mean
+    _dpo_rejected_logps: Mean
 
     def __init__(self, gang: Gang) -> None:
         super().__init__(gang)
 
         self.register_metric("_dpo_loss", Mean(device=gang.device), persistent=False)
+        self.register_metric(
+            "_dpo_chosen_logps", Mean(device=gang.device), persistent=False
+        )
+        self.register_metric(
+            "_dpo_rejected_logps", Mean(device=gang.device), persistent=False
+        )
 
     @torch.inference_mode()
     def update_dpo_loss(self, batch: SequenceBatch, loss: Tensor) -> None:
         self._dpo_loss.update(loss / batch.batch_size, weight=batch.batch_size)
+
+    @torch.inference_mode()
+    def update_dpo_logps(
+        self, batch: SequenceBatch, chosen_logps: Tensor, rejected_logps: Tensor
+    ) -> None:
+        self._dpo_chosen_logps.update(
+            chosen_logps.sum() / batch.batch_size, weight=batch.batch_size
+        )
+        self._dpo_rejected_logps.update(
+            rejected_logps.sum() / batch.batch_size, weight=batch.batch_size
+        )
 
 
 @dataclass(kw_only=True)

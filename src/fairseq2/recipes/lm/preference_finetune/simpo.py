@@ -95,6 +95,8 @@ class SimPOFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
 
         self._metric_bag.update_simpo_loss(chosen_batch, simpo_loss)
 
+        self.metric_bag.update_simpo_logps(chosen_batch, chosen_logps, rejected_logps)
+
         self._metric_bag.update_batch_metrics(chosen_batch)
 
         return loss, chosen_target_batch.batch_size
@@ -133,10 +135,18 @@ class SimPOFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
 
 
 register_metric_formatter("simpo_loss", "SimPO Loss", 0, format_as_float)
+register_metric_formatter(
+    "simpo_chosen_logps", "Chosen Sequence Log Probabilities", 0, format_as_float
+)
+register_metric_formatter(
+    "simpo_rejected_logps", "Rejected Sequence Log Probabilities", 0, format_as_float
+)
 
 
 class SimpoFinetuneMetricBag(SequenceMetricBag):
     _simpo_loss: Mean
+    _simpo_chosen_logps: Mean
+    _simpo_rejected_logps: Mean
 
     def __init__(self, gang: Gang) -> None:
         super().__init__(gang)
@@ -146,6 +156,17 @@ class SimpoFinetuneMetricBag(SequenceMetricBag):
     @torch.inference_mode()
     def update_simpo_loss(self, batch: SequenceBatch, loss: Tensor) -> None:
         self._simpo_loss.update(loss / batch.batch_size, weight=batch.batch_size)
+
+    @torch.inference_mode()
+    def update_simpo_logps(
+        self, batch: SequenceBatch, chosen_logps: Tensor, rejected_logps: Tensor
+    ) -> None:
+        self._simpo_chosen_logps.update(
+            chosen_logps.sum() / batch.batch_size, weight=batch.batch_size
+        )
+        self._simpo_rejected_logps.update(
+            rejected_logps.sum() / batch.batch_size, weight=batch.batch_size
+        )
 
 
 @dataclass(kw_only=True)
