@@ -103,9 +103,7 @@ class SimPOFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
             -1
         )
         total_logps = (per_token_logps * target.target_mask).sum(dim=-1)  # [Batch, 1]
-        assert (
-            target.target_mask is not None
-        )
+        assert target.target_mask is not None
         average_logps = total_logps / target.target_mask.sum(-1)
 
         return total_logps, average_logps
