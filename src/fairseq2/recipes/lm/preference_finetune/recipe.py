@@ -70,6 +70,9 @@ class PreferenceOptimizationConfig:
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
 
+    mask_source_tokens: bool = True
+    """If ``False``, calculates loss on the `src` tokens as well as the `tgt` tokens."""
+
     # Model
     model: AssetReference = "llama3_8b_instruct"
     """The name or path to the asset card of the language model to finetune."""
@@ -351,6 +354,7 @@ def load_preference_finetuner(
             batch_shuffle_window=config.batch_shuffle_window,
             num_accumulate=config.gradient_accumulation,
             num_prefetch=config.num_prefetch,
+            mask_source_tokens=config.mask_source_tokens,
             seed=config.seed,
         )
     except ValueError as ex:
