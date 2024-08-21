@@ -25,8 +25,8 @@ from fairseq2.models.sequence import (
     SequenceModelOutput,
     as_auto_regressive_input,
 )
-from fairseq2.recipes.common_metrics import SequenceMetricBag
 from fairseq2.recipes.lm.preference_finetune.recipe import preference_unit_factory
+from fairseq2.recipes.lm.preference_finetune.utils import PreferenceFinetuneMetricBag
 from fairseq2.recipes.trainer import AbstractTrainUnit
 
 log = get_log_writer(__name__)
@@ -93,9 +93,11 @@ class SimPOFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
 
         self._metric_bag.update_nll_loss(chosen_batch, nll_loss)
 
-        self._metric_bag.update_simpo_loss(chosen_batch, simpo_loss)
+        self._metric_bag.update_simpo_loss(batch, simpo_loss)
 
-        self.metric_bag.update_simpo_logps(chosen_batch, chosen_logps, rejected_logps)
+        self.metric_bag.update_logps(batch, chosen_logps, rejected_logps)
+
+        self.metric_bag.update_sequence_lengths(batch)
 
         self._metric_bag.update_batch_metrics(chosen_batch)
 
@@ -135,43 +137,31 @@ class SimPOFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
 
 
 register_metric_formatter("simpo_loss", "SimPO Loss", 0, format_as_float)
-register_metric_formatter(
-    "simpo_chosen_logps", "Chosen Sequence Log Probabilities", 0, format_as_float
-)
-register_metric_formatter(
-    "simpo_rejected_logps", "Rejected Sequence Log Probabilities", 0, format_as_float
-)
 
 
-class SimpoFinetuneMetricBag(SequenceMetricBag):
+class SimpoFinetuneMetricBag(PreferenceFinetuneMetricBag):
+    """Holds the metrics of a SimPO preference finetuning task."""
+
     _simpo_loss: Mean
-    _simpo_chosen_logps: Mean
-    _simpo_rejected_logps: Mean
 
     def __init__(self, gang: Gang) -> None:
         super().__init__(gang)
 
         self.register_metric("_simpo_loss", Mean(device=gang.device), persistent=False)
-        self.register_metric(
-            "_simpo_chosen_logps", Mean(device=gang.device), persistent=False
-        )
-        self.register_metric(
-            "_simpo_rejected_logps", Mean(device=gang.device), persistent=False
-        )
 
     @torch.inference_mode()
-    def update_simpo_loss(self, batch: SequenceBatch, loss: Tensor) -> None:
-        self._simpo_loss.update(loss / batch.batch_size, weight=batch.batch_size)
-
-    @torch.inference_mode()
-    def update_simpo_logps(
-        self, batch: SequenceBatch, chosen_logps: Tensor, rejected_logps: Tensor
+    def update_simpo_loss(
+        self, batch: PreferenceOptimizationBatch, loss: Tensor
     ) -> None:
-        self._simpo_chosen_logps.update(
-            chosen_logps.sum() / batch.batch_size, weight=batch.batch_size
-        )
-        self._simpo_rejected_logps.update(
-            rejected_logps.sum() / batch.batch_size, weight=batch.batch_size
+        """Update the SimPO loss metric.
+
+        :param batch:
+            The batch processed by the model.
+        :param loss:
+            The SimPO loss of ``batch``.
+        """
+        self._simpo_loss.update(
+            loss / batch.chosen.batch_size, weight=batch.chosen.batch_size
         )
 
 

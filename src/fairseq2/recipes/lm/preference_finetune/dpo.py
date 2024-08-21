@@ -25,9 +25,11 @@ from fairseq2.models.sequence import (
     SequenceModelOutput,
     as_auto_regressive_input,
 )
-from fairseq2.recipes.common_metrics import SequenceMetricBag
 from fairseq2.recipes.lm.preference_finetune.recipe import preference_unit_factory
-from fairseq2.recipes.lm.preference_finetune.utils import _load_reference_model
+from fairseq2.recipes.lm.preference_finetune.utils import (
+    PreferenceFinetuneMetricBag,
+    _load_reference_model,
+)
 from fairseq2.recipes.trainer import AbstractTrainUnit
 from fairseq2.recipes.utils.asset import AssetReference
 from fairseq2.typing import DataType
@@ -106,9 +108,11 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
 
         self._metric_bag.update_nll_loss(chosen_batch, nll_loss)
 
-        self._metric_bag.update_dpo_loss(chosen_batch, dpo_loss)
+        self._metric_bag.update_dpo_loss(batch, dpo_loss)
 
-        self.metric_bag.update_dpo_logps(chosen_batch, chosen_logps, rejected_logps)
+        self.metric_bag.update_logps(batch, chosen_logps, rejected_logps)
+
+        self.metric_bag.update_sequence_lengths(batch)
 
         self._metric_bag.update_batch_metrics(chosen_batch)
 
@@ -148,43 +152,29 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
 
 
 register_metric_formatter("dpo_loss", "DPO Loss", 0, format_as_float)
-register_metric_formatter(
-    "dpo_chosen_logps", "Chosen Sequence Log Probabilities", 0, format_as_float
-)
-register_metric_formatter(
-    "dpo_rejected_logps", "Rejected Sequence Log Probabilities", 0, format_as_float
-)
 
 
-class DpoFinetuneMetricBag(SequenceMetricBag):
+class DpoFinetuneMetricBag(PreferenceFinetuneMetricBag):
+    """Holds the metrics of a DPO preference finetuning task."""
+
     _dpo_loss: Mean
-    _dpo_chosen_logps: Mean
-    _dpo_rejected_logps: Mean
 
     def __init__(self, gang: Gang) -> None:
         super().__init__(gang)
 
         self.register_metric("_dpo_loss", Mean(device=gang.device), persistent=False)
-        self.register_metric(
-            "_dpo_chosen_logps", Mean(device=gang.device), persistent=False
-        )
-        self.register_metric(
-            "_dpo_rejected_logps", Mean(device=gang.device), persistent=False
-        )
 
     @torch.inference_mode()
-    def update_dpo_loss(self, batch: SequenceBatch, loss: Tensor) -> None:
-        self._dpo_loss.update(loss / batch.batch_size, weight=batch.batch_size)
+    def update_dpo_loss(self, batch: PreferenceOptimizationBatch, loss: Tensor) -> None:
+        """Update the DPO loss metric.
 
-    @torch.inference_mode()
-    def update_dpo_logps(
-        self, batch: SequenceBatch, chosen_logps: Tensor, rejected_logps: Tensor
-    ) -> None:
-        self._dpo_chosen_logps.update(
-            chosen_logps.sum() / batch.batch_size, weight=batch.batch_size
-        )
-        self._dpo_rejected_logps.update(
-            rejected_logps.sum() / batch.batch_size, weight=batch.batch_size
+        :param batch:
+            The batch processed by the model.
+        :param loss:
+            The DPO loss of ``batch``.
+        """
+        self._dpo_loss.update(
+            loss / batch.chosen.batch_size, weight=batch.chosen.batch_size
         )
 
 
