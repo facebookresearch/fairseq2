@@ -6,34 +6,26 @@
 
 from __future__ import annotations
 
-try:
-    import datasets  # type: ignore[attr-defined,import-untyped,import-not-found]
-
-    _has_hg_datasets = True
-except ImportError:
-    _has_hg_datasets = False
-
-
-try:
-    import evaluate  # type: ignore[attr-defined,import-untyped,import-not-found]
-
-    _has_hg_evaluate = True
-except ImportError:
-    _has_hg_evaluate = False
-
-
-try:
-    import transformers  # type: ignore[attr-defined,import-untyped,import-not-found]
-
-    _has_hg_transformers = True
-except ImportError:
-    _has_hg_transformers = False
+from typing import Dict, List
 
 from fairseq2.recipes.cli import Cli, RecipeCommandHandler
 
 
+def check_libraries(libraries: List[str]) -> Dict[str, bool]:
+    """Check if the given libraries are available."""
+    availability = {}
+    for lib in libraries:
+        try:
+            __import__(lib)
+            availability[lib] = True
+        except ImportError:
+            availability[lib] = False
+    return availability
+
+
 def _setup_hg_cli(cli: Cli) -> None:
-    if not _has_hg_datasets or not _has_hg_evaluate and not _has_hg_transformers:
+    required_libraries = ["transformers", "datasets", "evaluate", "hydra"]
+    if not all(check_libraries(required_libraries).values()):
         return
 
     group = cli.add_group("hg", help="Hugging Face recipes")
