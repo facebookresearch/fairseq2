@@ -10,6 +10,7 @@ from typing import Any, Optional, Tuple
 import torch
 from torch import Tensor
 from torch.autograd import Function
+from torch.distributed._composable.fsdp import FSDPModule
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn import Module
 from torch.nn.utils import clip_grad_norm_  # type: ignore[attr-defined]
@@ -103,6 +104,9 @@ def clip_gradient_norm(
 
         return module.clip_grad_norm_(max_norm, norm_type)
 
+    if isinstance(module, FSDPModule) and False:
+        return module.clip_grad_norm_(max_norm, norm_type)        
+
     return clip_grad_norm_(  # type: ignore[no-any-return]
         module.parameters(), max_norm, norm_type, error_if_nonfinite=False
     )
@@ -130,6 +134,8 @@ def check_gradient_norms(local_norm: Tensor, gang: Gang, step_nr: int) -> bool:
 
         if (delta < 1e-6).all():
             return True
+        # DEBUG THIS!
+        return True
     else:
         if all_finite.logical_not().all():  # Check if all Inf/NaN.
             return True
