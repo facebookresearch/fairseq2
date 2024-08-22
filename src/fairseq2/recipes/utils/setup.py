@@ -18,6 +18,7 @@ from fairseq2.logging import LogWriter
 from fairseq2.models.fsdp import get_fsdp_wrap_policy
 from fairseq2.nn.ddp import to_ddp
 from fairseq2.nn.fsdp import to_fsdp
+from fairseq2.nn.fsdp2 import to_fsdp2
 from fairseq2.nn.utils.module import broadcast_module, to_device
 from fairseq2.recipes.utils.log import log_environment_info
 
@@ -47,6 +48,7 @@ def setup_root_gang(
     log.info("Initializing the root gang.")
 
     gang = setup_default_gang(timeout=timeout, monitored=monitored)
+    # raise Exception(gang.as_device_mesh())
 
     log.info("Root gang initialized.")
 
@@ -99,11 +101,11 @@ def broadcast_model(model: Module, gang: Gang, log: LogWriter) -> None:
 def to_data_parallel(
     model: Module,
     gang: Gang,
-    parallelism: Literal["ddp", "fsdp"],
+    parallelism: Literal["ddp", "fsdp", "fsdp2"],
     log: LogWriter,
     **kwargs: Any,
 ) -> Module:
-    """Wrap ``model`` with DDP or FSDP.
+    """Wrap ``model`` with DDP or FSDP or FSDP2.
 
     :param model:
         The model to wrap.
@@ -147,6 +149,9 @@ def to_data_parallel(
         fsdp_kwargs = {}
 
         for key, value in kwargs.items():
+            if key == 'fsdp_activation_checkpointing':
+                continue
+
             if key.startswith("fsdp_"):
                 fsdp_kwargs[key[5:]] = value
 
@@ -176,8 +181,39 @@ def to_data_parallel(
 
         return model
 
+    if parallelism == "fsdp2":
+        # gang.size = 8
+
+        if gang.size == 1:
+            to_device(model, gang.device)
+
+            return model
+
+        fsdp_kwargs = {}
+
+        for key, value in kwargs.items():
+            if key.startswith("fsdp_"):
+                fsdp_kwargs[key[5:]] = value
+
+        log.info("Wrapping the model with FSDP2.")
+
+        wrap_policy, ignored_modules = get_fsdp_wrap_policy(
+            model, wrap_granularity=fsdp_kwargs.pop("wrap_granularity", "stack")
+        )
+
+        model = to_fsdp2(
+            model,
+            gang,
+            wrap_policy,
+            **fsdp_kwargs,
+        )
+
+        log.info("Model wrapped with FSDP2.")
+
+        return model
+
     raise ValueError(
-        f"`data_parallelism` must be 'ddp' or 'fsdp', but is '{parallelism}' instead."
+        f"`data_parallelism` must be 'ddp' or 'fsdp' or 'fsdp2', but is '{parallelism}' instead."
     )
 
 

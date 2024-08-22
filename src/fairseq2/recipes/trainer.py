@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from contextlib import nullcontext
+from contextlib import contextmanager, nullcontext
 from itertools import count
 from pathlib import Path
 from statistics import mean
@@ -28,6 +28,7 @@ import torch
 import torch.distributed
 from rich.progress import Progress
 from torch import Tensor
+from torch.distributed._composable.fsdp import FSDPModule
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn import Module
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -124,6 +125,20 @@ class AbstractTrainUnit(TrainUnit[BatchT]):
     def throughput_metric_name(self) -> Optional[str]:
         return "num_elements"
 
+
+@contextmanager
+def no_sync(module: Module):
+    if isinstance(module, FSDPModule):
+        module.set_requires_gradient_sync(False)
+        module.set_reshard_after_backward(False)
+        try:
+            yield
+        finally:
+            module.set_requires_gradient_sync(True)
+            module.set_reshard_after_backward(True)
+    else:
+        with module.no_sync():
+            yield
 
 @final
 class Trainer(StatefulObjectBag, Generic[BatchT]):
@@ -714,7 +729,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
     def _maybe_no_sync(self, batch_nr: int, num_batches: int) -> ContextManager[None]:
         if batch_nr < num_batches - 1 and self._dp_gang.size > 1:
-            return self._model.no_sync()  # type: ignore[no-any-return]
+            return no_sync(self._model)
 
         return nullcontext()
 

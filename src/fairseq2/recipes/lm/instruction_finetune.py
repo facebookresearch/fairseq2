@@ -83,7 +83,7 @@ class InstructionFinetuneConfig:
     dtype: DataType = torch.bfloat16
     """The data type of the model."""
 
-    data_parallelism: Literal["ddp", "fsdp"] = "fsdp"
+    data_parallelism: Literal["ddp", "fsdp", "fsdp2"] = "fsdp2"
     """The data parallelism API to use."""
 
     fsdp_wrap_granularity: Literal["layer", "stack", "model"] = "layer"
@@ -290,6 +290,9 @@ def load_instruction_finetuner(
         base_asset=model_card.name, family=model.family
     )
 
+    if config.activation_checkpointing and config.data_parallelism == 'fsdp2':
+        use_layerwise_activation_checkpointing(model)
+
     dp_model = to_data_parallel(
         model,
         dp_gang,
@@ -301,9 +304,10 @@ def load_instruction_finetuner(
         fsdp_mixed_precision_dtype=config.dtype,
         fsdp_fp32_reduce=True,
         fsdp_wrap_granularity=config.fsdp_wrap_granularity,
+        fsdp_activation_checkpointing=config.activation_checkpointing,
     )
 
-    if config.activation_checkpointing:
+    if config.activation_checkpointing and config.data_parallelism != 'fsdp2':
         use_layerwise_activation_checkpointing(dp_model)
 
     if config.torch_compile:
