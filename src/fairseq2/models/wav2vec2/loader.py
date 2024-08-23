@@ -49,9 +49,6 @@ def convert_wav2vec2_checkpoint(
         del state_dict["encoder.layer_norm.bias"]
 
     state_dict["quantizer.num_updates"] = torch.zeros((), device="cpu")
-    print("====== DEBUG =====")
-    print(list(state_dict.keys()))
-    print("====== DEBUG =====")
 
     # err message @ Missing key(s) in state_dict => value
     # err message @ Unexpected key(s) in state_dict => key

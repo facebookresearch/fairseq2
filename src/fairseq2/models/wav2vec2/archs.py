@@ -41,10 +41,6 @@ def _mms_base_300m() -> Wav2Vec2Config:
     config.encoder_config.feature_extractor_layer_norm_convs = True
     config.encoder_config.norm_order = TransformerNormOrder.PRE # I've checked `self.layer_norm_first` in fairseq/fairseq/models/wav2vec/wav2vec2.py for loading MMS-ASR
 
-    ##### from wav2vec2 paper (https://arxiv.org/pdf/2006.11477): do I follow it?
-    # config.encoder_config.layer_drop_p = 0.2
-    # config.encoder_config.dropout_p = 0.1
-
     return config
 
 
