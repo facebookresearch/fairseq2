@@ -56,10 +56,10 @@ class PreferenceOptimizationConfig:
     """The name, path, or path to the asset card of the preference optimization dataset."""
 
     max_seq_len: int = 8192
-    """The maximum sequence length."""
+    """The maximum `src` + `tgt_chosen` and `src` + `tgt_rejected` sequence length. Longer sequences will be dropped."""
 
     max_num_tokens: int = 8192 * 2
-    """The maximum number of tokens per batch."""
+    """The maximum number of total `src`, `tgt_chosen`, and `tgt_rejected` tokens per batch."""
 
     example_shuffle_window: int = 10_000
     """The size of the sliding window for shuffling examples."""
