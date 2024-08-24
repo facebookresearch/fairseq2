@@ -62,7 +62,7 @@ class PreferenceOptimizationConfig:
     """The maximum number of tokens per batch."""
 
     batch_size: int | None = None
-    """If not ``None``, ignores `max_num_tokens` and each batch will have `batch_size` items."""
+    """If not ``None``, ignores `max_num_tokens` and each batch will have `batch_size` examples."""
 
     example_shuffle_window: int = 10_000
     """The size of the sliding window for shuffling examples."""
