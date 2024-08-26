@@ -17,7 +17,7 @@ from torcheval.metrics import Mean
 from typing_extensions import override
 
 from fairseq2.datasets.preference import PreferenceOptimizationBatch
-from fairseq2.gang import Gang, get_rank
+from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.metrics.recorder import format_as_float, register_metric_formatter
 from fairseq2.models.sequence import (
@@ -97,18 +97,19 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
             chosen_target_batch.seqs, loss_mask=chosen_target_batch.target_mask
         )
 
-        # adding NLL loss to the total loss for now!
-        loss = dpo_loss + self._nll_scale * nll_loss
-
-        log.info(
-            f"Step:{self._step_nr} Rank:{get_rank()} IDs:{[str(idx) for idx in batch.chosen.example['id']]}, DPO loss: {dpo_loss.item()}"
-        )
+        self._metric_bag.update_dpo_loss(chosen_batch, dpo_loss)
 
         self._metric_bag.update_nll_loss(chosen_batch, nll_loss)
 
-        self._metric_bag.update_dpo_loss(chosen_batch, dpo_loss)
-
         self._metric_bag.update_batch_metrics(chosen_batch)
+
+        loss = (
+            dpo_loss
+            + self._nll_scale
+            * nll_loss
+            * chosen_target_batch.batch_size
+            / chosen_target_batch.num_target_elements()
+        )  # normalization applied locally per-rank
 
         return loss, chosen_target_batch.batch_size
 
