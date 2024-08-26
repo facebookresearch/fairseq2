@@ -225,6 +225,8 @@ def _large_10h() -> Wav2Vec2AsrTrainConfig:
 
     config = _base_10h()
 
+    assert isinstance(config.optimizer_config, AdamWConfig)
+
     config.model_arch = "large_10h"
     config.model_config = model_config
     config.pretrained_model = "wav2vec2_large"
@@ -259,6 +261,8 @@ def _large_100h() -> Wav2Vec2AsrTrainConfig:
     model_config = wav2vec2_asr_archs.get("large_100h", return_empty=True)
 
     config = _base_10h()
+
+    assert isinstance(config.optimizer_config, AdamWConfig)
 
     config.dataset = "librispeech_asr_100h"
     config.model_arch = "large_100h"

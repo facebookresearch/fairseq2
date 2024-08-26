@@ -203,7 +203,6 @@ def _base_960h_fs2_mask() -> Wav2Vec2TrainConfig:
 def _base_960h() -> Wav2Vec2TrainConfig:
     config = Wav2Vec2TrainConfig()
 
-    assert isinstance(config.model_config, Wav2Vec2Config)
     config.model_config.encoder_config.first_pass_dropout_p = 0.1
     config.max_temporal_mask_prob = 0.65
     config.mask_codebase = "fairseq1"
@@ -213,6 +212,9 @@ def _base_960h() -> Wav2Vec2TrainConfig:
 @wav2vec2_train_preset("base_960h_perf")
 def _base_960h_perf() -> Wav2Vec2TrainConfig:
     config = _base_960h()
+
+    assert isinstance(config.lr_scheduler_config, PolynomialDecayLRConfig)
+
     config.max_num_steps = 10000
     config.lr_scheduler_config.num_warmup_steps = 800
     return config
@@ -222,6 +224,9 @@ def _base_960h_perf() -> Wav2Vec2TrainConfig:
 def _large_960h_fs2_mask() -> Wav2Vec2TrainConfig:
     config = Wav2Vec2TrainConfig()
     config.model_arch = "large"
+
+    assert isinstance(config.optimizer_config, AdamWConfig)
+    assert isinstance(config.lr_scheduler_config, PolynomialDecayLRConfig)
 
     model_config = wav2vec2_archs.get("large", return_empty=True)
     model_config.encoder_config.first_pass_dropout_p = 0.1
@@ -240,6 +245,9 @@ def _large_960h() -> Wav2Vec2TrainConfig:
     config = Wav2Vec2TrainConfig()
     config.model_arch = "large"
 
+    assert isinstance(config.optimizer_config, AdamWConfig)
+    assert isinstance(config.lr_scheduler_config, PolynomialDecayLRConfig)
+
     model_config = wav2vec2_archs.get("large", return_empty=True)
     model_config.encoder_config.first_pass_dropout_p = 0.1
     model_config.max_temporal_mask_prob = 0.65
@@ -257,6 +265,9 @@ def _large_960h() -> Wav2Vec2TrainConfig:
 @wav2vec2_train_preset("large_960h_perf")
 def _large_960h_perf() -> Wav2Vec2TrainConfig:
     config = _large_960h()
+
+    assert isinstance(config.lr_scheduler_config, PolynomialDecayLRConfig)
+
     config.max_num_steps = 10000
     config.lr_scheduler_config.num_warmup_steps = 800
     return config
@@ -403,7 +414,9 @@ def load_wav2vec2_trainer(
         ) from ex
 
     # Initialize the validation unit.
-    valid_unit = Wav2Vec2EvalUnit(dp_model, gang)
+    valid_unit = Wav2Vec2EvalUnit(
+        dp_model, gang, config.diversity_loss_weight, config.penalty_weight
+    )
 
     try:
         valid_data_reader = dataset.create_reader(
