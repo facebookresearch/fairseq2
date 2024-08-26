@@ -97,13 +97,7 @@ class SequenceMetricBag(TaskMetricBag):
 
     @torch.inference_mode()
     def update_nll_loss(self, batch: SequenceBatch, loss: Tensor) -> None:
-        """Update the NLL loss metric.
-
-        :param batch:
-            The batch processed by the model.
-        :param nll_loss:
-            The loss of ``batch``.
-        """
+        """Update the NLL loss metric."""
         num_target_elements = batch.num_target_elements()
 
         self._nll_loss.update(
@@ -112,11 +106,7 @@ class SequenceMetricBag(TaskMetricBag):
 
     @torch.inference_mode()
     def update_batch_metrics(self, batch: SequenceBatch) -> None:
-        """Update the batch metrics.
-
-        :param batch:
-            The batch processed by the model.
-        """
+        """Update the batch metrics."""
         num_examples = batch.batch_size
         num_elements = batch.num_elements()
 
@@ -168,13 +158,7 @@ class Seq2SeqMetricBag(TaskMetricBag):
 
     @torch.inference_mode()
     def update_nll_loss(self, batch: Seq2SeqBatch, loss: Tensor) -> None:
-        """Update the NLL loss metric.
-
-        :param batch:
-            The batch processed by the model.
-        :param nll_loss:
-            The loss of ``batch``.
-        """
+        """Update the NLL loss metric."""
         num_target_elements = batch.num_target_elements()
 
         self._nll_loss.update(
@@ -183,11 +167,7 @@ class Seq2SeqMetricBag(TaskMetricBag):
 
     @torch.inference_mode()
     def update_batch_metrics(self, batch: Seq2SeqBatch) -> None:
-        """Update the batch metrics.
-
-        :param batch:
-            The batch processed by the model.
-        """
+        """Update the batch metrics."""
         num_examples = batch.batch_size
 
         num_source_elements = batch.num_source_elements()
@@ -243,11 +223,7 @@ class SequenceGenerationMetricBag(TaskMetricBag):
 
     @torch.inference_mode()
     def update_batch_metrics(self, output: SequenceGeneratorOutput) -> None:
-        """Update the batch metrics.
-
-        :param output:
-            The :class:`SequenceGenerator` output.
-        """
+        """Update the batch metrics."""
         num_examples = len(output.hypotheses)
 
         prefill_size = output.counters.prefill_size
@@ -305,13 +281,7 @@ class Seq2SeqGenerationMetricBag(TaskMetricBag):
     def update_batch_metrics(
         self, output: Seq2SeqGeneratorOutput, num_source_elements: int
     ) -> None:
-        """Update the batch metrics.
-
-        :param output:
-            The :class:`Seq2SeqGenerator` output.
-        :param num_source_elements:
-            The number of source elements processed by the model.
-        """
+        """Update the batch metrics."""
         num_examples = len(output.hypotheses)
 
         prefill_size = output.counters.prefill_size

@@ -17,7 +17,7 @@ from fairseq2.typing import DataClass, is_dataclass_instance
 
 class _EmptyType:
     def __reduce__(self) -> str:
-        return _EmptyType.__name__
+        return "EMPTY"
 
     def __copy__(self) -> Self:
         return self
