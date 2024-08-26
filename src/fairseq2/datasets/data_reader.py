@@ -113,8 +113,16 @@ class DataPipelineReader(DataReader[BatchT]):
         for idx in range(self._num_accumulate):
             try:
                 batch = next(self._pipeline_iter)
+            
             except StopIteration:
                 break
+            except Exception as e:
+                log.warning("🐞🐞🐞🐞🐞🐞🐞🐞 🐞🐞🐞🐞🐞🐞🐞")
+                log.warning(f"Error on {idx=}")
+                log.warning(f"Current {e.__class__}: {e}")
+                log.warning(f"Nested {e.__cause__.__class__}:{e.__cause__}")
+                log.warning("🐞🐞🐞🐞🐞🐞🐞🐞 🐞🐞🐞🐞🐞🐞🐞")
+                continue
 
             batches.append(batch)
 

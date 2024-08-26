@@ -43,6 +43,8 @@ def retrieve_asset_card(name_or_card: AssetReference) -> AssetCard:
     try:
         return default_asset_store.retrieve_card(name)
     except AssetNotFoundError:
+        # Y@ng ====== DEBUG
+        assert False, "default_asset_store.retrieve_card fails"
         pass
 
     try:

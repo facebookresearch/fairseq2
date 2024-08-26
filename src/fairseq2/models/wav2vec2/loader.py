@@ -47,9 +47,18 @@ def convert_wav2vec2_checkpoint(
 
         del state_dict["encoder.layer_norm.weight"]
         del state_dict["encoder.layer_norm.bias"]
+    
+    elif config.encoder_config.norm_order == TransformerNormOrder.PRE:
+        # yong: not sure if my implementation is right
+        # without this, I will have the following error for loading mms_300m (fairseq1):
+        ##### RuntimeError: Error(s) in loading state_dict for Wav2Vec2Model:                                                     
+        ##### Missing key(s) in state_dict: "encoder_frontend.layer_norm.weight", "encoder_frontend.layer_norm.bias".
+        state_dict["encoder_frontend.layer_norm.weight"] = state_dict["encoder.layer_norm.weight"]
+        state_dict["encoder_frontend.layer_norm.bias"]   = state_dict["encoder.layer_norm.bias"]
 
     state_dict["quantizer.num_updates"] = torch.zeros((), device="cpu")
-
+    
+    # state_dict: original fairseq1 model
     # err message @ Missing key(s) in state_dict => value
     # err message @ Unexpected key(s) in state_dict => key
     key_map = {

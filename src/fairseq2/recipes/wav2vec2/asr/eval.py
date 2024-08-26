@@ -45,6 +45,8 @@ from fairseq2.recipes.wav2vec2.asr.common import Wav2Vec2AsrMetricBag
 from fairseq2.typing import META, DataType
 from fairseq2.utils.profiler import Stopwatch
 
+import pprint
+
 log = get_log_writer(__name__)
 
 
@@ -68,7 +70,7 @@ class Wav2Vec2AsrEvalConfig:
     max_num_elements: int = 3_200_000
     """The maximum number of elements per batch."""
 
-    normalize_audio: bool = False
+    normalize_audio: bool = True # NEED TO SET THIS TO TRUE!
     """If ``True``, normalizes audio to have zero mean and unit variance."""
 
     num_prefetch: int = 4
@@ -98,14 +100,103 @@ wav2vec2_asr_eval_preset = wav2vec2_asr_eval_presets.decorator
 def _base_10h() -> Wav2Vec2AsrEvalConfig:
     return Wav2Vec2AsrEvalConfig()
 
-@wav2vec2_asr_eval_preset("eval_asr_bible_eng_accent")
-def _asr_bible_eng_accent() -> Wav2Vec2AsrEvalConfig:
-    config = _base_10h()
+################################################################################
+################################################################################
+# MODEL_NAME="wav2vec2_asr_base_10h"
+MODEL_NAME="mms_base_300m_ENGNIV"
+# MODEL_NAME="mms_base_300m_ENGNIVN1DA"
+# MODEL_NAME="mms_base_300m_ENGNIVN1DA_3x"
+# MODEL_NAME="mms_base_300m_ENGNIVN1DA_3x_100h"
+# MODEL_NAME="mms_base_300m_speed"
+# MODEL_NAME="mms_base_300m_pitch"
+# MODEL_NAME="mms_base_300m_speed2"
 
-    config.dataset = "bible_eng_accent"
+@wav2vec2_asr_eval_preset("test_ENGNIVN1DA")
+def _asr_bible_eng_accent() -> Wav2Vec2AsrEvalConfig:
+    # fairseq2 wav2vec2_asr eval /checkpoint/$USER/wav2vec2_asr/eval --preset test_ENGNIVN1DA
+    config = Wav2Vec2AsrEvalConfig()
+    config.dataset = "bible_eng_ENGNIVN1DA"
     config.split = "test"
+    config.model = MODEL_NAME
     return config
 
+@wav2vec2_asr_eval_preset("test_ENGNIV")
+def _asr_bibleniv_eng_accent() -> Wav2Vec2AsrEvalConfig:
+    # fairseq2 wav2vec2_asr eval /checkpoint/$USER/wav2vec2_asr/eval --preset test_ENGNIVN1DA
+    config = Wav2Vec2AsrEvalConfig()
+    config.dataset = "bible_eng_ENGNIV"
+    config.split = "test"
+    config.model = MODEL_NAME
+    return config
+
+
+@wav2vec2_asr_eval_preset("test_fleurs_en_us")
+def _asr_fleurs_eng_accent() -> Wav2Vec2AsrEvalConfig:
+    # fairseq2 wav2vec2_asr eval /checkpoint/$USER/wav2vec2_asr/eval --preset test_fleurs_en_us
+    config = Wav2Vec2AsrEvalConfig()
+    config.dataset = "fleurs_en_us"
+    config.split = "test"
+    config.model = MODEL_NAME
+    return config
+
+@wav2vec2_asr_eval_preset("test_commonvoice_en")
+def _asr_commonvoice_eng_accent() -> Wav2Vec2AsrEvalConfig:
+    # fairseq2 wav2vec2_asr eval /checkpoint/$USER/wav2vec2_asr/eval --preset test_fleurs_en_us
+    config = Wav2Vec2AsrEvalConfig()
+    config.dataset = "commonvoice_en"
+    config.split = "test"
+    config.model = MODEL_NAME
+    return config
+
+@wav2vec2_asr_eval_preset("test_l2arctic_ara_accent")
+def _asr_l2arctic_ara_accent() -> Wav2Vec2AsrEvalConfig:
+    # fairseq2 wav2vec2_asr eval /checkpoint/$USER/wav2vec2_asr/eval --preset test_l2arctic_ara_accent
+    config = Wav2Vec2AsrEvalConfig()
+    config.dataset = "l2arctic_ara_accent"
+    config.split = "test"
+    config.model = MODEL_NAME
+    return config
+
+@wav2vec2_asr_eval_preset("test_l2arctic_hin_accent")
+def _asr_l2arctic_hin_accent() -> Wav2Vec2AsrEvalConfig:
+    config = Wav2Vec2AsrEvalConfig()
+    config.dataset = "l2arctic_hin_accent"
+    config.split = "test"
+    config.model = MODEL_NAME
+    return config
+
+@wav2vec2_asr_eval_preset("test_l2arctic_kor_accent")
+def _asr_l2arctic_kor_accent() -> Wav2Vec2AsrEvalConfig:
+    config = Wav2Vec2AsrEvalConfig()
+    config.dataset = "l2arctic_kor_accent"
+    config.split = "test"
+    config.model = MODEL_NAME
+    return config
+
+@wav2vec2_asr_eval_preset("test_l2arctic_vie_accent")
+def _asr_l2arctic_vie_accent() -> Wav2Vec2AsrEvalConfig:
+    config = Wav2Vec2AsrEvalConfig()
+    config.dataset = "l2arctic_vie_accent"
+    config.split = "test"
+    config.model = MODEL_NAME
+    return config
+
+@wav2vec2_asr_eval_preset("test_l2arctic_spa_accent")
+def _asr_l2arctic_spa_accent() -> Wav2Vec2AsrEvalConfig:
+    config = Wav2Vec2AsrEvalConfig()
+    config.dataset = "l2arctic_spa_accent"
+    config.split = "test"
+    config.model = MODEL_NAME
+    return config
+
+@wav2vec2_asr_eval_preset("test_l2arctic_zho_accent")
+def _asr_l2arctic_zho_accent() -> Wav2Vec2AsrEvalConfig:
+    config = Wav2Vec2AsrEvalConfig()
+    config.dataset = "l2arctic_zho_accent"
+    config.split = "test"
+    config.model = MODEL_NAME
+    return config
+################################################################################
 
 def load_wav2vec2_asr_evaluator(
     config: Wav2Vec2AsrEvalConfig, output_dir: Path
@@ -120,8 +211,6 @@ def load_wav2vec2_asr_evaluator(
             )
         )
 
-        print("<<<<<<< CKPT <<<<<<", config.checkpoint_dir)
-
     gang = setup_root_gang(log)
 
     seed = config.seed
@@ -130,6 +219,11 @@ def load_wav2vec2_asr_evaluator(
 
     # Load the tokenizer.
     log.info("Loading {} tokenizer.", model_card.name)
+    
+    # Set up output_dir
+    output_dir = output_dir / model_card.name
+    output_dir.mkdir(parents=True, exist_ok=True)
+    log.info(f"output_dir ===> {str(output_dir)}")
 
     tokenizer = load_text_tokenizer(model_card)
 
@@ -382,6 +476,8 @@ class Wav2Vec2AsrEvalMetricBag(Wav2Vec2AsrMetricBag):
         super().process_metric_values(values)
 
         uer, wer = values.pop("wer")
+
+        print(uer, wer)
 
         values["uer"] = uer
         values["wer"] = wer

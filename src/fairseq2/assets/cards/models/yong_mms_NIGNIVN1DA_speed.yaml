@@ -1,0 +1,7 @@
+##########################################################
+####################### evaluation #######################
+name: mms_base_300m_speed
+model_family: wav2vec2_asr
+model_arch: mms_base_300m_asr
+checkpoint: "/checkpoint/yongzx/wav2vec2_asr/train_eng_accent_ENGNIVN1DA_speed/preset_asr_eng_accent_speed_preset.ws_1/checkpoints/step_20000/model.pt"
+tokenizer_ref: librispeech_asr

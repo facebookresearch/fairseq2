@@ -91,6 +91,11 @@ class WerMetric(Metric[tuple[Tensor, Tensor]]):
 
             self.unit_err += unit_err
             self.word_err += word_err
+            print(f"{ref=}")
+            print(f"{hyp=}")
+            print(f"{unit_err=}")
+            print(f"{word_err=}")
+            assert False
 
             self.unit_len += len(ref_units)
             self.word_len += len(ref_words)

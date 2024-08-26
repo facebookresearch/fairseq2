@@ -36,7 +36,7 @@ def _mms_base_300m() -> Wav2Vec2Config:
     config.final_dim = 768
     config.quantized_dim = 768
 
-    config.encoder_config.layer_norm_features = False
+    config.encoder_config.layer_norm_features = True
     config.encoder_config.feature_extractor_bias = True
     config.encoder_config.feature_extractor_layer_norm_convs = True
     config.encoder_config.norm_order = TransformerNormOrder.PRE # I've checked `self.layer_norm_first` in fairseq/fairseq/models/wav2vec/wav2vec2.py for loading MMS-ASR

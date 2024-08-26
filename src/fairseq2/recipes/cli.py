@@ -553,6 +553,9 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
             sys.exit()
 
         # Load the specified preset configuration.
+        
+        # preset_config = self._preset_configs.get(args.preset)
+        # assert False
         try:
             preset_config = self._preset_configs.get(args.preset)
         except ValueError:

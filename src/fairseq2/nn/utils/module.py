@@ -194,6 +194,7 @@ def share_parameters(source_module: Module, target_module: Module) -> None:
     targets = chain(target_module.named_parameters(), target_module.named_buffers())
 
     for (src_name, src_tensor), (tgt_name, tgt_tensor) in zip(sources, targets):
+        # print(src_name, tgt_name)
         if src_name != tgt_name:
             raise ValueError(
                 f"`source_module` and `target_module` must have matching parameters and buffers, but `target_module` has no '{src_name}'."
@@ -225,7 +226,6 @@ def share_parameters(source_module: Module, target_module: Module) -> None:
 
     if not tensors:
         return
-
     it = iter(tensors)
 
     # Do not memoize. No need anyways, and would also break the sync between the
