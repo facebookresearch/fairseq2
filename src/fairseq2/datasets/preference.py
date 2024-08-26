@@ -228,7 +228,7 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
                 target_mask_rejected = torch.full([len(indices_rejected)], True)
 
             total_tokens = (
-                len(prompt_indices)
+                2 * len(prompt_indices)
                 + len(target_indices_chosen)
                 + len(target_indices_rejected)
             )
