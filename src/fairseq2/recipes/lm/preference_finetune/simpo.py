@@ -25,8 +25,8 @@ from fairseq2.models.sequence import (
     SequenceModelOutput,
     as_auto_regressive_input,
 )
-from fairseq2.recipes.common_metrics import SequenceMetricBag
 from fairseq2.recipes.lm.preference_finetune.recipe import preference_unit_factory
+from fairseq2.recipes.lm.preference_finetune.utils import PreferenceFinetuneMetricBag
 from fairseq2.recipes.trainer import AbstractTrainUnit
 
 log = get_log_writer(__name__)
@@ -84,11 +84,11 @@ class SimPOFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
             chosen_target_batch.seqs, loss_mask=chosen_target_batch.target_mask
         )
 
-        self._metric_bag.update_simpo_loss(chosen_batch, simpo_loss)
+        self._metric_bag.update_simpo_loss(batch, simpo_loss)
 
-        self._metric_bag.update_nll_loss(chosen_batch, nll_loss)
+        self.metric_bag.update_logps(batch, chosen_logps, rejected_logps)
 
-        self._metric_bag.update_batch_metrics(chosen_batch)
+        self.metric_bag.update_sequence_lengths(batch)
 
         loss = (
             simpo_loss
@@ -143,8 +143,19 @@ class SimPOFinetuneMetricBag(SequenceMetricBag):
         self.register_metric("_simpo_loss", Mean(device=gang.device), persistent=False)
 
     @torch.inference_mode()
-    def update_simpo_loss(self, batch: SequenceBatch, loss: Tensor) -> None:
-        self._simpo_loss.update(loss / batch.batch_size, weight=batch.batch_size)
+    def update_simpo_loss(
+        self, batch: PreferenceOptimizationBatch, loss: Tensor
+    ) -> None:
+        """Update the SimPO loss metric.
+
+        :param batch:
+            The batch processed by the model.
+        :param loss:
+            The SimPO loss of ``batch``.
+        """
+        self._simpo_loss.update(
+            loss / batch.chosen.batch_size, weight=batch.chosen.batch_size
+        )
 
 
 @dataclass(kw_only=True)
