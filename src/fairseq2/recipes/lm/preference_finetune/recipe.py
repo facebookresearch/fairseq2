@@ -18,7 +18,7 @@ from fairseq2.assets import AssetNotFoundError, default_asset_store
 from fairseq2.checkpoint import CheckpointModelMetadataProvider, FileCheckpointManager
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_text_tokenizer
-from fairseq2.datasets import LengthBatching
+from fairseq2.datasets import LengthBatching, StaticBatching
 from fairseq2.datasets.preference import (
     GenericPreferenceOptimizationDataset,
     PreferenceOptimizationBatch,
@@ -61,6 +61,9 @@ class PreferenceOptimizationConfig:
 
     max_num_tokens: int = 8192 * 2
     """The maximum number of total `src`, `tgt_chosen`, and `tgt_rejected` tokens per batch."""
+
+    batch_size: int | None = None
+    """If not ``None``, ignores `max_num_tokens` and each batch will have `batch_size` examples."""
 
     example_shuffle_window: int = 10_000
     """The size of the sliding window for shuffling examples."""
@@ -348,12 +351,19 @@ def load_preference_finetuner(
             "The criterion cannot be initialized. See nested exception for details."
         ) from ex
 
+    # Initialize the data reader.
+    batching: StaticBatching | LengthBatching
+    if config.batch_size is not None:
+        batching = StaticBatching(config.batch_size)
+    else:
+        batching = LengthBatching(config.max_num_tokens)
+
     try:
         data_reader = dataset.create_reader(
             tokenizer,
             dp_gang,
             max_seq_len=config.max_seq_len,
-            batching=LengthBatching(config.max_num_tokens),
+            batching=batching,
             max_num_tokens=config.max_num_tokens,
             example_shuffle_window=config.example_shuffle_window,
             batch_shuffle_window=config.batch_shuffle_window,
