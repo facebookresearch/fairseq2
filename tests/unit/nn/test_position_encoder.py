@@ -175,12 +175,12 @@ class TestSinusoidalPositionEncoder:
 
 class TestLearnedPositionEncoder:
     def test_init_works(self) -> None:
-        with temporary_manual_seed([device], seed=2):
+        with temporary_manual_seed(2, device):
             m = LearnedPositionEncoder(encoding_dim=32, max_seq_len=10, device=device)
 
         assert m.weight.dtype == torch.float32
 
-        with temporary_manual_seed([device], seed=2):
+        with temporary_manual_seed(2, device):
             expected_weight = torch.randn(10, 32, device=device)
 
         assert_close(m.weight, expected_weight)

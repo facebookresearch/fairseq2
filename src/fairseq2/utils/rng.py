@@ -6,8 +6,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator, Mapping
-from contextlib import AbstractContextManager, contextmanager, nullcontext
+from collections.abc import Iterator, Mapping
+from contextlib import AbstractContextManager, contextmanager
 from typing import Any, final
 
 import torch
@@ -143,19 +143,15 @@ class RngBag:
             self._generators[idx].set_state(state.clone())
 
 
-def temporary_manual_seed(
-    devices: Iterable[Device], seed: int | None
-) -> AbstractContextManager[None]:
-    """Temporarily change the seed of the random number generators of ``devices``.
+def manual_seed(seed: int, *devices: Device) -> None:
+    """Change the seed of the random number generators of ``devices``."""
+    rng_bag = RngBag.from_device_defaults(*devices)
 
-    :param devices:
-        The devices whose random number generators will be updated.
-    :param seed:
-        The seed to set. If ``None``, becomes a no-op.
-    """
-    if seed is None:
-        return nullcontext()
+    rng_bag.manual_seed(seed)
 
+
+def temporary_manual_seed(seed: int, *devices: Device) -> AbstractContextManager[None]:
+    """Temporarily change the seed of the random number generators of ``devices``."""
     rng_bag = RngBag.from_device_defaults(*devices)
 
     return rng_bag.temporary_manual_seed(seed)

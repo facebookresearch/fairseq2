@@ -227,12 +227,19 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
                 target_mask_chosen = torch.full([len(indices_chosen)], True)
                 target_mask_rejected = torch.full([len(indices_rejected)], True)
 
+            total_tokens = (
+                2 * len(prompt_indices)
+                + len(target_indices_chosen)
+                + len(target_indices_rejected)
+            )
+
             return {
                 "id": id_,
                 "indices_chosen": indices_chosen,
                 "indices_rejected": indices_rejected,
                 "target_mask_chosen": target_mask_chosen,
                 "target_mask_rejected": target_mask_rejected,
+                "total_tokens": total_tokens,
             }
 
         builder.map(cat_source_and_target, num_parallel_calls=npc)
@@ -245,7 +252,7 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
             # Bucket by the sequence length.
             builder.bucket_by_length(
                 bucket_sizes,
-                selector="indices_chosen,indices_rejected",
+                selector="total_tokens",
                 skip_above_max_examples=True,
                 drop_remainder=drop_remainder,
             )

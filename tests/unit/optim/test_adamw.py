@@ -56,10 +56,10 @@ class TestAdamW:
                 assert_close(p1, p2)
 
     def run_step(self, dtype: DataType) -> tuple[Module, Module]:
-        with temporary_manual_seed([device], seed=2):
+        with temporary_manual_seed(2, device):
             net1 = AdamWTestNet(dtype)
 
-        with temporary_manual_seed([device], seed=2):
+        with temporary_manual_seed(2, device):
             net2 = AdamWTestNet(dtype)
 
         opt1 = AdamW(

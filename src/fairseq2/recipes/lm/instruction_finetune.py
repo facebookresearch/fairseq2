@@ -52,8 +52,9 @@ from fairseq2.recipes.utils.setup import (
     setup_gangs,
     to_data_parallel,
 )
-from fairseq2.typing import META, DataClass, DataType
+from fairseq2.typing import CPU, META, DataClass, DataType
 from fairseq2.utils.profiler import Stopwatch
+from fairseq2.utils.rng import manual_seed
 
 log = get_log_writer(__name__)
 
@@ -258,8 +259,6 @@ def load_instruction_finetuner(
             CheckpointModelMetadataProvider(config.resume_checkpoint_dir)
         )
 
-    seed = config.seed
-
     model_card = retrieve_asset_card(config.model)
 
     # Load the tokenizer.
@@ -286,7 +285,13 @@ def load_instruction_finetuner(
 
         dataset = GenericInstructionDataset.from_path(dataset_path)
 
-    # Load the model.
+    seed = config.seed
+
+    # Load the model
+    manual_seed(seed, CPU, root_gang.device)
+
+    seed += 1
+
     init_device = META
 
     has_checkpoint = checkpoint_manager.has_checkpoint()

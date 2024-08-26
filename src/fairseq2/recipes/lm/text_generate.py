@@ -38,8 +38,9 @@ from fairseq2.recipes.utils.asset import (
 )
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.recipes.utils.setup import broadcast_model, setup_gangs
-from fairseq2.typing import META, DataClass, DataType
+from fairseq2.typing import CPU, META, DataClass, DataType
 from fairseq2.utils.profiler import Stopwatch
+from fairseq2.utils.rng import manual_seed
 
 log = get_log_writer(__name__)
 
@@ -159,8 +160,6 @@ def load_text_generator(
     dp_gang = gangs["dp"]  # data
     tp_gang = gangs["tp"]  # tensor
 
-    seed = config.seed
-
     model_card = retrieve_asset_card(config.model)
 
     # Load the tokenizer.
@@ -187,7 +186,13 @@ def load_text_generator(
 
         dataset = GenericInstructionDataset.from_path(dataset_path)
 
-    # Load the model.
+    seed = config.seed
+
+    # Load the model
+    manual_seed(seed, CPU, root_gang.device)
+
+    seed += 1
+
     log.info("Loading {} model on data parallel rank 0 (per shard).", model_card.name)
 
     if dp_gang.rank == 0:
