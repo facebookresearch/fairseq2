@@ -134,21 +134,11 @@ class PreferenceFinetuneMetricBag(SequenceMetricBag):
         :param batch:
             The batch processed by the model.
         """
-        if batch.chosen.target_mask is not None:
-            chosen_lengths = batch.chosen.target_mask.sum(dim=-1)
-        else:
-            chosen_lengths = batch.chosen.seqs.count_nonzero(dim=-1)
-
-        if batch.rejected.target_mask is not None:
-            rejected_lengths = batch.rejected.target_mask.sum(dim=-1)
-        else:
-            rejected_lengths = batch.rejected.seqs.count_nonzero(dim=-1)
-
         self._chosen_lengths.update(
-            chosen_lengths.sum() / batch.chosen.batch_size,
+            batch.chosen.num_target_elements() / batch.chosen.batch_size,
             weight=batch.chosen.batch_size,
         )
         self._rejected_lengths.update(
-            rejected_lengths.sum() / batch.rejected.batch_size,
+            batch.rejected.num_target_elements() / batch.rejected.batch_size,
             weight=batch.rejected.batch_size,
         )
