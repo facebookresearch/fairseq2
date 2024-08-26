@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from fairseq2.recipes.lm.preference_finetune.dpo import DPOConfig as DPOConfig
+from fairseq2.recipes.lm.preference_finetune.dpo import DpoConfig as DpoConfig
 from fairseq2.recipes.lm.preference_finetune.recipe import (
     load_preference_finetuner as load_preference_finetuner,
 )

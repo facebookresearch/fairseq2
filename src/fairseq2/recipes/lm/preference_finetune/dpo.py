@@ -36,13 +36,13 @@ log = get_log_writer(__name__)
 
 
 @final
-class DPOFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
+class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
     """Represents the language model DPO-finetuning unit. Paper: https://arxiv.org/abs/2305.18290."""
 
     _reference_model: Module
     _beta: float
     _nll_scale: float
-    _metric_bag: DPOFinetuneMetricBag
+    _metric_bag: DpoFinetuneMetricBag
 
     def __init__(
         self,
@@ -58,7 +58,7 @@ class DPOFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
         self._beta = beta
         self._nll_scale = nll_scale
 
-        self._metric_bag = DPOFinetuneMetricBag(gang)
+        self._metric_bag = DpoFinetuneMetricBag(gang)
 
     @override
     def __call__(self, batch: PreferenceOptimizationBatch) -> tuple[Tensor, int]:
@@ -96,7 +96,7 @@ class DPOFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
         nll_loss = chosen_output.compute_loss(
             chosen_target_batch.seqs, loss_mask=chosen_target_batch.target_mask
         )
-        
+
         self._metric_bag.update_dpo_loss(chosen_batch, dpo_loss)
 
         self._metric_bag.update_nll_loss(chosen_batch, nll_loss)
@@ -142,14 +142,14 @@ class DPOFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
 
     @property
     @override
-    def metric_bag(self) -> DPOFinetuneMetricBag:
+    def metric_bag(self) -> DpoFinetuneMetricBag:
         return self._metric_bag
 
 
 register_metric_formatter("dpo_loss", "DPO Loss", 0, format_as_float)
 
 
-class DPOFinetuneMetricBag(SequenceMetricBag):
+class DpoFinetuneMetricBag(SequenceMetricBag):
     _dpo_loss: Mean
 
     def __init__(self, gang: Gang) -> None:
@@ -163,7 +163,7 @@ class DPOFinetuneMetricBag(SequenceMetricBag):
 
 
 @dataclass(kw_only=True)
-class DPOConfig:
+class DpoConfig:
     """Holds the DPO configuration of a language model preference-finetuning task."""
 
     # Reference Model
@@ -186,8 +186,8 @@ class DPOConfig:
 
 @preference_unit_factory("dpo")
 def create_dpo_unit(
-    config: DPOConfig, model: Module, root_gang: Gang, gangs: Mapping[str, Gang]
-) -> DPOFinetuneUnit:
+    config: DpoConfig, model: Module, root_gang: Gang, gangs: Mapping[str, Gang]
+) -> DpoFinetuneUnit:
     reference_model = _load_reference_model(
         config.reference_model,
         config.reference_dtype,
@@ -199,7 +199,7 @@ def create_dpo_unit(
 
     dp_gang = gangs["dp"]  # data
 
-    return DPOFinetuneUnit(
+    return DpoFinetuneUnit(
         model,
         reference_model,
         dp_gang,
