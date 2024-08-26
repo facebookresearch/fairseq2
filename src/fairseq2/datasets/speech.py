@@ -11,7 +11,7 @@ from typing import Any
 
 import torch
 
-from fairseq2.datasets.batching import LengthBatching, StaticBatching
+from fairseq2.datasets.batching import Batching
 from fairseq2.datasets.data_reader import DataReader
 from fairseq2.datasets.loader import DelegatingDatasetLoader
 from fairseq2.gang import Gang
@@ -28,7 +28,7 @@ class SpeechDataset(ABC):
         split: str,
         gang: Gang,
         max_audio_len: int,
-        batching: StaticBatching | LengthBatching,
+        batching: Batching,
         *,
         dtype: DataType = torch.float32,
         min_audio_len: int = 1,

@@ -18,7 +18,7 @@ from fairseq2.assets import AssetNotFoundError, default_asset_store
 from fairseq2.checkpoint import CheckpointModelMetadataProvider, FileCheckpointManager
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_text_tokenizer
-from fairseq2.datasets import LengthBatching, StaticBatching
+from fairseq2.datasets import Batching, LengthBatching, StaticBatching
 from fairseq2.datasets.preference import (
     GenericPreferenceOptimizationDataset,
     PreferenceOptimizationBatch,
@@ -57,7 +57,8 @@ class PreferenceOptimizationConfig:
     """The name, path, or path to the asset card of the preference optimization dataset."""
 
     max_seq_len: int = 8192
-    """The maximum `src` + `tgt_chosen` and `src` + `tgt_rejected` sequence length. Longer sequences will be dropped."""
+    """The maximum sum of ``src + tgt_chosen`` and ``src + tgt_rejected``.
+    Longer sequences will be dropped."""
 
     max_num_tokens: int = 8192 * 2
     """The maximum number of total `src`, `tgt_chosen`, and `tgt_rejected` tokens per batch."""
@@ -352,7 +353,8 @@ def load_preference_finetuner(
         ) from ex
 
     # Initialize the data reader.
-    batching: StaticBatching | LengthBatching
+    batching: Batching
+
     if config.batch_size is not None:
         batching = StaticBatching(config.batch_size)
     else:

@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from fairseq2.datasets.batching import Batching as Batching
 from fairseq2.datasets.batching import LengthBatching as LengthBatching
 from fairseq2.datasets.batching import StaticBatching as StaticBatching
 from fairseq2.datasets.data_reader import DataPipelineReader as DataPipelineReader

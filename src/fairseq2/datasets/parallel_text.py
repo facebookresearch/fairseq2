@@ -23,7 +23,7 @@ from fairseq2.data import (
     create_bucket_sizes,
 )
 from fairseq2.data.text import TextTokenizer, read_text
-from fairseq2.datasets.batching import LengthBatching, StaticBatching
+from fairseq2.datasets.batching import Batching, LengthBatching, StaticBatching
 from fairseq2.datasets.data_reader import DataPipelineReader, DataReader
 from fairseq2.datasets.error import DatasetError
 from fairseq2.datasets.loader import AbstractDatasetLoader, DelegatingDatasetLoader
@@ -65,7 +65,7 @@ class ParallelTextDataset(ABC):
         tokenizer: TextTokenizer,
         gang: Gang,
         max_seq_len: int,
-        batching: StaticBatching | LengthBatching,
+        batching: Batching,
         *,
         direction: Direction | None = None,
         min_seq_len: int = 1,
@@ -280,7 +280,7 @@ class GenericParallelTextDataset(ParallelTextDataset):
         tokenizer: TextTokenizer,
         gang: Gang,
         max_seq_len: int,
-        batching: StaticBatching | LengthBatching,
+        batching: Batching,
         *,
         direction: Direction | None = None,
         min_seq_len: int = 1,
@@ -387,7 +387,7 @@ class GenericParallelTextDataset(ParallelTextDataset):
                 skip_above_max_examples=True,
                 drop_remainder=drop_remainder,
             )
-        else:
+        elif isinstance(batching, StaticBatching):
             # Filter out out-of-range examples.
             def skip(example: dict[str, Any]) -> bool:
                 source_len = len(example["source_indices"])
@@ -401,6 +401,8 @@ class GenericParallelTextDataset(ParallelTextDataset):
 
             # Bucket `batch_size` examples.
             builder.bucket(batching.batch_size, drop_remainder=drop_remainder)
+        else:
+            raise RuntimeError(f"`{batching}` is not supported.")
 
         # Shuffle buckets.
         if batch_shuffle_window != 1:
