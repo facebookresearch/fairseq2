@@ -50,8 +50,9 @@ from fairseq2.recipes.utils.setup import (
 )
 from fairseq2.recipes.wav2vec2.asr.common import Wav2Vec2AsrMetricBag
 from fairseq2.recipes.wav2vec2.asr.eval import Wav2Vec2AsrEvalUnit
-from fairseq2.typing import META, DataClass, DataType
+from fairseq2.typing import CPU, META, DataClass, DataType
 from fairseq2.utils.profiler import Stopwatch
+from fairseq2.utils.rng import manual_seed
 
 log = get_log_writer(__name__)
 
@@ -292,8 +293,6 @@ def load_wav2vec2_asr_trainer(
             )
         )
 
-    seed = config.seed
-
     tokenizer_card = retrieve_asset_card(config.tokenizer)
 
     # Load the tokenizer.
@@ -320,7 +319,13 @@ def load_wav2vec2_asr_trainer(
 
         dataset = GenericAsrDataset.from_path(dataset_path)
 
+    seed = config.seed
+
     # Initialize the model
+    manual_seed(seed, CPU, gang.device)
+
+    seed += 1
+
     try:
         model, model_config = create_model(
             config.model_family,
@@ -372,9 +377,7 @@ def load_wav2vec2_asr_trainer(
         log.info("Pretrained model loaded on rank 0.")
 
         if gang.rank == 0:
-            to_device(model, gang.device, seed=seed)
-
-        seed += 1
+            to_device(model, gang.device)
 
         gang.barrier()
 

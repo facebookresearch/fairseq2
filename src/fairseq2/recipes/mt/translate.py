@@ -115,8 +115,6 @@ def load_text_translator(
 
     gang = setup_root_gang(log)
 
-    seed = config.seed
-
     model_card = retrieve_asset_card(config.model)
 
     # Load the tokenizer.
@@ -220,6 +218,8 @@ def load_text_translator(
     text_encoder = tokenizer.create_encoder(
         task="translation", lang=config.source_lang, mode="source"
     )
+
+    seed = config.seed
 
     try:
         data_reader = dataset.create_reader(
