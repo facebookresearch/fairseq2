@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.data.data_pipeline &mdash; fairseq2 0.3.0.dev202408260144+g2b3deda documentation</title>
+  <title>fairseq2.data.data_pipeline &mdash; fairseq2 0.3.0.dev202408262213+g7e7a071 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202408260144+g2b3deda
+                0.3.0.dev202408262213+g7e7a071
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -389,6 +389,10 @@
             <span class="bp">self</span><span class="p">,</span>
             <span class="n">threshold</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
             <span class="n">cost_fn</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Any</span><span class="p">],</span> <span class="nb">float</span><span class="p">],</span>
+            <span class="n">bucket_creation_fn</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[</span>
+                <span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Any</span><span class="p">]],</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">Any</span><span class="p">]],</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Any</span><span class="p">]]</span>
+            <span class="p">]</span>
+            <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">min_num_examples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">max_num_examples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">drop_remainder</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
@@ -404,6 +408,13 @@
 <span class="sd">                Threshold for cumulative cost to trigger bucketing.</span>
 <span class="sd">            :param cost_fn:</span>
 <span class="sd">                Cost function that outputs cost for a particular example.</span>
+<span class="sd">            :param bucket_creation_fn:</span>
+<span class="sd">                Function for customizing bucket creation. Called with the bucket of</span>
+<span class="sd">                examples that caused the cost threshold to be exceeded.</span>
+<span class="sd">                Expected to return a tuple of ``(new_buckets, remainder)``, where</span>
+<span class="sd">                the internal buffer is set to ``remainder`` and ``new_buckets`` is</span>
+<span class="sd">                a list of buckets to be yielded. If ``None``, defaults to the</span>
+<span class="sd">                identity function.</span>
 <span class="sd">            :param min_num_examples:</span>
 <span class="sd">                Minimum number of examples per bucket.</span>
 <span class="sd">            :param max_num_examples:</span>
