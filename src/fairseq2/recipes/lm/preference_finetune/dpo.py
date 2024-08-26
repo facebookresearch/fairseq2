@@ -20,14 +20,11 @@ from fairseq2.datasets.preference import PreferenceOptimizationBatch
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.metrics.recorder import format_as_float, register_metric_formatter
-from fairseq2.models.sequence import (
-    SequenceBatch,
-    SequenceModelOutput,
-    as_auto_regressive_input,
-)
+from fairseq2.models.sequence import SequenceModelOutput, as_auto_regressive_input
 from fairseq2.recipes.lm.preference_finetune.recipe import preference_unit_factory
 from fairseq2.recipes.lm.preference_finetune.utils import (
     PreferenceFinetuneMetricBag,
+    _gather_lprobs,
     _load_reference_model,
 )
 from fairseq2.recipes.trainer import AbstractTrainUnit
@@ -74,8 +71,8 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
         chosen_output = cast(SequenceModelOutput, self._model(chosen_input_batch))
         rejected_output = cast(SequenceModelOutput, self._model(rejected_input_batch))
 
-        chosen_logps = self._gather_lprobs(chosen_output, chosen_target_batch)
-        rejected_logps = self._gather_lprobs(rejected_output, rejected_target_batch)
+        chosen_logps = _gather_lprobs(chosen_output, chosen_target_batch)
+        rejected_logps = _gather_lprobs(rejected_output, rejected_target_batch)
 
         with torch.no_grad():
             ref_chosen_output = cast(
@@ -84,10 +81,8 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
             ref_rejected_output = cast(
                 SequenceModelOutput, self._reference_model(rejected_batch)
             )
-            ref_chosen_logps = self._gather_lprobs(
-                ref_chosen_output, chosen_target_batch
-            )
-            ref_rejected_logps = self._gather_lprobs(
+            ref_chosen_logps = _gather_lprobs(ref_chosen_output, chosen_target_batch)
+            ref_rejected_logps = _gather_lprobs(
                 ref_rejected_output, rejected_target_batch
             )
 
@@ -101,9 +96,13 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
 
         self._metric_bag.update_dpo_loss(batch, dpo_loss)
 
-        self.metric_bag.update_logps(batch, chosen_logps, rejected_logps)
+        self._metric_bag.update_nll_loss(chosen_batch, nll_loss)
 
-        self.metric_bag.update_sequence_lengths(batch)
+        self._metric_bag.update_sequence_lengths(batch)
+
+        self._metric_bag.update_logps(batch, chosen_logps, rejected_logps)
+
+        self._metric_bag.update_batch_metrics(chosen_batch)
 
         loss = (
             dpo_loss
@@ -114,15 +113,6 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
         )  # normalization applied locally per-rank
 
         return loss, chosen_target_batch.batch_size
-
-    def _gather_lprobs(
-        self, output: SequenceModelOutput, target: SequenceBatch
-    ) -> Tensor:
-        logprobs = torch.log_softmax(output.logits, dim=-1)
-        chosen_logps = torch.gather(logprobs, -1, target.seqs.unsqueeze(-1)).squeeze(-1)
-        chosen_logps = (chosen_logps * target.target_mask).sum(dim=-1)  # [Batch, 1]
-
-        return chosen_logps
 
     def _compute_dpo_loss(
         self,
