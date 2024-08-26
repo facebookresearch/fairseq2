@@ -96,7 +96,7 @@ _metric_formatters: dict[str, _MetricFormatter] = {
     "loss":                          _MetricFormatter("Loss",                            100, format_as_float),
     "contrastive_loss":              _MetricFormatter("Contrastive Loss",                110, format_as_float),
     "diversity_loss":                _MetricFormatter("Diversity Loss",                  120, format_as_float),
-    "feature_penalty":               _MetricFormatter("Feature Penalty",                 130, format_as_float),
+    "penalty":                       _MetricFormatter("Penalty",                         130, format_as_float),
     "ctc_loss":                      _MetricFormatter("CTC Loss",                        100, format_as_float),
     "nll_loss":                      _MetricFormatter("NLL Loss",                        100, format_as_float),
     "bleu":                          _MetricFormatter("BLEU",                            200, format_as_float),

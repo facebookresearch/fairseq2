@@ -476,7 +476,6 @@ class Wav2Vec2EncoderBuilder:
 
     def build_attention(self) -> MultiheadAttention:
         """Build a Transformer multi-head attention layer."""
-
         if self._config.pos_encoder_type == "rotary":
             pos_encoder = RotaryEncoder(
                 self._config.model_dim // self._config.num_encoder_attn_heads,

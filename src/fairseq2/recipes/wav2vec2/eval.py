@@ -80,6 +80,13 @@ class Wav2Vec2EvalConfig:
     dtype: DataType = torch.float16
     """The data type of the model."""
 
+    # Loss
+    diversity_loss_weight: float = 0.1
+    """The weight of the diversity loss."""
+
+    penalty_weight: float = 10.0
+    """The weight of the regularization penalty applied to the extracted features."""
+
     # Misc
     seed: int = 2
     """The random number generator seed to use."""
@@ -164,7 +171,9 @@ def load_wav2vec2_evaluator(
     log_model(model, log)
 
     # Initialize the evaluation unit.
-    unit = Wav2Vec2EvalUnit(model, gang)
+    unit = Wav2Vec2EvalUnit(
+        model, gang, config.diversity_loss_weight, config.penalty_weight
+    )
 
     try:
         data_reader = dataset.create_reader(
@@ -202,11 +211,15 @@ class Wav2Vec2EvalUnit(AbstractEvalUnit[Tensor]):
     """Represents a wav2vec 2.0 model evaluation unit."""
 
     _metric_bag: Wav2Vec2MetricBag
+    _diversity_loss_weight: float
+    _penalty_weight: float
 
     def __init__(
         self,
         model: Module,
         gang: Gang,
+        diversity_loss_weight: float,
+        penalty_weight: float,
     ) -> None:
         """
         :param model:
@@ -221,6 +234,8 @@ class Wav2Vec2EvalUnit(AbstractEvalUnit[Tensor]):
         check_model_type(model, Wav2Vec2Model)
 
         self._metric_bag = Wav2Vec2MetricBag(gang)
+        self._diversity_loss_weight = diversity_loss_weight
+        self._penalty_weight = penalty_weight
 
     @override
     def __call__(self, batch: Tensor) -> None:
@@ -232,7 +247,10 @@ class Wav2Vec2EvalUnit(AbstractEvalUnit[Tensor]):
 
         num_targets = batch_size * seq_len
 
-        loss = output.compute_loss()
+        loss = output.compute_loss(
+            diversity_loss_weight=self._diversity_loss_weight,
+            penalty_weight=self._penalty_weight,
+        )
 
         self._metric_bag.update_losses(loss.detach(), num_targets)
 

@@ -42,8 +42,6 @@ class Wav2Vec2Model(Model):
     final_target_proj: Linear
     num_distractors: int
     logit_temp: float
-    diversity_loss_weight: float
-    feature_penalty_weight: float
 
     def __init__(
         self,

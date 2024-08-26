@@ -26,7 +26,7 @@ class Wav2Vec2MetricBag(MetricBag):
     _loss: Mean
     _contrastive_loss: Mean
     _diversity_loss: Mean
-    _feature_penalty: Mean
+    _penalty: Mean
     _accuracy: AccuracyMetric
     _code_perplexity: Mean
     _prob_perplexity: Mean
@@ -55,7 +55,7 @@ class Wav2Vec2MetricBag(MetricBag):
 
         self.register_metric("_diversity_loss", Mean(device=d), persistent=False)
 
-        self.register_metric("_feature_penalty", Mean(device=d), persistent=False)
+        self.register_metric("_penalty", Mean(device=d), persistent=False)
 
         self.register_metric("_accuracy", AccuracyMetric(device=d), persistent=False)
 
@@ -98,8 +98,8 @@ class Wav2Vec2MetricBag(MetricBag):
             loss.diversity / num_targets / math.log(2), weight=num_targets
         )
 
-        self._feature_penalty.update(
-            loss.feature_penalty / num_targets / math.log(2),
+        self._penalty.update(
+            loss.penalty / num_targets / math.log(2),
             weight=num_targets,
         )
 
