@@ -13,3 +13,8 @@ tokenizer_family: librispeech_asr
 
 name: librispeech_asr_100h
 base: librispeech_asr
+
+---
+
+name: librispeech_960h
+dataset_family: generic_speech
