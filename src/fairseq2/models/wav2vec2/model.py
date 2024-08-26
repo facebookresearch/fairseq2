@@ -357,28 +357,31 @@ class Wav2Vec2Output:
     :attr:`encoder_output`."""
 
     def compute_loss(
-        self, *, diversity_loss_weight: float = 0.1, penalty_weight: float = 10.0
+        self,
+        *,
+        diversity_loss_weight: float = 0.1,
+        feature_penalty_weight: float = 10.0,
     ) -> Wav2Vec2Loss:
         """Compute the loss.
 
         :param diversity_loss_weight:
             The weight of diversity in loss computation.
-        :param penalty_weight:
+        :param feature_penalty_weight:
             The weight of the feature penalty in loss computation.
         """
         contrastive_loss = self.compute_contrastive_loss()
 
         diversity_loss = self.compute_diversity_loss()
 
-        penalty = self.compute_penalty()
+        feature_penalty = self.compute_feature_penalty()
 
         weighted_diversity_loss = diversity_loss_weight * diversity_loss
 
-        weighted_penalty = penalty_weight * penalty
+        weighted_feature_penalty = feature_penalty_weight * feature_penalty
 
-        loss = contrastive_loss + weighted_diversity_loss + weighted_penalty
+        loss = contrastive_loss + weighted_diversity_loss + weighted_feature_penalty
 
-        return Wav2Vec2Loss(loss, contrastive_loss, diversity_loss, penalty)
+        return Wav2Vec2Loss(loss, contrastive_loss, diversity_loss, feature_penalty)
 
     def compute_contrastive_loss(self) -> Tensor:
         """Compute the contrastive loss."""
@@ -401,7 +404,7 @@ class Wav2Vec2Output:
 
         return self.quantizer_output.compute_loss() * batch_size * seq_len
 
-    def compute_penalty(self) -> Tensor:
+    def compute_feature_penalty(self) -> Tensor:
         """Compute the feature penalty."""
         batch_size, seq_len = self.logits.shape[:2]
 
@@ -422,5 +425,5 @@ class Wav2Vec2Loss:
     diversity: Tensor
     """The diversity loss. *Shape:* :math:`()`."""
 
-    penalty: Tensor
+    feature_penalty: Tensor
     """The feature penalty. *Shape:* :math:`()`."""

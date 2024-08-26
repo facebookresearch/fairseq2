@@ -96,15 +96,20 @@ class DPOFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
         nll_loss = chosen_output.compute_loss(
             chosen_target_batch.seqs, loss_mask=chosen_target_batch.target_mask
         )
-
-        # adding NLL loss to the total loss for now!
-        loss = dpo_loss + self._nll_scale * nll_loss
+        
+        self._metric_bag.update_dpo_loss(chosen_batch, dpo_loss)
 
         self._metric_bag.update_nll_loss(chosen_batch, nll_loss)
 
-        self._metric_bag.update_dpo_loss(chosen_batch, dpo_loss)
-
         self._metric_bag.update_batch_metrics(chosen_batch)
+
+        loss = (
+            dpo_loss
+            + self._nll_scale
+            * nll_loss
+            * chosen_target_batch.batch_size
+            / chosen_target_batch.num_target_elements()
+        )  # normalization applied locally per-rank
 
         return loss, chosen_target_batch.batch_size
 
