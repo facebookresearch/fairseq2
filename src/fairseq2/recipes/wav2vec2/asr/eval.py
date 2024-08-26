@@ -114,8 +114,6 @@ def load_wav2vec2_asr_evaluator(
 
     gang = setup_root_gang(log)
 
-    seed = config.seed
-
     model_card = retrieve_asset_card(config.model)
 
     # Load the tokenizer.
@@ -206,6 +204,8 @@ def load_wav2vec2_asr_evaluator(
         ref_output_stream=ref_output_fp,
         hyp_output_stream=hyp_output_fp,
     )
+
+    seed = config.seed
 
     try:
         data_reader = dataset.create_reader(
