@@ -39,7 +39,7 @@ log = get_log_writer(__name__)
 
 @final
 class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
-    """Represents the language model DPO-finetuning unit."""
+    """Represents the language model DPO-finetuning unit. Paper: https://arxiv.org/abs/2305.18290."""
 
     _reference_model: Module
     _beta: float

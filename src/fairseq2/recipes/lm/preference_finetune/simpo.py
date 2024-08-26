@@ -34,12 +34,12 @@ log = get_log_writer(__name__)
 
 @final
 class SimPOFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
-    """Represents the language model SimPO-finetuning unit."""
+    """Represents the language model SimPO-finetuning unit. Paper: https://arxiv.org/abs/2405.14734."""
 
     _beta: float
     _gamma: float
     _nll_scale: float
-    _metric_bag: SimpoFinetuneMetricBag
+    _metric_bag: SimPOFinetuneMetricBag
 
     def __init__(
         self,
@@ -55,7 +55,7 @@ class SimPOFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
         self._gamma = gamma
         self._nll_scale = nll_scale
 
-        self._metric_bag = SimpoFinetuneMetricBag(gang)
+        self._metric_bag = SimPOFinetuneMetricBag(gang)
 
     @override
     def __call__(self, batch: PreferenceOptimizationBatch) -> tuple[Tensor, int]:
@@ -108,9 +108,7 @@ class SimPOFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
             -1
         )
         total_logps = (per_token_logps * target.target_mask).sum(dim=-1)  # [Batch, 1]
-        assert (
-            target.target_mask is not None
-        )  # TODO hacky mypy fix - perhaps use the length of the per_token_logps?
+        assert target.target_mask is not None
         average_logps = total_logps / target.target_mask.sum(-1)
 
         return total_logps, average_logps
@@ -129,14 +127,14 @@ class SimPOFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
 
     @property
     @override
-    def metric_bag(self) -> SimpoFinetuneMetricBag:
+    def metric_bag(self) -> SimPOFinetuneMetricBag:
         return self._metric_bag
 
 
 register_metric_formatter("simpo_loss", "SimPO Loss", 0, format_as_float)
 
 
-class SimpoFinetuneMetricBag(PreferenceFinetuneMetricBag):
+class SimPOFinetuneMetricBag(PreferenceFinetuneMetricBag):
     """Holds the metrics of a SimPO preference finetuning task."""
 
     _simpo_loss: Mean
