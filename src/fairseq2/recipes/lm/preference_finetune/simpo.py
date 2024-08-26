@@ -86,9 +86,13 @@ class SimPOFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
 
         self._metric_bag.update_simpo_loss(batch, simpo_loss)
 
-        self.metric_bag.update_logps(batch, chosen_logps, rejected_logps)
+        self._metric_bag.update_nll_loss(chosen_batch, nll_loss)
 
-        self.metric_bag.update_sequence_lengths(batch)
+        self._metric_bag.update_sequence_lengths(batch)
+
+        self._metric_bag.update_logps(batch, chosen_logps, rejected_logps)
+
+        self._metric_bag.update_batch_metrics(chosen_batch)
 
         loss = (
             simpo_loss

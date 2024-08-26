@@ -20,13 +20,12 @@ from fairseq2.datasets.preference import PreferenceOptimizationBatch
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.metrics.recorder import format_as_float, register_metric_formatter
-from fairseq2.models.sequence import (
-    SequenceBatch,
-    SequenceModelOutput,
-    as_auto_regressive_input,
-)
-from fairseq2.recipes.common_metrics import SequenceMetricBag
+from fairseq2.models.sequence import SequenceModelOutput, as_auto_regressive_input
 from fairseq2.recipes.lm.preference_finetune.recipe import preference_unit_factory
+from fairseq2.recipes.lm.preference_finetune.utils import (
+    PreferenceFinetuneMetricBag,
+    _gather_lprobs,
+)
 from fairseq2.recipes.trainer import AbstractTrainUnit
 
 log = get_log_writer(__name__)
@@ -66,8 +65,8 @@ class OrpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
         chosen_output = cast(SequenceModelOutput, self._model(chosen_input_batch))
         rejected_output = cast(SequenceModelOutput, self._model(rejected_input_batch))
 
-        chosen_logps = self._gather_lprobs(chosen_output, chosen_target_batch)
-        rejected_logps = self._gather_lprobs(rejected_output, rejected_target_batch)
+        chosen_logps = _gather_lprobs(chosen_output, chosen_target_batch)
+        rejected_logps = _gather_lprobs(rejected_output, rejected_target_batch)
 
         orpo_loss = self._compute_orpo_loss(chosen_logps, rejected_logps)
 
@@ -75,9 +74,13 @@ class OrpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
             chosen_target_batch.seqs, loss_mask=chosen_target_batch.target_mask
         )
 
-        self._metric_bag.update_orpo_loss(chosen_batch, orpo_loss)
+        self._metric_bag.update_orpo_loss(batch, orpo_loss)
 
         self._metric_bag.update_nll_loss(chosen_batch, nll_loss)
+
+        self._metric_bag.update_sequence_lengths(batch)
+
+        self._metric_bag.update_logps(batch, chosen_logps, rejected_logps)
 
         self._metric_bag.update_batch_metrics(chosen_batch)
 
@@ -90,15 +93,6 @@ class OrpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
         )  # normalization applied locally per-rank
 
         return loss, chosen_target_batch.batch_size
-
-    def _gather_lprobs(
-        self, output: SequenceModelOutput, target: SequenceBatch
-    ) -> Tensor:
-        logprobs = torch.log_softmax(output.logits, dim=-1)
-        chosen_logps = torch.gather(logprobs, -1, target.seqs.unsqueeze(-1)).squeeze(-1)
-        chosen_logps = (chosen_logps * target.target_mask).sum(dim=-1)  # [Batch, 1]
-
-        return chosen_logps
 
     def _compute_orpo_loss(
         self,
@@ -127,7 +121,9 @@ class OrpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
 register_metric_formatter("orpo_loss", "ORPO Loss", 0, format_as_float)
 
 
-class OrpoFinetuneMetricBag(SequenceMetricBag):
+class OrpoFinetuneMetricBag(PreferenceFinetuneMetricBag):
+    """Holds the metrics of a ORPO preference finetuning task."""
+
     _orpo_loss: Mean
 
     def __init__(self, gang: Gang) -> None:
@@ -136,8 +132,19 @@ class OrpoFinetuneMetricBag(SequenceMetricBag):
         self.register_metric("_orpo_loss", Mean(device=gang.device), persistent=False)
 
     @torch.inference_mode()
-    def update_orpo_loss(self, batch: SequenceBatch, loss: Tensor) -> None:
-        self._orpo_loss.update(loss / batch.batch_size, weight=batch.batch_size)
+    def update_orpo_loss(
+        self, batch: PreferenceOptimizationBatch, loss: Tensor
+    ) -> None:
+        """Update the ORPO loss metric.
+
+        :param batch:
+            The batch processed by the model.
+        :param loss:
+            The ORPO loss of ``batch``.
+        """
+        self._orpo_loss.update(
+            loss / batch.chosen.batch_size, weight=batch.chosen.batch_size
+        )
 
 
 @dataclass(kw_only=True)
