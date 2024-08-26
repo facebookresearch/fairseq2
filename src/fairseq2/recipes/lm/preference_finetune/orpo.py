@@ -33,12 +33,12 @@ log = get_log_writer(__name__)
 
 
 @final
-class ORPOFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
+class OrpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
     """Represents the language model ORPO-finetuning unit. Paper: https://arxiv.org/abs/2403.07691."""
 
     _lambda: float
     _nll_scale: float
-    _metric_bag: ORPOFinetuneMetricBag
+    _metric_bag: OrpoFinetuneMetricBag
 
     def __init__(
         self,
@@ -52,7 +52,7 @@ class ORPOFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
         self._lambda = orpo_lambda
         self._nll_scale = nll_scale
 
-        self._metric_bag = ORPOFinetuneMetricBag(gang)
+        self._metric_bag = OrpoFinetuneMetricBag(gang)
 
     @override
     def __call__(self, batch: PreferenceOptimizationBatch) -> tuple[Tensor, int]:
@@ -120,14 +120,14 @@ class ORPOFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
 
     @property
     @override
-    def metric_bag(self) -> ORPOFinetuneMetricBag:
+    def metric_bag(self) -> OrpoFinetuneMetricBag:
         return self._metric_bag
 
 
 register_metric_formatter("orpo_loss", "ORPO Loss", 0, format_as_float)
 
 
-class ORPOFinetuneMetricBag(SequenceMetricBag):
+class OrpoFinetuneMetricBag(SequenceMetricBag):
     _orpo_loss: Mean
 
     def __init__(self, gang: Gang) -> None:
@@ -141,7 +141,7 @@ class ORPOFinetuneMetricBag(SequenceMetricBag):
 
 
 @dataclass(kw_only=True)
-class ORPOConfig:
+class OrpoConfig:
     """Holds the ORPO configuration of a language model preference-finetuning task."""
 
     # Hyperparameters
@@ -154,8 +154,8 @@ class ORPOConfig:
 
 @preference_unit_factory("orpo")
 def create_orpo_unit(
-    config: ORPOConfig, model: Module, root_gang: Gang, gangs: Mapping[str, Gang]
-) -> ORPOFinetuneUnit:
+    config: OrpoConfig, model: Module, root_gang: Gang, gangs: Mapping[str, Gang]
+) -> OrpoFinetuneUnit:
     dp_gang = gangs["dp"]  # data
 
-    return ORPOFinetuneUnit(model, dp_gang, config.orpo_lambda, config.nll_scale)
+    return OrpoFinetuneUnit(model, dp_gang, config.orpo_lambda, config.nll_scale)

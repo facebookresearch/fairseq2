@@ -33,12 +33,12 @@ log = get_log_writer(__name__)
 
 
 @final
-class CPOFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
+class CpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
     """Represents the language model CPO-finetuning unit. Paper: https://arxiv.org/abs/2401.08417."""
 
     _beta: float
     _nll_scale: float
-    _metric_bag: CPOFinetuneMetricBag
+    _metric_bag: CpoFinetuneMetricBag
 
     def __init__(
         self,
@@ -52,7 +52,7 @@ class CPOFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
         self._beta = beta
         self._nll_scale = nll_scale
 
-        self._metric_bag = CPOFinetuneMetricBag(gang)
+        self._metric_bag = CpoFinetuneMetricBag(gang)
 
     @override
     def __call__(self, batch: PreferenceOptimizationBatch) -> tuple[Tensor, int]:
@@ -117,14 +117,14 @@ class CPOFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
 
     @property
     @override
-    def metric_bag(self) -> CPOFinetuneMetricBag:
+    def metric_bag(self) -> CpoFinetuneMetricBag:
         return self._metric_bag
 
 
 register_metric_formatter("cpo_loss", "CPO Loss", 0, format_as_float)
 
 
-class CPOFinetuneMetricBag(SequenceMetricBag):
+class CpoFinetuneMetricBag(SequenceMetricBag):
     _cpo_loss: Mean
 
     def __init__(self, gang: Gang) -> None:
@@ -138,7 +138,7 @@ class CPOFinetuneMetricBag(SequenceMetricBag):
 
 
 @dataclass(kw_only=True)
-class CPOConfig:
+class CpoConfig:
     """Holds the CPO configuration of a language model preference-finetuning task."""
 
     # Hyperparameters
@@ -151,8 +151,8 @@ class CPOConfig:
 
 @preference_unit_factory("cpo")
 def create_cpo_unit(
-    config: CPOConfig, model: Module, root_gang: Gang, gangs: Mapping[str, Gang]
-) -> CPOFinetuneUnit:
+    config: CpoConfig, model: Module, root_gang: Gang, gangs: Mapping[str, Gang]
+) -> CpoFinetuneUnit:
     dp_gang = gangs["dp"]  # data
 
-    return CPOFinetuneUnit(model, dp_gang, config.beta, config.nll_scale)
+    return CpoFinetuneUnit(model, dp_gang, config.beta, config.nll_scale)
