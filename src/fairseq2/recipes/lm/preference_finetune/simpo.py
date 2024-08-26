@@ -134,7 +134,9 @@ class SimPOFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
 register_metric_formatter("simpo_loss", "SimPO Loss", 0, format_as_float)
 
 
-class SimPOFinetuneMetricBag(SequenceMetricBag):
+class SimPOFinetuneMetricBag(PreferenceFinetuneMetricBag):
+    """Holds the metrics of a SimPO preference finetuning task."""
+
     _simpo_loss: Mean
 
     def __init__(self, gang: Gang) -> None:
