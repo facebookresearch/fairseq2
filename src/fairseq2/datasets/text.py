@@ -23,7 +23,7 @@ from fairseq2.data import (
     read_sequence,
 )
 from fairseq2.data.text import TextTokenEncoder, read_text
-from fairseq2.datasets.batching import LengthBatching, StaticBatching
+from fairseq2.datasets.batching import Batching, LengthBatching, StaticBatching
 from fairseq2.datasets.data_reader import DataPipelineReader, DataReader
 from fairseq2.datasets.loader import AbstractDatasetLoader, DelegatingDatasetLoader
 from fairseq2.gang import Gang
@@ -42,7 +42,7 @@ class TextDataset(ABC):
         pad_idx: int | None,
         gang: Gang,
         max_seq_len: int,
-        batching: StaticBatching | LengthBatching,
+        batching: Batching,
         *,
         min_seq_len: int = 1,
         example_shuffle_window: int = 1,
@@ -148,7 +148,7 @@ class GenericTextDataset(TextDataset):
         pad_idx: int | None,
         gang: Gang,
         max_seq_len: int,
-        batching: StaticBatching | LengthBatching,
+        batching: Batching,
         *,
         min_seq_len: int = 1,
         example_shuffle_window: int = 1,
@@ -205,7 +205,7 @@ class GenericTextDataset(TextDataset):
                 skip_above_max_examples=True,
                 drop_remainder=drop_remainder,
             )
-        else:
+        elif isinstance(batching, StaticBatching):
             # Filter out out-of-range examples.
             def skip(example: dict[str, Any]) -> bool:
                 seq_len = len(example["indices"])
@@ -216,6 +216,8 @@ class GenericTextDataset(TextDataset):
 
             # Bucket `batch_size` examples.
             builder.bucket(batching.batch_size, drop_remainder=drop_remainder)
+        else:
+            raise RuntimeError(f"`{batching}` is not supported.")
 
         # Shuffle buckets.
         if batch_shuffle_window != 1:
