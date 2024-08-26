@@ -347,8 +347,9 @@ def load_preference_finetuner(
         ) from ex
 
     # Initialize the data reader.
+    batching: StaticBatching | LengthBatching
     if config.batch_size is not None:
-        batching: StaticBatching | LengthBatching = StaticBatching(config.batch_size)
+        batching = StaticBatching(config.batch_size)
     else:
         batching = LengthBatching(config.max_num_tokens)
 
