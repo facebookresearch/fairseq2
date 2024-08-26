@@ -104,9 +104,7 @@ def clip_gradient_norm(
 
         return module.clip_grad_norm_(max_norm, norm_type)
 
-    if isinstance(module, FSDPModule) and False:
-        return module.clip_grad_norm_(max_norm, norm_type)        
-
+    # FSDP2 composes with existing impl instead of using a separate impl!
     return clip_grad_norm_(  # type: ignore[no-any-return]
         module.parameters(), max_norm, norm_type, error_if_nonfinite=False
     )
