@@ -391,6 +391,42 @@ def _base_100h() -> Wav2Vec2AsrTrainConfig:
 #     return config
 
 
+@wav2vec2_asr_train_preset("large_10h")
+def _large_10h() -> Wav2Vec2AsrTrainConfig:
+    model_config = wav2vec2_asr_archs.get("large_10h", return_empty=True)
+
+    config = _base_10h()
+
+    assert isinstance(config.optimizer_config, AdamWConfig)
+
+    config.model_arch = "large_10h"
+    config.model_config = model_config
+    config.pretrained_model = "wav2vec2_large"
+    config.max_audio_len = 640_000
+    config.max_num_elements = 1_280_000
+    config.optimizer_config.lr = 0.0001
+    config.gradient_accumulation = 5
+
+    return config
+
+
+@wav2vec2_asr_train_preset("large_100h")
+def _large_100h() -> Wav2Vec2AsrTrainConfig:
+    model_config = wav2vec2_asr_archs.get("large_100h", return_empty=True)
+
+    config = _large_10h()
+
+    assert isinstance(config.optimizer_config, AdamWConfig)
+
+    config.dataset = "librispeech_asr_100h"
+    config.model_arch = "large_100h"
+    config.model_config = model_config
+    config.optimizer_config.lr = 0.00003
+    config.max_num_steps = 50_000
+
+    return config
+
+
 def load_wav2vec2_asr_trainer(
     config: Wav2Vec2AsrTrainConfig, output_dir: Path
 ) -> Trainer[Seq2SeqBatch]:

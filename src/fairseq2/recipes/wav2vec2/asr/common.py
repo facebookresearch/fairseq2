@@ -31,24 +31,14 @@ class Wav2Vec2AsrMetricBag(TaskMetricBag):
 
     @torch.inference_mode()
     def update_ctc_loss(self, batch: Seq2SeqBatch, loss: Tensor) -> None:
-        """Update the CTC loss metric.
-
-        :param batch:
-            The batch processed by the model.
-        :param ctc_loss:
-            The loss of ``batch``.
-        """
+        """Update the CTC loss metric."""
         normalized_loss = loss.detach() / batch.batch_size / math.log(2)
 
         self._ctc_loss.update(normalized_loss, weight=batch.batch_size)
 
     @torch.inference_mode()
     def update_batch_metrics(self, batch: Seq2SeqBatch) -> None:
-        """Update the batch metrics.
-
-        :param batch:
-            The batch processed by the model.
-        """
+        """Update the batch metrics."""
         num_examples = batch.batch_size
         num_elements = batch.num_source_elements()
 
