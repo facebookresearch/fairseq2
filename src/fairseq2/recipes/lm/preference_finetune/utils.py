@@ -135,10 +135,10 @@ class PreferenceFinetuneMetricBag(SequenceMetricBag):
             The batch processed by the model.
         """
         self._chosen_lengths.update(
-            batch.chosen.num_target_elements() / batch.chosen.batch_size,
+            Tensor(batch.chosen.num_target_elements()) / batch.chosen.batch_size,
             weight=batch.chosen.batch_size,
         )
         self._rejected_lengths.update(
-            batch.rejected.num_target_elements() / batch.rejected.batch_size,
+            Tensor(batch.rejected.num_target_elements()) / batch.rejected.batch_size,
             weight=batch.rejected.batch_size,
         )
