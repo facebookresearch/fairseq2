@@ -5,12 +5,13 @@
 # LICENSE file in the root directory of this source tree.
 
 import logging
-from typing import Any, Optional, Tuple
+from typing import Any, Optional, Tuple, Union
 
 import torch
 from torch import Tensor
 from torch.autograd import Function
 from torch.distributed._composable.fsdp import FSDPModule
+from torch.distributed._tensor import DTensor
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn import Module
 from torch.nn.utils import clip_grad_norm_  # type: ignore[attr-defined]
@@ -109,8 +110,7 @@ def clip_gradient_norm(
         module.parameters(), max_norm, norm_type, error_if_nonfinite=False
     )
 
-
-def check_gradient_norms(local_norm: Tensor, gang: Gang, step_nr: int) -> bool:
+def check_gradient_norms(local_norm: Union[DTensor, Tensor], gang: Gang, step_nr: int) -> bool:
     """Sanity check the total gradient norm across all processes.
 
     :param local_norm:
@@ -125,6 +125,11 @@ def check_gradient_norms(local_norm: Tensor, gang: Gang, step_nr: int) -> bool:
 
     norms = torch.zeros((gang.size,), device=gang.device, dtype=local_norm.dtype)
 
+    if isinstance(local_norm, DTensor):
+        # gang.all_gather(norms, local_norm) somehow does not force the DTensor to
+        # convert to (Replicate(),) before all-gathering. So call .full_tensor before
+        local_norm: Tensor = local_norm.full_tensor()
+
     gang.all_gather(norms, local_norm)
 
     if all_finite := norms.isfinite().all():
@@ -132,8 +137,6 @@ def check_gradient_norms(local_norm: Tensor, gang: Gang, step_nr: int) -> bool:
 
         if (delta < 1e-6).all():
             return True
-        # DEBUG THIS!
-        return True
     else:
         if all_finite.logical_not().all():  # Check if all Inf/NaN.
             return True
