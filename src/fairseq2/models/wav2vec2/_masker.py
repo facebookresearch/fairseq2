@@ -17,7 +17,9 @@ from typing_extensions import override
 
 from fairseq2.error import InternalError
 from fairseq2.nn.padding import PaddingMask
+
 from fairseq2.nn.utils.mask import RowMaskFactory, compute_row_mask
+from fairseq2.nn.utils.fairseq1_mask import compute_mask_indices
 from fairseq2.typing import DataType, Device
 
 
@@ -60,6 +62,7 @@ class StandardWav2Vec2Masker(Wav2Vec2Masker):
 
     def __init__(
         self,
+        mask_codebase: str,
         model_dim: int,
         temporal_span_len: int = 10,
         max_temporal_mask_prob: float = 0.65,
@@ -97,6 +100,7 @@ class StandardWav2Vec2Masker(Wav2Vec2Masker):
         if max_temporal_mask_prob == 0.0:
             raise ValueError("`max_temporal_mask_prob` must be greater than 0.")
 
+        self.mask_codebase = mask_codebase
         self.temporal_span_len = temporal_span_len
         self.max_temporal_mask_prob = max_temporal_mask_prob
         self.min_num_temporal_mask_spans = min_num_temporal_mask_spans
@@ -122,14 +126,30 @@ class StandardWav2Vec2Masker(Wav2Vec2Masker):
         batch_size, seq_len, model_dim = seqs.shape
 
         # Temporal mask over time steps.
-        temporal_mask = self.mask_factory(
-            shape=(batch_size, seq_len),
-            span_len=self.temporal_span_len,
-            max_mask_prob=self.max_temporal_mask_prob,
-            row_lens=padding_mask.seq_lens if padding_mask is not None else None,
-            min_num_spans=self.min_num_temporal_mask_spans,
-            device=seqs.device,
-        )
+        if self.mask_codebase == "fairseq2":
+            temporal_mask = compute_row_mask(
+                shape=(batch_size, seq_len),
+                span_len=self.temporal_span_len,
+                max_mask_prob=self.max_temporal_mask_prob,
+                row_lens=padding_mask.seq_lens if padding_mask is not None else None,
+                min_num_spans=self.min_num_temporal_mask_spans,
+                device=seqs.device,
+            )
+        else:
+            mask_indices = compute_mask_indices(
+                (batch_size, seq_len),
+                None,
+                self.max_temporal_mask_prob,
+                self.temporal_span_len,
+                mask_type="static",
+                mask_other=0.0,
+                min_masks=self.min_num_temporal_mask_spans,
+                no_overlap=False,
+                min_space=1,
+                require_same_masks=True,
+                mask_dropout=0.0,
+            )
+            temporal_mask = torch.from_numpy(mask_indices).to(seqs.device)
 
         if temporal_mask is None:
             raise InternalError("`temporal_mask` is `None`.")
