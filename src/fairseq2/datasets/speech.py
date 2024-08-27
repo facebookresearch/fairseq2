@@ -10,13 +10,21 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, final
 
+import numpy as np
 import torch
+from torch import Tensor
+from torch.nn.functional import layer_norm
 from typing_extensions import override
 
 from fairseq2.assets import AssetCard, AssetError
-from fairseq2.datasets.batching import Batching
+from fairseq2.data import Collater, DataPipelineBuilder, FileMapper, read_sequence
+from fairseq2.data.audio import AudioDecoder
+from fairseq2.data.text import StrSplitter, read_text
+from fairseq2.datasets.batching import Batching, LengthBatching
 from fairseq2.datasets.data_reader import DataPipelineReader, DataReader
+from fairseq2.datasets.error import DatasetError
 from fairseq2.datasets.loader import AbstractDatasetLoader, DelegatingDatasetLoader
+from fairseq2.datasets.utils import DynamicBatcher
 from fairseq2.gang import Gang
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.typing import DataType
@@ -102,17 +110,44 @@ class SpeechDataset(ABC):
 load_speech_dataset = DelegatingDatasetLoader[SpeechDataset]()
 
 
+# TODO: FIX, INFER
+npc = 10
+
+
 @final
 class GenericSpeechDataset(SpeechDataset):
     """Represents a generic manifest-based Speech dataset."""
 
-    def __init__(self) -> None:
-        pass
+    _dataset_name: str
+    _manifest_dir: Path
+    _splits: set[str]
+
+    def __init__(self, manifest_dir: Path, splits: set[str]) -> None:
+        """
+        :param dataset_name:
+            The name of the dataset.
+        :param manifest_dir:
+            The directory under which the manifest files resides.
+        """
+        self._manifest_dir = manifest_dir
+        self._splits = splits
 
     @classmethod
     def from_path(cls, path: Path) -> GenericSpeechDataset:
         """Load a :class:`GenericSpeechDataset` from ``path``."""
-        return GenericSpeechDataset()
+        path = path.expanduser().resolve()
+
+        if not path.is_dir():
+            return GenericSpeechDataset(manifest_dir=path.parent, splits={path.stem})
+
+        try:
+            splits = {f.stem for f in path.glob("*.tsv")}
+        except OSError as ex:
+            raise RuntimeError(
+                "The splits cannot be determined. See nested exception for details."
+            ) from ex
+
+        return GenericSpeechDataset(path, splits)
 
     @override
     def create_reader(
@@ -141,11 +176,166 @@ class GenericSpeechDataset(SpeechDataset):
             The maximum number of file descriptors to keep open while reading
             audio files.
         """
-        raise RuntimeError("not supported yet.")
+        if split not in self._splits:
+            raise ValueError(
+                f"`split` must be one of the following splits, but is '{split}' instead: {', '.join(sorted(self._splits))}"
+            )
+
+        audio_dir = self._retrieve_data_directory(split)
+
+        builder = self._builder_from_manifest(split, min_audio_len)
+
+        def reorder_manifest(
+            builder: DataPipelineBuilder,
+        ) -> DataPipelineBuilder:
+            manifest = list(builder.and_return())
+            sizes = np.array([sample["audio_size"] for sample in manifest])
+            random_order = np.random.permutation(len(sizes))
+            capped_sizes = np.minimum(sizes, max_audio_len)
+            indices = np.lexsort((random_order, capped_sizes))[::-1]
+            sorted_manifest = [manifest[idx] for idx in indices] + [{"audio_size": -1}]
+            return read_sequence(sorted_manifest)
+
+        builder = reorder_manifest(builder)
+
+        # Cap audio sizes by max_audio_len.
+        builder.map(lambda x: min(max_audio_len, x), selector="audio_size")
+
+        if isinstance(batching, LengthBatching):
+            batcher = DynamicBatcher(-1, batching.max_num_elements, 8)
+
+            builder.dynamic_bucket(
+                1, batcher.cost_fn, bucket_creation_fn=batcher.bucket_creation_fn
+            ).map(
+                lambda bucket: bucket[:-1]
+                if len(bucket) > 0 and bucket[-1]["audio_size"] == -1
+                else bucket
+            ).filter(
+                lambda bucket: len(bucket) > 0
+            )
+        else:
+            raise RuntimeError(f"`{batching}` is not supported.")
+
+        # Shuffle buckets.
+        if batch_shuffle_window != 1:
+            builder.shuffle(batch_shuffle_window, seed)
+
+        seed += 1
+
+        # Shard.
+        builder.shard(gang.rank, gang.size, allow_uneven=True)
+
+        seed += gang.rank
+
+        # Memory map audio files.
+        file_mapper = FileMapper(audio_dir, cached_fd_count=cached_fd_count)
+
+        builder.map(file_mapper, selector="[*].audio")
+
+        # Decode audio.
+        audio_decoder = AudioDecoder(dtype=torch.float32 if normalize_audio else dtype)
+
+        builder.map(audio_decoder, selector="[*].audio.data")
+
+        # Normalize audio if requested.
+        def normalize(waveform: Tensor) -> Tensor:
+            with torch.no_grad():
+                waveform = layer_norm(waveform, waveform.shape)
+
+            return waveform.to(dtype)
+
+        if normalize_audio:
+            builder.map(normalize, selector="[*].audio.data.waveform")
+
+        def crop_audios_in_batch(batch: list[dict[str, Any]]) -> list[dict[str, Any]]:
+            min_audio_len_batch = min(
+                (item["audio"]["data"]["waveform"].size(0) for item in batch)
+            )
+            crop_size = min(max_audio_len, min_audio_len_batch)
+
+            def crop_audio(audio: Tensor, crop_size: int) -> Tensor:
+                size = audio.size(0)
+                if size > crop_size:
+                    start = np.random.randint(0, size - crop_size + 1)
+                    return audio[start : start + crop_size]
+                return audio
+
+            for item in batch:
+                item["audio"]["data"]["waveform"] = crop_audio(
+                    item["audio"]["data"]["waveform"], crop_size
+                )
+
+            return batch
+
+        builder.map(crop_audios_in_batch)
+
+        collater = Collater()
+
+        builder.map(collater, num_parallel_calls=npc)
+
+        # Return only the first `max_num_batches`.
+        if max_num_batches is not None:
+            builder.take(max_num_batches)
+
+        # Prefetch `num_prefetch` batches in background.
+        builder.prefetch(num_prefetch)
+
+        def to_batch(example: dict[str, Any]) -> SequenceBatch:
+            seqs = example["audio"]["data"]["waveform"].to(gang.device)
+
+            return SequenceBatch(seqs, None, example=example)
+
+        pipeline = builder.map(to_batch).and_return()
+
+        return DataPipelineReader[SequenceBatch](
+            pipeline,
+            gang,
+            num_accumulate=num_accumulate,
+            drop_remainder=drop_remainder,
+            sync_batches=sync_batches,
+        )
+
+    def _retrieve_data_directory(self, split: str) -> Path:
+        manifest_file = self._manifest_dir.joinpath(f"{split}.tsv")
+
+        try:
+            with manifest_file.open() as fp:
+                line = fp.readline().rstrip()
+        except OSError as ex:
+            raise DatasetError(
+                f"{manifest_file} cannot be read. See nested exception for details."
+            ) from ex
+
+        try:
+            return Path(line)
+        except ValueError:
+            raise DatasetError(
+                f"The first line of {manifest_file} must point to a data directory."
+            ) from None
+
+    def _builder_from_manifest(
+        self, split: str, min_audio_len: int
+    ) -> DataPipelineBuilder:
+        tsv_file = self._manifest_dir.joinpath(f"{split}.tsv")
+
+        builder = read_text(tsv_file, rtrim=True, memory_map=True)
+
+        builder.skip(1)  # Path to the data directory.
+
+        field_splitter = StrSplitter(names=["audio", "audio_size"])
+
+        builder.map(field_splitter, num_parallel_calls=npc)
+
+        # Cast audio size to integer.
+        builder.map(int, selector="audio_size")
+
+        builder.filter(lambda sample: sample["audio_size"] >= min_audio_len)
+
+        return builder
 
     @override
     def splits(self) -> set[str]:
-        return set()
+        return self._splits
 
 
 @final

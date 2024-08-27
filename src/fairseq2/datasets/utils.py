@@ -6,8 +6,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
-from typing import NoReturn
+from typing import Any, NoReturn
 
 import torch
 
@@ -116,3 +117,80 @@ def _load_files_and_weights(path: Path) -> tuple[list[Path], list[float]]:
         weights.append(weight)
 
     return files, weights
+
+
+class DynamicBatcher:
+    def __init__(self, max_sentences: int, max_tokens: int, bsz_mult: int) -> None:
+        self.max_sentences = max_sentences
+        self.max_tokens = max_tokens
+        self.bsz_mult = bsz_mult
+
+        self.tail_overflow = False
+        self.overflow = False
+
+        self.max_batch_tokens = 0
+        self.max_tail_tokens = 0
+        self.num_sentences = 0
+        self.batch_sentences = 0
+
+    def cost_fn(self, example: dict[str, Any]) -> float:
+        audio_size = example["audio_size"]
+
+        if audio_size == -1:
+            return 1
+
+        self.max_tail_tokens = max(self.max_tail_tokens, audio_size)
+        self.num_sentences += 1
+        self.overflow = (
+            self.num_sentences > self.max_sentences > 0
+            or self.num_sentences * max(self.max_batch_tokens, self.max_tail_tokens)
+            > self.max_tokens
+            > 0
+        )
+        size_matches_with_bsz_mult = (
+            self.num_sentences < self.bsz_mult
+            or self.num_sentences % self.bsz_mult == 0
+        )
+
+        if self.overflow:
+            self.tail_overflow = (
+                (self.max_tail_tokens * (self.num_sentences - self.batch_sentences))
+                > self.max_tokens
+                > 0
+            )
+            self.max_batch_tokens = self.max_tail_tokens
+            return 1
+
+        if size_matches_with_bsz_mult:
+            self.batch_sentences = self.num_sentences
+            self.max_batch_tokens = max(self.max_batch_tokens, self.max_tail_tokens)
+            self.max_tail_tokens = 0
+        return 0
+
+    def bucket_creation_fn(
+        self, bucket: Sequence[Any]
+    ) -> tuple[Sequence[Sequence[Any]], Sequence[Any]]:
+        ret = ([bucket[: self.batch_sentences]], bucket[self.batch_sentences :])
+
+        if self.tail_overflow:
+            self.tail_overflow = False
+            self.overflow = False
+
+            ret = (
+                [bucket[: self.batch_sentences], bucket[self.batch_sentences : -1]],
+                [bucket[-1]],
+            )
+
+            self.max_batch_tokens = bucket[-1]["audio_size"]
+            self.batch_sentences = 1
+            self.num_sentences = 1
+
+        elif self.overflow:
+            self.overflow = False
+
+            self.max_batch_tokens = self.max_tail_tokens
+            self.batch_sentences = self.num_sentences - self.batch_sentences
+            self.num_sentences = self.batch_sentences
+
+        self.max_tail_tokens = 0
+        return ret
