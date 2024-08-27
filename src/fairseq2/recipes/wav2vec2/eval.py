@@ -249,9 +249,13 @@ class Wav2Vec2EvalUnit(AbstractEvalUnit[SequenceBatch]):
             feature_penalty_weight=self._feature_penalty_weight,
         )
 
-        self._metric_bag.update_losses(batch, loss)
+        batch_size, seq_len = output.logits.shape[:2]
 
-        self._metric_bag.update_accuracy(output.logits)
+        num_targets = batch_size * seq_len
+
+        self._metric_bag.update_losses(loss, num_targets)
+
+        self._metric_bag.update_accuracy(output)
 
         self._metric_bag.update_quantizer_metrics(output.quantizer_output)
 

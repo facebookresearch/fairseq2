@@ -457,15 +457,19 @@ class Wav2Vec2TrainUnit(AbstractTrainUnit[SequenceBatch]):
             feature_penalty_weight=self._feature_penalty_weight,
         )
 
-        self._metric_bag.update_losses(batch, loss)
+        batch_size, seq_len = output.logits.shape[:2]
 
-        self._metric_bag.update_accuracy(output.logits)
+        num_targets = batch_size * seq_len
+
+        self._metric_bag.update_losses(loss, num_targets)
+
+        self._metric_bag.update_accuracy(output)
 
         self._metric_bag.update_quantizer_metrics(output.quantizer_output)
 
         self._metric_bag.update_batch_metrics(batch)
 
-        return loss.total, batch.num_elements()
+        return loss.total, num_targets
 
     def _forward(self, batch: SequenceBatch) -> Wav2Vec2Output:
         return self._model(batch)  # type: ignore[no-any-return]
