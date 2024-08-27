@@ -5,7 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 
 from __future__ import annotations
-
 from torch.nn import GELU, SiLU
 
 from fairseq2.models.conformer import ConformerBlock, ConformerConvolution

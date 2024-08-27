@@ -19,20 +19,33 @@ from fairseq2.data_type import DataType
 from fairseq2.device import Device
 from fairseq2.error import InternalError
 from fairseq2.nn import BatchLayout
+from fairseq2.nn.padding import PaddingMask  # TODO:cirquit resolve this import later
+from fairseq2.nn.utils.fairseq1_mask import compute_mask_indices
 from fairseq2.nn.utils.mask import RowMaskFactory, compute_row_mask
-from fairseq2.typing import get_name_or_self
+from fairseq2.typing import DataType, Device, get_name_or_self
+
+# TODO:cirquit unclear whether to use fairseq2.data_type of fairseq2.typing
 
 
 class Wav2Vec2Masker(Module, ABC):
     """Masks extracted wav2vec 2.0 features."""
 
+    # TODO:cirquit - replace PaddingMask with BatchLayout and update the implementation below if necessary
+    # replaced seqs_layout for padding_mask (prio w2v2)
     @abstractmethod
-    def forward(self, seqs: Tensor, seqs_layout: BatchLayout) -> tuple[Tensor, Tensor]:
+    def forward(
+        self, seqs: Tensor, padding_mask: PaddingMask | None
+    ) -> tuple[Tensor, Tensor]:
         """
         :param seqs:
             The sequences to mask. *Shape:* :math:`(N,S,M)`, where :math:`N` is
             the batch size, :math:`S` is the sequence length, and :math:`M` is
             the dimensionality of the model.
+        :param padding_mask:
+            # TODO:cirquit - update comment to reflect the use of padding_mask instead of seq_layout
+            An array where each element represents the length of the sequence at
+            the same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is
+            the batch size.
 
         :returns:
             - The input sequences with mask applied. *Shape:* Same as ``seqs``.
@@ -72,6 +85,8 @@ class StandardWav2Vec2Masker(Wav2Vec2Masker):
     temporal_mask_embed: Parameter
     temporal_span_len: int
     max_temporal_mask_prob: float
+
+    temporal_mask_embed: Parameter
     min_num_temporal_mask_spans: int
     spatial_span_len: int
     max_spatial_mask_prob: float
@@ -80,6 +95,7 @@ class StandardWav2Vec2Masker(Wav2Vec2Masker):
 
     def __init__(
         self,
+        mask_codebase: str,
         model_dim: int,
         temporal_span_len: int = 10,
         max_temporal_mask_prob: float = 0.65,
@@ -112,44 +128,66 @@ class StandardWav2Vec2Masker(Wav2Vec2Masker):
         """
         super().__init__()
 
-        if max_temporal_mask_prob <= 0.0:
+        self.mask_factory = mask_factory or compute_row_mask
+
+        if max_temporal_mask_prob == 0.0:
             raise ValueError("`max_temporal_mask_prob` must be greater than 0.")
+
+        self.mask_codebase = mask_codebase
+        self.temporal_span_len = temporal_span_len
+        self.max_temporal_mask_prob = max_temporal_mask_prob
+        self.min_num_temporal_mask_spans = min_num_temporal_mask_spans
 
         self.temporal_mask_embed = Parameter(
             torch.empty((model_dim,), device=device, dtype=dtype)
         )
 
-        self.temporal_span_len = temporal_span_len
-        self.max_temporal_mask_prob = max_temporal_mask_prob
-        self.min_num_temporal_mask_spans = min_num_temporal_mask_spans
-
         self.spatial_span_len = spatial_span_len
         self.max_spatial_mask_prob = max_spatial_mask_prob
         self.min_num_spatial_mask_spans = min_num_spatial_mask_spans
 
-        self.mask_factory = mask_factory or compute_row_mask
-
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
+        """Reset the parameters and buffers of the module."""
         nn.init.uniform_(self.temporal_mask_embed)
 
     @override
-    def forward(self, seqs: Tensor, seqs_layout: BatchLayout) -> tuple[Tensor, Tensor]:
-        if seqs_layout.packed:
+    def forward(
+        self, seqs: Tensor, padding_mask: PaddingMask | None
+    ) -> tuple[Tensor, Tensor]:
+
+        # TODO:cirquit Check if this correctly used, if yes, no need to use the BatchLayout anymore
+        if padding_mask and padding_mask.seq_lens.packed:
             raise ValueError("`seqs` must not be a packed batch.")
 
         batch_size, seq_len, model_dim = seqs.shape
 
         # Temporal mask over time steps.
-        temporal_mask = self.mask_factory(
-            shape=(batch_size, seq_len),
-            span_len=self.temporal_span_len,
-            max_mask_prob=self.max_temporal_mask_prob,
-            row_lens=seqs_layout.seq_lens_pt,
-            min_num_spans=self.min_num_temporal_mask_spans,
-            device=seqs.device,
-        )
+        if self.mask_codebase == "fairseq2":
+            temporal_mask = compute_row_mask(
+                shape=(batch_size, seq_len),
+                span_len=self.temporal_span_len,
+                max_mask_prob=self.max_temporal_mask_prob,
+                row_lens=padding_mask.seq_lens if padding_mask is not None else None,
+                min_num_spans=self.min_num_temporal_mask_spans,
+                device=seqs.device,
+            )
+        else:
+            mask_indices = compute_mask_indices(
+                (batch_size, seq_len),
+                None,
+                self.max_temporal_mask_prob,
+                self.temporal_span_len,
+                mask_type="static",
+                mask_other=0.0,
+                min_masks=self.min_num_temporal_mask_spans,
+                no_overlap=False,
+                min_space=1,
+                require_same_masks=True,
+                mask_dropout=0.0,
+            )
+            temporal_mask = torch.from_numpy(mask_indices).to(seqs.device)
 
         if temporal_mask is None:
             raise InternalError("`temporal_mask` is `None`.")
@@ -190,6 +228,7 @@ class StandardWav2Vec2Masker(Wav2Vec2Masker):
         )
 
         if self.mask_factory is not compute_row_mask:
+            # TODO:cirquit replaced mask_factory = getattr(self.mask_factory, "__name__", self.mask_factory)
             mask_factory = get_name_or_self(self.mask_factory)
 
             s = f"{s}, mask_factory={mask_factory}"
