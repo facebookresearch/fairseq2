@@ -114,6 +114,30 @@ load_speech_dataset = DelegatingDatasetLoader[SpeechDataset]()
 npc = 10
 
 
+class AudioCropper:
+    def __init__(self, max_audio_len: int, rng: np.random.Generator) -> None:
+        self.rng = rng
+        self.max_audio_len = max_audio_len
+
+    def crop_audio(self, audio: Tensor, crop_size: int) -> Tensor:
+        size = audio.size(0)
+        if size > crop_size:
+            start = self.rng.integers(0, size - crop_size + 1)
+            return audio[start : start + crop_size]
+        return audio
+
+    def crop_audios_in_batch(self, batch: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        min_audio_len_batch = min(
+            (item["audio"]["data"]["waveform"].size(0) for item in batch)
+        )
+        crop_size = min(self.max_audio_len, min_audio_len_batch)
+        for item in batch:
+            item["audio"]["data"]["waveform"] = self.crop_audio(
+                item["audio"]["data"]["waveform"], crop_size
+            )
+        return batch
+
+
 @final
 class GenericSpeechDataset(SpeechDataset):
     """Represents a generic manifest-based Speech dataset."""
@@ -181,22 +205,27 @@ class GenericSpeechDataset(SpeechDataset):
                 f"`split` must be one of the following splits, but is '{split}' instead: {', '.join(sorted(self._splits))}"
             )
 
+        rng = np.random.default_rng(seed)
+
+        seed += 1
+
         audio_dir = self._retrieve_data_directory(split)
 
         builder = self._builder_from_manifest(split, min_audio_len)
 
         def reorder_manifest(
             builder: DataPipelineBuilder,
+            rng: np.random.Generator,
         ) -> DataPipelineBuilder:
             manifest = list(builder.and_return())
             sizes = np.array([sample["audio_size"] for sample in manifest])
-            random_order = np.random.permutation(len(sizes))
+            random_order = rng.permutation(len(sizes))
             capped_sizes = np.minimum(sizes, max_audio_len)
             indices = np.lexsort((random_order, capped_sizes))[::-1]
             sorted_manifest = [manifest[idx] for idx in indices] + [{"audio_size": -1}]
             return read_sequence(sorted_manifest)
 
-        builder = reorder_manifest(builder)
+        builder = reorder_manifest(builder, rng)
 
         # Cap audio sizes by max_audio_len.
         builder.map(lambda x: min(max_audio_len, x), selector="audio_size")
@@ -227,6 +256,10 @@ class GenericSpeechDataset(SpeechDataset):
 
         seed += gang.rank
 
+        rng = np.random.default_rng(seed)
+
+        seed += 1
+
         # Memory map audio files.
         file_mapper = FileMapper(audio_dir, cached_fd_count=cached_fd_count)
 
@@ -247,27 +280,9 @@ class GenericSpeechDataset(SpeechDataset):
         if normalize_audio:
             builder.map(normalize, selector="[*].audio.data.waveform")
 
-        def crop_audios_in_batch(batch: list[dict[str, Any]]) -> list[dict[str, Any]]:
-            min_audio_len_batch = min(
-                (item["audio"]["data"]["waveform"].size(0) for item in batch)
-            )
-            crop_size = min(max_audio_len, min_audio_len_batch)
+        audio_cropper = AudioCropper(max_audio_len, rng)
 
-            def crop_audio(audio: Tensor, crop_size: int) -> Tensor:
-                size = audio.size(0)
-                if size > crop_size:
-                    start = np.random.randint(0, size - crop_size + 1)
-                    return audio[start : start + crop_size]
-                return audio
-
-            for item in batch:
-                item["audio"]["data"]["waveform"] = crop_audio(
-                    item["audio"]["data"]["waveform"], crop_size
-                )
-
-            return batch
-
-        builder.map(crop_audios_in_batch)
+        builder.map(audio_cropper.crop_audios_in_batch)
 
         collater = Collater()
 
