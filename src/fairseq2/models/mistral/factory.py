@@ -132,13 +132,17 @@ class MistralBuilder:
             dtype=self._dtype,
         )
 
-        return TransformerDecoderModel(
+        model = TransformerDecoderModel(
             decoder_frontend,
             decoder,
             final_proj,
             self._config.max_seq_len,
             self._config.vocab_info,
         )
+
+        model.set_family(MISTRAL_FAMILY)
+
+        return model
 
     def build_decoder_frontend(self) -> TransformerFrontend:
         """Build a Transformer decoder front-end."""
@@ -251,18 +255,8 @@ def create_mistral_model(
     device: Device | None = None,
     dtype: DataType | None = None,
 ) -> TransformerDecoderModel:
-    """Create a Mistral model.
-
-    :param config:
-        The configuration.
-    :param device:
-        The device on which to initialize modules.
-    :param dtype:
-        The data type of module parameters and buffers.
-    """
-    model = MistralBuilder(config, device=device, dtype=dtype).build_model()
-
-    return model.set_family(MISTRAL_FAMILY)
+    """Create a Mistral model."""
+    return MistralBuilder(config, device=device, dtype=dtype).build_model()
 
 
 model_factories.register(
