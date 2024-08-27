@@ -78,6 +78,8 @@ class Wav2Vec2Config:
     from the transformer. """
 
     # Mask
+    mask_codebase: str = "fairseq2"
+
     temporal_mask_span_len: int = 10
     """The length of each temporal mask span that is applied over time steps."""
 
@@ -297,6 +299,7 @@ class Wav2Vec2Builder:
     def build_masker(self) -> Wav2Vec2Masker:
         """Build a feature masker."""
         return Wav2Vec2Masker(
+            self._config.mask_codebase,
             self._config.encoder_config.model_dim,
             self._config.temporal_mask_span_len,
             self._config.max_temporal_mask_prob,

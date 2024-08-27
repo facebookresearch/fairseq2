@@ -52,6 +52,8 @@ class Wav2Vec2AsrConfig:
     """The dropout probability on the output of the encoder."""
 
     # Mask
+    mask_codebase: str = "fairseq2"
+
     use_masking: bool = True
     """If ``True``, masks features as regularization."""
 
@@ -142,6 +144,7 @@ class Wav2Vec2AsrBuilder:
             return None
 
         return Wav2Vec2Masker(
+            self._config.mask_codebase,
             self._config.encoder_config.model_dim,
             self._config.temporal_mask_span_len,
             self._config.max_temporal_mask_prob,
