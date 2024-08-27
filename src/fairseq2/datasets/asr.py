@@ -27,13 +27,7 @@ from fairseq2.data import (
     read_sequence,
 )
 from fairseq2.data.audio import AudioDecoder
-from fairseq2.data.text import (
-    StrSplitter,
-    TextTokenizer,
-    default_raw_sentencepiece_tokenizer_loader,
-    load_text_tokenizer,
-    read_text,
-)
+from fairseq2.data.text import StrSplitter, TextTokenizer, read_text
 from fairseq2.datasets.batching import Batching, LengthBatching, StaticBatching
 from fairseq2.datasets.data_reader import DataPipelineReader, DataReader
 from fairseq2.datasets.error import DatasetError
@@ -394,7 +388,3 @@ class GenericAsrDatasetLoader(AbstractDatasetLoader[GenericAsrDataset]):
 load_generic_asr_dataset = GenericAsrDatasetLoader()
 
 load_asr_dataset.register("generic_asr", load_generic_asr_dataset)
-
-load_librispeech_asr_tokenizer = default_raw_sentencepiece_tokenizer_loader
-
-load_text_tokenizer.register("librispeech_asr", load_librispeech_asr_tokenizer)
