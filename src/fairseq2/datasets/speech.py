@@ -95,6 +95,30 @@ class AudioCropper:
         return batch
 
 
+class AudioCropper:
+    def __init__(self, max_audio_len: int, rng: np.random.Generator) -> None:
+        self.rng = rng
+        self.max_audio_len = max_audio_len
+
+    def crop_audio(self, audio: Tensor, crop_size: int) -> Tensor:
+        size = audio.size(0)
+        if size > crop_size:
+            start = self.rng.integers(0, size - crop_size + 1)
+            return audio[start : start + crop_size]
+        return audio
+
+    def crop_audios_in_batch(self, batch: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        min_audio_len_batch = min(
+            (item["audio"]["data"]["waveform"].size(0) for item in batch)
+        )
+        crop_size = min(self.max_audio_len, min_audio_len_batch)
+        for item in batch:
+            item["audio"]["data"]["waveform"] = self.crop_audio(
+                item["audio"]["data"]["waveform"], crop_size
+            )
+        return batch
+
+
 @final
 class GenericSpeechDataset(SpeechDataset):
     """Represents a generic manifest-based Speech dataset."""
