@@ -20,10 +20,7 @@ from fairseq2.recipes.wav2vec2.train import (
 
 def _setup_wav2vec2_cli(cli: Cli) -> None:
     default_sweep_tagger.extend_allow_set(
-        "max_audio_len",
-        "min_audio_len",
-        "normalize_audio",
-        "finetune_from_model",
+        "max_audio_len", "min_audio_len", "normalize_audio"
     )
 
     group = cli.add_group("wav2vec2", help="wav2vec 2.0 pretraining recipes")

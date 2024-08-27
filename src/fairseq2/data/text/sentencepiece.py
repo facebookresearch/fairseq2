@@ -20,6 +20,7 @@ from fairseq2.data.text.text_tokenizer import (
     AbstractTextTokenizerLoader,
     TextTokenDecoder,
     TextTokenEncoder,
+    load_text_tokenizer,
 )
 from fairseq2.data.vocabulary_info import VocabularyInfo
 from fairseq2.typing import Device
@@ -314,3 +315,8 @@ def vocab_info_from_sentencepiece(model: SentencePieceModel) -> VocabularyInfo:
         model.eos_idx,
         model.pad_idx,
     )
+
+
+load_char_tokenizer = default_raw_sentencepiece_tokenizer_loader
+
+load_text_tokenizer.register("char_tokenizer", load_char_tokenizer)
