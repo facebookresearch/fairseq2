@@ -135,7 +135,7 @@ class TransformerBuilder:
 
         final_proj = TiedProjection(embed.weight, bias=None)
 
-        return TransformerModel(
+        model = TransformerModel(
             frontend,
             encoder,
             frontend,
@@ -144,6 +144,10 @@ class TransformerBuilder:
             self._config.max_seq_len,
             self._config.vocab_info,
         )
+
+        model.set_family(TRANSFORMER_FAMILY)
+
+        return model
 
     def build_embedding(self) -> StandardEmbedding:
         """Build an embedding table."""
@@ -262,18 +266,8 @@ def create_transformer_model(
     device: Device | None = None,
     dtype: DataType | None = None,
 ) -> TransformerModel:
-    """Create a Transformer model.
-
-    :param config:
-        The configuration.
-    :param device:
-        The device on which to initialize modules.
-    :param dtype:
-        The data type of module parameters and buffers.
-    """
-    model = TransformerBuilder(config, device=device, dtype=dtype).build_model()
-
-    return model.set_family(TRANSFORMER_FAMILY)
+    """Create a Transformer model."""
+    return TransformerBuilder(config, device=device, dtype=dtype).build_model()
 
 
 model_factories.register(

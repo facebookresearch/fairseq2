@@ -164,7 +164,7 @@ class S2TTransformerBuilder:
             dtype=self._dtype,
         )
 
-        return TransformerModel(
+        model = TransformerModel(
             encoder_frontend,
             encoder,
             decoder_frontend,
@@ -173,6 +173,10 @@ class S2TTransformerBuilder:
             self._config.max_target_seq_len,
             self._config.target_vocab_info,
         )
+
+        model.set_family(S2T_TRANSFORMER_FAMILY)
+
+        return model
 
     def build_encoder_frontend(self) -> TransformerFrontend:
         """Build a Transformer encoder front-end."""
@@ -395,18 +399,8 @@ def create_s2t_transformer_model(
     device: Device | None = None,
     dtype: DataType | None = None,
 ) -> TransformerModel:
-    """Create an S2T Transformer model.
-
-    :param config:
-        The configuration.
-    :param device:
-        The device on which to initialize modules.
-    :param dtype:
-        The data type of module parameters and buffers.
-    """
-    model = S2TTransformerBuilder(config, device=device, dtype=dtype).build_model()
-
-    return model.set_family(S2T_TRANSFORMER_FAMILY)
+    """Create an S2T Transformer model."""
+    return S2TTransformerBuilder(config, device=device, dtype=dtype).build_model()
 
 
 model_factories.register(
