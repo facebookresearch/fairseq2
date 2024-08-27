@@ -10,13 +10,12 @@ import os
 from abc import ABC, abstractmethod
 from datetime import timedelta
 from enum import Enum
-from typing import Any, Dict, List, Optional, Sequence, Union, final
+from typing import Any, Dict, List, Optional, Sequence, final
 
 import torch
 import torch.distributed as dist
 from torch import Tensor
 from torch.distributed import Backend, ProcessGroup, ReduceOp
-from torch.distributed._tensor import DTensor
 
 from fairseq2.device import determine_default_cuda_device, determine_default_device
 from fairseq2.logging import get_log_writer
@@ -71,7 +70,7 @@ class Gang(ABC):
         """
 
     @abstractmethod
-    def all_gather(self, output_tensor: Tensor, input_tensor: Union[DTensor, Tensor]) -> None:
+    def all_gather(self, output_tensor: Tensor, input_tensor: Tensor) -> None:
         """Gather tensors from all processes and put them in ``output_tensor``.
 
         :param output_tensor:
@@ -249,7 +248,7 @@ class FakeGang(AbstractGang):
             tensor.pow_(self._size)
 
     @override
-    def all_gather(self, output_tensor: Tensor, input_tensor: Union[DTensor, Tensor]) -> None:
+    def all_gather(self, output_tensor: Tensor, input_tensor: Tensor) -> None:
         if not output_tensor.is_contiguous():
             raise ValueError("`output_tensor` must be contiguous.")
 
@@ -520,11 +519,8 @@ class ProcessGroupGang(AbstractGang):
         dist.all_reduce(tensor, self._get_reduce_op(op), group=self._pg)
 
     @override
-    def all_gather(self, output_tensor: Tensor, input_tensor: Union[DTensor, Tensor]) -> None:
+    def all_gather(self, output_tensor: Tensor, input_tensor: Tensor) -> None:
         self._maybe_monitored_barrier()
-
-        if isinstance(input_tensor, DTensor):
-            input_tensor: Tensor = input_tensor.to_local()
 
         dist.all_gather_into_tensor(output_tensor, input_tensor, group=self._pg)
 
