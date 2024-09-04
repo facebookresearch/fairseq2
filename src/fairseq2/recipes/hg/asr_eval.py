@@ -46,13 +46,13 @@ class AsrDatasetConfig:
     """Configuration for an automatic speech recognition dataset."""
 
     dataset_path: str
-    """The name of the dataset."""
+    """The path to the dataset."""
 
     dataset_name: Optional[str] = None
-    """The name of the dataset split."""
+    """The name of the dataset configuration."""
 
     split: str = "test"
-    """The name of the dataset split to evaluate with."""
+    """Which split of the data to load."""
 
     source_column_path: List[str] = field(default_factory=list)
     """The path of the column containing the source audio."""
