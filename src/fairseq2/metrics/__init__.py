@@ -14,6 +14,7 @@ from fairseq2.metrics.recorder import JsonFileMetricRecorder as JsonFileMetricRe
 from fairseq2.metrics.recorder import LogMetricRecorder as LogMetricRecorder
 from fairseq2.metrics.recorder import MetricRecorder as MetricRecorder
 from fairseq2.metrics.recorder import TensorBoardRecorder as TensorBoardRecorder
+from fairseq2.metrics.recorder import WandBRecorder as WandBRecorder
 from fairseq2.metrics.recorder import format_as_float as format_as_float
 from fairseq2.metrics.recorder import format_as_int as format_as_int
 from fairseq2.metrics.recorder import format_as_seconds as format_as_seconds

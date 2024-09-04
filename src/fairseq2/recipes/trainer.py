@@ -37,6 +37,7 @@ from fairseq2.metrics import (
     MetricBag,
     MetricRecorder,
     TensorBoardRecorder,
+    WandBRecorder,
     format_metric_value,
     record_metrics,
 )
@@ -207,6 +208,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         keep_last_n_models: int | None = None,
         keep_best_n_models: int | None = None,
         tb_dir: Path | None = None,
+        wandb_dir: Path | None = None,
         metrics_dir: Path | None = None,
         publish_metrics_after_n_steps: int = 0,
         publish_metrics_every_n_steps: int | None = None,
@@ -287,6 +289,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             ``keep_best_n_checkpoints``.
         :param tb_dir:
             The TensorBoard log directory to dump metrics.
+        :param wandb:
+            The WandB log directory to dump metrics.
         :param metrics_dir:
             The directory to dump metrics.
         :param publish_metrics_after_n_steps:
@@ -521,6 +525,9 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
             if tb_dir is not None:
                 self._metric_recorders.append(TensorBoardRecorder(tb_dir))
+            
+            if wandb_dir is not None:
+                self._metric_recorders.append(WandBRecorder(wandb_dir))
 
             if metrics_dir is not None:
                 self._metric_recorders.append(JsonFileMetricRecorder(metrics_dir))

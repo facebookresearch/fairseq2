@@ -426,11 +426,9 @@ class TensorBoardRecorder(MetricRecorder):
         """
         if not has_tensorboard:
             log = get_log_writer(__name__)
-
             log.warning("tensorboard not found. Please install it with `pip install tensorboard`.")  # fmt: skip
 
         self._log_dir = log_dir
-
         self._writers = {}
 
     @override
@@ -475,5 +473,56 @@ class TensorBoardRecorder(MetricRecorder):
     def close(self) -> None:
         for writer in self._writers.values():
             writer.close()
-
         self._writers.clear()
+
+try:
+    import wandb
+except ImportError:
+    has_wandb = False
+else:
+    has_wandb = True
+
+
+@final
+class WandBRecorder(MetricRecorder):
+    """Records metric values to WandB."""
+
+    def __init__(self, log_dir: Path) -> None:
+        """
+        :param log_dir:
+            The base directory under which to store the WandB files.
+        """
+        if not has_wandb:
+            log = get_log_writer(__name__)
+            log.warning("wandb not found. Please install it with `conda install wandb`.")  # also need to wandb.login()
+
+        self._log_dir = log_dir
+        path = Path(log_dir)
+        path_components = path.parts
+        try:
+            self.project = path_components[-2]
+        except:
+            self.project = "project" 
+        self.wandb_run = wandb.init(project=self.project, dir = path.parent)
+
+
+    @override
+    def record_metrics(
+        self,
+        run: str,
+        values: Mapping[str, Any],
+        step_nr: int | None = None,
+        *,
+        flush: bool = True,
+    ) -> None:
+        for name, value in values.items():
+            formatter = _metric_formatters.get(name)
+            if formatter is None:
+                display_name = name
+            else:
+                display_name = formatter.display_name
+            self.wandb_run.log({display_name: value})
+
+    @override
+    def close(self) -> None:
+        self.wandb_run.finish()

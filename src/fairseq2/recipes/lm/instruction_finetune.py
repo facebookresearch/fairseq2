@@ -515,6 +515,7 @@ def load_instruction_finetuner(
         keep_last_n_checkpoints=config.keep_last_n_checkpoints,
         keep_last_n_models=config.keep_last_n_models,
         tb_dir=output_dir.joinpath("tb"),
+        wandb_dir=output_dir.joinpath("wandb"),
         metrics_dir=output_dir.joinpath("metrics"),
         publish_metrics_every_n_steps=config.publish_metrics_every_n_steps,
         publish_metrics_every_n_data_epochs=config.publish_metrics_every_n_data_epochs,
