@@ -63,6 +63,7 @@ class PreferenceOptimizationDataset(ABC):
         max_num_batches: int | None = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
+        mask_source_tokens: bool = True,
         seed: int = 2,
         **extras: Any,
     ) -> DataPipelineReader[PreferenceOptimizationBatch]:
@@ -104,6 +105,8 @@ class PreferenceOptimizationDataset(ABC):
             used with gradient accumulation during training.
         :param num_prefetch:
             The number of batches to prefetch in background.
+        :param mask_source_tokens:
+            If ``False``, calculates loss on the `src` tokens as well as the `tgt` tokens.
         :param seed:
             The seed to initialize the random number generators used internally.
         :param extras:
@@ -164,6 +167,7 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
         max_num_batches: int | None = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
+        mask_source_tokens: bool = True,
         seed: int = 2,
         **extras: Any,
     ) -> DataPipelineReader[PreferenceOptimizationBatch]:
@@ -215,10 +219,13 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
             indices_chosen = torch.cat([prompt_indices, target_indices_chosen])
             indices_rejected = torch.cat([prompt_indices, target_indices_rejected])
 
-            prompt_len = len(prompt_indices)
-
-            target_mask_chosen = torch.arange(len(indices_chosen)) >= prompt_len
-            target_mask_rejected = torch.arange(len(indices_rejected)) >= prompt_len
+            if mask_source_tokens:
+                prompt_len = len(prompt_indices)
+                target_mask_chosen = torch.arange(len(indices_chosen)) >= prompt_len
+                target_mask_rejected = torch.arange(len(indices_rejected)) >= prompt_len
+            else:
+                target_mask_chosen = torch.full([len(indices_chosen)], True)
+                target_mask_rejected = torch.full([len(indices_rejected)], True)
 
             return {
                 "id": id_,
