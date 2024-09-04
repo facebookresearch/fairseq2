@@ -4,7 +4,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-import itertools
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import partial
@@ -47,32 +46,22 @@ class AsrDatasetConfig:
     split: str = "test"
     """Which split of the data to load."""
 
-    source_column: List[str] = field(default_factory=list)
-    """The path to the column containing the source audio."""
+    source_column_path: List[str] = field(default_factory=list)
+    """The path of the column containing the source audio."""
 
-    target_column: List[str] = field(default_factory=list)
-    """The path to the column containing the target text."""
+    target_column_path: List[str] = field(default_factory=list)
+    """The path of the column containing the target text."""
 
-    def get_source_data(self, ds: Example) -> Any:
-        """Retrieve the source (audio) data from the dataset."""
-        results = self._get_data(ds, self.source_column)
-        return results
 
-    def get_target_data(self, ds: Example) -> Any:
-        """Retrieve the target (text) data from the dataset."""
-        results = self._get_data(ds, self.target_column)
-        return results
-
-    @staticmethod
-    def _get_data(ds: Example, path: List[str]) -> Example | List[int] | str:
-        """Retrieve data from the dataset using the specified path."""
-        current = ds
-        for key in path:
-            if key in current:
-                current = current[key]
-            else:
-                raise ValueError(f"Invalid path: {path}")
-        return current
+def _get_column_data(ds: Example, path: List[str]) -> Union[Example, List[int], str]:
+    """Retrieve data from the dataset using the specified path."""
+    current = ds
+    for key in path:
+        if key in current:
+            current = current[key]
+        else:
+            raise ValueError(f"Invalid path: {path}")
+    return current
 
 
 @dataclass(kw_only=True)
@@ -135,8 +124,8 @@ def _default_asr_config() -> AsrEvalConfig:
     return AsrEvalConfig(
         dataset_config=AsrDatasetConfig(
             dataset_path="librispeech_asr",
-            source_column=["audio", "array"],
-            target_column=["text"],
+            source_column_path=["audio", "array"],
+            target_column_path=["text"],
             split="test.other",
         ),
         model_name="wav2vec2_asr_base_10h",
@@ -157,8 +146,8 @@ def extract_features(example: Example, dataset_config: AsrDatasetConfig) -> Exam
         dict: A dictionary with "audio" and "text" as PyTorch tensors.
     """
     return {
-        "audio": dataset_config.get_source_data(example),
-        "text": dataset_config.get_target_data(example).lower(),
+        "audio": _get_column_data(example, dataset_config.source_column_path),
+        "text": _get_column_data(example, dataset_config.target_column_path).lower(),
     }
 
 
@@ -199,9 +188,10 @@ def prepare_dataset(
         name=config.dataset_config.dataset_name,
         split=config.dataset_config.split,
         streaming=True,
+        trust_remote_code=True,
     )
     ds = Dataset.from_generator(
-        lambda: itertools.islice(iterable_ds, 0, config.max_samples),
+        lambda: iterable_ds.take(config.max_samples),
         features=iterable_ds.features,
     )
     ds = ds.map(lambda x: extract_features(x, config.dataset_config))
