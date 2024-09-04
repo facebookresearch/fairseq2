@@ -8,7 +8,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
-from typing import Any, List, Optional, Union, cast
+from typing import Any, List, Optional, cast
 
 import hydra  # type: ignore[attr-defined,import-untyped,import-not-found]
 import torch
@@ -61,7 +61,7 @@ class AsrDatasetConfig:
     """The path of the column containing the target text."""
 
 
-def _get_column_data(ds: Example, path: List[str]) -> Union[Example, List[int], str]:
+def _get_column_data(ds: Dataset, path: List[str]) -> Any:
     """Retrieve data from the dataset using the specified path."""
     current = ds
     for key in path:
@@ -169,6 +169,7 @@ def extract_features(example: Example, dataset_config: AsrDatasetConfig) -> Exam
     Returns:
         dict: A dictionary with "audio" and "text" as PyTorch tensors.
     """
+
     return {
         "audio": _get_column_data(example, dataset_config.source_column_path),
         "text": _get_column_data(example, dataset_config.target_column_path).lower(),
