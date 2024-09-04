@@ -27,14 +27,8 @@ from fairseq2.data import (
     read_sequence,
 )
 from fairseq2.data.audio import AudioDecoder
-from fairseq2.data.text import (
-    StrSplitter,
-    TextTokenizer,
-    default_raw_sentencepiece_tokenizer_loader,
-    load_text_tokenizer,
-    read_text,
-)
-from fairseq2.datasets.batching import LengthBatching, StaticBatching
+from fairseq2.data.text import StrSplitter, TextTokenizer, read_text
+from fairseq2.datasets.batching import Batching, LengthBatching, StaticBatching
 from fairseq2.datasets.data_reader import DataPipelineReader, DataReader
 from fairseq2.datasets.error import DatasetError
 from fairseq2.datasets.loader import AbstractDatasetLoader, DelegatingDatasetLoader
@@ -54,7 +48,7 @@ class AsrDataset(ABC):
         tokenizer: TextTokenizer,
         gang: Gang,
         max_audio_len: int,
-        batching: StaticBatching | LengthBatching,
+        batching: Batching,
         *,
         dtype: DataType = torch.float32,
         min_audio_len: int = 1,
@@ -173,7 +167,7 @@ class GenericAsrDataset(AsrDataset):
         tokenizer: TextTokenizer,
         gang: Gang,
         max_audio_len: int,
-        batching: StaticBatching | LengthBatching,
+        batching: Batching,
         *,
         dtype: DataType = torch.float32,
         min_audio_len: int = 1,
@@ -231,7 +225,7 @@ class GenericAsrDataset(AsrDataset):
                 skip_above_max_examples=True,
                 drop_remainder=drop_remainder,
             )
-        else:
+        elif isinstance(batching, StaticBatching):
             # Filter out out-of-range audios.
             def skip(example: dict[str, Any]) -> bool:
                 audio_len = cast(int, example["audio_size"])
@@ -242,6 +236,8 @@ class GenericAsrDataset(AsrDataset):
 
             # Bucket `batch_size` examples.
             builder.bucket(batching.batch_size, drop_remainder=drop_remainder)
+        else:
+            raise RuntimeError(f"`{batching}` is not supported.")
 
         # Shuffle buckets.
         if batch_shuffle_window != 1:
@@ -392,7 +388,3 @@ class GenericAsrDatasetLoader(AbstractDatasetLoader[GenericAsrDataset]):
 load_generic_asr_dataset = GenericAsrDatasetLoader()
 
 load_asr_dataset.register("generic_asr", load_generic_asr_dataset)
-
-load_librispeech_asr_tokenizer = default_raw_sentencepiece_tokenizer_loader
-
-load_text_tokenizer.register("librispeech_asr", load_librispeech_asr_tokenizer)

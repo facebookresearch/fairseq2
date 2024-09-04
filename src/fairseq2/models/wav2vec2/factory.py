@@ -249,7 +249,7 @@ class Wav2Vec2Builder:
     def __init__(
         self,
         config: Wav2Vec2Config,
-        encoder_builder: Wav2Vec2EncoderBuilder,
+        encoder_builder: Wav2Vec2EncoderBuilder | None = None,
         *,
         device: Device | None = None,
         dtype: DataType | None = None,
@@ -266,6 +266,11 @@ class Wav2Vec2Builder:
         """
         self._config = config
 
+        if encoder_builder is None:
+            encoder_builder = Wav2Vec2EncoderBuilder(
+                config.encoder_config, device=device, dtype=dtype
+            )
+
         self._encoder_builder = encoder_builder
 
         self._device, self._dtype = device, dtype
@@ -280,7 +285,7 @@ class Wav2Vec2Builder:
 
         quantizer = self.build_quantizer()
 
-        return Wav2Vec2Model(
+        model = Wav2Vec2Model(
             encoder_frontend,
             encoder,
             masker,
@@ -293,6 +298,10 @@ class Wav2Vec2Builder:
             device=self._device,
             dtype=self._dtype,
         )
+
+        model.set_family(WAV2VEC2_FAMILY)
+
+        return model
 
     def build_masker(self) -> Wav2Vec2Masker:
         """Build a feature masker."""
@@ -546,22 +555,8 @@ def create_wav2vec2_model(
     device: Device | None = None,
     dtype: DataType | None = None,
 ) -> Wav2Vec2Model:
-    """Create a wav2vec 2.0 model.
-
-    :param config:
-        The configuration.
-    :param device:
-        The device on which to initialize modules.
-    :param dtype:
-        The data type of module parameters and buffers.
-    """
-    encoder_builder = Wav2Vec2EncoderBuilder(
-        config.encoder_config, device=device, dtype=dtype
-    )
-
-    builder = Wav2Vec2Builder(config, encoder_builder, device=device, dtype=dtype)
-
-    return builder.build_model().set_family(WAV2VEC2_FAMILY)
+    """Create a wav2vec 2.0 model."""
+    return Wav2Vec2Builder(config, device=device, dtype=dtype).build_model()
 
 
 model_factories.register(

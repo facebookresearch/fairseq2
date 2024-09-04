@@ -130,8 +130,6 @@ def load_mt_evaluator(
 
     gang = setup_root_gang(log)
 
-    seed = config.seed
-
     model_card = retrieve_asset_card(config.model)
 
     # Load the tokenizer.
@@ -200,6 +198,8 @@ def load_mt_evaluator(
 
     # Initialize the evaluation units.
     units: list[EvalUnit[Seq2SeqBatch]] = []
+
+    seed = config.seed
 
     data_readers = []
 

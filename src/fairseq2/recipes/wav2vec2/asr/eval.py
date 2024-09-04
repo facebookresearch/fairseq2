@@ -17,7 +17,7 @@ from typing_extensions import override
 from fairseq2.assets import AssetNotFoundError, default_asset_store
 from fairseq2.checkpoint import CheckpointModelMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
-from fairseq2.data.text import TextTokenDecoder, TextTokenizer, load_text_tokenizer
+from fairseq2.data.text import TextTokenDecoder, TextTokenizer, load_char_tokenizer
 from fairseq2.datasets import LengthBatching
 from fairseq2.datasets.asr import GenericAsrDataset, load_asr_dataset
 from fairseq2.gang import Gang
@@ -114,14 +114,12 @@ def load_wav2vec2_asr_evaluator(
 
     gang = setup_root_gang(log)
 
-    seed = config.seed
-
     model_card = retrieve_asset_card(config.model)
 
     # Load the tokenizer.
     log.info("Loading {} tokenizer.", model_card.name)
 
-    tokenizer = load_text_tokenizer(model_card)
+    tokenizer = load_char_tokenizer(model_card)
 
     log.info("Tokenizer loaded.")
 
@@ -206,6 +204,8 @@ def load_wav2vec2_asr_evaluator(
         ref_output_stream=ref_output_fp,
         hyp_output_stream=hyp_output_fp,
     )
+
+    seed = config.seed
 
     try:
         data_reader = dataset.create_reader(

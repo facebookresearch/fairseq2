@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TypeAlias
 
 
 @dataclass
@@ -23,3 +24,6 @@ class LengthBatching:
 
     max_num_elements: int
     """The maximum number of elements (e.g. tokens) in each batch."""
+
+
+Batching: TypeAlias = StaticBatching | LengthBatching

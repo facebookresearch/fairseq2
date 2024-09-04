@@ -22,6 +22,7 @@ public:
         std::unique_ptr<data_source> &&inner,
         float64 threshold,
         cost_fn &&fn,
+        std::optional<bucket_creation_fn> &&maybe_bucket_fn,
         std::optional<std::size_t> maybe_min_num_examples,
         std::optional<std::size_t> maybe_max_num_examples,
         bool drop_remainder) noexcept;
@@ -45,9 +46,14 @@ private:
     std::unique_ptr<data_source> inner_;
     float64 threshold_;
     cost_fn cost_fn_;
+    std::optional<bucket_creation_fn> maybe_bucket_creation_fn_;
     std::optional<std::size_t> maybe_min_num_examples_;
     std::optional<std::size_t> maybe_max_num_examples_;
     bool drop_remainder_;
+
+    data_list buffer_{};
+    std::deque<data> return_buffer_{};
+
 };
 
 }  // namespace fairseq2n::detail

@@ -7,13 +7,16 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
+from pathlib import Path
+from typing import Any, final
 
 import torch
+from typing_extensions import override
 
-from fairseq2.datasets.batching import LengthBatching, StaticBatching
-from fairseq2.datasets.data_reader import DataReader
-from fairseq2.datasets.loader import DelegatingDatasetLoader
+from fairseq2.assets import AssetCard, AssetError
+from fairseq2.datasets.batching import Batching
+from fairseq2.datasets.data_reader import DataPipelineReader, DataReader
+from fairseq2.datasets.loader import AbstractDatasetLoader, DelegatingDatasetLoader
 from fairseq2.gang import Gang
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.typing import DataType
@@ -28,7 +31,7 @@ class SpeechDataset(ABC):
         split: str,
         gang: Gang,
         max_audio_len: int,
-        batching: StaticBatching | LengthBatching,
+        batching: Batching,
         *,
         dtype: DataType = torch.float32,
         min_audio_len: int = 1,
@@ -97,3 +100,66 @@ class SpeechDataset(ABC):
 
 
 load_speech_dataset = DelegatingDatasetLoader[SpeechDataset]()
+
+
+@final
+class GenericSpeechDataset(SpeechDataset):
+    """Represents a generic manifest-based Speech dataset."""
+
+    def __init__(self) -> None:
+        pass
+
+    @classmethod
+    def from_path(cls, path: Path) -> GenericSpeechDataset:
+        """Load a :class:`GenericSpeechDataset` from ``path``."""
+        return GenericSpeechDataset()
+
+    @override
+    def create_reader(
+        self,
+        split: str,
+        gang: Gang,
+        max_audio_len: int,
+        batching: Batching,
+        *,
+        dtype: DataType = torch.float32,
+        min_audio_len: int = 1,
+        normalize_audio: bool = False,
+        example_shuffle_window: int = 1,
+        batch_shuffle_window: int = 1,
+        drop_remainder: bool = False,
+        sync_batches: bool = True,
+        max_num_batches: int | None = None,
+        num_accumulate: int = 1,
+        num_prefetch: int = 1,
+        seed: int = 2,
+        cached_fd_count: int = 1000,
+        **extras: Any,
+    ) -> DataPipelineReader[SequenceBatch]:
+        """
+        :param cached_fd_count:
+            The maximum number of file descriptors to keep open while reading
+            audio files.
+        """
+        raise RuntimeError("not supported yet.")
+
+    @override
+    def splits(self) -> set[str]:
+        return set()
+
+
+@final
+class GenericSpeechDatasetLoader(AbstractDatasetLoader[GenericSpeechDataset]):
+    @override
+    def _load(self, path: Path, card: AssetCard) -> GenericSpeechDataset:
+        try:
+            return GenericSpeechDataset.from_path(path)
+        except RuntimeError as ex:
+            raise AssetError(
+                f"{card.name} cannot be loaded. See nested exception for details."
+            ) from ex
+
+
+load_generic_speech_dataset = GenericSpeechDatasetLoader()
+
+load_speech_dataset.register("generic_speech", load_generic_speech_dataset)
