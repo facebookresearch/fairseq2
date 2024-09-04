@@ -525,7 +525,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
             if tb_dir is not None:
                 self._metric_recorders.append(TensorBoardRecorder(tb_dir))
-            
+
             if wandb_dir is not None:
                 self._metric_recorders.append(WandBRecorder(wandb_dir))
 

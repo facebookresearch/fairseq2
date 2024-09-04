@@ -475,6 +475,7 @@ class TensorBoardRecorder(MetricRecorder):
             writer.close()
         self._writers.clear()
 
+
 try:
     import wandb
 except ImportError:
@@ -494,7 +495,9 @@ class WandBRecorder(MetricRecorder):
         """
         if not has_wandb:
             log = get_log_writer(__name__)
-            log.warning("wandb not found. Please install it with `conda install wandb`.")  # also need to wandb.login()
+            log.warning(
+                "wandb not found. Please install it with `conda install wandb`."
+            )  # also need to wandb.login()
 
         self._log_dir = log_dir
         path = Path(log_dir)
@@ -502,9 +505,8 @@ class WandBRecorder(MetricRecorder):
         try:
             self.project = path_components[-2]
         except:
-            self.project = "project" 
-        self.wandb_run = wandb.init(project=self.project, dir = path.parent)
-
+            self.project = "project"
+        self.wandb_run = wandb.init(project=self.project, dir=path.parent)
 
     @override
     def record_metrics(
