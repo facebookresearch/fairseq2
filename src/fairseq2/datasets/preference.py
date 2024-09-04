@@ -27,7 +27,7 @@ from fairseq2.data import (
     read_sequence,
 )
 from fairseq2.data.text import TextTokenizer
-from fairseq2.datasets.batching import LengthBatching, StaticBatching
+from fairseq2.datasets.batching import Batching, LengthBatching, StaticBatching
 from fairseq2.datasets.data_reader import DataPipelineReader
 from fairseq2.datasets.loader import AbstractDatasetLoader, DelegatingDatasetLoader
 from fairseq2.datasets.utils import _load_files_and_weights
@@ -53,7 +53,7 @@ class PreferenceOptimizationDataset(ABC):
         tokenizer: TextTokenizer,
         gang: Gang,
         max_seq_len: int,
-        batching: StaticBatching | LengthBatching,
+        batching: Batching,
         *,
         sample: bool = False,
         example_shuffle_window: int = 1,
@@ -157,7 +157,7 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
         tokenizer: TextTokenizer,
         gang: Gang,
         max_seq_len: int,
-        batching: StaticBatching | LengthBatching,
+        batching: Batching,
         *,
         sample: bool = False,
         example_shuffle_window: int = 1,
@@ -227,12 +227,19 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
                 target_mask_chosen = torch.full([len(indices_chosen)], True)
                 target_mask_rejected = torch.full([len(indices_rejected)], True)
 
+            total_tokens = (
+                2 * len(prompt_indices)
+                + len(target_indices_chosen)
+                + len(target_indices_rejected)
+            )
+
             return {
                 "id": id_,
                 "indices_chosen": indices_chosen,
                 "indices_rejected": indices_rejected,
                 "target_mask_chosen": target_mask_chosen,
                 "target_mask_rejected": target_mask_rejected,
+                "total_tokens": total_tokens,
             }
 
         builder.map(cat_source_and_target, num_parallel_calls=npc)
@@ -245,11 +252,11 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
             # Bucket by the sequence length.
             builder.bucket_by_length(
                 bucket_sizes,
-                selector="indices_chosen,indices_rejected",
+                selector="total_tokens",
                 skip_above_max_examples=True,
                 drop_remainder=drop_remainder,
             )
-        else:
+        elif isinstance(batching, StaticBatching):
             # Filter out long examples.
             def skip(example: dict[str, Any]) -> bool:
                 chosen_len = len(example["indices_chosen"])
@@ -261,6 +268,8 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
 
             # Bucket `batch_size` examples.
             builder.bucket(batching.batch_size, drop_remainder=drop_remainder)
+        else:
+            raise RuntimeError(f"`{batching}` is not supported.")
 
         # Shuffle buckets.
         if batch_shuffle_window != 1:

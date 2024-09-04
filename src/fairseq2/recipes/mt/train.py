@@ -49,8 +49,9 @@ from fairseq2.recipes.utils.setup import (
     setup_root_gang,
     to_data_parallel,
 )
-from fairseq2.typing import META, DataClass, DataType
+from fairseq2.typing import CPU, META, DataClass, DataType
 from fairseq2.utils.profiler import Stopwatch
+from fairseq2.utils.rng import manual_seed
 
 log = get_log_writer(__name__)
 
@@ -240,8 +241,6 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
             CheckpointModelMetadataProvider(config.resume_checkpoint_dir)
         )
 
-    seed = config.seed
-
     tokenizer_card = retrieve_asset_card(config.tokenizer)
 
     # Load the tokenizer.
@@ -268,7 +267,13 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
 
         dataset = GenericParallelTextDataset.from_path(dataset_path)
 
+    seed = config.seed
+
     # Initialize the model
+    manual_seed(seed, CPU, gang.device)
+
+    seed += 1
+
     try:
         model, model_config = create_model(
             config.model_family,

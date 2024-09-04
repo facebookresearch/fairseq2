@@ -15,7 +15,6 @@ from fairseq2.models.w2vbert.model import W2VBertModel
 from fairseq2.models.wav2vec2 import (
     Wav2Vec2Builder,
     Wav2Vec2Config,
-    Wav2Vec2EncoderBuilder,
     Wav2Vec2EncoderConfig,
 )
 from fairseq2.nn.transformer import TransformerNormOrder
@@ -108,7 +107,7 @@ class W2VBertBuilder:
     def __init__(
         self,
         config: W2VBertConfig,
-        w2v2_builder: Wav2Vec2Builder,
+        w2v2_builder: Wav2Vec2Builder | None = None,
         *,
         device: Device | None = None,
         dtype: DataType | None = None,
@@ -140,6 +139,11 @@ class W2VBertBuilder:
 
         self._config = config
 
+        if w2v2_builder is None:
+            w2v2_builder = Wav2Vec2Builder(
+                config.w2v2_config, device=device, dtype=dtype
+            )
+
         self._w2v2_builder = w2v2_builder
 
         self._device, self._dtype = device, dtype
@@ -148,13 +152,17 @@ class W2VBertBuilder:
         """Build a model."""
         w2v2_model = self._w2v2_builder.build_model()
 
-        return W2VBertModel(
+        model = W2VBertModel(
             w2v2_model,
             self._config.num_bert_encoder_layers,
             num_target_codebooks=self._config.num_target_codebooks,
             device=self._device,
             dtype=self._dtype,
         )
+
+        model.set_family(W2VBERT_FAMILY)
+
+        return model
 
 
 def create_w2vbert_model(
@@ -163,26 +171,8 @@ def create_w2vbert_model(
     device: Device | None = None,
     dtype: DataType | None = None,
 ) -> W2VBertModel:
-    """Create a w2v-BERT model.
-
-    :param config:
-        The configuration.
-    :param device:
-        The device on which to initialize modules.
-    :param dtype:
-        The data type of module parameters and buffers.
-    """
-    encoder_builder = Wav2Vec2EncoderBuilder(
-        config.w2v2_config.encoder_config, device=device, dtype=dtype
-    )
-
-    w2v2_builder = Wav2Vec2Builder(
-        config.w2v2_config, encoder_builder, device=device, dtype=dtype
-    )
-
-    builder = W2VBertBuilder(config, w2v2_builder, device=device, dtype=dtype)
-
-    return builder.build_model().set_family(W2VBERT_FAMILY)
+    """Create a w2v-BERT model."""
+    return W2VBertBuilder(config, device=device, dtype=dtype).build_model()
 
 
 model_factories.register(

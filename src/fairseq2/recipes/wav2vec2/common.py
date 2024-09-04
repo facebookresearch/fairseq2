@@ -9,13 +9,12 @@ from __future__ import annotations
 import math
 
 import torch
-from torch import Tensor
 from torcheval.metrics import MulticlassAccuracy
 
 from fairseq2.gang import Gang
 from fairseq2.metrics.aggregation import Mean
 from fairseq2.models.sequence import SequenceBatch
-from fairseq2.models.wav2vec2 import Wav2Vec2Loss
+from fairseq2.models.wav2vec2 import Wav2Vec2Loss, Wav2Vec2Output
 from fairseq2.models.wav2vec2.vector_quantizer import (
     GumbelVectorQuantizerOutput,
     VectorQuantizerOutput,
@@ -59,25 +58,25 @@ class Wav2Vec2MetricBag(TaskMetricBag):
         self.register_metric("_temperature", Mean(device=d), persistent=False)
 
     @torch.inference_mode()
-    def update_losses(self, batch: SequenceBatch, loss: Wav2Vec2Loss) -> None:
+    def update_losses(self, loss: Wav2Vec2Loss, num_targets: int) -> None:
         """Update the loss metrics."""
-        numel = batch.num_elements()
+        n = num_targets * math.log(2)
 
-        n = numel * math.log(2)
+        self._loss.update(loss.total.detach() / n, weight=num_targets)
 
-        self._loss.update(loss.total.detach() / n, weight=numel)
+        self._contrastive_loss.update(loss.contrastive.detach() / n, weight=num_targets)
 
-        self._contrastive_loss.update(loss.contrastive.detach() / n, weight=numel)
+        self._diversity_loss.update(loss.diversity.detach() / n, weight=num_targets)
 
-        self._diversity_loss.update(loss.diversity.detach() / n, weight=numel)
-
-        self._feature_penalty.update(loss.feature_penalty.detach() / n, weight=numel)
+        self._feature_penalty.update(
+            loss.feature_penalty.detach() / n, weight=num_targets
+        )
 
     @torch.inference_mode()
-    def update_accuracy(self, logits: Tensor) -> None:
+    def update_accuracy(self, output: Wav2Vec2Output) -> None:
         """Update the prediction accuracy."""
-        # (N)
-        predictions = logits.argmax(-1)
+        # (N x S)
+        predictions = output.logits.argmax(-1).view(-1)
 
         # wav2vec2 treats logit at index 0 as the target.
         targets = torch.zeros_like(predictions)

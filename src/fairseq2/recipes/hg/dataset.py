@@ -10,7 +10,7 @@ from collections.abc import Callable
 from typing import Any
 
 from fairseq2.data.data_pipeline import Collater, create_bucket_sizes, read_sequence
-from fairseq2.datasets.batching import LengthBatching, StaticBatching
+from fairseq2.datasets.batching import Batching, LengthBatching, StaticBatching
 from fairseq2.datasets.data_reader import BatchT, DataPipelineReader
 from fairseq2.gang import Gang
 
@@ -32,7 +32,7 @@ def create_hf_reader(
     gang: Gang,
     converter: Callable[[Example], BatchT],
     *,
-    batching: StaticBatching | LengthBatching | None = None,
+    batching: Batching | None = None,
     max_seq_len: int | None = None,
     drop_remainder: bool = False,
     min_seq_len: int = 0,
@@ -108,17 +108,8 @@ def create_hf_reader(
             raise ValueError(
                 "`max_seq_len` is required if batching strategy is specified"
             )
-        if isinstance(batching, StaticBatching):
-            if seq_len_col:
 
-                def skip(example: Example) -> bool:
-                    _len = len(example[seq_len_col])
-                    return _len >= min_seq_len and _len <= max_seq_len
-
-                builder.filter(skip)
-
-            builder = builder.bucket(batching.batch_size, drop_remainder=drop_remainder)
-        else:
+        if isinstance(batching, LengthBatching):
             bucket_sizes = create_bucket_sizes(
                 max_seq_len=max_seq_len,
                 min_seq_len=min_seq_len,
@@ -135,6 +126,18 @@ def create_hf_reader(
                 skip_above_max_examples=True,
                 drop_remainder=drop_remainder,
             )
+        elif isinstance(batching, StaticBatching):
+            if seq_len_col:
+
+                def skip(example: Example) -> bool:
+                    _len = len(example[seq_len_col])
+                    return _len >= min_seq_len and _len <= max_seq_len
+
+                builder.filter(skip)
+
+            builder = builder.bucket(batching.batch_size, drop_remainder=drop_remainder)
+        else:
+            raise RuntimeError(f"`{batching}` is not supported.")
 
         # collate to python dict
         builder.map(Collater(pad_value=pad_value))

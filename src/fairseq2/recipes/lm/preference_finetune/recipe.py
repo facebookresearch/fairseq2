@@ -18,7 +18,7 @@ from fairseq2.assets import AssetNotFoundError, default_asset_store
 from fairseq2.checkpoint import CheckpointModelMetadataProvider, FileCheckpointManager
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_text_tokenizer
-from fairseq2.datasets import LengthBatching
+from fairseq2.datasets import Batching, LengthBatching, StaticBatching
 from fairseq2.datasets.preference import (
     GenericPreferenceOptimizationDataset,
     PreferenceOptimizationBatch,
@@ -41,8 +41,9 @@ from fairseq2.recipes.utils.asset import (
 )
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.recipes.utils.setup import compile_model, setup_gangs, to_data_parallel
-from fairseq2.typing import META, DataClass, DataType
+from fairseq2.typing import CPU, META, DataClass, DataType
 from fairseq2.utils.profiler import Stopwatch
+from fairseq2.utils.rng import manual_seed
 
 log = get_log_writer(__name__)
 
@@ -56,10 +57,14 @@ class PreferenceOptimizationConfig:
     """The name, path, or path to the asset card of the preference optimization dataset."""
 
     max_seq_len: int = 8192
-    """The maximum sequence length."""
+    """The maximum sum of ``src + tgt_chosen`` and ``src + tgt_rejected``.
+    Longer sequences will be dropped."""
 
     max_num_tokens: int = 8192 * 2
-    """The maximum number of tokens per batch."""
+    """The maximum number of total `src`, `tgt_chosen`, and `tgt_rejected` tokens per batch."""
+
+    batch_size: int | None = None
+    """If not ``None``, ignores `max_num_tokens` and each batch will have `batch_size` examples."""
 
     example_shuffle_window: int = 10_000
     """The size of the sliding window for shuffling examples."""
@@ -240,8 +245,6 @@ def load_preference_finetuner(
             CheckpointModelMetadataProvider(config.resume_checkpoint_dir)
         )
 
-    seed = config.seed
-
     # Load the tokenizer.
     model_card = retrieve_asset_card(config.model)
 
@@ -268,7 +271,13 @@ def load_preference_finetuner(
 
         dataset = GenericPreferenceOptimizationDataset.from_path(dataset_path)
 
-    # Load the model.
+    seed = config.seed
+
+    # Load the model
+    manual_seed(seed, CPU, root_gang.device)
+
+    seed += 1
+
     init_device = META
 
     has_checkpoint = checkpoint_manager.has_checkpoint()
@@ -343,12 +352,20 @@ def load_preference_finetuner(
             "The criterion cannot be initialized. See nested exception for details."
         ) from ex
 
+    # Initialize the data reader.
+    batching: Batching
+
+    if config.batch_size is not None:
+        batching = StaticBatching(config.batch_size)
+    else:
+        batching = LengthBatching(config.max_num_tokens)
+
     try:
         data_reader = dataset.create_reader(
             tokenizer,
             dp_gang,
             max_seq_len=config.max_seq_len,
-            batching=LengthBatching(config.max_num_tokens),
+            batching=batching,
             max_num_tokens=config.max_num_tokens,
             example_shuffle_window=config.example_shuffle_window,
             batch_shuffle_window=config.batch_shuffle_window,
