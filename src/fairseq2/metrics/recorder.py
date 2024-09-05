@@ -523,7 +523,7 @@ class WandBRecorder(MetricRecorder):
                 display_name = name
             else:
                 display_name = formatter.display_name
-            self.wandb_run.log({display_name: value}, step = step_nr)
+            self.wandb_run.log({display_name: value}, step=step_nr)
 
     @override
     def close(self) -> None:
