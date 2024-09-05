@@ -164,14 +164,15 @@ def _generate_mask(indices: Tensor, max_row_len: int) -> Tensor:
     # We randomly pick `min_num_masked` masked elements from each row, which
     # effectively unmasks the remaining elements.
     #
-    # We first make a tensor of random values and add it to the
-    # float_mask so that all the 0 values in the float_mask are still 0
-    # but the non-zero values have a random value assigned to them. Then
-    # we select the topk values (which would be basically a subset of
-    # non-zero values in the float_mask
+    # We first make a tensor of random values and 0.001 to it to ensure
+    # the min value > 0. Then we multiply it with the float_mask so that
+    # all the 0 values in the float_mask are still 0 but the non-zero
+    # values have a random value assigned to them. Then we select the
+    # topk values (which would be basically a subset of non-zero values
+    # in the float_mask
 
     random_values = torch.rand_like(float_mask) + 0.001
-    random_values = random_values + float_mask
+    random_values = random_values * float_mask
     _, indices = torch.topk(random_values, k=min_num_masked, dim=1, sorted=False)
 
     # (N, S)
