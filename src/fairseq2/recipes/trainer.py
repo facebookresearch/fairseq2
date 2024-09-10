@@ -209,6 +209,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         keep_best_n_models: int | None = None,
         tb_dir: Path | None = None,
         wandb_dir: Path | None = None,
+        wandb_project: string | None = None,
         metrics_dir: Path | None = None,
         publish_metrics_after_n_steps: int = 0,
         publish_metrics_every_n_steps: int | None = None,
@@ -289,8 +290,10 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             ``keep_best_n_checkpoints``.
         :param tb_dir:
             The TensorBoard log directory to dump metrics.
-        :param wandb:
+        :param wandb_dir:
             The WandB log directory to dump metrics.
+        :param wandb_project:
+            Name of project for wandb logging
         :param metrics_dir:
             The directory to dump metrics.
         :param publish_metrics_after_n_steps:
@@ -527,7 +530,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
                 self._metric_recorders.append(TensorBoardRecorder(tb_dir))
 
             if wandb_dir is not None:
-                self._metric_recorders.append(WandBRecorder(wandb_dir))
+                self._metric_recorders.append(WandBRecorder(wandb_dir, wandb_project))
 
             if metrics_dir is not None:
                 self._metric_recorders.append(JsonFileMetricRecorder(metrics_dir))

@@ -208,6 +208,10 @@ class InstructionFinetuneConfig:
     anomaly_detection: bool = False
     """If ``True``, turns on anomaly detection feature in ``torch.autograd``."""
 
+    wandb_project: str | None = None
+    """If not ``None``, sets the project name for wandb logging."""
+
+
 
 instruction_finetune_presets = ConfigRegistry[InstructionFinetuneConfig]()
 
@@ -516,6 +520,7 @@ def load_instruction_finetuner(
         keep_last_n_models=config.keep_last_n_models,
         tb_dir=output_dir.joinpath("tb"),
         wandb_dir=output_dir.joinpath("wandb"),
+        wandb_project=wandb_project,
         metrics_dir=output_dir.joinpath("metrics"),
         publish_metrics_every_n_steps=config.publish_metrics_every_n_steps,
         publish_metrics_every_n_data_epochs=config.publish_metrics_every_n_data_epochs,
