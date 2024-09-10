@@ -488,7 +488,7 @@ else:
 class WandBRecorder(MetricRecorder):
     """Records metric values to WandB."""
 
-    def __init__(self, log_dir: Path, wandb_project = None) -> None:
+    def __init__(self, log_dir: Path, wandb_project: str | None = None) -> None:
         """
         :param log_dir:
             The base directory under which to store the WandB files.
@@ -501,14 +501,14 @@ class WandBRecorder(MetricRecorder):
             log = get_log_writer(__name__)
             log.warning(
                 "wandb not found. Please install it with `conda install wandb`."
-            )  
+            )
 
         self._log_dir = log_dir
         if wandb_project:
             self.project = wandb_project
         else:
-            self.project = log_dir.parts[-2] #use name of immediate parent dir
-       
+            self.project = log_dir.parts[-2]  # use name of immediate parent dir
+
         self.wandb_run = wandb.init(project=self.project, dir=log_dir.parent)
 
     @override

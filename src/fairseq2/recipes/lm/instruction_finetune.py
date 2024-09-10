@@ -212,7 +212,6 @@ class InstructionFinetuneConfig:
     """If not ``None``, sets the project name for wandb logging."""
 
 
-
 instruction_finetune_presets = ConfigRegistry[InstructionFinetuneConfig]()
 
 instruction_finetune_preset = instruction_finetune_presets.decorator
@@ -520,7 +519,7 @@ def load_instruction_finetuner(
         keep_last_n_models=config.keep_last_n_models,
         tb_dir=output_dir.joinpath("tb"),
         wandb_dir=output_dir.joinpath("wandb"),
-        wandb_project=wandb_project,
+        wandb_project=config.wandb_project,
         metrics_dir=output_dir.joinpath("metrics"),
         publish_metrics_every_n_steps=config.publish_metrics_every_n_steps,
         publish_metrics_every_n_data_epochs=config.publish_metrics_every_n_data_epochs,

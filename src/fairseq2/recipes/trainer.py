@@ -209,7 +209,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         keep_best_n_models: int | None = None,
         tb_dir: Path | None = None,
         wandb_dir: Path | None = None,
-        wandb_project: string | None = None,
+        wandb_project: str | None = None,
         metrics_dir: Path | None = None,
         publish_metrics_after_n_steps: int = 0,
         publish_metrics_every_n_steps: int | None = None,
