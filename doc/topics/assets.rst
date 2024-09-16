@@ -1,18 +1,10 @@
-fairseq2.assets
-===============
-.. body
+======
+Assets
+======
 
 .. currentmodule:: fairseq2.assets
 
 ``fairseq2.asset`` provides API to load the different model using the "model cards" from different "stores".
-
-
-.. autosummary::
-    :toctree: generated/data
-
-    AssetStore
-    AssetCard
-    AssetMetadataProvider
 
 Model store
 ~~~~~~~~~~~
