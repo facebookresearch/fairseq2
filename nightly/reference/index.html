@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.assets &mdash; fairseq2 0.3.0.dev202409160149+g87d6e74 documentation</title>
+  <title>API Reference &mdash; fairseq2 0.3.0.dev202409160149+g87d6e74 documentation</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -19,8 +19,8 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="AssetStore" href="generated/data/fairseq2.assets.AssetStore.html" />
-    <link rel="prev" title="LineEnding" href="generated/data_text/fairseq2.data.text.LineEnding.html" /> 
+    <link rel="next" title="fairseq2.dependency" href="fairseq2.dependency.html" />
+    <link rel="prev" title="fairseq2 documentation" href="../index.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -45,8 +45,8 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <ul>
-<li class="toctree-l1"><a class="reference internal" href="index.html">API Reference</a><ul>
+              <ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">API Reference</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="fairseq2.dependency.html">fairseq2.dependency</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="fairseq2.dependency.html#fairseq2.dependency.DependencyResolver"><code class="docutils literal notranslate"><span class="pre">DependencyResolver</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="fairseq2.dependency.html#fairseq2.dependency.DependencyContainer"><code class="docutils literal notranslate"><span class="pre">DependencyContainer</span></code></a></li>
@@ -57,7 +57,7 @@
 </li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">fairseq2 Reference</span></p>
-<ul class="current">
+<ul>
 <li class="toctree-l1"><a class="reference internal" href="data.html">fairseq2.data</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="generated/data/fairseq2.data.DataPipeline.html">DataPipeline</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline"><code class="docutils literal notranslate"><span class="pre">DataPipeline</span></code></a></li>
@@ -121,7 +121,7 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">fairseq2.assets</a><ul>
+<li class="toctree-l1"><a class="reference internal" href="asset.html">fairseq2.assets</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="generated/data/fairseq2.assets.AssetStore.html">AssetStore</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.assets.AssetStore.html#fairseq2.assets.AssetStore"><code class="docutils literal notranslate"><span class="pre">AssetStore</span></code></a></li>
 </ul>
@@ -134,8 +134,8 @@
 <li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.assets.AssetMetadataProvider.html#fairseq2.assets.AssetMetadataProvider"><code class="docutils literal notranslate"><span class="pre">AssetMetadataProvider</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#model-store">Model store</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#model-card">Model card</a></li>
+<li class="toctree-l2"><a class="reference internal" href="asset.html#model-store">Model store</a></li>
+<li class="toctree-l2"><a class="reference internal" href="asset.html#model-card">Model card</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="all.html">All</a></li>
@@ -159,9 +159,9 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">fairseq2.assets</li>
+      <li class="breadcrumb-item active">API Reference</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="../_sources/reference/asset.rst.txt" rel="nofollow"> View page source</a>
+            <a href="../_sources/reference/index.rst.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -169,66 +169,21 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="fairseq2-assets">
-<h1>fairseq2.assets<a class="headerlink" href="#fairseq2-assets" title="Permalink to this heading"></a></h1>
-<p><code class="docutils literal notranslate"><span class="pre">fairseq2.asset</span></code> provides API to load the different model using the “model cards” from different “stores”.</p>
-<table class="autosummary longtable docutils align-default">
-<tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/fairseq2.assets.AssetStore.html#fairseq2.assets.AssetStore" title="fairseq2.assets.AssetStore"><code class="xref py py-obj docutils literal notranslate"><span class="pre">AssetStore</span></code></a>()</p></td>
-<td><p>Represents a store of assets.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data/fairseq2.assets.AssetCard.html#fairseq2.assets.AssetCard" title="fairseq2.assets.AssetCard"><code class="xref py py-obj docutils literal notranslate"><span class="pre">AssetCard</span></code></a>(metadata[, base])</p></td>
-<td><p>Holds information about an asset.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/fairseq2.assets.AssetMetadataProvider.html#fairseq2.assets.AssetMetadataProvider" title="fairseq2.assets.AssetMetadataProvider"><code class="xref py py-obj docutils literal notranslate"><span class="pre">AssetMetadataProvider</span></code></a>()</p></td>
-<td><p>Provides asset metadata.</p></td>
-</tr>
-</tbody>
-</table>
-<section id="model-store">
-<h2>Model store<a class="headerlink" href="#model-store" title="Permalink to this heading"></a></h2>
-<p>A store is a place where all the model cards are stored. In fairseq2, a store is accessed via
-<cite>fairseq2.assets.AssetStore</cite>. Multiple stores are allowed. By default, fairseq2 will look up the following stores:</p>
-<ul class="simple">
-<li><dl class="simple">
-<dt>System asset store: Cards that are shared by all users. By default, the system store is <cite>/etc/fairseq2/assets</cite>,</dt><dd><p>but this can be changed via the environment variable <cite>FAIRSEQ2_ASSET_DIR</cite></p>
-</dd>
-</dl>
-</li>
-<li><dl class="simple">
-<dt>User asset store: Cards that are only available to the user. By default, the user store is</dt><dd><p><cite>~/.config/fairseq2/assets</cite>, but this can be changed via the environment variable <cite>FAIRSEQ2_USER_ASSET_DIR</cite></p>
-</dd>
-</dl>
-</li>
+  <section id="api-reference">
+<h1>API Reference<a class="headerlink" href="#api-reference" title="Permalink to this heading"></a></h1>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="fairseq2.dependency.html">fairseq2.dependency</a></li>
 </ul>
-<p>To register a new store, implement a <a class="reference internal" href="generated/data/fairseq2.assets.AssetMetadataProvider.html#fairseq2.assets.AssetMetadataProvider" title="fairseq2.assets.AssetMetadataProvider"><code class="xref py py-class docutils literal notranslate"><span class="pre">fairseq2.assets.AssetMetadataProvider</span></code></a> and add them to
-<code class="xref py py-class docutils literal notranslate"><span class="pre">fairseq2.assets.asset_store</span></code>. Here is an example to register a new directory as a model store:</p>
-<blockquote>
-<div><p>from pathlib import Path
-from fairseq2.assets import FileAssetMetadataProvider, asset_store</p>
-<p>my_dir = Path(“/path/to/model_store”)
-asset_store.metadata_providers.append(FileAssetMetadataProvider(my_dir))</p>
-</div></blockquote>
-</section>
-<section id="model-card">
-<h2>Model card<a class="headerlink" href="#model-card" title="Permalink to this heading"></a></h2>
-<p>A model card is a .YAML file that contains information about a model and instructs a
-<code class="xref py py-class docutils literal notranslate"><span class="pre">fairseq2.models.utils.generic_loaders.ModelLoader</span></code> on how to load the model into the memory. Each model card
-must have 2 mandatory attributes: <cite>name</cite> and <cite>checkpoint</cite>. <cite>name</cite> will be used to identify the model card, and it must
-be unique _across_ all
-fairseq2 provides example cards for differen LLMs in
-<cite>fairseq2.assets.cards</cite>.</p>
-<p>In fairseq2, a model card is accessed via <a class="reference internal" href="generated/data/fairseq2.assets.AssetCard.html#fairseq2.assets.AssetCard" title="fairseq2.assets.AssetCard"><code class="xref py py-class docutils literal notranslate"><span class="pre">fairseq2.assets.AssetCard</span></code></a>. Alternatively, one can call
-<cite>fairseq2.assets.AssetMetadataProvider.get_metadata(name: str)</cite> to get the meta data of a given model card name.</p>
-</section>
+</div>
 </section>
 
 
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="generated/data_text/fairseq2.data.text.LineEnding.html" class="btn btn-neutral float-left" title="LineEnding" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="generated/data/fairseq2.assets.AssetStore.html" class="btn btn-neutral float-right" title="AssetStore" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="../index.html" class="btn btn-neutral float-left" title="fairseq2 documentation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="fairseq2.dependency.html" class="btn btn-neutral float-right" title="fairseq2.dependency" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

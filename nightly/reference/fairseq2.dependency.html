@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>fairseq2.dependency &mdash; fairseq2 0.3.0.dev202409160149+g87d6e74 documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="fairseq2.data" href="data.html" />
+    <link rel="prev" title="API Reference" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            fairseq2
+          </a>
+              <div class="version">
+                0.3.0.dev202409160149+g87d6e74
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">fairseq2.dependency</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#fairseq2.dependency.DependencyResolver"><code class="docutils literal notranslate"><span class="pre">DependencyResolver</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fairseq2.dependency.DependencyContainer"><code class="docutils literal notranslate"><span class="pre">DependencyContainer</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fairseq2.dependency.StandardDependencyContainer"><code class="docutils literal notranslate"><span class="pre">StandardDependencyContainer</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">fairseq2 Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="data.html">fairseq2.data</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="generated/data/fairseq2.data.DataPipeline.html">DataPipeline</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline"><code class="docutils literal notranslate"><span class="pre">DataPipeline</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/data/fairseq2.data.DataPipelineBuilder.html">DataPipelineBuilder</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.DataPipelineBuilder.html#fairseq2.data.DataPipelineBuilder"><code class="docutils literal notranslate"><span class="pre">DataPipelineBuilder</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/data/fairseq2.data.list_files.html">list_files</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.list_files.html#fairseq2.data.list_files"><code class="docutils literal notranslate"><span class="pre">list_files()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/data/fairseq2.data.read_sequence.html">read_sequence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.read_sequence.html#fairseq2.data.read_sequence"><code class="docutils literal notranslate"><span class="pre">read_sequence()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/data/fairseq2.data.read_zipped_records.html">read_zipped_records</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.read_zipped_records.html#fairseq2.data.read_zipped_records"><code class="docutils literal notranslate"><span class="pre">read_zipped_records()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/data/fairseq2.data.text.read_text.html">read_text</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.text.read_text.html#fairseq2.data.text.read_text"><code class="docutils literal notranslate"><span class="pre">read_text()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/data/fairseq2.data.FileMapper.html">FileMapper</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.FileMapper.html#fairseq2.data.FileMapper"><code class="docutils literal notranslate"><span class="pre">FileMapper</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/data/fairseq2.data.Collater.html">Collater</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.Collater.html#fairseq2.data.Collater"><code class="docutils literal notranslate"><span class="pre">Collater</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/data/fairseq2.data.CollateOptionsOverride.html">CollateOptionsOverride</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.CollateOptionsOverride.html#fairseq2.data.CollateOptionsOverride"><code class="docutils literal notranslate"><span class="pre">CollateOptionsOverride</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="data.html#column-syntax">Column syntax</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data.html#pseudo-infinite-and-infinite-pipelines">Pseudo-infinite and Infinite Pipelines</a></li>
+<li class="toctree-l2"><a class="reference internal" href="data.html#public-classes-used-in-fairseq2-api">Public classes used in fairseq2 API:</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.ByteStreamError.html">fairseq2.data.ByteStreamError</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.DataPipelineError.html">fairseq2.data.DataPipelineError</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.RecordError.html">fairseq2.data.RecordError</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.VocabularyInfo.html">VocabularyInfo</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.get_last_failed_example.html">get_last_failed_example</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="data.html#fairseq2-data-text">fairseq2.data.text</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/data_text/fairseq2.data.text.TextTokenizer.html">TextTokenizer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data_text/fairseq2.data.text.TextTokenDecoder.html">TextTokenDecoder</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data_text/fairseq2.data.text.TextTokenEncoder.html">TextTokenEncoder</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data_text/fairseq2.data.text.StrSplitter.html">StrSplitter</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data_text/fairseq2.data.text.StrToIntConverter.html">StrToIntConverter</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data_text/fairseq2.data.text.StrToTensorConverter.html">StrToTensorConverter</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data_text/fairseq2.data.text.SentencePieceModel.html">SentencePieceModel</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data_text/fairseq2.data.text.SentencePieceEncoder.html">SentencePieceEncoder</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data_text/fairseq2.data.text.SentencePieceDecoder.html">SentencePieceDecoder</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data_text/fairseq2.data.text.vocab_info_from_sentencepiece.html">vocab_info_from_sentencepiece</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data_text/fairseq2.data.text.LineEnding.html">LineEnding</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="asset.html">fairseq2.assets</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="generated/data/fairseq2.assets.AssetStore.html">AssetStore</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.assets.AssetStore.html#fairseq2.assets.AssetStore"><code class="docutils literal notranslate"><span class="pre">AssetStore</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/data/fairseq2.assets.AssetCard.html">AssetCard</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.assets.AssetCard.html#fairseq2.assets.AssetCard"><code class="docutils literal notranslate"><span class="pre">AssetCard</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/data/fairseq2.assets.AssetMetadataProvider.html">AssetMetadataProvider</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.assets.AssetMetadataProvider.html#fairseq2.assets.AssetMetadataProvider"><code class="docutils literal notranslate"><span class="pre">AssetMetadataProvider</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="asset.html#model-store">Model store</a></li>
+<li class="toctree-l2"><a class="reference internal" href="asset.html#model-card">Model card</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="all.html">All</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Misc</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../bibliography.html">Bibliography</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">fairseq2</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">API Reference</a></li>
+      <li class="breadcrumb-item active">fairseq2.dependency</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/reference/fairseq2.dependency.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-fairseq2.dependency">
+<span id="fairseq2-dependency"></span><h1>fairseq2.dependency<a class="headerlink" href="#module-fairseq2.dependency" title="Permalink to this heading"></a></h1>
+<p>fairseq2 relies on the <a class="reference external" href="https://en.wikipedia.org/wiki/Dependency_inversion_principle">dependency inversion principle</a> to maintain a clean,
+well-tested, and extensible code base.</p>
+<p>This module contains the abstract classes <a class="reference internal" href="#fairseq2.dependency.DependencyResolver" title="fairseq2.dependency.DependencyResolver"><code class="xref py py-class docutils literal notranslate"><span class="pre">DependencyResolver</span></code></a> and
+<a class="reference internal" href="#fairseq2.dependency.DependencyContainer" title="fairseq2.dependency.DependencyContainer"><code class="xref py py-class docutils literal notranslate"><span class="pre">DependencyContainer</span></code></a>, as well as the
+<a class="reference internal" href="#fairseq2.dependency.StandardDependencyContainer" title="fairseq2.dependency.StandardDependencyContainer"><code class="xref py py-class docutils literal notranslate"><span class="pre">StandardDependencyContainer</span></code></a> class, as a lightweight <a class="reference external" href="https://en.wikipedia.org/wiki/Dependency_injection">dependency
+injection</a> API.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.dependency.DependencyResolver">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.dependency.</span></span><span class="sig-name descname"><span class="pre">DependencyResolver</span></span><a class="reference internal" href="../_modules/fairseq2/dependency.html#DependencyResolver"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.dependency.DependencyResolver" title="Permalink to this definition"></a></dt>
+<dd><p>extends <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.12)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">resolve[T](kls:</span> <span class="pre">type[T],</span> <span class="pre">key:</span> <span class="pre">str</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None)</span> <span class="pre">-&gt;</span> <span class="pre">T</span></span></dt>
+<dd><p>Return the singleton dependency of type <code class="docutils literal notranslate"><span class="pre">T</span></code>. If <code class="docutils literal notranslate"><span class="pre">key</span></code> is not <code class="docutils literal notranslate"><span class="pre">None</span></code>,
+the singleton dependency with the specified key will be returned.</p>
+<p>If a dependency of type <code class="docutils literal notranslate"><span class="pre">T</span></code>, or a dependency of type <code class="docutils literal notranslate"><span class="pre">T</span></code> with <code class="docutils literal notranslate"><span class="pre">key</span></code>
+cannot be found, a <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#LookupError" title="(in Python v3.12)"><code class="xref py py-class docutils literal notranslate"><span class="pre">LookupError</span></code></a> is raised.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.dependency.DependencyResolver.resolve_optional">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">resolve_optional</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">kls</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#type" title="(in Python v3.12)"><span class="pre">type</span></a><span class="p"><span class="pre">[</span></span><span class="pre">T</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.12)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">T</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.12)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/fairseq2/dependency.html#DependencyResolver.resolve_optional"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.dependency.DependencyResolver.resolve_optional" title="Permalink to this definition"></a></dt>
+<dd><p>Return the singleton dependency of type <code class="docutils literal notranslate"><span class="pre">T</span></code> similar to <code class="xref py py-meth docutils literal notranslate"><span class="pre">resolve()</span></code>,
+but return <code class="docutils literal notranslate"><span class="pre">None</span></code> instead of raising a <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#LookupError" title="(in Python v3.12)"><code class="xref py py-class docutils literal notranslate"><span class="pre">LookupError</span></code></a> if the
+dependency is not found.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.dependency.DependencyResolver.resolve_all">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">resolve_all</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">kls</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#type" title="(in Python v3.12)"><span class="pre">type</span></a><span class="p"><span class="pre">[</span></span><span class="pre">T</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Iterable[T]:</span></span></span><a class="reference internal" href="../_modules/fairseq2/dependency.html#DependencyResolver.resolve_all"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.dependency.DependencyResolver.resolve_all" title="Permalink to this definition"></a></dt>
+<dd><p>Return all singleton dependencies of type <code class="docutils literal notranslate"><span class="pre">T</span></code> that have no associated
+key.</p>
+<p>If multiple singleton dependencies of type <code class="docutils literal notranslate"><span class="pre">T</span></code> are registered,
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">resolve()</span></code> only returns the last registered one. In contrast,
+<a class="reference internal" href="#fairseq2.dependency.DependencyResolver.resolve_all" title="fairseq2.dependency.DependencyResolver.resolve_all"><code class="xref py py-meth docutils literal notranslate"><span class="pre">resolve_all()</span></code></a> returns them all, in the order that they were
+registered.</p>
+<p>If no dependency can be found, an empty iterable will be returned.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.dependency.DependencyResolver.resolve_all_keyed">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">resolve_all_keyed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">kls</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#type" title="(in Python v3.12)"><span class="pre">type</span></a><span class="p"><span class="pre">[</span></span><span class="pre">T</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Iterable</span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.12)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">T</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/fairseq2/dependency.html#DependencyResolver.resolve_all_keyed"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.dependency.DependencyResolver.resolve_all_keyed" title="Permalink to this definition"></a></dt>
+<dd><p>Return all singleton dependencies of type <code class="docutils literal notranslate"><span class="pre">T</span></code> that have an associated
+key.</p>
+<p>This method behaves similar to <a class="reference internal" href="#fairseq2.dependency.DependencyResolver.resolve_all" title="fairseq2.dependency.DependencyResolver.resolve_all"><code class="xref py py-meth docutils literal notranslate"><span class="pre">resolve_all()</span></code></a>, but returns an
+iterable of key-dependency pairs instead.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.dependency.DependencyContainer">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.dependency.</span></span><span class="sig-name descname"><span class="pre">DependencyContainer</span></span><a class="reference internal" href="../_modules/fairseq2/dependency.html#DependencyContainer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.dependency.DependencyContainer" title="Permalink to this definition"></a></dt>
+<dd><p>extends <a class="reference internal" href="#fairseq2.dependency.DependencyResolver" title="fairseq2.dependency.DependencyResolver"><code class="xref py py-class docutils literal notranslate"><span class="pre">DependencyResolver</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">register[T](kls:</span> <span class="pre">type[T],</span> <span class="pre">factory:</span> <span class="pre">DependencyFactory[T],</span> <span class="pre">key:</span> <span class="pre">str</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None)</span> <span class="pre">-&gt;</span> <span class="pre">None</span></span></dt>
+<dd><p>Register a singleton dependency of type <code class="docutils literal notranslate"><span class="pre">T</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">factory</span></code> is expected to return an instance of type <code class="docutils literal notranslate"><span class="pre">T</span></code>, or <code class="docutils literal notranslate"><span class="pre">None</span></code>
+if the instance cannot be created. It should follow the protocol:</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">DependencyFactory</span><span class="p">(</span><span class="n">Protocol</span><span class="p">[</span><span class="n">T</span><span class="p">]):</span>
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">resolver</span><span class="p">:</span> <span class="n">DependencyResolver</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">resolver</span></code> passed to <code class="docutils literal notranslate"><span class="pre">factory</span></code> can be used to resolve the
+dependencies needed to construct the instance itself.</p>
+<p>Optionally <code class="docutils literal notranslate"><span class="pre">key</span></code> can be specified. In this case, the same key must
+be passed to <code class="xref py py-meth docutils literal notranslate"><span class="pre">resolve()</span></code> to return the
+dependency.</p>
+<p>If multiple singleton dependencies of type <code class="docutils literal notranslate"><span class="pre">T</span></code>, optionally with the
+same key, are registered, <code class="xref py py-meth docutils literal notranslate"><span class="pre">resolve()</span></code> will
+return the last registered one.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">register_instance[T](kls:</span> <span class="pre">type[T],</span> <span class="pre">obj:</span> <span class="pre">T,</span> <span class="pre">key:</span> <span class="pre">str</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None)</span> <span class="pre">-&gt;</span> <span class="pre">None</span></span></dt>
+<dd><p>Register an existing singleton dependency of type <code class="docutils literal notranslate"><span class="pre">T</span></code>.</p>
+<p>Other than registering <code class="docutils literal notranslate"><span class="pre">obj</span></code> instead of a factory, the method behaves
+the same as <code class="xref py py-meth docutils literal notranslate"><span class="pre">register()</span></code>.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.dependency.StandardDependencyContainer">
+<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.dependency.</span></span><span class="sig-name descname"><span class="pre">StandardDependencyContainer</span></span><a class="reference internal" href="../_modules/fairseq2/dependency.html#StandardDependencyContainer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.dependency.StandardDependencyContainer" title="Permalink to this definition"></a></dt>
+<dd><p>implements <a class="reference internal" href="#fairseq2.dependency.DependencyContainer" title="fairseq2.dependency.DependencyContainer"><code class="xref py py-class docutils literal notranslate"><span class="pre">DependencyContainer</span></code></a></p>
+<p>This is the standard implementation of <a class="reference internal" href="#fairseq2.dependency.DependencyContainer" title="fairseq2.dependency.DependencyContainer"><code class="xref py py-class docutils literal notranslate"><span class="pre">DependencyContainer</span></code></a> and
+transitively of <a class="reference internal" href="#fairseq2.dependency.DependencyResolver" title="fairseq2.dependency.DependencyResolver"><code class="xref py py-class docutils literal notranslate"><span class="pre">DependencyResolver</span></code></a>.</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+
+<span class="kn">from</span> <span class="nn">fairseq2.dependency</span> <span class="kn">import</span> <span class="n">DependencyResolver</span><span class="p">,</span> <span class="n">StandardDependencyContainer</span>
+
+<span class="n">container</span> <span class="o">=</span> <span class="n">StandardDependencyContainer</span><span class="p">()</span>
+
+<span class="c1"># The interface</span>
+<span class="k">class</span> <span class="nc">Foo</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">foo</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="o">...</span>
+
+<span class="c1"># The implementation</span>
+<span class="k">class</span> <span class="nc">FooImpl</span><span class="p">(</span><span class="n">Foo</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">foo</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">pass</span>
+
+<span class="c1"># The factory</span>
+<span class="k">def</span> <span class="nf">create_foo</span><span class="p">(</span><span class="n">resolver</span><span class="p">:</span> <span class="n">DependencyResolver</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Foo</span><span class="p">:</span>
+    <span class="k">assert</span> <span class="n">resolver</span> <span class="ow">is</span> <span class="n">container</span>
+
+    <span class="k">return</span> <span class="n">FooImpl</span><span class="p">()</span>
+
+<span class="n">container</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">Foo</span><span class="p">,</span> <span class="n">create_foo</span><span class="p">)</span>
+
+<span class="n">foo</span> <span class="o">=</span> <span class="n">container</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">Foo</span><span class="p">)</span>
+
+<span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">foo</span><span class="p">,</span> <span class="n">FooImpl</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="API Reference" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="data.html" class="btn btn-neutral float-right" title="fairseq2.data" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p></p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+  
+<p style="margin-top: 30px"><a href="https://opensource.fb.com/legal/terms">Terms of Use</a>, <a href="https://opensource.fb.com/legal/privacy">Privacy Policy</a></p>
+
+<p>Copyright © Meta Platforms, Inc</p>
+
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

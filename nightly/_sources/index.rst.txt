@@ -9,6 +9,11 @@ to train custom models for translation, summarization, language modeling, and
 other content generation tasks.
 
 .. toctree::
+    :maxdepth: 2
+
+    reference/index
+
+.. toctree::
    :caption: fairseq2 Reference
    :maxdepth: 1
 
