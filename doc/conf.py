@@ -28,7 +28,7 @@ author = "Fundamental AI Research (FAIR) at Meta"
 # General Configuration
 # ------------------------------------------------------------
 
-needs_sphinx = "5.0.0"
+needs_sphinx = "7.4.0"
 
 extensions = [
     "sphinx.ext.autodoc",
@@ -45,9 +45,18 @@ primary_domain = "py"
 
 highlight_language = "python3"
 
+add_module_names = False
+
+autoclass_content = "both"
+autodoc_class_signature = "mixed"
+autodoc_default_options = {
+    "members": True,
+    "show-inheritance": True,
+}
+autodoc_member_order = "bysource"
 autodoc_typehints = "description"
-autodoc_typehints_format = "short"
 autodoc_typehints_description_target = "documented_params"
+autodoc_typehints_format = "short"
 
 autosectionlabel_prefix_document = True
 
@@ -66,11 +75,11 @@ bibtex_bibfiles = ["../bibliography.bib"]
 # HTML Output Options
 # ------------------------------------------------------------
 
-html_theme = "sphinx_rtd_theme"
+html_theme = "alabaster"
 
 html_theme_options = {
-    "collapse_navigation": False,
-    "navigation_depth": 3,
+    "page_width": "980px",
+    "code_font_size": "0.7em",
 }
 
 html_show_copyright = False
