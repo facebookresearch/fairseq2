@@ -305,7 +305,7 @@ class _Registration:
 _container: DependencyContainer | None = None
 
 
-def get_default_container() -> DependencyContainer:
+def _get_container() -> DependencyContainer:
     global _container
 
     if _container is None:
@@ -316,14 +316,14 @@ def get_default_container() -> DependencyContainer:
     return _container
 
 
-def set_default_container(container: DependencyContainer) -> None:
+def _set_container(container: DependencyContainer) -> None:
     global _container
 
     _container = container
 
 
 def get_default_resolver() -> DependencyResolver:
-    return get_default_container()
+    return _get_container()
 
 
 def resolve(kls: type[T], key: str | None = None) -> T:
