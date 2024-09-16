@@ -8,3 +8,4 @@ Introduction to all major components of fairseq2:
     :maxdepth: 1
 
     design_philosophy
+    runtime_extensions
