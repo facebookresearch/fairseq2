@@ -18,42 +18,140 @@ T_co = TypeVar("T_co", covariant=True)
 
 
 class DependencyResolver(ABC):
+    """Resolves dependencies contained in an object dependency graph."""
+
     @abstractmethod
     def resolve(self, kls: type[T], key: str | None = None) -> T:
-        ...
+        """
+        Returns the singleton dependency of type ``T``.
+
+        :param kls: The :class:`type` of ``T``.
+
+        :param key: If not ``None``, the singleton dependency with the specified
+            key will be returned.
+
+        :raises LookupError: when a (keyed) dependency of type ``T`` cannot be
+            found.
+
+        :returns: The singleton dependency.
+        """
 
     @abstractmethod
     def resolve_optional(self, kls: type[T], key: str | None = None) -> T | None:
-        ...
+        """
+        Returns the singleton dependency of type ``T`` similar to :meth:`resolve`,
+        but returns ``None`` instead of raising a :class:`LookupError` if the
+        dependency is not found.
+
+        :param kls: The :class:`type` of ``T``.
+
+        :param key: If not ``None``, the singleton dependency with the specified
+            key will be returned.
+
+        :returns: The (keyed) singleton dependency, or ``None`` if the
+            dependency is not found.
+        """
 
     @abstractmethod
     def resolve_all(self, kls: type[T]) -> Iterable[T]:
-        ...
+        """
+        Returns all singleton dependencies of type ``T`` that have no associated
+        key.
+
+        If multiple singleton dependencies of type ``T`` are registered,
+        :meth:`resolve` only returns the last registered one. In contrast,
+        ``resolve_all`` returns them all in the order that they were registered.
+
+        :param kls: The :class:`type` of ``T``.
+
+        :returns: An iterable of dependencies. If no dependency is found, an
+            empty iterable.
+        """
 
     @abstractmethod
     def resolve_all_keyed(self, kls: type[T]) -> Iterable[tuple[str, T]]:
-        ...
+        """
+        Returns all singleton dependencies of type ``T`` that have an associated
+        key.
+
+        This method behaves similar to :meth:`resolve_all`, but returns an
+        iterable of key-dependency pairs instead.
+
+        :param kls: The :class:`type` of ``T``.
+
+        :returns: An iterable of key-dependency pairs. If no dependency is found,
+            an empty iterable.
+        """
 
 
 class DependencyFactory(Protocol[T_co]):
+    """
+    Used by :meth:`DependencyContainer.register` for its ``factory`` parameter.
+    """
+
     def __call__(self, resolver: DependencyResolver) -> T_co | None:
-        ...
+        """
+        Creates an object of type ``T_co``.
+
+        :param resolver: The dependency resolver that the callable can use to
+            resolve the dependencies of the newly-created object.
+
+        :returns: An object of type ``T_co`` that will be registered as a
+            dependency in the calling :class:`DependencyContainer`, or ``None``
+            if the object cannot be created.
+        """
 
 
 class DependencyContainer(DependencyResolver):
+    """Holds an object dependency graph."""
+
     @abstractmethod
     def register(
         self, kls: type[T], factory: DependencyFactory[T], key: str | None = None
     ) -> None:
-        ...
+        """
+        Registers a singleton dependency of type ``T``.
+
+        If multiple (same keyed) singleton dependencies of type ``T`` are
+        registered, :meth:`~DependencyResolver.resolve` will return the last
+        registered one.
+
+        :param kls: The :class:`type` of ``T``.
+
+        :param factory: A callable to create an object of type ``T``, or
+            ``None`` if the object cannot be created. If ``None`` is returned,
+            the dependency is considered to not exist.
+
+        :param key: If specified, registers ``factory`` with the specified key.
+            The same key must be passed to :meth:`~DependencyResolver.resolve`
+            to return the dependency.
+        """
 
     @abstractmethod
-    def register_instance(self, kls: type[T], obj: T, key: str | None = None) -> None:
-        ...
+    def register_object(self, kls: type[T], obj: T, key: str | None = None) -> None:
+        """
+        Registers an existing singleton dependency of type ``T``.
+
+        Other than registering an object instead of a factory, the method
+        behaves the same as :meth:`register`.
+
+        :param kls: The :class:`type` of ``T``.
+
+        :param obj: The singleton dependency object to register.
+
+        :param key: If specified, registers ``obj`` with the specified key. The
+            same key must be passed to :meth:`~DependencyResolver.resolve` to
+            return the dependency.
+        """
 
 
 @final
 class StandardDependencyContainer(DependencyContainer):
+    """
+    This is the standard implementation of :class:`DependencyContainer` and
+    transitively of :class:`DependencyResolver`.
+    """
+
     _registrations: dict[type, list[_Registration]]
     _keyed_registrations: dict[type, dict[str, _Registration]]
 
@@ -68,7 +166,7 @@ class StandardDependencyContainer(DependencyContainer):
         self._register(kls, key, _Registration(factory=factory))
 
     @override
-    def register_instance(self, kls: type[T], obj: T, key: str | None = None) -> None:
+    def register_object(self, kls: type[T], obj: T, key: str | None = None) -> None:
         self._register(kls, key, _Registration(obj=obj))
 
     def _register(
@@ -98,7 +196,7 @@ class StandardDependencyContainer(DependencyContainer):
                 registration = self._registrations[kls][-1]
             except (KeyError, IndexError):
                 raise LookupError(
-                    f"No registered factory or instance found for `{kls}`."
+                    f"No registered factory or object found for `{kls}`."
                 ) from None
 
             obj = self._get_object(kls, registration)
@@ -111,7 +209,7 @@ class StandardDependencyContainer(DependencyContainer):
                 registration = self._keyed_registrations[kls][key]
             except KeyError:
                 raise LookupError(
-                    f"No registered factory or instance found for `{kls}` with the key '{key}'."
+                    f"No registered factory or object found for `{kls}` with the key '{key}'."
                 ) from None
 
             obj = self._get_object(kls, registration)

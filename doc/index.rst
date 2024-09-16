@@ -11,6 +11,7 @@ other content generation tasks.
 .. toctree::
     :maxdepth: 2
 
+    topics/index
     reference/index
 
 .. toctree::
