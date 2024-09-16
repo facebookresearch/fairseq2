@@ -65,12 +65,12 @@ class TestStandardDependencyContainer:
         assert foo1 is expected_foo
         assert foo2 is expected_foo
 
-    def test_register_instance_resolve_works(self) -> None:
+    def test_register_object_resolve_works(self) -> None:
         container = StandardDependencyContainer()
 
         expected_foo = FooImpl1()
 
-        container.register_instance(Foo, expected_foo)
+        container.register_object(Foo, expected_foo)
 
         foo1 = container.resolve(Foo)
         foo2 = container.resolve_optional(Foo)
@@ -78,12 +78,12 @@ class TestStandardDependencyContainer:
         assert foo1 is expected_foo
         assert foo2 is expected_foo
 
-    def test_keyed_register_instance_resolve_works(self) -> None:
+    def test_keyed_register_object_resolve_works(self) -> None:
         container = StandardDependencyContainer()
 
         expected_foo = FooImpl1()
 
-        container.register_instance(Foo, expected_foo, key="foo")
+        container.register_object(Foo, expected_foo, key="foo")
 
         foo1 = container.resolve(Foo, "foo")
         foo2 = container.resolve_optional(Foo, "foo")
@@ -102,7 +102,7 @@ class TestStandardDependencyContainer:
         def create_foo2(resolver: DependencyResolver) -> Foo:
             return expected_foo
 
-        container.register_instance(Foo, FooImpl1())
+        container.register_object(Foo, FooImpl1())
 
         container.register(Foo, create_foo1)
         container.register(Foo, create_foo2)
@@ -124,7 +124,7 @@ class TestStandardDependencyContainer:
         def create_foo2(resolver: DependencyResolver) -> Foo:
             return expected_foo
 
-        container.register_instance(Foo, FooImpl1(), key="foo")
+        container.register_object(Foo, FooImpl1(), key="foo")
 
         container.register(Foo, create_foo1, key="foo")
         container.register(Foo, create_foo2, key="foo")
@@ -186,7 +186,7 @@ class TestStandardDependencyContainer:
         container = StandardDependencyContainer()
 
         with pytest.raises(
-            LookupError, match=rf"^No registered factory or instance found for `{Foo}`\.$"  # fmt: skip
+            LookupError, match=rf"^No registered factory or object found for `{Foo}`\.$"  # fmt: skip
         ):
             container.resolve(Foo)
 
@@ -194,7 +194,7 @@ class TestStandardDependencyContainer:
         container = StandardDependencyContainer()
 
         with pytest.raises(
-            LookupError, match=rf"^No registered factory or instance found for `{Foo}` with the key 'foo'\.$"  # fmt: skip
+            LookupError, match=rf"^No registered factory or object found for `{Foo}` with the key 'foo'\.$"  # fmt: skip
         ):
             container.resolve(Foo, "foo")
 
