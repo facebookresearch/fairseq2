@@ -22,6 +22,10 @@ fairseq2.dependency
 
 * :class:`DependencyFactory`
 
+**Functions**
+
+* :func:`get_container`
+
 ABCs
 ====
 
@@ -34,39 +38,13 @@ Classes
 
 .. autoclass:: StandardDependencyContainer
 
-    ::
-
-        from abc import ABC, abstractmethod
-
-        from fairseq2.dependency import DependencyResolver, StandardDependencyContainer
-
-        container = StandardDependencyContainer()
-
-        # The interface
-        class Foo(ABC):
-            @abstractmethod
-            def foo(self) -> None:
-                ...
-
-        # The implementation
-        class FooImpl(Foo):
-            def foo(self) -> None:
-                pass
-
-        # The factory
-        def create_foo(resolver: DependencyResolver) -> Foo:
-            assert resolver is container
-
-            return FooImpl()
-
-        container.register(Foo, create_foo)
-
-        foo = container.resolve(Foo)
-
-        assert isinstance(foo, FooImpl)
-
 Protocols
 =========
 
 .. autoclass:: DependencyFactory()
     :special-members: __call__
+
+Functions
+=========
+
+.. autofunction:: get_container

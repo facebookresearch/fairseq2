@@ -25,11 +25,10 @@ _setup_called = False
 
 def setup_fairseq2() -> None:
     """
-    Sets up the global state of fairseq2 by initializing its default
-    :class:`DependencyContainer`.
+    Sets up fairseq2 by initializing its global :class:`DependencyContainer`.
 
     As part of the initialization, this function also registers external
-    dependencies via setuptools' `entry-point`__ mechanism. See
+    objects with the container via setuptools' `entry-point`__ mechanism. See
     :doc:`/topics/runtime_extensions` for more information.
 
     .. important::
@@ -47,28 +46,29 @@ def setup_fairseq2() -> None:
 
     container = StandardDependencyContainer()
 
-    register_dependencies(container)
-
     _set_container(container)
+
+    _setup_library(container)
+    _setup_extensions(container)
 
     _setup_legacy_extensions()
 
 
-def register_dependencies(container: DependencyContainer) -> None:
-    _register_1rd_party_dependencies(container)
-    _register_3rd_party_dependencies(container)
+def setup(container: DependencyContainer) -> None:
+    _setup_library(container)
+    _setup_extensions(container)
 
 
-def _register_1rd_party_dependencies(container: DependencyContainer) -> None:
+def _setup_library(container: DependencyContainer) -> None:
     pass
 
 
-def _register_3rd_party_dependencies(container: DependencyContainer) -> None:
+def _setup_extensions(container: DependencyContainer) -> None:
     for entry_point in entry_points(group="fairseq2.extension"):
         try:
-            register_dependencies = entry_point.load()
+            setup_extension = entry_point.load()
 
-            register_dependencies(container)
+            setup_extension(container)
         except TypeError:
             raise RuntimeError(
                 f"The entry point '{entry_point.value}' is not a valid fairseq2 extension function."

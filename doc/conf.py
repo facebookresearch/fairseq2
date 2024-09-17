@@ -45,8 +45,6 @@ primary_domain = "py"
 
 highlight_language = "python3"
 
-add_module_names = False
-
 autoclass_content = "both"
 autodoc_class_signature = "mixed"
 autodoc_default_options = {
