@@ -83,7 +83,7 @@ class InstructionFinetuneConfig:
     dtype: DataType = torch.bfloat16
     """The data type of the model."""
 
-    data_parallelism: Literal["ddp", "fsdp", "fsdp2"] = "fsdp2"
+    data_parallelism: Literal["ddp", "fsdp", "fsdp2"] = "fsdp"
     """The data parallelism API to use."""
 
     fsdp_wrap_granularity: Literal["layer", "stack", "model"] = "layer"
@@ -153,7 +153,7 @@ class InstructionFinetuneConfig:
     seed: int = 2
     """The random number generator seed to use."""
 
-    profile: Optional[Tuple[int, int]] = None
+    profile: Optional[Tuple[int, int]] = (20, 2) # None
     """The number of steps that the PyTorch profiler should skip and then record."""
 
     monitored_gang: bool = False

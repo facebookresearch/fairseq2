@@ -140,6 +140,77 @@ def no_sync(module: Module):
         with module.no_sync():
             yield
 
+
+from collections import namedtuple
+
+# named tuple for passing GPU memory stats for logging
+GPUMemStats = namedtuple(
+    "GPUMemStats",
+    [
+        "max_active_gib",
+        "max_active_pct",
+        "max_reserved_gib",
+        "max_reserved_pct",
+        "num_alloc_retries",
+        "num_ooms",
+    ],
+)
+
+
+class GPUMemoryMonitor:
+    def __init__(self, device: str = "cuda:0"):
+        self.device = torch.device(device)  # device object
+        self.device_name = torch.cuda.get_device_name(self.device)
+        self.device_index = torch.cuda.current_device()
+        self.device_capacity = torch.cuda.get_device_properties(
+            self.device
+        ).total_memory
+        self.device_capacity_gib = self._to_gib(self.device_capacity)
+
+        torch.cuda.reset_peak_memory_stats()
+        torch.cuda.empty_cache()
+
+    def _to_gib(self, memory_in_bytes):
+        # NOTE: GiB (gibibyte) is 1024, vs GB is 1000
+        _gib_in_bytes = 1024 * 1024 * 1024
+        memory_in_gib = memory_in_bytes / _gib_in_bytes
+        return memory_in_gib
+
+    def _to_pct(self, memory):
+        return 100 * memory / self.device_capacity
+
+    def get_peak_stats(self):
+        cuda_info = torch.cuda.memory_stats(self.device)
+
+        max_active = cuda_info["active_bytes.all.peak"]
+        max_active_gib = self._to_gib(max_active)
+        max_active_pct = self._to_pct(max_active)
+
+        max_reserved = cuda_info["reserved_bytes.all.peak"]
+        max_reserved_gib = self._to_gib(max_reserved)
+        max_reserved_pct = self._to_pct(max_reserved)
+
+        num_retries = cuda_info["num_alloc_retries"]
+        num_ooms = cuda_info["num_ooms"]
+
+        if num_retries > 0:
+            log.warning(f"{num_retries} CUDA memory allocation retries.")
+        if num_ooms > 0:
+            log.warning(f"{num_ooms} CUDA OOM errors thrown.")
+
+        return GPUMemStats(
+            max_active_gib,
+            max_active_pct,
+            max_reserved_gib,
+            max_reserved_pct,
+            num_retries,
+            num_ooms,
+        )
+
+    def reset_peak_stats(self):
+        torch.cuda.reset_peak_memory_stats()
+
+
 @final
 class Trainer(StatefulObjectBag, Generic[BatchT]):
     """Trains a machine learning model."""
@@ -476,6 +547,11 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             "gradient_norm", Mean(device=device), persistent=False
         )
 
+        if False:
+            unit.metric_bag.register_metric(
+                "gpu_mem_stats", Mean(device=device), persistent=False
+            )
+
         self._metric_bag = unit.metric_bag
 
         if root_gang.rank == 0:
@@ -526,6 +602,17 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         self._run = False
 
         self._progress = create_rich_progress()
+        self._gpu_memory_monitor = GPUMemoryMonitor("cuda")
+        log.info(
+            f"GPU capacity: {self._gpu_memory_monitor.device_name} ({self._gpu_memory_monitor.device_index}) "
+            f"with {self._gpu_memory_monitor.device_capacity_gib:.2f}GiB memory"
+        )
+        gpu_mem_stats = self._gpu_memory_monitor.get_peak_stats()
+        log.info(
+            f"GPU memory usage for model: "
+            f"{gpu_mem_stats.max_reserved_gib:.2f}GiB"
+            f"({gpu_mem_stats.max_reserved_pct:.2f}%)"
+        )
 
     @override
     def __call__(self) -> None:
@@ -696,6 +783,20 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
                 self._metric_bag.commit_updates()
 
+                if False:
+                    # Record metrics for each rank
+                    gpu_mem_stats = self._gpu_memory_monitor.get_peak_stats()
+                    
+                    metrics = {
+                        "memory/max_active(GiB)": gpu_mem_stats.max_active_gib,
+                        "memory/max_active(%)": gpu_mem_stats.max_active_pct,
+                        "memory/max_reserved(GiB)": gpu_mem_stats.max_reserved_gib,
+                        "memory/max_reserved(%)": gpu_mem_stats.max_reserved_pct,
+                        "memory/num_alloc_retries": gpu_mem_stats.num_alloc_retries,
+                        "memory/num_ooms": gpu_mem_stats.num_ooms,
+                    }                    
+                    self._metric_bag.gpu_mem_stats.update({f'rank_{self._root_gang.rank}_{k}': v for k, v in metrics.items()})
+
                 self._metric_bag.gradient_norm.update(grad_norm)
 
                 stepped = True
@@ -754,33 +855,60 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         return self._should_do(after_n_steps, every_n_steps)
 
     def _publish_metrics(self) -> None:
-        log.debug("Syncing metrics.")
-
+        log.info(f"Syncing metrics -> _tp_gang_rank: {self._tp_gang.rank} _root_gang_rank: {self._root_gang.rank}")
+        
         if self._tp_gang.rank == 0:
             values = self._metric_bag.sync_and_compute_metrics()
         else:
-            values = None
+            values = None        
 
         self._metric_bag.reset_non_persistent_metrics()
 
         elapsed_time = self._step_time
 
         self._step_time = 0.0
+        
+        # Record metrics for each rank
+        gpu_mem_stats = self._gpu_memory_monitor.get_peak_stats()
 
-        if self._root_gang.rank != 0:
-            return
+        # Create a tensor of size (7,) points on each rank
+        data_points = torch.zeros(7, device=self._root_gang.device)
+        data_points[0] = gpu_mem_stats.max_active_gib
+        data_points[1] = gpu_mem_stats.max_active_pct
+        data_points[2] = gpu_mem_stats.max_reserved_gib
+        data_points[3] = gpu_mem_stats.max_reserved_pct
+        data_points[4] = gpu_mem_stats.num_alloc_retries
+        data_points[5] = gpu_mem_stats.num_ooms
+        data_points[6] = self._root_gang.rank
+        
+        # Collect the tensors from all ranks and concatenate them along the first dimension
+        all_data_points = [torch.empty_like(data_points) for _ in range(self._root_gang.size)]
+        torch.distributed.all_gather(all_data_points, data_points)
+        # all_data_points = torch.cat(all_data_points, dim=0)
+            
+        if self._root_gang.rank == 0:            
+            assert values is not None
+    
+            values["lr"] = get_effective_lr(self._lr_scheduler)
+    
+            set_throughput(values, self._unit.throughput_metric_name, elapsed_time)
+    
+            values["elapsed_time"] = elapsed_time
 
-        assert values is not None
-
-        values["lr"] = get_effective_lr(self._lr_scheduler)
-
-        set_throughput(values, self._unit.throughput_metric_name, elapsed_time)
-
-        values["elapsed_time"] = elapsed_time
-
-        values["wall_time"] = self._wall_watch.get_elapsed_time()
-
-        record_metrics(self._metric_recorders, "train", values, self._step_nr)
+            for i in range(self._root_gang.size):
+                rank_data_points = all_data_points[i]
+                values.update({
+                    f"memory_{i}/max_active(GiB)": rank_data_points[0].item(),
+                    f"memory_{i}/max_active(%)": rank_data_points[1].item(),
+                    f"memory_{i}/max_reserved(GiB)": rank_data_points[2].item(),
+                    f"memory_{i}/max_reserved(%)": rank_data_points[3].item(),
+                    f"memory_{i}/num_alloc_retries": rank_data_points[4].item(),
+                    f"memory_{i}/num_ooms": rank_data_points[5].item(),
+                })
+    
+            values["wall_time"] = self._wall_watch.get_elapsed_time()
+    
+            record_metrics(self._metric_recorders, "train", values, self._step_nr)
 
     def _should_validate(self) -> bool:
         if not self._valid_units:
