@@ -18,69 +18,63 @@ T_co = TypeVar("T_co", covariant=True)
 
 
 class DependencyResolver(ABC):
-    """Resolves dependencies contained in an object dependency graph."""
+    """Resolves objects contained in a dependency graph."""
 
     @abstractmethod
     def resolve(self, kls: type[T], key: str | None = None) -> T:
         """
-        Returns the singleton dependency of type ``T``.
+        Returns the object of type ``T``.
 
         :param kls: The :class:`type` of ``T``.
+        :param key: If not ``None``, the object with the specified key will be
+            returned.
 
-        :param key: If not ``None``, the singleton dependency with the specified
-            key will be returned.
+        :raises LookupError: when the object cannot be found.
 
-        :raises LookupError: when a (keyed) dependency of type ``T`` cannot be
-            found.
-
-        :returns: The singleton dependency.
+        :returns: The resolved object.
         """
 
     @abstractmethod
     def resolve_optional(self, kls: type[T], key: str | None = None) -> T | None:
         """
-        Returns the singleton dependency of type ``T`` similar to :meth:`resolve`,
-        but returns ``None`` instead of raising a :class:`LookupError` if the
-        dependency is not found.
+        Returns the object of type ``T`` similar to :meth:`resolve`, but returns
+        ``None`` instead of raising a :class:`LookupError` if the object is not
+        found.
 
         :param kls: The :class:`type` of ``T``.
+        :param key: If not ``None``, the object with the specified key will be
+            returned.
 
-        :param key: If not ``None``, the singleton dependency with the specified
-            key will be returned.
-
-        :returns: The (keyed) singleton dependency, or ``None`` if the
-            dependency is not found.
+        :returns: The resolved object, or ``None`` if the object is not found.
         """
 
     @abstractmethod
     def resolve_all(self, kls: type[T]) -> Iterable[T]:
         """
-        Returns all singleton dependencies of type ``T`` that have no associated
-        key.
+        Returns all non-keyed objects of type ``T``.
 
-        If multiple singleton dependencies of type ``T`` are registered,
-        :meth:`resolve` only returns the last registered one. In contrast,
-        ``resolve_all`` returns them all in the order that they were registered.
+        If multiple objects of type ``T`` are registered, :meth:`resolve` returns
+        only the last registered one. In contrast, ``resolve_all`` returns
+        them all in the order they were registered.
 
         :param kls: The :class:`type` of ``T``.
 
-        :returns: An iterable of dependencies. If no dependency is found, an
+        :returns: An iterable of resolved objects. If no object is found, an
             empty iterable.
         """
 
     @abstractmethod
     def resolve_all_keyed(self, kls: type[T]) -> Iterable[tuple[str, T]]:
         """
-        Returns all singleton dependencies of type ``T`` that have an associated
-        key.
+        Returns all keyed objects of type ``T``.
 
         This method behaves similar to :meth:`resolve_all`, but returns an
-        iterable of key-dependency pairs instead.
+        iterable of key-object pairs instead.
 
         :param kls: The :class:`type` of ``T``.
 
-        :returns: An iterable of key-dependency pairs. If no dependency is found,
-            an empty iterable.
+        :returns: An iterable of resolved key-object pairs. If no object is
+            found, an empty iterable.
         """
 
 
@@ -96,52 +90,47 @@ class DependencyFactory(Protocol[T_co]):
         :param resolver: The dependency resolver that the callable can use to
             resolve the dependencies of the newly-created object.
 
-        :returns: An object of type ``T_co`` that will be registered as a
-            dependency in the calling :class:`DependencyContainer`, or ``None``
-            if the object cannot be created.
+        :returns: An object of type ``T_co`` that will be registered in the
+            calling :class:`DependencyContainer`, or ``None`` if the object
+            cannot be created.
         """
 
 
 class DependencyContainer(DependencyResolver):
-    """Holds an object dependency graph."""
+    """Holds a dependency graph."""
 
     @abstractmethod
     def register(
         self, kls: type[T], factory: DependencyFactory[T], key: str | None = None
     ) -> None:
         """
-        Registers a singleton dependency of type ``T``.
+        Registers a lazily-initialized object of type ``T``.
 
-        If multiple (same keyed) singleton dependencies of type ``T`` are
-        registered, :meth:`~DependencyResolver.resolve` will return the last
-        registered one.
+        If multiple objects of type ``T``, optionally with the same key, are
+        registered, :meth:`~DependencyResolver.resolve` will return only the
+        last registered one.
 
         :param kls: The :class:`type` of ``T``.
-
-        :param factory: A callable to create an object of type ``T``, or
-            ``None`` if the object cannot be created. If ``None`` is returned,
-            the dependency is considered to not exist.
-
-        :param key: If specified, registers ``factory`` with the specified key.
-            The same key must be passed to :meth:`~DependencyResolver.resolve`
-            to return the dependency.
+        :param factory: A callable to create an object of type ``T``. If the
+            callable returns ``None``, the object is considered to not exist.
+        :param key: If not ``None``, registers the object with the specified key.
+            :meth:`~DependencyResolver.resolve` will return the object only if
+            the same key is provided.
         """
 
     @abstractmethod
     def register_object(self, kls: type[T], obj: T, key: str | None = None) -> None:
         """
-        Registers an existing singleton dependency of type ``T``.
+        Registers an object of type ``T``.
 
-        Other than registering an object instead of a factory, the method
-        behaves the same as :meth:`register`.
+        Other than registering an existing object instead of a factory, the
+        method behaves the same as :meth:`register`.
 
         :param kls: The :class:`type` of ``T``.
-
-        :param obj: The singleton dependency object to register.
-
-        :param key: If specified, registers ``obj`` with the specified key. The
-            same key must be passed to :meth:`~DependencyResolver.resolve` to
-            return the dependency.
+        :param obj: The object to register.
+        :param key: If not ``None``, registers the object with the specified key.
+            :meth:`~DependencyResolver.resolve` will return the object only if
+            the same key is provided.
         """
 
 
@@ -229,33 +218,25 @@ class StandardDependencyContainer(DependencyContainer):
 
     @override
     def resolve_all(self, kls: type[T]) -> Iterable[T]:
-        objs: list[T] = []
-
         registrations = self._registrations.get(kls)
         if registrations is None:
-            return objs
+            return
 
         for registration in registrations:
             obj = self._get_object(kls, registration)
             if obj is not None:
-                objs.append(obj)
-
-        return objs
+                yield obj
 
     @override
     def resolve_all_keyed(self, kls: type[T]) -> Iterable[tuple[str, T]]:
-        objs: list[tuple[str, T]] = []
-
         keyed_registrations = self._keyed_registrations.get(kls)
         if keyed_registrations is None:
-            return objs
+            return
 
         for key, registration in keyed_registrations.items():
             obj = self._get_object(kls, registration)
             if obj is not None:
-                objs.append((key, obj))
-
-        return objs
+                yield (key, obj)
 
     def _get_object(self, kls: type[T], registration: _Registration) -> T | None:
         if registration.obj is _NOT_SET:
@@ -305,7 +286,19 @@ class _Registration:
 _container: DependencyContainer | None = None
 
 
-def _get_container() -> DependencyContainer:
+def _set_container(container: DependencyContainer) -> None:
+    global _container
+
+    _container = container
+
+
+def get_container() -> DependencyContainer:
+    """
+    Returns the global :class:`DependencyContainer` instance.
+
+    :raises RuntimeError: when :func:`~fairseq2.setup_fairseq2` has not been
+        called first which is responsible for initializing the global container.
+    """
     global _container
 
     if _container is None:
@@ -316,15 +309,9 @@ def _get_container() -> DependencyContainer:
     return _container
 
 
-def _set_container(container: DependencyContainer) -> None:
-    global _container
-
-    _container = container
-
-
-def get_default_resolver() -> DependencyResolver:
-    return _get_container()
+def get_resolver() -> DependencyResolver:
+    return get_container()
 
 
 def resolve(kls: type[T], key: str | None = None) -> T:
-    return get_default_resolver().resolve(kls, key)
+    return get_resolver().resolve(kls, key)

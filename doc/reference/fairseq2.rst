@@ -4,8 +4,7 @@ fairseq2
 
 .. module:: fairseq2
 
-The root module of the library contains mainly initialization and introspection
-functions.
+The root module contains library initialization functions.
 
 **Functions**
 
