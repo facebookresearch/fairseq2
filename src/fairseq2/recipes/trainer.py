@@ -343,7 +343,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         self._loss_scaler = DynamicLossScaler(
             optimizer,
             root_gang,
-            sharded=uses_fsdp or self._tp_gang.size > 0,
+            sharded=uses_fsdp or self._tp_gang.size > 1,
             init_scale=fp16_init_scale,
             min_scale=fp16_min_scale,
             gradient_accumulation=self._data_reader.num_accumulate,
