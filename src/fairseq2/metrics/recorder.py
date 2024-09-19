@@ -108,6 +108,7 @@ _metric_formatters: dict[str, _MetricFormatter] = {
     "prob_perplexity":               _MetricFormatter("Prob Perplexity",                 210, format_as_float),
     "temperature":                   _MetricFormatter("Temperature",                     220, format_as_float),
     "gradient_norm":                 _MetricFormatter("Gradient Norm",                   300, format_as_float),
+    "data_epoch":                    _MetricFormatter("Data Epoch",                      490, format_as_int),
     "elapsed_time":                  _MetricFormatter("Elapsed Time",                    500, format_as_seconds),
     "wall_time":                     _MetricFormatter("Wall Time",                       510, format_as_seconds),
     "lr":                            _MetricFormatter("Learning Rate",                   700, format_as_float),

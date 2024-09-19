@@ -689,9 +689,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         # Collect the batches.
         with record_function(f"step_{step_nr}_data_load"):
-            try:
-                batches = self._next_batches()
-            except StopIteration:
+            batches = self._next_batches()
+            if batches is None:
                 return
 
         # Prepare the unit.
@@ -775,15 +774,16 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._total_step_time += watch.get_elapsed_time()
 
-    def _next_batches(self) -> list[BatchT]:
+    def _next_batches(self) -> list[BatchT] | None:
         try:
             batches = next(self._data_reader)
+        except StopIteration:
+            batches = None
 
+        if batches is not None:
             self._read_data = True
 
             return batches
-        except StopIteration:
-            pass
 
         self._data_reader.reset()
 
@@ -807,7 +807,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._repeat_step = True
 
-        raise StopIteration()
+        return None
 
     def _maybe_no_sync(
         self, batch_nr: int, num_batches: int
@@ -860,6 +860,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             )
 
             values["lr"] = get_effective_lr(self._lr_scheduler)
+
+            values["data_epoch"] = self._data_epoch_nr
 
             values["elapsed_time"] = self._total_step_time
 
@@ -965,6 +967,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             )
 
         extend_batch_metrics(values, num_batches, elapsed_time)
+
+        values["data_epoch"] = self._data_epoch_nr
 
         values["elapsed_time"] = elapsed_time
 
