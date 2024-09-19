@@ -8,12 +8,12 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterator, Mapping
-from typing import Any, TypeVar, final
+from typing import Any, Literal, TypeVar, final
 
 from typing_extensions import Self, override
 
 from fairseq2.data import DataPipeline
-from fairseq2.datasets.utils import _reduce_num_batches
+from fairseq2.datasets.utils import _min_num_batches, _sum_num_batches
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 
@@ -73,6 +73,7 @@ class DataPipelineReader(DataReader[BatchT]):
         num_accumulate: int = 1,
         drop_remainder: bool = True,
         sync_batches: bool = True,
+        sync_mode: Literal["until_first", "until_last"] = "until_first",
     ) -> None:
         """
         :param pipeline:
@@ -90,6 +91,11 @@ class DataPipelineReader(DataReader[BatchT]):
             across all processes in the gang. Typically used when the amount of
             data to be read can vary per process (e.g. due to bucketing) and it
             is critical for each process to iterate over same number of batches.
+        :param sync_mode:
+            If ``until_first``, stops iteration when the first rank reaches end
+            of data. If ``until_last``, stops iteration when the last rank
+            reaches end of data; ranks that have already reached their end of
+            data will return an empty list of batches.
         """
         self._pipeline = pipeline
         self._pipeline_iter = iter(pipeline)
@@ -97,6 +103,7 @@ class DataPipelineReader(DataReader[BatchT]):
         self._num_accumulate = num_accumulate
         self._drop_remainder = drop_remainder
         self._sync_batches = sync_batches
+        self._sync_until_last = sync_mode == "until_last"
         self._eod = False
 
     @override
@@ -126,10 +133,13 @@ class DataPipelineReader(DataReader[BatchT]):
         local_num_batches = len(batches)
 
         if self._sync_batches and self._gang.size > 1:
-            num_batches = _reduce_num_batches(local_num_batches, self._gang, log)
+            if self._sync_until_last:
+                num_batches = _sum_num_batches(local_num_batches, self._gang)
+            else:
+                num_batches = _min_num_batches(local_num_batches, self._gang, log)
 
-            if num_batches != local_num_batches:
-                batches = batches[:num_batches]
+                if num_batches != local_num_batches:
+                    batches = batches[:num_batches]
         else:
             num_batches = local_num_batches
 

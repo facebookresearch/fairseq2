@@ -278,7 +278,7 @@ def load_text_generator(
             dp_gang,
             config.max_seq_len,
             batching=StaticBatching(config.batch_size),
-            sync_batches=False,
+            sync_mode="until_last",
             num_prefetch=config.num_prefetch,
             seed=seed,
         )
