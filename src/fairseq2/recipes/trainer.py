@@ -29,7 +29,7 @@ from typing_extensions import override
 from fairseq2.checkpoint import CheckpointManager, CheckpointNotFoundError
 from fairseq2.datasets import DataReader
 from fairseq2.early_stopper import EarlyStopper
-from fairseq2.gang import FakeGang, Gang, all_sum, broadcast_flag
+from fairseq2.gang import FakeGang, Gang, broadcast_flag
 from fairseq2.logging import get_log_writer
 from fairseq2.metrics import (
     JsonFileMetricRecorder,
@@ -926,14 +926,11 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             try:
                 batches = next(data_reader)
             except StopIteration:
-                batches = []
+                break
 
             for batch in batches:
                 with self._maybe_autocast():
                     unit(batch)
-
-            if self._is_valid_end_of_data(batches):
-                break
 
             num_effective_batches += 1
 
@@ -946,11 +943,6 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         )
 
         return self._get_unit_score(metric_values)
-
-    def _is_valid_end_of_data(self, batches: list[BatchT]) -> bool:
-        total_num_batches = all_sum(self._dp_gang, len(batches))
-
-        return int(total_num_batches) == 0
 
     def _publish_validation_metrics(
         self, unit: EvalUnit[BatchT], num_batches: int, elapsed_time: float

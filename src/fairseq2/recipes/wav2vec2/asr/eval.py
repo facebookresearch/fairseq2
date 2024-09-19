@@ -217,7 +217,7 @@ def load_wav2vec2_asr_evaluator(
             min_audio_len=config.min_audio_len,
             max_audio_len=config.max_audio_len,
             normalize_audio=config.normalize_audio,
-            sync_batches=False,
+            sync_mode="until_last",
             num_prefetch=config.num_prefetch,
             seed=seed,
         )

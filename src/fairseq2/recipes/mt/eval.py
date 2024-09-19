@@ -222,7 +222,7 @@ def load_mt_evaluator(
                 config.max_seq_len,
                 batching=LengthBatching(config.max_num_tokens),
                 direction=direction,
-                sync_batches=False,
+                sync_mode="until_last",
                 num_prefetch=config.num_prefetch,
                 seed=seed,
             )
@@ -296,7 +296,7 @@ def load_mt_evaluator(
                 config.max_seq_len,
                 batching=StaticBatching(config.generator_batch_size),
                 direction=direction,
-                sync_batches=False,
+                sync_mode="until_last",
                 num_prefetch=config.num_prefetch,
                 seed=seed,
             )
