@@ -27,7 +27,7 @@ from fairseq2.metrics import (
     TensorBoardRecorder,
     record_metrics,
 )
-from fairseq2.recipes.common_metrics import set_throughput_value
+from fairseq2.recipes.common_metrics import extend_batch_metrics
 from fairseq2.recipes.utils.cli import create_rich_progress
 from fairseq2.typing import CPU
 from fairseq2.utils.profiler import Stopwatch
@@ -223,6 +223,8 @@ class Evaluator(Generic[BatchT]):
 
         unit.model.eval()
 
+        num_effective_batches = 0
+
         with create_rich_progress() as progress:
             task = progress.add_task("eval", total=None)
 
@@ -242,14 +244,18 @@ class Evaluator(Generic[BatchT]):
                 if self._is_eod(batches):
                     break
 
-        self._publish_metrics(unit, watch.get_elapsed_time())
+                num_effective_batches += 1
+
+        self._publish_metrics(unit, num_effective_batches, watch.get_elapsed_time())
 
     def _is_eod(self, batches: list[BatchT]) -> bool:
         total_num_batches = all_sum(self._dp_gang, len(batches))
 
         return bool(total_num_batches == 0)
 
-    def _publish_metrics(self, unit: EvalUnit[BatchT], elapsed_time: float) -> None:
+    def _publish_metrics(
+        self, unit: EvalUnit[BatchT], num_batches: int, elapsed_time: float
+    ) -> None:
         log.debug("Syncing metrics.")
 
         if self._tp_gang.rank == 0:
@@ -262,9 +268,12 @@ class Evaluator(Generic[BatchT]):
         if self._root_gang.rank != 0:
             return
 
-        assert values is not None
+        if values is None:
+            raise RuntimeError(
+                "The synchronized metric values are `None`. Please file a bug report."
+            )
 
-        set_throughput_value(values, elapsed_time)
+        extend_batch_metrics(values, num_batches, elapsed_time)
 
         values["elapsed_time"] = elapsed_time
 

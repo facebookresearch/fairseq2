@@ -14,10 +14,10 @@ from torch import Tensor
 from fairseq2.gang import Gang
 from fairseq2.metrics.aggregation import Mean
 from fairseq2.models.seq2seq import Seq2SeqBatch
-from fairseq2.recipes.common_metrics import TaskMetricBag
+from fairseq2.recipes.common_metrics import BaseMetricBag
 
 
-class Wav2Vec2AsrMetricBag(TaskMetricBag):
+class Wav2Vec2AsrMetricBag(BaseMetricBag):
     """Holds the metrics of a wav2vec 2.0 ASR model training or evaluation task."""
 
     _ctc_loss: Mean
@@ -32,17 +32,16 @@ class Wav2Vec2AsrMetricBag(TaskMetricBag):
     @torch.inference_mode()
     def update_ctc_loss(self, batch: Seq2SeqBatch, loss: Tensor) -> None:
         """Update the CTC loss metric."""
-        normalized_loss = loss.detach() / batch.batch_size / math.log(2)
+        n = batch.batch_size
 
-        self._ctc_loss.update(normalized_loss, weight=batch.batch_size)
+        self._ctc_loss.update(loss.detach() / n / math.log(2), weight=n)
 
     @torch.inference_mode()
     def update_batch_metrics(self, batch: Seq2SeqBatch) -> None:
         """Update the batch metrics."""
         num_examples = batch.batch_size
-        num_elements = batch.num_source_elements()
 
-        self._num_batches.update(1)
+        num_elements = batch.num_source_elements()
 
         self._num_examples.update(num_examples)
         self._num_elements.update(num_elements)
