@@ -19,10 +19,10 @@ from fairseq2.models.wav2vec2.vector_quantizer import (
     GumbelVectorQuantizerOutput,
     VectorQuantizerOutput,
 )
-from fairseq2.recipes.common_metrics import TaskMetricBag
+from fairseq2.recipes.common_metrics import BaseMetricBag
 
 
-class Wav2Vec2MetricBag(TaskMetricBag):
+class Wav2Vec2MetricBag(BaseMetricBag):
     """Holds the metrics of a wav2vec 2.0 model training or evaluation task."""
 
     _loss: Mean
@@ -60,17 +60,17 @@ class Wav2Vec2MetricBag(TaskMetricBag):
     @torch.inference_mode()
     def update_losses(self, loss: Wav2Vec2Loss, num_targets: int) -> None:
         """Update the loss metrics."""
-        n = num_targets * math.log(2)
+        n = num_targets
 
-        self._loss.update(loss.total.detach() / n, weight=num_targets)
+        d = num_targets * math.log(2)
 
-        self._contrastive_loss.update(loss.contrastive.detach() / n, weight=num_targets)
+        self._loss.update(loss.total.detach() / d, weight=n)
 
-        self._diversity_loss.update(loss.diversity.detach() / n, weight=num_targets)
+        self._contrastive_loss.update(loss.contrastive.detach() / d, weight=n)
 
-        self._feature_penalty.update(
-            loss.feature_penalty.detach() / n, weight=num_targets
-        )
+        self._diversity_loss.update(loss.diversity.detach() / d, weight=n)
+
+        self._feature_penalty.update(loss.feature_penalty.detach() / d, weight=n)
 
     @torch.inference_mode()
     def update_accuracy(self, output: Wav2Vec2Output) -> None:
@@ -98,9 +98,8 @@ class Wav2Vec2MetricBag(TaskMetricBag):
     def update_batch_metrics(self, batch: SequenceBatch) -> None:
         """Update the batch metrics."""
         num_examples = batch.batch_size
-        num_elements = batch.num_elements()
 
-        self._num_batches.update(1)
+        num_elements = batch.num_elements()
 
         self._num_examples.update(num_examples)
         self._num_elements.update(num_elements)
