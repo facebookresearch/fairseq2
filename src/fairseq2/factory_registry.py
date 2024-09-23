@@ -23,6 +23,8 @@ from typing import (
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.typing import DataClass
+from fairseq2.utils.dataclass import fill_empty_fields
+from fairseq2.utils.value_converter import ValueConverter, default_value_converter
 
 ConfigT = TypeVar("ConfigT", bound=DataClass)
 
@@ -59,14 +61,20 @@ class ConfigBoundFactoryRegistry(Generic[P, R]):
         str, tuple[Callable[..., R], type[DataClass], ConfigRegistry[Any] | None]
     ]
 
-    def __init__(self) -> None:
+    _value_converter: ValueConverter
+
+    def __init__(self, value_converter: ValueConverter | None = None) -> None:
         self._factories = {}
+
+        self._value_converter = value_converter or default_value_converter
 
     def get(
         self,
         name: str,
-        config: DataClass | None = None,
+        unstructured_config: object = None,
         base_config_name: str | None = None,
+        *,
+        allow_empty: bool = False,
     ) -> ConfigBoundFactory[P, R]:
         """Return the factory with ``name``.
 
@@ -82,11 +90,12 @@ class ConfigBoundFactoryRegistry(Generic[P, R]):
                 f"`name` must be a registered name, but '{name}' is not registered."
             ) from None
 
-        if config is not None:
-            if not isinstance(config, config_kls):
-                raise ValueError(
-                    f"`config` must be of type `{config}` for '{name}', but is of type `{type(config)}` instead."
-                )
+        if unstructured_config is None:
+            config = None
+        else:
+            config = self._value_converter.structure(
+                unstructured_config, config_kls, allow_empty=allow_empty
+            )
 
         if base_config_name is None:
             if config is None:
@@ -103,11 +112,16 @@ class ConfigBoundFactoryRegistry(Generic[P, R]):
                 )
 
             try:
-                config = config_registry.get(base_config_name, overwrite=config)
+                base_config = config_registry.get(base_config_name)
             except ValueError:
                 raise ValueError(
                     f"`base_config_name` must be a registered configuration name, but is '{base_config_name}' instead."
                 ) from None
+
+            if config is None:
+                config = base_config
+            else:
+                fill_empty_fields(config, base_config)
 
         f = partial(factory, config)
 

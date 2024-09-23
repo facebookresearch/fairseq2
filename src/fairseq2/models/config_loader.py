@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Protocol, TypeVar, final
+from typing import Protocol, TypeVar, cast, final
 
 from fairseq2.assets import (
     AssetCard,
@@ -18,7 +18,7 @@ from fairseq2.assets import (
 )
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.typing import DataClass
-from fairseq2.utils.dataclass import update_dataclass
+from fairseq2.utils.structured import StructuredError, merge_unstructured
 from fairseq2.utils.value_converter import ValueConverter, default_value_converter
 
 ModelConfigT = TypeVar("ModelConfigT", bound=DataClass)
@@ -115,22 +115,39 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
                 ) from None
 
         # Override the default architecture configuration if needed.
-        config_overrides = []
+        config_overrides_list = []
 
         card_: AssetCard | None = card
 
         while card_ is not None:
             if "model_config" in card_.metadata:
-                cfg = card_.field("model_config").as_(
-                    config_kls, value_converter=self._value_converter, set_empty=True
-                )
+                config_overrides = card_.field("model_config").as_unstructured()
 
-                config_overrides.append(cfg)
+                config_overrides_list.append(config_overrides)
 
             card_ = card_.base
 
-        for cfg in reversed(config_overrides):
-            update_dataclass(config, cfg)
+        if config_overrides_list:
+            try:
+                unstructured_config = self._value_converter.unstructure(config)
+            except StructuredError as ex:
+                raise AssetError(
+                    f"The model configuration class of the '{self._family}' cannot be used. Please file a bug report to the model author."
+                ) from ex
+
+            try:
+                for config_overrides in reversed(config_overrides_list):
+                    unstructured_config = merge_unstructured(
+                        unstructured_config, config_overrides
+                    )
+
+                config = self._value_converter.structure(
+                    unstructured_config, type_expr=config_kls
+                )
+            except StructuredError as ex:
+                raise AssetError(
+                    f"The value of the field 'model_config' of the asset card '{card.name}' cannot be parsed as a valid model configuration. Please file a bug report to the asset author."
+                ) from ex
 
         return config
 
@@ -143,13 +160,13 @@ def is_model_card(card: AssetCard) -> bool:
 def get_model_family(card: AssetCard) -> str:
     """Return the model family name contained in ``card``."""
     try:
-        return card.field("model_family").as_(str)  # type: ignore[no-any-return]
+        return cast(str, card.field("model_family").as_(str))
     except AssetCardFieldNotFoundError:
         pass
 
     try:
         # Compatibility with older fairseq2 versions.
-        return card.field("model_type").as_(str)  # type: ignore[no-any-return]
+        return cast(str, card.field("model_type").as_(str))
     except AssetCardFieldNotFoundError:
         raise AssetCardFieldNotFoundError(
             f"The asset card '{card.name}' must have a field named 'model_family."

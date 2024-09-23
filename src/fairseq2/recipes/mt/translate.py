@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TextIO, final
+from typing import Any, TextIO, final
 
 import torch
 from typing_extensions import override
@@ -39,7 +39,7 @@ from fairseq2.recipes.utils.asset import (
 )
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.recipes.utils.setup import broadcast_model, setup_root_gang
-from fairseq2.typing import META, DataClass, DataType
+from fairseq2.typing import META, DataType
 from fairseq2.utils.profiler import Stopwatch
 
 log = get_log_writer(__name__)
@@ -82,7 +82,7 @@ class TextTranslateConfig:
     generator: str = "beam_search"
     """The sequence generator."""
 
-    generator_config: DataClass | None = field(
+    generator_config: Any = field(
         default_factory=lambda: BeamSearchConfig(max_gen_len=(1, 256), echo_prompt=True)
     )
     """The configuration of the sequence generator."""

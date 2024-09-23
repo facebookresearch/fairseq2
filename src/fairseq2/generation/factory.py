@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 from fairseq2.factory_registry import ConfigBoundFactoryRegistry
 from fairseq2.generation.beam_search.factory import beam_search_factories
@@ -22,7 +23,6 @@ from fairseq2.generation.sampling.generator import (
 )
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
-from fairseq2.typing import DataClass
 
 seq_generator_factories = ConfigBoundFactoryRegistry[
     [DecoderModel], SequenceGenerator
@@ -32,7 +32,7 @@ seq_generator_factory = seq_generator_factories.decorator
 
 
 def create_seq_generator(
-    name: str, model: DecoderModel, config: DataClass | None
+    name: str, model: DecoderModel, unstructured_config: object = None
 ) -> SequenceGenerator:
     """Create a sequence generator of type registered with ``name``.
 
@@ -40,10 +40,10 @@ def create_seq_generator(
         The name of the sequence generator.
     :param model:
         The decoder model to use for generation.
-    :param config:
-        The configuration of the sequence generator.
+    :param unstructured_config:
+        The unstructured configuration of the sequence generator.
     """
-    factory = seq_generator_factories.get(name, config)
+    factory = seq_generator_factories.get(name, unstructured_config)
 
     return factory(model)
 
@@ -56,7 +56,7 @@ seq2seq_generator_factory = seq2seq_generator_factories.decorator
 
 
 def create_seq2seq_generator(
-    name: str, model: EncoderDecoderModel, config: DataClass | None
+    name: str, model: EncoderDecoderModel, unstructured_config: object = None
 ) -> Seq2SeqGenerator:
     """Create a sequence generator of type registered with ``name``.
 
@@ -64,10 +64,10 @@ def create_seq2seq_generator(
         The name of the sequence generator.
     :param model:
         The encoder-decoder model to use for generation.
-    :param config:
+    :param unstructured_config:
         The configuration of the sequence generator.
     """
-    factory = seq2seq_generator_factories.get(name, config)
+    factory = seq2seq_generator_factories.get(name, unstructured_config)
 
     return factory(model)
 
@@ -79,9 +79,7 @@ class SamplingConfig:
     sampler: str = "top-p"
     """The sampler."""
 
-    sampler_config: DataClass | None = field(
-        default_factory=lambda: TopPSamplerConfig()
-    )
+    sampler_config: Any = field(default_factory=lambda: TopPSamplerConfig())
     """The configuration of the sampler."""
 
     min_gen_len: int = 1
@@ -198,7 +196,7 @@ class BeamSearchConfig:
     algorithm: str = "standard"
     """The beam search algorithm."""
 
-    algorithm_config: DataClass | None = None
+    algorithm_config: Any = None
     """The configuration of the beam-search algorithm."""
 
     beam_size: int = 5

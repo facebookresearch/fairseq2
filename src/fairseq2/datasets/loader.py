@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Protocol, TypeVar, final
+from typing import Protocol, TypeVar, cast, final
 
 from fairseq2.assets import (
     AssetCard,
@@ -184,4 +184,4 @@ def is_dataset_card(card: AssetCard) -> bool:
 
 def get_dataset_family(card: AssetCard) -> str:
     """Return the dataset family name contained in ``card``."""
-    return card.field("dataset_family").as_(str)  # type: ignore[no-any-return]
+    return cast(str, card.field("dataset_family").as_(str))

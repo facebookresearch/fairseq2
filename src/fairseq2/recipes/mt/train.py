@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, final
+from typing import Any, Literal, final
 
 import torch
 from torch import Tensor
@@ -49,7 +49,7 @@ from fairseq2.recipes.utils.setup import (
     setup_root_gang,
     to_data_parallel,
 )
-from fairseq2.typing import CPU, META, DataClass, DataType
+from fairseq2.typing import CPU, META, DataType
 from fairseq2.utils.profiler import Stopwatch
 from fairseq2.utils.rng import manual_seed
 
@@ -99,7 +99,7 @@ class MTTrainConfig:
     model_arch: str | None = "nllb_dense_600m"
     """The architecture of the model."""
 
-    model_config: DataClass | None = field(
+    model_config: Any = field(
         default_factory=lambda: transformer_archs.get(
             "nllb_dense_600m", return_empty=True
         )
@@ -119,7 +119,7 @@ class MTTrainConfig:
     optimizer: str = "adamw"
     """The optimizer."""
 
-    optimizer_config: DataClass | None = field(
+    optimizer_config: Any = field(
         default_factory=lambda: AdamWConfig(lr=0.001, betas=(0.9, 0.98))
     )
     """The configuration of the optimizer."""
@@ -127,7 +127,7 @@ class MTTrainConfig:
     lr_scheduler: str = "myle"
     """The learning rate scheduler."""
 
-    lr_scheduler_config: DataClass | None = field(
+    lr_scheduler_config: Any = field(
         default_factory=lambda: MyleLRConfig(start_lr=1e-7, num_warmup_steps=8000)
     )
     """The configuration of the learning rate scheduler."""
@@ -177,7 +177,7 @@ class MTTrainConfig:
     generator: str = "beam_search"
     """The sequence generator."""
 
-    generator_config: DataClass | None = field(
+    generator_config: Any = field(
         default_factory=lambda: BeamSearchConfig(max_gen_len=(1, 256), echo_prompt=True)
     )
     """The configuration of the sequence generator."""

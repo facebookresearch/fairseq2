@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TextIO, final
+from typing import Any, TextIO, final
 
 import torch
 from torch.nn import Module
@@ -50,7 +50,7 @@ from fairseq2.recipes.utils.setup import (
     check_model_type,
     setup_root_gang,
 )
-from fairseq2.typing import META, DataClass, DataType
+from fairseq2.typing import META, DataType
 from fairseq2.utils.profiler import Stopwatch
 
 log = get_log_writer(__name__)
@@ -94,7 +94,7 @@ class MTEvalConfig:
     generator: str = "beam_search"
     """The sequence generator."""
 
-    generator_config: DataClass | None = field(
+    generator_config: Any = field(
         default_factory=lambda: BeamSearchConfig(max_gen_len=(1, 256), echo_prompt=True)
     )
     """The configuration of the sequence generator."""

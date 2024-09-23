@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, final
+from typing import Any, Literal, final
 
 import torch
 from torch import Tensor
@@ -50,7 +50,7 @@ from fairseq2.recipes.utils.setup import (
 )
 from fairseq2.recipes.wav2vec2.asr.common import Wav2Vec2AsrMetricBag
 from fairseq2.recipes.wav2vec2.asr.eval import Wav2Vec2AsrEvalUnit
-from fairseq2.typing import CPU, META, DataClass, DataType
+from fairseq2.typing import CPU, META, DataType
 from fairseq2.utils.profiler import Stopwatch
 from fairseq2.utils.rng import manual_seed
 
@@ -109,7 +109,7 @@ class Wav2Vec2AsrTrainConfig:
     model_arch: str | None = "base_10h"
     """The architecture of the model."""
 
-    model_config: DataClass | None = field(
+    model_config: Any = field(
         default_factory=lambda: wav2vec2_asr_archs.get("base_10h", return_empty=True)
     )
     """The configuration of the model."""
@@ -130,7 +130,7 @@ class Wav2Vec2AsrTrainConfig:
     optimizer: str = "adamw"
     """The optimizer."""
 
-    optimizer_config: DataClass | None = field(
+    optimizer_config: Any = field(
         default_factory=lambda: AdamWConfig(lr=5e-05, betas=(0.9, 0.98))
     )
     """The configuration of the optimizer."""
@@ -138,7 +138,7 @@ class Wav2Vec2AsrTrainConfig:
     lr_scheduler: str = "tri-stage"
     """The learning rate scheduler."""
 
-    lr_scheduler_config: DataClass | None = field(
+    lr_scheduler_config: Any = field(
         default_factory=lambda: TriStageLRConfig(
             stage_ratio=(0.1, 0.4, 0.5), start_lr_scale=0.01, final_lr_scale=0.05
         )

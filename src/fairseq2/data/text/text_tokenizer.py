@@ -9,7 +9,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Protocol, TypeVar, final
+from typing import Protocol, TypeVar, cast, final
 
 from torch import Tensor
 from typing_extensions import override
@@ -336,4 +336,4 @@ def is_tokenizer_card(card: AssetCard) -> bool:
 
 def get_tokenizer_family(card: AssetCard) -> str:
     """Return the tokenizer family name contained in ``card``."""
-    return card.field("tokenizer_family").as_(str)  # type: ignore[no-any-return]
+    return cast(str, card.field("tokenizer_family").as_(str))

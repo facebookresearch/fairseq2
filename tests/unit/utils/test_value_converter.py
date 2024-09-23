@@ -16,7 +16,7 @@ import torch
 
 from fairseq2.typing import DataType
 from fairseq2.utils.dataclass import EMPTY
-from fairseq2.utils.value_converter import ValueConverter
+from fairseq2.utils.value_converter import StructuredError, ValueConverter
 
 # mypy: disable-error-code="arg-type"
 
@@ -51,11 +51,6 @@ class Foo3:
     f3_2: int = 3
 
 
-@dataclass
-class Foo4(Foo3):
-    f4_1: int = 4
-
-
 class TestValueConverter:
     def test_structure_works(self) -> None:
         data = {
@@ -67,51 +62,47 @@ class TestValueConverter:
             "f5": ["3.0", "4"],
             "f6": ["1", "2", "3"],
             "f7": "VALUE2",
-            "f8": "float16",
-            "f9": {
-                "_type_": "tests.unit.utils.test_value_converter.Foo4",
-                "f4_1": "3",
-            },
+            "f8": "~~",
+            "f9": {"f3_2": "4"},
         }
 
         value_converter = ValueConverter()
 
-        foo = value_converter.structure(data, Foo1)
+        foo = value_converter.structure(data, Foo1, allow_empty=True)
 
         expected_foo = Foo1(
             f0="abc",
             f1=2,
             f2={"a": Path("path1"), "b": Path("path2")},
             f3=[0, 1, 2, 3],
-            f4=Foo3(f3_1=4, f3_2=3),
+            f4=Foo3(f3_1=4),
             f5=(3.0, 4),
             f6={1, 2, 3},
             f7=FooEnum.VALUE2,
-            f8=torch.float16,
-            f9=Foo4(f4_1=3),
+            f8=EMPTY,
+            f9=Foo3(f3_2=4),
         )
 
         assert foo == expected_foo
 
-    def test_structure_works_when_set_empty_is_true(self) -> None:
+    def test_structure_raises_error_when_field_is_empty(self) -> None:
+        data: Any
+
+        data = {"f0": "~~"}
+
         value_converter = ValueConverter()
 
-        foo = value_converter.structure(
-            {"f1": 2, "f4": {"f3_1": 5}}, type_hint=Foo1, set_empty=True
-        )
+        with pytest.raises(
+            StructuredError, match=rf"^`obj` cannot be structured to `{Foo1}`\. See nested exception for details\.$"  # fmt: skip
+        ):
+            value_converter.structure(data, Foo1)
 
-        assert foo == Foo1(
-            f0=EMPTY,
-            f1=2,
-            f2=EMPTY,
-            f3=EMPTY,
-            f4=Foo3(f3_1=5, f3_2=EMPTY),
-            f5=EMPTY,
-            f6=EMPTY,
-            f7=EMPTY,
-            f8=EMPTY,
-            f9=EMPTY,
-        )
+        data = {"f4": {"f3_1": "~~"}}
+
+        with pytest.raises(
+            StructuredError, match=rf"^`obj` cannot be structured to `{Foo1}`\. See nested exception for details\.$"  # fmt: skip
+        ):
+            value_converter.structure(data, Foo1)
 
     @pytest.mark.parametrize(
         "data,kls",
@@ -129,8 +120,7 @@ class TestValueConverter:
         value_converter = ValueConverter()
 
         with pytest.raises(
-            TypeError,
-            match=rf"^`obj` cannot be structured to `{kls}`\. See nested exception for details\.$",
+            StructuredError, match=rf"^`obj` cannot be structured to `{kls}`\. See nested exception for details\.$"  # fmt: skip
         ):
             value_converter.structure(data, kls)
 
@@ -145,12 +135,12 @@ class TestValueConverter:
             f6={1, 2, 3},
             f7=FooEnum.VALUE2,
             f8=torch.float16,
-            f9=Foo4(f3_1=1, f4_1=0),
+            f9=Foo3(f3_1=1),
         )
 
         value_converter = ValueConverter()
 
-        data = value_converter.unstructure(foo, type_hint=Foo1)
+        data = value_converter.unstructure(foo)
 
         expected_data = {
             "f0": "abc",
@@ -162,12 +152,7 @@ class TestValueConverter:
             "f6": [1, 2, 3],
             "f7": "VALUE2",
             "f8": "float16",
-            "f9": {
-                "_type_": "tests.unit.utils.test_value_converter.Foo4",
-                "f3_1": 1,
-                "f3_2": 3,
-                "f4_1": 0,
-            },
+            "f9": {"f3_1": 1, "f3_2": 3},
         }
 
         assert data == expected_data
