@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Data Pipelines &#8212; fairseq2 0.3.0.dev202409230148+g133b01a documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d1102ebc" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=f6bd8450" />
+    <script src="../_static/documentation_options.js?v=48f5cb0e"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Runtime Extensions" href="runtime_extensions.html" />
+    <link rel="prev" title="Assets" href="assets.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="data-pipelines">
+<h1>Data Pipelines<a class="headerlink" href="#data-pipelines" title="Link to this heading">¶</a></h1>
+<p>The dataloader will be able to leverage several threads,
+working around Python Global Interpreter Lock limitations,
+and also providing better performance
+than a pure Python dataloader.</p>
+<p>Building a data pipeline looks like this:</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="n">data</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">text</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="s2">&quot;file.tsv&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">lower</span><span class="p">())</span>
+    <span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">10</span><span class="p">)</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<section id="column-syntax">
+<h2>Column syntax<a class="headerlink" href="#column-syntax" title="Link to this heading">¶</a></h2>
+<p>The data items going through the pipeline don’t have to be flat tensors, but can be tuples, or python dictionaries.
+Several operators have a syntax to specify a specific column of the input data.
+Notably the <code class="docutils literal notranslate"><span class="pre">DataPipelineBuilder.map</span></code> operator
+has a <cite>selector</cite> argument to choose the column to apply the function to.</p>
+<p>If the data item is a tuple,
+then the selector <code class="docutils literal notranslate"><span class="pre">&quot;[3]&quot;</span></code> selects the third column.
+If the data item is a dictionary, then <code class="docutils literal notranslate"><span class="pre">&quot;foo&quot;</span></code> will select the value corresponding to the key <code class="docutils literal notranslate"><span class="pre">&quot;foo&quot;</span></code>.
+You can nest selectors using <code class="docutils literal notranslate"><span class="pre">.</span></code> to separate key selectors, following a python-like syntax.
+For a data item <code class="docutils literal notranslate"><span class="pre">{&quot;foo&quot;:</span> <span class="pre">[{&quot;x&quot;:</span> <span class="pre">1,</span> <span class="pre">&quot;y&quot;:</span> <span class="pre">2},</span> <span class="pre">{&quot;x&quot;:</span> <span class="pre">3,</span> <span class="pre">&quot;y&quot;:</span> <span class="pre">4,</span> <span class="pre">&quot;z&quot;:</span> <span class="pre">5}],</span> <span class="pre">&quot;bar&quot;:</span> <span class="pre">6}</span></code>,
+the selector <code class="docutils literal notranslate"><span class="pre">&quot;foo[1].y&quot;</span></code> referes to  the value 4.</p>
+<p>Functions that accepts several selectors,
+accept them as a comma separated list of selectors.
+For example <code class="docutils literal notranslate"><span class="pre">.map(lambda</span> <span class="pre">x:</span> <span class="pre">x</span> <span class="pre">*</span> <span class="pre">10,</span> <span class="pre">selector=&quot;foo[1].y,bar&quot;)</span></code>
+will multiply the values 4 and 6 by 10, but leave others unmodified.</p>
+</section>
+<section id="pseudo-infinite-and-infinite-pipelines">
+<h2>Pseudo-infinite and Infinite Pipelines<a class="headerlink" href="#pseudo-infinite-and-infinite-pipelines" title="Link to this heading">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">DataPipeline.count</span></code> and <code class="docutils literal notranslate"><span class="pre">DataPipeline.constant</span></code> static methods create pseudo-infinite pipelines.
+When used with operators that combine multiple pipelines (e.g. <code class="docutils literal notranslate"><span class="pre">DataPipeline.sample</span></code>,
+<code class="docutils literal notranslate"><span class="pre">DataPipeline.round_robin</span></code>, <code class="docutils literal notranslate"><span class="pre">DataPipeline.zip</span></code>),
+they will only yield examples as long as the other pipelines yield examples.</p>
+<p>For example:</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">fairseq2.data</span> <span class="kn">import</span> <span class="n">DataPipeline</span><span class="p">,</span> <span class="n">read_sequence</span>
+
+<span class="n">pipeline1</span> <span class="o">=</span> <span class="n">DataPipeline</span><span class="o">.</span><span class="n">constant</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">and_return</span><span class="p">()</span>
+<span class="n">pipeline2</span> <span class="o">=</span> <span class="n">read_sequence</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span><span class="o">.</span><span class="n">and_return</span><span class="p">()</span>
+
+<span class="k">for</span> <span class="n">example</span> <span class="ow">in</span> <span class="n">DataPipeline</span><span class="o">.</span><span class="n">round_robin</span><span class="p">(</span><span class="n">pipeline1</span><span class="p">,</span> <span class="n">pipeline2</span><span class="p">)</span><span class="o">.</span><span class="n">and_return</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">example</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>only produces 0, 1, 0, 2, 0, 3.</p>
+<p>Infinite pipelines (pipelines created through <code class="docutils literal notranslate"><span class="pre">DataPipelineBuilder.repeat</span></code> with no arguments)
+do not exhibit this behavior; they will yield examples indefinitely even when combined with other pipelines.</p>
+<p>For example:</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">fairseq2.data</span> <span class="kn">import</span> <span class="n">DataPipeline</span><span class="p">,</span> <span class="n">read_sequence</span>
+
+<span class="n">pipeline1</span> <span class="o">=</span> <span class="n">read_sequence</span><span class="p">([</span><span class="mi">0</span><span class="p">])</span><span class="o">.</span><span class="n">repeat</span><span class="p">()</span><span class="o">.</span><span class="n">and_return</span><span class="p">()</span>
+<span class="n">pipeline2</span> <span class="o">=</span> <span class="n">read_sequence</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span><span class="o">.</span><span class="n">and_return</span><span class="p">()</span>
+
+<span class="k">for</span> <span class="n">example</span> <span class="ow">in</span> <span class="n">DataPipeline</span><span class="o">.</span><span class="n">round_robin</span><span class="p">(</span><span class="n">pipeline1</span><span class="p">,</span> <span class="n">pipeline2</span><span class="p">)</span><span class="o">.</span><span class="n">and_return</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">example</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>produces 0, 1, 0, 2, 0, 3, 0, 1, 0, 2, 0, 3… indefinitely.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">fairseq2</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Using fairseq2</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="design_philosophy.html">Design Philosophy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="assets.html">Assets</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Data Pipelines</a></li>
+<li class="toctree-l2"><a class="reference internal" href="runtime_extensions.html">Runtime Extensions</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../bibliography.html">Bibliography</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Using fairseq2</a><ul>
+      <li>Previous: <a href="assets.html" title="previous chapter">Assets</a></li>
+      <li>Next: <a href="runtime_extensions.html" title="next chapter">Runtime Extensions</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      
+      
+      
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 7.4.7</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+      |
+      <a href="../_sources/topics/data_pipelines.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

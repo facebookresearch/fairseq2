@@ -1,6 +1,0 @@
-﻿.. currentmodule:: fairseq2.data
-
-read\_sequence
-==============
-
-.. autofunction:: read_sequence

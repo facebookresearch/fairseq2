@@ -1,6 +1,0 @@
-﻿.. currentmodule:: fairseq2.data
-
-read\_zipped\_records
-=====================
-
-.. autofunction:: read_zipped_records
