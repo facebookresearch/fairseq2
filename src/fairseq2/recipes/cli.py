@@ -602,11 +602,11 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
 
             update_dataclass(config, config_overrides)
 
-        if args.dump_config:
-            unstructured_config = self._value_converter.unstructure(
-                config, type_hint=type(config)
-            )
+        unstructured_config = self._value_converter.unstructure(
+            config, type_hint=type(config)
+        )
 
+        if args.dump_config:
             try:
                 yaml.safe_dump(unstructured_config, sys.stdout, sort_keys=False)
             except (OSError, RuntimeError):
@@ -644,7 +644,7 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
         if args.no_sweep_dir:
             output_dir = args.output_dir
         else:
-            tag = self._sweep_tagger(args.preset, preset_config, config)
+            tag = self._sweep_tagger(args.preset, unstructured_config)
 
             output_dir = args.output_dir.joinpath(tag)
 
