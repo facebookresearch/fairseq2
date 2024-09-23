@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, final
+from typing import Any, Literal, final
 
 import torch
 from torch import Tensor
@@ -47,7 +47,7 @@ from fairseq2.recipes.utils.setup import (
 )
 from fairseq2.recipes.wav2vec2.common import Wav2Vec2MetricBag
 from fairseq2.recipes.wav2vec2.eval import Wav2Vec2EvalUnit
-from fairseq2.typing import CPU, META, DataClass, DataType
+from fairseq2.typing import CPU, META, DataType
 from fairseq2.utils.profiler import Stopwatch
 from fairseq2.utils.rng import manual_seed
 
@@ -97,7 +97,7 @@ class Wav2Vec2TrainConfig:
     model_arch: str | None = "base"
     """The architecture of the wav2vec2 model."""
 
-    model_config: DataClass | None = field(
+    model_config: Any = field(
         default_factory=lambda: wav2vec2_archs.get("base", return_empty=True)
     )
     """The configuration of the model."""
@@ -118,7 +118,7 @@ class Wav2Vec2TrainConfig:
     optimizer: str = "adamw"
     """The optimizer."""
 
-    optimizer_config: DataClass | None = field(
+    optimizer_config: Any = field(
         default_factory=lambda: AdamWConfig(
             lr=5e-04, betas=(0.9, 0.98), eps=1e-06, weight_decay=0.01
         )
@@ -128,7 +128,7 @@ class Wav2Vec2TrainConfig:
     lr_scheduler: str = "polynomial-decay"
     """The learning rate scheduler."""
 
-    lr_scheduler_config: DataClass | None = field(
+    lr_scheduler_config: Any = field(
         default_factory=lambda: PolynomialDecayLRConfig(num_warmup_steps=32_000)
     )
     """The configuration of the learning rate scheduler."""

@@ -109,12 +109,16 @@ def _do_merge_unstructured(target: object, source: object, path: str) -> object:
             if key == "_del_" or key == "_add_":
                 continue
 
+            # Maintains backwards compatibility with older configuration API.
+            if key == "_type_":
+                continue
+
             sub_path = key if not path else f"{path}.{key}"
 
             try:
                 target_value = output[key]
             except KeyError:
-                raise ValueError(
+                raise StructuredError(
                     f"`target` must contain a '{sub_path}' key since it exists in `source`."
                 ) from None
 

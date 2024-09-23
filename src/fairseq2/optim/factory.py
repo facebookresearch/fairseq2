@@ -15,7 +15,6 @@ from torch.optim import Optimizer
 from fairseq2.factory_registry import ConfigBoundFactoryRegistry
 from fairseq2.optim.adamw import AdamW
 from fairseq2.optim.optimizer import ParameterCollection
-from fairseq2.typing import DataClass
 
 optimizer_factories = ConfigBoundFactoryRegistry[[ParameterCollection], Optimizer]()
 
@@ -25,7 +24,7 @@ optimizer_factory = optimizer_factories.decorator
 def create_optimizer(
     name: str,
     params: Union[Module, ParameterCollection],
-    config: DataClass | None = None,
+    unstructured_config: object = None,
 ) -> Optimizer:
     """Create an optimizer of type registered with ``name``.
 
@@ -33,10 +32,10 @@ def create_optimizer(
         The name of the optimizer.
     :param params:
         The parameters or :class:`Module` to optimize.
-    :param config:
-        The configuration of the optimizer.
+    :param unstructured_config:
+        The unstructured configuration of the optimizer.
     """
-    factory = optimizer_factories.get(name, config)
+    factory = optimizer_factories.get(name, unstructured_config)
 
     if isinstance(params, Module):
         params = params.parameters()

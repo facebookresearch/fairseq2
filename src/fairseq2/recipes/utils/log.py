@@ -13,13 +13,11 @@ import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
 from logging import Logger
-from pathlib import Path
 from signal import SIG_DFL, SIGINT, raise_signal, signal
 
 import fairseq2n
 import psutil
 import torch
-import yaml
 from rich.pretty import pretty_repr
 from torch.cuda import OutOfMemoryError
 from torch.nn import Module
@@ -27,8 +25,7 @@ from torch.nn import Module
 import fairseq2
 from fairseq2.logging import LogWriter
 from fairseq2.nn.utils.module import get_module_size
-from fairseq2.typing import DataClass, Device
-from fairseq2.utils.value_converter import ValueConverter, default_value_converter
+from fairseq2.typing import Device
 
 
 @contextmanager
@@ -54,45 +51,12 @@ def exception_logger(log: LogWriter) -> Iterator[None]:
         sys.exit(1)
 
 
-def log_config(
-    config: DataClass,
-    log: LogWriter,
-    file: Path | None = None,
-    *,
-    value_converter: ValueConverter | None = None,
-) -> None:
-    """Log ``config``.
-
-    :param config:
-        The config to log.
-    :param log:
-        The log to write to.
-    :param file:
-        The output file to write ``config`` in YAML format.
-    :param value_converter:
-        The :class:`ValueConverter` instance to use. If ``None``, the default
-        instance will be used.
-    """
-    if file is not None:
-        if value_converter is None:
-            value_converter = default_value_converter
-
-        unstructured_config = value_converter.unstructure(
-            config, type_hint=type(config)
-        )
-
-        try:
-            with file.open("w") as fp:
-                yaml.safe_dump(unstructured_config, fp, sort_keys=False)
-        except (OSError, RuntimeError) as ex:
-            raise RuntimeError(
-                "The configuration cannot be logged to file. See nested exception for details."
-            ) from ex
-
+def log_config(config: object, log: LogWriter) -> None:
+    """Log ``config``."""
     log.info("Config:\n{}", pretty_repr(config, max_width=88))
 
 
-def log_model_config(config: DataClass, log: LogWriter) -> None:
+def log_model_config(config: object, log: LogWriter) -> None:
     """Log ``config``.
 
     :param config:

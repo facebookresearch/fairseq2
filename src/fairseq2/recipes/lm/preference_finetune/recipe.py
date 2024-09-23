@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, Mapping
+from typing import Any, Literal, Mapping
 
 import torch
 import torch.distributed
@@ -41,7 +41,7 @@ from fairseq2.recipes.utils.asset import (
 )
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.recipes.utils.setup import compile_model, setup_gangs, to_data_parallel
-from fairseq2.typing import CPU, META, DataClass, DataType
+from fairseq2.typing import CPU, META, DataType
 from fairseq2.utils.profiler import Stopwatch
 from fairseq2.utils.rng import manual_seed
 
@@ -107,14 +107,14 @@ class PreferenceOptimizationConfig:
     criterion: str = "dpo"
     """The preference optimization criterion."""
 
-    criterion_config: DataClass | None = None
+    criterion_config: Any = None
     """The configuration of the preference optimization criterion."""
 
     # Optimizer, LR, and Loss
     optimizer: str = "adamw"
     """The optimizer."""
 
-    optimizer_config: DataClass | None = field(
+    optimizer_config: Any = field(
         default_factory=lambda: AdamWConfig(
             lr=5.5e-06, betas=(0.9, 0.95), weight_decay=0.1
         )
@@ -124,7 +124,7 @@ class PreferenceOptimizationConfig:
     lr_scheduler: str = "cosine-annealing"
     """The learning rate scheduler."""
 
-    lr_scheduler_config: DataClass | None = field(
+    lr_scheduler_config: Any = field(
         default_factory=lambda: CosineAnnealingLRConfig(final_lr=5.5e-06 * 0.2)
     )
     """The configuration of the learning rate scheduler."""

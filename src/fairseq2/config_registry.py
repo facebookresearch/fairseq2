@@ -10,7 +10,7 @@ from collections.abc import Callable, Set
 from typing import Generic, Protocol, TypeVar, final
 
 from fairseq2.typing import DataClass
-from fairseq2.utils.dataclass import empty, update_dataclass
+from fairseq2.utils.dataclass import empty_
 
 ConfigT = TypeVar("ConfigT", bound=DataClass)
 
@@ -35,7 +35,6 @@ class ConfigRegistry(Generic[ConfigT]):
         self,
         name: str,
         *,
-        overwrite: ConfigT | None = None,
         return_empty: bool = False,
     ) -> ConfigT:
         """Return the configuration of ``name``.
@@ -54,11 +53,8 @@ class ConfigRegistry(Generic[ConfigT]):
                 f"`name` must be a registered configuration name, but '{name}' is not registered."
             ) from None
 
-        if overwrite is not None:
-            update_dataclass(config, overwrite)
-
         if return_empty:
-            empty(config)
+            empty_(config)
 
         return config
 

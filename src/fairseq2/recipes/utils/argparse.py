@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from argparse import (
-    SUPPRESS,
     ZERO_OR_MORE,
     Action,
     ArgumentError,
@@ -67,11 +66,6 @@ class ConfigAction(Action):
 
             fields = key.split(".")
 
-            if not all(f.isidentifier() for f in fields):
-                raise ArgumentError(
-                    self, f"invalid key-value pair: {item} (key must be identifier)"
-                )
-
             tmp = data
 
             for field in fields[:-1]:
@@ -90,47 +84,6 @@ class ConfigAction(Action):
             tmp[fields[-1]] = parsed_value
 
         setattr(namespace, self.dest, data)
-
-
-@final
-class BooleanOptionalAction(Action):
-    """Adds support for reading boolean flags in format ``--<flag>, --no-<flag>``."""
-
-    def __init__(
-        self,
-        option_strings: list[str],
-        dest: str,
-        default: Any = None,
-        help: str | None = None,
-    ) -> None:
-        all_option_strings = []
-
-        for option_string in option_strings:
-            all_option_strings.append(option_string)
-
-            if option_string.startswith("--"):
-                all_option_strings.append(f"--no-{option_string[2:]}")
-
-        if help is not None:
-            if default is not None and default is not SUPPRESS:
-                help += " (default: %(default)s)"
-
-        super().__init__(
-            all_option_strings, nargs=0, default=default, help=help, dest=dest
-        )
-
-    def __call__(
-        self,
-        parser: ArgumentParser,
-        namespace: Namespace,
-        values: Any,
-        option_string: str | None = None,
-    ) -> None:
-        if option_string and option_string in self.option_strings:
-            setattr(namespace, self.dest, not option_string.startswith("--no-"))
-
-    def format_usage(self) -> str:
-        return " | ".join(self.option_strings)
 
 
 def parse_dtype(value: str) -> DataType:

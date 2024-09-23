@@ -8,9 +8,8 @@ from __future__ import annotations
 
 import sys
 from abc import ABC, abstractmethod
-from argparse import OPTIONAL, ArgumentParser, Namespace
+from argparse import OPTIONAL, ArgumentParser, BooleanOptionalAction, Namespace
 from collections.abc import Callable
-from copy import deepcopy
 from pathlib import Path
 from signal import SIGUSR1, signal
 from types import FrameType
@@ -19,13 +18,13 @@ from typing import Generic, Protocol, TypeVar, final, runtime_checkable
 import yaml
 from rich.console import Console
 from typing_extensions import override
-from yaml import YAMLError
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.console import get_console, set_console
+from fairseq2.error import AlreadyExistsError
 from fairseq2.logging import get_log_writer
 from fairseq2.recipes.logging import setup_basic_logging, setup_logging
-from fairseq2.recipes.utils.argparse import BooleanOptionalAction, ConfigAction
+from fairseq2.recipes.utils.argparse import ConfigAction
 from fairseq2.recipes.utils.environment import (
     EnvironmentSetterRegistry,
     default_env_setters,
@@ -33,7 +32,7 @@ from fairseq2.recipes.utils.environment import (
 from fairseq2.recipes.utils.log import log_config
 from fairseq2.recipes.utils.sweep import SweepTagger, default_sweep_tagger
 from fairseq2.typing import DataClass
-from fairseq2.utils.dataclass import update_dataclass
+from fairseq2.utils.structured import StructuredError, merge_unstructured
 from fairseq2.utils.value_converter import ValueConverter, default_value_converter
 
 log = get_log_writer(__name__)
@@ -104,7 +103,7 @@ class Cli:
         try:
             return self._groups[name]
         except KeyError:
-            raise ValueError(
+            raise LookupError(
                 f"`name` must be a registered group name, but '{name}' is not registered."
             ) from None
 
@@ -249,12 +248,12 @@ class CliGroup:
 
     def _check_name(self, name: str) -> None:
         if name in self._groups:
-            raise ValueError(
+            raise AlreadyExistsError(
                 f"`name` must be a unique name among groups and commands, but '{name}' is already registered as a group name."
             )
 
         if name in self._commands:
-            raise ValueError(
+            raise AlreadyExistsError(
                 f"`name` must be a unique name among groups and commands, but '{name}' is already registered as a command name."
             )
 
@@ -263,7 +262,7 @@ class CliGroup:
         try:
             return self._groups[name]
         except KeyError:
-            raise ValueError(
+            raise LookupError(
                 f"`name` must be a registered group name, but '{name}' is not registered."
             ) from None
 
@@ -272,7 +271,7 @@ class CliGroup:
         try:
             return self._commands[name]
         except KeyError:
-            raise ValueError(
+            raise LookupError(
                 f"`name` must be a registered command name, but '{name}' is not registered."
             ) from None
 
@@ -561,9 +560,9 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
             sys.exit(1)
 
         try:
-            config = deepcopy(preset_config)
-        except Exception:
-            log.error("Preset configuration '{}' cannot be copied. Please file a bug report to the recipe author.", args.preset)  # fmt: skip
+            unstructured_config = self._value_converter.unstructure(preset_config)
+        except StructuredError:
+            log.exception("Preset configuration '{}' cannot be used. Please file a bug report to the recipe author.", args.preset)  # fmt: skip
 
             sys.exit(1)
 
@@ -572,45 +571,37 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
             for config_file in args.config_files:
                 try:
                     with config_file.open() as fp:
-                        file_content = yaml.safe_load(fp)
-                except (OSError, YAMLError):
+                        unstructured_config_overrides = yaml.safe_load(fp)
+                except Exception:
                     log.exception("Configuration file '{}' cannot be read.", config_file)  # fmt: skip
 
                     sys.exit(1)
 
                 try:
-                    config_overrides = self._value_converter.structure(
-                        file_content, type_hint=type(config), set_empty=True
+                    unstructured_config = merge_unstructured(
+                        unstructured_config, unstructured_config_overrides
                     )
-                except TypeError:
-                    log.exception("Configuration file '{}' cannot be parsed.")
+                except StructuredError:
+                    log.exception("Configuration file '{}' cannot be used.", config_file)  # fmt: skip
 
                     sys.exit(1)
-
-                update_dataclass(config, config_overrides)
 
         # Update the configuration with `--config`.
         if args.config_overrides:
             try:
-                config_overrides = self._value_converter.structure(
-                    args.config_overrides, type_hint=type(config), set_empty=True
+                unstructured_config = merge_unstructured(
+                    unstructured_config, args.config_overrides
                 )
-            except TypeError:
-                log.exception("`--config` cannot be parsed.")
+            except StructuredError:
+                log.exception("Command line configuration overrides cannot be applied.")
 
                 sys.exit(1)
-
-            update_dataclass(config, config_overrides)
-
-        unstructured_config = self._value_converter.unstructure(
-            config, type_hint=type(config)
-        )
 
         if args.dump_config:
             try:
                 yaml.safe_dump(unstructured_config, sys.stdout, sort_keys=False)
-            except (OSError, RuntimeError):
-                log.exception("Configuration cannot be dumped to file.")
+            except Exception:
+                log.exception("Configuration cannot be dumped to stdout.")
 
                 sys.exit(1)
 
@@ -641,15 +632,20 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
             sys.exit(1)
 
         # Determine the output directory.
-        if args.no_sweep_dir:
-            output_dir = args.output_dir
-        else:
-            tag = self._sweep_tagger(args.preset, unstructured_config)
+        output_dir = args.output_dir.expanduser().resolve()
 
-            output_dir = args.output_dir.joinpath(tag)
+        if not args.no_sweep_dir:
+            try:
+                tag = self._sweep_tagger(args.preset, unstructured_config)
+            except LookupError:
+                log.exception("sweep format")
+
+                sys.exit(1)
+
+            output_dir = output_dir.joinpath(tag)
 
         # Set up distributed logging.
-        log_file = output_dir.expanduser().joinpath("logs/rank_{rank}.log").resolve()
+        log_file = output_dir.joinpath("logs/rank_{rank}.log")
 
         try:
             setup_logging(log_file, debug=args.debug)
@@ -660,7 +656,28 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
 
         log.info("Log files stored under {}.", log_file.parent)
 
-        log_config(config, log, output_dir.joinpath("config.yaml"))
+        log_config(unstructured_config, log)
+
+        # Save the configuration to a YAML file.
+        config_file = output_dir.joinpath("config.yaml")
+
+        try:
+            with config_file.open("w") as fp:
+                yaml.safe_dump(unstructured_config, fp, sort_keys=False)
+        except Exception:
+            log.exception("The configuration cannot be saved to file.")
+
+            sys.exit(1)
+
+        # Parse the configuration.
+        try:
+            config = self._value_converter.structure(
+                unstructured_config, type_expr=type(preset_config)
+            )
+        except StructuredError:
+            log.exception("Configuration cannot be parsed.")
+
+            sys.exit(1)
 
         # Load and run the recipe.
         recipe = self._loader(config, output_dir)

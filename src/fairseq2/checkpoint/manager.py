@@ -23,7 +23,7 @@ from typing_extensions import override
 
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
-from fairseq2.typing import CPU, DataClass
+from fairseq2.typing import CPU
 from fairseq2.utils.file import (
     TensorDumper,
     TensorLoader,
@@ -224,7 +224,7 @@ class FileCheckpointManager(CheckpointManager):
         *,
         base_asset: str | None = None,
         family: str | None = None,
-        config: DataClass | None = None,
+        config: object = None,
         tokenizer_name: str | None = None,
     ) -> None:
         """Set the model metadata.
@@ -248,9 +248,7 @@ class FileCheckpointManager(CheckpointManager):
                 metadata["model_family"] = family
 
             if config is not None:
-                metadata["model_config"] = default_value_converter.unstructure(
-                    config, type_hint=type(config)
-                )
+                metadata["model_config"] = default_value_converter.unstructure(config)
 
             if self._num_shards != 1:
                 metadata["num_shards"] = self._num_shards

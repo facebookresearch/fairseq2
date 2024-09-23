@@ -17,7 +17,6 @@ from fairseq2.optim.lr_scheduler.myle import MyleLR
 from fairseq2.optim.lr_scheduler.noam import NoamLR
 from fairseq2.optim.lr_scheduler.polynomial import PolynomialDecayLR
 from fairseq2.optim.lr_scheduler.tri_stage import TriStageLR
-from fairseq2.typing import DataClass
 
 lr_scheduler_factories = ConfigBoundFactoryRegistry[
     [Optimizer, int | None], LRScheduler
@@ -29,7 +28,7 @@ lr_scheduler_factory = lr_scheduler_factories.decorator
 def create_lr_scheduler(
     name: str,
     optimizer: Optimizer,
-    config: DataClass | None = None,
+    unstructured_config: object = None,
     *,
     max_num_steps: int | None = None,
 ) -> LRScheduler:
@@ -39,12 +38,12 @@ def create_lr_scheduler(
         The name of the learning rate scheduler.
     :param optimizer:
         The optimizer to associate.
-    :param config:
+    :param unstructured_config:
         The configuration of the learning rate scheduler.
     :param max_num_steps:
         The maximum number of training steps.
     """
-    factory = lr_scheduler_factories.get(name, config)
+    factory = lr_scheduler_factories.get(name, unstructured_config)
 
     return factory(optimizer, max_num_steps)
 

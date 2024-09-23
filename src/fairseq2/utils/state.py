@@ -180,7 +180,7 @@ class StatefulObjectBag:
             extra_keys.sort()
 
             raise ValueError(
-                f"`state_dict` must only contain the states of the attributes of this object, but it contains the following extra keys: {', '.join(extra_keys)}"
+                f"`state_dict` must contain only the states of the attributes of this object, but it contains the following extra keys: {', '.join(extra_keys)}"
             )
 
     def _is_explicit(self, name: str) -> tuple[bool, StateHandler[Any] | None]:
