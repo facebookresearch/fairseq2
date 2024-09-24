@@ -87,8 +87,8 @@ fairseq2 offers a lightweight :mod:`dependency injection API <fairseq2.dependenc
 to reduce the complexity of building dependency graphs. The core piece of the
 API is the :class:`DependencyContainer` interface. An implementation of it, such
 as :class:`StandardDependencyContainer`, is expected that hold a lazily-initialized
-dependency graph. The interface exposes two main methods; :meth:`~DependencyContainer.register`
-and :meth:`~DependencyContainer.resolve`. :meth:`~DependencyContainer.register`
+dependency graph. The interface exposes two main methods; :meth:`~DependencyContainer.register_factory`
+and :meth:`~DependencyContainer.resolve`. :meth:`~DependencyContainer.register_factory`
 is used to register new objects with the container and :meth:`~DependencyResolver.resolve`
 is used to *resolve* objects, meaning to create objects along with their
 transitive dependencies by traversing the graph.
@@ -109,13 +109,13 @@ later resolved with a container::
     def create_foo(resolver: DependencyResolver) -> Foo:
         return Foo()
 
-    container.register(Foo, create_foo)
+    container.register_factory(Foo, create_foo)
 
     obj = container.resolve(Foo)
 
     assert isinstance(obj, Foo)
 
-As arguments, :meth:`~DependencyContainer.register` expects the type of the
+As arguments, :meth:`~DependencyContainer.register_factory` expects the type of the
 object and a callable responsible for creating the object when called. The
 callable is passed a :class:`DependencyResolver` instance that it can use to
 resolve the dependencies of the newly-created object. The object returned by the
@@ -123,10 +123,10 @@ callable is cached. This means, after the first :meth:`~DependencyResolver.resol
 call, the secondary calls will return the same instance making the object
 effectively a singleton.
 
-Since ``Foo`` is a lightweight class with no dependencies, :meth:`~DependencyContainer.register_object`
-can be used instead of :meth:`~DependencyContainer.register`. Unlike
-:meth:`~DependencyContainer.register`, which expects a callable to lazily
-initialize the object, :meth:`~DependencyContainer.register_object` stores the
+Since ``Foo`` is a lightweight class with no dependencies, :meth:`~DependencyContainer.register_instance`
+can be used instead of :meth:`~DependencyContainer.register_factory`. Unlike
+:meth:`~DependencyContainer.register_factory`, which expects a callable to lazily
+initialize the object, :meth:`~DependencyContainer.register_instance` stores the
 passed object directly in the container::
 
     from fairseq2.dependency import StandardDependencyContainer
@@ -136,13 +136,13 @@ passed object directly in the container::
     class Foo:
         pass
 
-    container.register_object(Foo, Foo())
+    container.register_instance(Foo, Foo())
 
     obj = container.resolve(Foo)
 
     assert isinstance(obj, Foo)
 
-Both :meth:`~DependencyContainer.register` and :meth:`~DependencyContainer.register_object`
+Both :meth:`~DependencyContainer.register_factory` and :meth:`~DependencyContainer.register_instance`
 also accept an optional key argument. When provided, the object will be
 registered along with the key and will be resolved only when the same key is
 passed to :meth:`~DependencyResolver.resolve`::
@@ -154,7 +154,7 @@ passed to :meth:`~DependencyResolver.resolve`::
     class Foo:
         pass
 
-    container.register_object(Foo, Foo(), key="foo")
+    container.register_instance(Foo, Foo(), key="foo")
 
     obj = container.resolve(Foo, key="foo")
 
@@ -178,7 +178,7 @@ can be used which returns ``None`` instead::
 Registering Multiple Objects
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-When :meth:`~DependencyContainer.register` or :meth:`~DependencyContainer.register_object`
+When :meth:`~DependencyContainer.register_factory` or :meth:`~DependencyContainer.register_instance`
 is called multiple times with the same type and, optionally, key,
 :meth:`~DependencyResolver.resolve` will return only the last registered object::
 
@@ -192,8 +192,8 @@ is called multiple times with the same type and, optionally, key,
     foo1 = Foo()
     foo2 = Foo()
 
-    container.register_object(Foo, foo1)
-    container.register_object(Foo, foo2)
+    container.register_instance(Foo, foo1)
+    container.register_instance(Foo, foo2)
 
     obj = container.resolve(Foo)
 
@@ -213,8 +213,8 @@ all non-keyed objects in the order they were registered as an iterable::
     foo1 = Foo()
     foo2 = Foo()
 
-    container.register_object(Foo, foo1)
-    container.register_object(Foo, foo2)
+    container.register_instance(Foo, foo1)
+    container.register_instance(Foo, foo2)
 
     itr = container.resolve_all(Foo)
 
@@ -235,8 +235,8 @@ they were registered as an iterable::
     foo1 = Foo()
     foo2 = Foo()
 
-    container.register_object(Foo, foo1, key="foo1")
-    container.register_object(Foo, foo2, key="foo2")
+    container.register_instance(Foo, foo1, key="foo1")
+    container.register_instance(Foo, foo2, key="foo2")
 
     itr = container.resolve_all(Foo)
 
@@ -262,14 +262,14 @@ interfaces as registration types::
 
     container = StandardDependencyContainer()
 
-    # `StringWriter` Interface
-    class StringWriter(ABC):
+    # `Writer` Interface
+    class Writer(ABC):
         @abstractmethod
         def write(self, s: str) -> None:
             ...
 
-    # `StringWriter` Implementation
-    class StdOutStringWriter(Bar):
+    # `Writer` Implementation
+    class StdOutWriter(Bar):
         def write(self, s: str) -> None:
             print(s)
 
@@ -281,24 +281,24 @@ interfaces as registration types::
 
     # `Foo` Implementation
     class FooImpl(Foo):
-        # depends on a `StringWriter` instance.
-        def __init__(self, writer: StringWriter) -> None:
+        # depends on a `Writer` instance.
+        def __init__(self, writer: Writer) -> None:
             self.writer = writer
 
         def write_foo(self) -> None:
             self.writer.write("foo")
 
-    # Registers `StringWriter`.
-    container.register_object(StringWriter, StdOutStringWriter())
+    # Registers `Writer`.
+    container.register_instance(Writer, StdOutWriter())
 
     def create_foo(resolver: DependencyResolver) -> Foo:
-        # Resolves the registered `StringWriter` object from the container.
-        writer = resolver.resolve(StringWriter)
+        # Resolves the registered `Writer` object from the container.
+        writer = resolver.resolve(Writer)
 
         return FooImpl(writer)
 
     # Registers `Foo`.
-    container.register(Foo, create_foo)
+    container.register_factory(Foo, create_foo)
 
     # Internally calls `create_foo` to create the `Foo` instance.
     foo1 = container.resolve(Foo)

@@ -41,7 +41,7 @@ class TestStandardDependencyContainer:
         def create_foo(resolver: DependencyResolver) -> Foo:
             return expected_foo
 
-        container.register(Foo, create_foo)
+        container.register_factory(Foo, create_foo)
 
         foo1 = container.resolve(Foo)
         foo2 = container.resolve_optional(Foo)
@@ -57,7 +57,7 @@ class TestStandardDependencyContainer:
         def create_foo(resolver: DependencyResolver) -> Foo:
             return expected_foo
 
-        container.register(Foo, create_foo, key="foo")
+        container.register_factory(Foo, create_foo, key="foo")
 
         foo1 = container.resolve(Foo, "foo")
         foo2 = container.resolve_optional(Foo, "foo")
@@ -104,8 +104,8 @@ class TestStandardDependencyContainer:
 
         container.register_object(Foo, FooImpl1())
 
-        container.register(Foo, create_foo1)
-        container.register(Foo, create_foo2)
+        container.register_factory(Foo, create_foo1)
+        container.register_factory(Foo, create_foo2)
 
         foo1 = container.resolve(Foo)
         foo2 = container.resolve_optional(Foo)
@@ -126,8 +126,8 @@ class TestStandardDependencyContainer:
 
         container.register_object(Foo, FooImpl1(), key="foo")
 
-        container.register(Foo, create_foo1, key="foo")
-        container.register(Foo, create_foo2, key="foo")
+        container.register_factory(Foo, create_foo1, key="foo")
+        container.register_factory(Foo, create_foo2, key="foo")
 
         foo1 = container.resolve(Foo, key="foo")
         foo2 = container.resolve_optional(Foo, key="foo")
@@ -147,8 +147,8 @@ class TestStandardDependencyContainer:
         def create_foo2(resolver: DependencyResolver) -> Foo:
             return expected_foo2
 
-        container.register(Foo, create_foo1)
-        container.register(Foo, create_foo2, key="foo")
+        container.register_factory(Foo, create_foo1)
+        container.register_factory(Foo, create_foo2, key="foo")
 
         foo1 = container.resolve(Foo)
         foo2 = container.resolve(Foo, key="foo")
@@ -162,7 +162,7 @@ class TestStandardDependencyContainer:
         def create_foo(resolver: DependencyResolver) -> str:
             return "foo"
 
-        container.register(Foo, create_foo)
+        container.register_factory(Foo, create_foo)
 
         with pytest.raises(
             TypeError, match=rf"^The object in the container is expected to be of type `{Foo}`, but is of type `{str}` instead\. Please file a bug report\.$"  # fmt: skip
@@ -175,7 +175,7 @@ class TestStandardDependencyContainer:
         def create_foo(resolver: DependencyResolver) -> str:
             return "foo"
 
-        container.register(Foo, create_foo, key="foo")
+        container.register_factory(Foo, create_foo, key="foo")
 
         with pytest.raises(
             TypeError, match=rf"^The object in the container is expected to be of type `{Foo}`, but is of type `{str}` instead\. Please file a bug report\.$"  # fmt: skip
@@ -204,7 +204,7 @@ class TestStandardDependencyContainer:
         def create_foo(resolver: DependencyResolver) -> None:
             return None
 
-        container.register(Foo, create_foo)
+        container.register_factory(Foo, create_foo)
 
         with pytest.raises(
             LookupError, match=rf"^The registered factory for `{Foo}` returned `None`\.$"  # fmt: skip
@@ -217,7 +217,7 @@ class TestStandardDependencyContainer:
         def create_foo(resolver: DependencyResolver) -> None:
             return None
 
-        container.register(Foo, create_foo, key="foo")
+        container.register_factory(Foo, create_foo, key="foo")
 
         with pytest.raises(
             LookupError, match=rf"^The registered factory for `{Foo}` with the key 'foo' returned `None`\.$"  # fmt: skip
@@ -246,7 +246,7 @@ class TestStandardDependencyContainer:
         def create_foo(resolver: DependencyResolver) -> None:
             return None
 
-        container.register(Foo, create_foo)
+        container.register_factory(Foo, create_foo)
 
         foo = container.resolve_optional(Foo)
 
@@ -258,7 +258,7 @@ class TestStandardDependencyContainer:
         def create_foo(resolver: DependencyResolver) -> None:
             return None
 
-        container.register(Foo, create_foo)
+        container.register_factory(Foo, create_foo)
 
         foo = container.resolve_optional(Foo, "foo")
 
@@ -272,7 +272,7 @@ class TestStandardDependencyContainer:
 
             return FooImpl1()
 
-        container.register(Foo, create_foo)
+        container.register_factory(Foo, create_foo)
 
         container.resolve(Foo)
 
@@ -291,9 +291,9 @@ class TestStandardDependencyContainer:
         def create_foo3(resolver: DependencyResolver) -> None:
             return None
 
-        container.register(Foo, create_foo1)
-        container.register(Foo, create_foo3)
-        container.register(Foo, create_foo2)
+        container.register_factory(Foo, create_foo1)
+        container.register_factory(Foo, create_foo3)
+        container.register_factory(Foo, create_foo2)
 
         foos = list(container.resolve_all(Foo))
 
@@ -317,9 +317,9 @@ class TestStandardDependencyContainer:
         def create_foo3(resolver: DependencyResolver) -> None:
             return None
 
-        container.register(Foo, create_foo1, key="foo1")
-        container.register(Foo, create_foo3, key="foo3")
-        container.register(Foo, create_foo2, key="foo2")
+        container.register_factory(Foo, create_foo1, key="foo1")
+        container.register_factory(Foo, create_foo3, key="foo3")
+        container.register_factory(Foo, create_foo2, key="foo2")
 
         foos = dict(container.resolve_all_keyed(Foo))
 
@@ -364,10 +364,10 @@ class TestStandardDependencyContainer:
         def create_foo4(resolver: DependencyResolver) -> Foo:
             return expected_foo4
 
-        container.register(Foo, create_foo1)
-        container.register(Foo, create_foo2, key="foo2")
-        container.register(Foo, create_foo3)
-        container.register(Foo, create_foo4, key="foo4")
+        container.register_factory(Foo, create_foo1)
+        container.register_factory(Foo, create_foo2, key="foo2")
+        container.register_factory(Foo, create_foo3)
+        container.register_factory(Foo, create_foo4, key="foo4")
 
         list_foos = list(container.resolve_all(Foo))
 
