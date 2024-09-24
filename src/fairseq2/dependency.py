@@ -100,7 +100,7 @@ class DependencyContainer(DependencyResolver):
     """Holds a dependency graph."""
 
     @abstractmethod
-    def register(
+    def register_factory(
         self, kls: type[T], factory: DependencyFactory[T], key: str | None = None
     ) -> None:
         """
@@ -149,7 +149,7 @@ class StandardDependencyContainer(DependencyContainer):
         self._keyed_registrations = {}
 
     @override
-    def register(
+    def register_factory(
         self, kls: type[T], factory: DependencyFactory[T], key: str | None = None
     ) -> None:
         self._register(kls, key, _Registration(factory=factory))
