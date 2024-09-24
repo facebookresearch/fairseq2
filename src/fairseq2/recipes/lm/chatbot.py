@@ -31,7 +31,7 @@ from fairseq2.models.decoder import DecoderModel
 from fairseq2.recipes.cli import CliCommandHandler
 from fairseq2.recipes.logging import setup_basic_logging
 from fairseq2.recipes.utils.argparse import parse_dtype
-from fairseq2.recipes.utils.environment import default_env_setters
+from fairseq2.recipes.utils.environment import EnvironmentSetter
 from fairseq2.recipes.utils.setup import setup_gangs
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import RngBag
@@ -96,7 +96,7 @@ class ChatbotCommandHandler(CliCommandHandler):
             help="maximum sequence generation length (default: %(default)s)",
         )
 
-        clusters = list(default_env_setters.names())
+        clusters = [k for k, _ in resolver.resolve_all_keyed(EnvironmentSetter)]
 
         clusters.sort()
 
@@ -113,19 +113,19 @@ class ChatbotCommandHandler(CliCommandHandler):
 
         # Set up cluster-specific environment variables.
         if args.cluster == "auto":
-            env_setter = default_env_setters.get_for_inferred_cluster()
+            env_setter = container.resolve(EnvironmentSetter)
         else:
-            try:
-                env_setter = default_env_setters.get(args.cluster)
-            except RuntimeError:
-                log.exception("Chatbot is not running on a '{}' cluster.", args.cluster)  # fmt: skip
+            env_setter = container.resolve(EnvironmentSetter, args.cluster)
 
-                sys.exit(1)
+        if not env_setter.supports_current_cluster():
+            log.error("Recipe is not running on a '{}' cluster.", args.cluster)
+
+            sys.exit(1)
 
         try:
-            env_setter.set_torch_distributed_env()
+            env_setter.set_torch_distributed_variables()
         except RuntimeError:
-            log.exception("'{}' cluster environment cannot be set.", env_setter.cluster)  # fmt: skip
+            log.exception("'{}' cluster environment cannot be set.", env_setter.supported_cluster)  # fmt: skip
 
             sys.exit(1)
 
