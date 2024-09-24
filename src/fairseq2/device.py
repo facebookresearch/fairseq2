@@ -10,6 +10,7 @@ import os
 
 import torch
 
+from fairseq2.dependency import DependencyContainer
 from fairseq2.logging import get_log_writer
 from fairseq2.typing import CPU, Device
 from fairseq2.utils.env import get_int_from_env
@@ -106,3 +107,7 @@ def _get_device_index(num_devices: int, device_type: str) -> int:
         )
 
     return device_idx
+
+
+def register_objects(container: DependencyContainer) -> None:
+    container.register_factory(Device, lambda _: determine_default_device())

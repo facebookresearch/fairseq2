@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import os
+from importlib import import_module
 
 from importlib_metadata import entry_points
 
@@ -60,7 +61,16 @@ def setup(container: DependencyContainer) -> None:
 
 
 def _setup_library(container: DependencyContainer) -> None:
-    pass
+    modules = [
+        "fairseq2.device",
+    ]
+
+    for name in modules:
+        module = import_module(name)
+
+        register_objects = getattr(module, "register_objects")
+
+        register_objects(container)
 
 
 def _setup_extensions(container: DependencyContainer) -> None:
