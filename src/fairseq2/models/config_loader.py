@@ -18,8 +18,12 @@ from fairseq2.assets import (
 )
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.typing import DataClass
-from fairseq2.utils.structured import StructuredError, merge_unstructured
-from fairseq2.utils.value_converter import ValueConverter, default_value_converter
+from fairseq2.utils.structured import (
+    StructuredError,
+    ValueConverter,
+    default_value_converter,
+    merge_unstructured,
+)
 
 ModelConfigT = TypeVar("ModelConfigT", bound=DataClass)
 

@@ -30,7 +30,7 @@ from fairseq2.utils.file import (
     dump_pt_tensors,
     load_pt_tensors,
 )
-from fairseq2.utils.value_converter import default_value_converter
+from fairseq2.utils.structured import default_value_converter
 
 log = get_log_writer(__name__)
 

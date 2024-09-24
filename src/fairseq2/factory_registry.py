@@ -24,7 +24,7 @@ from typing import (
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.typing import DataClass
 from fairseq2.utils.dataclass import fill_empty_fields
-from fairseq2.utils.value_converter import ValueConverter, default_value_converter
+from fairseq2.utils.structured import ValueConverter, default_value_converter
 
 ConfigT = TypeVar("ConfigT", bound=DataClass)
 
