@@ -32,8 +32,12 @@ from fairseq2.recipes.utils.environment import (
 from fairseq2.recipes.utils.log import log_config
 from fairseq2.recipes.utils.sweep import SweepTagger, default_sweep_tagger
 from fairseq2.typing import DataClass
-from fairseq2.utils.structured import StructuredError, merge_unstructured
-from fairseq2.utils.value_converter import ValueConverter, default_value_converter
+from fairseq2.utils.structured import (
+    StructuredError,
+    ValueConverter,
+    default_value_converter,
+    merge_unstructured,
+)
 
 log = get_log_writer(__name__)
 

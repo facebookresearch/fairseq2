@@ -16,7 +16,7 @@ import torch
 
 from fairseq2.typing import DataType
 from fairseq2.utils.dataclass import EMPTY
-from fairseq2.utils.value_converter import StructuredError, ValueConverter
+from fairseq2.utils.structured import StructuredError, ValueConverter
 
 # mypy: disable-error-code="arg-type"
 

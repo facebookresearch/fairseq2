@@ -14,7 +14,7 @@ from typing import Any, Final, cast, final
 from urllib.parse import urlparse, urlunparse
 
 from fairseq2.assets.error import AssetError
-from fairseq2.utils.value_converter import (
+from fairseq2.utils.structured import (
     StructuredError,
     ValueConverter,
     default_value_converter,
