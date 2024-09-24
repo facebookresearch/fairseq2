@@ -30,7 +30,7 @@ from fairseq2.utils.file import (
     dump_pt_tensors,
     load_pt_tensors,
 )
-from fairseq2.utils.structured import default_value_converter
+from fairseq2.utils.structured import ValueConverter, get_value_converter
 
 log = get_log_writer(__name__)
 
@@ -161,6 +161,7 @@ class FileCheckpointManager(CheckpointManager):
     _shard_suffix: str
     _tensor_loader: TensorLoader
     _tensor_dumper: TensorDumper
+    _value_converter: ValueConverter
     _lower_score_better: bool
     _checkpoint_step_nr: int | None
 
@@ -173,6 +174,7 @@ class FileCheckpointManager(CheckpointManager):
         tp_gang: Gang | None = None,
         tensor_loader: TensorLoader | None = None,
         tensor_dumper: TensorDumper | None = None,
+        value_converter: ValueConverter | None = None,
         lower_score_better: bool = False,
     ) -> None:
         """
@@ -189,6 +191,8 @@ class FileCheckpointManager(CheckpointManager):
             The tensor loader to load checkpoints into memory.
         :param tensor_dumper:
             The tensor dumper to save checkpoints into file.
+        :param value_converter:
+            The :class:`ValueConverter` instance to use.
         :param lower_score_better:
             If ``True``, lower scores are considered better.
         """
@@ -214,6 +218,8 @@ class FileCheckpointManager(CheckpointManager):
 
         self._tensor_loader = tensor_loader or load_pt_tensors
         self._tensor_dumper = tensor_dumper or dump_pt_tensors
+
+        self._value_converter = value_converter or get_value_converter()
 
         self._lower_score_better = lower_score_better
 
@@ -248,7 +254,7 @@ class FileCheckpointManager(CheckpointManager):
                 metadata["model_family"] = family
 
             if config is not None:
-                metadata["model_config"] = default_value_converter.unstructure(config)
+                metadata["model_config"] = self._value_converter.unstructure(config)
 
             if self._num_shards != 1:
                 metadata["num_shards"] = self._num_shards

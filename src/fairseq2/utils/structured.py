@@ -27,7 +27,7 @@ from typing import (
 
 import torch
 
-from fairseq2.dependency import DependencyContainer
+from fairseq2.dependency import DependencyContainer, resolve
 from fairseq2.typing import DataClass, DataType, Device
 from fairseq2.utils.dataclass import EMPTY
 
@@ -581,12 +581,12 @@ class ValueConverter:
         return [self.unstructure(elem) for elem in obj]
 
 
-# compat
-default_value_converter = ValueConverter()
-
-
 def register_objects(container: DependencyContainer) -> None:
     container.register_instance(ValueConverter, ValueConverter())
+
+
+def get_value_converter() -> ValueConverter:
+    return resolve(ValueConverter)  # type: ignore[no-any-return]
 
 
 def is_unstructured(obj: object) -> bool:

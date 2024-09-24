@@ -21,7 +21,7 @@ from fairseq2.typing import DataClass
 from fairseq2.utils.structured import (
     StructuredError,
     ValueConverter,
-    default_value_converter,
+    get_value_converter,
     merge_unstructured,
 )
 
@@ -48,6 +48,7 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
     _family: str
     _config_kls: type[ModelConfigT]
     _arch_configs: ConfigRegistry[ModelConfigT] | None
+    _value_converter: ValueConverter | None
 
     def __init__(
         self,
@@ -76,7 +77,7 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
         self._family = family
         self._config_kls = config_kls
         self._arch_configs = arch_configs
-        self._value_converter = value_converter or default_value_converter
+        self._value_converter = value_converter
 
     def __call__(self, model_name_or_card: str | AssetCard) -> ModelConfigT:
         if isinstance(model_name_or_card, AssetCard):
@@ -132,6 +133,9 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
             card_ = card_.base
 
         if config_overrides_list:
+            if self._value_converter is None:
+                self._value_converter = get_value_converter()
+
             try:
                 unstructured_config = self._value_converter.unstructure(config)
             except StructuredError as ex:
