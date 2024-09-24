@@ -122,6 +122,13 @@ class Stopwatch:
             negative impact on the runtime performance if not used carefully.
         """
         self._start_time = None
+
+        if device is not None:
+            if device.type != "cpu" and device.type != "cuda":
+                raise ValueError(
+                    f"The type of `device` must be `cpu` or `cuda`, but is `{device.type}` instead."
+                )
+
         self._device = device
 
         if start:
