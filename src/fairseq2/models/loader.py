@@ -18,8 +18,8 @@ from fairseq2.assets import (
     AssetDownloadManager,
     AssetError,
     AssetStore,
-    default_asset_store,
     default_download_manager,
+    get_asset_store,
 )
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
@@ -118,7 +118,7 @@ class CheckpointConverter(Protocol[ModelConfigT_contra]):
 class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
     """Loads models of type ``ModelT``."""
 
-    _asset_store: AssetStore
+    _asset_store: AssetStore | None
     _download_manager: AssetDownloadManager
     _tensor_loader: TensorLoader
     _checkpoint_converter: CheckpointConverter[ModelConfigT] | None
@@ -163,7 +163,7 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
             The converter to which loaded checkpoints will be passed for further
             processing.
         """
-        self._asset_store = asset_store or default_asset_store
+        self._asset_store = asset_store
         self._download_manager = download_manager or default_download_manager
         self._tensor_loader = tensor_loader or load_tensors
         self._checkpoint_converter = checkpoint_converter
@@ -186,6 +186,9 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         if isinstance(model_name_or_card, AssetCard):
             card = model_name_or_card
         else:
+            if self._asset_store is None:
+                self._asset_store = get_asset_store()
+
             card = self._asset_store.retrieve_card(model_name_or_card)
 
         # Retrieve the gang for tensor parallelism.
@@ -345,7 +348,7 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
 class DelegatingModelLoader(ModelLoader[ModelT]):
     """Loads models of type ``ModelT`` using registered loaders."""
 
-    _asset_store: AssetStore
+    _asset_store: AssetStore | None
     _loaders: dict[str, ModelLoader[ModelT]]
 
     def __init__(self, *, asset_store: AssetStore | None = None) -> None:
@@ -354,7 +357,7 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
             The asset store where to check for available models. If ``None``,
             the default asset store will be used.
         """
-        self._asset_store = asset_store or default_asset_store
+        self._asset_store = asset_store
 
         self._loaders = {}
 
@@ -371,6 +374,9 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
         if isinstance(model_name_or_card, AssetCard):
             card = model_name_or_card
         else:
+            if self._asset_store is None:
+                self._asset_store = get_asset_store()
+
             card = self._asset_store.retrieve_card(model_name_or_card)
 
         family = get_model_family(card)
@@ -412,6 +418,9 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
         if isinstance(model_name_or_card, AssetCard):
             card = model_name_or_card
         else:
+            if self._asset_store is None:
+                self._asset_store = get_asset_store()
+
             card = self._asset_store.retrieve_card(model_name_or_card)
 
         family = get_model_family(card)

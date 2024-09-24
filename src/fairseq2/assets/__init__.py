@@ -47,3 +47,4 @@ from fairseq2.assets.store import AssetStore as AssetStore
 from fairseq2.assets.store import EnvironmentResolver as EnvironmentResolver
 from fairseq2.assets.store import StandardAssetStore as StandardAssetStore
 from fairseq2.assets.store import default_asset_store as default_asset_store
+from fairseq2.assets.store import get_asset_store as get_asset_store
