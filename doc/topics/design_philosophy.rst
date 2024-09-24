@@ -160,7 +160,7 @@ passed to :meth:`~DependencyResolver.resolve`::
 
     assert isinstance(obj, Foo)
 
-:meth:`~DependencyResolver.resolve` will raise a :class:`LookupError` when an
+:meth:`~DependencyResolver.resolve` will raise a :class:`DependencyError` when an
 object cannot be found. As an alternative, :meth:`~DependencyResolver.resolve_optional`
 can be used which returns ``None`` instead::
 

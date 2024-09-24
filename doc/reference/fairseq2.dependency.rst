@@ -11,20 +11,23 @@ fairseq2.dependency
 
 **ABCs**
 
-* :class:`DependencyContainer`
-* :class:`DependencyResolver`
+:class:`DependencyContainer`, :class:`DependencyResolver`
 
 **Classes**
 
-* :class:`StandardDependencyContainer`
+:class:`StandardDependencyContainer`
 
 **Protocols**
 
-* :class:`DependencyFactory`
+:class:`DependencyFactory`
+
+**Exceptions**
+
+:class:`DependencyError`, :class:`DependencyNotFoundError`
 
 **Functions**
 
-* :func:`get_container`
+:func:`get_container`
 
 ABCs
 ====
@@ -43,6 +46,13 @@ Protocols
 
 .. autoclass:: DependencyFactory()
     :special-members: __call__
+
+Exceptions
+==========
+
+.. autoclass:: DependencyError
+
+.. autoclass:: DependencyNotFoundError
 
 Functions
 =========
