@@ -62,7 +62,10 @@ def setup(container: DependencyContainer) -> None:
 
 def _setup_library(container: DependencyContainer) -> None:
     modules = [
+        "fairseq2.assets.metadata_provider",
+        "fairseq2.assets.store",
         "fairseq2.device",
+        "fairseq2.utils.structured",
     ]
 
     for name in modules:
