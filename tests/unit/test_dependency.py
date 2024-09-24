@@ -11,7 +11,12 @@ from abc import ABC, abstractmethod
 import pytest
 from typing_extensions import override
 
-from fairseq2.dependency import DependencyResolver, StandardDependencyContainer
+from fairseq2.dependency import (
+    DependencyError,
+    DependencyNotFoundError,
+    DependencyResolver,
+    StandardDependencyContainer,
+)
 
 
 class Foo(ABC):
@@ -32,8 +37,20 @@ class FooImpl2(Foo):
         return 2
 
 
+class Bar:
+    pass
+
+
 class TestStandardDependencyContainer:
-    def test_register_resolve_works(self) -> None:
+    def test_register_raises_error_when_subkls_is_not_subclass_of_kls(self) -> None:
+        container = StandardDependencyContainer()
+
+        with pytest.raises(
+            ValueError, match=rf"^`sub_kls` must be a subclass of `kls`, but `{Bar}` is not a subclass of `{Foo}`\.$"  # fmt: skip
+        ):
+            container.register(Foo, Bar)
+
+    def test_register_factory_resolve_works(self) -> None:
         container = StandardDependencyContainer()
 
         expected_foo = FooImpl1()
@@ -49,7 +66,7 @@ class TestStandardDependencyContainer:
         assert foo1 is expected_foo
         assert foo2 is expected_foo
 
-    def test_keyed_register_resolve_works(self) -> None:
+    def test_keyed_register_factory_resolve_works(self) -> None:
         container = StandardDependencyContainer()
 
         expected_foo = FooImpl1()
@@ -65,12 +82,12 @@ class TestStandardDependencyContainer:
         assert foo1 is expected_foo
         assert foo2 is expected_foo
 
-    def test_register_object_resolve_works(self) -> None:
+    def test_register_instance_resolve_works(self) -> None:
         container = StandardDependencyContainer()
 
         expected_foo = FooImpl1()
 
-        container.register_object(Foo, expected_foo)
+        container.register_instance(Foo, expected_foo)
 
         foo1 = container.resolve(Foo)
         foo2 = container.resolve_optional(Foo)
@@ -78,12 +95,12 @@ class TestStandardDependencyContainer:
         assert foo1 is expected_foo
         assert foo2 is expected_foo
 
-    def test_keyed_register_object_resolve_works(self) -> None:
+    def test_keyed_register_instance_resolve_works(self) -> None:
         container = StandardDependencyContainer()
 
         expected_foo = FooImpl1()
 
-        container.register_object(Foo, expected_foo, key="foo")
+        container.register_instance(Foo, expected_foo, key="foo")
 
         foo1 = container.resolve(Foo, "foo")
         foo2 = container.resolve_optional(Foo, "foo")
@@ -102,7 +119,7 @@ class TestStandardDependencyContainer:
         def create_foo2(resolver: DependencyResolver) -> Foo:
             return expected_foo
 
-        container.register_object(Foo, FooImpl1())
+        container.register_instance(Foo, FooImpl1())
 
         container.register_factory(Foo, create_foo1)
         container.register_factory(Foo, create_foo2)
@@ -124,7 +141,7 @@ class TestStandardDependencyContainer:
         def create_foo2(resolver: DependencyResolver) -> Foo:
             return expected_foo
 
-        container.register_object(Foo, FooImpl1(), key="foo")
+        container.register_instance(Foo, FooImpl1(), key="foo")
 
         container.register_factory(Foo, create_foo1, key="foo")
         container.register_factory(Foo, create_foo2, key="foo")
@@ -165,7 +182,7 @@ class TestStandardDependencyContainer:
         container.register_factory(Foo, create_foo)
 
         with pytest.raises(
-            TypeError, match=rf"^The object in the container is expected to be of type `{Foo}`, but is of type `{str}` instead\. Please file a bug report\.$"  # fmt: skip
+            DependencyError, match=rf"^The object in the container is expected to be of type `{Foo}`, but is of type `{str}` instead\. Please file a bug report\.$"  # fmt: skip
         ):
             container.resolve(Foo)
 
@@ -178,7 +195,7 @@ class TestStandardDependencyContainer:
         container.register_factory(Foo, create_foo, key="foo")
 
         with pytest.raises(
-            TypeError, match=rf"^The object in the container is expected to be of type `{Foo}`, but is of type `{str}` instead\. Please file a bug report\.$"  # fmt: skip
+            DependencyError, match=rf"^The object in the container is expected to be of type `{Foo}`, but is of type `{str}` instead\. Please file a bug report\.$"  # fmt: skip
         ):
             container.resolve(Foo, "foo")
 
@@ -186,7 +203,7 @@ class TestStandardDependencyContainer:
         container = StandardDependencyContainer()
 
         with pytest.raises(
-            LookupError, match=rf"^No registered factory or object found for `{Foo}`\.$"  # fmt: skip
+            DependencyNotFoundError, match=rf"^No registered factory or object found for `{Foo}`\.$"  # fmt: skip
         ):
             container.resolve(Foo)
 
@@ -194,7 +211,7 @@ class TestStandardDependencyContainer:
         container = StandardDependencyContainer()
 
         with pytest.raises(
-            LookupError, match=rf"^No registered factory or object found for `{Foo}` with the key 'foo'\.$"  # fmt: skip
+            DependencyNotFoundError, match=rf"^No registered factory or object found for `{Foo}` with the key 'foo'\.$"  # fmt: skip
         ):
             container.resolve(Foo, "foo")
 
@@ -207,7 +224,7 @@ class TestStandardDependencyContainer:
         container.register_factory(Foo, create_foo)
 
         with pytest.raises(
-            LookupError, match=rf"^The registered factory for `{Foo}` returned `None`\.$"  # fmt: skip
+            DependencyNotFoundError, match=rf"^The registered factory for `{Foo}` returned `None`\.$"  # fmt: skip
         ):
             container.resolve(Foo)
 
@@ -220,7 +237,7 @@ class TestStandardDependencyContainer:
         container.register_factory(Foo, create_foo, key="foo")
 
         with pytest.raises(
-            LookupError, match=rf"^The registered factory for `{Foo}` with the key 'foo' returned `None`\.$"  # fmt: skip
+            DependencyNotFoundError, match=rf"^The registered factory for `{Foo}` with the key 'foo' returned `None`\.$"  # fmt: skip
         ):
             container.resolve(Foo, "foo")
 

@@ -8,7 +8,17 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
-from typing import Final, Protocol, TypeVar, final
+from inspect import Parameter, signature
+from typing import (
+    Any,
+    Final,
+    Protocol,
+    TypeVar,
+    final,
+    get_args,
+    get_origin,
+    get_type_hints,
+)
 
 from typing_extensions import override
 
@@ -29,7 +39,10 @@ class DependencyResolver(ABC):
         :param key: If not ``None``, the object with the specified key will be
             returned.
 
-        :raises LookupError: when the object cannot be found.
+        :raises DependencyError: when the dependencies of the object cannot be
+            inferred due to invalid or missing type annotations.
+        :raises DependencyNotFoundError: when the object or one of its
+            dependencies cannot be found.
 
         :returns: The resolved object.
         """
@@ -100,6 +113,31 @@ class DependencyContainer(DependencyResolver):
     """Holds a dependency graph."""
 
     @abstractmethod
+    def register(
+        self, kls: type[T], sub_kls: type[T] | None = None, key: str | None = None
+    ) -> None:
+        """
+        Registers a lazily-initialized object of type ``T``.
+
+        The ``__init__()`` method of ``kls``, or if not ``None``, ``sub_kls``
+        must have type annotations for all its parameters in order for
+        dependency injection to work.
+
+        If multiple objects of type ``T``, optionally with the same key, are
+        registered, :meth:`~DependencyResolver.resolve` will return only the
+        last registered one.
+
+        :param kls: The :class:`type` of ``T``.
+        :param sub_kls: The real type of the object. If not ``None``, must be a
+            subclass of ``kls``.
+        :param key: If not ``None``, registers the object with the specified key.
+            :meth:`~DependencyResolver.resolve` will return the object only if
+            the same key is provided.
+
+        :raises ValueError: when ``sub_kls`` is not a subclass of ``kls``.
+        """
+
+    @abstractmethod
     def register_factory(
         self, kls: type[T], factory: DependencyFactory[T], key: str | None = None
     ) -> None:
@@ -119,7 +157,7 @@ class DependencyContainer(DependencyResolver):
         """
 
     @abstractmethod
-    def register_object(self, kls: type[T], obj: T, key: str | None = None) -> None:
+    def register_instance(self, kls: type[T], obj: T, key: str | None = None) -> None:
         """
         Registers an object of type ``T``.
 
@@ -132,6 +170,14 @@ class DependencyContainer(DependencyResolver):
             :meth:`~DependencyResolver.resolve` will return the object only if
             the same key is provided.
         """
+
+
+class DependencyError(RuntimeError):
+    """Raised when an error occurs while resolving a dependency."""
+
+
+class DependencyNotFoundError(DependencyError):
+    """Raised when a dependency cannot be found."""
 
 
 @final
@@ -149,18 +195,38 @@ class StandardDependencyContainer(DependencyContainer):
         self._keyed_registrations = {}
 
     @override
+    def register(
+        self, kls: type[T], sub_kls: type[T] | None = None, key: str | None = None
+    ) -> None:
+        if sub_kls is None:
+            sub_kls = kls
+        elif not issubclass(sub_kls, kls):
+            raise ValueError(
+                f"`sub_kls` must be a subclass of `kls`, but `{sub_kls}` is not a subclass of `{kls}`."
+            )
+
+        factory = self._create_factory(sub_kls)
+
+        self._register(kls, key, _Registration(factory=factory))
+
+    @override
     def register_factory(
         self, kls: type[T], factory: DependencyFactory[T], key: str | None = None
     ) -> None:
         self._register(kls, key, _Registration(factory=factory))
 
     @override
-    def register_object(self, kls: type[T], obj: T, key: str | None = None) -> None:
+    def register_instance(self, kls: type[T], obj: T, key: str | None = None) -> None:
         self._register(kls, key, _Registration(obj=obj))
 
     def _register(
         self, kls: type, key: str | None, registration: _Registration
     ) -> None:
+        if kls is Iterable:
+            raise ValueError(
+                "`kls` must not be `Iterable` as it has special treatment within the dependency container."
+            )
+
         if key is None:
             registrations = self._registrations.get(kls)
             if registrations is None:
@@ -184,26 +250,26 @@ class StandardDependencyContainer(DependencyContainer):
             try:
                 registration = self._registrations[kls][-1]
             except (KeyError, IndexError):
-                raise LookupError(
+                raise DependencyNotFoundError(
                     f"No registered factory or object found for `{kls}`."
                 ) from None
 
             obj = self._get_object(kls, registration)
             if obj is None:
-                raise LookupError(
+                raise DependencyNotFoundError(
                     f"The registered factory for `{kls}` returned `None`."
                 )
         else:
             try:
                 registration = self._keyed_registrations[kls][key]
             except KeyError:
-                raise LookupError(
+                raise DependencyNotFoundError(
                     f"No registered factory or object found for `{kls}` with the key '{key}'."
                 ) from None
 
             obj = self._get_object(kls, registration)
             if obj is None:
-                raise LookupError(
+                raise DependencyNotFoundError(
                     f"The registered factory for `{kls}` with the key '{key}' returned `None`."
                 )
 
@@ -213,7 +279,7 @@ class StandardDependencyContainer(DependencyContainer):
     def resolve_optional(self, kls: type[T], key: str | None = None) -> T | None:
         try:
             return self.resolve(kls, key)
-        except LookupError:
+        except DependencyNotFoundError:
             return None
 
     @override
@@ -248,11 +314,105 @@ class StandardDependencyContainer(DependencyContainer):
             obj = registration.obj
 
         if obj is not None and not isinstance(obj, kls):
-            raise TypeError(
+            raise DependencyError(
                 f"The object in the container is expected to be of type `{kls}`, but is of type `{type(obj)}` instead. Please file a bug report."
             )
 
         return obj
+
+    @staticmethod
+    def _create_factory(kls: type[T]) -> DependencyFactory[T]:
+        def factory(resolver: DependencyResolver) -> T:
+            init_method = getattr(kls, "__init__", None)
+            if init_method is None:
+                raise DependencyError(
+                    f"`{kls} must have an `__init__()` method for dependency injection."
+                )
+
+            try:
+                sig = signature(init_method)
+            except (TypeError, ValueError) as ex:
+                raise DependencyError(
+                    f"The signature of `{init_method}` cannot be inspected. See nested exception for details."
+                ) from ex
+
+            try:
+                type_hints = get_type_hints(init_method)
+            except (TypeError, ValueError, NameError) as ex:
+                raise DependencyError(
+                    f"The type annotations of `{init_method}` cannot be inspected. See nested exception for details."
+                ) from ex
+
+            kwargs: dict[str, object] = {}
+
+            for idx, (param_name, param) in enumerate(sig.parameters.items()):
+                if idx == 0:  # i.e. self
+                    continue
+
+                if param.kind == Parameter.POSITIONAL_ONLY:
+                    raise DependencyError(
+                        f"`{init_method}` has one or more positional-only parameters which is not supported by `StandardDependencyContainer`."
+                    )
+
+                if param.kind in (Parameter.VAR_POSITIONAL, Parameter.VAR_KEYWORD):
+                    continue
+
+                try:
+                    type_hint = type_hints[param_name]
+                except KeyError:
+                    raise DependencyError(
+                        f"The `{param_name}` parameter of `{init_method}` has no type annotation."
+                    )
+
+                param_type = get_origin(type_hint) or type_hint
+
+                arg: Any
+
+                if param_type is Iterable:
+                    param_type_args = get_args(type_hint)
+                    if len(param_type_args) != 1:
+                        raise DependencyError(
+                            f"The iterable `{param_name}` parameter of `{init_method}` has no element type expression."
+                        )
+
+                    element_type = param_type_args[0]
+                    if not isinstance(element_type, type):
+                        if param.default != Parameter.empty:
+                            continue
+
+                        raise DependencyError(
+                            f"The element type of the iterable `{param_name}` parameter of `{init_method}` is not a `type`."
+                        )
+
+                    if isinstance(element_type, tuple):
+                        # TODO: implement!
+                        raise RuntimeError("not supported yet!")
+                    else:
+                        arg = list(resolver.resolve_all(element_type))
+
+                    if len(arg) == 0 and param.default != Parameter.empty:
+                        continue
+
+                    kwargs[param_name] = arg
+                else:
+                    if not isinstance(param_type, type):
+                        if param.default != Parameter.empty:
+                            continue
+
+                        raise DependencyError(
+                            f"The type of the `{param_name}` parameter of `{init_method}` is not a `type`."
+                        )
+
+                    if param.default != Parameter.empty:
+                        arg = resolver.resolve_optional(param_type)
+                        if arg is not None:
+                            kwargs[param_name] = arg
+                    else:
+                        kwargs[param_name] = resolver.resolve(param_type)
+
+            return kls(**kwargs)
+
+        return factory
 
 
 _NOT_SET: Final = object()
