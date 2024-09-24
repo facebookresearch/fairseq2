@@ -14,6 +14,7 @@ from fairseq2.recipes.cli import Cli
 
 import os
 
+from fairseq2.dependency import DependencyResolver, get_container
 from fairseq2.logging import get_log_writer
 from fairseq2.recipes.assets import _setup_asset_cli
 from fairseq2.recipes.hg import _setup_hg_cli
@@ -30,12 +31,12 @@ log = get_log_writer(__name__)
 
 def main() -> None:
     """Run the command line fairseq2 program."""
-    from fairseq2 import __version__, setup_extensions
+    from fairseq2 import __version__, setup_fairseq2
 
     with exception_logger(log):
         setup_basic_logging()
 
-        setup_extensions()
+        setup_fairseq2()
 
         cli = Cli(
             name="fairseq2",
@@ -44,12 +45,17 @@ def main() -> None:
             description="command line interface of fairseq2",
         )
 
-        _setup_cli(cli)
+        container = get_container()
 
-        cli()
+        _setup_cli(cli, container)
+        _setup_cli_extensions(cli, container)
+
+        _setup_legacy_cli_extensions(cli)
+
+        cli(container)
 
 
-def _setup_cli(cli: Cli) -> None:
+def _setup_cli(cli: Cli, resolver: DependencyResolver) -> None:
     _setup_asset_cli(cli)
     _setup_lm_cli(cli)
     _setup_llama_cli(cli)
@@ -58,23 +64,40 @@ def _setup_cli(cli: Cli) -> None:
     _setup_wav2vec2_asr_cli(cli)
     _setup_hg_cli(cli)
 
-    # Set up 3rd party CLI extensions.
-    for entry_point in entry_points(group="fairseq2.cli"):
-        try:
-            setup_cli_extension = entry_point.load()
 
-            setup_cli_extension(cli)
+def _setup_cli_extensions(cli: Cli, resolver: DependencyResolver) -> None:
+    for entry_point in entry_points(group="fairseq2.extension.cli"):
+        try:
+            setup_cli = entry_point.load()
+
+            setup_cli(cli, resolver)
         except TypeError:
             raise RuntimeError(
-                f"The entry point '{entry_point.value}' is not a valid fairseq2 CLI setup function."
+                f"The entry point '{entry_point.value}' is not a valid fairseq2 CLI extension function."
             ) from None
         except Exception as ex:
             if "FAIRSEQ2_EXTENSION_TRACE" in os.environ:
                 raise RuntimeError(
-                    f"The CLI setup function at '{entry_point.value}' has failed. See nested exception for details."
+                    f"The CLI extension function at '{entry_point.value}' has failed. See nested exception for details."
                 ) from ex
 
-            log.warning(
-                "The CLI setup function at '{}' has failed. Set `FAIRSEQ2_EXTENSION_TRACE` environment variable to print the stack trace.",
-                entry_point.value,
-            )
+            log.warning("The CLI extension function at '{}' has failed. Set `FAIRSEQ2_EXTENSION_TRACE` environment variable to print the stack trace.", entry_point.value)  # fmt: skip
+
+
+def _setup_legacy_cli_extensions(cli: Cli) -> None:
+    for entry_point in entry_points(group="fairseq2.cli"):
+        try:
+            setup_cli = entry_point.load()
+
+            setup_cli(cli)
+        except TypeError:
+            raise RuntimeError(
+                f"The entry point '{entry_point.value}' is not a valid fairseq2 CLI extension function."
+            ) from None
+        except Exception as ex:
+            if "FAIRSEQ2_EXTENSION_TRACE" in os.environ:
+                raise RuntimeError(
+                    f"The CLI extension function at '{entry_point.value}' has failed. See nested exception for details."
+                ) from ex
+
+            log.warning("The CLI extension function at '{}' has failed. Set `FAIRSEQ2_EXTENSION_TRACE` environment variable to print the stack trace.", entry_point.value)  # fmt: skip
