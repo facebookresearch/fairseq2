@@ -16,6 +16,7 @@ from typing_extensions import override
 
 from fairseq2.console import get_console
 from fairseq2.data.text import load_text_tokenizer
+from fairseq2.dependency import DependencyContainer, DependencyResolver
 from fairseq2.gang import Gang
 from fairseq2.generation import (
     Chatbot,
@@ -43,7 +44,7 @@ class ChatbotCommandHandler(CliCommandHandler):
     """Runs a chatbot."""
 
     @override
-    def init_parser(self, parser: ArgumentParser) -> None:
+    def init_parser(self, parser: ArgumentParser, resolver: DependencyResolver) -> None:
         parser.add_argument(
             "-m",
             "--model",
@@ -107,7 +108,7 @@ class ChatbotCommandHandler(CliCommandHandler):
         )
 
     @override
-    def __call__(self, args: Namespace) -> None:
+    def __call__(self, args: Namespace, container: DependencyContainer) -> None:
         setup_basic_logging()
 
         # Set up cluster-specific environment variables.

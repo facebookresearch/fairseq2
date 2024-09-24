@@ -21,6 +21,7 @@ from typing_extensions import override
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.console import get_console, set_console
+from fairseq2.dependency import DependencyContainer, DependencyResolver
 from fairseq2.error import AlreadyExistsError
 from fairseq2.logging import get_log_writer
 from fairseq2.recipes.logging import setup_basic_logging, setup_logging
@@ -92,7 +93,7 @@ class Cli:
             The help text of the command group.
         """
         if name in self._groups:
-            raise ValueError(
+            raise AlreadyExistsError(
                 f"`name` must be a unique group name, but '{name}' is already registered."
             )
 
@@ -111,7 +112,7 @@ class Cli:
                 f"`name` must be a registered group name, but '{name}' is not registered."
             ) from None
 
-    def init_parser(self, parser: ArgumentParser) -> None:
+    def init_parser(self, parser: ArgumentParser, resolver: DependencyResolver) -> None:
         """Initialize ``parser`` with program-specific arguments."""
         parser.add_argument(
             "--version", action="version", version=f"%(prog)s {self._version}"
@@ -132,18 +133,15 @@ class Cli:
 
             sub_parser = sub_parsers.add_parser(group.name, help=help)
 
-            group.init_parser(sub_parser)
+            group.init_parser(sub_parser, resolver)
 
-    def __call__(self) -> None:
+    def __call__(self, container: DependencyContainer) -> None:
         """Run the program."""
         set_console(Console(highlight=False))
 
-        self._run_command()
-
-    def _run_command(self) -> None:
         parser = ArgumentParser(self._name, description=self._description)
 
-        self.init_parser(parser)
+        self.init_parser(parser, container)
 
         args = parser.parse_args()
 
@@ -152,7 +150,7 @@ class Cli:
 
             sys.exit(2)
 
-        args.command(args)
+        args.command(args, container)
 
     @property
     def name(self) -> str:
@@ -279,7 +277,7 @@ class CliGroup:
                 f"`name` must be a registered command name, but '{name}' is not registered."
             ) from None
 
-    def init_parser(self, parser: ArgumentParser) -> None:
+    def init_parser(self, parser: ArgumentParser, resolver: DependencyResolver) -> None:
         """Initialize ``parser`` with command group-specific arguments."""
         sub_parsers = parser.add_subparsers()
 
@@ -296,7 +294,7 @@ class CliGroup:
 
             sub_parser = sub_parsers.add_parser(group.name, help=help)
 
-            group.init_parser(sub_parser)
+            group.init_parser(sub_parser, resolver)
 
         for command in self._commands.values():
             help = command.help
@@ -313,7 +311,7 @@ class CliGroup:
 
             sub_parser.set_defaults(command=command)
 
-            command.init_parser(sub_parser)
+            command.init_parser(sub_parser, resolver)
 
     @property
     def name(self) -> str:
@@ -352,13 +350,13 @@ class CliCommand:
         self._origin_module = origin_module
         self._help = help
 
-    def init_parser(self, parser: ArgumentParser) -> None:
+    def init_parser(self, parser: ArgumentParser, resolver: DependencyResolver) -> None:
         """Initialize ``parser`` with command group-specific arguments."""
-        self._handler.init_parser(parser)
+        self._handler.init_parser(parser, resolver)
 
-    def __call__(self, args: Namespace) -> None:
+    def __call__(self, args: Namespace, container: DependencyContainer) -> None:
         """Run the command."""
-        self._handler(args)
+        self._handler(args, container)
 
     @property
     def name(self) -> str:
@@ -380,11 +378,11 @@ class CliCommandHandler(ABC):
     """Represents the handler of a command of a command line program."""
 
     @abstractmethod
-    def init_parser(self, parser: ArgumentParser) -> None:
+    def init_parser(self, parser: ArgumentParser, resolver: DependencyResolver) -> None:
         """Initialize ``parser`` with command-specific arguments."""
 
     @abstractmethod
-    def __call__(self, args: Namespace) -> None:
+    def __call__(self, args: Namespace, container: DependencyContainer) -> None:
         """Run the command."""
 
 
@@ -465,7 +463,7 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
         self._parser = None
 
     @override
-    def init_parser(self, parser: ArgumentParser) -> None:
+    def init_parser(self, parser: ArgumentParser, resolver: DependencyResolver) -> None:
         self._parser = parser
 
         parser.add_argument(
@@ -533,7 +531,7 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
         )
 
     @override
-    def __call__(self, args: Namespace) -> None:
+    def __call__(self, args: Namespace, container: DependencyContainer) -> None:
         console = get_console()
 
         setup_basic_logging(debug=args.debug)

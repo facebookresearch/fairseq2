@@ -15,15 +15,11 @@ from rich.console import Console
 from rich.pretty import pretty_repr
 from typing_extensions import override
 
-from fairseq2.assets import (
-    AssetCard,
-    AssetNotFoundError,
-    AssetStore,
-    default_asset_store,
-)
+from fairseq2.assets import AssetCard, AssetNotFoundError, AssetStore
 from fairseq2.console import get_console
 from fairseq2.data.text import is_tokenizer_card
 from fairseq2.datasets import is_dataset_card
+from fairseq2.dependency import DependencyContainer, DependencyResolver
 from fairseq2.logging import get_log_writer
 from fairseq2.models import is_model_card
 from fairseq2.recipes.cli import Cli, CliCommandHandler
@@ -53,18 +49,8 @@ def _setup_asset_cli(cli: Cli) -> None:
 class ListAssetsCommand(CliCommandHandler):
     """Lists assets available in the current Python environment."""
 
-    _asset_store: AssetStore
-
-    def __init__(self, asset_store: AssetStore | None = None) -> None:
-        """
-        :param asset_store:
-            The asset store from which to retrieve the asset cards. If ``None``,
-            the default asset store will be used.
-        """
-        self._asset_store = asset_store or default_asset_store
-
     @override
-    def init_parser(self, parser: ArgumentParser) -> None:
+    def init_parser(self, parser: ArgumentParser, resolver: DependencyResolver) -> None:
         parser.add_argument(
             "--type",
             choices=["all", "model", "dataset", "tokenizer"],
@@ -73,9 +59,11 @@ class ListAssetsCommand(CliCommandHandler):
         )
 
     @override
-    def __call__(self, args: Namespace) -> None:
-        usr_assets = self._retrieve_assets(args, user=True)
-        glb_assets = self._retrieve_assets(args, user=False)
+    def __call__(self, args: Namespace, container: DependencyContainer) -> None:
+        asset_store = container.resolve(AssetStore)
+
+        usr_assets = self._retrieve_assets(asset_store, args, user=True)
+        glb_assets = self._retrieve_assets(asset_store, args, user=False)
 
         console = get_console()
 
@@ -88,15 +76,15 @@ class ListAssetsCommand(CliCommandHandler):
         self._dump_assets(console, glb_assets)
 
     def _retrieve_assets(
-        self, args: Namespace, user: bool
+        self, asset_store: AssetStore, args: Namespace, user: bool
     ) -> list[tuple[str, list[str]]]:
         assets: dict[str, list[str]] = defaultdict(list)
 
-        names = self._asset_store.retrieve_names(scope="user" if user else "global")
+        names = asset_store.retrieve_names(scope="user" if user else "global")
 
         for name in names:
             try:
-                card = self._asset_store.retrieve_card(
+                card = asset_store.retrieve_card(
                     name, scope="all" if user else "global"
                 )
             except AssetNotFoundError:
@@ -162,18 +150,8 @@ class ListAssetsCommand(CliCommandHandler):
 class ShowAssetCommand(CliCommandHandler):
     """Shows the metadata of an asset."""
 
-    _asset_store: AssetStore
-
-    def __init__(self, asset_store: AssetStore | None = None) -> None:
-        """
-        :param asset_store:
-            The asset store from which to retrieve the asset cards. If ``None``,
-            the default asset store will be used.
-        """
-        self._asset_store = asset_store or default_asset_store
-
     @override
-    def init_parser(self, parser: ArgumentParser) -> None:
+    def init_parser(self, parser: ArgumentParser, resolver: DependencyResolver) -> None:
         parser.add_argument(
             "--env",
             dest="envs",
@@ -192,9 +170,11 @@ class ShowAssetCommand(CliCommandHandler):
         parser.add_argument("name", help="name of the asset")
 
     @override
-    def __call__(self, args: Namespace) -> None:
+    def __call__(self, args: Namespace, container: DependencyContainer) -> None:
+        asset_store = container.resolve(AssetStore)
+
         try:
-            card: AssetCard | None = self._asset_store.retrieve_card(
+            card: AssetCard | None = asset_store.retrieve_card(
                 args.name, envs=args.envs, scope=args.scope
             )
         except AssetNotFoundError:
