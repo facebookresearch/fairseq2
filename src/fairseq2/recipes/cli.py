@@ -36,7 +36,6 @@ from fairseq2.typing import DataClass
 from fairseq2.utils.structured import (
     StructuredError,
     ValueConverter,
-    default_value_converter,
     merge_unstructured,
 )
 
@@ -423,7 +422,6 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
     _preset_configs: ConfigRegistry[RecipeConfigT]
     _default_preset: str
     _env_setters: EnvironmentSetterRegistry
-    _value_converter: ValueConverter
     _sweep_tagger: SweepTagger
     _parser: ArgumentParser | None
 
@@ -434,7 +432,6 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
         default_preset: str,
         *,
         env_setters: EnvironmentSetterRegistry | None = None,
-        value_converter: ValueConverter | None = None,
         sweep_tagger: SweepTagger | None = None,
     ) -> None:
         """
@@ -447,9 +444,6 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
         :param env_setters:
             The registry containing cluster-specific :class:`EnvironmentSetter`
             instances.
-        :param value_converter:
-            The :class:`ValueConverter` instance to use. If ``None``, the
-            default instance will be used.
         :param sweep_tagger:
             The :class:`SweepTagger` instance to use. If ``None``, the default
             instance will be used.
@@ -458,7 +452,6 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
         self._preset_configs = preset_configs
         self._default_preset = default_preset
         self._env_setters = env_setters or default_env_setters
-        self._value_converter = value_converter or default_value_converter
         self._sweep_tagger = sweep_tagger or default_sweep_tagger
         self._parser = None
 
@@ -561,8 +554,10 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
 
             sys.exit(1)
 
+        value_converter = container.resolve(ValueConverter)
+
         try:
-            unstructured_config = self._value_converter.unstructure(preset_config)
+            unstructured_config = value_converter.unstructure(preset_config)
         except StructuredError:
             log.exception("Preset configuration '{}' cannot be used. Please file a bug report to the recipe author.", args.preset)  # fmt: skip
 
@@ -673,7 +668,7 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
 
         # Parse the configuration.
         try:
-            config = self._value_converter.structure(
+            config = value_converter.structure(
                 unstructured_config, type_expr=self._preset_configs.config_kls
             )
         except StructuredError:
