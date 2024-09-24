@@ -51,6 +51,7 @@ from fairseq2.recipes.utils.setup import (
 from fairseq2.recipes.wav2vec2.asr.common import Wav2Vec2AsrMetricBag
 from fairseq2.recipes.wav2vec2.asr.eval import Wav2Vec2AsrEvalUnit
 from fairseq2.typing import CPU, META, DataType
+from fairseq2.utils.dataclass import empty_
 from fairseq2.utils.profiler import Stopwatch
 from fairseq2.utils.rng import manual_seed
 
@@ -110,7 +111,7 @@ class Wav2Vec2AsrTrainConfig:
     """The architecture of the model."""
 
     model_config: Any = field(
-        default_factory=lambda: wav2vec2_asr_archs.get("base_10h", return_empty=True)
+        default_factory=lambda: empty_(wav2vec2_asr_archs.get("base_10h"))
     )
     """The configuration of the model."""
 
@@ -222,7 +223,9 @@ def _base_10h() -> Wav2Vec2AsrTrainConfig:
 
 @wav2vec2_asr_train_preset("base_100h")
 def _base_100h() -> Wav2Vec2AsrTrainConfig:
-    model_config = wav2vec2_asr_archs.get("base_100h", return_empty=True)
+    model_config = wav2vec2_asr_archs.get("base_100h")
+
+    empty_(model_config)
 
     config = _base_10h()
 
@@ -240,7 +243,9 @@ def _base_100h() -> Wav2Vec2AsrTrainConfig:
 
 @wav2vec2_asr_train_preset("large_10h")
 def _large_10h() -> Wav2Vec2AsrTrainConfig:
-    model_config = wav2vec2_asr_archs.get("large_10h", return_empty=True)
+    model_config = wav2vec2_asr_archs.get("large_10h")
+
+    empty_(model_config)
 
     config = _base_10h()
 
@@ -259,7 +264,9 @@ def _large_10h() -> Wav2Vec2AsrTrainConfig:
 
 @wav2vec2_asr_train_preset("large_100h")
 def _large_100h() -> Wav2Vec2AsrTrainConfig:
-    model_config = wav2vec2_asr_archs.get("large_100h", return_empty=True)
+    model_config = wav2vec2_asr_archs.get("large_100h")
+
+    empty_(model_config)
 
     config = _large_10h()
 

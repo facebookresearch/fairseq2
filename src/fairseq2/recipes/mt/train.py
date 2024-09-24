@@ -50,6 +50,7 @@ from fairseq2.recipes.utils.setup import (
     to_data_parallel,
 )
 from fairseq2.typing import CPU, META, DataType
+from fairseq2.utils.dataclass import empty_
 from fairseq2.utils.profiler import Stopwatch
 from fairseq2.utils.rng import manual_seed
 
@@ -100,9 +101,7 @@ class MTTrainConfig:
     """The architecture of the model."""
 
     model_config: Any = field(
-        default_factory=lambda: transformer_archs.get(
-            "nllb_dense_600m", return_empty=True
-        )
+        default_factory=lambda: empty_(transformer_archs.get("nllb_dense_600m"))
     )
     """The configuration of the model."""
 
@@ -206,7 +205,9 @@ mt_train_preset = mt_train_presets.decorator
 
 @mt_train_preset("nllb_dense_300m")
 def _nllb_dense_300m() -> MTTrainConfig:
-    model_config = transformer_archs.get("nllb_dense_300m", return_empty=True)
+    model_config = transformer_archs.get("nllb_dense_300m")
+
+    empty_(model_config)
 
     config = _nllb_dense_600m()
 

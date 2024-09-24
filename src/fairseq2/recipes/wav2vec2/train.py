@@ -48,6 +48,7 @@ from fairseq2.recipes.utils.setup import (
 from fairseq2.recipes.wav2vec2.common import Wav2Vec2MetricBag
 from fairseq2.recipes.wav2vec2.eval import Wav2Vec2EvalUnit
 from fairseq2.typing import CPU, META, DataType
+from fairseq2.utils.dataclass import empty_
 from fairseq2.utils.profiler import Stopwatch
 from fairseq2.utils.rng import manual_seed
 
@@ -98,7 +99,7 @@ class Wav2Vec2TrainConfig:
     """The architecture of the wav2vec2 model."""
 
     model_config: Any = field(
-        default_factory=lambda: wav2vec2_archs.get("base", return_empty=True)
+        default_factory=lambda: empty_(wav2vec2_archs.get("base"))
     )
     """The configuration of the model."""
 
@@ -204,7 +205,9 @@ def _base_960h() -> Wav2Vec2TrainConfig:
 
 @wav2vec2_train_preset("large_960h")
 def _large_960h() -> Wav2Vec2TrainConfig:
-    model_config = wav2vec2_archs.get("large", return_empty=True)
+    model_config = wav2vec2_archs.get("large")
+
+    empty_(model_config)
 
     model_config.encoder_config.first_pass_dropout_p = 0.1
 
