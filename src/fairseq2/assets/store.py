@@ -233,6 +233,10 @@ def register_objects(container: DependencyContainer) -> None:
     container.register_factory(AssetStore, lambda r: r.resolve(StandardAssetStore))
 
 
+def get_asset_store() -> AssetStore:
+    return resolve(AssetStore)  # type: ignore[no-any-return]
+
+
 # COMPAT
 
 

@@ -14,7 +14,7 @@ from fairseq2.assets import (
     AssetCardFieldNotFoundError,
     AssetError,
     AssetStore,
-    default_asset_store,
+    get_asset_store,
 )
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.typing import DataClass
@@ -44,7 +44,7 @@ class ModelConfigLoader(Protocol[ModelConfigT_co]):
 class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
     """Loads model configurations of type ``ModelConfigT``."""
 
-    _asset_store: AssetStore
+    _asset_store: AssetStore | None
     _family: str
     _config_kls: type[ModelConfigT]
     _arch_configs: ConfigRegistry[ModelConfigT] | None
@@ -70,10 +70,9 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
             The asset store where to check for available models. If ``None``,
             the default asset store will be used.
         :param value_converter:
-            The :class:`ValueConverter` instance to use. If ``None``, the
-            default instance will be used.
+            The :class:`ValueConverter` instance to use.
         """
-        self._asset_store = asset_store or default_asset_store
+        self._asset_store = asset_store
         self._family = family
         self._config_kls = config_kls
         self._arch_configs = arch_configs
@@ -83,6 +82,9 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
         if isinstance(model_name_or_card, AssetCard):
             card = model_name_or_card
         else:
+            if self._asset_store is None:
+                self._asset_store = get_asset_store()
+
             card = self._asset_store.retrieve_card(model_name_or_card)
 
         model_family = get_model_family(card)
