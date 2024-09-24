@@ -26,10 +26,7 @@ from fairseq2.error import AlreadyExistsError
 from fairseq2.logging import get_log_writer
 from fairseq2.recipes.logging import setup_basic_logging, setup_logging
 from fairseq2.recipes.utils.argparse import ConfigAction
-from fairseq2.recipes.utils.environment import (
-    EnvironmentSetterRegistry,
-    default_env_setters,
-)
+from fairseq2.recipes.utils.environment import EnvironmentSetter
 from fairseq2.recipes.utils.log import log_config
 from fairseq2.recipes.utils.sweep import SweepTagger, default_sweep_tagger
 from fairseq2.typing import DataClass
@@ -421,7 +418,6 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
     _loader: RecipeLoader[RecipeConfigT]
     _preset_configs: ConfigRegistry[RecipeConfigT]
     _default_preset: str
-    _env_setters: EnvironmentSetterRegistry
     _sweep_tagger: SweepTagger
     _parser: ArgumentParser | None
 
@@ -431,7 +427,6 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
         preset_configs: ConfigRegistry[RecipeConfigT],
         default_preset: str,
         *,
-        env_setters: EnvironmentSetterRegistry | None = None,
         sweep_tagger: SweepTagger | None = None,
     ) -> None:
         """
@@ -441,9 +436,6 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
             The registry containing the preset recipe configurations.
         :param default_preset:
             The name of the default preset.
-        :param env_setters:
-            The registry containing cluster-specific :class:`EnvironmentSetter`
-            instances.
         :param sweep_tagger:
             The :class:`SweepTagger` instance to use. If ``None``, the default
             instance will be used.
@@ -451,7 +443,6 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
         self._loader = loader
         self._preset_configs = preset_configs
         self._default_preset = default_preset
-        self._env_setters = env_setters or default_env_setters
         self._sweep_tagger = sweep_tagger or default_sweep_tagger
         self._parser = None
 
@@ -499,7 +490,7 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
             help="do not create sweep directory",
         )
 
-        clusters = list(self._env_setters.names())
+        clusters = [k for k, _ in resolver.resolve_all_keyed(EnvironmentSetter)]
 
         clusters.sort()
 
@@ -612,19 +603,19 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
 
         # Set up cluster-specific environment variables.
         if args.cluster == "auto":
-            env_setter = self._env_setters.get_for_inferred_cluster()
+            env_setter = container.resolve(EnvironmentSetter)
         else:
-            try:
-                env_setter = self._env_setters.get(args.cluster)
-            except RuntimeError:
-                log.exception("Recipe is not running on a '{}' cluster.", args.cluster)  # fmt: skip
+            env_setter = container.resolve(EnvironmentSetter, args.cluster)
 
-                sys.exit(1)
+        if not env_setter.supports_current_cluster():
+            log.error("Recipe is not running on a '{}' cluster.", args.cluster)
+
+            sys.exit(1)
 
         try:
-            env_setter.set_torch_distributed_env()
+            env_setter.set_torch_distributed_variables()
         except RuntimeError:
-            log.exception("'{}' cluster environment cannot be set.", env_setter.cluster)  # fmt: skip
+            log.exception("'{}' cluster environment cannot be set.", env_setter.supported_cluster)  # fmt: skip
 
             sys.exit(1)
 

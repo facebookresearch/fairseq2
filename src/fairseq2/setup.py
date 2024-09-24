@@ -65,6 +65,7 @@ def _setup_library(container: DependencyContainer) -> None:
         "fairseq2.assets.metadata_provider",
         "fairseq2.assets.store",
         "fairseq2.device",
+        "fairseq2.recipes.utils.environment",
         "fairseq2.utils.structured",
     ]
 
