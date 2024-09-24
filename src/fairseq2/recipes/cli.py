@@ -672,7 +672,7 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
         # Parse the configuration.
         try:
             config = self._value_converter.structure(
-                unstructured_config, type_expr=type(preset_config)
+                unstructured_config, type_expr=self._preset_configs.config_kls
             )
         except StructuredError:
             log.exception("Configuration cannot be parsed.")

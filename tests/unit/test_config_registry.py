@@ -11,6 +11,7 @@ from dataclasses import dataclass
 import pytest
 
 from fairseq2.config_registry import ConfigRegistry
+from fairseq2.error import AlreadyExistsError
 
 
 @dataclass
@@ -49,8 +50,7 @@ class TestConfigRegistry:
         registry.register("name", lambda: Foo("config"))
 
         with pytest.raises(
-            ValueError,
-            match=r"^`name` must be a unique configuration name, but 'name' is already registered\.$",
+            AlreadyExistsError, match=r"^`name` must be a unique configuration name, but 'name' is already registered\.$",  # fmt: skip
         ):
             registry.register("name", lambda: Foo("config"))
 
@@ -58,7 +58,6 @@ class TestConfigRegistry:
         registry = ConfigRegistry[Foo]()
 
         with pytest.raises(
-            ValueError,
-            match=r"^`name` must be a registered configuration name, but 'foo' is not registered\.$",
+            LookupError, match=r"^`name` must be a registered configuration name, but 'foo' is not registered\.$",  # fmt: skip
         ):
             registry.get("foo")
