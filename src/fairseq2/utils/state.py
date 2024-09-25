@@ -233,6 +233,10 @@ class FSDPOptimizerStateHandler(StateHandler[Optimizer]):
             logging.disable(logging.WARNING)
 
             return FSDP.optim_state_dict(self._module, stateful)
+        except UnicodeDecodeError as ex:
+            raise RuntimeError(
+                "FSDP has failed to gather optimizer state with a pickling error. This might indicate a disk space issue. Make sure you have enough space on your file system. See nested exception for details."
+            ) from ex
         finally:
             logging.disable(logging.NOTSET)
 
