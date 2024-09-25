@@ -85,6 +85,9 @@ class PreferenceOptimizationConfig:
     dtype: DataType = torch.bfloat16
     """The data type of the model."""
 
+    mixed_precision: bool = True
+    """If ``True``, the model will be trained in mixed precision."""
+
     data_parallelism: Literal["ddp", "fsdp"] = "fsdp"
     """The data parallelism API to use."""
 
@@ -280,13 +283,13 @@ def load_preference_finetuner(
 
     init_device = META
 
+    dtype = torch.float32 if config.mixed_precision else config.dtype
+
     has_checkpoint = checkpoint_manager.has_checkpoint()
 
     if has_checkpoint:
         try:
-            model = load_model(
-                model_card, gangs=gangs, device=init_device, dtype=torch.float32
-            )
+            model = load_model(model_card, gangs=gangs, device=init_device, dtype=dtype)
         except ValueError as ex:
             raise ValueError(
                 "The model cannot be initialized. See nested exception for details."
@@ -299,9 +302,7 @@ def load_preference_finetuner(
         if dp_gang.rank == 0:
             init_device = root_gang.device
 
-        model = load_model(
-            model_card, gangs=gangs, device=init_device, dtype=torch.float32
-        )
+        model = load_model(model_card, gangs=gangs, device=init_device, dtype=dtype)
 
         root_gang.barrier()
 
@@ -322,7 +323,7 @@ def load_preference_finetuner(
         fsdp_skip_init=True,
         fsdp_broadcast_state=not has_checkpoint,
         fsdp_reshard_after_forward=config.fsdp_reshard_after_forward,
-        fsdp_mixed_precision_dtype=config.dtype,
+        fsdp_mixed_precision_dtype=config.dtype if config.mixed_precision else None,
         fsdp_fp32_reduce=True,
         fsdp_wrap_granularity=config.fsdp_wrap_granularity,
     )
@@ -414,6 +415,7 @@ def load_preference_finetuner(
         dtype=config.dtype,
         optimizer=optimizer,
         lr_scheduler=lr_scheduler,
+        amp=config.mixed_precision,
         fp16_loss_scale=config.fp16_loss_scale,
         max_gradient_norm=config.max_gradient_norm,
         max_num_steps=config.max_num_steps,

@@ -183,6 +183,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         dp_gang: Gang | None = None,
         tp_gang: Gang | None = None,
         lr_scheduler: LRScheduler | None = None,
+        amp: bool = True,
         fp16_loss_scale: tuple[float, float] = (128.0, 0.0001),
         max_gradient_norm: float | None = None,
         max_num_steps: int | None = None,
@@ -235,6 +236,10 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             The tensor parallel gang. Only required for tensor parallel models.
         :param lr_scheduler:
             The learning rate scheduler.
+        :param amp:
+            If ``True``, enables automatic mixed precision (i.e. ``torch.amp``).
+            If the model is trained with mixed precision DDP or FSDP, it takes
+            precedence over this setting and no autocast will be applied.
         :param fp16_loss_scale:
             The initial and minimum loss scale for fp16 training.
         :param max_gradient_norm:
@@ -339,6 +344,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             self._optimizer = optimizer
 
         self._lr_scheduler = lr_scheduler or NoopLR(optimizer)
+
+        self._amp = amp
 
         fp16_init_scale, fp16_min_scale = fp16_loss_scale
 
@@ -822,11 +829,12 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             return self._unit(batch)
 
     def _maybe_autocast(self) -> AbstractContextManager[None]:
-        if self._dtype == torch.float32:
+        if self._dtype == torch.float32 or not self._amp:
             return nullcontext()
 
         if self._model.training and isinstance(self._model, (DDP, FSDP)):
-            if self._model.mixed_precision is not None:
+            mp = self._model.mixed_precision
+            if mp is not None and mp.param_dtype is not None:
                 return nullcontext()
 
         return torch.autocast(device_type=self._dp_gang.device.type, dtype=self._dtype)
