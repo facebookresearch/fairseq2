@@ -124,12 +124,12 @@ register_metric_formatter("orpo_loss", "ORPO Loss", 0, format_as_float)
 class OrpoFinetuneMetricBag(PreferenceFinetuneMetricBag):
     """Holds the metrics of a ORPO preference finetuning task."""
 
-    _orpo_loss: Mean
+    orpo_loss: Mean
 
     def __init__(self, gang: Gang) -> None:
         super().__init__(gang)
 
-        self.register_metric("_orpo_loss", Mean(device=gang.device), persistent=False)
+        self.register_metric("orpo_loss", Mean(device=gang.device), persistent=False)
 
     @torch.inference_mode()
     def update_orpo_loss(
@@ -142,7 +142,7 @@ class OrpoFinetuneMetricBag(PreferenceFinetuneMetricBag):
         :param loss:
             The ORPO loss of ``batch``.
         """
-        self._orpo_loss.update(
+        self.orpo_loss.update(
             loss / batch.chosen.batch_size, weight=batch.chosen.batch_size
         )
 

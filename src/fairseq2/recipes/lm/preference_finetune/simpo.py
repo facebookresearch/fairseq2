@@ -141,12 +141,12 @@ register_metric_formatter("simpo_loss", "SimPO Loss", 0, format_as_float)
 class SimPOFinetuneMetricBag(PreferenceFinetuneMetricBag):
     """Holds the metrics of a SimPO preference finetuning task."""
 
-    _simpo_loss: Mean
+    simpo_loss: Mean
 
     def __init__(self, gang: Gang) -> None:
         super().__init__(gang)
 
-        self.register_metric("_simpo_loss", Mean(device=gang.device), persistent=False)
+        self.register_metric("simpo_loss", Mean(device=gang.device), persistent=False)
 
     @torch.inference_mode()
     def update_simpo_loss(
@@ -159,7 +159,7 @@ class SimPOFinetuneMetricBag(PreferenceFinetuneMetricBag):
         :param loss:
             The SimPO loss of ``batch``.
         """
-        self._simpo_loss.update(
+        self.simpo_loss.update(
             loss / batch.chosen.batch_size, weight=batch.chosen.batch_size
         )
 

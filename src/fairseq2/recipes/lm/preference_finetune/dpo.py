@@ -144,12 +144,12 @@ register_metric_formatter("dpo_loss", "DPO Loss", 0, format_as_float)
 class DpoFinetuneMetricBag(PreferenceFinetuneMetricBag):
     """Holds the metrics of a DPO preference finetuning task."""
 
-    _dpo_loss: Mean
+    dpo_loss: Mean
 
     def __init__(self, gang: Gang) -> None:
         super().__init__(gang)
 
-        self.register_metric("_dpo_loss", Mean(device=gang.device), persistent=False)
+        self.register_metric("dpo_loss", Mean(device=gang.device), persistent=False)
 
     @torch.inference_mode()
     def update_dpo_loss(self, batch: PreferenceOptimizationBatch, loss: Tensor) -> None:
@@ -160,7 +160,7 @@ class DpoFinetuneMetricBag(PreferenceFinetuneMetricBag):
         :param loss:
             The DPO loss of ``batch``.
         """
-        self._dpo_loss.update(
+        self.dpo_loss.update(
             loss / batch.chosen.batch_size, weight=batch.chosen.batch_size
         )
 

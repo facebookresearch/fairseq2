@@ -88,25 +88,23 @@ register_metric_formatter(
 class PreferenceFinetuneMetricBag(SequenceMetricBag):
     """Holds the metrics of a sequence model preference finetuning task."""
 
-    _chosen_logps: Mean
-    _rejected_logps: Mean
-    _chosen_lengths: Mean
-    _rejected_lengths: Mean
+    chosen_logps: Mean
+    rejected_logps: Mean
+    chosen_lengths: Mean
+    rejected_lengths: Mean
 
     def __init__(self, gang: Gang) -> None:
         super().__init__(gang)
 
+        self.register_metric("chosen_logps", Mean(device=gang.device), persistent=False)
         self.register_metric(
-            "_chosen_logps", Mean(device=gang.device), persistent=False
+            "rejected_logps", Mean(device=gang.device), persistent=False
         )
         self.register_metric(
-            "_rejected_logps", Mean(device=gang.device), persistent=False
+            "chosen_lengths", Mean(device=gang.device), persistent=False
         )
         self.register_metric(
-            "_chosen_lengths", Mean(device=gang.device), persistent=False
-        )
-        self.register_metric(
-            "_rejected_lengths", Mean(device=gang.device), persistent=False
+            "rejected_lengths", Mean(device=gang.device), persistent=False
         )
 
     @torch.inference_mode()
@@ -125,10 +123,10 @@ class PreferenceFinetuneMetricBag(SequenceMetricBag):
         :param rejected_logps:
             The log probabilities for each sequence in ``batch.rejected``.
         """
-        self._chosen_logps.update(
+        self.chosen_logps.update(
             chosen_logps.sum() / batch.chosen.batch_size, weight=batch.chosen.batch_size
         )
-        self._rejected_logps.update(
+        self.rejected_logps.update(
             rejected_logps.sum() / batch.rejected.batch_size,
             weight=batch.rejected.batch_size,
         )
@@ -143,11 +141,11 @@ class PreferenceFinetuneMetricBag(SequenceMetricBag):
         :param batch:
             The batch processed by the model.
         """
-        self._chosen_lengths.update(
+        self.chosen_lengths.update(
             Tensor([batch.chosen.num_target_elements() / batch.chosen.batch_size]),
             weight=batch.chosen.batch_size,
         )
-        self._rejected_lengths.update(
+        self.rejected_lengths.update(
             Tensor([batch.rejected.num_target_elements() / batch.rejected.batch_size]),
             weight=batch.rejected.batch_size,
         )

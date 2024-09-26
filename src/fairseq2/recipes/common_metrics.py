@@ -22,10 +22,11 @@ class BaseMetricBag(MetricBag):
     """Holds the base metrics of a machine learning task."""
 
     _train: bool
-    _num_examples: Sum
-    _num_elements: Sum
-    _total_num_examples: Sum | None
-    _total_num_elements: Sum | None
+
+    num_examples: Sum
+    num_elements: Sum
+    total_num_examples: Sum | None
+    total_num_elements: Sum | None
 
     def __init__(self, gang: Gang, train: bool) -> None:
         """
@@ -38,44 +39,48 @@ class BaseMetricBag(MetricBag):
 
         self._train = train
 
-        self.register_metric("_num_examples", Sum(device=d), persistent=False)
-        self.register_metric("_num_elements", Sum(device=d), persistent=False)
+        self.register_metric("num_examples", Sum(device=d), persistent=False)
+        self.register_metric("num_elements", Sum(device=d), persistent=False)
 
         if train:
-            self._total_num_examples = Sum(device=d)
-            self._total_num_elements = Sum(device=d)
+            self.total_num_examples = Sum(device=d)
+            self.total_num_elements = Sum(device=d)
         else:
-            self._total_num_examples = None
-            self._total_num_elements = None
+            self.total_num_examples = None
+            self.total_num_elements = None
+
+    @property
+    def train(self) -> bool:
+        return self._train
 
 
 class SequenceMetricBag(BaseMetricBag):
     """Holds the metrics of a sequence model training or evaluation task."""
 
-    _nll_loss: Mean
-    _num_target_elements: Sum
-    _total_num_target_elements: Sum | None
+    nll_loss: Mean
+    num_target_elements: Sum
+    total_num_target_elements: Sum | None
 
     def __init__(self, gang: Gang, train: bool = True) -> None:
         super().__init__(gang, train=train)
 
         d = gang.device
 
-        self.register_metric("_nll_loss", Mean(device=d), persistent=False)
+        self.register_metric("nll_loss", Mean(device=d), persistent=False)
 
-        self.register_metric("_num_target_elements", Sum(device=d), persistent=False)
+        self.register_metric("num_target_elements", Sum(device=d), persistent=False)
 
         if train:
-            self._total_num_target_elements = Sum(device=d)
+            self.total_num_target_elements = Sum(device=d)
         else:
-            self._total_num_target_elements = None
+            self.total_num_target_elements = None
 
     @torch.inference_mode()
     def update_nll_loss(self, batch: SequenceBatch, loss: Tensor) -> None:
         """Update the NLL loss metric."""
         n = batch.num_target_elements()
 
-        self._nll_loss.update(loss.detach() / n, weight=n)
+        self.nll_loss.update(loss.detach() / n, weight=n)
 
     @torch.inference_mode()
     def update_batch_metrics(self, batch: SequenceBatch) -> None:
@@ -86,55 +91,55 @@ class SequenceMetricBag(BaseMetricBag):
 
         num_elements = batch.num_elements()
 
-        self._num_examples.update(num_examples)
-        self._num_elements.update(num_elements)
+        self.num_examples.update(num_examples)
+        self.num_elements.update(num_elements)
 
-        self._num_target_elements.update(num_target_elements)
+        self.num_target_elements.update(num_target_elements)
 
         if self._train:
-            assert self._total_num_examples is not None
-            assert self._total_num_elements is not None
+            assert self.total_num_examples is not None
+            assert self.total_num_elements is not None
 
-            assert self._total_num_target_elements is not None
+            assert self.total_num_target_elements is not None
 
-            self._total_num_examples.update(num_examples)
-            self._total_num_elements.update(num_elements)
+            self.total_num_examples.update(num_examples)
+            self.total_num_elements.update(num_elements)
 
-            self._total_num_target_elements.update(num_target_elements)
+            self.total_num_target_elements.update(num_target_elements)
 
 
 class Seq2SeqMetricBag(BaseMetricBag):
     """Holds the metrics of a sequence-to-sequence model training or evaluation task."""
 
-    _nll_loss: Mean
-    _num_source_elements: Sum
-    _num_target_elements: Sum
-    _total_num_source_elements: Sum | None
-    _total_num_target_elements: Sum | None
+    nll_loss: Mean
+    num_source_elements: Sum
+    num_target_elements: Sum
+    total_num_source_elements: Sum | None
+    total_num_target_elements: Sum | None
 
     def __init__(self, gang: Gang, train: bool = True) -> None:
         super().__init__(gang, train=train)
 
         d = gang.device
 
-        self.register_metric("_nll_loss", Mean(device=d), persistent=False)
+        self.register_metric("nll_loss", Mean(device=d), persistent=False)
 
-        self.register_metric("_num_source_elements", Sum(device=d), persistent=False)
-        self.register_metric("_num_target_elements", Sum(device=d), persistent=False)
+        self.register_metric("num_source_elements", Sum(device=d), persistent=False)
+        self.register_metric("num_target_elements", Sum(device=d), persistent=False)
 
         if train:
-            self._total_num_source_elements = Sum(device=d)
-            self._total_num_target_elements = Sum(device=d)
+            self.total_num_source_elements = Sum(device=d)
+            self.total_num_target_elements = Sum(device=d)
         else:
-            self._total_num_source_elements = None
-            self._total_num_target_elements = None
+            self.total_num_source_elements = None
+            self.total_num_target_elements = None
 
     @torch.inference_mode()
     def update_nll_loss(self, batch: Seq2SeqBatch, loss: Tensor) -> None:
         """Update the NLL loss metric."""
         num_target_elements = batch.num_target_elements()
 
-        self._nll_loss.update(
+        self.nll_loss.update(
             loss.detach() / num_target_elements, weight=num_target_elements
         )
 
@@ -148,49 +153,49 @@ class Seq2SeqMetricBag(BaseMetricBag):
 
         num_elements = num_source_elements + num_target_elements
 
-        self._num_examples.update(num_examples)
-        self._num_elements.update(num_elements)
+        self.num_examples.update(num_examples)
+        self.num_elements.update(num_elements)
 
-        self._num_source_elements.update(num_source_elements)
-        self._num_target_elements.update(num_target_elements)
+        self.num_source_elements.update(num_source_elements)
+        self.num_target_elements.update(num_target_elements)
 
         if self._train:
-            assert self._total_num_examples is not None
-            assert self._total_num_elements is not None
+            assert self.total_num_examples is not None
+            assert self.total_num_elements is not None
 
-            assert self._total_num_source_elements is not None
-            assert self._total_num_target_elements is not None
+            assert self.total_num_source_elements is not None
+            assert self.total_num_target_elements is not None
 
-            self._total_num_examples.update(num_examples)
-            self._total_num_elements.update(num_elements)
+            self.total_num_examples.update(num_examples)
+            self.total_num_elements.update(num_elements)
 
-            self._total_num_source_elements.update(num_source_elements)
-            self._total_num_target_elements.update(num_target_elements)
+            self.total_num_source_elements.update(num_source_elements)
+            self.total_num_target_elements.update(num_target_elements)
 
 
 class SequenceGenerationMetricBag(BaseMetricBag):
     """Holds the metrics of a sequence generation task."""
 
-    _generator_prefill_size: Sum
-    _generator_num_elements: Sum
-    _generator_elements_per_second: Throughput
-    _generator_cache_size: Max
-    _generator_cache_capacity: Max
+    generator_prefill_size: Sum
+    generator_num_elements: Sum
+    generator_elements_per_second: Throughput
+    generator_cache_size: Max
+    generator_cache_capacity: Max
 
     def __init__(self, gang: Gang) -> None:
         super().__init__(gang, train=False)
 
         d = gang.device
 
-        self._generator_prefill_size = Sum(device=d)
+        self.generator_prefill_size = Sum(device=d)
 
-        self._generator_num_elements = Sum(device=d)
+        self.generator_num_elements = Sum(device=d)
 
-        self._generator_elements_per_second = Throughput(device=d)
+        self.generator_elements_per_second = Throughput(device=d)
 
-        self._generator_cache_size = Max(device=d)
+        self.generator_cache_size = Max(device=d)
 
-        self._generator_cache_capacity = Max(device=d)
+        self.generator_cache_capacity = Max(device=d)
 
     @torch.inference_mode()
     def update_batch_metrics(self, output: SequenceGeneratorOutput) -> None:
@@ -203,48 +208,48 @@ class SequenceGenerationMetricBag(BaseMetricBag):
 
         num_elements = prefill_size + num_generated_elements
 
-        self._num_examples.update(num_examples)
-        self._num_elements.update(num_elements)
+        self.num_examples.update(num_examples)
+        self.num_elements.update(num_elements)
 
-        self._generator_prefill_size.update(prefill_size)
+        self.generator_prefill_size.update(prefill_size)
 
-        self._generator_num_elements.update(num_generated_elements)
+        self.generator_num_elements.update(num_generated_elements)
 
-        self._generator_elements_per_second.update(
+        self.generator_elements_per_second.update(
             num_generated_elements, output.counters.generation_time
         )
 
-        self._generator_cache_size.update(output.counters.cache_size)
+        self.generator_cache_size.update(output.counters.cache_size)
 
-        self._generator_cache_capacity.update(output.counters.cache_capacity)
+        self.generator_cache_capacity.update(output.counters.cache_capacity)
 
 
 class Seq2SeqGenerationMetricBag(BaseMetricBag):
     """Holds the metrics of a sequence-to-sequence generation task."""
 
-    _num_source_elements: Sum
-    _generator_prefill_size: Sum
-    _generator_num_elements: Sum
-    _generator_elements_per_second: Throughput
-    _generator_cache_size: Max
-    _generator_cache_capacity: Max
+    num_source_elements: Sum
+    generator_prefill_size: Sum
+    generator_num_elements: Sum
+    generator_elements_per_second: Throughput
+    generator_cache_size: Max
+    generator_cache_capacity: Max
 
     def __init__(self, gang: Gang) -> None:
         super().__init__(gang, train=False)
 
         d = gang.device
 
-        self._num_source_elements = Sum(device=d)
+        self.num_source_elements = Sum(device=d)
 
-        self._generator_prefill_size = Sum(device=d)
+        self.generator_prefill_size = Sum(device=d)
 
-        self._generator_num_elements = Sum(device=d)
+        self.generator_num_elements = Sum(device=d)
 
-        self._generator_elements_per_second = Throughput(device=d)
+        self.generator_elements_per_second = Throughput(device=d)
 
-        self._generator_cache_size = Max(device=d)
+        self.generator_cache_size = Max(device=d)
 
-        self._generator_cache_capacity = Max(device=d)
+        self.generator_cache_capacity = Max(device=d)
 
     @torch.inference_mode()
     def update_batch_metrics(
@@ -259,22 +264,22 @@ class Seq2SeqGenerationMetricBag(BaseMetricBag):
 
         num_elements = num_source_elements + prefill_size + num_generated_elements
 
-        self._num_examples.update(num_examples)
-        self._num_elements.update(num_elements)
+        self.num_examples.update(num_examples)
+        self.num_elements.update(num_elements)
 
-        self._num_source_elements.update(num_source_elements)
+        self.num_source_elements.update(num_source_elements)
 
-        self._generator_prefill_size.update(prefill_size)
+        self.generator_prefill_size.update(prefill_size)
 
-        self._generator_num_elements.update(num_generated_elements)
+        self.generator_num_elements.update(num_generated_elements)
 
-        self._generator_elements_per_second.update(
+        self.generator_elements_per_second.update(
             num_generated_elements, output.counters.generation_time
         )
 
-        self._generator_cache_size.update(output.counters.cache_size)
+        self.generator_cache_size.update(output.counters.cache_size)
 
-        self._generator_cache_capacity.update(output.counters.cache_capacity)
+        self.generator_cache_capacity.update(output.counters.cache_capacity)
 
 
 def extend_batch_metrics(

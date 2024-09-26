@@ -360,8 +360,11 @@ def load_instruction_finetuner(
 
     log_model(dp_model, log, rank=root_gang.rank)
 
-    # Initialize the train unit and the optimizer.
-    unit = InstructionFinetuneUnit(dp_model, dp_gang)
+    # Initialize the criterion.
+    criterion = InstructionFinetuneCriterion(dp_model)
+
+    # Initialize the train unit.
+    unit = InstructionFinetuneUnit(criterion, dp_gang)
 
     try:
         data_reader = dataset.create_reader(
@@ -438,25 +441,38 @@ def load_instruction_finetuner(
 
 @final
 class InstructionFinetuneUnit(AbstractTrainUnit[SequenceBatch]):
-    """Represents a language model instruction-finetuning unit."""
-
+    _criterion: InstructionFinetuneCriterion
     _metric_bag: SequenceMetricBag
 
-    def __init__(self, model: Module, gang: Gang) -> None:
-        """
-        :param model:
-            The language model. Might be wrapped with DDP or FSDP.
-        :param gang:
-            The gang for distributed training.
-        """
-        super().__init__(model)
+    def __init__(self, criterion: InstructionFinetuneCriterion, gang: Gang) -> None:
+        super().__init__(criterion.model)
 
-        check_model_type(model, DecoderModel)
+        self._criterion = criterion
 
         self._metric_bag = SequenceMetricBag(gang)
 
     @override
     def __call__(self, batch: SequenceBatch) -> tuple[Tensor, int]:
+        return self._criterion(batch, self._metric_bag)
+
+    @property
+    @override
+    def metric_bag(self) -> SequenceMetricBag:
+        return self._metric_bag
+
+
+@final
+class InstructionFinetuneCriterion:
+    _model: Module
+
+    def __init__(self, model: Module) -> None:
+        check_model_type(model, DecoderModel)
+
+        self._model = model
+
+    def __call__(
+        self, batch: SequenceBatch, metric_bag: SequenceMetricBag
+    ) -> tuple[Tensor, int]:
         input_batch, target_batch = as_auto_regressive_input(batch)
 
         output = self._forward(input_batch)
@@ -465,9 +481,9 @@ class InstructionFinetuneUnit(AbstractTrainUnit[SequenceBatch]):
             target_batch.seqs, loss_mask=target_batch.target_mask
         )
 
-        self._metric_bag.update_nll_loss(target_batch, loss)
+        metric_bag.update_nll_loss(target_batch, loss)
 
-        self._metric_bag.update_batch_metrics(target_batch)
+        metric_bag.update_batch_metrics(target_batch)
 
         return loss, target_batch.num_target_elements()
 
@@ -475,6 +491,5 @@ class InstructionFinetuneUnit(AbstractTrainUnit[SequenceBatch]):
         return self._model(batch)  # type: ignore[no-any-return]
 
     @property
-    @override
-    def metric_bag(self) -> SequenceMetricBag:
-        return self._metric_bag
+    def model(self) -> Module:
+        return self._model

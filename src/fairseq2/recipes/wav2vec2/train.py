@@ -12,7 +12,6 @@ from typing import Any, Literal, final
 
 import torch
 from torch import Tensor
-from torch.nn import Module
 from typing_extensions import override
 
 from fairseq2.assets import AssetNotFoundError, default_asset_store
@@ -24,12 +23,7 @@ from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.models import create_model
 from fairseq2.models.sequence import SequenceBatch
-from fairseq2.models.wav2vec2 import (
-    Wav2Vec2Config,
-    Wav2Vec2Model,
-    Wav2Vec2Output,
-    wav2vec2_archs,
-)
+from fairseq2.models.wav2vec2 import Wav2Vec2Config, Wav2Vec2Model, wav2vec2_archs
 from fairseq2.optim import AdamWConfig, create_optimizer
 from fairseq2.optim.lr_scheduler import PolynomialDecayLRConfig, create_lr_scheduler
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
@@ -40,12 +34,11 @@ from fairseq2.recipes.utils.asset import (
 )
 from fairseq2.recipes.utils.log import log_model, log_model_config
 from fairseq2.recipes.utils.setup import (
-    check_model_type,
     compile_model,
     setup_root_gang,
     to_data_parallel,
 )
-from fairseq2.recipes.wav2vec2.common import Wav2Vec2MetricBag
+from fairseq2.recipes.wav2vec2.common import Wav2Vec2Criterion, Wav2Vec2MetricBag
 from fairseq2.recipes.wav2vec2.eval import Wav2Vec2EvalUnit
 from fairseq2.typing import CPU, META, DataType
 from fairseq2.utils.dataclass import empty_
@@ -312,10 +305,13 @@ def load_wav2vec2_trainer(
 
     log_model(dp_model, log, rank=gang.rank)
 
-    # Initialize the train unit and the optimizer.
-    unit = Wav2Vec2TrainUnit(
-        dp_model, gang, config.diversity_loss_weight, config.feature_penalty_weight
+    # Initialize the train criterion.
+    criterion = Wav2Vec2Criterion(
+        dp_model, config.diversity_loss_weight, config.feature_penalty_weight
     )
+
+    # Initialize the train unit.
+    unit = Wav2Vec2TrainUnit(criterion, gang)
 
     try:
         data_reader = dataset.create_reader(
@@ -362,9 +358,7 @@ def load_wav2vec2_trainer(
         ) from ex
 
     # Initialize the validation unit.
-    valid_unit = Wav2Vec2EvalUnit(
-        dp_model, gang, config.diversity_loss_weight, config.feature_penalty_weight
-    )
+    valid_unit = Wav2Vec2EvalUnit(criterion, gang)
 
     try:
         valid_data_reader = dataset.create_reader(
@@ -419,63 +413,19 @@ def load_wav2vec2_trainer(
 
 @final
 class Wav2Vec2TrainUnit(AbstractTrainUnit[SequenceBatch]):
-    """Represents a wav2vec 2.0 model training unit."""
-
-    _diversity_loss_weight: float
-    _feature_penalty_weight: float
+    _criterion: Wav2Vec2Criterion
     _metric_bag: Wav2Vec2MetricBag
 
-    def __init__(
-        self,
-        model: Module,
-        gang: Gang,
-        diversity_loss_weight: float,
-        feature_penalty_weight: float,
-    ) -> None:
-        """
-        :param model:
-            The wav2vec 2.0 model. Might be wrapped with DDP or FSDP.
-        :param gang:
-            The gang for distributed training.
-        :param diversity_loss_weight:
-            The weight of diversity in loss computation.
-        :param feature_penalty_weight:
-            The weight of the feature penalty in loss computation.
-        """
-        super().__init__(model)
+    def __init__(self, criterion: Wav2Vec2Criterion, gang: Gang) -> None:
+        super().__init__(criterion.model)
 
-        check_model_type(model, Wav2Vec2Model)
-
-        self._diversity_loss_weight = diversity_loss_weight
-        self._feature_penalty_weight = feature_penalty_weight
+        self._criterion = criterion
 
         self._metric_bag = Wav2Vec2MetricBag(gang)
 
     @override
     def __call__(self, batch: SequenceBatch) -> tuple[Tensor, int]:
-        output = self._forward(batch)
-
-        loss = output.compute_loss(
-            diversity_loss_weight=self._diversity_loss_weight,
-            feature_penalty_weight=self._feature_penalty_weight,
-        )
-
-        batch_size, seq_len = output.logits.shape[:2]
-
-        num_targets = batch_size * seq_len
-
-        self._metric_bag.update_losses(loss, num_targets)
-
-        self._metric_bag.update_accuracy(output)
-
-        self._metric_bag.update_quantizer_metrics(output.quantizer_output)
-
-        self._metric_bag.update_batch_metrics(batch)
-
-        return loss.total, num_targets
-
-    def _forward(self, batch: SequenceBatch) -> Wav2Vec2Output:
-        return self._model(batch)  # type: ignore[no-any-return]
+        return self._criterion(batch, self._metric_bag)
 
     @property
     @override

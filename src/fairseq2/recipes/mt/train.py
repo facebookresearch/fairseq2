@@ -12,7 +12,6 @@ from typing import Any, Literal, final
 
 import torch
 from torch import Tensor
-from torch.nn import Module
 from typing_extensions import override
 
 from fairseq2.assets import AssetNotFoundError, default_asset_store
@@ -29,13 +28,13 @@ from fairseq2.generation import BeamSearchConfig, create_seq2seq_generator
 from fairseq2.logging import get_log_writer
 from fairseq2.models import create_model
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
-from fairseq2.models.seq2seq import Seq2SeqBatch, as_auto_regressive_input
-from fairseq2.models.sequence import SequenceModelOutput
+from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.transformer import transformer_archs
 from fairseq2.optim import AdamWConfig, create_optimizer
 from fairseq2.optim.lr_scheduler import MyleLRConfig, create_lr_scheduler
 from fairseq2.recipes.common_metrics import Seq2SeqMetricBag
 from fairseq2.recipes.evaluator import EvalUnit
+from fairseq2.recipes.mt.common import MTCriterion
 from fairseq2.recipes.mt.eval import MTBleuChrfEvalUnit, MTLossEvalUnit
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
 from fairseq2.recipes.utils.asset import (
@@ -44,11 +43,7 @@ from fairseq2.recipes.utils.asset import (
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model, log_model_config
-from fairseq2.recipes.utils.setup import (
-    check_model_type,
-    setup_root_gang,
-    to_data_parallel,
-)
+from fairseq2.recipes.utils.setup import setup_root_gang, to_data_parallel
 from fairseq2.typing import CPU, META, DataType
 from fairseq2.utils.dataclass import empty_
 from fairseq2.utils.profiler import Stopwatch
@@ -315,8 +310,11 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
 
     log_model(dp_model, log, rank=gang.rank)
 
-    # Initialize the train unit and the optimizer.
-    unit = MTTrainUnit(dp_model, gang, label_smoothing=config.label_smoothing)
+    # Initialize the criterion.
+    criterion = MTCriterion(dp_model, label_smoothing=config.label_smoothing)
+
+    # Initialize the train unit.
+    unit = MTTrainUnit(criterion, gang)
 
     try:
         data_reader = dataset.create_reader(
@@ -382,12 +380,7 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
 
     for direction in dataset.directions(config.valid_split):
         # Loss Validation
-        valid_loss_unit = MTLossEvalUnit(
-            dp_model,
-            direction,
-            gang,
-            label_smoothing=config.label_smoothing,
-        )
+        valid_loss_unit = MTLossEvalUnit(criterion, direction, gang)
 
         valid_units.append(valid_loss_unit)
 
@@ -473,44 +466,19 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
 
 @final
 class MTTrainUnit(AbstractTrainUnit[Seq2SeqBatch]):
-    """Represents a machine translation training unit."""
-
-    _label_smoothing: float
+    _criterion: MTCriterion
     _metric_bag: Seq2SeqMetricBag
 
-    def __init__(
-        self,
-        model: Module,
-        gang: Gang,
-        *,
-        label_smoothing: float = 0.0,
-    ) -> None:
-        super().__init__(model)
+    def __init__(self, criterion: MTCriterion, gang: Gang) -> None:
+        super().__init__(criterion.model)
 
-        check_model_type(model, EncoderDecoderModel)
-
-        self._label_smoothing = label_smoothing
+        self._criterion = criterion
 
         self._metric_bag = Seq2SeqMetricBag(gang)
 
     @override
     def __call__(self, batch: Seq2SeqBatch) -> tuple[Tensor, int]:
-        input_batch, target_batch = as_auto_regressive_input(batch)
-
-        output = self._forward(input_batch)
-
-        loss = output.compute_loss(
-            target_batch.seqs, label_smoothing=self._label_smoothing
-        )
-
-        self._metric_bag.update_nll_loss(input_batch, loss)
-
-        self._metric_bag.update_batch_metrics(input_batch)
-
-        return loss, batch.num_target_elements()
-
-    def _forward(self, batch: Seq2SeqBatch) -> SequenceModelOutput:
-        return self._model(batch)  # type: ignore[no-any-return]
+        return self._criterion(batch, self._metric_bag)
 
     @property
     @override
