@@ -88,7 +88,7 @@ class LLaMAConfig:
     use_scaled_rope: bool = False
     """If ``True``, scales Rotary encoding frequencies to LLaMA 3.1 context length."""
 
-    dropout_p: float = 0.0  # TODO: Revert back to 0.1
+    dropout_p: float = 0.1
     """The dropout probability on outputs of Transformer layers."""
 
 

@@ -29,6 +29,7 @@ from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.models import load_model
 from fairseq2.models.decoder import DecoderModel
+from fairseq2.models.llama import llama_archs
 from fairseq2.models.sequence import (
     SequenceBatch,
     SequenceModelOutput,
@@ -53,6 +54,7 @@ from fairseq2.recipes.utils.setup import (
     to_data_parallel,
 )
 from fairseq2.typing import CPU, META, DataType
+from fairseq2.utils.dataclass import empty_
 from fairseq2.utils.profiler import Stopwatch
 from fairseq2.utils.rng import manual_seed
 
@@ -83,8 +85,16 @@ class InstructionFinetuneConfig:
     """The number of batches to prefetch in background."""
 
     # Model
-    model: AssetReference = "llama3_8b_instruct"
+    model: AssetReference = "llama3_1_8b_instruct"
     """The name or path to the asset card of the language model to finetune."""
+
+    model_config: Any = field(
+        default_factory=lambda: empty_(llama_archs.get("llama3_1_8b"))
+    )
+    """
+    The model configuration overrides. The provided values must be compatible
+    with the checkpoint; otherwise, the model will fail to load.
+    """
 
     dtype: DataType = torch.bfloat16
     """The data type of the model."""
@@ -303,7 +313,13 @@ def load_instruction_finetuner(
 
     if has_checkpoint:
         try:
-            model = load_model(model_card, gangs=gangs, device=init_device, dtype=dtype)
+            model = load_model(
+                model_card,
+                gangs=gangs,
+                unstructured_config=config.model_config,
+                device=init_device,
+                dtype=dtype,
+            )
         except ValueError as ex:
             raise ValueError(
                 "The model cannot be initialized. See nested exception for details."
@@ -317,7 +333,13 @@ def load_instruction_finetuner(
             init_device = root_gang.device
 
         try:
-            model = load_model(model_card, gangs=gangs, device=init_device, dtype=dtype)
+            model = load_model(
+                model_card,
+                gangs=gangs,
+                unstructured_config=config.model_config,
+                device=init_device,
+                dtype=dtype,
+            )
         except ValueError as ex:
             raise ValueError(
                 "The model cannot be initialized. See nested exception for details."

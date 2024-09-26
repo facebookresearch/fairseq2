@@ -77,6 +77,7 @@ class ModelLoader(Protocol[ModelT_co]):
         model_name_or_card: str | AssetCard,
         *,
         gangs: Mapping[str, Gang] | None = None,
+        unstructured_config: object = None,
         device: Device | None = None,
         dtype: DataType | None = None,
         force: bool = False,
@@ -195,6 +196,7 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         model_name_or_card: str | AssetCard,
         *,
         gangs: Mapping[str, Gang] | None = None,
+        unstructured_config: object = None,
         device: Device | None = None,
         dtype: DataType | None = None,
         force: bool = False,
@@ -246,7 +248,7 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
 
         model = None
 
-        config = self._config_loader(card)
+        config = self._config_loader(card, unstructured_config)
 
         if device.type == "meta":
             try:
@@ -392,6 +394,7 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
         model_name_or_card: str | AssetCard,
         *,
         gangs: Mapping[str, Gang] | None = None,
+        unstructured_config: object = None,
         device: Device | None = None,
         dtype: DataType | None = None,
         force: bool = False,
@@ -417,6 +420,7 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
         return loader(
             model_name_or_card,
             gangs=gangs,
+            unstructured_config=unstructured_config,
             device=device,
             dtype=dtype,
             force=force,
