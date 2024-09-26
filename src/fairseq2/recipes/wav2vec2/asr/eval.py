@@ -8,26 +8,22 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, TextIO, final
+from typing import final
 
 import torch
-from torch.nn import Module
 from typing_extensions import override
 
 from fairseq2.assets import AssetNotFoundError, default_asset_store
 from fairseq2.checkpoint import CheckpointModelMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
-from fairseq2.data.text import TextTokenDecoder, TextTokenizer, load_char_tokenizer
+from fairseq2.data.text import load_char_tokenizer
 from fairseq2.datasets import LengthBatching
 from fairseq2.datasets.asr import GenericAsrDataset, load_asr_dataset
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
-from fairseq2.metrics.text import WerMetric
 from fairseq2.models import load_model
 from fairseq2.models.seq2seq import Seq2SeqBatch
-from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2.asr import Wav2Vec2AsrModel
-from fairseq2.models.wav2vec2.asr.model import Wav2Vec2AsrOutput
 from fairseq2.nn.utils.module import remove_parametrizations
 from fairseq2.recipes.evaluator import AbstractEvalUnit, Evaluator
 from fairseq2.recipes.utils.asset import (
@@ -36,12 +32,12 @@ from fairseq2.recipes.utils.asset import (
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import (
-    broadcast_model,
-    check_model_type,
-    setup_root_gang,
+from fairseq2.recipes.utils.setup import broadcast_model, setup_root_gang
+from fairseq2.recipes.wav2vec2.asr.common import (
+    Wav2Vec2AsrCriterion,
+    Wav2Vec2AsrMetricBag,
+    Wav2Vec2AsrScorer,
 )
-from fairseq2.recipes.wav2vec2.asr.common import Wav2Vec2AsrMetricBag
 from fairseq2.typing import META, DataType
 from fairseq2.utils.profiler import Stopwatch
 
@@ -172,7 +168,7 @@ def load_wav2vec2_asr_evaluator(
 
     log_model(model, log)
 
-    # Initialize the evaluation unit.
+    # Initialize the criterion.
     ref_output_file = output_dir.joinpath(f"transcriptions/rank_{gang.rank}.ref.txt")
     hyp_output_file = output_dir.joinpath(f"transcriptions/rank_{gang.rank}.hyp.txt")
 
@@ -197,13 +193,14 @@ def load_wav2vec2_asr_evaluator(
             f"The output file '{hyp_output_file}' cannot be created. See nested exception for details."
         ) from ex
 
-    unit = Wav2Vec2AsrEvalUnit(
-        model,
-        gang,
-        tokenizer,
-        ref_output_stream=ref_output_fp,
-        hyp_output_stream=hyp_output_fp,
+    scorer = Wav2Vec2AsrScorer(
+        tokenizer, ref_output_stream=ref_output_fp, hyp_output_stream=hyp_output_fp
     )
+
+    criterion = Wav2Vec2AsrCriterion(model, scorer)
+
+    # Initialize the unit.
+    unit = Wav2Vec2AsrEvalUnit(criterion, gang)
 
     seed = config.seed
 
@@ -242,134 +239,21 @@ def load_wav2vec2_asr_evaluator(
 
 @final
 class Wav2Vec2AsrEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
-    """Represents a wav2vec 2.0 ASR model evaluation unit."""
+    _criterion: Wav2Vec2AsrCriterion
+    _metric_bag: Wav2Vec2AsrMetricBag
 
-    _text_decoder: TextTokenDecoder
-    _pad_idx: int
-    _blank_label: int
-    _ref_output_stream: TextIO | None
-    _hyp_output_stream: TextIO | None
-    _metric_bag: Wav2Vec2AsrEvalMetricBag
+    def __init__(self, criterion: Wav2Vec2AsrCriterion, gang: Gang) -> None:
+        super().__init__(criterion.model)
 
-    def __init__(
-        self,
-        model: Module,
-        gang: Gang,
-        tokenizer: TextTokenizer,
-        *,
-        blank_label: int = 0,
-        ref_output_stream: TextIO | None = None,
-        hyp_output_stream: TextIO | None = None,
-    ) -> None:
-        """
-        :param model:
-            The wav2vec 2.0 ASR model. Might be wrapped with DDP or FSDP.
-        :param gang:
-            The gang for distributed evaluation.
-        :param tokenizer:
-            The tokenizer to encode target text.
-        :param blank_label:
-            The blank label in logits.
-        :param ref_output_stream:
-            The output stream to dump references.
-        :param hyp_output_stream:
-            The output stream to dump hypotheses.
-        """
-        super().__init__(model)
+        self._criterion = criterion
 
-        check_model_type(model, Wav2Vec2AsrModel)
-
-        self._text_decoder = tokenizer.create_decoder()
-
-        pad_idx = tokenizer.vocab_info.pad_idx
-        if pad_idx is None:
-            raise ValueError(
-                "``vocab_info` of `tokenizer` must have a PAD symbol defined."
-            )
-
-        self._pad_idx = pad_idx
-
-        self._blank_label = blank_label
-
-        self._ref_output_stream = ref_output_stream
-        self._hyp_output_stream = hyp_output_stream
-
-        self._metric_bag = Wav2Vec2AsrEvalMetricBag(gang)
+        self._metric_bag = Wav2Vec2AsrMetricBag(gang, train=False)
 
     @override
     def __call__(self, batch: Seq2SeqBatch) -> None:
-        input_batch = SequenceBatch(batch.source_seqs, batch.source_padding_mask)
-
-        output = self._forward(input_batch)
-
-        loss = output.compute_loss(batch.target_seqs, batch.target_padding_mask)
-
-        self._metric_bag.update_ctc_loss(batch, loss)
-
-        self._metric_bag.update_batch_metrics(batch)
-
-        self._compute_wer(batch, output)
-
-    def _compute_wer(self, batch: Seq2SeqBatch, output: Wav2Vec2AsrOutput) -> None:
-        # (N, S), (N, S)
-        ref_seqs, ref_padding_mask = batch.target_seqs, batch.target_padding_mask
-
-        # (N, S), (N, S)
-        hyp_seqs, hyp_padding_mask = output.generate_hypotheses(
-            self._pad_idx, self._blank_label
-        )
-
-        refs = [self._text_decoder(s) for s in ref_seqs]
-        hyps = [self._text_decoder(s) for s in hyp_seqs]
-
-        self._metric_bag.wer.update(
-            refs, ref_seqs, ref_padding_mask, hyps, hyp_seqs, hyp_padding_mask
-        )
-
-        # Dump references.
-        if stream := self._ref_output_stream:
-            for ref in refs:
-                stream.write(ref)
-                stream.write("\n")
-
-            stream.flush()
-
-        # Dump hypotheses.
-        if stream := self._hyp_output_stream:
-            for hyp in hyps:
-                stream.write(hyp)
-                stream.write("\n")
-
-            stream.flush()
-
-    def _forward(self, batch: SequenceBatch) -> Wav2Vec2AsrOutput:
-        return self._model(batch)  # type: ignore[no-any-return]
+        self._criterion(batch, self._metric_bag)
 
     @property
     @override
-    def metric_bag(self) -> Wav2Vec2AsrEvalMetricBag:
+    def metric_bag(self) -> Wav2Vec2AsrMetricBag:
         return self._metric_bag
-
-
-class Wav2Vec2AsrEvalMetricBag(Wav2Vec2AsrMetricBag):
-    """Holds the metrics of a wav2vec 2.0 ASR model evaluation task."""
-
-    wer: WerMetric
-
-    def __init__(self, gang: Gang) -> None:
-        """
-        :param gang:
-            The gang over which to sync metrics.
-        """
-        super().__init__(gang, train=False)
-
-        self.register_metric("wer", WerMetric(device=gang.device), persistent=False)
-
-    @override
-    def process_metric_values(self, values: dict[str, Any]) -> None:
-        super().process_metric_values(values)
-
-        uer, wer = values.pop("wer")
-
-        values["uer"] = uer
-        values["wer"] = wer

@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Any, TextIO, final
 
 import torch
-from torch.nn import Module
 from typing_extensions import override
 
 from fairseq2.assets import AssetNotFoundError, default_asset_store
@@ -35,21 +34,17 @@ from fairseq2.logging import get_log_writer
 from fairseq2.metrics.text import BleuMetric, ChrfMetric
 from fairseq2.models import load_model
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
-from fairseq2.models.seq2seq import Seq2SeqBatch, as_auto_regressive_input
-from fairseq2.models.sequence import SequenceModelOutput
+from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.recipes.common_metrics import Seq2SeqGenerationMetricBag, Seq2SeqMetricBag
 from fairseq2.recipes.evaluator import AbstractEvalUnit, Evaluator, EvalUnit
+from fairseq2.recipes.mt.common import MTCriterion
 from fairseq2.recipes.utils.asset import (
     AssetReference,
     asset_as_path,
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import (
-    broadcast_model,
-    check_model_type,
-    setup_root_gang,
-)
+from fairseq2.recipes.utils.setup import broadcast_model, setup_root_gang
 from fairseq2.typing import META, DataType
 from fairseq2.utils.profiler import Stopwatch
 
@@ -196,6 +191,9 @@ def load_mt_evaluator(
             "The sequence generator cannot be created. See nested exception for details."
         ) from ex
 
+    # Initialize the criterion.
+    criterion = MTCriterion(model, label_smoothing=config.label_smoothing)
+
     # Initialize the evaluation units.
     units: list[EvalUnit[Seq2SeqBatch]] = []
 
@@ -205,12 +203,7 @@ def load_mt_evaluator(
 
     for direction in dataset.directions(config.split):
         # Loss Evaluation
-        loss_unit = MTLossEvalUnit(
-            model,
-            direction,
-            gang,
-            label_smoothing=config.label_smoothing,
-        )
+        loss_unit = MTLossEvalUnit(criterion, direction, gang)
 
         units.append(loss_unit)
 
@@ -323,53 +316,21 @@ def load_mt_evaluator(
 
 @final
 class MTLossEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
-    """Represents a machine translation loss evaluation unit."""
-
-    _label_smoothing: float
+    _criterion: MTCriterion
     _metric_bag: Seq2SeqMetricBag
 
     def __init__(
-        self,
-        model: Module,
-        direction: Direction,
-        gang: Gang,
-        *,
-        label_smoothing: float = 0.0,
+        self, criterion: MTCriterion, direction: Direction, gang: Gang
     ) -> None:
-        """
-        :param model:
-            The encoder-decoder model. Might be wrapped with DDP or FSDP.
-        :param direction:
-            The language direction to evaluate.
-        :param gang:
-            The gang for distributed evaluation.
-        :param label_smoothing:
-            The amount of label smoothing to apply while computing the loss.
-        """
-        super().__init__(model, display_name=f"loss/{direction}")
+        super().__init__(criterion.model, display_name=f"loss/{direction}")
 
-        check_model_type(model, EncoderDecoderModel)
-
-        self._label_smoothing = label_smoothing
+        self._criterion = criterion
 
         self._metric_bag = Seq2SeqMetricBag(gang, train=False)
 
     @override
     def __call__(self, batch: Seq2SeqBatch) -> None:
-        input_batch, target_batch = as_auto_regressive_input(batch)
-
-        output = self._forward(input_batch)
-
-        loss = output.compute_loss(
-            target_batch.seqs, label_smoothing=self._label_smoothing
-        )
-
-        self._metric_bag.update_nll_loss(input_batch, loss)
-
-        self._metric_bag.update_batch_metrics(input_batch)
-
-    def _forward(self, batch: Seq2SeqBatch) -> SequenceModelOutput:
-        return self._model(batch)  # type: ignore[no-any-return]
+        self._criterion(batch, self._metric_bag)
 
     @property
     @override

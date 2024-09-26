@@ -357,10 +357,7 @@ class Wav2Vec2Output:
     :attr:`encoder_output`."""
 
     def compute_loss(
-        self,
-        *,
-        diversity_loss_weight: float = 0.1,
-        feature_penalty_weight: float = 10.0,
+        self, diversity_loss_weight: float = 0.1, feature_penalty_weight: float = 10.0
     ) -> Wav2Vec2Loss:
         """Compute the loss.
 

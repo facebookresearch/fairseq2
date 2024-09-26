@@ -12,7 +12,6 @@ from typing import Any, Literal, final
 
 import torch
 from torch import Tensor
-from torch.nn import Module
 from typing_extensions import override
 
 from fairseq2.assets import AssetNotFoundError, default_asset_store
@@ -25,13 +24,8 @@ from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.models import create_model
 from fairseq2.models.seq2seq import Seq2SeqBatch
-from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2 import load_wav2vec2_model
-from fairseq2.models.wav2vec2.asr import (
-    Wav2Vec2AsrModel,
-    Wav2Vec2AsrOutput,
-    wav2vec2_asr_archs,
-)
+from fairseq2.models.wav2vec2.asr import Wav2Vec2AsrModel, wav2vec2_asr_archs
 from fairseq2.nn.utils.module import freeze_parameters, share_parameters, to_device
 from fairseq2.optim import AdamWConfig, create_optimizer
 from fairseq2.optim.lr_scheduler import TriStageLRConfig, create_lr_scheduler
@@ -43,12 +37,15 @@ from fairseq2.recipes.utils.asset import (
 )
 from fairseq2.recipes.utils.log import log_model, log_model_config
 from fairseq2.recipes.utils.setup import (
-    check_model_type,
     compile_model,
     setup_root_gang,
     to_data_parallel,
 )
-from fairseq2.recipes.wav2vec2.asr.common import Wav2Vec2AsrMetricBag
+from fairseq2.recipes.wav2vec2.asr.common import (
+    Wav2Vec2AsrCriterion,
+    Wav2Vec2AsrMetricBag,
+    Wav2Vec2AsrScorer,
+)
 from fairseq2.recipes.wav2vec2.asr.eval import Wav2Vec2AsrEvalUnit
 from fairseq2.typing import CPU, META, DataType
 from fairseq2.utils.dataclass import empty_
@@ -413,9 +410,12 @@ def load_wav2vec2_asr_trainer(
 
     log_model(dp_model, log, rank=gang.rank)
 
-    # Initialize the train unit and the optimizer.
+    # Initialize the train criterion.
+    criterion = Wav2Vec2AsrCriterion(dp_model)
+
+    # Initialize the train unit.
     unit = Wav2Vec2AsrTrainUnit(
-        dp_model, gang, freeze_encoder_for_n_steps=config.freeze_encoder_for_n_steps
+        criterion, gang, freeze_encoder_for_n_steps=config.freeze_encoder_for_n_steps
     )
 
     try:
@@ -464,8 +464,13 @@ def load_wav2vec2_asr_trainer(
             "The learning rate scheduler cannot be created. See nested exception for details."
         ) from ex
 
+    # Initialize the validation criterion.
+    scorer = Wav2Vec2AsrScorer(tokenizer)
+
+    valid_criterion = Wav2Vec2AsrCriterion(dp_model, scorer)
+
     # Initialize the validation unit.
-    valid_unit = Wav2Vec2AsrEvalUnit(dp_model, gang, tokenizer)
+    valid_unit = Wav2Vec2AsrEvalUnit(valid_criterion, gang)
 
     try:
         valid_data_reader = dataset.create_reader(
@@ -521,29 +526,24 @@ def load_wav2vec2_asr_trainer(
 
 @final
 class Wav2Vec2AsrTrainUnit(AbstractTrainUnit[Seq2SeqBatch]):
-    """Represents a wav2vec 2.0 ASR model training unit."""
-
+    _criterion: Wav2Vec2AsrCriterion
     _freeze_encoder_for_n_steps: int
     _metric_bag: Wav2Vec2AsrMetricBag
 
     def __init__(
         self,
-        model: Module,
+        criterion: Wav2Vec2AsrCriterion,
         gang: Gang,
         *,
         freeze_encoder_for_n_steps: int = 0,
     ) -> None:
         """
-        :param model:
-            The wav2vec 2.0 ASR model. Might be wrapped with DDP or FSDP.
-        :param gang:
-            The gang for distributed training.
-        :param freeze_encoder_for_n_steps:
-            The encoder will be frozen for this number of steps.
+        :param freeze_encoder_for_n_steps: The encoder will be frozen for this
+            number of steps.
         """
-        super().__init__(model)
+        super().__init__(criterion.model)
 
-        check_model_type(model, Wav2Vec2AsrModel)
+        self._criterion = criterion
 
         self._freeze_encoder_for_n_steps = freeze_encoder_for_n_steps
 
@@ -551,20 +551,7 @@ class Wav2Vec2AsrTrainUnit(AbstractTrainUnit[Seq2SeqBatch]):
 
     @override
     def __call__(self, batch: Seq2SeqBatch) -> tuple[Tensor, int]:
-        input_batch = SequenceBatch(batch.source_seqs, batch.source_padding_mask)
-
-        output = self._forward(input_batch)
-
-        loss = output.compute_loss(batch.target_seqs, batch.target_padding_mask)
-
-        self._metric_bag.update_ctc_loss(batch, loss)
-
-        self._metric_bag.update_batch_metrics(batch)
-
-        return loss, batch.batch_size
-
-    def _forward(self, batch: SequenceBatch) -> Wav2Vec2AsrOutput:
-        return self._model(batch)  # type: ignore[no-any-return]
+        return self._criterion(batch, self._metric_bag)
 
     @override
     def set_step_nr(self, step_nr: int) -> None:
