@@ -40,6 +40,8 @@ ModelT = TypeVar("ModelT", bound=Module)
 
 ModelT_co = TypeVar("ModelT_co", bound=Module, covariant=True)
 
+ModelT_contra = TypeVar("ModelT_contra", bound=Module, contravariant=True)
+
 ModelConfigT = TypeVar("ModelConfigT", bound=DataClass)
 
 ModelConfigT_contra = TypeVar(
@@ -115,15 +117,27 @@ class CheckpointConverter(Protocol[ModelConfigT_contra]):
         """
 
 
+class ModelSharder(Protocol[ModelT_contra, ModelConfigT_contra]):
+    def __call__(
+        self,
+        model: ModelT_contra,
+        config: ModelConfigT_contra,
+        gangs: Mapping[str, Gang],
+    ) -> None:
+        ...
+
+
+@final
 class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
     """Loads models of type ``ModelT``."""
 
     _asset_store: AssetStore | None
     _download_manager: AssetDownloadManager
     _tensor_loader: TensorLoader
-    _checkpoint_converter: CheckpointConverter[ModelConfigT] | None
     _config_loader: ModelConfigLoader[ModelConfigT]
     _factory: ModelFactory[ModelConfigT, ModelT]
+    _checkpoint_converter: CheckpointConverter[ModelConfigT] | None
+    _sharder: ModelSharder[ModelT, ModelConfigT] | None
     _restrict_checkpoints: bool
     _skip_meta_init: bool
 
@@ -132,25 +146,19 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         *,
         config_loader: ModelConfigLoader[ModelConfigT],
         factory: ModelFactory[ModelConfigT, ModelT],
-        restrict_checkpoints: bool = True,
-        skip_meta_init: bool = False,
         asset_store: AssetStore | None = None,
         download_manager: AssetDownloadManager | None = None,
         tensor_loader: TensorLoader | None = None,
         checkpoint_converter: CheckpointConverter[ModelConfigT] | None = None,
+        sharder: ModelSharder[ModelT, ModelConfigT] | None = None,
+        restrict_checkpoints: bool = True,
+        skip_meta_init: bool = False,
     ) -> None:
         """
         :param config_loader:
             The configuration loader.
         :param factory:
             The factory to construct models.
-        :param restrict_checkpoints:
-            If ``True``, restricts the Python unpickler to load only tensors,
-            primitive types, and dictionaries.
-        :param skip_meta_init:
-            If ``True``, skips meta device initialization and constructs the
-            model directly on the requested device. Should be used with models
-            that do not support PyTorch's ``reset_parameters()`` convention.
         :param asset_store:
             The asset store where to check for available models. If ``None``,
             the default asset store will be used.
@@ -162,17 +170,26 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         :param checkpoint_converter:
             The converter to which loaded checkpoints will be passed for further
             processing.
+        :param sharder:
+            The model sharder for tensor parallelism.
+        :param restrict_checkpoints:
+            If ``True``, restricts the Python unpickler to load only tensors,
+            primitive types, and dictionaries.
+        :param skip_meta_init:
+            If ``True``, skips meta device initialization and constructs the
+            model directly on the requested device. Should be used with models
+            that do not support PyTorch's ``reset_parameters()`` convention.
         """
         self._asset_store = asset_store
         self._download_manager = download_manager or default_download_manager
         self._tensor_loader = tensor_loader or load_tensors
-        self._checkpoint_converter = checkpoint_converter
         self._config_loader = config_loader
         self._factory = factory
+        self._checkpoint_converter = checkpoint_converter
+        self._sharder = sharder
         self._restrict_checkpoints = restrict_checkpoints
         self._skip_meta_init = skip_meta_init
 
-    @final
     def __call__(
         self,
         model_name_or_card: str | AssetCard,
@@ -243,7 +260,14 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
                 ) from ex
 
             if gang is not None and gang.size > 1:
-                self._shard(model, gangs, card)  # type: ignore[arg-type]
+                if self._sharder is None:
+                    raise RuntimeError(
+                        f"{card.name} has a sharded checkpoint, but has no model sharder. Please file a bug report to the model author."
+                    )
+
+                assert gangs is not None
+
+                self._sharder(model, config, gangs)
 
             return model
 
@@ -294,7 +318,14 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
             model = self._factory(config, device=init_device, dtype=dtype)
 
         if gang is not None and gang.size > 1:
-            self._shard(model, gangs, card)  # type: ignore[arg-type]
+            if self._sharder is None:
+                raise RuntimeError(
+                    f"{card.name} has a sharded checkpoint, but has no model sharder. Please file a bug report to the model author."
+                )
+
+            assert gangs is not None
+
+            self._sharder(model, config, gangs)
 
         try:
             model_device = infer_device(model, name="model")
@@ -337,11 +368,6 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
             reset_non_persistent_buffers(model)
 
         return model
-
-    def _shard(self, model: ModelT, gangs: dict[str, Gang], card: AssetCard) -> None:
-        raise RuntimeError(
-            f"{card.name} has a sharded checkpoint, but has no model sharder. Please file a bug report to the model author."
-        )
 
 
 @final
