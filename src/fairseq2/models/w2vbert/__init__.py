@@ -20,4 +20,9 @@ from fairseq2.models.w2vbert.model import W2VBertOutput as W2VBertOutput
 
 # isort: split
 
-import fairseq2.models.w2vbert.archs  # Register architectures.
+from fairseq2.dependency import DependencyContainer
+from fairseq2.models.w2vbert.archs import register_archs
+
+
+def register_objects(container: DependencyContainer) -> None:
+    register_archs()

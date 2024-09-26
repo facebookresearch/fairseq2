@@ -23,4 +23,9 @@ from fairseq2.models.llama.tokenizer import LLaMA3Tokenizer as LLaMA3Tokenizer
 
 # isort: split
 
-import fairseq2.models.llama.archs  # Register architectures.
+from fairseq2.dependency import DependencyContainer
+from fairseq2.models.llama.archs import register_archs
+
+
+def register_objects(container: DependencyContainer) -> None:
+    register_archs()

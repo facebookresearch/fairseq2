@@ -9,19 +9,19 @@ from __future__ import annotations
 from fairseq2.models.transformer.factory import TransformerConfig, transformer_arch
 
 
-@transformer_arch("base")
-def _base() -> TransformerConfig:
-    return TransformerConfig()
+def register_archs() -> None:
+    @transformer_arch("base")
+    def _base() -> TransformerConfig:
+        return TransformerConfig()
 
+    @transformer_arch("big")
+    def _big() -> TransformerConfig:
+        config = TransformerConfig()
 
-@transformer_arch("big")
-def _big() -> TransformerConfig:
-    config = TransformerConfig()
+        config.model_dim = 1024
+        config.num_encoder_attn_heads = 16
+        config.num_decoder_attn_heads = 16
+        config.ffn_inner_dim = 4096
+        config.dropout_p = 0.3
 
-    config.model_dim = 1024
-    config.num_encoder_attn_heads = 16
-    config.num_decoder_attn_heads = 16
-    config.ffn_inner_dim = 4096
-    config.dropout_p = 0.3
-
-    return config
+        return config

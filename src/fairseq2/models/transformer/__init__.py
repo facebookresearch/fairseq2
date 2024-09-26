@@ -39,4 +39,9 @@ from fairseq2.models.transformer.model import (
 
 # isort: split
 
-import fairseq2.models.transformer.archs  # Register architectures.
+from fairseq2.dependency import DependencyContainer
+from fairseq2.models.transformer.archs import register_archs
+
+
+def register_objects(container: DependencyContainer) -> None:
+    register_archs()
