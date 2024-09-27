@@ -23,7 +23,7 @@ from typing import (
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.typing import DataClass
-from fairseq2.utils.dataclass import fill_empty_fields
+from fairseq2.utils.dataclass import merge_dataclass
 from fairseq2.utils.structured import ValueConverter, get_value_converter
 
 ConfigT = TypeVar("ConfigT", bound=DataClass)
@@ -73,7 +73,7 @@ class ConfigBoundFactoryRegistry(Generic[P, R]):
         unstructured_config: object = None,
         base_config_name: str | None = None,
         *,
-        allow_empty: bool = False,
+        set_empty: bool = False,
     ) -> ConfigBoundFactory[P, R]:
         """Return the factory with ``name``.
 
@@ -96,7 +96,7 @@ class ConfigBoundFactoryRegistry(Generic[P, R]):
                 self._value_converter = get_value_converter()
 
             config = self._value_converter.structure(
-                unstructured_config, config_kls, allow_empty=allow_empty
+                unstructured_config, config_kls, set_empty=set_empty
             )
 
         if base_config_name is None:
@@ -123,7 +123,7 @@ class ConfigBoundFactoryRegistry(Generic[P, R]):
             if config is None:
                 config = base_config
             else:
-                fill_empty_fields(config, base_config)
+                config = merge_dataclass(base_config, config)
 
         f = partial(factory, config)
 

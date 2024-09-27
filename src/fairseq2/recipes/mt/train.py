@@ -29,7 +29,6 @@ from fairseq2.logging import get_log_writer
 from fairseq2.models import create_model
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.seq2seq import Seq2SeqBatch
-from fairseq2.models.transformer import transformer_archs
 from fairseq2.optim import AdamWConfig, create_optimizer
 from fairseq2.optim.lr_scheduler import MyleLRConfig, create_lr_scheduler
 from fairseq2.recipes.common_metrics import Seq2SeqMetricBag
@@ -45,7 +44,6 @@ from fairseq2.recipes.utils.asset import (
 from fairseq2.recipes.utils.log import log_model, log_model_config
 from fairseq2.recipes.utils.setup import setup_root_gang, to_data_parallel
 from fairseq2.typing import CPU, META, DataType
-from fairseq2.utils.dataclass import empty_
 from fairseq2.utils.profiler import Stopwatch
 from fairseq2.utils.rng import manual_seed
 
@@ -95,9 +93,7 @@ class MTTrainConfig:
     model_arch: str | None = "nllb_dense_600m"
     """The architecture of the model."""
 
-    model_config: Any = field(
-        default_factory=lambda: empty_(transformer_archs.get("nllb_dense_600m"))
-    )
+    model_config: Any = None
     """The configuration of the model."""
 
     dtype: DataType = torch.float16
@@ -200,16 +196,11 @@ mt_train_preset = mt_train_presets.decorator
 
 @mt_train_preset("nllb_dense_300m")
 def _nllb_dense_300m() -> MTTrainConfig:
-    model_config = transformer_archs.get("nllb_dense_300m")
-
-    empty_(model_config)
-
     config = _nllb_dense_600m()
 
     assert isinstance(config.lr_scheduler_config, MyleLRConfig)
 
     config.model_arch = "nllb_dense_300m"
-    config.model_config = model_config
     config.lr_scheduler_config.num_warmup_steps = 400
     config.gradient_accumulation = 4
     config.max_num_steps = 10_000

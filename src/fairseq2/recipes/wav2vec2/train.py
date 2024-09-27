@@ -23,7 +23,7 @@ from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.models import create_model
 from fairseq2.models.sequence import SequenceBatch
-from fairseq2.models.wav2vec2 import Wav2Vec2Config, Wav2Vec2Model, wav2vec2_archs
+from fairseq2.models.wav2vec2 import Wav2Vec2Config, Wav2Vec2Model
 from fairseq2.optim import AdamWConfig, create_optimizer
 from fairseq2.optim.lr_scheduler import PolynomialDecayLRConfig, create_lr_scheduler
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
@@ -41,7 +41,6 @@ from fairseq2.recipes.utils.setup import (
 from fairseq2.recipes.wav2vec2.common import Wav2Vec2Criterion, Wav2Vec2MetricBag
 from fairseq2.recipes.wav2vec2.eval import Wav2Vec2EvalUnit
 from fairseq2.typing import CPU, META, DataType
-from fairseq2.utils.dataclass import empty_
 from fairseq2.utils.profiler import Stopwatch
 from fairseq2.utils.rng import manual_seed
 
@@ -91,9 +90,7 @@ class Wav2Vec2TrainConfig:
     model_arch: str | None = "base"
     """The architecture of the wav2vec2 model."""
 
-    model_config: Any = field(
-        default_factory=lambda: empty_(wav2vec2_archs.get("base"))
-    )
+    model_config: Any = None
     """The configuration of the model."""
 
     dtype: DataType = torch.float16
@@ -198,12 +195,6 @@ def _base_960h() -> Wav2Vec2TrainConfig:
 
 @wav2vec2_train_preset("large_960h")
 def _large_960h() -> Wav2Vec2TrainConfig:
-    model_config = wav2vec2_archs.get("large")
-
-    empty_(model_config)
-
-    model_config.encoder_config.first_pass_dropout_p = 0.1
-
     config = Wav2Vec2TrainConfig()
 
     assert isinstance(config.optimizer_config, AdamWConfig)
@@ -212,7 +203,7 @@ def _large_960h() -> Wav2Vec2TrainConfig:
     config.max_audio_len = 320_000
     config.max_num_elements = 1_200_000
     config.model_arch = "large"
-    config.model_config = model_config
+    config.model_config = {"encoder_config": {"first_pass_dropout_p": 0.1}}
     config.optimizer_config.lr = 3e-04
     config.lr_scheduler_config.num_warmup_steps = 20_000
     config.max_num_steps = 250_000
