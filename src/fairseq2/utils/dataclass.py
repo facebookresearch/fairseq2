@@ -7,8 +7,8 @@
 from __future__ import annotations
 
 from collections.abc import MutableMapping
-from dataclasses import fields
-from typing import Any
+from dataclasses import MISSING, fields
+from typing import Any, TypeVar, cast
 
 from typing_extensions import Self
 
@@ -33,49 +33,68 @@ EMPTY = _EmptyType()
 """A sentinel signifying no value for a dataclass field."""
 
 
-def fill_empty_fields(target: DataClass, source: DataClass) -> None:
-    """Fill the empty fields of ``target`` with the data contained in ``source``."""
+T = TypeVar("T", bound=DataClass)
+
+
+def merge_dataclass(target: T, source: T) -> T:
+    """Merge ``target`` with the data contained in ``source``."""
     if type(target) is not type(source):
         raise TypeError(
             f"`target` and `source` must be of the same type, but they are of types `{type(target)}` and `{type(source)}` instead."
         )
 
-    _fill_empty_fields(target, source)
+    return cast(T, _copy_dataclass(target, source))
 
 
-def _fill_empty_fields(target: DataClass, source: DataClass) -> None:
-    has_empty_field = False
+def _copy_dataclass(target: DataClass, source: DataClass) -> DataClass:
+    kls = type(target)
 
-    for field in fields(target):
-        target_value = getattr(target, field.name)
+    kwargs = {}
+
+    for field in fields(kls):
+        if not field.init:
+            continue
+
         source_value = getattr(source, field.name)
+        if source_value is EMPTY:
+            value = getattr(target, field.name)
+        else:
+            if is_dataclass_instance(source_value):
+                target_value = getattr(target, field.name)
 
-        if is_dataclass_instance(target_value):
-            if type(target_value) is not type(source_value):
-                if _has_empty_field(target_value):
-                    has_empty_field = True
+                if type(target_value) is type(source_value):
+                    value = _copy_dataclass(target_value, source_value)
+                else:
+                    value = _copy_dataclass_with_defaults(source_value)
             else:
-                _fill_empty_fields(target_value, source_value)
+                value = source_value
 
-                continue
+        kwargs[field.name] = value
 
-        if target_value is EMPTY:
-            setattr(target, field.name, source_value)
-
-    if has_empty_field:
-        raise ValueError(
-            "`target` must have no empty field after `fill_empty_fields()`, but one or more fields remained empty."
-        )
+    return kls(**kwargs)
 
 
-def _has_empty_field(obj: DataClass) -> bool:
-    for field in fields(obj):
+def _copy_dataclass_with_defaults(obj: DataClass) -> DataClass:
+    kls = type(obj)
+
+    kwargs = {}
+
+    for field in fields(kls):
+        if not field.init:
+            continue
+
         value = getattr(obj, field.name)
+        if value is EMPTY:
+            if field.default == MISSING or field.default_factory == MISSING:
+                raise ValueError(
+                    f"The `{field.name}` field of `{kls}` in `target` must have a default value or factory."
+                )
+
+            continue
 
         if is_dataclass_instance(value):
-            if _has_empty_field(value):
-                return True
-        elif value is EMPTY:
-            return True
+            value = _copy_dataclass_with_defaults(value)
 
-    return False
+        kwargs[field.name] = value
+
+    return kls(**kwargs)

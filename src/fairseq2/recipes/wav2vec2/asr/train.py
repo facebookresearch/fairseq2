@@ -106,7 +106,7 @@ class Wav2Vec2AsrTrainConfig:
     model_arch: str | None = "base_10h"
     """The architecture of the model."""
 
-    model_config: Any = field(default_factory=dict)
+    model_config: Any = None
     """The configuration of the model."""
 
     dtype: DataType = torch.float16
@@ -139,15 +139,6 @@ class Wav2Vec2AsrTrainConfig:
         )
     )
     """The configuration of the learning rate scheduler."""
-
-    lr_stage_ratios: tuple[float, float, float] = (0.1, 0.4, 0.5)
-    """The ratios of tri-stage learning rate scheduler."""
-
-    start_lr_scale: float = 0.01
-    """The scale of the initial warm-up learning rate."""
-
-    final_lr_scale: float = 0.05
-    """The scale of the final learning rate."""
 
     max_gradient_norm: float | None = None
     """The maximum gradient norm. If ``None``, no clipping will be applied."""

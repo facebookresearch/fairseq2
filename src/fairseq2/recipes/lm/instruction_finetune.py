@@ -86,7 +86,7 @@ class InstructionFinetuneConfig:
     model: AssetReference = "llama3_1_8b_instruct"
     """The name or path to the asset card of the language model to finetune."""
 
-    model_config: Any = field(default_factory=dict)
+    model_config: Any = None
     """
     The model configuration overrides. The provided values must be compatible
     with the checkpoint; otherwise, the model will fail to load.

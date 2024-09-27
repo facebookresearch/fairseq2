@@ -90,7 +90,7 @@ class Wav2Vec2TrainConfig:
     model_arch: str | None = "base"
     """The architecture of the wav2vec2 model."""
 
-    model_config: Any = field(default_factory=dict)
+    model_config: Any = None
     """The configuration of the model."""
 
     dtype: DataType = torch.float16

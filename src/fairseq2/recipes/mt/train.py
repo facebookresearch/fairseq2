@@ -93,7 +93,7 @@ class MTTrainConfig:
     model_arch: str | None = "nllb_dense_600m"
     """The architecture of the model."""
 
-    model_config: Any = field(default_factory=dict)
+    model_config: Any = None
     """The configuration of the model."""
 
     dtype: DataType = torch.float16

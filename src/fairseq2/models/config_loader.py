@@ -18,7 +18,7 @@ from fairseq2.assets import (
 )
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.typing import DataClass
-from fairseq2.utils.dataclass import fill_empty_fields
+from fairseq2.utils.dataclass import merge_dataclass
 from fairseq2.utils.structured import (
     StructuredError,
     ValueConverter,
@@ -173,7 +173,7 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
                 unstructured_config, config_kls, set_empty=True
             )
 
-            fill_empty_fields(config, base_config)
+            config = merge_dataclass(base_config, config)
 
         return config
 

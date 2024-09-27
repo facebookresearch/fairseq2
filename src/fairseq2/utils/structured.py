@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence, Set
 from copy import deepcopy
-from dataclasses import fields, is_dataclass
+from dataclasses import MISSING, fields, is_dataclass
 from enum import Enum
 from pathlib import Path
 from types import NoneType, UnionType
@@ -94,9 +94,7 @@ class ValueConverter:
             # fmt: on
         }
 
-    def structure(
-        self, obj: object, type_expr: Any, *, set_empty: bool = False
-    ) -> Any:
+    def structure(self, obj: object, type_expr: Any, *, set_empty: bool = False) -> Any:
         type_, type_args = get_origin(type_expr), get_args(type_expr)
 
         if type_ is None:
@@ -187,29 +185,34 @@ class ValueConverter:
             try:
                 value = values.pop(field.name)
             except KeyError:
-                if not set_empty:
-                    continue
-
                 value = EMPTY
 
             # Fields with `init=False` are initialized in `__post_init__()`.
             if not field.init:
                 continue
 
-            if value is not EMPTY:
+            if value is EMPTY:
+                if not set_empty:
+                    if field.default == MISSING and field.default_factory == MISSING:
+                        raise StructuredError(
+                            f"The `{field.name}` field of the dataclass has no default value or factory."
+                        )
+
+                    continue
+
+                if hasattr(type_, "__post_init__"):
+                    raise StructuredError(
+                        f"The `{field.name}` field of the dataclass must not be `EMPTY` since `{type_}` has a `__post_init__()` method."
+                    )
+            else:
                 try:
                     value = self.structure(
                         value, type_hints[field.name], set_empty=set_empty
                     )
                 except StructuredError as ex:
                     raise StructuredError(
-                        f"The '{field.name}' field of the dataclass cannot be structured. See nested exception for details."
+                        f"The `{field.name}` field of the dataclass cannot be structured. See nested exception for details."
                     ) from ex
-            else:
-                if hasattr(type_, "__post_init__"):
-                    raise StructuredError(
-                        f"The '{field.name}' field of the dataclass must not be `EMPTY` since `{type_}` has a `__post_init__()` method."
-                    )
 
             kwargs[field.name] = value
 
@@ -233,11 +236,11 @@ class ValueConverter:
 
             output = {}
 
-            for key, val in obj.items():
-                key = self.structure(key, type_args[0])
-                val = self.structure(val, type_args[1])
+            for k, v in obj.items():
+                k = self.structure(k, type_args[0])
+                v = self.structure(v, type_args[1])
 
-                output[key] = val
+                output[k] = v
 
             return output
 
@@ -373,7 +376,7 @@ class ValueConverter:
                     f"`type_expr` must have an element type expression for `{type_}`."
                 )
 
-            return {self.structure(elem, type_args[0]) for elem in obj}
+            return {self.structure(e, type_args[0]) for e in obj}
 
         if isinstance(obj, Sequence):
             if len(type_args) != 1:
@@ -381,7 +384,7 @@ class ValueConverter:
                     f"`type_expr` must have an element type expression for `{type_}`."
                 )
 
-            tmp = [self.structure(elem, type_args[0]) for elem in obj]
+            tmp = [self.structure(e, type_args[0]) for e in obj]
 
             output = set(tmp)
 
@@ -508,7 +511,7 @@ class ValueConverter:
                 output[field.name] = self.unstructure(value)
             except StructuredError as ex:
                 raise StructuredError(
-                    f"The '{field.name}' field of the dataclass cannot be unstructured. See nested exception for details."
+                    f"The `{field.name}` field of the dataclass cannot be unstructured. See nested exception for details."
                 ) from ex
 
         return output
@@ -528,11 +531,11 @@ class ValueConverter:
     def _unstructure_mapping(self, obj: Any) -> dict[object, object]:
         output = {}
 
-        for key, val in obj.items():
-            key = self.unstructure(key)
-            val = self.unstructure(val)
+        for k, v in obj.items():
+            k = self.unstructure(k)
+            v = self.unstructure(v)
 
-            output[key] = self.unstructure(val)
+            output[k] = self.unstructure(v)
 
         return output
 
@@ -556,7 +559,7 @@ class ValueConverter:
         return output
 
     def _unstructure_set(self, obj: Any) -> list[object]:
-        return [self.unstructure(elem) for elem in obj]
+        return [self.unstructure(e) for e in obj]
 
 
 def register_objects(container: DependencyContainer) -> None:
@@ -569,18 +572,18 @@ def get_value_converter() -> ValueConverter:
 
 def is_unstructured(obj: object) -> bool:
     if isinstance(obj, dict):
-        for key, val in obj.items():
-            if not is_unstructured(key):
+        for k, v in obj.items():
+            if not is_unstructured(k):
                 return False
 
-            if not is_unstructured(val):
+            if not is_unstructured(v):
                 return False
 
         return True
 
     if isinstance(obj, list):
-        for elem in obj:
-            if not is_unstructured(elem):
+        for e in obj:
+            if not is_unstructured(e):
                 return False
 
         return True
@@ -604,22 +607,9 @@ def merge_unstructured(target: object, source: object) -> object:
 
 
 def _do_merge_unstructured(target: object, source: object, path: str) -> object:
-    def raise_dict_error() -> NoReturn:
-        target_kls = type(target).__name__
-        source_kls = type(source).__name__
-
-        if not path:
-            raise StructuredError(
-                f"`target` is of type `{target_kls}`, but `source` is of type `{source_kls}`."
-            )
-
-        raise StructuredError(
-            f"'{path}' is of type `{target_kls}` in `target`, but is of type `{source_kls}` in `source`."
-        )
-
-    if isinstance(target, dict):
-        if not isinstance(source, dict):
-            raise_dict_error()
+    if isinstance(source, dict):
+        if not isinstance(target, dict):
+            target = {}
 
         sep = "." if path else ""
 
@@ -642,9 +632,9 @@ def _do_merge_unstructured(target: object, source: object, path: str) -> object:
 
                 ignored_keys.add(del_key)
 
-        for key, val in target.items():
-            if key not in ignored_keys:
-                output[key] = deepcopy(val)
+        for k, v in target.items():
+            if k not in ignored_keys:
+                output[k] = deepcopy(v)
 
         add_keys = source.get("_add_")
         if add_keys is not None:
@@ -661,11 +651,33 @@ def _do_merge_unstructured(target: object, source: object, path: str) -> object:
 
                 output[add_key] = deepcopy(value)
 
+        set_keys = source.get("_set_")
+        if set_keys is not None:
+            if not isinstance(set_keys, dict):
+                raise StructuredError(
+                    f"'{path}{sep}_set_' in `source` must be of type `dict`, but is of type `{type(set_keys).__name__}` instead."
+                )
+
+            for idx, (set_key, value) in enumerate(set_keys.items()):
+                if not isinstance(set_key, str):
+                    raise StructuredError(
+                        f"Each key under '{path}{sep}_set_' in `source` must be of type `str`, but the key at index {idx} is of type `{type(set_key).__name__}` instead."
+                    )
+
+                if set_key not in output:
+                    sub_path = set_key if not path else f"{path}.{set_key}"
+
+                    raise StructuredError(
+                        f"`target` must contain a '{sub_path}' key since it exists in `source`."
+                    ) from None
+
+                output[set_key] = deepcopy(value)
+
         for key, source_value in source.items():
-            if key == "_del_" or key == "_add_":
+            if key == "_del_" or key == "_add_" or key == "_set_":
                 continue
 
-            # Maintains backwards compatibility with older configuration API.
+            # Maintain backwards compatibility with older configuration API.
             if key == "_type_":
                 continue
 
@@ -682,10 +694,7 @@ def _do_merge_unstructured(target: object, source: object, path: str) -> object:
 
         return output
 
-    if isinstance(source, dict):
-        raise_dict_error()
-
-    if isinstance(source, list):
+    if isinstance(source, list | dict):
         return deepcopy(source)
 
     return source
