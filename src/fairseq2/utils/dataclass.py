@@ -79,21 +79,3 @@ def _has_empty_field(obj: DataClass) -> bool:
             return True
 
     return False
-
-
-def empty_(obj: DataClass) -> DataClass:
-    """Set all fields of ``obj`` and its descendant dataclasses to ``EMPTY``."""
-    for field in fields(type(obj)):
-        if not field.init:
-            raise TypeError(
-                "`obj` has one or more fields with `init=False` which is not supported by `empty_()`."
-            )
-
-        value = getattr(obj, field.name)
-
-        if is_dataclass_instance(value):
-            empty_(value)
-        else:
-            setattr(obj, field.name, EMPTY)
-
-    return obj

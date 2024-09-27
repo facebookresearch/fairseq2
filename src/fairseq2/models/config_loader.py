@@ -170,7 +170,7 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
             config = base_config
         else:
             config = self._value_converter.structure(
-                unstructured_config, config_kls, allow_empty=True
+                unstructured_config, config_kls, set_empty=True
             )
 
             fill_empty_fields(config, base_config)

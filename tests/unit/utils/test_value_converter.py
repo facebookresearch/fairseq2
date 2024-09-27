@@ -62,47 +62,59 @@ class TestValueConverter:
             "f5": ["3.0", "4"],
             "f6": ["1", "2", "3"],
             "f7": "VALUE2",
-            "f8": "~~",
             "f9": {"f3_2": "4"},
         }
 
         value_converter = ValueConverter()
 
-        foo = value_converter.structure(data, Foo1, allow_empty=True)
+        foo = value_converter.structure(data, Foo1)
 
         expected_foo = Foo1(
             f0="abc",
             f1=2,
             f2={"a": Path("path1"), "b": Path("path2")},
             f3=[0, 1, 2, 3],
-            f4=Foo3(f3_1=4),
+            f4=Foo3(f3_1=4, f3_2=3),
             f5=(3.0, 4),
             f6={1, 2, 3},
             f7=FooEnum.VALUE2,
-            f8=EMPTY,
-            f9=Foo3(f3_2=4),
+            f8=torch.float32,
+            f9=Foo3(f3_1=2, f3_2=4),
         )
 
         assert foo == expected_foo
 
-    def test_structure_raises_error_when_field_is_empty(self) -> None:
-        data: Any
-
-        data = {"f0": "~~"}
+    def test_structure_works_when_set_empty_is_true(self) -> None:
+        data = {
+            "f0": "abc",
+            "f1": "2",
+            "f2": {"a": "path1", "b": Path("path2")},
+            "f3": [0, "1", 2, "3"],
+            "f4": {"f3_1": "4"},
+            "f5": ["3.0", "4"],
+            "f6": ["1", "2", "3"],
+            "f7": "VALUE2",
+            "f9": {"f3_2": "4"},
+        }
 
         value_converter = ValueConverter()
 
-        with pytest.raises(
-            StructuredError, match=rf"^`obj` cannot be structured to `{Foo1}`\. See nested exception for details\.$"  # fmt: skip
-        ):
-            value_converter.structure(data, Foo1)
+        foo = value_converter.structure(data, Foo1, set_empty=True)
 
-        data = {"f4": {"f3_1": "~~"}}
+        expected_foo = Foo1(
+            f0="abc",
+            f1=2,
+            f2={"a": Path("path1"), "b": Path("path2")},
+            f3=[0, 1, 2, 3],
+            f4=Foo3(f3_1=4, f3_2=EMPTY),
+            f5=(3.0, 4),
+            f6={1, 2, 3},
+            f7=FooEnum.VALUE2,
+            f8=EMPTY,
+            f9=Foo3(f3_1=EMPTY, f3_2=4),
+        )
 
-        with pytest.raises(
-            StructuredError, match=rf"^`obj` cannot be structured to `{Foo1}`\. See nested exception for details\.$"  # fmt: skip
-        ):
-            value_converter.structure(data, Foo1)
+        assert foo == expected_foo
 
     @pytest.mark.parametrize(
         "data,kls",

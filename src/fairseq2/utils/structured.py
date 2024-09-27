@@ -14,7 +14,6 @@ from pathlib import Path
 from types import NoneType, UnionType
 from typing import (
     Any,
-    Final,
     Literal,
     NoReturn,
     Protocol,
@@ -31,12 +30,10 @@ from fairseq2.dependency import DependencyContainer, resolve
 from fairseq2.typing import DataClass, DataType, Device
 from fairseq2.utils.dataclass import EMPTY
 
-_EMPTY_TAG: Final[str] = "~~"
-
 
 class _StructureFn(Protocol):
     def __call__(
-        self, type_: Any, type_args: tuple[Any, ...], obj: object, allow_empty: bool
+        self, type_: Any, type_args: tuple[Any, ...], obj: object, set_empty: bool
     ) -> object:
         ...
 
@@ -98,7 +95,7 @@ class ValueConverter:
         }
 
     def structure(
-        self, obj: object, type_expr: Any, *, allow_empty: bool = False
+        self, obj: object, type_expr: Any, *, set_empty: bool = False
     ) -> Any:
         type_, type_args = get_origin(type_expr), get_args(type_expr)
 
@@ -126,7 +123,7 @@ class ValueConverter:
             ) from None
 
         try:
-            return fn(type_, type_args, obj, allow_empty)
+            return fn(type_, type_args, obj, set_empty)
         except StructuredError as ex:
             raise StructuredError(
                 f"`obj` cannot be structured to `{type_expr}`. See nested exception for details."
@@ -134,7 +131,7 @@ class ValueConverter:
 
     @staticmethod
     def _structure_primitive(
-        type_: Any, type_args: tuple[Any, ...], obj: object, allow_empty: bool
+        type_: Any, type_args: tuple[Any, ...], obj: object, set_empty: bool
     ) -> object:
         if isinstance(obj, type_):
             return obj
@@ -148,7 +145,7 @@ class ValueConverter:
 
     @staticmethod
     def _structure_identity(
-        type_: Any, type_args: tuple[Any, ...], obj: object, allow_empty: bool
+        type_: Any, type_args: tuple[Any, ...], obj: object, set_empty: bool
     ) -> object:
         if isinstance(obj, type_):
             return obj
@@ -158,7 +155,7 @@ class ValueConverter:
         )
 
     def _structure_dataclass(
-        self, type_: Any, type_args: tuple[Any, ...], obj: object, allow_empty: bool
+        self, type_: Any, type_args: tuple[Any, ...], obj: object, set_empty: bool
     ) -> object:
         if type_ is DataClass:
             raise StructuredError(
@@ -168,19 +165,19 @@ class ValueConverter:
         if isinstance(obj, type_):
             values = {f.name: getattr(obj, f.name) for f in fields(type_)}
 
-            return self._create_dataclass(type_, values, allow_empty)
+            return self._create_dataclass(type_, values, set_empty)
 
         if isinstance(obj, Mapping):
             values = self.structure(obj, dict[str, Any])
 
-            return self._create_dataclass(type_, values, allow_empty)
+            return self._create_dataclass(type_, values, set_empty)
 
         raise StructuredError(
             f"`obj` must be of type `{type_}` or `{Mapping}`, but is of type `{type(obj)}` instead."
         )
 
     def _create_dataclass(
-        self, type_: type[DataClass], values: dict[str, Any], allow_empty: bool
+        self, type_: type[DataClass], values: dict[str, Any], set_empty: bool
     ) -> object:
         type_hints = get_type_hints(type_)
 
@@ -190,19 +187,19 @@ class ValueConverter:
             try:
                 value = values.pop(field.name)
             except KeyError:
-                continue
+                if not set_empty:
+                    continue
+
+                value = EMPTY
 
             # Fields with `init=False` are initialized in `__post_init__()`.
             if not field.init:
                 continue
 
-            if value == _EMPTY_TAG:
-                value = EMPTY
-
             if value is not EMPTY:
                 try:
                     value = self.structure(
-                        value, type_hints[field.name], allow_empty=allow_empty
+                        value, type_hints[field.name], set_empty=set_empty
                     )
                 except StructuredError as ex:
                     raise StructuredError(
@@ -212,11 +209,6 @@ class ValueConverter:
                 if hasattr(type_, "__post_init__"):
                     raise StructuredError(
                         f"The '{field.name}' field of the dataclass must not be `EMPTY` since `{type_}` has a `__post_init__()` method."
-                    )
-
-                if not allow_empty:
-                    raise StructuredError(
-                        f"The '{field.name}' field of the dataclass must not be `EMPTY`."
                     )
 
             kwargs[field.name] = value
@@ -231,7 +223,7 @@ class ValueConverter:
         return type_(**kwargs)
 
     def _structure_dict(
-        self, type_: Any, type_args: tuple[Any, ...], obj: object, allow_empty: bool
+        self, type_: Any, type_args: tuple[Any, ...], obj: object, set_empty: bool
     ) -> dict[object, object]:
         if isinstance(obj, Mapping):
             if len(type_args) != 2:
@@ -241,16 +233,11 @@ class ValueConverter:
 
             output = {}
 
-            for key, value in obj.items():
+            for key, val in obj.items():
                 key = self.structure(key, type_args[0])
-                if key is EMPTY:
-                    raise StructuredError(
-                        "The dictionary key must not be `EMPTY` since it is not hashable."
-                    )
+                val = self.structure(val, type_args[1])
 
-                value = self.structure(value, type_args[1])
-
-                output[key] = value
+                output[key] = val
 
             return output
 
@@ -260,7 +247,7 @@ class ValueConverter:
 
     @staticmethod
     def _structure_dtype(
-        type_: Any, type_args: tuple[Any, ...], obj: object, allow_empty: bool
+        type_: Any, type_args: tuple[Any, ...], obj: object, set_empty: bool
     ) -> DataType:
         if isinstance(obj, DataType):
             return obj
@@ -282,7 +269,7 @@ class ValueConverter:
 
     @staticmethod
     def _structure_device(
-        type_: Any, type_args: tuple[Any, ...], obj: object, allow_empty: bool
+        type_: Any, type_args: tuple[Any, ...], obj: object, set_empty: bool
     ) -> Device:
         if isinstance(obj, Device):
             return obj
@@ -299,7 +286,7 @@ class ValueConverter:
 
     @staticmethod
     def _structure_enum(
-        type_: Any, type_args: tuple[Any, ...], obj: object, allow_empty: bool
+        type_: Any, type_args: tuple[Any, ...], obj: object, set_empty: bool
     ) -> object:
         if isinstance(obj, type_):
             return obj
@@ -319,7 +306,7 @@ class ValueConverter:
         )
 
     def _structure_list(
-        self, type_: Any, type_args: tuple[Any, ...], obj: object, allow_empty: bool
+        self, type_: Any, type_args: tuple[Any, ...], obj: object, set_empty: bool
     ) -> list[object]:
         if isinstance(obj, Sequence):
             if len(type_args) != 1:
@@ -347,7 +334,7 @@ class ValueConverter:
 
     @staticmethod
     def _structure_literal(
-        type_: Any, type_args: tuple[Any, ...], obj: object, allow_empty: bool
+        type_: Any, type_args: tuple[Any, ...], obj: object, set_empty: bool
     ) -> str:
         if isinstance(obj, str):
             if obj in type_args:
@@ -365,7 +352,7 @@ class ValueConverter:
 
     @staticmethod
     def _structure_path(
-        type_: Any, type_args: tuple[Any, ...], obj: object, allow_empty: bool
+        type_: Any, type_args: tuple[Any, ...], obj: object, set_empty: bool
     ) -> Path:
         if isinstance(obj, Path):
             return obj
@@ -378,7 +365,7 @@ class ValueConverter:
         )
 
     def _structure_set(
-        self, type_: Any, type_args: tuple[Any, ...], obj: object, allow_empty: bool
+        self, type_: Any, type_args: tuple[Any, ...], obj: object, set_empty: bool
     ) -> set[object]:
         if isinstance(obj, set):
             if len(type_args) != 1:
@@ -410,7 +397,7 @@ class ValueConverter:
         )
 
     def _structure_tuple(
-        self, type_: Any, type_args: tuple[Any, ...], obj: object, allow_empty: bool
+        self, type_: Any, type_args: tuple[Any, ...], obj: object, set_empty: bool
     ) -> tuple[object, ...]:
         if isinstance(obj, Sequence):
             num_args = len(type_args)
@@ -421,7 +408,7 @@ class ValueConverter:
                 )
 
             if num_args == 2 and type_args[1] is Ellipsis:  # homogeneous
-                tmp = self._structure_list(type_, type_args[:1], obj, allow_empty)
+                tmp = self._structure_list(type_, type_args[:1], obj, set_empty)
 
                 return tuple(tmp)
 
@@ -449,7 +436,7 @@ class ValueConverter:
         )
 
     def _structure_union(
-        self, type_: Any, type_args: tuple[Any, ...], obj: object, allow_empty: bool
+        self, type_: Any, type_args: tuple[Any, ...], obj: object, set_empty: bool
     ) -> object:
         is_optional = len(type_args) == 2 and NoneType in type_args
 
@@ -458,7 +445,7 @@ class ValueConverter:
 
         for type_expr in type_args:
             try:
-                return self.structure(obj, type_expr, allow_empty=allow_empty)
+                return self.structure(obj, type_expr, set_empty=set_empty)
             except StructuredError:
                 if is_optional:
                     raise
@@ -516,10 +503,6 @@ class ValueConverter:
 
         for field in fields(type_):
             value = getattr(obj, field.name)
-            if value is EMPTY:
-                output[field.name] = _EMPTY_TAG
-
-                continue
 
             try:
                 output[field.name] = self.unstructure(value)
@@ -545,16 +528,11 @@ class ValueConverter:
     def _unstructure_mapping(self, obj: Any) -> dict[object, object]:
         output = {}
 
-        for key, value in obj.items():
+        for key, val in obj.items():
             key = self.unstructure(key)
-            if key == _EMPTY_TAG:
-                raise StructuredError(
-                    "The mapping key must not represent `EMPTY` since it is not hashable."
-                )
+            val = self.unstructure(val)
 
-            value = self.unstructure(value)
-
-            output[key] = value
+            output[key] = self.unstructure(val)
 
         return output
 
@@ -591,11 +569,11 @@ def get_value_converter() -> ValueConverter:
 
 def is_unstructured(obj: object) -> bool:
     if isinstance(obj, dict):
-        for key, value in obj.items():
+        for key, val in obj.items():
             if not is_unstructured(key):
                 return False
 
-            if not is_unstructured(value):
+            if not is_unstructured(val):
                 return False
 
         return True
@@ -664,9 +642,9 @@ def _do_merge_unstructured(target: object, source: object, path: str) -> object:
 
                 ignored_keys.add(del_key)
 
-        for key, value in target.items():
+        for key, val in target.items():
             if key not in ignored_keys:
-                output[key] = deepcopy(value)
+                output[key] = deepcopy(val)
 
         add_keys = source.get("_add_")
         if add_keys is not None:

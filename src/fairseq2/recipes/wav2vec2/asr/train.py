@@ -25,7 +25,7 @@ from fairseq2.logging import get_log_writer
 from fairseq2.models import create_model
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.wav2vec2 import load_wav2vec2_model
-from fairseq2.models.wav2vec2.asr import Wav2Vec2AsrModel, wav2vec2_asr_archs
+from fairseq2.models.wav2vec2.asr import Wav2Vec2AsrModel
 from fairseq2.nn.utils.module import freeze_parameters, share_parameters, to_device
 from fairseq2.optim import AdamWConfig, create_optimizer
 from fairseq2.optim.lr_scheduler import TriStageLRConfig, create_lr_scheduler
@@ -48,7 +48,6 @@ from fairseq2.recipes.wav2vec2.asr.common import (
 )
 from fairseq2.recipes.wav2vec2.asr.eval import Wav2Vec2AsrEvalUnit
 from fairseq2.typing import CPU, META, DataType
-from fairseq2.utils.dataclass import empty_
 from fairseq2.utils.profiler import Stopwatch
 from fairseq2.utils.rng import manual_seed
 
@@ -107,9 +106,7 @@ class Wav2Vec2AsrTrainConfig:
     model_arch: str | None = "base_10h"
     """The architecture of the model."""
 
-    model_config: Any = field(
-        default_factory=lambda: empty_(wav2vec2_asr_archs.get("base_10h"))
-    )
+    model_config: Any = field(default_factory=dict)
     """The configuration of the model."""
 
     dtype: DataType = torch.float16
@@ -220,17 +217,12 @@ def _base_10h() -> Wav2Vec2AsrTrainConfig:
 
 @wav2vec2_asr_train_preset("base_100h")
 def _base_100h() -> Wav2Vec2AsrTrainConfig:
-    model_config = wav2vec2_asr_archs.get("base_100h")
-
-    empty_(model_config)
-
     config = _base_10h()
 
     assert isinstance(config.optimizer_config, AdamWConfig)
 
     config.dataset = "librispeech_asr_100h"
     config.model_arch = "base_100h"
-    config.model_config = model_config
     config.optimizer_config.lr = 0.00003
     config.max_num_steps = 50_000
     config.freeze_encoder_for_n_steps = 0
@@ -240,16 +232,11 @@ def _base_100h() -> Wav2Vec2AsrTrainConfig:
 
 @wav2vec2_asr_train_preset("large_10h")
 def _large_10h() -> Wav2Vec2AsrTrainConfig:
-    model_config = wav2vec2_asr_archs.get("large_10h")
-
-    empty_(model_config)
-
     config = _base_10h()
 
     assert isinstance(config.optimizer_config, AdamWConfig)
 
     config.model_arch = "large_10h"
-    config.model_config = model_config
     config.pretrained_model = "wav2vec2_large"
     config.max_audio_len = 640_000
     config.max_num_elements = 1_280_000
@@ -261,17 +248,12 @@ def _large_10h() -> Wav2Vec2AsrTrainConfig:
 
 @wav2vec2_asr_train_preset("large_100h")
 def _large_100h() -> Wav2Vec2AsrTrainConfig:
-    model_config = wav2vec2_asr_archs.get("large_100h")
-
-    empty_(model_config)
-
     config = _large_10h()
 
     assert isinstance(config.optimizer_config, AdamWConfig)
 
     config.dataset = "librispeech_asr_100h"
     config.model_arch = "large_100h"
-    config.model_config = model_config
     config.optimizer_config.lr = 0.00003
     config.max_num_steps = 50_000
 

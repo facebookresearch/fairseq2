@@ -40,7 +40,7 @@ def create_model(
         - The model.
         - The effective configuration of the model.
     """
-    factory = model_factories.get(family, unstructured_config, arch, allow_empty=True)
+    factory = model_factories.get(family, unstructured_config, arch, set_empty=True)
 
     model = factory(device=device or CPU, dtype=dtype or torch.float32)
 
