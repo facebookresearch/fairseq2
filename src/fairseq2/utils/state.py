@@ -21,11 +21,9 @@ from typing_extensions import override
 class Stateful(Protocol):
     """Represents an object that follows the ``state_dict`` convention."""
 
-    def state_dict(self) -> dict[str, Any]:
-        ...
+    def state_dict(self) -> dict[str, Any]: ...
 
-    def load_state_dict(self, state_dict: Mapping[str, Any]) -> None:
-        ...
+    def load_state_dict(self, state_dict: Mapping[str, Any]) -> None: ...
 
 
 StatefulT = TypeVar("StatefulT")

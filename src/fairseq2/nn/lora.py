@@ -41,16 +41,13 @@ class LoRALayer(ABC):
 
     @property
     @abstractmethod
-    def wrapped_module(self) -> nn.Module:
-        ...
+    def wrapped_module(self) -> nn.Module: ...
 
     @abstractmethod
-    def merge(self) -> None:
-        ...
+    def merge(self) -> None: ...
 
     @abstractmethod
-    def unmerge(self) -> None:
-        ...
+    def unmerge(self) -> None: ...
 
 
 @final

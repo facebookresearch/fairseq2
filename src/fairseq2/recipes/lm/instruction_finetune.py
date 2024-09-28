@@ -29,6 +29,7 @@ from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.models import load_model
 from fairseq2.models.decoder import DecoderModel
+from fairseq2.models.llama.factory import llama_archs
 from fairseq2.models.sequence import (
     SequenceBatch,
     SequenceModelOutput,
@@ -146,7 +147,7 @@ class InstructionFinetuneConfig:
 
     # Regime
     max_num_steps: int = 5000
-    """The maximum number of steps to train for."""
+    """The maximum number of steps to train for. Note that max_num_steps is used as CosineLRScheduler argument!"""
 
     max_num_data_epochs: int | None = None
     """The maximum number of data epochs to train for."""
@@ -192,56 +193,32 @@ instruction_finetune_presets = ConfigRegistry[InstructionFinetuneConfig]()
 instruction_finetune_preset = instruction_finetune_presets.decorator
 
 
-@instruction_finetune_preset("llama2_7b_chat")
-def _llama2_7b_chat() -> InstructionFinetuneConfig:
-    config = _llama3_8b_instruct()
+@dataclass(kw_only=True)
+class DropoutConfig:
+    dropout_p: float = 0.0
 
-    config.max_seq_len = 4096
-    config.max_num_tokens = 4096 * 2
-    config.model = "llama2_7b_chat"
 
+@instruction_finetune_preset("llama3_1_instruct")
+def _llama3_1_instruct() -> InstructionFinetuneConfig:
+    config = InstructionFinetuneConfig()
+    config.model_config = DropoutConfig()
     return config
 
 
-@instruction_finetune_preset("llama2_70b_chat")
-def _llama2_70b_chat() -> InstructionFinetuneConfig:
-    config = _llama2_7b_chat()
-
-    config.model = "llama2_70b_chat"
-    config.tensor_parallel_size = 8
-
-    return config
-
-
-@instruction_finetune_preset("llama3_8b_instruct")
-def _llama3_8b_instruct() -> InstructionFinetuneConfig:
-    return InstructionFinetuneConfig()
-
-
-@instruction_finetune_preset("llama3_70b_instruct")
-def _llama3_70b_instruct() -> InstructionFinetuneConfig:
-    config = _llama3_8b_instruct()
-
-    config.model = "llama3_70b_instruct"
-    config.tensor_parallel_size = 8
-
-    return config
-
-
-@instruction_finetune_preset("llama3_1_8b_instruct")
-def _llama3_1_8b_instruct() -> InstructionFinetuneConfig:
-    config = _llama3_8b_instruct()
-
-    config.model = "llama3_1_8b_instruct"
-
+@instruction_finetune_preset("llama3_1_instruct_constant_lr")
+def _llama3_1_instruct_constant_lr() -> InstructionFinetuneConfig:
+    config = _llama3_1_instruct()
+    # setting up final lr to be the optmiizer base lr, lr_mul is 1.0 by default
+    config.lr_scheduler_config.final_lr = config.optimizer_config.lr
     return config
 
 
 @instruction_finetune_preset("llama3_1_70b_instruct")
-def _llama3_1_70b_instruct() -> InstructionFinetuneConfig:
-    config = _llama3_70b_instruct()
+def _llama3_70b_instruct() -> InstructionFinetuneConfig:
+    config = _llama3_1_instruct()
 
     config.model = "llama3_1_70b_instruct"
+    config.tensor_parallel_size = 8
 
     return config
 

@@ -47,21 +47,17 @@ if TYPE_CHECKING or DOC_MODE:
             names: Sequence[str] | None = None,
             indices: Sequence[int] | None = None,
             exclude: bool = False,
-        ) -> None:
-            ...
+        ) -> None: ...
 
-        def __call__(self, s: str) -> list[str] | dict[str, str]:
-            ...
+        def __call__(self, s: str) -> list[str] | dict[str, str]: ...
 
     @final
     class StrToIntConverter:
         """Parses integers in a given base"""
 
-        def __init__(self, base: int = 10) -> None:
-            ...
+        def __init__(self, base: int = 10) -> None: ...
 
-        def __call__(self, s: str) -> int:
-            ...
+        def __call__(self, s: str) -> int: ...
 
     @final
     class StrToTensorConverter:
@@ -69,11 +65,9 @@ if TYPE_CHECKING or DOC_MODE:
             self,
             size: Sequence[int] | None = None,
             dtype: DataType | None = None,
-        ) -> None:
-            ...
+        ) -> None: ...
 
-        def __call__(self, s: str) -> Tensor:
-            ...
+        def __call__(self, s: str) -> Tensor: ...
 
 else:
     from fairseq2n.bindings.data.text.converters import StrSplitter as StrSplitter

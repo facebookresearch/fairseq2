@@ -33,7 +33,9 @@ from fairseq2.nn.checkpointing import use_layerwise_activation_checkpointing
 from fairseq2.nn.transformer import enable_memory_efficient_torch_sdpa
 from fairseq2.optim import AdamWConfig, create_optimizer
 from fairseq2.optim.lr_scheduler import CosineAnnealingLRConfig, create_lr_scheduler
-from fairseq2.recipes.trainer import Trainer, TrainUnit
+from fairseq2.recipes.lm.preference_finetune.dpo import DpoConfig
+from fairseq2.recipes.lm.preference_finetune.utils import preference_unit_factories
+from fairseq2.recipes.trainer import Trainer
 from fairseq2.recipes.utils.asset import (
     AssetReference,
     asset_as_path,
@@ -49,11 +51,11 @@ log = get_log_writer(__name__)
 
 
 @dataclass(kw_only=True)
-class PreferenceOptimizationConfig:
+class PreferenceFinetuningConfig:
     """Holds the configuration of a language model preference-finetuning task."""
 
     # Data
-    dataset: AssetReference = "openeft"  # TODO: change!
+    dataset: AssetReference = "gsm8k_dpo_data"  # TODO: change!
     """The name, path, or path to the asset card of the preference optimization dataset."""
 
     max_seq_len: int = 8192
@@ -116,7 +118,7 @@ class PreferenceOptimizationConfig:
     criterion: str = "dpo"
     """The preference optimization criterion."""
 
-    criterion_config: Any = None
+    criterion_config: Any = field(default_factory=lambda: DpoConfig())
     """The configuration of the preference optimization criterion."""
 
     # Optimizer, LR, and Loss
@@ -190,50 +192,45 @@ class PreferenceOptimizationConfig:
     """If ``True``, turns on anomaly detection feature in ``torch.autograd``."""
 
 
-preference_finetune_presets = ConfigRegistry[PreferenceOptimizationConfig]()
+preference_finetune_presets = ConfigRegistry[PreferenceFinetuningConfig]()
 
 preference_finetune_preset = preference_finetune_presets.decorator
 
 
-# @preference_finetune_preset("simpo")
-# def _simpo() -> PreferenceOptimizationConfig:
-#    cfg = PreferenceOptimizationConfig()
-#    cfg.max_num_tokens = 1200
-#    cfg.max_seq_len = 600
-#    cfg.model = "llama3_8b"
-#    cfg.simpo = SimpoFinetuneConfig()
-#    return cfg
+@dataclass(kw_only=True)
+class DropoutConfig:
+    dropout_p: float = 0.0
 
 
-@preference_finetune_preset("llama3_8b_instruct")
-def _llama3_8b_instruct() -> PreferenceOptimizationConfig:
-    config = PreferenceOptimizationConfig()
-
-    config.max_seq_len = 1000
-    config.max_num_tokens = 1000
-    config.max_gradient_norm = 1.0
-
+@preference_finetune_preset("llama3_1_instruct")
+def _llama3_1_instruct() -> PreferenceFinetuningConfig:
+    config = PreferenceFinetuningConfig()
+    config.model_config = DropoutConfig()
     return config
 
 
-# batch size and min lengths are tuned for OA2 in this preset!
-@preference_finetune_preset("llama3_70b_instruct_openassistant2")
-def _llama3_70b_instruct_openassistant2() -> PreferenceOptimizationConfig:
-    config = PreferenceOptimizationConfig()
+@preference_finetune_preset("llama3_1_instruct_constant_lr")
+def _llama3_1_instruct_constant_lr() -> PreferenceFinetuningConfig:
+    config = _llama3_1_instruct()
+    # setting up final lr to be the optmiizer base lr, lr_mul is 1.0 by default
+    config.lr_scheduler_config.final_lr = config.optimizer_config.lr
+    return config
 
-    # 70B DPO training might catch OOM, tune the effective batch size if needed.
-    config.max_seq_len = 200
-    config.max_num_tokens = 200
-    config.model = "llama3_70b_instruct"
+
+@preference_finetune_preset("llama3_1_70b_instruct")
+def _llama3_70b_instruct() -> PreferenceFinetuningConfig:
+    config = _llama3_1_instruct()
+
+    config.model = "llama3_1_70b_instruct"
     config.tensor_parallel_size = 8
-    config.max_gradient_norm = 1.0
-    config.gradient_accumulation = 8  # to address small batch size
+    config.criterion_config.reference_model = "llama3_1_70b_instruct"
+    config.criterion_config.reference_tensor_parallel_size = 8
 
     return config
 
 
 def load_preference_finetuner(
-    config: PreferenceOptimizationConfig, output_dir: Path
+    config: PreferenceFinetuningConfig, output_dir: Path
 ) -> Trainer[PreferenceOptimizationBatch]:
     """Load a :class:`Trainer` for language model preference optimization-finetuning."""
     wall_watch = Stopwatch(start=True)
@@ -451,10 +448,3 @@ def load_preference_finetuner(
         seed=config.seed,
         wall_watch=wall_watch,
     )
-
-
-preference_unit_factories = ConfigBoundFactoryRegistry[
-    [Module, Gang, Mapping[str, Gang]], TrainUnit[PreferenceOptimizationBatch]
-]()
-
-preference_unit_factory = preference_unit_factories.decorator

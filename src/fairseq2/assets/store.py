@@ -223,8 +223,7 @@ class StandardAssetStore(AssetStore):
 class EnvironmentResolver(Protocol):
     """Resolves the environment within which assets should be loaded."""
 
-    def __call__(self) -> str | None:
-        ...
+    def __call__(self) -> str | None: ...
 
 
 def register_objects(container: DependencyContainer) -> None:

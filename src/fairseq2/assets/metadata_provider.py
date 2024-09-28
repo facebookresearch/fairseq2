@@ -107,8 +107,7 @@ class AbstractAssetMetadataProvider(AssetMetadataProvider):
         return self._cache
 
     @abstractmethod
-    def _load_cache(self) -> dict[str, dict[str, Any]]:
-        ...
+    def _load_cache(self) -> dict[str, dict[str, Any]]: ...
 
     @final
     @property

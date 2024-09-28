@@ -29,24 +29,20 @@ class DataReader(ABC, Iterator[list[BatchT_co]]):
     """Reads batches of examples from a dataset."""
 
     @abstractmethod
-    def __iter__(self) -> Self:
-        ...
+    def __iter__(self) -> Self: ...
 
     @abstractmethod
-    def __next__(self) -> list[BatchT_co]:
-        ...
+    def __next__(self) -> list[BatchT_co]: ...
 
     @abstractmethod
     def reset(self) -> None:
         """Reset state and move back to the first batch."""
 
     @abstractmethod
-    def state_dict(self) -> dict[str, Any]:
-        ...
+    def state_dict(self) -> dict[str, Any]: ...
 
     @abstractmethod
-    def load_state_dict(self, state_dict: Mapping[str, Any]) -> None:
-        ...
+    def load_state_dict(self, state_dict: Mapping[str, Any]) -> None: ...
 
     @property
     @abstractmethod

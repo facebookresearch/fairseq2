@@ -42,8 +42,7 @@ class AbstractAttentionMask(AttentionMask):
         return self._materialized
 
     @abstractmethod
-    def _do_materialize(self) -> Tensor:
-        ...
+    def _do_materialize(self) -> Tensor: ...
 
 
 class AttentionMaskFactory(Protocol):

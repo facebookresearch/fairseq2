@@ -33,7 +33,7 @@ def _setup_lm_cli(cli: Cli) -> None:
     instruction_finetune_handler = RecipeCommandHandler(
         loader=load_instruction_finetuner,
         preset_configs=instruction_finetune_presets,
-        default_preset="llama3_8b_instruct",
+        default_preset="llama3_1_instruct",
     )
 
     group.add_command(
@@ -46,7 +46,7 @@ def _setup_lm_cli(cli: Cli) -> None:
     preference_finetune_handler = RecipeCommandHandler(
         loader=load_preference_finetuner,
         preset_configs=preference_finetune_presets,
-        default_preset="llama3_8b_instruct",
+        default_preset="llama3_1_instruct",
     )
 
     group.add_command(
@@ -59,7 +59,7 @@ def _setup_lm_cli(cli: Cli) -> None:
     text_generate_handler = RecipeCommandHandler(
         loader=load_text_generator,
         preset_configs=text_generate_presets,
-        default_preset="llama3_8b_instruct",
+        default_preset="llama3_1_8b_instruct",
     )
 
     group.add_command(

@@ -131,8 +131,7 @@ def _setup_aten_logging(log_file: Path, force: bool) -> None:
 
 if TYPE_CHECKING or DOC_MODE:
 
-    def _enable_aten_logging(log_file: Path) -> Path:
-        ...
+    def _enable_aten_logging(log_file: Path) -> Path: ...
 
 else:
     from fairseq2n.bindings import _enable_aten_logging

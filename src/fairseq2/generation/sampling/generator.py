@@ -739,8 +739,7 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
         return True
 
     @abstractmethod
-    def _decode(self, seqs: Tensor) -> SequenceModelOutput:
-        ...
+    def _decode(self, seqs: Tensor) -> SequenceModelOutput: ...
 
     def _finish_sequence(self, seq_idx: int) -> None:
         if self._echo_prompt:

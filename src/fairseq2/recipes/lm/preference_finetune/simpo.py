@@ -25,8 +25,10 @@ from fairseq2.models.sequence import (
     SequenceModelOutput,
     as_auto_regressive_input,
 )
-from fairseq2.recipes.lm.preference_finetune.recipe import preference_unit_factory
-from fairseq2.recipes.lm.preference_finetune.utils import PreferenceFinetuneMetricBag
+from fairseq2.recipes.lm.preference_finetune.utils import (
+    PreferenceFinetuneMetricBag,
+    preference_unit_factory,
+)
 from fairseq2.recipes.trainer import AbstractTrainUnit
 
 log = get_log_writer(__name__)
