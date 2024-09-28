@@ -14,20 +14,21 @@ from typing import Any, Final, Protocol, final
 import torch
 from torch import Tensor
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.distributed.fsdp import MixedPrecision
 from torch.distributed.fsdp.api import (
     BackwardPrefetch,
     CPUOffload,
+    MixedPrecision,
     ShardedOptimStateDictConfig,
     ShardedStateDictConfig,
     ShardingStrategy,
     StateDictType,
 )
-from torch.nn import Module
+from torch.nn import Module, Parameter
 
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.nn.utils.module import (
+    apply_to_parameters,
     infer_device,
     reset_non_persistent_buffers,
     reset_parameters,
@@ -301,6 +302,8 @@ def summon_fsdp_for_validation(module: Module) -> Iterator[None]:
     if not isinstance(module, FSDP):
         yield
     else:
+        mp = module.mixed_precision or MixedPrecision()
+
         # This is ugly, but our only option. We monkey-patch FSDP modules to
         # replace their `forward` methods with the wrapped `forward` methods.
         # Otherwise, FSDP fails to shard parameters at the end of the call.
@@ -318,8 +321,18 @@ def summon_fsdp_for_validation(module: Module) -> Iterator[None]:
 
                     del m._fs2_backup_forward
 
+        def maybe_cast_dtype(t: Tensor) -> Tensor:
+            dtype = mp.param_dtype if isinstance(t, Parameter) else mp.buffer_dtype
+
+            if dtype is None:
+                return t
+
+            return t.to(dtype)
+
         with FSDP.summon_full_params(module, writeback=False):
             disable_fsdp_forward(module)
+
+            apply_to_parameters(module, maybe_cast_dtype)
 
             try:
                 yield
