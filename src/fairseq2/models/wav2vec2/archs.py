@@ -58,6 +58,7 @@ def _xlsr_base() -> Wav2Vec2Config:
     return config
 
 
+
 @wav2vec2_arch("base_conformer")
 def _base_conformer() -> Wav2Vec2Config:
     config = _xlsr_base()
