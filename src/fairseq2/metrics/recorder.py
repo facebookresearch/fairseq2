@@ -125,6 +125,7 @@ _metric_formatters: dict[str, _MetricFormatter] = {
     "total_num_elements":            _MetricFormatter("Total Number of Elements",        850, format_as_int),
     "total_num_source_elements":     _MetricFormatter("Total Number of Source Elements", 850, format_as_int),
     "total_num_target_elements":     _MetricFormatter("Total Number of Target Elements", 850, format_as_int),
+    "peak_gpu_memory_usage":         _MetricFormatter("Peak GPU Memory Usage (GB)",      870, format_as_float),
 
     # Sequence Generator Metrics
     "generator_prefill_size":        _MetricFormatter("Generator/Prefill Size",          900, format_as_int),

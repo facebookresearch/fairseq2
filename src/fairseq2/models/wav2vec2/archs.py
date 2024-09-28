@@ -50,6 +50,53 @@ def _large_lv60k() -> Wav2Vec2Config:
     return config
 
 
+@wav2vec2_arch("xlsr_base")
+def _xlsr_base() -> Wav2Vec2Config:
+    config = _large_lv60k()
+    config.encoder_config.attn_dropout_p = 0.0
+    config.encoder_config.feature_gradient_scale = 1.0
+    return config
+
+
+@wav2vec2_arch("1b")
+def _1b() -> Wav2Vec2Config:
+    config = _xlsr_base()
+
+    config.encoder_config.model_dim = 1280
+    config.encoder_config.num_encoder_layers = 48
+    config.encoder_config.ffn_inner_dim = 5120
+    config.encoder_config.dropout_p = 0.0
+    config.quantized_dim = 1024
+    config.final_dim = 1024
+    config.encoder_config.first_pass_dropout_p = 0.1
+
+    return config
+
+
+@wav2vec2_arch("2b")
+def _2b() -> Wav2Vec2Config:
+    config = _1b()
+
+    config.encoder_config.model_dim = 1920
+    config.encoder_config.ffn_inner_dim = 7680
+
+    return config
+
+
+@wav2vec2_arch("4b")
+def _4b() -> Wav2Vec2Config:
+    config = _2b()
+
+    config.quantized_dim = 1280
+    config.final_dim = 1280
+    config.encoder_config.num_encoder_layers = 64
+    config.encoder_config.model_dim = 2304
+    config.encoder_config.ffn_inner_dim = 9216
+    config.encoder_config.num_encoder_attn_heads = 32
+
+    return config
+
+
 @wav2vec2_arch("pseudo_dinosr_base")
 def _pseudo_dinosr_base() -> Wav2Vec2Config:
     layer_descs = [(512, 10, 5)] + [(512, 3, 2)] * 4 + [(512, 2, 2)] * 3
