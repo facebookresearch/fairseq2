@@ -8,11 +8,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal, Mapping
+from typing import Any, Literal
 
 import torch
 import torch.distributed
-from torch.nn import Module
 
 from fairseq2.assets import AssetNotFoundError, default_asset_store
 from fairseq2.checkpoint import CheckpointModelMetadataProvider, FileCheckpointManager
@@ -24,8 +23,6 @@ from fairseq2.datasets.preference import (
     PreferenceOptimizationBatch,
     load_preference_optimization_dataset,
 )
-from fairseq2.factory_registry import ConfigBoundFactoryRegistry
-from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.models import load_model
 from fairseq2.models.decoder import DecoderModel

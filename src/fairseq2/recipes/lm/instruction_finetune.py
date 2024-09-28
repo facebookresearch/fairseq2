@@ -29,7 +29,6 @@ from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.models import load_model
 from fairseq2.models.decoder import DecoderModel
-from fairseq2.models.llama.factory import llama_archs
 from fairseq2.models.sequence import (
     SequenceBatch,
     SequenceModelOutput,
