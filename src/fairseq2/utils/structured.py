@@ -34,11 +34,13 @@ from fairseq2.utils.dataclass import EMPTY
 class _StructureFn(Protocol):
     def __call__(
         self, type_: Any, type_args: tuple[Any, ...], obj: object, set_empty: bool
-    ) -> object: ...
+    ) -> object:
+        ...
 
 
 class _UnstructureFn(Protocol):
-    def __call__(self, obj: Any) -> object: ...
+    def __call__(self, obj: Any) -> object:
+        ...
 
 
 class ValueConverter:

@@ -35,7 +35,8 @@ class ConfigProvider(ABC, Generic[ConfigT_co]):
 class ConfigSupplier(Protocol[ConfigT_co]):
     """Supplies instances of ``ConfigT``."""
 
-    def __call__(self) -> ConfigT_co: ...
+    def __call__(self) -> ConfigT_co:
+        ...
 
 
 @final

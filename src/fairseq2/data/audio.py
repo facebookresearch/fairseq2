@@ -25,9 +25,11 @@ if TYPE_CHECKING or DOC_MODE:
             dtype: DataType | None = None,
             device: Device | None = None,
             pin_memory: bool = False,
-        ) -> None: ...
+        ) -> None:
+            ...
 
-        def __call__(self, memory_block: MemoryBlock) -> AudioDecoderOutput: ...
+        def __call__(self, memory_block: MemoryBlock) -> AudioDecoderOutput:
+            ...
 
     @final
     class WaveformToFbankConverter:
@@ -41,9 +43,11 @@ if TYPE_CHECKING or DOC_MODE:
             dtype: DataType | None = None,
             device: Device | None = None,
             pin_memory: bool = False,
-        ) -> None: ...
+        ) -> None:
+            ...
 
-        def __call__(self, waveform: WaveformToFbankInput) -> WaveformToFbankOutput: ...
+        def __call__(self, waveform: WaveformToFbankInput) -> WaveformToFbankOutput:
+            ...
 
 else:
     from fairseq2n.bindings.data.audio import AudioDecoder as AudioDecoder

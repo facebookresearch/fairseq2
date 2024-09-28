@@ -767,7 +767,8 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
         return next_step.first(self._beam_size)
 
     @abstractmethod
-    def _decode(self, seqs: Tensor) -> SequenceModelOutput: ...
+    def _decode(self, seqs: Tensor) -> SequenceModelOutput:
+        ...
 
     def _finish_sequence(self, seq_idx: int, score: Tensor) -> bool:
         self._seqs[seq_idx, self._step_nr] = self._eos_idx

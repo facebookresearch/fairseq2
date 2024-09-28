@@ -386,7 +386,8 @@ class CliCommandHandler(ABC):
 class Stoppable(Protocol):
     """Represents a task that supports graceful stopping."""
 
-    def request_stop(self) -> None: ...
+    def request_stop(self) -> None:
+        ...
 
 
 RecipeConfigT = TypeVar("RecipeConfigT", bound=DataClass)

@@ -40,14 +40,17 @@ R_co = TypeVar("R_co", covariant=True)
 class Factory(Protocol[ConfigT_contra, P, R_co]):
     def __call__(
         self, config: ConfigT_contra, *args: P.args, **kwargs: P.kwargs
-    ) -> R_co: ...
+    ) -> R_co:
+        ...
 
 
 class ConfigBoundFactory(Protocol[P, R_co]):
-    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R_co: ...
+    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R_co:
+        ...
 
     @property
-    def config(self) -> DataClass: ...
+    def config(self) -> DataClass:
+        ...
 
 
 @final

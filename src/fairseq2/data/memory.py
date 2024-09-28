@@ -20,10 +20,12 @@ if TYPE_CHECKING or DOC_MODE:
         """Represents a contiguous block of read-only memory."""
 
         @overload
-        def __init__(self) -> None: ...
+        def __init__(self) -> None:
+            ...
 
         @overload
-        def __init__(self, buffer: Buffer, copy: bool = False) -> None: ...
+        def __init__(self, buffer: Buffer, copy: bool = False) -> None:
+            ...
 
         def __init__(self, buffer: Buffer | None = None, copy: bool = False) -> None:
             """
@@ -33,9 +35,11 @@ if TYPE_CHECKING or DOC_MODE:
                 If ``True``, copies ``buffer``.
             """
 
-        def __len__(self) -> int: ...
+        def __len__(self) -> int:
+            ...
 
-        def __bytes__(self) -> bytes: ...
+        def __bytes__(self) -> bytes:
+            ...
 
 else:
     from fairseq2n.bindings.memory import MemoryBlock as MemoryBlock

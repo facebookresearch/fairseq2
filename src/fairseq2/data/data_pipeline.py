@@ -43,7 +43,8 @@ if TYPE_CHECKING or DOC_MODE:
                 If ``True``, resets all random number generators in the pipeline.
             """
 
-        def is_infinite(self) -> bool: ...
+        def is_infinite(self) -> bool:
+            ...
 
         @property
         def is_broken(self) -> bool:
@@ -369,7 +370,8 @@ if TYPE_CHECKING or DOC_MODE:
     class DataPipelineError(RuntimeError):
         """Raised when an error occurs while reading from a data pipeline."""
 
-    def get_last_failed_example() -> Any: ...
+    def get_last_failed_example() -> Any:
+        ...
 
     def list_files(path: Path, pattern: str | None = None) -> DataPipelineBuilder:
         """List recursively all files under ``path`` that matches ``pattern``.
@@ -435,16 +437,20 @@ if TYPE_CHECKING or DOC_MODE:
             selector: str,
             pad_value: int | None = None,
             pad_to_multiple: int = 1,
-        ) -> None: ...
+        ) -> None:
+            ...
 
         @property
-        def selector(self) -> str: ...
+        def selector(self) -> str:
+            ...
 
         @property
-        def pad_value(self) -> int | None: ...
+        def pad_value(self) -> int | None:
+            ...
 
         @property
-        def pad_to_multiple(self) -> int: ...
+        def pad_to_multiple(self) -> int:
+            ...
 
     @final
     class Collater:
@@ -485,7 +491,8 @@ if TYPE_CHECKING or DOC_MODE:
             pad_value: int | None = None,
             pad_to_multiple: int = 1,
             overrides: Sequence[CollateOptionsOverride] | None = None,
-        ) -> None: ...
+        ) -> None:
+            ...
 
         def __call__(self, data: Any) -> Any:
             """Concatenate the input tensors"""
@@ -512,7 +519,8 @@ if TYPE_CHECKING or DOC_MODE:
             self,
             root_dir: Path | None = None,
             cached_fd_count: int | None = None,
-        ) -> None: ...
+        ) -> None:
+            ...
 
         def __call__(self, pathname: str) -> FileMapperOutput:
             """Parses the pathname and returns the file bytes.
