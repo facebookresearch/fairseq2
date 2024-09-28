@@ -95,6 +95,7 @@ def _base_10h() -> Wav2Vec2AsrEvalConfig:
     return Wav2Vec2AsrEvalConfig()
 
 
+@torch.inference_mode()
 def load_wav2vec2_asr_evaluator(
     config: Wav2Vec2AsrEvalConfig, output_dir: Path
 ) -> Evaluator[Seq2SeqBatch]:

@@ -97,6 +97,7 @@ def _base_ls960h() -> Wav2Vec2EvalConfig:
     return Wav2Vec2EvalConfig()
 
 
+@torch.inference_mode()
 def load_wav2vec2_evaluator(
     config: Wav2Vec2EvalConfig, output_dir: Path
 ) -> Evaluator[SequenceBatch]:
