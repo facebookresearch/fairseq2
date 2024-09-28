@@ -23,7 +23,7 @@ from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.models import create_model
 from fairseq2.models.sequence import SequenceBatch
-from fairseq2.models.wav2vec2 import Wav2Vec2Config, Wav2Vec2Model
+from fairseq2.models.wav2vec2 import Wav2Vec2Model
 from fairseq2.optim import AdamWConfig, create_optimizer
 from fairseq2.optim.lr_scheduler import PolynomialDecayLRConfig, create_lr_scheduler
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
@@ -186,9 +186,7 @@ wav2vec2_train_preset = wav2vec2_train_presets.decorator
 def _base_960h() -> Wav2Vec2TrainConfig:
     config = Wav2Vec2TrainConfig()
 
-    assert isinstance(config.model_config, Wav2Vec2Config)
-
-    config.model_config.encoder_config.first_pass_dropout_p = 0.1
+    config.model_config = {"encoder_config": {"first_pass_dropout_p": 0.1}}
 
     return config
 
@@ -284,7 +282,6 @@ def load_wav2vec2_trainer(
         gang,
         config.data_parallelism,
         log,
-        fsdp_skip_init=True,
         fsdp_broadcast_state=not has_checkpoint,
         fsdp_mixed_precision_dtype=config.dtype,
         fsdp_fp32_reduce=True,
