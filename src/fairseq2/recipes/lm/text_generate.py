@@ -53,6 +53,9 @@ class TextGenerateConfig:
     dataset: AssetReference = "foo"  # TODO: change!
     """The name, path, or path to the asset card of the instruction dataset."""
 
+    split: str = "default"
+    """The name of the data split."""
+
     max_seq_len: int = 8192
     """The maximum sequence length."""
 
@@ -275,6 +278,7 @@ def load_text_generator(
 
     try:
         data_reader = dataset.create_prompt_reader(
+            config.split,
             tokenizer,
             dp_gang,
             config.max_seq_len,

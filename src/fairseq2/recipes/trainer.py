@@ -892,7 +892,6 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             self._validate_every_n_data_epochs,
         )
 
-    @torch.inference_mode()
     def _validate(self) -> None:
         log.info("Starting validation after step {}.", self._step_nr)
 
@@ -915,12 +914,11 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         log.info("Validation complete.")
 
+    @torch.inference_mode()
     def _validate_unit(
         self, unit: EvalUnit[BatchT], data_reader: DataReader[BatchT]
     ) -> float | None:
         watch = Stopwatch(start=True, device=self._root_gang.device)
-
-        unit.model.eval()
 
         unit.set_step_nr(self._step_nr)
 
