@@ -15,9 +15,6 @@ from fairseq2.recipes.lm.preference_finetune.recipe import (
 from fairseq2.recipes.lm.preference_finetune.recipe import (
     preference_finetune_presets as preference_finetune_presets,
 )
-from fairseq2.recipes.lm.preference_finetune.recipe import (
-    preference_unit_factories as preference_unit_factories,
-)
 from fairseq2.recipes.lm.preference_finetune.simpo import SimPOConfig as SimPOConfig
 from fairseq2.recipes.lm.preference_finetune.utils import (
     preference_unit_factory as preference_unit_factory,
