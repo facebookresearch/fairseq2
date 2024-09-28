@@ -394,7 +394,6 @@ def load_wav2vec2_asr_trainer(
         config.data_parallelism,
         log,
         ddp_find_unused_parameters=config.freeze_encoder_for_n_steps > 0,
-        fsdp_skip_init=True,
         fsdp_broadcast_state=not has_checkpoint,
         fsdp_mixed_precision_dtype=config.dtype,
         fsdp_fp32_reduce=True,

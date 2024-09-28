@@ -64,9 +64,7 @@ def to_fsdp(
     :param ignored_param_names:
         The ignored parameter names. Can contain regular expressions.
     :param skip_init:
-        If ``True``, skips initializing the parameters and buffers moved from
-        the meta device onto the device of ``gang``. Only relevant if ``module``
-        resides on the meta device.
+        Not used.
     :param broadcast_state:
         If ``True``, each FSDP module will broadcast its parameters and buffers
         from rank 0 to ensure that they are replicated across all processes.
@@ -115,10 +113,17 @@ def to_fsdp(
     if memory_policy is None:
         memory_policy = FSDP_STANDARD_MEMORY_POLICY
 
+    if skip_init:
+        log.warning("`skip_init` parameter has no effect and will be removed in a future release.")  # fmt: skip
+
     param_init_fn = None
 
     module_device = infer_device(module)
     if module_device.type == "meta":
+        if gang.rank == 0:
+            skip_init = not broadcast_state
+        else:
+            skip_init = True
         param_init_fn = FSDPParameterInitializer(gang.device, skip_init)
 
     if mixed_precision_dtype is None:

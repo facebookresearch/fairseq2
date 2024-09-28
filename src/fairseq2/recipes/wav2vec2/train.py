@@ -297,7 +297,6 @@ def load_wav2vec2_trainer(
         gang,
         config.data_parallelism,
         log,
-        fsdp_skip_init=True,
         fsdp_broadcast_state=not has_checkpoint,
         fsdp_mixed_precision_dtype=config.dtype,
         fsdp_fp32_reduce=True,

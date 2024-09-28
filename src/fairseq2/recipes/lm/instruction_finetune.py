@@ -338,7 +338,6 @@ def load_instruction_finetuner(
         dp_gang,
         config.data_parallelism,
         log,
-        fsdp_skip_init=True,
         fsdp_broadcast_state=not has_checkpoint,
         fsdp_reshard_after_forward=config.fsdp_reshard_after_forward,
         fsdp_mixed_precision_dtype=config.dtype,
