@@ -206,7 +206,7 @@ def share_parameters(source_module: Module, target_module: Module) -> None:
 
     # Do not memoize. No need anyways, and would also break the sync between the
     # traversed tensors and the iterator.
-    apply_to_parameters(target_module, lambda _: next(it), recurse=True, no_memo=True)
+    apply_to_parameters(target_module, lambda _: next(it), no_memo=True)
 
 
 def apply_to_parameters(

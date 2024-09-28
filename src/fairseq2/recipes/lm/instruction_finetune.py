@@ -39,6 +39,7 @@ from fairseq2.nn.transformer import enable_memory_efficient_torch_sdpa
 from fairseq2.optim import AdamWConfig, create_optimizer
 from fairseq2.optim.lr_scheduler import CosineAnnealingLRConfig, create_lr_scheduler
 from fairseq2.recipes.common_metrics import SequenceMetricBag
+from fairseq2.recipes.evaluator import AbstractEvalUnit
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
 from fairseq2.recipes.utils.asset import (
     AssetReference,
@@ -67,11 +68,20 @@ class InstructionFinetuneConfig:
     dataset: AssetReference = "foo"  # TODO: change!
     """The name, path, or path to the asset card of the instruction dataset."""
 
+    train_split: str = "default"
+    """The name of the train data split."""
+
+    valid_split: str = "valid"
+    """The name of the valid data split."""
+
     max_seq_len: int = 8192
     """The maximum sequence length."""
 
     max_num_tokens: int = 8192 * 2
     """The maximum number of tokens per batch."""
+
+    max_num_valid_tokens: int = 8192 * 2
+    """The maximum number of tokens per validation batch."""
 
     example_shuffle_window: int = 10_000
     """The size of the sliding window for shuffling examples."""
@@ -151,6 +161,15 @@ class InstructionFinetuneConfig:
     max_num_data_epochs: int | None = None
     """The maximum number of data epochs to train for."""
 
+    validate: bool = False
+    """If ``True``, runs validation."""
+
+    validate_after_n_steps: int = 0
+    """The number of steps after which to start validating the model."""
+
+    validate_every_n_steps: int = 100
+    """The step interval at which to validate the model."""
+
     checkpoint_every_n_steps: int = 1000
     """The step interval at which to checkpoint."""
 
@@ -198,6 +217,7 @@ def _llama2_7b_chat() -> InstructionFinetuneConfig:
 
     config.max_seq_len = 4096
     config.max_num_tokens = 4096 * 2
+    config.max_num_valid_tokens = 4096 * 2
     config.model = "llama2_7b_chat"
 
     return config
@@ -380,11 +400,12 @@ def load_instruction_finetuner(
     # Initialize the criterion.
     criterion = InstructionFinetuneCriterion(dp_model)
 
-    # Initialize the train unit.
+    # Initialize the unit.
     unit = InstructionFinetuneUnit(criterion, dp_gang)
 
     try:
         data_reader = dataset.create_reader(
+            config.train_split,
             tokenizer,
             dp_gang,
             config.max_seq_len,
@@ -425,6 +446,39 @@ def load_instruction_finetuner(
             "The learning rate scheduler cannot be created. See nested exception for details."
         ) from ex
 
+    # Initialize the validation unit.
+    if config.validate:
+        valid_unit = InstructionValidUnit(criterion, dp_gang)
+
+        try:
+            valid_data_reader = dataset.create_reader(
+                config.valid_split,
+                tokenizer,
+                dp_gang,
+                config.max_seq_len,
+                batching=LengthBatching(config.max_num_valid_tokens),
+                example_shuffle_window=config.example_shuffle_window,
+                batch_shuffle_window=config.batch_shuffle_window,
+                sync_mode="until_last",
+                num_accumulate=config.gradient_accumulation,
+                num_prefetch=config.num_prefetch,
+                seed=seed,
+            )
+        except ValueError as ex:
+            raise ValueError(
+                "The data reader cannot be initialized. See nested exception for details."
+            ) from ex
+
+        valid_units = [valid_unit]
+
+        valid_data_readers = [valid_data_reader]
+    else:
+        valid_units = None
+
+        valid_data_readers = None
+
+    seed += 1
+
     # Initialize the trainer.
     return Trainer[SequenceBatch](
         unit=unit,
@@ -440,6 +494,10 @@ def load_instruction_finetuner(
         max_gradient_norm=config.max_gradient_norm,
         max_num_steps=config.max_num_steps,
         max_num_data_epochs=config.max_num_data_epochs,
+        valid_units=valid_units,
+        valid_data_readers=valid_data_readers,
+        validate_after_n_steps=config.validate_after_n_steps,
+        validate_every_n_steps=config.validate_every_n_steps,
         checkpoint_manager=checkpoint_manager,
         checkpoint_every_n_steps=config.checkpoint_every_n_steps,
         checkpoint_every_n_data_epochs=config.checkpoint_every_n_data_epochs,
@@ -471,6 +529,28 @@ class InstructionFinetuneUnit(AbstractTrainUnit[SequenceBatch]):
     @override
     def __call__(self, batch: SequenceBatch) -> tuple[Tensor, int]:
         return self._criterion(batch, self._metric_bag)
+
+    @property
+    @override
+    def metric_bag(self) -> SequenceMetricBag:
+        return self._metric_bag
+
+
+@final
+class InstructionValidUnit(AbstractEvalUnit[SequenceBatch]):
+    _criterion: InstructionFinetuneCriterion
+    _metric_bag: SequenceMetricBag
+
+    def __init__(self, criterion: InstructionFinetuneCriterion, gang: Gang) -> None:
+        super().__init__(criterion.model)
+
+        self._criterion = criterion
+
+        self._metric_bag = SequenceMetricBag(gang)
+
+    @override
+    def __call__(self, batch: SequenceBatch) -> None:
+        self._criterion(batch, self._metric_bag)
 
     @property
     @override

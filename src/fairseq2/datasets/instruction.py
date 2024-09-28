@@ -10,7 +10,7 @@ import json
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Literal, cast, final
+from typing import Any, Literal, NoReturn, cast, final
 
 import torch
 from typing_extensions import override
@@ -41,6 +41,7 @@ class InstructionDataset(ABC):
     @abstractmethod
     def create_reader(
         self,
+        split: str,
         tokenizer: TextTokenizer,
         gang: Gang,
         max_seq_len: int,
@@ -60,6 +61,8 @@ class InstructionDataset(ABC):
     ) -> DataReader[SequenceBatch]:
         """Create a dataset reader.
 
+        :param split:
+            The split to read.
         :param tokenizer:
             The tokenizer to encode text.
         :param gang:
@@ -110,6 +113,7 @@ class InstructionDataset(ABC):
     @abstractmethod
     def create_prompt_reader(
         self,
+        split: str,
         tokenizer: TextTokenizer,
         gang: Gang,
         max_seq_len: int,
@@ -123,6 +127,8 @@ class InstructionDataset(ABC):
     ) -> DataPipelineReader[SequenceBatch]:
         """Create a dataset reader for evaluation.
 
+        :param split:
+            The split to read.
         :param tokenizer:
             The tokenizer to encode text.
         :param gang:
@@ -147,6 +153,10 @@ class InstructionDataset(ABC):
             The extra parameters specific to the dataset implementation.
         """
 
+    @abstractmethod
+    def splits(self) -> set[str]:
+        """Return the set of splits."""
+
 
 load_instruction_dataset = DelegatingDatasetLoader[InstructionDataset]()
 
@@ -160,34 +170,47 @@ npc = 10
 class GenericInstructionDataset(InstructionDataset):
     """Represents a generic JSONL instruction dataset."""
 
-    _files: Sequence[Path]
-    _weights: Sequence[float]
+    _splits: dict[str, tuple[Sequence[Path], Sequence[float]]]
 
-    def __init__(self, files: Sequence[Path], weights: Sequence[float]) -> None:
+    def __init__(
+        self, splits: dict[str, tuple[Sequence[Path], Sequence[float]]]
+    ) -> None:
         """
         :param files:
             The instruction files.
         :param weights:
             The weight of each file in ``files``.
         """
-        if len(files) != len(weights):
-            raise ValueError(
-                f"The lengths of `files` and `weights` must match, but they are {len(files)} and {len(weights)} instead."
-            )
+        for split, (files, weights) in splits.items():
+            if len(files) != len(weights):
+                raise ValueError(
+                    f"The lengths of the file and weight lists of the '{split}' split must match, but they are {len(files)} and {len(weights)} instead."
+                )
 
-        self._files = files
-        self._weights = weights
+        self._splits = splits
 
     @classmethod
     def from_path(cls, path: Path) -> GenericInstructionDataset:
         """Load a :class:`InstructionDataset` from ``path``."""
-        files, weights = _load_files_and_weights(path)
+        splits: dict[str, tuple[Sequence[Path], Sequence[float]]] = {}
 
-        return GenericInstructionDataset(files, weights)
+        for child_path in path.iterdir():
+            if child_path.is_dir():
+                files, weights = _load_files_and_weights(child_path)
+
+                splits[child_path.name] = (files, weights)
+
+        if not splits:
+            files, weights = _load_files_and_weights(path)
+
+            splits["default"] = (files, weights)
+
+        return GenericInstructionDataset(splits)
 
     @override
     def create_reader(
         self,
+        split: str,
         tokenizer: TextTokenizer,
         gang: Gang,
         max_seq_len: int,
@@ -205,20 +228,23 @@ class GenericInstructionDataset(InstructionDataset):
         seed: int = 2,
         **extras: Any,
     ) -> DataPipelineReader[SequenceBatch]:
-        if len(self._files) == 1:
-            builder = self._read_jsonl(self._files[0], tokenizer)
+        try:
+            files, weights = self._splits[split]
+        except KeyError:
+            self._raise_split_error(split)
+
+        if len(files) == 1:
+            builder = self._read_jsonl(files[0], tokenizer)
         else:
             pipelines = []
 
-            for file in self._files:
+            for file in files:
                 pipeline = self._read_jsonl(file, tokenizer).and_return()
 
                 pipelines.append(pipeline)
 
             if sample:
-                builder = DataPipeline.sample(
-                    pipelines, weights=self._weights, seed=seed
-                )
+                builder = DataPipeline.sample(pipelines, weights=weights, seed=seed)
 
                 seed += 1
             else:
@@ -326,6 +352,7 @@ class GenericInstructionDataset(InstructionDataset):
     @override
     def create_prompt_reader(
         self,
+        split: str,
         tokenizer: TextTokenizer,
         gang: Gang,
         max_seq_len: int,
@@ -337,12 +364,17 @@ class GenericInstructionDataset(InstructionDataset):
         num_prefetch: int = 1,
         **extras: Any,
     ) -> DataPipelineReader[SequenceBatch]:
-        if len(self._files) == 1:
-            builder = self._read_jsonl(self._files[0], tokenizer)
+        try:
+            files, weights = self._splits[split]
+        except KeyError:
+            self._raise_split_error(split)
+
+        if len(files) == 1:
+            builder = self._read_jsonl(files[0], tokenizer)
         else:
             pipelines = []
 
-            for file in self._files:
+            for file in files:
                 pipeline = self._read_jsonl(file, tokenizer).and_return()
 
                 pipelines.append(pipeline)
@@ -410,6 +442,15 @@ class GenericInstructionDataset(InstructionDataset):
                 lines.append(line)
 
         return read_sequence(lines).map(json.loads, num_parallel_calls=npc)
+
+    def _raise_split_error(self, split: str) -> NoReturn:
+        raise ValueError(
+            f"`split` must be one of the following splits, but is '{split}' instead: {', '.join(sorted(self._splits.keys()))}"
+        ) from None
+
+    @override
+    def splits(self) -> set[str]:
+        return set(self._splits.keys())
 
 
 @final
