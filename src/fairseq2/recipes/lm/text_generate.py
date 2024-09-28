@@ -144,6 +144,7 @@ def _llama3_1_70b_instruct() -> TextGenerateConfig:
     return config
 
 
+@torch.inference_mode()
 def load_text_generator(
     config: TextGenerateConfig, output_dir: Path
 ) -> Generator[SequenceBatch]:

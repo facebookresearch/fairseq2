@@ -112,6 +112,7 @@ def _nllb_dense_600m() -> MTEvalConfig:
     return MTEvalConfig()
 
 
+@torch.inference_mode()
 def load_mt_evaluator(
     config: MTEvalConfig, output_dir: Path
 ) -> Evaluator[Seq2SeqBatch]:

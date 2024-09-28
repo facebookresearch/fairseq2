@@ -102,6 +102,7 @@ def _nllb_dense_600m() -> TextTranslateConfig:
     return TextTranslateConfig()
 
 
+@torch.inference_mode()
 def load_text_translator(
     config: TextTranslateConfig, output_dir: Path
 ) -> Generator[SequenceBatch]:

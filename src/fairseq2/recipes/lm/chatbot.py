@@ -108,6 +108,7 @@ class ChatbotCommandHandler(CliCommandHandler):
         )
 
     @override
+    @torch.inference_mode()
     def __call__(self, args: Namespace, container: DependencyContainer) -> None:
         setup_basic_logging()
 
