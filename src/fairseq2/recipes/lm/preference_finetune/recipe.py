@@ -91,8 +91,14 @@ class PreferenceOptimizationConfig:
     dtype: DataType = torch.bfloat16
     """The data type of the model."""
 
-    mixed_precision: bool = True
-    """If ``True``, the model will be trained in mixed precision."""
+    mixed_precision: Literal["none", "static", "dynamic"] = "static"
+    """
+    If 'none', the whole training will be run in `dtype`. If 'static', forward
+    and backward passes will be run in `dtype`, but the optimizer step will be
+    run in full precision. If 'dynamic', forward and backward passes will be run
+    with `torch.amp` in `dtype`, but the optimizer step will be run in full
+    precision.
+    """
 
     data_parallelism: Literal["ddp", "fsdp"] = "fsdp"
     """The data parallelism API to use."""
@@ -289,7 +295,7 @@ def load_preference_finetuner(
 
     init_device = META
 
-    dtype = torch.float32 if config.mixed_precision else config.dtype
+    dtype = config.dtype if config.mixed_precision == "none" else torch.float32
 
     has_checkpoint = checkpoint_manager.has_checkpoint()
 
@@ -333,6 +339,8 @@ def load_preference_finetuner(
 
     checkpoint_manager.save_model_metadata(base_asset=model_card.name)
 
+    mp_dtype = config.dtype if config.mixed_precision == "static" else None
+
     dp_model = to_data_parallel(
         model,
         dp_gang,
@@ -340,7 +348,7 @@ def load_preference_finetuner(
         log,
         fsdp_broadcast_state=not has_checkpoint,
         fsdp_reshard_after_forward=config.fsdp_reshard_after_forward,
-        fsdp_mixed_precision_dtype=config.dtype if config.mixed_precision else None,
+        fsdp_mixed_precision_dtype=mp_dtype,
         fsdp_fp32_reduce=True,
         fsdp_wrap_granularity=config.fsdp_wrap_granularity,
     )
@@ -422,6 +430,12 @@ def load_preference_finetuner(
             "The learning rate scheduler cannot be created. See nested exception for details."
         ) from ex
 
+    # TODO: Fix once we support static mixed precision on one device.
+    if config.mixed_precision == "static":
+        amp = root_gang.size == 1 or config.data_parallelism != "fsdp"
+    else:
+        amp = config.mixed_precision == "dynamic"
+
     # Initialize the trainer.
     return Trainer[PreferenceOptimizationBatch](
         unit=unit,
@@ -432,9 +446,9 @@ def load_preference_finetuner(
         dtype=config.dtype,
         optimizer=optimizer,
         lr_scheduler=lr_scheduler,
-        amp=config.mixed_precision,
         fp16_loss_scale=config.fp16_loss_scale,
         max_gradient_norm=config.max_gradient_norm,
+        amp=amp,
         max_num_steps=config.max_num_steps,
         max_num_data_epochs=config.max_num_data_epochs,
         checkpoint_manager=checkpoint_manager,

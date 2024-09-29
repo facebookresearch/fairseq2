@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from contextlib import AbstractContextManager, nullcontext
 from itertools import count
 from pathlib import Path
 from typing import Generic, TypeVar, final
@@ -27,7 +28,7 @@ from fairseq2.metrics import (
 )
 from fairseq2.recipes.common_metrics import extend_batch_metrics
 from fairseq2.recipes.utils.cli import create_rich_progress
-from fairseq2.typing import CPU
+from fairseq2.typing import CPU, DataType
 from fairseq2.utils.profiler import Stopwatch
 from fairseq2.utils.rng import RngBag
 
@@ -79,6 +80,8 @@ class Generator(Generic[BatchT]):
     _root_gang: Gang
     _dp_gang: Gang
     _tp_gang: Gang
+    _dtype: DataType
+    _amp: bool
     _metric_recorders: list[MetricRecorder]
     _seed: int
     _wall_watch: Stopwatch
@@ -93,6 +96,8 @@ class Generator(Generic[BatchT]):
         wall_watch: Stopwatch,
         dp_gang: Gang | None = None,
         tp_gang: Gang | None = None,
+        dtype: DataType = torch.float32,
+        amp: bool = False,
         metrics_dir: Path | None = None,
         seed: int = 2,
     ) -> None:
@@ -109,6 +114,10 @@ class Generator(Generic[BatchT]):
             The data parallel gang. If ``None``, ``gang`` will be used.
         :param tp_gang:
             The tensor parallel gang. Only required for tensor parallel models.
+        :param dtype:
+            The data type of the model.
+        :param amp:
+            If ``True``, enables ``torch.amp``.
         :param metrics_dir:
             The directory to dump metrics.
         :param seed:
@@ -134,6 +143,10 @@ class Generator(Generic[BatchT]):
                 raise ValueError(
                     f"The coordinator process of `root_gang` (i.e. rank 0) must be rank 0 in `dp_gang` and `tp_gang`, but is {self._dp_gang.rank} and {self._tp_gang.rank} instead."
                 )
+
+        self._dtype = dtype
+
+        self._amp = amp
 
         if root_gang.rank == 0:
             self._metric_recorders = [LogMetricRecorder(log)]
@@ -194,11 +207,18 @@ class Generator(Generic[BatchT]):
                     break
 
                 for batch in batches:
-                    self._unit(batch)
+                    with self._maybe_autocast():
+                        self._unit(batch)
 
                 num_effective_batches += 1
 
         self._publish_metrics(num_effective_batches, watch.get_elapsed_time())
+
+    def _maybe_autocast(self) -> AbstractContextManager[None]:
+        if self._dtype == torch.float32 or not self._amp:
+            return nullcontext()
+
+        return torch.autocast(device_type=self._dp_gang.device.type, dtype=self._dtype)
 
     def _publish_metrics(self, num_batches: int, elapsed_time: float) -> None:
         log.debug("Syncing metrics.")
