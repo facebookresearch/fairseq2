@@ -231,10 +231,10 @@ if TYPE_CHECKING or DOC_MODE:
             self,
             threshold: float,
             cost_fn: Callable[[Any], float],
-            bucket_creation_fn: Callable[
-                [Sequence[Any]], tuple[Sequence[Sequence[Any]], Sequence[Any]]
-            ]
-            | None = None,
+            bucket_creation_fn: (
+                Callable[[Sequence[Any]], tuple[Sequence[Sequence[Any]], Sequence[Any]]]
+                | None
+            ) = None,
             min_num_examples: int | None = None,
             max_num_examples: int | None = None,
             drop_remainder: bool = False,

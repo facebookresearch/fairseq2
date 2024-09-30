@@ -21,11 +21,13 @@ from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.metrics.recorder import format_as_float, register_metric_formatter
 from fairseq2.models.sequence import SequenceModelOutput, as_auto_regressive_input
-from fairseq2.recipes.lm.preference_finetune.recipe import preference_unit_factory
+
+# from fairseq2.recipes.lm.preference_finetune.recipe import preference_unit_factory
 from fairseq2.recipes.lm.preference_finetune.utils import (
     PreferenceFinetuneMetricBag,
     _gather_lprobs,
     _load_reference_model,
+    preference_unit_factory,
 )
 from fairseq2.recipes.trainer import AbstractTrainUnit
 from fairseq2.recipes.utils.asset import AssetReference
@@ -170,7 +172,7 @@ class DpoConfig:
     """Holds the DPO configuration of a language model preference-finetuning task."""
 
     # Reference Model
-    reference_model: AssetReference = "llama3_8b_instruct"
+    reference_model: AssetReference = "llama3_1_8b_instruct"
     """The name, path, or path to the asset card of the reference model."""
 
     reference_dtype: DataType = torch.bfloat16
