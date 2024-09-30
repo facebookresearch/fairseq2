@@ -124,6 +124,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     _lr_scheduler: LRScheduler
     _loss_scaler: DynamicLossScaler
     _max_gradient_norm: float | None
+    _amp: bool
     _step_nr: int
     _max_num_steps: int | None
     _data_epoch_nr: int
@@ -179,13 +180,13 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         optimizer: Optimizer,
         checkpoint_manager: CheckpointManager,
         wall_watch: Stopwatch,
-        dtype: DataType = torch.float32,
         dp_gang: Gang | None = None,
         tp_gang: Gang | None = None,
+        dtype: DataType = torch.float32,
         lr_scheduler: LRScheduler | None = None,
-        amp: bool = True,
         fp16_loss_scale: tuple[float, float] = (128.0, 0.0001),
         max_gradient_norm: float | None = None,
+        amp: bool = False,
         max_num_steps: int | None = None,
         max_num_data_epochs: int | None = None,
         score_metric_name: str | None = None,
@@ -229,7 +230,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         :param wall_watch:
             The stopwatch to track process wall-time.
         :param dtype:
-            The data type to train with.
+            The data type of the model.
         :param dp_gang:
             The data parallel gang. If ``None``, ``gang`` will be used.
         :param tp_gang:
@@ -237,9 +238,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         :param lr_scheduler:
             The learning rate scheduler.
         :param amp:
-            If ``True``, enables automatic mixed precision (i.e. ``torch.amp``).
-            If the model is trained with mixed precision DDP or FSDP, it takes
-            precedence over this setting and no autocast will be applied.
+            If ``True``, enables ``torch.amp``.
         :param fp16_loss_scale:
             The initial and minimum loss scale for fp16 training.
         :param max_gradient_norm:
@@ -345,8 +344,6 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._lr_scheduler = lr_scheduler or NoopLR(optimizer)
 
-        self._amp = amp
-
         fp16_init_scale, fp16_min_scale = fp16_loss_scale
 
         self._loss_scaler = DynamicLossScaler(
@@ -360,6 +357,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         )
 
         self._max_gradient_norm = max_gradient_norm
+
+        self._amp = amp
 
         self.register_stateful("_step_nr", 0)
 
@@ -832,11 +831,6 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         if self._dtype == torch.float32 or not self._amp:
             return nullcontext()
 
-        if self._model.training and isinstance(self._model, (DDP, FSDP)):
-            mp = self._model.mixed_precision
-            if mp is not None and mp.param_dtype is not None:
-                return nullcontext()
-
         return torch.autocast(device_type=self._dp_gang.device.type, dtype=self._dtype)
 
     def _should_publish_metrics(self) -> bool:
@@ -895,9 +889,9 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     def _validate(self) -> None:
         log.info("Starting validation after step {}.", self._step_nr)
 
-        with summon_fsdp_for_validation(self._model):
-            self._model.eval()
+        self._model.eval()
 
+        with summon_fsdp_for_validation(self._model):
             unit_scores = []
 
             for unit, data_reader in zip(self._valid_units, self._valid_data_readers):
@@ -910,7 +904,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
             self._valid_score = self._compute_valid_score(unit_scores)
 
-            self._model.train()
+        self._model.train()
 
         log.info("Validation complete.")
 

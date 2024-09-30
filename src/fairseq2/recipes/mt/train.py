@@ -424,6 +424,9 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
 
             valid_data_readers.append(valid_data_reader)
 
+    # TODO: Fix once we support static mixed precision on one device.
+    amp = gang.size == 1 or config.data_parallelism != "fsdp"
+
     # Initialize the trainer.
     return Trainer[Seq2SeqBatch](
         unit=unit,
@@ -434,6 +437,7 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
         lr_scheduler=lr_scheduler,
         fp16_loss_scale=config.fp16_loss_scale,
         max_gradient_norm=config.max_gradient_norm,
+        amp=amp,
         max_num_steps=config.max_num_steps,
         max_num_data_epochs=config.max_num_data_epochs,
         score_metric_name="chrf" if config.compute_bleu_chrf else None,

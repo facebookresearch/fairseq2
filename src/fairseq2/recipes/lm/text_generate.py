@@ -75,6 +75,9 @@ class TextGenerateConfig:
     dtype: DataType = torch.bfloat16
     """The data type of the model."""
 
+    amp: bool = False
+    """If ``True``, runs evaluation with ``torch.amp``."""
+
     tensor_parallel_size: int = 1
     """The size of tensor parallelism."""
 
@@ -301,6 +304,8 @@ def load_text_generator(
         root_gang=root_gang,
         dp_gang=dp_gang,
         tp_gang=tp_gang,
+        dtype=config.dtype,
+        amp=config.amp,
         metrics_dir=output_dir.joinpath("metrics"),
         seed=seed,
         wall_watch=wall_watch,

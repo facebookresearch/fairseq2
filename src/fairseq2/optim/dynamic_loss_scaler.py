@@ -32,7 +32,7 @@ class DynamicLossScaler:
     _optimizer: Optimizer
     _scale_window: int
     _min_scale: float
-    _is_enabled: bool
+    _enabled: bool
 
     # compat: consolidate into `GradScaler` once we cease support for PT2.2
     _grad_scaler: GradScaler | ShardedGradScaler
@@ -125,7 +125,7 @@ class DynamicLossScaler:
         self._optimizer = optimizer
         self._scale_window = scale_window
         self._min_scale = min_scale
-        self._is_enabled = enabled
+        self._enabled = enabled
 
     def state_dict(self) -> dict[str, Any]:
         return {"grad_scaler": self._grad_scaler.state_dict()}
@@ -194,7 +194,7 @@ class DynamicLossScaler:
 
     def unscale_gradients_(self) -> None:
         """Unscale the associated optimizer's gradients by the current scale."""
-        if not supports_manual_gradient_scaling(self._optimizer):
+        if self._enabled and not supports_manual_gradient_scaling(self._optimizer):
             raise RuntimeError(
                 "`optimizer` must support manual gradient scaling via `torch.cuda.amp.GradScaler`, but supports only implicit scaling in its step function (i.e. `_step_supports_amp_scaling == True`)."
             )
@@ -212,7 +212,7 @@ class DynamicLossScaler:
     @property
     def is_enabled(self) -> bool:
         """``True`` if the loss scaling is enabled."""
-        return self._is_enabled
+        return self._enabled
 
 
 @final

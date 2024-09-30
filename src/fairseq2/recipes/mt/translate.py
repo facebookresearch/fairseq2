@@ -78,6 +78,9 @@ class TextTranslateConfig:
     dtype: DataType = torch.float16
     """The data type of the model."""
 
+    amp: bool = False
+    """If ``True``, runs evaluation with ``torch.amp``."""
+
     # Generation
     generator: str = "beam_search"
     """The sequence generator."""
@@ -245,6 +248,8 @@ def load_text_translator(
         unit=unit,
         data_reader=data_reader,
         root_gang=gang,
+        dtype=config.dtype,
+        amp=config.amp,
         metrics_dir=output_dir.joinpath("metrics"),
         seed=seed,
         wall_watch=wall_watch,
