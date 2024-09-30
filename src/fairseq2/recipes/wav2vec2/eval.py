@@ -75,6 +75,9 @@ class Wav2Vec2EvalConfig:
     dtype: DataType = torch.float16
     """The data type of the model."""
 
+    amp: bool = False
+    """If ``True``, runs evaluation with ``torch.amp``."""
+
     # Loss
     diversity_loss_weight: float = 0.1
     """The weight of the diversity loss."""
@@ -97,6 +100,7 @@ def _base_ls960h() -> Wav2Vec2EvalConfig:
     return Wav2Vec2EvalConfig()
 
 
+@torch.inference_mode()
 def load_wav2vec2_evaluator(
     config: Wav2Vec2EvalConfig, output_dir: Path
 ) -> Evaluator[SequenceBatch]:
@@ -182,6 +186,7 @@ def load_wav2vec2_evaluator(
             dtype=config.dtype,
             min_audio_len=config.min_audio_len,
             normalize_audio=config.normalize_audio,
+            sync_mode="until_last",
             num_prefetch=config.num_prefetch,
             seed=seed,
         )
@@ -197,6 +202,8 @@ def load_wav2vec2_evaluator(
         units=[unit],
         data_readers=[data_reader],
         root_gang=gang,
+        dtype=config.dtype,
+        amp=config.amp,
         tb_dir=output_dir.joinpath("tb"),
         metrics_dir=output_dir.joinpath("metrics"),
         seed=seed,

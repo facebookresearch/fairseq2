@@ -74,6 +74,7 @@ class StandardSweepTagger(SweepTagger):
                 "max_num_steps",
                 "max_num_tokens",
                 "max_seq_len",
+                "mixed_precision",
                 "model",
                 "model_arch",
                 "model_config",

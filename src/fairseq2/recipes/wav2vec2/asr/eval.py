@@ -80,6 +80,9 @@ class Wav2Vec2AsrEvalConfig:
     dtype: DataType = torch.float16
     """The data type of the model."""
 
+    amp: bool = False
+    """If ``True``, runs evaluation with ``torch.amp``."""
+
     # Misc
     seed: int = 2
     """The random number generator seed to use."""
@@ -95,6 +98,7 @@ def _base_10h() -> Wav2Vec2AsrEvalConfig:
     return Wav2Vec2AsrEvalConfig()
 
 
+@torch.inference_mode()
 def load_wav2vec2_asr_evaluator(
     config: Wav2Vec2AsrEvalConfig, output_dir: Path
 ) -> Evaluator[Seq2SeqBatch]:
@@ -230,6 +234,8 @@ def load_wav2vec2_asr_evaluator(
         units=[unit],
         data_readers=[data_reader],
         root_gang=gang,
+        dtype=config.dtype,
+        amp=config.amp,
         tb_dir=output_dir.joinpath("tb"),
         metrics_dir=output_dir.joinpath("metrics"),
         seed=seed,

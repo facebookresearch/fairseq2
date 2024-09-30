@@ -454,6 +454,7 @@ def load_wav2vec2_asr_trainer(
             min_audio_len=config.min_audio_len,
             max_audio_len=config.max_audio_len,
             normalize_audio=config.normalize_audio,
+            sync_mode="until_last",
             num_prefetch=config.num_prefetch,
             seed=seed,
         )
@@ -463,6 +464,9 @@ def load_wav2vec2_asr_trainer(
         ) from ex
 
     seed += 1
+
+    # TODO: Fix once we support static mixed precision on one device.
+    amp = gang.size == 1 or config.data_parallelism != "fsdp"
 
     # Initialize the trainer.
     return Trainer[Seq2SeqBatch](
@@ -474,6 +478,7 @@ def load_wav2vec2_asr_trainer(
         lr_scheduler=lr_scheduler,
         fp16_loss_scale=config.fp16_loss_scale,
         max_gradient_norm=config.max_gradient_norm,
+        amp=amp,
         max_num_steps=config.max_num_steps,
         max_num_data_epochs=config.max_num_data_epochs,
         score_metric_name="wer",

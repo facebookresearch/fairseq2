@@ -81,6 +81,9 @@ class MTEvalConfig:
     dtype: DataType = torch.float16
     """The data type of the model."""
 
+    amp: bool = False
+    """If ``True``, runs evaluation with ``torch.amp``."""
+
     # Loss
     label_smoothing: float = 0.1
     """The amount of label smoothing to apply while computing the loss."""
@@ -112,6 +115,7 @@ def _nllb_dense_600m() -> MTEvalConfig:
     return MTEvalConfig()
 
 
+@torch.inference_mode()
 def load_mt_evaluator(
     config: MTEvalConfig, output_dir: Path
 ) -> Evaluator[Seq2SeqBatch]:
@@ -307,6 +311,8 @@ def load_mt_evaluator(
         units=units,
         data_readers=data_readers,
         root_gang=gang,
+        dtype=config.dtype,
+        amp=config.amp,
         tb_dir=output_dir.joinpath("tb"),
         metrics_dir=output_dir.joinpath("metrics"),
         seed=seed,

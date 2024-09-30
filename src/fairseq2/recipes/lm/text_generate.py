@@ -53,6 +53,9 @@ class TextGenerateConfig:
     dataset: AssetReference = "foo"  # TODO: change!
     """The name, path, or path to the asset card of the instruction dataset."""
 
+    split: str = "default"
+    """The name of the data split."""
+
     max_seq_len: int = 8192
     """The maximum sequence length."""
 
@@ -71,6 +74,9 @@ class TextGenerateConfig:
 
     dtype: DataType = torch.bfloat16
     """The data type of the model."""
+
+    amp: bool = False
+    """If ``True``, runs evaluation with ``torch.amp``."""
 
     tensor_parallel_size: int = 1
     """The size of tensor parallelism."""
@@ -144,6 +150,7 @@ def _llama3_1_70b_instruct() -> TextGenerateConfig:
     return config
 
 
+@torch.inference_mode()
 def load_text_generator(
     config: TextGenerateConfig, output_dir: Path
 ) -> Generator[SequenceBatch]:
@@ -274,6 +281,7 @@ def load_text_generator(
 
     try:
         data_reader = dataset.create_prompt_reader(
+            config.split,
             tokenizer,
             dp_gang,
             config.max_seq_len,
@@ -296,6 +304,8 @@ def load_text_generator(
         root_gang=root_gang,
         dp_gang=dp_gang,
         tp_gang=tp_gang,
+        dtype=config.dtype,
+        amp=config.amp,
         metrics_dir=output_dir.joinpath("metrics"),
         seed=seed,
         wall_watch=wall_watch,
