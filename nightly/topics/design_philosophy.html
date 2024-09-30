@@ -5,10 +5,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Design Philosophy &#8212; fairseq2 0.3.0.dev202409230148+g133b01a documentation</title>
+    <title>Design Philosophy &#8212; fairseq2 0.3.0.dev202409300149+g638128d documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d1102ebc" />
     <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=f6bd8450" />
-    <script src="../_static/documentation_options.js?v=48f5cb0e"></script>
+    <script src="../_static/documentation_options.js?v=c03525ba"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../genindex.html" />
@@ -96,8 +96,8 @@ construction can become a tedious task.</p>
 to reduce the complexity of building dependency graphs. The core piece of the
 API is the <a class="reference internal" href="../reference/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer" title="fairseq2.dependency.DependencyContainer"><code class="xref py py-class docutils literal notranslate"><span class="pre">DependencyContainer</span></code></a> interface. An implementation of it, such
 as <a class="reference internal" href="../reference/fairseq2.dependency.html#fairseq2.dependency.StandardDependencyContainer" title="fairseq2.dependency.StandardDependencyContainer"><code class="xref py py-class docutils literal notranslate"><span class="pre">StandardDependencyContainer</span></code></a>, is expected that hold a lazily-initialized
-dependency graph. The interface exposes two main methods; <a class="reference internal" href="../reference/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer.register" title="fairseq2.dependency.DependencyContainer.register"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register()</span></code></a>
-and <code class="xref py py-meth docutils literal notranslate"><span class="pre">resolve()</span></code>. <a class="reference internal" href="../reference/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer.register" title="fairseq2.dependency.DependencyContainer.register"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register()</span></code></a>
+dependency graph. The interface exposes two main methods; <a class="reference internal" href="../reference/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer.register_factory" title="fairseq2.dependency.DependencyContainer.register_factory"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register_factory()</span></code></a>
+and <code class="xref py py-meth docutils literal notranslate"><span class="pre">resolve()</span></code>. <a class="reference internal" href="../reference/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer.register_factory" title="fairseq2.dependency.DependencyContainer.register_factory"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register_factory()</span></code></a>
 is used to register new objects with the container and <a class="reference internal" href="../reference/fairseq2.dependency.html#fairseq2.dependency.DependencyResolver.resolve" title="fairseq2.dependency.DependencyResolver.resolve"><code class="xref py py-meth docutils literal notranslate"><span class="pre">resolve()</span></code></a>
 is used to <em>resolve</em> objects, meaning to create objects along with their
 transitive dependencies by traversing the graph.</p>
@@ -115,24 +115,24 @@ later resolved with a container:</p>
 <span class="k">def</span> <span class="nf">create_foo</span><span class="p">(</span><span class="n">resolver</span><span class="p">:</span> <span class="n">DependencyResolver</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Foo</span><span class="p">:</span>
     <span class="k">return</span> <span class="n">Foo</span><span class="p">()</span>
 
-<span class="n">container</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">Foo</span><span class="p">,</span> <span class="n">create_foo</span><span class="p">)</span>
+<span class="n">container</span><span class="o">.</span><span class="n">register_factory</span><span class="p">(</span><span class="n">Foo</span><span class="p">,</span> <span class="n">create_foo</span><span class="p">)</span>
 
 <span class="n">obj</span> <span class="o">=</span> <span class="n">container</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">Foo</span><span class="p">)</span>
 
 <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Foo</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>As arguments, <a class="reference internal" href="../reference/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer.register" title="fairseq2.dependency.DependencyContainer.register"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register()</span></code></a> expects the type of the
+<p>As arguments, <a class="reference internal" href="../reference/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer.register_factory" title="fairseq2.dependency.DependencyContainer.register_factory"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register_factory()</span></code></a> expects the type of the
 object and a callable responsible for creating the object when called. The
 callable is passed a <a class="reference internal" href="../reference/fairseq2.dependency.html#fairseq2.dependency.DependencyResolver" title="fairseq2.dependency.DependencyResolver"><code class="xref py py-class docutils literal notranslate"><span class="pre">DependencyResolver</span></code></a> instance that it can use to
 resolve the dependencies of the newly-created object. The object returned by the
 callable is cached. This means, after the first <a class="reference internal" href="../reference/fairseq2.dependency.html#fairseq2.dependency.DependencyResolver.resolve" title="fairseq2.dependency.DependencyResolver.resolve"><code class="xref py py-meth docutils literal notranslate"><span class="pre">resolve()</span></code></a>
 call, the secondary calls will return the same instance making the object
 effectively a singleton.</p>
-<p>Since <code class="docutils literal notranslate"><span class="pre">Foo</span></code> is a lightweight class with no dependencies, <a class="reference internal" href="../reference/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer.register_object" title="fairseq2.dependency.DependencyContainer.register_object"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register_object()</span></code></a>
-can be used instead of <a class="reference internal" href="../reference/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer.register" title="fairseq2.dependency.DependencyContainer.register"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register()</span></code></a>. Unlike
-<a class="reference internal" href="../reference/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer.register" title="fairseq2.dependency.DependencyContainer.register"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register()</span></code></a>, which expects a callable to lazily
-initialize the object, <a class="reference internal" href="../reference/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer.register_object" title="fairseq2.dependency.DependencyContainer.register_object"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register_object()</span></code></a> stores the
+<p>Since <code class="docutils literal notranslate"><span class="pre">Foo</span></code> is a lightweight class with no dependencies, <a class="reference internal" href="../reference/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer.register_instance" title="fairseq2.dependency.DependencyContainer.register_instance"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register_instance()</span></code></a>
+can be used instead of <a class="reference internal" href="../reference/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer.register_factory" title="fairseq2.dependency.DependencyContainer.register_factory"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register_factory()</span></code></a>. Unlike
+<a class="reference internal" href="../reference/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer.register_factory" title="fairseq2.dependency.DependencyContainer.register_factory"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register_factory()</span></code></a>, which expects a callable to lazily
+initialize the object, <a class="reference internal" href="../reference/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer.register_instance" title="fairseq2.dependency.DependencyContainer.register_instance"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register_instance()</span></code></a> stores the
 passed object directly in the container:</p>
 <div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">fairseq2.dependency</span> <span class="kn">import</span> <span class="n">StandardDependencyContainer</span>
 
@@ -141,14 +141,14 @@ passed object directly in the container:</p>
 <span class="k">class</span> <span class="nc">Foo</span><span class="p">:</span>
     <span class="k">pass</span>
 
-<span class="n">container</span><span class="o">.</span><span class="n">register_object</span><span class="p">(</span><span class="n">Foo</span><span class="p">,</span> <span class="n">Foo</span><span class="p">())</span>
+<span class="n">container</span><span class="o">.</span><span class="n">register_instance</span><span class="p">(</span><span class="n">Foo</span><span class="p">,</span> <span class="n">Foo</span><span class="p">())</span>
 
 <span class="n">obj</span> <span class="o">=</span> <span class="n">container</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">Foo</span><span class="p">)</span>
 
 <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Foo</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>Both <a class="reference internal" href="../reference/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer.register" title="fairseq2.dependency.DependencyContainer.register"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register()</span></code></a> and <a class="reference internal" href="../reference/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer.register_object" title="fairseq2.dependency.DependencyContainer.register_object"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register_object()</span></code></a>
+<p>Both <a class="reference internal" href="../reference/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer.register_factory" title="fairseq2.dependency.DependencyContainer.register_factory"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register_factory()</span></code></a> and <a class="reference internal" href="../reference/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer.register_instance" title="fairseq2.dependency.DependencyContainer.register_instance"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register_instance()</span></code></a>
 also accept an optional key argument. When provided, the object will be
 registered along with the key and will be resolved only when the same key is
 passed to <a class="reference internal" href="../reference/fairseq2.dependency.html#fairseq2.dependency.DependencyResolver.resolve" title="fairseq2.dependency.DependencyResolver.resolve"><code class="xref py py-meth docutils literal notranslate"><span class="pre">resolve()</span></code></a>:</p>
@@ -159,14 +159,14 @@ passed to <a class="reference internal" href="../reference/fairseq2.dependency.h
 <span class="k">class</span> <span class="nc">Foo</span><span class="p">:</span>
     <span class="k">pass</span>
 
-<span class="n">container</span><span class="o">.</span><span class="n">register_object</span><span class="p">(</span><span class="n">Foo</span><span class="p">,</span> <span class="n">Foo</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="s2">&quot;foo&quot;</span><span class="p">)</span>
+<span class="n">container</span><span class="o">.</span><span class="n">register_instance</span><span class="p">(</span><span class="n">Foo</span><span class="p">,</span> <span class="n">Foo</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="s2">&quot;foo&quot;</span><span class="p">)</span>
 
 <span class="n">obj</span> <span class="o">=</span> <span class="n">container</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">Foo</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="s2">&quot;foo&quot;</span><span class="p">)</span>
 
 <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Foo</span><span class="p">)</span>
 </pre></div>
 </div>
-<p><a class="reference internal" href="../reference/fairseq2.dependency.html#fairseq2.dependency.DependencyResolver.resolve" title="fairseq2.dependency.DependencyResolver.resolve"><code class="xref py py-meth docutils literal notranslate"><span class="pre">resolve()</span></code></a> will raise a <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#LookupError" title="(in Python v3.12)"><code class="xref py py-class docutils literal notranslate"><span class="pre">LookupError</span></code></a> when an
+<p><a class="reference internal" href="../reference/fairseq2.dependency.html#fairseq2.dependency.DependencyResolver.resolve" title="fairseq2.dependency.DependencyResolver.resolve"><code class="xref py py-meth docutils literal notranslate"><span class="pre">resolve()</span></code></a> will raise a <a class="reference internal" href="../reference/fairseq2.dependency.html#fairseq2.dependency.DependencyError" title="fairseq2.dependency.DependencyError"><code class="xref py py-class docutils literal notranslate"><span class="pre">DependencyError</span></code></a> when an
 object cannot be found. As an alternative, <a class="reference internal" href="../reference/fairseq2.dependency.html#fairseq2.dependency.DependencyResolver.resolve_optional" title="fairseq2.dependency.DependencyResolver.resolve_optional"><code class="xref py py-meth docutils literal notranslate"><span class="pre">resolve_optional()</span></code></a>
 can be used which returns <code class="docutils literal notranslate"><span class="pre">None</span></code> instead:</p>
 <div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">fairseq2.dependency</span> <span class="kn">import</span> <span class="n">StandardDependencyContainer</span>
@@ -184,7 +184,7 @@ can be used which returns <code class="docutils literal notranslate"><span class
 </section>
 <section id="registering-multiple-objects">
 <h3>Registering Multiple Objects<a class="headerlink" href="#registering-multiple-objects" title="Link to this heading">¶</a></h3>
-<p>When <a class="reference internal" href="../reference/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer.register" title="fairseq2.dependency.DependencyContainer.register"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register()</span></code></a> or <a class="reference internal" href="../reference/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer.register_object" title="fairseq2.dependency.DependencyContainer.register_object"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register_object()</span></code></a>
+<p>When <a class="reference internal" href="../reference/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer.register_factory" title="fairseq2.dependency.DependencyContainer.register_factory"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register_factory()</span></code></a> or <a class="reference internal" href="../reference/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer.register_instance" title="fairseq2.dependency.DependencyContainer.register_instance"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register_instance()</span></code></a>
 is called multiple times with the same type and, optionally, key,
 <a class="reference internal" href="../reference/fairseq2.dependency.html#fairseq2.dependency.DependencyResolver.resolve" title="fairseq2.dependency.DependencyResolver.resolve"><code class="xref py py-meth docutils literal notranslate"><span class="pre">resolve()</span></code></a> will return only the last registered object:</p>
 <div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">fairseq2.dependency</span> <span class="kn">import</span> <span class="n">StandardDependencyContainer</span>
@@ -197,8 +197,8 @@ is called multiple times with the same type and, optionally, key,
 <span class="n">foo1</span> <span class="o">=</span> <span class="n">Foo</span><span class="p">()</span>
 <span class="n">foo2</span> <span class="o">=</span> <span class="n">Foo</span><span class="p">()</span>
 
-<span class="n">container</span><span class="o">.</span><span class="n">register_object</span><span class="p">(</span><span class="n">Foo</span><span class="p">,</span> <span class="n">foo1</span><span class="p">)</span>
-<span class="n">container</span><span class="o">.</span><span class="n">register_object</span><span class="p">(</span><span class="n">Foo</span><span class="p">,</span> <span class="n">foo2</span><span class="p">)</span>
+<span class="n">container</span><span class="o">.</span><span class="n">register_instance</span><span class="p">(</span><span class="n">Foo</span><span class="p">,</span> <span class="n">foo1</span><span class="p">)</span>
+<span class="n">container</span><span class="o">.</span><span class="n">register_instance</span><span class="p">(</span><span class="n">Foo</span><span class="p">,</span> <span class="n">foo2</span><span class="p">)</span>
 
 <span class="n">obj</span> <span class="o">=</span> <span class="n">container</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">Foo</span><span class="p">)</span>
 
@@ -218,8 +218,8 @@ all non-keyed objects in the order they were registered as an iterable:</p>
 <span class="n">foo1</span> <span class="o">=</span> <span class="n">Foo</span><span class="p">()</span>
 <span class="n">foo2</span> <span class="o">=</span> <span class="n">Foo</span><span class="p">()</span>
 
-<span class="n">container</span><span class="o">.</span><span class="n">register_object</span><span class="p">(</span><span class="n">Foo</span><span class="p">,</span> <span class="n">foo1</span><span class="p">)</span>
-<span class="n">container</span><span class="o">.</span><span class="n">register_object</span><span class="p">(</span><span class="n">Foo</span><span class="p">,</span> <span class="n">foo2</span><span class="p">)</span>
+<span class="n">container</span><span class="o">.</span><span class="n">register_instance</span><span class="p">(</span><span class="n">Foo</span><span class="p">,</span> <span class="n">foo1</span><span class="p">)</span>
+<span class="n">container</span><span class="o">.</span><span class="n">register_instance</span><span class="p">(</span><span class="n">Foo</span><span class="p">,</span> <span class="n">foo2</span><span class="p">)</span>
 
 <span class="n">itr</span> <span class="o">=</span> <span class="n">container</span><span class="o">.</span><span class="n">resolve_all</span><span class="p">(</span><span class="n">Foo</span><span class="p">)</span>
 
@@ -240,8 +240,8 @@ they were registered as an iterable:</p>
 <span class="n">foo1</span> <span class="o">=</span> <span class="n">Foo</span><span class="p">()</span>
 <span class="n">foo2</span> <span class="o">=</span> <span class="n">Foo</span><span class="p">()</span>
 
-<span class="n">container</span><span class="o">.</span><span class="n">register_object</span><span class="p">(</span><span class="n">Foo</span><span class="p">,</span> <span class="n">foo1</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="s2">&quot;foo1&quot;</span><span class="p">)</span>
-<span class="n">container</span><span class="o">.</span><span class="n">register_object</span><span class="p">(</span><span class="n">Foo</span><span class="p">,</span> <span class="n">foo2</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="s2">&quot;foo2&quot;</span><span class="p">)</span>
+<span class="n">container</span><span class="o">.</span><span class="n">register_instance</span><span class="p">(</span><span class="n">Foo</span><span class="p">,</span> <span class="n">foo1</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="s2">&quot;foo1&quot;</span><span class="p">)</span>
+<span class="n">container</span><span class="o">.</span><span class="n">register_instance</span><span class="p">(</span><span class="n">Foo</span><span class="p">,</span> <span class="n">foo2</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="s2">&quot;foo2&quot;</span><span class="p">)</span>
 
 <span class="n">itr</span> <span class="o">=</span> <span class="n">container</span><span class="o">.</span><span class="n">resolve_all</span><span class="p">(</span><span class="n">Foo</span><span class="p">)</span>
 
@@ -268,14 +268,14 @@ interfaces as registration types:</p>
 
 <span class="n">container</span> <span class="o">=</span> <span class="n">StandardDependencyContainer</span><span class="p">()</span>
 
-<span class="c1"># `StringWriter` Interface</span>
-<span class="k">class</span> <span class="nc">StringWriter</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
+<span class="c1"># `Writer` Interface</span>
+<span class="k">class</span> <span class="nc">Writer</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="o">...</span>
 
-<span class="c1"># `StringWriter` Implementation</span>
-<span class="k">class</span> <span class="nc">StdOutStringWriter</span><span class="p">(</span><span class="n">Bar</span><span class="p">):</span>
+<span class="c1"># `Writer` Implementation</span>
+<span class="k">class</span> <span class="nc">StdOutWriter</span><span class="p">(</span><span class="n">Bar</span><span class="p">):</span>
     <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">print</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
 
@@ -287,24 +287,24 @@ interfaces as registration types:</p>
 
 <span class="c1"># `Foo` Implementation</span>
 <span class="k">class</span> <span class="nc">FooImpl</span><span class="p">(</span><span class="n">Foo</span><span class="p">):</span>
-    <span class="c1"># depends on a `StringWriter` instance.</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">writer</span><span class="p">:</span> <span class="n">StringWriter</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="c1"># depends on a `Writer` instance.</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">writer</span><span class="p">:</span> <span class="n">Writer</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">writer</span> <span class="o">=</span> <span class="n">writer</span>
 
     <span class="k">def</span> <span class="nf">write_foo</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;foo&quot;</span><span class="p">)</span>
 
-<span class="c1"># Registers `StringWriter`.</span>
-<span class="n">container</span><span class="o">.</span><span class="n">register_object</span><span class="p">(</span><span class="n">StringWriter</span><span class="p">,</span> <span class="n">StdOutStringWriter</span><span class="p">())</span>
+<span class="c1"># Registers `Writer`.</span>
+<span class="n">container</span><span class="o">.</span><span class="n">register_instance</span><span class="p">(</span><span class="n">Writer</span><span class="p">,</span> <span class="n">StdOutWriter</span><span class="p">())</span>
 
 <span class="k">def</span> <span class="nf">create_foo</span><span class="p">(</span><span class="n">resolver</span><span class="p">:</span> <span class="n">DependencyResolver</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Foo</span><span class="p">:</span>
-    <span class="c1"># Resolves the registered `StringWriter` object from the container.</span>
-    <span class="n">writer</span> <span class="o">=</span> <span class="n">resolver</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">StringWriter</span><span class="p">)</span>
+    <span class="c1"># Resolves the registered `Writer` object from the container.</span>
+    <span class="n">writer</span> <span class="o">=</span> <span class="n">resolver</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">Writer</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">FooImpl</span><span class="p">(</span><span class="n">writer</span><span class="p">)</span>
 
 <span class="c1"># Registers `Foo`.</span>
-<span class="n">container</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">Foo</span><span class="p">,</span> <span class="n">create_foo</span><span class="p">)</span>
+<span class="n">container</span><span class="o">.</span><span class="n">register_factory</span><span class="p">(</span><span class="n">Foo</span><span class="p">,</span> <span class="n">create_foo</span><span class="p">)</span>
 
 <span class="c1"># Internally calls `create_foo` to create the `Foo` instance.</span>
 <span class="n">foo1</span> <span class="o">=</span> <span class="n">container</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">Foo</span><span class="p">)</span>
