@@ -234,8 +234,16 @@ def _llama3_1_instruct_constant_lr() -> InstructionFinetuneConfig:
     return config
 
 
+@instruction_finetune_preset("llama3_1_instruct_lr_anneal_0")
+def _llama3_1_instruct_constant_lr() -> InstructionFinetuneConfig:
+    config = _llama3_1_instruct()
+    # setting up final lr to be 0.0 at the end of the cycle
+    config.lr_scheduler_config.final_lr = 0.0
+    return config
+
+
 @instruction_finetune_preset("llama3_1_70b_instruct")
-def _llama3_70b_instruct() -> InstructionFinetuneConfig:
+def _llama3_1_70b_instruct() -> InstructionFinetuneConfig:
     config = _llama3_1_instruct()
 
     config.model = "llama3_1_70b_instruct"
