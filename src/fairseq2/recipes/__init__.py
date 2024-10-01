@@ -6,27 +6,31 @@
 
 from __future__ import annotations
 
-from importlib import import_module
+import os
 
 from importlib_metadata import entry_points
-
-from fairseq2.recipes.cli import Cli
-
-# isort: split
-
-import os
 
 from fairseq2.dependency import DependencyContainer, DependencyResolver, get_container
 from fairseq2.logging import get_log_writer
 from fairseq2.recipes.assets import _setup_asset_cli
+from fairseq2.recipes.cli import Cli
+from fairseq2.recipes.config_manager import (
+    StandardConfigManager,
+    register_config_manager,
+)
+from fairseq2.recipes.device import register_device
+from fairseq2.recipes.gang import GangConfig, register_gangs
 from fairseq2.recipes.hg import _setup_hg_cli
 from fairseq2.recipes.llama import _setup_llama_cli
 from fairseq2.recipes.lm import _setup_lm_cli
 from fairseq2.recipes.logging import setup_basic_logging
 from fairseq2.recipes.mt import _setup_mt_cli
+from fairseq2.recipes.utils.environment import register_environment_setters
 from fairseq2.recipes.utils.log import exception_logger
+from fairseq2.recipes.utils.sweep import register_sweep_tagger
 from fairseq2.recipes.wav2vec2 import _setup_wav2vec2_cli
 from fairseq2.recipes.wav2vec2.asr import _setup_wav2vec2_asr_cli
+from fairseq2.typing import DataClass
 
 log = get_log_writer(__name__)
 
@@ -49,7 +53,7 @@ def main() -> None:
 
         container = get_container()
 
-        _register_common_cli_objects(container)
+        register_recipe_objects(container)
 
         _setup_cli(cli, container)
         _setup_cli_extensions(cli, container)
@@ -59,18 +63,12 @@ def main() -> None:
         cli(container)
 
 
-def _register_common_cli_objects(container: DependencyContainer) -> None:
-    modules = [
-        "fairseq2.recipes.utils.environment",
-        "fairseq2.recipes.utils.sweep",
-    ]
-
-    for name in modules:
-        module = import_module(name)
-
-        register_objects = getattr(module, "register_objects")
-
-        register_objects(container)
+def register_recipe_objects(container: DependencyContainer) -> None:
+    register_config_manager(container)
+    register_device(container)
+    register_environment_setters(container)
+    register_gangs(container)
+    register_sweep_tagger(container)
 
 
 def _setup_cli(cli: Cli, resolver: DependencyResolver) -> None:

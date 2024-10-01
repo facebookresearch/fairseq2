@@ -49,5 +49,5 @@ from fairseq2.dependency import DependencyContainer
 from fairseq2.models.s2t_transformer.archs import register_archs
 
 
-def register_objects(container: DependencyContainer) -> None:
+def register_s2t_transformer(container: DependencyContainer) -> None:
     register_archs()

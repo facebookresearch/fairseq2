@@ -43,5 +43,5 @@ from fairseq2.dependency import DependencyContainer
 from fairseq2.models.transformer.archs import register_archs
 
 
-def register_objects(container: DependencyContainer) -> None:
+def register_transformer(container: DependencyContainer) -> None:
     register_archs()

@@ -227,7 +227,7 @@ class EnvironmentResolver(Protocol):
         ...
 
 
-def register_objects(container: DependencyContainer) -> None:
+def register_asset_store(container: DependencyContainer) -> None:
     container.register(StandardAssetStore)
 
     container.register_factory(AssetStore, lambda r: r.resolve(StandardAssetStore))

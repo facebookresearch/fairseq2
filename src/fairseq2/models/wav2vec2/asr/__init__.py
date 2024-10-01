@@ -35,5 +35,5 @@ from fairseq2.dependency import DependencyContainer
 from fairseq2.models.wav2vec2.asr.archs import register_archs
 
 
-def register_objects(container: DependencyContainer) -> None:
+def register_wav2vec2_asr(container: DependencyContainer) -> None:
     register_archs()

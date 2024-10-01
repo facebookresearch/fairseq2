@@ -7,16 +7,21 @@
 from __future__ import annotations
 
 import os
-from importlib import import_module
 
 from importlib_metadata import entry_points
 
+from fairseq2.assets.metadata_provider import register_asset_metadata_providers
+from fairseq2.assets.store import register_asset_store
+from fairseq2.context import register_runtime_context
 from fairseq2.dependency import (
     DependencyContainer,
     StandardDependencyContainer,
     _set_container,
 )
 from fairseq2.logging import get_log_writer
+from fairseq2.models import register_models
+from fairseq2.utils.file import register_tensor_loader_dumper
+from fairseq2.utils.structured import register_value_converter
 
 log = get_log_writer(__name__)
 
@@ -61,28 +66,12 @@ def setup(container: DependencyContainer) -> None:
 
 
 def _setup_library(container: DependencyContainer) -> None:
-    modules = [
-        "fairseq2.assets.metadata_provider",
-        "fairseq2.assets.store",
-        "fairseq2.context",
-        "fairseq2.models.llama",
-        "fairseq2.models.mistral",
-        "fairseq2.models.nllb",
-        "fairseq2.models.s2t_transformer",
-        "fairseq2.models.transformer",
-        "fairseq2.models.w2vbert",
-        "fairseq2.models.wav2vec2",
-        "fairseq2.models.wav2vec2.asr",
-        "fairseq2.utils.file",
-        "fairseq2.utils.structured",
-    ]
-
-    for name in modules:
-        module = import_module(name)
-
-        register_objects = getattr(module, "register_objects")
-
-        register_objects(container)
+    register_asset_metadata_providers(container)
+    register_asset_store(container)
+    register_models(container)
+    register_runtime_context(container)
+    register_tensor_loader_dumper(container)
+    register_value_converter(container)
 
 
 def _setup_extensions(container: DependencyContainer) -> None:

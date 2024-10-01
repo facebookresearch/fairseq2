@@ -145,7 +145,7 @@ class _NoneEnvironmentSetter(EnvironmentSetter):
         return "none"
 
 
-def register_objects(container: DependencyContainer) -> None:
+def register_environment_setters(container: DependencyContainer) -> None:
     container.register_factory(EnvironmentSetter, _create_inferred_environment_setter)
 
     container.register_instance(

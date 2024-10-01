@@ -236,11 +236,11 @@ class StandardSweepTagger(SweepTagger):
         self._allowed_keys.update(keys)
 
 
-def register_objects(container: DependencyContainer) -> None:
-    container.register_factory(SweepTagger, _create_sweep_tagger)
+def register_sweep_tagger(container: DependencyContainer) -> None:
+    container.register_factory(SweepTagger, _create_standard_sweep_tagger)
 
 
-def _create_sweep_tagger(resolver: DependencyResolver) -> SweepTagger:
+def _create_standard_sweep_tagger(resolver: DependencyResolver) -> SweepTagger:
     context = resolver.resolve(RuntimeContext)
 
     allowed_keys: set[Hashable] = {

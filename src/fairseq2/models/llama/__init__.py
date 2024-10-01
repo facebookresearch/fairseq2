@@ -27,5 +27,5 @@ from fairseq2.dependency import DependencyContainer
 from fairseq2.models.llama.archs import register_archs
 
 
-def register_objects(container: DependencyContainer) -> None:
+def register_llama(container: DependencyContainer) -> None:
     register_archs()

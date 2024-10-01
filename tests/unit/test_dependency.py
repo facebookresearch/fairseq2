@@ -399,3 +399,21 @@ class TestStandardDependencyContainer:
 
         assert dict_foos["foo2"] is expected_foo2
         assert dict_foos["foo4"] is expected_foo4
+
+    def test_register_after_resolve_raises_error(self) -> None:
+        container = StandardDependencyContainer()
+
+        def create_foo1(resolver: DependencyResolver) -> Foo:
+            return FooImpl1()
+
+        def create_foo2(resolver: DependencyResolver) -> Foo:
+            return FooImpl2()
+
+        container.register_factory(Foo, create_foo1)
+
+        container.resolve(Foo)
+
+        with pytest.raises(
+            RuntimeError, match=r"^No new objects can be registered after the first `resolve\(\)` call\.$"  # fmt: skip
+        ):
+            container.register_factory(Foo, create_foo2)

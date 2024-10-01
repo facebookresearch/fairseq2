@@ -24,11 +24,23 @@ from fairseq2.models.model import Model as Model
 
 # isort: split
 
-import fairseq2.models.llama
-import fairseq2.models.mistral
-import fairseq2.models.nllb
-import fairseq2.models.s2t_transformer
-import fairseq2.models.transformer
-import fairseq2.models.w2vbert
-import fairseq2.models.wav2vec2
-import fairseq2.models.wav2vec2.asr
+from fairseq2.dependency import DependencyContainer
+from fairseq2.models.llama import register_llama
+from fairseq2.models.mistral import register_mistral
+from fairseq2.models.nllb import register_nllb
+from fairseq2.models.s2t_transformer import register_s2t_transformer
+from fairseq2.models.transformer import register_transformer
+from fairseq2.models.w2vbert import register_w2vbert
+from fairseq2.models.wav2vec2 import register_wav2vec2
+from fairseq2.models.wav2vec2.asr import register_wav2vec2_asr
+
+
+def register_models(container: DependencyContainer) -> None:
+    register_llama(container)
+    register_mistral(container)
+    register_nllb(container)
+    register_s2t_transformer(container)
+    register_transformer(container)
+    register_w2vbert(container)
+    register_wav2vec2(container)
+    register_wav2vec2_asr(container)
