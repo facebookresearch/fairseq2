@@ -195,7 +195,7 @@ class PreferenceFinetuneConfig:
     """If ``True``, turns on anomaly detection feature in ``torch.autograd``."""
 
 
-preference_finetune_presets = ConfigRegistry[PreferenceFinetuningConfig]()
+preference_finetune_presets = ConfigRegistry[PreferenceFinetuneConfig]()
 
 preference_finetune_preset = preference_finetune_presets.decorator
 
