@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import os
 import re
 from abc import ABC, abstractmethod
 from collections.abc import Hashable, Iterable
@@ -16,6 +15,8 @@ from typing import final
 
 from typing_extensions import override
 
+from fairseq2.context import RuntimeContext
+from fairseq2.dependency import DependencyContainer, DependencyResolver
 from fairseq2.utils.dataclass import EMPTY
 from fairseq2.utils.structured import StructuredError
 
@@ -33,7 +34,7 @@ class SweepTagger(ABC):
         """
 
     @abstractmethod
-    def extend_allow_set(self, *keys: Hashable) -> None:
+    def extend_allowed_keys(self, keys: Iterable[Hashable]) -> None:
         """Extend the allowed configuration keys with ``keys``."""
 
 
@@ -43,62 +44,21 @@ class SweepFormatError(ValueError):
 
 @final
 class StandardSweepTagger(SweepTagger):
-    _allow_set: set[object]
+    _context: RuntimeContext
+    _allowed_keys: set[Hashable]
 
-    def __init__(self, *, allow_set: set[object] | None = None) -> None:
+    def __init__(self, context: RuntimeContext, allowed_keys: set[Hashable]) -> None:
         """
-        :param allow_set:
-            The configuration keys allowed to be used in sweep tags.
+        :param context: The runtime context.
+        :param allowed_keys: The recipe configuration keys allowed to be used in
+            sweep tags.
         """
-        if allow_set is not None:
-            self._allow_set = allow_set
-        else:
-            self._allow_set = {
-                "batch_shuffle_window",
-                "betas",
-                "data_parallelism",
-                "dataset",
-                "dtype",
-                "example_shuffle_window",
-                "final_lr_ratio",
-                "final_lr_scale",
-                "fp16_loss_scale",
-                "fsdp_reshard_after_forward",
-                "fsdp_wrap_granularity",
-                "gradient_accumulation",
-                "label_smoothing",
-                "lr",
-                "lr_stage_ratios",
-                "max_gradient_norm",
-                "max_num_elements",
-                "max_num_steps",
-                "max_num_tokens",
-                "max_seq_len",
-                "mixed_precision",
-                "model",
-                "model_arch",
-                "model_config",
-                "num_lr_warmup_steps",
-                "pretrained_model",
-                "seed",
-                "split",
-                "start_lr",
-                "start_lr_scale",
-                "tensor_parallel_size",
-                "tokenizer",
-                "train_split",
-                "valid_split",
-                "weight_decay",
-            }
+        self._context = context
+        self._allowed_keys = allowed_keys
 
     @override
     def __call__(self, preset: str, unstructured_config: object) -> str:
-        try:
-            world_size = os.environ["WORLD_SIZE"]
-        except KeyError:
-            world_size = "1"
-
-        tags = {"preset": preset, "world_size": world_size}
+        tags = {"preset": preset, "world_size": f"{self._context.world_size}"}
 
         self._collect_tags(unstructured_config, tags, path="")
 
@@ -156,7 +116,7 @@ class StandardSweepTagger(SweepTagger):
                         )
 
                     tags[key] = value
-                elif key in self._allow_set:
+                elif key in self._allowed_keys:
                     self._collect_tags(
                         value, tags, path=f"{path}.{key}" if path else f"{key}"
                     )
@@ -272,8 +232,53 @@ class StandardSweepTagger(SweepTagger):
         return "".join(output)
 
     @override
-    def extend_allow_set(self, *keys: Hashable) -> None:
-        self._allow_set.update(keys)
+    def extend_allowed_keys(self, keys: Iterable[Hashable]) -> None:
+        self._allowed_keys.update(keys)
 
 
-default_sweep_tagger: SweepTagger = StandardSweepTagger()
+def register_objects(container: DependencyContainer) -> None:
+    container.register_factory(SweepTagger, _create_sweep_tagger)
+
+
+def _create_sweep_tagger(resolver: DependencyResolver) -> SweepTagger:
+    context = resolver.resolve(RuntimeContext)
+
+    allowed_keys: set[Hashable] = {
+        "batch_shuffle_window",
+        "betas",
+        "data_parallelism",
+        "dataset",
+        "dtype",
+        "example_shuffle_window",
+        "final_lr_ratio",
+        "final_lr_scale",
+        "fp16_loss_scale",
+        "fsdp_reshard_after_forward",
+        "fsdp_wrap_granularity",
+        "gradient_accumulation",
+        "label_smoothing",
+        "lr",
+        "lr_stage_ratios",
+        "max_gradient_norm",
+        "max_num_elements",
+        "max_num_steps",
+        "max_num_tokens",
+        "max_seq_len",
+        "mixed_precision",
+        "model",
+        "model_arch",
+        "model_config",
+        "num_lr_warmup_steps",
+        "pretrained_model",
+        "seed",
+        "split",
+        "start_lr",
+        "start_lr_scale",
+        "tensor_parallel_size",
+        "tokenizer",
+        "train_split",
+        "valid_split",
+        "weight_decay",
+    }
+
+    return StandardSweepTagger(context, allowed_keys)
