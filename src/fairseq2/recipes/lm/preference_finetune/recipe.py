@@ -221,7 +221,7 @@ def _llama3_1_instruct_constant_lr() -> PreferenceFinetuneConfig:
 
 
 @preference_finetune_preset("llama3_1_instruct_lr_anneal_0")
-def _llama3_1_instruct_constant_lr() -> PreferenceFinetuneConfig:
+def _llama3_1_instruct_lr_anneal_0() -> PreferenceFinetuneConfig:
     config = _llama3_1_instruct()
     # setting up final lr to be 0.0 at the end of the cycle
     config.lr_scheduler_config.final_lr = 0.0
