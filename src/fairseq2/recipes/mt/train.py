@@ -23,6 +23,7 @@ from fairseq2.datasets.parallel_text import (
     GenericParallelTextDataset,
     load_parallel_text_dataset,
 )
+from fairseq2.dependency import resolve
 from fairseq2.gang import Gang
 from fairseq2.generation import BeamSearchConfig, create_seq2seq_generator
 from fairseq2.logging import get_log_writer
@@ -42,7 +43,7 @@ from fairseq2.recipes.utils.asset import (
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model, log_model_config
-from fairseq2.recipes.utils.setup import setup_root_gang, to_data_parallel
+from fairseq2.recipes.utils.setup import to_data_parallel
 from fairseq2.typing import CPU, META, DataType
 from fairseq2.utils.profiler import Stopwatch
 from fairseq2.utils.rng import manual_seed
@@ -219,7 +220,7 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
     """Load a :class:`Trainer` for machine translation training."""
     wall_watch = Stopwatch(start=True)
 
-    gang = setup_root_gang(log, monitored=config.monitored_gang)
+    gang = resolve(Gang)
 
     checkpoint_manager = FileCheckpointManager(output_dir.joinpath("checkpoints"), gang)
 

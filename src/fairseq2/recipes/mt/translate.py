@@ -19,6 +19,7 @@ from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import TextTokenizer, load_text_tokenizer
 from fairseq2.datasets import StaticBatching
 from fairseq2.datasets.text import GenericTextDataset, load_text_dataset
+from fairseq2.dependency import resolve
 from fairseq2.gang import Gang
 from fairseq2.generation import (
     BeamSearchConfig,
@@ -38,7 +39,7 @@ from fairseq2.recipes.utils.asset import (
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import broadcast_model, setup_root_gang
+from fairseq2.recipes.utils.setup import broadcast_model
 from fairseq2.typing import META, DataType
 from fairseq2.utils.profiler import Stopwatch
 
@@ -117,7 +118,7 @@ def load_text_translator(
             CheckpointModelMetadataProvider(config.checkpoint_dir)
         )
 
-    gang = setup_root_gang(log)
+    gang = resolve(Gang)
 
     model_card = retrieve_asset_card(config.model)
 

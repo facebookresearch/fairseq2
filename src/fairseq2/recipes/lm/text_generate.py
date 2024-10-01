@@ -23,6 +23,7 @@ from fairseq2.datasets.instruction import (
     GenericInstructionDataset,
     load_instruction_dataset,
 )
+from fairseq2.dependency import resolve
 from fairseq2.gang import Gang
 from fairseq2.generation import SamplingConfig, SequenceGenerator, create_seq_generator
 from fairseq2.logging import get_log_writer
@@ -37,7 +38,7 @@ from fairseq2.recipes.utils.asset import (
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import broadcast_model, setup_gangs
+from fairseq2.recipes.utils.setup import broadcast_model
 from fairseq2.typing import CPU, META, DataClass, DataType
 from fairseq2.utils.profiler import Stopwatch
 from fairseq2.utils.rng import manual_seed
@@ -162,10 +163,10 @@ def load_text_generator(
             CheckpointModelMetadataProvider(config.checkpoint_dir)
         )
 
-    root_gang, gangs = setup_gangs(log, tp_size=config.tensor_parallel_size)
+    root_gang = resolve(Gang)
 
-    dp_gang = gangs["dp"]  # data
-    tp_gang = gangs["tp"]  # tensor
+    dp_gang = resolve(Gang, key="dp")  # data
+    tp_gang = resolve(Gang, key="tp")  # tensor
 
     model_card = retrieve_asset_card(config.model)
 
@@ -209,7 +210,10 @@ def load_text_generator(
 
     try:
         model = load_model(
-            model_card, gangs=gangs, device=init_device, dtype=config.dtype
+            model_card,
+            gangs={"dp": dp_gang, "tp": tp_gang},
+            device=init_device,
+            dtype=config.dtype,
         )
     except ValueError as ex:
         raise ValueError(

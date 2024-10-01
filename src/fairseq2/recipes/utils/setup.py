@@ -48,7 +48,7 @@ def setup_root_gang(
 
     log.info("Initializing the root gang.")
 
-    gang = setup_default_gang(timeout=timeout, monitored=monitored)
+    gang = setup_default_gang(device=device, timeout=timeout, monitored=monitored)
 
     log.info("Root gang initialized.")
 

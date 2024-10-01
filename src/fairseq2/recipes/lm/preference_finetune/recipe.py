@@ -23,6 +23,8 @@ from fairseq2.datasets.preference import (
     PreferenceOptimizationBatch,
     load_preference_optimization_dataset,
 )
+from fairseq2.dependency import resolve
+from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.models import load_model
 from fairseq2.models.decoder import DecoderModel
@@ -39,7 +41,7 @@ from fairseq2.recipes.utils.asset import (
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import compile_model, setup_gangs, to_data_parallel
+from fairseq2.recipes.utils.setup import compile_model, to_data_parallel
 from fairseq2.typing import CPU, META, DataType
 from fairseq2.utils.profiler import Stopwatch
 from fairseq2.utils.rng import manual_seed
@@ -246,12 +248,10 @@ def load_preference_finetuner(
     """Load a :class:`Trainer` for language model preference optimization-finetuning."""
     wall_watch = Stopwatch(start=True)
 
-    root_gang, gangs = setup_gangs(
-        log, tp_size=config.tensor_parallel_size, monitored=config.monitored_gang
-    )
+    root_gang = resolve(Gang)
 
-    dp_gang = gangs["dp"]  # data
-    tp_gang = gangs["tp"]  # tensor
+    dp_gang = resolve(Gang, key="dp")  # data
+    tp_gang = resolve(Gang, key="tp")  # tensor
 
     checkpoint_manager = FileCheckpointManager(
         output_dir.joinpath("checkpoints"), root_gang, dp_gang=dp_gang, tp_gang=tp_gang
@@ -298,6 +298,8 @@ def load_preference_finetuner(
     init_device = META
 
     dtype = config.dtype if config.mixed_precision == "none" else torch.float32
+
+    gangs = {"dp": dp_gang, "tp": tp_gang}
 
     has_checkpoint = checkpoint_manager.has_checkpoint()
 

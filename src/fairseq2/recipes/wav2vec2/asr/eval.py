@@ -19,6 +19,7 @@ from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_char_tokenizer
 from fairseq2.datasets import LengthBatching
 from fairseq2.datasets.asr import GenericAsrDataset, load_asr_dataset
+from fairseq2.dependency import resolve
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.models import load_model
@@ -32,7 +33,7 @@ from fairseq2.recipes.utils.asset import (
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import broadcast_model, setup_root_gang
+from fairseq2.recipes.utils.setup import broadcast_model
 from fairseq2.recipes.wav2vec2.asr.common import (
     Wav2Vec2AsrCriterion,
     Wav2Vec2AsrMetricBag,
@@ -112,7 +113,7 @@ def load_wav2vec2_asr_evaluator(
             )
         )
 
-    gang = setup_root_gang(log)
+    gang = resolve(Gang)
 
     model_card = retrieve_asset_card(config.model)
 

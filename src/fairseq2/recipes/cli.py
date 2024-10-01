@@ -25,6 +25,7 @@ from fairseq2.dependency import DependencyContainer, DependencyResolver
 from fairseq2.error import AlreadyExistsError
 from fairseq2.logging import get_log_writer
 from fairseq2.recipes.logging import setup_basic_logging, setup_logging
+from fairseq2.recipes.setup import _register_config, _register_recipe_objects
 from fairseq2.recipes.utils.argparse import ConfigAction
 from fairseq2.recipes.utils.environment import EnvironmentSetter
 from fairseq2.recipes.utils.log import log_config
@@ -670,6 +671,11 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
             log.exception("Configuration cannot be parsed.")
 
             sys.exit(1)
+
+        # Extend the dependency graph.
+        _register_config(container, config)
+
+        _register_recipe_objects(container)
 
         # Load and run the recipe.
         recipe = self._loader(config, output_dir)
