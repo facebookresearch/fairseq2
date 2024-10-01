@@ -73,6 +73,7 @@ def _setup_library(container: DependencyContainer) -> None:
         "fairseq2.models.w2vbert",
         "fairseq2.models.wav2vec2",
         "fairseq2.models.wav2vec2.asr",
+        "fairseq2.utils.file",
         "fairseq2.utils.structured",
     ]
 

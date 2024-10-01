@@ -25,10 +25,10 @@ from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.typing import CPU
 from fairseq2.utils.file import (
+    PyTorchTensorDumper,
+    PyTorchTensorLoader,
     TensorDumper,
     TensorLoader,
-    dump_pt_tensors,
-    load_pt_tensors,
 )
 from fairseq2.utils.structured import ValueConverter, get_value_converter
 
@@ -216,8 +216,8 @@ class FileCheckpointManager(CheckpointManager):
         elif dp_gang is not None or tp_gang is not None:
             raise ValueError("`dp_gang` and `tp_gang` must be both specified.")
 
-        self._tensor_loader = tensor_loader or load_pt_tensors
-        self._tensor_dumper = tensor_dumper or dump_pt_tensors
+        self._tensor_loader = tensor_loader or PyTorchTensorLoader()
+        self._tensor_dumper = tensor_dumper or PyTorchTensorDumper()
 
         self._value_converter = value_converter or get_value_converter()
 
