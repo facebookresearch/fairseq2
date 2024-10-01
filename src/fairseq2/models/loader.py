@@ -31,7 +31,7 @@ from fairseq2.nn.utils.module import (
     to_empty,
 )
 from fairseq2.typing import CPU, META, DataClass, DataType, Device
-from fairseq2.utils.file import TensorLoader, load_tensors
+from fairseq2.utils.file import StandardTensorLoader, TensorLoader
 
 log = get_log_writer(__name__)
 
@@ -183,7 +183,7 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         """
         self._asset_store = asset_store
         self._download_manager = download_manager or default_download_manager
-        self._tensor_loader = tensor_loader or load_tensors
+        self._tensor_loader = tensor_loader or StandardTensorLoader()
         self._config_loader = config_loader
         self._factory = factory
         self._checkpoint_converter = checkpoint_converter
