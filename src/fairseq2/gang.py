@@ -650,10 +650,6 @@ def setup_parallel_gangs(
 
     dp_size = root_gang.size // tp_size
 
-    if log.is_enabled_for_info():
-        for name, size in [("data", dp_size), ("tensor", tp_size)]:
-            log.info("Initializing {} parallelism with a gang of size {}.", name, size)
-
     mesh = torch.arange(root_gang.size).view(dp_size, tp_size)
 
     # Get the coordinate of this process in the mesh.
@@ -663,6 +659,8 @@ def setup_parallel_gangs(
 
     if setup_only is None or "dp" in setup_only:
         dp_gang: Gang | None = None
+
+        log.info("Initializing data parallelism with a gang size of {}.", dp_size)
 
         # Build the gangs for data parallelism.
         match dp_size:
@@ -682,6 +680,8 @@ def setup_parallel_gangs(
 
     if setup_only is None or "tp" in setup_only:
         tp_gang: Gang | None = None
+
+        log.info("Initializing tensor parallelism with a gang size of {}.", tp_size)
 
         # Build the gangs for tensor parallelism.
         match tp_size:
