@@ -48,7 +48,7 @@ log = get_log_writer(__name__)
 
 
 @dataclass(kw_only=True)
-class PreferenceFinetuningConfig:
+class PreferenceFinetuneConfig:
     """Holds the configuration of a language model preference-finetuning task."""
 
     # Data
@@ -195,7 +195,7 @@ class PreferenceFinetuningConfig:
     """If ``True``, turns on anomaly detection feature in ``torch.autograd``."""
 
 
-preference_finetune_presets = ConfigRegistry[PreferenceFinetuningConfig]()
+preference_finetune_presets = ConfigRegistry[PreferenceFinetuneConfig]()
 
 preference_finetune_preset = preference_finetune_presets.decorator
 
@@ -206,22 +206,30 @@ class DropoutConfig:
 
 
 @preference_finetune_preset("llama3_1_instruct")
-def _llama3_1_instruct() -> PreferenceFinetuningConfig:
-    config = PreferenceFinetuningConfig()
+def _llama3_1_instruct() -> PreferenceFinetuneConfig:
+    config = PreferenceFinetuneConfig()
     config.model_config = DropoutConfig()
     return config
 
 
 @preference_finetune_preset("llama3_1_instruct_constant_lr")
-def _llama3_1_instruct_constant_lr() -> PreferenceFinetuningConfig:
+def _llama3_1_instruct_constant_lr() -> PreferenceFinetuneConfig:
     config = _llama3_1_instruct()
     # setting up final lr to be the optmiizer base lr, lr_mul is 1.0 by default
     config.lr_scheduler_config.final_lr = config.optimizer_config.lr
     return config
 
 
+@preference_finetune_preset("llama3_1_instruct_lr_anneal_0")
+def _llama3_1_instruct_lr_anneal_0() -> PreferenceFinetuneConfig:
+    config = _llama3_1_instruct()
+    # setting up final lr to be 0.0 at the end of the cycle
+    config.lr_scheduler_config.final_lr = 0.0
+    return config
+
+
 @preference_finetune_preset("llama3_1_70b_instruct")
-def _llama3_70b_instruct() -> PreferenceFinetuningConfig:
+def _llama3_1_70b_instruct() -> PreferenceFinetuneConfig:
     config = _llama3_1_instruct()
 
     config.model = "llama3_1_70b_instruct"
@@ -233,7 +241,7 @@ def _llama3_70b_instruct() -> PreferenceFinetuningConfig:
 
 
 def load_preference_finetuner(
-    config: PreferenceFinetuningConfig, output_dir: Path
+    config: PreferenceFinetuneConfig, output_dir: Path
 ) -> Trainer[PreferenceOptimizationBatch]:
     """Load a :class:`Trainer` for language model preference optimization-finetuning."""
     wall_watch = Stopwatch(start=True)
