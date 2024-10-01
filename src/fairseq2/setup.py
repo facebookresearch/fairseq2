@@ -64,6 +64,7 @@ def _setup_library(container: DependencyContainer) -> None:
     modules = [
         "fairseq2.assets.metadata_provider",
         "fairseq2.assets.store",
+        "fairseq2.context",
         "fairseq2.models.llama",
         "fairseq2.models.mistral",
         "fairseq2.models.nllb",
