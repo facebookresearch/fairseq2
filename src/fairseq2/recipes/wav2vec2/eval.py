@@ -18,6 +18,7 @@ from fairseq2.checkpoint import CheckpointModelMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.datasets.batching import LengthBatching
 from fairseq2.datasets.speech import GenericSpeechDataset, load_speech_dataset
+from fairseq2.dependency import resolve
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.models import load_model
@@ -31,7 +32,7 @@ from fairseq2.recipes.utils.asset import (
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import broadcast_model, setup_root_gang
+from fairseq2.recipes.utils.setup import broadcast_model
 from fairseq2.recipes.wav2vec2.common import Wav2Vec2Criterion, Wav2Vec2MetricBag
 from fairseq2.typing import META, DataType
 from fairseq2.utils.profiler import Stopwatch
@@ -114,7 +115,7 @@ def load_wav2vec2_evaluator(
             )
         )
 
-    gang = setup_root_gang(log)
+    gang = resolve(Gang)
 
     # Load the dataset.
     try:

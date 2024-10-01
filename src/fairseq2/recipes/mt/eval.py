@@ -23,6 +23,7 @@ from fairseq2.datasets.parallel_text import (
     GenericParallelTextDataset,
     load_parallel_text_dataset,
 )
+from fairseq2.dependency import resolve
 from fairseq2.gang import Gang
 from fairseq2.generation import (
     BeamSearchConfig,
@@ -44,7 +45,7 @@ from fairseq2.recipes.utils.asset import (
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import broadcast_model, setup_root_gang
+from fairseq2.recipes.utils.setup import broadcast_model
 from fairseq2.typing import META, DataType
 from fairseq2.utils.profiler import Stopwatch
 
@@ -127,7 +128,7 @@ def load_mt_evaluator(
             CheckpointModelMetadataProvider(config.checkpoint_dir)
         )
 
-    gang = setup_root_gang(log)
+    gang = resolve(Gang)
 
     model_card = retrieve_asset_card(config.model)
 

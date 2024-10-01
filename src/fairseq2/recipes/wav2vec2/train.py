@@ -19,6 +19,7 @@ from fairseq2.checkpoint import CheckpointModelMetadataProvider, FileCheckpointM
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.datasets.batching import LengthBatching
 from fairseq2.datasets.speech import GenericSpeechDataset, load_speech_dataset
+from fairseq2.dependency import resolve
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.models import create_model
@@ -33,11 +34,7 @@ from fairseq2.recipes.utils.asset import (
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model, log_model_config
-from fairseq2.recipes.utils.setup import (
-    compile_model,
-    setup_root_gang,
-    to_data_parallel,
-)
+from fairseq2.recipes.utils.setup import compile_model, to_data_parallel
 from fairseq2.recipes.wav2vec2.common import Wav2Vec2Criterion, Wav2Vec2MetricBag
 from fairseq2.recipes.wav2vec2.eval import Wav2Vec2EvalUnit
 from fairseq2.typing import CPU, META, DataType
@@ -216,7 +213,7 @@ def load_wav2vec2_trainer(
     """Load a :class:`Trainer` for wav2vec 2.0 model training."""
     wall_watch = Stopwatch(start=True)
 
-    gang = setup_root_gang(log, monitored=config.monitored_gang)
+    gang = resolve(Gang)
 
     checkpoint_manager = FileCheckpointManager(
         output_dir.joinpath("checkpoints"), gang, lower_score_better=True
