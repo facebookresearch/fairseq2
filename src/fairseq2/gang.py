@@ -19,10 +19,15 @@ from torch import Tensor
 from torch.distributed import Backend, ProcessGroup, ReduceOp
 from typing_extensions import override
 
+from fairseq2.context import get_local_world_size, get_world_size
 from fairseq2.device import determine_default_cuda_device, determine_default_device
 from fairseq2.logging import get_log_writer
 from fairseq2.typing import CPU, Device
-from fairseq2.utils.env import get_int_from_env
+
+# isort: split
+
+# compat
+from fairseq2.context import get_rank as get_rank  # noqa: F401
 
 log = get_log_writer(__name__)
 
@@ -579,34 +584,6 @@ def _get_num_cpus(num_procs: int) -> int:
 
     # We should not exceed the number of cores available in the affinity mask.
     return min(max(num_cpus // num_procs, 1), len(affinity_mask))
-
-
-def get_world_size() -> int:
-    """Return the world size of the running job."""
-    value = get_int_from_env("WORLD_SIZE")
-
-    return 1 if value is None else value
-
-
-def get_rank() -> int:
-    """Return the rank of this process in the running job."""
-    value = get_int_from_env("RANK", allow_zero=True)
-
-    return 0 if value is None else value
-
-
-def get_local_world_size() -> int:
-    """Return the local world size of the running job."""
-    value = get_int_from_env("LOCAL_WORLD_SIZE")
-
-    return 1 if value is None else value
-
-
-def get_local_rank() -> int:
-    """Return the local rank of this process in the running job."""
-    value = get_int_from_env("LOCAL_RANK", allow_zero=True)
-
-    return 0 if value is None else value
 
 
 def setup_default_gang(

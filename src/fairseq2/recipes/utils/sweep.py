@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import os
 import re
 from abc import ABC, abstractmethod
 from collections.abc import Hashable, Iterable
@@ -16,7 +15,8 @@ from typing import final
 
 from typing_extensions import override
 
-from fairseq2.dependency import DependencyContainer
+from fairseq2.context import RuntimeContext
+from fairseq2.dependency import DependencyContainer, DependencyResolver
 from fairseq2.utils.dataclass import EMPTY
 from fairseq2.utils.structured import StructuredError
 
@@ -44,23 +44,21 @@ class SweepFormatError(ValueError):
 
 @final
 class StandardSweepTagger(SweepTagger):
+    _context: RuntimeContext
     _allowed_keys: set[Hashable]
 
-    def __init__(self, allowed_keys: set[Hashable]) -> None:
+    def __init__(self, context: RuntimeContext, allowed_keys: set[Hashable]) -> None:
         """
-        :param allowed_keys:
-            The configuration keys allowed to be used in sweep tags.
+        :param context: The runtime context.
+        :param allowed_keys: The recipe configuration keys allowed to be used in
+            sweep tags.
         """
+        self._context = context
         self._allowed_keys = allowed_keys
 
     @override
     def __call__(self, preset: str, unstructured_config: object) -> str:
-        try:
-            world_size = os.environ["WORLD_SIZE"]
-        except KeyError:
-            world_size = "1"
-
-        tags = {"preset": preset, "world_size": world_size}
+        tags = {"preset": preset, "world_size": f"{self._context.world_size}"}
 
         self._collect_tags(unstructured_config, tags, path="")
 
@@ -239,6 +237,12 @@ class StandardSweepTagger(SweepTagger):
 
 
 def register_objects(container: DependencyContainer) -> None:
+    container.register_factory(SweepTagger, _create_sweep_tagger)
+
+
+def _create_sweep_tagger(resolver: DependencyResolver) -> SweepTagger:
+    context = resolver.resolve(RuntimeContext)
+
     allowed_keys: set[Hashable] = {
         "batch_shuffle_window",
         "betas",
@@ -277,4 +281,4 @@ def register_objects(container: DependencyContainer) -> None:
         "weight_decay",
     }
 
-    container.register_instance(SweepTagger, StandardSweepTagger(allowed_keys))
+    return StandardSweepTagger(context, allowed_keys)

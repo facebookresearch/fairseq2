@@ -10,6 +10,7 @@ from typing import Hashable
 
 import pytest
 
+from fairseq2.context import RuntimeContext
 from fairseq2.recipes.utils.sweep import StandardSweepTagger, SweepFormatError
 
 
@@ -28,7 +29,7 @@ class TestStandardSweepTagger:
 
         tag = tagger("foo", config)
 
-        assert tag == "ps_foo.ws_1.4d655834"
+        assert tag == "ps_foo.ws_2.a618ea54"
 
     def test_call_works_when_key_order_is_different(self) -> None:
         config = {
@@ -44,7 +45,7 @@ class TestStandardSweepTagger:
 
         tag = tagger("foo", config)
 
-        assert tag == "ps_foo.ws_1.4d655834"
+        assert tag == "ps_foo.ws_2.a618ea54"
 
     def test_call_works_when_keys_are_disallowed(self) -> None:
         config = {
@@ -62,7 +63,7 @@ class TestStandardSweepTagger:
 
         tag = tagger("foo", config)
 
-        assert tag == "ps_foo.ws_1.4d655834"
+        assert tag == "ps_foo.ws_2.a618ea54"
 
     def test_call_works_when_sweep_format_is_specified(self) -> None:
         config = {
@@ -79,7 +80,7 @@ class TestStandardSweepTagger:
 
         tag = tagger("foo", config)
 
-        assert tag == "ps_foo.{foo9}.foo5_{2.0}.foo21_0.2.foo61_2.4d655834"
+        assert tag == "ps_foo.{foo9}.foo5_{2.0}.foo21_0.2.foo61_2.a618ea54"
 
     def test_call_raises_error_when_sweep_format_is_invalid(self) -> None:
         config = {"sweep_format": "foo_{foo1", "foo1": "a"}
@@ -113,6 +114,8 @@ class TestStandardSweepTagger:
 
     @staticmethod
     def _create_tagger() -> StandardSweepTagger:
+        context = RuntimeContext(world_size=2, rank=0, local_world_size=1, local_rank=0)
+
         allowed_keys: set[Hashable] = {f"foo{i}" for i in range(7)}
 
-        return StandardSweepTagger(allowed_keys)
+        return StandardSweepTagger(context, allowed_keys)

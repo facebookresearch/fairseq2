@@ -17,6 +17,7 @@ from fairseq2n import DOC_MODE
 from rich.logging import RichHandler
 
 from fairseq2.console import get_error_console
+from fairseq2.context import get_rank
 
 
 def setup_basic_logging(*, debug: bool = False, utc_time: bool = False) -> None:
@@ -27,8 +28,6 @@ def setup_basic_logging(*, debug: bool = False, utc_time: bool = False) -> None:
     :param utc_time:
         If ``True``, logs dates and times in UTC.
     """
-    from fairseq2.gang import get_rank  # Avoid circular import.
-
     rank = get_rank()
 
     _do_setup_logging(rank, debug, utc_time)
@@ -52,8 +51,6 @@ def setup_logging(
     :param force:
         If ``True``, overwrites existing ATen and NCCL log configurations.
     """
-    from fairseq2.gang import get_rank  # Avoid circular import.
-
     rank = get_rank()
 
     filename = log_file.name.format(rank=rank)
