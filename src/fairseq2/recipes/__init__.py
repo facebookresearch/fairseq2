@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from importlib import import_module
+
 from importlib_metadata import entry_points
 
 from fairseq2.recipes.cli import Cli
@@ -14,7 +16,7 @@ from fairseq2.recipes.cli import Cli
 
 import os
 
-from fairseq2.dependency import DependencyResolver, get_container
+from fairseq2.dependency import DependencyContainer, DependencyResolver, get_container
 from fairseq2.logging import get_log_writer
 from fairseq2.recipes.assets import _setup_asset_cli
 from fairseq2.recipes.hg import _setup_hg_cli
@@ -47,12 +49,28 @@ def main() -> None:
 
         container = get_container()
 
+        _register_common_cli_objects(container)
+
         _setup_cli(cli, container)
         _setup_cli_extensions(cli, container)
 
         _setup_legacy_cli_extensions(cli)
 
         cli(container)
+
+
+def _register_common_cli_objects(container: DependencyContainer) -> None:
+    modules = [
+        "fairseq2.recipes.utils.environment",
+        "fairseq2.recipes.utils.sweep",
+    ]
+
+    for name in modules:
+        module = import_module(name)
+
+        register_objects = getattr(module, "register_objects")
+
+        register_objects(container)
 
 
 def _setup_cli(cli: Cli, resolver: DependencyResolver) -> None:

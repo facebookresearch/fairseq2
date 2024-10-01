@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from typing import Hashable
+
 import pytest
 
 from fairseq2.recipes.utils.sweep import StandardSweepTagger, SweepFormatError
@@ -111,6 +113,6 @@ class TestStandardSweepTagger:
 
     @staticmethod
     def _create_tagger() -> StandardSweepTagger:
-        allow_set: set[object] = {f"foo{i}" for i in range(7)}
+        allowed_keys: set[Hashable] = {f"foo{i}" for i in range(7)}
 
-        return StandardSweepTagger(allow_set=allow_set)
+        return StandardSweepTagger(allowed_keys)

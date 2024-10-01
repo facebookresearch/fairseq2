@@ -9,11 +9,11 @@ from __future__ import annotations
 import sys
 from abc import ABC, abstractmethod
 from argparse import OPTIONAL, ArgumentParser, BooleanOptionalAction, Namespace
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from signal import SIGUSR1, signal
 from types import FrameType
-from typing import Generic, Protocol, TypeVar, final, runtime_checkable
+from typing import Generic, Hashable, Protocol, TypeVar, final, runtime_checkable
 
 import yaml
 from rich.console import Console
@@ -28,7 +28,7 @@ from fairseq2.recipes.logging import setup_basic_logging, setup_logging
 from fairseq2.recipes.utils.argparse import ConfigAction
 from fairseq2.recipes.utils.environment import EnvironmentSetter
 from fairseq2.recipes.utils.log import log_config
-from fairseq2.recipes.utils.sweep import SweepTagger, default_sweep_tagger
+from fairseq2.recipes.utils.sweep import SweepFormatError, SweepTagger
 from fairseq2.typing import DataClass
 from fairseq2.utils.structured import (
     StructuredError,
@@ -418,7 +418,7 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
     _loader: RecipeLoader[RecipeConfigT]
     _preset_configs: ConfigRegistry[RecipeConfigT]
     _default_preset: str
-    _sweep_tagger: SweepTagger
+    _sweep_allowed_keys: Sequence[Hashable] | None
     _parser: ArgumentParser | None
 
     def __init__(
@@ -427,7 +427,7 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
         preset_configs: ConfigRegistry[RecipeConfigT],
         default_preset: str,
         *,
-        sweep_tagger: SweepTagger | None = None,
+        sweep_allowed_keys: Sequence[Hashable] | None = None,
     ) -> None:
         """
         :param loader:
@@ -436,14 +436,13 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
             The registry containing the preset recipe configurations.
         :param default_preset:
             The name of the default preset.
-        :param sweep_tagger:
-            The :class:`SweepTagger` instance to use. If ``None``, the default
-            instance will be used.
+        :param sweep_allowed_keys:
+            The recipe-specific configuration keys to use in :class:`SweepTagger`.
         """
         self._loader = loader
         self._preset_configs = preset_configs
         self._default_preset = default_preset
-        self._sweep_tagger = sweep_tagger or default_sweep_tagger
+        self._sweep_allowed_keys = sweep_allowed_keys
         self._parser = None
 
     @override
@@ -623,10 +622,15 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
         output_dir = args.output_dir.expanduser().resolve()
 
         if not args.no_sweep_dir:
+            sweep_tagger = container.resolve(SweepTagger)
+
+            if self._sweep_allowed_keys:
+                sweep_tagger.extend_allowed_keys(self._sweep_allowed_keys)
+
             try:
-                tag = self._sweep_tagger(args.preset, unstructured_config)
-            except LookupError:
-                log.exception("sweep format")
+                tag = sweep_tagger(args.preset, unstructured_config)
+            except SweepFormatError:
+                log.exception("Sweep directory cannot be created.")
 
                 sys.exit(1)
 
