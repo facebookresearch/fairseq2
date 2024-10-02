@@ -19,7 +19,7 @@ from fairseq2.assets.metadata_provider import (
 
 
 @final
-class CheckpointModelMetadataProvider(AbstractAssetMetadataProvider):
+class FileCheckpointMetadataProvider(AbstractAssetMetadataProvider):
     """Provides checkpoint model metadata saved by a :class:`FileCheckpointManager.`"""
 
     _checkpoint_dir: Path
@@ -136,3 +136,7 @@ class CheckpointModelMetadataProvider(AbstractAssetMetadataProvider):
             add_checkpoint_metadata(f"checkpoint_best_{rank}@", model_file)
 
         return cache
+
+
+# compat
+CheckpointModelMetadataProvider = FileCheckpointMetadataProvider

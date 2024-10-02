@@ -20,6 +20,7 @@ from fairseq2.dependency import (
 )
 from fairseq2.logging import get_log_writer
 from fairseq2.models import register_models
+from fairseq2.recipes import register_recipe_objects
 from fairseq2.utils.file import register_tensor_loader_dumper
 from fairseq2.utils.structured import register_value_converter
 
@@ -69,6 +70,7 @@ def _setup_library(container: DependencyContainer) -> None:
     register_asset_metadata_providers(container)
     register_asset_store(container)
     register_models(container)
+    register_recipe_objects(container)
     register_runtime_context(container)
     register_tensor_loader_dumper(container)
     register_value_converter(container)

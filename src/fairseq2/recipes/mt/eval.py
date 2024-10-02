@@ -13,8 +13,7 @@ from typing import Any, TextIO, final
 import torch
 from typing_extensions import override
 
-from fairseq2.assets import AssetNotFoundError, default_asset_store
-from fairseq2.checkpoint import CheckpointModelMetadataProvider
+from fairseq2.assets import AssetNotFoundError
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import TextTokenizer, load_text_tokenizer
 from fairseq2.datasets import LengthBatching, StaticBatching
@@ -122,11 +121,6 @@ def load_mt_evaluator(
 ) -> Evaluator[Seq2SeqBatch]:
     """Load an :class:`Evaluator` for machine translation evaluation."""
     wall_watch = Stopwatch(start=True)
-
-    if config.checkpoint_dir is not None:
-        default_asset_store.metadata_providers.append(
-            CheckpointModelMetadataProvider(config.checkpoint_dir)
-        )
 
     gang = resolve(Gang)
 

@@ -21,9 +21,10 @@ from typing_extensions import override
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.console import get_console, set_console
-from fairseq2.dependency import DependencyContainer, DependencyResolver
+from fairseq2.dependency import DependencyResolver
 from fairseq2.error import AlreadyExistsError
 from fairseq2.logging import get_log_writer
+from fairseq2.recipes.config_manager import StandardConfigManager
 from fairseq2.recipes.legacy_config import _set_legacy_config
 from fairseq2.recipes.logging import setup_basic_logging, setup_logging
 from fairseq2.recipes.utils.argparse import ConfigAction
@@ -132,13 +133,13 @@ class Cli:
 
             group.init_parser(sub_parser, resolver)
 
-    def __call__(self, container: DependencyContainer) -> None:
+    def __call__(self, resolver: DependencyResolver) -> None:
         """Run the program."""
         set_console(Console(highlight=False))
 
         parser = ArgumentParser(self._name, description=self._description)
 
-        self.init_parser(parser, container)
+        self.init_parser(parser, resolver)
 
         args = parser.parse_args()
 
@@ -147,7 +148,7 @@ class Cli:
 
             sys.exit(2)
 
-        args.command(args, container)
+        args.command(args, resolver)
 
     @property
     def name(self) -> str:
@@ -351,9 +352,9 @@ class CliCommand:
         """Initialize ``parser`` with command group-specific arguments."""
         self._handler.init_parser(parser, resolver)
 
-    def __call__(self, args: Namespace, container: DependencyContainer) -> None:
+    def __call__(self, args: Namespace, resolver: DependencyResolver) -> None:
         """Run the command."""
-        self._handler(args, container)
+        self._handler(args, resolver)
 
     @property
     def name(self) -> str:
@@ -379,7 +380,7 @@ class CliCommandHandler(ABC):
         """Initialize ``parser`` with command-specific arguments."""
 
     @abstractmethod
-    def __call__(self, args: Namespace, container: DependencyContainer) -> None:
+    def __call__(self, args: Namespace, resolver: DependencyResolver) -> None:
         """Run the command."""
 
 
@@ -515,7 +516,7 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
         )
 
     @override
-    def __call__(self, args: Namespace, container: DependencyContainer) -> None:
+    def __call__(self, args: Namespace, resolver: DependencyResolver) -> None:
         console = get_console()
 
         setup_basic_logging(debug=args.debug)
@@ -545,7 +546,7 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
 
             sys.exit(1)
 
-        value_converter = container.resolve(ValueConverter)
+        value_converter = resolver.resolve(ValueConverter)
 
         try:
             unstructured_config = value_converter.unstructure(preset_config)
@@ -603,9 +604,9 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
 
         # Set up cluster-specific environment variables.
         if args.cluster == "auto":
-            env_setter = container.resolve(EnvironmentSetter)
+            env_setter = resolver.resolve(EnvironmentSetter)
         else:
-            env_setter = container.resolve(EnvironmentSetter, args.cluster)
+            env_setter = resolver.resolve(EnvironmentSetter, args.cluster)
 
         if not env_setter.supports_current_cluster():
             log.error("Recipe is not running on a '{}' cluster.", args.cluster)
@@ -623,7 +624,7 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
         output_dir = args.output_dir.expanduser().resolve()
 
         if not args.no_sweep_dir:
-            sweep_tagger = container.resolve(SweepTagger)
+            sweep_tagger = resolver.resolve(SweepTagger)
 
             if self._sweep_allowed_keys:
                 sweep_tagger.extend_allowed_keys(self._sweep_allowed_keys)
@@ -672,7 +673,11 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
 
             sys.exit(1)
 
-        _set_legacy_config(container, config)
+        config_manager = resolver.resolve(StandardConfigManager)
+
+        config_manager.update_config_dict({"output_dir": output_dir})
+
+        _set_legacy_config(resolver, config)
 
         # Load and run the recipe.
         recipe = self._loader(config, output_dir)

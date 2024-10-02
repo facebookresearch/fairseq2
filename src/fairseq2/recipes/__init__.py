@@ -13,6 +13,10 @@ from importlib_metadata import entry_points
 from fairseq2.dependency import DependencyContainer, DependencyResolver, get_container
 from fairseq2.logging import get_log_writer
 from fairseq2.recipes.assets import _setup_asset_cli
+from fairseq2.recipes.checkpoint import (
+    register_checkpoint_manager,
+    register_checkpoint_metadata_provider,
+)
 from fairseq2.recipes.cli import Cli
 from fairseq2.recipes.config_manager import (
     StandardConfigManager,
@@ -53,8 +57,6 @@ def main() -> None:
 
         container = get_container()
 
-        register_recipe_objects(container)
-
         _setup_cli(cli, container)
         _setup_cli_extensions(cli, container)
 
@@ -65,6 +67,8 @@ def main() -> None:
 
 def register_recipe_objects(container: DependencyContainer) -> None:
     register_config_manager(container)
+    register_checkpoint_manager(container)
+    register_checkpoint_metadata_provider(container)
     register_device(container)
     register_environment_setters(container)
     register_gangs(container)

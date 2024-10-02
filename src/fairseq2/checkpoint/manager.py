@@ -39,6 +39,27 @@ class CheckpointManager(ABC):
     """Saves and loads training checkpoints."""
 
     @abstractmethod
+    def save_model_metadata(
+        self,
+        *,
+        base_asset: str | None = None,
+        family: str | None = None,
+        config: object = None,
+        tokenizer_name: str | None = None,
+    ) -> None:
+        """Set the model metadata.
+
+        :param base_asset:
+            The name of the asset that the model is based on.
+        :param family:
+            The family of the model.
+        :param config:
+            The configuration of the model.
+        :param tokenizer_name:
+            The name of the tokenizer that the model is trained with.
+        """
+
+    @abstractmethod
     def begin_checkpoint(self, step_nr: int) -> None:
         """Begin a transactional checkpoint operation.
 
@@ -225,6 +246,7 @@ class FileCheckpointManager(CheckpointManager):
 
         self._checkpoint_step_nr = None
 
+    @override
     def save_model_metadata(
         self,
         *,
@@ -233,17 +255,6 @@ class FileCheckpointManager(CheckpointManager):
         config: object = None,
         tokenizer_name: str | None = None,
     ) -> None:
-        """Set the model metadata.
-
-        :param base_asset:
-            The name of the asset that the model is based on.
-        :param family:
-            The family of the model.
-        :param config:
-            The configuration of the model.
-        :param tokenizer_name:
-            The name of the tokenizer that the model is trained with.
-        """
         if self._root_gang.rank == 0:
             metadata: dict[str, Any] = {"name": "checkpoint"}
 

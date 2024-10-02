@@ -18,7 +18,7 @@ from warnings import catch_warnings
 from typing_extensions import override
 
 from fairseq2.console import get_error_console
-from fairseq2.dependency import DependencyContainer, DependencyResolver
+from fairseq2.dependency import DependencyResolver
 from fairseq2.logging import get_log_writer
 from fairseq2.models.llama import load_llama_config
 from fairseq2.models.llama.integ import convert_to_reference_checkpoint
@@ -53,7 +53,7 @@ class ConvertCheckpointCommandHandler(CliCommandHandler):
         )
 
     @override
-    def __call__(self, args: Namespace, container: DependencyContainer) -> None:
+    def __call__(self, args: Namespace, resolver: DependencyResolver) -> None:
         if not args.input_dir.exists() or not args.input_dir.is_dir():
             log.error("`input_dir` must be a directory.")
 
