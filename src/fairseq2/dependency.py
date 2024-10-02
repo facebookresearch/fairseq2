@@ -135,6 +135,8 @@ class DependencyContainer(DependencyResolver):
             the same key is provided.
 
         :raises ValueError: when ``sub_kls`` is not a subclass of ``kls``.
+        :raises RuntimeError: when called after the container is already used to
+            resolve an object.
         """
 
     @abstractmethod
@@ -154,6 +156,9 @@ class DependencyContainer(DependencyResolver):
         :param key: If not ``None``, registers the object with the specified key.
             :meth:`~DependencyResolver.resolve` will return the object only if
             the same key is provided.
+
+        :raises RuntimeError: when called after the container is already used to
+            resolve an object.
         """
 
     @abstractmethod
@@ -169,6 +174,9 @@ class DependencyContainer(DependencyResolver):
         :param key: If not ``None``, registers the object with the specified key.
             :meth:`~DependencyResolver.resolve` will return the object only if
             the same key is provided.
+
+        :raises RuntimeError: when called after the container is already used to
+            resolve an object.
         """
 
 
@@ -189,10 +197,12 @@ class StandardDependencyContainer(DependencyContainer):
 
     _registrations: dict[type, list[_Registration]]
     _keyed_registrations: dict[type, dict[str, _Registration]]
+    _frozen: bool
 
     def __init__(self) -> None:
         self._registrations = {}
         self._keyed_registrations = {}
+        self._frozen = False
 
     @override
     def register(
@@ -222,9 +232,14 @@ class StandardDependencyContainer(DependencyContainer):
     def _register(
         self, kls: type, key: str | None, registration: _Registration
     ) -> None:
+        if self._frozen:
+            raise RuntimeError(
+                "No new objects can be registered after the first `resolve()` call."
+            )
+
         if kls is Iterable:
             raise ValueError(
-                "`kls` must not be `Iterable` as it has special treatment within the dependency container."
+                "`kls` must not be `Iterable` since it has special treatment within the dependency container."
             )
 
         if key is None:
@@ -246,6 +261,8 @@ class StandardDependencyContainer(DependencyContainer):
 
     @override
     def resolve(self, kls: type[T], key: str | None = None) -> T:
+        self._frozen = True
+
         if key is None:
             try:
                 registration = self._registrations[kls][-1]
@@ -284,6 +301,8 @@ class StandardDependencyContainer(DependencyContainer):
 
     @override
     def resolve_all(self, kls: type[T]) -> Iterable[T]:
+        self._frozen = True
+
         registrations = self._registrations.get(kls)
         if registrations is None:
             return
@@ -295,6 +314,8 @@ class StandardDependencyContainer(DependencyContainer):
 
     @override
     def resolve_all_keyed(self, kls: type[T]) -> Iterable[tuple[str, T]]:
+        self._frozen = True
+
         keyed_registrations = self._keyed_registrations.get(kls)
         if keyed_registrations is None:
             return

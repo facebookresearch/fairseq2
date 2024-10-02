@@ -562,7 +562,7 @@ class ValueConverter:
         return [self.unstructure(e) for e in obj]
 
 
-def register_objects(container: DependencyContainer) -> None:
+def register_value_converter(container: DependencyContainer) -> None:
     container.register_instance(ValueConverter, ValueConverter())
 
 

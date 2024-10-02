@@ -382,7 +382,7 @@ class AssetMetadataError(AssetError):
     """Raised when an asset metadata operation fails."""
 
 
-def register_objects(container: DependencyContainer) -> None:
+def register_asset_metadata_providers(container: DependencyContainer) -> None:
     container.register_factory(AssetMetadataProvider, _create_package_metadata_provider)
     container.register_factory(AssetMetadataProvider, _create_etc_dir_metadata_provider)
     container.register_factory(AssetMetadataProvider, _create_cfg_dir_metadata_provider)

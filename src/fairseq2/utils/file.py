@@ -209,6 +209,6 @@ def load_tensors(
     return loader(path, map_location=map_location, restrict=restrict)
 
 
-def register_objects(container: DependencyContainer) -> None:
+def register_tensor_loader_dumper(container: DependencyContainer) -> None:
     container.register_instance(TensorLoader, StandardTensorLoader())
     container.register_instance(TensorDumper, PyTorchTensorDumper())

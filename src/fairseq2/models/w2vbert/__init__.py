@@ -24,5 +24,5 @@ from fairseq2.dependency import DependencyContainer
 from fairseq2.models.w2vbert.archs import register_archs
 
 
-def register_objects(container: DependencyContainer) -> None:
+def register_w2vbert(container: DependencyContainer) -> None:
     register_archs()

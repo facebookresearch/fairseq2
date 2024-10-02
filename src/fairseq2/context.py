@@ -50,11 +50,11 @@ class RuntimeContext:
     local_rank: int
 
 
-def register_objects(container: DependencyContainer) -> None:
-    container.register_factory(RuntimeContext, _create_runtime_context)
+def register_runtime_context(container: DependencyContainer) -> None:
+    container.register_factory(RuntimeContext, _create_process_runtime_context)
 
 
-def _create_runtime_context(resolver: DependencyResolver) -> RuntimeContext:
+def _create_process_runtime_context(resolver: DependencyResolver) -> RuntimeContext:
     return RuntimeContext(
         get_world_size(), get_rank(), get_local_world_size(), get_local_rank()
     )
