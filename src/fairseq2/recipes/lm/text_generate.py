@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TextIO, final
+from typing import Any, TextIO, final
 
 import torch
 from typing_extensions import override
@@ -39,7 +39,7 @@ from fairseq2.recipes.utils.asset import (
 )
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.recipes.utils.setup import broadcast_model
-from fairseq2.typing import CPU, META, DataClass, DataType
+from fairseq2.typing import CPU, META, DataType
 from fairseq2.utils.profiler import Stopwatch
 from fairseq2.utils.rng import manual_seed
 
@@ -86,7 +86,7 @@ class TextGenerateConfig:
     generator: str = "sampling"
     """The sequence generator."""
 
-    generator_config: DataClass | None = field(default_factory=lambda: SamplingConfig())
+    generator_config: Any = field(default_factory=lambda: SamplingConfig())
     """The configuration of the sequence generator."""
 
     # Misc

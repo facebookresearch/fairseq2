@@ -13,8 +13,7 @@ from typing import final
 import torch
 from typing_extensions import override
 
-from fairseq2.assets import AssetNotFoundError, default_asset_store
-from fairseq2.checkpoint import CheckpointModelMetadataProvider
+from fairseq2.assets import AssetNotFoundError
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_char_tokenizer
 from fairseq2.datasets import LengthBatching
@@ -84,6 +83,13 @@ class Wav2Vec2AsrEvalConfig:
     amp: bool = False
     """If ``True``, runs evaluation with ``torch.amp``."""
 
+    # Score
+    score_metric: str | None = "wer"
+    """The name of the metric to use as score."""
+
+    lower_score_better: bool = False
+    """The ``True``, lower scores are considered better."""
+
     # Misc
     seed: int = 2
     """The random number generator seed to use."""
@@ -105,13 +111,6 @@ def load_wav2vec2_asr_evaluator(
 ) -> Evaluator[Seq2SeqBatch]:
     """Load an :class:`Evaluator` for wav2vec 2.0 ASR model evaluation."""
     wall_watch = Stopwatch(start=True)
-
-    if config.checkpoint_dir is not None:
-        default_asset_store.metadata_providers.append(
-            CheckpointModelMetadataProvider(
-                config.checkpoint_dir, lower_score_better=True
-            )
-        )
 
     gang = resolve(Gang)
 

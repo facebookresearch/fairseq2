@@ -19,7 +19,7 @@ from fairseq2.assets import AssetCard, AssetNotFoundError, AssetStore
 from fairseq2.console import get_console
 from fairseq2.data.text import is_tokenizer_card
 from fairseq2.datasets import is_dataset_card
-from fairseq2.dependency import DependencyContainer, DependencyResolver
+from fairseq2.dependency import DependencyResolver
 from fairseq2.logging import get_log_writer
 from fairseq2.models import is_model_card
 from fairseq2.recipes.cli import Cli, CliCommandHandler
@@ -59,8 +59,8 @@ class ListAssetsCommand(CliCommandHandler):
         )
 
     @override
-    def __call__(self, args: Namespace, container: DependencyContainer) -> None:
-        asset_store = container.resolve(AssetStore)
+    def __call__(self, args: Namespace, resolver: DependencyResolver) -> None:
+        asset_store = resolver.resolve(AssetStore)
 
         usr_assets = self._retrieve_assets(asset_store, args, user=True)
         glb_assets = self._retrieve_assets(asset_store, args, user=False)
@@ -170,8 +170,8 @@ class ShowAssetCommand(CliCommandHandler):
         parser.add_argument("name", help="name of the asset")
 
     @override
-    def __call__(self, args: Namespace, container: DependencyContainer) -> None:
-        asset_store = container.resolve(AssetStore)
+    def __call__(self, args: Namespace, resolver: DependencyResolver) -> None:
+        asset_store = resolver.resolve(AssetStore)
 
         try:
             card: AssetCard | None = asset_store.retrieve_card(

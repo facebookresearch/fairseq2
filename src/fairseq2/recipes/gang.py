@@ -12,7 +12,7 @@ from datetime import timedelta
 from fairseq2.dependency import DependencyContainer, DependencyResolver
 from fairseq2.gang import Gang, setup_default_gang, setup_parallel_gangs
 from fairseq2.logging import get_log_writer
-from fairseq2.recipes.config_manager import ConfigError, ConfigManager
+from fairseq2.recipes.config_manager import ConfigError, register_config
 from fairseq2.typing import Device
 
 log = get_log_writer(__name__)
@@ -26,7 +26,7 @@ class GangConfig:
 
 
 def register_gangs(container: DependencyContainer) -> None:
-    container.register_factory(GangConfig, _create_gang_config)
+    register_config(container, path="gang", kls=GangConfig, default_factory=GangConfig)
 
     container.register_factory(Gang, _create_root_gang)
 
@@ -34,18 +34,10 @@ def register_gangs(container: DependencyContainer) -> None:
     container.register_factory(Gang, _create_tp_gang, key="tp")
 
 
-def _create_gang_config(resolver: DependencyResolver) -> GangConfig:
-    config_manager = resolver.resolve(ConfigManager)
-
-    config = config_manager.get_optional_section("gang", GangConfig)
-
-    return config or GangConfig()
-
-
 def _create_root_gang(resolver: DependencyResolver) -> Gang:
     device = resolver.resolve(Device)
 
-    config = resolver.resolve(GangConfig)
+    config = resolver.resolve(GangConfig, key="gang")
 
     timeout = timedelta(minutes=config.timeout)
 
@@ -63,7 +55,7 @@ def _create_root_gang(resolver: DependencyResolver) -> Gang:
 def _create_dp_gang(resolver: DependencyResolver) -> Gang:
     root_gang = resolver.resolve(Gang)
 
-    config = resolver.resolve(GangConfig)
+    config = resolver.resolve(GangConfig, key="gang")
 
     log.info("Initializing data parallel gangs.")
 
@@ -84,7 +76,7 @@ def _create_dp_gang(resolver: DependencyResolver) -> Gang:
 def _create_tp_gang(resolver: DependencyResolver) -> Gang:
     root_gang = resolver.resolve(Gang)
 
-    config = resolver.resolve(GangConfig)
+    config = resolver.resolve(GangConfig, key="gang")
 
     log.info("Initializing tensor parallel gangs.")
 

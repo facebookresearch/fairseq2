@@ -16,8 +16,8 @@ from torch import Tensor
 from torch.nn import Module
 from typing_extensions import override
 
-from fairseq2.assets import AssetNotFoundError, default_asset_store
-from fairseq2.checkpoint import CheckpointModelMetadataProvider, FileCheckpointManager
+from fairseq2.assets import AssetNotFoundError
+from fairseq2.checkpoint import CheckpointManager
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_text_tokenizer
 from fairseq2.datasets import LengthBatching
@@ -285,14 +285,7 @@ def load_instruction_finetuner(
     dp_gang = resolve(Gang, key="dp")  # data
     tp_gang = resolve(Gang, key="tp")  # tensor
 
-    checkpoint_manager = FileCheckpointManager(
-        output_dir.joinpath("checkpoints"), root_gang, dp_gang=dp_gang, tp_gang=tp_gang
-    )
-
-    if config.resume_checkpoint_dir is not None:
-        default_asset_store.metadata_providers.append(
-            CheckpointModelMetadataProvider(config.resume_checkpoint_dir)
-        )
+    checkpoint_manager = resolve(CheckpointManager)
 
     model_card = retrieve_asset_card(config.model)
 

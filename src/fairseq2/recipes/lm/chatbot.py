@@ -16,7 +16,7 @@ from typing_extensions import override
 
 from fairseq2.console import get_console
 from fairseq2.data.text import load_text_tokenizer
-from fairseq2.dependency import DependencyContainer, DependencyResolver
+from fairseq2.dependency import DependencyResolver
 from fairseq2.gang import Gang
 from fairseq2.generation import (
     Chatbot,
@@ -109,14 +109,14 @@ class ChatbotCommandHandler(CliCommandHandler):
 
     @override
     @torch.inference_mode()
-    def __call__(self, args: Namespace, container: DependencyContainer) -> None:
+    def __call__(self, args: Namespace, resolver: DependencyResolver) -> None:
         setup_basic_logging()
 
         # Set up cluster-specific environment variables.
         if args.cluster == "auto":
-            env_setter = container.resolve(EnvironmentSetter)
+            env_setter = resolver.resolve(EnvironmentSetter)
         else:
-            env_setter = container.resolve(EnvironmentSetter, args.cluster)
+            env_setter = resolver.resolve(EnvironmentSetter, args.cluster)
 
         if not env_setter.supports_current_cluster():
             log.error("Recipe is not running on a '{}' cluster.", args.cluster)

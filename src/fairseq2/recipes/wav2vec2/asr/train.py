@@ -14,8 +14,8 @@ import torch
 from torch import Tensor
 from typing_extensions import override
 
-from fairseq2.assets import AssetNotFoundError, default_asset_store
-from fairseq2.checkpoint import CheckpointModelMetadataProvider, FileCheckpointManager
+from fairseq2.assets import AssetNotFoundError
+from fairseq2.checkpoint import CheckpointManager
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_char_tokenizer
 from fairseq2.datasets import LengthBatching
@@ -146,6 +146,13 @@ class Wav2Vec2AsrTrainConfig:
     gradient_accumulation: int = 4
     """The number of steps to accumulate gradients before an optimizer update."""
 
+    # Score
+    score_metric: str | None = "wer"
+    """The name of the metric to use as score."""
+
+    lower_score_better: bool = False
+    """The ``True``, lower scores are considered better."""
+
     # Regime
     max_num_steps: int = 20_000
     """The maximum number of steps to train for."""
@@ -256,16 +263,7 @@ def load_wav2vec2_asr_trainer(
 
     gang = resolve(Gang)
 
-    checkpoint_manager = FileCheckpointManager(
-        output_dir.joinpath("checkpoints"), gang, lower_score_better=True
-    )
-
-    if config.resume_checkpoint_dir is not None:
-        default_asset_store.metadata_providers.append(
-            CheckpointModelMetadataProvider(
-                config.resume_checkpoint_dir, lower_score_better=True
-            )
-        )
+    checkpoint_manager = resolve(CheckpointManager)
 
     tokenizer_card = retrieve_asset_card(config.tokenizer)
 
@@ -478,8 +476,8 @@ def load_wav2vec2_asr_trainer(
         amp=amp,
         max_num_steps=config.max_num_steps,
         max_num_data_epochs=config.max_num_data_epochs,
-        score_metric_name="wer",
-        lower_better=True,
+        score_metric_name=config.score_metric,
+        lower_better=config.lower_score_better,
         valid_units=[valid_unit],
         valid_data_readers=[valid_data_reader],
         validate_after_n_steps=config.validate_after_n_steps,

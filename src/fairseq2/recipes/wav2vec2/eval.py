@@ -13,8 +13,7 @@ from typing import final
 import torch
 from typing_extensions import override
 
-from fairseq2.assets import AssetNotFoundError, default_asset_store
-from fairseq2.checkpoint import CheckpointModelMetadataProvider
+from fairseq2.assets import AssetNotFoundError
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.datasets.batching import LengthBatching
 from fairseq2.datasets.speech import GenericSpeechDataset, load_speech_dataset
@@ -86,6 +85,13 @@ class Wav2Vec2EvalConfig:
     feature_penalty_weight: float = 10.0
     """The weight of the regularization penalty applied to the extracted features."""
 
+    # Score
+    score_metric: str | None = "loss"
+    """The name of the metric to use as score."""
+
+    lower_score_better: bool = True
+    """The ``True``, lower scores are considered better."""
+
     # Misc
     seed: int = 2
     """The random number generator seed to use."""
@@ -107,13 +113,6 @@ def load_wav2vec2_evaluator(
 ) -> Evaluator[SequenceBatch]:
     """Load an :class:`Evaluator` for wav2vec 2.0 model evaluation."""
     wall_watch = Stopwatch(start=True)
-
-    if config.checkpoint_dir is not None:
-        default_asset_store.metadata_providers.append(
-            CheckpointModelMetadataProvider(
-                config.checkpoint_dir, lower_score_better=True
-            )
-        )
 
     gang = resolve(Gang)
 
