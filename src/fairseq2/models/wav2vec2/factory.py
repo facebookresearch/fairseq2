@@ -20,7 +20,7 @@ from fairseq2.models.wav2vec2.feature_extractor import (
     Wav2Vec2FeatureExtractor,
 )
 from fairseq2.models.wav2vec2.frontend import Wav2Vec2Frontend
-from fairseq2.models.wav2vec2.masker import Wav2Vec2Masker
+from fairseq2.models.wav2vec2.masker import StandardWav2Vec2Masker, Wav2Vec2Masker
 from fairseq2.models.wav2vec2.model import Wav2Vec2Model
 from fairseq2.models.wav2vec2.position_encoder import (
     Wav2Vec2PositionEncoder,
@@ -305,7 +305,7 @@ class Wav2Vec2Builder:
 
     def build_masker(self) -> Wav2Vec2Masker:
         """Build a feature masker."""
-        return Wav2Vec2Masker(
+        return StandardWav2Vec2Masker(
             self._config.encoder_config.model_dim,
             self._config.temporal_mask_span_len,
             self._config.max_temporal_mask_prob,

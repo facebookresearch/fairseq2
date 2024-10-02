@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from typing import Protocol
+
 import torch
 from torch import Tensor
 
@@ -28,6 +30,37 @@ def to_float_mask(mask: Tensor, dtype: DataType | None = None) -> Tensor:
     return torch.zeros_like(mask, dtype=dtype).masked_fill_(mask, -torch.inf)
 
 
+class RowMaskFactory(Protocol):
+    def __call__(
+        self,
+        shape: tuple[int, int],
+        span_len: int,
+        max_mask_prob: float,
+        row_lens: Tensor | None = None,
+        min_num_spans: int = 0,
+        device: Device | None = None,
+    ) -> Tensor | None:
+        """Compute a random row mask of the specified shape.
+
+        :param shape:
+            The shape of the mask.
+        :param span_len:
+            The length of each mask span.
+        :param max_mask_prob:
+            The maximum probability of masking an element in a row.
+        :param row_lens:
+            The length of each row. *Shape:* :math:`(R)`, where :math:`R` is the
+            number of rows.
+        :param min_num_spans:
+            The minimum number of mask spans per row.
+        :param device:
+            The device on which to initialize the mask.
+
+        :returns:
+            The boolean row mask. *:Shape:* ``shape``.
+        """
+
+
 def compute_row_mask(
     shape: tuple[int, int],
     span_len: int,
@@ -36,27 +69,11 @@ def compute_row_mask(
     min_num_spans: int = 0,
     device: Device | None = None,
 ) -> Tensor | None:
-    """Compute a random row mask of the specified shape.
+    """Implements the :class:`RowMaskFactory` protocol.
 
-    :param shape:
-        The shape of the mask.
-    :param span_len:
-        The length of each mask span.
-    :param max_mask_prob:
-        The maximum probability of masking an element in a row. Note that, due
-        to mask span overlap, the effective probability will be lower. The
-        implementation also guarantees that there will be always at least one
-        unmasked element in each row.
-    :param row_lens:
-        The length of each row. *Shape:* :math:`(R)`, where :math:`R` is the
-        number of rows.
-    :param min_num_spans:
-        The minimum number of mask spans per row.
-    :param device:
-        The device on which to initialize the mask.
-
-    :returns:
-        The boolean row mask. *:Shape:* ``shape``.
+    Note that, due to mask span overlap, the effective mask probability will be
+    lower than ``max_mask_prob``. The implementation also guarantees that there
+    will be always at least one unmasked element in each row.
     """
     num_rows, max_row_len = shape
 
