@@ -162,15 +162,14 @@ class TorchSDPA(SDPA):
         else:
             mask = None
 
-        with _with_memory_efficient_kernel(self._enable_memory_efficient):
-            attn = scaled_dot_product_attention(
-                seqs,
-                keys,
-                values,
-                attn_mask=mask,
-                dropout_p=dropout_p,
-                is_causal=is_causal,
-            )
+        attn = scaled_dot_product_attention(
+            seqs,
+            keys,
+            values,
+            attn_mask=mask,
+            dropout_p=dropout_p,
+            is_causal=is_causal,
+        )
 
         return attn, None
 
