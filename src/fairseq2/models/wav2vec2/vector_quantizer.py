@@ -168,17 +168,21 @@ class GumbelVectorQuantizer(VectorQuantizer):
         )
         hard_probs = torch.mean(hard_x.float(), dim=0)
 
-        code_perplexity = torch.exp(
-            -torch.sum(hard_probs * torch.log(hard_probs + 1e-7), dim=-1)
-        ).sum()
+        @torch.compile(fullgraph=True)
+        def compute_code_perplexity(probs: torch.Tensor) -> torch.Tensor:
+            return torch.exp(-torch.sum(probs * torch.log(probs + 1e-7), dim=-1)).sum()
 
-        avg_probs = torch.softmax(
-            x.view(bsz * tsz, self.num_codebooks, -1).float(), dim=-1
-        ).mean(dim=0)
+        code_perplexity = compute_code_perplexity(probs=hard_probs)
 
-        prob_perplexity = torch.exp(
-            -torch.sum(avg_probs * torch.log(avg_probs + 1e-7), dim=-1)
-        ).sum()
+        @torch.compile(fullgraph=True)
+        def compute_softmax(x: torch.Tensor) -> torch.Tensor:
+            return torch.softmax(
+                x.view(bsz * tsz, self.num_codebooks, -1).float(), dim=-1
+            ).mean(dim=0)
+
+        avg_probs = compute_softmax(x=x)
+
+        prob_perplexity = compute_code_perplexity(probs=avg_probs)
 
         if self.training:
             x = gumbel_softmax(x.float(), tau=current_temp, hard=True).type_as(x)
@@ -189,10 +193,17 @@ class GumbelVectorQuantizer(VectorQuantizer):
 
         cb = x
 
-        x = x.unsqueeze(-1) * self.entries
-        x = x.view(bsz * tsz, self.num_codebooks, self.num_codebook_entries, -1)
-        x = x.sum(-2)
-        x = x.view(bsz, tsz, -1)
+        @torch.compile(fullgraph=True)
+        def compute_sum(x):
+            return torch.sum(
+                x.view(bsz * tsz, self.num_codebooks, self.num_codebook_entries, 1)
+                * self.entries.view(
+                    1, self.num_codebooks, self.num_codebook_entries, -1
+                ),
+                dim=-2,
+            )
+
+        x = compute_sum(x).view(bsz, tsz, -1)
 
         return GumbelVectorQuantizerOutput(
             x,
