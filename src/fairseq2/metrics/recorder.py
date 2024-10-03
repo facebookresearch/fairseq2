@@ -500,7 +500,9 @@ class WandbRecorder(MetricRecorder):
         if not has_wandb:
             log.warning("wandb not found. Please install it with `pip install wandb`.")  # fmt: skip
 
-        self._run = wandb.init(project=project, dir=output_dir.parent)
+            self._run = None
+        else:
+            self._run = wandb.init(project=project, dir=output_dir.parent)
 
     @override
     def record_metrics(
@@ -511,6 +513,9 @@ class WandbRecorder(MetricRecorder):
         *,
         flush: bool = True,
     ) -> None:
+        if self._run is None:
+            return
+
         for name, value in values.items():
             formatter = _metric_formatters.get(name)
             if formatter is None:
@@ -522,4 +527,5 @@ class WandbRecorder(MetricRecorder):
 
     @override
     def close(self) -> None:
-        self._run.finish()
+        if self._run is not None:
+            self._run.finish()
