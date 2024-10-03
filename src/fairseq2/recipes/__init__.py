@@ -28,6 +28,7 @@ from fairseq2.recipes.hg import _setup_hg_cli
 from fairseq2.recipes.llama import _setup_llama_cli
 from fairseq2.recipes.lm import _setup_lm_cli
 from fairseq2.recipes.logging import setup_basic_logging
+from fairseq2.recipes.metrics import register_metric_recorders
 from fairseq2.recipes.mt import _setup_mt_cli
 from fairseq2.recipes.utils.environment import register_environment_setters
 from fairseq2.recipes.utils.log import exception_logger
@@ -66,12 +67,13 @@ def main() -> None:
 
 
 def register_recipe_objects(container: DependencyContainer) -> None:
-    register_config_manager(container)
     register_checkpoint_manager(container)
     register_checkpoint_metadata_provider(container)
+    register_config_manager(container)
     register_device(container)
     register_environment_setters(container)
     register_gangs(container)
+    register_metric_recorders(container)
     register_sweep_tagger(container)
 
 

@@ -22,7 +22,7 @@ from fairseq2.datasets.parallel_text import (
     GenericParallelTextDataset,
     load_parallel_text_dataset,
 )
-from fairseq2.dependency import resolve
+from fairseq2.dependency import resolve, resolve_all
 from fairseq2.gang import Gang
 from fairseq2.generation import (
     BeamSearchConfig,
@@ -31,6 +31,7 @@ from fairseq2.generation import (
     create_seq2seq_generator,
 )
 from fairseq2.logging import get_log_writer
+from fairseq2.metrics import MetricRecorder
 from fairseq2.metrics.text import BleuMetric, ChrfMetric
 from fairseq2.models import load_model
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
@@ -301,6 +302,8 @@ def load_mt_evaluator(
 
         data_readers.append(data_reader)
 
+    metric_recorders = resolve_all(MetricRecorder)
+
     # Initialize the evaluator.
     return Evaluator[Seq2SeqBatch](
         units=units,
@@ -308,8 +311,7 @@ def load_mt_evaluator(
         root_gang=gang,
         dtype=config.dtype,
         amp=config.amp,
-        tb_dir=output_dir.joinpath("tb"),
-        metrics_dir=output_dir.joinpath("metrics"),
+        metric_recorders=metric_recorders,
         seed=seed,
         wall_watch=wall_watch,
     )

@@ -9,6 +9,7 @@ from __future__ import annotations
 from fairseq2.dependency import DependencyResolver
 from fairseq2.recipes.config_manager import StandardConfigManager
 from fairseq2.recipes.gang import GangConfig
+from fairseq2.recipes.metrics import MetricRecordersConfig
 from fairseq2.typing import DataClass
 
 
@@ -37,9 +38,18 @@ def _set_legacy_config(resolver: DependencyResolver, config: DataClass) -> None:
 
         config_dict["lower_score_better"] = getattr(config, "lower_score_better", False)
 
+    def set_metric_recorders_config() -> None:
+        wandb_project = getattr(config, "wandb_project", None)
+
+        if wandb_project is not None:
+            config_dict["metric_recorders"] = MetricRecordersConfig(
+                wandb=True, wandb_project=wandb_project
+            )
+
     set_gang_config()
     set_checkpoint_search_dir()
     set_score_config()
+    set_metric_recorders_config()
 
     config_manager = resolver.resolve(StandardConfigManager)
 

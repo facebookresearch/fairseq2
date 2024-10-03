@@ -19,9 +19,10 @@ from fairseq2.checkpoint import CheckpointManager
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.datasets.batching import LengthBatching
 from fairseq2.datasets.speech import GenericSpeechDataset, load_speech_dataset
-from fairseq2.dependency import resolve
+from fairseq2.dependency import resolve, resolve_all
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
+from fairseq2.metrics import MetricRecorder
 from fairseq2.models import create_model
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2 import Wav2Vec2Model
@@ -366,6 +367,8 @@ def load_wav2vec2_trainer(
     # TODO: Fix once we support static mixed precision on one device.
     amp = gang.size == 1 or config.data_parallelism != "fsdp"
 
+    metric_recorders = resolve_all(MetricRecorder)
+
     # Initialize the trainer.
     return Trainer[SequenceBatch](
         unit=unit,
@@ -389,8 +392,7 @@ def load_wav2vec2_trainer(
         checkpoint_after_n_steps=0,
         checkpoint_every_n_steps=config.checkpoint_every_n_steps,
         keep_best_n_checkpoints=config.keep_best_n_checkpoints,
-        tb_dir=output_dir.joinpath("tb"),
-        metrics_dir=output_dir.joinpath("metrics"),
+        metric_recorders=metric_recorders,
         publish_metrics_every_n_steps=config.publish_metrics_every_n_steps,
         profile=config.profile,
         anomaly_detection=config.anomaly_detection,

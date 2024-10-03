@@ -25,9 +25,10 @@ from fairseq2.datasets.instruction import (
     GenericInstructionDataset,
     load_instruction_dataset,
 )
-from fairseq2.dependency import resolve
+from fairseq2.dependency import resolve, resolve_all
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
+from fairseq2.metrics import MetricRecorder
 from fairseq2.models import load_model
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.sequence import (
@@ -209,7 +210,7 @@ class InstructionFinetuneConfig:
     """If ``True``, turns on anomaly detection feature in ``torch.autograd``."""
 
     wandb_project: str | None = None
-    """If not ``None``, sets the project name for wandb logging."""
+    """If not ``None``, sets the project name for W&B logging."""
 
 
 instruction_finetune_presets = ConfigRegistry[InstructionFinetuneConfig]()
@@ -493,6 +494,8 @@ def load_instruction_finetuner(
     else:
         amp = config.mixed_precision == "dynamic"
 
+    metric_recorders = resolve_all(MetricRecorder)
+
     # Initialize the trainer.
     return Trainer[SequenceBatch](
         unit=unit,
@@ -517,10 +520,7 @@ def load_instruction_finetuner(
         checkpoint_every_n_data_epochs=config.checkpoint_every_n_data_epochs,
         keep_last_n_checkpoints=config.keep_last_n_checkpoints,
         keep_last_n_models=config.keep_last_n_models,
-        tb_dir=output_dir.joinpath("tb"),
-        wandb_dir=output_dir.joinpath("wandb"),
-        wandb_project=config.wandb_project,
-        metrics_dir=output_dir.joinpath("metrics"),
+        metric_recorders=metric_recorders,
         publish_metrics_every_n_steps=config.publish_metrics_every_n_steps,
         publish_metrics_every_n_data_epochs=config.publish_metrics_every_n_data_epochs,
         profile=config.profile,

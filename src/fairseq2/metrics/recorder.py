@@ -24,6 +24,8 @@ from typing_extensions import override
 
 from fairseq2.logging import LogWriter, get_log_writer
 
+log = get_log_writer(__name__)
+
 
 def format_as_int(value: Any, *, postfix: str | None = None) -> str:
     """Format metric ``value`` as integer."""
@@ -416,19 +418,18 @@ else:
 class TensorBoardRecorder(MetricRecorder):
     """Records metric values to TensorBoard."""
 
-    _log_dir: Path
+    _output_dir: Path
     _writers: dict[str, SummaryWriter]
 
-    def __init__(self, log_dir: Path) -> None:
+    def __init__(self, output_dir: Path) -> None:
         """
-        :param log_dir:
+        :param output_dir:
             The base directory under which to store the TensorBoard files.
         """
         if not has_tensorboard:
-            log = get_log_writer(__name__)
             log.warning("tensorboard not found. Please install it with `pip install tensorboard`.")  # fmt: skip
 
-        self._log_dir = log_dir
+        self._output_dir = output_dir
         self._writers = {}
 
     @override
@@ -463,7 +464,7 @@ class TensorBoardRecorder(MetricRecorder):
         try:
             writer = self._writers[run]
         except KeyError:
-            writer = SummaryWriter(self._log_dir.joinpath(run))
+            writer = SummaryWriter(self._output_dir.joinpath(run))
 
             self._writers[run] = writer
 
@@ -477,7 +478,7 @@ class TensorBoardRecorder(MetricRecorder):
 
 
 try:
-    import wandb
+    import wandb  # type: ignore[import-not-found]
 except ImportError:
     has_wandb = False
 else:
@@ -485,31 +486,21 @@ else:
 
 
 @final
-class WandBRecorder(MetricRecorder):
-    """Records metric values to WandB."""
+class WandbRecorder(MetricRecorder):
+    """Records metric values to Weights & Biases."""
 
-    def __init__(self, log_dir: Path, wandb_project: str | None = None) -> None:
+    def __init__(self, project: str, output_dir: Path) -> None:
         """
-        :param log_dir:
-            The base directory under which to store the WandB files.
-        In order to use wandb:
-        Create an account at wandb.ai
-        'conda install wandb' and 'wandb login' from the command line
-        Enter API key when prompted
+        :param project: The W&B project name.
+        :param output_dir: The base directory under which to store the W&B files.
+
+        In order to use W&B, run `wandb login` from the command line and enter
+        the API key when prompted.
         """
         if not has_wandb:
-            log = get_log_writer(__name__)
-            log.warning(
-                "wandb not found. Please install it with `conda install wandb`."
-            )
+            log.warning("wandb not found. Please install it with `pip install wandb`.")  # fmt: skip
 
-        self._log_dir = log_dir
-        if wandb_project:
-            self.project = wandb_project
-        else:
-            self.project = log_dir.parts[-2]  # use name of immediate parent dir
-
-        self.wandb_run = wandb.init(project=self.project, dir=log_dir.parent)
+        self._run = wandb.init(project=project, dir=output_dir.parent)
 
     @override
     def record_metrics(
@@ -526,8 +517,9 @@ class WandBRecorder(MetricRecorder):
                 display_name = name
             else:
                 display_name = formatter.display_name
-            self.wandb_run.log({display_name: value}, step=step_nr)
+
+            self._run.log({display_name: value}, step=step_nr)
 
     @override
     def close(self) -> None:
-        self.wandb_run.finish()
+        self._run.finish()

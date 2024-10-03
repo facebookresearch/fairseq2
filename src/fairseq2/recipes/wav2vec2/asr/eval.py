@@ -18,9 +18,10 @@ from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_char_tokenizer
 from fairseq2.datasets import LengthBatching
 from fairseq2.datasets.asr import GenericAsrDataset, load_asr_dataset
-from fairseq2.dependency import resolve
+from fairseq2.dependency import resolve, resolve_all
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
+from fairseq2.metrics import MetricRecorder
 from fairseq2.models import load_model
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.wav2vec2.asr import Wav2Vec2AsrModel
@@ -229,6 +230,8 @@ def load_wav2vec2_asr_evaluator(
 
     seed += 1
 
+    metric_recorders = resolve_all(MetricRecorder)
+
     # Initialize the evaluator.
     return Evaluator[Seq2SeqBatch](
         units=[unit],
@@ -236,8 +239,7 @@ def load_wav2vec2_asr_evaluator(
         root_gang=gang,
         dtype=config.dtype,
         amp=config.amp,
-        tb_dir=output_dir.joinpath("tb"),
-        metrics_dir=output_dir.joinpath("metrics"),
+        metric_recorders=metric_recorders,
         seed=seed,
         wall_watch=wall_watch,
     )
