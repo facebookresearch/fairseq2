@@ -35,7 +35,7 @@ class DependencyResolver(ABC):
         """
         Returns the object of type ``T``.
 
-        :param kls: The :class:`type` of ``T``.
+        :param kls: The value of ``T``.
         :param key: If not ``None``, the object with the specified key will be
             returned.
 
@@ -51,10 +51,10 @@ class DependencyResolver(ABC):
     def resolve_optional(self, kls: type[T], key: str | None = None) -> T | None:
         """
         Returns the object of type ``T`` similar to :meth:`resolve`, but returns
-        ``None`` instead of raising a :class:`LookupError` if the object is not
-        found.
+        ``None`` instead of raising a :class:`DependencyNotFoundError` if the
+        object is not found.
 
-        :param kls: The :class:`type` of ``T``.
+        :param kls: The value of ``T``.
         :param key: If not ``None``, the object with the specified key will be
             returned.
 
@@ -70,7 +70,7 @@ class DependencyResolver(ABC):
         only the last registered one. In contrast, ``resolve_all`` returns
         them all in the order they were registered.
 
-        :param kls: The :class:`type` of ``T``.
+        :param kls: The value of ``T``.
 
         :returns: An iterable of resolved objects. If no object is found, an
             empty iterable.
@@ -84,7 +84,7 @@ class DependencyResolver(ABC):
         This method behaves similar to :meth:`resolve_all`, but returns an
         iterable of key-object pairs instead.
 
-        :param kls: The :class:`type` of ``T``.
+        :param kls: The value of ``T``.
 
         :returns: An iterable of resolved key-object pairs. If no object is
             found, an empty iterable.
@@ -127,7 +127,7 @@ class DependencyContainer(DependencyResolver):
         registered, :meth:`~DependencyResolver.resolve` will return only the
         last registered one.
 
-        :param kls: The :class:`type` of ``T``.
+        :param kls: The value of ``T``.
         :param sub_kls: The real type of the object. If not ``None``, must be a
             subclass of ``kls``.
         :param key: If not ``None``, registers the object with the specified key.
@@ -150,7 +150,7 @@ class DependencyContainer(DependencyResolver):
         registered, :meth:`~DependencyResolver.resolve` will return only the
         last registered one.
 
-        :param kls: The :class:`type` of ``T``.
+        :param kls: The value of ``T``.
         :param factory: A callable to create an object of type ``T``. If the
             callable returns ``None``, the object is considered to not exist.
         :param key: If not ``None``, registers the object with the specified key.
@@ -169,7 +169,7 @@ class DependencyContainer(DependencyResolver):
         Other than registering an existing object instead of a factory, the
         method behaves the same as :meth:`register`.
 
-        :param kls: The :class:`type` of ``T``.
+        :param kls: The value of ``T``.
         :param obj: The object to register.
         :param key: If not ``None``, registers the object with the specified key.
             :meth:`~DependencyResolver.resolve` will return the object only if
@@ -379,18 +379,18 @@ class StandardDependencyContainer(DependencyContainer):
                     continue
 
                 try:
-                    type_hint = type_hints[param_name]
+                    param_type = type_hints[param_name]
                 except KeyError:
                     raise DependencyError(
                         f"The `{param_name}` parameter of `{init_method}` has no type annotation."
                     )
 
-                param_type = get_origin(type_hint) or type_hint
+                param_origin_type = get_origin(param_type)
 
                 arg: Any
 
-                if param_type is Iterable:
-                    param_type_args = get_args(type_hint)
+                if param_origin_type is Iterable:
+                    param_type_args = get_args(param_type)
                     if len(param_type_args) != 1:
                         raise DependencyError(
                             f"The iterable `{param_name}` parameter of `{init_method}` has no element type expression."
@@ -405,16 +405,17 @@ class StandardDependencyContainer(DependencyContainer):
                             f"The element type of the iterable `{param_name}` parameter of `{init_method}` is not a `type`."
                         )
 
-                    if isinstance(element_type, tuple):
-                        # TODO: implement!
-                        raise RuntimeError("not supported yet!")
-                    else:
-                        arg = list(resolver.resolve_all(element_type))
+                    if get_origin(element_type) is tuple:
+                        element_type_args = get_args(element_type)
 
-                    if len(arg) == 0 and param.default != Parameter.empty:
+                        if len(element_type_args) == 2 and element_type_args[0] is str:
+                            kwargs[param_name] = resolver.resolve_all_keyed(
+                                element_type_args[1]
+                            )
+
                         continue
 
-                    kwargs[param_name] = arg
+                    kwargs[param_name] = resolver.resolve_all(element_type)
                 else:
                     if not isinstance(param_type, type):
                         if param.default != Parameter.empty:
@@ -456,11 +457,13 @@ class _Registration:
                 "Neither `obj` nor `factory` is specified. Please file a bug report."
             )
 
-        if factory is None:
-            factory = lambda _: obj
-
         self.obj = obj
-        self.factory = factory
+
+        if factory is not None:
+            self.factory = factory
+        else:
+            self.factory = lambda _: obj
+
         self.transient = transient
 
 

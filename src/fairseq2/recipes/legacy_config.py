@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from fairseq2.dependency import DependencyResolver
-from fairseq2.recipes.checkpoint import ScoreConfig
 from fairseq2.recipes.config_manager import StandardConfigManager
 from fairseq2.recipes.gang import GangConfig
 from fairseq2.typing import DataClass
@@ -34,14 +33,9 @@ def _set_legacy_config(resolver: DependencyResolver, config: DataClass) -> None:
         config_dict["checkpoint_search_dir"] = search_dir
 
     def set_score_config() -> None:
-        score_metric = getattr(config, "score_metric", None)
-        if score_metric is not None:
-            lower_score_better = getattr(config, "lower_score_better", False)
+        config_dict["score_metric"] = getattr(config, "score_metric", None)
 
-            config_dict["score"] = ScoreConfig(
-                metric=score_metric,
-                lower_better=lower_score_better,
-            )
+        config_dict["lower_score_better"] = getattr(config, "lower_score_better", False)
 
     set_gang_config()
     set_checkpoint_search_dir()

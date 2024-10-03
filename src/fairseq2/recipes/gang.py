@@ -12,7 +12,11 @@ from datetime import timedelta
 from fairseq2.dependency import DependencyContainer, DependencyResolver
 from fairseq2.gang import Gang, setup_default_gang, setup_parallel_gangs
 from fairseq2.logging import get_log_writer
-from fairseq2.recipes.config_manager import ConfigError, register_config
+from fairseq2.recipes.config_manager import (
+    ConfigError,
+    ConfigManager,
+    ConfigNotFoundError,
+)
 from fairseq2.typing import Device
 
 log = get_log_writer(__name__)
@@ -26,8 +30,6 @@ class GangConfig:
 
 
 def register_gangs(container: DependencyContainer) -> None:
-    register_config(container, path="gang", kls=GangConfig, default_factory=GangConfig)
-
     container.register_factory(Gang, _create_root_gang)
 
     container.register_factory(Gang, _create_dp_gang, key="dp")
@@ -37,7 +39,12 @@ def register_gangs(container: DependencyContainer) -> None:
 def _create_root_gang(resolver: DependencyResolver) -> Gang:
     device = resolver.resolve(Device)
 
-    config = resolver.resolve(GangConfig, key="gang")
+    config_manager = resolver.resolve(ConfigManager)
+
+    try:
+        config = config_manager.get_config("gang", GangConfig)
+    except ConfigNotFoundError:
+        config = GangConfig()
 
     timeout = timedelta(minutes=config.timeout)
 
@@ -55,7 +62,12 @@ def _create_root_gang(resolver: DependencyResolver) -> Gang:
 def _create_dp_gang(resolver: DependencyResolver) -> Gang:
     root_gang = resolver.resolve(Gang)
 
-    config = resolver.resolve(GangConfig, key="gang")
+    config_manager = resolver.resolve(ConfigManager)
+
+    try:
+        config = config_manager.get_config("gang", GangConfig)
+    except ConfigNotFoundError:
+        config = GangConfig()
 
     log.info("Initializing data parallel gangs.")
 
@@ -65,7 +77,7 @@ def _create_dp_gang(resolver: DependencyResolver) -> Gang:
         )
     except ValueError as ex:
         raise ConfigError(
-            f"The size of the root gang ({root_gang.size}) is not divisible by `gang.tensor_parallel_size` ({config.tensor_parallel_size})."
+            f"The size of the root gang ({root_gang.size}) is not divisible by 'gang.tensor_parallel_size' ({config.tensor_parallel_size})."
         ) from ex
 
     log.info("Gangs initialized.")
@@ -76,7 +88,12 @@ def _create_dp_gang(resolver: DependencyResolver) -> Gang:
 def _create_tp_gang(resolver: DependencyResolver) -> Gang:
     root_gang = resolver.resolve(Gang)
 
-    config = resolver.resolve(GangConfig, key="gang")
+    config_manager = resolver.resolve(ConfigManager)
+
+    try:
+        config = config_manager.get_config("gang", GangConfig)
+    except ConfigNotFoundError:
+        config = GangConfig()
 
     log.info("Initializing tensor parallel gangs.")
 
@@ -86,7 +103,7 @@ def _create_tp_gang(resolver: DependencyResolver) -> Gang:
         )
     except ValueError as ex:
         raise ConfigError(
-            f"The size of the root gang ({root_gang.size}) is not divisible by `gang.tensor_parallel_size` ({config.tensor_parallel_size})."
+            f"The size of the root gang ({root_gang.size}) is not divisible by 'gang.tensor_parallel_size' ({config.tensor_parallel_size})."
         ) from ex
 
     log.info("Gangs initialized.")
