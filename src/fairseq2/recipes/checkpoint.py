@@ -17,7 +17,7 @@ from fairseq2.checkpoint import (
 )
 from fairseq2.dependency import DependencyContainer, DependencyResolver
 from fairseq2.gang import Gang
-from fairseq2.recipes.config_manager import ConfigManager, register_config
+from fairseq2.recipes.config_manager import ConfigManager, ConfigNotFoundError
 from fairseq2.utils.file import TensorDumper, TensorLoader
 from fairseq2.utils.structured import ValueConverter
 
@@ -27,24 +27,7 @@ class FileCheckpointManagerConfig:
     path: Path = field(default_factory=lambda: Path("checkpoints"))
 
 
-@dataclass
-class ScoreConfig:
-    metric: str = "loss"
-    lower_better: bool = True
-
-
 def register_checkpoint_manager(container: DependencyContainer) -> None:
-    register_config(
-        container,
-        path="checkpoint_manager",
-        kls=FileCheckpointManagerConfig,
-        default_factory=FileCheckpointManagerConfig,
-    )
-
-    register_config(container, path="output_dir", kls=Path)
-
-    register_config(container, path="score", kls=ScoreConfig)
-
     container.register_factory(CheckpointManager, _create_checkpoint_manager)
 
     container.register_factory(
@@ -55,17 +38,25 @@ def register_checkpoint_manager(container: DependencyContainer) -> None:
 def _create_checkpoint_manager(resolver: DependencyResolver) -> CheckpointManager:
     config_manager = resolver.resolve(ConfigManager)
 
-    type_ = config_manager.get_config(
-        "checkpoint_manager_type", str, default_factory=lambda: "file"
-    )
+    try:
+        type_ = config_manager.get_config("checkpoint_manager_type", str)
+    except ConfigNotFoundError:
+        type_ = "file"
 
     return resolver.resolve(CheckpointManager, key=type_)
 
 
 def _create_file_checkpoint_manager(resolver: DependencyResolver) -> CheckpointManager:
-    output_dir = resolver.resolve(Path, key="output_dir")
+    config_manager = resolver.resolve(ConfigManager)
 
-    config = resolver.resolve(FileCheckpointManagerConfig, key="checkpoint_manager")
+    output_dir = config_manager.get_config("output_dir", Path)
+
+    try:
+        config = config_manager.get_config(
+            "checkpoint_manager", FileCheckpointManagerConfig
+        )
+    except ConfigNotFoundError:
+        config = FileCheckpointManagerConfig()
 
     checkpoint_dir = output_dir.joinpath(config.path)
 
@@ -79,9 +70,10 @@ def _create_file_checkpoint_manager(resolver: DependencyResolver) -> CheckpointM
 
     value_converter = resolver.resolve(ValueConverter)
 
-    score_config = resolver.resolve_optional(ScoreConfig, key="score")
-
-    lower_score_better = False if score_config is None else score_config.lower_better
+    try:
+        lower_score_better = config_manager.get_config("lower_score_better", bool)
+    except ConfigNotFoundError:
+        lower_score_better = False
 
     return FileCheckpointManager(
         checkpoint_dir,
@@ -96,10 +88,6 @@ def _create_file_checkpoint_manager(resolver: DependencyResolver) -> CheckpointM
 
 
 def register_checkpoint_metadata_provider(container: DependencyContainer) -> None:
-    register_config(
-        container, path="checkpoint_search_dir", kls=Path, type_expr=Path | None
-    )
-
     container.register_factory(
         AssetMetadataProvider, _create_file_checkpoint_metadata_provider
     )
@@ -108,13 +96,22 @@ def register_checkpoint_metadata_provider(container: DependencyContainer) -> Non
 def _create_file_checkpoint_metadata_provider(
     resolver: DependencyResolver,
 ) -> AssetMetadataProvider | None:
-    checkpoint_search_dir = resolver.resolve_optional(Path, key="checkpoint_search_dir")
+    config_manager = resolver.resolve(ConfigManager)
+
+    try:
+        checkpoint_search_dir = config_manager.get_config(
+            "checkpoint_search_dir", Path | None
+        )
+    except ConfigNotFoundError:
+        checkpoint_search_dir = None
+
     if checkpoint_search_dir is None:
         return None
 
-    score_config = resolver.resolve_optional(ScoreConfig, key="score")
-
-    lower_score_better = False if score_config is None else score_config.lower_better
+    try:
+        lower_score_better = config_manager.get_config("lower_score_better", bool)
+    except ConfigNotFoundError:
+        lower_score_better = False
 
     return FileCheckpointMetadataProvider(
         checkpoint_search_dir, lower_score_better=lower_score_better

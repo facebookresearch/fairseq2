@@ -7,24 +7,17 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable
 from typing import Any, final
 
 from typing_extensions import override
 
-from fairseq2.dependency import DependencyContainer, DependencyResolver
+from fairseq2.dependency import DependencyContainer
 from fairseq2.utils.structured import StructuredError, ValueConverter
 
 
 class ConfigManager(ABC):
     @abstractmethod
-    def get_config(
-        self,
-        path: str,
-        type_expr: Any,
-        *,
-        default_factory: Callable[[], Any] | None = None,
-    ) -> Any:
+    def get_config(self, path: str, type_expr: Any) -> Any:
         ...
 
 
@@ -42,19 +35,10 @@ class StandardConfigManager(ConfigManager):
         self._config_dict.update(config_dict)
 
     @override
-    def get_config(
-        self,
-        path: str,
-        type_expr: Any,
-        *,
-        default_factory: Callable[[], Any] | None = None,
-    ) -> Any:
+    def get_config(self, path: str, type_expr: Any) -> Any:
         try:
             config = self._config_dict[path]
         except KeyError:
-            if default_factory is not None:
-                return default_factory()
-
             raise ConfigNotFoundError(
                 f"The '{path}' configuration is not found."
             ) from None
@@ -81,24 +65,3 @@ def register_config_manager(container: DependencyContainer) -> None:
     container.register_factory(
         ConfigManager, lambda r: r.resolve(StandardConfigManager)
     )
-
-
-def register_config(
-    container: DependencyContainer,
-    path: str,
-    kls: type,
-    *,
-    type_expr: Any | None = None,
-    default_factory: Callable[[], Any] | None = None,
-) -> None:
-    def create(resolver: DependencyResolver) -> Any:
-        config_manager = resolver.resolve(ConfigManager)
-
-        try:
-            return config_manager.get_config(
-                path, type_expr or kls, default_factory=default_factory
-            )
-        except ConfigNotFoundError:
-            return None
-
-    container.register_factory(kls, create, key=path)
