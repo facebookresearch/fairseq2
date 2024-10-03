@@ -18,7 +18,7 @@ from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import TextTokenizer, load_text_tokenizer
 from fairseq2.datasets import StaticBatching
 from fairseq2.datasets.text import GenericTextDataset, load_text_dataset
-from fairseq2.dependency import resolve
+from fairseq2.dependency import resolve, resolve_all
 from fairseq2.gang import Gang
 from fairseq2.generation import (
     BeamSearchConfig,
@@ -27,6 +27,7 @@ from fairseq2.generation import (
     create_seq2seq_generator,
 )
 from fairseq2.logging import get_log_writer
+from fairseq2.metrics import MetricRecorder
 from fairseq2.models import load_model
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.sequence import SequenceBatch
@@ -238,6 +239,8 @@ def load_text_translator(
 
     seed += 1
 
+    metric_recorders = resolve_all(MetricRecorder)
+
     # Initialize the generator.
     return Generator[SequenceBatch](
         unit=unit,
@@ -245,7 +248,7 @@ def load_text_translator(
         root_gang=gang,
         dtype=config.dtype,
         amp=config.amp,
-        metrics_dir=output_dir.joinpath("metrics"),
+        metric_recorders=metric_recorders,
         seed=seed,
         wall_watch=wall_watch,
     )

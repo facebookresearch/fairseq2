@@ -23,10 +23,11 @@ from fairseq2.datasets.parallel_text import (
     GenericParallelTextDataset,
     load_parallel_text_dataset,
 )
-from fairseq2.dependency import resolve
+from fairseq2.dependency import resolve, resolve_all
 from fairseq2.gang import Gang
 from fairseq2.generation import BeamSearchConfig, create_seq2seq_generator
 from fairseq2.logging import get_log_writer
+from fairseq2.metrics import MetricRecorder
 from fairseq2.models import create_model
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.seq2seq import Seq2SeqBatch
@@ -423,6 +424,8 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
     # TODO: Fix once we support static mixed precision on one device.
     amp = gang.size == 1 or config.data_parallelism != "fsdp"
 
+    metric_recorders = resolve_all(MetricRecorder)
+
     # Initialize the trainer.
     return Trainer[Seq2SeqBatch](
         unit=unit,
@@ -444,8 +447,7 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
         checkpoint_manager=checkpoint_manager,
         checkpoint_after_n_steps=config.checkpoint_after_n_steps,
         checkpoint_every_n_steps=config.checkpoint_every_n_steps,
-        tb_dir=output_dir.joinpath("tb"),
-        metrics_dir=output_dir.joinpath("metrics"),
+        metric_recorders=metric_recorders,
         publish_metrics_every_n_steps=config.publish_metrics_every_n_steps,
         profile=config.profile,
         anomaly_detection=config.anomaly_detection,

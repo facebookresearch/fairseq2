@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from contextlib import AbstractContextManager, nullcontext
 from itertools import count
 from pathlib import Path
@@ -206,6 +206,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         keep_best_n_checkpoints: int | None = None,
         keep_last_n_models: int | None = None,
         keep_best_n_models: int | None = None,
+        metric_recorders: Iterable[MetricRecorder] | None = None,
         tb_dir: Path | None = None,
         metrics_dir: Path | None = None,
         publish_metrics_after_n_steps: int = 0,
@@ -285,10 +286,12 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             The number of best checkpoint models to keep based on their
             validation score. Must be greater than or equal to
             ``keep_best_n_checkpoints``.
+        :param metric_recorders:
+            The metric recorders.
         :param tb_dir:
-            The TensorBoard log directory to dump metrics.
+            Legacy. Use ``metric_recoders``.
         :param metrics_dir:
-            The directory to dump metrics.
+            Legacy. Use ``metric_recoders``.
         :param publish_metrics_after_n_steps:
             The number of steps after which to start publishing metrics.
         :param publish_metrics_every_n_steps:
@@ -516,16 +519,20 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._metric_bag = unit.metric_bag
 
-        if root_gang.rank == 0:
-            self._metric_recorders = [LogMetricRecorder(log)]
+        if metric_recorders is None:
+            # compat
+            if root_gang.rank == 0:
+                self._metric_recorders = [LogMetricRecorder(log)]
 
-            if tb_dir is not None:
-                self._metric_recorders.append(TensorBoardRecorder(tb_dir))
+                if tb_dir is not None:
+                    self._metric_recorders.append(TensorBoardRecorder(tb_dir))
 
-            if metrics_dir is not None:
-                self._metric_recorders.append(JsonFileMetricRecorder(metrics_dir))
+                if metrics_dir is not None:
+                    self._metric_recorders.append(JsonFileMetricRecorder(metrics_dir))
+            else:
+                self._metric_recorders = []
         else:
-            self._metric_recorders = []
+            self._metric_recorders = list(metric_recorders)
 
         if publish_metrics_every_n_steps == 0:
             raise ValueError(

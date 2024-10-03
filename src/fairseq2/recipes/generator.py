@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from contextlib import AbstractContextManager, nullcontext
 from itertools import count
 from pathlib import Path
@@ -98,6 +99,7 @@ class Generator(Generic[BatchT]):
         tp_gang: Gang | None = None,
         dtype: DataType = torch.float32,
         amp: bool = False,
+        metric_recorders: Iterable[MetricRecorder] | None = None,
         metrics_dir: Path | None = None,
         seed: int = 2,
     ) -> None:
@@ -118,8 +120,10 @@ class Generator(Generic[BatchT]):
             The data type of the model.
         :param amp:
             If ``True``, enables ``torch.amp``.
+        :param metric_recorders:
+            The metric recorders.
         :param metrics_dir:
-            The directory to dump metrics.
+            Legacy. Use ``metric_recoders``.
         :param seed:
             The random number generator seed.
         """
@@ -148,13 +152,17 @@ class Generator(Generic[BatchT]):
 
         self._amp = amp
 
-        if root_gang.rank == 0:
-            self._metric_recorders = [LogMetricRecorder(log)]
+        if metric_recorders is None:
+            # compat
+            if root_gang.rank == 0:
+                self._metric_recorders = [LogMetricRecorder(log)]
 
-            if metrics_dir is not None:
-                self._metric_recorders.append(JsonFileMetricRecorder(metrics_dir))
+                if metrics_dir is not None:
+                    self._metric_recorders.append(JsonFileMetricRecorder(metrics_dir))
+            else:
+                self._metric_recorders = []
         else:
-            self._metric_recorders = []
+            self._metric_recorders = list(metric_recorders)
 
         self._seed = seed
 

@@ -17,9 +17,10 @@ from fairseq2.assets import AssetNotFoundError
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.datasets.batching import LengthBatching
 from fairseq2.datasets.speech import GenericSpeechDataset, load_speech_dataset
-from fairseq2.dependency import resolve
+from fairseq2.dependency import resolve, resolve_all
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
+from fairseq2.metrics import MetricRecorder
 from fairseq2.models import load_model
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2 import Wav2Vec2Model
@@ -197,6 +198,8 @@ def load_wav2vec2_evaluator(
 
     seed += 1
 
+    metric_recorders = resolve_all(MetricRecorder)
+
     # Initialize the evaluator.
     return Evaluator[SequenceBatch](
         units=[unit],
@@ -204,8 +207,7 @@ def load_wav2vec2_evaluator(
         root_gang=gang,
         dtype=config.dtype,
         amp=config.amp,
-        tb_dir=output_dir.joinpath("tb"),
-        metrics_dir=output_dir.joinpath("metrics"),
+        metric_recorders=metric_recorders,
         seed=seed,
         wall_watch=wall_watch,
     )

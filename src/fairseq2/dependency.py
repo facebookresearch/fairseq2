@@ -499,3 +499,7 @@ def get_resolver() -> DependencyResolver:
 
 def resolve(kls: type[T], key: str | None = None) -> T:
     return get_resolver().resolve(kls, key)
+
+
+def resolve_all(kls: type[T]) -> Iterable[T]:
+    return get_resolver().resolve_all(kls)
