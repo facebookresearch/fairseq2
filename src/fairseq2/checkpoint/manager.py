@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from contextlib import nullcontext
+from os import scandir
 from pathlib import Path
 from pickle import PickleError
 from shutil import rmtree
@@ -299,6 +300,9 @@ class FileCheckpointManager(CheckpointManager):
 
         self._root_gang.barrier()
 
+        # On NFS, we might have a stale view of the file system.
+        self._clear_nfs_lookup_cache()
+
         self._checkpoint_step_nr = step_nr
 
     @override
@@ -401,7 +405,7 @@ class FileCheckpointManager(CheckpointManager):
             except (RuntimeError, OSError, PickleError) as ex:
                 raise_error(ex)
 
-            self._root_gang.barrier()
+        self._root_gang.barrier()
 
     @override
     def save_metadata(self, metadata: Mapping[str, Any]) -> None:
@@ -744,6 +748,21 @@ class FileCheckpointManager(CheckpointManager):
             raise RuntimeError(
                 "The base checkpoint directory cannot be traversed. See nested exception for details."
             ) from ex
+
+    def _clear_nfs_lookup_cache(self) -> None:
+        # Use the `opendir`/`readdir`/`closedir` trick to drop all cached NFS
+        # LOOKUP results for the checkpoint directory.
+        try:
+            it = scandir(self._checkpoint_dir)
+        except FileNotFoundError:
+            return
+
+        try:
+            next(it)
+        except StopIteration:
+            pass
+        finally:
+            it.close()
 
 
 class CheckpointNotFoundError(RuntimeError):
