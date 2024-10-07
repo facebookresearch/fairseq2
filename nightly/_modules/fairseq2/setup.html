@@ -4,10 +4,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>fairseq2.setup &#8212; fairseq2 0.3.0.dev202409300149+g638128d documentation</title>
+    <title>fairseq2.setup &#8212; fairseq2 0.3.0.dev202410070149+g2d7a281 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=d1102ebc" />
     <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=f6bd8450" />
-    <script src="../../_static/documentation_options.js?v=c03525ba"></script>
+    <script src="../../_static/documentation_options.js?v=995ed495"></script>
     <script src="../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -39,16 +39,22 @@
 <span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">from</span> <span class="nn">importlib</span> <span class="kn">import</span> <span class="n">import_module</span>
 
 <span class="kn">from</span> <span class="nn">importlib_metadata</span> <span class="kn">import</span> <span class="n">entry_points</span>
 
+<span class="kn">from</span> <span class="nn">fairseq2.assets.metadata_provider</span> <span class="kn">import</span> <span class="n">register_asset_metadata_providers</span>
+<span class="kn">from</span> <span class="nn">fairseq2.assets.store</span> <span class="kn">import</span> <span class="n">register_asset_store</span>
+<span class="kn">from</span> <span class="nn">fairseq2.context</span> <span class="kn">import</span> <span class="n">register_runtime_context</span>
 <span class="kn">from</span> <span class="nn">fairseq2.dependency</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">DependencyContainer</span><span class="p">,</span>
     <span class="n">StandardDependencyContainer</span><span class="p">,</span>
     <span class="n">_set_container</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">fairseq2.logging</span> <span class="kn">import</span> <span class="n">get_log_writer</span>
+<span class="kn">from</span> <span class="nn">fairseq2.models</span> <span class="kn">import</span> <span class="n">register_models</span>
+<span class="kn">from</span> <span class="nn">fairseq2.recipes</span> <span class="kn">import</span> <span class="n">register_recipe_objects</span>
+<span class="kn">from</span> <span class="nn">fairseq2.utils.file</span> <span class="kn">import</span> <span class="n">register_tensor_loader_dumper</span>
+<span class="kn">from</span> <span class="nn">fairseq2.utils.structured</span> <span class="kn">import</span> <span class="n">register_value_converter</span>
 
 <span class="n">log</span> <span class="o">=</span> <span class="n">get_log_writer</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
@@ -96,28 +102,13 @@
 
 
 <span class="k">def</span> <span class="nf">_setup_library</span><span class="p">(</span><span class="n">container</span><span class="p">:</span> <span class="n">DependencyContainer</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-    <span class="n">modules</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="s2">&quot;fairseq2.assets.metadata_provider&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;fairseq2.assets.store&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;fairseq2.device&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;fairseq2.models.llama&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;fairseq2.models.mistral&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;fairseq2.models.nllb&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;fairseq2.models.s2t_transformer&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;fairseq2.models.transformer&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;fairseq2.models.w2vbert&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;fairseq2.models.wav2vec2&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;fairseq2.models.wav2vec2.asr&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;fairseq2.recipes.utils.environment&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;fairseq2.utils.structured&quot;</span><span class="p">,</span>
-    <span class="p">]</span>
-
-    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">modules</span><span class="p">:</span>
-        <span class="n">module</span> <span class="o">=</span> <span class="n">import_module</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
-
-        <span class="n">register_objects</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="s2">&quot;register_objects&quot;</span><span class="p">)</span>
-
-        <span class="n">register_objects</span><span class="p">(</span><span class="n">container</span><span class="p">)</span>
+    <span class="n">register_asset_metadata_providers</span><span class="p">(</span><span class="n">container</span><span class="p">)</span>
+    <span class="n">register_asset_store</span><span class="p">(</span><span class="n">container</span><span class="p">)</span>
+    <span class="n">register_models</span><span class="p">(</span><span class="n">container</span><span class="p">)</span>
+    <span class="n">register_recipe_objects</span><span class="p">(</span><span class="n">container</span><span class="p">)</span>
+    <span class="n">register_runtime_context</span><span class="p">(</span><span class="n">container</span><span class="p">)</span>
+    <span class="n">register_tensor_loader_dumper</span><span class="p">(</span><span class="n">container</span><span class="p">)</span>
+    <span class="n">register_value_converter</span><span class="p">(</span><span class="n">container</span><span class="p">)</span>
 
 
 <span class="k">def</span> <span class="nf">_setup_extensions</span><span class="p">(</span><span class="n">container</span><span class="p">:</span> <span class="n">DependencyContainer</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>

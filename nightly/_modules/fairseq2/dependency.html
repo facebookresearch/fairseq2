@@ -4,10 +4,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>fairseq2.dependency &#8212; fairseq2 0.3.0.dev202409300149+g638128d documentation</title>
+    <title>fairseq2.dependency &#8212; fairseq2 0.3.0.dev202410070149+g2d7a281 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=d1102ebc" />
     <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=f6bd8450" />
-    <script src="../../_static/documentation_options.js?v=c03525ba"></script>
+    <script src="../../_static/documentation_options.js?v=995ed495"></script>
     <script src="../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
@@ -71,7 +71,7 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns the object of type ``T``.</span>
 
-<span class="sd">        :param kls: The :class:`type` of ``T``.</span>
+<span class="sd">        :param kls: The value of ``T``.</span>
 <span class="sd">        :param key: If not ``None``, the object with the specified key will be</span>
 <span class="sd">            returned.</span>
 
@@ -90,10 +90,10 @@
     <span class="k">def</span> <span class="nf">resolve_optional</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">T</span><span class="p">],</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns the object of type ``T`` similar to :meth:`resolve`, but returns</span>
-<span class="sd">        ``None`` instead of raising a :class:`LookupError` if the object is not</span>
-<span class="sd">        found.</span>
+<span class="sd">        ``None`` instead of raising a :class:`DependencyNotFoundError` if the</span>
+<span class="sd">        object is not found.</span>
 
-<span class="sd">        :param kls: The :class:`type` of ``T``.</span>
+<span class="sd">        :param kls: The value of ``T``.</span>
 <span class="sd">        :param key: If not ``None``, the object with the specified key will be</span>
 <span class="sd">            returned.</span>
 
@@ -112,7 +112,7 @@
 <span class="sd">        only the last registered one. In contrast, ``resolve_all`` returns</span>
 <span class="sd">        them all in the order they were registered.</span>
 
-<span class="sd">        :param kls: The :class:`type` of ``T``.</span>
+<span class="sd">        :param kls: The value of ``T``.</span>
 
 <span class="sd">        :returns: An iterable of resolved objects. If no object is found, an</span>
 <span class="sd">            empty iterable.</span>
@@ -129,7 +129,7 @@
 <span class="sd">        This method behaves similar to :meth:`resolve_all`, but returns an</span>
 <span class="sd">        iterable of key-object pairs instead.</span>
 
-<span class="sd">        :param kls: The :class:`type` of ``T``.</span>
+<span class="sd">        :param kls: The value of ``T``.</span>
 
 <span class="sd">        :returns: An iterable of resolved key-object pairs. If no object is</span>
 <span class="sd">            found, an empty iterable.</span>
@@ -184,7 +184,7 @@
 <span class="sd">        registered, :meth:`~DependencyResolver.resolve` will return only the</span>
 <span class="sd">        last registered one.</span>
 
-<span class="sd">        :param kls: The :class:`type` of ``T``.</span>
+<span class="sd">        :param kls: The value of ``T``.</span>
 <span class="sd">        :param sub_kls: The real type of the object. If not ``None``, must be a</span>
 <span class="sd">            subclass of ``kls``.</span>
 <span class="sd">        :param key: If not ``None``, registers the object with the specified key.</span>
@@ -192,6 +192,8 @@
 <span class="sd">            the same key is provided.</span>
 
 <span class="sd">        :raises ValueError: when ``sub_kls`` is not a subclass of ``kls``.</span>
+<span class="sd">        :raises RuntimeError: when called after the container is already used to</span>
+<span class="sd">            resolve an object.</span>
 <span class="sd">        &quot;&quot;&quot;</span></div>
 
 
@@ -208,12 +210,15 @@
 <span class="sd">        registered, :meth:`~DependencyResolver.resolve` will return only the</span>
 <span class="sd">        last registered one.</span>
 
-<span class="sd">        :param kls: The :class:`type` of ``T``.</span>
+<span class="sd">        :param kls: The value of ``T``.</span>
 <span class="sd">        :param factory: A callable to create an object of type ``T``. If the</span>
 <span class="sd">            callable returns ``None``, the object is considered to not exist.</span>
 <span class="sd">        :param key: If not ``None``, registers the object with the specified key.</span>
 <span class="sd">            :meth:`~DependencyResolver.resolve` will return the object only if</span>
 <span class="sd">            the same key is provided.</span>
+
+<span class="sd">        :raises RuntimeError: when called after the container is already used to</span>
+<span class="sd">            resolve an object.</span>
 <span class="sd">        &quot;&quot;&quot;</span></div>
 
 
@@ -227,11 +232,14 @@
 <span class="sd">        Other than registering an existing object instead of a factory, the</span>
 <span class="sd">        method behaves the same as :meth:`register`.</span>
 
-<span class="sd">        :param kls: The :class:`type` of ``T``.</span>
+<span class="sd">        :param kls: The value of ``T``.</span>
 <span class="sd">        :param obj: The object to register.</span>
 <span class="sd">        :param key: If not ``None``, registers the object with the specified key.</span>
 <span class="sd">            :meth:`~DependencyResolver.resolve` will return the object only if</span>
 <span class="sd">            the same key is provided.</span>
+
+<span class="sd">        :raises RuntimeError: when called after the container is already used to</span>
+<span class="sd">            resolve an object.</span>
 <span class="sd">        &quot;&quot;&quot;</span></div>
 </div>
 
@@ -262,10 +270,12 @@
 
     <span class="n">_registrations</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">type</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">_Registration</span><span class="p">]]</span>
     <span class="n">_keyed_registrations</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">type</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">_Registration</span><span class="p">]]</span>
+    <span class="n">_frozen</span><span class="p">:</span> <span class="nb">bool</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_registrations</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_keyed_registrations</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_frozen</span> <span class="o">=</span> <span class="kc">False</span>
 
 <div class="viewcode-block" id="StandardDependencyContainer.register">
 <a class="viewcode-back" href="../../reference/fairseq2.dependency.html#fairseq2.dependency.StandardDependencyContainer.register">[docs]</a>
@@ -304,9 +314,14 @@
     <span class="k">def</span> <span class="nf">_register</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">kls</span><span class="p">:</span> <span class="nb">type</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">registration</span><span class="p">:</span> <span class="n">_Registration</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_frozen</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="s2">&quot;No new objects can be registered after the first `resolve()` call.&quot;</span>
+            <span class="p">)</span>
+
         <span class="k">if</span> <span class="n">kls</span> <span class="ow">is</span> <span class="n">Iterable</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;`kls` must not be `Iterable` as it has special treatment within the dependency container.&quot;</span>
+                <span class="s2">&quot;`kls` must not be `Iterable` since it has special treatment within the dependency container.&quot;</span>
             <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">key</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -330,6 +345,8 @@
 <a class="viewcode-back" href="../../reference/fairseq2.dependency.html#fairseq2.dependency.StandardDependencyContainer.resolve">[docs]</a>
     <span class="nd">@override</span>
     <span class="k">def</span> <span class="nf">resolve</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">T</span><span class="p">],</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_frozen</span> <span class="o">=</span> <span class="kc">True</span>
+
         <span class="k">if</span> <span class="n">key</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">registration</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_registrations</span><span class="p">[</span><span class="n">kls</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
@@ -374,6 +391,8 @@
 <a class="viewcode-back" href="../../reference/fairseq2.dependency.html#fairseq2.dependency.StandardDependencyContainer.resolve_all">[docs]</a>
     <span class="nd">@override</span>
     <span class="k">def</span> <span class="nf">resolve_all</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">T</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">T</span><span class="p">]:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_frozen</span> <span class="o">=</span> <span class="kc">True</span>
+
         <span class="n">registrations</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_registrations</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">kls</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">registrations</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span>
@@ -388,6 +407,8 @@
 <a class="viewcode-back" href="../../reference/fairseq2.dependency.html#fairseq2.dependency.StandardDependencyContainer.resolve_all_keyed">[docs]</a>
     <span class="nd">@override</span>
     <span class="k">def</span> <span class="nf">resolve_all_keyed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">T</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">T</span><span class="p">]]:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_frozen</span> <span class="o">=</span> <span class="kc">True</span>
+
         <span class="n">keyed_registrations</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_keyed_registrations</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">kls</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">keyed_registrations</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span>
@@ -452,18 +473,18 @@
                     <span class="k">continue</span>
 
                 <span class="k">try</span><span class="p">:</span>
-                    <span class="n">type_hint</span> <span class="o">=</span> <span class="n">type_hints</span><span class="p">[</span><span class="n">param_name</span><span class="p">]</span>
+                    <span class="n">param_type</span> <span class="o">=</span> <span class="n">type_hints</span><span class="p">[</span><span class="n">param_name</span><span class="p">]</span>
                 <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
                     <span class="k">raise</span> <span class="n">DependencyError</span><span class="p">(</span>
                         <span class="sa">f</span><span class="s2">&quot;The `</span><span class="si">{</span><span class="n">param_name</span><span class="si">}</span><span class="s2">` parameter of `</span><span class="si">{</span><span class="n">init_method</span><span class="si">}</span><span class="s2">` has no type annotation.&quot;</span>
                     <span class="p">)</span>
 
-                <span class="n">param_type</span> <span class="o">=</span> <span class="n">get_origin</span><span class="p">(</span><span class="n">type_hint</span><span class="p">)</span> <span class="ow">or</span> <span class="n">type_hint</span>
+                <span class="n">param_origin_type</span> <span class="o">=</span> <span class="n">get_origin</span><span class="p">(</span><span class="n">param_type</span><span class="p">)</span>
 
                 <span class="n">arg</span><span class="p">:</span> <span class="n">Any</span>
 
-                <span class="k">if</span> <span class="n">param_type</span> <span class="ow">is</span> <span class="n">Iterable</span><span class="p">:</span>
-                    <span class="n">param_type_args</span> <span class="o">=</span> <span class="n">get_args</span><span class="p">(</span><span class="n">type_hint</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">param_origin_type</span> <span class="ow">is</span> <span class="n">Iterable</span><span class="p">:</span>
+                    <span class="n">param_type_args</span> <span class="o">=</span> <span class="n">get_args</span><span class="p">(</span><span class="n">param_type</span><span class="p">)</span>
                     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">param_type_args</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
                         <span class="k">raise</span> <span class="n">DependencyError</span><span class="p">(</span>
                             <span class="sa">f</span><span class="s2">&quot;The iterable `</span><span class="si">{</span><span class="n">param_name</span><span class="si">}</span><span class="s2">` parameter of `</span><span class="si">{</span><span class="n">init_method</span><span class="si">}</span><span class="s2">` has no element type expression.&quot;</span>
@@ -478,16 +499,17 @@
                             <span class="sa">f</span><span class="s2">&quot;The element type of the iterable `</span><span class="si">{</span><span class="n">param_name</span><span class="si">}</span><span class="s2">` parameter of `</span><span class="si">{</span><span class="n">init_method</span><span class="si">}</span><span class="s2">` is not a `type`.&quot;</span>
                         <span class="p">)</span>
 
-                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">element_type</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
-                        <span class="c1"># TODO: implement!</span>
-                        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;not supported yet!&quot;</span><span class="p">)</span>
-                    <span class="k">else</span><span class="p">:</span>
-                        <span class="n">arg</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">resolver</span><span class="o">.</span><span class="n">resolve_all</span><span class="p">(</span><span class="n">element_type</span><span class="p">))</span>
+                    <span class="k">if</span> <span class="n">get_origin</span><span class="p">(</span><span class="n">element_type</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">tuple</span><span class="p">:</span>
+                        <span class="n">element_type_args</span> <span class="o">=</span> <span class="n">get_args</span><span class="p">(</span><span class="n">element_type</span><span class="p">)</span>
 
-                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">param</span><span class="o">.</span><span class="n">default</span> <span class="o">!=</span> <span class="n">Parameter</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">element_type_args</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">element_type_args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="nb">str</span><span class="p">:</span>
+                            <span class="n">kwargs</span><span class="p">[</span><span class="n">param_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">resolver</span><span class="o">.</span><span class="n">resolve_all_keyed</span><span class="p">(</span>
+                                <span class="n">element_type_args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                            <span class="p">)</span>
+
                         <span class="k">continue</span>
 
-                    <span class="n">kwargs</span><span class="p">[</span><span class="n">param_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">arg</span>
+                    <span class="n">kwargs</span><span class="p">[</span><span class="n">param_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">resolver</span><span class="o">.</span><span class="n">resolve_all</span><span class="p">(</span><span class="n">element_type</span><span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">param_type</span><span class="p">,</span> <span class="nb">type</span><span class="p">):</span>
                         <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">default</span> <span class="o">!=</span> <span class="n">Parameter</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
@@ -530,11 +552,13 @@
                 <span class="s2">&quot;Neither `obj` nor `factory` is specified. Please file a bug report.&quot;</span>
             <span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">factory</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">factory</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">_</span><span class="p">:</span> <span class="n">obj</span>
-
         <span class="bp">self</span><span class="o">.</span><span class="n">obj</span> <span class="o">=</span> <span class="n">obj</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">factory</span> <span class="o">=</span> <span class="n">factory</span>
+
+        <span class="k">if</span> <span class="n">factory</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">factory</span> <span class="o">=</span> <span class="n">factory</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">factory</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">_</span><span class="p">:</span> <span class="n">obj</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">transient</span> <span class="o">=</span> <span class="n">transient</span>
 
 
@@ -573,6 +597,10 @@
 
 <span class="k">def</span> <span class="nf">resolve</span><span class="p">(</span><span class="n">kls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">T</span><span class="p">],</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T</span><span class="p">:</span>
     <span class="k">return</span> <span class="n">get_resolver</span><span class="p">()</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">kls</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">resolve_all</span><span class="p">(</span><span class="n">kls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">T</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">T</span><span class="p">]:</span>
+    <span class="k">return</span> <span class="n">get_resolver</span><span class="p">()</span><span class="o">.</span><span class="n">resolve_all</span><span class="p">(</span><span class="n">kls</span><span class="p">)</span>
 </pre></div>
 
           </div>
