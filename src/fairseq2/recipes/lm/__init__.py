@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from fairseq2.recipes.cli import Cli, RecipeCommandHandler
 from fairseq2.recipes.lm.chatbot import ChatbotCommandHandler
+from fairseq2.recipes.lm.eval_nll import load_nll_evaluator, nll_eval_presets
 from fairseq2.recipes.lm.instruction_finetune import (
     instruction_finetune_presets,
     load_instruction_finetuner,
@@ -17,7 +18,6 @@ from fairseq2.recipes.lm.preference_finetune import (
     preference_finetune_presets,
 )
 from fairseq2.recipes.lm.text_generate import load_text_generator, text_generate_presets
-from fairseq2.recipes.lm.eval_nll import load_nll_evaluator, nll_eval_presets
 
 
 def _setup_lm_cli(cli: Cli) -> None:
@@ -73,7 +73,7 @@ def _setup_lm_cli(cli: Cli) -> None:
     nll_eval_handler = RecipeCommandHandler(
         loader=load_nll_evaluator,
         preset_configs=nll_eval_presets,
-        default_preset="llama3_1_base_eval"
+        default_preset="llama3_1_base_eval",
     )
 
     group.add_command(
