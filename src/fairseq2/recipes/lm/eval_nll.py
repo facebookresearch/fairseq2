@@ -91,7 +91,7 @@ class NLLEvalConfig:
     max_seq_len: int = 8192
     """The maximum sequence length."""
 
-    valid_split: str | None = "default"
+    valid_split: str = "default"
     """The name of the valid data split."""
 
     example_shuffle_window: int = 10_000
@@ -118,7 +118,9 @@ def _llama3_1_base_eval() -> NLLEvalConfig:
 
 
 @torch.inference_mode()
-def load_nll_evaluator(config: NLLEvalConfig, output_dir: Path):
+def load_nll_evaluator(
+    config: NLLEvalConfig, output_dir: Path
+) -> Evaluator[SequenceBatch]:
     wall_watch = Stopwatch(start=True)
 
     root_gang = resolve(Gang)
