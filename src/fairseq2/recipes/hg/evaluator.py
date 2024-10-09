@@ -12,6 +12,8 @@ from itertools import count
 from pathlib import Path
 from typing import Any, Generic, TypeVar, final
 
+import torch
+
 from fairseq2.datasets import DataReader
 from fairseq2.gang import FakeGang, Gang
 from fairseq2.logging import get_log_writer
@@ -22,7 +24,6 @@ from fairseq2.metrics import (
     record_metrics,
 )
 from fairseq2.models.model import Model
-from fairseq2.models.sequence import SequenceBatch
 from fairseq2.recipes.utils.cli import create_rich_progress
 from fairseq2.utils.profiler import Stopwatch
 
@@ -37,8 +38,8 @@ class HFEvaluator(Generic[BatchT]):
     """Evaluate a machine learning model with HuggingFace's evaluate.Metric library"""
 
     _model: Model
-    _preprocessor: Callable[[BatchT], tuple[SequenceBatch, SequenceBatch]]
-    _postprocessor: Callable[[Any, SequenceBatch], tuple[list[str], list[str]]]
+    _preprocessor: Callable[[BatchT], tuple[Any, Any]]
+    _postprocessor: Callable[[Any, Any], tuple[Any, Any]]
     _root_gang: Gang
     _dp_gang: Gang
     _tp_gang: Gang
@@ -55,8 +56,8 @@ class HFEvaluator(Generic[BatchT]):
         gang: Gang,
         data_reader: DataReader[BatchT],
         wall_watch: Stopwatch,
-        preprocessor: Callable[[BatchT], tuple[SequenceBatch, SequenceBatch]],
-        postprocessor: Callable[[Any, SequenceBatch], tuple[list[str], list[str]]],
+        preprocessor: Callable[[BatchT], tuple[Any, Any]],
+        postprocessor: Callable[[Any, Any], tuple[Any, Any]],
         dp_gang: Gang | None = None,
         tp_gang: Gang | None = None,
         tb_dir: Path | None = None,
@@ -171,6 +172,11 @@ class HFEvaluator(Generic[BatchT]):
                     self._metrics.add_batch(
                         predictions=predictions, references=references
                     )
+
+                    del inputs
+                    del targets
+                    del outputs
+                    torch.cuda.empty_cache()
 
                 self._root_gang.barrier()
 
