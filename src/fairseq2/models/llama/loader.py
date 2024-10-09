@@ -47,7 +47,7 @@ def convert_llama_checkpoint(
         return checkpoint
 
     # Check if we have a sharded checkpoint.
-    if "weights" in checkpoint and len(checkpoint) < 3:
+    if "weights" in checkpoint:
         checkpoint = checkpoint["weights"]
 
     # Check if we have a reference or Hugging Face checkpoint.
