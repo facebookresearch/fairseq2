@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import final
 from warnings import catch_warnings
 
+import shtab
 from typing_extensions import override
 
 from fairseq2.console import get_error_console
@@ -44,13 +45,13 @@ class ConvertCheckpointCommandHandler(CliCommandHandler):
             "input_dir",
             type=Path,
             help="checkpoint directory",
-        )
+        ).complete = shtab.DIRECTORY  # type: ignore[attr-defined]
 
         parser.add_argument(
             "output_dir",
             type=Path,
             help="output directory to store reference checkpoint",
-        )
+        ).complete = shtab.DIRECTORY  # type: ignore[attr-defined]
 
     @override
     def __call__(self, args: Namespace, resolver: DependencyResolver) -> None:
