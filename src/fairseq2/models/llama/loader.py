@@ -46,6 +46,10 @@ def convert_llama_checkpoint(
     if "model" in checkpoint:
         return checkpoint
 
+    # Check if we have a sharded checkpoint.
+    if "weights" in checkpoint:
+        checkpoint = checkpoint["weights"]
+
     # Check if we have a reference or Hugging Face checkpoint.
     if "lm_head.weight" in checkpoint:  # HG
         head_dim = config.model_dim // config.num_attn_heads
