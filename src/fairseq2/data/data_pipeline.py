@@ -355,6 +355,29 @@ if TYPE_CHECKING or DOC_MODE:
         def take(self, num_examples: int) -> Self:
             """Return at most ``num_examples`` examples."""
 
+        def unsorted_map(
+            self,
+            fn: Callable[[Any], Any] | Sequence[Callable[[Any], Any]],
+            buffer_size: int,
+            num_threads: int,
+            selector: str | None = None,
+        ) -> Self:
+            """Start thread pool of size ``num_threads`` that continuously fetches
+            and applies ``fn`` to examples.
+
+            :param fn:
+                The function to apply.
+                If it's a list of function, they will be automatically chained.
+                ``.map([f1, f2])`` is the more efficient version of ``.map(f1).map(f2)``
+            :param buffer_size:
+                Maximum number of examples to buffer.
+            :param num_threads:
+                Number of threads in thread pool.
+            :param selector:
+                The column to apply the function to. Several columns can be specified by separating them with a ",".
+                See :ref:`reference/data:column syntax` for more details.
+            """
+
         def yield_from(self, fn: Callable[[Any], DataPipeline]) -> Self:
             """
             Map every example to a data pipeline and yield the examples returned
