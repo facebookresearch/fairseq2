@@ -97,7 +97,7 @@ class Wav2Vec2AsrBuilder:
     def __init__(
         self,
         config: Wav2Vec2AsrConfig,
-        encoder_builder: Wav2Vec2EncoderBuilder,
+        encoder_builder: Wav2Vec2EncoderBuilder | None = None,
         *,
         device: Device | None = None,
         dtype: DataType | None = None,
@@ -114,6 +114,11 @@ class Wav2Vec2AsrBuilder:
         """
         self._config = config
 
+        if encoder_builder is None:
+            encoder_builder = Wav2Vec2EncoderBuilder(
+                config.encoder_config, device=device, dtype=dtype
+            )
+
         self._encoder_builder = encoder_builder
 
         self._device, self._dtype = device, dtype
@@ -126,7 +131,7 @@ class Wav2Vec2AsrBuilder:
 
         masker = self.build_masker()
 
-        return Wav2Vec2AsrModel(
+        model = Wav2Vec2AsrModel(
             encoder_frontend,
             encoder,
             self._config.vocab_info,
@@ -135,6 +140,10 @@ class Wav2Vec2AsrBuilder:
             device=self._device,
             dtype=self._dtype,
         )
+
+        model.set_family(WAV2VEC2_ASR_FAMILY)
+
+        return model
 
     def build_masker(self) -> Wav2Vec2Masker | None:
         """Build a feature masker."""
@@ -160,22 +169,8 @@ def create_wav2vec2_asr_model(
     device: Device | None = None,
     dtype: DataType | None = None,
 ) -> Wav2Vec2AsrModel:
-    """Create a wav2vec 2.0 ASR model.
-
-    :param config:
-        The configuration.
-    :param device:
-        The device on which to initialize modules.
-    :param dtype:
-        The data type of module parameters and buffers.
-    """
-    encoder_builder = Wav2Vec2EncoderBuilder(
-        config.encoder_config, device=device, dtype=dtype
-    )
-
-    builder = Wav2Vec2AsrBuilder(config, encoder_builder, device=device, dtype=dtype)
-
-    return builder.build_model().set_family(WAV2VEC2_ASR_FAMILY)
+    """Create a wav2vec 2.0 ASR model."""
+    return Wav2Vec2AsrBuilder(config, device=device, dtype=dtype).build_model()
 
 
 model_factories.register(

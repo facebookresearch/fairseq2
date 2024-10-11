@@ -20,7 +20,6 @@ from torch.nn.utils import remove_weight_norm  # type: ignore[attr-defined]
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.typing import CPU, Device
-from fairseq2.utils.rng import temporary_manual_seed
 
 log = get_log_writer(__name__)
 
@@ -31,34 +30,20 @@ class ModuleWithParameter(Protocol):
         """Reset the parameters and buffers of the module."""
 
 
-def reset_parameters(
-    module: Module, *, recurse: bool = True, seed: int | None = None
-) -> None:
+def reset_parameters(module: Module, *, recurse: bool = True) -> None:
     """Reset the parameters and buffers of ``module``.
 
     :param module:
         The module to reset.
     :param recurse:
         If ``True``, resets the parameters and buffers of descendant modules.
-    :param seed:
-        The random number generator seed to use during parameter initialization.
     """
 
     def reset(name: str, m: Module) -> None:
         if isinstance(m, ModuleWithParameter):
             m.reset_parameters()
 
-    if seed is None:
-        devices: list[Device] = []
-    else:
-        device = infer_device(module, recurse=recurse)
-        if device.type == "meta":
-            devices = []
-        else:
-            devices = [CPU, device]
-
-    with temporary_manual_seed(devices, seed):
-        visit_module(module, reset, recurse=recurse)
+    visit_module(module, reset, recurse=recurse)
 
 
 @runtime_checkable
@@ -112,16 +97,13 @@ def visit_module(
             visitor(name, m)
 
 
-def to_device(module: Module, device: Device, *, seed: int | None = None) -> None:
+def to_device(module: Module, device: Device) -> None:
     """Move the parameters and buffers of ``module`` to ``device``.
 
     :param module:
         The module to move.
     :param device:
         The target device of the parameters and buffers.
-    :param seed:
-        The random number generator seed to use during parameter initialization
-        if ``module`` is on the meta device.
     """
     modules: list[tuple[Module, Device]] = []
 
@@ -140,19 +122,13 @@ def to_device(module: Module, device: Device, *, seed: int | None = None) -> Non
 
     memo: dict[Tensor, Tensor] = {}
 
-    if seed is None or device.type == "meta":
-        devices = []
-    else:
-        devices = [CPU, device]
+    for m, module_device in modules:
+        if module_device.type != "meta":
+            apply_to_parameters(m, lambda t: t.to(device), recurse=False, memo=memo)
+        else:
+            to_empty(m, device, recurse=False, memo=memo)
 
-    with temporary_manual_seed(devices, seed):
-        for m, module_device in modules:
-            if module_device.type != "meta":
-                apply_to_parameters(m, lambda t: t.to(device), recurse=False, memo=memo)
-            else:
-                to_empty(m, device, recurse=False, memo=memo)
-
-                reset_parameters(m, recurse=False)
+            reset_parameters(m, recurse=False)
 
 
 def to_empty(
@@ -230,7 +206,7 @@ def share_parameters(source_module: Module, target_module: Module) -> None:
 
     # Do not memoize. No need anyways, and would also break the sync between the
     # traversed tensors and the iterator.
-    apply_to_parameters(target_module, lambda _: next(it), recurse=True, no_memo=True)
+    apply_to_parameters(target_module, lambda _: next(it), no_memo=True)
 
 
 def apply_to_parameters(

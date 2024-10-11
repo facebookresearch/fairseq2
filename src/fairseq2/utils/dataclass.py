@@ -7,8 +7,8 @@
 from __future__ import annotations
 
 from collections.abc import MutableMapping
-from dataclasses import fields
-from typing import Any
+from dataclasses import MISSING, fields
+from typing import Any, TypeVar, cast
 
 from typing_extensions import Self
 
@@ -17,7 +17,7 @@ from fairseq2.typing import DataClass, is_dataclass_instance
 
 class _EmptyType:
     def __reduce__(self) -> str:
-        return _EmptyType.__name__
+        return "EMPTY"
 
     def __copy__(self) -> Self:
         return self
@@ -33,33 +33,45 @@ EMPTY = _EmptyType()
 """A sentinel signifying no value for a dataclass field."""
 
 
-def update_dataclass(target: DataClass, source: DataClass) -> None:
-    """Update ``target`` with the data contained in ``source``."""
+T = TypeVar("T", bound=DataClass)
+
+
+def merge_dataclass(target: T, source: T) -> T:
+    """Merge ``target`` with the data contained in ``source``."""
     if type(target) is not type(source):
         raise TypeError(
             f"`target` and `source` must be of the same type, but they are of types `{type(target)}` and `{type(source)}` instead."
         )
 
-    _update_dataclass(target, source)
+    return cast(T, _copy_dataclass(target, source))
 
 
-def _update_dataclass(target: DataClass, source: DataClass) -> None:
-    for field in fields(target):
-        source_value = getattr(source, field.name)
-        if source_value is EMPTY:
+def _copy_dataclass(target: DataClass, source: DataClass) -> DataClass:
+    kls = type(target)
+
+    kwargs = {}
+
+    for field in fields(kls):
+        if not field.init:
             continue
 
-        if is_dataclass_instance(source_value):
-            target_value = getattr(target, field.name)
+        source_value = getattr(source, field.name)
+        if source_value is EMPTY:
+            value = getattr(target, field.name)
+        else:
+            if is_dataclass_instance(source_value):
+                target_value = getattr(target, field.name)
 
-            if type(target_value) is type(source_value):
-                _update_dataclass(target_value, source_value)
+                if type(target_value) is type(source_value):
+                    value = _copy_dataclass(target_value, source_value)
+                else:
+                    value = _copy_dataclass_with_defaults(source_value)
+            else:
+                value = source_value
 
-                continue
+        kwargs[field.name] = value
 
-            source_value = _copy_dataclass_with_defaults(source_value)
-
-        setattr(target, field.name, source_value)
+    return kls(**kwargs)
 
 
 def _copy_dataclass_with_defaults(obj: DataClass) -> DataClass:
@@ -68,8 +80,16 @@ def _copy_dataclass_with_defaults(obj: DataClass) -> DataClass:
     kwargs = {}
 
     for field in fields(kls):
+        if not field.init:
+            continue
+
         value = getattr(obj, field.name)
         if value is EMPTY:
+            if field.default == MISSING or field.default_factory == MISSING:
+                raise ValueError(
+                    f"The `{field.name}` field of `{kls}` in `target` must have a default value or factory."
+                )
+
             continue
 
         if is_dataclass_instance(value):
@@ -78,19 +98,3 @@ def _copy_dataclass_with_defaults(obj: DataClass) -> DataClass:
         kwargs[field.name] = value
 
     return kls(**kwargs)
-
-
-def empty(obj: DataClass) -> None:
-    """Set all fields of ``obj`` and its descendants to ``EMPTY``."""
-    for field in fields(type(obj)):
-        if not field.init:
-            raise TypeError(
-                "`obj` has one or more fields with `init=False` which is not supported by `empty()`."
-            )
-
-        value = getattr(obj, field.name)
-
-        if is_dataclass_instance(value):
-            empty(value)
-        else:
-            setattr(obj, field.name, EMPTY)

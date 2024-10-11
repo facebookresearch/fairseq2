@@ -23,6 +23,8 @@ from typing import (
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.typing import DataClass
+from fairseq2.utils.dataclass import merge_dataclass
+from fairseq2.utils.structured import ValueConverter, get_value_converter
 
 ConfigT = TypeVar("ConfigT", bound=DataClass)
 
@@ -59,14 +61,19 @@ class ConfigBoundFactoryRegistry(Generic[P, R]):
         str, tuple[Callable[..., R], type[DataClass], ConfigRegistry[Any] | None]
     ]
 
-    def __init__(self) -> None:
+    _value_converter: ValueConverter | None
+
+    def __init__(self, value_converter: ValueConverter | None = None) -> None:
         self._factories = {}
+        self._value_converter = value_converter
 
     def get(
         self,
         name: str,
-        config: DataClass | None = None,
+        unstructured_config: object = None,
         base_config_name: str | None = None,
+        *,
+        set_empty: bool = False,
     ) -> ConfigBoundFactory[P, R]:
         """Return the factory with ``name``.
 
@@ -82,11 +89,15 @@ class ConfigBoundFactoryRegistry(Generic[P, R]):
                 f"`name` must be a registered name, but '{name}' is not registered."
             ) from None
 
-        if config is not None:
-            if not isinstance(config, config_kls):
-                raise ValueError(
-                    f"`config` must be of type `{config}` for '{name}', but is of type `{type(config)}` instead."
-                )
+        if unstructured_config is None:
+            config = None
+        else:
+            if self._value_converter is None:
+                self._value_converter = get_value_converter()
+
+            config = self._value_converter.structure(
+                unstructured_config, config_kls, set_empty=set_empty
+            )
 
         if base_config_name is None:
             if config is None:
@@ -103,11 +114,16 @@ class ConfigBoundFactoryRegistry(Generic[P, R]):
                 )
 
             try:
-                config = config_registry.get(base_config_name, overwrite=config)
+                base_config = config_registry.get(base_config_name)
             except ValueError:
                 raise ValueError(
                     f"`base_config_name` must be a registered configuration name, but is '{base_config_name}' instead."
                 ) from None
+
+            if config is None:
+                config = base_config
+            else:
+                config = merge_dataclass(base_config, config)
 
         f = partial(factory, config)
 

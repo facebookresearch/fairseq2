@@ -21,7 +21,7 @@ model_factories = ConfigBoundFactoryRegistry[
 def create_model(
     family: str,
     arch: str | None = None,
-    config: DataClass | None = None,
+    unstructured_config: object = None,
     *,
     device: Device | None = None,
     dtype: DataType | None = None,
@@ -32,7 +32,7 @@ def create_model(
         The family of the model.
     :param arch:
         The architecture of the model.
-    :param config:
+    :param unstructured_config:
         The (partial) configuration of the model. Any ``EMPTY`` field will be
         filled with the corresponding value from the configuration of ``arch``.
 
@@ -40,7 +40,7 @@ def create_model(
         - The model.
         - The effective configuration of the model.
     """
-    factory = model_factories.get(family, config, arch)
+    factory = model_factories.get(family, unstructured_config, arch, set_empty=True)
 
     model = factory(device=device or CPU, dtype=dtype or torch.float32)
 

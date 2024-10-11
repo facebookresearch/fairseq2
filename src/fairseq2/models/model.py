@@ -22,11 +22,6 @@ class Model(Module):
 
     def set_family(self, family: str) -> Self:
         """Set the family of the model."""
-        if self._family is not None:
-            raise ValueError(
-                f"The model must not have a prior family, but has already '{self._family}'."
-            )
-
         self._family = family
 
         return self

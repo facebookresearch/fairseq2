@@ -6,21 +6,244 @@
 
 from __future__ import annotations
 
-import os
 import re
-from collections.abc import Mapping, Sequence
-from dataclasses import fields
+from abc import ABC, abstractmethod
+from collections.abc import Hashable, Iterable
 from enum import Enum
 from hashlib import sha1
-from typing import Any, Final
+from typing import final
 
-from fairseq2.typing import DataClass, DataType, is_dataclass_instance
+from typing_extensions import override
+
+from fairseq2.context import RuntimeContext
+from fairseq2.dependency import DependencyContainer, DependencyResolver
+from fairseq2.utils.dataclass import EMPTY
+from fairseq2.utils.structured import StructuredError
 
 
-class SweepTagger:
-    """Generates a sweep tag from the diff of two recipe configurations."""
+class SweepTagger(ABC):
+    """Generates a sweep tag from a recipe configuration."""
 
-    _DEFAULT_ALLOW_SET: Final = {
+    @abstractmethod
+    def __call__(self, preset: str, unstructured_config: object) -> str:
+        """
+        :param preset:
+            The name of the preset recipe.
+        :param unstructured_config:
+            The unstructured configuration of the preset recipe.
+        """
+
+    @abstractmethod
+    def extend_allowed_keys(self, keys: Iterable[Hashable]) -> None:
+        """Extend the allowed configuration keys with ``keys``."""
+
+
+class SweepFormatError(ValueError):
+    pass
+
+
+@final
+class StandardSweepTagger(SweepTagger):
+    _context: RuntimeContext
+    _allowed_keys: set[Hashable]
+
+    def __init__(self, context: RuntimeContext, allowed_keys: set[Hashable]) -> None:
+        """
+        :param context: The runtime context.
+        :param allowed_keys: The recipe configuration keys allowed to be used in
+            sweep tags.
+        """
+        self._context = context
+        self._allowed_keys = allowed_keys
+
+    @override
+    def __call__(self, preset: str, unstructured_config: object) -> str:
+        tags = {"preset": preset, "world_size": f"{self._context.world_size}"}
+
+        self._collect_tags(unstructured_config, tags, path="")
+
+        sweep_format = tags.pop("sweep_format", None)
+        if sweep_format is None:
+            sweep_format = "ps_{preset}.ws_{world_size}.{hash}"
+
+        tags["hash"] = self._generate_hash(tags)
+
+        return self._safe_format(sweep_format, tags)
+
+    def _collect_tags(self, obj: object, tags: dict[str, str], path: str) -> None:
+        if obj is None:
+            tags[path] = "none"
+
+            return
+
+        if obj is EMPTY:
+            tags[path] = "empty"
+
+            return
+
+        if isinstance(obj, str):
+            tag = self._remove_non_word(obj)
+
+            if len(tag) >= 16:
+                tag = self._generate_tag_hash(tag)
+
+            tags[path] = tag
+
+            return
+
+        if isinstance(obj, bool):
+            tags[path] = "t" if obj else "f"
+
+            return
+
+        if isinstance(obj, int | float):
+            tags[path] = f"{obj}"
+
+            return
+
+        if isinstance(obj, list):
+            for idx, elem in enumerate(obj):
+                self._collect_tags(elem, tags, path=f"{path}[{idx}]")
+
+            return
+
+        if isinstance(obj, dict):
+            for key, value in obj.items():
+                if path == "" and key == "sweep_format":
+                    if not isinstance(value, str):
+                        raise SweepFormatError(
+                            "The 'sweep_format' key of `unstructured_config` must be of type `str`."
+                        )
+
+                    tags[key] = value
+                elif key in self._allowed_keys:
+                    self._collect_tags(
+                        value, tags, path=f"{path}.{key}" if path else f"{key}"
+                    )
+
+            return
+
+        raise StructuredError(
+            "`unstructured_config` must be a composition of types `bool`, `int`, `float`, `str`, `list`, and `dict`."
+        )
+
+    @staticmethod
+    def _remove_non_word(s: str) -> str:
+        return re.sub(r"[^-_\w]", "", s)
+
+    @staticmethod
+    def _generate_tag_hash(s: str) -> str:
+        algo = sha1(s.encode("utf-8"))
+
+        h = algo.hexdigest()
+
+        return h[:8]
+
+    @staticmethod
+    def _generate_hash(tags: dict[str, str]) -> str:
+        algo = sha1()
+
+        for k, v in sorted(tags.items()):
+            algo.update(k.encode("utf-8"))
+            algo.update(v.encode("utf-8"))
+
+        h = algo.hexdigest()
+
+        return h[:8]
+
+    @staticmethod
+    def _safe_format(sweep_format: str, tags: dict[str, str]) -> str:
+        class State(Enum):
+            LITERAL = 0
+            PLACEHOLDER = 1
+            OPENING_BRACE = 2
+            CLOSING_BRACE = 3
+
+        output = []
+
+        placeholder: list[str] = []
+
+        missing_keys: set[str] = set()
+
+        state = State.LITERAL
+
+        for c in sweep_format:
+            match state:
+                case State.LITERAL:
+                    if c == "{":
+                        state = State.OPENING_BRACE
+                    elif c == "}":
+                        state = State.CLOSING_BRACE
+                    else:
+                        output.append(c)
+                case State.OPENING_BRACE:
+                    if c == "{":  # escape
+                        state = State.LITERAL
+
+                        output.append("{")
+                    else:
+                        state = State.PLACEHOLDER
+
+                        placeholder.append(c)
+                case State.PLACEHOLDER:
+                    if c == "}":
+                        state = State.LITERAL
+
+                        key = "".join(placeholder)
+
+                        tag: Iterable[str]
+
+                        try:
+                            tag = tags[key]
+                        except KeyError:
+                            tag = placeholder
+
+                            missing_keys.add(key)
+
+                        output.extend(tag)
+
+                        placeholder.clear()
+                    else:
+                        placeholder.append(c)
+                case State.CLOSING_BRACE:
+                    state = State.LITERAL
+
+                    if c == "}":  # escape
+                        output.append("}")
+                    else:
+                        output.append(c)
+
+        if state == State.OPENING_BRACE or state == State.PLACEHOLDER:
+            raise SweepFormatError(
+                "The 'sweep_format' key of `unstructured_config` is not a valid format string."
+            )
+
+        if missing_keys:
+            missing_key_list = list(missing_keys)
+
+            missing_key_list.sort()
+
+            s = ", ".join(missing_key_list)
+
+            raise SweepFormatError(
+                f"The 'sweep_format' key of `unstructured_config` contains the following placeholders that do not correspond to any key in the configuration: {s}"
+            )
+
+        return "".join(output)
+
+    @override
+    def extend_allowed_keys(self, keys: Iterable[Hashable]) -> None:
+        self._allowed_keys.update(keys)
+
+
+def register_sweep_tagger(container: DependencyContainer) -> None:
+    container.register_factory(SweepTagger, _create_standard_sweep_tagger)
+
+
+def _create_standard_sweep_tagger(resolver: DependencyResolver) -> SweepTagger:
+    context = resolver.resolve(RuntimeContext)
+
+    allowed_keys: set[Hashable] = {
         "batch_shuffle_window",
         "betas",
         "data_parallelism",
@@ -41,6 +264,7 @@ class SweepTagger:
         "max_num_steps",
         "max_num_tokens",
         "max_seq_len",
+        "mixed_precision",
         "model",
         "model_arch",
         "model_config",
@@ -57,157 +281,4 @@ class SweepTagger:
         "weight_decay",
     }
 
-    def __init__(self, *, allow_set: set[str] | None = None) -> None:
-        """
-        :param allow_set:
-            The configuration field names allowed while generating the sweep tag.
-        """
-        if allow_set is None:
-            allow_set = self._DEFAULT_ALLOW_SET.copy()
-
-        self._allow_set = allow_set
-
-    def extend_allow_set(self, *extras: str) -> None:
-        """Extend the allowed configuration field names with ``extras``."""
-        self._allow_set.update(extras)
-
-    def __call__(self, preset: str, preset_config: DataClass, config: DataClass) -> str:
-        """
-        :param preset:
-            The name of the preset recipe.
-        :param preset_config:
-            The preset (i.e. ground-truth) recipe configuration.
-        :param config:
-            The recipe configuration for which to generate a sweep tag.
-        """
-        if type(config) is not type(preset_config):
-            raise ValueError(
-                f"`config` must be of the same type as `preset_config` (`{type(preset_config)}`), but is of type `{type(config)}` instead."
-            )
-
-        output = [f"preset_{self._remove_non_word(preset)}"]
-
-        try:
-            world_size = os.environ["WORLD_SIZE"]
-        except KeyError:
-            world_size = "1"
-
-        output.append(f"ws_{world_size}")
-
-        def abbrv(s: str) -> str:
-            if s.startswith("num_"):
-                s = f"n_{s[4:]}"
-
-            return s
-
-        def generate(config: DataClass) -> None:
-            for field in fields(config):
-                value = getattr(config, field.name)
-
-                if is_dataclass_instance(value):
-                    generate(config)
-                elif field.name in self._allow_set:
-                    if s := self._to_tag_value(value):
-                        output.append(f"{abbrv(field.name)}_{s}")
-
-        def generate_from_diff(preset_config: DataClass, config: DataClass) -> None:
-            for field in fields(config):
-                value = getattr(config, field.name)
-
-                preset_value = getattr(preset_config, field.name)
-
-                if is_dataclass_instance(preset_value):
-                    if type(value) is type(preset_value):
-                        generate_from_diff(preset_value, value)
-                    else:
-                        generate(value)
-                elif field.name in self._allow_set:
-                    if preset_value == value:
-                        continue
-
-                    if s := self._to_tag_value(value):
-                        output.append(f"{abbrv(field.name)}_{s}")
-
-        generate_from_diff(preset_config, config)
-
-        s = ".".join(output)
-
-        # Cap to maximum of 128 characters.
-        if len(s) > 128:
-            # Make sure we avoid name conflicts by prepending the hash of the
-            # whole tag to the truncated one.
-            s = s[:120] + self._hash(s)
-
-        return s
-
-    @classmethod
-    def _to_tag_value(cls, value: Any) -> str | None:
-        s: str | None
-
-        if isinstance(value, str):
-            s = cls._remove_non_word(value)
-
-            if len(s) < 16:
-                return s
-
-            return cls._hash(s)
-
-        if isinstance(value, bool):
-            return "t" if value else "f"
-
-        if isinstance(value, (int, float)):
-            return f"{value}"
-
-        if isinstance(value, DataType):
-            return f"{value}"[6:]
-
-        if isinstance(value, Enum):
-            return value.name
-
-        if isinstance(value, Sequence):
-            output = []
-
-            for v in value:
-                if s := cls._to_tag_value(v):
-                    output.append(s)
-
-            if not output:
-                return None
-
-            s = "-".join(output)
-
-            return f"b{s}e"
-
-        if isinstance(value, Mapping):
-            output = []
-
-            for k, v in value.items():
-                ks = cls._to_tag_value(k)
-                vs = cls._to_tag_value(v)
-
-                if ks and vs:
-                    output.append(f"{ks}_{vs}")
-
-            if not output:
-                return None
-
-            output.sort()
-
-            s = "-".join(output)
-
-            return f"b{s}e"
-
-        return None
-
-    @staticmethod
-    def _remove_non_word(s: str) -> str:
-        return re.sub(r"[^-_\w]", "", s)
-
-    @staticmethod
-    def _hash(s: str) -> str:
-        s = sha1(s.encode("utf-8")).hexdigest()
-
-        return s[:8]
-
-
-default_sweep_tagger = SweepTagger()
+    return StandardSweepTagger(context, allowed_keys)

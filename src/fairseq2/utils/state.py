@@ -180,7 +180,7 @@ class StatefulObjectBag:
             extra_keys.sort()
 
             raise ValueError(
-                f"`state_dict` must only contain the states of the attributes of this object, but it contains the following extra keys: {', '.join(extra_keys)}"
+                f"`state_dict` must contain only the states of the attributes of this object, but it contains the following extra keys: {', '.join(extra_keys)}"
             )
 
     def _is_explicit(self, name: str) -> tuple[bool, StateHandler[Any] | None]:
@@ -233,6 +233,10 @@ class FSDPOptimizerStateHandler(StateHandler[Optimizer]):
             logging.disable(logging.WARNING)
 
             return FSDP.optim_state_dict(self._module, stateful)
+        except UnicodeDecodeError as ex:
+            raise RuntimeError(
+                "FSDP has failed to gather optimizer state with a pickling error. This might indicate a disk space issue. Make sure you have enough space on your file system. See nested exception for details."
+            ) from ex
         finally:
             logging.disable(logging.NOTSET)
 

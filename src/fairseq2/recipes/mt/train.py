@@ -8,15 +8,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, final
+from typing import Any, Literal, final
 
 import torch
 from torch import Tensor
-from torch.nn import Module
 from typing_extensions import override
 
-from fairseq2.assets import AssetNotFoundError, default_asset_store
-from fairseq2.checkpoint import CheckpointModelMetadataProvider, FileCheckpointManager
+from fairseq2.assets import AssetNotFoundError
+from fairseq2.checkpoint import CheckpointManager
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_text_tokenizer
 from fairseq2.datasets import LengthBatching, StaticBatching
@@ -24,18 +23,19 @@ from fairseq2.datasets.parallel_text import (
     GenericParallelTextDataset,
     load_parallel_text_dataset,
 )
+from fairseq2.dependency import resolve, resolve_all
 from fairseq2.gang import Gang
 from fairseq2.generation import BeamSearchConfig, create_seq2seq_generator
 from fairseq2.logging import get_log_writer
+from fairseq2.metrics import MetricRecorder
 from fairseq2.models import create_model
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
-from fairseq2.models.seq2seq import Seq2SeqBatch, as_auto_regressive_input
-from fairseq2.models.sequence import SequenceModelOutput
-from fairseq2.models.transformer import transformer_archs
+from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.optim import AdamWConfig, create_optimizer
 from fairseq2.optim.lr_scheduler import MyleLRConfig, create_lr_scheduler
 from fairseq2.recipes.common_metrics import Seq2SeqMetricBag
 from fairseq2.recipes.evaluator import EvalUnit
+from fairseq2.recipes.mt.common import MTCriterion
 from fairseq2.recipes.mt.eval import MTBleuChrfEvalUnit, MTLossEvalUnit
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
 from fairseq2.recipes.utils.asset import (
@@ -44,13 +44,10 @@ from fairseq2.recipes.utils.asset import (
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model, log_model_config
-from fairseq2.recipes.utils.setup import (
-    check_model_type,
-    setup_root_gang,
-    to_data_parallel,
-)
-from fairseq2.typing import META, DataClass, DataType
+from fairseq2.recipes.utils.setup import to_data_parallel
+from fairseq2.typing import CPU, META, DataType
 from fairseq2.utils.profiler import Stopwatch
+from fairseq2.utils.rng import manual_seed
 
 log = get_log_writer(__name__)
 
@@ -98,11 +95,7 @@ class MTTrainConfig:
     model_arch: str | None = "nllb_dense_600m"
     """The architecture of the model."""
 
-    model_config: DataClass | None = field(
-        default_factory=lambda: transformer_archs.get(
-            "nllb_dense_600m", return_empty=True
-        )
-    )
+    model_config: Any = None
     """The configuration of the model."""
 
     dtype: DataType = torch.float16
@@ -118,7 +111,7 @@ class MTTrainConfig:
     optimizer: str = "adamw"
     """The optimizer."""
 
-    optimizer_config: DataClass | None = field(
+    optimizer_config: Any = field(
         default_factory=lambda: AdamWConfig(lr=0.001, betas=(0.9, 0.98))
     )
     """The configuration of the optimizer."""
@@ -126,7 +119,7 @@ class MTTrainConfig:
     lr_scheduler: str = "myle"
     """The learning rate scheduler."""
 
-    lr_scheduler_config: DataClass | None = field(
+    lr_scheduler_config: Any = field(
         default_factory=lambda: MyleLRConfig(start_lr=1e-7, num_warmup_steps=8000)
     )
     """The configuration of the learning rate scheduler."""
@@ -176,7 +169,7 @@ class MTTrainConfig:
     generator: str = "beam_search"
     """The sequence generator."""
 
-    generator_config: DataClass | None = field(
+    generator_config: Any = field(
         default_factory=lambda: BeamSearchConfig(max_gen_len=(1, 256), echo_prompt=True)
     )
     """The configuration of the sequence generator."""
@@ -205,14 +198,11 @@ mt_train_preset = mt_train_presets.decorator
 
 @mt_train_preset("nllb_dense_300m")
 def _nllb_dense_300m() -> MTTrainConfig:
-    model_config = transformer_archs.get("nllb_dense_300m", return_empty=True)
-
     config = _nllb_dense_600m()
 
     assert isinstance(config.lr_scheduler_config, MyleLRConfig)
 
     config.model_arch = "nllb_dense_300m"
-    config.model_config = model_config
     config.lr_scheduler_config.num_warmup_steps = 400
     config.gradient_accumulation = 4
     config.max_num_steps = 10_000
@@ -231,16 +221,9 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
     """Load a :class:`Trainer` for machine translation training."""
     wall_watch = Stopwatch(start=True)
 
-    gang = setup_root_gang(log, monitored=config.monitored_gang)
+    gang = resolve(Gang)
 
-    checkpoint_manager = FileCheckpointManager(output_dir.joinpath("checkpoints"), gang)
-
-    if config.resume_checkpoint_dir is not None:
-        default_asset_store.metadata_providers.append(
-            CheckpointModelMetadataProvider(config.resume_checkpoint_dir)
-        )
-
-    seed = config.seed
+    checkpoint_manager = resolve(CheckpointManager)
 
     tokenizer_card = retrieve_asset_card(config.tokenizer)
 
@@ -268,7 +251,13 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
 
         dataset = GenericParallelTextDataset.from_path(dataset_path)
 
+    seed = config.seed
+
     # Initialize the model
+    manual_seed(seed, CPU, gang.device)
+
+    seed += 1
+
     try:
         model, model_config = create_model(
             config.model_family,
@@ -300,7 +289,6 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
         gang,
         config.data_parallelism,
         log,
-        fsdp_skip_init=has_checkpoint,
         fsdp_broadcast_state=not has_checkpoint,
         fsdp_mixed_precision_dtype=config.dtype,
         fsdp_fp32_reduce=True,
@@ -309,8 +297,11 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
 
     log_model(dp_model, log, rank=gang.rank)
 
-    # Initialize the train unit and the optimizer.
-    unit = MTTrainUnit(dp_model, gang, label_smoothing=config.label_smoothing)
+    # Initialize the criterion.
+    criterion = MTCriterion(dp_model, label_smoothing=config.label_smoothing)
+
+    # Initialize the train unit.
+    unit = MTTrainUnit(criterion, gang)
 
     try:
         data_reader = dataset.create_reader(
@@ -376,12 +367,7 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
 
     for direction in dataset.directions(config.valid_split):
         # Loss Validation
-        valid_loss_unit = MTLossEvalUnit(
-            dp_model,
-            direction,
-            gang,
-            label_smoothing=config.label_smoothing,
-        )
+        valid_loss_unit = MTLossEvalUnit(criterion, direction, gang)
 
         valid_units.append(valid_loss_unit)
 
@@ -393,7 +379,7 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
                 config.max_seq_len,
                 batching=LengthBatching(config.max_num_tokens),
                 direction=direction,
-                sync_batches=False,
+                sync_mode="until_last",
                 num_prefetch=config.num_prefetch,
                 seed=seed,
             )
@@ -422,7 +408,7 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
                     config.max_seq_len,
                     batching=StaticBatching(config.generator_batch_size),
                     direction=direction,
-                    sync_batches=False,
+                    sync_mode="until_last",
                     num_prefetch=config.num_prefetch,
                     seed=seed,
                 )
@@ -435,6 +421,11 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
 
             valid_data_readers.append(valid_data_reader)
 
+    # TODO: Fix once we support static mixed precision on one device.
+    amp = gang.size == 1 or config.data_parallelism != "fsdp"
+
+    metric_recorders = resolve_all(MetricRecorder)
+
     # Initialize the trainer.
     return Trainer[Seq2SeqBatch](
         unit=unit,
@@ -445,6 +436,7 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
         lr_scheduler=lr_scheduler,
         fp16_loss_scale=config.fp16_loss_scale,
         max_gradient_norm=config.max_gradient_norm,
+        amp=amp,
         max_num_steps=config.max_num_steps,
         max_num_data_epochs=config.max_num_data_epochs,
         score_metric_name="chrf" if config.compute_bleu_chrf else None,
@@ -455,8 +447,7 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
         checkpoint_manager=checkpoint_manager,
         checkpoint_after_n_steps=config.checkpoint_after_n_steps,
         checkpoint_every_n_steps=config.checkpoint_every_n_steps,
-        tb_dir=output_dir.joinpath("tb"),
-        metrics_dir=output_dir.joinpath("metrics"),
+        metric_recorders=metric_recorders,
         publish_metrics_every_n_steps=config.publish_metrics_every_n_steps,
         profile=config.profile,
         anomaly_detection=config.anomaly_detection,
@@ -467,44 +458,19 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
 
 @final
 class MTTrainUnit(AbstractTrainUnit[Seq2SeqBatch]):
-    """Represents a machine translation training unit."""
-
-    _label_smoothing: float
+    _criterion: MTCriterion
     _metric_bag: Seq2SeqMetricBag
 
-    def __init__(
-        self,
-        model: Module,
-        gang: Gang,
-        *,
-        label_smoothing: float = 0.0,
-    ) -> None:
-        super().__init__(model)
+    def __init__(self, criterion: MTCriterion, gang: Gang) -> None:
+        super().__init__(criterion.model)
 
-        check_model_type(model, EncoderDecoderModel)
-
-        self._label_smoothing = label_smoothing
+        self._criterion = criterion
 
         self._metric_bag = Seq2SeqMetricBag(gang)
 
     @override
     def __call__(self, batch: Seq2SeqBatch) -> tuple[Tensor, int]:
-        input_batch, target_batch = as_auto_regressive_input(batch)
-
-        output = self._forward(input_batch)
-
-        loss = output.compute_loss(
-            target_batch.seqs, label_smoothing=self._label_smoothing
-        )
-
-        self._metric_bag.update_nll_loss(input_batch, loss)
-
-        self._metric_bag.update_batch_metrics(input_batch)
-
-        return loss, batch.num_target_elements()
-
-    def _forward(self, batch: Seq2SeqBatch) -> SequenceModelOutput:
-        return self._model(batch)  # type: ignore[no-any-return]
+        return self._criterion(batch, self._metric_bag)
 
     @property
     @override

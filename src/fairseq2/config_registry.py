@@ -6,89 +6,92 @@
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from collections.abc import Callable, Set
-from typing import Generic, Protocol, TypeVar, final
+from functools import cached_property
+from typing import Any, Generic, Protocol, TypeVar, final, get_args
 
-from fairseq2.typing import DataClass
-from fairseq2.utils.dataclass import empty, update_dataclass
+from typing_extensions import override
 
-ConfigT = TypeVar("ConfigT", bound=DataClass)
+from fairseq2.error import AlreadyExistsError
 
-ConfigT_co = TypeVar("ConfigT_co", bound=DataClass, covariant=True)
+ConfigT = TypeVar("ConfigT")
+
+ConfigT_co = TypeVar("ConfigT_co", covariant=True)
 
 
-class ConfigFactory(Protocol[ConfigT_co]):
+class ConfigProvider(ABC, Generic[ConfigT_co]):
+    """Provides configurations of type ``ConfigT``."""
+
+    @abstractmethod
+    def get(self, name: str) -> ConfigT_co:
+        """Return the configuration of ``name``."""
+
+    @abstractmethod
+    def names(self) -> Set[str]:
+        """Return the names of all configurations."""
+
+
+class ConfigSupplier(Protocol[ConfigT_co]):
+    """Supplies instances of ``ConfigT``."""
+
     def __call__(self) -> ConfigT_co:
         ...
 
 
 @final
-class ConfigRegistry(Generic[ConfigT]):
+class ConfigRegistry(ConfigProvider[ConfigT]):
     """Holds configurations of type ``ConfigT``."""
 
-    _configs: dict[str, ConfigFactory[ConfigT]]
+    _configs: dict[str, ConfigSupplier[ConfigT]]
 
     def __init__(self) -> None:
         self._configs = {}
 
-    def get(
-        self,
-        name: str,
-        *,
-        overwrite: ConfigT | None = None,
-        return_empty: bool = False,
-    ) -> ConfigT:
-        """Return the configuration of ``name``.
-
-        :param overwrite:
-            The configuration whose non-empty fields will overwrite the returned
-            configuration.
-        :param return_empty:
-            If ``True``, all fields of the returned configuration will be set to
-            empty (i.e. ``EMPTY``).
-        """
+    @override
+    def get(self, name: str) -> ConfigT:
+        """Return the configuration of ``name``."""
         try:
-            config = self._configs[name]()
+            return self._configs[name]()
         except KeyError:
-            raise ValueError(
+            raise LookupError(
                 f"`name` must be a registered configuration name, but '{name}' is not registered."
             ) from None
 
-        if overwrite is not None:
-            update_dataclass(config, overwrite)
-
-        if return_empty:
-            empty(config)
-
-        return config
-
-    def register(self, name: str, config_factory: ConfigFactory[ConfigT]) -> None:
+    def register(self, name: str, supplier: ConfigSupplier[ConfigT]) -> None:
         """Register a new configuration.
 
         :param name:
             The name of the configuration.
-        :param config_factory:
-            The factory to construct configurations.
+        :param config_supplier:
+            The supplier to retrieve configurations.
         """
         if name in self._configs:
-            raise ValueError(
+            raise AlreadyExistsError(
                 f"`name` must be a unique configuration name, but '{name}' is already registered."
             )
 
-        self._configs[name] = config_factory
+        self._configs[name] = supplier
 
     def decorator(
         self, name: str
-    ) -> Callable[[ConfigFactory[ConfigT]], ConfigFactory[ConfigT]]:
-        """Register ``name`` with the decorated configuration factory."""
+    ) -> Callable[[ConfigSupplier[ConfigT]], ConfigSupplier[ConfigT]]:
+        """Register ``name`` with the decorated configuration supplier."""
 
-        def register(config_factory: ConfigFactory[ConfigT]) -> ConfigFactory[ConfigT]:
-            self.register(name, config_factory)
+        def register(supplier: ConfigSupplier[ConfigT]) -> ConfigSupplier[ConfigT]:
+            self.register(name, supplier)
 
-            return config_factory
+            return supplier
 
         return register
 
+    @override
     def names(self) -> Set[str]:
         """Return the names of all configurations."""
         return self._configs.keys()
+
+    @cached_property
+    def config_kls(self) -> Any:
+        kls_args = get_args(self.__orig_class__)  # type: ignore[attr-defined]
+
+        return kls_args[0]

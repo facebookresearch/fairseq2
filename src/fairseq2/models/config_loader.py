@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Protocol, TypeVar, final
+from typing import Protocol, TypeVar, cast, final
 
 from fairseq2.assets import (
     AssetCard,
@@ -14,12 +14,17 @@ from fairseq2.assets import (
     AssetCardFieldNotFoundError,
     AssetError,
     AssetStore,
-    default_asset_store,
+    get_asset_store,
 )
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.typing import DataClass
-from fairseq2.utils.dataclass import update_dataclass
-from fairseq2.utils.value_converter import ValueConverter, default_value_converter
+from fairseq2.utils.dataclass import merge_dataclass
+from fairseq2.utils.structured import (
+    StructuredError,
+    ValueConverter,
+    get_value_converter,
+    merge_unstructured,
+)
 
 ModelConfigT = TypeVar("ModelConfigT", bound=DataClass)
 
@@ -29,7 +34,9 @@ ModelConfigT_co = TypeVar("ModelConfigT_co", bound=DataClass, covariant=True)
 class ModelConfigLoader(Protocol[ModelConfigT_co]):
     """Loads model configurations of type ``ModelConfigT``."""
 
-    def __call__(self, model_name_or_card: str | AssetCard) -> ModelConfigT_co:
+    def __call__(
+        self, model_name_or_card: str | AssetCard, unstructured_config: object = None
+    ) -> ModelConfigT_co:
         """
         :param model_name_or_card:
             The name or the asset card of the model whole configuration to load.
@@ -40,10 +47,11 @@ class ModelConfigLoader(Protocol[ModelConfigT_co]):
 class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
     """Loads model configurations of type ``ModelConfigT``."""
 
-    _asset_store: AssetStore
+    _asset_store: AssetStore | None
     _family: str
     _config_kls: type[ModelConfigT]
     _arch_configs: ConfigRegistry[ModelConfigT] | None
+    _value_converter: ValueConverter | None
 
     def __init__(
         self,
@@ -65,19 +73,23 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
             The asset store where to check for available models. If ``None``,
             the default asset store will be used.
         :param value_converter:
-            The :class:`ValueConverter` instance to use. If ``None``, the
-            default instance will be used.
+            The :class:`ValueConverter` instance to use.
         """
-        self._asset_store = asset_store or default_asset_store
+        self._asset_store = asset_store
         self._family = family
         self._config_kls = config_kls
         self._arch_configs = arch_configs
-        self._value_converter = value_converter or default_value_converter
+        self._value_converter = value_converter
 
-    def __call__(self, model_name_or_card: str | AssetCard) -> ModelConfigT:
+    def __call__(
+        self, model_name_or_card: str | AssetCard, unstructured_config: object = None
+    ) -> ModelConfigT:
         if isinstance(model_name_or_card, AssetCard):
             card = model_name_or_card
         else:
+            if self._asset_store is None:
+                self._asset_store = get_asset_store()
+
             card = self._asset_store.retrieve_card(model_name_or_card)
 
         model_family = get_model_family(card)
@@ -96,7 +108,7 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
         # Load the configuration.
         if arch is None:
             try:
-                config = config_kls()
+                base_config = config_kls()
             except TypeError as ex:
                 raise AssetError(
                     f"The '{self._family}' model family has no default configuration."
@@ -108,29 +120,60 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
                 )
 
             try:
-                config = self._arch_configs.get(arch)
+                base_config = self._arch_configs.get(arch)
             except ValueError:
                 raise AssetError(
                     f"The '{self._family}' model family has no architecture named '{arch}'."
                 ) from None
 
         # Override the default architecture configuration if needed.
-        config_overrides = []
+        if self._value_converter is None:
+            self._value_converter = get_value_converter()
+
+        model_config_fields = []
 
         card_: AssetCard | None = card
 
         while card_ is not None:
             if "model_config" in card_.metadata:
-                cfg = card_.field("model_config").as_(
-                    config_kls, value_converter=self._value_converter, set_empty=True
-                )
+                model_config_field = card_.field("model_config").as_unstructured()
 
-                config_overrides.append(cfg)
+                model_config_fields.append(model_config_field)
 
             card_ = card_.base
 
-        for cfg in reversed(config_overrides):
-            update_dataclass(config, cfg)
+        if model_config_fields:
+            try:
+                unstructured_base_config = self._value_converter.unstructure(
+                    base_config
+                )
+            except StructuredError as ex:
+                raise AssetError(
+                    f"The model configuration class of the '{self._family}' cannot be used. Please file a bug report to the model author."
+                ) from ex
+
+            try:
+                for model_config_field in reversed(model_config_fields):
+                    unstructured_base_config = merge_unstructured(
+                        unstructured_base_config, model_config_field
+                    )
+
+                base_config = self._value_converter.structure(
+                    unstructured_base_config, type_expr=config_kls
+                )
+            except StructuredError as ex:
+                raise AssetError(
+                    f"The value of the field 'model_config' of the asset card '{card.name}' cannot be parsed as a valid model configuration. Please file a bug report to the asset author."
+                ) from ex
+
+        if unstructured_config is None:
+            config = base_config
+        else:
+            config = self._value_converter.structure(
+                unstructured_config, config_kls, set_empty=True
+            )
+
+            config = merge_dataclass(base_config, config)
 
         return config
 
@@ -143,13 +186,13 @@ def is_model_card(card: AssetCard) -> bool:
 def get_model_family(card: AssetCard) -> str:
     """Return the model family name contained in ``card``."""
     try:
-        return card.field("model_family").as_(str)  # type: ignore[no-any-return]
+        return cast(str, card.field("model_family").as_(str))
     except AssetCardFieldNotFoundError:
         pass
 
     try:
         # Compatibility with older fairseq2 versions.
-        return card.field("model_type").as_(str)  # type: ignore[no-any-return]
+        return cast(str, card.field("model_type").as_(str))
     except AssetCardFieldNotFoundError:
         raise AssetCardFieldNotFoundError(
             f"The asset card '{card.name}' must have a field named 'model_family."

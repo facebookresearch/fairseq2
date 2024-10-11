@@ -104,8 +104,8 @@ class WerMetric(Metric[tuple[Tensor, Tensor]]):
             uer = self.unit_err * 100.0 / self.unit_len
             wer = self.word_err * 100.0 / self.word_len
         else:
-            uer = torch.zeros((), dtype=torch.float32)
-            wer = torch.zeros((), dtype=torch.float32)
+            uer = torch.tensor(-1.0, dtype=torch.float32)
+            wer = torch.tensor(-1.0, dtype=torch.float32)
 
         return uer, wer
 

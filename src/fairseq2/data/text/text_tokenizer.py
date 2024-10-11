@@ -9,7 +9,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Protocol, TypeVar, final
+from typing import Protocol, TypeVar, cast, final
 
 from torch import Tensor
 from typing_extensions import override
@@ -20,8 +20,8 @@ from fairseq2.assets import (
     AssetDownloadManager,
     AssetError,
     AssetStore,
-    default_asset_store,
     default_download_manager,
+    get_asset_store,
 )
 from fairseq2.data.vocabulary_info import VocabularyInfo
 from fairseq2.typing import Device
@@ -182,7 +182,7 @@ class TextTokenizerLoader(Protocol[TextTokenizerT_co]):
 class AbstractTextTokenizerLoader(ABC, TextTokenizerLoader[TextTokenizerT]):
     """Provides a skeletal implementation of :class:`TextTokenizerLoader`."""
 
-    _asset_store: AssetStore
+    _asset_store: AssetStore | None
     _download_manager: AssetDownloadManager
 
     def __init__(
@@ -199,7 +199,7 @@ class AbstractTextTokenizerLoader(ABC, TextTokenizerLoader[TextTokenizerT]):
             The download manager. If ``None``, the default download manager will
             be used.
         """
-        self._asset_store = asset_store or default_asset_store
+        self._asset_store = asset_store
         self._download_manager = download_manager or default_download_manager
 
     @final
@@ -213,6 +213,9 @@ class AbstractTextTokenizerLoader(ABC, TextTokenizerLoader[TextTokenizerT]):
         if isinstance(tokenizer_name_or_card, AssetCard):
             card = tokenizer_name_or_card
         else:
+            if self._asset_store is None:
+                self._asset_store = get_asset_store()
+
             card = self._asset_store.retrieve_card(tokenizer_name_or_card)
 
         tokenizer_ref = card.field("tokenizer_ref").get_as_(str)
@@ -251,7 +254,7 @@ class AbstractTextTokenizerLoader(ABC, TextTokenizerLoader[TextTokenizerT]):
 class DelegatingTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
     """Loads text tokenizers of type ``TextTokenizerT`` using registered loaders."""
 
-    _asset_store: AssetStore
+    _asset_store: AssetStore | None
     _loaders: dict[str, TextTokenizerLoader[TextTokenizerT]]
 
     def __init__(self, *, asset_store: AssetStore | None = None) -> None:
@@ -260,7 +263,7 @@ class DelegatingTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
             The asset store where to check for available tokenizers. If ``None``,
             the default asset store will be used.
         """
-        self._asset_store = asset_store or default_asset_store
+        self._asset_store = asset_store
 
         self._loaders = {}
 
@@ -274,6 +277,9 @@ class DelegatingTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
         if isinstance(tokenizer_name_or_card, AssetCard):
             card = tokenizer_name_or_card
         else:
+            if self._asset_store is None:
+                self._asset_store = get_asset_store()
+
             card = self._asset_store.retrieve_card(tokenizer_name_or_card)
 
         ref = card.field("tokenizer_ref").get_as_(str)
@@ -315,6 +321,9 @@ class DelegatingTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
         if isinstance(tokenizer_name_or_card, AssetCard):
             card = tokenizer_name_or_card
         else:
+            if self._asset_store is None:
+                self._asset_store = get_asset_store()
+
             card = self._asset_store.retrieve_card(tokenizer_name_or_card)
 
         ref = card.field("tokenizer_ref").get_as_(str)
@@ -336,4 +345,4 @@ def is_tokenizer_card(card: AssetCard) -> bool:
 
 def get_tokenizer_family(card: AssetCard) -> str:
     """Return the tokenizer family name contained in ``card``."""
-    return card.field("tokenizer_family").as_(str)  # type: ignore[no-any-return]
+    return cast(str, card.field("tokenizer_family").as_(str))

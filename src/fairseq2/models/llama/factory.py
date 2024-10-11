@@ -147,13 +147,17 @@ class LLaMABuilder:
             dtype=self._dtype,
         )
 
-        return TransformerDecoderModel(
+        model = TransformerDecoderModel(
             decoder_frontend,
             decoder,
             final_proj,
             self._config.max_seq_len,
             self._config.vocab_info,
         )
+
+        model.set_family(LLAMA_FAMILY)
+
+        return model
 
     def build_decoder_frontend(self) -> TransformerFrontend:
         """Build a Transformer decoder front-end."""
@@ -288,6 +292,7 @@ class LLaMABuilder:
 
         for freq in freqs.tolist():
             wavelen = 2 * math.pi / freq
+
             if wavelen < h_freq_wavelen:
                 new_freqs.append(freq)
             elif wavelen > l_freq_wavelen:
@@ -305,18 +310,8 @@ def create_llama_model(
     device: Device | None = None,
     dtype: DataType | None = None,
 ) -> TransformerDecoderModel:
-    """Create a LLaMA model.
-
-    :param config:
-        The configuration.
-    :param device:
-        The device on which to initialize modules.
-    :param dtype:
-        The data type of module parameters and buffers.
-    """
-    model = LLaMABuilder(config, device=device, dtype=dtype).build_model()
-
-    return model.set_family(LLAMA_FAMILY)
+    """Create a LLaMA model."""
+    return LLaMABuilder(config, device=device, dtype=dtype).build_model()
 
 
 model_factories.register(LLAMA_FAMILY, create_llama_model, LLaMAConfig, llama_archs)

@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TextIO, final
+from typing import Any, TextIO, final
 
 import torch
 from typing_extensions import override
@@ -23,9 +23,11 @@ from fairseq2.datasets.instruction import (
     GenericInstructionDataset,
     load_instruction_dataset,
 )
+from fairseq2.dependency import resolve, resolve_all
 from fairseq2.gang import Gang
 from fairseq2.generation import SamplingConfig, SequenceGenerator, create_seq_generator
 from fairseq2.logging import get_log_writer
+from fairseq2.metrics import MetricRecorder
 from fairseq2.models import load_model
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.sequence import SequenceBatch
@@ -37,9 +39,10 @@ from fairseq2.recipes.utils.asset import (
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import broadcast_model, setup_gangs
-from fairseq2.typing import META, DataClass, DataType
+from fairseq2.recipes.utils.setup import broadcast_model
+from fairseq2.typing import CPU, META, DataType
 from fairseq2.utils.profiler import Stopwatch
+from fairseq2.utils.rng import manual_seed
 
 log = get_log_writer(__name__)
 
@@ -51,6 +54,9 @@ class TextGenerateConfig:
     # Data
     dataset: AssetReference = "foo"  # TODO: change!
     """The name, path, or path to the asset card of the instruction dataset."""
+
+    split: str = "default"
+    """The name of the data split."""
 
     max_seq_len: int = 8192
     """The maximum sequence length."""
@@ -71,6 +77,9 @@ class TextGenerateConfig:
     dtype: DataType = torch.bfloat16
     """The data type of the model."""
 
+    amp: bool = False
+    """If ``True``, runs evaluation with ``torch.amp``."""
+
     tensor_parallel_size: int = 1
     """The size of tensor parallelism."""
 
@@ -78,7 +87,7 @@ class TextGenerateConfig:
     generator: str = "sampling"
     """The sequence generator."""
 
-    generator_config: DataClass | None = field(default_factory=lambda: SamplingConfig())
+    generator_config: Any = field(default_factory=lambda: SamplingConfig())
     """The configuration of the sequence generator."""
 
     # Misc
@@ -143,6 +152,7 @@ def _llama3_1_70b_instruct() -> TextGenerateConfig:
     return config
 
 
+@torch.inference_mode()
 def load_text_generator(
     config: TextGenerateConfig, output_dir: Path
 ) -> Generator[SequenceBatch]:
@@ -154,12 +164,10 @@ def load_text_generator(
             CheckpointModelMetadataProvider(config.checkpoint_dir)
         )
 
-    root_gang, gangs = setup_gangs(log, tp_size=config.tensor_parallel_size)
+    root_gang = resolve(Gang)
 
-    dp_gang = gangs["dp"]  # data
-    tp_gang = gangs["tp"]  # tensor
-
-    seed = config.seed
+    dp_gang = resolve(Gang, key="dp")  # data
+    tp_gang = resolve(Gang, key="tp")  # tensor
 
     model_card = retrieve_asset_card(config.model)
 
@@ -187,7 +195,13 @@ def load_text_generator(
 
         dataset = GenericInstructionDataset.from_path(dataset_path)
 
-    # Load the model.
+    seed = config.seed
+
+    # Load the model
+    manual_seed(seed, CPU, root_gang.device)
+
+    seed += 1
+
     log.info("Loading {} model on data parallel rank 0 (per shard).", model_card.name)
 
     if dp_gang.rank == 0:
@@ -197,7 +211,10 @@ def load_text_generator(
 
     try:
         model = load_model(
-            model_card, gangs=gangs, device=init_device, dtype=config.dtype
+            model_card,
+            gangs={"dp": dp_gang, "tp": tp_gang},
+            device=init_device,
+            dtype=config.dtype,
         )
     except ValueError as ex:
         raise ValueError(
@@ -269,11 +286,12 @@ def load_text_generator(
 
     try:
         data_reader = dataset.create_prompt_reader(
+            config.split,
             tokenizer,
             dp_gang,
             config.max_seq_len,
             batching=StaticBatching(config.batch_size),
-            sync_batches=False,
+            sync_mode="until_last",
             num_prefetch=config.num_prefetch,
             seed=seed,
         )
@@ -284,6 +302,8 @@ def load_text_generator(
 
     seed += 1
 
+    metric_recorders = resolve_all(MetricRecorder)
+
     # Initialize the generator.
     return Generator[SequenceBatch](
         unit=unit,
@@ -291,7 +311,9 @@ def load_text_generator(
         root_gang=root_gang,
         dp_gang=dp_gang,
         tp_gang=tp_gang,
-        metrics_dir=output_dir.joinpath("metrics"),
+        dtype=config.dtype,
+        amp=config.amp,
+        metric_recorders=metric_recorders,
         seed=seed,
         wall_watch=wall_watch,
     )

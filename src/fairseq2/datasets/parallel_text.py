@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
-from typing import Any, NoReturn, cast, final
+from typing import Any, Literal, NoReturn, cast, final
 
 from typing_extensions import override
 
@@ -23,7 +23,7 @@ from fairseq2.data import (
     create_bucket_sizes,
 )
 from fairseq2.data.text import TextTokenizer, read_text
-from fairseq2.datasets.batching import LengthBatching, StaticBatching
+from fairseq2.datasets.batching import Batching, LengthBatching, StaticBatching
 from fairseq2.datasets.data_reader import DataPipelineReader, DataReader
 from fairseq2.datasets.error import DatasetError
 from fairseq2.datasets.loader import AbstractDatasetLoader, DelegatingDatasetLoader
@@ -65,7 +65,7 @@ class ParallelTextDataset(ABC):
         tokenizer: TextTokenizer,
         gang: Gang,
         max_seq_len: int,
-        batching: StaticBatching | LengthBatching,
+        batching: Batching,
         *,
         direction: Direction | None = None,
         min_seq_len: int = 1,
@@ -74,6 +74,7 @@ class ParallelTextDataset(ABC):
         batch_shuffle_window: int = 1,
         drop_remainder: bool = False,
         sync_batches: bool = True,
+        sync_mode: Literal["until_first", "until_last"] = "until_first",
         max_num_batches: int | None = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
@@ -117,6 +118,11 @@ class ParallelTextDataset(ABC):
             can vary per process (e.g. due to unbalanced sharding or non-static
             batching) and it is critical for each process to iterate over the
             same number of batches (e.g. during training).
+        :param sync_mode:
+            If ``until_first``, stops iteration when the first rank reaches end
+            of data. If ``until_last``, stops iteration when the last rank
+            reaches end of data; ranks that have already reached their end of
+            data will return an empty list of batches.
         :param max_num_batches:
             The maximum number of batches to return.
         :param num_accumulate:
@@ -280,7 +286,7 @@ class GenericParallelTextDataset(ParallelTextDataset):
         tokenizer: TextTokenizer,
         gang: Gang,
         max_seq_len: int,
-        batching: StaticBatching | LengthBatching,
+        batching: Batching,
         *,
         direction: Direction | None = None,
         min_seq_len: int = 1,
@@ -289,6 +295,7 @@ class GenericParallelTextDataset(ParallelTextDataset):
         batch_shuffle_window: int = 1,
         drop_remainder: bool = False,
         sync_batches: bool = True,
+        sync_mode: Literal["until_first", "until_last"] = "until_first",
         max_num_batches: int | None = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
@@ -387,7 +394,7 @@ class GenericParallelTextDataset(ParallelTextDataset):
                 skip_above_max_examples=True,
                 drop_remainder=drop_remainder,
             )
-        else:
+        elif isinstance(batching, StaticBatching):
             # Filter out out-of-range examples.
             def skip(example: dict[str, Any]) -> bool:
                 source_len = len(example["source_indices"])
@@ -401,6 +408,8 @@ class GenericParallelTextDataset(ParallelTextDataset):
 
             # Bucket `batch_size` examples.
             builder.bucket(batching.batch_size, drop_remainder=drop_remainder)
+        else:
+            raise RuntimeError(f"`{batching}` is not supported.")
 
         # Shuffle buckets.
         if batch_shuffle_window != 1:
@@ -430,6 +439,7 @@ class GenericParallelTextDataset(ParallelTextDataset):
             num_accumulate=num_accumulate,
             drop_remainder=drop_remainder,
             sync_batches=sync_batches,
+            sync_mode=sync_mode,
         )
 
     def _read_direction(self, split: str, direction: Direction) -> DataPipelineBuilder:

@@ -12,16 +12,16 @@ from typing import NoReturn
 import torch
 
 from fairseq2.datasets.error import DatasetError
-from fairseq2.gang import Gang
+from fairseq2.gang import Gang, all_sum
 from fairseq2.logging import LogWriter
 
 
-def _reduce_num_batches(num_batches: int, gang: Gang, log: LogWriter) -> int:
+def _min_num_batches(num_batches: int, gang: Gang, log: LogWriter) -> int:
     all_num_batches = torch.zeros((gang.size,), device=gang.device, dtype=torch.int64)
 
-    num_batches_ = torch.tensor(num_batches, device=gang.device)
+    inp = torch.tensor(num_batches, device=gang.device)
 
-    gang.all_gather(all_num_batches, num_batches_)
+    gang.all_gather(all_num_batches, inp)
 
     min_num_batches = int(all_num_batches.min())
     if min_num_batches != 0:
@@ -37,6 +37,12 @@ def _reduce_num_batches(num_batches: int, gang: Gang, log: LogWriter) -> int:
         log.debug("End of data reached at rank(s) {}.", s)
 
     return 0
+
+
+def _sum_num_batches(num_batches: int, gang: Gang) -> int:
+    total_num_batches = all_sum(gang, num_batches)
+
+    return int(total_num_batches)
 
 
 def _load_files_and_weights(path: Path) -> tuple[list[Path], list[float]]:

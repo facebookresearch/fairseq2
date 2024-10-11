@@ -23,20 +23,41 @@ from typing_extensions import override
 
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
-from fairseq2.typing import CPU, DataClass
+from fairseq2.typing import CPU
 from fairseq2.utils.file import (
+    PyTorchTensorDumper,
+    PyTorchTensorLoader,
     TensorDumper,
     TensorLoader,
-    dump_pt_tensors,
-    load_pt_tensors,
 )
-from fairseq2.utils.value_converter import default_value_converter
+from fairseq2.utils.structured import ValueConverter, get_value_converter
 
 log = get_log_writer(__name__)
 
 
 class CheckpointManager(ABC):
     """Saves and loads training checkpoints."""
+
+    @abstractmethod
+    def save_model_metadata(
+        self,
+        *,
+        base_asset: str | None = None,
+        family: str | None = None,
+        config: object = None,
+        tokenizer_name: str | None = None,
+    ) -> None:
+        """Set the model metadata.
+
+        :param base_asset:
+            The name of the asset that the model is based on.
+        :param family:
+            The family of the model.
+        :param config:
+            The configuration of the model.
+        :param tokenizer_name:
+            The name of the tokenizer that the model is trained with.
+        """
 
     @abstractmethod
     def begin_checkpoint(self, step_nr: int) -> None:
@@ -161,6 +182,7 @@ class FileCheckpointManager(CheckpointManager):
     _shard_suffix: str
     _tensor_loader: TensorLoader
     _tensor_dumper: TensorDumper
+    _value_converter: ValueConverter
     _lower_score_better: bool
     _checkpoint_step_nr: int | None
 
@@ -173,6 +195,7 @@ class FileCheckpointManager(CheckpointManager):
         tp_gang: Gang | None = None,
         tensor_loader: TensorLoader | None = None,
         tensor_dumper: TensorDumper | None = None,
+        value_converter: ValueConverter | None = None,
         lower_score_better: bool = False,
     ) -> None:
         """
@@ -189,6 +212,8 @@ class FileCheckpointManager(CheckpointManager):
             The tensor loader to load checkpoints into memory.
         :param tensor_dumper:
             The tensor dumper to save checkpoints into file.
+        :param value_converter:
+            The :class:`ValueConverter` instance to use.
         :param lower_score_better:
             If ``True``, lower scores are considered better.
         """
@@ -212,32 +237,24 @@ class FileCheckpointManager(CheckpointManager):
         elif dp_gang is not None or tp_gang is not None:
             raise ValueError("`dp_gang` and `tp_gang` must be both specified.")
 
-        self._tensor_loader = tensor_loader or load_pt_tensors
-        self._tensor_dumper = tensor_dumper or dump_pt_tensors
+        self._tensor_loader = tensor_loader or PyTorchTensorLoader()
+        self._tensor_dumper = tensor_dumper or PyTorchTensorDumper()
+
+        self._value_converter = value_converter or get_value_converter()
 
         self._lower_score_better = lower_score_better
 
         self._checkpoint_step_nr = None
 
+    @override
     def save_model_metadata(
         self,
         *,
         base_asset: str | None = None,
         family: str | None = None,
-        config: DataClass | None = None,
+        config: object = None,
         tokenizer_name: str | None = None,
     ) -> None:
-        """Set the model metadata.
-
-        :param base_asset:
-            The name of the asset that the model is based on.
-        :param family:
-            The family of the model.
-        :param config:
-            The configuration of the model.
-        :param tokenizer_name:
-            The name of the tokenizer that the model is trained with.
-        """
         if self._root_gang.rank == 0:
             metadata: dict[str, Any] = {"name": "checkpoint"}
 
@@ -248,9 +265,7 @@ class FileCheckpointManager(CheckpointManager):
                 metadata["model_family"] = family
 
             if config is not None:
-                metadata["model_config"] = default_value_converter.unstructure(
-                    config, type_hint=type(config)
-                )
+                metadata["model_config"] = self._value_converter.unstructure(config)
 
             if self._num_shards != 1:
                 metadata["num_shards"] = self._num_shards

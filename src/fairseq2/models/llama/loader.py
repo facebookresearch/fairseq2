@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, final
+from typing import Any, Mapping, final
 
 from torch import Tensor
 from typing_extensions import override
@@ -38,21 +38,6 @@ from fairseq2.models.utils.checkpoint import convert_model_state_dict
 load_llama_config = StandardModelConfigLoader(LLAMA_FAMILY, LLaMAConfig, llama_archs)
 
 
-@final
-class LLaMAModelLoader(StandardModelLoader[TransformerDecoderModel, LLaMAConfig]):
-    """Loads LLaMA models."""
-
-    @override
-    def _shard(
-        self, model: TransformerDecoderModel, gangs: dict[str, Gang], card: AssetCard
-    ) -> None:
-        gang = gangs["tp"]  # tensor parallel
-
-        shard_embed_dim = card.field("shard_embed_dim").get_as_(bool, True)
-
-        shard_transformer_decoder_model(model, gang, shard_embed_dim=shard_embed_dim)
-
-
 def convert_llama_checkpoint(
     checkpoint: dict[str, Any], config: LLaMAConfig
 ) -> dict[str, Any]:
@@ -60,6 +45,10 @@ def convert_llama_checkpoint(
     # Check if we have a fairseq2 checkpoint.
     if "model" in checkpoint:
         return checkpoint
+
+    # Check if we have a sharded checkpoint.
+    if "weights" in checkpoint:
+        checkpoint = checkpoint["weights"]
 
     # Check if we have a reference or Hugging Face checkpoint.
     if "lm_head.weight" in checkpoint:  # HG
@@ -130,10 +119,21 @@ def convert_llama_checkpoint(
     return {"model": checkpoint}
 
 
-load_llama_model = LLaMAModelLoader(
+def shard_llama_model(
+    model: TransformerDecoderModel, config: LLaMAConfig, gangs: Mapping[str, Gang]
+) -> None:
+    gang = gangs["tp"]  # tensor parallel
+
+    shard_embed_dim = config.max_seq_len < 8192  # LLaMA 1 or 2
+
+    shard_transformer_decoder_model(model, gang, shard_embed_dim=shard_embed_dim)
+
+
+load_llama_model = StandardModelLoader(
     config_loader=load_llama_config,
     factory=create_llama_model,
     checkpoint_converter=convert_llama_checkpoint,
+    sharder=shard_llama_model,
 )
 
 load_model.register(LLAMA_FAMILY, load_llama_model)

@@ -8,9 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import pytest
-
-from fairseq2.utils.dataclass import EMPTY, update_dataclass
+from fairseq2.utils.dataclass import EMPTY, merge_dataclass
 
 
 @dataclass
@@ -31,35 +29,24 @@ class Foo3:
     z: int = 2
 
 
-def test_update_dataclass_works() -> None:
-    target = Foo1(a=3, b=Foo2(x=1), c="foo")
+def test_merge_dataclass() -> None:
+    target = Foo1(a=3, b=Foo3(y=5), c="foo")
     source = Foo1(a=2, b=Foo3(y=EMPTY, z=3), c=EMPTY)  # type: ignore[arg-type]
 
-    update_dataclass(target, source)
+    target = merge_dataclass(target, source)
 
-    assert target == Foo1(a=2, b=Foo3(y=1, z=3), c="foo")
+    assert target == Foo1(a=2, b=Foo3(y=5, z=3), c="foo")
 
     target = Foo1(a=3, b=Foo3(y=1), c="foo")
     source = Foo1(a=EMPTY, b=Foo3(y=2, z=EMPTY), c="foo")  # type: ignore[arg-type]
 
-    update_dataclass(target, source)
+    target = merge_dataclass(target, source)
 
     assert target == Foo1(a=3, b=Foo3(y=2, z=2), c="foo")
 
     target = Foo1(a=3, b=Foo2(x=1), c="foo")
     source = Foo1(a=2, b=EMPTY, c="foo")  # type: ignore[arg-type]
 
-    update_dataclass(target, source)
+    target = merge_dataclass(target, source)
 
     assert target == Foo1(a=2, b=Foo2(x=1), c="foo")
-
-
-def test_update_dataclass_raises_error_when_types_mismatch() -> None:
-    target = Foo1(a=3, b=Foo2(x=1), c="foo")
-    source = Foo3()
-
-    with pytest.raises(
-        TypeError,
-        match=rf"^`target` and `source` must be of the same type, but they are of types `{Foo1}` and `{Foo3}` instead\.$",
-    ):
-        update_dataclass(target, source)

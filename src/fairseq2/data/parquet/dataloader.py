@@ -164,9 +164,11 @@ def build_parquet_iterator_pipeline(
             columns=config.columns,
             split_to_row_groups=config.split_to_row_groups,
             filesystem=config.filesystem,
-            shuffle_window=2 * config.nb_prefetch * config.nb_parallel_fragments
-            if config.shuffle
-            else None,
+            shuffle_window=(
+                2 * config.nb_prefetch * config.nb_parallel_fragments
+                if config.shuffle
+                else None
+            ),
             seed=config.seed,
         )
         .shard(shard_idx=config.rank, num_shards=config.world_size)
@@ -177,7 +179,7 @@ def build_parquet_iterator_pipeline(
         .map(
             table_func_wrap(
                 partial(
-                    apply_filter, filters=config.filters, drop_null=config.drop_null
+                    apply_filter, filters=config.filters, drop_null=config.drop_null  # type: ignore[arg-type]
                 )
             )
         )

@@ -8,17 +8,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TextIO, final
+from typing import Any, TextIO, final
 
 import torch
 from typing_extensions import override
 
-from fairseq2.assets import AssetNotFoundError, default_asset_store
-from fairseq2.checkpoint import CheckpointModelMetadataProvider
+from fairseq2.assets import AssetNotFoundError
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import TextTokenizer, load_text_tokenizer
 from fairseq2.datasets import StaticBatching
 from fairseq2.datasets.text import GenericTextDataset, load_text_dataset
+from fairseq2.dependency import resolve, resolve_all
 from fairseq2.gang import Gang
 from fairseq2.generation import (
     BeamSearchConfig,
@@ -27,6 +27,7 @@ from fairseq2.generation import (
     create_seq2seq_generator,
 )
 from fairseq2.logging import get_log_writer
+from fairseq2.metrics import MetricRecorder
 from fairseq2.models import load_model
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.sequence import SequenceBatch
@@ -38,8 +39,8 @@ from fairseq2.recipes.utils.asset import (
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import broadcast_model, setup_root_gang
-from fairseq2.typing import META, DataClass, DataType
+from fairseq2.recipes.utils.setup import broadcast_model
+from fairseq2.typing import META, DataType
 from fairseq2.utils.profiler import Stopwatch
 
 log = get_log_writer(__name__)
@@ -78,11 +79,14 @@ class TextTranslateConfig:
     dtype: DataType = torch.float16
     """The data type of the model."""
 
+    amp: bool = False
+    """If ``True``, runs evaluation with ``torch.amp``."""
+
     # Generation
     generator: str = "beam_search"
     """The sequence generator."""
 
-    generator_config: DataClass | None = field(
+    generator_config: Any = field(
         default_factory=lambda: BeamSearchConfig(max_gen_len=(1, 256), echo_prompt=True)
     )
     """The configuration of the sequence generator."""
@@ -102,20 +106,14 @@ def _nllb_dense_600m() -> TextTranslateConfig:
     return TextTranslateConfig()
 
 
+@torch.inference_mode()
 def load_text_translator(
     config: TextTranslateConfig, output_dir: Path
 ) -> Generator[SequenceBatch]:
     """Load a :class:`Generator` for text translation."""
     wall_watch = Stopwatch(start=True)
 
-    if config.checkpoint_dir is not None:
-        default_asset_store.metadata_providers.append(
-            CheckpointModelMetadataProvider(config.checkpoint_dir)
-        )
-
-    gang = setup_root_gang(log)
-
-    seed = config.seed
+    gang = resolve(Gang)
 
     model_card = retrieve_asset_card(config.model)
 
@@ -221,6 +219,8 @@ def load_text_translator(
         task="translation", lang=config.source_lang, mode="source"
     )
 
+    seed = config.seed
+
     try:
         data_reader = dataset.create_reader(
             text_encoder,
@@ -228,7 +228,7 @@ def load_text_translator(
             gang,
             config.max_seq_len,
             batching=StaticBatching(config.batch_size),
-            sync_batches=False,
+            sync_mode="until_last",
             num_prefetch=config.num_prefetch,
             seed=seed,
         )
@@ -239,12 +239,16 @@ def load_text_translator(
 
     seed += 1
 
+    metric_recorders = resolve_all(MetricRecorder)
+
     # Initialize the generator.
     return Generator[SequenceBatch](
         unit=unit,
         data_reader=data_reader,
         root_gang=gang,
-        metrics_dir=output_dir.joinpath("metrics"),
+        dtype=config.dtype,
+        amp=config.amp,
+        metric_recorders=metric_recorders,
         seed=seed,
         wall_watch=wall_watch,
     )

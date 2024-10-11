@@ -7,6 +7,8 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
+from contextlib import AbstractContextManager, nullcontext
 from itertools import count
 from pathlib import Path
 from typing import Generic, TypeVar, final
@@ -16,7 +18,7 @@ from torch.nn import Module
 from typing_extensions import override
 
 from fairseq2.datasets import DataReader
-from fairseq2.gang import FakeGang, Gang, all_sum
+from fairseq2.gang import FakeGang, Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.metrics import (
     JsonFileMetricRecorder,
@@ -25,9 +27,9 @@ from fairseq2.metrics import (
     MetricRecorder,
     record_metrics,
 )
-from fairseq2.recipes.common_metrics import set_throughput_value
+from fairseq2.recipes.common_metrics import extend_batch_metrics
 from fairseq2.recipes.utils.cli import create_rich_progress
-from fairseq2.typing import CPU
+from fairseq2.typing import CPU, DataType
 from fairseq2.utils.profiler import Stopwatch
 from fairseq2.utils.rng import RngBag
 
@@ -79,6 +81,8 @@ class Generator(Generic[BatchT]):
     _root_gang: Gang
     _dp_gang: Gang
     _tp_gang: Gang
+    _dtype: DataType
+    _amp: bool
     _metric_recorders: list[MetricRecorder]
     _seed: int
     _wall_watch: Stopwatch
@@ -93,6 +97,9 @@ class Generator(Generic[BatchT]):
         wall_watch: Stopwatch,
         dp_gang: Gang | None = None,
         tp_gang: Gang | None = None,
+        dtype: DataType = torch.float32,
+        amp: bool = False,
+        metric_recorders: Iterable[MetricRecorder] | None = None,
         metrics_dir: Path | None = None,
         seed: int = 2,
     ) -> None:
@@ -109,8 +116,14 @@ class Generator(Generic[BatchT]):
             The data parallel gang. If ``None``, ``gang`` will be used.
         :param tp_gang:
             The tensor parallel gang. Only required for tensor parallel models.
+        :param dtype:
+            The data type of the model.
+        :param amp:
+            If ``True``, enables ``torch.amp``.
+        :param metric_recorders:
+            The metric recorders.
         :param metrics_dir:
-            The directory to dump metrics.
+            Legacy. Use ``metric_recoders``.
         :param seed:
             The random number generator seed.
         """
@@ -135,13 +148,21 @@ class Generator(Generic[BatchT]):
                     f"The coordinator process of `root_gang` (i.e. rank 0) must be rank 0 in `dp_gang` and `tp_gang`, but is {self._dp_gang.rank} and {self._tp_gang.rank} instead."
                 )
 
-        if root_gang.rank == 0:
-            self._metric_recorders = [LogMetricRecorder(log)]
+        self._dtype = dtype
 
-            if metrics_dir is not None:
-                self._metric_recorders.append(JsonFileMetricRecorder(metrics_dir))
+        self._amp = amp
+
+        if metric_recorders is None:
+            # compat
+            if root_gang.rank == 0:
+                self._metric_recorders = [LogMetricRecorder(log)]
+
+                if metrics_dir is not None:
+                    self._metric_recorders.append(JsonFileMetricRecorder(metrics_dir))
+            else:
+                self._metric_recorders = []
         else:
-            self._metric_recorders = []
+            self._metric_recorders = list(metric_recorders)
 
         self._seed = seed
 
@@ -178,6 +199,8 @@ class Generator(Generic[BatchT]):
 
         self._unit.model.eval()
 
+        num_effective_batches = 0
+
         with create_rich_progress() as progress:
             task = progress.add_task("generate", total=None)
 
@@ -189,22 +212,23 @@ class Generator(Generic[BatchT]):
                 try:
                     batches = next(self._data_reader)
                 except StopIteration:
-                    batches = []
-
-                for batch in batches:
-                    self._unit(batch)
-
-                if self._is_eod(batches):
                     break
 
-        self._publish_metrics(watch.get_elapsed_time())
+                for batch in batches:
+                    with self._maybe_autocast():
+                        self._unit(batch)
 
-    def _is_eod(self, batches: list[BatchT]) -> bool:
-        total_num_batches = all_sum(self._dp_gang, len(batches))
+                num_effective_batches += 1
 
-        return bool(total_num_batches == 0)
+        self._publish_metrics(num_effective_batches, watch.get_elapsed_time())
 
-    def _publish_metrics(self, elapsed_time: float) -> None:
+    def _maybe_autocast(self) -> AbstractContextManager[None]:
+        if self._dtype == torch.float32 or not self._amp:
+            return nullcontext()
+
+        return torch.autocast(device_type=self._dp_gang.device.type, dtype=self._dtype)
+
+    def _publish_metrics(self, num_batches: int, elapsed_time: float) -> None:
         log.debug("Syncing metrics.")
 
         if self._tp_gang.rank != 0:
@@ -215,9 +239,12 @@ class Generator(Generic[BatchT]):
         if self._root_gang.rank != 0:
             return
 
-        assert values is not None
+        if values is None:
+            raise RuntimeError(
+                "The synchronized metric values are `None`. Please file a bug report."
+            )
 
-        set_throughput_value(values, elapsed_time)
+        extend_batch_metrics(values, num_batches, elapsed_time)
 
         values["elapsed_time"] = elapsed_time
 

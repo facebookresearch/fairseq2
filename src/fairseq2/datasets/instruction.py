@@ -10,7 +10,7 @@ import json
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, cast, final
+from typing import Any, Literal, NoReturn, cast, final
 
 import torch
 from typing_extensions import override
@@ -26,7 +26,7 @@ from fairseq2.data import (
     read_sequence,
 )
 from fairseq2.data.text import TextTokenizer
-from fairseq2.datasets.batching import LengthBatching, StaticBatching
+from fairseq2.datasets.batching import Batching, LengthBatching, StaticBatching
 from fairseq2.datasets.data_reader import DataPipelineReader, DataReader
 from fairseq2.datasets.loader import AbstractDatasetLoader, DelegatingDatasetLoader
 from fairseq2.datasets.utils import _load_files_and_weights
@@ -41,16 +41,18 @@ class InstructionDataset(ABC):
     @abstractmethod
     def create_reader(
         self,
+        split: str,
         tokenizer: TextTokenizer,
         gang: Gang,
         max_seq_len: int,
-        batching: StaticBatching | LengthBatching,
+        batching: Batching,
         *,
         sample: bool = False,
         example_shuffle_window: int = 1,
         batch_shuffle_window: int = 1,
         drop_remainder: bool = False,
         sync_batches: bool = True,
+        sync_mode: Literal["until_first", "until_last"] = "until_first",
         max_num_batches: int | None = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
@@ -59,6 +61,8 @@ class InstructionDataset(ABC):
     ) -> DataReader[SequenceBatch]:
         """Create a dataset reader.
 
+        :param split:
+            The split to read.
         :param tokenizer:
             The tokenizer to encode text.
         :param gang:
@@ -88,6 +92,11 @@ class InstructionDataset(ABC):
             can vary per process (e.g. due to unbalanced sharding or non-static
             batching) and it is critical for each process to iterate over the
             same number of batches (e.g. during training).
+        :param sync_mode:
+            If ``until_first``, stops iteration when the first rank reaches end
+            of data. If ``until_last``, stops iteration when the last rank
+            reaches end of data; ranks that have already reached their end of
+            data will return an empty list of batches.
         :param max_num_batches:
             The maximum number of batches to return.
         :param num_accumulate:
@@ -104,6 +113,7 @@ class InstructionDataset(ABC):
     @abstractmethod
     def create_prompt_reader(
         self,
+        split: str,
         tokenizer: TextTokenizer,
         gang: Gang,
         max_seq_len: int,
@@ -111,11 +121,14 @@ class InstructionDataset(ABC):
         *,
         drop_remainder: bool = False,
         sync_batches: bool = True,
+        sync_mode: Literal["until_first", "until_last"] = "until_first",
         num_prefetch: int = 1,
         **extras: Any,
     ) -> DataPipelineReader[SequenceBatch]:
         """Create a dataset reader for evaluation.
 
+        :param split:
+            The split to read.
         :param tokenizer:
             The tokenizer to encode text.
         :param gang:
@@ -140,6 +153,10 @@ class InstructionDataset(ABC):
             The extra parameters specific to the dataset implementation.
         """
 
+    @abstractmethod
+    def splits(self) -> set[str]:
+        """Return the set of splits."""
+
 
 load_instruction_dataset = DelegatingDatasetLoader[InstructionDataset]()
 
@@ -153,64 +170,81 @@ npc = 10
 class GenericInstructionDataset(InstructionDataset):
     """Represents a generic JSONL instruction dataset."""
 
-    _files: Sequence[Path]
-    _weights: Sequence[float]
+    _splits: dict[str, tuple[Sequence[Path], Sequence[float]]]
 
-    def __init__(self, files: Sequence[Path], weights: Sequence[float]) -> None:
+    def __init__(
+        self, splits: dict[str, tuple[Sequence[Path], Sequence[float]]]
+    ) -> None:
         """
         :param files:
             The instruction files.
         :param weights:
             The weight of each file in ``files``.
         """
-        if len(files) != len(weights):
-            raise ValueError(
-                f"The lengths of `files` and `weights` must match, but they are {len(files)} and {len(weights)} instead."
-            )
+        for split, (files, weights) in splits.items():
+            if len(files) != len(weights):
+                raise ValueError(
+                    f"The lengths of the file and weight lists of the '{split}' split must match, but they are {len(files)} and {len(weights)} instead."
+                )
 
-        self._files = files
-        self._weights = weights
+        self._splits = splits
 
     @classmethod
     def from_path(cls, path: Path) -> GenericInstructionDataset:
         """Load a :class:`InstructionDataset` from ``path``."""
-        files, weights = _load_files_and_weights(path)
+        splits: dict[str, tuple[Sequence[Path], Sequence[float]]] = {}
 
-        return GenericInstructionDataset(files, weights)
+        for child_path in path.iterdir():
+            if child_path.is_dir():
+                files, weights = _load_files_and_weights(child_path)
+
+                splits[child_path.name] = (files, weights)
+
+        if not splits:
+            files, weights = _load_files_and_weights(path)
+
+            splits["default"] = (files, weights)
+
+        return GenericInstructionDataset(splits)
 
     @override
     def create_reader(
         self,
+        split: str,
         tokenizer: TextTokenizer,
         gang: Gang,
         max_seq_len: int,
-        batching: StaticBatching | LengthBatching,
+        batching: Batching,
         *,
         sample: bool = False,
         example_shuffle_window: int = 1,
         batch_shuffle_window: int = 1,
         drop_remainder: bool = False,
         sync_batches: bool = True,
+        sync_mode: Literal["until_first", "until_last"] = "until_first",
         max_num_batches: int | None = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         seed: int = 2,
         **extras: Any,
     ) -> DataPipelineReader[SequenceBatch]:
-        if len(self._files) == 1:
-            builder = self._read_jsonl(self._files[0], tokenizer)
+        try:
+            files, weights = self._splits[split]
+        except KeyError:
+            self._raise_split_error(split)
+
+        if len(files) == 1:
+            builder = self._read_jsonl(files[0], tokenizer)
         else:
             pipelines = []
 
-            for file in self._files:
+            for file in files:
                 pipeline = self._read_jsonl(file, tokenizer).and_return()
 
                 pipelines.append(pipeline)
 
             if sample:
-                builder = DataPipeline.sample(
-                    pipelines, weights=self._weights, seed=seed
-                )
+                builder = DataPipeline.sample(pipelines, weights=weights, seed=seed)
 
                 seed += 1
             else:
@@ -260,7 +294,7 @@ class GenericInstructionDataset(InstructionDataset):
                 skip_above_max_examples=True,
                 drop_remainder=drop_remainder,
             )
-        else:
+        elif isinstance(batching, StaticBatching):
             # Filter out long examples.
             def skip(example: dict[str, Any]) -> bool:
                 return len(example["indices"]) <= max_seq_len
@@ -269,6 +303,8 @@ class GenericInstructionDataset(InstructionDataset):
 
             # Bucket `batch_size` examples.
             builder.bucket(batching.batch_size, drop_remainder=drop_remainder)
+        else:
+            raise RuntimeError(f"`{batching}` is not supported.")
 
         # Shuffle buckets.
         if batch_shuffle_window != 1:
@@ -310,11 +346,13 @@ class GenericInstructionDataset(InstructionDataset):
             num_accumulate=num_accumulate,
             drop_remainder=drop_remainder,
             sync_batches=sync_batches,
+            sync_mode=sync_mode,
         )
 
     @override
     def create_prompt_reader(
         self,
+        split: str,
         tokenizer: TextTokenizer,
         gang: Gang,
         max_seq_len: int,
@@ -322,15 +360,21 @@ class GenericInstructionDataset(InstructionDataset):
         *,
         drop_remainder: bool = False,
         sync_batches: bool = True,
+        sync_mode: Literal["until_first", "until_last"] = "until_first",
         num_prefetch: int = 1,
         **extras: Any,
     ) -> DataPipelineReader[SequenceBatch]:
-        if len(self._files) == 1:
-            builder = self._read_jsonl(self._files[0], tokenizer)
+        try:
+            files, weights = self._splits[split]
+        except KeyError:
+            self._raise_split_error(split)
+
+        if len(files) == 1:
+            builder = self._read_jsonl(files[0], tokenizer)
         else:
             pipelines = []
 
-            for file in self._files:
+            for file in files:
                 pipeline = self._read_jsonl(file, tokenizer).and_return()
 
                 pipelines.append(pipeline)
@@ -382,7 +426,11 @@ class GenericInstructionDataset(InstructionDataset):
         pipeline = builder.map(to_batch).and_return()
 
         return DataPipelineReader[SequenceBatch](
-            pipeline, gang, drop_remainder=drop_remainder, sync_batches=sync_batches
+            pipeline,
+            gang,
+            drop_remainder=drop_remainder,
+            sync_batches=sync_batches,
+            sync_mode=sync_mode,
         )
 
     def _read_jsonl(self, path: Path, tokenizer: TextTokenizer) -> DataPipelineBuilder:
@@ -394,6 +442,15 @@ class GenericInstructionDataset(InstructionDataset):
                 lines.append(line)
 
         return read_sequence(lines).map(json.loads, num_parallel_calls=npc)
+
+    def _raise_split_error(self, split: str) -> NoReturn:
+        raise ValueError(
+            f"`split` must be one of the following splits, but is '{split}' instead: {', '.join(sorted(self._splits.keys()))}"
+        ) from None
+
+    @override
+    def splits(self) -> set[str]:
+        return set(self._splits.keys())
 
 
 @final

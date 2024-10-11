@@ -8,30 +8,26 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, final
+from typing import Any, Literal, final
 
 import torch
 from torch import Tensor
-from torch.nn import Module
 from typing_extensions import override
 
-from fairseq2.assets import AssetNotFoundError, default_asset_store
-from fairseq2.checkpoint import CheckpointModelMetadataProvider, FileCheckpointManager
+from fairseq2.assets import AssetNotFoundError
+from fairseq2.checkpoint import CheckpointManager
 from fairseq2.config_registry import ConfigRegistry
-from fairseq2.data.text import load_text_tokenizer
+from fairseq2.data.text import load_char_tokenizer
 from fairseq2.datasets import LengthBatching
 from fairseq2.datasets.asr import GenericAsrDataset, load_asr_dataset
+from fairseq2.dependency import resolve, resolve_all
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
+from fairseq2.metrics import MetricRecorder
 from fairseq2.models import create_model
 from fairseq2.models.seq2seq import Seq2SeqBatch
-from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2 import load_wav2vec2_model
-from fairseq2.models.wav2vec2.asr import (
-    Wav2Vec2AsrModel,
-    Wav2Vec2AsrOutput,
-    wav2vec2_asr_archs,
-)
+from fairseq2.models.wav2vec2.asr import Wav2Vec2AsrModel
 from fairseq2.nn.utils.module import freeze_parameters, share_parameters, to_device
 from fairseq2.optim import AdamWConfig, create_optimizer
 from fairseq2.optim.lr_scheduler import TriStageLRConfig, create_lr_scheduler
@@ -42,16 +38,16 @@ from fairseq2.recipes.utils.asset import (
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model, log_model_config
-from fairseq2.recipes.utils.setup import (
-    check_model_type,
-    compile_model,
-    setup_root_gang,
-    to_data_parallel,
+from fairseq2.recipes.utils.setup import compile_model, to_data_parallel
+from fairseq2.recipes.wav2vec2.asr.common import (
+    Wav2Vec2AsrCriterion,
+    Wav2Vec2AsrMetricBag,
+    Wav2Vec2AsrScorer,
 )
-from fairseq2.recipes.wav2vec2.asr.common import Wav2Vec2AsrMetricBag
 from fairseq2.recipes.wav2vec2.asr.eval import Wav2Vec2AsrEvalUnit
-from fairseq2.typing import META, DataClass, DataType
+from fairseq2.typing import CPU, META, DataType
 from fairseq2.utils.profiler import Stopwatch
+from fairseq2.utils.rng import manual_seed
 
 log = get_log_writer(__name__)
 
@@ -108,9 +104,7 @@ class Wav2Vec2AsrTrainConfig:
     model_arch: str | None = "base_10h"
     """The architecture of the model."""
 
-    model_config: DataClass | None = field(
-        default_factory=lambda: wav2vec2_asr_archs.get("base_10h", return_empty=True)
-    )
+    model_config: Any = None
     """The configuration of the model."""
 
     dtype: DataType = torch.float16
@@ -129,7 +123,7 @@ class Wav2Vec2AsrTrainConfig:
     optimizer: str = "adamw"
     """The optimizer."""
 
-    optimizer_config: DataClass | None = field(
+    optimizer_config: Any = field(
         default_factory=lambda: AdamWConfig(lr=5e-05, betas=(0.9, 0.98))
     )
     """The configuration of the optimizer."""
@@ -137,21 +131,12 @@ class Wav2Vec2AsrTrainConfig:
     lr_scheduler: str = "tri-stage"
     """The learning rate scheduler."""
 
-    lr_scheduler_config: DataClass | None = field(
+    lr_scheduler_config: Any = field(
         default_factory=lambda: TriStageLRConfig(
             stage_ratio=(0.1, 0.4, 0.5), start_lr_scale=0.01, final_lr_scale=0.05
         )
     )
     """The configuration of the learning rate scheduler."""
-
-    lr_stage_ratios: tuple[float, float, float] = (0.1, 0.4, 0.5)
-    """The ratios of tri-stage learning rate scheduler."""
-
-    start_lr_scale: float = 0.01
-    """The scale of the initial warm-up learning rate."""
-
-    final_lr_scale: float = 0.05
-    """The scale of the final learning rate."""
 
     max_gradient_norm: float | None = None
     """The maximum gradient norm. If ``None``, no clipping will be applied."""
@@ -161,6 +146,13 @@ class Wav2Vec2AsrTrainConfig:
 
     gradient_accumulation: int = 4
     """The number of steps to accumulate gradients before an optimizer update."""
+
+    # Score
+    score_metric: str | None = "wer"
+    """The name of the metric to use as score."""
+
+    lower_score_better: bool = False
+    """The ``True``, lower scores are considered better."""
 
     # Regime
     max_num_steps: int = 20_000
@@ -221,18 +213,45 @@ def _base_10h() -> Wav2Vec2AsrTrainConfig:
 
 @wav2vec2_asr_train_preset("base_100h")
 def _base_100h() -> Wav2Vec2AsrTrainConfig:
-    model_config = wav2vec2_asr_archs.get("base_100h", return_empty=True)
-
     config = _base_10h()
 
     assert isinstance(config.optimizer_config, AdamWConfig)
 
     config.dataset = "librispeech_asr_100h"
     config.model_arch = "base_100h"
-    config.model_config = model_config
     config.optimizer_config.lr = 0.00003
     config.max_num_steps = 50_000
     config.freeze_encoder_for_n_steps = 0
+
+    return config
+
+
+@wav2vec2_asr_train_preset("large_10h")
+def _large_10h() -> Wav2Vec2AsrTrainConfig:
+    config = _base_10h()
+
+    assert isinstance(config.optimizer_config, AdamWConfig)
+
+    config.model_arch = "large_10h"
+    config.pretrained_model = "wav2vec2_large"
+    config.max_audio_len = 640_000
+    config.max_num_elements = 1_280_000
+    config.optimizer_config.lr = 0.0001
+    config.gradient_accumulation = 5
+
+    return config
+
+
+@wav2vec2_asr_train_preset("large_100h")
+def _large_100h() -> Wav2Vec2AsrTrainConfig:
+    config = _large_10h()
+
+    assert isinstance(config.optimizer_config, AdamWConfig)
+
+    config.dataset = "librispeech_asr_100h"
+    config.model_arch = "large_100h"
+    config.optimizer_config.lr = 0.00003
+    config.max_num_steps = 50_000
 
     return config
 
@@ -243,27 +262,16 @@ def load_wav2vec2_asr_trainer(
     """Load a :class:`Trainer` for wav2vec 2.0 ASR model training."""
     wall_watch = Stopwatch(start=True)
 
-    gang = setup_root_gang(log, monitored=config.monitored_gang)
+    gang = resolve(Gang)
 
-    checkpoint_manager = FileCheckpointManager(
-        output_dir.joinpath("checkpoints"), gang, lower_score_better=True
-    )
-
-    if config.resume_checkpoint_dir is not None:
-        default_asset_store.metadata_providers.append(
-            CheckpointModelMetadataProvider(
-                config.resume_checkpoint_dir, lower_score_better=True
-            )
-        )
-
-    seed = config.seed
+    checkpoint_manager = resolve(CheckpointManager)
 
     tokenizer_card = retrieve_asset_card(config.tokenizer)
 
     # Load the tokenizer.
     log.info("Loading {} tokenizer.", tokenizer_card.name)
 
-    tokenizer = load_text_tokenizer(tokenizer_card)
+    tokenizer = load_char_tokenizer(tokenizer_card)
 
     log.info("Tokenizer loaded.")
 
@@ -284,7 +292,13 @@ def load_wav2vec2_asr_trainer(
 
         dataset = GenericAsrDataset.from_path(dataset_path)
 
+    seed = config.seed
+
     # Initialize the model
+    manual_seed(seed, CPU, gang.device)
+
+    seed += 1
+
     try:
         model, model_config = create_model(
             config.model_family,
@@ -336,9 +350,7 @@ def load_wav2vec2_asr_trainer(
         log.info("Pretrained model loaded on rank 0.")
 
         if gang.rank == 0:
-            to_device(model, gang.device, seed=seed)
-
-        seed += 1
+            to_device(model, gang.device)
 
         gang.barrier()
 
@@ -355,7 +367,6 @@ def load_wav2vec2_asr_trainer(
         config.data_parallelism,
         log,
         ddp_find_unused_parameters=config.freeze_encoder_for_n_steps > 0,
-        fsdp_skip_init=True,
         fsdp_broadcast_state=not has_checkpoint,
         fsdp_mixed_precision_dtype=config.dtype,
         fsdp_fp32_reduce=True,
@@ -367,9 +378,12 @@ def load_wav2vec2_asr_trainer(
 
     log_model(dp_model, log, rank=gang.rank)
 
-    # Initialize the train unit and the optimizer.
+    # Initialize the train criterion.
+    criterion = Wav2Vec2AsrCriterion(dp_model)
+
+    # Initialize the train unit.
     unit = Wav2Vec2AsrTrainUnit(
-        dp_model, gang, freeze_encoder_for_n_steps=config.freeze_encoder_for_n_steps
+        criterion, gang, freeze_encoder_for_n_steps=config.freeze_encoder_for_n_steps
     )
 
     try:
@@ -418,8 +432,13 @@ def load_wav2vec2_asr_trainer(
             "The learning rate scheduler cannot be created. See nested exception for details."
         ) from ex
 
+    # Initialize the validation criterion.
+    scorer = Wav2Vec2AsrScorer(tokenizer)
+
+    valid_criterion = Wav2Vec2AsrCriterion(dp_model, scorer)
+
     # Initialize the validation unit.
-    valid_unit = Wav2Vec2AsrEvalUnit(dp_model, gang, tokenizer)
+    valid_unit = Wav2Vec2AsrEvalUnit(valid_criterion, gang)
 
     try:
         valid_data_reader = dataset.create_reader(
@@ -431,6 +450,7 @@ def load_wav2vec2_asr_trainer(
             min_audio_len=config.min_audio_len,
             max_audio_len=config.max_audio_len,
             normalize_audio=config.normalize_audio,
+            sync_mode="until_last",
             num_prefetch=config.num_prefetch,
             seed=seed,
         )
@@ -440,6 +460,11 @@ def load_wav2vec2_asr_trainer(
         ) from ex
 
     seed += 1
+
+    # TODO: Fix once we support static mixed precision on one device.
+    amp = gang.size == 1 or config.data_parallelism != "fsdp"
+
+    metric_recorders = resolve_all(MetricRecorder)
 
     # Initialize the trainer.
     return Trainer[Seq2SeqBatch](
@@ -451,10 +476,11 @@ def load_wav2vec2_asr_trainer(
         lr_scheduler=lr_scheduler,
         fp16_loss_scale=config.fp16_loss_scale,
         max_gradient_norm=config.max_gradient_norm,
+        amp=amp,
         max_num_steps=config.max_num_steps,
         max_num_data_epochs=config.max_num_data_epochs,
-        score_metric_name="wer",
-        lower_better=True,
+        score_metric_name=config.score_metric,
+        lower_better=config.lower_score_better,
         valid_units=[valid_unit],
         valid_data_readers=[valid_data_reader],
         validate_after_n_steps=config.validate_after_n_steps,
@@ -463,8 +489,7 @@ def load_wav2vec2_asr_trainer(
         checkpoint_after_n_steps=config.checkpoint_after_n_steps,
         checkpoint_every_n_steps=config.checkpoint_every_n_steps,
         keep_best_n_checkpoints=config.keep_best_n_checkpoints,
-        tb_dir=output_dir.joinpath("tb"),
-        metrics_dir=output_dir.joinpath("metrics"),
+        metric_recorders=metric_recorders,
         publish_metrics_every_n_steps=config.publish_metrics_every_n_steps,
         profile=config.profile,
         anomaly_detection=config.anomaly_detection,
@@ -475,29 +500,24 @@ def load_wav2vec2_asr_trainer(
 
 @final
 class Wav2Vec2AsrTrainUnit(AbstractTrainUnit[Seq2SeqBatch]):
-    """Represents a wav2vec 2.0 ASR model training unit."""
-
+    _criterion: Wav2Vec2AsrCriterion
     _freeze_encoder_for_n_steps: int
     _metric_bag: Wav2Vec2AsrMetricBag
 
     def __init__(
         self,
-        model: Module,
+        criterion: Wav2Vec2AsrCriterion,
         gang: Gang,
         *,
         freeze_encoder_for_n_steps: int = 0,
     ) -> None:
         """
-        :param model:
-            The wav2vec 2.0 ASR model. Might be wrapped with DDP or FSDP.
-        :param gang:
-            The gang for distributed training.
-        :param freeze_encoder_for_n_steps:
-            The encoder will be frozen for this number of steps.
+        :param freeze_encoder_for_n_steps: The encoder will be frozen for this
+            number of steps.
         """
-        super().__init__(model)
+        super().__init__(criterion.model)
 
-        check_model_type(model, Wav2Vec2AsrModel)
+        self._criterion = criterion
 
         self._freeze_encoder_for_n_steps = freeze_encoder_for_n_steps
 
@@ -505,20 +525,7 @@ class Wav2Vec2AsrTrainUnit(AbstractTrainUnit[Seq2SeqBatch]):
 
     @override
     def __call__(self, batch: Seq2SeqBatch) -> tuple[Tensor, int]:
-        input_batch = SequenceBatch(batch.source_seqs, batch.source_padding_mask)
-
-        output = self._forward(input_batch)
-
-        loss = output.compute_loss(batch.target_seqs, batch.target_padding_mask)
-
-        self._metric_bag.update_ctc_loss(batch, loss)
-
-        self._metric_bag.update_batch_metrics(batch)
-
-        return loss, batch.batch_size
-
-    def _forward(self, batch: SequenceBatch) -> Wav2Vec2AsrOutput:
-        return self._model(batch)  # type: ignore[no-any-return]
+        return self._criterion(batch, self._metric_bag)
 
     @override
     def set_step_nr(self, step_nr: int) -> None:
