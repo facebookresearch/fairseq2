@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from fairseq2.recipes.cli import Cli, RecipeCommandHandler
 from fairseq2.recipes.lm.chatbot import ChatbotCommandHandler
+from fairseq2.recipes.lm.eval_nll import load_nll_evaluator, nll_eval_presets
 from fairseq2.recipes.lm.instruction_finetune import (
     instruction_finetune_presets,
     load_instruction_finetuner,
@@ -66,4 +67,17 @@ def _setup_lm_cli(cli: Cli) -> None:
         name="generate",
         handler=text_generate_handler,
         help="generate text",
+    )
+
+    # NLL evaluation
+    nll_eval_handler = RecipeCommandHandler(
+        loader=load_nll_evaluator,
+        preset_configs=nll_eval_presets,
+        default_preset="llama3_1_base_eval",
+    )
+
+    group.add_command(
+        name="nll_eval",
+        handler=nll_eval_handler,
+        help="Evaluate the model and compute NLL loss over a given dataset",
     )

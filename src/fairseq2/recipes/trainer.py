@@ -289,9 +289,9 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         :param metric_recorders:
             The metric recorders.
         :param tb_dir:
-            Legacy. Use ``metric_recoders``.
+            Legacy. Use ``metric_recorders``.
         :param metrics_dir:
-            Legacy. Use ``metric_recoders``.
+            Legacy. Use ``metric_recorders``.
         :param publish_metrics_after_n_steps:
             The number of steps after which to start publishing metrics.
         :param publish_metrics_every_n_steps:
