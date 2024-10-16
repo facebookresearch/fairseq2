@@ -252,6 +252,16 @@ class Wav2Vec2Model(Model):
 
         return distractors
 
+    def cosine_similarity(
+        self, x1: torch.Tensor, x2: torch.Tensor, dim=1, eps=1e-8
+    ) -> torch.Tensor:
+        # Normalize along the specified dimension
+        x1_norm = x1 / (x1.norm(dim=dim, dtype=x1.dtype).clamp(min=eps).unsqueeze(dim))
+        x2_norm = x2 / (x2.norm(dim=dim, dtype=x2.dtype).clamp(min=eps).unsqueeze(dim))
+
+        # Compute dot product along the specified dimension
+        return torch.sum(x1_norm * x2_norm, dim=dim, dtype=x1.dtype)
+
     def _compute_logits(
         self, seqs: Tensor, targets: Tensor, distractors: Tensor
     ) -> Tensor:
@@ -264,7 +274,8 @@ class Wav2Vec2Model(Model):
 
         # Perform in fp32.
         # (N, S, L + 1, M) -> (N, S, L + 1)
-        logits = torch.cosine_similarity(seqs.float(), candidates.float(), dim=-1)
+        # logits = torch.cosine_similarity(seqs.float(), candidates.float(), dim=-1)
+        logits = self.cosine_similarity(seqs, candidates, dim=-1)
 
         if self.logit_temp != 1.0:
             logits = logits / self.logit_temp
