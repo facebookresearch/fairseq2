@@ -66,6 +66,7 @@ class AssetDownloadManager(ABC):
     def download_tokenizer(
         self,
         uri: str,
+        checksum: str,
         model_name: str,
         *,
         tokenizer_name: str | None = None,
@@ -156,6 +157,7 @@ class InProcAssetDownloadManager(AssetDownloadManager):
     def download_tokenizer(
         self,
         uri: str,
+        checksum: str,
         model_name: str,
         *,
         tokenizer_name: str | None = None,
@@ -169,7 +171,10 @@ class InProcAssetDownloadManager(AssetDownloadManager):
 
         op = _AssetDownloadOp(self._cache_dir, uri, display_name, force, progress)
 
-        return op.run()
+        path = op.run()
+        self._validate_asset_integrity(path, checksum)
+
+        return path
 
     @override
     def download_dataset(
@@ -185,6 +190,19 @@ class InProcAssetDownloadManager(AssetDownloadManager):
         op = _AssetDownloadOp(self._cache_dir, uri, display_name, force, progress)
 
         return op.run()
+
+    def _validate_asset_integrity(self, path: Path, checksum: str) -> None:
+        BYTES_PER_CHUNK = 65536
+        sha = sha1()
+
+        with open(path, "rb") as file:
+            while data := file.read(BYTES_PER_CHUNK):
+                sha.update(data)
+
+        if sha.hexdigest() != checksum:
+            raise AssetDownloadError(
+                "Downloaded asset checksum does not match the expected checksum."
+            )
 
 
 class _AssetDownloadOp:
