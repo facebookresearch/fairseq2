@@ -15,6 +15,7 @@ from signal import SIGUSR1, signal
 from types import FrameType
 from typing import Generic, Hashable, Protocol, TypeVar, final, runtime_checkable
 
+import shtab
 import yaml
 from rich.console import Console
 from typing_extensions import override
@@ -138,6 +139,7 @@ class Cli:
         set_console(Console(highlight=False))
 
         parser = ArgumentParser(self._name, description=self._description)
+        shtab.add_argument_to(parser, ["-s", "--print-completion"])
 
         self.init_parser(parser, resolver)
 
@@ -470,7 +472,7 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
             type=Path,
             nargs="*",
             help="yaml configuration file(s)",
-        )
+        ).complete = shtab.FILE  # type: ignore[attr-defined]
 
         parser.add_argument(
             "--config",
@@ -513,7 +515,7 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
             type=Path,
             nargs=OPTIONAL,
             help="directory to store recipe artifacts",
-        )
+        ).complete = shtab.DIRECTORY  # type: ignore[attr-defined]
 
     @override
     def __call__(self, args: Namespace, resolver: DependencyResolver) -> None:

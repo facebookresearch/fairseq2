@@ -252,6 +252,33 @@ WSL-based installation.
 See [here](INSTALL_FROM_SOURCE.md).
 
 
+## Shell Tab Completion
+
+Tab completion is available for the following shells: Bash, Zsh, and Tcsh.
+
+To enable tab completion, run the following command to generate the appropriate script:
+
+```bash
+fairseq2 --print-completion {bash|zsh|tcsh}
+```
+
+You can either save the output to the shell's completion directory for permanent use or apply it directly to your current session.
+
+For example, to enable Bash completion for the current session, use:
+```bash
+eval "$(fairseq2 --print-completion bash)"
+```
+
+For a permanent setup, run the following command to store the completion script:
+```bash
+echo "eval $(fairseq2 --print-completion bash)" >> "$BASH_COMPLETION_COMPAT_DIR/shtab"
+```
+
+Here, `BASH_COMPLETION_COMPAT_DIR` is the path to your system's shell completion directory.
+
+This ensures that tab completion will be enabled every time you start a new shell session.
+
+
 ## Contributing
 We always welcome contributions to fairseq2! Please refer to
 [Contribution Guidelines](CONTRIBUTING.md) to learn how to format, test, and
