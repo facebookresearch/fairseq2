@@ -191,13 +191,7 @@ class InProcAssetDownloadManager(AssetDownloadManager):
 
         return op.run()
 
-    def _validate_asset_integrity(self, path: Path, checksum: str | None) -> None:
-        if checksum is None:
-            log.warning(
-                f"Asset at {path} has no recorded checksum, skipping integrity check."
-            )
-            return
-
+    def _validate_asset_integrity(self, path: Path, checksum: str) -> None:
         BYTES_PER_CHUNK = 65536
         sha = sha1()
 
@@ -207,7 +201,7 @@ class InProcAssetDownloadManager(AssetDownloadManager):
 
         if sha.hexdigest() != checksum:
             raise AssetDownloadError(
-                f"Checksum for {path} checksum does not match the expected checksum."
+                "Downloaded asset checksum does not match the expected checksum."
             )
 
 
