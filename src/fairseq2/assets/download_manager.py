@@ -39,6 +39,7 @@ class AssetDownloadManager(ABC):
     def download_checkpoint(
         self,
         uri: str,
+        checksum: str | None,
         model_name: str,
         *,
         shard_idx: int | None = None,
@@ -66,7 +67,7 @@ class AssetDownloadManager(ABC):
     def download_tokenizer(
         self,
         uri: str,
-        checksum: str,
+        checksum: str | None,
         model_name: str,
         *,
         tokenizer_name: str | None = None,
@@ -94,6 +95,7 @@ class AssetDownloadManager(ABC):
     def download_dataset(
         self,
         uri: str,
+        checksum: str | None,
         dataset_name: str,
         *,
         force: bool = False,
@@ -136,6 +138,7 @@ class InProcAssetDownloadManager(AssetDownloadManager):
     def download_checkpoint(
         self,
         uri: str,
+        checksum: str | None,
         model_name: str,
         *,
         shard_idx: int | None = None,
@@ -151,13 +154,16 @@ class InProcAssetDownloadManager(AssetDownloadManager):
             self._cache_dir, uri, display_name, force, progress, shard_idx
         )
 
+        path = op.run()
+        self._validate_asset_integrity(path, checksum)
+
         return op.run()
 
     @override
     def download_tokenizer(
         self,
         uri: str,
-        checksum: str,
+        checksum: str | None,
         model_name: str,
         *,
         tokenizer_name: str | None = None,
@@ -180,6 +186,7 @@ class InProcAssetDownloadManager(AssetDownloadManager):
     def download_dataset(
         self,
         uri: str,
+        checksum: str | None,
         dataset_name: str,
         *,
         force: bool = False,
@@ -188,6 +195,9 @@ class InProcAssetDownloadManager(AssetDownloadManager):
         display_name = f"{dataset_name} dataset"
 
         op = _AssetDownloadOp(self._cache_dir, uri, display_name, force, progress)
+
+        path = op.run()
+        self._validate_asset_integrity(path, checksum)
 
         return op.run()
 

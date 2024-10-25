@@ -25,8 +25,11 @@ def test_convert_to_reference_checkpoint() -> None:
 
     card = default_asset_store.retrieve_card("llama2_7b")
 
+    checkpoint_uri = card.field("checkpoint").as_uri()
+    checkpoint_checksum = card.field("checksum").get_as_(str)
+
     path = default_download_manager.download_checkpoint(
-        card.field("checkpoint").as_uri(), model_name="llama2_7b", progress=False
+        checkpoint_uri, checkpoint_checksum, model_name="llama2_7b", progress=False
     )
 
     tensor_loader = StandardTensorLoader()

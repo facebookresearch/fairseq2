@@ -275,12 +275,14 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
 
         # Load the checkpoint.
         checkpoint_uri = card.field("checkpoint").as_uri()
+        checkpoint_checksum = card.field("checksum").get_as_(str)
 
         shard_idx = gang.rank if gang is not None and gang.size != 1 else None
 
         try:
             path = self._download_manager.download_checkpoint(
                 checkpoint_uri,
+                checkpoint_checksum,
                 card.name,
                 shard_idx=shard_idx,
                 force=force,
