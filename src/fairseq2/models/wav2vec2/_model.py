@@ -370,13 +370,16 @@ class Wav2Vec2Output:
 
         diversity_loss = self.compute_diversity_loss()
 
-        feature_penalty = self.compute_feature_penalty()
-
         weighted_diversity_loss = diversity_loss_weight * diversity_loss
 
-        weighted_feature_penalty = feature_penalty_weight * feature_penalty
+        loss = contrastive_loss + weighted_diversity_loss
 
-        loss = contrastive_loss + weighted_diversity_loss + weighted_feature_penalty
+        if feature_penalty_weight > 0.0:
+            feature_penalty = self.compute_feature_penalty()
+            weighted_feature_penalty = feature_penalty_weight * feature_penalty
+            loss += weighted_feature_penalty
+        else:
+            feature_penalty = torch.tensor([0.0])
 
         return Wav2Vec2Loss(loss, contrastive_loss, diversity_loss, feature_penalty)
 
