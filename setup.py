@@ -62,6 +62,7 @@ setup(
         "torcheval~=0.0.6",
         "tqdm~=4.62",
         "typing_extensions~=4.12",
+        "shtab~=1.7",
     ],
     extras_require={
         "arrow": ["pyarrow>=13.0.0", "pandas~=2.0.0"],
