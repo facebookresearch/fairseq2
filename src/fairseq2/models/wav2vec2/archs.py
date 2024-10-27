@@ -86,6 +86,22 @@ def _1b() -> Wav2Vec2Config:
     return config
 
 
+@wav2vec2_arch("1b_llama")
+def _1b_llama() -> Wav2Vec2Config:
+    config = _xlsr_base()
+
+    config.encoder_config.model_dim = 2048
+    config.encoder_config.num_encoder_layers = 16
+    config.encoder_config.ffn_inner_dim = int(2048 * 4 * 1.5)
+    config.encoder_config.num_encoder_attn_heads = 32
+    config.encoder_config.dropout_p = 0.0
+    config.quantized_dim = 1024
+    config.final_dim = 1024
+    config.encoder_config.first_pass_dropout_p = 0.1
+
+    return config
+
+
 @wav2vec2_arch("2b")
 def _2b() -> Wav2Vec2Config:
     config = _1b()
@@ -131,6 +147,15 @@ def _3b_higher() -> Wav2Vec2Config:
     config.quantized_dim = 1280
     config.final_dim = 1280
 
+
+@wav2vec2_arch("3b_llama")
+def _3b_llama() -> Wav2Vec2Config:
+    config = _1b_llama()
+
+    config.encoder_config.model_dim = 3072
+    config.encoder_config.num_encoder_layers = 28
+    config.encoder_config.ffn_inner_dim = int(3072 * 4 * 1.0)
+    config.encoder_config.num_encoder_attn_heads = 24
     return config
 
 
