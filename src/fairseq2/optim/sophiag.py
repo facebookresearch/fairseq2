@@ -28,7 +28,8 @@ class SophiaG(AbstractOptimizer):
             "rho": rho,
             "weight_decay": weight_decay,
             "maximize": maximize,
-            "capturable": capturable            
+            "capturable": capturable,
+            "differentiable" : False
         }
         
         super().__init__(params, defaults)
