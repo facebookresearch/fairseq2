@@ -3,9 +3,10 @@ import torch
 from torch import Tensor
 from torch.optim.optimizer import Optimizer
 from typing import List, Optional
+from fairseq2.optim.optimizer import AbstractOptimizer, ParameterCollection
 
 
-class SophiaG(Optimizer):
+class SophiaG(AbstractOptimizer):
     def __init__(self, params, lr=1e-4, betas=(0.965, 0.99), rho = 0.04,
          weight_decay=1e-1, *, maximize: bool = False,
          capturable: bool = False):
@@ -68,7 +69,7 @@ class SophiaG(Optimizer):
 
 
     @torch.no_grad()
-    def step(self, closure=None, bs=5120):
+    def _do_step(self, closure=None, bs=5120):
         loss = None
         if closure is not None:
             with torch.enable_grad():

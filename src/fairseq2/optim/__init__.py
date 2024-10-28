@@ -7,9 +7,11 @@
 from __future__ import annotations
 
 from fairseq2.optim.adamw import AdamW as AdamW
+from fairseq2.optim.sophiag import SophiaG as SophiaG
 from fairseq2.optim.dynamic_loss_scaler import DynamicLossScaler as DynamicLossScaler
 from fairseq2.optim.dynamic_loss_scaler import LossScaleResult as LossScaleResult
 from fairseq2.optim.factory import AdamWConfig as AdamWConfig
+from fairseq2.optim.factory import SophiaGConfig as SophiaGConfig
 from fairseq2.optim.factory import create_adamw_optimizer as create_adamw_optimizer
 from fairseq2.optim.factory import create_optimizer as create_optimizer
 from fairseq2.optim.factory import optimizer_factories as optimizer_factories
