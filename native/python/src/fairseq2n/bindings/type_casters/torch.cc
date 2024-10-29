@@ -20,7 +20,7 @@ struct THPVariable {
 
 extern PyObject *THPVariableClass;
 
-PyObject *THPVariable_Wrap(at::TensorBase var);
+PyObject *THPVariable_Wrap(const at::TensorBase& var);
 
 // Taken from <torch/bindings/Device.h>
 // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init)
