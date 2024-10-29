@@ -489,7 +489,7 @@ else:
 class WandbRecorder(MetricRecorder):
     """Records metric values to Weights & Biases."""
 
-    def __init__(self, project: str, output_dir: Path) -> None:
+    def __init__(self, project: str, name: str, output_dir: Path) -> None:
         """
         :param project: The W&B project name.
         :param output_dir: The base directory under which to store the W&B files.
@@ -502,7 +502,9 @@ class WandbRecorder(MetricRecorder):
 
             self._run = None
         else:
-            self._run = wandb.init(project=project, dir=output_dir.parent)
+            self._run = wandb.init(
+                project=project, name=name, dir=output_dir.parent, resume="allow"
+            )
 
     @override
     def record_metrics(

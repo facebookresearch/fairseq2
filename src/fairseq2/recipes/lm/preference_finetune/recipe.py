@@ -200,6 +200,9 @@ class PreferenceFinetuneConfig:
     wandb_project: str | None = None
     """If not ``None``, sets the project name for W&B logging."""
 
+    wandb_run_name: str | None = None
+    """If not ``None``, sets the run name for W&B logging. If None, then W&B creates a random name."""
+
 
 preference_finetune_presets = ConfigRegistry[PreferenceFinetuneConfig]()
 

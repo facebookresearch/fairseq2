@@ -32,6 +32,7 @@ class MetricRecordersConfig:
     tensorboard: bool = True
     wandb: bool = False
     wandb_project: str | None = None
+    wandb_run_name: str | None = None
 
 
 def register_metric_recorders(container: DependencyContainer) -> None:
@@ -113,4 +114,4 @@ def _create_wandb_recorder(resolver: DependencyResolver) -> MetricRecorder | Non
 
     output_dir = config_manager.get_config("output_dir", Path).joinpath("wandb")
 
-    return WandbRecorder(config.wandb_project, output_dir)
+    return WandbRecorder(config.wandb_project, config.wandb_run_name, output_dir)

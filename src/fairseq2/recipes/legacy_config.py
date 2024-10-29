@@ -40,10 +40,11 @@ def _set_legacy_config(resolver: DependencyResolver, config: DataClass) -> None:
 
     def set_metric_recorders_config() -> None:
         wandb_project = getattr(config, "wandb_project", None)
+        wandb_run_name = getattr(config, "wandb_run_name", None)
 
         if wandb_project is not None:
             config_dict["metric_recorders"] = MetricRecordersConfig(
-                wandb=True, wandb_project=wandb_project
+                wandb=True, wandb_project=wandb_project, wandb_run_name=wandb_run_name
             )
 
     set_gang_config()
