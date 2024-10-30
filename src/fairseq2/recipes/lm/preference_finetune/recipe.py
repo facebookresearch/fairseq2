@@ -252,8 +252,9 @@ def _llama3_1_70b_instruct() -> PreferenceFinetuneConfig:
 @preference_finetune_preset("llama3_2_1b_instruct_sophiag")
 def _llama3_2_1b_instruct_sophiag() -> PreferenceFinetuneConfig:
     config = PreferenceFinetuneConfig()
-
-    config.optimizer_config = field(default_factory=lambda: SophiaGConfig())
+    
+    config.optimizer = "sophiag"
+    config.optimizer_config = SophiaGConfig()
 
     return config
 
