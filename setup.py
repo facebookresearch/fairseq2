@@ -62,6 +62,7 @@ setup(
         "torcheval~=0.0.6",
         "tqdm~=4.62",
         "typing_extensions~=4.12",
+        "blobfile~=3.0.0",  # This dependency is required for tiktoken.load.read_file, but it's listed as optional in tiktoken's pyproject.toml (https://github.com/openai/tiktoken/blob/main/pyproject.toml#L9)  # fmt: skip
     ],
     extras_require={
         "arrow": ["pyarrow>=13.0.0", "pandas~=2.0.0"],
