@@ -284,7 +284,7 @@ def _llama2_70b_chat() -> InstructionFinetuneConfig:
 @instruction_finetune_preset("llama3_2_1b_instruct_sophiag")
 def _llama3_2_1b_instruct_sophiag() -> InstructionFinetuneConfig:
     config = InstructionFinetuneConfig()
-    
+
     config.model = "llama3_2_1b_instruct"
     config.optimizer = "sophiag"
     config.optimizer_config = SophiaGConfig()

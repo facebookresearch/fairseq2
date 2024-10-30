@@ -1,5 +1,5 @@
 import math
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 import torch
 from torch import Tensor
@@ -11,11 +11,11 @@ from fairseq2.optim.optimizer import AbstractOptimizer, ParameterCollection
 class SophiaG(AbstractOptimizer):
     def __init__(
         self,
-        params,
-        lr=1e-4,
-        betas=(0.965, 0.99),
-        rho=0.04,
-        weight_decay=1e-1,
+        params: ParameterCollection,
+        lr: float = 1e-4,
+        betas: tuple[float, float] = (0.965, 0.99),
+        rho: float = 0.04,
+        weight_decay: float = 1e-1,
         *,
         maximize: bool = False,
         capturable: bool = False
@@ -43,7 +43,7 @@ class SophiaG(AbstractOptimizer):
 
         super().__init__(params, defaults)
 
-    def __setstate__(self, state):
+    def __setstate__(self, state: Dict[str, Any]) -> None:
         super().__setstate__(state)
 
         for group in self.param_groups:
@@ -60,12 +60,13 @@ class SophiaG(AbstractOptimizer):
                 value["step"] = torch.tensor(float(value["step"]))
 
     @torch.no_grad()
-    def update_hessian(self):
+    def update_hessian(self) -> None:
         for group in self.param_groups:
             beta1, beta2 = group["betas"]
             for p in group["params"]:
                 if p.grad is None:
                     continue
+
                 state = self.state[p]
 
                 if len(state) == 0:
@@ -89,29 +90,27 @@ class SophiaG(AbstractOptimizer):
                 state["hessian"].mul_(beta2).addcmul_(p.grad, p.grad, value=1 - beta2)
 
     @torch.no_grad()
-    def _do_step(self, closure=None, bs=5120):
-        loss = None
-        if closure is not None:
-            with torch.enable_grad():
-                loss = closure()
-
+    def _do_step(self, bs: int = 5120) -> None:
         for group in self.param_groups:
-            params_with_grad = []
-            grads = []
-            exp_avgs = []
-            state_steps = []
-            hessian = []
+            params_with_grad: list[Tensor] = []
+            grads: list[Tensor] = []
+            exp_avgs: list[Tensor] = []
+            hessian: list[Tensor] = []
+            state_steps: list[Tensor] = []
             beta1, beta2 = group["betas"]
 
             for p in group["params"]:
                 if p.grad is None:
                     continue
+
                 params_with_grad.append(p)
 
                 if p.grad.is_sparse:
                     raise RuntimeError("Hero does not support sparse gradients")
+
                 grads.append(p.grad)
                 state = self.state[p]
+
                 # State initialization
                 if len(state) == 0:
                     state["step"] = (
@@ -154,8 +153,6 @@ class SophiaG(AbstractOptimizer):
                 capturable=group["capturable"],
             )
 
-        return loss
-
 
 def sophiag(
     params: List[Tensor],
@@ -172,7 +169,7 @@ def sophiag(
     lr: float,
     weight_decay: float,
     maximize: bool
-):
+) -> None:
     if not all(isinstance(t, torch.Tensor) for t in state_steps):
         raise RuntimeError(
             "API has changed, `state_steps` argument must contain a list of singleton tensors"
@@ -212,7 +209,7 @@ def _single_tensor_sophiag(
     weight_decay: float,
     maximize: bool,
     capturable: bool
-):
+) -> None:
     for i, param in enumerate(params):
         grad = grads[i] if not maximize else -grads[i]
         exp_avg = exp_avgs[i]
