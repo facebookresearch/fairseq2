@@ -31,7 +31,7 @@ from fairseq2.models import load_model
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.nn.checkpointing import use_layerwise_activation_checkpointing
 from fairseq2.nn.transformer import enable_memory_efficient_torch_sdpa
-from fairseq2.optim import AdamWConfig, create_optimizer
+from fairseq2.optim import AdamWConfig, SophiaGConfig, create_optimizer
 from fairseq2.optim.lr_scheduler import CosineAnnealingLRConfig, create_lr_scheduler
 from fairseq2.recipes.lm.preference_finetune.dpo import DpoConfig
 from fairseq2.recipes.lm.preference_finetune.utils import preference_unit_factories
@@ -245,6 +245,15 @@ def _llama3_1_70b_instruct() -> PreferenceFinetuneConfig:
     config.tensor_parallel_size = 8
     config.criterion_config.reference_model = "llama3_1_70b_instruct"
     config.criterion_config.reference_tensor_parallel_size = 8
+
+    return config
+
+
+@preference_finetune_preset("llama3_2_1b_instruct_sophiag")
+def _llama3_2_1b_instruct_sophiag() -> PreferenceFinetuneConfig:
+    config = PreferenceFinetuneConfig()
+
+    config.optimizer_config = field(default_factory=lambda: SophiaGConfig())
 
     return config
 

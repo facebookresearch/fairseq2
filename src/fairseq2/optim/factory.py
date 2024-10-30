@@ -14,8 +14,8 @@ from torch.optim import Optimizer
 
 from fairseq2.factory_registry import ConfigBoundFactoryRegistry
 from fairseq2.optim.adamw import AdamW
-from fairseq2.optim.sophiag import SophiaG
 from fairseq2.optim.optimizer import ParameterCollection
+from fairseq2.optim.sophiag import SophiaG
 
 optimizer_factories = ConfigBoundFactoryRegistry[[ParameterCollection], Optimizer]()
 
@@ -112,15 +112,11 @@ class SophiaGConfig:
 
     capturable: bool = False
 
-    eps: float = 1e-8
-    amsgrad: bool = False
-    differentiable: bool = False
-    impl: Literal["auto", "foreach", "fused", "naive"] = "auto"
-    use_fp32: bool = False
-
 
 @optimizer_factory("sophiag")
-def create_sophia_optimizer(config: SophiaGConfig, params: ParameterCollection) -> SophiaG:
+def create_sophia_optimizer(
+    config: SophiaGConfig, params: ParameterCollection
+) -> SophiaG:
     return SophiaG(
         params,
         lr=config.lr,
