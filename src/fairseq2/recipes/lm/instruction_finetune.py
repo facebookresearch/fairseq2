@@ -93,6 +93,12 @@ class InstructionFinetuneConfig:
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
 
+    src_encode_mode: str = "prompt"
+    """The encode mode for the prompt, determines what special tokens to add."""
+
+    tgt_encode_mode: str = "prompt_response"
+    """The encode mode for the target, determines what special tokens to add."""
+
     # Model
     model: AssetReference = "llama3_1_8b_instruct"
     """The name or path to the asset card of the language model to finetune."""
@@ -424,6 +430,8 @@ def load_instruction_finetuner(
             batch_shuffle_window=config.batch_shuffle_window,
             num_accumulate=config.gradient_accumulation,
             num_prefetch=config.num_prefetch,
+            src_encode_mode=config.src_encode_mode,
+            tgt_encode_mode=config.tgt_encode_mode,
             seed=seed,
         )
     except ValueError as ex:
@@ -474,6 +482,8 @@ def load_instruction_finetuner(
                 sync_mode="until_last",
                 num_accumulate=config.gradient_accumulation,
                 num_prefetch=config.num_prefetch,
+                src_encode_mode=config.src_encode_mode,
+                tgt_encode_mode=config.tgt_encode_mode,
                 seed=seed,
             )
         except ValueError as ex:
