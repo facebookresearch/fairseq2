@@ -175,41 +175,6 @@ def sophiag(
             "API has changed, `state_steps` argument must contain a list of singleton tensors"
         )
 
-    func = _single_tensor_sophiag
-
-    func(
-        params,
-        grads,
-        exp_avgs,
-        hessian,
-        state_steps,
-        bs=bs,
-        beta1=beta1,
-        beta2=beta2,
-        rho=rho,
-        lr=lr,
-        weight_decay=weight_decay,
-        maximize=maximize,
-        capturable=capturable,
-    )
-
-
-def _single_tensor_sophiag(
-    params: List[Tensor],
-    grads: List[Tensor],
-    exp_avgs: List[Tensor],
-    hessian: List[Tensor],
-    state_steps: List[Tensor],
-    *,
-    bs: int,
-    beta1: float,
-    beta2: float,
-    rho: float,
-    lr: float,
-    weight_decay: float,
-    maximize: bool,
-    capturable: bool
-) -> None:
     for i, param in enumerate(params):
         grad = grads[i] if not maximize else -grads[i]
         exp_avg = exp_avgs[i]
