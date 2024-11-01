@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
 import math
 from typing import Any, Dict, List, Optional
 
@@ -18,18 +24,18 @@ class SophiaG(AbstractOptimizer):
         weight_decay: float = 1e-1,
         *,
         maximize: bool = False,
-        capturable: bool = False
+        capturable: bool = False,
     ):
         if not 0.0 <= lr:
-            raise ValueError("Invalid learning rate: {}".format(lr))
+            raise ValueError(f"Invalid learning rate: {lr}")
         if not 0.0 <= betas[0] < 1.0:
-            raise ValueError("Invalid beta parameter at index 0: {}".format(betas[0]))
+            raise ValueError(f"Invalid beta parameter at index 0: {betas[0]}")
         if not 0.0 <= betas[1] < 1.0:
-            raise ValueError("Invalid beta parameter at index 1: {}".format(betas[1]))
+            raise ValueError(f"Invalid beta parameter at index 1: {betas[1]}")
         if not 0.0 <= rho:
-            raise ValueError("Invalid rho parameter at index 1: {}".format(rho))
+            raise ValueError(f"Invalid rho parameter at index 1: {rho}")
         if not 0.0 <= weight_decay:
-            raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
+            raise ValueError(f"Invalid weight_decay value: {weight_decay}")
 
         defaults = {
             "lr": lr,
@@ -111,7 +117,7 @@ class SophiaG(AbstractOptimizer):
                 grads.append(p.grad)
                 state = self.state[p]
 
-                # State initialization
+                # State initialization.
                 if len(state) == 0:
                     state["step"] = (
                         torch.zeros((1,), dtype=torch.float, device=p.device)
@@ -168,7 +174,7 @@ def sophiag(
     rho: float,
     lr: float,
     weight_decay: float,
-    maximize: bool
+    maximize: bool,
 ) -> None:
     if not all(isinstance(t, torch.Tensor) for t in state_steps):
         raise RuntimeError(
@@ -190,13 +196,12 @@ def sophiag(
             hess = torch.view_as_real(hess)
             param = torch.view_as_real(param)
 
-        # update step
         step_t += 1
 
-        # Perform stepweight decay
+        # Perform stepweight decay.
         param.mul_(1 - lr * weight_decay)
 
-        # Decay the first and second moment running average coefficient
+        # Decay the first and second moment running average coefficient.
         exp_avg.mul_(beta1).add_(grad, alpha=1 - beta1)
 
         if capturable:
