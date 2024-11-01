@@ -15,6 +15,8 @@ from fairseq2.optim.optimizer import AbstractOptimizer, ParameterCollection
 
 
 class SophiaG(AbstractOptimizer):
+    """Represents a SophiaG optimizer."""
+
     def __init__(
         self,
         params: ParameterCollection,
@@ -25,7 +27,24 @@ class SophiaG(AbstractOptimizer):
         *,
         maximize: bool = False,
         capturable: bool = False,
-    ):
+    ) -> None:
+        """
+        :param params:
+            The parameters to optimize.
+        :param lr:
+            The learning rate.
+        :param betas:
+            The coefficients used for computing running averages of gradient and
+            its square.
+        :param rho:
+            The parameter clipping threshold.
+        :param weight_decay:
+            The weight decay coefficient.
+        :param maximize:
+            If ``True``, maximizes the parameters instead of minimizing.
+        :param capturable:
+            If ``True``, it is safe to capture this instance in a CUDA graph.
+        """
         if not 0.0 <= lr:
             raise ValueError(f"Invalid learning rate: {lr}")
         if not 0.0 <= betas[0] < 1.0:
@@ -33,9 +52,9 @@ class SophiaG(AbstractOptimizer):
         if not 0.0 <= betas[1] < 1.0:
             raise ValueError(f"Invalid beta parameter at index 1: {betas[1]}")
         if not 0.0 <= rho:
-            raise ValueError(f"Invalid rho parameter at index 1: {rho}")
+            raise ValueError(f"Invalid rho parameter: {rho}")
         if not 0.0 <= weight_decay:
-            raise ValueError(f"Invalid weight_decay value: {weight_decay}")
+            raise ValueError(f"Invalid weight_decay parameter: {weight_decay}")
 
         defaults = {
             "lr": lr,

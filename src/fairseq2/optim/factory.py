@@ -100,17 +100,26 @@ def create_adamw_optimizer(config: AdamWConfig, params: ParameterCollection) -> 
 
 @dataclass(kw_only=True)
 class SophiaGConfig:
+    """Holds the configuration of a :class:`SophiaG`."""
+    
     lr: float = 1e-4
+    """The learning rate."""
 
     betas: tuple[float, float] = (0.965, 0.99)
+    """The coefficients used for computing running averages of gradient and its
+    square."""
 
     rho: float = 0.04
+    """The parameter clipping threshold."""
 
     weight_decay: float = 1e-1
+    """The weight decay coefficient."""
 
     maximize: bool = False
+    """If ``True``, maximizes the parameters instead of minimizing."""
 
     capturable: bool = False
+    """If ``True``, it is safe to capture this instance in a CUDA graph."""
 
 
 @optimizer_factory("sophiag")
