@@ -80,6 +80,12 @@ class PreferenceFinetuneConfig:
     mask_source_tokens: bool = True
     """If ``False``, calculates loss on the `src` tokens as well as the `tgt` tokens."""
 
+    src_encode_mode: str = "prompt"
+    """The encode mode for the prompt, determines what special tokens to add."""
+
+    tgt_encode_mode: str = "prompt_response"
+    """The encode mode for the target, determines what special tokens to add."""
+
     # Model
     model: AssetReference = "llama3_1_8b_instruct"
     """The name or path to the asset card of the language model to finetune."""
@@ -402,6 +408,8 @@ def load_preference_finetuner(
             num_accumulate=config.gradient_accumulation,
             num_prefetch=config.num_prefetch,
             mask_source_tokens=config.mask_source_tokens,
+            src_encode_mode=config.src_encode_mode,
+            tgt_encode_mode=config.tgt_encode_mode,
             seed=config.seed,
         )
     except ValueError as ex:
