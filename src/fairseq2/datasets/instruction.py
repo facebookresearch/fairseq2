@@ -56,6 +56,8 @@ class InstructionDataset(ABC):
         max_num_batches: int | None = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
+        src_encode_mode: str = "prompt",
+        tgt_encode_mode: str = "prompt_response",
         seed: int = 2,
         **extras: Any,
     ) -> DataReader[SequenceBatch]:
@@ -106,6 +108,10 @@ class InstructionDataset(ABC):
             The number of batches to prefetch in background.
         :param seed:
             The seed to initialize the random number generators used internally.
+        :param src_encode_mode:
+            The mode to encode the prompt
+        :param tgt_encode_mode:
+            The mode to encode the target
         :param extras:
             The extra parameters specific to the dataset implementation.
         """
@@ -123,6 +129,7 @@ class InstructionDataset(ABC):
         sync_batches: bool = True,
         sync_mode: Literal["until_first", "until_last"] = "until_first",
         num_prefetch: int = 1,
+        src_encode_mode: str = "prompt",
         **extras: Any,
     ) -> DataPipelineReader[SequenceBatch]:
         """Create a dataset reader for evaluation.
@@ -149,6 +156,8 @@ class InstructionDataset(ABC):
             same number of batches (e.g. during training).
         :param num_prefetch:
             The number of batches to prefetch in background.
+        :param src_encode_mode:
+            The mode to encode the prompt
         :param extras:
             The extra parameters specific to the dataset implementation.
         """
@@ -226,6 +235,8 @@ class GenericInstructionDataset(InstructionDataset):
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         seed: int = 2,
+        src_encode_mode: str = "prompt",
+        tgt_encode_mode: str = "prompt_response",
         **extras: Any,
     ) -> DataPipelineReader[SequenceBatch]:
         try:
@@ -262,8 +273,8 @@ class GenericInstructionDataset(InstructionDataset):
         seed += gang.rank
 
         # Encode prompt and target texts.
-        prompt_encoder = tokenizer.create_encoder(mode="prompt")
-        target_encoder = tokenizer.create_encoder(mode="prompt_response")
+        prompt_encoder = tokenizer.create_encoder(mode=src_encode_mode)
+        target_encoder = tokenizer.create_encoder(mode=tgt_encode_mode)
 
         builder.map(prompt_encoder, selector="src", num_parallel_calls=npc)
         builder.map(target_encoder, selector="tgt", num_parallel_calls=npc)
@@ -362,6 +373,7 @@ class GenericInstructionDataset(InstructionDataset):
         sync_batches: bool = True,
         sync_mode: Literal["until_first", "until_last"] = "until_first",
         num_prefetch: int = 1,
+        src_encode_mode: str = "prompt",
         **extras: Any,
     ) -> DataPipelineReader[SequenceBatch]:
         try:
@@ -385,7 +397,7 @@ class GenericInstructionDataset(InstructionDataset):
         builder.shard(gang.rank, gang.size, allow_uneven=True)
 
         # Encode prompt texts.
-        text_encoder = tokenizer.create_encoder(mode="prompt")
+        text_encoder = tokenizer.create_encoder(mode=src_encode_mode)
 
         def encode(example: dict[str, Any]) -> dict[str, Any]:
             id_ = example.get("id")
