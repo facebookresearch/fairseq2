@@ -33,11 +33,29 @@
 set -eo pipefail
 
 
-# configurations
-this_dir="$(dirname "$0")"
-source "$this_dir/config.sh"
+# =================================================================================
+# Configurable variables
+# =================================================================================
 
-# utility functions
+# change this to the name of the environment you want to create
+default_env_name=fairseq2
+# change this to true to skip apex installation
+skip_apex=false
+# change this to the version of cuda you want to install
+cuda_version=12.1
+# change this to the version of torch you want to install
+torch_version=2.4.0
+# change this to the version of python you want to install
+python_version=3.10.14
+# change this to the version of libsndfile you want to install
+libsndfile_version=1.0.31
+# change this to where you want to store the environment
+env_base_path=$HOME/fairseq2/envs
+
+
+# =================================================================================
+# Utility functions
+# =================================================================================
 
 usage() {
     echo "Usage: $0 ENV_NAME [--skip-apex]"
@@ -237,6 +255,10 @@ install() {
     echo -e "To deactivate the environment, run 'conda deactivate'."
     echo -e "To delete the environment, run 'rm -rf $env_path; rm -rf $symlink_path'."
 }
+
+# =================================================================================
+# Main
+# ================================================================================= 
 
 if [[ $1 == "--help" || $1 == "-h" ]]; then
     usage
