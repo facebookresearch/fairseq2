@@ -41,6 +41,26 @@ fairseq2 is also used by various external projects such as:
  * [SONAR](https://github.com/facebookresearch/SONAR)
 
 
+## One-Step Installation
+
+```bash
+# Check the configuration in tools/install_basic.sh before running the script
+./tools/install_basic.sh <ENV_NAME> [--skip-apex]
+```
+
+<details>
+<summary>The installation script <a href="tools/install_basic.sh">install_basic.sh</a> is a simplified one-step installation script that installs fairseq2 and fairseq2-ext with apex.</summary>
+
+- It creates a new `$env_path` directory
+- It puts a Conda environment under it, e.g. `$env_path/conda`
+  - a symlink `$default_conda_dir/envs/<ENV_NAME>` will point to `$env_path/conda`
+- It installs fairseq2 and fairseq2-ext in editable mode
+- It installs apex (optionally if you don't do `--skip-apex`)
+  - Note that installing APEX requires compilation of CUDA kernels which can take a while.
+
+</details>
+
+
 ## Installing on Linux
 
 ### System Dependencies
