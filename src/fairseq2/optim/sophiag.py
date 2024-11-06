@@ -63,6 +63,7 @@ class SophiaG(AbstractOptimizer):
             "lr": lr,
             "betas": betas,
             "rho": rho,
+            "k": k,
             "weight_decay": weight_decay,
             "maximize": maximize,
             "capturable": capturable,
@@ -128,7 +129,7 @@ class SophiaG(AbstractOptimizer):
                     )
 
                 # Hessian update.
-                if state["step"] % self.k == 0:
+                if state["step"] % group["k"] == 0:
                     state["hessian"].mul_(beta2).addcmul_(p.grad, p.grad, value=1 - beta2)
 
                 exp_avgs.append(state["exp_avg"])
