@@ -1,0 +1,9 @@
+name: gsm8k_sft
+dataset_family: generic_instruction
+data: "../../../../../data/gsm8k/sft"
+
+---
+
+name: gsm8k_dpo
+dataset_family: generic_preference_optimization
+data: "../../../../../data/gsm8k/dpo"
