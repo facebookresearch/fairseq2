@@ -22,6 +22,7 @@ class SophiaG(AbstractOptimizer):
         params: ParameterCollection,
         lr: float = 1e-4,
         betas: tuple[float, float] = (0.965, 0.99),
+        k: int = 10,
         rho: float = 0.04,
         weight_decay: float = 1e-1,
         *,
@@ -38,6 +39,8 @@ class SophiaG(AbstractOptimizer):
             its square.
         :param rho:
             The parameter clipping threshold.
+        :param k:
+            The number of optimizer steps before updating the parameter Hessian values.
         :param weight_decay:
             The weight decay coefficient.
         :param maximize:
@@ -84,37 +87,6 @@ class SophiaG(AbstractOptimizer):
             for value in state_values:
                 value["step"] = torch.tensor(float(value["step"]))
 
-    @torch.no_grad()
-    def update_hessian(self) -> None:
-        for group in self.param_groups:
-            beta1, beta2 = group["betas"]
-            for p in group["params"]:
-                if p.grad is None:
-                    continue
-
-                state = self.state[p]
-
-                if len(state) == 0:
-                    state["step"] = (
-                        torch.zeros((1,), dtype=torch.float, device=p.device)
-                        if self.defaults["capturable"]
-                        else torch.tensor(0.0)
-                    )
-                    state["exp_avg"] = torch.zeros_like(
-                        p, memory_format=torch.preserve_format
-                    )
-                    state["hessian"] = torch.zeros_like(
-                        p, memory_format=torch.preserve_format
-                    )
-
-                if "hessian" not in state.keys():
-                    state["hessian"] = torch.zeros_like(
-                        p, memory_format=torch.preserve_format
-                    )
-
-                state["hessian"].mul_(beta2).addcmul_(p.grad, p.grad, value=1 - beta2)
-
-    @torch.no_grad()
     def _do_step(self, bs: int = 5120) -> None:
         for group in self.param_groups:
             params_with_grad: list[Tensor] = []
@@ -154,6 +126,10 @@ class SophiaG(AbstractOptimizer):
                     state["hessian"] = torch.zeros_like(
                         p, memory_format=torch.preserve_format
                     )
+
+                # Hessian update.
+                if state["step"] % self.k == 0:
+                    state["hessian"].mul_(beta2).addcmul_(p.grad, p.grad, value=1 - beta2)
 
                 exp_avgs.append(state["exp_avg"])
                 state_steps.append(state["step"])

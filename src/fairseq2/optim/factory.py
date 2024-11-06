@@ -112,6 +112,9 @@ class SophiaGConfig:
     rho: float = 0.04
     """The parameter clipping threshold."""
 
+    k: int = 10
+    """The number of optimizer steps before updating the parameter Hessian values."""
+
     weight_decay: float = 1e-1
     """The weight decay coefficient."""
 
@@ -131,6 +134,7 @@ def create_sophia_optimizer(
         lr=config.lr,
         betas=config.betas,
         rho=config.rho,
+        k=config.k,
         weight_decay=config.weight_decay,
         maximize=config.maximize,
         capturable=config.capturable,
