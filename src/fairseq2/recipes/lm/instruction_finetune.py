@@ -20,7 +20,7 @@ from fairseq2.assets import AssetNotFoundError
 from fairseq2.checkpoint import CheckpointManager
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_text_tokenizer
-from fairseq2.datasets import LengthBatching
+from fairseq2.datasets import Batching, LengthBatching, StaticBatching
 from fairseq2.datasets.instruction import (
     GenericInstructionDataset,
     load_instruction_dataset,
@@ -80,6 +80,9 @@ class InstructionFinetuneConfig:
 
     max_num_tokens: int = 8192 * 2
     """The maximum number of tokens per batch."""
+
+    batch_size: int | None = None
+    """If not ``None``, ignores `max_num_tokens` and each batch will have `batch_size` examples."""
 
     max_num_valid_tokens: int | None = None
     """The maximum number of tokens per validation batch."""
@@ -420,12 +423,19 @@ def load_instruction_finetuner(
     unit = InstructionFinetuneUnit(criterion, dp_gang)
 
     try:
+        batching: Batching
+
+        if config.batch_size is not None:
+            batching = StaticBatching(config.batch_size)
+        else:
+            batching = LengthBatching(config.max_num_tokens)
+
         data_reader = dataset.create_reader(
             config.train_split,
             tokenizer,
             dp_gang,
             config.max_seq_len,
-            batching=LengthBatching(config.max_num_tokens),
+            batching=batching,
             example_shuffle_window=config.example_shuffle_window,
             batch_shuffle_window=config.batch_shuffle_window,
             num_accumulate=config.gradient_accumulation,
