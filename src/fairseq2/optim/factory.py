@@ -101,7 +101,7 @@ def create_adamw_optimizer(config: AdamWConfig, params: ParameterCollection) -> 
 @dataclass(kw_only=True)
 class SophiaGConfig:
     """Holds the configuration of a :class:`SophiaG`."""
-    
+
     lr: float = 1e-4
     """The learning rate."""
 

@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import math
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import torch
 from torch import Tensor
@@ -88,7 +88,7 @@ class SophiaG(AbstractOptimizer):
             for value in state_values:
                 value["step"] = torch.tensor(float(value["step"]))
 
-    def _do_step(self, bs: int = 5120) -> None:
+    def _do_step(self, bs: Union[int, Tensor] = 5120) -> None:
         for group in self.param_groups:
             params_with_grad: list[Tensor] = []
             grads: list[Tensor] = []
@@ -130,7 +130,9 @@ class SophiaG(AbstractOptimizer):
 
                 # Hessian update.
                 if state["step"] % group["k"] == 0:
-                    state["hessian"].mul_(beta2).addcmul_(p.grad, p.grad, value=1 - beta2)
+                    state["hessian"].mul_(beta2).addcmul_(
+                        p.grad, p.grad, value=1 - beta2
+                    )
 
                 exp_avgs.append(state["exp_avg"])
                 state_steps.append(state["step"])
@@ -164,11 +166,11 @@ def sophiag(
     state_steps: List[Tensor],
     capturable: bool = False,
     *,
-    bs: int,
+    bs: Union[int, Tensor],
     beta1: float,
     beta2: float,
     rho: float,
-    lr: float,
+    lr: Union[float, Tensor],
     weight_decay: float,
     maximize: bool,
 ) -> None:
@@ -184,7 +186,7 @@ def sophiag(
         step_t = state_steps[i]
 
         if capturable:
-            assert param.is_cuda and step_t.is_cuda and bs.is_cuda
+            assert param.is_cuda and step_t.is_cuda and bs.is_cuda  # type: ignore[union-attr]
 
         if torch.is_complex(param):
             grad = torch.view_as_real(grad)
@@ -202,12 +204,12 @@ def sophiag(
 
         if capturable:
             step_size = lr
-            step_size_neg = step_size.neg()
+            step_size_neg = step_size.neg()  # type: ignore[union-attr]
 
             ratio = (exp_avg.abs() / (rho * bs * hess + 1e-15)).clamp(None, 1)
-            param.addcmul_(exp_avg.sign(), ratio, value=step_size_neg)
+            param.addcmul_(exp_avg.sign(), ratio, value=float(step_size_neg))
         else:
             step_size_neg = -lr
 
             ratio = (exp_avg.abs() / (rho * bs * hess + 1e-15)).clamp(None, 1)
-            param.addcmul_(exp_avg.sign(), ratio, value=step_size_neg)
+            param.addcmul_(exp_avg.sign(), ratio, value=float(step_size_neg))
