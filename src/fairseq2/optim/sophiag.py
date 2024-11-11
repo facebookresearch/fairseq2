@@ -127,7 +127,7 @@ class SophiaG(AbstractOptimizer):
                     )
 
                 # Hessian update.
-                if state["step"] % group["k"] == 0:
+                if int(state["step"]) % group["k"] == 0:
                     state["hessian"].mul_(beta2).addcmul_(
                         p.grad, p.grad, value=1 - beta2
                     )
