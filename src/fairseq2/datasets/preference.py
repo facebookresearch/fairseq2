@@ -243,6 +243,7 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
 
             return {
                 "id": id_,
+                "indices_prompt": prompt_indices,
                 "indices_chosen": indices_chosen,
                 "indices_rejected": indices_rejected,
                 "target_mask_chosen": target_mask_chosen,
