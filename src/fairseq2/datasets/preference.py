@@ -64,6 +64,8 @@ class PreferenceOptimizationDataset(ABC):
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         mask_source_tokens: bool = True,
+        src_encode_mode: str = "prompt",
+        tgt_encode_mode: str = "prompt_response",
         seed: int = 2,
         **extras: Any,
     ) -> DataPipelineReader[PreferenceOptimizationBatch]:
@@ -107,6 +109,10 @@ class PreferenceOptimizationDataset(ABC):
             The number of batches to prefetch in background.
         :param mask_source_tokens:
             If ``False``, calculates loss on the `src` tokens as well as the `tgt` tokens.
+        :param src_encode_mode:
+            The mode to encode the prompt
+        :param tgt_encode_mode:
+            The mode to encode the target
         :param seed:
             The seed to initialize the random number generators used internally.
         :param extras:
@@ -168,6 +174,8 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         mask_source_tokens: bool = True,
+        src_encode_mode: str = "prompt",
+        tgt_encode_mode: str = "prompt_response",
         seed: int = 2,
         **extras: Any,
     ) -> DataPipelineReader[PreferenceOptimizationBatch]:
@@ -202,8 +210,8 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
         seed += gang.rank
 
         # Encode prompt and target texts.
-        prompt_encoder = tokenizer.create_encoder(mode="prompt")
-        target_encoder = tokenizer.create_encoder(mode="prompt_response")
+        prompt_encoder = tokenizer.create_encoder(mode=src_encode_mode)
+        target_encoder = tokenizer.create_encoder(mode=tgt_encode_mode)
 
         builder.map(prompt_encoder, selector="src", num_parallel_calls=npc)
         builder.map(target_encoder, selector="tgt_chosen", num_parallel_calls=npc)
