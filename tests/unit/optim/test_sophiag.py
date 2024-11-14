@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 import torch
-from torch import Tensor
+from torch import Tensor, tensor
 from torch.nn import Conv2d, Module
 from torch.nn.functional import relu
 
@@ -33,21 +33,21 @@ class TestSophiaG:
     def test_step_updates_params_correctly(self) -> None:
         net = self.run_step()
         torch.set_printoptions(precision=5)
-        expected = [
-            Tensor(
-                [
-                    [[[-0.03810]], [[-1.35257]], [[2.62534]], [[0.65126]]],
-                    [[[0.43054]], [[0.28050]], [[-0.17763]], [[-0.77252]]],
-                ]
-            ),
-            Tensor([6.13362, 0.70489]),
-            Tensor([[[[12.91357]], [[2.88978]]]]),
-            Tensor([96.0]),
+
+        weights = [
+            [
+                [[[0.11474]], [[-0.11898]], [[0.13711]], [[-0.02554]]],
+                [[[0.21359]], [[0.11903]], [[-0.05746]], [[-0.40423]]],
+            ],
+            [0.11416, -0.44267],
+            [[[[0.09293]], [[0.04699]]]],
+            [-0.15549],
         ]
 
-        for p, expected_grad in zip(net.parameters(), expected):
-            assert p.grad is not None
-            assert_close(p.grad, expected_grad)
+        expected = list(map(lambda t: tensor(t, device=device), weights))
+
+        for p, weight in zip(net.parameters(), expected):
+            assert_close(p.data, weight)
 
     def run_step(self) -> Module:
         with temporary_manual_seed(2, device):
@@ -57,9 +57,8 @@ class TestSophiaG:
         optimizer = SophiaG(
             params=[  # type: ignore[arg-type]
                 {"params": net.conv1.parameters()},
-                {"params": net.conv2.parameters(), "lr": 0.002},
+                {"params": net.conv2.parameters()},
             ],
-            lr=0.001,
         )
 
         out = net(x).sum()
