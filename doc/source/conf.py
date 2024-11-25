@@ -7,10 +7,10 @@
 from __future__ import annotations
 
 import fairseq2n
+import fairseq2
 
 fairseq2n.DOC_MODE = True
 
-import fairseq2
 
 # ------------------------------------------------------------
 # Project Information
@@ -23,7 +23,7 @@ author = "Fundamental AI Research (FAIR) at Meta"
 
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 
 # ------------------------------------------------------------
