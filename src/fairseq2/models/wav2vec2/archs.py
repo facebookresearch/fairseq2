@@ -86,6 +86,20 @@ def _1b() -> Wav2Vec2Config:
     return config
 
 
+@wav2vec2_arch("3b")
+def _3b() -> Wav2Vec2Config:
+    config = _1b()
+
+    config.encoder_config.num_encoder_layers = 64
+    config.encoder_config.model_dim = 2048
+    config.encoder_config.ffn_inner_dim = 8192
+    config.encoder_config.num_encoder_attn_heads = 32
+    config.quantized_dim = 1280
+    config.final_dim = 1280
+
+    return config
+
+
 @wav2vec2_arch("1b_llama")
 def _1b_llama() -> Wav2Vec2Config:
     config = _xlsr_base()

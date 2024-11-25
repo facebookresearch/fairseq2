@@ -193,7 +193,6 @@ class GumbelVectorQuantizer(VectorQuantizer):
 
         cb = x
 
-        # @torch.compile(fullgraph=True)
         def compute_sum(x: torch.Tensor) -> torch.Tensor:
             return torch.sum(
                 x.view(bsz * tsz, self.num_codebooks, self.num_codebook_entries, 1)
