@@ -74,6 +74,8 @@ class Profiler:
             on_trace_ready=trace_handler,
             record_shapes=True,
             with_stack=True,
+            profile_memory=True,
+            with_flops=True,
         )
 
     def start(self) -> None:

@@ -194,7 +194,7 @@ class DynamicLossScaler:
 
     def unscale_gradients_(self) -> None:
         """Unscale the associated optimizer's gradients by the current scale."""
-        if not supports_manual_gradient_scaling(self._optimizer):
+        if self._is_enabled and not supports_manual_gradient_scaling(self._optimizer):
             raise RuntimeError(
                 "`optimizer` must support manual gradient scaling via `torch.cuda.amp.GradScaler`, but supports only implicit scaling in its step function (i.e. `_step_supports_amp_scaling == True`)."
             )

@@ -44,7 +44,8 @@ def setup_root_gang(
     log_environment_info(log, device)
 
     # In case we run on Ampere or later, use TF32.
-    torch.set_float32_matmul_precision("high")
+    torch.backends.cuda.matmul.allow_tf32 = True
+    torch.backends.cudnn.allow_tf32 = True
 
     log.info("Initializing the root gang.")
 
@@ -187,9 +188,7 @@ def compile_model(model: Module, log: LogWriter, *, dynamic: bool = True) -> Mod
     """Apply :func:`torch.compile` to ``model``."""
     log.info("Applying `torch.compile()` to the model.")
 
-    return torch.compile(  # type: ignore[return-value]
-        model, dynamic=dynamic, options={"shape_padding": dynamic}
-    )
+    return torch.compile(model)  # type: ignore[return-value]
 
 
 def check_model_type(model: Module, kls: type[Module]) -> None:

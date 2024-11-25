@@ -163,7 +163,9 @@ def _generate_mask(indices: Tensor, max_row_len: int) -> Tensor:
     # (N, min(M x L))
     # We randomly pick `min_num_masked` masked elements from each row, which
     # effectively unmasks the remaining elements.
-    indices = torch.multinomial(float_mask, num_samples=min_num_masked)
+    random_values = torch.rand_like(float_mask) + 0.001
+    random_values = random_values * float_mask
+    _, indices = torch.topk(random_values, k=min_num_masked, dim=1, sorted=False)
 
     # (N, S)
     # Now we construct the actual boolean mask which has the same number of
