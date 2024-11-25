@@ -164,7 +164,7 @@ class GumbelVectorQuantizer(VectorQuantizer):
             .scatter_(-1, k.view(-1, 1), 1.0)
             .view(bsz * tsz, self.num_codebooks, -1)
         )
-        hard_probs = torch.mean(hard_x.float(), dim=0)
+        hard_probs = torch.mean(hard_x, dim=0)
 
         @torch.compile(fullgraph=True)
         def calculate_perplexity(probs: torch.Tensor) -> torch.Tensor:
@@ -172,14 +172,18 @@ class GumbelVectorQuantizer(VectorQuantizer):
 
         code_perplexity = calculate_perplexity(hard_probs)
 
-        avg_probs = torch.softmax(
-            x.view(bsz * tsz, self.num_codebooks, -1).float(), dim=-1
-        ).mean(dim=0)
+        @torch.compile(fullgraph=True)
+        def compute_softmax(x: torch.Tensor) -> torch.Tensor:
+            return torch.softmax(
+                x.view(bsz * tsz, self.num_codebooks, -1), dim=-1
+            ).mean(dim=0)
+
+        avg_probs = compute_softmax(x)
 
         prob_perplexity = calculate_perplexity(avg_probs)
 
         if self.training:
-            x = gumbel_softmax(x.float(), tau=current_temp, hard=True).type_as(x)
+            x = gumbel_softmax(x, tau=current_temp, hard=True).type_as(x)
         else:
             x = hard_x
 
