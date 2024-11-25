@@ -17,9 +17,8 @@ from torch.nn import Module, Parameter
 from torch.nn.functional import gumbel_softmax
 from typing_extensions import override
 
-from fairseq2.data_type import DataType
-from fairseq2.device import Device
 from fairseq2.nn import Linear
+from fairseq2.typing import DataType, Device
 
 
 class Wav2Vec2VectorQuantizer(Module, ABC):
@@ -29,15 +28,11 @@ class Wav2Vec2VectorQuantizer(Module, ABC):
     output_dim: int
     num_codebooks: int
     num_codebook_entries: int
-    codebook_sampling_temperature: tuple[float, float, float]
 
     def __init__(
         self,
         input_dim: int,
         output_dim: int,
-        num_codebooks: int,
-        num_codebook_entries: int,
-        codebook_sampling_temperature: tuple[float, float, float],
     ) -> None:
         super().__init__()
 
@@ -45,11 +40,6 @@ class Wav2Vec2VectorQuantizer(Module, ABC):
 
         self.output_dim = output_dim
 
-        self.num_codebooks = num_codebooks
-
-        self.num_codebook_entries = num_codebook_entries
-
-        self.codebook_sampling_temperature = codebook_sampling_temperature
 
     @abstractmethod
     def forward(self, x: Tensor) -> Wav2Vec2VectorQuantizerOutput: ...
@@ -57,20 +47,33 @@ class Wav2Vec2VectorQuantizer(Module, ABC):
     if TYPE_CHECKING:
         __call__ = forward
 
-
+# TODO:cirquit - changed the name from VectorQuantizerOutput to Wav2Vec2VectorQuantizerOutput
 @dataclass
 class Wav2Vec2VectorQuantizerOutput(ABC):
+    """Holds the output of a vector quantizer."""
+
     quantized_vectors: Tensor
-    cb: Tensor
-    code_perplexity: Tensor
-    prob_perplexity: Tensor
-    temperature: float
+    """The quantized vector output."""
 
+    @abstractmethod
+    def compute_loss(self) -> Tensor:
+        """Compute the loss."""
 
+    @abstractmethod
+    def get_target_indices(self, num_codebooks: int) -> Tensor: ...
+
+# TODO:cirquit - added the wav2vec2 prefix (it was already in the middle from recipe, maybe worth to align)
 @final
 class GumbelWav2Vec2VectorQuantizer(Wav2Vec2VectorQuantizer):
     """Quantizes input data using Gumbel-Softmax."""
 
+    input_dim: int
+    output_dim: int
+    num_codebooks: int
+    num_codebook_entries: int
+    min_temp: float
+    max_temp: float
+    temp_decay: float
     entry_proj: Linear
     entries: Parameter
     num_updates: Tensor
@@ -81,50 +84,53 @@ class GumbelWav2Vec2VectorQuantizer(Wav2Vec2VectorQuantizer):
         output_dim: int,
         num_codebooks: int,
         num_codebook_entries: int,
-        codebook_sampling_temperature: tuple[float, float, float],
         *,
+        codebook_sampling_temperature: tuple[float, float, float],
         device: Device | None = None,
         dtype: DataType | None = None,
     ):
         """
-        :param input_dim: The dimensionality of inputs.
-        :param output_dim: The dimensionality of quantized outputs.
-        :param num_codebooks: The number of groups for vector quantization.
-        :param num_codebook_entries: The number of quantized vectors per group.
-        :param codebook_sampling_temperature: The temperature for training. A
-            tuple of maximum temperature, minimum temperature, and decay factor.
+        :param input_dim:
+            The dimensionality of inputs.
+        :param output_dim:
+            The dimensionality of quantized outputs.
+        :param num_codebooks:
+            number of groups for vector quantization
+        :param num_codebook_entries:
+            number of quantized vectors per group
+        :param codebook_sampling_temperature:
+            The temperature for training. A tuple of maximum temperature,
+            minimum temperature, and decay factor.
         """
-        super().__init__(
-            input_dim,
-            output_dim,
-            num_codebooks,
-            num_codebook_entries,
-            codebook_sampling_temperature,
-        )
+        super().__init__(input_dim, output_dim)
 
         if output_dim % num_codebooks != 0:
             raise ValueError(
                 f"`output_dim` must be a multiple of `num_codebooks` ({num_codebooks}), but is {output_dim} instead."
             )
 
+        entry_dim = output_dim // num_codebooks
+
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        self.num_codebooks = num_codebooks
+        self.num_codebook_entries = num_codebook_entries
+        self.max_temp, self.min_temp, self.temp_decay = codebook_sampling_temperature
+
         num_total_entries = num_codebooks * num_codebook_entries
 
         self.entry_proj = Linear(
-            input_dim,
+            self.input_dim,
             num_total_entries,
             bias=True,
-            init_fn=_init_entry_projection,
+            init_fn=init_entry_projection,
             device=device,
             dtype=dtype,
         )
 
-        entry_dim = output_dim // num_codebooks
-
-        entries = torch.empty(
-            (1, num_total_entries, entry_dim), device=device, dtype=dtype
+        self.entries = Parameter(
+            torch.empty((1, num_total_entries, entry_dim), device=device, dtype=dtype)
         )
-
-        self.entries = Parameter(entries)
 
         num_updates = torch.empty((), device=device, dtype=torch.int64)
 
@@ -133,13 +139,14 @@ class GumbelWav2Vec2VectorQuantizer(Wav2Vec2VectorQuantizer):
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
+        """Reset the parameters and buffers of the module."""
         nn.init.uniform_(self.entries)
 
         self.num_updates.zero_()
 
     @override
-    def forward(self, x: Tensor) -> Wav2Vec2VectorQuantizerOutput:
-        temp = self._compute_current_temp()
+    def forward(self, x: Tensor) -> GumbelVectorQuantizerOutput:
+        current_temp = self._compute_current_temp()
 
         bsz, tsz, fsz = x.shape
 
@@ -160,7 +167,7 @@ class GumbelWav2Vec2VectorQuantizer(Wav2Vec2VectorQuantizer):
             .scatter_(-1, k.view(-1, 1), 1.0)
             .view(bsz * tsz, self.num_codebooks, -1)
         )
-        hard_probs = torch.mean(hard_x.float(), dim=0)
+        hard_probs = torch.mean(hard_x.float(), dim=0) # TODO:cirquit - added FP32 cast here due to it being present on main and recipe, but not on main_w2v2
 
         @torch.compile(fullgraph=True)
         def calculate_perplexity(probs: torch.Tensor) -> torch.Tensor:
@@ -168,14 +175,18 @@ class GumbelWav2Vec2VectorQuantizer(Wav2Vec2VectorQuantizer):
 
         code_perplexity = calculate_perplexity(hard_probs)
 
-        avg_probs = torch.softmax(
-            x.view(bsz * tsz, self.num_codebooks, -1).float(), dim=-1
-        ).mean(dim=0)
+        @torch.compile(fullgraph=True)
+        def compute_softmax(x: torch.Tensor) -> torch.Tensor:
+            return torch.softmax(
+                x.view(bsz * tsz, self.num_codebooks, -1), dim=-1
+            ).mean(dim=0)
+
+        avg_probs = compute_softmax(x)
 
         prob_perplexity = calculate_perplexity(avg_probs)
 
         if self.training:
-            x = gumbel_softmax(x.float(), tau=temp, hard=True).type_as(x)
+            x = gumbel_softmax(x, tau=current_temp, hard=True).type_as(x)
         else:
             x = hard_x
 
@@ -195,36 +206,57 @@ class GumbelWav2Vec2VectorQuantizer(Wav2Vec2VectorQuantizer):
 
         x = compute_sum(x).view(bsz, tsz, -1)
 
-        return Wav2Vec2VectorQuantizerOutput(
-            x, cb, code_perplexity, prob_perplexity, temp
+        return GumbelVectorQuantizerOutput(
+            x,
+            cb,
+            self.num_codebooks,
+            self.num_codebook_entries,
+            code_perplexity,
+            prob_perplexity,
+            current_temp,
         )
 
     def _compute_current_temp(self) -> float:
-        max_temp, min_temp, temp_decay = self.codebook_sampling_temperature
-
-        temp = max_temp * temp_decay ** int(self.num_updates)
+        temp = self.max_temp * self.temp_decay ** int(self.num_updates)
 
         if self.training:
             self.num_updates.add_(1)
 
-        return max(temp, min_temp)
-
-    @override
-    def extra_repr(self) -> str:
-        """:meta private:"""
-        return (
-            f"input_dim={self.input_dim}, "
-            f"output_dim={self.output_dim}, "
-            f"num_codebooks={self.num_codebooks}, "
-            f"num_codebook_entries={self.num_codebook_entries}, "
-            f"codebook_sampling_temperature={self.codebook_sampling_temperature}"
-        )
+        return max(temp, self.min_temp)
 
 
-def _init_entry_projection(proj: Linear) -> None:
+def init_entry_projection(proj: Linear) -> None:
     nn.init.normal_(proj.weight, mean=0.0, std=1.0)
 
     if proj.bias is None:
         raise ValueError("`proj.bias` must not be `None`.")
 
     nn.init.zeros_(proj.bias)
+
+# TODO:cirquit rename by convention (either add Wav2Vec2 or not)
+@dataclass
+class GumbelVectorQuantizerOutput(VectorQuantizerOutput):
+    cb: Tensor
+    num_codebooks: int
+    num_codebook_entries: int
+    code_perplexity: Tensor
+    prob_perplexity: Tensor
+    temperature: float
+
+    @override
+    def compute_loss(self) -> Tensor:
+        num_entries = self.num_codebooks * self.num_codebook_entries
+
+        return (num_entries - self.prob_perplexity) / num_entries  # type: ignore[no-any-return]
+
+    @override
+    def get_target_indices(self, num_codebooks: int) -> Tensor:
+        batch_size, seq_len = self.quantized_vectors.shape[:2]
+
+        cb = self.cb.view(batch_size * seq_len * self.num_codebooks, -1)
+
+        indices = cb.argmax(dim=-1).view(-1, self.num_codebooks)
+
+        indices = indices[..., :num_codebooks]
+
+        return indices.detach()
