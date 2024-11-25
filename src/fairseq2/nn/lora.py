@@ -112,8 +112,8 @@ class LoRAEmbedding(Embedding, LoRALayer):
 
     def reset_lora_parameters(self) -> None:
         """Reset the parameters and buffers of the module."""
-        nn.init.zeros_(self.lora_A)
-        nn.init.normal_(self.lora_B)
+        nn.init.normal_(self.lora_A)
+        nn.init.zeros_(self.lora_B)
 
     @property
     def wrapped_module(self) -> Embedding:
