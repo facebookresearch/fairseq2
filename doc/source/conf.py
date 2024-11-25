@@ -7,10 +7,10 @@
 from __future__ import annotations
 
 import fairseq2n
-import fairseq2
 
 fairseq2n.DOC_MODE = True
 
+import fairseq2
 
 # ------------------------------------------------------------
 # Project Information
