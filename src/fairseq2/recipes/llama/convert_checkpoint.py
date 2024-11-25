@@ -17,6 +17,7 @@ from warnings import catch_warnings
 
 from typing_extensions import override
 
+from fairseq2.assets import get_asset_store
 from fairseq2.console import get_error_console
 from fairseq2.dependency import DependencyResolver
 from fairseq2.logging import get_log_writer
@@ -35,9 +36,9 @@ class ConvertCheckpointCommandHandler(CliCommandHandler):
     @override
     def init_parser(self, parser: ArgumentParser, resolver: DependencyResolver) -> None:
         parser.add_argument(
-            "--arch",
+            "--model",
             metavar="ARCH_NAME",
-            help="architecture name to generate params.json",
+            help="model name to fetch architecture to generate params.json",
         )
 
         parser.add_argument(
@@ -64,8 +65,11 @@ class ConvertCheckpointCommandHandler(CliCommandHandler):
 
             sys.exit(1)
 
-        if args.arch:
-            model_config = load_llama_config(args.arch)
+        asset_store = get_asset_store()
+        arch = asset_store.retrieve_card(args.model).field("model_arch").as_(str)
+
+        if arch:
+            model_config = load_llama_config(args.model)
         else:
             model_config = None
 
@@ -153,8 +157,19 @@ class ConvertCheckpointCommandHandler(CliCommandHandler):
             if model_config.num_attn_heads != model_config.num_key_value_heads:
                 params["model"]["n_kv_heads"] = model_config.num_key_value_heads
 
-            if args.arch == "llama2_70b" or args.arch.startswith("llama3"):
-                params["model"]["ffn_dim_multiplier"] = 1.3
+            # we only specify archs where multiplier != 1.0
+            ffn_dim_multipliers = {
+                "llama2_70b": 1.3,
+                "llama3_8b": 1.3,
+                "llama3_70b": 1.3,
+                "llama3_1_8b": 1.3,
+                "llama3_1_70b": 1.3,
+                "llama3_1_405b": 1.2,
+                "llama3_2_1b": 1.5,
+            }
+
+            if arch in ffn_dim_multipliers:
+                params["model"]["ffn_dim_multiplier"] = ffn_dim_multipliers[arch]
 
             try:
                 with args.output_dir.joinpath("params.json").open("w") as fp:
@@ -164,4 +179,4 @@ class ConvertCheckpointCommandHandler(CliCommandHandler):
 
                 sys.exit(1)
 
-            log.info("params.json generated for {}.", args.arch)
+            log.info("params.json generated for {}.", args.model)
