@@ -9,13 +9,10 @@ on:
     inputs:
       torch:
         type: string
-        default: '2.4.0'
+        default: '2.5.1'
       py:
         type: string
         default: '3.12'
-
-env:
-    ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
 
 jobs:
   lint:
@@ -23,7 +20,7 @@ jobs:
     runs-on:
       labels: 4-core-ubuntu
     container:
-      image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_x86_64:2-cpu
+      image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_x86_64:3-cpu
     defaults:
       run:
         shell: bash
