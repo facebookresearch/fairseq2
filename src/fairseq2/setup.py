@@ -36,7 +36,7 @@ def setup_fairseq2() -> None:
 
     As part of the initialization, this function also registers external
     objects with the container via setuptools' `entry-point`__ mechanism. See
-    :doc:`/topics/runtime_extensions` for more information.
+    :doc:`/basics/runtime_extensions` for more information.
 
     .. important::
 
