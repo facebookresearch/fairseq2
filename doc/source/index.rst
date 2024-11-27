@@ -11,17 +11,20 @@ other content generation tasks.
 .. grid:: 3
 
     .. grid-item-card::  Quick Start
-        :link: basics
+        :link: tutorial-end-to-end-fine-tuning
+        :link-type: ref
 
         Run a quick start tutorial.
 
     .. grid-item-card::  Basics
-        :link: basics
+        :link: basics-overview
+        :link-type: ref
 
         Get familiar with fairseq2.
 
     .. grid-item-card::  API Reference
-        :link: reference/api/index
+        :link: reference-api
+        :link-type: ref
 
         Jump to the code.
 
