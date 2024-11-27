@@ -26,9 +26,6 @@ on:
         type: string
         default: 'x86_64'
 
-env:
-    ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
-
 jobs:
   publish:
     name: Publish
@@ -43,7 +40,7 @@ jobs:
       id-token: write
     steps:
       - name: Download wheels from staging
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: wheels-pt${{ inputs.torch }}-py${{ inputs.py }}-${{ inputs.os }}_${{ inputs.arch }}-${{ inputs.variant }}-nosan
           path: ~/artifacts/
