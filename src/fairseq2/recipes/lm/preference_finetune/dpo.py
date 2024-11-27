@@ -31,6 +31,7 @@ from fairseq2.recipes.lm.preference_finetune.utils import (
     PreferenceFinetuneMetricBag,
     _load_reference_model,
     preference_unit_factory,
+    _gather_lprobs_avg,
 )
 from fairseq2.recipes.trainer import AbstractTrainUnit
 from fairseq2.recipes.utils.asset import AssetReference
@@ -79,10 +80,10 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
         chosen_output = cast(SequenceModelOutput, self._model(chosen_input_batch))
         rejected_output = cast(SequenceModelOutput, self._model(rejected_input_batch))
 
-        chosen_logps, average_chosen_logps = self._gather_lprobs(
+        chosen_logps, average_chosen_logps = _gather_lprobs_avg(
             chosen_output, chosen_target_batch
         )
-        rejected_logps, average_rejected_logps = self._gather_lprobs(
+        rejected_logps, average_rejected_logps = _gather_lprobs_avg(
             rejected_output, rejected_target_batch
         )
 
@@ -93,10 +94,10 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
             ref_rejected_output = cast(
                 SequenceModelOutput, self._reference_model(rejected_batch)
             )
-            ref_chosen_logps, ref_average_chosen_logps = self._gather_lprobs(
+            ref_chosen_logps, ref_average_chosen_logps = _gather_lprobs_avg(
                 ref_chosen_output, chosen_target_batch
             )
-            ref_rejected_logps, ref_average_rejected_logps = self._gather_lprobs(
+            ref_rejected_logps, ref_average_rejected_logps = _gather_lprobs_avg(
                 ref_rejected_output, rejected_target_batch
             )
 
