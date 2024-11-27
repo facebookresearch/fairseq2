@@ -11,16 +11,13 @@ on:
         type: string
         default: '3.12'
 
-env:
-    ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
-
 jobs:
   lint:
     name: Lint
     runs-on:
       labels: 4-core-ubuntu
     container:
-      image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_x86_64:2-cpu
+      image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_x86_64:3-cpu
     defaults:
       run:
         shell: bash
