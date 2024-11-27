@@ -21,7 +21,6 @@ from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.metrics.recorder import format_as_float, register_metric_formatter
 from fairseq2.models.sequence import (
-    SequenceBatch,
     SequenceModelOutput,
     as_auto_regressive_input,
 )
