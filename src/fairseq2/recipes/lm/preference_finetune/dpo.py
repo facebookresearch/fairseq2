@@ -29,9 +29,9 @@ from fairseq2.models.sequence import (
 # from fairseq2.recipes.lm.preference_finetune.recipe import preference_unit_factory
 from fairseq2.recipes.lm.preference_finetune.utils import (
     PreferenceFinetuneMetricBag,
+    _gather_lprobs_avg,
     _load_reference_model,
     preference_unit_factory,
-    _gather_lprobs_avg,
 )
 from fairseq2.recipes.trainer import AbstractTrainUnit
 from fairseq2.recipes.utils.asset import AssetReference
