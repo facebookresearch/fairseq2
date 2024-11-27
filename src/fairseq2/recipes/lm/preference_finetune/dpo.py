@@ -20,12 +20,16 @@ from fairseq2.datasets.preference import PreferenceOptimizationBatch
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.metrics.recorder import format_as_float, register_metric_formatter
-from fairseq2.models.sequence import SequenceModelOutput, as_auto_regressive_input
+from fairseq2.models.sequence import (
+    SequenceBatch,
+    SequenceModelOutput,
+    as_auto_regressive_input,
+)
 
 # from fairseq2.recipes.lm.preference_finetune.recipe import preference_unit_factory
 from fairseq2.recipes.lm.preference_finetune.utils import (
     PreferenceFinetuneMetricBag,
-    _gather_lprobs,
+    _gather_lprobs_avg,
     _load_reference_model,
     preference_unit_factory,
 )
@@ -44,6 +48,7 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
     _beta: float
     _nll_scale: float
     _metric_bag: DpoFinetuneMetricBag
+    _length_normalization: bool
 
     def __init__(
         self,
@@ -52,12 +57,14 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
         gang: Gang,
         beta: float = 0.1,
         nll_scale: float = 1.0,
+        length_normalization: bool = False,
     ) -> None:
         super().__init__(model)
 
         self._reference_model = reference_model
         self._beta = beta
         self._nll_scale = nll_scale
+        self._length_normalization = length_normalization
 
         self._metric_bag = DpoFinetuneMetricBag(gang)
 
@@ -73,8 +80,12 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
         chosen_output = cast(SequenceModelOutput, self._model(chosen_input_batch))
         rejected_output = cast(SequenceModelOutput, self._model(rejected_input_batch))
 
-        chosen_logps = _gather_lprobs(chosen_output, chosen_target_batch)
-        rejected_logps = _gather_lprobs(rejected_output, rejected_target_batch)
+        chosen_logps, average_chosen_logps = _gather_lprobs_avg(
+            chosen_output, chosen_target_batch
+        )
+        rejected_logps, average_rejected_logps = _gather_lprobs_avg(
+            rejected_output, rejected_target_batch
+        )
 
         with torch.no_grad():
             ref_chosen_output = cast(
@@ -83,14 +94,24 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
             ref_rejected_output = cast(
                 SequenceModelOutput, self._reference_model(rejected_batch)
             )
-            ref_chosen_logps = _gather_lprobs(ref_chosen_output, chosen_target_batch)
-            ref_rejected_logps = _gather_lprobs(
+            ref_chosen_logps, ref_average_chosen_logps = _gather_lprobs_avg(
+                ref_chosen_output, chosen_target_batch
+            )
+            ref_rejected_logps, ref_average_rejected_logps = _gather_lprobs_avg(
                 ref_rejected_output, rejected_target_batch
             )
 
-        _, _, dpo_loss = self._compute_dpo_loss(
-            chosen_logps, ref_chosen_logps, rejected_logps, ref_rejected_logps
-        )
+        if self._length_normalization:
+            _, _, dpo_loss = self._compute_dpo_loss(
+                average_chosen_logps,
+                ref_average_chosen_logps,
+                average_rejected_logps,
+                ref_average_rejected_logps,
+            )
+        else:
+            _, _, dpo_loss = self._compute_dpo_loss(
+                chosen_logps, ref_chosen_logps, rejected_logps, ref_rejected_logps
+            )
 
         nll_loss = chosen_output.compute_loss(
             chosen_target_batch.seqs, loss_mask=chosen_target_batch.target_mask
@@ -115,6 +136,19 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
         )  # normalization applied locally per-rank
 
         return loss, chosen_target_batch.batch_size
+
+    def _gather_lprobs(
+        self, output: SequenceModelOutput, target: SequenceBatch
+    ) -> tuple[Tensor, Tensor]:
+        logprobs = torch.log_softmax(output.logits, dim=-1)
+        per_token_logps = torch.gather(logprobs, -1, target.seqs.unsqueeze(-1)).squeeze(
+            -1
+        )
+        total_logps = (per_token_logps * target.target_mask).sum(dim=-1)  # [Batch, 1]
+        assert target.target_mask is not None
+        average_logps = total_logps / target.target_mask.sum(-1)
+
+        return total_logps, average_logps
 
     def _compute_dpo_loss(
         self,
@@ -188,6 +222,9 @@ class DpoConfig:
     nll_scale: float = 0.0
     """The coefficient of NLL loss added to the DPO loss."""
 
+    length_normalization: bool = False
+    """Use length normalized DPO, which uses the average log probability of a sequence as the implicit reward."""
+
 
 @preference_unit_factory("dpo")
 def create_dpo_unit(
@@ -210,4 +247,5 @@ def create_dpo_unit(
         dp_gang,
         config.beta,
         config.nll_scale,
+        config.length_normalization,
     )

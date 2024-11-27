@@ -73,6 +73,18 @@ def _gather_lprobs(output: SequenceModelOutput, target: SequenceBatch) -> Tensor
     return chosen_logps
 
 
+def _gather_lprobs_avg(
+    output: SequenceModelOutput, target: SequenceBatch
+) -> tuple[Tensor, Tensor]:
+    logprobs = torch.log_softmax(output.logits, dim=-1)
+    per_token_logps = torch.gather(logprobs, -1, target.seqs.unsqueeze(-1)).squeeze(-1)
+    total_logps = (per_token_logps * target.target_mask).sum(dim=-1)  # [Batch, 1]
+    assert target.target_mask is not None
+    average_logps = total_logps / target.target_mask.sum(-1)
+
+    return total_logps, average_logps
+
+
 register_metric_formatter(
     "chosen_logps", "Chosen Sequence Log Probabilities", 50, format_as_float
 )

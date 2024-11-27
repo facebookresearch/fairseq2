@@ -20,13 +20,10 @@ from fairseq2.datasets.preference import PreferenceOptimizationBatch
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.metrics.recorder import format_as_float, register_metric_formatter
-from fairseq2.models.sequence import (
-    SequenceBatch,
-    SequenceModelOutput,
-    as_auto_regressive_input,
-)
+from fairseq2.models.sequence import SequenceModelOutput, as_auto_regressive_input
 from fairseq2.recipes.lm.preference_finetune.utils import (
     PreferenceFinetuneMetricBag,
+    _gather_lprobs_avg,
     preference_unit_factory,
 )
 from fairseq2.recipes.trainer import AbstractTrainUnit
@@ -71,10 +68,10 @@ class SimPOFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
         chosen_output = cast(SequenceModelOutput, self._model(chosen_input_batch))
         rejected_output = cast(SequenceModelOutput, self._model(rejected_input_batch))
 
-        chosen_logps, average_chosen_logps = self._gather_lprobs(
+        chosen_logps, average_chosen_logps = _gather_lprobs_avg(
             chosen_output, chosen_target_batch
         )
-        rejected_logps, average_rejected_logps = self._gather_lprobs(
+        rejected_logps, average_rejected_logps = _gather_lprobs_avg(
             rejected_output, rejected_target_batch
         )
 
@@ -105,19 +102,6 @@ class SimPOFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
         )  # nll normalization applied locally per-rank
 
         return loss, chosen_target_batch.batch_size
-
-    def _gather_lprobs(
-        self, output: SequenceModelOutput, target: SequenceBatch
-    ) -> tuple[Tensor, Tensor]:
-        logprobs = torch.log_softmax(output.logits, dim=-1)
-        per_token_logps = torch.gather(logprobs, -1, target.seqs.unsqueeze(-1)).squeeze(
-            -1
-        )
-        total_logps = (per_token_logps * target.target_mask).sum(dim=-1)  # [Batch, 1]
-        assert target.target_mask is not None
-        average_logps = total_logps / target.target_mask.sum(-1)
-
-        return total_logps, average_logps
 
     def _compute_simpo_loss(
         self, average_chosen_logps: Tensor, average_rejected_logps: Tensor
