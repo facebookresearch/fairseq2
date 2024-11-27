@@ -1,16 +1,75 @@
 :github_url: https://github.com/facebookresearch/fairseq2
 
-======================
-fairseq2 Documentation
-======================
+=================================
+Welcome to fairseq2 Documentation
+=================================
 
 fairseq2 is a sequence modeling toolkit that allows researchers and developers
 to train custom models for translation, summarization, language modeling, and
 other content generation tasks.
 
-.. toctree::
-    :maxdepth: 2
+.. grid:: 3
 
-    topics/index
-    reference/index
-    bibliography
+    .. grid-item-card::  Quick Start
+        :link: basics
+
+        Run a quick start tutorial.
+
+    .. grid-item-card::  Basics
+        :link: basics
+
+        Get familiar with fairseq2.
+
+    .. grid-item-card::  API Reference
+        :link: reference/api/index
+
+        Jump to the code.
+
+
+Documentation
+-------------
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Getting Started
+
+   getting_started/installation/index
+   getting_started/quick_start
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Basics
+
+   basics/overview
+   basics/design_philosophy
+   basics/cli
+   basics/assets
+   basics/data_pipelines
+   basics/recipe
+   basics/runtime_extensions
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Tutorials
+
+   tutorials/end_to_end_fine_tuning
+   tutorials/monitor_your_experiments
+
+.. toctree::
+   :maxdepth: 1
+   :caption: FAQ
+
+   faq/contributing
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Reference
+
+   reference/api/index
+   reference/bibliography
+
+Indices and tables
+------------------
+
+* :ref:`genindex`
+* :ref:`modindex`
