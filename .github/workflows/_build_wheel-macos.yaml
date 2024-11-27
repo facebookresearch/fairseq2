@@ -23,9 +23,6 @@ on:
         type: string
         default: ''
 
-env:
-    ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
-
 jobs:
   build:
     name: Build
@@ -84,7 +81,7 @@ jobs:
         run: |
           pip wheel --no-deps --wheel-dir build/wheelhouse .
       - name: Upload wheels and native tests to staging
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.artifacts_name }}-pt${{ inputs.torch }}-py${{ inputs.py }}-macos_${{ inputs.arch }}-cpu-nosan
           path: |
@@ -105,7 +102,7 @@ jobs:
         run: |
           brew install libsndfile python@${{ inputs.py }} || true
       - name: Download wheels and native tests from staging
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: ${{ inputs.artifacts_name }}-pt${{ inputs.torch }}-py${{ inputs.py }}-macos_${{ inputs.arch }}-cpu-nosan
           path: ~/artifacts/

@@ -9,14 +9,14 @@
 set -eo pipefail
 
 curl --location --fail --output cuda.run\
-    https://developer.download.nvidia.com/compute/cuda/11.6.0/local_installers/cuda_11.6.0_510.39.01_linux.run
+     https://developer.download.nvidia.com/compute/cuda/12.4.0/local_installers/cuda_12.4.0_550.54.14_linux.run
 
 sh cuda.run --silent --toolkit --override --no-man-page
 
 rm cuda.run
 
 # We don't need Nsight.
-rm -rf /usr/local/cuda-11.6/nsight*
+rm -rf /usr/local/cuda-12.4/nsight*
 
 # Add CUDA libraries to the lookup cache of the dynamic linker.
 ldconfig
