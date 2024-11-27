@@ -221,6 +221,9 @@ class DpoConfig:
     nll_scale: float = 0.0
     """The coefficient of NLL loss added to the DPO loss."""
 
+    length_normalization: bool = False
+    """Use length normalized DPO, which uses the average log probability of a sequence as the implicit reward."""
+
 
 @preference_unit_factory("dpo")
 def create_dpo_unit(
@@ -243,4 +246,5 @@ def create_dpo_unit(
         dp_gang,
         config.beta,
         config.nll_scale,
+        config.length_normalization,
     )
