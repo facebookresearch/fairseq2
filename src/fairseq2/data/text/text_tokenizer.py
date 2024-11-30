@@ -223,7 +223,7 @@ class AbstractTextTokenizerLoader(ABC, TextTokenizerLoader[TextTokenizerT]):
             return self(tokenizer_ref, force=force, progress=progress)
 
         tokenizer_uri = card.field("tokenizer").as_uri()
-        tokenizer_checksum = card.field("checksum").get_as_(str)
+        tokenizer_checksum = card.field("tokenizer_checksum").get_as_(str)
 
         try:
             path = self._download_manager.download_tokenizer(
