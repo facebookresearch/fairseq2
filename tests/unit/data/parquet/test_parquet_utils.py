@@ -1,6 +1,9 @@
 from fairseq2.data.parquet.utils import (
     get_parquet_dataset_metadata,
     get_row_group_level_metadata,
+    pyarrow_table_to_torch_dict,
+    NestedDict,
+    pa,
     pq,
 )
 
@@ -79,3 +82,11 @@ def test_get_parquet_dataset_metadata(multi_partition_file_dataset):
             "cat",
         ]
     )
+
+
+def test_nested_text_conversion():
+    nested_input = pa.array([["abc", "efg"], ["xyz"]])
+    tt = pa.Table.from_pydict({"nested_text": nested_input})
+    converted = pyarrow_table_to_torch_dict(tt)
+    # we want to keep this type unchanged
+    assert isinstance(converted["nested_text"], pa.Array)
