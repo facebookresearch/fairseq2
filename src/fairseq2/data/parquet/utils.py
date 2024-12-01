@@ -15,12 +15,16 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
-from tqdm.auto import tqdm
 import torch
 from numpy.typing import NDArray
 from pyarrow.dataset import get_partition_keys  # requires pyarrow >= 13
+from tqdm.auto import tqdm
 
 from fairseq2.data import DataPipeline, DataPipelineBuilder, read_sequence
+from fairseq2.data.parquet.arrow import pyarrow_column_to_array
+from fairseq2.logging import get_log_writer
+
+logger = get_log_writer(__name__)
 
 
 @contextmanager
@@ -61,12 +65,14 @@ def from_pyarrow_to_torch_tensor(
     if arr.null_count != 0:
         raise ValueError("to torch conversion does not support null values")
 
-    if isinstance(arr, pa.ChunkedArray):
-        arr = arr.chunks[0] if arr.num_chunks == 1 else arr.combine_chunks()
+    arr = pyarrow_column_to_array(arr)
 
     arr_type = arr.type
     if pa.types.is_primitive(arr_type):
-        return torch.from_numpy(arr.to_numpy(zero_copy_only=True))
+        try:
+            return torch.from_numpy(arr.to_numpy(zero_copy_only=True))
+        except Exception:
+            pass
 
     try:
         return torch.from_numpy(arr.to_numpy(zero_copy_only=True))
@@ -77,19 +83,29 @@ def from_pyarrow_to_torch_tensor(
         return from_pyarrow_to_torch_tensor(arr.dictionary_decode())
 
     if pa.types.is_string(arr_type):
-        return list(map(str, arr.to_pandas()))
+        return arr.to_pandas().tolist()
 
-    if (
-        pa.types.is_list(arr_type) or pa.types.is_large_list(arr_type)
-    ) and pa.types.is_primitive(arr_type.value_type):
-        return torch.nested.as_nested_tensor(
-            list(map(torch.from_numpy, arr.to_pandas()))
-        )
+    if pa.types.is_list(arr_type) or pa.types.is_large_list(arr_type):
+        if pa.types.is_primitive(arr_type.value_type):
+            return arr.to_pandas().map(torch.from_numpy).tolist()
 
-    if pa.types.is_fixed_size_list(arr_type) and pa.types.is_primitive(
-        arr_type.value_type
-    ):
-        return torch.from_numpy(np.reshape(arr.values, (-1, arr_type.list_size)))
+        if pa.types.is_fixed_size_list(arr_type.value_type) and pa.types.is_primitive(
+            arr_type.value_type.value_type
+        ):
+            # FIXME: get the column global dtype for empty seq case
+            return (
+                arr.to_pandas()
+                .map(
+                    lambda x: torch.from_numpy(
+                        np.vstack(x) if len(x) > 0 else np.array([], dtype=np.float32)
+                    )
+                )
+                .tolist()
+            )
+
+    if pa.types.is_fixed_size_list(arr_type):
+        if pa.types.is_primitive(arr_type.value_type):
+            return torch.from_numpy(np.reshape(arr.values, (-1, arr_type.list_size)))
 
     if pa.types.is_struct(arr_type):
         return {
@@ -104,7 +120,7 @@ def from_pyarrow_to_torch_tensor(
     if strict:
         raise NotImplementedError(f"{arr_type} cannot be converted to torch.Tensor")
     else:
-        return arr
+        return arr  # keeping as in the orignal pyarrow form
 
 
 def pyarrow_table_to_torch_dict(tt: pa.Table, strict: bool = True) -> NestedDict:
@@ -506,3 +522,17 @@ def get_parquet_dataset_metadata(
 
     df_stats = pd.DataFrame(stats)
     return df_stats
+
+
+def pyarrow_table_to_torch_dict(tt: pa.Table, strict: bool = False) -> NestedDict:
+    out = {}
+    for col in tt.column_names:
+        try:
+            out[col] = from_pyarrow_to_torch_tensor(tt[col], strict)
+        except ValueError as e:
+            logger.info(
+                f"Column {col} of type {tt[col].type} was not converted to torch as expected",
+                str(e),
+            )
+            out[col] = tt[col]
+    return out
