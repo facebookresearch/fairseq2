@@ -18,6 +18,7 @@ from fairseq2.data.parquet.utils import (
     concat_table,
     get_parquet_dataset_metadata,
     get_row_group_level_metadata,
+    pyarrow_table_to_torch_dict,
 )
 
 __all__ = [
@@ -40,4 +41,5 @@ __all__ = [
     "concat_table",
     "get_parquet_dataset_metadata",
     "get_row_group_level_metadata",
+    "pyarrow_table_to_torch_dict",
 ]
