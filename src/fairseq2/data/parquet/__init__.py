@@ -16,6 +16,8 @@ from fairseq2.data.parquet.utils import (
     BatchOutputType,
     apply_filter,
     concat_table,
+    get_parquet_dataset_metadata,
+    get_row_group_level_metadata,
 )
 
 __all__ = [
@@ -36,4 +38,6 @@ __all__ = [
     "BatchOutputType",
     "apply_filter",
     "concat_table",
+    "get_parquet_dataset_metadata",
+    "get_row_group_level_metadata",
 ]

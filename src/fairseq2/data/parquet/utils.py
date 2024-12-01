@@ -10,10 +10,12 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Any
 
+import joblib
 import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
+from tqdm.auto import tqdm
 import torch
 from numpy.typing import NDArray
 from pyarrow.dataset import get_partition_keys  # requires pyarrow >= 13
@@ -345,3 +347,162 @@ def build_iterator_over_one_table(
         )
         .and_return(max_num_warnings=4)
     )
+
+
+def get_row_group_level_metadata(
+    dataset: pq.ParquetDataset,
+    columns: Optional[List[str]] = None,
+    nb_jobs: int = 40,
+    max_fragments: int = -1,
+    seed: int = 123,
+) -> pd.DataFrame:
+    """
+    Parses row group level metadata from a Parquet dataset and returns it as a pandas DataFrame.
+    It's similar to `get_parquet_dataset_metadata`
+    but present a unnested view on row groups statistics for only a subset of columns.
+    This function can be used for any kind of downstream analysis.
+
+    It uses joblib for parallel processing
+    and tqdm for progress tracking, which are good practices for handling large datasets.
+
+    Parameters:
+    - dataset (pq.ParquetDataset): The Parquet dataset to parse.
+    - columns (list of str, optional): The columns to include in the output DataFrame. If not specified, all columns are included.
+                For `columns=[]` no column-vise information will be profided (which is generally much faster).
+    - nb_jobs (int, default=40): The number of parallel jobs to run.
+    - max_fragments (int, default=-1): The maximum number of fragments to include. If -1, all fragments are included.
+    - seed (int, default=123): The seed for the random number generator, used when selecting fragments.
+
+    Returns:
+    - pd.DataFrame: A DataFrame containing the row group level metadata.
+    Example:
+        >>> import pyarrow as pa
+        >>> import pyarrow.fs
+        >>> import pyarrow.compute as pc
+        >>> fs, parquet_uri = pa.fs.FileSystem.from_uri("s3://<bucket_name>/<dataset_name>/")
+        >>> dataset = pq.ParquetDataset(parquet_uri, filesystem=fs, filters=pc.equal(pc.field("split"), "validation"))
+        >>> df_stats = get_row_group_level_metadata(dataset, columns=["col1", "col2", ...])
+    """
+    assert max_fragments >= -1
+    fragments = list(dataset._dataset.get_fragments(filter=dataset._filter_expression))
+
+    if max_fragments != -1 and max_fragments < len(fragments):
+        fragments = (
+            np.random.RandomState(seed)
+            .choice(np.array(fragments, dtype="O"), max_fragments, replace=False)
+            .tolist()
+        )
+
+    physical_schema = fragments[0].physical_schema
+
+    columns = columns if columns is not None else physical_schema.names
+    # taking only existing columns
+    non_existing_columns = tuple(set(columns) - set(physical_schema.names))
+    if non_existing_columns:
+        print(
+            "Following colums are not present in physical schema and will be ignored",
+            non_existing_columns,
+        )
+    columns = [col for col in columns if col in physical_schema.names]
+
+    columns_index = [physical_schema.get_field_index(col) for col in columns]
+
+    columns_to_exclude = set(["row_group_id", "num_rows", "total_byte_size"]) & set(
+        columns
+    )
+    assert (
+        len(columns_to_exclude) == 0
+    ), f"names conflict, rename/remove : {columns_to_exclude}"
+
+    def get_one_row_group_stats(row_group):
+        metadata = row_group.metadata
+        info = {
+            "row_group_id": row_group.id,
+            "num_rows": metadata.num_rows,
+            "total_byte_size": metadata.total_byte_size,
+        }
+        for col, ind in zip(columns, columns_index):
+            info[col] = metadata.column(ind).to_dict()
+        return info
+
+    def get_fragment_stats(frag):
+        return {
+            "rg_stats": list(map(get_one_row_group_stats, frag.row_groups)),
+            "parquet_file_path": frag.path,
+            **get_partition_keys(frag.partition_expression),
+        }
+
+    stats = joblib.Parallel(nb_jobs, backend="threading")(
+        joblib.delayed(get_fragment_stats)(frag) for frag in tqdm(fragments)
+    )
+
+    stats = pd.DataFrame(stats).explode("rg_stats")
+    flatten_row_df = pd.DataFrame(stats.pop("rg_stats").tolist(), index=stats.index)
+    result_df = pd.concat([stats, flatten_row_df], axis=1)
+    return result_df
+
+
+def get_parquet_dataset_metadata(
+    dataset: pq.ParquetDataset,
+    full: bool = True,
+    nb_jobs: int = 40,
+    max_fragments: int = -1,
+    seed: int = 123,
+) -> pd.DataFrame:
+    """
+    Extracts metadata from a Parquet dataset.
+    Parameters:
+    - dataset (pq.ParquetDataset): The Parquet dataset to extract metadata from.
+    - full (bool, optional): If True, extracts full stats. If False, extracts minimal stats to speedup the process. Defaults to True.
+    - nb_jobs (int, optional): The number of jobs to run in parallel. Defaults to 40.
+    - max_fragments (int, optional): The maximum number of fragments to process. If -1, all fragments are processed. Defaults to -1.
+    - seed (int, optional): The seed for the random number generator used when selecting fragments. Defaults to 123.
+
+    Returns:
+    pd.DataFrame: A DataFrame containing the extracted metadata.
+
+    Example:
+        >>> import pyarrow as pa
+        >>> import pyarrow.fs
+        >>> import pyarrow.compute as pc
+        >>> fs, parquet_uri = pa.fs.FileSystem.from_uri("s3://<bucket_name>/<dataset_name>/")
+        >>> dataset = pq.ParquetDataset(parquet_uri, filesystem=fs, filters=pc.equal(pc.field("split"), "train"))
+        >>> df_stats = get_parquet_dataset_metadata(dataset, full=True)
+        >>> df_stats.explode("row_groups")  # to see row groups level info
+
+    """
+    assert max_fragments >= -1
+    fragments = list(dataset._dataset.get_fragments(filter=dataset._filter_expression))
+
+    if max_fragments != -1 and max_fragments < len(fragments):
+        fragments = (
+            np.random.RandomState(seed)
+            .choice(np.array(fragments, dtype="O"), max_fragments, replace=False)
+            .tolist()
+        )
+
+    def get_fragment_full_stats(frag):
+        return {
+            "parquet_file_path": frag.path,
+            **frag.metadata.to_dict(),
+            **get_partition_keys(frag.partition_expression),
+        }
+
+    def get_fragment_minimal_stats(frag):
+        meta = frag.metadata
+        return {
+            "parquet_file_path": frag.path,
+            "num_row_groups": frag.num_row_groups,
+            "num_rows": frag.count_rows(),
+            "num_columns": meta.num_columns,
+            "serialized_size": meta.serialized_size,
+            **get_partition_keys(frag.partition_expression),
+        }
+
+    stats_fn = get_fragment_full_stats if full else get_fragment_minimal_stats
+    stats = joblib.Parallel(nb_jobs, backend="threading")(
+        joblib.delayed(stats_fn)(frag) for frag in tqdm(fragments)
+    )
+
+    df_stats = pd.DataFrame(stats)
+    return df_stats
