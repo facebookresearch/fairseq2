@@ -198,6 +198,8 @@ class AdamW(AbstractOptimizer):
                 exp_avg_sqs,
                 max_exp_avg_sqs,
                 steps,
+                fused=False,
+                foreach=True,
                 amsgrad=amsgrad,
                 beta1=beta1,
                 beta2=beta2,
@@ -206,7 +208,6 @@ class AdamW(AbstractOptimizer):
                 eps=pg["eps"],
                 maximize=pg["maximize"],
                 capturable=pg["capturable"],
-                **kwargs,
             )
 
             if use_fp32:
