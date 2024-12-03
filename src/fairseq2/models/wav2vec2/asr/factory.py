@@ -17,7 +17,7 @@ from fairseq2.models.wav2vec2.factory import (
     Wav2Vec2EncoderBuilder,
     Wav2Vec2EncoderConfig,
 )
-from fairseq2.models.wav2vec2.masker import Wav2Vec2Masker
+from fairseq2.models.wav2vec2.masker import StandardWav2Vec2Masker, Wav2Vec2Masker
 from fairseq2.typing import DataType, Device
 
 WAV2VEC2_ASR_FAMILY: Final = "wav2vec2_asr"
@@ -150,7 +150,7 @@ class Wav2Vec2AsrBuilder:
         if not self._config.use_masking:
             return None
 
-        return Wav2Vec2Masker(
+        return StandardWav2Vec2Masker(
             self._config.encoder_config.model_dim,
             self._config.temporal_mask_span_len,
             self._config.max_temporal_mask_prob,
