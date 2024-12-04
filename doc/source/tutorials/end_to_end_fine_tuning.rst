@@ -149,6 +149,8 @@ Running the fine-tuning recipe is as simple as:
         CONFIG_FILE=/configs/example.yaml
         fairseq2 lm instruction_finetune $OUTPUT_DIR --config-file $CONFIG_FILE
 
+For more details about the configuration, please refer to :ref:`basics-recipe`.
+
 Multi-Node
 ^^^^^^^^^^
 
@@ -204,7 +206,7 @@ To accelerate the inference process, we can convert fairseq2 checkpoints to Hugg
 
 **Step 1: Convert fairseq2 checkpoint to XLFormer checkpoint**
 
-The first step is to use the fairseq2 command-line (CLI) tool to convert the fairseq2 checkpoint to an XLF checkpoint. The command structure is as follows:
+The first step is to use the fairseq2 command-line (:ref:`basics-cli`) tool to convert the fairseq2 checkpoint to an XLF checkpoint. The command structure is as follows:
 
 .. code-block:: bash
 
