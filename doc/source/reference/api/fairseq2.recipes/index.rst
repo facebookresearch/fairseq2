@@ -23,5 +23,6 @@ Functions
     :maxdepth: 1
 
     lm/index
+    llama/index
     cli
     trainer
