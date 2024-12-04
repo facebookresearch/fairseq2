@@ -114,6 +114,12 @@ The extension system includes robust error handling to maintain system stability
 
     export FAIRSEQ2_EXTENSION_TRACE=1
 
+We suggest the following best practices for implementing extensions:
+
+* Implement proper error handling
+* Fail fast if required dependencies are missing
+* Provide meaningful error messages
+
 Best Practices
 --------------
 
@@ -127,9 +133,6 @@ Dependency Management
 Error Handling
 ^^^^^^^^^^^^^^
 
-* Implement proper error handling
-* Fail fast if required dependencies are missing
-* Provide meaningful error messages
 
 Documentation
 ^^^^^^^^^^^^^
