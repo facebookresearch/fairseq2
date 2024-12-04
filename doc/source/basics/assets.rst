@@ -102,3 +102,7 @@ fairseq2 provides example cards for different LLMs in
 In fairseq2, a model card is accessed via :py:class:`fairseq2.assets.AssetCard`. Alternatively, one can call 
 `fairseq2.assets.AssetMetadataProvider.get_metadata(name: str)` to get the meta data of a given model card name.
 
+See Also
+--------
+
+- :doc:`Dataset Loaders </reference/api/fairseq2.dataset/loaders>`

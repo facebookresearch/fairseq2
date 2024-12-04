@@ -8,7 +8,8 @@ Dataset Loaders
    :full:
    :zoom:
 
-The dataset loader system in fairseq2 provides a flexible and extensible way to load different types of datasets. The system uses the concept of dataset families to organize and manage different dataset formats.
+The dataset loader system in fairseq2 provides a flexible and extensible way to load different types of datasets.
+The system uses the concept of dataset families to organize and manage different dataset formats.
 
 Dataset Family
 --------------

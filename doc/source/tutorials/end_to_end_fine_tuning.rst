@@ -149,7 +149,7 @@ Running the fine-tuning recipe is as simple as:
         CONFIG_FILE=/configs/example.yaml
         fairseq2 lm instruction_finetune $OUTPUT_DIR --config-file $CONFIG_FILE
 
-For more details about the configuration, please refer to :ref:`basics-recipe`.
+For more details about the recipe configuration, please refer to :ref:`basics-recipe`.
 
 Multi-Node
 ^^^^^^^^^^
@@ -331,6 +331,13 @@ That's pretty much it to get you started. But you can do a lot more. fairseq2 is
 
 Now, up for you to discover!!!
 
+See Also
+--------
+
+- :doc:`Design Philosophy </basics/design_philosophy>`
+- :doc:`Recipe </basics/recipe>`
+- :doc:`CLI </basics/cli>`
+- :doc:`Assets </basics/assets>`
 
 
 .. _LLaMA3.2 1B model: https://huggingface.co/meta-llama/Llama-3.2-1B/tree/main
