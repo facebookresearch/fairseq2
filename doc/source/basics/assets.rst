@@ -35,7 +35,9 @@ How to Customize Your Assets
 
     * Make sure that you have the dataset in place
 
-    * Add the ``name``, ``dataset_family``, and ``data`` fields
+    * Add the ``name``, ``dataset_family``, and ``data`` fields, which allows fairseq2 to find the corresponding dataset loader
+
+    * For more detailed information about ``dataset_family``, please refer to :doc:`Dataset Loader </reference/api/fairseq2.dataset/loaders>`
 
 .. code-block:: yaml
 
