@@ -39,7 +39,6 @@ class AssetDownloadManager(ABC):
     def download_checkpoint(
         self,
         uri: str,
-        checksum: str | None,
         model_name: str,
         *,
         shard_idx: int | None = None,
@@ -67,7 +66,6 @@ class AssetDownloadManager(ABC):
     def download_tokenizer(
         self,
         uri: str,
-        checksum: str | None,
         model_name: str,
         *,
         tokenizer_name: str | None = None,
@@ -95,7 +93,6 @@ class AssetDownloadManager(ABC):
     def download_dataset(
         self,
         uri: str,
-        checksum: str | None,
         dataset_name: str,
         *,
         force: bool = False,
@@ -138,7 +135,6 @@ class InProcAssetDownloadManager(AssetDownloadManager):
     def download_checkpoint(
         self,
         uri: str,
-        checksum: str | None,
         model_name: str,
         *,
         shard_idx: int | None = None,
@@ -154,16 +150,12 @@ class InProcAssetDownloadManager(AssetDownloadManager):
             self._cache_dir, uri, display_name, force, progress, shard_idx
         )
 
-        path = op.run()
-        self._validate_asset_integrity(path, checksum)
-
         return op.run()
 
     @override
     def download_tokenizer(
         self,
         uri: str,
-        checksum: str | None,
         model_name: str,
         *,
         tokenizer_name: str | None = None,
@@ -177,16 +169,12 @@ class InProcAssetDownloadManager(AssetDownloadManager):
 
         op = _AssetDownloadOp(self._cache_dir, uri, display_name, force, progress)
 
-        path = op.run()
-        self._validate_asset_integrity(path, checksum)
-
-        return path
+        return op.run()
 
     @override
     def download_dataset(
         self,
         uri: str,
-        checksum: str | None,
         dataset_name: str,
         *,
         force: bool = False,
@@ -196,29 +184,7 @@ class InProcAssetDownloadManager(AssetDownloadManager):
 
         op = _AssetDownloadOp(self._cache_dir, uri, display_name, force, progress)
 
-        path = op.run()
-        self._validate_asset_integrity(path, checksum)
-
         return op.run()
-
-    def _validate_asset_integrity(self, path: Path, checksum: str | None) -> None:
-        if checksum is None:
-            log.warning(
-                f"Asset at {path} has no recorded checksum, skipping integrity check."
-            )
-            return
-
-        BYTES_PER_CHUNK = 65536
-        sha = sha1()
-
-        with open(path, "rb") as file:
-            while data := file.read(BYTES_PER_CHUNK):
-                sha.update(data)
-
-        if sha.hexdigest() != checksum:
-            raise AssetDownloadError(
-                f"Checksum for {path} does not match the expected checksum."
-            )
 
 
 class _AssetDownloadOp:

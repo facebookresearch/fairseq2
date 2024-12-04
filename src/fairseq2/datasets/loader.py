@@ -85,11 +85,10 @@ class AbstractDatasetLoader(ABC, DatasetLoader[DatasetT]):
             card = self._asset_store.retrieve_card(dataset_name_or_card)
 
         dataset_uri = card.field("data").as_uri()
-        dataset_checksum = card.field("checksum").get_as_(str)
 
         try:
             path = self._download_manager.download_dataset(
-                dataset_uri, dataset_checksum, card.name, force=force, progress=progress
+                dataset_uri, card.name, force=force, progress=progress
             )
         except ValueError as ex:
             raise AssetCardError(
