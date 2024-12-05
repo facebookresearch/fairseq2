@@ -130,9 +130,6 @@ Dependency Management
 * Avoid global state in extensions
 * Handle dependencies explicitly through the container
 
-Error Handling
-^^^^^^^^^^^^^^
-
 
 Documentation
 ^^^^^^^^^^^^^
