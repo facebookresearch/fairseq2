@@ -213,7 +213,7 @@ The first step is to use the fairseq2 command-line (:ref:`basics-cli`) tool to c
     fairseq2 llama convert_checkpoint --model <architecture> <fairseq2_checkpoint_dir> <xlf_checkpoint_dir>
 
 
-* ``<architecture>``: Specify the architecture of the model -- `e.g.`, ``llama3`` (see :module:`fairseq2.recipes.llama`)
+* ``<architecture>``: Specify the architecture of the model -- `e.g.`, ``llama3`` (see :mod:`fairseq2.models.llama`)
 
 * ``<fairseq2_checkpoint_dir>``: Path to the directory containing the Fairseq2 checkpoint
 

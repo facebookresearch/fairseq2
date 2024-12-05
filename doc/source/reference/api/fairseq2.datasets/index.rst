@@ -13,4 +13,4 @@ This module contains dataset loaders.
 .. toctree::
     :maxdepth: 1
 
-    loaders
+    loader

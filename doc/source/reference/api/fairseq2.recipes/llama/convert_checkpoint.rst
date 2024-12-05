@@ -1,4 +1,4 @@
-.. _recipes-lm-convert-checkpoint:
+.. _reference-recipes-lm-convert-checkpoint:
 
 ===================
 Convert Checkpoints
@@ -33,7 +33,7 @@ The converter supports various LLaMA architectures including:
 - LLaMA 3.1: 8B, 70B
 - LLaMA 3.2: 1B, 3B
 
-For the complete list of architectures and their configurations, see :module:`fairseq2.models.llama.archs`.
+For the complete list of architectures and their configurations, see :mod:`fairseq2.models.llama.archs`.
 
 Output Format
 -------------
@@ -50,14 +50,14 @@ The converter produces:
 
     {
         "model": {
-            "dim": 2048,              # Model dimension
-            "n_layers": 16,           # Number of layers
-            "n_heads": 32,            # Number of attention heads
-            "n_kv_heads": 8,          # Number of key/value heads (if different from n_heads)
-            "multiple_of": 256,       # FFN dimension multiple
-            "ffn_dim_multiplier": 1.5,# FFN dimension multiplier (if not 1.0)
-            "rope_theta": 500000.0,   # RoPE theta value
-            "norm_eps": 1e-5          # Layer norm epsilon
+            "dim": 2048,                // Model dimension
+            "n_layers": 16,             // Number of layers
+            "n_heads": 32,              // Number of attention heads
+            "n_kv_heads": 8,            // Number of key/value heads (if different from n_heads)
+            "multiple_of": 256,         // FFN dimension multiple
+            "ffn_dim_multiplier": 1.5,  // FFN dimension multiplier (if not 1.0)
+            "rope_theta": 500000.0,     // RoPE theta value
+            "norm_eps": 1e-5            // Layer norm epsilon
         }
     }
 
@@ -83,9 +83,14 @@ After converting to reference format, use the HuggingFace conversion script to c
         --model_size 1B \
         --output_dir /path/to/hf/model
 
+API Details
+-----------
+
+.. autoclass:: ConvertCheckpointCommandHandler
+
 See Also
 --------
 
 - :doc:`End-to-End Fine-Tuning Tutorial </tutorials/end_to_end_fine_tuning>`
-- :class:`fairseq2.models.llama.LLaMAConfig`
+- :class:`fairseq2.models.llama.factory.LLaMAConfig`
 - :class:`fairseq2.models.llama.archs`

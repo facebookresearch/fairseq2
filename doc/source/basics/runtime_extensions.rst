@@ -21,7 +21,7 @@ Through this system, you can:
 Basic Usage
 -----------
 
-Before using any fairseq2 APIs, you must initialize the framework:
+Before using any fairseq2 APIs, you must initialize the framework with :meth:`fairseq2.setup_fairseq2`:
 
 .. code-block:: python
 
@@ -32,7 +32,7 @@ Before using any fairseq2 APIs, you must initialize the framework:
 Creating Extensions
 -------------------
 
-To create an extension, define a setup function that accepts a ``DependencyContainer`` as its argument:
+To create an extension, define a setup function that accepts a :class:`fairseq2.dependency.DependencyContainer` as its argument:
 
 .. code-block:: python
 
@@ -159,19 +159,9 @@ Environment Variables
 ``FAIRSEQ2_EXTENSION_TRACE``
     Set this environment variable to enable detailed stack traces when extensions fail to load.
 
-API Reference
--------------
-
-.. autofunction:: fairseq2.setup.setup_fairseq2
-
-.. autoclass:: fairseq2.dependency.DependencyContainer
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 See Also
 --------
 
-* :doc:`/api/dependency`
-* :doc:`/api/models`
-* :doc:`/api/assets`
+* :doc:`/reference/api/fairseq2.dependency`
+* :doc:`/reference/api/fairseq2.models/index`
+* :doc:`/reference/api/fairseq2.assets/index`

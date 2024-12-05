@@ -16,6 +16,8 @@ Functions
 
 
 .. toctree::
-    :maxdepth: 1
+   :maxdepth: 1
 
-    archs
+   archs
+   factory
+   
