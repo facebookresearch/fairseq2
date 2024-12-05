@@ -104,7 +104,7 @@ Here's a complete example of implementing a fairseq2 extension:
 Error Handling
 --------------
 
-The extension system includes robust error handling to maintain system stability:
+The extension system includes error handling to maintain system stability:
 
 * Failed extensions log warnings by default
 * Set ``FAIRSEQ2_EXTENSION_TRACE`` environment variable for detailed error traces
@@ -114,14 +114,11 @@ The extension system includes robust error handling to maintain system stability
 
     export FAIRSEQ2_EXTENSION_TRACE=1
 
-We suggest the following best practices for implementing extensions:
-
-* Implement proper error handling
-* Fail fast if required dependencies are missing
-* Provide meaningful error messages
 
 Best Practices
 --------------
+
+We suggest the following best practices for implementing extensions.
 
 Dependency Management
 ^^^^^^^^^^^^^^^^^^^^^
@@ -144,6 +141,13 @@ Testing
 * Test extensions in isolation
 * Verify integration with fairseq2
 * Test error cases and edge conditions
+
+Error Handler
+^^^^^^^^^^^^^
+
+* Implement proper error handling
+* Fail fast if required dependencies are missing
+* Provide meaningful error messages
 
 Legacy Support
 --------------

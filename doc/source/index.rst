@@ -57,6 +57,7 @@ Documentation
 
    tutorials/end_to_end_fine_tuning
    tutorials/monitor_your_experiments
+   tutorials/presets
 
 .. toctree::
    :maxdepth: 1
