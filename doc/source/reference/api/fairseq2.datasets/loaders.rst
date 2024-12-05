@@ -1,10 +1,10 @@
-.. module:: fairseq2.dataset.loaders
+.. module:: fairseq2.datasets.loaders
 
 ===============
 Dataset Loaders
 ===============
 
-.. autoclasstree:: fairseq2.dataset.loaders
+.. autoclasstree:: fairseq2.datasets.loaders
    :full:
    :zoom:
 
