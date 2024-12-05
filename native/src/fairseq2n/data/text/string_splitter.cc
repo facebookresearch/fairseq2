@@ -76,9 +76,13 @@ string_splitter::operator()(data &&d) const
         throw_<std::invalid_argument>(
             "The input string must have at least {} field(s), but has {} instead.", indices_.back(), idx);
 
-    // If no names specified, return as list.
-    if (names_.empty())
+    // If no names specified, return a list, or a string if a single non-excluding index is specified.
+    if (names_.empty()) {
+        if (!exclude_ && indices_.size() == 1)
+            return data{std::move(fields[0])};
+
         return fields;
+    }
 
     // Otherwise, as dictionary.
     if (names_.size() != fields.size())
