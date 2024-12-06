@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 from abc import ABC, abstractmethod
-from collections.abc import Sequence, Set
+from collections.abc import Sequence
 from datetime import timedelta
 from enum import Enum
 from typing import Any, final
@@ -19,15 +19,10 @@ from torch import Tensor
 from torch.distributed import Backend, ProcessGroup, ReduceOp
 from typing_extensions import override
 
-from fairseq2.context import get_local_world_size, get_world_size
 from fairseq2.device import determine_default_cuda_device, determine_default_device
 from fairseq2.logging import get_log_writer
 from fairseq2.typing import CPU, Device
-
-# isort: split
-
-# compat
-from fairseq2.context import get_rank as get_rank  # noqa: F401
+from fairseq2.utils.env import get_int_from_env
 
 log = get_log_writer(__name__)
 
@@ -586,6 +581,34 @@ def _get_num_cpus(num_procs: int) -> int:
     return min(max(num_cpus // num_procs, 1), len(affinity_mask))
 
 
+def get_world_size() -> int:
+    """Return the world size of the running job."""
+    value = get_int_from_env("WORLD_SIZE")
+
+    return 1 if value is None else value
+
+
+def get_rank() -> int:
+    """Return the rank of this process in the running job."""
+    value = get_int_from_env("RANK", allow_zero=True)
+
+    return 0 if value is None else value
+
+
+def get_local_world_size() -> int:
+    """Return the local world size of the running job."""
+    value = get_int_from_env("LOCAL_WORLD_SIZE")
+
+    return 1 if value is None else value
+
+
+def get_local_rank() -> int:
+    """Return the local rank of this process in the running job."""
+    value = get_int_from_env("LOCAL_RANK", allow_zero=True)
+
+    return 0 if value is None else value
+
+
 def setup_default_gang(
     *,
     device: Device | None = None,
@@ -610,9 +633,7 @@ def setup_default_gang(
     )
 
 
-def setup_parallel_gangs(
-    root_gang: Gang, *, tp_size: int = 1, setup_only: Set[str] | None = None
-) -> dict[str, Gang]:
+def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> dict[str, Gang]:
     """Set up gangs to be used for data and tensor parallelism.
 
     For instance; if we have 8 devices denoted by g0 to g7 and 2 devices are
@@ -632,8 +653,6 @@ def setup_parallel_gangs(
         The gang whose topology will be used to create the new gangs.
     :param tp_size:
         The size of tensor parallel gangs.
-    :param setup_only:
-        If not ``None``, sets up only the specified types of parallel gangs.
 
     :returns:
         A ``dict`` of two gangs; (1) the data parallel gang that this process
@@ -650,56 +669,46 @@ def setup_parallel_gangs(
 
     dp_size = root_gang.size // tp_size
 
+    if log.is_enabled_for_info():
+        for name, size in [("data", dp_size), ("tensor", tp_size)]:
+            log.info("Initializing {} parallelism with a gang of size {}.", name, size)
+
     mesh = torch.arange(root_gang.size).view(dp_size, tp_size)
 
     # Get the coordinate of this process in the mesh.
     rank_coords = [x.item() for x in torch.where(mesh == root_gang.rank)]
 
-    output = {}
+    dp_gang: Gang | None = None
+    tp_gang: Gang | None = None
 
-    if setup_only is None or "dp" in setup_only:
-        dp_gang: Gang | None = None
+    # Build the gangs for data parallelism.
+    match dp_size:
+        case 1:
+            dp_gang = FakeGang(device=root_gang.device)
+        case root_gang.size:
+            dp_gang = root_gang
+        case _:
+            for i in range(tp_size):
+                sub_gang = root_gang.create_gang(mesh[:, i].tolist())
+                if i == rank_coords[1]:
+                    dp_gang = sub_gang
 
-        log.info("Initializing data parallelism with a gang size of {}.", dp_size)
+    # Build the gangs for tensor parallelism.
+    match tp_size:
+        case 1:
+            tp_gang = FakeGang(device=root_gang.device)
+        case root_gang.size:
+            tp_gang = root_gang
+        case _:
+            for i in range(dp_size):
+                sub_gang = root_gang.create_gang(mesh[i, :].tolist())
+                if i == rank_coords[0]:
+                    tp_gang = sub_gang
 
-        # Build the gangs for data parallelism.
-        match dp_size:
-            case 1:
-                dp_gang = FakeGang(device=root_gang.device)
-            case root_gang.size:
-                dp_gang = root_gang
-            case _:
-                for i in range(tp_size):
-                    sub_gang = root_gang.create_gang(mesh[:, i].tolist())
-                    if i == rank_coords[1]:
-                        dp_gang = sub_gang
+    assert dp_gang is not None
+    assert tp_gang is not None
 
-        assert dp_gang is not None
-
-        output["dp"] = dp_gang
-
-    if setup_only is None or "tp" in setup_only:
-        tp_gang: Gang | None = None
-
-        log.info("Initializing tensor parallelism with a gang size of {}.", tp_size)
-
-        # Build the gangs for tensor parallelism.
-        match tp_size:
-            case 1:
-                tp_gang = FakeGang(device=root_gang.device)
-            case root_gang.size:
-                tp_gang = root_gang
-            case _:
-                for i in range(dp_size):
-                    sub_gang = root_gang.create_gang(mesh[i, :].tolist())
-                    if i == rank_coords[0]:
-                        tp_gang = sub_gang
-
-        assert tp_gang is not None
-
-        output["tp"] = tp_gang
-
-    return output
+    return {"root": root_gang, "dp": dp_gang, "tp": tp_gang}
 
 
 def broadcast_flag(gang: Gang, flag: bool, source_rank: int = 0) -> bool:

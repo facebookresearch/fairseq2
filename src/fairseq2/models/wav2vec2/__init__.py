@@ -49,9 +49,4 @@ from fairseq2.models.wav2vec2.position_encoder import (
 
 # isort: split
 
-from fairseq2.dependency import DependencyContainer
-from fairseq2.models.wav2vec2.archs import register_archs
-
-
-def register_wav2vec2(container: DependencyContainer) -> None:
-    register_archs()
+import fairseq2.models.wav2vec2.archs  # Register architectures.

@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from fairseq2.recipes.cli import Cli, RecipeCommandHandler
+from fairseq2.recipes.utils.sweep import default_sweep_tagger
 from fairseq2.recipes.wav2vec2.asr.eval import (
     load_wav2vec2_asr_evaluator,
     wav2vec2_asr_eval_presets,
@@ -18,12 +19,12 @@ from fairseq2.recipes.wav2vec2.asr.train import (
 
 
 def _setup_wav2vec2_asr_cli(cli: Cli) -> None:
-    sweep_allowed_keys = [
+    default_sweep_tagger.extend_allow_set(
         "freeze_encoder_for_n_steps",
         "max_audio_len",
         "min_audio_len",
         "normalize_audio",
-    ]
+    )
 
     group = cli.add_group("wav2vec2_asr", help="wav2vec 2.0 ASR recipes")
 
@@ -32,7 +33,6 @@ def _setup_wav2vec2_asr_cli(cli: Cli) -> None:
         loader=load_wav2vec2_asr_trainer,
         preset_configs=wav2vec2_asr_train_presets,
         default_preset="base_10h",
-        sweep_allowed_keys=sweep_allowed_keys,
     )
 
     group.add_command(
@@ -46,7 +46,6 @@ def _setup_wav2vec2_asr_cli(cli: Cli) -> None:
         loader=load_wav2vec2_asr_evaluator,
         preset_configs=wav2vec2_asr_eval_presets,
         default_preset="base_10h",
-        sweep_allowed_keys=sweep_allowed_keys,
     )
 
     group.add_command(

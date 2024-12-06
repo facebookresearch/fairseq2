@@ -18,8 +18,8 @@ from fairseq2.assets import (
     AssetDownloadManager,
     AssetError,
     AssetStore,
+    default_asset_store,
     default_download_manager,
-    get_asset_store,
 )
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
@@ -31,7 +31,7 @@ from fairseq2.nn.utils.module import (
     to_empty,
 )
 from fairseq2.typing import CPU, META, DataClass, DataType, Device
-from fairseq2.utils.file import StandardTensorLoader, TensorLoader
+from fairseq2.utils.file import TensorLoader, load_tensors
 
 log = get_log_writer(__name__)
 
@@ -132,7 +132,7 @@ class ModelSharder(Protocol[ModelT_contra, ModelConfigT_contra]):
 class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
     """Loads models of type ``ModelT``."""
 
-    _asset_store: AssetStore | None
+    _asset_store: AssetStore
     _download_manager: AssetDownloadManager
     _tensor_loader: TensorLoader
     _config_loader: ModelConfigLoader[ModelConfigT]
@@ -181,9 +181,9 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
             model directly on the requested device. Should be used with models
             that do not support PyTorch's ``reset_parameters()`` convention.
         """
-        self._asset_store = asset_store
+        self._asset_store = asset_store or default_asset_store
         self._download_manager = download_manager or default_download_manager
-        self._tensor_loader = tensor_loader or StandardTensorLoader()
+        self._tensor_loader = tensor_loader or load_tensors
         self._config_loader = config_loader
         self._factory = factory
         self._checkpoint_converter = checkpoint_converter
@@ -205,9 +205,6 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         if isinstance(model_name_or_card, AssetCard):
             card = model_name_or_card
         else:
-            if self._asset_store is None:
-                self._asset_store = get_asset_store()
-
             card = self._asset_store.retrieve_card(model_name_or_card)
 
         # Retrieve the gang for tensor parallelism.
@@ -376,7 +373,7 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
 class DelegatingModelLoader(ModelLoader[ModelT]):
     """Loads models of type ``ModelT`` using registered loaders."""
 
-    _asset_store: AssetStore | None
+    _asset_store: AssetStore
     _loaders: dict[str, ModelLoader[ModelT]]
 
     def __init__(self, *, asset_store: AssetStore | None = None) -> None:
@@ -385,7 +382,7 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
             The asset store where to check for available models. If ``None``,
             the default asset store will be used.
         """
-        self._asset_store = asset_store
+        self._asset_store = asset_store or default_asset_store
 
         self._loaders = {}
 
@@ -403,9 +400,6 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
         if isinstance(model_name_or_card, AssetCard):
             card = model_name_or_card
         else:
-            if self._asset_store is None:
-                self._asset_store = get_asset_store()
-
             card = self._asset_store.retrieve_card(model_name_or_card)
 
         family = get_model_family(card)
@@ -448,9 +442,6 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
         if isinstance(model_name_or_card, AssetCard):
             card = model_name_or_card
         else:
-            if self._asset_store is None:
-                self._asset_store = get_asset_store()
-
             card = self._asset_store.retrieve_card(model_name_or_card)
 
         family = get_model_family(card)

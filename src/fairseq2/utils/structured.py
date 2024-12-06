@@ -26,7 +26,6 @@ from typing import (
 
 import torch
 
-from fairseq2.dependency import DependencyContainer, resolve
 from fairseq2.typing import DataClass, DataType, Device
 from fairseq2.utils.dataclass import EMPTY
 
@@ -314,7 +313,7 @@ class ValueConverter:
         if isinstance(obj, Sequence):
             if len(type_args) != 1:
                 raise StructuredError(
-                    f"`type_expr` must have an element type expression for `{type_}`."
+                    f"`type_expr` have an element type expression for `{type_}`."
                 )
 
             output = []
@@ -373,7 +372,7 @@ class ValueConverter:
         if isinstance(obj, set):
             if len(type_args) != 1:
                 raise StructuredError(
-                    f"`type_expr` must have an element type expression for `{type_}`."
+                    f"`type_expr` muts have an element type expression for `{type_}`."
                 )
 
             return {self.structure(e, type_args[0]) for e in obj}
@@ -562,12 +561,7 @@ class ValueConverter:
         return [self.unstructure(e) for e in obj]
 
 
-def register_value_converter(container: DependencyContainer) -> None:
-    container.register_instance(ValueConverter, ValueConverter())
-
-
-def get_value_converter() -> ValueConverter:
-    return resolve(ValueConverter)  # type: ignore[no-any-return]
+default_value_converter = ValueConverter()
 
 
 def is_unstructured(obj: object) -> bool:
