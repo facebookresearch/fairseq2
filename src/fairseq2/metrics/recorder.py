@@ -493,7 +493,6 @@ class WandbRecorder(MetricRecorder):
         """
         :param project: The W&B project name.
         :param output_dir: The base directory under which to store the W&B files.
-
         In order to use W&B, run `wandb login` from the command line and enter
         the API key when prompted.
         """

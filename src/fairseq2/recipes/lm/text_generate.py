@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, TextIO, final
+from typing import TextIO, final
 
 import torch
 from typing_extensions import override
@@ -23,11 +23,9 @@ from fairseq2.datasets.instruction import (
     GenericInstructionDataset,
     load_instruction_dataset,
 )
-from fairseq2.dependency import resolve, resolve_all
 from fairseq2.gang import Gang
 from fairseq2.generation import SamplingConfig, SequenceGenerator, create_seq_generator
 from fairseq2.logging import get_log_writer
-from fairseq2.metrics import MetricRecorder
 from fairseq2.models import load_model
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.sequence import SequenceBatch
@@ -39,8 +37,8 @@ from fairseq2.recipes.utils.asset import (
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import broadcast_model
-from fairseq2.typing import CPU, META, DataType
+from fairseq2.recipes.utils.setup import broadcast_model, setup_gangs
+from fairseq2.typing import CPU, META, DataClass, DataType
 from fairseq2.utils.profiler import Stopwatch
 from fairseq2.utils.rng import manual_seed
 
@@ -87,7 +85,7 @@ class TextGenerateConfig:
     generator: str = "sampling"
     """The sequence generator."""
 
-    generator_config: Any = field(default_factory=lambda: SamplingConfig())
+    generator_config: DataClass | None = field(default_factory=lambda: SamplingConfig())
     """The configuration of the sequence generator."""
 
     # Misc
@@ -164,10 +162,10 @@ def load_text_generator(
             CheckpointModelMetadataProvider(config.checkpoint_dir)
         )
 
-    root_gang = resolve(Gang)
+    root_gang, gangs = setup_gangs(log, tp_size=config.tensor_parallel_size)
 
-    dp_gang = resolve(Gang, key="dp")  # data
-    tp_gang = resolve(Gang, key="tp")  # tensor
+    dp_gang = gangs["dp"]  # data
+    tp_gang = gangs["tp"]  # tensor
 
     model_card = retrieve_asset_card(config.model)
 
@@ -211,10 +209,7 @@ def load_text_generator(
 
     try:
         model = load_model(
-            model_card,
-            gangs={"dp": dp_gang, "tp": tp_gang},
-            device=init_device,
-            dtype=config.dtype,
+            model_card, gangs=gangs, device=init_device, dtype=config.dtype
         )
     except ValueError as ex:
         raise ValueError(
@@ -302,8 +297,6 @@ def load_text_generator(
 
     seed += 1
 
-    metric_recorders = resolve_all(MetricRecorder)
-
     # Initialize the generator.
     return Generator[SequenceBatch](
         unit=unit,
@@ -313,7 +306,7 @@ def load_text_generator(
         tp_gang=tp_gang,
         dtype=config.dtype,
         amp=config.amp,
-        metric_recorders=metric_recorders,
+        metrics_dir=output_dir.joinpath("metrics"),
         seed=seed,
         wall_watch=wall_watch,
     )

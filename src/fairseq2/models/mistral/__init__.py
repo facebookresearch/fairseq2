@@ -21,9 +21,4 @@ from fairseq2.models.mistral.loader import (
 
 # isort: split
 
-from fairseq2.dependency import DependencyContainer
-from fairseq2.models.mistral.archs import register_archs
-
-
-def register_mistral(container: DependencyContainer) -> None:
-    register_archs()
+import fairseq2.models.mistral.archs  # Register architectures.

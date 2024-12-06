@@ -13,14 +13,13 @@ from typing import final
 import torch
 from typing_extensions import override
 
-from fairseq2.assets import AssetNotFoundError
+from fairseq2.assets import AssetNotFoundError, default_asset_store
+from fairseq2.checkpoint import CheckpointModelMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.datasets.batching import LengthBatching
 from fairseq2.datasets.speech import GenericSpeechDataset, load_speech_dataset
-from fairseq2.dependency import resolve, resolve_all
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
-from fairseq2.metrics import MetricRecorder
 from fairseq2.models import load_model
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2 import Wav2Vec2Model
@@ -32,7 +31,7 @@ from fairseq2.recipes.utils.asset import (
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import broadcast_model
+from fairseq2.recipes.utils.setup import broadcast_model, setup_root_gang
 from fairseq2.recipes.wav2vec2.common import Wav2Vec2Criterion, Wav2Vec2MetricBag
 from fairseq2.typing import META, DataType
 from fairseq2.utils.profiler import Stopwatch
@@ -86,13 +85,6 @@ class Wav2Vec2EvalConfig:
     feature_penalty_weight: float = 10.0
     """The weight of the regularization penalty applied to the extracted features."""
 
-    # Score
-    score_metric: str | None = "loss"
-    """The name of the metric to use as score."""
-
-    lower_score_better: bool = True
-    """The ``True``, lower scores are considered better."""
-
     # Misc
     seed: int = 2
     """The random number generator seed to use."""
@@ -115,7 +107,14 @@ def load_wav2vec2_evaluator(
     """Load an :class:`Evaluator` for wav2vec 2.0 model evaluation."""
     wall_watch = Stopwatch(start=True)
 
-    gang = resolve(Gang)
+    if config.checkpoint_dir is not None:
+        default_asset_store.metadata_providers.append(
+            CheckpointModelMetadataProvider(
+                config.checkpoint_dir, lower_score_better=True
+            )
+        )
+
+    gang = setup_root_gang(log)
 
     # Load the dataset.
     try:
@@ -198,8 +197,6 @@ def load_wav2vec2_evaluator(
 
     seed += 1
 
-    metric_recorders = resolve_all(MetricRecorder)
-
     # Initialize the evaluator.
     return Evaluator[SequenceBatch](
         units=[unit],
@@ -207,7 +204,8 @@ def load_wav2vec2_evaluator(
         root_gang=gang,
         dtype=config.dtype,
         amp=config.amp,
-        metric_recorders=metric_recorders,
+        tb_dir=output_dir.joinpath("tb"),
+        metrics_dir=output_dir.joinpath("metrics"),
         seed=seed,
         wall_watch=wall_watch,
     )

@@ -17,9 +17,8 @@ from warnings import catch_warnings
 
 from typing_extensions import override
 
-from fairseq2.assets import get_asset_store
+from fairseq2.assets import default_asset_store
 from fairseq2.console import get_error_console
-from fairseq2.dependency import DependencyResolver
 from fairseq2.logging import get_log_writer
 from fairseq2.models.llama import load_llama_config
 from fairseq2.models.llama.integ import convert_to_reference_checkpoint
@@ -34,7 +33,7 @@ class ConvertCheckpointCommandHandler(CliCommandHandler):
     """Converts fairseq2 LLaMA checkpoints to reference checkpoints."""
 
     @override
-    def init_parser(self, parser: ArgumentParser, resolver: DependencyResolver) -> None:
+    def init_parser(self, parser: ArgumentParser) -> None:
         parser.add_argument(
             "--model",
             metavar="ARCH_NAME",
@@ -54,7 +53,7 @@ class ConvertCheckpointCommandHandler(CliCommandHandler):
         )
 
     @override
-    def __call__(self, args: Namespace, resolver: DependencyResolver) -> None:
+    def __call__(self, args: Namespace) -> None:
         if not args.input_dir.exists() or not args.input_dir.is_dir():
             log.error("`input_dir` must be a directory.")
 
@@ -65,8 +64,9 @@ class ConvertCheckpointCommandHandler(CliCommandHandler):
 
             sys.exit(1)
 
-        asset_store = get_asset_store()
-        arch = asset_store.retrieve_card(args.model).field("model_arch").as_(str)
+        arch = (
+            default_asset_store.retrieve_card(args.model).field("model_arch").as_(str)
+        )
 
         if arch:
             model_config = load_llama_config(args.model)

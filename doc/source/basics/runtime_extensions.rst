@@ -32,13 +32,11 @@ Before using any fairseq2 APIs, you must initialize the framework with :meth:`fa
 Creating Extensions
 -------------------
 
-To create an extension, define a setup function that accepts a :class:`fairseq2.dependency.DependencyContainer` as its argument:
+To create an extension, define a setup function:
 
 .. code-block:: python
 
-    from fairseq2.dependency import DependencyContainer
-
-    def setup_my_extension(container: DependencyContainer) -> None:
+    def setup_my_extension() -> None:
         # Register your custom components here
         pass
 
@@ -54,7 +52,7 @@ Using setup.py:
     setup(
         name="my-fairseq2-extension",
         entry_points={
-            "fairseq2.extension": [
+            "fairseq2": [
                 "my_extension = my_package.module:setup_my_extension",
             ],
         },
@@ -64,7 +62,7 @@ Using pyproject.toml:
 
 .. code-block:: toml
 
-    [project.entry-points."fairseq2.extension"]
+    [project.entry-points."fairseq2"]
     my_extension = "my_package.module:setup_my_extension"
 
 Extension Loading Process
@@ -72,10 +70,9 @@ Extension Loading Process
 
 When ``setup_fairseq2()`` is called, the following steps occur:
 
-1. A new ``StandardDependencyContainer`` is created
-2. Core fairseq2 components are initialized in the container
+2. fairseq2 components are initialized
 3. All registered extensions are discovered via entry points
-4. Each extension's setup function is called with the container
+4. Each extension's setup function is called
 
 Complete Example
 ----------------
@@ -84,22 +81,10 @@ Here's a complete example of implementing a fairseq2 extension:
 
 .. code-block:: python
 
-    from fairseq2.dependency import DependencyContainer
-    from fairseq2.models import ModelRegistry
+    from fairseq2.assets import default_asset_store
 
-    class MyCustomModel:
-        def __init__(self):
-            pass
-        
-        def forward(self, x):
-            return x
-
-    def setup_my_extension(container: DependencyContainer) -> None:
-        # Get the model registry from the container
-        registry = container[ModelRegistry]
-        
-        # Register your custom model
-        registry.register("my_custom_model", MyCustomModel)
+    def setup_my_extension() -> None:
+        default_asset_store.add_package_metadata_provider("my_package")
 
 Error Handling
 --------------
@@ -119,14 +104,6 @@ Best Practices
 --------------
 
 We suggest the following best practices for implementing extensions.
-
-Dependency Management
-^^^^^^^^^^^^^^^^^^^^^
-
-* Use the container to access fairseq2 services
-* Avoid global state in extensions
-* Handle dependencies explicitly through the container
-
 
 Documentation
 ^^^^^^^^^^^^^
@@ -149,11 +126,6 @@ Error Handler
 * Fail fast if required dependencies are missing
 * Provide meaningful error messages
 
-Legacy Support
---------------
-
-Coming soon...
-
 Configuration
 -------------
 
@@ -166,6 +138,4 @@ Environment Variables
 See Also
 --------
 
-* :doc:`/reference/api/fairseq2.dependency`
-* :doc:`/reference/api/fairseq2.models/index`
 * :doc:`/reference/api/fairseq2.assets/index`

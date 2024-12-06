@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Sequence
+from collections.abc import Sequence
 from contextlib import AbstractContextManager, nullcontext
 from itertools import count
 from pathlib import Path
@@ -123,7 +123,6 @@ class Evaluator(Generic[BatchT]):
         tp_gang: Gang | None = None,
         dtype: DataType = torch.float32,
         amp: bool = False,
-        metric_recorders: Iterable[MetricRecorder] | None = None,
         tb_dir: Path | None = None,
         metrics_dir: Path | None = None,
         seed: int = 2,
@@ -145,12 +144,10 @@ class Evaluator(Generic[BatchT]):
             The data type of the model.
         :param amp:
             If ``True``, enables ``torch.amp``.
-        :param metric_recorders:
-            The metric recorders.
         :param tb_dir:
-            Legacy. Use ``metric_recoders``.
+            The TensorBoard log directory to dump metrics.
         :param metrics_dir:
-            Legacy. Use ``metric_recoders``.
+            The directory to dump metrics.
         :param seed:
             The random number generator seed.
         """
@@ -184,20 +181,16 @@ class Evaluator(Generic[BatchT]):
 
         self._amp = amp
 
-        if metric_recorders is None:
-            # compat
-            if root_gang.rank == 0:
-                self._metric_recorders = [LogMetricRecorder(log)]
+        if root_gang.rank == 0:
+            self._metric_recorders = [LogMetricRecorder(log)]
 
-                if tb_dir is not None:
-                    self._metric_recorders.append(TensorBoardRecorder(tb_dir))
+            if tb_dir is not None:
+                self._metric_recorders.append(TensorBoardRecorder(tb_dir))
 
-                if metrics_dir is not None:
-                    self._metric_recorders.append(JsonFileMetricRecorder(metrics_dir))
-            else:
-                self._metric_recorders = []
+            if metrics_dir is not None:
+                self._metric_recorders.append(JsonFileMetricRecorder(metrics_dir))
         else:
-            self._metric_recorders = list(metric_recorders)
+            self._metric_recorders = []
 
         self._seed = seed
 

@@ -34,6 +34,7 @@ class PositionEncoder(Module, ABC):
         """
         :param encoding_dim: The dimensionality of positional encodings. Input
             sequences are expected to have the same dimensionality.
+
         :param max_seq_len: The maximum allowed length for input sequences.
             Sequences longer than ``max_seq_len`` will cause a :class:`ValueError`.
             Typically it is set to the context length of the underlying model.
@@ -58,9 +59,11 @@ class PositionEncoder(Module, ABC):
             where :math:`*` is any number of batch dimensions including none,
             :math:`S` is the sequence length, and :math:`E` is the dimensionality
             of the positional encodings.
+
         :param padding_mask: The padding mask of ``seqs``. *Shape:* :math:`(*,S)`,
             where :math:`*` is any number of batch dimensions including none and
             :math:`S` is the sequence length.
+
         :param state_bag: If not ``None``, the encoder will operate in
             incremental decoding mode. This means that the first step in ``seqs``
             will be considered to be at position :attr:`state_bag.step_nr
@@ -126,10 +129,11 @@ class SinusoidalPositionEncoder(PositionEncoder):
         """
         :param encoding_dim: The dimensionality of positional encodings. Input
             sequences are expected to have the same dimensionality.
+
         :param max_seq_len: The maximum allowed length for input sequences.
             Sequences longer than ``max_seq_len`` will cause a :class:`ValueError`.
 
-        :raise ValueError: when ``encoding_dim`` is not even.
+        :raise ValueError: when ``encodimg_dim`` is not even.
         """
         super().__init__(encoding_dim, max_seq_len)
 
@@ -226,6 +230,7 @@ class LearnedPositionEncoder(PositionEncoder):
         """
         :param encoding_dim: The dimensionality of positional encodings. Input
             sequences are expected to have the same dimensionality.
+
         :param max_seq_len: The maximum allowed length for input sequences.
             Sequences longer than ``max_seq_len`` will cause a :class:`ValueError`.
         """
@@ -286,17 +291,20 @@ class RotaryEncoder(PositionEncoder):
         """
         :param encoding_dim: The dimensionality of positional encodings. Input
             sequences are expected to have the same dimensionality.
+
         :param max_seq_len: The maximum allowed length for input sequences.
             Sequences longer than ``max_seq_len`` will cause a :class:`ValueError`.
+
         :param theta: The coefficient of the long-term decay as described in
             section 3.3 of the reference paper.
+
         :param freqs_init_fn: A callable to initialize the frequency table. The
             encoder will be passed to the callable as an argument and it is
             expected for the callable to return a :class:`~torch.Tensor` holding
             the frequency table. If ``None``, the frequencies will be initialized
             as described in the reference paper.
 
-        :raise ValueError: when ``encoding_dim`` is not even.
+        :raise ValueError: when ``encodimg_dim`` is not even.
         """
         super().__init__(encoding_dim, max_seq_len)
 

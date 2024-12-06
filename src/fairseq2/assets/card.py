@@ -17,7 +17,7 @@ from fairseq2.assets.error import AssetError
 from fairseq2.utils.structured import (
     StructuredError,
     ValueConverter,
-    get_value_converter,
+    default_value_converter,
 )
 
 
@@ -60,7 +60,7 @@ class AssetCard:
         self._name = name
         self._metadata = metadata
         self._base = base
-        self._value_converter = value_converter or get_value_converter()
+        self._value_converter = value_converter or default_value_converter
 
     def field(self, name: str) -> AssetCardField:
         """Return a field of this card.

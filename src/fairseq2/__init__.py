@@ -17,9 +17,47 @@ import fairseq2.models
 
 # isort: split
 
-from fairseq2.setup import setup_fairseq2 as setup_fairseq2
+import os
+
+from importlib_metadata import entry_points
+
+from fairseq2.logging import get_log_writer
+
+log = get_log_writer(__name__)
+
+_setup_complete = False
 
 
-# Maintained for backwards compatibility.
+def setup_fairseq2() -> None:
+    setup_extensions()
+
+
+# legacy
 def setup_extensions() -> None:
-    setup_fairseq2()
+    global _setup_complete
+
+    if _setup_complete:
+        return
+
+    # Mark as complete early on to avoid recursive calls.
+    _setup_complete = True
+
+    for entry_point in entry_points(group="fairseq2"):
+        try:
+            setup_extension = entry_point.load()
+
+            setup_extension()
+        except TypeError:
+            raise RuntimeError(
+                f"The entry point '{entry_point.value}' is not a valid fairseq2 setup function."
+            ) from None
+        except Exception as ex:
+            if "FAIRSEQ2_EXTENSION_TRACE" in os.environ:
+                raise RuntimeError(
+                    f"The setup function at '{entry_point.value}' has failed. See nested exception for details."
+                ) from ex
+
+            log.warning(
+                "The setup function at '{}' has failed. Set `FAIRSEQ2_EXTENSION_TRACE` environment variable to print the stack trace.",
+                entry_point.value,
+            )

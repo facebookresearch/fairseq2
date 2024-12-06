@@ -9,7 +9,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Iterable, Literal, Protocol, TypeAlias, final, runtime_checkable
+from typing import Any, Literal, Protocol, final
 
 from typing_extensions import override
 
@@ -20,10 +20,10 @@ from fairseq2.assets.metadata_provider import (
     FileAssetMetadataProvider,
     PackageAssetMetadataProvider,
 )
-from fairseq2.dependency import DependencyContainer, resolve
-from fairseq2.utils.structured import ValueConverter
+from fairseq2.logging import get_log_writer
+from fairseq2.utils.env import get_path_from_env
 
-AssetScope: TypeAlias = Literal["all", "global", "user"]
+log = get_log_writer(__name__)
 
 
 class AssetStore(ABC):
@@ -31,7 +31,11 @@ class AssetStore(ABC):
 
     @abstractmethod
     def retrieve_card(
-        self, name: str, *, envs: Sequence[str] | None = None, scope: AssetScope = "all"
+        self,
+        name: str,
+        *,
+        envs: Sequence[str] | None = None,
+        scope: Literal["all", "global", "user"] = "all",
     ) -> AssetCard:
         """Retrieve the card of the specified asset.
 
@@ -46,7 +50,9 @@ class AssetStore(ABC):
         """
 
     @abstractmethod
-    def retrieve_names(self, *, scope: AssetScope = "all") -> list[str]:
+    def retrieve_names(
+        self, *, scope: Literal["all", "global", "user"] = "all"
+    ) -> list[str]:
         """Retrieve the names of the assets contained in this store.
 
         :param scope:
@@ -58,40 +64,27 @@ class AssetStore(ABC):
 class StandardAssetStore(AssetStore):
     """Represents a store of assets."""
 
-    _env_resolvers: list[EnvironmentResolver]
-    _metadata_providers: list[AssetMetadataProvider]
-    _user_metadata_providers: list[AssetMetadataProvider]
-    _value_converter: ValueConverter
+    env_resolvers: list[EnvironmentResolver]
+    metadata_providers: list[AssetMetadataProvider]
+    user_metadata_providers: list[AssetMetadataProvider]
 
-    def __init__(
-        self,
-        env_resolvers: Iterable[EnvironmentResolver],
-        metadata_providers: Iterable[AssetMetadataProvider],
-        value_converter: ValueConverter,
-    ) -> None:
-        self._env_resolvers = list(env_resolvers)
-        self._metadata_providers = []
-        self._user_metadata_providers = []
-        self._value_converter = value_converter
-
-        for idx, metadata_provider in enumerate(metadata_providers):
-            if metadata_provider.scope == "global":
-                self._metadata_providers.append(metadata_provider)
-
-                continue
-
-            if metadata_provider.scope == "user":
-                self._user_metadata_providers.append(metadata_provider)
-
-                continue
-
-            raise ValueError(
-                f"The scope of a `MetadataProvider` must be 'global' or 'user', but the instance at index {idx} in `metadata_providers` has an unsupported scope '{metadata_provider.scope}' instead."
-            )
+    def __init__(self, metadata_provider: AssetMetadataProvider) -> None:
+        """
+        :param storage:
+            The default asset metadata provider.
+        """
+        self.env_resolvers = []
+        self.metadata_providers = [metadata_provider]
+        self.user_metadata_providers = []
 
     @override
     def retrieve_card(
-        self, name: str, *, envs: Sequence[str] | None = None, scope: AssetScope = "all"
+        self,
+        name: str,
+        *,
+        envs: Sequence[str] | None = None,
+        scope: Literal["all", "global", "user"] = "all",
+        extra_provider: AssetMetadataProvider | None = None,
     ) -> AssetCard:
         if scope not in ("all", "global", "user"):
             raise ValueError(
@@ -114,7 +107,7 @@ class StandardAssetStore(AssetStore):
         if envs is None:
             envs = self._resolve_envs()
 
-        return self._do_retrieve_card(name, envs, scope)
+        return self._do_retrieve_card(name, envs, scope, extra_provider)
 
     def _resolve_envs(self) -> list[str]:
         # This is a special, always available environment for users to override
@@ -122,21 +115,27 @@ class StandardAssetStore(AssetStore):
         # gated model locally by having a same-named asset with a @user suffix.
         envs = ["user"]
 
-        for resolver in reversed(self._env_resolvers):
+        for resolver in reversed(self.env_resolvers):
             if env := resolver():
                 envs.append(env)
 
         return envs
 
     def _do_retrieve_card(
-        self, name: str, envs: Sequence[str], scope: str
+        self,
+        name: str,
+        envs: Sequence[str],
+        scope: str,
+        extra_provider: AssetMetadataProvider | None,
     ) -> AssetCard:
-        metadata = self._get_metadata(f"{name}@", scope)
+        metadata = self._get_metadata(f"{name}@", scope, extra_provider)
 
         # If we have environment-specific metadata, merge it with `metadata`.
         for env in reversed(envs):
             try:
-                env_metadata = self._get_metadata(f"{name}@{env}", scope)
+                env_metadata = self._get_metadata(
+                    f"{name}@{env}", scope, extra_provider
+                )
 
                 # Do not allow overriding 'name'.
                 try:
@@ -163,22 +162,30 @@ class StandardAssetStore(AssetStore):
                     f"The value of the field 'base' of the asset card '{name}' must be of type `{str}`, but is of type `{type(base_name)}` instead."
                 )
 
-            base_card = self._do_retrieve_card(base_name, envs, scope)
+            base_card = self._do_retrieve_card(base_name, envs, scope, extra_provider)
 
         metadata["name"] = name
 
-        return AssetCard(metadata, base_card, self._value_converter)
+        return AssetCard(metadata, base_card)
 
-    def _get_metadata(self, name: str, scope: str) -> dict[str, Any]:
+    def _get_metadata(
+        self, name: str, scope: str, extra_provider: AssetMetadataProvider | None
+    ) -> dict[str, Any]:
+        if extra_provider is not None:
+            try:
+                return extra_provider.get_metadata(name)
+            except AssetNotFoundError:
+                pass
+
         if scope == "all" or scope == "user":
-            for provider in reversed(self._user_metadata_providers):
+            for provider in reversed(self.user_metadata_providers):
                 try:
                     return provider.get_metadata(name)
                 except AssetNotFoundError:
                     continue
 
         if scope == "all" or scope == "global":
-            for provider in reversed(self._metadata_providers):
+            for provider in reversed(self.metadata_providers):
                 try:
                     return provider.get_metadata(name)
                 except AssetNotFoundError:
@@ -192,7 +199,9 @@ class StandardAssetStore(AssetStore):
         )
 
     @override
-    def retrieve_names(self, *, scope: AssetScope = "all") -> list[str]:
+    def retrieve_names(
+        self, *, scope: Literal["all", "global", "user"] = "all"
+    ) -> list[str]:
         if scope not in ("all", "global", "user"):
             raise ValueError(
                 f"`scope` must be 'all', 'global', or 'user', but is '{scope}' instead."
@@ -201,75 +210,89 @@ class StandardAssetStore(AssetStore):
         names = []
 
         if scope == "all" or scope == "user":
-            for provider in self._user_metadata_providers:
+            for provider in self.user_metadata_providers:
                 names.extend(provider.get_names())
 
         if scope == "all" or scope == "global":
-            for provider in self._metadata_providers:
+            for provider in self.metadata_providers:
                 names.extend(provider.get_names())
 
         return names
 
     def clear_cache(self) -> None:
         """Clear the cache of the underlying metadata providers."""
-        for provider in self._metadata_providers:
+        for provider in self.metadata_providers:
             provider.clear_cache()
 
-        for provider in self._user_metadata_providers:
+        for provider in self.user_metadata_providers:
             provider.clear_cache()
-
-
-@runtime_checkable
-class EnvironmentResolver(Protocol):
-    """Resolves the environment within which assets should be loaded."""
-
-    def __call__(self) -> str | None:
-        ...
-
-
-def register_asset_store(container: DependencyContainer) -> None:
-    container.register(StandardAssetStore)
-
-    container.register_factory(AssetStore, lambda r: r.resolve(StandardAssetStore))
-
-
-def get_asset_store() -> AssetStore:
-    return resolve(AssetStore)  # type: ignore[no-any-return]
-
-
-# COMPAT
-
-
-class _SingletonAssetStore(AssetStore):
-    @override
-    def retrieve_card(
-        self, name: str, *, envs: Sequence[str] | None = None, scope: AssetScope = "all"
-    ) -> AssetCard:
-        return resolve(StandardAssetStore).retrieve_card(name, envs=envs, scope=scope)
-
-    @override
-    def retrieve_names(self, *, scope: AssetScope = "all") -> list[str]:
-        return resolve(StandardAssetStore).retrieve_names(scope=scope)
 
     def add_file_metadata_provider(self, path: Path, user: bool = False) -> None:
+        """Add a new :class:`FileAssetMetadataProvider` pointing to ``path``.
+
+        :param path:
+            The directory under which asset metadata is stored.
+        :param user:
+            If ``True``, adds the metadata provider to the user scope.
+        """
         providers = self.user_metadata_providers if user else self.metadata_providers
 
         providers.append(FileAssetMetadataProvider(path))
 
     def add_package_metadata_provider(self, package_name: str) -> None:
+        """Add a new :class:`PackageAssetMetadataProvider` for ``package_name``.
+
+        :param package_name:
+            The name of the package in which asset metadata is stored.
+        """
         self.metadata_providers.append(PackageAssetMetadataProvider(package_name))
 
-    @property
-    def env_resolvers(self) -> list[EnvironmentResolver]:
-        return resolve(StandardAssetStore)._env_resolvers  # type: ignore[return-value]
 
-    @property
-    def metadata_providers(self) -> list[AssetMetadataProvider]:
-        return resolve(StandardAssetStore)._metadata_providers
+class EnvironmentResolver(Protocol):
+    """Resolves the environment within which assets should be loaded.
 
-    @property
-    def user_metadata_providers(self) -> list[AssetMetadataProvider]:
-        return resolve(StandardAssetStore)._user_metadata_providers
+    Assets can have varying metadata depending on the environment that they are
+    loaded in due to legal or technical requirements.
+    """
+
+    def __call__(self) -> str | None:
+        ...
 
 
-default_asset_store = _SingletonAssetStore()
+def _create_default_asset_store() -> StandardAssetStore:
+    metadata_provider = PackageAssetMetadataProvider("fairseq2.assets.cards")
+
+    return StandardAssetStore(metadata_provider)
+
+
+default_asset_store = _create_default_asset_store()
+
+
+def _load_asset_directory() -> None:
+    asset_dir = get_path_from_env("FAIRSEQ2_ASSET_DIR", log)
+    if asset_dir is None:
+        asset_dir = Path("/etc/fairseq2/assets").resolve()
+        if not asset_dir.exists():
+            return
+
+    default_asset_store.add_file_metadata_provider(asset_dir)
+
+
+_load_asset_directory()
+
+
+def _load_user_asset_directory() -> None:
+    asset_dir = get_path_from_env("FAIRSEQ2_USER_ASSET_DIR", log)
+    if asset_dir is None:
+        asset_dir = get_path_from_env("XDG_CONFIG_HOME", log)
+        if asset_dir is None:
+            asset_dir = Path("~/.config").expanduser()
+
+        asset_dir = asset_dir.joinpath("fairseq2/assets").resolve()
+        if not asset_dir.exists():
+            return
+
+    default_asset_store.add_file_metadata_provider(asset_dir, user=True)
+
+
+_load_user_asset_directory()

@@ -20,10 +20,7 @@ from fairseq2.datasets.instruction import (
     GenericInstructionDataset,
     load_generic_instruction_dataset,
 )
-from fairseq2.dependency import resolve, resolve_all
-from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
-from fairseq2.metrics import MetricRecorder
 from fairseq2.models import load_model
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.sequence import SequenceBatch
@@ -39,7 +36,7 @@ from fairseq2.recipes.utils.asset import (
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import to_data_parallel
+from fairseq2.recipes.utils.setup import setup_gangs, to_data_parallel
 from fairseq2.typing import CPU, META, DataType
 from fairseq2.utils.profiler import Stopwatch
 from fairseq2.utils.rng import manual_seed
@@ -123,10 +120,10 @@ def load_nll_evaluator(
 ) -> Evaluator[SequenceBatch]:
     wall_watch = Stopwatch(start=True)
 
-    root_gang = resolve(Gang)
+    root_gang, gangs = setup_gangs(log, tp_size=config.tensor_parallel_size)
 
-    dp_gang = resolve(Gang, key="dp")  # data
-    tp_gang = resolve(Gang, key="tp")  # tensor
+    dp_gang = gangs["dp"]  # data
+    tp_gang = gangs["tp"]  # tensor
 
     # Load the tokenizer.
     model_card = retrieve_asset_card(config.model)
@@ -225,8 +222,6 @@ def load_nll_evaluator(
         seed=seed,
     )
 
-    metric_recorders = resolve_all(MetricRecorder)
-
     # TODO: Fix once we support static mixed precision on one device.
     if config.mixed_precision == "static":
         amp = root_gang.size == 1 or config.data_parallelism != "fsdp"
@@ -240,7 +235,8 @@ def load_nll_evaluator(
         root_gang=root_gang,
         dtype=config.dtype,
         amp=amp,
-        metric_recorders=metric_recorders,
+        tb_dir=output_dir.joinpath("tb"),
+        metrics_dir=output_dir.joinpath("metrics"),
         seed=seed,
         wall_watch=wall_watch,
     )

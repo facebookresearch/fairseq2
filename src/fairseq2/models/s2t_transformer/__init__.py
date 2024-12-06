@@ -45,9 +45,4 @@ from fairseq2.models.s2t_transformer.tokenizer import (
 
 # isort: split
 
-from fairseq2.dependency import DependencyContainer
-from fairseq2.models.s2t_transformer.archs import register_archs
-
-
-def register_s2t_transformer(container: DependencyContainer) -> None:
-    register_archs()
+import fairseq2.models.s2t_transformer.archs  # Register architectures.

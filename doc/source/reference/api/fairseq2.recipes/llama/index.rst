@@ -9,11 +9,6 @@ fairseq2.recipes.llama
    :full:
    :zoom:
 
-Functions
-=========
-
-.. autofunction:: _setup_llama_cli
-
 See Also
 ========
 
