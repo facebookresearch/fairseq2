@@ -9,13 +9,10 @@ on:
     inputs:
       torch:
         type: string
-        default: '2.3.0'
+        default: '2.5.1'
       py:
         type: string
-        default: '3.11'
-
-env:
-    ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+        default: '3.12'
 
 jobs:
   lint:
@@ -23,7 +20,7 @@ jobs:
     runs-on:
       labels: 4-core-ubuntu
     container:
-      image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_x86_64:2-cu118
+      image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_x86_64:3-cu118
     defaults:
       run:
         shell: bash
@@ -53,10 +50,10 @@ jobs:
           export CUDAFLAGS="--allow-unsupported-compiler"
 
           # TODO: set FAIRSEQ2N_USE_CUDA once lint issues are fixed.
-          CC=clang CXX=clang++ cmake\
-             -GNinja -DFAIRSEQ2N_PYTHON_DEVEL=OFF -B build
+          CC=clang CXX=clang++ scl enable gcc-toolset-11\
+             "cmake -GNinja -DFAIRSEQ2N_PYTHON_DEVEL=OFF -B build"
 
-          cmake --build build
+          scl enable gcc-toolset-11 "cmake --build build"
       - name: Run clang-tidy
         if: success() || (failure() && steps.setup.outcome == 'success')
         working-directory: native

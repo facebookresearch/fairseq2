@@ -12,9 +12,9 @@ repo=ghcr.io/facebookresearch
 
 arch=x86_64
 
-version=2
+version=3
 
-declare -a variants=(cpu cu116 cu117 cu118 cu121)
+declare -a variants=(cpu cu118 cu121 cu124)
 
 for variant in "${variants[@]}"; do
     docker build\

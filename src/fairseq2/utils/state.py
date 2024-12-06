@@ -17,6 +17,7 @@ from typing import (
     Optional,
     Protocol,
     Set,
+    Tuple,
     TypeVar,
     final,
     runtime_checkable,
@@ -225,7 +226,7 @@ class StatefulObjectBag:
 
         return obj.load_state_dict(state)
 
-    def _is_explicit(self, name: str) -> tuple[bool, StateHandler[Any] | None]:
+    def _is_explicit(self, name: str) -> Tuple[bool, StateHandler[Any] | None]:
         try:
             state_handler = self._explicit_stateful_attrs[name]
 
