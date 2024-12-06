@@ -176,7 +176,7 @@ def build_parquet_iterator_pipeline(
         .map(
             table_func_wrap(
                 partial(
-                    apply_filter, filters=config.filters, drop_null=config.drop_null
+                    apply_filter, filters=config.filters, drop_null=config.drop_null  # type: ignore[arg-type]
                 )
             )
         )

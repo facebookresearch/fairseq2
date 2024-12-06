@@ -11,48 +11,13 @@ on:
         type: string
         required: true
 
-env:
-    ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
-
 jobs:
-  publish_pt21_s3-linux:
-    name: Publish to S3 (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }})
-    strategy:
-      matrix:
-        torch: ['2.1.0', '2.1.1', '2.1.2']
-        py: ['3.8', '3.9', '3.10', '3.11']
-        variant: ['cpu', 'cu118', 'cu121']
-      max-parallel: 1
-    uses: ./.github/workflows/_publish_s3.yaml
-    with:
-      os: 'linux'
-      torch: ${{ matrix.torch }}
-      py: ${{ matrix.py }}
-      variant: ${{ matrix.variant }}
-      release_type: ${{ inputs.release_type }}
-
-  publish_pt22_s3-linux:
-    name: Publish to S3 (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }})
-    strategy:
-      matrix:
-        torch: ['2.2.0', '2.2.1', '2.2.2']
-        py: ['3.8', '3.9', '3.10', '3.11']
-        variant: ['cpu', 'cu118', 'cu121']
-      max-parallel: 1
-    uses: ./.github/workflows/_publish_s3.yaml
-    with:
-      os: 'linux'
-      torch: ${{ matrix.torch }}
-      py: ${{ matrix.py }}
-      variant: ${{ matrix.variant }}
-      release_type: ${{ inputs.release_type }}
-
   publish_pt23_s3-linux:
     name: Publish to S3 (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }})
     strategy:
       matrix:
-        torch: ['2.3.0']
-        py: ['3.8', '3.9', '3.10', '3.11']
+        torch: ['2.3.0', '2.3.1']
+        py: ['3.10', '3.11', '3.12']
         variant: ['cpu', 'cu118', 'cu121']
       max-parallel: 1
     uses: ./.github/workflows/_publish_s3.yaml
@@ -63,12 +28,44 @@ jobs:
       variant: ${{ matrix.variant }}
       release_type: ${{ inputs.release_type }}
 
-  publish_pt23_s3-macos:
+  publish_pt24_s3-linux:
+    name: Publish to S3 (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }})
+    strategy:
+      matrix:
+        torch: ['2.4.0', '2.4.1']
+        py: ['3.10', '3.11', '3.12']
+        variant: ['cpu', 'cu118', 'cu121', 'cu124']
+      max-parallel: 1
+    uses: ./.github/workflows/_publish_s3.yaml
+    with:
+      os: 'linux'
+      torch: ${{ matrix.torch }}
+      py: ${{ matrix.py }}
+      variant: ${{ matrix.variant }}
+      release_type: ${{ inputs.release_type }}
+
+  publish_pt25_s3-linux:
+    name: Publish to S3 (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }})
+    strategy:
+      matrix:
+        torch: ['2.5.0', '2.5.1']
+        py: ['3.10', '3.11', '3.12']
+        variant: ['cpu', 'cu118', 'cu121', 'cu124']
+      max-parallel: 1
+    uses: ./.github/workflows/_publish_s3.yaml
+    with:
+      os: 'linux'
+      torch: ${{ matrix.torch }}
+      py: ${{ matrix.py }}
+      variant: ${{ matrix.variant }}
+      release_type: ${{ inputs.release_type }}
+
+  publish_pt25_s3-macos:
     name: Publish to S3 (pt${{ matrix.torch }}, py${{ matrix.py }}, macos-arm64)
     strategy:
       matrix:
-        torch: ['2.3.0']
-        py: ['3.8', '3.9', '3.10', '3.11']
+        torch: ['2.5.1']
+        py: ['3.10', '3.11', '3.12']
       max-parallel: 1
     uses: ./.github/workflows/_publish_s3.yaml
     with:
@@ -82,17 +79,17 @@ jobs:
   publish_pypi-linux:
     name: Publish to PyPI (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }})
     needs:
-      - publish_pt21_s3-linux
-      - publish_pt22_s3-linux
       - publish_pt23_s3-linux
-      - publish_pt23_s3-macos
+      - publish_pt24_s3-linux
+      - publish_pt25_s3-linux
+      - publish_pt25_s3-macos
     if: inputs.release_type == 'stable'
     uses: ./.github/workflows/_publish_pypi.yaml
     strategy:
       matrix:
-        torch: ['2.3.0']
-        py: ['3.8', '3.9', '3.10', '3.11']
-        variant: ['cu121']
+        torch: ['2.5.1']
+        py: ['3.10', '3.11', '3.12']
+        variant: ['cu124']
       max-parallel: 1
     with:
       os: 'linux'
@@ -108,8 +105,8 @@ jobs:
     uses: ./.github/workflows/_publish_pypi.yaml
     strategy:
       matrix:
-        torch: ['2.3.0']
-        py: ['3.8', '3.9', '3.10', '3.11']
+        torch: ['2.5.1']
+        py: ['3.10', '3.11', '3.12']
       max-parallel: 1
     with:
       os: 'macos'

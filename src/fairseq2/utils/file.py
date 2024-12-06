@@ -66,7 +66,7 @@ def load_tensors(
         warnings.simplefilter("ignore")  # Suppress the deprecation warning.
 
         data: Dict[str, Any] = torch.load(
-            str(path), map_location, weights_only=restrict
+            str(path), map_location, weights_only=restrict  # type: ignore[arg-type]
         )
 
     return data
