@@ -7,7 +7,12 @@
 import torch
 
 from fairseq2.data import VocabularyInfo
-from fairseq2.models.llama import LLaMAConfig, create_llama_model, get_llama_lora_config
+from fairseq2.models.llama import (
+    LLaMAConfig,
+    create_llama_model,
+    get_llama_lora_config,
+    get_llama_lora_fa_config,
+)
 from fairseq2.nn.lora import (
     freeze_non_lora,
     merge_lora,
@@ -77,5 +82,28 @@ def test_lora_wrappers_llama_works() -> None:
     freeze_non_lora(model, unfreeze_bias="none")
 
     for name, param in model.named_parameters():
-        if param.requires_grad:
-            assert "lora_" in name
+        assert param.requires_grad == ("lora_" in name)
+
+
+def test_lora_fa_freezes_llama_properly() -> None:
+    llama_config = LLaMAConfig(
+        model_dim=1024,
+        max_seq_len=2048,
+        vocab_info=VocabularyInfo(
+            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
+        ),
+        num_layers=16,
+        num_attn_heads=8,
+        num_key_value_heads=8,
+        ffn_inner_dim=1024 * 4,
+        ffn_inner_dim_to_multiple=1,
+        dropout_p=0.1,
+    )
+    model = create_llama_model(llama_config, device=torch.device("cpu"))
+    lora_config = get_llama_lora_fa_config()
+
+    model = wrap_lora(model, lora_config)  # type: ignore[assignment]
+    freeze_non_lora(model, unfreeze_bias="none")
+
+    for name, param in model.named_parameters():
+        assert param.requires_grad == ("lora_B" in name)
