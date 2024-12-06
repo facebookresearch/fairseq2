@@ -7,7 +7,7 @@
     :maxdepth: 1
 
     fairseq2
-    fairseq2.data.text/index
+    fairseq2.data/index
     fairseq2.datasets/index
     fairseq2.dependency
     fairseq2.nn/index

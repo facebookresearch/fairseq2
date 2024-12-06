@@ -47,7 +47,7 @@ Documentation
    basics/design_philosophy
    basics/cli
    basics/assets
-   basics/data_pipelines
+   basics/data_pipeline
    basics/recipe
    basics/runtime_extensions
 

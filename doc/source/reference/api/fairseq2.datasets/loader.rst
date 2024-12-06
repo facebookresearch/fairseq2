@@ -107,4 +107,4 @@ Usage Examples
 See Also
 --------
 
-- :doc:`Text Dataset </reference/api/fairseq2.data.text/index>`
+- :doc:`Text Dataset </reference/api/fairseq2.data/text/index>`
