@@ -35,7 +35,9 @@ How to Customize Your Assets
 
     * Make sure that you have the dataset in place
 
-    * Add the ``name``, ``dataset_family``, and ``data`` fields
+    * Add the ``name``, ``dataset_family``, and ``data`` fields, which allows fairseq2 to find the corresponding dataset loader
+
+    * For more detailed information about ``dataset_family``, please refer to :doc:`Dataset Loaders </reference/api/fairseq2.datasets/loader>`
 
 .. code-block:: yaml
 
@@ -100,3 +102,7 @@ fairseq2 provides example cards for different LLMs in
 In fairseq2, a model card is accessed via :py:class:`fairseq2.assets.AssetCard`. Alternatively, one can call 
 `fairseq2.assets.AssetMetadataProvider.get_metadata(name: str)` to get the meta data of a given model card name.
 
+See Also
+--------
+
+- :doc:`Dataset Loaders </reference/api/fairseq2.datasets/loader>`

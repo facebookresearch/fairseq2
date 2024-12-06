@@ -40,7 +40,7 @@ below).
 When several implementations of an API share common logic, a typical pattern is
 to have an intermediate abstract class, prefixed with ``Abstract``,  between the
 interface and the concrete implementations.  For example, the :doc:`text tokenizer
-API </reference/api/fairseq2.data.text/text_tokenizers>` has :class:`AbstractTextTokenizer`
+API </reference/api/fairseq2.data/text/text_tokenizers>` has :class:`AbstractTextTokenizer`
 that holds the common logic for :class:`SentencePieceTokenizer` and
 :class:`TiktokenTokenizer`.
 

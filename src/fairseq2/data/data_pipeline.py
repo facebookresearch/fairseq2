@@ -91,8 +91,7 @@ if TYPE_CHECKING or DOC_MODE:
             it will yield examples only as long as other
             pipelines yield examples.
 
-            See :ref:`reference/data:pseudo-infinite and infinite pipelines`
-            for more details.
+            See :ref:`basics/data-pipeline/pipeline-types` for more details.
 
             :param example:
                 Example to yield infinitely.
@@ -113,8 +112,7 @@ if TYPE_CHECKING or DOC_MODE:
             it will yield examples only as long as other
             pipelines yield examples.
 
-            See :ref:`reference/data:pseudo-infinite and infinite pipelines`
-            for more details.
+            See :ref:`basics/data-pipeline/pipeline-types` for more details.
 
             :param start:
                 Number to start counting from.
@@ -133,6 +131,8 @@ if TYPE_CHECKING or DOC_MODE:
             allow_repeats: bool = True,
         ) -> DataPipelineBuilder:
             """Extract examples from ``pipelines`` in round robin.
+
+            See :ref:`basics/data-pipeline/combining-pipelines` for more details.
 
             :param pipelines:
                 The data pipelines to round robin.
@@ -155,6 +155,8 @@ if TYPE_CHECKING or DOC_MODE:
             ``weights``. Circles around pipelines until all have reached their
             end at least once.
 
+            See :ref:`basics/data-pipeline/combining-pipelines` for more details.
+
             :param data_pipelines:
                 The data pipelines to sample from.
             :param weights:
@@ -174,6 +176,8 @@ if TYPE_CHECKING or DOC_MODE:
             disable_parallelism: bool = False,
         ) -> DataPipelineBuilder:
             """Zip together examples read from ``pipelines``.
+
+            See :ref:`basics/data-pipeline/combining-pipelines` for more details.
 
             :param pipelines:
                 The data pipelines to zip.
@@ -196,6 +200,8 @@ if TYPE_CHECKING or DOC_MODE:
 
         def bucket(self, bucket_size: int, drop_remainder: bool = False) -> Self:
             """Combine a number of consecutive examples into a single example.
+
+            See :ref:`basics/data-pipeline/combining-pipelines` for more details.
 
             :param bucket_size:
                 The number of examples to combine.
@@ -303,7 +309,7 @@ if TYPE_CHECKING or DOC_MODE:
 
             :param selector:
                 The column to apply the function to. Several columns can be specified by separating them with a ",".
-                See :ref:`reference/data:column syntax` for more details.
+                See :ref:`basics/data-pipeline/column-selection` for more details.
             :param num_parallel_calls:
                 The number of examples to process in parallel.
             """
@@ -429,7 +435,7 @@ if TYPE_CHECKING or DOC_MODE:
 
         :param selector:
             The columns this overrides applies to.
-            See :ref:`reference/data:column syntax` for details on how to specify columns.
+            See :ref:`basics/data-pipeline/column-selection` for details on how to specify columns.
         """
 
         def __init__(
