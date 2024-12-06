@@ -138,17 +138,14 @@ class BestRQEncoderBuilder(Wav2Vec2EncoderBuilder):
         if self._config.use_fbank:
             raise NotImplementedError()
 
-        if self._config.use_conv_encoder:
-            return Wav2Vec2FeatureExtractor(
-                self._config.feature_extractor_layer_descs,
-                self._config.feature_extractor_bias,
-                layer_norm=self._config.feature_extractor_layer_norm_convs,
-                gradient_scale=self._config.feature_gradient_scale,
-                device=self._device,
-                dtype=self._dtype,
-            )
-        else:
-            raise ValueError()
+        return Wav2Vec2FeatureExtractor(
+            self._config.feature_extractor_layer_descs,
+            self._config.feature_extractor_bias,
+            layer_norm=self._config.feature_extractor_layer_norm_convs,
+            gradient_scale=self._config.feature_gradient_scale,
+            device=self._device,
+            dtype=self._dtype,
+        )
 
 
 class BestRQBuilder:
@@ -160,14 +157,14 @@ class BestRQBuilder:
     """
 
     _config: BestRQConfig
-    _encoder_builder: Wav2vec2EncoderBuilder
+    _encoder_builder: BestRQEncoderBuilder
     _device: Device | None
     _dtype: DataType | None
 
     def __init__(
         self,
         config: BestRQConfig,
-        encoder_builder: Wav2vec2EncoderBuilder | None = None,
+        encoder_builder: BestRQEncoderBuilder | None = None,
         *,
         device: Device | None = None,
         dtype: DataType | None = None,
@@ -185,7 +182,7 @@ class BestRQBuilder:
         self._config = config
         
         if encoder_builder is None:
-            encoder_builder = Wav2Vec2EncoderBuilder(
+            encoder_builder = BestRQEncoderBuilder(
                 config.encoder_config, device=device, dtype=dtype
             )
             
