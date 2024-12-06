@@ -30,6 +30,7 @@ class LoRAConfig:
     alpha: float
     dropout_p: float
     keys: list[str]
+    lr_ratio: float = 1.0
 
 
 class LoRALayer(ABC):
