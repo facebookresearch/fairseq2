@@ -32,6 +32,7 @@ from fairseq2.models.s2t_transformer import register_s2t_transformer
 from fairseq2.models.transformer import register_transformer
 from fairseq2.models.w2vbert import register_w2vbert
 from fairseq2.models.wav2vec2 import register_wav2vec2
+from fairseq2.models.bestrq import register_bestrq
 from fairseq2.models.wav2vec2.asr import register_wav2vec2_asr
 
 
@@ -44,3 +45,4 @@ def register_models(container: DependencyContainer) -> None:
     register_w2vbert(container)
     register_wav2vec2(container)
     register_wav2vec2_asr(container)
+    register_bestrq(container)

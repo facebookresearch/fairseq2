@@ -35,6 +35,7 @@ from fairseq2.recipes.utils.log import exception_logger
 from fairseq2.recipes.utils.sweep import register_sweep_tagger
 from fairseq2.recipes.wav2vec2 import _setup_wav2vec2_cli
 from fairseq2.recipes.wav2vec2.asr import _setup_wav2vec2_asr_cli
+from fairseq2.recipes.bestrq import _setup_bestrq_cli
 from fairseq2.typing import DataClass
 
 log = get_log_writer(__name__)
@@ -84,6 +85,7 @@ def _setup_cli(cli: Cli, resolver: DependencyResolver) -> None:
     _setup_mt_cli(cli)
     _setup_wav2vec2_cli(cli)
     _setup_wav2vec2_asr_cli(cli)
+    _setup_bestrq_cli(cli)
     _setup_hg_cli(cli)
 
 
