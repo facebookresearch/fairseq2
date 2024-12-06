@@ -45,7 +45,7 @@ Key Features
 
     * Optimized for large-scale datasets and varied formats.
 
-    * Learn more: :ref:`basics-data-pipelines`
+    * Learn more: :ref:`basics-data-pipeline`
 
 
 .. dropdown:: Gang

@@ -149,6 +149,8 @@ Running the fine-tuning recipe is as simple as:
         CONFIG_FILE=/configs/example.yaml
         fairseq2 lm instruction_finetune $OUTPUT_DIR --config-file $CONFIG_FILE
 
+For more details about the recipe configuration, please refer to :ref:`basics-recipe`.
+
 Multi-Node
 ^^^^^^^^^^
 
@@ -204,14 +206,14 @@ To accelerate the inference process, we can convert fairseq2 checkpoints to Hugg
 
 **Step 1: Convert fairseq2 checkpoint to XLFormer checkpoint**
 
-The first step is to use the fairseq2 command-line (CLI) tool to convert the fairseq2 checkpoint to an XLF checkpoint. The command structure is as follows:
+The first step is to use the fairseq2 command-line (:ref:`basics-cli`) tool to convert the fairseq2 checkpoint to an XLF checkpoint. The command structure is as follows:
 
 .. code-block:: bash
 
-    fairseq2 llama convert_checkpoint --arch <architecture> <fairseq2_checkpoint_dir> <xlf_checkpoint_dir>
+    fairseq2 llama convert_checkpoint --model <architecture> <fairseq2_checkpoint_dir> <xlf_checkpoint_dir>
 
 
-* ``<architecture>``: Specify the architecture of the model (`e.g.`, ``llama3``)
+* ``<architecture>``: Specify the architecture of the model -- `e.g.`, ``llama3`` (see :mod:`fairseq2.models.llama`)
 
 * ``<fairseq2_checkpoint_dir>``: Path to the directory containing the Fairseq2 checkpoint
 
@@ -329,6 +331,13 @@ That's pretty much it to get you started. But you can do a lot more. fairseq2 is
 
 Now, up for you to discover!!!
 
+See Also
+--------
+
+- :doc:`Design Philosophy </basics/design_philosophy>`
+- :doc:`Recipe </basics/recipe>`
+- :doc:`CLI </basics/cli>`
+- :doc:`Assets </basics/assets>`
 
 
 .. _LLaMA3.2 1B model: https://huggingface.co/meta-llama/Llama-3.2-1B/tree/main

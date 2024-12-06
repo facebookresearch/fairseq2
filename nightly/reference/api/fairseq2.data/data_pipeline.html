@@ -1,0 +1,1284 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../../../">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="../../../_static/img/logo.png" sizes="1132x1126" rel="icon" type="image/png"><link rel="index" title="Index" href="../../../genindex.html" /><link rel="search" title="Search" href="../../../search.html" /><link rel="next" title="fairseq2.datasets" href="../fairseq2.datasets/index.html" /><link rel="prev" title="Text Tokenizers" href="text/text_tokenizers.html" />
+
+    <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
+        <title>fairseq2.data.data_pipeline - fairseq2 Documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo.css?v=354aac6f" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo-extensions.css?v=302659d7" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f8f8f8;
+  --color-code-foreground: black;
+  --color-brand-primary: #008080;
+  --color-brand-content: #008080;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../../../index.html"><div class="brand">fairseq2 Documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../../../index.html">
+  
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo" src="../../../_static/logo.png" alt="Logo"/>
+  </div>
+  
+  <span class="sidebar-brand-text">fairseq2 Documentation</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../../../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../getting_started/installation/index.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-download" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M7.47 10.78a.75.75 0 001.06 0l3.75-3.75a.75.75 0 00-1.06-1.06L8.75 8.44V1.75a.75.75 0 00-1.5 0v6.69L4.78 5.97a.75.75 0 00-1.06 1.06l3.75 3.75zM3.75 13a.75.75 0 000 1.5h8.5a.75.75 0 000-1.5h-8.5z" fill-rule="evenodd"></path></svg> Installation</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><div class="visually-hidden">Toggle navigation of  Installation</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../getting_started/installation/installation_from_source.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-file-binary" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M4 1.75C4 .784 4.784 0 5.75 0h5.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v8.586A1.75 1.75 0 0114.25 15h-9a.75.75 0 010-1.5h9a.25.25 0 00.25-.25V6h-2.75A1.75 1.75 0 0110 4.25V1.5H5.75a.25.25 0 00-.25.25v2a.75.75 0 01-1.5 0v-2zm7.5-.188V4.25c0 .138.112.25.25.25h2.688a.252.252 0 00-.011-.013l-2.914-2.914a.272.272 0 00-.013-.011zM0 7.75C0 6.784.784 6 1.75 6h1.5C4.216 6 5 6.784 5 7.75v2.5A1.75 1.75 0 013.25 12h-1.5A1.75 1.75 0 010 10.25v-2.5zm1.75-.25a.25.25 0 00-.25.25v2.5c0 .138.112.25.25.25h1.5a.25.25 0 00.25-.25v-2.5a.25.25 0 00-.25-.25h-1.5zm5-1.5a.75.75 0 000 1.5h.75v3h-.75a.75.75 0 000 1.5h3a.75.75 0 000-1.5H9V6.75A.75.75 0 008.25 6h-1.5z" fill-rule="evenodd"></path></svg> Installing from Source</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../getting_started/quick_start.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-rocket" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M14.064 0a8.75 8.75 0 00-6.187 2.563l-.459.458c-.314.314-.616.641-.904.979H3.31a1.75 1.75 0 00-1.49.833L.11 7.607a.75.75 0 00.418 1.11l3.102.954c.037.051.079.1.124.145l2.429 2.428c.046.046.094.088.145.125l.954 3.102a.75.75 0 001.11.418l2.774-1.707a1.75 1.75 0 00.833-1.49V9.485c.338-.288.665-.59.979-.904l.458-.459A8.75 8.75 0 0016 1.936V1.75A1.75 1.75 0 0014.25 0h-.186zM10.5 10.625c-.088.06-.177.118-.266.175l-2.35 1.521.548 1.783 1.949-1.2a.25.25 0 00.119-.213v-2.066zM3.678 8.116L5.2 5.766c.058-.09.117-.178.176-.266H3.309a.25.25 0 00-.213.119l-1.2 1.95 1.782.547zm5.26-4.493A7.25 7.25 0 0114.063 1.5h.186a.25.25 0 01.25.25v.186a7.25 7.25 0 01-2.123 5.127l-.459.458a15.21 15.21 0 01-2.499 2.02l-2.317 1.5-2.143-2.143 1.5-2.317a15.25 15.25 0 012.02-2.5l.458-.458h.002zM12 5a1 1 0 11-2 0 1 1 0 012 0zm-8.44 9.56a1.5 1.5 0 10-2.12-2.12c-.734.73-1.047 2.332-1.15 3.003a.23.23 0 00.265.265c.671-.103 2.273-.416 3.005-1.148z" fill-rule="evenodd"></path></svg> Quick Start</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Basics</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../basics/overview.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-telescope" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M14.184 1.143a1.75 1.75 0 00-2.502-.57L.912 7.916a1.75 1.75 0 00-.53 2.32l.447.775a1.75 1.75 0 002.275.702l11.745-5.656a1.75 1.75 0 00.757-2.451l-1.422-2.464zm-1.657.669a.25.25 0 01.358.081l1.422 2.464a.25.25 0 01-.108.35l-2.016.97-1.505-2.605 1.85-1.26zM9.436 3.92l1.391 2.41-5.42 2.61-.942-1.63 4.97-3.39zM3.222 8.157l-1.466 1a.25.25 0 00-.075.33l.447.775a.25.25 0 00.325.1l1.598-.769-.83-1.436zm6.253 2.306a.75.75 0 00-.944-.252l-1.809.87a.75.75 0 00-.293.253L4.38 14.326a.75.75 0 101.238.848l1.881-2.75v2.826a.75.75 0 001.5 0v-2.826l1.881 2.75a.75.75 0 001.238-.848l-2.644-3.863z" fill-rule="evenodd"></path></svg> Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../basics/design_philosophy.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-infinity" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M3.5 6c-1.086 0-2 .914-2 2 0 1.086.914 2 2 2 .525 0 1.122-.244 1.825-.727.51-.35 1.025-.79 1.561-1.273-.536-.483-1.052-.922-1.56-1.273C4.621 6.244 4.025 6 3.5 6zm4.5.984c-.59-.533-1.204-1.066-1.825-1.493-.797-.548-1.7-.991-2.675-.991C1.586 4.5 0 6.086 0 8s1.586 3.5 3.5 3.5c.975 0 1.878-.444 2.675-.991.621-.427 1.235-.96 1.825-1.493.59.533 1.204 1.066 1.825 1.493.797.547 1.7.991 2.675.991 1.914 0 3.5-1.586 3.5-3.5s-1.586-3.5-3.5-3.5c-.975 0-1.878.443-2.675.991-.621.427-1.235.96-1.825 1.493zM9.114 8c.536.483 1.052.922 1.56 1.273.704.483 1.3.727 1.826.727 1.086 0 2-.914 2-2 0-1.086-.914-2-2-2-.525 0-1.122.244-1.825.727-.51.35-1.025.79-1.561 1.273z" fill-rule="evenodd"></path></svg> Design Philosophy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../basics/cli.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-terminal" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M0 2.75C0 1.784.784 1 1.75 1h12.5c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0114.25 15H1.75A1.75 1.75 0 010 13.25V2.75zm1.75-.25a.25.25 0 00-.25.25v10.5c0 .138.112.25.25.25h12.5a.25.25 0 00.25-.25V2.75a.25.25 0 00-.25-.25H1.75zM7.25 8a.75.75 0 01-.22.53l-2.25 2.25a.75.75 0 11-1.06-1.06L5.44 8 3.72 6.28a.75.75 0 111.06-1.06l2.25 2.25c.141.14.22.331.22.53zm1.5 1.5a.75.75 0 000 1.5h3a.75.75 0 000-1.5h-3z" fill-rule="evenodd"></path></svg> CLI</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../basics/assets.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-container" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M10.41.24l4.711 2.774A1.767 1.767 0 0116 4.54v5.01a1.77 1.77 0 01-.88 1.53l-7.753 4.521-.002.001a1.767 1.767 0 01-1.774 0H5.59L.873 12.85A1.762 1.762 0 010 11.327V6.292c0-.304.078-.598.22-.855l.004-.005.01-.019c.15-.262.369-.486.64-.643L8.641.239a1.75 1.75 0 011.765 0l.002.001zM9.397 1.534a.25.25 0 01.252 0l4.115 2.422-7.152 4.148a.267.267 0 01-.269 0L2.227 5.716l7.17-4.182zM7.365 9.402L8.73 8.61v4.46l-1.5.875V9.473a1.77 1.77 0 00.136-.071zm2.864 2.794V7.741l1.521-.882v4.45l-1.521.887zm3.021-1.762l1.115-.65h.002a.268.268 0 00.133-.232V5.264l-1.25.725v4.445zm-11.621 1.12l4.1 2.393V9.474a1.77 1.77 0 01-.138-.072L1.5 7.029v4.298c0 .095.05.181.129.227z" fill-rule="evenodd"></path></svg> Assets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../basics/data_pipeline.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-database" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M2.5 3.5c0-.133.058-.318.282-.55.227-.237.592-.484 1.1-.708C4.899 1.795 6.354 1.5 8 1.5c1.647 0 3.102.295 4.117.742.51.224.874.47 1.101.707.224.233.282.418.282.551 0 .133-.058.318-.282.55-.227.237-.592.484-1.1.708C11.101 5.205 9.646 5.5 8 5.5c-1.647 0-3.102-.295-4.117-.742-.51-.224-.874-.47-1.101-.707-.224-.233-.282-.418-.282-.551zM1 3.5c0-.626.292-1.165.7-1.59.406-.422.956-.767 1.579-1.041C4.525.32 6.195 0 8 0c1.805 0 3.475.32 4.722.869.622.274 1.172.62 1.578 1.04.408.426.7.965.7 1.591v9c0 .626-.292 1.165-.7 1.59-.406.422-.956.767-1.579 1.041C11.476 15.68 9.806 16 8 16c-1.805 0-3.475-.32-4.721-.869-.623-.274-1.173-.62-1.579-1.04-.408-.426-.7-.965-.7-1.591v-9zM2.5 8V5.724c.241.15.503.286.779.407C4.525 6.68 6.195 7 8 7c1.805 0 3.475-.32 4.722-.869.275-.121.537-.257.778-.407V8c0 .133-.058.318-.282.55-.227.237-.592.484-1.1.708C11.101 9.705 9.646 10 8 10c-1.647 0-3.102-.295-4.117-.742-.51-.224-.874-.47-1.101-.707C2.558 8.318 2.5 8.133 2.5 8zm0 2.225V12.5c0 .133.058.318.282.55.227.237.592.484 1.1.708 1.016.447 2.471.742 4.118.742 1.647 0 3.102-.295 4.117-.742.51-.224.874-.47 1.101-.707.224-.233.282-.418.282-.551v-2.275c-.241.15-.503.285-.778.406-1.247.549-2.917.869-4.722.869-1.805 0-3.475-.32-4.721-.869a6.236 6.236 0 01-.779-.406z" fill-rule="evenodd"></path></svg> Data Pipeline</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../basics/recipe.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-gift" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M4.75 1.5a1.25 1.25 0 100 2.5h2.309c-.233-.818-.542-1.401-.878-1.793-.43-.502-.915-.707-1.431-.707zM2 2.75c0 .45.108.875.3 1.25h-.55A1.75 1.75 0 000 5.75v2c0 .698.409 1.3 1 1.582v4.918c0 .966.784 1.75 1.75 1.75h10.5A1.75 1.75 0 0015 14.25V9.332c.591-.281 1-.884 1-1.582v-2A1.75 1.75 0 0014.25 4h-.55a2.75 2.75 0 00-2.45-4c-.984 0-1.874.42-2.57 1.23A5.086 5.086 0 008 2.274a5.086 5.086 0 00-.68-1.042C6.623.42 5.733 0 4.75 0A2.75 2.75 0 002 2.75zM8.941 4h2.309a1.25 1.25 0 100-2.5c-.516 0-1 .205-1.43.707-.337.392-.646.975-.879 1.793zm-1.84 1.5H1.75a.25.25 0 00-.25.25v2c0 .138.112.25.25.25h5.5V5.5h-.149zm1.649 0V8h5.5a.25.25 0 00.25-.25v-2a.25.25 0 00-.25-.25h-5.5zm0 4h4.75v4.75a.25.25 0 01-.25.25h-4.5v-5zm-1.5 0v5h-4.5a.25.25 0 01-.25-.25V9.5h4.75z" fill-rule="evenodd"></path></svg> Recipes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../basics/runtime_extensions.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-plug" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M10.276 3.09a.25.25 0 01.192-.09h.782a.25.25 0 01.25.25v8.5a.25.25 0 01-.25.25h-.782a.25.25 0 01-.192-.09l-.95-1.14a.75.75 0 00-.483-.264l-3.124-.39a.25.25 0 01-.219-.249V5.133a.25.25 0 01.219-.248l3.124-.39a.75.75 0 00.483-.265l.95-1.14zM4 8v1.867a1.75 1.75 0 001.533 1.737l2.83.354.761.912c.332.4.825.63 1.344.63h.782A1.75 1.75 0 0013 11.75V11h2.25a.75.75 0 000-1.5H13v-4h2.25a.75.75 0 000-1.5H13v-.75a1.75 1.75 0 00-1.75-1.75h-.782c-.519 0-1.012.23-1.344.63l-.76.913-2.831.353A1.75 1.75 0 004 5.133V6.5H2.5A2.5 2.5 0 000 9v5.25a.75.75 0 001.5 0V9a1 1 0 011-1H4z" fill-rule="evenodd"></path></svg> Runtime Extensions</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/end_to_end_fine_tuning.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-comment-discussion" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M1.5 2.75a.25.25 0 01.25-.25h8.5a.25.25 0 01.25.25v5.5a.25.25 0 01-.25.25h-3.5a.75.75 0 00-.53.22L3.5 11.44V9.25a.75.75 0 00-.75-.75h-1a.25.25 0 01-.25-.25v-5.5zM1.75 1A1.75 1.75 0 000 2.75v5.5C0 9.216.784 10 1.75 10H2v1.543a1.457 1.457 0 002.487 1.03L7.061 10h3.189A1.75 1.75 0 0012 8.25v-5.5A1.75 1.75 0 0010.25 1h-8.5zM14.5 4.75a.25.25 0 00-.25-.25h-.5a.75.75 0 110-1.5h.5c.966 0 1.75.784 1.75 1.75v5.5A1.75 1.75 0 0114.25 12H14v1.543a1.457 1.457 0 01-2.487 1.03L9.22 12.28a.75.75 0 111.06-1.06l2.22 2.22v-2.19a.75.75 0 01.75-.75h1a.25.25 0 00.25-.25v-5.5z" fill-rule="evenodd"></path></svg> End-to-End Fine-Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/monitor_your_experiments.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-codescan-checkmark" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M10.28 6.28a.75.75 0 10-1.06-1.06L6.25 8.19l-.97-.97a.75.75 0 00-1.06 1.06l1.5 1.5a.75.75 0 001.06 0l3.5-3.5z"></path><path d="M7.5 15a7.469 7.469 0 004.746-1.693l2.474 2.473a.75.75 0 101.06-1.06l-2.473-2.474A7.5 7.5 0 107.5 15zm0-13.5a6 6 0 104.094 10.386.75.75 0 01.293-.292A6 6 0 007.5 1.5z" fill-rule="evenodd"></path></svg> Monitor Your Experiments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/presets.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-gear" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M7.429 1.525a6.593 6.593 0 011.142 0c.036.003.108.036.137.146l.289 1.105c.147.56.55.967.997 1.189.174.086.341.183.501.29.417.278.97.423 1.53.27l1.102-.303c.11-.03.175.016.195.046.219.31.41.641.573.989.014.031.022.11-.059.19l-.815.806c-.411.406-.562.957-.53 1.456a4.588 4.588 0 010 .582c-.032.499.119 1.05.53 1.456l.815.806c.08.08.073.159.059.19a6.494 6.494 0 01-.573.99c-.02.029-.086.074-.195.045l-1.103-.303c-.559-.153-1.112-.008-1.529.27-.16.107-.327.204-.5.29-.449.222-.851.628-.998 1.189l-.289 1.105c-.029.11-.101.143-.137.146a6.613 6.613 0 01-1.142 0c-.036-.003-.108-.037-.137-.146l-.289-1.105c-.147-.56-.55-.967-.997-1.189a4.502 4.502 0 01-.501-.29c-.417-.278-.97-.423-1.53-.27l-1.102.303c-.11.03-.175-.016-.195-.046a6.492 6.492 0 01-.573-.989c-.014-.031-.022-.11.059-.19l.815-.806c.411-.406.562-.957.53-1.456a4.587 4.587 0 010-.582c.032-.499-.119-1.05-.53-1.456l-.815-.806c-.08-.08-.073-.159-.059-.19a6.44 6.44 0 01.573-.99c.02-.029.086-.075.195-.045l1.103.303c.559.153 1.112.008 1.529-.27.16-.107.327-.204.5-.29.449-.222.851-.628.998-1.189l.289-1.105c.029-.11.101-.143.137-.146zM8 0c-.236 0-.47.01-.701.03-.743.065-1.29.615-1.458 1.261l-.29 1.106c-.017.066-.078.158-.211.224a5.994 5.994 0 00-.668.386c-.123.082-.233.09-.3.071L3.27 2.776c-.644-.177-1.392.02-1.82.63a7.977 7.977 0 00-.704 1.217c-.315.675-.111 1.422.363 1.891l.815.806c.05.048.098.147.088.294a6.084 6.084 0 000 .772c.01.147-.038.246-.088.294l-.815.806c-.474.469-.678 1.216-.363 1.891.2.428.436.835.704 1.218.428.609 1.176.806 1.82.63l1.103-.303c.066-.019.176-.011.299.071.213.143.436.272.668.386.133.066.194.158.212.224l.289 1.106c.169.646.715 1.196 1.458 1.26a8.094 8.094 0 001.402 0c.743-.064 1.29-.614 1.458-1.26l.29-1.106c.017-.066.078-.158.211-.224a5.98 5.98 0 00.668-.386c.123-.082.233-.09.3-.071l1.102.302c.644.177 1.392-.02 1.82-.63.268-.382.505-.789.704-1.217.315-.675.111-1.422-.364-1.891l-.814-.806c-.05-.048-.098-.147-.088-.294a6.1 6.1 0 000-.772c-.01-.147.039-.246.088-.294l.814-.806c.475-.469.679-1.216.364-1.891a7.992 7.992 0 00-.704-1.218c-.428-.609-1.176-.806-1.82-.63l-1.103.303c-.066.019-.176.011-.299-.071a5.991 5.991 0 00-.668-.386c-.133-.066-.194-.158-.212-.224L10.16 1.29C9.99.645 9.444.095 8.701.031A8.094 8.094 0 008 0zm1.5 8a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM11 8a3 3 0 11-6 0 3 3 0 016 0z" fill-rule="evenodd"></path></svg> Working with Presets</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">FAQ</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq/contributing.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-heart" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M4.25 2.5c-1.336 0-2.75 1.164-2.75 3 0 2.15 1.58 4.144 3.365 5.682A20.565 20.565 0 008 13.393a20.561 20.561 0 003.135-2.211C12.92 9.644 14.5 7.65 14.5 5.5c0-1.836-1.414-3-2.75-3-1.373 0-2.609.986-3.029 2.456a.75.75 0 01-1.442 0C6.859 3.486 5.623 2.5 4.25 2.5zM8 14.25l-.345.666-.002-.001-.006-.003-.018-.01a7.643 7.643 0 01-.31-.17 22.075 22.075 0 01-3.434-2.414C2.045 10.731 0 8.35 0 5.5 0 2.836 2.086 1 4.25 1 5.797 1 7.153 1.802 8 3.02 8.847 1.802 10.203 1 11.75 1 13.914 1 16 2.836 16 5.5c0 2.85-2.045 5.231-3.885 6.818a22.08 22.08 0 01-3.744 2.584l-.018.01-.006.003h-.002L8 14.25zm0 0l.345.666a.752.752 0 01-.69 0L8 14.25z" fill-rule="evenodd"></path></svg> Contributing to fairseq2</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current has-children"><a class="reference internal" href="../index.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-file-code" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M4 1.75C4 .784 4.784 0 5.75 0h5.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v8.586A1.75 1.75 0 0114.25 15h-9a.75.75 0 010-1.5h9a.25.25 0 00.25-.25V6h-2.75A1.75 1.75 0 0110 4.25V1.5H5.75a.25.25 0 00-.25.25v2.5a.75.75 0 01-1.5 0v-2.5zm7.5-.188V4.25c0 .138.112.25.25.25h2.688a.252.252 0 00-.011-.013l-2.914-2.914a.272.272 0 00-.013-.011zM5.72 6.72a.75.75 0 000 1.06l1.47 1.47-1.47 1.47a.75.75 0 101.06 1.06l2-2a.75.75 0 000-1.06l-2-2a.75.75 0 00-1.06 0zM3.28 7.78a.75.75 0 00-1.06-1.06l-2 2a.75.75 0 000 1.06l2 2a.75.75 0 001.06-1.06L1.81 9.25l1.47-1.47z" fill-rule="evenodd"></path></svg> API Reference</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><div class="visually-hidden">Toggle navigation of  API Reference</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../fairseq2.html">fairseq2</a></li>
+<li class="toctree-l2 current has-children"><a class="reference internal" href="index.html">fairseq2.data</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><div class="visually-hidden">Toggle navigation of fairseq2.data</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul class="current">
+<li class="toctree-l3 has-children"><a class="reference internal" href="text/index.html">fairseq2.data.text</a><input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" role="switch" type="checkbox"/><label for="toctree-checkbox-4"><div class="visually-hidden">Toggle navigation of fairseq2.data.text</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="text/text_tokenizers.html">Text Tokenizers</a></li>
+</ul>
+</li>
+<li class="toctree-l3 current current-page"><a class="current reference internal" href="#">fairseq2.data.data_pipeline</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../fairseq2.datasets/index.html">fairseq2.datasets</a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" role="switch" type="checkbox"/><label for="toctree-checkbox-5"><div class="visually-hidden">Toggle navigation of fairseq2.datasets</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../fairseq2.datasets/loader.html">Dataset Loaders</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../fairseq2.dependency.html">fairseq2.dependency</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../fairseq2.nn/index.html">fairseq2.nn</a><input class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" role="switch" type="checkbox"/><label for="toctree-checkbox-6"><div class="visually-hidden">Toggle navigation of fairseq2.nn</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../fairseq2.nn/position_encoders.html">Position Encoders</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../fairseq2.recipes/index.html">fairseq2.recipes</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" role="switch" type="checkbox"/><label for="toctree-checkbox-7"><div class="visually-hidden">Toggle navigation of fairseq2.recipes</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../fairseq2.recipes/lm/index.html">fairseq2.recipes.lm</a><input class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" role="switch" type="checkbox"/><label for="toctree-checkbox-8"><div class="visually-hidden">Toggle navigation of fairseq2.recipes.lm</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../fairseq2.recipes/lm/instruction_finetune.html">fairseq2.recipes.lm.instruction_finetune</a></li>
+</ul>
+</li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../fairseq2.recipes/llama/index.html">fairseq2.recipes.llama</a><input class="toctree-checkbox" id="toctree-checkbox-9" name="toctree-checkbox-9" role="switch" type="checkbox"/><label for="toctree-checkbox-9"><div class="visually-hidden">Toggle navigation of fairseq2.recipes.llama</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../fairseq2.recipes/llama/convert_checkpoint.html">Convert Checkpoints</a></li>
+</ul>
+</li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../fairseq2.recipes/wav2vec2/index.html">fairseq2.recipes.wav2vec2</a><input class="toctree-checkbox" id="toctree-checkbox-10" name="toctree-checkbox-10" role="switch" type="checkbox"/><label for="toctree-checkbox-10"><div class="visually-hidden">Toggle navigation of fairseq2.recipes.wav2vec2</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../fairseq2.recipes/wav2vec2/train.html">fairseq2.recipes.wav2vec2.train</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../fairseq2.recipes/cli.html">fairseq2.recipes.cli</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../fairseq2.recipes/trainer.html">fairseq2.recipes.trainer</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../fairseq2.assets/index.html">fairseq2.assets</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../fairseq2.models/index.html">fairseq2.models</a><input class="toctree-checkbox" id="toctree-checkbox-11" name="toctree-checkbox-11" role="switch" type="checkbox"/><label for="toctree-checkbox-11"><div class="visually-hidden">Toggle navigation of fairseq2.models</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../fairseq2.models/llama/index.html">fairseq2.models.llama</a><input class="toctree-checkbox" id="toctree-checkbox-12" name="toctree-checkbox-12" role="switch" type="checkbox"/><label for="toctree-checkbox-12"><div class="visually-hidden">Toggle navigation of fairseq2.models.llama</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l4"><a class="reference internal" href="../fairseq2.models/llama/archs.html">fairseq2.models.llama.archs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../fairseq2.models/llama/factory.html">fairseq2.models.llama.factory</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../bibliography.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-book" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M0 1.75A.75.75 0 01.75 1h4.253c1.227 0 2.317.59 3 1.501A3.744 3.744 0 0111.006 1h4.245a.75.75 0 01.75.75v10.5a.75.75 0 01-.75.75h-4.507a2.25 2.25 0 00-1.591.659l-.622.621a.75.75 0 01-1.06 0l-.622-.621A2.25 2.25 0 005.258 13H.75a.75.75 0 01-.75-.75V1.75zm8.755 3a2.25 2.25 0 012.25-2.25H14.5v9h-3.757c-.71 0-1.4.201-1.992.572l.004-7.322zm-1.504 7.324l.004-5.073-.002-2.253A2.25 2.25 0 005.003 2.5H1.5v9h3.757a3.75 3.75 0 011.994.574z" fill-rule="evenodd"></path></svg> Bibliography</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="../../../_sources/reference/api/fairseq2.data/data_pipeline.rst.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="fairseq2-data-data-pipeline">
+<h1>fairseq2.data.data_pipeline<a class="headerlink" href="#fairseq2-data-data-pipeline" title="Link to this heading">¶</a></h1>
+<p>The data pipeline module provides the core data processing functionality in fairseq2.</p>
+<section id="classes">
+<h2>Classes<a class="headerlink" href="#classes" title="Link to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.DataPipeline">
+<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.data.data_pipeline.</span></span><span class="sig-name descname"><span class="pre">DataPipeline</span></span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipeline"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.DataPipeline" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>fairseq2 native data pipeline.</p>
+<p>The pipeline state can be persisted to the disk, allowing it to be resumed later.
+It is a Python Iterable, but it also contains the iterator states.</p>
+<p>Calling <cite>iter</cite> twice will create two iterators reading from the same dataloader,
+and sharing the same state, so it will behave inconcistently.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.DataPipeline.__iter__">
+<span class="sig-name descname"><span class="pre">__iter__</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipeline.__iter__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.DataPipeline.__iter__" title="Link to this definition">¶</a></dt>
+<dd><p>Return an iterator over the examples in the data pipeline.</p>
+<p>The iterator will modify the internal state of the this DataPipeline,
+so it’s not safe to have several iterators over the same DataPipeline.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterator" title="(in Python v3.13)"><em>Iterator</em></a>[<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.DataPipeline.reset">
+<span class="sig-name descname"><span class="pre">reset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">reset_rng</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipeline.reset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.DataPipeline.reset" title="Link to this definition">¶</a></dt>
+<dd><p>Move back to the first example in the data pipeline.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>reset_rng</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, resets all random number generators in the pipeline.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.DataPipeline.is_broken">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">is_broken</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a></em><a class="headerlink" href="#fairseq2.data.data_pipeline.DataPipeline.is_broken" title="Link to this definition">¶</a></dt>
+<dd><p>Return <code class="docutils literal notranslate"><span class="pre">True</span></code> if the data pipeline is broken.</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, any future operation on this data pipeline will raise a
+<a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipelineError" title="fairseq2.data.data_pipeline.DataPipelineError"><code class="xref py py-class docutils literal notranslate"><span class="pre">DataPipelineError</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.DataPipeline.state_dict">
+<span class="sig-name descname"><span class="pre">state_dict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipeline.state_dict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.DataPipeline.state_dict" title="Link to this definition">¶</a></dt>
+<dd><p>Return a dictionary containing the state of the data pipeline.</p>
+<p>The current position of the data pipeline can be restored by passing
+the returned state dictionary to <a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipeline.load_state_dict" title="fairseq2.data.data_pipeline.DataPipeline.load_state_dict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">load_state_dict()</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>strict</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, the internal buffers will be saved as part of
+<code class="docutils literal notranslate"><span class="pre">state_dict</span></code>. This ensures that on preemption no example will
+be lost, but for large buffers this can significantly increase
+the state size and the time to restore the data pipeline.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)">dict</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)">str</a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.DataPipeline.load_state_dict">
+<span class="sig-name descname"><span class="pre">load_state_dict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state_dict</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipeline.load_state_dict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.DataPipeline.load_state_dict" title="Link to this definition">¶</a></dt>
+<dd><p>Restore the state of the data pipeline from <code class="docutils literal notranslate"><span class="pre">state_dict</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>state_dict</strong> (<a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Mapping" title="(in Python v3.13)"><em>Mapping</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a><em>]</em>) – A state dictionary previously returned by <a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipeline.state_dict" title="fairseq2.data.data_pipeline.DataPipeline.state_dict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">state_dict()</span></code></a>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.DataPipeline.concat">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">concat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pipelines</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipeline.concat"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.DataPipeline.concat" title="Link to this definition">¶</a></dt>
+<dd><p>Concatenate examples from <code class="docutils literal notranslate"><span class="pre">pipelines</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>pipelines</strong> (<a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.13)"><em>Sequence</em></a><em>[</em><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipeline" title="fairseq2.data.data_pipeline.DataPipeline"><em>DataPipeline</em></a><em>]</em>) – The data pipelines to concatenate.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipelineBuilder" title="fairseq2.data.data_pipeline.DataPipelineBuilder"><em>DataPipelineBuilder</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.DataPipeline.constant">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">constant</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">example</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">key</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipeline.constant"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.DataPipeline.constant" title="Link to this definition">¶</a></dt>
+<dd><p>Repeatedly yield <code class="docutils literal notranslate"><span class="pre">example</span></code>.</p>
+<p>This pipeline is pseudo-infinite; when used with functions
+that combine pipelines (e.g. sample, round_robin, zip),
+it will yield examples only as long as other
+pipelines yield examples.</p>
+<p>See <a class="reference internal" href="../../../basics/data_pipeline.html#basics-data-pipeline-pipeline-types"><span class="std std-ref">Pipeline Types</span></a> for more details.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>example</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a>) – Example to yield infinitely.</p></li>
+<li><p><strong>key</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em> | </em><em>None</em>) – If specified, yields dictionaries as examples,
+where the key is <code class="docutils literal notranslate"><span class="pre">key</span></code> and the value is <code class="docutils literal notranslate"><span class="pre">example</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipelineBuilder" title="fairseq2.data.data_pipeline.DataPipelineBuilder"><em>DataPipelineBuilder</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.DataPipeline.count">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">count</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">step</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">key</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipeline.count"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.DataPipeline.count" title="Link to this definition">¶</a></dt>
+<dd><p>Count from <code class="docutils literal notranslate"><span class="pre">start</span></code> in steps of size <code class="docutils literal notranslate"><span class="pre">step</span></code>.</p>
+<p>This pipeline is pseudo-infinite; when used with functions
+that combine pipelines (e.g. sample, round_robin, zip),
+it will yield examples only as long as other
+pipelines yield examples.</p>
+<p>See <a class="reference internal" href="../../../basics/data_pipeline.html#basics-data-pipeline-pipeline-types"><span class="std std-ref">Pipeline Types</span></a> for more details.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>start</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Number to start counting from.</p></li>
+<li><p><strong>step</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Count step size.</p></li>
+<li><p><strong>key</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em> | </em><em>None</em>) – If specified, yields dictionaries as examples,
+where the key is <code class="docutils literal notranslate"><span class="pre">key</span></code> and the value is the current number.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipelineBuilder" title="fairseq2.data.data_pipeline.DataPipelineBuilder"><em>DataPipelineBuilder</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.DataPipeline.round_robin">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">round_robin</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pipelines</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stop_at_shortest</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_repeats</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipeline.round_robin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.DataPipeline.round_robin" title="Link to this definition">¶</a></dt>
+<dd><p>Extract examples from <code class="docutils literal notranslate"><span class="pre">pipelines</span></code> in round robin.</p>
+<p>See <a class="reference internal" href="../../../basics/data_pipeline.html#basics-data-pipeline-combining-pipelines"><span class="std std-ref">Combining Pipelines</span></a> for more details.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>pipelines</strong> (<a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.13)"><em>Sequence</em></a><em>[</em><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipeline" title="fairseq2.data.data_pipeline.DataPipeline"><em>DataPipeline</em></a><em>]</em>) – The data pipelines to round robin.</p></li>
+<li><p><strong>stop_at_shortest</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, stops round_robin when first pipeline reaches its end.</p></li>
+<li><p><strong>allow_repeats</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, circles around finished pipelines until all pipelines
+reach their end.
+If <code class="docutils literal notranslate"><span class="pre">False</span></code>, does not repeat pipelines that have reached their end.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipelineBuilder" title="fairseq2.data.data_pipeline.DataPipelineBuilder"><em>DataPipelineBuilder</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.DataPipeline.sample">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">sample</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pipelines</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weights</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_repeats</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipeline.sample"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.DataPipeline.sample" title="Link to this definition">¶</a></dt>
+<dd><p>Extract examples from <code class="docutils literal notranslate"><span class="pre">pipelines</span></code> by sampling based on
+<code class="docutils literal notranslate"><span class="pre">weights</span></code>. Circles around pipelines until all have reached their
+end at least once.</p>
+<p>See <a class="reference internal" href="../../../basics/data_pipeline.html#basics-data-pipeline-combining-pipelines"><span class="std std-ref">Combining Pipelines</span></a> for more details.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data_pipelines</strong> – The data pipelines to sample from.</p></li>
+<li><p><strong>weights</strong> (<a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.13)"><em>Sequence</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>] </em><em>| </em><em>None</em>) – Desired distribution of pipelines. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, use uniform distribution.</p></li>
+<li><p><strong>allow_repeats</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, circles around finished pipelines until all pipelines
+reach their end.
+If <code class="docutils literal notranslate"><span class="pre">False</span></code>, does not repeat pipelines that have reached their end.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipelineBuilder" title="fairseq2.data.data_pipeline.DataPipelineBuilder"><em>DataPipelineBuilder</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.DataPipeline.zip">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">zip</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pipelines</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">names</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zip_to_shortest</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flatten</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">disable_parallelism</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipeline.zip"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.DataPipeline.zip" title="Link to this definition">¶</a></dt>
+<dd><p>Zip together examples read from <code class="docutils literal notranslate"><span class="pre">pipelines</span></code>.</p>
+<p>See <a class="reference internal" href="../../../basics/data_pipeline.html#basics-data-pipeline-combining-pipelines"><span class="std std-ref">Combining Pipelines</span></a> for more details.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>pipelines</strong> (<a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.13)"><em>Sequence</em></a><em>[</em><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipeline" title="fairseq2.data.data_pipeline.DataPipeline"><em>DataPipeline</em></a><em>]</em>) – The data pipelines to zip.</p></li>
+<li><p><strong>names</strong> (<a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.13)"><em>Sequence</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>] </em><em>| </em><em>None</em>) – The names to assign to the data pipelines. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, yields examples as lists.</p></li>
+<li><p><strong>zip_to_shortest</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, stops yielding examples after shortest pipeline terminates.
+Otherwise, all pipelines (that are not pseudo-infinite)
+must have the same number of examples.</p></li>
+<li><p><strong>flatten</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, flatten examples from each pipeline into one dictionary or list.
+All pipelines must return the same type (dict or non-dict).,</p></li>
+<li><p><strong>disable_parallelism</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, calls each data pipeline sequentially.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipelineBuilder" title="fairseq2.data.data_pipeline.DataPipelineBuilder"><em>DataPipelineBuilder</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.DataPipelineBuilder">
+<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.data.data_pipeline.</span></span><span class="sig-name descname"><span class="pre">DataPipelineBuilder</span></span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipelineBuilder"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.DataPipelineBuilder" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>API to create DataPipeline</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.DataPipelineBuilder.bucket">
+<span class="sig-name descname"><span class="pre">bucket</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bucket_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_remainder</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipelineBuilder.bucket"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.DataPipelineBuilder.bucket" title="Link to this definition">¶</a></dt>
+<dd><p>Combine a number of consecutive examples into a single example.</p>
+<p>See <a class="reference internal" href="../../../basics/data_pipeline.html#basics-data-pipeline-combining-pipelines"><span class="std std-ref">Combining Pipelines</span></a> for more details.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bucket_size</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – The number of examples to combine.</p></li>
+<li><p><strong>drop_remainder</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, drops the last bucket in case it has fewer than
+<code class="docutils literal notranslate"><span class="pre">bucket_size</span></code> examples.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Self" title="(in Python v3.13)"><em>Self</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.DataPipelineBuilder.bucket_by_length">
+<span class="sig-name descname"><span class="pre">bucket_by_length</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bucket_sizes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">selector</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_data_len</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">skip_below_min_examples</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">skip_above_max_examples</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_remainder</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipelineBuilder.bucket_by_length"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.DataPipelineBuilder.bucket_by_length" title="Link to this definition">¶</a></dt>
+<dd><p>Combine examples of similar shape into batches.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Self" title="(in Python v3.13)"><em>Self</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.DataPipelineBuilder.collate">
+<span class="sig-name descname"><span class="pre">collate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pad_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pad_to_multiple</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overrides</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipelineBuilder.collate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.DataPipelineBuilder.collate" title="Link to this definition">¶</a></dt>
+<dd><p>Concatenate a list of inputs into a single inputs.</p>
+<p>This is equivalent to calling <cite>.map(Collater())</cite>.
+See <code class="xref py py-class docutils literal notranslate"><span class="pre">fairseq2.data.Collater</span></code> for details.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Self" title="(in Python v3.13)"><em>Self</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.DataPipelineBuilder.dynamic_bucket">
+<span class="sig-name descname"><span class="pre">dynamic_bucket</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">threshold</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cost_fn</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bucket_creation_fn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_num_examples</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_num_examples</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_remainder</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipelineBuilder.dynamic_bucket"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.DataPipelineBuilder.dynamic_bucket" title="Link to this definition">¶</a></dt>
+<dd><p>Combine a number of consecutive examples into a single example
+based on cumulative cost of examples, as measured by
+user-provided <code class="docutils literal notranslate"><span class="pre">cost_fn</span></code>.</p>
+<p>Yields a bucket once the cumulative cost produced by <code class="docutils literal notranslate"><span class="pre">cost_fn</span></code>
+meets or exceeds <code class="docutils literal notranslate"><span class="pre">threshold</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – Threshold for cumulative cost to trigger bucketing.</p></li>
+<li><p><strong>cost_fn</strong> (<a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable" title="(in Python v3.13)"><em>Callable</em></a><em>[</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a><em>]</em><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>]</em>) – Cost function that outputs cost for a particular example.</p></li>
+<li><p><strong>bucket_creation_fn</strong> (<a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable" title="(in Python v3.13)"><em>Callable</em></a><em>[</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.13)"><em>Sequence</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a><em>]</em><em>]</em><em>, </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><em>tuple</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.13)"><em>Sequence</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.13)"><em>Sequence</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a><em>]</em><em>]</em><em>, </em><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.13)"><em>Sequence</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a><em>]</em><em>]</em><em>] </em><em>| </em><em>None</em>) – Function for customizing bucket creation. Called with the bucket of
+examples that caused the cost threshold to be exceeded.
+Expected to return a tuple of <code class="docutils literal notranslate"><span class="pre">(new_buckets,</span> <span class="pre">remainder)</span></code>, where
+the internal buffer is set to <code class="docutils literal notranslate"><span class="pre">remainder</span></code> and <code class="docutils literal notranslate"><span class="pre">new_buckets</span></code> is
+a list of buckets to be yielded. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, defaults to the
+identity function.</p></li>
+<li><p><strong>min_num_examples</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em> | </em><em>None</em>) – Minimum number of examples per bucket.</p></li>
+<li><p><strong>max_num_examples</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em> | </em><em>None</em>) – Maximum number of examples per bucket.</p></li>
+<li><p><strong>drop_remainder</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, drops the last bucket in case it has fewer than
+<code class="docutils literal notranslate"><span class="pre">min_num_examples</span></code> examples or the cumulative cost has not reached
+<code class="docutils literal notranslate"><span class="pre">threshold</span></code> yet.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Self" title="(in Python v3.13)"><em>Self</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.DataPipelineBuilder.filter">
+<span class="sig-name descname"><span class="pre">filter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">predicate</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipelineBuilder.filter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.DataPipelineBuilder.filter" title="Link to this definition">¶</a></dt>
+<dd><p>Filter examples from data pipeline and keep only those who match
+<code class="docutils literal notranslate"><span class="pre">predicate</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>predicate</strong> (<a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable" title="(in Python v3.13)"><em>Callable</em></a><em>[</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a><em>]</em><em>, </em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a><em>]</em>) – The predicate used to select examples to keep.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Self" title="(in Python v3.13)"><em>Self</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.DataPipelineBuilder.map">
+<span class="sig-name descname"><span class="pre">map</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fn</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">selector</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_parallel_calls</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipelineBuilder.map"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.DataPipelineBuilder.map" title="Link to this definition">¶</a></dt>
+<dd><p>Apply <code class="docutils literal notranslate"><span class="pre">fn</span></code> to each example.</p>
+<p>Example usage:</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="n">data</span> <span class="o">=</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">]</span>
+<span class="n">data</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span> <span class="o">+</span> <span class="mi">10</span><span class="p">)</span>
+<span class="c1"># yields: 12, 15</span>
+<span class="n">data</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span> <span class="o">+</span> <span class="mi">10</span><span class="p">,</span> <span class="n">num_parallel_calls</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+<span class="c1"># same results but will use more cores</span>
+<span class="n">data</span> <span class="o">=</span> <span class="p">[{</span><span class="s2">&quot;a&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;b&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span> <span class="p">{</span><span class="s2">&quot;a&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span> <span class="s2">&quot;b&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">}]</span>
+<span class="n">data</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span> <span class="o">+</span> <span class="mi">10</span><span class="p">,</span> <span class="n">selector</span><span class="o">=</span><span class="s2">&quot;a&quot;</span><span class="p">)</span>
+<span class="c1"># yields: {&quot;a&quot;: 12, &quot;b&quot;: 1}, {&quot;a&quot;: 15, &quot;b&quot;: 3}</span>
+<span class="n">data</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span> <span class="o">+</span> <span class="mi">10</span><span class="p">,</span> <span class="n">selector</span><span class="o">=</span><span class="s2">&quot;a,b&quot;</span><span class="p">)</span>
+<span class="c1"># yields: {&quot;a&quot;: 12, &quot;b&quot;: 11}, {&quot;a&quot;: 15, &quot;b&quot;: 13}</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fn</strong> (<a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable" title="(in Python v3.13)"><em>Callable</em></a><em>[</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a><em>]</em><em>, </em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a><em>] </em><em>| </em><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.13)"><em>Sequence</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable" title="(in Python v3.13)"><em>Callable</em></a><em>[</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a><em>]</em><em>, </em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a><em>]</em><em>]</em>) – The function to apply.
+If it’s a list of function, they will be automatically chained.
+<code class="docutils literal notranslate"><span class="pre">.map([f1,</span> <span class="pre">f2])</span></code> is the more efficient version of <code class="docutils literal notranslate"><span class="pre">.map(f1).map(f2)</span></code></p></li>
+<li><p><strong>selector</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em> | </em><em>None</em>) – The column to apply the function to. Several columns can be specified by separating them with a “,”.
+See <a class="reference internal" href="../../../basics/data_pipeline.html#basics-data-pipeline-column-selection"><span class="std std-ref">Column Selection</span></a> for more details.</p></li>
+<li><p><strong>num_parallel_calls</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – The number of examples to process in parallel.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Self" title="(in Python v3.13)"><em>Self</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.DataPipelineBuilder.prefetch">
+<span class="sig-name descname"><span class="pre">prefetch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num_examples</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipelineBuilder.prefetch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.DataPipelineBuilder.prefetch" title="Link to this definition">¶</a></dt>
+<dd><p>Prefetch examples in the background while the current example is
+being processed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>num_examples</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – The number of examples to prefetch.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Self" title="(in Python v3.13)"><em>Self</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.DataPipelineBuilder.repeat">
+<span class="sig-name descname"><span class="pre">repeat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num_repeats</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reset_rng</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipelineBuilder.repeat"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.DataPipelineBuilder.repeat" title="Link to this definition">¶</a></dt>
+<dd><p>Repeats the sequence of pipeline examples <code class="docutils literal notranslate"><span class="pre">num_repeats</span></code> times.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>num_repeats</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em> | </em><em>None</em>) – The number of times to repeat examples. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, repeats infinitely.</p></li>
+<li><p><strong>reset_rng</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, upon repeats, resets all random number generators in pipeline.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Self" title="(in Python v3.13)"><em>Self</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.DataPipelineBuilder.shard">
+<span class="sig-name descname"><span class="pre">shard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">shard_idx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_shards</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allow_uneven</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipelineBuilder.shard"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.DataPipelineBuilder.shard" title="Link to this definition">¶</a></dt>
+<dd><p>Read only 1/<code class="docutils literal notranslate"><span class="pre">num_shards</span></code> of the examples in the data pipeline.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>shard_idx</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – The shard index.</p></li>
+<li><p><strong>num_shards</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – The number of shards.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Self" title="(in Python v3.13)"><em>Self</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.DataPipelineBuilder.shuffle">
+<span class="sig-name descname"><span class="pre">shuffle</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">shuffle_window</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipelineBuilder.shuffle"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.DataPipelineBuilder.shuffle" title="Link to this definition">¶</a></dt>
+<dd><p>Shuffle examples using a fixed sized buffer.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>shuffle_window</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – The size of the intermediate buffer used for shuffling. Examples
+will be randomly sampled from this buffer, and selected examples
+will be replaced with new examples. If <code class="docutils literal notranslate"><span class="pre">0</span></code>, all examples will
+be loaded into memory for full shuffling.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Self" title="(in Python v3.13)"><em>Self</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.DataPipelineBuilder.skip">
+<span class="sig-name descname"><span class="pre">skip</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num_examples</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipelineBuilder.skip"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.DataPipelineBuilder.skip" title="Link to this definition">¶</a></dt>
+<dd><p>Skip <code class="docutils literal notranslate"><span class="pre">num_examples</span></code> examples.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Self" title="(in Python v3.13)"><em>Self</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.DataPipelineBuilder.take">
+<span class="sig-name descname"><span class="pre">take</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num_examples</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipelineBuilder.take"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.DataPipelineBuilder.take" title="Link to this definition">¶</a></dt>
+<dd><p>Return at most <code class="docutils literal notranslate"><span class="pre">num_examples</span></code> examples.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Self" title="(in Python v3.13)"><em>Self</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.DataPipelineBuilder.yield_from">
+<span class="sig-name descname"><span class="pre">yield_from</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fn</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipelineBuilder.yield_from"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.DataPipelineBuilder.yield_from" title="Link to this definition">¶</a></dt>
+<dd><p>Map every example to a data pipeline and yield the examples returned
+from the mapped data pipelines.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>fn</strong> (<a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable" title="(in Python v3.13)"><em>Callable</em></a><em>[</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a><em>]</em><em>, </em><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipeline" title="fairseq2.data.data_pipeline.DataPipeline"><em>DataPipeline</em></a><em>]</em>) – The function to map examples to data pipelines.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Self" title="(in Python v3.13)"><em>Self</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.DataPipelineBuilder.and_return">
+<span class="sig-name descname"><span class="pre">and_return</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_num_warnings</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipelineBuilder.and_return"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.DataPipelineBuilder.and_return" title="Link to this definition">¶</a></dt>
+<dd><p>Return a new <a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipeline" title="fairseq2.data.data_pipeline.DataPipeline"><code class="xref py py-class docutils literal notranslate"><span class="pre">DataPipeline</span></code></a> instance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipeline" title="fairseq2.data.data_pipeline.DataPipeline"><em>DataPipeline</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.Collater">
+<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.data.data_pipeline.</span></span><span class="sig-name descname"><span class="pre">Collater</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pad_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pad_to_multiple</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overrides</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#Collater"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.Collater" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Concatenate a list of inputs into a single inputs.</p>
+<p>Used to create batches.
+If all tensors in the input example have the same last dimension,
+<code class="docutils literal notranslate"><span class="pre">Collater</span></code> returns the concatenated tensors.</p>
+<p>Otherwise <code class="docutils literal notranslate"><span class="pre">pad_value</span></code> is required, and the last dimension of the batch will
+be made long enough to fit the longest tensor, rounded up to <code class="docutils literal notranslate"><span class="pre">pad_to_multiple</span></code>.
+The returned batch is then a dictionary with the following keys:</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;is_ragged&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="o">/</span><span class="kc">False</span> <span class="c1"># True if padding was needed</span>
+    <span class="s2">&quot;seqs&quot;</span><span class="p">:</span> <span class="p">[[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">]]</span>  <span class="c1"># &quot;(Tensor) concatenated and padded tensors from the input</span>
+    <span class="s2">&quot;seq_lens&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">]</span>  <span class="c1"># A tensor describing the original length of each input tensor</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Collater preserves the shape of the original data.
+For a tuple of lists, it returns a tuple of batches.
+For a dict of lists, it returns a dict of lists.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>pad_value</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em> | </em><em>None</em>) – When concatenating tensors of different lengths,
+the value used to pad the shortest tensor</p></li>
+<li><p><strong>pad_to_multiple</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Always pad to a length of that multiple.</p></li>
+<li><p><strong>overrides</strong> (<em>Sequence</em><em>[</em><a class="reference internal" href="#fairseq2.data.data_pipeline.CollateOptionsOverride" title="fairseq2.data.data_pipeline.CollateOptionsOverride"><em>CollateOptionsOverride</em></a><em>] </em><em>| </em><em>None</em>) – List of overrides <a class="reference internal" href="#fairseq2.data.data_pipeline.CollateOptionsOverride" title="fairseq2.data.data_pipeline.CollateOptionsOverride"><code class="xref py py-class docutils literal notranslate"><span class="pre">CollateOptionsOverride</span></code></a>.
+Allows to override <code class="docutils literal notranslate"><span class="pre">pad_value</span></code> and <code class="docutils literal notranslate"><span class="pre">pad_to_multiple</span></code> for specific columns.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.Collater.__call__">
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#Collater.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.Collater.__call__" title="Link to this definition">¶</a></dt>
+<dd><p>Concatenate the input tensors</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.CollateOptionsOverride">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.data.data_pipeline.</span></span><span class="sig-name descname"><span class="pre">CollateOptionsOverride</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">selector</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pad_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pad_to_multiple</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#CollateOptionsOverride"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.CollateOptionsOverride" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Overrides how the collater should create batch for a particular column.</p>
+<p>Useful if not all columns should use the same padding idx, or padding multiple.
+See <a class="reference internal" href="#fairseq2.data.data_pipeline.Collater" title="fairseq2.data.data_pipeline.Collater"><code class="xref py py-class docutils literal notranslate"><span class="pre">Collater</span></code></a> for details.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>selector</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>) – The columns this overrides applies to.
+See <a class="reference internal" href="../../../basics/data_pipeline.html#basics-data-pipeline-column-selection"><span class="std std-ref">Column Selection</span></a> for details on how to specify columns.</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.CollateOptionsOverride.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">selector</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pad_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pad_to_multiple</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#CollateOptionsOverride.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.CollateOptionsOverride.__init__" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.FileMapper">
+<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.data.data_pipeline.</span></span><span class="sig-name descname"><span class="pre">FileMapper</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">root_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cached_fd_count</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#FileMapper"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.FileMapper" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>For a given file name, returns the file content as bytes.</p>
+<p>The file name can also specify a slice of the file in bytes:
+<code class="docutils literal notranslate"><span class="pre">FileMapper(&quot;big_file.txt:1024:48&quot;)</span></code> will read 48 bytes at offset 1024.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>root_dir</strong> (<em>Path</em><em> | </em><em>None</em>) – Root directory for looking up relative file names.
+Warning, this is not enforced, FileMapper will happily read any file on the system.</p></li>
+<li><p><strong>cached_fd_count</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em> | </em><em>None</em>) – Enables an LRU cache on the last <code class="docutils literal notranslate"><span class="pre">cached_fd_count</span></code> files read.
+<code class="docutils literal notranslate"><span class="pre">FileMapper</span></code> will memory map all the cached file,
+so this is especially useful for reading several slices of the same file.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.FileMapper.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">root_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cached_fd_count</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#FileMapper.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.FileMapper.__init__" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.FileMapper.__call__">
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pathname</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#FileMapper.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.FileMapper.__call__" title="Link to this definition">¶</a></dt>
+<dd><p>Parses the pathname and returns the file bytes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><p>A dict with the following keys:</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="s2">&quot;the/path.txt&quot;</span> <span class="c1"># the relative path of the file</span>
+    <span class="s2">&quot;data&quot;</span><span class="p">:</span> <span class="n">MemoryBlock</span>  <span class="c1"># a memory block with the content of the file. You can use `bytes` to get a regular python object.</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#fairseq2.data.data_pipeline.FileMapperOutput" title="fairseq2.data.data_pipeline.FileMapperOutput"><em>FileMapperOutput</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.SequenceData">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.data.data_pipeline.</span></span><span class="sig-name descname"><span class="pre">SequenceData</span></span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#SequenceData"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.SequenceData" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.TypedDict" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">TypedDict</span></code></a></p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.FileMapperOutput">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.data.data_pipeline.</span></span><span class="sig-name descname"><span class="pre">FileMapperOutput</span></span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#FileMapperOutput"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.FileMapperOutput" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.TypedDict" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">TypedDict</span></code></a></p>
+</dd></dl>
+
+</section>
+<section id="functions">
+<h2>Functions<a class="headerlink" href="#functions" title="Link to this heading">¶</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.create_bucket_sizes">
+<span class="sig-prename descclassname"><span class="pre">fairseq2.data.data_pipeline.</span></span><span class="sig-name descname"><span class="pre">create_bucket_sizes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_num_elements</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_seq_len</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_seq_len</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_seqs_multiple_of</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#create_bucket_sizes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.create_bucket_sizes" title="Link to this definition">¶</a></dt>
+<dd><p>Create optimal bucket sizes for <code class="xref py py-meth docutils literal notranslate"><span class="pre">DataPipeline.bucket_by_length()</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>max_num_elements</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – The maximum number of elements that each bucket can contain.</p></li>
+<li><p><strong>max_seq_len</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – The maximum sequence length.</p></li>
+<li><p><strong>min_seq_len</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – The minimum sequence length.</p></li>
+<li><p><strong>num_seqs_multiple_of</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – The number of sequences contained in each bucket must be a multiple of
+this value.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)">list</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)">tuple</a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a>]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.get_last_failed_example">
+<span class="sig-prename descclassname"><span class="pre">fairseq2.data.data_pipeline.</span></span><span class="sig-name descname"><span class="pre">get_last_failed_example</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#get_last_failed_example"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.get_last_failed_example" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.list_files">
+<span class="sig-prename descclassname"><span class="pre">fairseq2.data.data_pipeline.</span></span><span class="sig-name descname"><span class="pre">list_files</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pattern</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#list_files"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.list_files" title="Link to this definition">¶</a></dt>
+<dd><p>List recursively all files under <code class="docutils literal notranslate"><span class="pre">path</span></code> that matches <code class="docutils literal notranslate"><span class="pre">pattern</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>path</strong> (<a class="reference external" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path" title="(in Python v3.13)"><em>Path</em></a>) – The path to traverse.</p></li>
+<li><p><strong>pattern</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em> | </em><em>None</em>) – If non-empty, a pattern that follows the syntax of <a class="reference external" href="https://docs.python.org/3/library/fnmatch.html#module-fnmatch" title="(in Python v3.13)"><code class="xref py py-mod docutils literal notranslate"><span class="pre">fnmatch</span></code></a>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipelineBuilder" title="fairseq2.data.data_pipeline.DataPipelineBuilder"><em>DataPipelineBuilder</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.read_sequence">
+<span class="sig-prename descclassname"><span class="pre">fairseq2.data.data_pipeline.</span></span><span class="sig-name descname"><span class="pre">read_sequence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">seq</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#read_sequence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.read_sequence" title="Link to this definition">¶</a></dt>
+<dd><p>Read every element in <code class="docutils literal notranslate"><span class="pre">seq</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>seq</strong> (<a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.13)"><em>Sequence</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a><em>]</em>) – The sequence to read.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipelineBuilder" title="fairseq2.data.data_pipeline.DataPipelineBuilder"><em>DataPipelineBuilder</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.read_zipped_records">
+<span class="sig-prename descclassname"><span class="pre">fairseq2.data.data_pipeline.</span></span><span class="sig-name descname"><span class="pre">read_zipped_records</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#read_zipped_records"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.read_zipped_records" title="Link to this definition">¶</a></dt>
+<dd><p>Read each file in a zip archive</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipelineBuilder" title="fairseq2.data.data_pipeline.DataPipelineBuilder"><em>DataPipelineBuilder</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.read_iterator">
+<span class="sig-prename descclassname"><span class="pre">fairseq2.data.data_pipeline.</span></span><span class="sig-name descname"><span class="pre">read_iterator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">iterator</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reset_fn</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">infinite</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">skip_pickling_check</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#read_iterator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.read_iterator" title="Link to this definition">¶</a></dt>
+<dd><p>Read each element of <code class="docutils literal notranslate"><span class="pre">iterator</span></code>.</p>
+<p>Iterators must be pickleable in order for <code class="docutils literal notranslate"><span class="pre">state_dict</span></code> saving/reloading to
+work. To avoid surprises, by default, upon creation, <code class="docutils literal notranslate"><span class="pre">read_iterator</span></code> will
+perform a test pickle of <code class="docutils literal notranslate"><span class="pre">iterator</span></code> to ensure pickleability and will raise
+an error if pickling fails. To skip this pickling check performed upon
+creation (if, for example, you do not need to save/reload the <code class="docutils literal notranslate"><span class="pre">state_dict</span></code>
+or want to avoid incurring the cost of pickling on creation), set
+<code class="docutils literal notranslate"><span class="pre">skip_pickling_check</span></code> to <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>iterator</strong> (<em>T</em>) – The iterator to read.</p></li>
+<li><p><strong>reset_fn</strong> (<a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable" title="(in Python v3.13)"><em>Callable</em></a><em>[</em><em>[</em><em>T</em><em>]</em><em>, </em><em>T</em><em>]</em>) – Function to reset iterator.</p></li>
+<li><p><strong>infinite</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – Whether iterator is infinite or not.</p></li>
+<li><p><strong>skip_pickling_check</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – Whether to skip the pickling check or not.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipelineBuilder" title="fairseq2.data.data_pipeline.DataPipelineBuilder"><em>DataPipelineBuilder</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="exceptions">
+<h2>Exceptions<a class="headerlink" href="#exceptions" title="Link to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.DataPipelineError">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.data.data_pipeline.</span></span><span class="sig-name descname"><span class="pre">DataPipelineError</span></span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipelineError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.DataPipelineError" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">RuntimeError</span></code></a></p>
+<p>Raised when an error occurs while reading from a data pipeline.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.ByteStreamError">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.data.data_pipeline.</span></span><span class="sig-name descname"><span class="pre">ByteStreamError</span></span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#ByteStreamError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.ByteStreamError" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">RuntimeError</span></code></a></p>
+<p>Raised when a dataset file can’t be read.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.data.data_pipeline.RecordError">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.data.data_pipeline.</span></span><span class="sig-name descname"><span class="pre">RecordError</span></span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#RecordError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.data_pipeline.RecordError" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">RuntimeError</span></code></a></p>
+<p>Raised when a corrupt record is encountered while reading a dataset.</p>
+</dd></dl>
+
+</section>
+<section id="examples">
+<h2>Examples<a class="headerlink" href="#examples" title="Link to this heading">¶</a></h2>
+<section id="creating-a-basic-pipeline">
+<h3>Creating a Basic Pipeline<a class="headerlink" href="#creating-a-basic-pipeline" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">fairseq2.data</span> <span class="kn">import</span> <span class="n">read_sequence</span><span class="p">,</span> <span class="n">DataPipeline</span>
+
+<span class="c1"># Create a simple pipeline that processes numbers</span>
+<span class="n">pipeline</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">read_sequence</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">])</span>
+    <span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span> <span class="o">&gt;</span> <span class="mi">5</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">and_return</span><span class="p">()</span>
+<span class="p">)</span>
+
+<span class="c1"># Iterate over the results</span>
+<span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">pipeline</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>  <span class="c1"># Outputs: 6, 8, 10</span>
+</pre></div>
+</div>
+</section>
+<section id="using-column-selection">
+<h3>Using Column Selection<a class="headerlink" href="#using-column-selection" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Process structured data with column selection</span>
+<span class="n">data</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="p">{</span><span class="s2">&quot;text&quot;</span><span class="p">:</span> <span class="s2">&quot;Hello&quot;</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
+    <span class="p">{</span><span class="s2">&quot;text&quot;</span><span class="p">:</span> <span class="s2">&quot;World&quot;</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">}</span>
+<span class="p">]</span>
+
+<span class="n">pipeline</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">read_sequence</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">upper</span><span class="p">(),</span> <span class="n">selector</span><span class="o">=</span><span class="s2">&quot;text&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">and_return</span><span class="p">()</span>
+<span class="p">)</span>
+
+<span class="c1"># Results will have uppercase text but unchanged labels</span>
+<span class="c1"># [{&quot;text&quot;: &quot;HELLO&quot;, &quot;label&quot;: 1}, {&quot;text&quot;: &quot;WORLD&quot;, &quot;label&quot;: 0}]</span>
+</pre></div>
+</div>
+</section>
+<section id="combining-pipelines">
+<h3>Combining Pipelines<a class="headerlink" href="#combining-pipelines" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Create two pipelines</span>
+<span class="n">p1</span> <span class="o">=</span> <span class="n">read_sequence</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span><span class="o">.</span><span class="n">and_return</span><span class="p">()</span>
+<span class="n">p2</span> <span class="o">=</span> <span class="n">read_sequence</span><span class="p">([</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">,</span> <span class="s1">&#39;c&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">and_return</span><span class="p">()</span>
+
+<span class="c1"># Zip them together with names</span>
+<span class="n">combined</span> <span class="o">=</span> <span class="n">DataPipeline</span><span class="o">.</span><span class="n">zip</span><span class="p">(</span>
+    <span class="p">[</span><span class="n">p1</span><span class="p">,</span> <span class="n">p2</span><span class="p">],</span>
+    <span class="n">names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;numbers&quot;</span><span class="p">,</span> <span class="s2">&quot;letters&quot;</span><span class="p">]</span>
+<span class="p">)</span><span class="o">.</span><span class="n">and_return</span><span class="p">()</span>
+
+<span class="c1"># Results: [</span>
+<span class="c1">#   {&quot;numbers&quot;: 1, &quot;letters&quot;: &#39;a&#39;},</span>
+<span class="c1">#   {&quot;numbers&quot;: 2, &quot;letters&quot;: &#39;b&#39;},</span>
+<span class="c1">#   {&quot;numbers&quot;: 3, &quot;letters&quot;: &#39;c&#39;}</span>
+<span class="c1"># ]</span>
+</pre></div>
+</div>
+</section>
+<section id="using-bucketing">
+<h3>Using Bucketing<a class="headerlink" href="#using-bucketing" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">fairseq2.data</span> <span class="kn">import</span> <span class="n">create_bucket_sizes</span>
+
+<span class="c1"># Create optimal bucket sizes for sequence processing</span>
+<span class="n">bucket_sizes</span> <span class="o">=</span> <span class="n">create_bucket_sizes</span><span class="p">(</span>
+    <span class="n">max_num_elements</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span>
+    <span class="n">max_seq_len</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span>
+    <span class="n">min_seq_len</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="n">num_seqs_multiple_of</span><span class="o">=</span><span class="mi">8</span>
+<span class="p">)</span>
+
+<span class="c1"># Use bucketing in a pipeline</span>
+<span class="n">pipeline</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">read_sequence</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">bucket_by_length</span><span class="p">(</span>
+        <span class="n">bucket_sizes</span><span class="p">,</span>
+        <span class="n">selector</span><span class="o">=</span><span class="s2">&quot;text&quot;</span><span class="p">,</span>
+        <span class="n">drop_remainder</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">)</span>
+    <span class="o">.</span><span class="n">and_return</span><span class="p">()</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="state-management">
+<h3>State Management<a class="headerlink" href="#state-management" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Save pipeline state</span>
+<span class="n">state</span> <span class="o">=</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
+
+<span class="c1"># Load pipeline state</span>
+<span class="n">new_pipeline</span> <span class="o">=</span> <span class="n">create_pipeline</span><span class="p">()</span>  <span class="c1"># Create a new pipeline</span>
+<span class="n">new_pipeline</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>  <span class="c1"># Restore the state</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="see-also">
+<h2>See Also<a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="../../../basics/data_pipeline.html#basics-data-pipeline"><span class="std std-ref"> Data Pipeline</span></a> - Basic introduction to data pipeline</p></li>
+</ul>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="../fairseq2.datasets/index.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">fairseq2.datasets</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="text/text_tokenizers.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Text Tokenizers</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            <div class="icons">
+              <a class="muted-link " href="https://github.com/facebookresearch/fairseq2" aria-label="GitHub">
+                <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"></path>
+                </svg>
+            </a>
+              
+            </div>
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">fairseq2.data.data_pipeline</a><ul>
+<li><a class="reference internal" href="#classes">Classes</a><ul>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipeline"><code class="docutils literal notranslate"><span class="pre">DataPipeline</span></code></a><ul>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipeline.__iter__"><code class="docutils literal notranslate"><span class="pre">DataPipeline.__iter__()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipeline.reset"><code class="docutils literal notranslate"><span class="pre">DataPipeline.reset()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipeline.is_broken"><code class="docutils literal notranslate"><span class="pre">DataPipeline.is_broken</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipeline.state_dict"><code class="docutils literal notranslate"><span class="pre">DataPipeline.state_dict()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipeline.load_state_dict"><code class="docutils literal notranslate"><span class="pre">DataPipeline.load_state_dict()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipeline.concat"><code class="docutils literal notranslate"><span class="pre">DataPipeline.concat()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipeline.constant"><code class="docutils literal notranslate"><span class="pre">DataPipeline.constant()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipeline.count"><code class="docutils literal notranslate"><span class="pre">DataPipeline.count()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipeline.round_robin"><code class="docutils literal notranslate"><span class="pre">DataPipeline.round_robin()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipeline.sample"><code class="docutils literal notranslate"><span class="pre">DataPipeline.sample()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipeline.zip"><code class="docutils literal notranslate"><span class="pre">DataPipeline.zip()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipelineBuilder"><code class="docutils literal notranslate"><span class="pre">DataPipelineBuilder</span></code></a><ul>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipelineBuilder.bucket"><code class="docutils literal notranslate"><span class="pre">DataPipelineBuilder.bucket()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipelineBuilder.bucket_by_length"><code class="docutils literal notranslate"><span class="pre">DataPipelineBuilder.bucket_by_length()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipelineBuilder.collate"><code class="docutils literal notranslate"><span class="pre">DataPipelineBuilder.collate()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipelineBuilder.dynamic_bucket"><code class="docutils literal notranslate"><span class="pre">DataPipelineBuilder.dynamic_bucket()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipelineBuilder.filter"><code class="docutils literal notranslate"><span class="pre">DataPipelineBuilder.filter()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipelineBuilder.map"><code class="docutils literal notranslate"><span class="pre">DataPipelineBuilder.map()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipelineBuilder.prefetch"><code class="docutils literal notranslate"><span class="pre">DataPipelineBuilder.prefetch()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipelineBuilder.repeat"><code class="docutils literal notranslate"><span class="pre">DataPipelineBuilder.repeat()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipelineBuilder.shard"><code class="docutils literal notranslate"><span class="pre">DataPipelineBuilder.shard()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipelineBuilder.shuffle"><code class="docutils literal notranslate"><span class="pre">DataPipelineBuilder.shuffle()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipelineBuilder.skip"><code class="docutils literal notranslate"><span class="pre">DataPipelineBuilder.skip()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipelineBuilder.take"><code class="docutils literal notranslate"><span class="pre">DataPipelineBuilder.take()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipelineBuilder.yield_from"><code class="docutils literal notranslate"><span class="pre">DataPipelineBuilder.yield_from()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipelineBuilder.and_return"><code class="docutils literal notranslate"><span class="pre">DataPipelineBuilder.and_return()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.Collater"><code class="docutils literal notranslate"><span class="pre">Collater</span></code></a><ul>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.Collater.__call__"><code class="docutils literal notranslate"><span class="pre">Collater.__call__()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.CollateOptionsOverride"><code class="docutils literal notranslate"><span class="pre">CollateOptionsOverride</span></code></a><ul>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.CollateOptionsOverride.__init__"><code class="docutils literal notranslate"><span class="pre">CollateOptionsOverride.__init__()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.FileMapper"><code class="docutils literal notranslate"><span class="pre">FileMapper</span></code></a><ul>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.FileMapper.__init__"><code class="docutils literal notranslate"><span class="pre">FileMapper.__init__()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.FileMapper.__call__"><code class="docutils literal notranslate"><span class="pre">FileMapper.__call__()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.SequenceData"><code class="docutils literal notranslate"><span class="pre">SequenceData</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.FileMapperOutput"><code class="docutils literal notranslate"><span class="pre">FileMapperOutput</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#functions">Functions</a><ul>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.create_bucket_sizes"><code class="docutils literal notranslate"><span class="pre">create_bucket_sizes()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.get_last_failed_example"><code class="docutils literal notranslate"><span class="pre">get_last_failed_example()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.list_files"><code class="docutils literal notranslate"><span class="pre">list_files()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.read_sequence"><code class="docutils literal notranslate"><span class="pre">read_sequence()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.read_zipped_records"><code class="docutils literal notranslate"><span class="pre">read_zipped_records()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.read_iterator"><code class="docutils literal notranslate"><span class="pre">read_iterator()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#exceptions">Exceptions</a><ul>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.DataPipelineError"><code class="docutils literal notranslate"><span class="pre">DataPipelineError</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.ByteStreamError"><code class="docutils literal notranslate"><span class="pre">ByteStreamError</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.data.data_pipeline.RecordError"><code class="docutils literal notranslate"><span class="pre">RecordError</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#examples">Examples</a><ul>
+<li><a class="reference internal" href="#creating-a-basic-pipeline">Creating a Basic Pipeline</a></li>
+<li><a class="reference internal" href="#using-column-selection">Using Column Selection</a></li>
+<li><a class="reference internal" href="#combining-pipelines">Combining Pipelines</a></li>
+<li><a class="reference internal" href="#using-bucketing">Using Bucketing</a></li>
+<li><a class="reference internal" href="#state-management">State Management</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#see-also">See Also</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../../../_static/documentation_options.js?v=6cb9bbb5"></script>
+    <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>
+    <script src="../../../_static/design-tabs.js?v=36754332"></script>
+    </body>
+</html>
