@@ -13,9 +13,6 @@ from fairseq2.models.bestrq.factory import (
     BestRQEncoderBuilder as BestRQEncoderBuilder,
 )
 from fairseq2.models.bestrq.factory import (
-    BestRQEncoderConfig as BestRQEncoderConfig,
-)
-from fairseq2.models.bestrq.factory import (
     create_bestrq_model as create_bestrq_model,
 )
 from fairseq2.models.bestrq.factory import bestrq_arch as bestrq_arch

@@ -75,22 +75,14 @@ class BestRQConfig:
 
     model_type: str = "bestrq"
 
-    encoder_config: BestRQEncoderConfig = field(
-        default_factory=lambda: BestRQEncoderConfig()
+    encoder_config: Wav2Vec2EncoderConfig = field(
+        default_factory=lambda: Wav2Vec2EncoderConfig()
     )
     """The configuration of the bestrq encoder, which is same as the config for the wav2vec2 model"""
     
     final_dim: int = 256
     """The dimensionality of the final projection that is applied to context
     network outputs and quantized targets."""
-
-    final_proj_bias: bool = True
-    """If ``True``, the final projection learns an additive bias."""
-
-    quantizer_encoder_grad: bool = True
-    """If ``True``, gradients are propagated from the quantizer through the convolutional
-    encoder. Otherwise, they are detached and the encoder is only trained with gradients
-    from the transformer. """
 
     label_smoothing: float = 0.0
 
@@ -131,42 +123,10 @@ class BestRQConfig:
     num_codebook_entries: int = 320
     """The number of entries per codebook."""
 
-    codebook_sampling_temperature: tuple[float, float, float] = (2.0, 0.5, 0.999995)
-    """A tuple of start temperature, end temperature, and decay factor for
-    codebook entry sampling."""
-
     normalize_quantizer_input: bool = field(
         default=False,
         metadata={
             "help": "Whether to normalize the input to the quantizer",
-        },
-    )
-
-    use_conv_downsampler: bool = field(
-        default=True,
-        metadata={
-            "help": "Whether to use a convolutional downsampler instead of a linear one"
-        },
-    )
-
-    # Arrival stuff
-    diversity_loss_weight: float = field(
-        default=0.1,
-        metadata={
-            "help": "Weighting for the diversity loss in the wav2vec model training (total_loss = constrastive_loss + <this_weight> * diversity_loss)"
-        },
-    )
-    mask_overlap_strategy: str = field(
-        default="remove_masks",
-        metadata={
-            "help": "Way of handling unequal number of masked elements per row. Options: remove_masks (fs2 default), add_masks_jc (additive, v1), add_masks_mike (additive, v2), roll (Alex's suggestion)"
-        },
-    )
-
-    quantizer_encoder_grad: bool = field(
-        default=False,
-        metadata={
-            "help": "Whether gradients from the quantizer should be propagated to the encoder (FS2 default is yes, but turning this off seems to help us)."
         },
     )
 
@@ -252,7 +212,6 @@ class BestRQBuilder:
             quantizer,
             downsampler,
             self._config.final_dim,
-            quantizer_encoder_grad=self._config.quantizer_encoder_grad,
             device=self._device,
             dtype=self._dtype,
         )
@@ -267,7 +226,6 @@ class BestRQBuilder:
             self._config.spatial_mask_span_len,
             self._config.max_spatial_mask_prob,
             self._config.min_num_spatial_mask_spans,
-            self._config.mask_overlap_strategy,
             self._config.noise_mean,
             self._config.noise_standard_deviation,
             device=self._device,
@@ -287,29 +245,21 @@ class BestRQBuilder:
         )
 
     def build_downsampler(self):
-
-        if self._config.use_conv_downsampler:
-
-            downsampler_layer_desc = [
-                [c, k, s]
-                for c, k, s in self._config.encoder_config.feature_extractor_layer_descs
-            ]
-
-            conv_downsampler = Wav2Vec2FeatureExtractor(
-                downsampler_layer_desc,
-                self._config.encoder_config.feature_extractor_bias,
-                layer_norm=self._config.encoder_config.feature_extractor_layer_norm_convs,
-                gradient_scale=self._config.encoder_config.feature_gradient_scale,
-                device=self._device,
-                dtype=self._dtype,
-            )
-
-            for param in conv_downsampler.parameters():
-                param.requires_grad = False
-            return conv_downsampler
-
-        else:
-            raise ValueError()
+        downsampler_layer_desc = [
+            [c, k, s]
+            for c, k, s in self._config.encoder_config.feature_extractor_layer_descs
+        ]
+        conv_downsampler = Wav2Vec2FeatureExtractor(
+            downsampler_layer_desc,
+            self._config.encoder_config.feature_extractor_bias,
+            layer_norm=self._config.encoder_config.feature_extractor_layer_norm_convs,
+            gradient_scale=self._config.encoder_config.feature_gradient_scale,
+            device=self._device,
+            dtype=self._dtype,
+        )
+        for param in conv_downsampler.parameters():
+            param.requires_grad = False
+        return conv_downsampler
 
 def create_bestrq_model(
     config: BestRQConfig,
@@ -321,7 +271,7 @@ def create_bestrq_model(
     return BestRQBuilder(config, device=device, dtype=dtype).build_model()
 
 
-bestrq_encoder_archs = ConfigRegistry[BestRQEncoderConfig]()
+bestrq_encoder_archs = ConfigRegistry[Wav2Vec2EncoderConfig]()
 bestrq_encoder_arch = bestrq_encoder_archs.decorator
 
 bestrq_archs = ConfigRegistry[BestRQConfig]()

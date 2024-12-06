@@ -45,9 +45,7 @@ class BestRQModel(Model):
         downsampler: ConcatDownsampler,
         final_dim: int,
         *,
-        num_distractors: int = 100,
         logit_temp: float = 0.1,
-        quantizer_encoder_grad: bool = True,
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> None:
@@ -63,9 +61,7 @@ class BestRQModel(Model):
         self.masker = masker
 
         self.quantizer = quantizer
-        self.num_distractors = num_distractors
         self.logit_temp = logit_temp
-        self.quantizer_encoder_grad = quantizer_encoder_grad
 
         self.downsampler = downsampler
 
@@ -84,7 +80,7 @@ class BestRQModel(Model):
 
     def reset_parameters(self) -> None:
         """Reset the parameters and buffers of the module."""
-        for proj in range(self.final_bert_proj):
+        for proj in self.final_bert_proj:
             nn.init.xavier_uniform_(proj.weight)
 
     def forward(self, batch: SequenceBatch) -> BestRQOutput:
@@ -113,6 +109,9 @@ class BestRQModel(Model):
         bert_logits = bert_logits.view(
             self.quantizer.num_quantizer, -1, self.quantizer.num_codebook_entries
         )
+        
+        if self.logit_temp != 1.0:
+            bert_logits = bert_logits / self.logit_temp
 
         return BestRQOutput(
             logits=bert_logits,
