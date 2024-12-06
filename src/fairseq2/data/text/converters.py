@@ -29,13 +29,18 @@ if TYPE_CHECKING or DOC_MODE:
 
         :param indices:
             The indices of the column to keep.
+            If a single index is provided and exclude is False, the output will be a string.
+
+        :param exclude:
+            If True, the indices will be excluded from the output, instead of kept.
+            Default to False.
 
         Example usage::
 
             # read all columns: ["Go.", "Va !", "CC-BY 2.0 (France)"]
             dataloader = read_text("tatoeba.tsv").map(StrSplitter()).and_return()
-            # keep only the second column and convert to string: "Va !"
-            dataloader = read_text("tatoeba.tsv").map(StrSplitter(indices=[1])).map(lambda x: x[0]).and_return()
+            # keep only the second column, directly yielding a string: "Va !"
+            dataloader = read_text("tatoeba.tsv").map(StrSplitter(indices=[1])).and_return()
             # keep only the first and second column and convert to dict: {"en": "Go.", "fr": "Va !"}
             dataloader = read_text("tatoeba.tsv").map(StrSplitter(names=["en", "fr"], indices=[0, 1])).and_return()
 
@@ -50,7 +55,7 @@ if TYPE_CHECKING or DOC_MODE:
         ) -> None:
             ...
 
-        def __call__(self, s: str) -> list[str] | dict[str, str]:
+        def __call__(self, s: str) -> str | list[str] | dict[str, str]:
             ...
 
     @final

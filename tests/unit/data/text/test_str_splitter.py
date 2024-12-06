@@ -58,8 +58,19 @@ class TestStrSplitter:
 
         assert splitter(s) == {"a": "1", "b": "2", "c": "3"}
 
-    @pytest.mark.parametrize("indices", [[0], [1], [4], [2, 3], [1, 2, 4]])
-    def test_call_works_when_indices_are_specified(
+    @pytest.mark.parametrize("indices", [[0], [1], [4]])
+    def test_call_works_when_single_index_is_specified(
+        self, indices: Sequence[int]
+    ) -> None:
+        s = "0,1,2,3,4"
+
+        splitter = StrSplitter(sep=",", indices=indices)
+
+        assert len(indices) == 1
+        assert splitter(s) == str(indices[0])
+
+    @pytest.mark.parametrize("indices", [[2, 3], [1, 2, 4]])
+    def test_call_works_when_multiple_indices_are_specified(
         self, indices: Sequence[int]
     ) -> None:
         s = "0,1,2,3,4"
@@ -75,6 +86,7 @@ class TestStrSplitter:
             ([4], [0, 1, 2, 3]),
             ([2, 3], [0, 1, 4]),
             ([1, 2, 4], [0, 3]),
+            ([1, 2, 3, 4], [0]),
         ],
     )
     def test_call_works_when_exclude_indices_are_specified(
