@@ -248,7 +248,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../reference/api/fairseq2.datasets/loader.html">Dataset Loaders</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../reference/api/fairseq2.dependency.html">fairseq2.dependency</a></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../reference/api/fairseq2.nn/index.html">fairseq2.nn</a><input class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" role="switch" type="checkbox"/><label for="toctree-checkbox-6"><div class="visually-hidden">Toggle navigation of fairseq2.nn</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="../reference/api/fairseq2.nn/position_encoders.html">Position Encoders</a></li>
 </ul>
@@ -271,14 +270,6 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../reference/api/fairseq2.assets/index.html">fairseq2.assets</a></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../reference/api/fairseq2.models/index.html">fairseq2.models</a><input class="toctree-checkbox" id="toctree-checkbox-11" name="toctree-checkbox-11" role="switch" type="checkbox"/><label for="toctree-checkbox-11"><div class="visually-hidden">Toggle navigation of fairseq2.models</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
-<li class="toctree-l3 has-children"><a class="reference internal" href="../reference/api/fairseq2.models/llama/index.html">fairseq2.models.llama</a><input class="toctree-checkbox" id="toctree-checkbox-12" name="toctree-checkbox-12" role="switch" type="checkbox"/><label for="toctree-checkbox-12"><div class="visually-hidden">Toggle navigation of fairseq2.models.llama</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/api/fairseq2.models/llama/archs.html">fairseq2.models.llama.archs</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/api/fairseq2.models/llama/factory.html">fairseq2.models.llama.factory</a></li>
-</ul>
-</li>
-</ul>
-</li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../reference/bibliography.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-book" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M0 1.75A.75.75 0 01.75 1h4.253c1.227 0 2.317.59 3 1.501A3.744 3.744 0 0111.006 1h4.245a.75.75 0 01.75.75v10.5a.75.75 0 01-.75.75h-4.507a2.25 2.25 0 00-1.591.659l-.622.621a.75.75 0 01-1.06 0l-.622-.621A2.25 2.25 0 005.258 13H.75a.75.75 0 01-.75-.75V1.75zm8.755 3a2.25 2.25 0 012.25-2.25H14.5v9h-3.757c-.71 0-1.4.201-1.992.572l.004-7.322zm-1.504 7.324l.004-5.073-.002-2.253A2.25 2.25 0 005.003 2.5H1.5v9h3.757a3.75 3.75 0 011.994.574z" fill-rule="evenodd"></path></svg> Bibliography</a></li>
@@ -375,271 +366,6 @@ expects the caller to provide instances of <code class="xref py py-class docutil
 and its dependencies enables composing diverse object graphs, such as different
 model architectures, with minimal redundancy (i.e. code duplication).</p>
 </section>
-<section id="dependency-injection">
-<h2>Dependency Injection<a class="headerlink" href="#dependency-injection" title="Link to this heading">¶</a></h2>
-<p>With dependency inversion, instead of constructing their dependencies, objects
-rely on their callers to provide them. This effectively requires callers to
-build a dependency graph to construct objects. For simple objects, this does not
-pose a problem, but for objects with large dependency closures, manual graph
-construction can become a tedious task.</p>
-<p>fairseq2 offers a lightweight <a class="reference internal" href="../reference/api/fairseq2.dependency.html#module-fairseq2.dependency" title="fairseq2.dependency"><code class="xref py py-mod docutils literal notranslate"><span class="pre">dependency</span> <span class="pre">injection</span> <span class="pre">API</span></code></a>
-to reduce the complexity of building dependency graphs. The core piece of the
-API is the <a class="reference internal" href="../reference/api/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer" title="fairseq2.dependency.DependencyContainer"><code class="xref py py-class docutils literal notranslate"><span class="pre">DependencyContainer</span></code></a> interface. An implementation of it, such
-as <a class="reference internal" href="../reference/api/fairseq2.dependency.html#fairseq2.dependency.StandardDependencyContainer" title="fairseq2.dependency.StandardDependencyContainer"><code class="xref py py-class docutils literal notranslate"><span class="pre">StandardDependencyContainer</span></code></a>, is expected that hold a lazily-initialized
-dependency graph. The interface exposes two main methods; <a class="reference internal" href="../reference/api/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer.register_factory" title="fairseq2.dependency.DependencyContainer.register_factory"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register_factory()</span></code></a>
-and <code class="xref py py-meth docutils literal notranslate"><span class="pre">resolve()</span></code>. <a class="reference internal" href="../reference/api/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer.register_factory" title="fairseq2.dependency.DependencyContainer.register_factory"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register_factory()</span></code></a>
-is used to register new objects with the container and <a class="reference internal" href="../reference/api/fairseq2.dependency.html#fairseq2.dependency.DependencyResolver.resolve" title="fairseq2.dependency.DependencyResolver.resolve"><code class="xref py py-meth docutils literal notranslate"><span class="pre">resolve()</span></code></a>
-is used to <em>resolve</em> objects, meaning to create objects along with their
-transitive dependencies by traversing the graph.</p>
-<section id="basics">
-<h3>Basics<a class="headerlink" href="#basics" title="Link to this heading">¶</a></h3>
-<p>The example below shows how an object of type <code class="docutils literal notranslate"><span class="pre">Foo</span></code> can be registered and
-later resolved with a container:</p>
-<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">fairseq2.dependency</span> <span class="kn">import</span> <span class="n">DependencyResolver</span><span class="p">,</span> <span class="n">StandardDependencyContainer</span>
-
-<span class="n">container</span> <span class="o">=</span> <span class="n">StandardDependencyContainer</span><span class="p">()</span>
-
-<span class="k">class</span> <span class="nc">Foo</span><span class="p">:</span>
-    <span class="k">pass</span>
-
-<span class="k">def</span> <span class="nf">create_foo</span><span class="p">(</span><span class="n">resolver</span><span class="p">:</span> <span class="n">DependencyResolver</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Foo</span><span class="p">:</span>
-    <span class="k">return</span> <span class="n">Foo</span><span class="p">()</span>
-
-<span class="n">container</span><span class="o">.</span><span class="n">register_factory</span><span class="p">(</span><span class="n">Foo</span><span class="p">,</span> <span class="n">create_foo</span><span class="p">)</span>
-
-<span class="n">obj</span> <span class="o">=</span> <span class="n">container</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">Foo</span><span class="p">)</span>
-
-<span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Foo</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>As arguments, <a class="reference internal" href="../reference/api/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer.register_factory" title="fairseq2.dependency.DependencyContainer.register_factory"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register_factory()</span></code></a> expects the type of the
-object and a callable responsible for creating the object when called. The
-callable is passed a <a class="reference internal" href="../reference/api/fairseq2.dependency.html#fairseq2.dependency.DependencyResolver" title="fairseq2.dependency.DependencyResolver"><code class="xref py py-class docutils literal notranslate"><span class="pre">DependencyResolver</span></code></a> instance that it can use to
-resolve the dependencies of the newly-created object. The object returned by the
-callable is cached. This means, after the first <a class="reference internal" href="../reference/api/fairseq2.dependency.html#fairseq2.dependency.DependencyResolver.resolve" title="fairseq2.dependency.DependencyResolver.resolve"><code class="xref py py-meth docutils literal notranslate"><span class="pre">resolve()</span></code></a>
-call, the secondary calls will return the same instance making the object
-effectively a singleton.</p>
-<p>Since <code class="docutils literal notranslate"><span class="pre">Foo</span></code> is a lightweight class with no dependencies, <a class="reference internal" href="../reference/api/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer.register_instance" title="fairseq2.dependency.DependencyContainer.register_instance"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register_instance()</span></code></a>
-can be used instead of <a class="reference internal" href="../reference/api/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer.register_factory" title="fairseq2.dependency.DependencyContainer.register_factory"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register_factory()</span></code></a>. Unlike
-<a class="reference internal" href="../reference/api/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer.register_factory" title="fairseq2.dependency.DependencyContainer.register_factory"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register_factory()</span></code></a>, which expects a callable to lazily
-initialize the object, <a class="reference internal" href="../reference/api/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer.register_instance" title="fairseq2.dependency.DependencyContainer.register_instance"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register_instance()</span></code></a> stores the
-passed object directly in the container:</p>
-<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">fairseq2.dependency</span> <span class="kn">import</span> <span class="n">StandardDependencyContainer</span>
-
-<span class="n">container</span> <span class="o">=</span> <span class="n">StandardDependencyContainer</span><span class="p">()</span>
-
-<span class="k">class</span> <span class="nc">Foo</span><span class="p">:</span>
-    <span class="k">pass</span>
-
-<span class="n">container</span><span class="o">.</span><span class="n">register_instance</span><span class="p">(</span><span class="n">Foo</span><span class="p">,</span> <span class="n">Foo</span><span class="p">())</span>
-
-<span class="n">obj</span> <span class="o">=</span> <span class="n">container</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">Foo</span><span class="p">)</span>
-
-<span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Foo</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>Both <a class="reference internal" href="../reference/api/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer.register_factory" title="fairseq2.dependency.DependencyContainer.register_factory"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register_factory()</span></code></a> and <a class="reference internal" href="../reference/api/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer.register_instance" title="fairseq2.dependency.DependencyContainer.register_instance"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register_instance()</span></code></a>
-also accept an optional key argument. When provided, the object will be
-registered along with the key and will be resolved only when the same key is
-passed to <a class="reference internal" href="../reference/api/fairseq2.dependency.html#fairseq2.dependency.DependencyResolver.resolve" title="fairseq2.dependency.DependencyResolver.resolve"><code class="xref py py-meth docutils literal notranslate"><span class="pre">resolve()</span></code></a>:</p>
-<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">fairseq2.dependency</span> <span class="kn">import</span> <span class="n">StandardDependencyContainer</span>
-
-<span class="n">container</span> <span class="o">=</span> <span class="n">StandardDependencyContainer</span><span class="p">()</span>
-
-<span class="k">class</span> <span class="nc">Foo</span><span class="p">:</span>
-    <span class="k">pass</span>
-
-<span class="n">container</span><span class="o">.</span><span class="n">register_instance</span><span class="p">(</span><span class="n">Foo</span><span class="p">,</span> <span class="n">Foo</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="s2">&quot;foo&quot;</span><span class="p">)</span>
-
-<span class="n">obj</span> <span class="o">=</span> <span class="n">container</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">Foo</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="s2">&quot;foo&quot;</span><span class="p">)</span>
-
-<span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Foo</span><span class="p">)</span>
-</pre></div>
-</div>
-<p><a class="reference internal" href="../reference/api/fairseq2.dependency.html#fairseq2.dependency.DependencyResolver.resolve" title="fairseq2.dependency.DependencyResolver.resolve"><code class="xref py py-meth docutils literal notranslate"><span class="pre">resolve()</span></code></a> will raise a <a class="reference internal" href="../reference/api/fairseq2.dependency.html#fairseq2.dependency.DependencyError" title="fairseq2.dependency.DependencyError"><code class="xref py py-class docutils literal notranslate"><span class="pre">DependencyError</span></code></a> when an
-object cannot be found. As an alternative, <a class="reference internal" href="../reference/api/fairseq2.dependency.html#fairseq2.dependency.DependencyResolver.resolve_optional" title="fairseq2.dependency.DependencyResolver.resolve_optional"><code class="xref py py-meth docutils literal notranslate"><span class="pre">resolve_optional()</span></code></a>
-can be used which returns <code class="docutils literal notranslate"><span class="pre">None</span></code> instead:</p>
-<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">fairseq2.dependency</span> <span class="kn">import</span> <span class="n">StandardDependencyContainer</span>
-
-<span class="n">container</span> <span class="o">=</span> <span class="n">StandardDependencyContainer</span><span class="p">()</span>
-
-<span class="k">class</span> <span class="nc">Foo</span><span class="p">:</span>
-    <span class="k">pass</span>
-
-<span class="n">obj</span> <span class="o">=</span> <span class="n">container</span><span class="o">.</span><span class="n">resolve_optional</span><span class="p">(</span><span class="n">Foo</span><span class="p">)</span>
-
-<span class="k">assert</span> <span class="n">obj</span> <span class="ow">is</span> <span class="kc">None</span>
-</pre></div>
-</div>
-</section>
-<section id="registering-multiple-objects">
-<h3>Registering Multiple Objects<a class="headerlink" href="#registering-multiple-objects" title="Link to this heading">¶</a></h3>
-<p>When <a class="reference internal" href="../reference/api/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer.register_factory" title="fairseq2.dependency.DependencyContainer.register_factory"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register_factory()</span></code></a> or <a class="reference internal" href="../reference/api/fairseq2.dependency.html#fairseq2.dependency.DependencyContainer.register_instance" title="fairseq2.dependency.DependencyContainer.register_instance"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register_instance()</span></code></a>
-is called multiple times with the same type and, optionally, key,
-<a class="reference internal" href="../reference/api/fairseq2.dependency.html#fairseq2.dependency.DependencyResolver.resolve" title="fairseq2.dependency.DependencyResolver.resolve"><code class="xref py py-meth docutils literal notranslate"><span class="pre">resolve()</span></code></a> will return only the last registered object:</p>
-<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">fairseq2.dependency</span> <span class="kn">import</span> <span class="n">StandardDependencyContainer</span>
-
-<span class="n">container</span> <span class="o">=</span> <span class="n">StandardDependencyContainer</span><span class="p">()</span>
-
-<span class="k">class</span> <span class="nc">Foo</span><span class="p">:</span>
-    <span class="k">pass</span>
-
-<span class="n">foo1</span> <span class="o">=</span> <span class="n">Foo</span><span class="p">()</span>
-<span class="n">foo2</span> <span class="o">=</span> <span class="n">Foo</span><span class="p">()</span>
-
-<span class="n">container</span><span class="o">.</span><span class="n">register_instance</span><span class="p">(</span><span class="n">Foo</span><span class="p">,</span> <span class="n">foo1</span><span class="p">)</span>
-<span class="n">container</span><span class="o">.</span><span class="n">register_instance</span><span class="p">(</span><span class="n">Foo</span><span class="p">,</span> <span class="n">foo2</span><span class="p">)</span>
-
-<span class="n">obj</span> <span class="o">=</span> <span class="n">container</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">Foo</span><span class="p">)</span>
-
-<span class="k">assert</span> <span class="n">obj</span> <span class="ow">is</span> <span class="n">foo2</span>
-</pre></div>
-</div>
-<p>If, not just the last registered object, but all registered objects of certain
-type are needed, <a class="reference internal" href="../reference/api/fairseq2.dependency.html#fairseq2.dependency.DependencyResolver.resolve_all" title="fairseq2.dependency.DependencyResolver.resolve_all"><code class="xref py py-meth docutils literal notranslate"><span class="pre">resolve_all()</span></code></a> can be used. It returns
-all non-keyed objects in the order they were registered as an iterable:</p>
-<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">fairseq2.dependency</span> <span class="kn">import</span> <span class="n">StandardDependencyContainer</span>
-
-<span class="n">container</span> <span class="o">=</span> <span class="n">StandardDependencyContainer</span><span class="p">()</span>
-
-<span class="k">class</span> <span class="nc">Foo</span><span class="p">:</span>
-    <span class="k">pass</span>
-
-<span class="n">foo1</span> <span class="o">=</span> <span class="n">Foo</span><span class="p">()</span>
-<span class="n">foo2</span> <span class="o">=</span> <span class="n">Foo</span><span class="p">()</span>
-
-<span class="n">container</span><span class="o">.</span><span class="n">register_instance</span><span class="p">(</span><span class="n">Foo</span><span class="p">,</span> <span class="n">foo1</span><span class="p">)</span>
-<span class="n">container</span><span class="o">.</span><span class="n">register_instance</span><span class="p">(</span><span class="n">Foo</span><span class="p">,</span> <span class="n">foo2</span><span class="p">)</span>
-
-<span class="n">itr</span> <span class="o">=</span> <span class="n">container</span><span class="o">.</span><span class="n">resolve_all</span><span class="p">(</span><span class="n">Foo</span><span class="p">)</span>
-
-<span class="k">assert</span> <span class="nb">next</span><span class="p">(</span><span class="n">itr</span><span class="p">)</span> <span class="ow">is</span> <span class="n">foo1</span>
-<span class="k">assert</span> <span class="nb">next</span><span class="p">(</span><span class="n">itr</span><span class="p">)</span> <span class="ow">is</span> <span class="n">foo2</span>
-</pre></div>
-</div>
-<p><a class="reference internal" href="../reference/api/fairseq2.dependency.html#fairseq2.dependency.DependencyResolver.resolve_all_keyed" title="fairseq2.dependency.DependencyResolver.resolve_all_keyed"><code class="xref py py-meth docutils literal notranslate"><span class="pre">resolve_all_keyed()</span></code></a> is similar to <a class="reference internal" href="../reference/api/fairseq2.dependency.html#fairseq2.dependency.DependencyResolver.resolve_all" title="fairseq2.dependency.DependencyResolver.resolve_all"><code class="xref py py-meth docutils literal notranslate"><span class="pre">resolve_all()</span></code></a>,
-but works for keyed objects. It returns them as key-object pairs in the order
-they were registered as an iterable:</p>
-<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">fairseq2.dependency</span> <span class="kn">import</span> <span class="n">StandardDependencyContainer</span>
-
-<span class="n">container</span> <span class="o">=</span> <span class="n">StandardDependencyContainer</span><span class="p">()</span>
-
-<span class="k">class</span> <span class="nc">Foo</span><span class="p">:</span>
-    <span class="k">pass</span>
-
-<span class="n">foo1</span> <span class="o">=</span> <span class="n">Foo</span><span class="p">()</span>
-<span class="n">foo2</span> <span class="o">=</span> <span class="n">Foo</span><span class="p">()</span>
-
-<span class="n">container</span><span class="o">.</span><span class="n">register_instance</span><span class="p">(</span><span class="n">Foo</span><span class="p">,</span> <span class="n">foo1</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="s2">&quot;foo1&quot;</span><span class="p">)</span>
-<span class="n">container</span><span class="o">.</span><span class="n">register_instance</span><span class="p">(</span><span class="n">Foo</span><span class="p">,</span> <span class="n">foo2</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="s2">&quot;foo2&quot;</span><span class="p">)</span>
-
-<span class="n">itr</span> <span class="o">=</span> <span class="n">container</span><span class="o">.</span><span class="n">resolve_all</span><span class="p">(</span><span class="n">Foo</span><span class="p">)</span>
-
-<span class="n">key1</span><span class="p">,</span> <span class="n">obj1</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">itr</span><span class="p">)</span>
-<span class="n">key2</span><span class="p">,</span> <span class="n">obj2</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">itr</span><span class="p">)</span>
-
-<span class="k">assert</span> <span class="n">key1</span> <span class="o">==</span> <span class="s2">&quot;foo1&quot;</span>
-<span class="k">assert</span> <span class="n">key2</span> <span class="o">==</span> <span class="s2">&quot;foo2&quot;</span>
-
-<span class="k">assert</span> <span class="n">obj1</span> <span class="ow">is</span> <span class="n">foo1</span>
-<span class="k">assert</span> <span class="n">obj2</span> <span class="ow">is</span> <span class="n">foo2</span>
-</pre></div>
-</div>
-</section>
-</section>
-<section id="a-more-complete-example">
-<h2>A More Complete Example<a class="headerlink" href="#a-more-complete-example" title="Link to this heading">¶</a></h2>
-<p>The example below is slightly more complex and shows how an object with a
-dependency can be registered to the container. It also demonstrates the use of
-interfaces as registration types:</p>
-<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
-
-<span class="kn">from</span> <span class="nn">fairseq2.dependency</span> <span class="kn">import</span> <span class="n">StandardDependencyContainer</span>
-
-<span class="n">container</span> <span class="o">=</span> <span class="n">StandardDependencyContainer</span><span class="p">()</span>
-
-<span class="c1"># `Writer` Interface</span>
-<span class="k">class</span> <span class="nc">Writer</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="o">...</span>
-
-<span class="c1"># `Writer` Implementation</span>
-<span class="k">class</span> <span class="nc">StdOutWriter</span><span class="p">(</span><span class="n">Bar</span><span class="p">):</span>
-    <span class="k">def</span> <span class="nf">write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
-
-<span class="c1"># `Foo` Interface</span>
-<span class="k">class</span> <span class="nc">Foo</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span> <span class="nf">write_foo</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="o">...</span>
-
-<span class="c1"># `Foo` Implementation</span>
-<span class="k">class</span> <span class="nc">FooImpl</span><span class="p">(</span><span class="n">Foo</span><span class="p">):</span>
-    <span class="c1"># depends on a `Writer` instance.</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">writer</span><span class="p">:</span> <span class="n">Writer</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">writer</span> <span class="o">=</span> <span class="n">writer</span>
-
-    <span class="k">def</span> <span class="nf">write_foo</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">writer</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;foo&quot;</span><span class="p">)</span>
-
-<span class="c1"># Registers `Writer`.</span>
-<span class="n">container</span><span class="o">.</span><span class="n">register_instance</span><span class="p">(</span><span class="n">Writer</span><span class="p">,</span> <span class="n">StdOutWriter</span><span class="p">())</span>
-
-<span class="k">def</span> <span class="nf">create_foo</span><span class="p">(</span><span class="n">resolver</span><span class="p">:</span> <span class="n">DependencyResolver</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Foo</span><span class="p">:</span>
-    <span class="c1"># Resolves the registered `Writer` object from the container.</span>
-    <span class="n">writer</span> <span class="o">=</span> <span class="n">resolver</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">Writer</span><span class="p">)</span>
-
-    <span class="k">return</span> <span class="n">FooImpl</span><span class="p">(</span><span class="n">writer</span><span class="p">)</span>
-
-<span class="c1"># Registers `Foo`.</span>
-<span class="n">container</span><span class="o">.</span><span class="n">register_factory</span><span class="p">(</span><span class="n">Foo</span><span class="p">,</span> <span class="n">create_foo</span><span class="p">)</span>
-
-<span class="c1"># Internally calls `create_foo` to create the `Foo` instance.</span>
-<span class="n">foo1</span> <span class="o">=</span> <span class="n">container</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">Foo</span><span class="p">)</span>
-
-<span class="k">assert</span> <span class="n">foo1</span> <span class="ow">is</span> <span class="n">FooImpl</span>
-
-<span class="c1"># Prints &quot;FooImpl&quot; to stdout.</span>
-<span class="n">foo1</span><span class="o">.</span><span class="n">write_foo</span><span class="p">()</span>
-
-<span class="c1"># Secondary calls return the same object.</span>
-<span class="n">foo2</span> <span class="o">=</span> <span class="n">container</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">Foo</span><span class="p">)</span>
-
-<span class="k">assert</span> <span class="n">foo1</span> <span class="ow">is</span> <span class="n">foo2</span>
-</pre></div>
-</div>
-<section id="using-fairseq2-container">
-<h3>Using fairseq2 Container<a class="headerlink" href="#using-fairseq2-container" title="Link to this heading">¶</a></h3>
-<p>The examples above all used a newly-created <a class="reference internal" href="../reference/api/fairseq2.dependency.html#fairseq2.dependency.StandardDependencyContainer" title="fairseq2.dependency.StandardDependencyContainer"><code class="xref py py-class docutils literal notranslate"><span class="pre">StandardDependencyContainer</span></code></a>
-for demonstration purposes. In real-world, objects are typically registered with
-fairseq2’s global container. There are two ways to access it:</p>
-<ul class="simple">
-<li><p>For a Python package, an extension function can be used to make the objects of
-the package available to all fairseq2 users.  See <a class="reference internal" href="runtime_extensions.html"><span class="doc"> Runtime Extensions</span></a>
-for details.</p></li>
-<li><p>In a plain Python script, <a class="reference internal" href="../reference/api/fairseq2.dependency.html#fairseq2.dependency.get_container" title="fairseq2.dependency.get_container"><code class="xref py py-func docutils literal notranslate"><span class="pre">get_container()</span></code></a> can be used. <a class="reference internal" href="../reference/api/fairseq2.html#fairseq2.setup_fairseq2" title="fairseq2.setup_fairseq2"><code class="xref py py-func docutils literal notranslate"><span class="pre">setup_fairseq2()</span></code></a>
-has to be called first though which is responsible for initializing the global
-container.</p></li>
-</ul>
-<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">fairseq2</span> <span class="kn">import</span> <span class="n">setup_fairseq2</span>
-<span class="kn">from</span> <span class="nn">fairseq2.assets</span> <span class="kn">import</span> <span class="n">AssetStore</span>
-<span class="kn">from</span> <span class="nn">fairseq2.dependency</span> <span class="kn">import</span> <span class="n">get_container</span>
-
-<span class="c1"># Must be called before any other fairseq2 calls.</span>
-<span class="n">setup_fairseq2</span><span class="p">()</span>
-
-<span class="c1"># Returns the global `DependencyContainer` initialized by `setup_fairseq2`.</span>
-<span class="n">container</span> <span class="o">=</span> <span class="n">get_container</span><span class="p">()</span>
-
-<span class="c1"># Resolves the registered `AssetStore` object, which is by default an</span>
-<span class="c1"># instance of `StandardAssetStore`.</span>
-<span class="n">store</span> <span class="o">=</span> <span class="n">container</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">AssetStore</span><span class="p">)</span>
-</pre></div>
-</div>
-</section>
-</section>
 </section>
 
         </article>
@@ -704,15 +430,6 @@ container.</p></li>
 <li><a class="reference internal" href="#"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-infinity" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M3.5 6c-1.086 0-2 .914-2 2 0 1.086.914 2 2 2 .525 0 1.122-.244 1.825-.727.51-.35 1.025-.79 1.561-1.273-.536-.483-1.052-.922-1.56-1.273C4.621 6.244 4.025 6 3.5 6zm4.5.984c-.59-.533-1.204-1.066-1.825-1.493-.797-.548-1.7-.991-2.675-.991C1.586 4.5 0 6.086 0 8s1.586 3.5 3.5 3.5c.975 0 1.878-.444 2.675-.991.621-.427 1.235-.96 1.825-1.493.59.533 1.204 1.066 1.825 1.493.797.547 1.7.991 2.675.991 1.914 0 3.5-1.586 3.5-3.5s-1.586-3.5-3.5-3.5c-.975 0-1.878.443-2.675.991-.621.427-1.235.96-1.825 1.493zM9.114 8c.536.483 1.052.922 1.56 1.273.704.483 1.3.727 1.826.727 1.086 0 2-.914 2-2 0-1.086-.914-2-2-2-.525 0-1.122.244-1.825.727-.51.35-1.025.79-1.561 1.273z"></path></svg> Design Philosophy</a><ul>
 <li><a class="reference internal" href="#interface-implementation-convention">Interface/Implementation Convention</a></li>
 <li><a class="reference internal" href="#dependency-inversion">Dependency Inversion</a></li>
-<li><a class="reference internal" href="#dependency-injection">Dependency Injection</a><ul>
-<li><a class="reference internal" href="#basics">Basics</a></li>
-<li><a class="reference internal" href="#registering-multiple-objects">Registering Multiple Objects</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#a-more-complete-example">A More Complete Example</a><ul>
-<li><a class="reference internal" href="#using-fairseq2-container">Using fairseq2 Container</a></li>
-</ul>
-</li>
 </ul>
 </li>
 </ul>
@@ -724,7 +441,7 @@ container.</p></li>
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=2a7e75e8"></script>
+</div><script src="../_static/documentation_options.js?v=0f277edf"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/furo.js?v=5fa4622c"></script>

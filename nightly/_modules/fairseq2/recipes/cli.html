@@ -247,7 +247,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../../../reference/api/fairseq2.datasets/loader.html">Dataset Loaders</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../../../reference/api/fairseq2.dependency.html">fairseq2.dependency</a></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../../../reference/api/fairseq2.nn/index.html">fairseq2.nn</a><input class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" role="switch" type="checkbox"/><label for="toctree-checkbox-6"><div class="visually-hidden">Toggle navigation of fairseq2.nn</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../reference/api/fairseq2.nn/position_encoders.html">Position Encoders</a></li>
 </ul>
@@ -270,14 +269,6 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../reference/api/fairseq2.assets/index.html">fairseq2.assets</a></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../../../reference/api/fairseq2.models/index.html">fairseq2.models</a><input class="toctree-checkbox" id="toctree-checkbox-11" name="toctree-checkbox-11" role="switch" type="checkbox"/><label for="toctree-checkbox-11"><div class="visually-hidden">Toggle navigation of fairseq2.models</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
-<li class="toctree-l3 has-children"><a class="reference internal" href="../../../reference/api/fairseq2.models/llama/index.html">fairseq2.models.llama</a><input class="toctree-checkbox" id="toctree-checkbox-12" name="toctree-checkbox-12" role="switch" type="checkbox"/><label for="toctree-checkbox-12"><div class="visually-hidden">Toggle navigation of fairseq2.models.llama</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
-<li class="toctree-l4"><a class="reference internal" href="../../../reference/api/fairseq2.models/llama/archs.html">fairseq2.models.llama.archs</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../../reference/api/fairseq2.models/llama/factory.html">fairseq2.models.llama.factory</a></li>
-</ul>
-</li>
-</ul>
-</li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/bibliography.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-book" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M0 1.75A.75.75 0 01.75 1h4.253c1.227 0 2.317.59 3 1.501A3.744 3.744 0 0111.006 1h4.245a.75.75 0 01.75.75v10.5a.75.75 0 01-.75.75h-4.507a2.25 2.25 0 00-1.591.659l-.622.621a.75.75 0 01-1.06 0l-.622-.621A2.25 2.25 0 005.258 13H.75a.75.75 0 01-.75-.75V1.75zm8.755 3a2.25 2.25 0 012.25-2.25H14.5v9h-3.757c-.71 0-1.4.201-1.992.572l.004-7.322zm-1.504 7.324l.004-5.073-.002-2.253A2.25 2.25 0 005.003 2.5H1.5v9h3.757a3.75 3.75 0 011.994.574z" fill-rule="evenodd"></path></svg> Bibliography</a></li>
@@ -327,11 +318,11 @@
 <span class="kn">import</span> <span class="nn">sys</span>
 <span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
 <span class="kn">from</span> <span class="nn">argparse</span> <span class="kn">import</span> <span class="n">OPTIONAL</span><span class="p">,</span> <span class="n">ArgumentParser</span><span class="p">,</span> <span class="n">BooleanOptionalAction</span><span class="p">,</span> <span class="n">Namespace</span>
-<span class="kn">from</span> <span class="nn">collections.abc</span> <span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Sequence</span>
+<span class="kn">from</span> <span class="nn">collections.abc</span> <span class="kn">import</span> <span class="n">Callable</span>
 <span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span> <span class="nn">signal</span> <span class="kn">import</span> <span class="n">SIGUSR1</span><span class="p">,</span> <span class="n">signal</span>
 <span class="kn">from</span> <span class="nn">types</span> <span class="kn">import</span> <span class="n">FrameType</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Generic</span><span class="p">,</span> <span class="n">Hashable</span><span class="p">,</span> <span class="n">Protocol</span><span class="p">,</span> <span class="n">TypeVar</span><span class="p">,</span> <span class="n">final</span><span class="p">,</span> <span class="n">runtime_checkable</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Generic</span><span class="p">,</span> <span class="n">Protocol</span><span class="p">,</span> <span class="n">TypeVar</span><span class="p">,</span> <span class="n">final</span><span class="p">,</span> <span class="n">runtime_checkable</span>
 
 <span class="kn">import</span> <span class="nn">yaml</span>
 <span class="kn">from</span> <span class="nn">rich.console</span> <span class="kn">import</span> <span class="n">Console</span>
@@ -339,20 +330,21 @@
 
 <span class="kn">from</span> <span class="nn">fairseq2.config_registry</span> <span class="kn">import</span> <span class="n">ConfigRegistry</span>
 <span class="kn">from</span> <span class="nn">fairseq2.console</span> <span class="kn">import</span> <span class="n">get_console</span><span class="p">,</span> <span class="n">set_console</span>
-<span class="kn">from</span> <span class="nn">fairseq2.dependency</span> <span class="kn">import</span> <span class="n">DependencyResolver</span>
 <span class="kn">from</span> <span class="nn">fairseq2.error</span> <span class="kn">import</span> <span class="n">AlreadyExistsError</span>
 <span class="kn">from</span> <span class="nn">fairseq2.logging</span> <span class="kn">import</span> <span class="n">get_log_writer</span>
-<span class="kn">from</span> <span class="nn">fairseq2.recipes.config_manager</span> <span class="kn">import</span> <span class="n">StandardConfigManager</span>
-<span class="kn">from</span> <span class="nn">fairseq2.recipes.legacy_config</span> <span class="kn">import</span> <span class="n">_set_legacy_config</span>
 <span class="kn">from</span> <span class="nn">fairseq2.recipes.logging</span> <span class="kn">import</span> <span class="n">setup_basic_logging</span><span class="p">,</span> <span class="n">setup_logging</span>
 <span class="kn">from</span> <span class="nn">fairseq2.recipes.utils.argparse</span> <span class="kn">import</span> <span class="n">ConfigAction</span>
-<span class="kn">from</span> <span class="nn">fairseq2.recipes.utils.environment</span> <span class="kn">import</span> <span class="n">EnvironmentSetter</span>
+<span class="kn">from</span> <span class="nn">fairseq2.recipes.utils.environment</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">EnvironmentSetterRegistry</span><span class="p">,</span>
+    <span class="n">default_env_setters</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">fairseq2.recipes.utils.log</span> <span class="kn">import</span> <span class="n">log_config</span>
-<span class="kn">from</span> <span class="nn">fairseq2.recipes.utils.sweep</span> <span class="kn">import</span> <span class="n">SweepFormatError</span><span class="p">,</span> <span class="n">SweepTagger</span>
+<span class="kn">from</span> <span class="nn">fairseq2.recipes.utils.sweep</span> <span class="kn">import</span> <span class="n">SweepTagger</span><span class="p">,</span> <span class="n">default_sweep_tagger</span>
 <span class="kn">from</span> <span class="nn">fairseq2.typing</span> <span class="kn">import</span> <span class="n">DataClass</span>
 <span class="kn">from</span> <span class="nn">fairseq2.utils.structured</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">StructuredError</span><span class="p">,</span>
     <span class="n">ValueConverter</span><span class="p">,</span>
+    <span class="n">default_value_converter</span><span class="p">,</span>
     <span class="n">merge_unstructured</span><span class="p">,</span>
 <span class="p">)</span>
 
@@ -438,7 +430,7 @@
 
 <div class="viewcode-block" id="Cli.init_parser">
 <a class="viewcode-back" href="../../../reference/api/fairseq2.recipes/cli.html#fairseq2.recipes.cli.Cli.init_parser">[docs]</a>
-    <span class="k">def</span> <span class="nf">init_parser</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parser</span><span class="p">:</span> <span class="n">ArgumentParser</span><span class="p">,</span> <span class="n">resolver</span><span class="p">:</span> <span class="n">DependencyResolver</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">init_parser</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parser</span><span class="p">:</span> <span class="n">ArgumentParser</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize ``parser`` with program-specific arguments.&quot;&quot;&quot;</span>
         <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
             <span class="s2">&quot;--version&quot;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;version&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;%(prog)s </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_version</span><span class="si">}</span><span class="s2">&quot;</span>
@@ -459,16 +451,19 @@
 
             <span class="n">sub_parser</span> <span class="o">=</span> <span class="n">sub_parsers</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span><span class="n">group</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="n">help</span><span class="p">)</span>
 
-            <span class="n">group</span><span class="o">.</span><span class="n">init_parser</span><span class="p">(</span><span class="n">sub_parser</span><span class="p">,</span> <span class="n">resolver</span><span class="p">)</span></div>
+            <span class="n">group</span><span class="o">.</span><span class="n">init_parser</span><span class="p">(</span><span class="n">sub_parser</span><span class="p">)</span></div>
 
 
-    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">resolver</span><span class="p">:</span> <span class="n">DependencyResolver</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Run the program.&quot;&quot;&quot;</span>
         <span class="n">set_console</span><span class="p">(</span><span class="n">Console</span><span class="p">(</span><span class="n">highlight</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
 
+        <span class="bp">self</span><span class="o">.</span><span class="n">_run_command</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_run_command</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">parser</span> <span class="o">=</span> <span class="n">ArgumentParser</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_description</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">init_parser</span><span class="p">(</span><span class="n">parser</span><span class="p">,</span> <span class="n">resolver</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">init_parser</span><span class="p">(</span><span class="n">parser</span><span class="p">)</span>
 
         <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
 
@@ -477,7 +472,7 @@
 
             <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
 
-        <span class="n">args</span><span class="o">.</span><span class="n">command</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">resolver</span><span class="p">)</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">command</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
@@ -621,7 +616,7 @@
 
 <div class="viewcode-block" id="CliGroup.init_parser">
 <a class="viewcode-back" href="../../../reference/api/fairseq2.recipes/cli.html#fairseq2.recipes.cli.CliGroup.init_parser">[docs]</a>
-    <span class="k">def</span> <span class="nf">init_parser</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parser</span><span class="p">:</span> <span class="n">ArgumentParser</span><span class="p">,</span> <span class="n">resolver</span><span class="p">:</span> <span class="n">DependencyResolver</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">init_parser</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parser</span><span class="p">:</span> <span class="n">ArgumentParser</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize ``parser`` with command group-specific arguments.&quot;&quot;&quot;</span>
         <span class="n">sub_parsers</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">add_subparsers</span><span class="p">()</span>
 
@@ -638,7 +633,7 @@
 
             <span class="n">sub_parser</span> <span class="o">=</span> <span class="n">sub_parsers</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span><span class="n">group</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="n">help</span><span class="p">)</span>
 
-            <span class="n">group</span><span class="o">.</span><span class="n">init_parser</span><span class="p">(</span><span class="n">sub_parser</span><span class="p">,</span> <span class="n">resolver</span><span class="p">)</span>
+            <span class="n">group</span><span class="o">.</span><span class="n">init_parser</span><span class="p">(</span><span class="n">sub_parser</span><span class="p">)</span>
 
         <span class="k">for</span> <span class="n">command</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_commands</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
             <span class="n">help</span> <span class="o">=</span> <span class="n">command</span><span class="o">.</span><span class="n">help</span>
@@ -655,7 +650,7 @@
 
             <span class="n">sub_parser</span><span class="o">.</span><span class="n">set_defaults</span><span class="p">(</span><span class="n">command</span><span class="o">=</span><span class="n">command</span><span class="p">)</span>
 
-            <span class="n">command</span><span class="o">.</span><span class="n">init_parser</span><span class="p">(</span><span class="n">sub_parser</span><span class="p">,</span> <span class="n">resolver</span><span class="p">)</span></div>
+            <span class="n">command</span><span class="o">.</span><span class="n">init_parser</span><span class="p">(</span><span class="n">sub_parser</span><span class="p">)</span></div>
 
 
     <span class="nd">@property</span>
@@ -700,14 +695,14 @@
 
 <div class="viewcode-block" id="CliCommand.init_parser">
 <a class="viewcode-back" href="../../../reference/api/fairseq2.recipes/cli.html#fairseq2.recipes.cli.CliCommand.init_parser">[docs]</a>
-    <span class="k">def</span> <span class="nf">init_parser</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parser</span><span class="p">:</span> <span class="n">ArgumentParser</span><span class="p">,</span> <span class="n">resolver</span><span class="p">:</span> <span class="n">DependencyResolver</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">init_parser</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parser</span><span class="p">:</span> <span class="n">ArgumentParser</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize ``parser`` with command group-specific arguments.&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_handler</span><span class="o">.</span><span class="n">init_parser</span><span class="p">(</span><span class="n">parser</span><span class="p">,</span> <span class="n">resolver</span><span class="p">)</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_handler</span><span class="o">.</span><span class="n">init_parser</span><span class="p">(</span><span class="n">parser</span><span class="p">)</span></div>
 
 
-    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">Namespace</span><span class="p">,</span> <span class="n">resolver</span><span class="p">:</span> <span class="n">DependencyResolver</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">Namespace</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Run the command.&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_handler</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">resolver</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_handler</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
@@ -734,12 +729,12 @@
 <div class="viewcode-block" id="CliCommandHandler.init_parser">
 <a class="viewcode-back" href="../../../reference/api/fairseq2.recipes/cli.html#fairseq2.recipes.cli.CliCommandHandler.init_parser">[docs]</a>
     <span class="nd">@abstractmethod</span>
-    <span class="k">def</span> <span class="nf">init_parser</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parser</span><span class="p">:</span> <span class="n">ArgumentParser</span><span class="p">,</span> <span class="n">resolver</span><span class="p">:</span> <span class="n">DependencyResolver</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">init_parser</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parser</span><span class="p">:</span> <span class="n">ArgumentParser</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize ``parser`` with command-specific arguments.&quot;&quot;&quot;</span></div>
 
 
     <span class="nd">@abstractmethod</span>
-    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">Namespace</span><span class="p">,</span> <span class="n">resolver</span><span class="p">:</span> <span class="n">DependencyResolver</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">Namespace</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Run the command.&quot;&quot;&quot;</span></div>
 
 
@@ -782,7 +777,9 @@
     <span class="n">_loader</span><span class="p">:</span> <span class="n">RecipeLoader</span><span class="p">[</span><span class="n">RecipeConfigT</span><span class="p">]</span>
     <span class="n">_preset_configs</span><span class="p">:</span> <span class="n">ConfigRegistry</span><span class="p">[</span><span class="n">RecipeConfigT</span><span class="p">]</span>
     <span class="n">_default_preset</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="n">_sweep_allowed_keys</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Hashable</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="n">_env_setters</span><span class="p">:</span> <span class="n">EnvironmentSetterRegistry</span>
+    <span class="n">_value_converter</span><span class="p">:</span> <span class="n">ValueConverter</span>
+    <span class="n">_sweep_tagger</span><span class="p">:</span> <span class="n">SweepTagger</span>
     <span class="n">_parser</span><span class="p">:</span> <span class="n">ArgumentParser</span> <span class="o">|</span> <span class="kc">None</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
@@ -791,7 +788,9 @@
         <span class="n">preset_configs</span><span class="p">:</span> <span class="n">ConfigRegistry</span><span class="p">[</span><span class="n">RecipeConfigT</span><span class="p">],</span>
         <span class="n">default_preset</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="o">*</span><span class="p">,</span>
-        <span class="n">sweep_allowed_keys</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Hashable</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">env_setters</span><span class="p">:</span> <span class="n">EnvironmentSetterRegistry</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">value_converter</span><span class="p">:</span> <span class="n">ValueConverter</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">sweep_tagger</span><span class="p">:</span> <span class="n">SweepTagger</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        :param loader:</span>
@@ -800,19 +799,28 @@
 <span class="sd">            The registry containing the preset recipe configurations.</span>
 <span class="sd">        :param default_preset:</span>
 <span class="sd">            The name of the default preset.</span>
-<span class="sd">        :param sweep_allowed_keys:</span>
-<span class="sd">            The recipe-specific configuration keys to use in :class:`SweepTagger`.</span>
+<span class="sd">        :param env_setters:</span>
+<span class="sd">            The registry containing cluster-specific :class:`EnvironmentSetter`</span>
+<span class="sd">            instances.</span>
+<span class="sd">        :param value_converter:</span>
+<span class="sd">            The :class:`ValueConverter` instance to use. If ``None``, the</span>
+<span class="sd">            default instance will be used.</span>
+<span class="sd">        :param sweep_tagger:</span>
+<span class="sd">            The :class:`SweepTagger` instance to use. If ``None``, the default</span>
+<span class="sd">            instance will be used.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_loader</span> <span class="o">=</span> <span class="n">loader</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_preset_configs</span> <span class="o">=</span> <span class="n">preset_configs</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_default_preset</span> <span class="o">=</span> <span class="n">default_preset</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_sweep_allowed_keys</span> <span class="o">=</span> <span class="n">sweep_allowed_keys</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_env_setters</span> <span class="o">=</span> <span class="n">env_setters</span> <span class="ow">or</span> <span class="n">default_env_setters</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_value_converter</span> <span class="o">=</span> <span class="n">value_converter</span> <span class="ow">or</span> <span class="n">default_value_converter</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sweep_tagger</span> <span class="o">=</span> <span class="n">sweep_tagger</span> <span class="ow">or</span> <span class="n">default_sweep_tagger</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_parser</span> <span class="o">=</span> <span class="kc">None</span>
 
 <div class="viewcode-block" id="RecipeCommandHandler.init_parser">
 <a class="viewcode-back" href="../../../reference/api/fairseq2.recipes/cli.html#fairseq2.recipes.cli.RecipeCommandHandler.init_parser">[docs]</a>
     <span class="nd">@override</span>
-    <span class="k">def</span> <span class="nf">init_parser</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parser</span><span class="p">:</span> <span class="n">ArgumentParser</span><span class="p">,</span> <span class="n">resolver</span><span class="p">:</span> <span class="n">DependencyResolver</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">init_parser</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parser</span><span class="p">:</span> <span class="n">ArgumentParser</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_parser</span> <span class="o">=</span> <span class="n">parser</span>
 
         <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
@@ -855,7 +863,7 @@
             <span class="n">help</span><span class="o">=</span><span class="s2">&quot;do not create sweep directory&quot;</span><span class="p">,</span>
         <span class="p">)</span>
 
-        <span class="n">clusters</span> <span class="o">=</span> <span class="p">[</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">resolver</span><span class="o">.</span><span class="n">resolve_all_keyed</span><span class="p">(</span><span class="n">EnvironmentSetter</span><span class="p">)]</span>
+        <span class="n">clusters</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_env_setters</span><span class="o">.</span><span class="n">names</span><span class="p">())</span>
 
         <span class="n">clusters</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
 
@@ -881,7 +889,7 @@
 
 
     <span class="nd">@override</span>
-    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">Namespace</span><span class="p">,</span> <span class="n">resolver</span><span class="p">:</span> <span class="n">DependencyResolver</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">Namespace</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">console</span> <span class="o">=</span> <span class="n">get_console</span><span class="p">()</span>
 
         <span class="n">setup_basic_logging</span><span class="p">(</span><span class="n">debug</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">debug</span><span class="p">)</span>
@@ -911,10 +919,8 @@
 
             <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
 
-        <span class="n">value_converter</span> <span class="o">=</span> <span class="n">resolver</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">ValueConverter</span><span class="p">)</span>
-
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">unstructured_config</span> <span class="o">=</span> <span class="n">value_converter</span><span class="o">.</span><span class="n">unstructure</span><span class="p">(</span><span class="n">preset_config</span><span class="p">)</span>
+            <span class="n">unstructured_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_value_converter</span><span class="o">.</span><span class="n">unstructure</span><span class="p">(</span><span class="n">preset_config</span><span class="p">)</span>
         <span class="k">except</span> <span class="n">StructuredError</span><span class="p">:</span>
             <span class="n">log</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">&quot;Preset configuration &#39;</span><span class="si">{}</span><span class="s2">&#39; cannot be used. Please file a bug report to the recipe author.&quot;</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">preset</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
 
@@ -969,19 +975,19 @@
 
         <span class="c1"># Set up cluster-specific environment variables.</span>
         <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">cluster</span> <span class="o">==</span> <span class="s2">&quot;auto&quot;</span><span class="p">:</span>
-            <span class="n">env_setter</span> <span class="o">=</span> <span class="n">resolver</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">EnvironmentSetter</span><span class="p">)</span>
+            <span class="n">env_setter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_env_setters</span><span class="o">.</span><span class="n">get_for_inferred_cluster</span><span class="p">()</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">env_setter</span> <span class="o">=</span> <span class="n">resolver</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">EnvironmentSetter</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">cluster</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">env_setter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_env_setters</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">cluster</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">&quot;Recipe is not running on a &#39;</span><span class="si">{}</span><span class="s2">&#39; cluster.&quot;</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">cluster</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">env_setter</span><span class="o">.</span><span class="n">supports_current_cluster</span><span class="p">():</span>
-            <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Recipe is not running on a &#39;</span><span class="si">{}</span><span class="s2">&#39; cluster.&quot;</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">cluster</span><span class="p">)</span>
-
-            <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
 
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">env_setter</span><span class="o">.</span><span class="n">set_torch_distributed_variables</span><span class="p">()</span>
+            <span class="n">env_setter</span><span class="o">.</span><span class="n">set_torch_distributed_env</span><span class="p">()</span>
         <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
-            <span class="n">log</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">&quot;&#39;</span><span class="si">{}</span><span class="s2">&#39; cluster environment cannot be set.&quot;</span><span class="p">,</span> <span class="n">env_setter</span><span class="o">.</span><span class="n">supported_cluster</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">&quot;&#39;</span><span class="si">{}</span><span class="s2">&#39; cluster environment cannot be set.&quot;</span><span class="p">,</span> <span class="n">env_setter</span><span class="o">.</span><span class="n">cluster</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
 
             <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
 
@@ -989,15 +995,10 @@
         <span class="n">output_dir</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">output_dir</span><span class="o">.</span><span class="n">expanduser</span><span class="p">()</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">args</span><span class="o">.</span><span class="n">no_sweep_dir</span><span class="p">:</span>
-            <span class="n">sweep_tagger</span> <span class="o">=</span> <span class="n">resolver</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">SweepTagger</span><span class="p">)</span>
-
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sweep_allowed_keys</span><span class="p">:</span>
-                <span class="n">sweep_tagger</span><span class="o">.</span><span class="n">extend_allowed_keys</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sweep_allowed_keys</span><span class="p">)</span>
-
             <span class="k">try</span><span class="p">:</span>
-                <span class="n">tag</span> <span class="o">=</span> <span class="n">sweep_tagger</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">preset</span><span class="p">,</span> <span class="n">unstructured_config</span><span class="p">)</span>
-            <span class="k">except</span> <span class="n">SweepFormatError</span><span class="p">:</span>
-                <span class="n">log</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">&quot;Sweep directory cannot be created.&quot;</span><span class="p">)</span>
+                <span class="n">tag</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sweep_tagger</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">preset</span><span class="p">,</span> <span class="n">unstructured_config</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">LookupError</span><span class="p">:</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">&quot;sweep format&quot;</span><span class="p">)</span>
 
                 <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
 
@@ -1030,19 +1031,13 @@
 
         <span class="c1"># Parse the configuration.</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">config</span> <span class="o">=</span> <span class="n">value_converter</span><span class="o">.</span><span class="n">structure</span><span class="p">(</span>
+            <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_value_converter</span><span class="o">.</span><span class="n">structure</span><span class="p">(</span>
                 <span class="n">unstructured_config</span><span class="p">,</span> <span class="n">type_expr</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_preset_configs</span><span class="o">.</span><span class="n">config_kls</span>
             <span class="p">)</span>
         <span class="k">except</span> <span class="n">StructuredError</span><span class="p">:</span>
             <span class="n">log</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">&quot;Configuration cannot be parsed.&quot;</span><span class="p">)</span>
 
             <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-
-        <span class="n">config_manager</span> <span class="o">=</span> <span class="n">resolver</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">StandardConfigManager</span><span class="p">)</span>
-
-        <span class="n">config_manager</span><span class="o">.</span><span class="n">update_config_dict</span><span class="p">({</span><span class="s2">&quot;output_dir&quot;</span><span class="p">:</span> <span class="n">output_dir</span><span class="p">})</span>
-
-        <span class="n">_set_legacy_config</span><span class="p">(</span><span class="n">resolver</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
 
         <span class="c1"># Load and run the recipe.</span>
         <span class="n">recipe</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loader</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">)</span>
@@ -1095,7 +1090,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=2a7e75e8"></script>
+</div><script src="../../../_static/documentation_options.js?v=0f277edf"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>

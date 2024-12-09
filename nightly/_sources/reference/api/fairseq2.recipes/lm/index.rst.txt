@@ -16,19 +16,8 @@ Key Features
 - CLI setup for language model training
 - Common training recipes and configurations
 
-Components
-==========
-
-Functions
----------
-
-.. autofunction:: _setup_lm_cli
-   :noindex:
-
-The ``_setup_lm_cli`` function configures command-line interface options for language model training and fine-tuning tasks.
-
 Submodules
-----------
+==========
 
 .. toctree::
     :maxdepth: 1

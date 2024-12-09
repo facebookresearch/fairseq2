@@ -56,19 +56,11 @@ Key Features
 
     * Simplifies workload distribution and resource management.
 
-.. dropdown:: Container & Resolver
-    :icon: project
-    :animate: fade-in
-
-    * Dependency management and resolution.
-
-    * Containers hold components, while resolvers ensure seamless orchestration.
-
 Design Principles
 -----------------
 
 
-.. dropdown:: Dependency Injection & Inversion
+.. dropdown:: Dependency Inversion
     :icon: infinity
     :animate: fade-in
 
