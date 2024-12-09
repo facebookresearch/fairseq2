@@ -36,7 +36,6 @@ private:
     bool exclude_;
     bool single_column_;
 
-    std::vector<std::size_t> wrapIndices(std::variant<std::size_t, std::vector<std::size_t>> indices);
 };
 
 }  // namespace fairseq2n

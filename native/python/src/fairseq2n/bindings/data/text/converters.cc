@@ -65,7 +65,7 @@ def_text_converters(py::module_ &text_module)
                 if (maybe_indices)
                     indices = *std::move(maybe_indices);
 
-                return make_string_splitter(std::move(sep), std::move(maybe_names), std::move(indices), exclude);
+                return make_string_splitter(sep, std::move(maybe_names), std::move(indices), exclude);
             }),
             py::arg("sep") = '\t',
             py::arg("names") = std::nullopt,
@@ -78,7 +78,7 @@ def_text_converters(py::module_ &text_module)
                 std::size_t index,
                 bool exclude)
             {
-                return make_string_splitter(std::move(sep), std::move(maybe_names), index, exclude);
+                return make_string_splitter(sep, std::move(maybe_names), index, exclude);
             }),
             py::arg("sep") = '\t',
             py::arg("names") = std::nullopt,
