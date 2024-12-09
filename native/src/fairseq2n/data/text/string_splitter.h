@@ -25,6 +25,13 @@ public:
         std::vector<std::size_t> indices = {},
         bool exclude = false);
 
+    explicit
+    string_splitter(
+        char separator = '\t',
+        std::vector<std::string> names = {},
+        std::size_t index = 0,
+        bool exclude = false);
+
     data
     operator()(data &&d) const;
 
@@ -33,6 +40,9 @@ private:
     std::vector<std::string> names_;
     std::vector<std::size_t> indices_;
     bool exclude_;
+    bool single_column_;
+
+    void finalizeConstructor();
 };
 
 }  // namespace fairseq2n

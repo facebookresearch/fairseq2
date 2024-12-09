@@ -22,12 +22,27 @@ string_splitter::string_splitter(
     std::vector<std::string> names,
     std::vector<std::size_t> indices,
     bool exclude)
-  : separator_{separator}, names_(std::move(names)), indices_{std::move(indices)}, exclude_{exclude}
+  : separator_{separator}, names_(std::move(names)), indices_{std::move(indices)}, exclude_{exclude}, single_column_{false}
 {
+    finalizeConstructor();
+}
+
+string_splitter::string_splitter(
+    char separator,
+    std::vector<std::string> names,
+    std::size_t index,
+    bool exclude)
+  : separator_{separator}, names_(std::move(names)), indices_{index}, exclude_{exclude}, single_column_{true}
+{
+    finalizeConstructor();
+}
+
+void
+string_splitter::finalizeConstructor() {
     if (indices_.empty())
         return;
 
-    if (!names_.empty() && !exclude && names_.size() != indices_.size())
+    if (!names_.empty() && !exclude_ && names_.size() != indices_.size())
         throw_<std::invalid_argument>(
             "`names` and `indices` must have the same length, but have the lengths {} and {} instead.", names_.size(), indices_.size());
 
@@ -78,7 +93,7 @@ string_splitter::operator()(data &&d) const
 
     // If no names specified, return a list, or a string if a single non-excluding index is specified.
     if (names_.empty()) {
-        if (!exclude_ && indices_.size() == 1)
+        if (single_column_ && !exclude_)
             return data{std::move(fields[0])};
 
         return fields;
@@ -96,5 +111,16 @@ string_splitter::operator()(data &&d) const
 
     return dict;
 }
+
+// std::vector<std::size_t>
+// string_splitter::wrapIndices(std::variant<std::size_t, std::vector<std::size_t>> indices) {
+//     if (std::holds_alternative<std::size_t>(indices)) {
+//         // Wrap the size_t value in a new vector
+//         return {std::get<std::size_t>(indices)};
+//     } else {
+//         // Move the existing vector
+//         return std::move(std::get<std::vector<std::size_t>>(indices));
+//     }
+// }
 
 }  // namespace fairseq2n

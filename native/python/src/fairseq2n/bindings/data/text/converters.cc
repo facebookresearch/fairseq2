@@ -60,6 +60,27 @@ def_text_converters(py::module_ &text_module)
             py::arg("names") = std::nullopt,
             py::arg("indices") = std::nullopt,
             py::arg("exclude") = false)
+        .def(
+            py::init([](
+                std::string_view sep,
+                std::optional<std::vector<std::string>> maybe_names,
+                std::size_t index,
+                bool exclude)
+            {
+                if (sep.size() != 1)
+                    throw_<std::invalid_argument>(
+                        "`sep` must be of length 1, but is of length {} instead.", sep.size());
+
+                std::vector<std::string> names{};
+                if (maybe_names)
+                    names = *std::move(maybe_names);
+
+                return std::make_shared<string_splitter>(sep[0], std::move(names), index, exclude);
+            }),
+            py::arg("sep") = '\t',
+            py::arg("names") = std::nullopt,
+            py::arg("indices") = 0,
+            py::arg("exclude") = false)
         .def("__call__", &string_splitter::operator(), py::call_guard<py::gil_scoped_release>{});
 
     // StrToIntConverter
