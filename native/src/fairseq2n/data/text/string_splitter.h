@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <optional>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include "fairseq2n/api.h"
@@ -22,14 +23,7 @@ public:
     string_splitter(
         char separator = '\t',
         std::vector<std::string> names = {},
-        std::vector<std::size_t> indices = {},
-        bool exclude = false);
-
-    explicit
-    string_splitter(
-        char separator = '\t',
-        std::vector<std::string> names = {},
-        std::size_t index = 0,
+        std::variant<std::size_t, std::vector<std::size_t>> indices = {},
         bool exclude = false);
 
     data
@@ -42,7 +36,7 @@ private:
     bool exclude_;
     bool single_column_;
 
-    void finalizeConstructor();
+    std::vector<std::size_t> wrapIndices(std::variant<std::size_t, std::vector<std::size_t>> indices);
 };
 
 }  // namespace fairseq2n

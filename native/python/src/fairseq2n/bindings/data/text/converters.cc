@@ -11,6 +11,7 @@
 #include <stdexcept>
 #include <string_view>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include <ATen/ScalarType.h>
@@ -27,6 +28,25 @@ using namespace fairseq2n::detail;
 
 namespace fairseq2n {
 
+static std::shared_ptr<string_splitter>
+make_string_splitter(
+    std::string_view sep,
+    std::optional<std::vector<std::string>> maybe_names,
+    std::variant<std::size_t, std::vector<std::size_t>> indices,
+    bool exclude)
+{
+    if (sep.size() != 1)
+        throw_<std::invalid_argument>(
+            "`sep` must be of length 1, but is of length {} instead.", sep.size());
+
+    std::vector<std::string> names{};
+    if (maybe_names)
+        names = *std::move(maybe_names);
+
+    return std::make_shared<string_splitter>(
+        sep[0], std::move(names), std::move(indices), exclude);
+}
+
 void
 def_text_converters(py::module_ &text_module)
 {
@@ -41,20 +61,11 @@ def_text_converters(py::module_ &text_module)
                 std::optional<std::vector<std::size_t>> maybe_indices,
                 bool exclude)
             {
-                if (sep.size() != 1)
-                    throw_<std::invalid_argument>(
-                        "`sep` must be of length 1, but is of length {} instead.", sep.size());
-
-                std::vector<std::string> names{};
-                if (maybe_names)
-                    names = *std::move(maybe_names);
-
                 std::vector<std::size_t> indices{};
                 if (maybe_indices)
                     indices = *std::move(maybe_indices);
 
-                return std::make_shared<string_splitter>(
-                    sep[0], std::move(names), std::move(indices), exclude);
+                return make_string_splitter(std::move(sep), std::move(maybe_names), std::move(indices), exclude);
             }),
             py::arg("sep") = '\t',
             py::arg("names") = std::nullopt,
@@ -67,15 +78,7 @@ def_text_converters(py::module_ &text_module)
                 std::size_t index,
                 bool exclude)
             {
-                if (sep.size() != 1)
-                    throw_<std::invalid_argument>(
-                        "`sep` must be of length 1, but is of length {} instead.", sep.size());
-
-                std::vector<std::string> names{};
-                if (maybe_names)
-                    names = *std::move(maybe_names);
-
-                return std::make_shared<string_splitter>(sep[0], std::move(names), index, exclude);
+                return make_string_splitter(std::move(sep), std::move(maybe_names), index, exclude);
             }),
             py::arg("sep") = '\t',
             py::arg("names") = std::nullopt,

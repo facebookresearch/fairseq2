@@ -20,25 +20,10 @@ namespace fairseq2n {
 string_splitter::string_splitter(
     char separator,
     std::vector<std::string> names,
-    std::vector<std::size_t> indices,
+    std::variant<std::size_t, std::vector<std::size_t>> indices,
     bool exclude)
-  : separator_{separator}, names_(std::move(names)), indices_{std::move(indices)}, exclude_{exclude}, single_column_{false}
+  : separator_{separator}, names_(std::move(names)), indices_{wrapIndices(indices)}, exclude_{exclude}, single_column_{std::holds_alternative<std::size_t>(indices)}
 {
-    finalizeConstructor();
-}
-
-string_splitter::string_splitter(
-    char separator,
-    std::vector<std::string> names,
-    std::size_t index,
-    bool exclude)
-  : separator_{separator}, names_(std::move(names)), indices_{index}, exclude_{exclude}, single_column_{true}
-{
-    finalizeConstructor();
-}
-
-void
-string_splitter::finalizeConstructor() {
     if (indices_.empty())
         return;
 
@@ -112,15 +97,15 @@ string_splitter::operator()(data &&d) const
     return dict;
 }
 
-// std::vector<std::size_t>
-// string_splitter::wrapIndices(std::variant<std::size_t, std::vector<std::size_t>> indices) {
-//     if (std::holds_alternative<std::size_t>(indices)) {
-//         // Wrap the size_t value in a new vector
-//         return {std::get<std::size_t>(indices)};
-//     } else {
-//         // Move the existing vector
-//         return std::move(std::get<std::vector<std::size_t>>(indices));
-//     }
-// }
+std::vector<std::size_t>
+string_splitter::wrapIndices(std::variant<std::size_t, std::vector<std::size_t>> indices) {
+    if (std::holds_alternative<std::size_t>(indices)) {
+        // Wrap the size_t value in a new vector
+        return {std::get<std::size_t>(indices)};
+    } else {
+        // Move the existing vector
+        return std::move(std::get<std::vector<std::size_t>>(indices));
+    }
+}
 
 }  // namespace fairseq2n
