@@ -9,11 +9,11 @@ from __future__ import annotations
 import sys
 from abc import ABC, abstractmethod
 from argparse import OPTIONAL, ArgumentParser, BooleanOptionalAction, Namespace
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from pathlib import Path
 from signal import SIGUSR1, signal
 from types import FrameType
-from typing import Generic, Hashable, Protocol, TypeVar, final, runtime_checkable
+from typing import Generic, Protocol, TypeVar, final, runtime_checkable
 
 import yaml
 from rich.console import Console
@@ -21,20 +21,21 @@ from typing_extensions import override
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.console import get_console, set_console
-from fairseq2.dependency import DependencyResolver
 from fairseq2.error import AlreadyExistsError
 from fairseq2.logging import get_log_writer
-from fairseq2.recipes.config_manager import StandardConfigManager
-from fairseq2.recipes.legacy_config import _set_legacy_config
 from fairseq2.recipes.logging import setup_basic_logging, setup_logging
 from fairseq2.recipes.utils.argparse import ConfigAction
-from fairseq2.recipes.utils.environment import EnvironmentSetter
+from fairseq2.recipes.utils.environment import (
+    EnvironmentSetterRegistry,
+    default_env_setters,
+)
 from fairseq2.recipes.utils.log import log_config
-from fairseq2.recipes.utils.sweep import SweepFormatError, SweepTagger
+from fairseq2.recipes.utils.sweep import SweepTagger, default_sweep_tagger
 from fairseq2.typing import DataClass
 from fairseq2.utils.structured import (
     StructuredError,
     ValueConverter,
+    default_value_converter,
     merge_unstructured,
 )
 
@@ -110,7 +111,7 @@ class Cli:
                 f"`name` must be a registered group name, but '{name}' is not registered."
             ) from None
 
-    def init_parser(self, parser: ArgumentParser, resolver: DependencyResolver) -> None:
+    def init_parser(self, parser: ArgumentParser) -> None:
         """Initialize ``parser`` with program-specific arguments."""
         parser.add_argument(
             "--version", action="version", version=f"%(prog)s {self._version}"
@@ -131,15 +132,18 @@ class Cli:
 
             sub_parser = sub_parsers.add_parser(group.name, help=help)
 
-            group.init_parser(sub_parser, resolver)
+            group.init_parser(sub_parser)
 
-    def __call__(self, resolver: DependencyResolver) -> None:
+    def __call__(self) -> None:
         """Run the program."""
         set_console(Console(highlight=False))
 
+        self._run_command()
+
+    def _run_command(self) -> None:
         parser = ArgumentParser(self._name, description=self._description)
 
-        self.init_parser(parser, resolver)
+        self.init_parser(parser)
 
         args = parser.parse_args()
 
@@ -148,7 +152,7 @@ class Cli:
 
             sys.exit(2)
 
-        args.command(args, resolver)
+        args.command(args)
 
     @property
     def name(self) -> str:
@@ -275,7 +279,7 @@ class CliGroup:
                 f"`name` must be a registered command name, but '{name}' is not registered."
             ) from None
 
-    def init_parser(self, parser: ArgumentParser, resolver: DependencyResolver) -> None:
+    def init_parser(self, parser: ArgumentParser) -> None:
         """Initialize ``parser`` with command group-specific arguments."""
         sub_parsers = parser.add_subparsers()
 
@@ -292,7 +296,7 @@ class CliGroup:
 
             sub_parser = sub_parsers.add_parser(group.name, help=help)
 
-            group.init_parser(sub_parser, resolver)
+            group.init_parser(sub_parser)
 
         for command in self._commands.values():
             help = command.help
@@ -309,7 +313,7 @@ class CliGroup:
 
             sub_parser.set_defaults(command=command)
 
-            command.init_parser(sub_parser, resolver)
+            command.init_parser(sub_parser)
 
     @property
     def name(self) -> str:
@@ -348,13 +352,13 @@ class CliCommand:
         self._origin_module = origin_module
         self._help = help
 
-    def init_parser(self, parser: ArgumentParser, resolver: DependencyResolver) -> None:
+    def init_parser(self, parser: ArgumentParser) -> None:
         """Initialize ``parser`` with command group-specific arguments."""
-        self._handler.init_parser(parser, resolver)
+        self._handler.init_parser(parser)
 
-    def __call__(self, args: Namespace, resolver: DependencyResolver) -> None:
+    def __call__(self, args: Namespace) -> None:
         """Run the command."""
-        self._handler(args, resolver)
+        self._handler(args)
 
     @property
     def name(self) -> str:
@@ -376,11 +380,11 @@ class CliCommandHandler(ABC):
     """Represents the handler of a command of a command line program."""
 
     @abstractmethod
-    def init_parser(self, parser: ArgumentParser, resolver: DependencyResolver) -> None:
+    def init_parser(self, parser: ArgumentParser) -> None:
         """Initialize ``parser`` with command-specific arguments."""
 
     @abstractmethod
-    def __call__(self, args: Namespace, resolver: DependencyResolver) -> None:
+    def __call__(self, args: Namespace) -> None:
         """Run the command."""
 
 
@@ -420,7 +424,9 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
     _loader: RecipeLoader[RecipeConfigT]
     _preset_configs: ConfigRegistry[RecipeConfigT]
     _default_preset: str
-    _sweep_allowed_keys: Sequence[Hashable] | None
+    _env_setters: EnvironmentSetterRegistry
+    _value_converter: ValueConverter
+    _sweep_tagger: SweepTagger
     _parser: ArgumentParser | None
 
     def __init__(
@@ -429,7 +435,9 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
         preset_configs: ConfigRegistry[RecipeConfigT],
         default_preset: str,
         *,
-        sweep_allowed_keys: Sequence[Hashable] | None = None,
+        env_setters: EnvironmentSetterRegistry | None = None,
+        value_converter: ValueConverter | None = None,
+        sweep_tagger: SweepTagger | None = None,
     ) -> None:
         """
         :param loader:
@@ -438,17 +446,26 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
             The registry containing the preset recipe configurations.
         :param default_preset:
             The name of the default preset.
-        :param sweep_allowed_keys:
-            The recipe-specific configuration keys to use in :class:`SweepTagger`.
+        :param env_setters:
+            The registry containing cluster-specific :class:`EnvironmentSetter`
+            instances.
+        :param value_converter:
+            The :class:`ValueConverter` instance to use. If ``None``, the
+            default instance will be used.
+        :param sweep_tagger:
+            The :class:`SweepTagger` instance to use. If ``None``, the default
+            instance will be used.
         """
         self._loader = loader
         self._preset_configs = preset_configs
         self._default_preset = default_preset
-        self._sweep_allowed_keys = sweep_allowed_keys
+        self._env_setters = env_setters or default_env_setters
+        self._value_converter = value_converter or default_value_converter
+        self._sweep_tagger = sweep_tagger or default_sweep_tagger
         self._parser = None
 
     @override
-    def init_parser(self, parser: ArgumentParser, resolver: DependencyResolver) -> None:
+    def init_parser(self, parser: ArgumentParser) -> None:
         self._parser = parser
 
         parser.add_argument(
@@ -491,7 +508,7 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
             help="do not create sweep directory",
         )
 
-        clusters = [k for k, _ in resolver.resolve_all_keyed(EnvironmentSetter)]
+        clusters = list(self._env_setters.names())
 
         clusters.sort()
 
@@ -516,7 +533,7 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
         )
 
     @override
-    def __call__(self, args: Namespace, resolver: DependencyResolver) -> None:
+    def __call__(self, args: Namespace) -> None:
         console = get_console()
 
         setup_basic_logging(debug=args.debug)
@@ -546,10 +563,8 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
 
             sys.exit(1)
 
-        value_converter = resolver.resolve(ValueConverter)
-
         try:
-            unstructured_config = value_converter.unstructure(preset_config)
+            unstructured_config = self._value_converter.unstructure(preset_config)
         except StructuredError:
             log.exception("Preset configuration '{}' cannot be used. Please file a bug report to the recipe author.", args.preset)  # fmt: skip
 
@@ -604,19 +619,19 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
 
         # Set up cluster-specific environment variables.
         if args.cluster == "auto":
-            env_setter = resolver.resolve(EnvironmentSetter)
+            env_setter = self._env_setters.get_for_inferred_cluster()
         else:
-            env_setter = resolver.resolve(EnvironmentSetter, args.cluster)
+            try:
+                env_setter = self._env_setters.get(args.cluster)
+            except RuntimeError:
+                log.exception("Recipe is not running on a '{}' cluster.", args.cluster)  # fmt: skip
 
-        if not env_setter.supports_current_cluster():
-            log.error("Recipe is not running on a '{}' cluster.", args.cluster)
-
-            sys.exit(1)
+                sys.exit(1)
 
         try:
-            env_setter.set_torch_distributed_variables()
+            env_setter.set_torch_distributed_env()
         except RuntimeError:
-            log.exception("'{}' cluster environment cannot be set.", env_setter.supported_cluster)  # fmt: skip
+            log.exception("'{}' cluster environment cannot be set.", env_setter.cluster)  # fmt: skip
 
             sys.exit(1)
 
@@ -624,15 +639,10 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
         output_dir = args.output_dir.expanduser().resolve()
 
         if not args.no_sweep_dir:
-            sweep_tagger = resolver.resolve(SweepTagger)
-
-            if self._sweep_allowed_keys:
-                sweep_tagger.extend_allowed_keys(self._sweep_allowed_keys)
-
             try:
-                tag = sweep_tagger(args.preset, unstructured_config)
-            except SweepFormatError:
-                log.exception("Sweep directory cannot be created.")
+                tag = self._sweep_tagger(args.preset, unstructured_config)
+            except LookupError:
+                log.exception("sweep format")
 
                 sys.exit(1)
 
@@ -665,19 +675,13 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
 
         # Parse the configuration.
         try:
-            config = value_converter.structure(
+            config = self._value_converter.structure(
                 unstructured_config, type_expr=self._preset_configs.config_kls
             )
         except StructuredError:
             log.exception("Configuration cannot be parsed.")
 
             sys.exit(1)
-
-        config_manager = resolver.resolve(StandardConfigManager)
-
-        config_manager.update_config_dict({"output_dir": output_dir})
-
-        _set_legacy_config(resolver, config)
 
         # Load and run the recipe.
         recipe = self._loader(config, output_dir)

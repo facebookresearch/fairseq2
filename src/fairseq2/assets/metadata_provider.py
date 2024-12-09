@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Literal, NoReturn, final
+from typing import Any, NoReturn, final
 
 import yaml
 from importlib_resources import files
@@ -20,11 +20,6 @@ from typing_extensions import override
 from yaml import YAMLError
 
 from fairseq2.assets.error import AssetError
-from fairseq2.dependency import DependencyContainer, DependencyResolver
-from fairseq2.logging import get_log_writer
-from fairseq2.utils.env import get_path_from_env
-
-log = get_log_writer(__name__)
 
 
 class AssetMetadataProvider(ABC):
@@ -46,26 +41,14 @@ class AssetMetadataProvider(ABC):
     def clear_cache(self) -> None:
         """Clear any cached asset metadata."""
 
-    @property
-    @abstractmethod
-    def scope(self) -> str:
-        """The scope (e.g. user or global) of this provider."""
-
 
 class AbstractAssetMetadataProvider(AssetMetadataProvider):
     """Provides a skeletal implementation of :class:`AssetMetadataProvider`."""
 
     _cache: dict[str, dict[str, Any]] | None
-    _scope: str
 
-    def __init__(self, *, scope: Literal["global", "user"] = "global") -> None:
-        """
-        :param scope:
-            The scope of the provider.
-        """
+    def __init__(self) -> None:
         self._cache = None
-
-        self._scope = scope
 
     @final
     @override
@@ -83,7 +66,7 @@ class AbstractAssetMetadataProvider(AssetMetadataProvider):
             return deepcopy(metadata)
         except Exception as ex:
             raise AssetMetadataError(
-                f"The metadata of the asset '{name}' cannot be used. Please file a bug report to the asset owner."
+                f"The metadata of the asset '{name}' cannot be copied. See nested exception for details and please file a bug report to the asset owner."
             ) from ex
 
     @final
@@ -110,12 +93,6 @@ class AbstractAssetMetadataProvider(AssetMetadataProvider):
     def _load_cache(self) -> dict[str, dict[str, Any]]:
         ...
 
-    @final
-    @property
-    @override
-    def scope(self) -> str:
-        return self._scope
-
 
 @final
 class FileAssetMetadataProvider(AbstractAssetMetadataProvider):
@@ -123,16 +100,12 @@ class FileAssetMetadataProvider(AbstractAssetMetadataProvider):
 
     _base_dir: Path
 
-    def __init__(
-        self, base_dir: Path, *, scope: Literal["global", "user"] = "global"
-    ) -> None:
+    def __init__(self, base_dir: Path) -> None:
         """
         :param base_dir:
             The base directory under which the asset metadata is stored.
-        :param scope:
-            The scope of the provider.
         """
-        super().__init__(scope=scope)
+        super().__init__()
 
         self._base_dir = base_dir.expanduser().resolve()
 
@@ -176,16 +149,12 @@ class PackageAssetMetadataProvider(AbstractAssetMetadataProvider):
     _package_name: str
     _package_path: MultiplexedPath
 
-    def __init__(
-        self, package_name: str, scope: Literal["global", "user"] = "global"
-    ) -> None:
+    def __init__(self, package_name: str) -> None:
         """
         :param package_name:
             The name of the package in which the asset metadata is stored.
-        :param scope:
-            The scope of the provider.
         """
-        super().__init__(scope=scope)
+        super().__init__()
 
         self._package_name = package_name
 
@@ -202,7 +171,7 @@ class PackageAssetMetadataProvider(AbstractAssetMetadataProvider):
             for name, metadata in load_metadata_file(file):
                 if name in cache:
                     raise AssetMetadataError(
-                        f"Two assets under the package '{self._package_name}' have the same name '{name}'."
+                        f"Two assets under the namespace package '{self._package_name}' have the same name '{name}'."
                     )
 
                 metadata["__source__"] = f"package:{self._package_name}"
@@ -253,21 +222,21 @@ def load_metadata_file(file: Path) -> list[tuple[str, dict[str, Any]]]:
         for idx, metadata in enumerate(all_metadata):
             if not isinstance(metadata, dict):
                 raise AssetMetadataError(
-                    f"The asset metadata at index {idx} in the file '{file}' has an invalid format."
+                    f"The asset metadata at index {idx} in {file} has an invalid format."
                 )
 
             try:
                 name = metadata.pop("name")
             except KeyError:
                 raise AssetMetadataError(
-                    f"The asset metadata at index {idx} in the file {file} does not have a name entry."
+                    f"The asset metadata at index {idx} in {file} does not have a name entry."
                 ) from None
 
             try:
                 canonical_name = _canonicalize_name(name)
             except ValueError as ex:
                 raise AssetMetadataError(
-                    f"The asset metadata at index {idx} in the file {file} has an invalid name. See nested exception for details."
+                    f"The asset metadata at index {idx} in {file} has an invalid name. See nested exception for details."
                 ) from ex
 
             metadata["__base_path__"] = file.parent
@@ -281,18 +250,19 @@ def load_metadata_file(file: Path) -> list[tuple[str, dict[str, Any]]]:
 class InProcAssetMetadataProvider(AssetMetadataProvider):
     """Provides asset metadata stored in memory."""
 
+    _name: str | None
     _metadata: dict[str, dict[str, Any]]
-    _scope: str
 
     def __init__(
-        self,
-        metadata: Sequence[dict[str, Any]],
-        *,
-        scope: Literal["global", "user"] = "global",
+        self, metadata: Sequence[dict[str, Any]], *, name: str | None = None
     ) -> None:
-        super().__init__()
-
+        self._name = name
         self._metadata = {}
+
+        source = "inproc"
+
+        if name is not None:
+            source = f"{source}:{name}"
 
         for idx, metadata_ in enumerate(metadata):
             try:
@@ -314,11 +284,9 @@ class InProcAssetMetadataProvider(AssetMetadataProvider):
                     f"Two assets in `metadata` have the same name '{canonical_name}'."
                 )
 
-            metadata_["__source__"] = "inproc"
+            metadata_["__source__"] = source
 
             self._metadata[canonical_name] = metadata_
-
-        self._scope = scope
 
     @override
     def get_metadata(self, name: str) -> dict[str, Any]:
@@ -336,11 +304,6 @@ class InProcAssetMetadataProvider(AssetMetadataProvider):
     @override
     def clear_cache(self) -> None:
         pass
-
-    @override
-    @property
-    def scope(self) -> str:
-        return self._scope
 
 
 def _canonicalize_name(name: Any) -> str:
@@ -380,52 +343,3 @@ class AssetNotFoundError(AssetError):
 
 class AssetMetadataError(AssetError):
     """Raised when an asset metadata operation fails."""
-
-
-def register_asset_metadata_providers(container: DependencyContainer) -> None:
-    container.register_factory(AssetMetadataProvider, _create_package_metadata_provider)
-    container.register_factory(AssetMetadataProvider, _create_etc_dir_metadata_provider)
-    container.register_factory(AssetMetadataProvider, _create_cfg_dir_metadata_provider)
-
-
-def _create_package_metadata_provider(
-    resolver: DependencyResolver,
-) -> AssetMetadataProvider:
-    return PackageAssetMetadataProvider("fairseq2.assets.cards")
-
-
-def _create_etc_dir_metadata_provider(
-    resolver: DependencyResolver,
-) -> AssetMetadataProvider | None:
-    asset_dir = get_path_from_env("FAIRSEQ2_ASSET_DIR", log)
-    if asset_dir is None:
-        asset_dir = Path("/etc/fairseq2/assets").resolve()
-        if not asset_dir.exists():
-            return None
-
-    return FileAssetMetadataProvider(asset_dir)
-
-
-def _create_cfg_dir_metadata_provider(
-    resolver: DependencyResolver,
-) -> AssetMetadataProvider | None:
-    asset_dir = get_path_from_env("FAIRSEQ2_USER_ASSET_DIR", log)
-    if asset_dir is None:
-        asset_dir = get_path_from_env("XDG_CONFIG_HOME", log)
-        if asset_dir is None:
-            asset_dir = Path("~/.config").expanduser()
-
-        asset_dir = asset_dir.joinpath("fairseq2/assets").resolve()
-        if not asset_dir.exists():
-            return None
-
-    return FileAssetMetadataProvider(asset_dir, scope="user")
-
-
-def register_package_metadata_provider(
-    container: DependencyContainer, package_name: str
-) -> None:
-    def create(resolver: DependencyResolver) -> AssetMetadataProvider:
-        return PackageAssetMetadataProvider(package_name)
-
-    container.register_factory(AssetMetadataProvider, create)

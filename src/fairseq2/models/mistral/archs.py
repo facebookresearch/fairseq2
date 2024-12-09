@@ -9,7 +9,6 @@ from __future__ import annotations
 from fairseq2.models.mistral.factory import MistralConfig, mistral_arch
 
 
-def register_archs() -> None:
-    @mistral_arch("7b")
-    def _7b() -> MistralConfig:
-        return MistralConfig()
+@mistral_arch("7b")
+def _7b() -> MistralConfig:
+    return MistralConfig()

@@ -10,29 +10,31 @@ from fairseq2.models.w2vbert.factory import W2VBertConfig, w2vbert_arch
 from fairseq2.models.wav2vec2 import Wav2Vec2EncoderConfig, wav2vec2_encoder_arch
 
 
-def register_archs() -> None:
-    @w2vbert_arch("600m")
-    def _600m() -> W2VBertConfig:
-        return W2VBertConfig()
+@w2vbert_arch("600m")
+def _600m() -> W2VBertConfig:
+    return W2VBertConfig()
 
-    @w2vbert_arch("300m")
-    def _300m() -> W2VBertConfig:
-        config = _600m()
 
-        config.w2v2_config.encoder_config.num_encoder_layers = 12
+@w2vbert_arch("300m")
+def _300m() -> W2VBertConfig:
+    config = _600m()
 
-        config.num_bert_encoder_layers = 8
+    config.w2v2_config.encoder_config.num_encoder_layers = 12
 
-        return config
+    config.num_bert_encoder_layers = 8
 
-    @wav2vec2_encoder_arch("bert_600m")
-    def _600m_encoder() -> Wav2Vec2EncoderConfig:
-        config = _600m()
+    return config
 
-        return config.w2v2_config.encoder_config
 
-    @wav2vec2_encoder_arch("bert_300m")
-    def _300m_encoder() -> Wav2Vec2EncoderConfig:
-        config = _300m()
+@wav2vec2_encoder_arch("bert_600m")
+def _600m_encoder() -> Wav2Vec2EncoderConfig:
+    config = _600m()
 
-        return config.w2v2_config.encoder_config
+    return config.w2v2_config.encoder_config
+
+
+@wav2vec2_encoder_arch("bert_300m")
+def _300m_encoder() -> Wav2Vec2EncoderConfig:
+    config = _300m()
+
+    return config.w2v2_config.encoder_config

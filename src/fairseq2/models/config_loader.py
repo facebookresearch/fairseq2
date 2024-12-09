@@ -14,7 +14,7 @@ from fairseq2.assets import (
     AssetCardFieldNotFoundError,
     AssetError,
     AssetStore,
-    get_asset_store,
+    default_asset_store,
 )
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.typing import DataClass
@@ -22,7 +22,7 @@ from fairseq2.utils.dataclass import merge_dataclass
 from fairseq2.utils.structured import (
     StructuredError,
     ValueConverter,
-    get_value_converter,
+    default_value_converter,
     merge_unstructured,
 )
 
@@ -47,11 +47,10 @@ class ModelConfigLoader(Protocol[ModelConfigT_co]):
 class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
     """Loads model configurations of type ``ModelConfigT``."""
 
-    _asset_store: AssetStore | None
+    _asset_store: AssetStore
     _family: str
     _config_kls: type[ModelConfigT]
     _arch_configs: ConfigRegistry[ModelConfigT] | None
-    _value_converter: ValueConverter | None
 
     def __init__(
         self,
@@ -73,13 +72,14 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
             The asset store where to check for available models. If ``None``,
             the default asset store will be used.
         :param value_converter:
-            The :class:`ValueConverter` instance to use.
+            The :class:`ValueConverter` instance to use. If ``None``, the
+            default instance will be used.
         """
-        self._asset_store = asset_store
+        self._asset_store = asset_store or default_asset_store
         self._family = family
         self._config_kls = config_kls
         self._arch_configs = arch_configs
-        self._value_converter = value_converter
+        self._value_converter = value_converter or default_value_converter
 
     def __call__(
         self, model_name_or_card: str | AssetCard, unstructured_config: object = None
@@ -87,9 +87,6 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
         if isinstance(model_name_or_card, AssetCard):
             card = model_name_or_card
         else:
-            if self._asset_store is None:
-                self._asset_store = get_asset_store()
-
             card = self._asset_store.retrieve_card(model_name_or_card)
 
         model_family = get_model_family(card)
@@ -127,9 +124,6 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
                 ) from None
 
         # Override the default architecture configuration if needed.
-        if self._value_converter is None:
-            self._value_converter = get_value_converter()
-
         model_config_fields = []
 
         card_: AssetCard | None = card

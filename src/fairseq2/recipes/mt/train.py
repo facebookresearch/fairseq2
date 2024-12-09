@@ -14,8 +14,8 @@ import torch
 from torch import Tensor
 from typing_extensions import override
 
-from fairseq2.assets import AssetNotFoundError
-from fairseq2.checkpoint import CheckpointManager
+from fairseq2.assets import AssetNotFoundError, default_asset_store
+from fairseq2.checkpoint import CheckpointModelMetadataProvider, FileCheckpointManager
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_text_tokenizer
 from fairseq2.datasets import LengthBatching, StaticBatching
@@ -23,11 +23,9 @@ from fairseq2.datasets.parallel_text import (
     GenericParallelTextDataset,
     load_parallel_text_dataset,
 )
-from fairseq2.dependency import resolve, resolve_all
 from fairseq2.gang import Gang
 from fairseq2.generation import BeamSearchConfig, create_seq2seq_generator
 from fairseq2.logging import get_log_writer
-from fairseq2.metrics import MetricRecorder
 from fairseq2.models import create_model
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.seq2seq import Seq2SeqBatch
@@ -44,7 +42,7 @@ from fairseq2.recipes.utils.asset import (
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model, log_model_config
-from fairseq2.recipes.utils.setup import to_data_parallel
+from fairseq2.recipes.utils.setup import setup_root_gang, to_data_parallel
 from fairseq2.typing import CPU, META, DataType
 from fairseq2.utils.profiler import Stopwatch
 from fairseq2.utils.rng import manual_seed
@@ -221,9 +219,14 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
     """Load a :class:`Trainer` for machine translation training."""
     wall_watch = Stopwatch(start=True)
 
-    gang = resolve(Gang)
+    gang = setup_root_gang(log, monitored=config.monitored_gang)
 
-    checkpoint_manager = resolve(CheckpointManager)
+    checkpoint_manager = FileCheckpointManager(output_dir.joinpath("checkpoints"), gang)
+
+    if config.resume_checkpoint_dir is not None:
+        default_asset_store.metadata_providers.append(
+            CheckpointModelMetadataProvider(config.resume_checkpoint_dir)
+        )
 
     tokenizer_card = retrieve_asset_card(config.tokenizer)
 
@@ -424,8 +427,6 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
     # TODO: Fix once we support static mixed precision on one device.
     amp = gang.size == 1 or config.data_parallelism != "fsdp"
 
-    metric_recorders = resolve_all(MetricRecorder)
-
     # Initialize the trainer.
     return Trainer[Seq2SeqBatch](
         unit=unit,
@@ -447,7 +448,8 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
         checkpoint_manager=checkpoint_manager,
         checkpoint_after_n_steps=config.checkpoint_after_n_steps,
         checkpoint_every_n_steps=config.checkpoint_every_n_steps,
-        metric_recorders=metric_recorders,
+        tb_dir=output_dir.joinpath("tb"),
+        metrics_dir=output_dir.joinpath("metrics"),
         publish_metrics_every_n_steps=config.publish_metrics_every_n_steps,
         profile=config.profile,
         anomaly_detection=config.anomaly_detection,

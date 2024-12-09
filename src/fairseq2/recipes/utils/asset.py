@@ -69,17 +69,12 @@ def _card_from_file(file: Path) -> AssetCard:
 
     metadata["name"] = name
 
-    metadata_provider = InProcAssetMetadataProvider([metadata])
+    metadata_provider = InProcAssetMetadataProvider([metadata], name="argument")
 
     # Strip the environment tag.
     name, _ = name.split("@", maxsplit=1)
 
-    default_asset_store.user_metadata_providers.append(metadata_provider)
-
-    try:
-        return default_asset_store.retrieve_card(name)
-    finally:
-        default_asset_store.user_metadata_providers.pop()
+    return default_asset_store.retrieve_card(name, extra_provider=metadata_provider)
 
 
 def asset_as_path(name_or_card: AssetReference) -> Path:

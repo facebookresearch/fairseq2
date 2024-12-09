@@ -24,7 +24,7 @@ from typing import (
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.typing import DataClass
 from fairseq2.utils.dataclass import merge_dataclass
-from fairseq2.utils.structured import ValueConverter, get_value_converter
+from fairseq2.utils.structured import ValueConverter, default_value_converter
 
 ConfigT = TypeVar("ConfigT", bound=DataClass)
 
@@ -61,11 +61,12 @@ class ConfigBoundFactoryRegistry(Generic[P, R]):
         str, tuple[Callable[..., R], type[DataClass], ConfigRegistry[Any] | None]
     ]
 
-    _value_converter: ValueConverter | None
+    _value_converter: ValueConverter
 
     def __init__(self, value_converter: ValueConverter | None = None) -> None:
         self._factories = {}
-        self._value_converter = value_converter
+
+        self._value_converter = value_converter or default_value_converter
 
     def get(
         self,
@@ -92,9 +93,6 @@ class ConfigBoundFactoryRegistry(Generic[P, R]):
         if unstructured_config is None:
             config = None
         else:
-            if self._value_converter is None:
-                self._value_converter = get_value_converter()
-
             config = self._value_converter.structure(
                 unstructured_config, config_kls, set_empty=set_empty
             )

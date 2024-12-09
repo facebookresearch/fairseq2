@@ -14,16 +14,14 @@ import torch
 from torch import Tensor
 from typing_extensions import override
 
-from fairseq2.assets import AssetNotFoundError
-from fairseq2.checkpoint import CheckpointManager
+from fairseq2.assets import AssetNotFoundError, default_asset_store
+from fairseq2.checkpoint import CheckpointModelMetadataProvider, FileCheckpointManager
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_char_tokenizer
 from fairseq2.datasets import LengthBatching
 from fairseq2.datasets.asr import GenericAsrDataset, load_asr_dataset
-from fairseq2.dependency import resolve, resolve_all
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
-from fairseq2.metrics import MetricRecorder
 from fairseq2.models import create_model
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.wav2vec2 import load_wav2vec2_model
@@ -38,7 +36,11 @@ from fairseq2.recipes.utils.asset import (
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model, log_model_config
-from fairseq2.recipes.utils.setup import compile_model, to_data_parallel
+from fairseq2.recipes.utils.setup import (
+    compile_model,
+    setup_root_gang,
+    to_data_parallel,
+)
 from fairseq2.recipes.wav2vec2.asr.common import (
     Wav2Vec2AsrCriterion,
     Wav2Vec2AsrMetricBag,
@@ -146,13 +148,6 @@ class Wav2Vec2AsrTrainConfig:
 
     gradient_accumulation: int = 4
     """The number of steps to accumulate gradients before an optimizer update."""
-
-    # Score
-    score_metric: str | None = "wer"
-    """The name of the metric to use as score."""
-
-    lower_score_better: bool = False
-    """The ``True``, lower scores are considered better."""
 
     # Regime
     max_num_steps: int = 20_000
@@ -262,9 +257,18 @@ def load_wav2vec2_asr_trainer(
     """Load a :class:`Trainer` for wav2vec 2.0 ASR model training."""
     wall_watch = Stopwatch(start=True)
 
-    gang = resolve(Gang)
+    gang = setup_root_gang(log, monitored=config.monitored_gang)
 
-    checkpoint_manager = resolve(CheckpointManager)
+    checkpoint_manager = FileCheckpointManager(
+        output_dir.joinpath("checkpoints"), gang, lower_score_better=True
+    )
+
+    if config.resume_checkpoint_dir is not None:
+        default_asset_store.metadata_providers.append(
+            CheckpointModelMetadataProvider(
+                config.resume_checkpoint_dir, lower_score_better=True
+            )
+        )
 
     tokenizer_card = retrieve_asset_card(config.tokenizer)
 
@@ -464,8 +468,6 @@ def load_wav2vec2_asr_trainer(
     # TODO: Fix once we support static mixed precision on one device.
     amp = gang.size == 1 or config.data_parallelism != "fsdp"
 
-    metric_recorders = resolve_all(MetricRecorder)
-
     # Initialize the trainer.
     return Trainer[Seq2SeqBatch](
         unit=unit,
@@ -479,8 +481,8 @@ def load_wav2vec2_asr_trainer(
         amp=amp,
         max_num_steps=config.max_num_steps,
         max_num_data_epochs=config.max_num_data_epochs,
-        score_metric_name=config.score_metric,
-        lower_better=config.lower_score_better,
+        score_metric_name="wer",
+        lower_better=True,
         valid_units=[valid_unit],
         valid_data_readers=[valid_data_reader],
         validate_after_n_steps=config.validate_after_n_steps,
@@ -489,7 +491,8 @@ def load_wav2vec2_asr_trainer(
         checkpoint_after_n_steps=config.checkpoint_after_n_steps,
         checkpoint_every_n_steps=config.checkpoint_every_n_steps,
         keep_best_n_checkpoints=config.keep_best_n_checkpoints,
-        metric_recorders=metric_recorders,
+        tb_dir=output_dir.joinpath("tb"),
+        metrics_dir=output_dir.joinpath("metrics"),
         publish_metrics_every_n_steps=config.publish_metrics_every_n_steps,
         profile=config.profile,
         anomaly_detection=config.anomaly_detection,
