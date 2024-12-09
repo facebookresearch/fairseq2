@@ -59,9 +59,7 @@ class TestStrSplitter:
         assert splitter(s) == {"a": "1", "b": "2", "c": "3"}
 
     @pytest.mark.parametrize("indices", [0, 1, 4])
-    def test_call_works_when_single_index_is_specified(
-        self, indices: int
-    ) -> None:
+    def test_call_works_when_single_index_is_specified(self, indices: int) -> None:
         s = "0,1,2,3,4"
 
         splitter = StrSplitter(sep=",", indices=indices)
