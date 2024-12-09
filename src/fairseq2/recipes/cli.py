@@ -92,7 +92,7 @@ class Cli:
             The help text of the command group.
         """
         if name in self._groups:
-            raise ValueError(
+            raise AlreadyExistsError(
                 f"`name` must be a unique group name, but '{name}' is already registered."
             )
 

@@ -133,7 +133,7 @@ class SinusoidalPositionEncoder(PositionEncoder):
         :param max_seq_len: The maximum allowed length for input sequences.
             Sequences longer than ``max_seq_len`` will cause a :class:`ValueError`.
 
-        :raise ValueError: when ``encodimg_dim`` is not even.
+        :raise ValueError: when ``encoding_dim`` is not even.
         """
         super().__init__(encoding_dim, max_seq_len)
 
@@ -304,7 +304,7 @@ class RotaryEncoder(PositionEncoder):
             the frequency table. If ``None``, the frequencies will be initialized
             as described in the reference paper.
 
-        :raise ValueError: when ``encodimg_dim`` is not even.
+        :raise ValueError: when ``encoding_dim`` is not even.
         """
         super().__init__(encoding_dim, max_seq_len)
 

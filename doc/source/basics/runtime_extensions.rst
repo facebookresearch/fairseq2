@@ -70,9 +70,9 @@ Extension Loading Process
 
 When ``setup_fairseq2()`` is called, the following steps occur:
 
-2. fairseq2 components are initialized
-3. All registered extensions are discovered via entry points
-4. Each extension's setup function is called
+1. fairseq2 components are initialized
+2. All registered extensions are discovered via entry points
+3. Each extension's setup function is called
 
 Complete Example
 ----------------
