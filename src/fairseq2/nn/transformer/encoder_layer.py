@@ -9,11 +9,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import final
 
-import torch
-import torch.nn as nn
 from torch import Tensor
 from torch.nn import Dropout, Module
-from torch.nn.parameter import Parameter
 from typing_extensions import override
 
 from fairseq2.nn.normalization import LayerNorm
@@ -26,6 +23,7 @@ from fairseq2.nn.transformer.layer_norm import (
 )
 from fairseq2.nn.transformer.multihead_attention import MultiheadAttention
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
+from fairseq2.nn.transformer.residual import ResidualConnect, StandardResidualConnect
 from fairseq2.typing import DataType, Device
 
 
@@ -83,10 +81,11 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
     self_attn: MultiheadAttention
     self_attn_norm: LayerNorm | None
     self_attn_dropout: Dropout | None
+    self_attn_residual: ResidualConnect
     self_attn_layer_norm: LayerNorm
     ffn: FeedForwardNetwork
     ffn_dropout: Dropout | None
-    residual_scale: Parameter | None
+    ffn_residual: ResidualConnect
     ffn_layer_norm: LayerNorm
     norm_order: TransformerNormOrder
 
@@ -95,10 +94,11 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
         self_attn: MultiheadAttention,
         ffn: FeedForwardNetwork,
         *,
-        scale_residual: bool = False,
         dropout_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
         layer_norm_factory: LayerNormFactory | None = None,
+        self_attn_residual: ResidualConnect | None = None,
+        ffn_residual: ResidualConnect | None = None,
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> None:
@@ -107,10 +107,6 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
             The self attention layer.
         :param ffn:
             The feed-forward network.
-        :param scale_residual:
-            If ``True``, scales residuals before adding them to the output of
-            the feed-forward network as described in
-            :cite:t:`https://doi.org/10.48550/arxiv.2110.09456`.
         :param dropout_p:
             The dropout probability on outputs of the self attention layer and
             the feed-forward network.
@@ -118,6 +114,12 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
             The Layer Normalization order.
         :param layer_norm_factory:
             The factory to construct the Layer Normalization modules.
+        :param self_attn_residual:
+            The residual connection between the input and output of the self
+            attention layer.
+        :param ffn_residual:
+            The residual connection between the input and output of the
+            feed-forward network.
         """
         model_dim = self_attn.model_dim
 
@@ -145,6 +147,11 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
         else:
             self.register_module("self_attn_dropout", None)
 
+        if self_attn_residual is None:
+            self_attn_residual = StandardResidualConnect()
+
+        self.self_attn_residual = self_attn_residual
+
         if norm_order == TransformerNormOrder.POST:
             self.self_attn_layer_norm = self_attn_layer_norm
 
@@ -160,24 +167,15 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
         else:
             self.register_module("ffn_dropout", None)
 
-        if scale_residual:
-            self.residual_scale = Parameter(
-                torch.empty((model_dim,), device=device, dtype=dtype)
-            )
-        else:
-            self.register_parameter("residual_scale", None)
+        if ffn_residual is None:
+            ffn_residual = StandardResidualConnect()
+
+        self.ffn_residual = ffn_residual
 
         if norm_order == TransformerNormOrder.POST:
             self.ffn_layer_norm = ffn_layer_norm
 
         self.norm_order = norm_order
-
-        self.reset_parameters()
-
-    def reset_parameters(self) -> None:
-        """Reset the parameters and buffers of the module."""
-        if self.residual_scale is not None:
-            nn.init.ones_(self.residual_scale)
 
     @override
     def forward(
@@ -218,7 +216,7 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
         if self.self_attn_dropout is not None:
             seqs = self.self_attn_dropout(seqs)
 
-        seqs = seqs + residual
+        seqs = self.self_attn_residual(seqs, residual)
 
         if self.norm_order == TransformerNormOrder.POST:
             seqs = self.self_attn_layer_norm(seqs)
@@ -236,10 +234,7 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
         if self.ffn_dropout is not None:
             seqs = self.ffn_dropout(seqs)
 
-        if self.residual_scale is not None:
-            residual = self.residual_scale * residual
-
-        seqs = seqs + residual
+        seqs = self.ffn_residual(seqs, residual)
 
         if self.norm_order == TransformerNormOrder.POST:
             seqs = self.ffn_layer_norm(seqs)
