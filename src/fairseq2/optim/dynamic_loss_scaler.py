@@ -7,8 +7,10 @@
 from __future__ import annotations
 
 import math
+import warnings
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Mapping, Optional, Tuple, Union, cast, final
+from warnings import catch_warnings
 
 import torch
 from torch import Tensor
@@ -97,13 +99,16 @@ class DynamicLossScaler:
                 scale_window = 1
 
         if not enabled or not sharded or gang.size == 1:
-            self._grad_scaler = _InternalGradScaler(
-                init_scale=init_scale,
-                growth_factor=scale_factor,
-                backoff_factor=1 / scale_factor,
-                growth_interval=scale_window,
-                enabled=enabled,
-            )
+            with catch_warnings:
+                warnings.simplefilter("ignore")  # Suppress the future warning from torch.cuda.amp.*
+
+                self._grad_scaler = _InternalGradScaler(
+                    init_scale=init_scale,
+                    growth_factor=scale_factor,
+                    backoff_factor=1 / scale_factor,
+                    growth_interval=scale_window,
+                    enabled=enabled,
+                )
         else:
             if not supports_manual_gradient_scaling(optimizer):
                 raise ValueError(
