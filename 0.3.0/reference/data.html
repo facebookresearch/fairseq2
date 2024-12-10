@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>fairseq2.data &mdash; fairseq2 0.3.0 documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="DataPipeline" href="generated/data/fairseq2.data.DataPipeline.html" />
+    <link rel="prev" title="fairseq2 documentation" href="../index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            fairseq2
+          </a>
+              <div class="version">
+                0.3.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">fairseq2 Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">fairseq2.data</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="generated/data/fairseq2.data.DataPipeline.html">DataPipeline</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline"><code class="docutils literal notranslate"><span class="pre">DataPipeline</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/data/fairseq2.data.DataPipelineBuilder.html">DataPipelineBuilder</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.DataPipelineBuilder.html#fairseq2.data.DataPipelineBuilder"><code class="docutils literal notranslate"><span class="pre">DataPipelineBuilder</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/data/fairseq2.data.list_files.html">list_files</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.list_files.html#fairseq2.data.list_files"><code class="docutils literal notranslate"><span class="pre">list_files()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/data/fairseq2.data.read_sequence.html">read_sequence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.read_sequence.html#fairseq2.data.read_sequence"><code class="docutils literal notranslate"><span class="pre">read_sequence()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/data/fairseq2.data.read_zipped_records.html">read_zipped_records</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.read_zipped_records.html#fairseq2.data.read_zipped_records"><code class="docutils literal notranslate"><span class="pre">read_zipped_records()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/data/fairseq2.data.text.read_text.html">read_text</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.text.read_text.html#fairseq2.data.text.read_text"><code class="docutils literal notranslate"><span class="pre">read_text()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/data/fairseq2.data.FileMapper.html">FileMapper</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.FileMapper.html#fairseq2.data.FileMapper"><code class="docutils literal notranslate"><span class="pre">FileMapper</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/data/fairseq2.data.Collater.html">Collater</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.Collater.html#fairseq2.data.Collater"><code class="docutils literal notranslate"><span class="pre">Collater</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/data/fairseq2.data.CollateOptionsOverride.html">CollateOptionsOverride</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.CollateOptionsOverride.html#fairseq2.data.CollateOptionsOverride"><code class="docutils literal notranslate"><span class="pre">CollateOptionsOverride</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#column-syntax">Column syntax</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#pseudo-infinite-and-infinite-pipelines">Pseudo-infinite and Infinite Pipelines</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#public-classes-used-in-fairseq2-api">Public classes used in fairseq2 API:</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.ByteStreamError.html">fairseq2.data.ByteStreamError</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.DataPipelineError.html">fairseq2.data.DataPipelineError</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.RecordError.html">fairseq2.data.RecordError</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.VocabularyInfo.html">VocabularyInfo</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.get_last_failed_example.html">get_last_failed_example</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#fairseq2-data-text">fairseq2.data.text</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/data_text/fairseq2.data.text.TextTokenizer.html">TextTokenizer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data_text/fairseq2.data.text.TextTokenDecoder.html">TextTokenDecoder</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data_text/fairseq2.data.text.TextTokenEncoder.html">TextTokenEncoder</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data_text/fairseq2.data.text.StrSplitter.html">StrSplitter</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data_text/fairseq2.data.text.StrToIntConverter.html">StrToIntConverter</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data_text/fairseq2.data.text.StrToTensorConverter.html">StrToTensorConverter</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data_text/fairseq2.data.text.SentencePieceModel.html">SentencePieceModel</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data_text/fairseq2.data.text.SentencePieceEncoder.html">SentencePieceEncoder</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data_text/fairseq2.data.text.SentencePieceDecoder.html">SentencePieceDecoder</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data_text/fairseq2.data.text.vocab_info_from_sentencepiece.html">vocab_info_from_sentencepiece</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data_text/fairseq2.data.text.LineEnding.html">LineEnding</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="asset.html">fairseq2.assets</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="generated/data/fairseq2.assets.AssetStore.html">AssetStore</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.assets.AssetStore.html#fairseq2.assets.AssetStore"><code class="docutils literal notranslate"><span class="pre">AssetStore</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/data/fairseq2.assets.AssetCard.html">AssetCard</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.assets.AssetCard.html#fairseq2.assets.AssetCard"><code class="docutils literal notranslate"><span class="pre">AssetCard</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/data/fairseq2.assets.AssetMetadataProvider.html">AssetMetadataProvider</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.assets.AssetMetadataProvider.html#fairseq2.assets.AssetMetadataProvider"><code class="docutils literal notranslate"><span class="pre">AssetMetadataProvider</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="asset.html#model-store">Model store</a></li>
+<li class="toctree-l2"><a class="reference internal" href="asset.html#model-card">Model card</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="all.html">All</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Misc</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../bibliography.html">Bibliography</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">fairseq2</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">fairseq2.data</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/reference/data.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="fairseq2-data">
+<h1>fairseq2.data<a class="headerlink" href="#fairseq2-data" title="Permalink to this heading"></a></h1>
+<p><code class="docutils literal notranslate"><span class="pre">fairseq2.data</span></code> provides a Python API to build a C++ <a class="reference internal" href="generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline" title="fairseq2.data.DataPipeline"><code class="xref py py-class docutils literal notranslate"><span class="pre">DataPipeline</span></code></a>.</p>
+<p>The dataloader will be able to leverage several threads,
+working around Python Global Interpreter Lock limitations,
+and also providing better performance
+than a pure Python dataloader.</p>
+<p>Building a <a class="reference internal" href="generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline" title="fairseq2.data.DataPipeline"><code class="xref py py-class docutils literal notranslate"><span class="pre">DataPipeline</span></code></a> looks like this:</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="n">data</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">text</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="s2">&quot;file.tsv&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">lower</span><span class="p">())</span>
+    <span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">10</span><span class="p">)</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Functions to build a <a class="reference internal" href="generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline" title="fairseq2.data.DataPipeline"><code class="xref py py-class docutils literal notranslate"><span class="pre">DataPipeline</span></code></a>:</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline" title="fairseq2.data.DataPipeline"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DataPipeline</span></code></a>()</p></td>
+<td><p>fairseq2 native data pipeline.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/fairseq2.data.DataPipelineBuilder.html#fairseq2.data.DataPipelineBuilder" title="fairseq2.data.DataPipelineBuilder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DataPipelineBuilder</span></code></a>()</p></td>
+<td><p>API to create DataPipeline</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/fairseq2.data.list_files.html#fairseq2.data.list_files" title="fairseq2.data.list_files"><code class="xref py py-obj docutils literal notranslate"><span class="pre">list_files</span></code></a>(path[, pattern])</p></td>
+<td><p>List recursively all files under <code class="docutils literal notranslate"><span class="pre">path</span></code> that matches <code class="docutils literal notranslate"><span class="pre">pattern</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/fairseq2.data.read_sequence.html#fairseq2.data.read_sequence" title="fairseq2.data.read_sequence"><code class="xref py py-obj docutils literal notranslate"><span class="pre">read_sequence</span></code></a>(seq)</p></td>
+<td><p>Read every element in <code class="docutils literal notranslate"><span class="pre">seq</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/fairseq2.data.read_zipped_records.html#fairseq2.data.read_zipped_records" title="fairseq2.data.read_zipped_records"><code class="xref py py-obj docutils literal notranslate"><span class="pre">read_zipped_records</span></code></a>(path)</p></td>
+<td><p>Read each file in a zip archive</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/fairseq2.data.text.read_text.html#fairseq2.data.text.read_text" title="fairseq2.data.text.read_text"><code class="xref py py-obj docutils literal notranslate"><span class="pre">text.read_text</span></code></a>(path[, key, encoding, ...])</p></td>
+<td><p>Open a text file and return a data pipeline reading lines one by one.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/fairseq2.data.FileMapper.html#fairseq2.data.FileMapper" title="fairseq2.data.FileMapper"><code class="xref py py-obj docutils literal notranslate"><span class="pre">FileMapper</span></code></a>([root_dir, cached_fd_count])</p></td>
+<td><p>For a given file name, returns the file content as bytes.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/fairseq2.data.Collater.html#fairseq2.data.Collater" title="fairseq2.data.Collater"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Collater</span></code></a>([pad_value, pad_to_multiple, overrides])</p></td>
+<td><p>Concatenate a list of inputs into a single inputs.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/fairseq2.data.CollateOptionsOverride.html#fairseq2.data.CollateOptionsOverride" title="fairseq2.data.CollateOptionsOverride"><code class="xref py py-obj docutils literal notranslate"><span class="pre">CollateOptionsOverride</span></code></a>(selector[, ...])</p></td>
+<td><p>Overrides how the collater should create batch for a particular column.</p></td>
+</tr>
+</tbody>
+</table>
+<section id="column-syntax">
+<h2>Column syntax<a class="headerlink" href="#column-syntax" title="Permalink to this heading"></a></h2>
+<p>The data items going through the pipeline don’t have to be flat tensors, but can be tuples, or python dictionaries.
+Several operators have a syntax to specify a specific column of the input data.
+Notably the <a class="reference internal" href="generated/data/fairseq2.data.DataPipelineBuilder.html#fairseq2.data.DataPipelineBuilder.map" title="fairseq2.data.DataPipelineBuilder.map"><code class="xref py py-func docutils literal notranslate"><span class="pre">DataPipelineBuilder.map()</span></code></a> operator
+has a <cite>selector</cite> argument to choose the column to apply the function to.</p>
+<p>If the data item is a tuple,
+then the selector <code class="docutils literal notranslate"><span class="pre">&quot;[3]&quot;</span></code> selects the third column.
+If the data item is a dictionary, then <code class="docutils literal notranslate"><span class="pre">&quot;foo&quot;</span></code> will select the value corresponding to the key <code class="docutils literal notranslate"><span class="pre">&quot;foo&quot;</span></code>.
+You can nest selectors using <code class="docutils literal notranslate"><span class="pre">.</span></code> to separate key selectors, following a python-like syntax.
+For a data item <code class="docutils literal notranslate"><span class="pre">{&quot;foo&quot;:</span> <span class="pre">[{&quot;x&quot;:</span> <span class="pre">1,</span> <span class="pre">&quot;y&quot;:</span> <span class="pre">2},</span> <span class="pre">{&quot;x&quot;:</span> <span class="pre">3,</span> <span class="pre">&quot;y&quot;:</span> <span class="pre">4,</span> <span class="pre">&quot;z&quot;:</span> <span class="pre">5}],</span> <span class="pre">&quot;bar&quot;:</span> <span class="pre">6}</span></code>,
+the selector <code class="docutils literal notranslate"><span class="pre">&quot;foo[1].y&quot;</span></code> referes to  the value 4.</p>
+<p>Functions that accepts several selectors,
+accept them as a comma separated list of selectors.
+For example <code class="docutils literal notranslate"><span class="pre">.map(lambda</span> <span class="pre">x:</span> <span class="pre">x</span> <span class="pre">*</span> <span class="pre">10,</span> <span class="pre">selector=&quot;foo[1].y,bar&quot;)</span></code>
+will multiply the values 4 and 6 by 10, but leave others unmodified.</p>
+</section>
+<section id="pseudo-infinite-and-infinite-pipelines">
+<h2>Pseudo-infinite and Infinite Pipelines<a class="headerlink" href="#pseudo-infinite-and-infinite-pipelines" title="Permalink to this heading"></a></h2>
+<p>The <a class="reference internal" href="generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.count" title="fairseq2.data.DataPipeline.count"><code class="xref py py-func docutils literal notranslate"><span class="pre">DataPipeline.count()</span></code></a> and <a class="reference internal" href="generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.constant" title="fairseq2.data.DataPipeline.constant"><code class="xref py py-func docutils literal notranslate"><span class="pre">DataPipeline.constant()</span></code></a> static methods create pseudo-infinite pipelines.
+When used with operators that combine multiple pipelines (e.g. <a class="reference internal" href="generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.sample" title="fairseq2.data.DataPipeline.sample"><code class="xref py py-func docutils literal notranslate"><span class="pre">DataPipeline.sample()</span></code></a>,
+<a class="reference internal" href="generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.round_robin" title="fairseq2.data.DataPipeline.round_robin"><code class="xref py py-func docutils literal notranslate"><span class="pre">DataPipeline.round_robin()</span></code></a>, <a class="reference internal" href="generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.zip" title="fairseq2.data.DataPipeline.zip"><code class="xref py py-func docutils literal notranslate"><span class="pre">DataPipeline.zip()</span></code></a>),
+they will only yield examples as long as the other pipelines yield examples.</p>
+<p>For example:</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">fairseq2.data</span> <span class="kn">import</span> <span class="n">DataPipeline</span><span class="p">,</span> <span class="n">read_sequence</span>
+
+<span class="n">pipeline1</span> <span class="o">=</span> <span class="n">DataPipeline</span><span class="o">.</span><span class="n">constant</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">and_return</span><span class="p">()</span>
+<span class="n">pipeline2</span> <span class="o">=</span> <span class="n">read_sequence</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span><span class="o">.</span><span class="n">and_return</span><span class="p">()</span>
+
+<span class="k">for</span> <span class="n">example</span> <span class="ow">in</span> <span class="n">DataPipeline</span><span class="o">.</span><span class="n">round_robin</span><span class="p">(</span><span class="n">pipeline1</span><span class="p">,</span> <span class="n">pipeline2</span><span class="p">)</span><span class="o">.</span><span class="n">and_return</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">example</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>only produces 0, 1, 0, 2, 0, 3.</p>
+<p>Infinite pipelines (pipelines created through <a class="reference internal" href="generated/data/fairseq2.data.DataPipelineBuilder.html#fairseq2.data.DataPipelineBuilder.repeat" title="fairseq2.data.DataPipelineBuilder.repeat"><code class="xref py py-func docutils literal notranslate"><span class="pre">DataPipelineBuilder.repeat()</span></code></a> with no arguments)
+do not exhibit this behavior; they will yield examples indefinitely even when combined with other pipelines.</p>
+<p>For example:</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">fairseq2.data</span> <span class="kn">import</span> <span class="n">DataPipeline</span><span class="p">,</span> <span class="n">read_sequence</span>
+
+<span class="n">pipeline1</span> <span class="o">=</span> <span class="n">read_sequence</span><span class="p">([</span><span class="mi">0</span><span class="p">])</span><span class="o">.</span><span class="n">repeat</span><span class="p">()</span><span class="o">.</span><span class="n">and_return</span><span class="p">()</span>
+<span class="n">pipeline2</span> <span class="o">=</span> <span class="n">read_sequence</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span><span class="o">.</span><span class="n">and_return</span><span class="p">()</span>
+
+<span class="k">for</span> <span class="n">example</span> <span class="ow">in</span> <span class="n">DataPipeline</span><span class="o">.</span><span class="n">round_robin</span><span class="p">(</span><span class="n">pipeline1</span><span class="p">,</span> <span class="n">pipeline2</span><span class="p">)</span><span class="o">.</span><span class="n">and_return</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">example</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>produces 0, 1, 0, 2, 0, 3, 0, 1, 0, 2, 0, 3… indefinitely.</p>
+</section>
+<section id="public-classes-used-in-fairseq2-api">
+<h2>Public classes used in fairseq2 API:<a class="headerlink" href="#public-classes-used-in-fairseq2-api" title="Permalink to this heading"></a></h2>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/fairseq2.data.ByteStreamError.html#fairseq2.data.ByteStreamError" title="fairseq2.data.ByteStreamError"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ByteStreamError</span></code></a></p></td>
+<td><p>Raised when a dataset file can't be read.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/fairseq2.data.DataPipelineError.html#fairseq2.data.DataPipelineError" title="fairseq2.data.DataPipelineError"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DataPipelineError</span></code></a></p></td>
+<td><p>Raised when an error occurs while reading from a data pipeline.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/fairseq2.data.RecordError.html#fairseq2.data.RecordError" title="fairseq2.data.RecordError"><code class="xref py py-obj docutils literal notranslate"><span class="pre">RecordError</span></code></a></p></td>
+<td><p>Raised when a corrupt record is encountered while reading a dataset.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/fairseq2.data.VocabularyInfo.html#fairseq2.data.VocabularyInfo" title="fairseq2.data.VocabularyInfo"><code class="xref py py-obj docutils literal notranslate"><span class="pre">VocabularyInfo</span></code></a>(size, unk_idx, bos_idx, ...)</p></td>
+<td><p>Describes the vocabulary used by a tokenizer</p></td>
+</tr>
+</tbody>
+</table>
+<p>Helper methods:</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/fairseq2.data.get_last_failed_example.html#fairseq2.data.get_last_failed_example" title="fairseq2.data.get_last_failed_example"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_last_failed_example</span></code></a>()</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="fairseq2-data-text">
+<h2>fairseq2.data.text<a class="headerlink" href="#fairseq2-data-text" title="Permalink to this heading"></a></h2>
+<p>Tools to tokenize text, converting it from bytes to tensors.</p>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.TextTokenizer.html#fairseq2.data.text.TextTokenizer" title="fairseq2.data.text.TextTokenizer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TextTokenizer</span></code></a>()</p></td>
+<td><p>Represents a tokenizer to encode and decode text.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.TextTokenDecoder.html#fairseq2.data.text.TextTokenDecoder" title="fairseq2.data.text.TextTokenDecoder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TextTokenDecoder</span></code></a>()</p></td>
+<td><p>Decodes text from tokens or token indices.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.TextTokenEncoder.html#fairseq2.data.text.TextTokenEncoder" title="fairseq2.data.text.TextTokenEncoder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TextTokenEncoder</span></code></a>()</p></td>
+<td><p>Encodes text into tokens or token indices.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.StrSplitter.html#fairseq2.data.text.StrSplitter" title="fairseq2.data.text.StrSplitter"><code class="xref py py-obj docutils literal notranslate"><span class="pre">StrSplitter</span></code></a>([sep, names, indices, exclude])</p></td>
+<td><p>Split string on a given character.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.StrToIntConverter.html#fairseq2.data.text.StrToIntConverter" title="fairseq2.data.text.StrToIntConverter"><code class="xref py py-obj docutils literal notranslate"><span class="pre">StrToIntConverter</span></code></a>([base])</p></td>
+<td><p>Parses integers in a given base</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.StrToTensorConverter.html#fairseq2.data.text.StrToTensorConverter" title="fairseq2.data.text.StrToTensorConverter"><code class="xref py py-obj docutils literal notranslate"><span class="pre">StrToTensorConverter</span></code></a>([size, dtype])</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.SentencePieceModel.html#fairseq2.data.text.SentencePieceModel" title="fairseq2.data.text.SentencePieceModel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SentencePieceModel</span></code></a>(path[, control_symbols])</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.SentencePieceEncoder.html#fairseq2.data.text.SentencePieceEncoder" title="fairseq2.data.text.SentencePieceEncoder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SentencePieceEncoder</span></code></a>(model[, prefix_tokens, ...])</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.SentencePieceDecoder.html#fairseq2.data.text.SentencePieceDecoder" title="fairseq2.data.text.SentencePieceDecoder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SentencePieceDecoder</span></code></a>(model[, reverse])</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.vocab_info_from_sentencepiece.html#fairseq2.data.text.vocab_info_from_sentencepiece" title="fairseq2.data.text.vocab_info_from_sentencepiece"><code class="xref py py-obj docutils literal notranslate"><span class="pre">vocab_info_from_sentencepiece</span></code></a>(model)</p></td>
+<td><p>Return the vocabulary information of <code class="docutils literal notranslate"><span class="pre">model</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.LineEnding.html#fairseq2.data.text.LineEnding" title="fairseq2.data.text.LineEnding"><code class="xref py py-obj docutils literal notranslate"><span class="pre">LineEnding</span></code></a>(value[, names, module, qualname, ...])</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../index.html" class="btn btn-neutral float-left" title="fairseq2 documentation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="generated/data/fairseq2.data.DataPipeline.html" class="btn btn-neutral float-right" title="DataPipeline" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p></p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+  
+<p style="margin-top: 30px"><a href="https://opensource.fb.com/legal/terms">Terms of Use</a>, <a href="https://opensource.fb.com/legal/privacy">Privacy Policy</a></p>
+
+<p>Copyright © Meta Platforms, Inc</p>
+
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

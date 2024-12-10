@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>fairseq2.data.text.sentencepiece &mdash; fairseq2 0.3.0 documentation</title>
+      <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../../_static/jquery.js"></script>
+        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
+        <script src="../../../../_static/doctools.js"></script>
+        <script src="../../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            fairseq2
+          </a>
+              <div class="version">
+                0.3.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">fairseq2 Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../reference/data.html">fairseq2.data</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.DataPipeline.html">DataPipeline</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline"><code class="docutils literal notranslate"><span class="pre">DataPipeline</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.DataPipelineBuilder.html">DataPipelineBuilder</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.DataPipelineBuilder.html#fairseq2.data.DataPipelineBuilder"><code class="docutils literal notranslate"><span class="pre">DataPipelineBuilder</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.list_files.html">list_files</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.list_files.html#fairseq2.data.list_files"><code class="docutils literal notranslate"><span class="pre">list_files()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.read_sequence.html">read_sequence</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.read_sequence.html#fairseq2.data.read_sequence"><code class="docutils literal notranslate"><span class="pre">read_sequence()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.read_zipped_records.html">read_zipped_records</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.read_zipped_records.html#fairseq2.data.read_zipped_records"><code class="docutils literal notranslate"><span class="pre">read_zipped_records()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.text.read_text.html">read_text</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.text.read_text.html#fairseq2.data.text.read_text"><code class="docutils literal notranslate"><span class="pre">read_text()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.FileMapper.html">FileMapper</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.FileMapper.html#fairseq2.data.FileMapper"><code class="docutils literal notranslate"><span class="pre">FileMapper</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.Collater.html">Collater</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.Collater.html#fairseq2.data.Collater"><code class="docutils literal notranslate"><span class="pre">Collater</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.CollateOptionsOverride.html">CollateOptionsOverride</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.CollateOptionsOverride.html#fairseq2.data.CollateOptionsOverride"><code class="docutils literal notranslate"><span class="pre">CollateOptionsOverride</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../reference/data.html#column-syntax">Column syntax</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../reference/data.html#pseudo-infinite-and-infinite-pipelines">Pseudo-infinite and Infinite Pipelines</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../reference/data.html#public-classes-used-in-fairseq2-api">Public classes used in fairseq2 API:</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.ByteStreamError.html">fairseq2.data.ByteStreamError</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.DataPipelineError.html">fairseq2.data.DataPipelineError</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.RecordError.html">fairseq2.data.RecordError</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.VocabularyInfo.html">VocabularyInfo</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.get_last_failed_example.html">get_last_failed_example</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../reference/data.html#fairseq2-data-text">fairseq2.data.text</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data_text/fairseq2.data.text.TextTokenizer.html">TextTokenizer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data_text/fairseq2.data.text.TextTokenDecoder.html">TextTokenDecoder</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data_text/fairseq2.data.text.TextTokenEncoder.html">TextTokenEncoder</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data_text/fairseq2.data.text.StrSplitter.html">StrSplitter</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data_text/fairseq2.data.text.StrToIntConverter.html">StrToIntConverter</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data_text/fairseq2.data.text.StrToTensorConverter.html">StrToTensorConverter</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data_text/fairseq2.data.text.SentencePieceModel.html">SentencePieceModel</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data_text/fairseq2.data.text.SentencePieceEncoder.html">SentencePieceEncoder</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data_text/fairseq2.data.text.SentencePieceDecoder.html">SentencePieceDecoder</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data_text/fairseq2.data.text.vocab_info_from_sentencepiece.html">vocab_info_from_sentencepiece</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data_text/fairseq2.data.text.LineEnding.html">LineEnding</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../reference/asset.html">fairseq2.assets</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.assets.AssetStore.html">AssetStore</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.assets.AssetStore.html#fairseq2.assets.AssetStore"><code class="docutils literal notranslate"><span class="pre">AssetStore</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.assets.AssetCard.html">AssetCard</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.assets.AssetCard.html#fairseq2.assets.AssetCard"><code class="docutils literal notranslate"><span class="pre">AssetCard</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.assets.AssetMetadataProvider.html">AssetMetadataProvider</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.assets.AssetMetadataProvider.html#fairseq2.assets.AssetMetadataProvider"><code class="docutils literal notranslate"><span class="pre">AssetMetadataProvider</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../reference/asset.html#model-store">Model store</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../reference/asset.html#model-card">Model card</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../reference/all.html">All</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Misc</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../bibliography.html">Bibliography</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">fairseq2</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">fairseq2.data.text.sentencepiece</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for fairseq2.data.text.sentencepiece</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
+<span class="c1"># All rights reserved.</span>
+<span class="c1">#</span>
+<span class="c1"># This source code is licensed under the BSD-style license found in the</span>
+<span class="c1"># LICENSE file in the root directory of this source tree.</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">final</span>
+
+<span class="kn">from</span> <span class="nn">fairseq2n</span> <span class="kn">import</span> <span class="n">DOC_MODE</span>
+<span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">Tensor</span>
+
+<span class="kn">from</span> <span class="nn">fairseq2.assets</span> <span class="kn">import</span> <span class="n">AssetCard</span>
+<span class="kn">from</span> <span class="nn">fairseq2.data.text.text_tokenizer</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">AbstractTextTokenizer</span><span class="p">,</span>
+    <span class="n">AbstractTextTokenizerLoader</span><span class="p">,</span>
+    <span class="n">TextTokenDecoder</span><span class="p">,</span>
+    <span class="n">TextTokenEncoder</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">fairseq2.data.vocabulary_info</span> <span class="kn">import</span> <span class="n">VocabularyInfo</span>
+<span class="kn">from</span> <span class="nn">fairseq2.typing</span> <span class="kn">import</span> <span class="n">Device</span><span class="p">,</span> <span class="n">override</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span> <span class="ow">or</span> <span class="n">DOC_MODE</span><span class="p">:</span>
+
+<div class="viewcode-block" id="SentencePieceModel"><a class="viewcode-back" href="../../../../reference/generated/data_text/fairseq2.data.text.SentencePieceModel.html#fairseq2.data.text.SentencePieceModel">[docs]</a>    <span class="nd">@final</span>
+    <span class="k">class</span> <span class="nc">SentencePieceModel</span><span class="p">:</span>
+        <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">control_symbols</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="o">...</span>
+
+        <span class="k">def</span> <span class="nf">token_to_index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">token</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+            <span class="o">...</span>
+
+        <span class="k">def</span> <span class="nf">index_to_token</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+            <span class="o">...</span>
+
+        <span class="nd">@property</span>
+        <span class="k">def</span> <span class="nf">unk_idx</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+            <span class="o">...</span>
+
+        <span class="nd">@property</span>
+        <span class="k">def</span> <span class="nf">bos_idx</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+            <span class="o">...</span>
+
+        <span class="nd">@property</span>
+        <span class="k">def</span> <span class="nf">eos_idx</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+            <span class="o">...</span>
+
+        <span class="nd">@property</span>
+        <span class="k">def</span> <span class="nf">pad_idx</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+            <span class="o">...</span>
+
+        <span class="nd">@property</span>
+        <span class="k">def</span> <span class="nf">vocabulary_size</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+            <span class="o">...</span></div>
+
+<div class="viewcode-block" id="SentencePieceEncoder"><a class="viewcode-back" href="../../../../reference/generated/data_text/fairseq2.data.text.SentencePieceEncoder.html#fairseq2.data.text.SentencePieceEncoder">[docs]</a>    <span class="nd">@final</span>
+    <span class="k">class</span> <span class="nc">SentencePieceEncoder</span><span class="p">(</span><span class="n">TextTokenEncoder</span><span class="p">):</span>
+        <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">model</span><span class="p">:</span> <span class="n">SentencePieceModel</span><span class="p">,</span>
+            <span class="n">prefix_tokens</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">suffix_tokens</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">reverse</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+            <span class="n">enable_sampling</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+            <span class="n">nbest_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
+            <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
+            <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">pin_memory</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="o">...</span>
+
+<div class="viewcode-block" id="SentencePieceEncoder.__call__"><a class="viewcode-back" href="../../../../reference/generated/data_text/fairseq2.data.text.SentencePieceEncoder.html#fairseq2.data.text.SentencePieceEncoder.__call__">[docs]</a>        <span class="nd">@override</span>
+        <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+            <span class="o">...</span></div>
+
+<div class="viewcode-block" id="SentencePieceEncoder.encode_as_tokens"><a class="viewcode-back" href="../../../../reference/generated/data_text/fairseq2.data.text.SentencePieceEncoder.html#fairseq2.data.text.SentencePieceEncoder.encode_as_tokens">[docs]</a>        <span class="nd">@override</span>
+        <span class="k">def</span> <span class="nf">encode_as_tokens</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+            <span class="o">...</span></div>
+
+        <span class="nd">@property</span>
+        <span class="nd">@override</span>
+        <span class="k">def</span> <span class="nf">prefix_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]:</span>
+            <span class="o">...</span>
+
+        <span class="nd">@property</span>
+        <span class="nd">@override</span>
+        <span class="k">def</span> <span class="nf">suffix_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]:</span>
+            <span class="o">...</span></div>
+
+<div class="viewcode-block" id="SentencePieceDecoder"><a class="viewcode-back" href="../../../../reference/generated/data_text/fairseq2.data.text.SentencePieceDecoder.html#fairseq2.data.text.SentencePieceDecoder">[docs]</a>    <span class="nd">@final</span>
+    <span class="k">class</span> <span class="nc">SentencePieceDecoder</span><span class="p">(</span><span class="n">TextTokenDecoder</span><span class="p">):</span>
+        <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">SentencePieceModel</span><span class="p">,</span> <span class="n">reverse</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="o">...</span>
+
+<div class="viewcode-block" id="SentencePieceDecoder.__call__"><a class="viewcode-back" href="../../../../reference/generated/data_text/fairseq2.data.text.SentencePieceDecoder.html#fairseq2.data.text.SentencePieceDecoder.__call__">[docs]</a>        <span class="nd">@override</span>
+        <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">token_indices</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+            <span class="o">...</span></div>
+
+<div class="viewcode-block" id="SentencePieceDecoder.decode_from_tokens"><a class="viewcode-back" href="../../../../reference/generated/data_text/fairseq2.data.text.SentencePieceDecoder.html#fairseq2.data.text.SentencePieceDecoder.decode_from_tokens">[docs]</a>        <span class="nd">@override</span>
+        <span class="k">def</span> <span class="nf">decode_from_tokens</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tokens</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+            <span class="o">...</span></div></div>
+
+<span class="k">else</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">fairseq2n.bindings.data.text.sentencepiece</span> <span class="kn">import</span> <span class="p">(</span>
+        <span class="n">SentencePieceDecoder</span> <span class="k">as</span> <span class="n">SentencePieceDecoder</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="kn">from</span> <span class="nn">fairseq2n.bindings.data.text.sentencepiece</span> <span class="kn">import</span> <span class="p">(</span>
+        <span class="n">SentencePieceEncoder</span> <span class="k">as</span> <span class="n">SentencePieceEncoder</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="kn">from</span> <span class="nn">fairseq2n.bindings.data.text.sentencepiece</span> <span class="kn">import</span> <span class="p">(</span>
+        <span class="n">SentencePieceModel</span> <span class="k">as</span> <span class="n">SentencePieceModel</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Ensure that extension types are virtual subclasses of their corresponding</span>
+    <span class="c1"># abstract base types.</span>
+    <span class="n">TextTokenEncoder</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">SentencePieceEncoder</span><span class="p">)</span>
+    <span class="n">TextTokenDecoder</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">SentencePieceDecoder</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_set_module_name</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="p">[</span><span class="n">SentencePieceDecoder</span><span class="p">,</span> <span class="n">SentencePieceEncoder</span><span class="p">,</span> <span class="n">SentencePieceModel</span><span class="p">]:</span>
+            <span class="n">t</span><span class="o">.</span><span class="vm">__module__</span> <span class="o">=</span> <span class="vm">__name__</span>
+
+    <span class="n">_set_module_name</span><span class="p">()</span>
+
+
+<span class="k">class</span> <span class="nc">SentencePieceTokenizer</span><span class="p">(</span><span class="n">AbstractTextTokenizer</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a SentencePiece tokenizer.&quot;&quot;&quot;</span>
+
+    <span class="n">_model</span><span class="p">:</span> <span class="n">SentencePieceModel</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">control_symbols</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param path:</span>
+<span class="sd">            The path to the SentencePiece model file.</span>
+<span class="sd">        :param control_symbols:</span>
+<span class="sd">            The list of control symbols to add to the SentencePiece model.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_model</span> <span class="o">=</span> <span class="n">SentencePieceModel</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">control_symbols</span><span class="p">)</span>
+
+        <span class="n">vocab_info</span> <span class="o">=</span> <span class="n">vocab_info_from_sentencepiece</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">vocab_info</span><span class="p">)</span>
+
+    <span class="nd">@override</span>
+    <span class="k">def</span> <span class="nf">create_raw_encoder</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">pin_memory</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SentencePieceEncoder</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">SentencePieceEncoder</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">pin_memory</span><span class="o">=</span><span class="n">pin_memory</span><span class="p">)</span>
+
+    <span class="nd">@override</span>
+    <span class="k">def</span> <span class="nf">create_decoder</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SentencePieceDecoder</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">SentencePieceDecoder</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="p">)</span>
+
+    <span class="nd">@final</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">model</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SentencePieceModel</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span>
+
+
+<span class="nd">@final</span>
+<span class="k">class</span> <span class="nc">BasicSentencePieceTokenizer</span><span class="p">(</span><span class="n">SentencePieceTokenizer</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a SentencePiece tokenizer that encodes text with BOS and EOS.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param path:</span>
+<span class="sd">            The path to the SentencePiece model file.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+
+    <span class="nd">@override</span>
+    <span class="k">def</span> <span class="nf">create_encoder</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">task</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">lang</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">mode</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">pin_memory</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SentencePieceEncoder</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a token encoder.</span>
+
+<span class="sd">        :param task:</span>
+<span class="sd">            Must be ``None``.</span>
+<span class="sd">        :param lang:</span>
+<span class="sd">            Must be ``None``.</span>
+<span class="sd">        :param mode:</span>
+<span class="sd">            Must be &#39;default&#39;, &#39;prompt&#39;, or &#39;prompt_response&#39;. If ``None``,</span>
+<span class="sd">            defaults to &#39;default&#39;.</span>
+<span class="sd">        :param device:</span>
+<span class="sd">            The device on which to construct tensors.</span>
+<span class="sd">        :param pin_memory:</span>
+<span class="sd">            If ``True``, uses pinned memory while constructing tensors.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">task</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`task` must be `None`, but is &#39;</span><span class="si">{</span><span class="n">task</span><span class="si">}</span><span class="s2">&#39; instead.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">lang</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`lang` must be `None`, but is &#39;</span><span class="si">{</span><span class="n">lang</span><span class="si">}</span><span class="s2">&#39; instead.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">mode</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;default&quot;</span><span class="p">:</span>
+            <span class="n">prefix_tokens</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;&lt;s&gt;&quot;</span><span class="p">]</span>
+            <span class="n">suffix_tokens</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;&lt;/s&gt;&quot;</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;prompt&quot;</span><span class="p">:</span>
+            <span class="n">prefix_tokens</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;&lt;s&gt;&quot;</span><span class="p">]</span>
+            <span class="c1"># In prompt mode, we expect the generator to finish the sequence.</span>
+            <span class="n">suffix_tokens</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;prompt_response&quot;</span><span class="p">:</span>
+            <span class="n">prefix_tokens</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">suffix_tokens</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;&lt;/s&gt;&quot;</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;`mode` must be &#39;default&#39; or &#39;prompt&#39;, but is &#39;</span><span class="si">{</span><span class="n">mode</span><span class="si">}</span><span class="s2">&#39; instead.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">SentencePieceEncoder</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="p">,</span>
+            <span class="n">prefix_tokens</span><span class="o">=</span><span class="n">prefix_tokens</span><span class="p">,</span>
+            <span class="n">suffix_tokens</span><span class="o">=</span><span class="n">suffix_tokens</span><span class="p">,</span>
+            <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+            <span class="n">pin_memory</span><span class="o">=</span><span class="n">pin_memory</span><span class="p">,</span>
+        <span class="p">)</span>
+
+
+<span class="nd">@final</span>
+<span class="k">class</span> <span class="nc">BasicSentencePieceTokenizerLoader</span><span class="p">(</span>
+    <span class="n">AbstractTextTokenizerLoader</span><span class="p">[</span><span class="n">BasicSentencePieceTokenizer</span><span class="p">]</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Loads tokenizers of type :class:`BasicSentencePieceTokenizer`.&quot;&quot;&quot;</span>
+
+    <span class="nd">@override</span>
+    <span class="k">def</span> <span class="nf">_load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">card</span><span class="p">:</span> <span class="n">AssetCard</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BasicSentencePieceTokenizer</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">BasicSentencePieceTokenizer</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+
+
+<span class="n">default_basic_sentencepiece_tokenizer_loader</span> <span class="o">=</span> <span class="n">BasicSentencePieceTokenizerLoader</span><span class="p">()</span>
+
+
+<span class="nd">@final</span>
+<span class="k">class</span> <span class="nc">RawSentencePieceTokenizer</span><span class="p">(</span><span class="n">SentencePieceTokenizer</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a SentencePiece tokenizer that encodes text with no control symbols.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param path:</span>
+<span class="sd">            The path to the SentencePiece model file.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+
+    <span class="nd">@override</span>
+    <span class="k">def</span> <span class="nf">create_encoder</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">task</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">lang</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">mode</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">pin_memory</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SentencePieceEncoder</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a token encoder.</span>
+
+<span class="sd">        :param task:</span>
+<span class="sd">            Must be ``None``.</span>
+<span class="sd">        :param lang:</span>
+<span class="sd">            Must be ``None``.</span>
+<span class="sd">        :param mode:</span>
+<span class="sd">            Must be ``None``.</span>
+<span class="sd">        :param device:</span>
+<span class="sd">            The device on which to construct tensors.</span>
+<span class="sd">        :param pin_memory:</span>
+<span class="sd">            If ``True``, uses pinned memory while constructing tensors.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">task</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`task` must be `None`, but is &#39;</span><span class="si">{</span><span class="n">task</span><span class="si">}</span><span class="s2">&#39; instead.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">lang</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`lang` must be `None`, but is &#39;</span><span class="si">{</span><span class="n">lang</span><span class="si">}</span><span class="s2">&#39; instead.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">mode</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`mode` must be `None`, but is &#39;</span><span class="si">{</span><span class="n">mode</span><span class="si">}</span><span class="s2">&#39; instead.&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_raw_encoder</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">pin_memory</span><span class="o">=</span><span class="n">pin_memory</span><span class="p">)</span>
+
+
+<span class="nd">@final</span>
+<span class="k">class</span> <span class="nc">RawSentencePieceTokenizerLoader</span><span class="p">(</span>
+    <span class="n">AbstractTextTokenizerLoader</span><span class="p">[</span><span class="n">RawSentencePieceTokenizer</span><span class="p">]</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Loads tokenizers of type :class:`RawSentencePieceTokenizer`.&quot;&quot;&quot;</span>
+
+    <span class="nd">@override</span>
+    <span class="k">def</span> <span class="nf">_load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">card</span><span class="p">:</span> <span class="n">AssetCard</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RawSentencePieceTokenizer</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">RawSentencePieceTokenizer</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+
+
+<span class="n">default_raw_sentencepiece_tokenizer_loader</span> <span class="o">=</span> <span class="n">RawSentencePieceTokenizerLoader</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="vocab_info_from_sentencepiece"><a class="viewcode-back" href="../../../../reference/generated/data_text/fairseq2.data.text.vocab_info_from_sentencepiece.html#fairseq2.data.text.vocab_info_from_sentencepiece">[docs]</a><span class="k">def</span> <span class="nf">vocab_info_from_sentencepiece</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">SentencePieceModel</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VocabularyInfo</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the vocabulary information of ``model``.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">VocabularyInfo</span><span class="p">(</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">vocabulary_size</span><span class="p">,</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">unk_idx</span><span class="p">,</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">bos_idx</span><span class="p">,</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">eos_idx</span><span class="p">,</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">pad_idx</span><span class="p">,</span>
+    <span class="p">)</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p></p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+  
+<p style="margin-top: 30px"><a href="https://opensource.fb.com/legal/terms">Terms of Use</a>, <a href="https://opensource.fb.com/legal/privacy">Privacy Policy</a></p>
+
+<p>Copyright © Meta Platforms, Inc</p>
+
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

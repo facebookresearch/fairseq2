@@ -1,0 +1,6 @@
+﻿.. currentmodule:: fairseq2.data
+
+get\_last\_failed\_example
+==========================
+
+.. autofunction:: get_last_failed_example
