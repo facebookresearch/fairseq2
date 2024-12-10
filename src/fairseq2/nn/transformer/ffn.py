@@ -11,7 +11,7 @@ from collections.abc import Callable
 from typing import final
 
 from torch import Tensor
-from torch.nn import Dropout, Module, ReLU, SiLU
+from torch.nn import Dropout, Module, ReLU, Sigmoid, SiLU
 from typing_extensions import override
 
 from fairseq2.nn.normalization import LayerNorm
@@ -138,6 +138,85 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
 
         if self.inner_layer_norm is not None:
             seqs = self.inner_layer_norm(seqs)
+
+        if self.inner_dropout is not None:
+            seqs = self.inner_dropout(seqs)
+
+        seqs = self.output_proj(seqs)
+
+        return seqs
+
+
+@final
+class DauphinFeedForwardNetwork(FeedForwardNetwork):
+    """Represents a GLU-based Transformer feed-forward network as described in
+    :cite:t:`https://doi.org/10.48550/arXiv.1612.08083`"""
+
+    inner_proj: Projection
+    inner_activation: Module
+    inner_dropout: Dropout | None
+    output_proj: Projection
+
+    def __init__(
+        self,
+        model_dim: int,
+        inner_dim: int,
+        bias: bool,
+        *,
+        inner_activation: Module | None = None,
+        inner_dropout_p: float = 0.0,
+        proj_init_fn: Callable[[Linear], None] | None = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
+    ) -> None:
+        """
+        :param model_dim:
+            The dimensionality of the model.
+        :param inner_dim:
+            The dimensionality of the inner projection layer.
+        :param bias:
+            If ``True``, both the inner and output projection learn an additive
+            bias.
+        :param inner_activation:
+            The activation to apply to outputs of the inner projection layer. If
+            ``None``, :func:`~torch.nn.Sigmoid` will be used.
+        :param inner_dropout_p:
+            The dropout probability on outputs of the inner projection layer.
+        :param proj_init_fn:
+            The callable to initialize the inner and output projections.
+        """
+        super().__init__(model_dim)
+
+        self.inner_proj = Linear(
+            model_dim,
+            inner_dim * 2,
+            bias,
+            init_fn=proj_init_fn,
+            device=device,
+            dtype=dtype,
+        )
+
+        if inner_activation is None:
+            self.inner_activation = Sigmoid()
+        else:
+            self.inner_activation = inner_activation
+
+        if inner_dropout_p > 0.0:
+            self.inner_dropout = Dropout(inner_dropout_p)
+        else:
+            self.register_module("inner_dropout", None)
+
+        self.output_proj = Linear(
+            inner_dim, model_dim, bias, device=device, dtype=dtype
+        )
+
+    @override
+    def forward(self, seqs: Tensor) -> Tensor:
+        seqs = self.inner_proj(seqs)
+
+        split1, split2 = seqs.chunk(2, dim=-1)
+
+        seqs = self.inner_activation(split1) * split2  # gate
 
         if self.inner_dropout is not None:
             seqs = self.inner_dropout(seqs)
