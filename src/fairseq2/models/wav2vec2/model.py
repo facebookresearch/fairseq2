@@ -366,6 +366,7 @@ class Wav2Vec2Output:
     """The raw features returned by the frontend. *Shape*: Same as
     :attr:`encoder_output`."""
 
+    @torch.compile(fullgraph=True)
     def compute_loss(
         self,
         *,
