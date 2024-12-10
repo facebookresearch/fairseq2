@@ -7,13 +7,14 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Optional, Protocol, final
+from typing import Protocol, final
 
 import torch
 from torch import Tensor
+from typing_extensions import override
 
 from fairseq2.nn.incremental_state import IncrementalStateBag
-from fairseq2.typing import DataType, Device, override
+from fairseq2.typing import DataType, Device
 
 
 class AttentionMask(ABC):
@@ -27,7 +28,7 @@ class AttentionMask(ABC):
 class AbstractAttentionMask(AttentionMask):
     """Provides a skeletal implementation of :class:`AttentionMask`."""
 
-    _materialized: Optional[Tensor]
+    _materialized: Tensor | None
 
     def __init__(self) -> None:
         self._materialized = None
@@ -54,8 +55,8 @@ class AttentionMaskFactory(Protocol):
         keys: Tensor,
         *,
         training: bool = True,
-        state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Optional[AttentionMask]:
+        state_bag: IncrementalStateBag | None = None,
+    ) -> AttentionMask | None:
         """
         :param seqs:
             The sequences for which to create a mask. *Shape:* :math:`(N,S,M)`,
@@ -123,20 +124,20 @@ class CausalAttentionMask(AbstractAttentionMask):
 
     _seq_len: int
     _key_len: int
-    _attn_len: Optional[int]
-    _attn_window_len: Optional[int]
-    _device: Optional[Device]
-    _dtype: Optional[DataType]
+    _attn_len: int | None
+    _attn_window_len: int | None
+    _device: Device | None
+    _dtype: DataType | None
 
     def __init__(
         self,
         seq_len: int,
         key_len: int,
         *,
-        attn_len: Optional[int] = None,
-        attn_window_len: Optional[int] = None,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        attn_len: int | None = None,
+        attn_window_len: int | None = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param seq_len:
@@ -180,9 +181,9 @@ class CausalAttentionMask(AbstractAttentionMask):
 class CausalAttentionMaskFactory(AttentionMaskFactory):
     """Constructs instances of :class:`CausalAttentionMask`."""
 
-    _attn_window_len: Optional[int]
+    _attn_window_len: int | None
 
-    def __init__(self, *, attn_window_len: Optional[int] = None) -> None:
+    def __init__(self, *, attn_window_len: int | None = None) -> None:
         """
         :param attn_window_len:
             The attention window length as described in Section 3.1 of
@@ -197,9 +198,9 @@ class CausalAttentionMaskFactory(AttentionMaskFactory):
         keys: Tensor,
         *,
         training: bool = True,
-        state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Optional[CausalAttentionMask]:
-        attn_len: Optional[int]
+        state_bag: IncrementalStateBag | None = None,
+    ) -> CausalAttentionMask | None:
+        attn_len: int | None
 
         attn_len = seqs.size(1)
 
@@ -257,9 +258,9 @@ class ALiBiMask(AbstractAttentionMask):
     _seq_len: int
     _key_len: int
     _num_attn_heads: int
-    _attn_len: Optional[int] = None
-    _device: Optional[Device] = None
-    _dtype: Optional[DataType] = None
+    _attn_len: int | None = None
+    _device: Device | None = None
+    _dtype: DataType | None = None
 
     def __init__(
         self,
@@ -267,9 +268,9 @@ class ALiBiMask(AbstractAttentionMask):
         key_len: int,
         num_attn_heads: int,
         *,
-        attn_len: Optional[int] = None,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        attn_len: int | None = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param seq_len:
@@ -353,9 +354,9 @@ class ALiBiMaskFactory(AttentionMaskFactory):
         keys: Tensor,
         *,
         training: bool = True,
-        state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Optional[ALiBiMask]:
-        attn_len: Optional[int]
+        state_bag: IncrementalStateBag | None = None,
+    ) -> ALiBiMask | None:
+        attn_len: int | None
 
         attn_len = seqs.size(1)
 
@@ -393,10 +394,10 @@ class ALiBiMaskFactory(AttentionMaskFactory):
 def _create_causal_attention_mask(
     seq_len: int,
     key_len: int,
-    attn_len: Optional[int],
-    attn_window_len: Optional[int],
-    device: Optional[Device],
-    dtype: Optional[DataType],
+    attn_len: int | None,
+    attn_window_len: int | None,
+    device: Device | None,
+    dtype: DataType | None,
 ) -> Tensor:
     if dtype is None:
         dtype = torch.get_default_dtype()

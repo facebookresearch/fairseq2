@@ -13,7 +13,6 @@ import site
 from ctypes import CDLL, RTLD_GLOBAL
 from os import environ
 from pathlib import Path
-from typing import List, Optional, Tuple
 
 from fairseq2n.config import (
     _CUDA_VERSION,
@@ -59,7 +58,7 @@ def supports_cuda() -> bool:
     return _SUPPORTS_CUDA
 
 
-def cuda_version() -> Optional[Tuple[int, int]]:
+def cuda_version() -> tuple[int, int] | None:
     """Return the version of CUDA that fairseq2n supports.
 
     :returns:
@@ -74,7 +73,7 @@ DOC_MODE = False
 
 # Keeps the shared libraries that we load using our own extended lookup logic
 # in memory.
-_libs: List[CDLL] = []
+_libs: list[CDLL] = []
 
 
 def _load_shared_libraries() -> None:
@@ -124,7 +123,7 @@ def _load_sndfile() -> None:
     _libs.append(libsndfile)
 
 
-def _load_shared_library(lib_name: str) -> Optional[CDLL]:
+def _load_shared_library(lib_name: str) -> CDLL | None:
     # In Conda environments, we always expect native libraries to be part of the
     # environment, so we skip the default lookup rules of the dynamic linker.
     if not "CONDA_PREFIX" in environ:

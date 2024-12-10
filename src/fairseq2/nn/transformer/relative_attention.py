@@ -7,19 +7,20 @@
 from __future__ import annotations
 
 import math
-from typing import Optional, Tuple, final
+from typing import final
 
 import torch
 import torch.nn as nn
 from torch import Tensor
 from torch.nn import Module, Parameter
 from torch.nn.functional import pad
+from typing_extensions import override
 
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.projection import Linear
 from fairseq2.nn.transformer.attention import SDPA, create_default_sdpa
 from fairseq2.nn.transformer.attention_mask import AttentionMask, CustomAttentionMask
-from fairseq2.typing import DataType, Device, override
+from fairseq2.typing import DataType, Device
 
 
 @final
@@ -41,9 +42,9 @@ class RelativePositionSDPA(SDPA):
         num_heads: int,
         pos_encoding: RelativePositionalEncoding,
         *,
-        inner_sdpa: Optional[SDPA] = None,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        inner_sdpa: SDPA | None = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param model_dim:
@@ -102,12 +103,12 @@ class RelativePositionSDPA(SDPA):
         self,
         seqs: Tensor,
         keys: Tensor,
-        key_padding_mask: Optional[PaddingMask],
+        key_padding_mask: PaddingMask | None,
         values: Tensor,
         *,
-        attn_mask: Optional[AttentionMask] = None,
+        attn_mask: AttentionMask | None = None,
         needs_weights: bool = False,
-    ) -> Tuple[Tensor, Optional[Tensor]]:
+    ) -> tuple[Tensor, Tensor | None]:
         q = seqs
         k = keys
 
@@ -203,7 +204,7 @@ class RelativePositionalEncoding(Module):
         encoding_dim: int,
         max_seq_len: int,
         *,
-        device: Optional[Device] = None,
+        device: Device | None = None,
     ) -> None:
         """
         :param encoding_dim:

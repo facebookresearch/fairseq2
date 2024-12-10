@@ -10,11 +10,10 @@ import os
 import platform
 import socket
 import sys
+from collections.abc import Iterator
 from contextlib import contextmanager
 from logging import Logger
-from pathlib import Path
 from signal import SIG_DFL, SIGINT, raise_signal, signal
-from typing import Iterator, Optional
 
 import fairseq2n
 import psutil
@@ -26,8 +25,7 @@ from torch.nn import Module
 import fairseq2
 from fairseq2.logging import LogWriter
 from fairseq2.nn.utils.module import get_module_size
-from fairseq2.typing import DataClass, Device
-from fairseq2.utils.dataclass import dump_dataclass
+from fairseq2.typing import Device
 
 
 @contextmanager
@@ -38,7 +36,7 @@ def exception_logger(log: LogWriter) -> Iterator[None]:
     except OutOfMemoryError:
         s = torch.cuda.memory_summary()
 
-        log.exception("CUDA run out of memory. See memory stats and exception details below.\n{}", s)  # fmt: skip
+        log.exception("CUDA run out of memory. See memory stats below.\n{}", s)  # fmt: skip
 
         sys.exit(1)
     except KeyboardInterrupt:
@@ -48,29 +46,17 @@ def exception_logger(log: LogWriter) -> Iterator[None]:
 
         raise_signal(SIGINT)
     except Exception:
-        log.exception("Command has failed. See exception details below.")
+        log.exception("Command has failed.")
 
         sys.exit(1)
 
 
-def log_config(config: DataClass, log: LogWriter, file: Optional[Path] = None) -> None:
-    """Log ``config``.
-
-    :param config:
-        The config to log.
-    :param log:
-        The log to write to.
-    :param file:
-        The output file to write ``config`` in YAML format.
-    """
-    if file is not None:
-        with file.open("w") as fp:
-            dump_dataclass(config, fp)
-
+def log_config(config: object, log: LogWriter) -> None:
+    """Log ``config``."""
     log.info("Config:\n{}", pretty_repr(config, max_width=88))
 
 
-def log_model_config(config: DataClass, log: LogWriter) -> None:
+def log_model_config(config: object, log: LogWriter) -> None:
     """Log ``config``.
 
     :param config:
@@ -81,7 +67,7 @@ def log_model_config(config: DataClass, log: LogWriter) -> None:
     log.info("Model Config:\n{}", pretty_repr(config, max_width=88))
 
 
-def log_environment_info(log: LogWriter, device: Optional[Device] = None) -> None:
+def log_environment_info(log: LogWriter, device: Device | None = None) -> None:
     """Log information about the host system and the installed software."""
     if isinstance(log, Logger):
         log = LogWriter(log)
@@ -93,12 +79,12 @@ def log_environment_info(log: LogWriter, device: Optional[Device] = None) -> Non
     log_environment_variables(log)
 
 
-def log_system_info(log: LogWriter, device: Optional[Device] = None) -> None:
+def log_system_info(log: LogWriter, device: Device | None = None) -> None:
     """Log information about the host system."""
     if not log.is_enabled_for_info():
         return
 
-    def read_dist_name() -> Optional[str]:
+    def read_dist_name() -> str | None:
         try:
             fp = open("/etc/os-release")
         except OSError:
@@ -211,7 +197,7 @@ def log_system_info(log: LogWriter, device: Optional[Device] = None) -> None:
     log.info("Device - {}", s)
 
 
-def log_software_info(log: LogWriter, device: Optional[Device] = None) -> None:
+def log_software_info(log: LogWriter, device: Device | None = None) -> None:
     """Log information about the installed software."""
     if not log.is_enabled_for_info():
         return
@@ -259,7 +245,7 @@ def log_environment_variables(log: LogWriter) -> None:
     log.info("Environment Variables - {}", ", ".join(kv))
 
 
-def log_model(model: Module, log: LogWriter, *, rank: Optional[int] = None) -> None:
+def log_model(model: Module, log: LogWriter, *, rank: int | None = None) -> None:
     """Log information about ``model``."""
     if not log.is_enabled_for_info():
         return

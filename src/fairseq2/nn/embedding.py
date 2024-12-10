@@ -7,7 +7,8 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Callable, Optional, final
+from collections.abc import Callable
+from typing import final
 
 import torch
 import torch.nn as nn
@@ -15,11 +16,12 @@ from torch import Tensor
 from torch.nn import Module
 from torch.nn.functional import embedding
 from torch.nn.parameter import Parameter
+from typing_extensions import override
 
 from fairseq2.gang import Gang
 from fairseq2.nn.utils.module import to_empty
 from fairseq2.tensor_parallel import gather, reduce, reduce_on_backward
-from fairseq2.typing import META, DataType, Device, override
+from fairseq2.typing import META, DataType, Device
 
 
 class Embedding(Module, ABC):
@@ -27,11 +29,11 @@ class Embedding(Module, ABC):
 
     num_embeddings: int
     embedding_dim: int
-    pad_idx: Optional[int]
-    padding_idx: Optional[int]  # Compat
+    pad_idx: int | None
+    padding_idx: int | None  # Compat
 
     def __init__(
-        self, num_embeddings: int, embedding_dim: int, pad_idx: Optional[int] = None
+        self, num_embeddings: int, embedding_dim: int, pad_idx: int | None = None
     ) -> None:
         """
         :param num_embeddings:
@@ -79,17 +81,17 @@ class StandardEmbedding(Embedding):
     """Stores embeddings of a fixed dictionary and size in an in-memory table."""
 
     weight: Parameter
-    init_fn: Optional[Callable[[StandardEmbedding], None]]
+    init_fn: Callable[[StandardEmbedding], None] | None
 
     def __init__(
         self,
         num_embeddings: int,
         embedding_dim: int,
-        pad_idx: Optional[int] = None,
+        pad_idx: int | None = None,
         *,
-        init_fn: Optional[Callable[[StandardEmbedding], None]] = None,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        init_fn: Callable[[StandardEmbedding], None] | None = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param num_embeddings:
@@ -150,7 +152,7 @@ class VocabShardedEmbedding(Embedding):
     gang: Gang
     sharded_num_embeddings: int
     weight: Parameter
-    init_fn: Optional[Callable[[StandardEmbedding], None]]
+    init_fn: Callable[[StandardEmbedding], None] | None
 
     @staticmethod
     def from_embedding(embed: StandardEmbedding, gang: Gang) -> VocabShardedEmbedding:
@@ -190,11 +192,11 @@ class VocabShardedEmbedding(Embedding):
         gang: Gang,
         num_embeddings: int,
         embedding_dim: int,
-        pad_idx: Optional[int] = None,
+        pad_idx: int | None = None,
         *,
-        init_fn: Optional[Callable[[StandardEmbedding], None]] = None,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        init_fn: Callable[[StandardEmbedding], None] | None = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param gang:
@@ -285,7 +287,7 @@ class VocabShardedEmbedding(Embedding):
 
         return x
 
-    def to_embedding(self, device: Optional[Device] = None) -> StandardEmbedding:
+    def to_embedding(self, device: Device | None = None) -> StandardEmbedding:
         """Convert this instance to a :class:`StandardEmbedding`."""
         embed = self._embedding_like(META)
 
@@ -330,7 +332,7 @@ class ShardedEmbedding(Embedding):
     gang: Gang
     sharded_embedding_dim: int
     weight: Parameter
-    init_fn: Optional[Callable[[StandardEmbedding], None]]
+    init_fn: Callable[[StandardEmbedding], None] | None
 
     @staticmethod
     def from_embedding(embed: StandardEmbedding, gang: Gang) -> ShardedEmbedding:
@@ -370,11 +372,11 @@ class ShardedEmbedding(Embedding):
         gang: Gang,
         num_embeddings: int,
         embedding_dim: int,
-        pad_idx: Optional[int] = None,
+        pad_idx: int | None = None,
         *,
-        init_fn: Optional[Callable[[StandardEmbedding], None]] = None,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        init_fn: Callable[[StandardEmbedding], None] | None = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param gang:
@@ -440,7 +442,7 @@ class ShardedEmbedding(Embedding):
 
         return x
 
-    def to_embedding(self, device: Optional[Device] = None) -> StandardEmbedding:
+    def to_embedding(self, device: Device | None = None) -> StandardEmbedding:
         """Convert this instance to a :class:`StandardEmbedding`."""
         embed = self._embedding_like(META)
 

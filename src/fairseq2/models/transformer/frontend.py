@@ -8,16 +8,17 @@ from __future__ import annotations
 
 import math
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple, final
+from typing import final
 
 from torch import Tensor
 from torch.nn import Dropout, Module
+from typing_extensions import override
 
 from fairseq2.nn import Embedding, LayerNorm, PositionEncoder
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.transformer import LayerNormFactory, create_standard_layer_norm
-from fairseq2.typing import DataType, Device, override
+from fairseq2.typing import DataType, Device
 
 
 class TransformerFrontend(Module, ABC):
@@ -38,10 +39,10 @@ class TransformerFrontend(Module, ABC):
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
+        padding_mask: PaddingMask | None,
         *,
-        state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+        state_bag: IncrementalStateBag | None = None,
+    ) -> tuple[Tensor, PaddingMask | None]:
         """
         :param seqs:
             The sequences to process. *Shape:* :math:`(N,S,*)`, where :math:`N`
@@ -75,21 +76,21 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
 
     embed: Embedding
     scale: float
-    pos_encoder: Optional[PositionEncoder]
-    layer_norm: Optional[LayerNorm]
-    dropout: Optional[Dropout]
+    pos_encoder: PositionEncoder | None
+    layer_norm: LayerNorm | None
+    dropout: Dropout | None
 
     def __init__(
         self,
         embed: Embedding,
-        pos_encoder: Optional[PositionEncoder],
+        pos_encoder: PositionEncoder | None,
         *,
         no_scale: bool = False,
         layer_norm: bool = False,
         dropout_p: float = 0.0,
-        layer_norm_factory: Optional[LayerNormFactory] = None,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        layer_norm_factory: LayerNormFactory | None = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param embed:
@@ -142,10 +143,10 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
+        padding_mask: PaddingMask | None,
         *,
-        state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+        state_bag: IncrementalStateBag | None = None,
+    ) -> tuple[Tensor, PaddingMask | None]:
         embeds = self.embed(seqs)
 
         if self.scale != 1.0:

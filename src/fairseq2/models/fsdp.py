@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from functools import partial
-from typing import List, Literal, Optional, Set, Tuple, Type
+from typing import Literal
 
 from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 from torch.nn import Module
@@ -23,7 +23,7 @@ from fairseq2.nn.transformer import (
 
 def get_fsdp_wrap_policy(
     model: Module, wrap_granularity: Literal["layer", "stack", "model"] = "layer"
-) -> Tuple[Optional[FSDPWrapPolicy], Optional[List[Module]]]:
+) -> tuple[FSDPWrapPolicy | None, list[Module] | None]:
     """Return the FSDP wrap policy for ``model`` along with ignored modules.
 
     :param model:
@@ -38,7 +38,7 @@ def get_fsdp_wrap_policy(
     if wrap_granularity == "model":
         return None, None
 
-    kls: Set[Type[Module]]
+    kls: set[type[Module]]
 
     if wrap_granularity == "stack":
         kls = {TransformerEncoder, TransformerDecoder}

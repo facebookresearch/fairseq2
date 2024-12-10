@@ -7,18 +7,19 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Iterator, Optional, Protocol, Tuple, final
+from typing import Protocol, final
 
 import torch
 from torch import Tensor
 from torch.nn import Module
 from torch.nn.functional import dropout, scaled_dot_product_attention, softmax
+from typing_extensions import override
 
 from fairseq2.logging import get_log_writer
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.transformer.attention_mask import AttentionMask, CausalAttentionMask
-from fairseq2.typing import override
 
 log = get_log_writer(__name__)
 
@@ -31,12 +32,12 @@ class SDPA(Module, ABC):
         self,
         seqs: Tensor,
         keys: Tensor,
-        key_padding_mask: Optional[PaddingMask],
+        key_padding_mask: PaddingMask | None,
         values: Tensor,
         *,
-        attn_mask: Optional[AttentionMask] = None,
+        attn_mask: AttentionMask | None = None,
         needs_weights: bool = False,
-    ) -> Tuple[Tensor, Optional[Tensor]]:
+    ) -> tuple[Tensor, Tensor | None]:
         """
         :param seqs:
             The sequences to query. *Shape:* :math:`(N,H,S,K)`, where :math:`N`
@@ -104,12 +105,12 @@ class TorchSDPA(SDPA):
         self,
         seqs: Tensor,
         keys: Tensor,
-        key_padding_mask: Optional[PaddingMask],
+        key_padding_mask: PaddingMask | None,
         values: Tensor,
         *,
-        attn_mask: Optional[AttentionMask] = None,
+        attn_mask: AttentionMask | None = None,
         needs_weights: bool = False,
-    ) -> Tuple[Tensor, Optional[Tensor]]:
+    ) -> tuple[Tensor, Tensor | None]:
         if needs_weights:
             if not self._has_warned:
                 log.warning("`TorchSDPA` has to fall back to the naive SDPA implementation because of `needs_weights` set to `True`.")  # fmt: skip
@@ -226,12 +227,12 @@ class NaiveSDPA(SDPA):
         self,
         seqs: Tensor,
         keys: Tensor,
-        key_padding_mask: Optional[PaddingMask],
+        key_padding_mask: PaddingMask | None,
         values: Tensor,
         *,
-        attn_mask: Optional[AttentionMask] = None,
+        attn_mask: AttentionMask | None = None,
         needs_weights: bool = False,
-    ) -> Tuple[Tensor, Optional[Tensor]]:
+    ) -> tuple[Tensor, Tensor | None]:
         return _naive_scaled_dot_product_attention(
             seqs,
             keys,
@@ -251,13 +252,13 @@ class NaiveSDPA(SDPA):
 def _naive_scaled_dot_product_attention(
     seqs: Tensor,
     keys: Tensor,
-    key_padding_mask: Optional[PaddingMask],
+    key_padding_mask: PaddingMask | None,
     values: Tensor,
-    attn_mask: Optional[AttentionMask],
+    attn_mask: AttentionMask | None,
     dropout_p: float,
     needs_weights: bool,
     training: bool,
-) -> Tuple[Tensor, Optional[Tensor]]:
+) -> tuple[Tensor, Tensor | None]:
     # (N, H, S, K) @ (N, H, K, S_kv) = (N, H, S, S_kv)
     attn_weights = torch.matmul(seqs, keys.transpose(-1, -2))
 
@@ -310,7 +311,7 @@ def _get_fallback_sdpa_factory() -> SDPAFactory:
 _sdpa_factory: SDPAFactory = _get_fallback_sdpa_factory()
 
 
-def set_default_sdpa_factory(factory: Optional[SDPAFactory]) -> None:
+def set_default_sdpa_factory(factory: SDPAFactory | None) -> None:
     """Set the default :class:`SDPA` factory."""
     global _sdpa_factory
 
@@ -330,7 +331,7 @@ def create_default_sdpa(*, attn_dropout_p: float = 0.0) -> SDPA:
 
 
 @contextmanager
-def default_sdpa_factory(factory: Optional[SDPAFactory]) -> Iterator[None]:
+def default_sdpa_factory(factory: SDPAFactory | None) -> Iterator[None]:
     """Set a temporary default :class:`SDPA` factory."""
     original_factory = _sdpa_factory
 

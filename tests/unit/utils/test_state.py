@@ -6,7 +6,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 import pytest
 
@@ -18,7 +19,7 @@ from fairseq2.utils.state import StatefulObjectBag, StateHandler
 class TestStatefulObjectBag:
     def test_state_dict_works(self) -> None:
         class Foo:
-            def state_dict(self) -> Dict[str, Any]:
+            def state_dict(self) -> dict[str, Any]:
                 return {"foo4": "value4"}
 
             def load_state_dict(self, state_dict: Mapping[str, Any]) -> None:
@@ -56,7 +57,7 @@ class TestStatefulObjectBag:
 
         with pytest.raises(
             ValueError,
-            match="^`state_dict` must only contain the states of the attributes of this object, but it contains the following extra keys: foo3",
+            match="^`state_dict` must contain only the states of the attributes of this object, but it contains the following extra keys: foo3",
         ):
             bag.load_state_dict(state_dict)
 

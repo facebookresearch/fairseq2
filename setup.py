@@ -33,10 +33,9 @@ setup(
         "Intended Audience :: Science/Research",
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
     package_dir={"": "src"},
@@ -46,15 +45,15 @@ setup(
         "fairseq2.assets.cards": ["**/*.yaml"],
     },
     zip_safe=False,
-    python_requires=">=3.8",
+    python_requires=">=3.10",
     install_requires=[
-        "blobfile~=2.1",
         "editdistance~=0.8",
         "fairseq2n" + fairseq2n_version_spec,
         "importlib_metadata~=7.0",
         "importlib_resources~=6.4",
+        "mypy-extensions~=1.0",
         "numpy~=1.23",
-        "packaging~=23.1",
+        "packaging~=24.1",
         "psutil~=5.9",
         "pyyaml~=6.0",
         "rich~=13.7",
@@ -62,7 +61,11 @@ setup(
         "tiktoken~=0.7",
         "torcheval~=0.0.6",
         "tqdm~=4.62",
-        "typing_extensions~=4.3;python_version<'3.10'",
+        "typing_extensions~=4.12",
+        # This dependency is required for tiktoken.load.read_file, but it's
+        # listed as optional in tiktoken's pyproject.toml
+        # (https://github.com/openai/tiktoken/blob/main/pyproject.toml#L9)
+        "blobfile~=3.0.0",
     ],
     extras_require={
         "arrow": ["pyarrow>=13.0.0", "pandas~=2.0.0"],

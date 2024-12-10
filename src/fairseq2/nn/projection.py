@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import math
 from abc import ABC, abstractmethod
-from typing import Callable, Optional, final
+from collections.abc import Callable
+from typing import final
 
 import torch
 import torch.nn as nn
@@ -16,11 +17,12 @@ from torch import Tensor
 from torch.nn import Module
 from torch.nn.functional import linear
 from torch.nn.parameter import Parameter
+from typing_extensions import override
 
 from fairseq2.gang import Gang
 from fairseq2.nn.utils.module import to_empty
 from fairseq2.tensor_parallel import gather, reduce, reduce_on_backward, scatter
-from fairseq2.typing import META, DataType, Device, override
+from fairseq2.typing import META, DataType, Device
 
 
 class Projection(Module, ABC):
@@ -71,8 +73,8 @@ class Linear(Projection):
     """
 
     weight: Parameter
-    bias: Optional[Parameter]
-    init_fn: Optional[Callable[[Linear], None]]
+    bias: Parameter | None
+    init_fn: Callable[[Linear], None] | None
 
     def __init__(
         self,
@@ -80,9 +82,9 @@ class Linear(Projection):
         output_dim: int,
         bias: bool,
         *,
-        init_fn: Optional[Callable[[Linear], None]] = None,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        init_fn: Callable[[Linear], None] | None = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param input_dim:
@@ -143,9 +145,9 @@ class ColumnShardedLinear(Projection):
     gang: Gang
     sharded_output_dim: int
     weight: Parameter
-    bias: Optional[Parameter]
+    bias: Parameter | None
     gather_output: bool
-    init_fn: Optional[Callable[[Linear], None]]
+    init_fn: Callable[[Linear], None] | None
 
     @staticmethod
     def from_linear(
@@ -193,9 +195,9 @@ class ColumnShardedLinear(Projection):
         bias: bool,
         *,
         gather_output: bool = True,
-        init_fn: Optional[Callable[[Linear], None]] = None,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        init_fn: Callable[[Linear], None] | None = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param gang:
@@ -279,7 +281,7 @@ class ColumnShardedLinear(Projection):
 
         return x
 
-    def to_linear(self, device: Optional[Device] = None) -> Linear:
+    def to_linear(self, device: Device | None = None) -> Linear:
         """Convert this instance to a :class:`Linear`."""
         linear = self._linear_like(META)
 
@@ -342,9 +344,9 @@ class RowShardedLinear(Projection):
     gang: Gang
     sharded_input_dim: int
     weight: Parameter
-    bias: Optional[Parameter]
+    bias: Parameter | None
     scatter_input: bool
-    init_fn: Optional[Callable[[Linear], None]]
+    init_fn: Callable[[Linear], None] | None
 
     @staticmethod
     def from_linear(
@@ -393,9 +395,9 @@ class RowShardedLinear(Projection):
         bias: bool,
         *,
         scatter_input: bool = True,
-        init_fn: Optional[Callable[[Linear], None]] = None,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        init_fn: Callable[[Linear], None] | None = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param gang:
@@ -481,7 +483,7 @@ class RowShardedLinear(Projection):
 
         return x
 
-    def to_linear(self, device: Optional[Device] = None) -> Linear:
+    def to_linear(self, device: Device | None = None) -> Linear:
         """Convert this instance to a :class:`Linear`."""
         linear = self._linear_like(META)
 
@@ -540,9 +542,9 @@ class TiedProjection(Projection):
     bias of another :class:`~torch.nn.Module` instance."""
 
     weight: Parameter
-    bias: Optional[Parameter]
+    bias: Parameter | None
 
-    def __init__(self, weight: Parameter, bias: Optional[Parameter]) -> None:
+    def __init__(self, weight: Parameter, bias: Parameter | None) -> None:
         """
         :param weight:
             The shared weights.
@@ -559,7 +561,7 @@ class TiedProjection(Projection):
         return linear(x, self.weight, self.bias)
 
 
-def _init_uniform_weight_and_bias(weight: Tensor, bias: Optional[Tensor]) -> None:
+def _init_uniform_weight_and_bias(weight: Tensor, bias: Tensor | None) -> None:
     nn.init.kaiming_uniform_(weight, a=math.sqrt(5))
 
     if bias is not None:
@@ -578,3 +580,11 @@ def _init_uniform_weight_and_bias(weight: Tensor, bias: Optional[Tensor]) -> Non
         bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
 
         nn.init.uniform_(bias, -bound, bound)
+
+
+def init_bert_projection(proj: Linear) -> None:
+    """Initialize ``proj`` as a projection to be used in BERT-like models."""
+    nn.init.normal_(proj.weight, mean=0.0, std=0.02)
+
+    if proj.bias is not None:
+        nn.init.zeros_(proj.bias)

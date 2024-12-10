@@ -6,14 +6,16 @@
 
 from __future__ import annotations
 
-from typing import Final, Optional, Sequence, Tuple, final
+from collections.abc import Sequence
+from typing import Final, final
 
 from torch import Tensor
 from torch.nn import GLU, Conv1d, Sequential
+from typing_extensions import override
 
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.typing import DataType, Device, override
+from fairseq2.typing import DataType, Device
 
 
 @final
@@ -34,9 +36,9 @@ class Conv1dFbankSubsampler(SequenceFeatureExtractor):
         inner_dim: int,
         feature_dim: int,
         *,
-        kernel_sizes: Optional[Sequence[int]] = None,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        kernel_sizes: Sequence[int] | None = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param num_channels:
@@ -87,8 +89,8 @@ class Conv1dFbankSubsampler(SequenceFeatureExtractor):
 
     @override
     def forward(
-        self, seqs: Tensor, padding_mask: Optional[PaddingMask]
-    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+        self, seqs: Tensor, padding_mask: PaddingMask | None
+    ) -> tuple[Tensor, PaddingMask | None]:
         """See the base :meth:`SequenceFeatureExtractor.forward`.
 
         :param seqs:

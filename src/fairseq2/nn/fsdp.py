@@ -7,35 +7,36 @@
 from __future__ import annotations
 
 import warnings
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Dict, Final, Iterator, Optional, Protocol, Sequence, Set, final
+from typing import Any, Final, Protocol, final
 from warnings import catch_warnings
 
 import torch
 from torch import Tensor
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.distributed.fsdp import MixedPrecision
 from torch.distributed.fsdp.api import (
     BackwardPrefetch,
     CPUOffload,
+    MixedPrecision,
     ShardedOptimStateDictConfig,
     ShardedStateDictConfig,
     ShardingStrategy,
     StateDictType,
 )
-from torch.nn import Module
+from torch.nn import Module, Parameter
 
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.nn.utils.module import (
+    apply_to_parameters,
     infer_device,
     reset_non_persistent_buffers,
     reset_parameters,
     to_empty,
 )
 from fairseq2.typing import DataType, Device
-from fairseq2.utils.version import torch_greater_or_equal
 
 log = get_log_writer(__name__)
 
@@ -43,15 +44,15 @@ log = get_log_writer(__name__)
 def to_fsdp(
     module: Module,
     gang: Gang,
-    wrap_policy: Optional[FSDPWrapPolicy],
+    wrap_policy: FSDPWrapPolicy | None,
     *,
-    ignored_modules: Optional[Sequence[Module]] = None,
+    ignored_modules: Sequence[Module] | None = None,
     skip_init: bool = False,
     broadcast_state: bool = False,
-    memory_policy: Optional[FSDPMemoryPolicy] = None,
+    memory_policy: FSDPMemoryPolicy | None = None,
     reshard_after_forward: bool = True,
-    local_world_size: Optional[int] = None,
-    mixed_precision_dtype: Optional[DataType] = None,
+    local_world_size: int | None = None,
+    mixed_precision_dtype: DataType | None = None,
     fp32_reduce: bool = False,
 ) -> FSDP:
     """Wrap ``module`` with FSDP.
@@ -66,9 +67,7 @@ def to_fsdp(
     :param ignored_param_names:
         The ignored parameter names. Can contain regular expressions.
     :param skip_init:
-        If ``True``, skips initializing the parameters and buffers moved from
-        the meta device onto the device of ``gang``. Only relevant if ``module``
-        resides on the meta device.
+        Not used.
     :param broadcast_state:
         If ``True``, each FSDP module will broadcast its parameters and buffers
         from rank 0 to ensure that they are replicated across all processes.
@@ -117,19 +116,19 @@ def to_fsdp(
     if memory_policy is None:
         memory_policy = FSDP_STANDARD_MEMORY_POLICY
 
+    if skip_init:
+        log.warning("`skip_init` parameter has no effect and will be removed in a future release.")  # fmt: skip
+
     param_init_fn = None
 
     module_device = infer_device(module)
     if module_device.type == "meta":
-        if not torch_greater_or_equal(2, 1):
-            log.warning("FSDP meta initialization is only supported on PyTorch 2.1.0 and later.")  # fmt: skip
-
-            to_empty(module, gang.device)
-
-            if not broadcast_state:
-                reset_parameters(module)
+        if gang.rank == 0:
+            skip_init = not broadcast_state
         else:
-            param_init_fn = FSDPParameterInitializer(gang.device, skip_init)
+            skip_init = True
+
+        param_init_fn = FSDPParameterInitializer(gang.device, skip_init)
 
     if mixed_precision_dtype is None:
         mp = None
@@ -144,7 +143,7 @@ def to_fsdp(
             buffer_dtype=None,
         )
 
-    kwargs: Dict[str, Any] = {}
+    kwargs: dict[str, Any] = {}
 
     # As of PyTorch 2.0, FSDP initialization fails in certain settings when an
     # empty `ignored_states` is specified (e.g. `sync_module_states` is set).
@@ -205,7 +204,7 @@ class FSDPWrapPolicy(Protocol):
 class FSDPMemoryPolicy:
     """Specifies the device memory usage policy of an FSDP module."""
 
-    backward_prefetch: Optional[BackwardPrefetch]
+    backward_prefetch: BackwardPrefetch | None
     """The backward prefetch mode for all-gathers. For more information, check
     out the same named parameter of :class:`FSDP`."""
 
@@ -260,8 +259,8 @@ class FSDPParameterInitializer:
     ... )
     """
 
-    _module_memo: Set[Module]
-    _memo: Dict[Tensor, Tensor]
+    _module_memo: set[Module]
+    _memo: dict[Tensor, Tensor]
     _device: Device
     _skip_init: bool
 
@@ -308,6 +307,8 @@ def summon_fsdp_for_validation(module: Module) -> Iterator[None]:
     if not isinstance(module, FSDP):
         yield
     else:
+        mp = module.mixed_precision or MixedPrecision()
+
         # This is ugly, but our only option. We monkey-patch FSDP modules to
         # replace their `forward` methods with the wrapped `forward` methods.
         # Otherwise, FSDP fails to shard parameters at the end of the call.
@@ -325,8 +326,18 @@ def summon_fsdp_for_validation(module: Module) -> Iterator[None]:
 
                     del m._fs2_backup_forward
 
+        def maybe_cast_dtype(t: Tensor) -> Tensor:
+            dtype = mp.param_dtype if isinstance(t, Parameter) else mp.buffer_dtype
+
+            if dtype is None:
+                return t
+
+            return t.to(dtype)
+
         with FSDP.summon_full_params(module, writeback=False):
             disable_fsdp_forward(module)
+
+            apply_to_parameters(module, maybe_cast_dtype)
 
             try:
                 yield

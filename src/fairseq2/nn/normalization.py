@@ -7,13 +7,15 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Literal, Optional, Sequence, Tuple, Union, final
+from collections.abc import Sequence
+from typing import Any, Literal, final
 
 import torch
 import torch.nn as nn
-from torch import Tensor
+from torch import Size, Tensor
 from torch.nn import Module, Parameter
 from torch.nn.functional import layer_norm
+from typing_extensions import override
 
 try:
     from apex.normalization.fused_layer_norm import (  # type: ignore[import]
@@ -25,27 +27,27 @@ try:
 except ImportError:
     _has_apex = False
 
-from fairseq2.typing import DataType, Device, override
+from fairseq2.typing import DataType, Device
 
 
 class LayerNorm(Module, ABC):
     """Applies Layer Normalization to incoming data."""
 
-    normalized_shape: Tuple[int, ...]
+    normalized_shape: tuple[int, ...]
     eps: float
     elementwise_affine: bool
-    weight: Optional[Parameter]
-    bias: Optional[Parameter]
+    weight: Parameter | None
+    bias: Parameter | None
 
     def __init__(
         self,
-        normalized_shape: Union[int, Sequence[int], torch.Size],
+        normalized_shape: int | Sequence[int] | Size,
         bias: bool,
         *,
         eps: float = 1e-5,
         elementwise_affine: bool = True,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param normalized_shape:
@@ -157,6 +159,10 @@ class RMSNorm(LayerNorm):
                 raise RuntimeError(
                     "`impl` is 'apex', but APEX does not support the `bias` parameter."
                 )
+        elif impl != "py":
+            raise ValueError(
+                f"`impl` must be 'auto', 'py', or 'apex', but is '{impl}' instead."
+            )
 
         self._impl = impl
 

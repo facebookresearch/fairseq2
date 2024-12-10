@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Final, Optional
+from typing import Any, Final
 
 import pytest
 
@@ -71,7 +71,7 @@ class TestFileMapper:
         output: FileMapperOutput,
         pathname: Path,
         offset: int = 0,
-        size: Optional[int] = None,
+        size: int | None = None,
     ) -> None:
         data = output["data"]
 

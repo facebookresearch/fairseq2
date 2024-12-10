@@ -7,14 +7,15 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, final
+from typing import Any, final
+
+from typing_extensions import override
 
 from fairseq2.assets.metadata_provider import (
     AbstractAssetMetadataProvider,
     AssetMetadataError,
     load_metadata_file,
 )
-from fairseq2.typing import override
 
 
 @final
@@ -40,7 +41,7 @@ class CheckpointModelMetadataProvider(AbstractAssetMetadataProvider):
         self._lower_score_better = lower_score_better
 
     @override
-    def _load_cache(self) -> Dict[str, Dict[str, Any]]:
+    def _load_cache(self) -> dict[str, dict[str, Any]]:
         metadata_file = self._checkpoint_dir.joinpath("model.yaml")
         if not metadata_file.exists():
             raise AssetMetadataError(

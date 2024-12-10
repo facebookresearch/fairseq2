@@ -7,20 +7,19 @@
 from __future__ import annotations
 
 import warnings
-from typing import Optional, final
+from typing import final
 from warnings import catch_warnings
 
-import torch
 import torch.nn as nn
 from torch import Tensor
 from torch.nn import GELU, Conv1d, Module, Sequential
 from torch.nn.utils import remove_weight_norm, weight_norm  # type: ignore[attr-defined]
+from typing_extensions import override
 
 from fairseq2.nn import LayerNorm, PositionEncoder, StandardLayerNorm
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask, apply_padding_mask
-from fairseq2.typing import DataType, Device, override
-from fairseq2.utils.version import torch_greater_or_equal
+from fairseq2.typing import DataType, Device
 
 
 @final
@@ -38,8 +37,8 @@ class Wav2Vec2PositionEncoder(PositionEncoder):
         kernel_size: int,
         num_groups: int,
         *,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param model_dim:
@@ -69,8 +68,8 @@ class Wav2Vec2PositionEncoder(PositionEncoder):
     def _do_forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
-        state_bag: Optional[IncrementalStateBag],
+        padding_mask: PaddingMask | None,
+        state_bag: IncrementalStateBag | None,
     ) -> Tensor:
         """:meta private:"""
         if state_bag is not None:
@@ -116,11 +115,6 @@ class Wav2Vec2PositionalConv1d(Conv1d):
         except AttributeError:
             weight = self.weight
 
-            if weight.dtype == torch.bfloat16 and not torch_greater_or_equal(2, 2):
-                raise RuntimeError(
-                    "`torch.nn.utils.weight_norm()` supports `torch.bfloat16` only in PyTorch 2.2 and later versions."
-                )
-
         nn.init.normal_(
             self.weight, mean=0.0, std=(4.0 / (kernel_size * model_dim)) ** 0.5
         )
@@ -157,8 +151,8 @@ class Wav2Vec2StackedPositionEncoder(PositionEncoder):
         num_groups: int,
         num_layers: int,
         *,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param model_dim:
@@ -192,8 +186,8 @@ class Wav2Vec2StackedPositionEncoder(PositionEncoder):
     def _do_forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
-        state_bag: Optional[IncrementalStateBag],
+        padding_mask: PaddingMask | None,
+        state_bag: IncrementalStateBag | None,
     ) -> Tensor:
         """:meta private:"""
         if state_bag is not None:
@@ -231,8 +225,8 @@ class Wav2Vec2PositionEncoderLayer(Module):
         kernel_size: int,
         num_groups: int,
         *,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         super().__init__()
 

@@ -7,11 +7,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Final, Optional
+from typing import Final
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data import VocabularyInfo
-from fairseq2.models.factory import create_model
+from fairseq2.models.factory import model_factories
 from fairseq2.models.wav2vec2.asr.model import Wav2Vec2AsrModel
 from fairseq2.models.wav2vec2.factory import (
     Wav2Vec2EncoderBuilder,
@@ -23,7 +23,7 @@ from fairseq2.typing import DataType, Device
 WAV2VEC2_ASR_FAMILY: Final = "wav2vec2_asr"
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Wav2Vec2AsrConfig:
     """Holds the configuration of a wav2vec 2.0 ASR model.
 
@@ -58,7 +58,7 @@ class Wav2Vec2AsrConfig:
     temporal_mask_span_len: int = 10
     """The length of each temporal mask span that is applied over time steps."""
 
-    max_temporal_mask_prob: float = 0.70
+    max_temporal_mask_prob: float = 0.69
     """The maximum probability of masking a time step. Note that, due to mask
     span overlap, the effective probability will be lower."""
 
@@ -91,16 +91,16 @@ class Wav2Vec2AsrBuilder:
 
     _config: Wav2Vec2AsrConfig
     _encoder_builder: Wav2Vec2EncoderBuilder
-    _device: Optional[Device]
-    _dtype: Optional[DataType]
+    _device: Device | None
+    _dtype: DataType | None
 
     def __init__(
         self,
         config: Wav2Vec2AsrConfig,
-        encoder_builder: Wav2Vec2EncoderBuilder,
+        encoder_builder: Wav2Vec2EncoderBuilder | None = None,
         *,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param config:
@@ -114,6 +114,11 @@ class Wav2Vec2AsrBuilder:
         """
         self._config = config
 
+        if encoder_builder is None:
+            encoder_builder = Wav2Vec2EncoderBuilder(
+                config.encoder_config, device=device, dtype=dtype
+            )
+
         self._encoder_builder = encoder_builder
 
         self._device, self._dtype = device, dtype
@@ -126,7 +131,7 @@ class Wav2Vec2AsrBuilder:
 
         masker = self.build_masker()
 
-        return Wav2Vec2AsrModel(
+        model = Wav2Vec2AsrModel(
             encoder_frontend,
             encoder,
             self._config.vocab_info,
@@ -136,7 +141,11 @@ class Wav2Vec2AsrBuilder:
             dtype=self._dtype,
         )
 
-    def build_masker(self) -> Optional[Wav2Vec2Masker]:
+        model.set_family(WAV2VEC2_ASR_FAMILY)
+
+        return model
+
+    def build_masker(self) -> Wav2Vec2Masker | None:
         """Build a feature masker."""
         if not self._config.use_masking:
             return None
@@ -157,30 +166,16 @@ class Wav2Vec2AsrBuilder:
 def create_wav2vec2_asr_model(
     config: Wav2Vec2AsrConfig,
     *,
-    device: Optional[Device] = None,
-    dtype: Optional[DataType] = None,
+    device: Device | None = None,
+    dtype: DataType | None = None,
 ) -> Wav2Vec2AsrModel:
-    """Create a wav2vec 2.0 ASR model.
-
-    :param config:
-        The configuration.
-    :param device:
-        The device on which to initialize modules.
-    :param dtype:
-        The data type of module parameters and buffers.
-    """
-    encoder_builder = Wav2Vec2EncoderBuilder(
-        config.encoder_config, device=device, dtype=dtype
-    )
-
-    builder = Wav2Vec2AsrBuilder(config, encoder_builder, device=device, dtype=dtype)
-
-    return builder.build_model().set_family(WAV2VEC2_ASR_FAMILY)
+    """Create a wav2vec 2.0 ASR model."""
+    return Wav2Vec2AsrBuilder(config, device=device, dtype=dtype).build_model()
 
 
-create_model.register(
-    family=WAV2VEC2_ASR_FAMILY,
-    factory=create_wav2vec2_asr_model,
-    config_kls=Wav2Vec2AsrConfig,
-    arch_configs=wav2vec2_asr_archs,
+model_factories.register(
+    WAV2VEC2_ASR_FAMILY,
+    create_wav2vec2_asr_model,
+    Wav2Vec2AsrConfig,
+    wav2vec2_asr_archs,
 )

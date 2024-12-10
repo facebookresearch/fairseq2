@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from pickle import PickleError
-from typing import Any, Dict, Generic, Optional, Protocol, TypeVar, Union, final
+from typing import Any, Generic, Mapping, Protocol, TypeVar, final
 
 from torch.nn import Module
 from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
@@ -24,7 +24,6 @@ from fairseq2.assets import (
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.models.config_loader import ModelConfigLoader, get_model_family
-from fairseq2.models.factory import ModelFactory
 from fairseq2.nn.utils.module import (
     infer_device,
     load_state_dict,
@@ -41,6 +40,8 @@ ModelT = TypeVar("ModelT", bound=Module)
 
 ModelT_co = TypeVar("ModelT_co", bound=Module, covariant=True)
 
+ModelT_contra = TypeVar("ModelT_contra", bound=Module, contravariant=True)
+
 ModelConfigT = TypeVar("ModelConfigT", bound=DataClass)
 
 ModelConfigT_contra = TypeVar(
@@ -48,16 +49,37 @@ ModelConfigT_contra = TypeVar(
 )
 
 
+class ModelFactory(Protocol[ModelConfigT_contra, ModelT_co]):
+    """Constructs models of type ``ModelT``."""
+
+    def __call__(
+        self,
+        config: ModelConfigT_contra,
+        *,
+        device: Device | None = None,
+        dtype: DataType | None = None,
+    ) -> ModelT_co:
+        """
+        :param config:
+            The model configuration.
+        :param device:
+            The device on which to initialize the model.
+        :param dtype:
+            The data type of the model parameters and buffers.
+        """
+
+
 class ModelLoader(Protocol[ModelT_co]):
     """Loads models of type ``ModelT``."""
 
     def __call__(
         self,
-        model_name_or_card: Union[str, AssetCard],
+        model_name_or_card: str | AssetCard,
         *,
-        gangs: Optional[Dict[str, Gang]] = None,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        gangs: Mapping[str, Gang] | None = None,
+        unstructured_config: object = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
         force: bool = False,
         progress: bool = True,
     ) -> ModelT_co:
@@ -86,8 +108,8 @@ class CheckpointConverter(Protocol[ModelConfigT_contra]):
     """Converts checkpoints to fairseq2 format."""
 
     def __call__(
-        self, checkpoint: Dict[str, Any], config: ModelConfigT_contra
-    ) -> Dict[str, Any]:
+        self, checkpoint: dict[str, Any], config: ModelConfigT_contra
+    ) -> dict[str, Any]:
         """
         :param checkpoint:
             The checkpoint to convert.
@@ -96,15 +118,27 @@ class CheckpointConverter(Protocol[ModelConfigT_contra]):
         """
 
 
+class ModelSharder(Protocol[ModelT_contra, ModelConfigT_contra]):
+    def __call__(
+        self,
+        model: ModelT_contra,
+        config: ModelConfigT_contra,
+        gangs: Mapping[str, Gang],
+    ) -> None:
+        ...
+
+
+@final
 class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
     """Loads models of type ``ModelT``."""
 
     _asset_store: AssetStore
     _download_manager: AssetDownloadManager
     _tensor_loader: TensorLoader
-    _checkpoint_converter: Optional[CheckpointConverter[ModelConfigT]]
     _config_loader: ModelConfigLoader[ModelConfigT]
     _factory: ModelFactory[ModelConfigT, ModelT]
+    _checkpoint_converter: CheckpointConverter[ModelConfigT] | None
+    _sharder: ModelSharder[ModelT, ModelConfigT] | None
     _restrict_checkpoints: bool
     _skip_meta_init: bool
 
@@ -113,25 +147,19 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         *,
         config_loader: ModelConfigLoader[ModelConfigT],
         factory: ModelFactory[ModelConfigT, ModelT],
+        asset_store: AssetStore | None = None,
+        download_manager: AssetDownloadManager | None = None,
+        tensor_loader: TensorLoader | None = None,
+        checkpoint_converter: CheckpointConverter[ModelConfigT] | None = None,
+        sharder: ModelSharder[ModelT, ModelConfigT] | None = None,
         restrict_checkpoints: bool = True,
         skip_meta_init: bool = False,
-        asset_store: Optional[AssetStore] = None,
-        download_manager: Optional[AssetDownloadManager] = None,
-        tensor_loader: Optional[TensorLoader] = None,
-        checkpoint_converter: Optional[CheckpointConverter[ModelConfigT]] = None,
     ) -> None:
         """
         :param config_loader:
             The configuration loader.
         :param factory:
             The factory to construct models.
-        :param restrict_checkpoints:
-            If ``True``, restricts the Python unpickler to load only tensors,
-            primitive types, and dictionaries.
-        :param skip_meta_init:
-            If ``True``, skips meta device initialization and constructs the
-            model directly on the requested device. Should be used with models
-            that do not support PyTorch's ``reset_parameters()`` convention.
         :param asset_store:
             The asset store where to check for available models. If ``None``,
             the default asset store will be used.
@@ -143,24 +171,34 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         :param checkpoint_converter:
             The converter to which loaded checkpoints will be passed for further
             processing.
+        :param sharder:
+            The model sharder for tensor parallelism.
+        :param restrict_checkpoints:
+            If ``True``, restricts the Python unpickler to load only tensors,
+            primitive types, and dictionaries.
+        :param skip_meta_init:
+            If ``True``, skips meta device initialization and constructs the
+            model directly on the requested device. Should be used with models
+            that do not support PyTorch's ``reset_parameters()`` convention.
         """
         self._asset_store = asset_store or default_asset_store
         self._download_manager = download_manager or default_download_manager
         self._tensor_loader = tensor_loader or load_tensors
-        self._checkpoint_converter = checkpoint_converter
         self._config_loader = config_loader
         self._factory = factory
+        self._checkpoint_converter = checkpoint_converter
+        self._sharder = sharder
         self._restrict_checkpoints = restrict_checkpoints
         self._skip_meta_init = skip_meta_init
 
-    @final
     def __call__(
         self,
-        model_name_or_card: Union[str, AssetCard],
+        model_name_or_card: str | AssetCard,
         *,
-        gangs: Optional[Dict[str, Gang]] = None,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        gangs: Mapping[str, Gang] | None = None,
+        unstructured_config: object = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
         force: bool = False,
         progress: bool = True,
     ) -> ModelT:
@@ -207,7 +245,7 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
 
         model = None
 
-        config = self._config_loader(card)
+        config = self._config_loader(card, unstructured_config)
 
         if device.type == "meta":
             try:
@@ -221,7 +259,14 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
                 ) from ex
 
             if gang is not None and gang.size > 1:
-                self._shard(model, gangs, card)  # type: ignore[arg-type]
+                if self._sharder is None:
+                    raise RuntimeError(
+                        f"{card.name} has a sharded checkpoint, but has no model sharder. Please file a bug report to the model author."
+                    )
+
+                assert gangs is not None
+
+                self._sharder(model, config, gangs)
 
             return model
 
@@ -272,7 +317,14 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
             model = self._factory(config, device=init_device, dtype=dtype)
 
         if gang is not None and gang.size > 1:
-            self._shard(model, gangs, card)  # type: ignore[arg-type]
+            if self._sharder is None:
+                raise RuntimeError(
+                    f"{card.name} has a sharded checkpoint, but has no model sharder. Please file a bug report to the model author."
+                )
+
+            assert gangs is not None
+
+            self._sharder(model, config, gangs)
 
         try:
             model_device = infer_device(model, name="model")
@@ -316,20 +368,15 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
 
         return model
 
-    def _shard(self, model: ModelT, gangs: Dict[str, Gang], card: AssetCard) -> None:
-        raise RuntimeError(
-            f"{card.name} has a sharded checkpoint, but has no model sharder. Please file a bug report to the model author."
-        )
-
 
 @final
 class DelegatingModelLoader(ModelLoader[ModelT]):
     """Loads models of type ``ModelT`` using registered loaders."""
 
     _asset_store: AssetStore
-    _loaders: Dict[str, ModelLoader[ModelT]]
+    _loaders: dict[str, ModelLoader[ModelT]]
 
-    def __init__(self, *, asset_store: Optional[AssetStore] = None) -> None:
+    def __init__(self, *, asset_store: AssetStore | None = None) -> None:
         """
         :param asset_store:
             The asset store where to check for available models. If ``None``,
@@ -341,11 +388,12 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
 
     def __call__(
         self,
-        model_name_or_card: Union[str, AssetCard],
+        model_name_or_card: str | AssetCard,
         *,
-        gangs: Optional[Dict[str, Gang]] = None,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        gangs: Mapping[str, Gang] | None = None,
+        unstructured_config: object = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
         force: bool = False,
         progress: bool = True,
     ) -> ModelT:
@@ -360,12 +408,13 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
             loader = self._loaders[family]
         except KeyError:
             raise AssetError(
-                f"The value of the field 'model_family' of the asset card '{card.name}' must be a supported model family, but '{family}' has no registered loader."
+                f"The value of the field 'model_family' of the asset card '{card.name}' must be a supported model family, but is '{family}' instead."
             ) from None
 
         return loader(
             model_name_or_card,
             gangs=gangs,
+            unstructured_config=unstructured_config,
             device=device,
             dtype=dtype,
             force=force,
@@ -383,12 +432,12 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
         """
         if family in self._loaders:
             raise ValueError(
-                f"`family` must be a unique model family name, but '{family}' has already a registered loader."
+                f"`family` must be a unique model family name, but '{family}' is already registered."
             )
 
         self._loaders[family] = loader
 
-    def supports(self, model_name_or_card: Union[str, AssetCard]) -> bool:
+    def supports(self, model_name_or_card: str | AssetCard) -> bool:
         """Return ``True`` if the specified model has a registered loader."""
         if isinstance(model_name_or_card, AssetCard):
             card = model_name_or_card

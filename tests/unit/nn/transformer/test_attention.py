@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 import pytest
 import torch
@@ -51,7 +51,7 @@ class TestScaledDotProductAttention:
     @staticmethod
     def _get_sdpa_args(
         use_key_padding_mask: bool, use_attn_mask: bool
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         batch_size = 2
 
         num_heads = 4
@@ -102,9 +102,7 @@ class TestStandardMultiheadAttention:
             (256, None),  # same size, by default
         ],
     )
-    def test_variable_sized_attention(
-        self, model_dim: int, kv_dim: Optional[int]
-    ) -> None:
+    def test_variable_sized_attention(self, model_dim: int, kv_dim: int | None) -> None:
         """
         Testing that attention can work when the keys and values have a different size than queries.
         This may happen in encoder-decoder attention, if the encoder and decoder have different dimensions.

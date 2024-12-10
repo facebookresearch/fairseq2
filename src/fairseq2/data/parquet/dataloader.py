@@ -6,10 +6,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Generator
 from dataclasses import dataclass
 from enum import Enum
 from functools import partial
-from typing import Any, Generator, List, Optional, Union
+from typing import Any
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -41,24 +42,24 @@ class ParquetBasicDataloaderConfig:
     parquet_path: str
     """The path to parquet dataset file."""
 
-    batch_size: Optional[int] = None
+    batch_size: int | None = None
     """The output batch size."""
 
-    order_by_length: Optional[str] = None
+    order_by_length: str | None = None
     """The column in the dataset whose length will be used for batch ordering.
     This results in batches with relatively homogeneous values, typically to
     support optimal padding."""
 
-    max_tokens: Optional[int] = None
+    max_tokens: int | None = None
     """Used with the ``order_by_length`` option to control the total number of
     padded tokens in each batch. Typically, this option is preferred over
     ``batch_size`` to reduce the memory footprint.
     """
 
-    columns: Optional[List[str]] = None
+    columns: list[str] | None = None
     """The list of columns to load."""
 
-    filters: Optional[Union[List[Any], pa.dataset.Expression]] = None
+    filters: list[Any] | pa.dataset.Expression | None = None
     """See https://arrow.apache.org/docs/python/generated/pyarrow.dataset.Expression.html#pyarrow.dataset.Expression
 
     Some examples :
@@ -119,7 +120,7 @@ class ParquetBasicDataloaderConfig:
     Since we rely on the external parallelism, this param is tuned off by
     default."""
 
-    filesystem: Optional[pa.fs.FileSystem] = None
+    filesystem: pa.fs.FileSystem | None = None
     """The filesystem to read the Parquet files from. S3 example:
     >>> import s3fs
     >>> filesystem = s3fs.core.S3FileSystem(...)
@@ -163,9 +164,11 @@ def build_parquet_iterator_pipeline(
             columns=config.columns,
             split_to_row_groups=config.split_to_row_groups,
             filesystem=config.filesystem,
-            shuffle_window=2 * config.nb_prefetch * config.nb_parallel_fragments
-            if config.shuffle
-            else None,
+            shuffle_window=(
+                2 * config.nb_prefetch * config.nb_parallel_fragments
+                if config.shuffle
+                else None
+            ),
             seed=config.seed,
         )
         .shard(shard_idx=config.rank, num_shards=config.world_size)

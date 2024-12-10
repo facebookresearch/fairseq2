@@ -8,24 +8,25 @@ from __future__ import annotations
 
 import os
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from contextlib import ExitStack
 from hashlib import sha1
 from pathlib import Path
 from shutil import rmtree
 from tarfile import TarFile, is_tarfile
 from tempfile import NamedTemporaryFile
-from typing import Dict, Iterator, Optional, final
+from typing import final
 from urllib.error import HTTPError, URLError
 from urllib.parse import unquote, urlparse
 from urllib.request import Request, urlopen
 from zipfile import BadZipFile, ZipFile
 
 from tqdm import tqdm  # type: ignore[import]
+from typing_extensions import override
 
 from fairseq2.assets.card import _starts_with_scheme
 from fairseq2.assets.error import AssetError
 from fairseq2.logging import get_log_writer
-from fairseq2.typing import override
 from fairseq2.utils.env import get_path_from_env
 
 log = get_log_writer(__name__)
@@ -40,7 +41,7 @@ class AssetDownloadManager(ABC):
         uri: str,
         model_name: str,
         *,
-        shard_idx: Optional[int] = None,
+        shard_idx: int | None = None,
         force: bool = False,
         progress: bool = True,
     ) -> Path:
@@ -67,7 +68,7 @@ class AssetDownloadManager(ABC):
         uri: str,
         model_name: str,
         *,
-        tokenizer_name: Optional[str] = None,
+        tokenizer_name: str | None = None,
         force: bool = False,
         progress: bool = True,
     ) -> Path:
@@ -136,7 +137,7 @@ class InProcAssetDownloadManager(AssetDownloadManager):
         uri: str,
         model_name: str,
         *,
-        shard_idx: Optional[int] = None,
+        shard_idx: int | None = None,
         force: bool = False,
         progress: bool = True,
     ) -> Path:
@@ -157,7 +158,7 @@ class InProcAssetDownloadManager(AssetDownloadManager):
         uri: str,
         model_name: str,
         *,
-        tokenizer_name: Optional[str] = None,
+        tokenizer_name: str | None = None,
         force: bool = False,
         progress: bool = True,
     ) -> Path:
@@ -189,12 +190,12 @@ class InProcAssetDownloadManager(AssetDownloadManager):
 class _AssetDownloadOp:
     _cache_dir: Path
     _uri: str
-    _uri_params: Dict[str, str]
-    _asset_dir: Optional[Path]
+    _uri_params: dict[str, str]
+    _asset_dir: Path | None
     _display_name: str
     _force: bool
     _progress: bool
-    _shard_idx: Optional[int]
+    _shard_idx: int | None
 
     def __init__(
         self,
@@ -203,7 +204,7 @@ class _AssetDownloadOp:
         display_name: str,
         force: bool,
         progress: bool,
-        shard_idx: Optional[int] = None,
+        shard_idx: int | None = None,
     ) -> None:
         self._cache_dir = cache_dir
         self._uri = uri
@@ -290,7 +291,7 @@ class _AssetDownloadOp:
                 f"The {self._display_name} is gated. Please visit {self._uri} to learn how to get access."
             )
 
-    def _try_uri_as_path(self) -> Optional[Path]:
+    def _try_uri_as_path(self) -> Path | None:
         if self._uri.startswith("file://"):
             return Path(unquote(self._uri[7:]))
 

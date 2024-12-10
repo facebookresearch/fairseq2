@@ -7,11 +7,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Final, Optional
+from typing import Final
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data import VocabularyInfo
-from fairseq2.models.factory import create_model
+from fairseq2.models.factory import model_factories
 from fairseq2.models.transformer.frontend import (
     TransformerEmbeddingFrontend,
     TransformerFrontend,
@@ -45,7 +45,7 @@ from fairseq2.typing import DataType, Device
 TRANSFORMER_FAMILY: Final = "transformer"
 
 
-@dataclass
+@dataclass(kw_only=True)
 class TransformerConfig:
     """Holds the configuration of a Transformer model.
 
@@ -102,15 +102,15 @@ class TransformerBuilder:
     """
 
     _config: TransformerConfig
-    _device: Optional[Device]
-    _dtype: Optional[DataType]
+    _device: Device | None
+    _dtype: DataType | None
 
     def __init__(
         self,
         config: TransformerConfig,
         *,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param config:
@@ -135,7 +135,7 @@ class TransformerBuilder:
 
         final_proj = TiedProjection(embed.weight, bias=None)
 
-        return TransformerModel(
+        model = TransformerModel(
             frontend,
             encoder,
             frontend,
@@ -144,6 +144,10 @@ class TransformerBuilder:
             self._config.max_seq_len,
             self._config.vocab_info,
         )
+
+        model.set_family(TRANSFORMER_FAMILY)
+
+        return model
 
     def build_embedding(self) -> StandardEmbedding:
         """Build an embedding table."""
@@ -259,26 +263,13 @@ class TransformerBuilder:
 def create_transformer_model(
     config: TransformerConfig,
     *,
-    device: Optional[Device] = None,
-    dtype: Optional[DataType] = None,
+    device: Device | None = None,
+    dtype: DataType | None = None,
 ) -> TransformerModel:
-    """Create a Transformer model.
-
-    :param config:
-        The configuration.
-    :param device:
-        The device on which to initialize modules.
-    :param dtype:
-        The data type of module parameters and buffers.
-    """
-    model = TransformerBuilder(config, device=device, dtype=dtype).build_model()
-
-    return model.set_family(TRANSFORMER_FAMILY)
+    """Create a Transformer model."""
+    return TransformerBuilder(config, device=device, dtype=dtype).build_model()
 
 
-create_model.register(
-    family=TRANSFORMER_FAMILY,
-    factory=create_transformer_model,
-    config_kls=TransformerConfig,
-    arch_configs=transformer_archs,
+model_factories.register(
+    TRANSFORMER_FAMILY, create_transformer_model, TransformerConfig, transformer_archs
 )

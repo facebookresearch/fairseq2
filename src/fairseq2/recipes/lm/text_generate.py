@@ -9,9 +9,10 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, Optional, TextIO, final
+from typing import TextIO, final
 
 import torch
+from typing_extensions import override
 
 from fairseq2.assets import AssetNotFoundError, default_asset_store
 from fairseq2.checkpoint import CheckpointModelMetadataProvider
@@ -23,15 +24,7 @@ from fairseq2.datasets.instruction import (
     load_instruction_dataset,
 )
 from fairseq2.gang import Gang
-from fairseq2.generation import (
-    BeamSearchSequenceGenerator,
-    Sampler,
-    SamplingSequenceGenerator,
-    SequenceGenerator,
-    StandardBeamSearchAlgorithm,
-    TopKSampler,
-    TopPSampler,
-)
+from fairseq2.generation import SamplingConfig, SequenceGenerator, create_seq_generator
 from fairseq2.logging import get_log_writer
 from fairseq2.models import load_model
 from fairseq2.models.decoder import DecoderModel
@@ -44,20 +37,24 @@ from fairseq2.recipes.utils.asset import (
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import broadcast_model, check_model_type, setup_gangs
-from fairseq2.typing import META, DataType, override
+from fairseq2.recipes.utils.setup import broadcast_model, setup_gangs
+from fairseq2.typing import CPU, META, DataClass, DataType
 from fairseq2.utils.profiler import Stopwatch
+from fairseq2.utils.rng import manual_seed
 
 log = get_log_writer(__name__)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class TextGenerateConfig:
     """Holds the configuration of a text generation task."""
 
     # Data
     dataset: AssetReference = "foo"  # TODO: change!
     """The name, path, or path to the asset card of the instruction dataset."""
+
+    split: str = "default"
+    """The name of the data split."""
 
     max_seq_len: int = 8192
     """The maximum sequence length."""
@@ -72,122 +69,28 @@ class TextGenerateConfig:
     model: AssetReference = "llama3_8b_instruct"
     """The name of the model to generate with."""
 
-    checkpoint_dir: Optional[Path] = None
+    checkpoint_dir: Path | None = None
     """The checkpoint directory containing models saved by :class:`FileCheckpointManager`."""
 
     dtype: DataType = torch.bfloat16
     """The data type of the model."""
 
+    amp: bool = False
+    """If ``True``, runs evaluation with ``torch.amp``."""
+
     tensor_parallel_size: int = 1
     """The size of tensor parallelism."""
 
     # Generation
-    mode: Literal["sampling", "beam_search"] = "sampling"
-    """The mode of sequence generation."""
+    generator: str = "sampling"
+    """The sequence generator."""
 
-    sampling: SamplingConfig = field(default_factory=lambda: SamplingConfig())
-    """The configuration for sampling-based sequence generation."""
-
-    beam_search: BeamSearchConfig = field(default_factory=lambda: BeamSearchConfig())
-    """The configuration for beam search-based sequence generation."""
+    generator_config: DataClass | None = field(default_factory=lambda: SamplingConfig())
+    """The configuration of the sequence generator."""
 
     # Misc
     seed: int = 2
     """The random number generator seed to use."""
-
-
-@dataclass
-class SamplingConfig:
-    """Holds the configuration for sampling-based sequence generation.
-
-    See :class:`SamplingSequenceGenerator` for more info.
-    """
-
-    sampler: Literal["top-p", "top-k"] = "top-p"
-    """The sampling algorithm."""
-
-    top_p: float = 1.0
-    """The cumulative probability threshold for top-p sampling."""
-
-    top_k = 1
-    """The number of top candidates to select from for top-k sampling."""
-
-    min_gen_len: int = 1
-    """The minimum generation length."""
-
-    max_gen_len: int = 2048
-    """The maximum generation length."""
-
-    max_seq_len: Optional[int] = None
-    """The maximum sequence length including prompt."""
-
-    echo_prompt: bool = False
-    """If ``True``, returns generated sequences with prompts appended."""
-
-    compute_scores: bool = False
-    """If ``True``, computes scores of generated sequences."""
-
-    normalize_scores: bool = True
-    """If ``True``, normalizes scores by lengths of generated sequences."""
-
-    temperature: float = 1.0
-    """The logit temperature."""
-
-    unk_penalty: float = 0.0
-    """The UNK symbol penalty."""
-
-    len_penalty: float = 1.0
-    """The length penalty."""
-
-    prefill_chunk_size: Optional[int] = 512
-    """The prefill will be performed incrementally by chunks of this size."""
-
-    decode_capacity_increment: Optional[int] = 16
-    """The sequence length capacity will be incremented by multiplies of this value."""
-
-
-@dataclass
-class BeamSearchConfig:
-    """Holds the configuration for beam search-based sequence generation.
-
-    See :class:`BeamSearchSequenceGenerator` for more info.
-    """
-
-    algorithm: Literal["standard"] = "standard"
-    """The beam search algorithm."""
-
-    beam_size: int = 5
-    """The beam size."""
-
-    min_gen_len: int = 1
-    """The minimum generation length."""
-
-    max_gen_len: int = 2048
-    """The maximum generation length."""
-
-    max_seq_len: Optional[int] = None
-    """The maximum sequence length including prompt."""
-
-    echo_prompt: bool = False
-    """If ``True``, returns generated sequences with prompts appended."""
-
-    normalize_scores: bool = True
-    """If ``True``, normalizes scores by lengths of generated sequences."""
-
-    temperature: float = 1.0
-    """The logit temperature."""
-
-    unk_penalty: float = 0.0
-    """The UNK symbol penalty."""
-
-    len_penalty: float = 1.0
-    """The length penalty."""
-
-    prefill_chunk_size: Optional[int] = 512
-    """The prefill will be performed incrementally by chunks of this size."""
-
-    decode_capacity_increment: Optional[int] = 16
-    """The sequence length capacity will be incremented by multiplies of this value."""
 
 
 text_generate_presets = ConfigRegistry[TextGenerateConfig]()
@@ -229,6 +132,25 @@ def _llama3_70b_instruct() -> TextGenerateConfig:
     return config
 
 
+@text_generate_preset("llama3_1_8b_instruct")
+def _llama3_1_8b_instruct() -> TextGenerateConfig:
+    config = _llama3_8b_instruct()
+
+    config.model = "llama3_1_8b_instruct"
+
+    return config
+
+
+@text_generate_preset("llama3_1_70b_instruct")
+def _llama3_1_70b_instruct() -> TextGenerateConfig:
+    config = _llama3_70b_instruct()
+
+    config.model = "llama3_1_70b_instruct"
+
+    return config
+
+
+@torch.inference_mode()
 def load_text_generator(
     config: TextGenerateConfig, output_dir: Path
 ) -> Generator[SequenceBatch]:
@@ -244,8 +166,6 @@ def load_text_generator(
 
     dp_gang = gangs["dp"]  # data
     tp_gang = gangs["tp"]  # tensor
-
-    seed = config.seed
 
     model_card = retrieve_asset_card(config.model)
 
@@ -273,7 +193,13 @@ def load_text_generator(
 
         dataset = GenericInstructionDataset.from_path(dataset_path)
 
-    # Load the model.
+    seed = config.seed
+
+    # Load the model
+    manual_seed(seed, CPU, root_gang.device)
+
+    seed += 1
+
     log.info("Loading {} model on data parallel rank 0 (per shard).", model_card.name)
 
     if dp_gang.rank == 0:
@@ -290,7 +216,10 @@ def load_text_generator(
             "The model cannot be initialized. See nested exception for details."
         ) from ex
 
-    check_model_type(model, DecoderModel)
+    if not isinstance(model, DecoderModel):
+        raise ValueError(
+            f"The model must be of type `{DecoderModel}`, but is of type `{type(model)}` instead."
+        )
 
     root_gang.barrier()
 
@@ -303,9 +232,14 @@ def load_text_generator(
     log_model(model, log)
 
     # Initialize the sequence generator.
-    generator = _create_sequence_generator(
-        model, config.mode, config.beam_search, config.sampling  # type: ignore[arg-type]
-    )
+    try:
+        generator = create_seq_generator(
+            config.generator, model, config.generator_config
+        )
+    except ValueError as ex:
+        raise ValueError(
+            "The sequence generator cannot be created. See nested exception for details."
+        ) from ex
 
     # Initialize the generator unit.
     if tp_gang.rank == 0:
@@ -345,15 +279,21 @@ def load_text_generator(
         json_output_stream=json_output_fp,
     )
 
-    data_reader = dataset.create_prompt_reader(
-        tokenizer,
-        dp_gang,
-        config.max_seq_len,
-        batching=StaticBatching(config.batch_size),
-        sync_batches=False,
-        num_prefetch=config.num_prefetch,
-        seed=seed,
-    )
+    try:
+        data_reader = dataset.create_prompt_reader(
+            config.split,
+            tokenizer,
+            dp_gang,
+            config.max_seq_len,
+            batching=StaticBatching(config.batch_size),
+            sync_mode="until_last",
+            num_prefetch=config.num_prefetch,
+            seed=seed,
+        )
+    except ValueError as ex:
+        raise ValueError(
+            "The data reader cannot be initialized. See nested exception for details."
+        ) from ex
 
     seed += 1
 
@@ -364,6 +304,8 @@ def load_text_generator(
         root_gang=root_gang,
         dp_gang=dp_gang,
         tp_gang=tp_gang,
+        dtype=config.dtype,
+        amp=config.amp,
         metrics_dir=output_dir.joinpath("metrics"),
         seed=seed,
         wall_watch=wall_watch,
@@ -376,8 +318,8 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
 
     _generator: SequenceGenerator
     _text_decoder: TextTokenDecoder
-    _text_output_stream: Optional[TextIO]
-    _json_output_stream: Optional[TextIO]
+    _text_output_stream: TextIO | None
+    _json_output_stream: TextIO | None
     _metric_bag: SequenceGenerationMetricBag
 
     def __init__(
@@ -385,8 +327,8 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
         generator: SequenceGenerator,
         tokenizer: TextTokenizer,
         gang: Gang,
-        text_output_stream: Optional[TextIO],
-        json_output_stream: Optional[TextIO],
+        text_output_stream: TextIO | None,
+        json_output_stream: TextIO | None,
     ) -> None:
         super().__init__(generator.model)
 
@@ -504,77 +446,3 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
     @override
     def metric_bag(self) -> SequenceGenerationMetricBag:
         return self._metric_bag
-
-
-def _create_sequence_generator(
-    model: DecoderModel,
-    mode: str,
-    beam_search_config: BeamSearchConfig,
-    sampling_config: SamplingConfig,
-) -> SequenceGenerator:
-    if mode == "sampling":
-        return _create_sampling_generator(model, sampling_config)
-
-    if mode == "beam_search":
-        return _create_beam_search_generator(model, beam_search_config)
-
-    raise ValueError(
-        f"`generator_mode` must be 'sampling' or 'beam_search', but is '{mode}' instead."
-    )
-
-
-def _create_sampling_generator(
-    model: DecoderModel, config: SamplingConfig
-) -> SamplingSequenceGenerator:
-    sampler: Sampler
-
-    if config.sampler == "top-p":
-        sampler = TopPSampler(config.top_p)
-    elif config.sampler == "top-k":
-        sampler = TopKSampler(config.top_k)
-    else:
-        raise ValueError(
-            f"`sampling.sampler` must be 'top-p' or 'top-k', but is '{config.sampler}' instead."
-        )
-
-    return SamplingSequenceGenerator(
-        model,
-        sampler,
-        min_gen_len=config.min_gen_len,
-        max_gen_len=config.max_gen_len,
-        max_seq_len=config.max_seq_len,
-        echo_prompt=config.echo_prompt,
-        compute_scores=config.compute_scores,
-        normalize_scores=config.normalize_scores,
-        temperature=config.temperature,
-        unk_penalty=config.unk_penalty,
-        len_penalty=config.len_penalty,
-        prefill_chunk_size=config.prefill_chunk_size,
-        decode_capacity_increment=config.decode_capacity_increment,
-    )
-
-
-def _create_beam_search_generator(
-    model: DecoderModel, config: BeamSearchConfig
-) -> BeamSearchSequenceGenerator:
-    if config.algorithm == "standard":
-        algorithm = StandardBeamSearchAlgorithm()
-    else:
-        raise ValueError(
-            f"`beam_search.algorithm` must be 'standard', but is '{config.algorithm}' instead."
-        )
-
-    return BeamSearchSequenceGenerator(
-        model,
-        algorithm=algorithm,
-        beam_size=config.beam_size,
-        min_gen_len=config.min_gen_len,
-        max_gen_len=config.max_gen_len,
-        echo_prompt=config.echo_prompt,
-        normalize_scores=config.normalize_scores,
-        temperature=config.temperature,
-        unk_penalty=config.unk_penalty,
-        len_penalty=config.len_penalty,
-        prefill_chunk_size=config.prefill_chunk_size,
-        decode_capacity_increment=config.decode_capacity_increment,
-    )

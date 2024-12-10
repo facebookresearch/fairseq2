@@ -28,6 +28,11 @@ log = get_log_writer(__name__)
 _setup_complete = False
 
 
+def setup_fairseq2() -> None:
+    setup_extensions()
+
+
+# legacy
 def setup_extensions() -> None:
     global _setup_complete
 

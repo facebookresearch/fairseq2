@@ -7,10 +7,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Dict, List, Optional, Protocol, Sequence, TypeVar, Union, final
+from typing import Protocol, TypeVar, cast, final
 
 from torch import Tensor
+from typing_extensions import override
 
 from fairseq2.assets import (
     AssetCard,
@@ -22,7 +24,7 @@ from fairseq2.assets import (
     default_download_manager,
 )
 from fairseq2.data.vocabulary_info import VocabularyInfo
-from fairseq2.typing import Device, override
+from fairseq2.typing import Device
 
 
 class TextTokenizer(ABC):
@@ -32,10 +34,10 @@ class TextTokenizer(ABC):
     def create_encoder(
         self,
         *,
-        task: Optional[str] = None,
-        lang: Optional[str] = None,
-        mode: Optional[str] = None,
-        device: Optional[Device] = None,
+        task: str | None = None,
+        lang: str | None = None,
+        mode: str | None = None,
+        device: Device | None = None,
         pin_memory: bool = False,
     ) -> TextTokenEncoder:
         """Create a token encoder.
@@ -64,7 +66,7 @@ class TextTokenizer(ABC):
 
     @abstractmethod
     def create_raw_encoder(
-        self, *, device: Optional[Device] = None, pin_memory: bool = False
+        self, *, device: Device | None = None, pin_memory: bool = False
     ) -> TextTokenEncoder:
         """Create a raw token encoder with no control symbols.
 
@@ -115,7 +117,7 @@ class TextTokenEncoder(ABC):
         """
 
     @abstractmethod
-    def encode_as_tokens(self, text: str) -> List[str]:
+    def encode_as_tokens(self, text: str) -> list[str]:
         """
         :param text:
             The text to encode.
@@ -123,13 +125,13 @@ class TextTokenEncoder(ABC):
 
     @property
     @abstractmethod
-    def prefix_indices(self) -> Optional[Tensor]:
+    def prefix_indices(self) -> Tensor | None:
         """Get the indices of the prefix tokens. *Shape:* :math:`(S)`, where
         :math:`S` is the number of indices."""
 
     @property
     @abstractmethod
-    def suffix_indices(self) -> Optional[Tensor]:
+    def suffix_indices(self) -> Tensor | None:
         """Get the indices of the suffix tokens. *Shape:* :math:`(S)`, where
         :math:`S` is the number of indices."""
 
@@ -162,7 +164,7 @@ class TextTokenizerLoader(Protocol[TextTokenizerT_co]):
 
     def __call__(
         self,
-        tokenizer_name_or_card: Union[str, AssetCard],
+        tokenizer_name_or_card: str | AssetCard,
         *,
         force: bool = False,
         progress: bool = True,
@@ -186,8 +188,8 @@ class AbstractTextTokenizerLoader(ABC, TextTokenizerLoader[TextTokenizerT]):
     def __init__(
         self,
         *,
-        asset_store: Optional[AssetStore] = None,
-        download_manager: Optional[AssetDownloadManager] = None,
+        asset_store: AssetStore | None = None,
+        download_manager: AssetDownloadManager | None = None,
     ) -> None:
         """
         :param asset_store:
@@ -203,7 +205,7 @@ class AbstractTextTokenizerLoader(ABC, TextTokenizerLoader[TextTokenizerT]):
     @final
     def __call__(
         self,
-        tokenizer_name_or_card: Union[str, AssetCard],
+        tokenizer_name_or_card: str | AssetCard,
         *,
         force: bool = False,
         progress: bool = True,
@@ -250,9 +252,9 @@ class DelegatingTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
     """Loads text tokenizers of type ``TextTokenizerT`` using registered loaders."""
 
     _asset_store: AssetStore
-    _loaders: Dict[str, TextTokenizerLoader[TextTokenizerT]]
+    _loaders: dict[str, TextTokenizerLoader[TextTokenizerT]]
 
-    def __init__(self, *, asset_store: Optional[AssetStore] = None) -> None:
+    def __init__(self, *, asset_store: AssetStore | None = None) -> None:
         """
         :param asset_store:
             The asset store where to check for available tokenizers. If ``None``,
@@ -264,7 +266,7 @@ class DelegatingTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
 
     def __call__(
         self,
-        tokenizer_name_or_card: Union[str, AssetCard],
+        tokenizer_name_or_card: str | AssetCard,
         *,
         force: bool = False,
         progress: bool = True,
@@ -284,7 +286,7 @@ class DelegatingTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
             loader = self._loaders[family]
         except KeyError:
             raise AssetError(
-                f"The value of the field 'tokenizer_family' of the asset card '{card.name}' must be a supported tokenizer family, but '{family}' has no registered loader."
+                f"The value of the field 'tokenizer_family' of the asset card '{card.name}' must be a supported tokenizer family, but is '{family}' instead."
             ) from None
 
         return loader(card, force=force, progress=progress)
@@ -303,12 +305,12 @@ class DelegatingTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
         """
         if family in self._loaders:
             raise ValueError(
-                f"`family` must be a unique text tokenizer family name, but '{family}' has already a registered loader."
+                f"`family` must be a unique text tokenizer family name, but '{family}' is already registered."
             )
 
         self._loaders[family] = loader
 
-    def supports(self, tokenizer_name_or_card: Union[str, AssetCard]) -> bool:
+    def supports(self, tokenizer_name_or_card: str | AssetCard) -> bool:
         """Return ``True`` if the specified tokenizer has a registered loader."""
         if isinstance(tokenizer_name_or_card, AssetCard):
             card = tokenizer_name_or_card
@@ -334,4 +336,4 @@ def is_tokenizer_card(card: AssetCard) -> bool:
 
 def get_tokenizer_family(card: AssetCard) -> str:
     """Return the tokenizer family name contained in ``card``."""
-    return card.field("tokenizer_family").as_(str)  # type: ignore[no-any-return]
+    return cast(str, card.field("tokenizer_family").as_(str))

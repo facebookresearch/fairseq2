@@ -6,7 +6,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional, Sequence, Tuple, cast, final
+from collections.abc import Sequence
+from typing import Any, cast, final
 
 import torch
 from torch import Tensor
@@ -21,8 +22,8 @@ class PaddingMask:
 
     _seq_lens: Tensor
     _batch_seq_len: int
-    _materialized: Optional[Tensor]
-    _materialized_float: Optional[Tensor]
+    _materialized: Tensor | None
+    _materialized_float: Tensor | None
 
     def __init__(self, seq_lens: Tensor, batch_seq_len: int) -> None:
         """
@@ -109,7 +110,7 @@ def to_padding_mask(seq_lens: Tensor, batch_seq_len: int) -> Tensor:
     return indices < lengths
 
 
-def get_seq_lens(seqs: Tensor, padding_mask: Optional[PaddingMask]) -> Tensor:
+def get_seq_lens(seqs: Tensor, padding_mask: PaddingMask | None) -> Tensor:
     """Retrieve the sequence lengths of ``seqs``.
 
     :param seqs:
@@ -132,7 +133,7 @@ def get_seq_lens(seqs: Tensor, padding_mask: Optional[PaddingMask]) -> Tensor:
 
 
 def apply_padding_mask(
-    seqs: Tensor, padding_mask: Optional[PaddingMask], pad_value: Any = 0
+    seqs: Tensor, padding_mask: PaddingMask | None, pad_value: Any = 0
 ) -> Tensor:
     """Apply the specified padding mask to ``seqs``.
 
@@ -161,8 +162,8 @@ def apply_padding_mask(
 
 
 def get_seqs_and_padding_mask(
-    data: SequenceData, device: Optional[Device] = None
-) -> Tuple[Tensor, Optional[PaddingMask]]:
+    data: SequenceData, device: Device | None = None
+) -> tuple[Tensor, PaddingMask | None]:
     """Return the sequences along with their padding mask from ``data``.
 
     :returns:
@@ -187,7 +188,7 @@ def get_seqs_and_padding_mask(
 
 def pad_seqs(
     seqs: Sequence[Tensor], pad_value: int = 0, pad_to_multiple: int = 1
-) -> Tuple[Tensor, Optional[PaddingMask]]:
+) -> tuple[Tensor, PaddingMask | None]:
     """Stack ``seqs`` along a new batch dimension and pad them to equal length.
 
     :param seqs:

@@ -8,14 +8,14 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Final, Optional
+from typing import Final
 
 import torch
 from torch import Tensor
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data import VocabularyInfo
-from fairseq2.models.factory import create_model
+from fairseq2.models.factory import model_factories
 from fairseq2.models.transformer import (
     TransformerDecoderModel,
     TransformerEmbeddingFrontend,
@@ -41,7 +41,7 @@ from fairseq2.typing import DataType, Device
 LLAMA_FAMILY: Final = "llama"
 
 
-@dataclass
+@dataclass(kw_only=True)
 class LLaMAConfig:
     """Holds the configuration of a LLaMA model.
 
@@ -107,16 +107,16 @@ class LLaMABuilder:
     """
 
     _config: LLaMAConfig
-    _device: Optional[Device]
-    _dtype: Optional[DataType]
-    _pos_encoder: Optional[RotaryEncoder]
+    _device: Device | None
+    _dtype: DataType | None
+    _pos_encoder: RotaryEncoder | None
 
     def __init__(
         self,
         config: LLaMAConfig,
         *,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param config:
@@ -147,13 +147,17 @@ class LLaMABuilder:
             dtype=self._dtype,
         )
 
-        return TransformerDecoderModel(
+        model = TransformerDecoderModel(
             decoder_frontend,
             decoder,
             final_proj,
             self._config.max_seq_len,
             self._config.vocab_info,
         )
+
+        model.set_family(LLAMA_FAMILY)
+
+        return model
 
     def build_decoder_frontend(self) -> TransformerFrontend:
         """Build a Transformer decoder front-end."""
@@ -254,8 +258,8 @@ class LLaMABuilder:
         self,
         model_dim: int,
         *,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> LayerNorm:
         """Build a Layer Normalization module."""
         return RMSNorm(model_dim, bias=False, device=device, dtype=dtype)
@@ -288,6 +292,7 @@ class LLaMABuilder:
 
         for freq in freqs.tolist():
             wavelen = 2 * math.pi / freq
+
             if wavelen < h_freq_wavelen:
                 new_freqs.append(freq)
             elif wavelen > l_freq_wavelen:
@@ -302,29 +307,14 @@ class LLaMABuilder:
 def create_llama_model(
     config: LLaMAConfig,
     *,
-    device: Optional[Device] = None,
-    dtype: Optional[DataType] = None,
+    device: Device | None = None,
+    dtype: DataType | None = None,
 ) -> TransformerDecoderModel:
-    """Create a LLaMA model.
-
-    :param config:
-        The configuration.
-    :param device:
-        The device on which to initialize modules.
-    :param dtype:
-        The data type of module parameters and buffers.
-    """
-    model = LLaMABuilder(config, device=device, dtype=dtype).build_model()
-
-    return model.set_family(LLAMA_FAMILY)
+    """Create a LLaMA model."""
+    return LLaMABuilder(config, device=device, dtype=dtype).build_model()
 
 
-create_model.register(
-    family=LLAMA_FAMILY,
-    factory=create_llama_model,
-    config_kls=LLaMAConfig,
-    arch_configs=llama_archs,
-)
+model_factories.register(LLAMA_FAMILY, create_llama_model, LLaMAConfig, llama_archs)
 
 
 def get_llama_lora_config() -> LoRAConfig:

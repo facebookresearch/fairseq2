@@ -9,10 +9,11 @@ from __future__ import annotations
 import sys
 from argparse import ArgumentParser, Namespace
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Tuple, final
+from typing import Any, final
 
 from rich.console import Console
 from rich.pretty import pretty_repr
+from typing_extensions import override
 
 from fairseq2.assets import (
     AssetCard,
@@ -26,7 +27,6 @@ from fairseq2.datasets import is_dataset_card
 from fairseq2.logging import get_log_writer
 from fairseq2.models import is_model_card
 from fairseq2.recipes.cli import Cli, CliCommandHandler
-from fairseq2.typing import override
 
 log = get_log_writer(__name__)
 
@@ -55,7 +55,7 @@ class ListAssetsCommand(CliCommandHandler):
 
     _asset_store: AssetStore
 
-    def __init__(self, asset_store: Optional[AssetStore] = None) -> None:
+    def __init__(self, asset_store: AssetStore | None = None) -> None:
         """
         :param asset_store:
             The asset store from which to retrieve the asset cards. If ``None``,
@@ -89,8 +89,8 @@ class ListAssetsCommand(CliCommandHandler):
 
     def _retrieve_assets(
         self, args: Namespace, user: bool
-    ) -> List[Tuple[str, List[str]]]:
-        assets: Dict[str, List[str]] = defaultdict(list)
+    ) -> list[tuple[str, list[str]]]:
+        assets: dict[str, list[str]] = defaultdict(list)
 
         names = self._asset_store.retrieve_names(scope="user" if user else "global")
 
@@ -140,7 +140,7 @@ class ListAssetsCommand(CliCommandHandler):
         return [(source, names) for source, names in assets.items()]
 
     def _dump_assets(
-        self, console: Console, assets: List[Tuple[str, List[str]]]
+        self, console: Console, assets: list[tuple[str, list[str]]]
     ) -> None:
         if assets:
             assets.sort(key=lambda a: a[0])  # sort by source.
@@ -164,7 +164,7 @@ class ShowAssetCommand(CliCommandHandler):
 
     _asset_store: AssetStore
 
-    def __init__(self, asset_store: Optional[AssetStore] = None) -> None:
+    def __init__(self, asset_store: AssetStore | None = None) -> None:
         """
         :param asset_store:
             The asset store from which to retrieve the asset cards. If ``None``,
@@ -194,7 +194,7 @@ class ShowAssetCommand(CliCommandHandler):
     @override
     def __call__(self, args: Namespace) -> None:
         try:
-            card: Optional[AssetCard] = self._asset_store.retrieve_card(
+            card: AssetCard | None = self._asset_store.retrieve_card(
                 args.name, envs=args.envs, scope=args.scope
             )
         except AssetNotFoundError:
@@ -207,7 +207,7 @@ class ShowAssetCommand(CliCommandHandler):
 
             card = card.base
 
-    def _print_metadata(self, metadata: Dict[str, Any]) -> None:
+    def _print_metadata(self, metadata: dict[str, Any]) -> None:
         console = get_console()
 
         name = metadata.pop("name")

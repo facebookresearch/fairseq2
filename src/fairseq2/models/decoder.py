@@ -7,15 +7,14 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Optional, Tuple
 
 from torch import Tensor
+from typing_extensions import override
 
 from fairseq2.data import VocabularyInfo
 from fairseq2.models.sequence import SequenceBatch, SequenceModel, SequenceModelOutput
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.typing import override
 
 
 class DecoderModel(SequenceModel):
@@ -50,10 +49,10 @@ class DecoderModel(SequenceModel):
     def decode(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
+        padding_mask: PaddingMask | None,
         *,
-        state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+        state_bag: IncrementalStateBag | None = None,
+    ) -> tuple[Tensor, PaddingMask | None]:
         """Decode the specified sequences.
 
         :param seqs:
@@ -77,7 +76,7 @@ class DecoderModel(SequenceModel):
 
     @abstractmethod
     def project(
-        self, decoder_output: Tensor, decoder_padding_mask: Optional[PaddingMask]
+        self, decoder_output: Tensor, decoder_padding_mask: PaddingMask | None
     ) -> SequenceModelOutput:
         """Produce logits for next-step prediction.
 

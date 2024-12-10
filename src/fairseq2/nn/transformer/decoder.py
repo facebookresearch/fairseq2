@@ -8,12 +8,14 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections import OrderedDict
-from typing import Dict, Iterable, Iterator, Optional, Protocol, Tuple, final
+from collections.abc import Iterable, Iterator
+from typing import Protocol, final
 
 import torch
 from torch import Generator, Tensor
 from torch.nn import Dropout, Module, ModuleList
 from torch.utils.hooks import RemovableHandle
+from typing_extensions import override
 
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.normalization import LayerNorm
@@ -29,7 +31,7 @@ from fairseq2.nn.transformer.layer_norm import (
     create_standard_layer_norm,
 )
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
-from fairseq2.typing import CPU, DataType, Device, override
+from fairseq2.typing import CPU, DataType, Device
 
 
 class TransformerDecoder(Module, ABC):
@@ -38,7 +40,7 @@ class TransformerDecoder(Module, ABC):
     model_dim: int
     layers: ModuleList
 
-    _layer_output_hooks: Dict[int, DecoderLayerOutputHook]
+    _layer_output_hooks: dict[int, DecoderLayerOutputHook]
 
     def __init__(self, model_dim: int) -> None:
         """
@@ -55,12 +57,12 @@ class TransformerDecoder(Module, ABC):
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
-        encoder_output: Optional[Tensor] = None,
-        encoder_padding_mask: Optional[PaddingMask] = None,
+        padding_mask: PaddingMask | None,
+        encoder_output: Tensor | None = None,
+        encoder_padding_mask: PaddingMask | None = None,
         *,
-        state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+        state_bag: IncrementalStateBag | None = None,
+    ) -> tuple[Tensor, PaddingMask | None]:
         """
         :param seqs:
             The sequences to decode. *Shape:* :math:`(N,S,M)`, where :math:`N`
@@ -120,7 +122,7 @@ class DecoderLayerOutputHook(Protocol):
         self,
         layer_idx: int,
         layer_output: Tensor,
-        layer_padding_mask: Optional[PaddingMask],
+        layer_padding_mask: PaddingMask | None,
         num_layers: int,
     ) -> bool:
         """
@@ -145,10 +147,10 @@ class StandardTransformerDecoder(TransformerDecoder):
     """Represents a Transformer decoder as described in
     :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`."""
 
-    self_attn_mask_factory: Optional[AttentionMaskFactory]
+    self_attn_mask_factory: AttentionMaskFactory | None
     layer_drop_p: float
-    generator: Optional[Generator]
-    layer_norm: Optional[LayerNorm]
+    generator: Generator | None
+    layer_norm: LayerNorm | None
     dropout_p: float
     norm_order: TransformerNormOrder
 
@@ -156,15 +158,15 @@ class StandardTransformerDecoder(TransformerDecoder):
         self,
         layers: Iterable[TransformerDecoderLayer],
         *,
-        self_attn_mask_factory: Optional[AttentionMaskFactory] = None,
+        self_attn_mask_factory: AttentionMaskFactory | None = None,
         use_causal_attn_mask: bool = True,
         layer_drop_p: float = 0.0,
-        generator: Optional[Generator] = None,
+        generator: Generator | None = None,
         dropout_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
-        layer_norm_factory: Optional[LayerNormFactory] = None,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        layer_norm_factory: LayerNormFactory | None = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param layers:
@@ -227,12 +229,12 @@ class StandardTransformerDecoder(TransformerDecoder):
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
-        encoder_output: Optional[Tensor] = None,
-        encoder_padding_mask: Optional[PaddingMask] = None,
+        padding_mask: PaddingMask | None,
+        encoder_output: Tensor | None = None,
+        encoder_padding_mask: PaddingMask | None = None,
         *,
-        state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+        state_bag: IncrementalStateBag | None = None,
+    ) -> tuple[Tensor, PaddingMask | None]:
         if self._layer_output_hooks and self.layer_drop_p > 0.0 and self.training:
             raise RuntimeError(
                 "The layer output hooks cannot be run when LayerDrop is enabled."
@@ -276,7 +278,7 @@ class StandardTransformerDecoder(TransformerDecoder):
 
         return seqs, padding_mask
 
-    def _drop_iter(self) -> Iterator[Tuple[Module, bool]]:
+    def _drop_iter(self) -> Iterator[tuple[Module, bool]]:
         if self.training and self.layer_drop_p > 0.0:
             prob_dist = torch.rand(
                 len(self.layers), generator=self.generator, device=CPU

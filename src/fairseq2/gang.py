@@ -8,20 +8,21 @@ from __future__ import annotations
 
 import os
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from datetime import timedelta
 from enum import Enum
-from typing import Any, Dict, List, Optional, Sequence, Union, final
+from typing import Any, final
 
 import torch
 import torch.distributed as dist
 from torch import Tensor
 from torch.distributed import Backend, ProcessGroup, ReduceOp
+from typing_extensions import override
 
 from fairseq2.device import determine_default_cuda_device, determine_default_device
 from fairseq2.logging import get_log_writer
-from fairseq2.typing import CPU, Device, override
+from fairseq2.typing import CPU, Device
 from fairseq2.utils.env import get_int_from_env
-from fairseq2.utils.version import torch_greater_or_equal
 
 log = get_log_writer(__name__)
 
@@ -44,7 +45,7 @@ class Gang(ABC):
         """Close and destroy the gang."""
 
     @abstractmethod
-    def create_gang(self, ranks: Sequence[int]) -> Optional[Gang]:
+    def create_gang(self, ranks: Sequence[int]) -> Gang | None:
         """Create a new gang.
 
         :param ranks:
@@ -81,7 +82,7 @@ class Gang(ABC):
 
     @abstractmethod
     def all_gather_to_list(
-        self, output_tensors: List[Tensor], input_tensor: Tensor
+        self, output_tensors: list[Tensor], input_tensor: Tensor
     ) -> None:
         """Gather tensors from all processes and put them in ``output_tensors``.
 
@@ -102,7 +103,7 @@ class Gang(ABC):
         """
 
     @abstractmethod
-    def broadcast_objects(self, objects: List[Any], source_rank: int = 0) -> None:
+    def broadcast_objects(self, objects: list[Any], source_rank: int = 0) -> None:
         """Broadcast picklable ``objects`` from ``source_rank`` to all processes.
 
         :param objects:
@@ -159,7 +160,7 @@ class AbstractGang(Gang):
 
     @final
     @override
-    def create_gang(self, ranks: Sequence[int]) -> Optional[Gang]:
+    def create_gang(self, ranks: Sequence[int]) -> Gang | None:
         if len(set(ranks)) != len(ranks):
             raise ValueError("The ranks in ``ranks`` must be all unique.")
 
@@ -172,7 +173,7 @@ class AbstractGang(Gang):
         return self._do_create_gang(ranks)
 
     @abstractmethod
-    def _do_create_gang(self, ranks: Sequence[int]) -> Optional[Gang]:
+    def _do_create_gang(self, ranks: Sequence[int]) -> Gang | None:
         """Create a new gang.
 
         :param ranks:
@@ -203,7 +204,7 @@ class FakeGang(AbstractGang):
     """Represents a non-distributed gang for local use."""
 
     def __init__(
-        self, *, rank: int = 0, size: int = 1, device: Optional[Device] = None
+        self, *, rank: int = 0, size: int = 1, device: Device | None = None
     ) -> None:
         """
         :param rank:
@@ -224,7 +225,7 @@ class FakeGang(AbstractGang):
         pass
 
     @override
-    def _do_create_gang(self, ranks: Sequence[int]) -> Optional[FakeGang]:
+    def _do_create_gang(self, ranks: Sequence[int]) -> FakeGang | None:
         try:
             idx = ranks.index(self._rank)
         except ValueError:
@@ -242,10 +243,15 @@ class FakeGang(AbstractGang):
 
     @override
     def all_reduce(self, tensor: Tensor, op: ReduceOperation) -> None:
-        if op == ReduceOperation.SUM:
-            tensor *= self._size
-        elif op == ReduceOperation.PRODUCT:
-            tensor.pow_(self._size)
+        match op:
+            case ReduceOperation.SUM:
+                tensor *= self._size
+            case ReduceOperation.PRODUCT:
+                tensor.pow_(self._size)
+            case _:
+                raise ValueError(
+                    "`FakeGang` supports only `SUM` and `PRODUCT` reduce operations."
+                )
 
     @override
     def all_gather(self, output_tensor: Tensor, input_tensor: Tensor) -> None:
@@ -267,7 +273,7 @@ class FakeGang(AbstractGang):
 
     @override
     def all_gather_to_list(
-        self, output_tensors: List[Tensor], input_tensor: Tensor
+        self, output_tensors: list[Tensor], input_tensor: Tensor
     ) -> None:
         if len(output_tensors) != self._size:
             raise ValueError(
@@ -285,7 +291,7 @@ class FakeGang(AbstractGang):
             )
 
     @override
-    def broadcast_objects(self, objects: List[Any], source_rank: int = 0) -> None:
+    def broadcast_objects(self, objects: list[Any], source_rank: int = 0) -> None:
         if source_rank != self._rank:
             raise ValueError(
                 f"`source_rank` must be {self._rank}, but is {source_rank} instead."
@@ -296,17 +302,17 @@ class FakeGang(AbstractGang):
 class ProcessGroupGang(AbstractGang):
     """Represents a gang that wraps a process group."""
 
-    _default: Optional[ProcessGroupGang] = None
+    _default: ProcessGroupGang | None = None
 
     _pg: ProcessGroup
-    _monitor_pg: Optional[ProcessGroup]
+    _monitor_pg: ProcessGroup | None
 
     def __init__(
         self,
         pg: ProcessGroup,
         device: Device,
         *,
-        monitor_pg: Optional[ProcessGroup] = None,
+        monitor_pg: ProcessGroup | None = None,
     ) -> None:
         super().__init__(dist.get_rank(pg), dist.get_world_size(pg), device)
 
@@ -317,9 +323,9 @@ class ProcessGroupGang(AbstractGang):
     def init_default_process_group(
         cls,
         *,
-        device: Optional[Device] = None,
-        timeout: Optional[timedelta] = None,
-        num_threads: Optional[int] = None,
+        device: Device | None = None,
+        timeout: timedelta | None = None,
+        num_threads: int | None = None,
         monitored: bool = False,
         ok_initialized: bool = False,
     ) -> ProcessGroupGang:
@@ -373,7 +379,7 @@ class ProcessGroupGang(AbstractGang):
 
             assert device.type == "cpu" or device.type == "cuda"
 
-        backend: Optional[str]
+        backend: str | None
 
         if device.type == "cpu":
             backend = Backend.GLOO
@@ -385,18 +391,8 @@ class ProcessGroupGang(AbstractGang):
             )
 
         if device.type == "cuda":
-            nccl_env_name = "NCCL_ASYNC_ERROR_HANDLING"
-
-            if torch_greater_or_equal(2, 2):
-                try:
-                    del os.environ[nccl_env_name]  # Suppress the deprecation warning.
-                except KeyError:
-                    pass
-
-                nccl_env_name = "TORCH_NCCL_ASYNC_ERROR_HANDLING"
-
             # See https://github.com/pytorch/pytorch/issues/46874.
-            os.environ[nccl_env_name] = "1"
+            os.environ["TORCH_NCCL_ASYNC_ERROR_HANDLING"] = "1"
 
         if timeout is None:
             timeout = timedelta(minutes=15)
@@ -447,20 +443,21 @@ class ProcessGroupGang(AbstractGang):
 
         backend = dist.get_backend()
 
-        if backend == Backend.GLOO:
-            device = CPU
-        elif backend == Backend.NCCL:
-            cuda_device = determine_default_cuda_device()
-            if cuda_device is None:
-                raise RuntimeError(
-                    "The default process group uses the `nccl` backend, but the `cuda` device cannot be determined. Please file a bug report."
-                )
+        match backend:
+            case Backend.GLOO:
+                device = CPU
+            case Backend.NCCL:
+                cuda_device = determine_default_cuda_device()
+                if cuda_device is None:
+                    raise RuntimeError(
+                        "The default process group uses the `nccl` backend, but the `cuda` device cannot be determined. Please file a bug report."
+                    )
 
-            device = cuda_device
-        else:
-            raise RuntimeError(
-                f"Only `nccl` and `gloo` backends are supported, but the process group uses the `{backend}` backend."
-            )
+                device = cuda_device
+            case _:
+                raise RuntimeError(
+                    f"Only `nccl` and `gloo` backends are supported, but the process group uses the `{backend}` backend."
+                )
 
         if dist.group.WORLD is None:
             raise RuntimeError(
@@ -476,7 +473,7 @@ class ProcessGroupGang(AbstractGang):
         dist.destroy_process_group(self._pg)
 
     @override
-    def _do_create_gang(self, ranks: Sequence[int]) -> Optional[ProcessGroupGang]:
+    def _do_create_gang(self, ranks: Sequence[int]) -> ProcessGroupGang | None:
         if self._pg is not dist.group.WORLD:
             raise RuntimeError(
                 "`create_gang()` can only be called on the gang associated with the default (i.e. main) process group."
@@ -526,7 +523,7 @@ class ProcessGroupGang(AbstractGang):
 
     @override
     def all_gather_to_list(
-        self, output_tensors: List[Tensor], input_tensor: Tensor
+        self, output_tensors: list[Tensor], input_tensor: Tensor
     ) -> None:
         self._maybe_monitored_barrier()
 
@@ -539,7 +536,7 @@ class ProcessGroupGang(AbstractGang):
         dist.broadcast(tensor, source_rank, group=self._pg)
 
     @override
-    def broadcast_objects(self, objects: List[Any], source_rank: int = 0) -> None:
+    def broadcast_objects(self, objects: list[Any], source_rank: int = 0) -> None:
         self._maybe_monitored_barrier()
 
         dist.broadcast_object_list(objects, source_rank, group=self._pg)
@@ -614,8 +611,8 @@ def get_local_rank() -> int:
 
 def setup_default_gang(
     *,
-    device: Optional[Device] = None,
-    timeout: Optional[timedelta] = None,
+    device: Device | None = None,
+    timeout: timedelta | None = None,
     monitored: bool = False,
 ) -> Gang:
     """Set up the default gang of this process.
@@ -636,7 +633,7 @@ def setup_default_gang(
     )
 
 
-def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Dict[str, Gang]:
+def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> dict[str, Gang]:
     """Set up gangs to be used for data and tensor parallelism.
 
     For instance; if we have 8 devices denoted by g0 to g7 and 2 devices are
@@ -681,30 +678,32 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Dict[str, Gang
     # Get the coordinate of this process in the mesh.
     rank_coords = [x.item() for x in torch.where(mesh == root_gang.rank)]
 
-    dp_gang: Optional[Gang] = None
-    tp_gang: Optional[Gang] = None
+    dp_gang: Gang | None = None
+    tp_gang: Gang | None = None
 
     # Build the gangs for data parallelism.
-    if dp_size == 1:
-        dp_gang = FakeGang(device=root_gang.device)
-    elif dp_size == root_gang.size:
-        dp_gang = root_gang
-    else:
-        for i in range(tp_size):
-            sub_gang = root_gang.create_gang(mesh[:, i].tolist())
-            if i == rank_coords[1]:
-                dp_gang = sub_gang
+    match dp_size:
+        case 1:
+            dp_gang = FakeGang(device=root_gang.device)
+        case root_gang.size:
+            dp_gang = root_gang
+        case _:
+            for i in range(tp_size):
+                sub_gang = root_gang.create_gang(mesh[:, i].tolist())
+                if i == rank_coords[1]:
+                    dp_gang = sub_gang
 
     # Build the gangs for tensor parallelism.
-    if tp_size == 1:
-        tp_gang = FakeGang(device=root_gang.device)
-    elif tp_size == root_gang.size:
-        tp_gang = root_gang
-    else:
-        for i in range(dp_size):
-            sub_gang = root_gang.create_gang(mesh[i, :].tolist())
-            if i == rank_coords[0]:
-                tp_gang = sub_gang
+    match tp_size:
+        case 1:
+            tp_gang = FakeGang(device=root_gang.device)
+        case root_gang.size:
+            tp_gang = root_gang
+        case _:
+            for i in range(dp_size):
+                sub_gang = root_gang.create_gang(mesh[i, :].tolist())
+                if i == rank_coords[0]:
+                    tp_gang = sub_gang
 
     assert dp_gang is not None
     assert tp_gang is not None
@@ -721,7 +720,7 @@ def broadcast_flag(gang: Gang, flag: bool, source_rank: int = 0) -> bool:
     return bool(tmp)
 
 
-def all_sum(gang: Gang, value: Union[float, int, Tensor]) -> Tensor:
+def all_sum(gang: Gang, value: float | int | Tensor) -> Tensor:
     """Sum ``value`` over all processes in ``gang``."""
     if isinstance(value, Tensor):
         output = value

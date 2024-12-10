@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, Tuple, final
+from typing import final
 
 import torch
 from torch import Tensor
@@ -54,8 +54,9 @@ class Wav2Vec2Model(Model):
         final_proj_bias: bool = True,
         num_distractors: int = 100,
         logit_temp: float = 0.1,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        quantizer_encoder_grad: bool = True,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param encoder_frontend:
@@ -108,6 +109,7 @@ class Wav2Vec2Model(Model):
 
         self.num_distractors = num_distractors
         self.logit_temp = logit_temp
+        self.quantizer_encoder_grad = quantizer_encoder_grad
 
     def forward(self, batch: SequenceBatch) -> Wav2Vec2Output:
         """
@@ -124,19 +126,17 @@ class Wav2Vec2Model(Model):
         :param batch:
             The batch of sequences to process.
         """
-        seqs, padding_mask, targets, temporal_mask = self.run_frontend(
-            batch.seqs, batch.padding_mask
+        features = self.run_frontend(batch.seqs, batch.padding_mask)
+
+        features.seqs, features.padding_mask = self.encoder(
+            features.seqs, features.padding_mask
         )
 
-        encoder_output, encoder_padding_mask = self.encoder(seqs, padding_mask)
-
-        return Wav2Vec2Features(
-            encoder_output, encoder_padding_mask, targets, temporal_mask
-        )
+        return features
 
     def run_frontend(
-        self, seqs: Tensor, padding_mask: Optional[PaddingMask]
-    ) -> Tuple[Tensor, Optional[PaddingMask], Tensor, Tensor]:
+        self, seqs: Tensor, padding_mask: PaddingMask | None
+    ) -> Wav2Vec2Features:
         """Run the encoder frontend in pretraining mode.
 
         :param seqs:
@@ -146,30 +146,17 @@ class Wav2Vec2Model(Model):
         :param padding_mask:
             The padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where :math:`N`
             is the batch size and :math:`S` is the sequence length.
-
-        :returns:
-            - The processed features to pass to the context network.
-              *Shape:* :math:`(N,S_{out},M)`, where :math:`N` is the batch size,
-              :math:`S_{out}` is the output sequence length, and :math:`M` is
-              the dimensionality of the model.
-            - The padding mask of the processed features. *Shape:*
-              :math:`(N,S_{out})`, where :math:`N` is the batch size and
-              :math:`S_{out}` is the output sequence length.
-            - The non-quantized context network targets that have been extracted
-              from the input sequences. *Shape:* :math:`(N,S_{msk},M)`, where
-              :math:`N` is the batch size, :math:`S_{msk}` is the masked
-              sequence length, and :math:`M` is the dimensionality of the model.
-            - The temporal mask that has been applied to extract the context
-              network targets. *Shape:* :math:`(N,S_{out})`, where :math:`N` is
-              the batch size and :math`S_{out}` is the output sequence length.
         """
         frontend = self.encoder_frontend
 
-        seqs, padding_mask = frontend.extract_features(seqs, padding_mask)
+        seqs, padding_mask, raw_features = frontend.extract_features(seqs, padding_mask)
 
         # We use the extracted features as context network targets after masking
         # and quantization.
-        targets = seqs.detach().clone()
+        if self.quantizer_encoder_grad:
+            targets = seqs.clone()
+        else:
+            targets = seqs.detach().clone()
 
         if frontend.first_pass_dropout is not None:
             targets = frontend.first_pass_dropout(targets)
@@ -182,7 +169,9 @@ class Wav2Vec2Model(Model):
 
         targets = extract_masked_elements(targets, temporal_mask)
 
-        return seqs, padding_mask, targets, temporal_mask
+        return Wav2Vec2Features(
+            seqs, padding_mask, targets, temporal_mask, raw_features
+        )
 
     def quantize_and_contrast(self, features: Wav2Vec2Features) -> Wav2Vec2Output:
         """Quantize targets and produce logits for contrastive prediction.
@@ -191,8 +180,8 @@ class Wav2Vec2Model(Model):
             The extracted features from the encoder.
         """
         encoder_output, encoder_padding_mask, targets, temporal_mask = (
-            features.encoder_output,
-            features.encoder_padding_mask,
+            features.seqs,
+            features.padding_mask,
             features.targets,
             features.temporal_mask,
         )
@@ -216,6 +205,7 @@ class Wav2Vec2Model(Model):
             quantizer_output,
             encoder_output,
             encoder_padding_mask,
+            features.raw,
         )
 
     def _sample_distractors(self, targets: Tensor) -> Tensor:
@@ -286,7 +276,7 @@ class Wav2Vec2Model(Model):
         if distractor_is_target.any():
             logits[:, :, 1:][distractor_is_target] = -torch.inf
 
-        return logits.type_as(seqs)
+        return logits
 
     def extra_repr(self) -> str:
         """:meta private:"""
@@ -302,15 +292,15 @@ class Wav2Vec2Model(Model):
 class Wav2Vec2Features:
     """Holds the extracted features of a wav2vec 2.0 model."""
 
-    encoder_output: Tensor
-    """The context network output. *Shape:* :math:`(N,S_{enc},M)`, where
-    :math:`N` is the batch size, :math:`S_{enc}` is the encoder output sequence
-    length, and :math:`M` is the dimensionality of the model."""
+    seqs: Tensor
+    """The features. *Shape:* :math:`(N,S_{enc},M)`, where :math:`N` is the
+    batch size, :math:`S_{out}` is the output sequence length, and :math:`M` is
+    the dimensionality of the model."""
 
-    encoder_padding_mask: Optional[PaddingMask]
-    """The padding mask of :attr:`encoder_output`. *Shape:* :math:`(N,S_{enc})`,
-    where :math:`N` is the batch size and :math:`S_{enc}` is the encoder output
-    sequence length."""
+    padding_mask: PaddingMask | None
+    """The padding mask of :attr:`seqs`. *Shape:* :math:`(N,S_{out})`, where
+    :math:`N` is the batch size and :math:`S_{out}` is the output sequence
+    length."""
 
     targets: Tensor
     """The non-quantized context network targets that have been extracted from
@@ -322,6 +312,9 @@ class Wav2Vec2Features:
     """The temporal mask that has been used to extract the context network
     targets. *Shape:* :math:`(N,S_{enc})`, where :math:`N` is the batch size and
     :math`S_{enc}` is the encoder output sequence length."""
+
+    raw: Tensor
+    """The raw features returned by the frontend. *Shape*: Same as :attr:`seqs`."""
 
 
 @final
@@ -354,24 +347,38 @@ class Wav2Vec2Output:
     :math:`N` is the batch size, :math:`S_{enc}` is the encoder output sequence
     length, and :math:`M` is the dimensionality of the model."""
 
-    encoder_padding_mask: Optional[PaddingMask]
+    encoder_padding_mask: PaddingMask | None
     """The padding mask of :attr:`encoder_output`. *Shape:* :math:`(N,S_{enc})`,
     where :math:`N` is the batch size and :math:`S_{enc}` is the encoder output
     sequence length."""
 
-    def compute_loss(self, *, diversity_loss_weight: float = 0.1) -> Wav2Vec2Loss:
+    raw_features: Tensor
+    """The raw features returned by the frontend. *Shape*: Same as
+    :attr:`encoder_output`."""
+
+    def compute_loss(
+        self, diversity_loss_weight: float = 0.1, feature_penalty_weight: float = 10.0
+    ) -> Wav2Vec2Loss:
         """Compute the loss.
 
         :param diversity_loss_weight:
             The weight of diversity in loss computation.
+        :param feature_penalty_weight:
+            The weight of the feature penalty in loss computation.
         """
         contrastive_loss = self.compute_contrastive_loss()
 
         diversity_loss = self.compute_diversity_loss()
 
-        total_loss = contrastive_loss + diversity_loss_weight * diversity_loss
+        feature_penalty = self.compute_feature_penalty()
 
-        return Wav2Vec2Loss(total_loss, contrastive_loss, diversity_loss)
+        weighted_diversity_loss = diversity_loss_weight * diversity_loss
+
+        weighted_feature_penalty = feature_penalty_weight * feature_penalty
+
+        loss = contrastive_loss + weighted_diversity_loss + weighted_feature_penalty
+
+        return Wav2Vec2Loss(loss, contrastive_loss, diversity_loss, feature_penalty)
 
     def compute_contrastive_loss(self) -> Tensor:
         """Compute the contrastive loss."""
@@ -379,6 +386,9 @@ class Wav2Vec2Output:
 
         # (N, S, L) -> (S x N, L)
         logits = self.logits.transpose(0, 1).reshape(-1, num_logits)
+
+        # For numerical stability in low-precision.
+        logits = logits.float()
 
         # The target is always at index 0 in the candidate list.
         target_indices = logits.new_zeros((batch_size * seq_len,), dtype=torch.int64)
@@ -390,6 +400,12 @@ class Wav2Vec2Output:
         batch_size, seq_len = self.logits.shape[:2]
 
         return self.quantizer_output.compute_loss() * batch_size * seq_len
+
+    def compute_feature_penalty(self) -> Tensor:
+        """Compute the feature penalty."""
+        batch_size, seq_len = self.logits.shape[:2]
+
+        return self.raw_features.float().pow(2).mean() * batch_size * seq_len
 
 
 @final
@@ -406,8 +422,5 @@ class Wav2Vec2Loss:
     diversity: Tensor
     """The diversity loss. *Shape:* :math:`()`."""
 
-    def detach(self) -> Wav2Vec2Loss:
-        """Return a copy detached from the autograd graph."""
-        return Wav2Vec2Loss(
-            self.total.detach(), self.contrastive.detach(), self.diversity.detach()
-        )
+    feature_penalty: Tensor
+    """The feature penalty. *Shape:* :math:`()`."""

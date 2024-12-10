@@ -7,15 +7,18 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
+from contextlib import AbstractContextManager, nullcontext
 from itertools import count
 from pathlib import Path
-from typing import Generic, List, Optional, Sequence, TypeVar, final
+from typing import Generic, TypeVar, final
 
 import torch
 from torch.nn import Module
+from typing_extensions import override
 
 from fairseq2.datasets import DataReader
-from fairseq2.gang import FakeGang, Gang, all_sum
+from fairseq2.gang import FakeGang, Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.metrics import (
     JsonFileMetricRecorder,
@@ -25,9 +28,9 @@ from fairseq2.metrics import (
     TensorBoardRecorder,
     record_metrics,
 )
-from fairseq2.recipes.common_metrics import set_throughput_value
+from fairseq2.recipes.common_metrics import extend_batch_metrics
 from fairseq2.recipes.utils.cli import create_rich_progress
-from fairseq2.typing import CPU, override
+from fairseq2.typing import CPU, DataType
 from fairseq2.utils.profiler import Stopwatch
 from fairseq2.utils.rng import RngBag
 
@@ -57,7 +60,7 @@ class EvalUnit(ABC, Generic[BatchT_contra]):
 
     @property
     @abstractmethod
-    def display_name(self) -> Optional[str]:
+    def display_name(self) -> str | None:
         """The display name of the unit for reporting purposes."""
 
     @property
@@ -70,9 +73,9 @@ class AbstractEvalUnit(EvalUnit[BatchT]):
     """Provides a skeletal implementation of :class:`EvalUnit`."""
 
     _model: Module
-    _display_name: Optional[str]
+    _display_name: str | None
 
-    def __init__(self, model: Module, *, display_name: Optional[str] = None) -> None:
+    def __init__(self, model: Module, *, display_name: str | None = None) -> None:
         self._model = model
         self._display_name = display_name
 
@@ -89,7 +92,7 @@ class AbstractEvalUnit(EvalUnit[BatchT]):
     @final
     @property
     @override
-    def display_name(self) -> Optional[str]:
+    def display_name(self) -> str | None:
         return self._display_name
 
 
@@ -102,7 +105,9 @@ class Evaluator(Generic[BatchT]):
     _root_gang: Gang
     _dp_gang: Gang
     _tp_gang: Gang
-    _metric_recorders: List[MetricRecorder]
+    _dtype: DataType
+    _amp: bool
+    _metric_recorders: list[MetricRecorder]
     _seed: int
     _wall_watch: Stopwatch
     _run: bool
@@ -114,10 +119,12 @@ class Evaluator(Generic[BatchT]):
         data_readers: Sequence[DataReader[BatchT]],
         root_gang: Gang,
         wall_watch: Stopwatch,
-        dp_gang: Optional[Gang] = None,
-        tp_gang: Optional[Gang] = None,
-        tb_dir: Optional[Path] = None,
-        metrics_dir: Optional[Path] = None,
+        dp_gang: Gang | None = None,
+        tp_gang: Gang | None = None,
+        dtype: DataType = torch.float32,
+        amp: bool = False,
+        tb_dir: Path | None = None,
+        metrics_dir: Path | None = None,
         seed: int = 2,
     ) -> None:
         """
@@ -133,6 +140,10 @@ class Evaluator(Generic[BatchT]):
             The data parallel gang. If ``None``, ``root_gang`` will be used.
         :param tp_gang:
             The tensor parallel gang. Only required for tensor parallel models.
+        :param dtype:
+            The data type of the model.
+        :param amp:
+            If ``True``, enables ``torch.amp``.
         :param tb_dir:
             The TensorBoard log directory to dump metrics.
         :param metrics_dir:
@@ -165,6 +176,10 @@ class Evaluator(Generic[BatchT]):
                 raise ValueError(
                     f"The coordinator process of `root_gang` (i.e. rank 0) must be rank 0 in `dp_gang` and `tp_gang`, but is {self._dp_gang.rank} and {self._tp_gang.rank} instead."
                 )
+
+        self._dtype = dtype
+
+        self._amp = amp
 
         if root_gang.rank == 0:
             self._metric_recorders = [LogMetricRecorder(log)]
@@ -221,6 +236,8 @@ class Evaluator(Generic[BatchT]):
 
         unit.model.eval()
 
+        num_effective_batches = 0
+
         with create_rich_progress() as progress:
             task = progress.add_task("eval", total=None)
 
@@ -232,22 +249,25 @@ class Evaluator(Generic[BatchT]):
                 try:
                     batches = next(data_reader)
                 except StopIteration:
-                    batches = []
-
-                for batch in batches:
-                    unit(batch)
-
-                if self._is_eod(batches):
                     break
 
-        self._publish_metrics(unit, watch.get_elapsed_time())
+                for batch in batches:
+                    with self._maybe_autocast():
+                        unit(batch)
 
-    def _is_eod(self, batches: List[BatchT]) -> bool:
-        total_num_batches = all_sum(self._dp_gang, len(batches))
+                num_effective_batches += 1
 
-        return bool(total_num_batches == 0)
+        self._publish_metrics(unit, num_effective_batches, watch.get_elapsed_time())
 
-    def _publish_metrics(self, unit: EvalUnit[BatchT], elapsed_time: float) -> None:
+    def _maybe_autocast(self) -> AbstractContextManager[None]:
+        if self._dtype == torch.float32 or not self._amp:
+            return nullcontext()
+
+        return torch.autocast(device_type=self._dp_gang.device.type, dtype=self._dtype)
+
+    def _publish_metrics(
+        self, unit: EvalUnit[BatchT], num_batches: int, elapsed_time: float
+    ) -> None:
         log.debug("Syncing metrics.")
 
         if self._tp_gang.rank == 0:
@@ -260,9 +280,12 @@ class Evaluator(Generic[BatchT]):
         if self._root_gang.rank != 0:
             return
 
-        assert values is not None
+        if values is None:
+            raise RuntimeError(
+                "The synchronized metric values are `None`. Please file a bug report."
+            )
 
-        set_throughput_value(values, elapsed_time)
+        extend_batch_metrics(values, num_batches, elapsed_time)
 
         values["elapsed_time"] = elapsed_time
 
