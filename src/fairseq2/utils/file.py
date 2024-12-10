@@ -63,7 +63,7 @@ def load_tensors(
 ) -> Dict[str, Any]:
     """Load the PyTorch tensor file stored under ``path``."""
     with catch_warnings():
-        warnings.simplefilter("ignore")  # Suppress the deprecation warning.
+        warnings.simplefilter("ignore")  # Suppress noisy FSDP warnings.
 
         data: Dict[str, Any] = torch.load(
             str(path), map_location, weights_only=restrict  # type: ignore[arg-type]
@@ -74,4 +74,7 @@ def load_tensors(
 
 def dump_tensors(data: Mapping[str, Any], path: Path) -> None:
     """Dump ``data`` to a PyTorch tensor file under ``path``."""
-    torch.save(data, path)
+    with catch_warnings():
+        warnings.simplefilter("ignore")  # Suppress noisy FSDP warnings.
+
+        torch.save(data, path)
