@@ -6,10 +6,12 @@
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Final, Protocol, final
+from warnings import catch_warnings
 
 import torch
 from torch import Tensor
@@ -165,12 +167,17 @@ def to_fsdp(
         **kwargs,
     )
 
-    FSDP.set_state_dict_type(
-        fsdp,
-        StateDictType.SHARDED_STATE_DICT,
-        state_dict_config=ShardedStateDictConfig(offload_to_cpu=True),
-        optim_state_dict_config=ShardedOptimStateDictConfig(offload_to_cpu=True),
-    )
+    with catch_warnings():
+        warnings.simplefilter(
+            "ignore"
+        )  # Suppress the future warning from torch.distributed.fsdp.*
+
+        FSDP.set_state_dict_type(
+            fsdp,
+            StateDictType.SHARDED_STATE_DICT,
+            state_dict_config=ShardedStateDictConfig(offload_to_cpu=True),
+            optim_state_dict_config=ShardedOptimStateDictConfig(offload_to_cpu=True),
+        )
 
     return fsdp
 
