@@ -7,14 +7,18 @@
 from __future__ import annotations
 
 import logging
+import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from typing import Any, Generic, Protocol, TypeVar, final, runtime_checkable
+from warnings import catch_warnings
 
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn import Module
 from torch.optim import Optimizer
 from typing_extensions import override
+
+from fairseq2.nn.utils.module import load_state_dict
 
 
 @runtime_checkable
@@ -117,19 +121,29 @@ class StatefulObjectBag:
             if is_explicit:
                 if state_handler is None:
                     if isinstance(obj, Stateful):
-                        state = obj.state_dict()
+                        state = self._state_dict(obj)
                     else:
                         state = obj
                 else:
                     state = state_handler.get_state(obj)
             elif isinstance(obj, Stateful) and not self._is_dunder(name):
-                state = obj.state_dict()
+                state = self._state_dict(obj)
             else:
                 continue
 
             state_dict[name] = state
 
         return state_dict
+
+    @staticmethod
+    def _state_dict(obj: Stateful) -> dict[str, object]:
+        if isinstance(obj, FSDP):
+            with catch_warnings():
+                warnings.simplefilter("ignore")  # Suppress noisy FSDP warnings.
+
+                return obj.state_dict()
+
+        return obj.state_dict()
 
     @final
     def load_state_dict(self, state_dict: Mapping[str, Any]) -> None:
@@ -153,7 +167,7 @@ class StatefulObjectBag:
 
                 if state_handler is None:
                     if isinstance(obj, Stateful):
-                        obj.load_state_dict(state)
+                        self._load_state_dict(obj, state)
                     else:
                         setattr(self, name, state)
                 else:
@@ -165,7 +179,7 @@ class StatefulObjectBag:
 
                     continue
 
-                obj.load_state_dict(state)
+                self._load_state_dict(obj, state)
 
         if missing_stateful_attrs:
             missing_stateful_attrs.sort()
@@ -182,6 +196,23 @@ class StatefulObjectBag:
             raise ValueError(
                 f"`state_dict` must contain only the states of the attributes of this object, but it contains the following extra keys: {', '.join(extra_keys)}"
             )
+
+    @staticmethod
+    def _load_state_dict(obj: Stateful, state: Any) -> None:
+        if isinstance(obj, FSDP):
+            with catch_warnings():
+                warnings.simplefilter("ignore")  # Suppress noisy FSDP warnings.
+
+                load_state_dict(obj, state)
+
+            return
+
+        if isinstance(obj, Module):
+            load_state_dict(obj, state)
+
+            return
+
+        return obj.load_state_dict(state)
 
     def _is_explicit(self, name: str) -> tuple[bool, StateHandler[Any] | None]:
         try:
@@ -227,28 +258,36 @@ class FSDPOptimizerStateHandler(StateHandler[Optimizer]):
 
     @override
     def get_state(self, stateful: Optimizer) -> Any:
-        try:
-            # PyTorch 2.2 wrongfully uses warning level to dump a lot of noisy
-            # internal trace information.
-            logging.disable(logging.WARNING)
+        with catch_warnings():
+            warnings.simplefilter("ignore")  # Suppress noisy FSDP warnings.
 
-            return FSDP.optim_state_dict(self._module, stateful)
-        except UnicodeDecodeError as ex:
-            raise RuntimeError(
-                "FSDP has failed to gather optimizer state with a pickling error. This might indicate a disk space issue. Make sure you have enough space on your file system. See nested exception for details."
-            ) from ex
-        finally:
-            logging.disable(logging.NOTSET)
+            try:
+                # FSDP uses warning level to dump a lot of noisy# internal trace
+                # information.
+                logging.disable(logging.WARNING)
+
+                return FSDP.optim_state_dict(self._module, stateful)
+            except UnicodeDecodeError as ex:
+                raise RuntimeError(
+                    "FSDP has failed to gather optimizer state with a pickling error. This might indicate a disk space issue. Make sure you have enough space on your file system. See nested exception for details."
+                ) from ex
+            finally:
+                logging.disable(logging.NOTSET)
 
     @override
     def set_state(self, stateful: Optimizer, state: Any) -> None:
-        try:
-            # PyTorch 2.2 wrongfully uses warning level to dump a lot of noisy
-            # internal trace information.
-            logging.disable(logging.WARNING)
+        with catch_warnings():
+            warnings.simplefilter("ignore")  # Suppress noisy FSDP warnings.
 
-            state_dict = FSDP.optim_state_dict_to_load(self._module, stateful, state)
-        finally:
-            logging.disable(logging.NOTSET)
+            try:
+                # FSDP uses warning level to dump a lot of noisy# internal trace
+                # information.
+                logging.disable(logging.WARNING)
 
-        stateful.load_state_dict(state_dict)
+                state_dict = FSDP.optim_state_dict_to_load(
+                    self._module, stateful, state
+                )
+            finally:
+                logging.disable(logging.NOTSET)
+
+            stateful.load_state_dict(state_dict)
