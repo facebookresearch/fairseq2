@@ -100,6 +100,34 @@ def _3b() -> Wav2Vec2Config:
     return config
 
 
+@wav2vec2_arch("4b")
+def _4b() -> Wav2Vec2Config:
+    config = _2b()
+
+    config.quantized_dim = 1280
+    config.final_dim = 1280
+    config.encoder_config.num_encoder_layers = 64
+    config.encoder_config.model_dim = 2304
+    config.encoder_config.ffn_inner_dim = 9216
+    config.encoder_config.num_encoder_attn_heads = 32
+
+    return config
+
+
+@wav2vec2_arch("7b")
+def _7b() -> Wav2Vec2Config:
+    config = _3b()
+
+    config.encoder_config.num_encoder_layers = 64
+    config.encoder_config.model_dim = 3072
+    config.encoder_config.ffn_inner_dim = 11520
+    config.encoder_config.num_encoder_attn_heads = 48
+    config.quantized_dim = 1536
+    config.final_dim = 1536
+
+    return config
+
+
 @wav2vec2_arch("1b_llama")
 def _1b_llama() -> Wav2Vec2Config:
     config = _xlsr_base()
