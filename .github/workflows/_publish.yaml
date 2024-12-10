@@ -12,6 +12,22 @@ on:
         required: true
 
 jobs:
+  publish_pt22_s3-linux:
+    name: Publish to S3 (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }})
+    strategy:
+      matrix:
+        torch: ['2.2.0', '2.2.1', '2.2.2']
+        py: ['3.8', '3.9', '3.10', '3.11']
+        variant: ['cpu', 'cu118', 'cu121']
+      max-parallel: 1
+    uses: ./.github/workflows/_publish_s3.yaml
+    with:
+      os: 'linux'
+      torch: ${{ matrix.torch }}
+      py: ${{ matrix.py }}
+      variant: ${{ matrix.variant }}
+      release_type: ${{ inputs.release_type }}
+
   publish_pt23_s3-linux:
     name: Publish to S3 (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }})
     strategy:
@@ -79,6 +95,7 @@ jobs:
   publish_pypi-linux:
     name: Publish to PyPI (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }})
     needs:
+      - publish_pt22_s3-linux
       - publish_pt23_s3-linux
       - publish_pt24_s3-linux
       - publish_pt25_s3-linux
