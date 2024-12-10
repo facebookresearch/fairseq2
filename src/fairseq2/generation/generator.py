@@ -9,15 +9,15 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Protocol, final
+from typing import Protocol, final
 
 from torch import Tensor
 from torch.utils.hooks import RemovableHandle
+from typing_extensions import override
 
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.typing import override
 
 
 class SequenceGenerator(ABC):
@@ -25,7 +25,7 @@ class SequenceGenerator(ABC):
 
     @abstractmethod
     def __call__(
-        self, prompt_seqs: Tensor, prompt_padding_mask: Optional[PaddingMask]
+        self, prompt_seqs: Tensor, prompt_padding_mask: PaddingMask | None
     ) -> SequenceGeneratorOutput:
         """
         :param prompt_seqs:
@@ -59,7 +59,7 @@ class AbstractSequenceGenerator(SequenceGenerator):
     """Provides a skeletal implementation of :class:`SequenceGenerator`."""
 
     _model: DecoderModel
-    _step_hooks: Dict[int, StepHook]
+    _step_hooks: dict[int, StepHook]
 
     def __init__(self, model: DecoderModel) -> None:
         """
@@ -98,7 +98,7 @@ class AbstractSequenceGenerator(SequenceGenerator):
 class SequenceGeneratorOutput:
     """Holds the output of a sequence generator."""
 
-    hypotheses: List[List[Hypothesis]]
+    hypotheses: list[list[Hypothesis]]
     """The list of hypothesis generated per prompt, ordered by score."""
 
     counters: GenerationCounters
@@ -112,9 +112,9 @@ class Seq2SeqGenerator(ABC):
     def __call__(
         self,
         source_seqs: Tensor,
-        source_padding_mask: Optional[PaddingMask],
+        source_padding_mask: PaddingMask | None,
         prompt_seqs: Tensor,
-        prompt_padding_mask: Optional[PaddingMask],
+        prompt_padding_mask: PaddingMask | None,
     ) -> Seq2SeqGeneratorOutput:
         """
         :param source_seqs:
@@ -155,7 +155,7 @@ class AbstractSeq2SeqGenerator(Seq2SeqGenerator):
     """Provides a skeletal implementation of :class:`Seq2SeqGenerator`."""
 
     _model: EncoderDecoderModel
-    _step_hooks: Dict[int, StepHook]
+    _step_hooks: dict[int, StepHook]
 
     def __init__(self, model: EncoderDecoderModel) -> None:
         """
@@ -192,7 +192,7 @@ class AbstractSeq2SeqGenerator(Seq2SeqGenerator):
 @final
 @dataclass
 class Seq2SeqGeneratorOutput:
-    hypotheses: List[List[Hypothesis]]
+    hypotheses: list[list[Hypothesis]]
     """The list of hypothesis generated per prompt, ordered by score."""
 
     encoder_output: Tensor
@@ -201,7 +201,7 @@ class Seq2SeqGeneratorOutput:
     the encoder output sequence length, and :math:`M` is the dimensionality of
     the model."""
 
-    encoder_padding_mask: Optional[PaddingMask]
+    encoder_padding_mask: PaddingMask | None
     """The padding mask of :attr:`encoder_output`. *Shape:* :math:`(N,S_{enc})`,
     where :math:`N` is the batch size and :math:`S_{enc}` is the encoder output
     sequence length."""
@@ -219,10 +219,10 @@ class Hypothesis:
     """The generated sequence. *Shape:* :math:`(S)`, where :math:`S` is the
     sequence length."""
 
-    score: Optional[Tensor]
+    score: Tensor | None
     """The score of the hypothesis. *Shape:* Scalar."""
 
-    step_scores: Optional[Tensor]
+    step_scores: Tensor | None
     """The score of each sequence step. *Shape:* Same as ``seq``."""
 
 
@@ -255,7 +255,7 @@ class StepHook(Protocol):
         self,
         prompt_indices: Tensor,
         seqs: Tensor,
-        step_scores: Optional[Tensor],
+        step_scores: Tensor | None,
         prefill: bool,
     ) -> None:
         """

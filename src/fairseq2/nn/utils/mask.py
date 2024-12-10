@@ -6,8 +6,6 @@
 
 from __future__ import annotations
 
-from typing import Optional, Tuple
-
 import torch
 from torch import Tensor
 
@@ -15,7 +13,7 @@ from fairseq2.nn.ops import repeat_interleave
 from fairseq2.typing import DataType, Device
 
 
-def to_float_mask(mask: Tensor, dtype: Optional[DataType] = None) -> Tensor:
+def to_float_mask(mask: Tensor, dtype: DataType | None = None) -> Tensor:
     """Convert a boolean mask to a float mask.
 
     :param mask:
@@ -31,13 +29,13 @@ def to_float_mask(mask: Tensor, dtype: Optional[DataType] = None) -> Tensor:
 
 
 def compute_row_mask(
-    shape: Tuple[int, int],
+    shape: tuple[int, int],
     span_len: int,
     max_mask_prob: float,
-    row_lens: Optional[Tensor] = None,
+    row_lens: Tensor | None = None,
     min_num_spans: int = 0,
-    device: Optional[Device] = None,
-) -> Optional[Tensor]:
+    device: Device | None = None,
+) -> Tensor | None:
     """Compute a random row mask of the specified shape.
 
     :param shape:
@@ -93,7 +91,7 @@ def compute_row_mask(
 
 def _compute_mask_spans(
     row_lens: Tensor, span_len: int, max_mask_prob: float, min_num_spans: int
-) -> Optional[Tensor]:
+) -> Tensor | None:
     """Compute random mask spans of the specified shape."""
     device, dtype = row_lens.device, row_lens.dtype
 
@@ -165,7 +163,17 @@ def _generate_mask(indices: Tensor, max_row_len: int) -> Tensor:
     # (N, min(M x L))
     # We randomly pick `min_num_masked` masked elements from each row, which
     # effectively unmasks the remaining elements.
-    indices = torch.multinomial(float_mask, num_samples=min_num_masked)
+    #
+    # We first make a tensor of random values and 0.001 to it to ensure
+    # the min value > 0. Then we multiply it with the float_mask so that
+    # all the 0 values in the float_mask are still 0 but the non-zero
+    # values have a random value assigned to them. Then we select the
+    # topk values (which would be basically a subset of non-zero values
+    # in the float_mask
+
+    random_values = torch.rand_like(float_mask) + 0.001
+    random_values = random_values * float_mask
+    _, indices = torch.topk(random_values, k=min_num_masked, dim=1, sorted=False)
 
     # (N, S)
     # Now we construct the actual boolean mask which has the same number of

@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import math
 from abc import ABC, abstractmethod
-from typing import Callable, Optional, final
+from collections.abc import Callable
+from typing import final
 
 import torch
 import torch.nn as nn
@@ -16,25 +17,28 @@ from torch import Tensor
 from torch.nn import Module
 from torch.nn.functional import embedding
 from torch.nn.parameter import Parameter
+from typing_extensions import override
 
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.typing import DataType, Device, override
-from fairseq2.utils.version import torch_greater_or_equal
+from fairseq2.typing import DataType, Device
 
 
 class PositionEncoder(Module, ABC):
     """Encodes sequences with positional information."""
 
     encoding_dim: int
-    max_seq_len: Optional[int]
+    max_seq_len: int | None
 
-    def __init__(self, encoding_dim: int, max_seq_len: Optional[int]) -> None:
+    def __init__(self, encoding_dim: int, max_seq_len: int | None) -> None:
         """
-        :param encoding_dim:
-            The dimensionality of positional encodings.
-        :param max_seq_len:
-            The maximum sequence length.
+        :param encoding_dim: The dimensionality of positional encodings. Input
+            sequences are expected to have the same dimensionality.
+
+        :param max_seq_len: The maximum allowed length for input sequences.
+            Sequences longer than ``max_seq_len`` will cause a :class:`ValueError`.
+            Typically it is set to the context length of the underlying model.
+            If ``None``, sequences can have arbitrary length.
         """
         super().__init__()
 
@@ -44,26 +48,32 @@ class PositionEncoder(Module, ABC):
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
+        padding_mask: PaddingMask | None,
         *,
-        state_bag: Optional[IncrementalStateBag] = None,
+        state_bag: IncrementalStateBag | None = None,
     ) -> Tensor:
         """
-        :param seqs:
-            The sequences to encode with positional information. *Shape:*
-            :math:`(*,S,E)`, where :math:`*` is any number of batch dimensions
-            including none, :math:`S` is the sequence length, and :math:`E` is
-            the dimensionality of the positional encodings.
-        :param padding_mask:
-            The padding mask of ``seqs``. *Shape:* :math:`(*,S)`, where :math:`*`
-            is any number of batch dimensions including none and :math:`S` is
-            the sequence length.
-        :param state_bag:
-            The state bag to use for incremental decoding.
+        Returns a copy of ``seqs`` with positional information encoded.
 
-        :returns:
-            The input sequences with positional information encoded. *Shape:*
-            Same as ``seqs``.
+        :param seqs: The input sequences to encode. *Shape:* :math:`(*,S,E)`,
+            where :math:`*` is any number of batch dimensions including none,
+            :math:`S` is the sequence length, and :math:`E` is the dimensionality
+            of the positional encodings.
+
+        :param padding_mask: The padding mask of ``seqs``. *Shape:* :math:`(*,S)`,
+            where :math:`*` is any number of batch dimensions including none and
+            :math:`S` is the sequence length.
+
+        :param state_bag: If not ``None``, the encoder will operate in
+            incremental decoding mode. This means that the first step in ``seqs``
+            will be considered to be at position :attr:`state_bag.step_nr
+            <fairseq2.nn.IncrementalStateBag.step_nr>` instead of 0.
+
+        :raises ValueError: when the sequence length of ``seqs`` exceeds
+            :attr:`max_seq_len`.
+
+        :returns: The input sequences with positional information encoded.
+            *Shape:* Same as ``seqs``.
         """
         if self.max_seq_len is not None:
             if self.training or state_bag is None:
@@ -82,25 +92,12 @@ class PositionEncoder(Module, ABC):
     def _do_forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
-        state_bag: Optional[IncrementalStateBag],
+        padding_mask: PaddingMask | None,
+        state_bag: IncrementalStateBag | None,
     ) -> Tensor:
         """
-        :param seqs:
-            The sequences to encode with positional information. *Shape:*
-            :math:`(*,S,E)`, where :math:`*` is any number of batch dimensions
-            including none, :math:`S` is the sequence length, and :math:`E` is
-            the dimensionality of the positional encodings.
-        :param padding_mask:
-            The padding mask of ``seqs``. *Shape:* :math:`(*,S)`, where :math:`*`
-            is any number of batch dimensions including none and :math:`S` is
-            the sequence length.
-        :param state_bag:
-            The state bag to use for incremental decoding.
-
-        :returns:
-            The input sequences with positional information encoded. *Shape:*
-            Same as ``seqs``.
+        When overriden in a subclass, returns a copy of ``seqs`` with positional
+        information encoded. See :meth:`forward` for parameter descriptions.
 
         :meta public:
         """
@@ -117,42 +114,7 @@ class PositionEncoder(Module, ABC):
 
 @final
 class SinusoidalPositionEncoder(PositionEncoder):
-    """Encodes sequences with fixed sinusoidal positional information.
-
-    The positional encodings are initialized as in tensor2tensor which differs
-    slightly from the description in section 3.5 of
-    :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`. This means instead of
-
-    .. math::
-        PE_{(pos, 2i)}   = \\text{sin}(pos/10000^{2i/d_{model}})
-
-        PE_{(pos, 2i+1)} = \\text{cos}(pos/10000^{2i/d_{model}})
-
-    we use
-
-    .. math::
-        PE_{(pos, i)} = \\text{sin}(pos/10000^{i/d_{model}})\\;\\text{for}\\;i\\;    <\\frac{d_{model}}{2}
-
-        PE_{(pos, i)} = \\text{cos}(pos/10000^{i/d_{model}})\\;\\text{for}\\;i\\;\\geq\\frac{d_{model}}{2}
-
-    See `here <https://github.com/tensorflow/tensor2tensor/pull/177>`_ for more
-    information.
-
-    Usage:
-
-    >>> import torch
-    >>>
-    >>> from fairseq2.nn.position_encoder import SinusoidalPositionEncoder
-    >>>
-    >>> m = SinusoidalPositionEncoder(encoding_dim=4, max_seq_len=16)
-    >>>
-    >>> seqs = torch.ones((3, 4))
-    >>>
-    >>> m(seqs)
-    tensor([[ 1.0000e+00,  1.0000e+00,  2.0000e+00,  2.0000e+00],  # pos 0
-            [ 9.4147e-01,  2.0000e-04,  6.4030e-01,  2.0000e+00],  # pos 1
-            [ 1.0930e-02,  3.0000e-04, -5.1615e-01,  2.0000e+00]]) # pos 2
-    """
+    """Encodes sequences with fixed sinusoidal positional information."""
 
     freqs: Tensor
 
@@ -161,9 +123,18 @@ class SinusoidalPositionEncoder(PositionEncoder):
         encoding_dim: int,
         max_seq_len: int,
         *,
-        _legacy_pad_idx: Optional[int] = None,
-        device: Optional[Device] = None,
+        _legacy_pad_idx: int | None = None,
+        device: Device | None = None,
     ) -> None:
+        """
+        :param encoding_dim: The dimensionality of positional encodings. Input
+            sequences are expected to have the same dimensionality.
+
+        :param max_seq_len: The maximum allowed length for input sequences.
+            Sequences longer than ``max_seq_len`` will cause a :class:`ValueError`.
+
+        :raise ValueError: when ``encoding_dim`` is not even.
+        """
         super().__init__(encoding_dim, max_seq_len)
 
         if encoding_dim % 2 != 0:
@@ -226,8 +197,8 @@ class SinusoidalPositionEncoder(PositionEncoder):
     def _do_forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
-        state_bag: Optional[IncrementalStateBag],
+        padding_mask: PaddingMask | None,
+        state_bag: IncrementalStateBag | None,
     ) -> Tensor:
         """:meta private:"""
         seq_len = seqs.size(-2)
@@ -244,23 +215,7 @@ class SinusoidalPositionEncoder(PositionEncoder):
 
 @final
 class LearnedPositionEncoder(PositionEncoder):
-    """Encodes sequences with learned positional embeddings.
-
-    Usage:
-
-    >>> import torch
-    >>>
-    >>> from fairseq2.nn.position_encoder import LearnedPositionEncoder
-    >>>
-    >>> m = LearnedPositionEncoder(encoding_dim=4, max_seq_len=16)
-    >>>
-    >>> seqs = torch.ones((3, 4))
-    >>>
-    >>> m(seqs)
-    tensor([[ 1.1135,  0.5548,  0.4293,  2.0112],                               # pos 0
-            [ 0.2364,  0.6009,  3.3865, -2.4810],                               # pos 1
-            [-0.4746,  0.4544,  0.2761,  0.8828]], grad_fn=<SqueezeBackward1>)  # pos 2
-    """
+    """Encodes sequences with learned positional embeddings."""
 
     weight: Parameter
 
@@ -269,9 +224,16 @@ class LearnedPositionEncoder(PositionEncoder):
         encoding_dim: int,
         max_seq_len: int,
         *,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
+        """
+        :param encoding_dim: The dimensionality of positional encodings. Input
+            sequences are expected to have the same dimensionality.
+
+        :param max_seq_len: The maximum allowed length for input sequences.
+            Sequences longer than ``max_seq_len`` will cause a :class:`ValueError`.
+        """
         super().__init__(encoding_dim, max_seq_len)
 
         self.weight = Parameter(
@@ -288,8 +250,8 @@ class LearnedPositionEncoder(PositionEncoder):
     def _do_forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
-        state_bag: Optional[IncrementalStateBag],
+        padding_mask: PaddingMask | None,
+        state_bag: IncrementalStateBag | None,
     ) -> Tensor:
         """:meta private:"""
         seq_len = seqs.size(-2)
@@ -308,12 +270,14 @@ class LearnedPositionEncoder(PositionEncoder):
 
 @final
 class RotaryEncoder(PositionEncoder):
-    """Encodes sequences with relative positional information as described in
-    :cite:t:`https://doi.org/10.48550/arxiv.2104.09864`."""
+    """
+    Encodes sequences with relative positional information as described in
+    :cite:t:`https://doi.org/10.48550/arxiv.2104.09864`.
+    """
 
     freqs: Tensor
     theta: float
-    freqs_init_fn: Optional[Callable[[RotaryEncoder], Tensor]]
+    freqs_init_fn: Callable[[RotaryEncoder], Tensor] | None
 
     def __init__(
         self,
@@ -321,15 +285,26 @@ class RotaryEncoder(PositionEncoder):
         max_seq_len: int,
         *,
         theta: float = 10_000.0,
-        freqs_init_fn: Optional[Callable[[RotaryEncoder], Tensor]] = None,
-        device: Optional[Device] = None,
+        freqs_init_fn: Callable[[RotaryEncoder], Tensor] | None = None,
+        device: Device | None = None,
     ) -> None:
         """
-        :param theta:
-            The coefficient of the long-term decay as described in section 3.3
-            of the reference paper.
-        :param freqs_init_fn:
-            The callable to initialize the frequency table.
+        :param encoding_dim: The dimensionality of positional encodings. Input
+            sequences are expected to have the same dimensionality.
+
+        :param max_seq_len: The maximum allowed length for input sequences.
+            Sequences longer than ``max_seq_len`` will cause a :class:`ValueError`.
+
+        :param theta: The coefficient of the long-term decay as described in
+            section 3.3 of the reference paper.
+
+        :param freqs_init_fn: A callable to initialize the frequency table. The
+            encoder will be passed to the callable as an argument and it is
+            expected for the callable to return a :class:`~torch.Tensor` holding
+            the frequency table. If ``None``, the frequencies will be initialized
+            as described in the reference paper.
+
+        :raise ValueError: when ``encoding_dim`` is not even.
         """
         super().__init__(encoding_dim, max_seq_len)
 
@@ -359,11 +334,6 @@ class RotaryEncoder(PositionEncoder):
 
         device = self.freqs.device
 
-        # In PyTorch 2.0 and 2.1, `torch.polar` does not support meta device.
-        if not torch_greater_or_equal(2, 2):
-            if device.type == "meta":
-                return
-
         complex_freqs = torch.view_as_complex(self.freqs)
 
         # (S)
@@ -389,8 +359,8 @@ class RotaryEncoder(PositionEncoder):
     def _do_forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
-        state_bag: Optional[IncrementalStateBag],
+        padding_mask: PaddingMask | None,
+        state_bag: IncrementalStateBag | None,
     ) -> Tensor:
         """:meta private:"""
         seq_len = seqs.size(-2)

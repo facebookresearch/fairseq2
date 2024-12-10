@@ -6,10 +6,11 @@
 
 from __future__ import annotations
 
-from typing import Optional, Tuple, final
+from typing import final
 
 import torch.nn as nn
 from torch import Tensor
+from typing_extensions import override
 
 from fairseq2.data import VocabularyInfo
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
@@ -19,7 +20,6 @@ from fairseq2.nn import Linear, Projection
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.transformer import TransformerDecoder, TransformerEncoder
-from fairseq2.typing import override
 
 
 @final
@@ -71,8 +71,8 @@ class TransformerModel(EncoderDecoderModel):
 
     @override
     def encode(
-        self, seqs: Tensor, padding_mask: Optional[PaddingMask]
-    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+        self, seqs: Tensor, padding_mask: PaddingMask | None
+    ) -> tuple[Tensor, PaddingMask | None]:
         seqs, padding_mask = self.encoder_frontend(seqs, padding_mask)
 
         return self.encoder(seqs, padding_mask)  # type: ignore[no-any-return]
@@ -81,12 +81,12 @@ class TransformerModel(EncoderDecoderModel):
     def decode(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
+        padding_mask: PaddingMask | None,
         encoder_output: Tensor,
-        encoder_padding_mask: Optional[PaddingMask],
+        encoder_padding_mask: PaddingMask | None,
         *,
-        state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+        state_bag: IncrementalStateBag | None = None,
+    ) -> tuple[Tensor, PaddingMask | None]:
         seqs, padding_mask = self.decoder_frontend(
             seqs, padding_mask, state_bag=state_bag
         )
@@ -101,7 +101,7 @@ class TransformerModel(EncoderDecoderModel):
 
     @override
     def project(
-        self, decoder_output: Tensor, decoder_padding_mask: Optional[PaddingMask]
+        self, decoder_output: Tensor, decoder_padding_mask: PaddingMask | None
     ) -> SequenceModelOutput:
         logits = self.final_proj(decoder_output)
 

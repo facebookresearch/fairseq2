@@ -6,7 +6,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 import pytest
 import torch
@@ -22,7 +23,7 @@ class TestStrToTensorConverter:
             StrToTensorConverter(dtype=torch.half)
 
     @pytest.mark.parametrize("dtype", [None, torch.int16, torch.int32, torch.int64])
-    def test_call_works(self, dtype: Optional[DataType]) -> None:
+    def test_call_works(self, dtype: DataType | None) -> None:
         s = "23 9 12  34   90 1  "
 
         converter = StrToTensorConverter(dtype=dtype)

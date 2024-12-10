@@ -8,11 +8,12 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, Optional, Set, Union, cast, final
+from typing import Any, Literal, cast, final
 
 import torch
 from torch import Tensor
 from torch.nn.functional import layer_norm
+from typing_extensions import override
 
 from fairseq2.assets import AssetCard, AssetError
 from fairseq2.data import (
@@ -26,21 +27,15 @@ from fairseq2.data import (
     read_sequence,
 )
 from fairseq2.data.audio import AudioDecoder
-from fairseq2.data.text import (
-    StrSplitter,
-    TextTokenizer,
-    default_raw_sentencepiece_tokenizer_loader,
-    load_text_tokenizer,
-    read_text,
-)
-from fairseq2.datasets.batching import LengthBatching, StaticBatching
+from fairseq2.data.text import StrSplitter, TextTokenizer, read_text
+from fairseq2.datasets.batching import Batching, LengthBatching, StaticBatching
 from fairseq2.datasets.data_reader import DataPipelineReader, DataReader
 from fairseq2.datasets.error import DatasetError
 from fairseq2.datasets.loader import AbstractDatasetLoader, DelegatingDatasetLoader
 from fairseq2.gang import Gang
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
-from fairseq2.typing import DataType, override
+from fairseq2.typing import DataType
 
 
 class AsrDataset(ABC):
@@ -53,7 +48,7 @@ class AsrDataset(ABC):
         tokenizer: TextTokenizer,
         gang: Gang,
         max_audio_len: int,
-        batching: Union[StaticBatching, LengthBatching],
+        batching: Batching,
         *,
         dtype: DataType = torch.float32,
         min_audio_len: int = 1,
@@ -62,7 +57,8 @@ class AsrDataset(ABC):
         batch_shuffle_window: int = 1,
         drop_remainder: bool = False,
         sync_batches: bool = True,
-        max_num_batches: Optional[int] = None,
+        sync_mode: Literal["until_first", "until_last"] = "until_first",
+        max_num_batches: int | None = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         seed: int = 2,
@@ -105,6 +101,11 @@ class AsrDataset(ABC):
             can vary per process (e.g. due to unbalanced sharding or non-static
             batching) and it is critical for each process to iterate over the
             same number of batches (e.g. during training).
+        :param sync_mode:
+            If ``until_first``, stops iteration when the first rank reaches end
+            of data. If ``until_last``, stops iteration when the last rank
+            reaches end of data; ranks that have already reached their end of
+            data will return an empty list of batches.
         :param max_num_batches:
             The maximum number of batches to return.
         :param num_accumulate:
@@ -119,7 +120,7 @@ class AsrDataset(ABC):
         """
 
     @abstractmethod
-    def splits(self) -> Set[str]:
+    def splits(self) -> set[str]:
         """Return the set of splits."""
 
 
@@ -136,9 +137,9 @@ class GenericAsrDataset(AsrDataset):
     """Represents a generic manifest-based ASR dataset."""
 
     _manifest_dir: Path
-    _splits: Set[str]
+    _splits: set[str]
 
-    def __init__(self, manifest_dir: Path, splits: Set[str]) -> None:
+    def __init__(self, manifest_dir: Path, splits: set[str]) -> None:
         """
         :param manifest_dir:
             The directory under which the manifest files resides.
@@ -172,7 +173,7 @@ class GenericAsrDataset(AsrDataset):
         tokenizer: TextTokenizer,
         gang: Gang,
         max_audio_len: int,
-        batching: Union[StaticBatching, LengthBatching],
+        batching: Batching,
         *,
         dtype: DataType = torch.float32,
         min_audio_len: int = 1,
@@ -181,7 +182,8 @@ class GenericAsrDataset(AsrDataset):
         batch_shuffle_window: int = 1,
         drop_remainder: bool = False,
         sync_batches: bool = True,
-        max_num_batches: Optional[int] = None,
+        sync_mode: Literal["until_first", "until_last"] = "until_first",
+        max_num_batches: int | None = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         seed: int = 2,
@@ -230,9 +232,9 @@ class GenericAsrDataset(AsrDataset):
                 skip_above_max_examples=True,
                 drop_remainder=drop_remainder,
             )
-        else:
+        elif isinstance(batching, StaticBatching):
             # Filter out out-of-range audios.
-            def skip(example: Dict[str, Any]) -> bool:
+            def skip(example: dict[str, Any]) -> bool:
                 audio_len = cast(int, example["audio_size"])
 
                 return audio_len >= min_audio_len and audio_len <= max_audio_len
@@ -241,6 +243,8 @@ class GenericAsrDataset(AsrDataset):
 
             # Bucket `batch_size` examples.
             builder.bucket(batching.batch_size, drop_remainder=drop_remainder)
+        else:
+            raise RuntimeError(f"`{batching}` is not supported.")
 
         # Shuffle buckets.
         if batch_shuffle_window != 1:
@@ -292,7 +296,7 @@ class GenericAsrDataset(AsrDataset):
         builder.prefetch(num_prefetch)
 
         # Wrap examples with `Seq2SeqBatch`.
-        def to_batch(example: Dict[str, Any]) -> Seq2SeqBatch:
+        def to_batch(example: dict[str, Any]) -> Seq2SeqBatch:
             source_data = cast(SequenceData, example["audio"]["data"]["waveform"])
             target_data = cast(SequenceData, example["text"])
 
@@ -319,6 +323,7 @@ class GenericAsrDataset(AsrDataset):
             num_accumulate=num_accumulate,
             drop_remainder=drop_remainder,
             sync_batches=sync_batches,
+            sync_mode=sync_mode,
         )
 
     def _retrieve_data_directory(self, split: str) -> Path:
@@ -372,7 +377,7 @@ class GenericAsrDataset(AsrDataset):
         return read_sequence(manifest)
 
     @override
-    def splits(self) -> Set[str]:
+    def splits(self) -> set[str]:
         return self._splits
 
 
@@ -391,7 +396,3 @@ class GenericAsrDatasetLoader(AbstractDatasetLoader[GenericAsrDataset]):
 load_generic_asr_dataset = GenericAsrDatasetLoader()
 
 load_asr_dataset.register("generic_asr", load_generic_asr_dataset)
-
-load_librispeech_asr_tokenizer = default_raw_sentencepiece_tokenizer_loader
-
-load_text_tokenizer.register("librispeech_asr", load_librispeech_asr_tokenizer)

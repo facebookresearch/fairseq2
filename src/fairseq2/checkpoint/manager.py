@@ -7,35 +7,30 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from contextlib import nullcontext
+from collections.abc import Iterator, Mapping, Set
+from contextlib import AbstractContextManager, nullcontext
 from pathlib import Path
 from pickle import PickleError
 from shutil import rmtree
-from typing import (
-    AbstractSet,
-    Any,
-    ContextManager,
-    Dict,
-    Iterator,
-    List,
-    Mapping,
-    NoReturn,
-    Optional,
-    Tuple,
-    final,
-)
+from typing import Any, NoReturn, final
 
 import yaml
 from torch.distributed._shard import load_with_process_group
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.api import FullStateDictConfig, StateDictType
 from torch.nn import Module
+from typing_extensions import override
 
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
-from fairseq2.typing import CPU, DataClass, override
-from fairseq2.utils.dataclass import to_safe_dict
-from fairseq2.utils.file import TensorDumper, TensorLoader, dump_tensors, load_tensors
+from fairseq2.typing import CPU
+from fairseq2.utils.file import (
+    TensorDumper,
+    TensorLoader,
+    dump_pt_tensors,
+    load_pt_tensors,
+)
+from fairseq2.utils.structured import default_value_converter
 
 log = get_log_writer(__name__)
 
@@ -57,7 +52,7 @@ class CheckpointManager(ABC):
         state: Mapping[str, Any],
         *,
         model_key: str = "model",
-        replicated_keys: Optional[AbstractSet[str]] = None,
+        replicated_keys: Set[str] | None = None,
     ) -> None:
         """Save the training state.
 
@@ -79,7 +74,7 @@ class CheckpointManager(ABC):
         """
 
     @abstractmethod
-    def save_score(self, score: Optional[float]) -> None:
+    def save_score(self, score: float | None) -> None:
         """Save the score of the checkpoint."""
 
     @abstractmethod
@@ -91,11 +86,11 @@ class CheckpointManager(ABC):
         """Commit the checkpoint after which it will be considered saved."""
 
     @abstractmethod
-    def load_checkpoint(self, step_nr: int) -> Dict[str, Any]:
+    def load_checkpoint(self, step_nr: int) -> dict[str, Any]:
         """Load the checkpoint of the specified training step."""
 
     @abstractmethod
-    def load_last_checkpoint(self) -> Tuple[int, Dict[str, Any]]:
+    def load_last_checkpoint(self) -> tuple[int, dict[str, Any]]:
         """Load the last checkpoint in the training.
 
         :returns:
@@ -104,7 +99,7 @@ class CheckpointManager(ABC):
         """
 
     @abstractmethod
-    def load_metadata(self, step_nr: int) -> Optional[Dict[str, Any]]:
+    def load_metadata(self, step_nr: int) -> dict[str, Any] | None:
         """Load the checkpoint metadata of the specified training step."""
 
     @abstractmethod
@@ -142,7 +137,7 @@ class CheckpointManager(ABC):
         """
 
     @abstractmethod
-    def has_checkpoint(self, step_nr: Optional[int] = None) -> bool:
+    def has_checkpoint(self, step_nr: int | None = None) -> bool:
         """Return ``True`` if the manager holds a checkpoint.
 
         :param step_nr:
@@ -151,7 +146,7 @@ class CheckpointManager(ABC):
         """
 
     @abstractmethod
-    def get_step_numbers(self) -> List[int]:
+    def get_step_numbers(self) -> list[int]:
         """Return the numbers of the training steps that have a checkpoint."""
 
 
@@ -167,17 +162,17 @@ class FileCheckpointManager(CheckpointManager):
     _tensor_loader: TensorLoader
     _tensor_dumper: TensorDumper
     _lower_score_better: bool
-    _checkpoint_step_nr: Optional[int]
+    _checkpoint_step_nr: int | None
 
     def __init__(
         self,
         checkpoint_dir: Path,
         gang: Gang,
         *,
-        dp_gang: Optional[Gang] = None,
-        tp_gang: Optional[Gang] = None,
-        tensor_loader: Optional[TensorLoader] = None,
-        tensor_dumper: Optional[TensorDumper] = None,
+        dp_gang: Gang | None = None,
+        tp_gang: Gang | None = None,
+        tensor_loader: TensorLoader | None = None,
+        tensor_dumper: TensorDumper | None = None,
         lower_score_better: bool = False,
     ) -> None:
         """
@@ -217,8 +212,8 @@ class FileCheckpointManager(CheckpointManager):
         elif dp_gang is not None or tp_gang is not None:
             raise ValueError("`dp_gang` and `tp_gang` must be both specified.")
 
-        self._tensor_loader = tensor_loader or load_tensors
-        self._tensor_dumper = tensor_dumper or dump_tensors
+        self._tensor_loader = tensor_loader or load_pt_tensors
+        self._tensor_dumper = tensor_dumper or dump_pt_tensors
 
         self._lower_score_better = lower_score_better
 
@@ -227,10 +222,10 @@ class FileCheckpointManager(CheckpointManager):
     def save_model_metadata(
         self,
         *,
-        base_asset: Optional[str] = None,
-        family: Optional[str] = None,
-        config: Optional[DataClass] = None,
-        tokenizer_name: Optional[str] = None,
+        base_asset: str | None = None,
+        family: str | None = None,
+        config: object = None,
+        tokenizer_name: str | None = None,
     ) -> None:
         """Set the model metadata.
 
@@ -244,7 +239,7 @@ class FileCheckpointManager(CheckpointManager):
             The name of the tokenizer that the model is trained with.
         """
         if self._root_gang.rank == 0:
-            metadata: Dict[str, Any] = {"name": "checkpoint"}
+            metadata: dict[str, Any] = {"name": "checkpoint"}
 
             if base_asset is not None:
                 metadata["base"] = base_asset
@@ -253,7 +248,7 @@ class FileCheckpointManager(CheckpointManager):
                 metadata["model_family"] = family
 
             if config is not None:
-                metadata["model_config"] = to_safe_dict(config)
+                metadata["model_config"] = default_value_converter.unstructure(config)
 
             if self._num_shards != 1:
                 metadata["num_shards"] = self._num_shards
@@ -307,7 +302,7 @@ class FileCheckpointManager(CheckpointManager):
         state: Mapping[str, Any],
         *,
         model_key: str = "model",
-        replicated_keys: Optional[AbstractSet[str]] = None,
+        replicated_keys: Set[str] | None = None,
     ) -> None:
         step_nr = self._get_checkpoint_step_nr()
 
@@ -425,7 +420,7 @@ class FileCheckpointManager(CheckpointManager):
         self._root_gang.barrier()
 
     @override
-    def save_score(self, score: Optional[float]) -> None:
+    def save_score(self, score: float | None) -> None:
         step_nr = self._get_checkpoint_step_nr()
 
         if self._root_gang.rank == 0:
@@ -503,13 +498,13 @@ class FileCheckpointManager(CheckpointManager):
         return step_nr
 
     @override
-    def load_checkpoint(self, step_nr: int) -> Dict[str, Any]:
+    def load_checkpoint(self, step_nr: int) -> dict[str, Any]:
         def raise_error(cause: Exception) -> NoReturn:
             raise RuntimeError(
                 f"The checkpoint of training step {step_nr} cannot be loaded. See nested exception for details."
             ) from cause
 
-        def maybe_with_dp_process_group() -> ContextManager[None]:
+        def maybe_with_dp_process_group() -> AbstractContextManager[None]:
             try:
                 pg = self._dp_gang.as_process_group()
             except RuntimeError:
@@ -519,7 +514,7 @@ class FileCheckpointManager(CheckpointManager):
 
         step_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}")
 
-        def load_part(filename: str) -> Dict[str, Any]:
+        def load_part(filename: str) -> dict[str, Any]:
             with maybe_with_dp_process_group():  # Required for `ShardedTensor`.
                 try:
                     part = self._tensor_loader(
@@ -567,7 +562,7 @@ class FileCheckpointManager(CheckpointManager):
         return checkpoint
 
     @override
-    def load_last_checkpoint(self) -> Tuple[int, Dict[str, Any]]:
+    def load_last_checkpoint(self) -> tuple[int, dict[str, Any]]:
         step_numbers = self.get_step_numbers()
         if not step_numbers:
             raise CheckpointNotFoundError("No checkpoint found.")
@@ -579,7 +574,7 @@ class FileCheckpointManager(CheckpointManager):
         return last_step_nr, checkpoint
 
     @override
-    def load_metadata(self, step_nr: int) -> Optional[Dict[str, Any]]:
+    def load_metadata(self, step_nr: int) -> dict[str, Any] | None:
         metadata_file = self._checkpoint_dir.joinpath(
             f"step_{step_nr}/metadata{self._shard_suffix}.pt"
         )
@@ -681,7 +676,7 @@ class FileCheckpointManager(CheckpointManager):
             if step_nr != last_step_nr:
                 self.delete_checkpoint(step_nr, preserve_model=preserve_model)
 
-    def _load_scores(self, step_numbers: List[int]) -> List[Tuple[float, int]]:
+    def _load_scores(self, step_numbers: list[int]) -> list[tuple[float, int]]:
         scores = []
 
         for step_nr in step_numbers:
@@ -712,7 +707,7 @@ class FileCheckpointManager(CheckpointManager):
         return scores
 
     @override
-    def has_checkpoint(self, step_nr: Optional[int] = None) -> bool:
+    def has_checkpoint(self, step_nr: int | None = None) -> bool:
         it = self._iter_step_numbers()
 
         if step_nr is None:
@@ -721,7 +716,7 @@ class FileCheckpointManager(CheckpointManager):
         return step_nr in it
 
     @override
-    def get_step_numbers(self) -> List[int]:
+    def get_step_numbers(self) -> list[int]:
         step_numbers = list(self._iter_step_numbers())
 
         step_numbers.sort()

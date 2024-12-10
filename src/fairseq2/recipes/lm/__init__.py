@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from fairseq2.recipes.cli import Cli, RecipeCommandHandler
 from fairseq2.recipes.lm.chatbot import ChatbotCommandHandler
+from fairseq2.recipes.lm.eval_nll import load_nll_evaluator, nll_eval_presets
 from fairseq2.recipes.lm.instruction_finetune import (
     instruction_finetune_presets,
     load_instruction_finetuner,
@@ -33,7 +34,7 @@ def _setup_lm_cli(cli: Cli) -> None:
     instruction_finetune_handler = RecipeCommandHandler(
         loader=load_instruction_finetuner,
         preset_configs=instruction_finetune_presets,
-        default_preset="llama3_8b_instruct",
+        default_preset="llama3_1_instruct",
     )
 
     group.add_command(
@@ -42,11 +43,24 @@ def _setup_lm_cli(cli: Cli) -> None:
         help="instruction-finetune a language model",
     )
 
+    # Preference Finetune
+    preference_finetune_handler = RecipeCommandHandler(
+        loader=load_preference_finetuner,
+        preset_configs=preference_finetune_presets,
+        default_preset="llama3_1_instruct",
+    )
+
+    group.add_command(
+        name="preference_finetune",
+        handler=preference_finetune_handler,
+        help="preference-finetune a language model (e.g. DPO, SimPO).",
+    )
+
     # Text Generate
     text_generate_handler = RecipeCommandHandler(
         loader=load_text_generator,
         preset_configs=text_generate_presets,
-        default_preset="llama3_8b_instruct",
+        default_preset="llama3_1_8b_instruct",
     )
 
     group.add_command(
@@ -55,15 +69,15 @@ def _setup_lm_cli(cli: Cli) -> None:
         help="generate text",
     )
 
-    # Preference Finetune
-    preference_finetune_handler = RecipeCommandHandler(
-        loader=load_preference_finetuner,
-        preset_configs=preference_finetune_presets,
-        default_preset="llama3_8b_instruct",
+    # NLL evaluation
+    nll_eval_handler = RecipeCommandHandler(
+        loader=load_nll_evaluator,
+        preset_configs=nll_eval_presets,
+        default_preset="llama3_1_base_eval",
     )
 
     group.add_command(
-        name="preference_finetune",
-        handler=preference_finetune_handler,
-        help="preference-finetune a language model",
+        name="nll_eval",
+        handler=nll_eval_handler,
+        help="Evaluate the model and compute NLL loss over a given dataset",
     )

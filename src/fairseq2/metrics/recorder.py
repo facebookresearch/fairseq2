@@ -10,32 +10,24 @@ import json
 import math
 import re
 from abc import ABC, abstractmethod
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from functools import partial
 from logging import Logger
 from pathlib import Path
 from string import capwords
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Final,
-    Mapping,
-    Optional,
-    Sequence,
-    TextIO,
-    Union,
-    final,
-)
+from typing import Any, Final, TextIO, final
 
 from torch import Tensor
+from typing_extensions import override
 
 from fairseq2.logging import LogWriter, get_log_writer
-from fairseq2.typing import override
+
+log = get_log_writer(__name__)
 
 
-def format_as_int(value: Any, *, postfix: Optional[str] = None) -> str:
+def format_as_int(value: Any, *, postfix: str | None = None) -> str:
     """Format metric ``value`` as integer."""
     try:
         i = int(value)
@@ -54,7 +46,7 @@ format_as_seconds = partial(format_as_int, postfix="s")
 """Format metric ``value`` as duration in seconds."""
 
 
-def format_as_float(value: Any, *, postfix: Optional[str] = None) -> str:
+def format_as_float(value: Any, *, postfix: str | None = None) -> str:
     """Format metric ``value`` as float."""
     try:
         s = f"{float(value):g}"
@@ -101,15 +93,24 @@ class _MetricFormatter:
     log: bool = True
 
 
-_metric_formatters: Dict[str, _MetricFormatter] = {
+_metric_formatters: dict[str, _MetricFormatter] = {
     # fmt: off
+    "loss":                          _MetricFormatter("Loss",                             90, format_as_float),
+    "contrastive_loss":              _MetricFormatter("Contrastive Loss",                100, format_as_float),
     "ctc_loss":                      _MetricFormatter("CTC Loss",                        100, format_as_float),
+    "diversity_loss":                _MetricFormatter("Diversity Loss",                  100, format_as_float),
     "nll_loss":                      _MetricFormatter("NLL Loss",                        100, format_as_float),
+    "feature_penalty":               _MetricFormatter("Feature Penalty",                 110, format_as_float),
+    "accuracy":                      _MetricFormatter("Accuracy",                        200, format_as_float),
     "bleu":                          _MetricFormatter("BLEU",                            200, format_as_float),
     "chrf":                          _MetricFormatter("chrF++",                          200, format_as_float),
     "uer":                           _MetricFormatter("Unit Error Rate (UER)",           200, format_as_float),
     "wer":                           _MetricFormatter("Word Error Rate (WER)",           200, format_as_float),
+    "code_perplexity":               _MetricFormatter("Code Perplexity",                 210, format_as_float),
+    "prob_perplexity":               _MetricFormatter("Prob Perplexity",                 210, format_as_float),
+    "temperature":                   _MetricFormatter("Temperature",                     220, format_as_float),
     "gradient_norm":                 _MetricFormatter("Gradient Norm",                   300, format_as_float),
+    "data_epoch":                    _MetricFormatter("Data Epoch",                      490, format_as_int),
     "elapsed_time":                  _MetricFormatter("Elapsed Time",                    500, format_as_seconds),
     "wall_time":                     _MetricFormatter("Wall Time",                       510, format_as_seconds),
     "lr":                            _MetricFormatter("Learning Rate",                   700, format_as_float),
@@ -187,7 +188,7 @@ class MetricRecorder(ABC):
         self,
         run: str,
         values: Mapping[str, Any],
-        step_nr: Optional[int] = None,
+        step_nr: int | None = None,
         *,
         flush: bool = True,
     ) -> None:
@@ -212,7 +213,7 @@ def record_metrics(
     recorders: Sequence[MetricRecorder],
     run: str,
     values: Mapping[str, Any],
-    step_nr: Optional[int] = None,
+    step_nr: int | None = None,
     *,
     flush: bool = True,
 ) -> None:
@@ -239,7 +240,7 @@ class LogMetricRecorder(MetricRecorder):
 
     _log: LogWriter
 
-    def __init__(self, log: Union[LogWriter, Logger]) -> None:
+    def __init__(self, log: LogWriter | Logger) -> None:
         """
         :param log:
             The log writer or logger to use.
@@ -254,7 +255,7 @@ class LogMetricRecorder(MetricRecorder):
         self,
         run: str,
         values: Mapping[str, Any],
-        step_nr: Optional[int] = None,
+        step_nr: int | None = None,
         *,
         flush: bool = True,
     ) -> None:
@@ -302,7 +303,7 @@ class JsonFileMetricRecorder(MetricRecorder):
     _RUN_PART_REGEX: Final = re.compile("^[-_a-zA-Z0-9]+$")
 
     _output_dir: Path
-    _streams: Dict[str, TextIO]
+    _streams: dict[str, TextIO]
 
     def __init__(self, output_dir: Path) -> None:
         """
@@ -318,7 +319,7 @@ class JsonFileMetricRecorder(MetricRecorder):
         self,
         run: str,
         values: Mapping[str, Any],
-        step_nr: Optional[int] = None,
+        step_nr: int | None = None,
         *,
         flush: bool = True,
     ) -> None:
@@ -356,7 +357,7 @@ class JsonFileMetricRecorder(MetricRecorder):
 
             return value
 
-        output: Dict[str, Any] = {"Time": datetime.utcnow().isoformat()}
+        output: dict[str, Any] = {"Time": datetime.utcnow().isoformat()}
 
         if step_nr is not None:
             output["Step"] = step_nr
@@ -417,21 +418,18 @@ else:
 class TensorBoardRecorder(MetricRecorder):
     """Records metric values to TensorBoard."""
 
-    _log_dir: Path
-    _writers: Dict[str, SummaryWriter]
+    _output_dir: Path
+    _writers: dict[str, SummaryWriter]
 
-    def __init__(self, log_dir: Path) -> None:
+    def __init__(self, output_dir: Path) -> None:
         """
-        :param log_dir:
+        :param output_dir:
             The base directory under which to store the TensorBoard files.
         """
         if not has_tensorboard:
-            log = get_log_writer(__name__)
-
             log.warning("tensorboard not found. Please install it with `pip install tensorboard`.")  # fmt: skip
 
-        self._log_dir = log_dir
-
+        self._output_dir = output_dir
         self._writers = {}
 
     @override
@@ -439,7 +437,7 @@ class TensorBoardRecorder(MetricRecorder):
         self,
         run: str,
         values: Mapping[str, Any],
-        step_nr: Optional[int] = None,
+        step_nr: int | None = None,
         *,
         flush: bool = True,
     ) -> None:
@@ -459,14 +457,14 @@ class TensorBoardRecorder(MetricRecorder):
         if flush:
             writer.flush()
 
-    def _get_writer(self, run: str) -> Optional[SummaryWriter]:
+    def _get_writer(self, run: str) -> SummaryWriter | None:
         if not has_tensorboard:
             return None
 
         try:
             writer = self._writers[run]
         except KeyError:
-            writer = SummaryWriter(self._log_dir.joinpath(run))
+            writer = SummaryWriter(self._output_dir.joinpath(run))
 
             self._writers[run] = writer
 
@@ -476,5 +474,59 @@ class TensorBoardRecorder(MetricRecorder):
     def close(self) -> None:
         for writer in self._writers.values():
             writer.close()
-
         self._writers.clear()
+
+
+try:
+    import wandb  # type: ignore[import-not-found]
+except ImportError:
+    has_wandb = False
+else:
+    has_wandb = True
+
+
+@final
+class WandbRecorder(MetricRecorder):
+    """Records metric values to Weights & Biases."""
+
+    def __init__(self, project: str, name: str, output_dir: Path) -> None:
+        """
+        :param project: The W&B project name.
+        :param output_dir: The base directory under which to store the W&B files.
+        In order to use W&B, run `wandb login` from the command line and enter
+        the API key when prompted.
+        """
+        if not has_wandb:
+            log.warning("wandb not found. Please install it with `pip install wandb`.")  # fmt: skip
+
+            self._run = None
+        else:
+            self._run = wandb.init(
+                project=project, name=name, dir=output_dir.parent, resume="allow"
+            )
+
+    @override
+    def record_metrics(
+        self,
+        run: str,
+        values: Mapping[str, Any],
+        step_nr: int | None = None,
+        *,
+        flush: bool = True,
+    ) -> None:
+        if self._run is None:
+            return
+
+        for name, value in values.items():
+            formatter = _metric_formatters.get(name)
+            if formatter is None:
+                display_name = name
+            else:
+                display_name = formatter.display_name
+
+            self._run.log({display_name: value}, step=step_nr)
+
+    @override
+    def close(self) -> None:
+        if self._run is not None:
+            self._run.finish()

@@ -7,23 +7,10 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from itertools import chain
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Iterable,
-    Iterator,
-    List,
-    Mapping,
-    Optional,
-    Protocol,
-    Sequence,
-    Set,
-    Tuple,
-    runtime_checkable,
-)
+from typing import Any, Protocol, runtime_checkable
 
 import torch
 from torch import Tensor
@@ -33,7 +20,6 @@ from torch.nn.utils import remove_weight_norm  # type: ignore[attr-defined]
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.typing import CPU, Device
-from fairseq2.utils.rng import temporary_manual_seed
 
 log = get_log_writer(__name__)
 
@@ -44,34 +30,20 @@ class ModuleWithParameter(Protocol):
         """Reset the parameters and buffers of the module."""
 
 
-def reset_parameters(
-    module: Module, *, recurse: bool = True, seed: Optional[int] = None
-) -> None:
+def reset_parameters(module: Module, *, recurse: bool = True) -> None:
     """Reset the parameters and buffers of ``module``.
 
     :param module:
         The module to reset.
     :param recurse:
         If ``True``, resets the parameters and buffers of descendant modules.
-    :param seed:
-        The random number generator seed to use during parameter initialization.
     """
 
     def reset(name: str, m: Module) -> None:
         if isinstance(m, ModuleWithParameter):
             m.reset_parameters()
 
-    if seed is None:
-        devices: List[Device] = []
-    else:
-        device = infer_device(module, recurse=recurse)
-        if device.type == "meta":
-            devices = []
-        else:
-            devices = [CPU, device]
-
-    with temporary_manual_seed(devices, seed):
-        visit_module(module, reset, recurse=recurse)
+    visit_module(module, reset, recurse=recurse)
 
 
 @runtime_checkable
@@ -102,7 +74,7 @@ def visit_module(
     *,
     recurse: bool = True,
     post_order: bool = True,
-    memo: Optional[Set[Module]] = None,
+    memo: set[Module] | None = None,
 ) -> None:
     """Run ``visitor`` on ``module``.
 
@@ -125,18 +97,15 @@ def visit_module(
             visitor(name, m)
 
 
-def to_device(module: Module, device: Device, *, seed: Optional[int] = None) -> None:
+def to_device(module: Module, device: Device) -> None:
     """Move the parameters and buffers of ``module`` to ``device``.
 
     :param module:
         The module to move.
     :param device:
         The target device of the parameters and buffers.
-    :param seed:
-        The random number generator seed to use during parameter initialization
-        if ``module`` is on the meta device.
     """
-    modules: List[Tuple[Module, Device]] = []
+    modules: list[tuple[Module, Device]] = []
 
     for name, m in _get_named_modules(module, prefix="module", post_order=True):
         if m is None:
@@ -151,21 +120,15 @@ def to_device(module: Module, device: Device, *, seed: Optional[int] = None) -> 
     if not modules:
         return
 
-    memo: Dict[Tensor, Tensor] = {}
+    memo: dict[Tensor, Tensor] = {}
 
-    if seed is None or device.type == "meta":
-        devices = []
-    else:
-        devices = [CPU, device]
+    for m, module_device in modules:
+        if module_device.type != "meta":
+            apply_to_parameters(m, lambda t: t.to(device), recurse=False, memo=memo)
+        else:
+            to_empty(m, device, recurse=False, memo=memo)
 
-    with temporary_manual_seed(devices, seed):
-        for m, module_device in modules:
-            if module_device.type != "meta":
-                apply_to_parameters(m, lambda t: t.to(device), recurse=False, memo=memo)
-            else:
-                to_empty(m, device, recurse=False, memo=memo)
-
-                reset_parameters(m, recurse=False)
+            reset_parameters(m, recurse=False)
 
 
 def to_empty(
@@ -173,7 +136,7 @@ def to_empty(
     device: Device,
     *,
     recurse: bool = True,
-    memo: Optional[Dict[Tensor, Tensor]] = None,
+    memo: dict[Tensor, Tensor] | None = None,
 ) -> None:
     """Move the parameters and buffers of ``module`` to ``device`` without
     copying storage.
@@ -243,7 +206,7 @@ def share_parameters(source_module: Module, target_module: Module) -> None:
 
     # Do not memoize. No need anyways, and would also break the sync between the
     # traversed tensors and the iterator.
-    apply_to_parameters(target_module, lambda _: next(it), recurse=True, no_memo=True)
+    apply_to_parameters(target_module, lambda _: next(it), no_memo=True)
 
 
 def apply_to_parameters(
@@ -251,7 +214,7 @@ def apply_to_parameters(
     fn: Callable[[Tensor], Tensor],
     *,
     recurse: bool = True,
-    memo: Optional[Dict[Tensor, Tensor]] = None,
+    memo: dict[Tensor, Tensor] | None = None,
     no_memo: bool = False,
 ) -> None:
     """Apply ``fn`` to the parameters and buffers of ``module``.
@@ -321,7 +284,7 @@ def apply_to_parameters(
         setattr(module, buffer_name, call_fn(buffer))
 
 
-def freeze_parameters(module: Optional[Module], value: bool = True) -> None:
+def freeze_parameters(module: Module | None, value: bool = True) -> None:
     """Set if ``module`` and its descendant modules should stop learning."""
     if module is None:
         return
@@ -331,7 +294,7 @@ def freeze_parameters(module: Optional[Module], value: bool = True) -> None:
 
 def select_parameters(
     module: Module, names: Sequence[str], *, exclude: bool = False
-) -> Iterable[Tuple[str, Parameter]]:
+) -> Iterable[tuple[str, Parameter]]:
     """Select the parameters of ``module`` and its descendant modules whose
     names match ``names``.
 
@@ -427,7 +390,7 @@ def broadcast_module(
 
     warned = False
 
-    memo: Set[Tensor] = set()
+    memo: set[Tensor] = set()
 
     tensors = []
 
@@ -496,13 +459,13 @@ def load_state_dict(module: Module, state_dict: Mapping[str, Any]) -> None:
 
 
 def _get_named_modules(
-    module: Optional[Module],
+    module: Module | None,
     *,
     prefix: str = "",
     recurse: bool = True,
     post_order: bool = False,
-    memo: Optional[Set[Module]] = None,
-) -> Iterator[Tuple[str, Optional[Module]]]:
+    memo: set[Module] | None = None,
+) -> Iterator[tuple[str, Module | None]]:
     if module is None:
         yield prefix, None
 
@@ -542,7 +505,7 @@ def _get_named_modules(
         yield prefix, module
 
 
-@dataclass
+@dataclass(kw_only=True)
 class ModuleSizeInfo:
     """Holds the size information of a module."""
 

@@ -6,15 +6,16 @@
 
 from __future__ import annotations
 
-from typing import Final, Iterable, Optional, Sequence, final
+from collections.abc import Iterable, Sequence
+from typing import Final, final
 
 import torch
 from sacrebleu.metrics.chrf import CHRF
 from torch import Tensor
 from torcheval.metrics import Metric
-from typing_extensions import Self
+from typing_extensions import Self, override
 
-from fairseq2.typing import Device, override
+from fairseq2.typing import Device
 
 
 @final
@@ -26,7 +27,7 @@ class ChrfMetric(Metric[Tensor]):
 
     stats: Tensor
 
-    def __init__(self, *, device: Optional[Device] = None) -> None:
+    def __init__(self, *, device: Device | None = None) -> None:
         super().__init__(device=device)
 
         stats_len = 3 * (self.CHAR_ORDER + self.WORD_ORDER)

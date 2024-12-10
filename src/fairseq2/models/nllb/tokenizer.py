@@ -6,18 +6,21 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Optional, Sequence, Set, final
+from typing import final
+
+from typing_extensions import override
 
 from fairseq2.data.text import SentencePieceEncoder, SentencePieceTokenizer
-from fairseq2.typing import Device, override
+from fairseq2.typing import Device
 
 
 @final
 class NllbTokenizer(SentencePieceTokenizer):
     """Represents an NLLB tokenizer."""
 
-    _langs: Set[str]
+    _langs: set[str]
     _default_lang: str
 
     def __init__(self, path: Path, langs: Sequence[str], default_lang: str) -> None:
@@ -50,10 +53,10 @@ class NllbTokenizer(SentencePieceTokenizer):
     def create_encoder(
         self,
         *,
-        task: Optional[str] = None,
-        lang: Optional[str] = None,
-        mode: Optional[str] = None,
-        device: Optional[Device] = None,
+        task: str | None = None,
+        lang: str | None = None,
+        mode: str | None = None,
+        device: Device | None = None,
         pin_memory: bool = False,
     ) -> SentencePieceEncoder:
         """Create a token encoder.
@@ -83,29 +86,30 @@ class NllbTokenizer(SentencePieceTokenizer):
                 f"`lang` must be a supported language, but is '{lang}' instead."
             )
 
-        if mode is None or mode == "source":
-            # NLLB models expect a language token in place of BOS in source
-            # sequences.
-            prefix_tokens = [f"__{lang}__"]
-            suffix_tokens = ["</s>"]
-        elif mode == "source_mining":
-            prefix_tokens = [f"__{lang}__", "<MINED_DATA>"]
-            suffix_tokens = ["</s>"]
-        elif mode == "source_mmt_bt":
-            prefix_tokens = [f"__{lang}__", "<MMT_BT_DATA>"]
-            suffix_tokens = ["</s>"]
-        elif mode == "source_smt_bt":
-            prefix_tokens = [f"__{lang}__", "<SMT_BT_DATA>"]
-            suffix_tokens = ["</s>"]
-        elif mode == "target":
-            # Target sequences are expected to start with an EOS, followed by
-            # the language token.
-            prefix_tokens = ["</s>", f"__{lang}__"]
-            suffix_tokens = ["</s>"]
-        else:
-            raise ValueError(
-                f"`mode` must be 'source' or 'target', but is '{mode}' instead."
-            )
+        match mode:
+            case None | "source":
+                # NLLB models expect a language token in place of BOS in source
+                # sequences.
+                prefix_tokens = [f"__{lang}__"]
+                suffix_tokens = ["</s>"]
+            case "source_mining":
+                prefix_tokens = [f"__{lang}__", "<MINED_DATA>"]
+                suffix_tokens = ["</s>"]
+            case "source_mmt_bt":
+                prefix_tokens = [f"__{lang}__", "<MMT_BT_DATA>"]
+                suffix_tokens = ["</s>"]
+            case "source_smt_bt":
+                prefix_tokens = [f"__{lang}__", "<SMT_BT_DATA>"]
+                suffix_tokens = ["</s>"]
+            case "target":
+                # Target sequences are expected to start with an EOS, followed by
+                # the language token.
+                prefix_tokens = ["</s>", f"__{lang}__"]
+                suffix_tokens = ["</s>"]
+            case _:
+                raise ValueError(
+                    f"`mode` must be 'source' or 'target', but is '{mode}' instead."
+                )
 
         return SentencePieceEncoder(
             self._model,

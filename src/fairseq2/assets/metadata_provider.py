@@ -8,25 +8,25 @@ from __future__ import annotations
 
 import os
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union, final
+from typing import Any, NoReturn, final
 
 import yaml
 from importlib_resources import files
 from importlib_resources.readers import MultiplexedPath
-from typing_extensions import NoReturn
+from typing_extensions import override
 from yaml import YAMLError
 
 from fairseq2.assets.error import AssetError
-from fairseq2.typing import override
 
 
 class AssetMetadataProvider(ABC):
     """Provides asset metadata."""
 
     @abstractmethod
-    def get_metadata(self, name: str) -> Dict[str, Any]:
+    def get_metadata(self, name: str) -> dict[str, Any]:
         """Return the metadata of the specified asset.
 
         :param name:
@@ -34,7 +34,7 @@ class AssetMetadataProvider(ABC):
         """
 
     @abstractmethod
-    def get_names(self) -> List[str]:
+    def get_names(self) -> list[str]:
         """Return the names of the assets for which this provider has metadata."""
 
     @abstractmethod
@@ -45,26 +45,33 @@ class AssetMetadataProvider(ABC):
 class AbstractAssetMetadataProvider(AssetMetadataProvider):
     """Provides a skeletal implementation of :class:`AssetMetadataProvider`."""
 
-    _cache: Optional[Dict[str, Dict[str, Any]]]
+    _cache: dict[str, dict[str, Any]] | None
 
     def __init__(self) -> None:
         self._cache = None
 
     @final
     @override
-    def get_metadata(self, name: str) -> Dict[str, Any]:
+    def get_metadata(self, name: str) -> dict[str, Any]:
         cache = self._ensure_cache_loaded()
 
         try:
-            return deepcopy(cache[name])
+            metadata = cache[name]
         except KeyError:
             raise AssetNotFoundError(
                 name, f"An asset with the name '{name}' cannot be found."
             ) from None
 
+        try:
+            return deepcopy(metadata)
+        except Exception as ex:
+            raise AssetMetadataError(
+                f"The metadata of the asset '{name}' cannot be copied. See nested exception for details and please file a bug report to the asset owner."
+            ) from ex
+
     @final
     @override
-    def get_names(self) -> List[str]:
+    def get_names(self) -> list[str]:
         cache = self._ensure_cache_loaded()
 
         return list(cache.keys())
@@ -74,7 +81,7 @@ class AbstractAssetMetadataProvider(AssetMetadataProvider):
     def clear_cache(self) -> None:
         self._cache = None
 
-    def _ensure_cache_loaded(self) -> Dict[str, Dict[str, Any]]:
+    def _ensure_cache_loaded(self) -> dict[str, dict[str, Any]]:
         if self._cache is not None:
             return self._cache
 
@@ -83,7 +90,7 @@ class AbstractAssetMetadataProvider(AssetMetadataProvider):
         return self._cache
 
     @abstractmethod
-    def _load_cache(self) -> Dict[str, Dict[str, Any]]:
+    def _load_cache(self) -> dict[str, dict[str, Any]]:
         ...
 
 
@@ -105,7 +112,7 @@ class FileAssetMetadataProvider(AbstractAssetMetadataProvider):
         self._cache = None
 
     @override
-    def _load_cache(self) -> Dict[str, Dict[str, Any]]:
+    def _load_cache(self) -> dict[str, dict[str, Any]]:
         def on_error(ex: OSError) -> NoReturn:
             raise AssetMetadataError(
                 f"The base asset metadata directory '{self._base_dir}' cannot be traversed. See nested exception for details."
@@ -154,7 +161,7 @@ class PackageAssetMetadataProvider(AbstractAssetMetadataProvider):
         self._package_path = files(package_name)
 
     @override
-    def _load_cache(self) -> Dict[str, Dict[str, Any]]:
+    def _load_cache(self) -> dict[str, dict[str, Any]]:
         cache = {}
 
         for file in self._list_files():
@@ -173,10 +180,10 @@ class PackageAssetMetadataProvider(AbstractAssetMetadataProvider):
 
         return cache
 
-    def _list_files(self) -> List[Path]:
+    def _list_files(self) -> list[Path]:
         files = []
 
-        def collect_files(p: Union[MultiplexedPath, Path]) -> None:
+        def collect_files(p: MultiplexedPath | Path) -> None:
             if p.is_file():
                 if not isinstance(p, Path):
                     raise RuntimeError(
@@ -193,7 +200,7 @@ class PackageAssetMetadataProvider(AbstractAssetMetadataProvider):
         return files
 
 
-def load_metadata_file(file: Path) -> List[Tuple[str, Dict[str, Any]]]:
+def load_metadata_file(file: Path) -> list[tuple[str, dict[str, Any]]]:
     """Load asset metadata included in ``file``."""
     output = []
 
@@ -243,11 +250,11 @@ def load_metadata_file(file: Path) -> List[Tuple[str, Dict[str, Any]]]:
 class InProcAssetMetadataProvider(AssetMetadataProvider):
     """Provides asset metadata stored in memory."""
 
-    _name: Optional[str]
-    _metadata: Dict[str, Dict[str, Any]]
+    _name: str | None
+    _metadata: dict[str, dict[str, Any]]
 
     def __init__(
-        self, metadata: Sequence[Dict[str, Any]], *, name: Optional[str] = None
+        self, metadata: Sequence[dict[str, Any]], *, name: str | None = None
     ) -> None:
         self._name = name
         self._metadata = {}
@@ -282,7 +289,7 @@ class InProcAssetMetadataProvider(AssetMetadataProvider):
             self._metadata[canonical_name] = metadata_
 
     @override
-    def get_metadata(self, name: str) -> Dict[str, Any]:
+    def get_metadata(self, name: str) -> dict[str, Any]:
         try:
             return deepcopy(self._metadata[name])
         except KeyError:
@@ -291,7 +298,7 @@ class InProcAssetMetadataProvider(AssetMetadataProvider):
             ) from None
 
     @override
-    def get_names(self) -> List[str]:
+    def get_names(self) -> list[str]:
         return list(self._metadata.keys())
 
     @override

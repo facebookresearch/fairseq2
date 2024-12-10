@@ -8,13 +8,15 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections import OrderedDict
-from typing import Any, Dict, Iterable, Iterator, Optional, Protocol, Tuple, final
+from collections.abc import Iterable, Iterator
+from typing import Any, Protocol, final
 
 import torch
 from torch import Generator, Tensor
 from torch.autograd import Function
 from torch.nn import Dropout, Module, ModuleList
 from torch.utils.hooks import RemovableHandle
+from typing_extensions import override
 
 from fairseq2.nn.normalization import LayerNorm
 from fairseq2.nn.padding import PaddingMask
@@ -25,7 +27,7 @@ from fairseq2.nn.transformer.layer_norm import (
     create_standard_layer_norm,
 )
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
-from fairseq2.typing import CPU, DataType, Device, override
+from fairseq2.typing import CPU, DataType, Device
 
 
 class TransformerEncoder(Module, ABC):
@@ -34,7 +36,7 @@ class TransformerEncoder(Module, ABC):
     model_dim: int
     layers: ModuleList
 
-    _layer_output_hooks: Dict[int, EncoderLayerOutputHook]
+    _layer_output_hooks: dict[int, EncoderLayerOutputHook]
 
     def __init__(self, model_dim: int) -> None:
         """
@@ -49,8 +51,8 @@ class TransformerEncoder(Module, ABC):
 
     @abstractmethod
     def forward(
-        self, seqs: Tensor, padding_mask: Optional[PaddingMask]
-    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+        self, seqs: Tensor, padding_mask: PaddingMask | None
+    ) -> tuple[Tensor, PaddingMask | None]:
         """
         :param seqs:
             The sequences to encode. *Shape:* :math:`(N,S,M)`, where :math:`N`
@@ -100,7 +102,7 @@ class EncoderLayerOutputHook(Protocol):
         self,
         layer_idx: int,
         layer_output: Tensor,
-        layer_padding_mask: Optional[PaddingMask],
+        layer_padding_mask: PaddingMask | None,
         num_layers: int,
     ) -> bool:
         """
@@ -125,10 +127,10 @@ class StandardTransformerEncoder(TransformerEncoder):
     """Represents a Transformer encoder as described in
     :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`."""
 
-    self_attn_mask_factory: Optional[AttentionMaskFactory]
+    self_attn_mask_factory: AttentionMaskFactory | None
     layer_drop_p: float
-    generator: Optional[Generator]
-    layer_norm: Optional[LayerNorm]
+    generator: Generator | None
+    layer_norm: LayerNorm | None
     dropout_p: float
     norm_order: TransformerNormOrder
 
@@ -136,14 +138,14 @@ class StandardTransformerEncoder(TransformerEncoder):
         self,
         layers: Iterable[TransformerEncoderLayer],
         *,
-        self_attn_mask_factory: Optional[AttentionMaskFactory] = None,
+        self_attn_mask_factory: AttentionMaskFactory | None = None,
         layer_drop_p: float = 0.0,
-        generator: Optional[Generator] = None,
+        generator: Generator | None = None,
         dropout_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
-        layer_norm_factory: Optional[LayerNormFactory] = None,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        layer_norm_factory: LayerNormFactory | None = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param layers:
@@ -195,8 +197,8 @@ class StandardTransformerEncoder(TransformerEncoder):
 
     @override
     def forward(
-        self, seqs: Tensor, padding_mask: Optional[PaddingMask]
-    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+        self, seqs: Tensor, padding_mask: PaddingMask | None
+    ) -> tuple[Tensor, PaddingMask | None]:
         if self._layer_output_hooks and self.layer_drop_p > 0.0 and self.training:
             raise RuntimeError(
                 "The layer output hooks cannot be run when LayerDrop is enabled."
@@ -233,7 +235,7 @@ class StandardTransformerEncoder(TransformerEncoder):
 
         return seqs, padding_mask
 
-    def _drop_iter(self) -> Iterator[Tuple[Module, bool]]:
+    def _drop_iter(self) -> Iterator[tuple[Module, bool]]:
         if self.training and self.layer_drop_p > 0.0:
             prob_dist = torch.rand(
                 len(self.layers), generator=self.generator, device=CPU
@@ -276,5 +278,5 @@ class _RecordDropForBackwardFunction(Function):
         return x
 
     @staticmethod
-    def backward(ctx: Any, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
+    def backward(ctx: Any, grad_output: Tensor) -> tuple[Tensor, Tensor]:
         return grad_output, torch.zeros_like(grad_output)

@@ -134,3 +134,31 @@ def _llama3_1_70b() -> LLaMAConfig:
     config.use_scaled_rope = True
 
     return config
+
+
+@llama_arch("llama3_2_3b")
+def _llama3_2_3b() -> LLaMAConfig:
+    config = _llama3_1_8b()
+
+    config.model_dim = 3072
+    config.ffn_inner_dim = int(3072 * 4 * 1.0)
+    config.ffn_inner_dim_to_multiple = 256
+    config.num_attn_heads = 24
+    config.num_key_value_heads = 8
+    config.num_layers = 28
+
+    return config
+
+
+@llama_arch("llama3_2_1b")
+def _llama3_2_1b() -> LLaMAConfig:
+    config = _llama3_1_8b()
+
+    config.model_dim = 2048
+    config.ffn_inner_dim = int(2048 * 4 * 1.5)
+    config.ffn_inner_dim_to_multiple = 256
+    config.num_attn_heads = 32
+    config.num_key_value_heads = 8
+    config.num_layers = 16
+
+    return config

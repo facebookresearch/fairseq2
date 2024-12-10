@@ -6,12 +6,10 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from rich import get_console as get_rich_console
 from rich.console import Console
 
-_console: Optional[Console] = None
+_console: Console | None = None
 
 
 def get_console() -> Console:
@@ -31,7 +29,7 @@ def set_console(console: Console) -> None:
     _console = console
 
 
-_error_console: Optional[Console] = None
+_error_console: Console | None = None
 
 
 def get_error_console() -> Console:

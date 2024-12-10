@@ -7,9 +7,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, Optional, Sequence, Union, cast, final
+from typing import Any, Literal, cast, final
+
+from typing_extensions import override
 
 from fairseq2.assets import AssetCard, AssetError
 from fairseq2.data import (
@@ -20,13 +23,13 @@ from fairseq2.data import (
     read_sequence,
 )
 from fairseq2.data.text import TextTokenEncoder, read_text
-from fairseq2.datasets.batching import LengthBatching, StaticBatching
+from fairseq2.datasets.batching import Batching, LengthBatching, StaticBatching
 from fairseq2.datasets.data_reader import DataPipelineReader, DataReader
 from fairseq2.datasets.loader import AbstractDatasetLoader, DelegatingDatasetLoader
 from fairseq2.gang import Gang
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
-from fairseq2.typing import Device, override
+from fairseq2.typing import Device
 
 
 class TextDataset(ABC):
@@ -36,17 +39,18 @@ class TextDataset(ABC):
     def create_reader(
         self,
         text_encoder: TextTokenEncoder,
-        pad_idx: Optional[int],
+        pad_idx: int | None,
         gang: Gang,
         max_seq_len: int,
-        batching: Union[StaticBatching, LengthBatching],
+        batching: Batching,
         *,
         min_seq_len: int = 1,
         example_shuffle_window: int = 1,
         batch_shuffle_window: int = 1,
         drop_remainder: bool = False,
         sync_batches: bool = True,
-        max_num_batches: Optional[int] = None,
+        sync_mode: Literal["until_first", "until_last"] = "until_first",
+        max_num_batches: int | None = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         seed: int = 2,
@@ -85,6 +89,11 @@ class TextDataset(ABC):
             can vary per process (e.g. due to unbalanced sharding or non-static
             batching) and it is critical for each process to iterate over the
             same number of batches (e.g. during training).
+        :param sync_mode:
+            If ``until_first``, stops iteration when the first rank reaches end
+            of data. If ``until_last``, stops iteration when the last rank
+            reaches end of data; ranks that have already reached their end of
+            data will return an empty list of batches.
         :param max_num_batches:
             The maximum number of batches to return.
         :param num_accumulate:
@@ -142,17 +151,18 @@ class GenericTextDataset(TextDataset):
     def create_reader(
         self,
         text_encoder: TextTokenEncoder,
-        pad_idx: Optional[int],
+        pad_idx: int | None,
         gang: Gang,
         max_seq_len: int,
-        batching: Union[StaticBatching, LengthBatching],
+        batching: Batching,
         *,
         min_seq_len: int = 1,
         example_shuffle_window: int = 1,
         batch_shuffle_window: int = 1,
         drop_remainder: bool = False,
         sync_batches: bool = True,
-        max_num_batches: Optional[int] = None,
+        sync_mode: Literal["until_first", "until_last"] = "until_first",
+        max_num_batches: int | None = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         seed: int = 2,
@@ -179,7 +189,7 @@ class GenericTextDataset(TextDataset):
 
         seed += gang.rank
 
-        def encode(example: Dict[str, Any]) -> Dict[str, Any]:
+        def encode(example: dict[str, Any]) -> dict[str, Any]:
             example["indices"] = text_encoder(example["text"])
 
             return example
@@ -202,9 +212,9 @@ class GenericTextDataset(TextDataset):
                 skip_above_max_examples=True,
                 drop_remainder=drop_remainder,
             )
-        else:
+        elif isinstance(batching, StaticBatching):
             # Filter out out-of-range examples.
-            def skip(example: Dict[str, Any]) -> bool:
+            def skip(example: dict[str, Any]) -> bool:
                 seq_len = len(example["indices"])
 
                 return seq_len >= min_seq_len and seq_len <= max_seq_len
@@ -213,6 +223,8 @@ class GenericTextDataset(TextDataset):
 
             # Bucket `batch_size` examples.
             builder.bucket(batching.batch_size, drop_remainder=drop_remainder)
+        else:
+            raise RuntimeError(f"`{batching}` is not supported.")
 
         # Shuffle buckets.
         if batch_shuffle_window != 1:
@@ -242,10 +254,11 @@ class GenericTextDataset(TextDataset):
             num_accumulate=num_accumulate,
             drop_remainder=drop_remainder,
             sync_batches=sync_batches,
+            sync_mode=sync_mode,
         )
 
     @staticmethod
-    def _to_batch(example: Dict[str, Any], device: Device) -> SequenceBatch:
+    def _to_batch(example: dict[str, Any], device: Device) -> SequenceBatch:
         data = cast(SequenceData, example["indices"])
 
         seqs, padding_mask = get_seqs_and_padding_mask(data, device)

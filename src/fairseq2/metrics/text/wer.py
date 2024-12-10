@@ -6,20 +6,21 @@
 
 from __future__ import annotations
 
-from typing import Iterable, Optional, Sequence, Tuple, final
+from collections.abc import Iterable, Sequence
+from typing import final
 
 import editdistance
 import torch
 from torch import Tensor
 from torcheval.metrics import Metric
-from typing_extensions import Self
+from typing_extensions import Self, override
 
 from fairseq2.nn.padding import PaddingMask, get_seq_lens
-from fairseq2.typing import Device, override
+from fairseq2.typing import Device
 
 
 @final
-class WerMetric(Metric[Tuple[Tensor, Tensor]]):
+class WerMetric(Metric[tuple[Tensor, Tensor]]):
     """Computes the WER (Word Error Rate)."""
 
     unit_err: Tensor
@@ -27,7 +28,7 @@ class WerMetric(Metric[Tuple[Tensor, Tensor]]):
     word_err: Tensor
     word_len: Tensor
 
-    def __init__(self, *, device: Optional[Device] = None) -> None:
+    def __init__(self, *, device: Device | None = None) -> None:
         super().__init__(device=device)
 
         dtype = torch.int64
@@ -50,10 +51,10 @@ class WerMetric(Metric[Tuple[Tensor, Tensor]]):
         self,
         refs: Sequence[str],
         ref_seqs: Tensor,
-        ref_padding_mask: Optional[PaddingMask],
+        ref_padding_mask: PaddingMask | None,
         hyps: Sequence[str],
         hyp_seqs: Tensor,
-        hyp_padding_mask: Optional[PaddingMask],
+        hyp_padding_mask: PaddingMask | None,
     ) -> Self:
         """
         :param refs:
@@ -98,13 +99,13 @@ class WerMetric(Metric[Tuple[Tensor, Tensor]]):
 
     @override
     @torch.inference_mode()
-    def compute(self) -> Tuple[Tensor, Tensor]:
+    def compute(self) -> tuple[Tensor, Tensor]:
         if self.unit_len and self.word_len:
             uer = self.unit_err * 100.0 / self.unit_len
             wer = self.word_err * 100.0 / self.word_len
         else:
-            uer = torch.zeros((), dtype=torch.float32)
-            wer = torch.zeros((), dtype=torch.float32)
+            uer = torch.tensor(-1.0, dtype=torch.float32)
+            wer = torch.tensor(-1.0, dtype=torch.float32)
 
         return uer, wer
 

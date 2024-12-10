@@ -8,40 +8,36 @@ from __future__ import annotations
 
 import sys
 from abc import ABC, abstractmethod
-from argparse import OPTIONAL, ArgumentParser, Namespace
-from copy import deepcopy
+from argparse import OPTIONAL, ArgumentParser, BooleanOptionalAction, Namespace
+from collections.abc import Callable
 from pathlib import Path
 from signal import SIGUSR1, signal
 from types import FrameType
-from typing import (
-    Callable,
-    Dict,
-    Generic,
-    Optional,
-    Protocol,
-    TypeVar,
-    final,
-    runtime_checkable,
-)
+from typing import Generic, Protocol, TypeVar, final, runtime_checkable
 
 import yaml
 from rich.console import Console
-from yaml import YAMLError
+from typing_extensions import override
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.console import get_console, set_console
+from fairseq2.error import AlreadyExistsError
 from fairseq2.logging import get_log_writer
 from fairseq2.recipes.logging import setup_basic_logging, setup_logging
-from fairseq2.recipes.utils.argparse import BooleanOptionalAction, ConfigAction
+from fairseq2.recipes.utils.argparse import ConfigAction
 from fairseq2.recipes.utils.environment import (
     EnvironmentSetterRegistry,
     default_env_setters,
 )
 from fairseq2.recipes.utils.log import log_config
 from fairseq2.recipes.utils.sweep import SweepTagger, default_sweep_tagger
-from fairseq2.typing import DataClass, override
-from fairseq2.utils.dataclass import FieldError, dump_dataclass, update_dataclass
-from fairseq2.utils.value_converter import ValueConverter, default_value_converter
+from fairseq2.typing import DataClass
+from fairseq2.utils.structured import (
+    StructuredError,
+    ValueConverter,
+    default_value_converter,
+    merge_unstructured,
+)
 
 log = get_log_writer(__name__)
 
@@ -52,8 +48,8 @@ class Cli:
     _name: str
     _origin_module: str
     _version: str
-    _description: Optional[str]
-    _groups: Dict[str, CliGroup]
+    _description: str | None
+    _groups: dict[str, CliGroup]
 
     def __init__(
         self,
@@ -61,7 +57,7 @@ class Cli:
         origin_module: str,
         *,
         version: str,
-        description: Optional[str] = None,
+        description: str | None = None,
     ) -> None:
         """
         :param name:
@@ -83,8 +79,8 @@ class Cli:
         self,
         name: str,
         *,
-        origin_module: Optional[str] = None,
-        help: Optional[str] = None,
+        origin_module: str | None = None,
+        help: str | None = None,
     ) -> CliGroup:
         """Add a command group.
 
@@ -96,7 +92,7 @@ class Cli:
             The help text of the command group.
         """
         if name in self._groups:
-            raise ValueError(
+            raise AlreadyExistsError(
                 f"`name` must be a unique group name, but '{name}' is already registered."
             )
 
@@ -111,8 +107,8 @@ class Cli:
         try:
             return self._groups[name]
         except KeyError:
-            raise ValueError(
-                f"`name` must be a registered group name, but is '{name}' instead."
+            raise LookupError(
+                f"`name` must be a registered group name, but '{name}' is not registered."
             ) from None
 
     def init_parser(self, parser: ArgumentParser) -> None:
@@ -174,7 +170,7 @@ class Cli:
         return self._version
 
     @property
-    def description(self) -> Optional[str]:
+    def description(self) -> str | None:
         """The description of the program."""
         return self._description
 
@@ -184,16 +180,16 @@ class CliGroup:
 
     _name: str
     _origin_module: str
-    _help: Optional[str]
-    _groups: Dict[str, CliGroup]
-    _commands: Dict[str, CliCommand]
+    _help: str | None
+    _groups: dict[str, CliGroup]
+    _commands: dict[str, CliCommand]
 
     def __init__(
         self,
         name: str,
         origin_module: str,
         *,
-        help: Optional[str] = None,
+        help: str | None = None,
     ) -> None:
         self._name = name
         self._origin_module = origin_module
@@ -205,8 +201,8 @@ class CliGroup:
         self,
         name: str,
         *,
-        origin_module: Optional[str] = None,
-        help: Optional[str] = None,
+        origin_module: str | None = None,
+        help: str | None = None,
     ) -> CliGroup:
         """Add a sub-command group.
 
@@ -230,8 +226,8 @@ class CliGroup:
         name: str,
         handler: CliCommandHandler,
         *,
-        origin_module: Optional[str] = None,
-        help: Optional[str] = None,
+        origin_module: str | None = None,
+        help: str | None = None,
     ) -> CliCommand:
         """Add a command.
 
@@ -256,12 +252,12 @@ class CliGroup:
 
     def _check_name(self, name: str) -> None:
         if name in self._groups:
-            raise ValueError(
+            raise AlreadyExistsError(
                 f"`name` must be a unique name among groups and commands, but '{name}' is already registered as a group name."
             )
 
         if name in self._commands:
-            raise ValueError(
+            raise AlreadyExistsError(
                 f"`name` must be a unique name among groups and commands, but '{name}' is already registered as a command name."
             )
 
@@ -270,8 +266,8 @@ class CliGroup:
         try:
             return self._groups[name]
         except KeyError:
-            raise ValueError(
-                f"`name` must be a registered group name, but is '{name}' instead."
+            raise LookupError(
+                f"`name` must be a registered group name, but '{name}' is not registered."
             ) from None
 
     def get_command(self, name: str) -> CliCommand:
@@ -279,8 +275,8 @@ class CliGroup:
         try:
             return self._commands[name]
         except KeyError:
-            raise ValueError(
-                f"`name` must be a registered command name, but is '{name}' instead."
+            raise LookupError(
+                f"`name` must be a registered command name, but '{name}' is not registered."
             ) from None
 
     def init_parser(self, parser: ArgumentParser) -> None:
@@ -330,7 +326,7 @@ class CliGroup:
         return self._origin_module
 
     @property
-    def help(self) -> Optional[str]:
+    def help(self) -> str | None:
         """The help text of the command group."""
         return self._help
 
@@ -341,7 +337,7 @@ class CliCommand:
     _name: str
     _handler: CliCommandHandler
     _origin_module: str
-    _help: Optional[str]
+    _help: str | None
 
     def __init__(
         self,
@@ -349,7 +345,7 @@ class CliCommand:
         handler: CliCommandHandler,
         origin_module: str,
         *,
-        help: Optional[str] = None,
+        help: str | None = None,
     ) -> None:
         self._name = name
         self._handler = handler
@@ -375,7 +371,7 @@ class CliCommand:
         return self._origin_module
 
     @property
-    def help(self) -> Optional[str]:
+    def help(self) -> str | None:
         """The help text of the command."""
         return self._help
 
@@ -431,7 +427,7 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
     _env_setters: EnvironmentSetterRegistry
     _value_converter: ValueConverter
     _sweep_tagger: SweepTagger
-    _parser: Optional[ArgumentParser]
+    _parser: ArgumentParser | None
 
     def __init__(
         self,
@@ -439,9 +435,9 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
         preset_configs: ConfigRegistry[RecipeConfigT],
         default_preset: str,
         *,
-        env_setters: Optional[EnvironmentSetterRegistry] = None,
-        value_converter: Optional[ValueConverter] = None,
-        sweep_tagger: Optional[SweepTagger] = None,
+        env_setters: EnvironmentSetterRegistry | None = None,
+        value_converter: ValueConverter | None = None,
+        sweep_tagger: SweepTagger | None = None,
     ) -> None:
         """
         :param loader:
@@ -567,56 +563,51 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
 
             sys.exit(1)
 
-        config = deepcopy(preset_config)
+        try:
+            unstructured_config = self._value_converter.unstructure(preset_config)
+        except StructuredError:
+            log.exception("Preset configuration '{}' cannot be used. Please file a bug report to the recipe author.", args.preset)  # fmt: skip
+
+            sys.exit(1)
 
         # Update the configuration with `--config-file`.
         if args.config_files:
             for config_file in args.config_files:
                 try:
                     with config_file.open() as fp:
-                        config_overrides = yaml.safe_load(fp)
-                except (OSError, YAMLError):
+                        unstructured_config_overrides = yaml.safe_load(fp)
+                except Exception:
                     log.exception("Configuration file '{}' cannot be read.", config_file)  # fmt: skip
 
                     sys.exit(1)
 
-                if not isinstance(config_overrides, dict):
-                    log.error("Configuration file '{}' must contain a dictionary.", config_file)  # fmt: skip
-
-                    sys.exit(1)
-
                 try:
-                    unknown_fields = update_dataclass(
-                        config, config_overrides, value_converter=self._value_converter
+                    unstructured_config = merge_unstructured(
+                        unstructured_config, unstructured_config_overrides
                     )
-                except FieldError as ex:
-                    log.exception("Value of the field '{}' in the configuration file '{}' is invalid.", ex.field_name, config_file)  # fmt: skip
-
-                    sys.exit(1)
-
-                if unknown_fields:
-                    log.error("Following fields in the configuration file '{}' are unknown: {}", config_file, ", ".join(unknown_fields))  # fmt: skip
+                except StructuredError:
+                    log.exception("Configuration file '{}' cannot be used.", config_file)  # fmt: skip
 
                     sys.exit(1)
 
         # Update the configuration with `--config`.
         if args.config_overrides:
             try:
-                unknown_fields = update_dataclass(
-                    config, args.config_overrides, value_converter=self._value_converter
+                unstructured_config = merge_unstructured(
+                    unstructured_config, args.config_overrides
                 )
-            except FieldError as ex:
-                log.exception("Value of the field '{}' in `--config` is invalid.", ex.field_name)  # fmt: skip
-
-                sys.exit(1)
-
-            if unknown_fields:
-                log.error("Following fields in `--config` are unknown: {}", ", ".join(unknown_fields))  # fmt: skip
+            except StructuredError:
+                log.exception("Command line configuration overrides cannot be applied.")
 
                 sys.exit(1)
 
         if args.dump_config:
-            dump_dataclass(config, sys.stdout)
+            try:
+                yaml.safe_dump(unstructured_config, sys.stdout, sort_keys=False)
+            except Exception:
+                log.exception("Configuration cannot be dumped to stdout.")
+
+                sys.exit(1)
 
             sys.exit()
 
@@ -645,15 +636,20 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
             sys.exit(1)
 
         # Determine the output directory.
-        if args.no_sweep_dir:
-            output_dir = args.output_dir
-        else:
-            tag = self._sweep_tagger(args.preset, preset_config, config)
+        output_dir = args.output_dir.expanduser().resolve()
 
-            output_dir = args.output_dir.joinpath(tag)
+        if not args.no_sweep_dir:
+            try:
+                tag = self._sweep_tagger(args.preset, unstructured_config)
+            except LookupError:
+                log.exception("sweep format")
+
+                sys.exit(1)
+
+            output_dir = output_dir.joinpath(tag)
 
         # Set up distributed logging.
-        log_file = output_dir.expanduser().joinpath("logs/rank_{rank}.log").resolve()
+        log_file = output_dir.joinpath("logs/rank_{rank}.log")
 
         try:
             setup_logging(log_file, debug=args.debug)
@@ -664,7 +660,28 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
 
         log.info("Log files stored under {}.", log_file.parent)
 
-        log_config(config, log, output_dir.joinpath("config.yaml"))
+        log_config(unstructured_config, log)
+
+        # Save the configuration to a YAML file.
+        config_file = output_dir.joinpath("config.yaml")
+
+        try:
+            with config_file.open("w") as fp:
+                yaml.safe_dump(unstructured_config, fp, sort_keys=False)
+        except Exception:
+            log.exception("The configuration cannot be saved to file.")
+
+            sys.exit(1)
+
+        # Parse the configuration.
+        try:
+            config = self._value_converter.structure(
+                unstructured_config, type_expr=self._preset_configs.config_kls
+            )
+        except StructuredError:
+            log.exception("Configuration cannot be parsed.")
+
+            sys.exit(1)
 
         # Load and run the recipe.
         recipe = self._loader(config, output_dir)

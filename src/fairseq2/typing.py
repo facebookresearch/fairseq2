@@ -6,17 +6,18 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import Field, is_dataclass
-from typing import Any, Callable, ClassVar, Dict, Final, Protocol, TypeVar
+from typing import Any, ClassVar, Final, Protocol, TypeAlias, TypeGuard, TypeVar
 
+import typing_extensions
 from torch import device, dtype
-from typing_extensions import TypeAlias, TypeGuard
 
 
 class DataClass(Protocol):
     """Represents a data class object."""
 
-    __dataclass_fields__: ClassVar[Dict[str, Field[Any]]]
+    __dataclass_fields__: ClassVar[dict[str, Field[Any]]]
 
 
 def is_dataclass_instance(obj: Any) -> TypeGuard[DataClass]:
@@ -27,9 +28,7 @@ def is_dataclass_instance(obj: Any) -> TypeGuard[DataClass]:
 F = TypeVar("F", bound=Callable[..., Any])
 
 
-def override(f: F) -> F:
-    """Indicate that the decorated member overrides an inherited virtual member."""
-    return f
+override = typing_extensions.override  # compat
 
 
 Device: TypeAlias = device

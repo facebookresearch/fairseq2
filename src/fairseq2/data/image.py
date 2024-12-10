@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, TypedDict, final
+from typing import TYPE_CHECKING, TypedDict, final
 
 from fairseq2n import DOC_MODE
 from torch import Tensor
@@ -20,7 +20,7 @@ if TYPE_CHECKING or DOC_MODE:
     class ImageDecoder:
         def __init__(
             self,
-            device: Optional[Device] = None,
+            device: Device | None = None,
             pin_memory: bool = False,
         ) -> None:
             ...

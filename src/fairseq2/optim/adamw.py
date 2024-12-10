@@ -7,14 +7,14 @@
 from __future__ import annotations
 
 from itertools import chain
-from typing import Any, Dict, Iterable, List, Literal, Tuple, Union, cast, final
+from typing import Any, Literal, cast, final
 
 import torch
 from torch import Tensor
 from torch.optim.adamw import adamw  # type: ignore[attr-defined]
+from typing_extensions import override
 
-from fairseq2.optim.optimizer import AbstractOptimizer
-from fairseq2.typing import override
+from fairseq2.optim.optimizer import AbstractOptimizer, ParameterCollection
 
 
 @final
@@ -28,10 +28,10 @@ class AdamW(AbstractOptimizer):
 
     def __init__(
         self,
-        params: Union[Iterable[Tensor], Iterable[Dict[str, Any]]],
+        params: ParameterCollection,
         *,
         lr: float = 1e-3,
-        betas: Tuple[float, float] = (0.9, 0.999),
+        betas: tuple[float, float] = (0.9, 0.999),
         eps: float = 1e-8,
         weight_decay: float = 0.0,
         amsgrad: bool = False,
@@ -56,8 +56,7 @@ class AdamW(AbstractOptimizer):
         :param amsgrad:
             If ``True``, uses the AMSGrad variant.
         :param maximize:
-            If ``True``, maximizes the parameters based on the objective,
-            instead of minimizing.
+            If ``True``, maximizes the parameters instead of minimizing.
         :param capturable:
             If ``True``, it is safe to capture this instance in a CUDA graph.
         :param differentiable:
@@ -66,10 +65,9 @@ class AdamW(AbstractOptimizer):
             The implementation variant. See :class:`torch.optim.AdamW` for
             details.
         :param use_fp32:
-            If ``True``, stores the optimizer state (e.g. momentum) in single
-            precision (i.e. ``torch.float32``) and, during a ``step()`` call,
-            converts gradients on-the-fly to single precision for better
-            numerical stability for low-precision training.
+            If ``True``, stores the optimizer state in single precision and
+            converts gradients on-the-fly to single precision for numerical
+            stability.
         """
         defaults = {
             "lr": lr,
@@ -101,7 +99,7 @@ class AdamW(AbstractOptimizer):
 
             self._step_supports_amp_scaling = True
 
-    def load_state_dict(self, state_dict: Dict[str, Any]) -> None:
+    def load_state_dict(self, state_dict: dict[str, Any]) -> None:
         super().load_state_dict(state_dict)
 
         state_keys = ["step", "exp_avg", "exp_avg_sq", "max_exp_avg_sq"]
@@ -148,12 +146,12 @@ class AdamW(AbstractOptimizer):
 
         for pg in self.param_groups:
             use_fp32: bool = pg["use_fp32"]
-            params_with_grad: List[Tensor] = []
-            grads: List[Tensor] = []
-            steps: List[Tensor] = []
-            exp_avgs: List[Tensor] = []
-            exp_avg_sqs: List[Tensor] = []
-            max_exp_avg_sqs: List[Tensor] = []
+            params_with_grad: list[Tensor] = []
+            grads: list[Tensor] = []
+            steps: list[Tensor] = []
+            exp_avgs: list[Tensor] = []
+            exp_avg_sqs: list[Tensor] = []
+            max_exp_avg_sqs: list[Tensor] = []
             amsgrad = pg["amsgrad"]
             beta1, beta2 = pg["betas"]
 
@@ -171,7 +169,7 @@ class AdamW(AbstractOptimizer):
                     amsgrad,
                 )
 
-            kwargs: Dict[str, Any] = {}
+            kwargs: dict[str, Any] = {}
 
             if pg["differentiable"]:
                 kwargs["differentiable"] = True
@@ -222,14 +220,14 @@ class AdamW(AbstractOptimizer):
     def _init_param(
         self,
         param: Tensor,
-        param_group: Dict[str, Any],
+        param_group: dict[str, Any],
         use_fp32: bool,
-        params_with_grad: List[Tensor],
-        grads: List[Tensor],
-        steps: List[Tensor],
-        exp_avgs: List[Tensor],
-        exp_avg_sqs: List[Tensor],
-        max_exp_avg_sqs: List[Tensor],
+        params_with_grad: list[Tensor],
+        grads: list[Tensor],
+        steps: list[Tensor],
+        exp_avgs: list[Tensor],
+        exp_avg_sqs: list[Tensor],
+        max_exp_avg_sqs: list[Tensor],
         amsgrad: bool,
     ) -> None:
         grad = param.grad
@@ -239,7 +237,7 @@ class AdamW(AbstractOptimizer):
         if grad.is_sparse:
             raise RuntimeError("`AdamW` does not support sparse gradients.")
 
-        state = cast(Dict[str, Tensor], self.state[param])  # type: ignore[index]
+        state = cast(dict[str, Tensor], self.state[param])  # type: ignore[index]
 
         if use_fp32:
             if param.dtype != torch.float32:

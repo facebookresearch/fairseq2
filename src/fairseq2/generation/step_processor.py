@@ -7,7 +7,8 @@
 from __future__ import annotations
 
 import sys
-from typing import List, Optional, Protocol, Sequence, final
+from collections.abc import Sequence
+from typing import Protocol, final
 
 import torch
 from torch import Tensor
@@ -36,8 +37,8 @@ class StepProcessor(Protocol):
 class BannedSequenceProcessor(StepProcessor):
     """Prevents a provided list of banned sequences from being generated."""
 
-    _banned_seqs: Optional[Tensor]
-    _banned_mask: Optional[Tensor]
+    _banned_seqs: Tensor | None
+    _banned_mask: Tensor | None
 
     def __init__(self, banned_seqs: Sequence[Tensor]) -> None:
         """
@@ -55,7 +56,7 @@ class BannedSequenceProcessor(StepProcessor):
         max_seq_len = 0
         min_seq_len = sys.maxsize
 
-        seq_lens: List[int] = []
+        seq_lens: list[int] = []
 
         for idx, seq in enumerate(banned_seqs):
             seq_len = len(seq)

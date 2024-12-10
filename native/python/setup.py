@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from os import path
-from typing import Final, List, Optional
+from typing import Final
 
 import torch
 from setuptools import Command, find_packages, setup
@@ -88,7 +88,7 @@ class install_cmake(Command):
 
         self._cmake_install(component="python")
 
-    def _cmake_install(self, component: Optional[str] = None) -> None:
+    def _cmake_install(self, component: str | None = None) -> None:
         cmd = ["cmake", "--install", self.cmake_build_dir]
 
         if component:
@@ -101,7 +101,7 @@ class install_cmake(Command):
 
         self.spawn(cmd)
 
-    def get_outputs(self) -> List[str]:
+    def get_outputs(self) -> list[str]:
         outputs = []
 
         if self.bundle_lib:
@@ -125,7 +125,7 @@ class install_cmake(Command):
 
         return outputs
 
-    def get_inputs(self) -> List[str]:
+    def get_inputs(self) -> list[str]:
         # We take no input.
         return []
 

@@ -9,9 +9,10 @@ from __future__ import annotations
 import sys
 from argparse import ArgumentParser, Namespace
 from datetime import timedelta
-from typing import List, Optional, final
+from typing import final
 
 import torch
+from typing_extensions import override
 
 from fairseq2.console import get_console
 from fairseq2.data.text import load_text_tokenizer
@@ -21,16 +22,17 @@ from fairseq2.generation import (
     ChatMessage,
     SamplingSequenceGenerator,
     TopPSampler,
+    chatbot_factories,
 )
 from fairseq2.logging import get_log_writer
-from fairseq2.models import create_chatbot, load_model
+from fairseq2.models import load_model
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.recipes.cli import CliCommandHandler
 from fairseq2.recipes.logging import setup_basic_logging
 from fairseq2.recipes.utils.argparse import parse_dtype
 from fairseq2.recipes.utils.environment import default_env_setters
-from fairseq2.recipes.utils.setup import check_model_type, setup_gangs
-from fairseq2.typing import CPU, override
+from fairseq2.recipes.utils.setup import setup_gangs
+from fairseq2.typing import CPU
 from fairseq2.utils.rng import RngBag
 
 log = get_log_writer(__name__)
@@ -147,7 +149,10 @@ class ChatbotCommandHandler(CliCommandHandler):
 
         model = load_model(args.model_name, gangs=gangs, dtype=args.dtype)
 
-        check_model_type(model, DecoderModel)
+        if not isinstance(model, DecoderModel):
+            log.exception("The model must be of type `{}`, but is of type `{}` instead.", DecoderModel, type(model))  # fmt: skip
+
+            sys.exit(1)
 
         log.info("Model loaded.")
 
@@ -158,7 +163,19 @@ class ChatbotCommandHandler(CliCommandHandler):
             model, sampler, temperature=args.temperature, max_gen_len=args.max_gen_len  # type: ignore[arg-type]
         )
 
-        chatbot = create_chatbot(generator, tokenizer)
+        if model.family is None:
+            log.error("The model has no family name defined.")
+
+            sys.exit(1)
+
+        try:
+            chatbot_factory = chatbot_factories.get(model.family)
+
+            chatbot = chatbot_factory(generator, tokenizer)
+        except ValueError:
+            log.exception("The chatbot cannot be created.")
+
+            sys.exit(1)
 
         rng_bag = RngBag.from_device_defaults(CPU, root_gang.device)
 
@@ -216,7 +233,7 @@ class ChatbotCommandHandler(CliCommandHandler):
                 raise
         else:
             while True:
-                message_buffer: List[Optional[ChatMessage]] = [None]
+                message_buffer: list[ChatMessage | None] = [None]
 
                 gang.broadcast_objects(message_buffer)
 

@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, Tuple, final
+from typing import final
 
 import torch
 import torch.nn as nn
@@ -33,8 +33,8 @@ class Wav2Vec2AsrModel(Model):
 
     model_dim: int
     encoder_frontend: Wav2Vec2Frontend
-    masker: Optional[Wav2Vec2Masker]
-    final_dropout: Optional[Dropout]
+    masker: Wav2Vec2Masker | None
+    final_dropout: Dropout | None
     final_proj: Linear
     target_vocab_info: VocabularyInfo
 
@@ -44,10 +44,10 @@ class Wav2Vec2AsrModel(Model):
         encoder: TransformerEncoder,
         target_vocab_info: VocabularyInfo,
         *,
-        masker: Optional[Wav2Vec2Masker] = None,
+        masker: Wav2Vec2Masker | None = None,
         final_dropout_p: float = 0.0,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param encoder_frontend:
@@ -91,7 +91,7 @@ class Wav2Vec2AsrModel(Model):
         :param batch:
             The batch of sequences to process.
         """
-        seqs, padding_mask = self.encoder_frontend.extract_features(
+        seqs, padding_mask, _ = self.encoder_frontend.extract_features(
             batch.seqs, batch.padding_mask
         )
 
@@ -125,13 +125,13 @@ class Wav2Vec2AsrOutput:
     where :math:`N` is the batch size, :math:`S_{out}` is the output sequence
     length, and :math:`T` is the size of the vocabulary."""
 
-    padding_mask: Optional[PaddingMask]
+    padding_mask: PaddingMask | None
     """The padding mask of :attr:`logits`. *Shape:* :math:`(N,S_{out})`, where
     :math:`N` is the batch size and :math:`S_{out}` is the output sequence
     length."""
 
     def compute_loss(
-        self, targets: Tensor, target_padding_mask: Optional[PaddingMask]
+        self, targets: Tensor, target_padding_mask: PaddingMask | None
     ) -> Tensor:
         """Compute the CTC (Connectionist Temporal Classification) loss.
 
@@ -169,7 +169,7 @@ class Wav2Vec2AsrOutput:
 
     def generate_hypotheses(
         self, pad_idx: int, blank_label: int = 0
-    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+    ) -> tuple[Tensor, PaddingMask | None]:
         """Generate hypotheses using greedy search.
 
         :param pad_idx:

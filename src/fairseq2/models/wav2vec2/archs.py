@@ -84,7 +84,7 @@ def _pseudo_dinosr_base() -> Wav2Vec2Config:
     )
 
     return Wav2Vec2Config(
-        encoder_config,
+        encoder_config=encoder_config,
         final_dim=256,
         final_proj_bias=True,
         temporal_mask_span_len=10,

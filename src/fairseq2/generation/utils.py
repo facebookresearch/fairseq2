@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Optional, final
+from typing import final
 
 from rich.console import Console
 from torch import Tensor
@@ -35,7 +35,7 @@ class _StdOutPrintHook:
         self,
         prompt_indices: Tensor,
         seqs: Tensor,
-        step_scores: Optional[Tensor],
+        step_scores: Tensor | None,
         prefill: bool,
     ) -> None:
         assert len(prompt_indices) == 1

@@ -7,14 +7,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Final, Optional
+from typing import Final
 
 from torch.nn import SiLU
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data import VocabularyInfo
 from fairseq2.models.conformer import ConformerBlock, ConformerConvolution
-from fairseq2.models.factory import create_model
+from fairseq2.models.factory import model_factories
 from fairseq2.models.s2t_transformer.feature_extractor import Conv1dFbankSubsampler
 from fairseq2.models.s2t_transformer.frontend import S2TTransformerFrontend
 from fairseq2.models.transformer import (
@@ -53,7 +53,7 @@ from fairseq2.typing import DataType, Device
 S2T_TRANSFORMER_FAMILY: Final = "s2t_transformer"
 
 
-@dataclass
+@dataclass(kw_only=True)
 class S2TTransformerConfig:
     """Holds the configuration of an S2T Transformer model.
 
@@ -122,16 +122,16 @@ class S2TTransformerBuilder:
     """
 
     _config: S2TTransformerConfig
-    _device: Optional[Device]
-    _dtype: Optional[DataType]
-    _rel_pos_encoding: Optional[RelativePositionalEncoding]
+    _device: Device | None
+    _dtype: DataType | None
+    _rel_pos_encoding: RelativePositionalEncoding | None
 
     def __init__(
         self,
         config: S2TTransformerConfig,
         *,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param config:
@@ -164,7 +164,7 @@ class S2TTransformerBuilder:
             dtype=self._dtype,
         )
 
-        return TransformerModel(
+        model = TransformerModel(
             encoder_frontend,
             encoder,
             decoder_frontend,
@@ -173,6 +173,10 @@ class S2TTransformerBuilder:
             self._config.max_target_seq_len,
             self._config.target_vocab_info,
         )
+
+        model.set_family(S2T_TRANSFORMER_FAMILY)
+
+        return model
 
     def build_encoder_frontend(self) -> TransformerFrontend:
         """Build a Transformer encoder front-end."""
@@ -218,7 +222,7 @@ class S2TTransformerBuilder:
             dtype=self._dtype,
         )
 
-    def build_source_position_encoder(self) -> Optional[PositionEncoder]:
+    def build_source_position_encoder(self) -> PositionEncoder | None:
         """Build a position encoder for source sequences."""
         if self._config.use_relative_pos:
             return None
@@ -392,26 +396,16 @@ class S2TTransformerBuilder:
 def create_s2t_transformer_model(
     config: S2TTransformerConfig,
     *,
-    device: Optional[Device] = None,
-    dtype: Optional[DataType] = None,
+    device: Device | None = None,
+    dtype: DataType | None = None,
 ) -> TransformerModel:
-    """Create an S2T Transformer model.
-
-    :param config:
-        The configuration.
-    :param device:
-        The device on which to initialize modules.
-    :param dtype:
-        The data type of module parameters and buffers.
-    """
-    model = S2TTransformerBuilder(config, device=device, dtype=dtype).build_model()
-
-    return model.set_family(S2T_TRANSFORMER_FAMILY)
+    """Create an S2T Transformer model."""
+    return S2TTransformerBuilder(config, device=device, dtype=dtype).build_model()
 
 
-create_model.register(
-    family=S2T_TRANSFORMER_FAMILY,
-    factory=create_s2t_transformer_model,
-    config_kls=S2TTransformerConfig,
-    arch_configs=s2t_transformer_archs,
+model_factories.register(
+    S2T_TRANSFORMER_FAMILY,
+    create_s2t_transformer_model,
+    S2TTransformerConfig,
+    s2t_transformer_archs,
 )

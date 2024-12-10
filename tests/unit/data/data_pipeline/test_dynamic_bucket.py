@@ -220,6 +220,36 @@ class TestDynamicBucketOp:
 
             pipeline.reset()
 
+    def test_op_works_with_bucket_creation_fn_set(self) -> None:
+        seq = list(range(1, 7))
+
+        threshold = 6
+        cost_fn = lambda x: x
+        bucket_creation_fn = lambda l: ([l[:-1]], [l[-1]])
+
+        pipeline = (
+            read_sequence(seq)
+            .dynamic_bucket(
+                threshold,
+                cost_fn,
+                bucket_creation_fn=bucket_creation_fn,
+            )
+            .and_return()
+        )
+
+        for _ in range(2):
+            it = iter(pipeline)
+
+            assert next(it) == [1, 2]
+            assert next(it) == [3, 4]
+            assert next(it) == [5]
+            assert next(it) == [6]
+
+            with pytest.raises(StopIteration):
+                next(it)
+
+            pipeline.reset()
+
     def test_op_raises_error_when_threshold_is_nonpositive(self) -> None:
         with pytest.raises(
             ValueError, match=r"^`threshold` must be greater than zero\.$"

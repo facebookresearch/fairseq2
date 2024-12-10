@@ -7,8 +7,9 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping, Sequence
 from copy import deepcopy
-from typing import Any, Dict, Mapping, Optional, Sequence, final
+from typing import Any, final
 
 from torcheval.metrics import Metric
 from torcheval.metrics.toolkit import sync_and_compute_collection
@@ -20,9 +21,9 @@ class MetricBag:
     """Holds a collection of training or validation metrics."""
 
     _gang: Gang
-    _metrics: Dict[str, Metric[Any]]
-    _persistent_metrics: Dict[str, Metric[Any]]
-    _original_metrics: Optional[Dict[str, Metric[Any]]]
+    _metrics: dict[str, Metric[Any]]
+    _persistent_metrics: dict[str, Metric[Any]]
+    _original_metrics: dict[str, Metric[Any]] | None
 
     def __init__(self, gang: Gang) -> None:
         """
@@ -99,7 +100,12 @@ class MetricBag:
         if self._original_metrics is not None:
             raise ValueError("`begin_updates()` has already been called.")
 
-        self._original_metrics = deepcopy(self._metrics)
+        try:
+            self._original_metrics = deepcopy(self._metrics)
+        except Exception as ex:
+            raise RuntimeError(
+                f"The metrics in the bag cannot be copied. See nested exception for details and please file a bug report to the author of `{type(self)}`."
+            ) from ex
 
     @final
     def commit_updates(self) -> None:
@@ -135,11 +141,11 @@ class MetricBag:
                 metric.reset()
 
     @final
-    def sync_and_compute_metrics(self) -> Optional[Dict[str, Any]]:
+    def sync_and_compute_metrics(self) -> dict[str, Any] | None:
         """Sync the metrics across all processes and compute their values."""
         return sync_and_compute_metrics([self])
 
-    def process_metric_values(self, values: Dict[str, Any]) -> None:
+    def process_metric_values(self, values: dict[str, Any]) -> None:
         """Process metric ``values``."""
 
     @property
@@ -148,7 +154,7 @@ class MetricBag:
         return self._metrics
 
     @final
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         state_dict = {}
 
         for name, metric in self._persistent_metrics.items():
@@ -181,7 +187,7 @@ def reset_non_persistent_metrics(bags: Sequence[MetricBag]) -> None:
         bag.reset_non_persistent_metrics()
 
 
-def sync_and_compute_metrics(bags: Sequence[MetricBag]) -> Optional[Dict[str, Any]]:
+def sync_and_compute_metrics(bags: Sequence[MetricBag]) -> dict[str, Any] | None:
     """Sync the metrics across all processes and and compute their values."""
     if not bags:
         return None

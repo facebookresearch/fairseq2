@@ -7,13 +7,14 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple, cast, final
+from typing import cast, final
 
 import torch
 import torch.nn as nn
 from torch import Tensor
 from torch.nn import Dropout, Module
 from torch.nn.parameter import Parameter
+from typing_extensions import override
 
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.normalization import LayerNorm
@@ -26,7 +27,7 @@ from fairseq2.nn.transformer.layer_norm import (
 )
 from fairseq2.nn.transformer.multihead_attention import MultiheadAttention
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
-from fairseq2.typing import DataType, Device, override
+from fairseq2.typing import DataType, Device
 
 
 class TransformerDecoderLayer(Module, ABC):
@@ -47,13 +48,13 @@ class TransformerDecoderLayer(Module, ABC):
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
-        self_attn_mask: Optional[AttentionMask] = None,
-        encoder_output: Optional[Tensor] = None,
-        encoder_padding_mask: Optional[PaddingMask] = None,
+        padding_mask: PaddingMask | None,
+        self_attn_mask: AttentionMask | None = None,
+        encoder_output: Tensor | None = None,
+        encoder_padding_mask: PaddingMask | None = None,
         *,
-        state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+        state_bag: IncrementalStateBag | None = None,
+    ) -> tuple[Tensor, PaddingMask | None]:
         """
         :param seqs:
             The sequences to process. *Shape:* :math:`(N,S,M)`, where :math:`N`
@@ -95,30 +96,30 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
     :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`."""
 
     self_attn: MultiheadAttention
-    self_attn_norm: Optional[LayerNorm]
-    self_attn_dropout: Optional[Dropout]
+    self_attn_norm: LayerNorm | None
+    self_attn_dropout: Dropout | None
     self_attn_layer_norm: LayerNorm
-    encoder_decoder_attn: Optional[MultiheadAttention]
-    encoder_decoder_attn_dropout: Optional[Dropout]
-    encoder_decoder_attn_layer_norm: Optional[LayerNorm]
+    encoder_decoder_attn: MultiheadAttention | None
+    encoder_decoder_attn_dropout: Dropout | None
+    encoder_decoder_attn_layer_norm: LayerNorm | None
     ffn: FeedForwardNetwork
-    ffn_dropout: Optional[Dropout]
-    residual_scale: Optional[Parameter]
+    ffn_dropout: Dropout | None
+    residual_scale: Parameter | None
     ffn_layer_norm: LayerNorm
     norm_order: TransformerNormOrder
 
     def __init__(
         self,
         self_attn: MultiheadAttention,
-        encoder_decoder_attn: Optional[MultiheadAttention],
+        encoder_decoder_attn: MultiheadAttention | None,
         ffn: FeedForwardNetwork,
         *,
         scale_residual: bool = False,
         dropout_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
-        layer_norm_factory: Optional[LayerNormFactory] = None,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        layer_norm_factory: LayerNormFactory | None = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param self_attn:
@@ -224,13 +225,13 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
-        self_attn_mask: Optional[AttentionMask] = None,
-        encoder_output: Optional[Tensor] = None,
-        encoder_padding_mask: Optional[PaddingMask] = None,
+        padding_mask: PaddingMask | None,
+        self_attn_mask: AttentionMask | None = None,
+        encoder_output: Tensor | None = None,
+        encoder_padding_mask: PaddingMask | None = None,
         *,
-        state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+        state_bag: IncrementalStateBag | None = None,
+    ) -> tuple[Tensor, PaddingMask | None]:
         seqs = self._forward_self_attn(seqs, padding_mask, self_attn_mask, state_bag)
 
         seqs = self._forward_encoder_decoder_attn(
@@ -244,9 +245,9 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
     def _forward_self_attn(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
-        self_attn_mask: Optional[AttentionMask],
-        state_bag: Optional[IncrementalStateBag],
+        padding_mask: PaddingMask | None,
+        self_attn_mask: AttentionMask | None,
+        state_bag: IncrementalStateBag | None,
     ) -> Tensor:
         residual = seqs
 
@@ -279,10 +280,10 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
     def _forward_encoder_decoder_attn(
         self,
         seqs: Tensor,
-        padding_mask: Optional[PaddingMask],
-        encoder_output: Optional[Tensor],
-        encoder_padding_mask: Optional[PaddingMask],
-        state_bag: Optional[IncrementalStateBag],
+        padding_mask: PaddingMask | None,
+        encoder_output: Tensor | None,
+        encoder_padding_mask: PaddingMask | None,
+        state_bag: IncrementalStateBag | None,
     ) -> Tensor:
         if self.encoder_decoder_attn is None:
             if encoder_output is not None:

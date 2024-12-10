@@ -8,16 +8,17 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional, Tuple, final
+from typing import final
 
 import torch
 import torch.nn as nn
 from torch import Tensor
 from torch.nn import Module, Parameter
 from torch.nn.functional import gumbel_softmax
+from typing_extensions import override
 
 from fairseq2.nn import Linear
-from fairseq2.typing import DataType, Device, override
+from fairseq2.typing import DataType, Device
 
 
 class VectorQuantizer(Module, ABC):
@@ -83,9 +84,9 @@ class GumbelVectorQuantizer(VectorQuantizer):
         num_codebooks: int,
         num_codebook_entries: int,
         *,
-        codebook_sampling_temperature: Tuple[float, float, float],
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        codebook_sampling_temperature: tuple[float, float, float],
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ):
         """
         :param input_dim:
@@ -188,10 +189,17 @@ class GumbelVectorQuantizer(VectorQuantizer):
 
         cb = x
 
-        x = x.unsqueeze(-1) * self.entries
-        x = x.view(bsz * tsz, self.num_codebooks, self.num_codebook_entries, -1)
-        x = x.sum(-2)
-        x = x.view(bsz, tsz, -1)
+        @torch.compile(fullgraph=True)
+        def compute_sum(x: torch.Tensor) -> torch.Tensor:
+            return torch.sum(
+                x.view(bsz * tsz, self.num_codebooks, self.num_codebook_entries, 1)
+                * self.entries.view(
+                    1, self.num_codebooks, self.num_codebook_entries, -1
+                ),
+                dim=-2,
+            )
+
+        x = compute_sum(x).view(bsz, tsz, -1)
 
         return GumbelVectorQuantizerOutput(
             x,

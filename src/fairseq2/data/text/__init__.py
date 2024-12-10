@@ -31,6 +31,7 @@ from fairseq2.data.text.sentencepiece import (
 from fairseq2.data.text.sentencepiece import (
     default_raw_sentencepiece_tokenizer_loader as default_raw_sentencepiece_tokenizer_loader,
 )
+from fairseq2.data.text.sentencepiece import load_char_tokenizer as load_char_tokenizer
 from fairseq2.data.text.sentencepiece import (
     vocab_info_from_sentencepiece as vocab_info_from_sentencepiece,
 )

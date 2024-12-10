@@ -8,32 +8,20 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import (
-    Any,
-    Dict,
-    Generic,
-    Mapping,
-    Optional,
-    Protocol,
-    Set,
-    Tuple,
-    TypeVar,
-    final,
-    runtime_checkable,
-)
+from collections.abc import Mapping
+from typing import Any, Generic, Protocol, TypeVar, final, runtime_checkable
 
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn import Module
 from torch.optim import Optimizer
-
-from fairseq2.typing import override
+from typing_extensions import override
 
 
 @runtime_checkable
 class Stateful(Protocol):
     """Represents an object that follows the ``state_dict`` convention."""
 
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         ...
 
     def load_state_dict(self, state_dict: Mapping[str, Any]) -> None:
@@ -46,8 +34,8 @@ StatefulT = TypeVar("StatefulT")
 class StatefulObjectBag:
     """Holds a collection of stateful objects."""
 
-    _non_stateful_attrs: Set[str]
-    _explicit_stateful_attrs: Dict[str, Optional[StateHandler[Any]]]
+    _non_stateful_attrs: set[str]
+    _explicit_stateful_attrs: dict[str, StateHandler[Any] | None]
 
     def __init__(self) -> None:
         super().__init__()  # play nicely as a mixin.
@@ -74,7 +62,7 @@ class StatefulObjectBag:
         self,
         name: str,
         obj: StatefulT,
-        state_handler: Optional[StateHandler[StatefulT]] = None,
+        state_handler: StateHandler[StatefulT] | None = None,
     ) -> None:
         """Add ``obj`` to the bag and preserve its state in ``state_dict``.
 
@@ -115,7 +103,7 @@ class StatefulObjectBag:
         setattr(self, name, obj)
 
     @final
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         state_dict = {}
 
         state: Any
@@ -171,9 +159,8 @@ class StatefulObjectBag:
                 else:
                     state_handler.set_state(obj, state)
             elif isinstance(obj, Stateful) and not self._is_dunder(name):
-                try:
-                    state = state_dict_.pop(name)
-                except KeyError:
+                state = state_dict_.pop(name, None)
+                if state is None:
                     missing_stateful_attrs.append(name)
 
                     continue
@@ -193,10 +180,10 @@ class StatefulObjectBag:
             extra_keys.sort()
 
             raise ValueError(
-                f"`state_dict` must only contain the states of the attributes of this object, but it contains the following extra keys: {', '.join(extra_keys)}"
+                f"`state_dict` must contain only the states of the attributes of this object, but it contains the following extra keys: {', '.join(extra_keys)}"
             )
 
-    def _is_explicit(self, name: str) -> Tuple[bool, Optional[StateHandler[Any]]]:
+    def _is_explicit(self, name: str) -> tuple[bool, StateHandler[Any] | None]:
         try:
             state_handler = self._explicit_stateful_attrs[name]
 
@@ -246,6 +233,10 @@ class FSDPOptimizerStateHandler(StateHandler[Optimizer]):
             logging.disable(logging.WARNING)
 
             return FSDP.optim_state_dict(self._module, stateful)
+        except UnicodeDecodeError as ex:
+            raise RuntimeError(
+                "FSDP has failed to gather optimizer state with a pickling error. This might indicate a disk space issue. Make sure you have enough space on your file system. See nested exception for details."
+            ) from ex
         finally:
             logging.disable(logging.NOTSET)
 

@@ -8,8 +8,9 @@ from __future__ import annotations
 
 import math
 import warnings
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Mapping, Optional, Tuple, Union, cast, final
+from typing import Any, cast, final
 from warnings import catch_warnings
 
 import torch
@@ -20,7 +21,7 @@ from torch.optim import Optimizer
 
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
-from fairseq2.typing import Device, override
+from fairseq2.typing import Device
 
 log = get_log_writer(__name__)
 
@@ -33,10 +34,10 @@ class DynamicLossScaler:
     _optimizer: Optimizer
     _scale_window: int
     _min_scale: float
-    _is_enabled: bool
+    _enabled: bool
 
-    # TODO: consolidate into `GradScaler` once we cease support for PT2.2
-    _grad_scaler: Union[GradScaler, ShardedGradScaler]
+    # compat: consolidate into `GradScaler` once we cease support for PT2.2
+    _grad_scaler: GradScaler | ShardedGradScaler
 
     def __init__(
         self,
@@ -46,7 +47,7 @@ class DynamicLossScaler:
         sharded: bool = True,
         init_scale: float = 2.0**15,
         scale_factor: float = 2.0,
-        scale_window: Optional[int] = None,
+        scale_window: int | None = None,
         min_scale: float = 0.0,
         gradient_accumulation: int = 1,
         enabled: bool = True,
@@ -131,9 +132,9 @@ class DynamicLossScaler:
         self._optimizer = optimizer
         self._scale_window = scale_window
         self._min_scale = min_scale
-        self._is_enabled = enabled
+        self._enabled = enabled
 
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         return {"grad_scaler": self._grad_scaler.state_dict()}
 
     def load_state_dict(self, state_dict: Mapping[str, Any]) -> None:
@@ -145,8 +146,8 @@ class DynamicLossScaler:
             ) from ex
 
     def run_optimizer_step(
-        self, step_nr: int, closure: Optional[Callable[[], float]] = None
-    ) -> Tuple[Optional[float], LossScaleResult]:
+        self, step_nr: int, closure: Callable[[], float] | None = None
+    ) -> tuple[float | None, LossScaleResult]:
         """Perform a single optimization step.
 
         :param step_nr:
@@ -200,7 +201,7 @@ class DynamicLossScaler:
 
     def unscale_gradients_(self) -> None:
         """Unscale the associated optimizer's gradients by the current scale."""
-        if not supports_manual_gradient_scaling(self._optimizer):
+        if self._enabled and not supports_manual_gradient_scaling(self._optimizer):
             raise RuntimeError(
                 "`optimizer` must support manual gradient scaling via `torch.cuda.amp.GradScaler`, but supports only implicit scaling in its step function (i.e. `_step_supports_amp_scaling == True`)."
             )
@@ -218,7 +219,7 @@ class DynamicLossScaler:
     @property
     def is_enabled(self) -> bool:
         """``True`` if the loss scaling is enabled."""
-        return self._is_enabled
+        return self._enabled
 
 
 @final
@@ -247,10 +248,10 @@ def supports_manual_gradient_scaling(optimizer: Optimizer) -> bool:
 
 # An ugly hack.
 class _InternalGradScaler(GradScaler):
-    @override
+    # override
     def _unscale_grads_(
         self, optimizer: Optimizer, inv_scale: Tensor, found_inf: Tensor, _: bool
-    ) -> Dict[Device, Tensor]:
+    ) -> dict[Device, Tensor]:
         # `GradScaler` artificially limits fp16 gradients only to optimizers
         # that natively support AMP. Here, we hijack `_unscale_grads_()` and
         # always pass `allow_fp16=True` to the real function.

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Optional, Tuple, final
+from typing import Any, final
 
 import torch
 from torch import Tensor
@@ -56,11 +56,11 @@ class SequenceBatch:
     size, :math:`S` is the sequence length, and :math:`*` is any number of
     sequence-specific dimensions including none."""
 
-    padding_mask: Optional[PaddingMask]
+    padding_mask: PaddingMask | None
     """The padding mask of :attr:`seqs`. *Shape:* :math:`(N,S)`, where :math:`N`
     is the batch size and :math:`S` is the sequence length."""
 
-    target_mask: Optional[Tensor] = None
+    target_mask: Tensor | None = None
     """The mask specifying the elements in ``seqs`` that should be treated as
     targets during model training or validation. *Shape:* :math:`(N,S)`, where
     :math:`N` is the batch size and :math:`S` is the sequence length."""
@@ -90,7 +90,7 @@ class SequenceBatch:
 
 def as_auto_regressive_input(
     batch: SequenceBatch,
-) -> Tuple[SequenceBatch, SequenceBatch]:
+) -> tuple[SequenceBatch, SequenceBatch]:
     """Use ``batch`` to train an auto-regressive model.
 
     :returns:
@@ -132,14 +132,14 @@ class SequenceModelOutput:
     :math:`N` is the batch size, :math:`S` is the sequence length, and :math:`T`
     is the size of the vocabulary."""
 
-    pad_idx: Optional[int]
+    pad_idx: int | None
     """The index of the PAD symbols in the vocabulary."""
 
     def compute_loss(
         self,
         targets: Tensor,
         *,
-        loss_mask: Optional[Tensor] = None,
+        loss_mask: Tensor | None = None,
         ignore_prefix_size: int = 0,
         label_smoothing: float = 0.0,
     ) -> Tensor:

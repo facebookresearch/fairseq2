@@ -7,13 +7,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Final, List, Optional, Tuple
+from typing import Final
 
 from torch.nn import GELU, SiLU
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.models.conformer import ConformerBlock, ConformerConvolution
-from fairseq2.models.factory import create_model
+from fairseq2.models.factory import model_factories
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
 from fairseq2.models.wav2vec2.feature_extractor import (
     Wav2Vec2FbankFeatureExtractor,
@@ -31,6 +31,7 @@ from fairseq2.models.wav2vec2.vector_quantizer import (
     VectorQuantizer,
 )
 from fairseq2.nn import PositionEncoder, RotaryEncoder
+from fairseq2.nn.projection import init_bert_projection
 from fairseq2.nn.transformer import (
     SDPA,
     FeedForwardNetwork,
@@ -51,7 +52,7 @@ from fairseq2.typing import DataType, Device
 WAV2VEC2_FAMILY: Final = "wav2vec2"
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Wav2Vec2Config:
     """Holds the configuration of a wav2vec 2.0 model.
 
@@ -71,11 +72,16 @@ class Wav2Vec2Config:
     final_proj_bias: bool = True
     """If ``True``, the final projection learns an additive bias."""
 
+    quantizer_encoder_grad: bool = True
+    """If ``True``, gradients are propagated from the quantizer through the convolutional
+    encoder. Otherwise, they are detached and the encoder is only trained with gradients
+    from the transformer. """
+
     # Mask
     temporal_mask_span_len: int = 10
     """The length of each temporal mask span that is applied over time steps."""
 
-    max_temporal_mask_prob: float = 0.65
+    max_temporal_mask_prob: float = 0.69
     """The maximum probability of masking a time step. Note that, due to mask
     span overlap, the effective probability will be lower."""
 
@@ -102,7 +108,7 @@ class Wav2Vec2Config:
     num_codebook_entries: int = 320
     """The number of entries per codebook."""
 
-    codebook_sampling_temperature: Tuple[float, float, float] = (2.0, 0.5, 0.999995)
+    codebook_sampling_temperature: tuple[float, float, float] = (2.0, 0.5, 0.999995)
     """A tuple of start temperature, end temperature, and decay factor for
     codebook entry sampling."""
 
@@ -119,7 +125,7 @@ wav2vec2_archs = ConfigRegistry[Wav2Vec2Config]()
 wav2vec2_arch = wav2vec2_archs.decorator
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Wav2Vec2EncoderConfig:
     """Holds the configuration of a wav2vec 2.0 encoder.
 
@@ -148,7 +154,7 @@ class Wav2Vec2EncoderConfig:
     """If ``True``, applies Layer Normalization to extracted features."""
 
     # Waveform Feature Extractor
-    feature_extractor_layer_descs: List[Tuple[int, int, int]] = field(
+    feature_extractor_layer_descs: list[tuple[int, int, int]] = field(
         default_factory=lambda: [(512, 10, 5)] + [(512, 3, 2)] * 4 + [(512, 2, 2)] * 2
     )
     """A tuple of output dimension, kernel size, and stride for each feature
@@ -237,16 +243,16 @@ class Wav2Vec2Builder:
 
     _config: Wav2Vec2Config
     _encoder_builder: Wav2Vec2EncoderBuilder
-    _device: Optional[Device]
-    _dtype: Optional[DataType]
+    _device: Device | None
+    _dtype: DataType | None
 
     def __init__(
         self,
         config: Wav2Vec2Config,
-        encoder_builder: Wav2Vec2EncoderBuilder,
+        encoder_builder: Wav2Vec2EncoderBuilder | None = None,
         *,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param config:
@@ -259,6 +265,11 @@ class Wav2Vec2Builder:
             The data type of module parameters and buffers.
         """
         self._config = config
+
+        if encoder_builder is None:
+            encoder_builder = Wav2Vec2EncoderBuilder(
+                config.encoder_config, device=device, dtype=dtype
+            )
 
         self._encoder_builder = encoder_builder
 
@@ -274,7 +285,7 @@ class Wav2Vec2Builder:
 
         quantizer = self.build_quantizer()
 
-        return Wav2Vec2Model(
+        model = Wav2Vec2Model(
             encoder_frontend,
             encoder,
             masker,
@@ -283,9 +294,14 @@ class Wav2Vec2Builder:
             final_proj_bias=self._config.final_proj_bias,
             num_distractors=self._config.num_distractors,
             logit_temp=self._config.logit_temp,
+            quantizer_encoder_grad=self._config.quantizer_encoder_grad,
             device=self._device,
             dtype=self._dtype,
         )
+
+        model.set_family(WAV2VEC2_FAMILY)
+
+        return model
 
     def build_masker(self) -> Wav2Vec2Masker:
         """Build a feature masker."""
@@ -323,16 +339,16 @@ class Wav2Vec2EncoderBuilder:
     """
 
     _config: Wav2Vec2EncoderConfig
-    _device: Optional[Device]
-    _dtype: Optional[DataType]
-    _rel_pos_encoding: Optional[RelativePositionalEncoding]
+    _device: Device | None
+    _dtype: DataType | None
+    _rel_pos_encoding: RelativePositionalEncoding | None
 
     def __init__(
         self,
         config: Wav2Vec2EncoderConfig,
         *,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param config:
@@ -371,7 +387,7 @@ class Wav2Vec2EncoderBuilder:
             dtype=self._dtype,
         )
 
-    def build_feature_extractor(self) -> Optional[SequenceFeatureExtractor]:
+    def build_feature_extractor(self) -> SequenceFeatureExtractor | None:
         """Build a feature extractor."""
         if self._config.use_fbank:
             return Wav2Vec2FbankFeatureExtractor(
@@ -389,7 +405,7 @@ class Wav2Vec2EncoderBuilder:
             dtype=self._dtype,
         )
 
-    def build_position_encoder(self) -> Optional[PositionEncoder]:
+    def build_position_encoder(self) -> PositionEncoder | None:
         """Build a position encoder."""
         if self._config.pos_encoder_type != "conv":
             return None
@@ -480,8 +496,10 @@ class Wav2Vec2EncoderBuilder:
         return StandardMultiheadAttention(
             self._config.model_dim,
             self._config.num_encoder_attn_heads,
+            qkv_proj_init_fn=init_bert_projection,
             pos_encoder=pos_encoder,
             sdpa=sdpa,
+            output_proj_init_fn=init_bert_projection,
             device=self._device,
             dtype=self._dtype,
         )
@@ -525,6 +543,7 @@ class Wav2Vec2EncoderBuilder:
             inner_activation=SiLU() if use_swish else GELU(),
             inner_dropout_p=self._config.ffn_inner_dropout_p,
             norm_order=self._config.norm_order,
+            proj_init_fn=init_bert_projection,
             device=self._device,
             dtype=self._dtype,
         )
@@ -533,30 +552,13 @@ class Wav2Vec2EncoderBuilder:
 def create_wav2vec2_model(
     config: Wav2Vec2Config,
     *,
-    device: Optional[Device] = None,
-    dtype: Optional[DataType] = None,
+    device: Device | None = None,
+    dtype: DataType | None = None,
 ) -> Wav2Vec2Model:
-    """Create a wav2vec 2.0 model.
-
-    :param config:
-        The configuration.
-    :param device:
-        The device on which to initialize modules.
-    :param dtype:
-        The data type of module parameters and buffers.
-    """
-    encoder_builder = Wav2Vec2EncoderBuilder(
-        config.encoder_config, device=device, dtype=dtype
-    )
-
-    builder = Wav2Vec2Builder(config, encoder_builder, device=device, dtype=dtype)
-
-    return builder.build_model().set_family(WAV2VEC2_FAMILY)
+    """Create a wav2vec 2.0 model."""
+    return Wav2Vec2Builder(config, device=device, dtype=dtype).build_model()
 
 
-create_model.register(
-    family=WAV2VEC2_FAMILY,
-    factory=create_wav2vec2_model,
-    config_kls=Wav2Vec2Config,
-    arch_configs=wav2vec2_archs,
+model_factories.register(
+    WAV2VEC2_FAMILY, create_wav2vec2_model, Wav2Vec2Config, wav2vec2_archs
 )

@@ -8,11 +8,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, List, Literal, Optional, Tuple, final
+from typing import Any, Literal, final
 
 import torch
 from torch import Tensor
-from torch.nn import Module
+from typing_extensions import override
 
 from fairseq2.assets import AssetNotFoundError, default_asset_store
 from fairseq2.checkpoint import CheckpointModelMetadataProvider, FileCheckpointManager
@@ -24,21 +24,17 @@ from fairseq2.datasets.parallel_text import (
     load_parallel_text_dataset,
 )
 from fairseq2.gang import Gang
+from fairseq2.generation import BeamSearchConfig, create_seq2seq_generator
 from fairseq2.logging import get_log_writer
 from fairseq2.models import create_model
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
-from fairseq2.models.seq2seq import Seq2SeqBatch, as_auto_regressive_input
-from fairseq2.models.sequence import SequenceModelOutput
-from fairseq2.optim import AdamW
-from fairseq2.optim.lr_scheduler import MyleLR
+from fairseq2.models.seq2seq import Seq2SeqBatch
+from fairseq2.optim import AdamWConfig, create_optimizer
+from fairseq2.optim.lr_scheduler import MyleLRConfig, create_lr_scheduler
 from fairseq2.recipes.common_metrics import Seq2SeqMetricBag
 from fairseq2.recipes.evaluator import EvalUnit
+from fairseq2.recipes.mt.common import MTCriterion
 from fairseq2.recipes.mt.eval import MTBleuChrfEvalUnit, MTLossEvalUnit
-from fairseq2.recipes.mt.translate import (
-    BeamSearchConfig,
-    SamplingConfig,
-    _create_sequence_generator,
-)
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
 from fairseq2.recipes.utils.asset import (
     AssetReference,
@@ -46,18 +42,15 @@ from fairseq2.recipes.utils.asset import (
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model, log_model_config
-from fairseq2.recipes.utils.setup import (
-    check_model_type,
-    setup_root_gang,
-    to_data_parallel,
-)
-from fairseq2.typing import META, DataType, override
+from fairseq2.recipes.utils.setup import setup_root_gang, to_data_parallel
+from fairseq2.typing import CPU, META, DataType
 from fairseq2.utils.profiler import Stopwatch
+from fairseq2.utils.rng import manual_seed
 
 log = get_log_writer(__name__)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class MTTrainConfig:
     """Holds the configuration of a machine translation training task.
 
@@ -97,11 +90,11 @@ class MTTrainConfig:
     model_family: str = "transformer"
     """The family of the model."""
 
-    model_arch: Optional[str] = "nllb_dense_600m"
+    model_arch: str | None = "nllb_dense_600m"
     """The architecture of the model."""
 
     model_config: Any = None
-    """The model configuration."""
+    """The configuration of the model."""
 
     dtype: DataType = torch.float16
     """The data type of the model."""
@@ -113,22 +106,26 @@ class MTTrainConfig:
     """The granularity at which to wrap the ASR model."""
 
     # Optimizer, LR, and Loss
-    lr: float = 0.001
-    """The initial (post-warm-up) learning rate."""
+    optimizer: str = "adamw"
+    """The optimizer."""
 
-    start_lr: float = 1e-7
-    """The initial warm-up learning rate."""
+    optimizer_config: Any = field(
+        default_factory=lambda: AdamWConfig(lr=0.001, betas=(0.9, 0.98))
+    )
+    """The configuration of the optimizer."""
 
-    num_lr_warmup_steps: int = 8000
-    """The number of learning rate warm-up steps."""
+    lr_scheduler: str = "myle"
+    """The learning rate scheduler."""
 
-    betas: Tuple[float, float] = (0.9, 0.98)
-    """The coefficients of AdamW."""
+    lr_scheduler_config: Any = field(
+        default_factory=lambda: MyleLRConfig(start_lr=1e-7, num_warmup_steps=8000)
+    )
+    """The configuration of the learning rate scheduler."""
 
-    max_gradient_norm: Optional[float] = None
+    max_gradient_norm: float | None = None
     """The maximum gradient norm. If ``None``, no clipping will be applied."""
 
-    fp16_loss_scale: Tuple[float, float] = (128.0, 0.0001)
+    fp16_loss_scale: tuple[float, float] = (128.0, 0.0001)
     """The initial and minimum loss scale for fp16 training."""
 
     gradient_accumulation: int = 2
@@ -141,7 +138,7 @@ class MTTrainConfig:
     max_num_steps: int = 100_000
     """The maximum number of steps to train for."""
 
-    max_num_data_epochs: Optional[int] = None
+    max_num_data_epochs: int | None = None
     """The maximum number of data epochs to train for."""
 
     validate_after_n_steps: int = 0
@@ -159,31 +156,30 @@ class MTTrainConfig:
     publish_metrics_every_n_steps: int = 200
     """The step interval at which to publish metrics."""
 
-    # Checkpointing
-    resume_checkpoint_dir: Optional[Path] = None
+    # Checkpoint
+    resume_checkpoint_dir: Path | None = None
     """If not ``None``, adds the specified path to the default asset store."""
 
     # BLEU/chrF++
     compute_bleu_chrf: bool = True
     """If ``True``, computes BLEU and chrF++ during validation."""
 
-    generator_mode: Literal["beam_search", "sampling"] = "beam_search"
-    """The mode of sequence generation."""
+    generator: str = "beam_search"
+    """The sequence generator."""
 
-    beam_search: BeamSearchConfig = field(default_factory=lambda: BeamSearchConfig())
-    """The configuration for beam search-based sequence generation."""
-
-    sampling: SamplingConfig = field(default_factory=lambda: SamplingConfig())
-    """The configuration for sampling-based sequence generation."""
+    generator_config: Any = field(
+        default_factory=lambda: BeamSearchConfig(max_gen_len=(1, 256), echo_prompt=True)
+    )
+    """The configuration of the sequence generator."""
 
     generator_batch_size: int = 8
-    """The number of sentences per generator batch."""
+    """The number of sentences per batch."""
 
     # Misc
     seed: int = 2
     """The random number generator seed to use."""
 
-    profile: Optional[Tuple[int, int]] = None
+    profile: tuple[int, int] | None = None
     """The number of steps that the PyTorch profiler should skip and then record."""
 
     monitored_gang: bool = False
@@ -202,9 +198,10 @@ mt_train_preset = mt_train_presets.decorator
 def _nllb_dense_300m() -> MTTrainConfig:
     config = _nllb_dense_600m()
 
+    assert isinstance(config.lr_scheduler_config, MyleLRConfig)
+
     config.model_arch = "nllb_dense_300m"
-    config.model_config = {"dropout_p": 0.3}
-    config.num_lr_warmup_steps = 400
+    config.lr_scheduler_config.num_warmup_steps = 400
     config.gradient_accumulation = 4
     config.max_num_steps = 10_000
     config.validate_every_n_steps = 1000
@@ -230,8 +227,6 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
         default_asset_store.metadata_providers.append(
             CheckpointModelMetadataProvider(config.resume_checkpoint_dir)
         )
-
-    seed = config.seed
 
     tokenizer_card = retrieve_asset_card(config.tokenizer)
 
@@ -259,7 +254,13 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
 
         dataset = GenericParallelTextDataset.from_path(dataset_path)
 
+    seed = config.seed
+
     # Initialize the model
+    manual_seed(seed, CPU, gang.device)
+
+    seed += 1
+
     try:
         model, model_config = create_model(
             config.model_family,
@@ -273,7 +274,10 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
             "The model cannot be initialized. See nested exception for details."
         ) from ex
 
-    check_model_type(model, EncoderDecoderModel)
+    if not isinstance(model, EncoderDecoderModel):
+        raise ValueError(
+            f"The model must be of type `{EncoderDecoderModel}`, but is of type `{type(model)}` instead."
+        )
 
     log_model_config(model_config, log)
 
@@ -288,7 +292,6 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
         gang,
         config.data_parallelism,
         log,
-        fsdp_skip_init=has_checkpoint,
         fsdp_broadcast_state=not has_checkpoint,
         fsdp_mixed_precision_dtype=config.dtype,
         fsdp_fp32_reduce=True,
@@ -297,68 +300,96 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
 
     log_model(dp_model, log, rank=gang.rank)
 
-    # Initialize the train unit and the optimizer.
-    unit = MTTrainUnit(dp_model, gang, label_smoothing=config.label_smoothing)
+    # Initialize the criterion.
+    criterion = MTCriterion(dp_model, label_smoothing=config.label_smoothing)
 
-    data_reader = dataset.create_reader(
-        config.split,
-        tokenizer,
-        gang,
-        config.max_seq_len,
-        batching=LengthBatching(config.max_num_tokens),
-        sample=True,
-        example_shuffle_window=config.example_shuffle_window,
-        batch_shuffle_window=config.batch_shuffle_window,
-        num_accumulate=config.gradient_accumulation,
-        num_prefetch=config.num_prefetch,
-        seed=seed,
-    )
+    # Initialize the train unit.
+    unit = MTTrainUnit(criterion, gang)
+
+    try:
+        data_reader = dataset.create_reader(
+            config.split,
+            tokenizer,
+            gang,
+            config.max_seq_len,
+            batching=LengthBatching(config.max_num_tokens),
+            sample=True,
+            example_shuffle_window=config.example_shuffle_window,
+            batch_shuffle_window=config.batch_shuffle_window,
+            num_accumulate=config.gradient_accumulation,
+            num_prefetch=config.num_prefetch,
+            seed=seed,
+        )
+    except ValueError as ex:
+        raise ValueError(
+            "The data reader cannot be initialized. See nested exception for details."
+        ) from ex
 
     seed += 1
 
-    optimizer = AdamW(dp_model.parameters(), lr=config.lr, betas=config.betas)
+    # Initialize the optimizer.
+    try:
+        optimizer = create_optimizer(
+            config.optimizer, dp_model, config.optimizer_config
+        )
+    except ValueError as ex:
+        raise ValueError(
+            "The optimizer cannot be created. See nested exception for details."
+        ) from ex
 
-    lr_scheduler = MyleLR(
-        optimizer,
-        num_warmup_steps=config.num_lr_warmup_steps,
-        start_lr=config.start_lr,
-    )
+    # Initialize the learning rate scheduler.
+    try:
+        lr_scheduler = create_lr_scheduler(
+            config.lr_scheduler,
+            optimizer,
+            config.lr_scheduler_config,
+            max_num_steps=config.max_num_steps,
+        )
+    except ValueError as ex:
+        raise ValueError(
+            "The learning rate scheduler cannot be created. See nested exception for details."
+        ) from ex
 
     # Initialize the sequence generator.
     if config.compute_bleu_chrf:
-        generator = _create_sequence_generator(
-            model, config.generator_mode, config.beam_search, config.sampling  # type: ignore[arg-type]
-        )
+        try:
+            generator = create_seq2seq_generator(
+                config.generator, model, config.generator_config
+            )
+        except ValueError as ex:
+            raise ValueError(
+                "The sequence generator cannot be created. See nested exception for details."
+            ) from ex
     else:
         generator = None
 
     # Initialize the validation units.
-    valid_units: List[EvalUnit[Seq2SeqBatch]] = []
+    valid_units: list[EvalUnit[Seq2SeqBatch]] = []
 
     valid_data_readers = []
 
     for direction in dataset.directions(config.valid_split):
         # Loss Validation
-        valid_loss_unit = MTLossEvalUnit(
-            dp_model,
-            direction,
-            gang,
-            label_smoothing=config.label_smoothing,
-        )
+        valid_loss_unit = MTLossEvalUnit(criterion, direction, gang)
 
         valid_units.append(valid_loss_unit)
 
-        valid_data_reader = dataset.create_reader(
-            config.valid_split,
-            tokenizer,
-            gang,
-            config.max_seq_len,
-            batching=LengthBatching(config.max_num_tokens),
-            direction=direction,
-            sync_batches=False,
-            num_prefetch=config.num_prefetch,
-            seed=seed,
-        )
+        try:
+            valid_data_reader = dataset.create_reader(
+                config.valid_split,
+                tokenizer,
+                gang,
+                config.max_seq_len,
+                batching=LengthBatching(config.max_num_tokens),
+                direction=direction,
+                sync_mode="until_last",
+                num_prefetch=config.num_prefetch,
+                seed=seed,
+            )
+        except ValueError as ex:
+            raise ValueError(
+                f"The data reader for '{direction}' cannot be initialized. See nested exception for details."
+            ) from ex
 
         seed += 1
 
@@ -372,21 +403,29 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
 
             valid_units.append(valid_score_unit)
 
-            valid_data_reader = dataset.create_reader(
-                config.valid_split,
-                tokenizer,
-                gang,
-                config.max_seq_len,
-                batching=StaticBatching(config.generator_batch_size),
-                direction=direction,
-                sync_batches=False,
-                num_prefetch=config.num_prefetch,
-                seed=seed,
-            )
+            try:
+                valid_data_reader = dataset.create_reader(
+                    config.valid_split,
+                    tokenizer,
+                    gang,
+                    config.max_seq_len,
+                    batching=StaticBatching(config.generator_batch_size),
+                    direction=direction,
+                    sync_mode="until_last",
+                    num_prefetch=config.num_prefetch,
+                    seed=seed,
+                )
+            except ValueError as ex:
+                raise ValueError(
+                    f"The data reader for '{direction}' cannot be initialized. See nested exception for details."
+                ) from ex
 
             seed += 1
 
             valid_data_readers.append(valid_data_reader)
+
+    # TODO: Fix once we support static mixed precision on one device.
+    amp = gang.size == 1 or config.data_parallelism != "fsdp"
 
     # Initialize the trainer.
     return Trainer[Seq2SeqBatch](
@@ -398,6 +437,7 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
         lr_scheduler=lr_scheduler,
         fp16_loss_scale=config.fp16_loss_scale,
         max_gradient_norm=config.max_gradient_norm,
+        amp=amp,
         max_num_steps=config.max_num_steps,
         max_num_data_epochs=config.max_num_data_epochs,
         score_metric_name="chrf" if config.compute_bleu_chrf else None,
@@ -420,44 +460,19 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
 
 @final
 class MTTrainUnit(AbstractTrainUnit[Seq2SeqBatch]):
-    """Represents a machine translation training unit."""
-
-    _label_smoothing: float
+    _criterion: MTCriterion
     _metric_bag: Seq2SeqMetricBag
 
-    def __init__(
-        self,
-        model: Module,
-        gang: Gang,
-        *,
-        label_smoothing: float = 0.0,
-    ) -> None:
-        super().__init__(model)
+    def __init__(self, criterion: MTCriterion, gang: Gang) -> None:
+        super().__init__(criterion.model)
 
-        check_model_type(model, EncoderDecoderModel)
-
-        self._label_smoothing = label_smoothing
+        self._criterion = criterion
 
         self._metric_bag = Seq2SeqMetricBag(gang)
 
     @override
-    def __call__(self, batch: Seq2SeqBatch) -> Tuple[Tensor, int]:
-        input_batch, target_batch = as_auto_regressive_input(batch)
-
-        output = self._forward(input_batch)
-
-        loss = output.compute_loss(
-            target_batch.seqs, label_smoothing=self._label_smoothing
-        )
-
-        self._metric_bag.update_nll_loss(input_batch, loss.detach())
-
-        self._metric_bag.update_batch_metrics(input_batch)
-
-        return loss, batch.num_target_elements()
-
-    def _forward(self, batch: Seq2SeqBatch) -> SequenceModelOutput:
-        return self._model(batch)  # type: ignore[no-any-return]
+    def __call__(self, batch: Seq2SeqBatch) -> tuple[Tensor, int]:
+        return self._criterion(batch, self._metric_bag)
 
     @property
     @override

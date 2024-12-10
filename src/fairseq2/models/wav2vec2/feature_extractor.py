@@ -6,19 +6,21 @@
 
 from __future__ import annotations
 
-from typing import Optional, Sequence, Tuple, final
+from collections.abc import Sequence
+from typing import final
 
 import torch
 import torch.nn as nn
 from torch import Tensor
 from torch.nn import GELU, Conv1d, Dropout, GroupNorm, Module, Sequential
 from torch.nn.functional import group_norm, layer_norm
+from typing_extensions import override
 
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
 from fairseq2.nn import LayerNorm
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.utils.gradient import scale_gradient
-from fairseq2.typing import DataType, Device, override
+from fairseq2.typing import DataType, Device
 
 
 @final
@@ -28,21 +30,21 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
     :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`."""
 
     layers: Sequential
-    layer_descs: Sequence[Tuple[int, int, int]]
+    layer_descs: Sequence[tuple[int, int, int]]
     num_channels: int
     gradient_scale: float
 
     def __init__(
         self,
-        layer_descs: Sequence[Tuple[int, int, int]],
+        layer_descs: Sequence[tuple[int, int, int]],
         bias: bool,
         *,
         num_channels: int = 1,
         dropout_p: float = 0.0,
         layer_norm: bool = False,
         gradient_scale: float = 1.0,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param layer_descs:
@@ -62,13 +64,13 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
             value less than 1.0 allows the feature extractor to learn at a lower
             rate than the rest of the model.
         """
+        if len(layer_descs) == 0:
+            raise ValueError("`layer_descs` must be non-empty.")
+
         # The output dimensionality of the last feature extraction layer.
         feature_dim = layer_descs[-1][0]
 
         super().__init__(feature_dim)
-
-        if len(layer_descs) == 0:
-            raise ValueError("`layer_descs` must be non-empty.")
 
         self.layers = Sequential()
 
@@ -132,8 +134,8 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
 
     @override
     def forward(
-        self, seqs: Tensor, padding_mask: Optional[PaddingMask]
-    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+        self, seqs: Tensor, padding_mask: PaddingMask | None
+    ) -> tuple[Tensor, PaddingMask | None]:
         """See the base :meth:`SequenceFeatureExtractor.forward`.
 
         :param seqs:
@@ -195,9 +197,9 @@ class Wav2Vec2FeatureExtractionLayer(Module):
     :class:`Wav2Vec2FeatureExtractor`."""
 
     conv: Conv1d
-    dropout: Optional[Dropout]
-    group_norm: Optional[GroupNorm]
-    layer_norm: Optional[LayerNorm]
+    dropout: Dropout | None
+    group_norm: GroupNorm | None
+    layer_norm: LayerNorm | None
     activation: GELU
 
     def __init__(
@@ -209,10 +211,10 @@ class Wav2Vec2FeatureExtractionLayer(Module):
         bias: bool,
         *,
         dropout_p: float = 0.0,
-        group_norm: Optional[GroupNorm] = None,
-        layer_norm: Optional[LayerNorm] = None,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        group_norm: GroupNorm | None = None,
+        layer_norm: LayerNorm | None = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         super().__init__()
 
@@ -300,8 +302,8 @@ class Wav2Vec2FbankFeatureExtractor(SequenceFeatureExtractor):
 
     @override
     def forward(
-        self, seqs: Tensor, padding_mask: Optional[PaddingMask]
-    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+        self, seqs: Tensor, padding_mask: PaddingMask | None
+    ) -> tuple[Tensor, PaddingMask | None]:
         """See the base :meth:`SequenceFeatureExtractor.forward`.
 
         :param seqs:

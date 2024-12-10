@@ -7,8 +7,11 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Protocol, Sequence, final
+from typing import Any, Literal, Protocol, final
+
+from typing_extensions import override
 
 from fairseq2.assets.card import AssetCard, AssetCardError
 from fairseq2.assets.metadata_provider import (
@@ -18,7 +21,6 @@ from fairseq2.assets.metadata_provider import (
     PackageAssetMetadataProvider,
 )
 from fairseq2.logging import get_log_writer
-from fairseq2.typing import override
 from fairseq2.utils.env import get_path_from_env
 
 log = get_log_writer(__name__)
@@ -32,7 +34,7 @@ class AssetStore(ABC):
         self,
         name: str,
         *,
-        envs: Optional[Sequence[str]] = None,
+        envs: Sequence[str] | None = None,
         scope: Literal["all", "global", "user"] = "all",
     ) -> AssetCard:
         """Retrieve the card of the specified asset.
@@ -50,7 +52,7 @@ class AssetStore(ABC):
     @abstractmethod
     def retrieve_names(
         self, *, scope: Literal["all", "global", "user"] = "all"
-    ) -> List[str]:
+    ) -> list[str]:
         """Retrieve the names of the assets contained in this store.
 
         :param scope:
@@ -62,9 +64,9 @@ class AssetStore(ABC):
 class StandardAssetStore(AssetStore):
     """Represents a store of assets."""
 
-    env_resolvers: List[EnvironmentResolver]
-    metadata_providers: List[AssetMetadataProvider]
-    user_metadata_providers: List[AssetMetadataProvider]
+    env_resolvers: list[EnvironmentResolver]
+    metadata_providers: list[AssetMetadataProvider]
+    user_metadata_providers: list[AssetMetadataProvider]
 
     def __init__(self, metadata_provider: AssetMetadataProvider) -> None:
         """
@@ -80,10 +82,15 @@ class StandardAssetStore(AssetStore):
         self,
         name: str,
         *,
-        envs: Optional[Sequence[str]] = None,
+        envs: Sequence[str] | None = None,
         scope: Literal["all", "global", "user"] = "all",
-        extra_provider: Optional[AssetMetadataProvider] = None,
+        extra_provider: AssetMetadataProvider | None = None,
     ) -> AssetCard:
+        if scope not in ("all", "global", "user"):
+            raise ValueError(
+                f"`scope` must be 'all', 'global', or 'user', but is '{scope}' instead."
+            )
+
         name_env_pair = name.split("@", maxsplit=1)
 
         name = name_env_pair[0]
@@ -102,7 +109,7 @@ class StandardAssetStore(AssetStore):
 
         return self._do_retrieve_card(name, envs, scope, extra_provider)
 
-    def _resolve_envs(self) -> List[str]:
+    def _resolve_envs(self) -> list[str]:
         # This is a special, always available environment for users to override
         # asset metadata. For instance, a user can set the checkpoint path of a
         # gated model locally by having a same-named asset with a @user suffix.
@@ -119,7 +126,7 @@ class StandardAssetStore(AssetStore):
         name: str,
         envs: Sequence[str],
         scope: str,
-        extra_provider: Optional[AssetMetadataProvider],
+        extra_provider: AssetMetadataProvider | None,
     ) -> AssetCard:
         metadata = self._get_metadata(f"{name}@", scope, extra_provider)
 
@@ -145,7 +152,7 @@ class StandardAssetStore(AssetStore):
         except KeyError:
             base_name = None
 
-        base_card: Optional[AssetCard] = None
+        base_card: AssetCard | None = None
 
         # If the metadata has a base specified, we have to recursively load the
         # entire chain up to the root.
@@ -162,8 +169,8 @@ class StandardAssetStore(AssetStore):
         return AssetCard(metadata, base_card)
 
     def _get_metadata(
-        self, name: str, scope: str, extra_provider: Optional[AssetMetadataProvider]
-    ) -> Dict[str, Any]:
+        self, name: str, scope: str, extra_provider: AssetMetadataProvider | None
+    ) -> dict[str, Any]:
         if extra_provider is not None:
             try:
                 return extra_provider.get_metadata(name)
@@ -194,7 +201,12 @@ class StandardAssetStore(AssetStore):
     @override
     def retrieve_names(
         self, *, scope: Literal["all", "global", "user"] = "all"
-    ) -> List[str]:
+    ) -> list[str]:
+        if scope not in ("all", "global", "user"):
+            raise ValueError(
+                f"`scope` must be 'all', 'global', or 'user', but is '{scope}' instead."
+            )
+
         names = []
 
         if scope == "all" or scope == "user":
@@ -243,7 +255,7 @@ class EnvironmentResolver(Protocol):
     loaded in due to legal or technical requirements.
     """
 
-    def __call__(self) -> Optional[str]:
+    def __call__(self) -> str | None:
         ...
 
 

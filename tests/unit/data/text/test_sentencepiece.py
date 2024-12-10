@@ -7,8 +7,9 @@
 from __future__ import annotations
 
 import pickle
+from collections.abc import Sequence
 from pathlib import Path
-from typing import ClassVar, Final, List, Optional, Sequence
+from typing import ClassVar, Final
 
 import pytest
 import torch
@@ -26,7 +27,7 @@ TEST_SPM_PATH: Final = Path(__file__).parent.joinpath("test.spm")
 
 class TestSentencePieceModel:
     text: ClassVar[str]
-    token_indices: ClassVar[List[int]]
+    token_indices: ClassVar[list[int]]
 
     @classmethod
     def setup_class(cls) -> None:
@@ -260,7 +261,7 @@ class TestSentencePieceModel:
 
     @staticmethod
     def build_model(
-        control_symbols: Optional[Sequence[str]] = None,
+        control_symbols: Sequence[str] | None = None,
     ) -> SentencePieceModel:
         symbols = ["<pad>@0"]
 

@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Optional, Tuple, final
+from typing import final
 
 import torch
 import torch.nn as nn
@@ -39,8 +39,8 @@ class Wav2Vec2Masker(Module):
         max_spatial_mask_prob: float = 0.0,
         min_num_spatial_mask_spans: int = 2,
         *,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> None:
         """
         :param model_dim:
@@ -81,8 +81,8 @@ class Wav2Vec2Masker(Module):
         nn.init.uniform_(self.temporal_mask_embed)
 
     def forward(
-        self, seqs: Tensor, padding_mask: Optional[PaddingMask]
-    ) -> Tuple[Tensor, Tensor]:
+        self, seqs: Tensor, padding_mask: PaddingMask | None
+    ) -> tuple[Tensor, Tensor]:
         """
         :param seqs:
             The sequences to mask. *Shape:* :math:`(N,S,M)`, where :math:`N` is

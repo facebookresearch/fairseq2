@@ -6,23 +6,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from pathlib import Path
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Dict,
-    Iterator,
-    List,
-    Mapping,
-    Optional,
-    Sequence,
-    Tuple,
-    TypedDict,
-    TypeVar,
-    Union,
-    final,
-)
+from typing import TYPE_CHECKING, Any, TypedDict, TypeVar, final
 
 from fairseq2n import DOC_MODE
 from torch import Tensor
@@ -68,7 +54,7 @@ if TYPE_CHECKING or DOC_MODE:
             :class:`DataPipelineError`.
             """
 
-        def state_dict(self, strict: bool = True) -> Dict[str, Any]:
+        def state_dict(self, strict: bool = True) -> dict[str, Any]:
             """Return a dictionary containing the state of the data pipeline.
 
             The current position of the data pipeline can be restored by passing
@@ -97,7 +83,7 @@ if TYPE_CHECKING or DOC_MODE:
             """
 
         @staticmethod
-        def constant(example: Any, key: Optional[str] = None) -> DataPipelineBuilder:
+        def constant(example: Any, key: str | None = None) -> DataPipelineBuilder:
             """Repeatedly yield ``example``.
 
             This pipeline is pseudo-infinite; when used with functions
@@ -105,8 +91,7 @@ if TYPE_CHECKING or DOC_MODE:
             it will yield examples only as long as other
             pipelines yield examples.
 
-            See :ref:`reference/data:pseudo-infinite and infinite pipelines`
-            for more details.
+            See :ref:`basics/data-pipeline/pipeline-types` for more details.
 
             :param example:
                 Example to yield infinitely.
@@ -118,7 +103,7 @@ if TYPE_CHECKING or DOC_MODE:
 
         @staticmethod
         def count(
-            start: int = 0, step: int = 1, key: Optional[str] = None
+            start: int = 0, step: int = 1, key: str | None = None
         ) -> DataPipelineBuilder:
             """Count from ``start`` in steps of size ``step``.
 
@@ -127,8 +112,7 @@ if TYPE_CHECKING or DOC_MODE:
             it will yield examples only as long as other
             pipelines yield examples.
 
-            See :ref:`reference/data:pseudo-infinite and infinite pipelines`
-            for more details.
+            See :ref:`basics/data-pipeline/pipeline-types` for more details.
 
             :param start:
                 Number to start counting from.
@@ -148,6 +132,8 @@ if TYPE_CHECKING or DOC_MODE:
         ) -> DataPipelineBuilder:
             """Extract examples from ``pipelines`` in round robin.
 
+            See :ref:`basics/data-pipeline/combining-pipelines` for more details.
+
             :param pipelines:
                 The data pipelines to round robin.
             :param stop_at_shortest:
@@ -161,13 +147,15 @@ if TYPE_CHECKING or DOC_MODE:
         @staticmethod
         def sample(
             pipelines: Sequence[DataPipeline],
-            weights: Optional[Sequence[float]] = None,
-            seed: Optional[int] = None,
+            weights: Sequence[float] | None = None,
+            seed: int | None = None,
             allow_repeats: bool = True,
         ) -> DataPipelineBuilder:
             """Extract examples from ``pipelines`` by sampling based on
             ``weights``. Circles around pipelines until all have reached their
             end at least once.
+
+            See :ref:`basics/data-pipeline/combining-pipelines` for more details.
 
             :param data_pipelines:
                 The data pipelines to sample from.
@@ -182,12 +170,14 @@ if TYPE_CHECKING or DOC_MODE:
         @staticmethod
         def zip(
             pipelines: Sequence[DataPipeline],
-            names: Optional[Sequence[str]] = None,
+            names: Sequence[str] | None = None,
             zip_to_shortest: bool = False,
             flatten: bool = False,
             disable_parallelism: bool = False,
         ) -> DataPipelineBuilder:
             """Zip together examples read from ``pipelines``.
+
+            See :ref:`basics/data-pipeline/combining-pipelines` for more details.
 
             :param pipelines:
                 The data pipelines to zip.
@@ -211,6 +201,8 @@ if TYPE_CHECKING or DOC_MODE:
         def bucket(self, bucket_size: int, drop_remainder: bool = False) -> Self:
             """Combine a number of consecutive examples into a single example.
 
+            See :ref:`basics/data-pipeline/combining-pipelines` for more details.
+
             :param bucket_size:
                 The number of examples to combine.
             :param drop_remainder:
@@ -220,8 +212,8 @@ if TYPE_CHECKING or DOC_MODE:
 
         def bucket_by_length(
             self,
-            bucket_sizes: Sequence[Tuple[int, int]],
-            selector: Optional[str] = None,
+            bucket_sizes: Sequence[tuple[int, int]],
+            selector: str | None = None,
             min_data_len: int = 1,
             skip_below_min_examples: bool = False,
             skip_above_max_examples: bool = False,
@@ -231,9 +223,9 @@ if TYPE_CHECKING or DOC_MODE:
 
         def collate(
             self,
-            pad_value: Optional[int] = None,
+            pad_value: int | None = None,
             pad_to_multiple: int = 1,
-            overrides: Optional[Sequence[CollateOptionsOverride]] = None,
+            overrides: Sequence[CollateOptionsOverride] | None = None,
         ) -> Self:
             """Concatenate a list of inputs into a single inputs.
 
@@ -245,8 +237,12 @@ if TYPE_CHECKING or DOC_MODE:
             self,
             threshold: float,
             cost_fn: Callable[[Any], float],
-            min_num_examples: Optional[int] = None,
-            max_num_examples: Optional[int] = None,
+            bucket_creation_fn: (
+                Callable[[Sequence[Any]], tuple[Sequence[Sequence[Any]], Sequence[Any]]]
+                | None
+            ) = None,
+            min_num_examples: int | None = None,
+            max_num_examples: int | None = None,
             drop_remainder: bool = False,
         ) -> Self:
             """Combine a number of consecutive examples into a single example
@@ -260,6 +256,13 @@ if TYPE_CHECKING or DOC_MODE:
                 Threshold for cumulative cost to trigger bucketing.
             :param cost_fn:
                 Cost function that outputs cost for a particular example.
+            :param bucket_creation_fn:
+                Function for customizing bucket creation. Called with the bucket of
+                examples that caused the cost threshold to be exceeded.
+                Expected to return a tuple of ``(new_buckets, remainder)``, where
+                the internal buffer is set to ``remainder`` and ``new_buckets`` is
+                a list of buckets to be yielded. If ``None``, defaults to the
+                identity function.
             :param min_num_examples:
                 Minimum number of examples per bucket.
             :param max_num_examples:
@@ -280,8 +283,8 @@ if TYPE_CHECKING or DOC_MODE:
 
         def map(
             self,
-            fn: Union[Callable[[Any], Any], Sequence[Callable[[Any], Any]]],
-            selector: Optional[str] = None,
+            fn: Callable[[Any], Any] | Sequence[Callable[[Any], Any]],
+            selector: str | None = None,
             num_parallel_calls: int = 1,
         ) -> Self:
             """Apply ``fn`` to each example.
@@ -306,7 +309,7 @@ if TYPE_CHECKING or DOC_MODE:
 
             :param selector:
                 The column to apply the function to. Several columns can be specified by separating them with a ",".
-                See :ref:`reference/data:column syntax` for more details.
+                See :ref:`basics/data-pipeline/column-selection` for more details.
             :param num_parallel_calls:
                 The number of examples to process in parallel.
             """
@@ -320,7 +323,7 @@ if TYPE_CHECKING or DOC_MODE:
             """
 
         def repeat(
-            self, num_repeats: Optional[int] = None, reset_rng: bool = False
+            self, num_repeats: int | None = None, reset_rng: bool = False
         ) -> Self:
             """Repeats the sequence of pipeline examples ``num_repeats`` times.
 
@@ -342,7 +345,7 @@ if TYPE_CHECKING or DOC_MODE:
                 The number of shards.
             """
 
-        def shuffle(self, shuffle_window: int, seed: Optional[int] = None) -> Self:
+        def shuffle(self, shuffle_window: int, seed: int | None = None) -> Self:
             """Shuffle examples using a fixed sized buffer.
 
             :param shuffle_window:
@@ -376,7 +379,7 @@ if TYPE_CHECKING or DOC_MODE:
     def get_last_failed_example() -> Any:
         ...
 
-    def list_files(path: Path, pattern: Optional[str] = None) -> DataPipelineBuilder:
+    def list_files(path: Path, pattern: str | None = None) -> DataPipelineBuilder:
         """List recursively all files under ``path`` that matches ``pattern``.
 
         :param path:
@@ -432,13 +435,13 @@ if TYPE_CHECKING or DOC_MODE:
 
         :param selector:
             The columns this overrides applies to.
-            See :ref:`reference/data:column syntax` for details on how to specify columns.
+            See :ref:`basics/data-pipeline/column-selection` for details on how to specify columns.
         """
 
         def __init__(
             self,
             selector: str,
-            pad_value: Optional[int] = None,
+            pad_value: int | None = None,
             pad_to_multiple: int = 1,
         ) -> None:
             ...
@@ -448,7 +451,7 @@ if TYPE_CHECKING or DOC_MODE:
             ...
 
         @property
-        def pad_value(self) -> Optional[int]:
+        def pad_value(self) -> int | None:
             ...
 
         @property
@@ -491,9 +494,9 @@ if TYPE_CHECKING or DOC_MODE:
 
         def __init__(
             self,
-            pad_value: Optional[int] = None,
+            pad_value: int | None = None,
             pad_to_multiple: int = 1,
-            overrides: Optional[Sequence[CollateOptionsOverride]] = None,
+            overrides: Sequence[CollateOptionsOverride] | None = None,
         ) -> None:
             ...
 
@@ -520,8 +523,8 @@ if TYPE_CHECKING or DOC_MODE:
 
         def __init__(
             self,
-            root_dir: Optional[Path] = None,
-            cached_fd_count: Optional[int] = None,
+            root_dir: Path | None = None,
+            cached_fd_count: int | None = None,
         ) -> None:
             ...
 
@@ -609,7 +612,7 @@ def create_bucket_sizes(
     max_seq_len: int,
     min_seq_len: int = 1,
     num_seqs_multiple_of: int = 1,
-) -> List[Tuple[int, int]]:
+) -> list[tuple[int, int]]:
     """Create optimal bucket sizes for :meth:`DataPipeline.bucket_by_length`.
 
     :param max_num_elements:
