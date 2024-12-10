@@ -168,8 +168,10 @@ def to_fsdp(
         **kwargs,
     )
 
-    with catch_warnings:
-        warnings.simplefilter("ignore")  # Suppress the future warning from torch.distributed.fsdp.*
+    with catch_warnings():
+        warnings.simplefilter(
+            "ignore"
+        )  # Suppress the future warning from torch.distributed.fsdp.*
 
         FSDP.set_state_dict_type(
             fsdp,

@@ -99,8 +99,10 @@ class DynamicLossScaler:
                 scale_window = 1
 
         if not enabled or not sharded or gang.size == 1:
-            with catch_warnings:
-                warnings.simplefilter("ignore")  # Suppress the future warning from torch.cuda.amp.*
+            with catch_warnings():
+                warnings.simplefilter(
+                    "ignore"
+                )  # Suppress the future warning from torch.cuda.amp.*
 
                 self._grad_scaler = _InternalGradScaler(
                     init_scale=init_scale,
