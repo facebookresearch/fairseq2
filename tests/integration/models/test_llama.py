@@ -13,7 +13,7 @@ from fairseq2.models.llama import create_llama_model, llama_archs
 from fairseq2.models.llama.integ import convert_to_reference_checkpoint
 from fairseq2.models.llama.loader import convert_llama_checkpoint
 from fairseq2.typing import CPU
-from fairseq2.utils.file import StandardTensorLoader
+from fairseq2.utils.file import load_tensors
 from tests.common import device
 
 
@@ -29,9 +29,7 @@ def test_convert_to_reference_checkpoint() -> None:
         card.field("checkpoint").as_uri(), model_name="llama2_7b", progress=False
     )
 
-    tensor_loader = StandardTensorLoader()
-
-    checkpoint = tensor_loader(path, map_location=CPU, restrict=True)
+    checkpoint = load_tensors(path, map_location=CPU, restrict=True)
 
     # Convert the reference checkpoint to fairseq2.
     checkpoint = convert_llama_checkpoint(checkpoint, model_config)

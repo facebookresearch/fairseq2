@@ -11,9 +11,4 @@ from fairseq2.models.nllb.tokenizer import NllbTokenizer as NllbTokenizer
 
 # isort: split
 
-from fairseq2.dependency import DependencyContainer
-from fairseq2.models.nllb.archs import register_archs
-
-
-def register_nllb(container: DependencyContainer) -> None:
-    register_archs()
+import fairseq2.models.nllb.archs  # Register architectures.

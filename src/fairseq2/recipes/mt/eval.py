@@ -13,7 +13,8 @@ from typing import Any, TextIO, final
 import torch
 from typing_extensions import override
 
-from fairseq2.assets import AssetNotFoundError
+from fairseq2.assets import AssetNotFoundError, default_asset_store
+from fairseq2.checkpoint import CheckpointModelMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import TextTokenizer, load_text_tokenizer
 from fairseq2.datasets import LengthBatching, StaticBatching
@@ -22,7 +23,6 @@ from fairseq2.datasets.parallel_text import (
     GenericParallelTextDataset,
     load_parallel_text_dataset,
 )
-from fairseq2.dependency import resolve, resolve_all
 from fairseq2.gang import Gang
 from fairseq2.generation import (
     BeamSearchConfig,
@@ -31,7 +31,6 @@ from fairseq2.generation import (
     create_seq2seq_generator,
 )
 from fairseq2.logging import get_log_writer
-from fairseq2.metrics import MetricRecorder
 from fairseq2.metrics.text import BleuMetric, ChrfMetric
 from fairseq2.models import load_model
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
@@ -45,7 +44,7 @@ from fairseq2.recipes.utils.asset import (
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import broadcast_model
+from fairseq2.recipes.utils.setup import broadcast_model, setup_root_gang
 from fairseq2.typing import META, DataType
 from fairseq2.utils.profiler import Stopwatch
 
@@ -123,7 +122,12 @@ def load_mt_evaluator(
     """Load an :class:`Evaluator` for machine translation evaluation."""
     wall_watch = Stopwatch(start=True)
 
-    gang = resolve(Gang)
+    if config.checkpoint_dir is not None:
+        default_asset_store.metadata_providers.append(
+            CheckpointModelMetadataProvider(config.checkpoint_dir)
+        )
+
+    gang = setup_root_gang(log)
 
     model_card = retrieve_asset_card(config.model)
 
@@ -302,8 +306,6 @@ def load_mt_evaluator(
 
         data_readers.append(data_reader)
 
-    metric_recorders = resolve_all(MetricRecorder)
-
     # Initialize the evaluator.
     return Evaluator[Seq2SeqBatch](
         units=units,
@@ -311,7 +313,8 @@ def load_mt_evaluator(
         root_gang=gang,
         dtype=config.dtype,
         amp=config.amp,
-        metric_recorders=metric_recorders,
+        tb_dir=output_dir.joinpath("tb"),
+        metrics_dir=output_dir.joinpath("metrics"),
         seed=seed,
         wall_watch=wall_watch,
     )

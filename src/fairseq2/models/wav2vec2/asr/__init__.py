@@ -31,9 +31,4 @@ from fairseq2.models.wav2vec2.asr.model import Wav2Vec2AsrOutput as Wav2Vec2AsrO
 
 # isort: split
 
-from fairseq2.dependency import DependencyContainer
-from fairseq2.models.wav2vec2.asr.archs import register_archs
-
-
-def register_wav2vec2_asr(container: DependencyContainer) -> None:
-    register_archs()
+import fairseq2.models.wav2vec2.asr.archs  # Register architectures.

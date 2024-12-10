@@ -16,8 +16,8 @@ from torch import Tensor
 from torch.nn import Module
 from typing_extensions import override
 
-from fairseq2.assets import AssetNotFoundError
-from fairseq2.checkpoint import CheckpointManager
+from fairseq2.assets import AssetNotFoundError, default_asset_store
+from fairseq2.checkpoint import CheckpointModelMetadataProvider, FileCheckpointManager
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_text_tokenizer
 from fairseq2.datasets import Batching, LengthBatching, StaticBatching
@@ -25,10 +25,8 @@ from fairseq2.datasets.instruction import (
     GenericInstructionDataset,
     load_instruction_dataset,
 )
-from fairseq2.dependency import resolve, resolve_all
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
-from fairseq2.metrics import MetricRecorder
 from fairseq2.models import load_model
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.sequence import (
@@ -52,6 +50,7 @@ from fairseq2.recipes.utils.log import log_model
 from fairseq2.recipes.utils.setup import (
     check_model_type,
     compile_model,
+    setup_gangs,
     to_data_parallel,
 )
 from fairseq2.typing import CPU, META, DataType
@@ -296,12 +295,21 @@ def load_instruction_finetuner(
     """Load a :class:`Trainer` for language model instruction-finetuning."""
     wall_watch = Stopwatch(start=True)
 
-    root_gang = resolve(Gang)
+    root_gang, gangs = setup_gangs(
+        log, tp_size=config.tensor_parallel_size, monitored=config.monitored_gang
+    )
 
-    dp_gang = resolve(Gang, key="dp")  # data
-    tp_gang = resolve(Gang, key="tp")  # tensor
+    dp_gang = gangs["dp"]  # data
+    tp_gang = gangs["tp"]  # tensor
 
-    checkpoint_manager = resolve(CheckpointManager)
+    checkpoint_manager = FileCheckpointManager(
+        output_dir.joinpath("checkpoints"), root_gang, dp_gang=dp_gang, tp_gang=tp_gang
+    )
+
+    if config.resume_checkpoint_dir is not None:
+        default_asset_store.metadata_providers.append(
+            CheckpointModelMetadataProvider(config.resume_checkpoint_dir)
+        )
 
     model_card = retrieve_asset_card(config.model)
 
@@ -339,8 +347,6 @@ def load_instruction_finetuner(
     init_device = META
 
     dtype = config.dtype if config.mixed_precision == "none" else torch.float32
-
-    gangs = {"dp": dp_gang, "tp": tp_gang}
 
     has_checkpoint = checkpoint_manager.has_checkpoint()
 
@@ -517,7 +523,17 @@ def load_instruction_finetuner(
     else:
         amp = config.mixed_precision == "dynamic"
 
-    metric_recorders = resolve_all(MetricRecorder)
+    if config.wandb_project is not None:
+        if config.wandb_run_name is None:
+            raise ValueError(
+                "`wandb_run_name` must be specified when `wandb_project` is set."
+            )
+
+        wandb_dir = output_dir.joinpath("wandb")
+
+        wandb_options = (wandb_dir, config.wandb_project, config.wandb_run_name)
+    else:
+        wandb_options = None
 
     # Initialize the trainer.
     return Trainer[SequenceBatch](
@@ -543,7 +559,9 @@ def load_instruction_finetuner(
         checkpoint_every_n_data_epochs=config.checkpoint_every_n_data_epochs,
         keep_last_n_checkpoints=config.keep_last_n_checkpoints,
         keep_last_n_models=config.keep_last_n_models,
-        metric_recorders=metric_recorders,
+        tb_dir=output_dir.joinpath("tb"),
+        metrics_dir=output_dir.joinpath("metrics"),
+        wandb_options=wandb_options,
         publish_metrics_every_n_steps=config.publish_metrics_every_n_steps,
         publish_metrics_every_n_data_epochs=config.publish_metrics_every_n_data_epochs,
         profile=config.profile,

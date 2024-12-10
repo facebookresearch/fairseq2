@@ -16,8 +16,8 @@ from fairseq2.assets import (
     AssetDownloadManager,
     AssetError,
     AssetStore,
+    default_asset_store,
     default_download_manager,
-    get_asset_store,
 )
 
 DatasetT = TypeVar("DatasetT")
@@ -48,7 +48,7 @@ class DatasetLoader(Protocol[DatasetT_co]):
 class AbstractDatasetLoader(ABC, DatasetLoader[DatasetT]):
     """Provides a skeletal implementation of :class:`DatasetLoader`."""
 
-    _asset_store: AssetStore | None
+    _asset_store: AssetStore
     _download_manager: AssetDownloadManager
 
     def __init__(
@@ -65,7 +65,7 @@ class AbstractDatasetLoader(ABC, DatasetLoader[DatasetT]):
             The download manager. If ``None``, the default download manager will
             be used.
         """
-        self._asset_store = asset_store
+        self._asset_store = asset_store or default_asset_store
         self._download_manager = download_manager or default_download_manager
 
     @final
@@ -79,9 +79,6 @@ class AbstractDatasetLoader(ABC, DatasetLoader[DatasetT]):
         if isinstance(dataset_name_or_card, AssetCard):
             card = dataset_name_or_card
         else:
-            if self._asset_store is None:
-                self._asset_store = get_asset_store()
-
             card = self._asset_store.retrieve_card(dataset_name_or_card)
 
         dataset_uri = card.field("data").as_uri()
@@ -116,7 +113,7 @@ class AbstractDatasetLoader(ABC, DatasetLoader[DatasetT]):
 class DelegatingDatasetLoader(DatasetLoader[DatasetT]):
     """Loads datasets of type ``DatasetT`` using registered loaders."""
 
-    _asset_store: AssetStore | None
+    _asset_store: AssetStore
     _loaders: dict[str, DatasetLoader[DatasetT]]
 
     def __init__(self, *, asset_store: AssetStore | None = None) -> None:
@@ -125,7 +122,7 @@ class DelegatingDatasetLoader(DatasetLoader[DatasetT]):
             The asset store where to check for available datasets. If ``None``,
             the default asset store will be used.
         """
-        self._asset_store = asset_store
+        self._asset_store = asset_store or default_asset_store
 
         self._loaders = {}
 
@@ -139,9 +136,6 @@ class DelegatingDatasetLoader(DatasetLoader[DatasetT]):
         if isinstance(dataset_name_or_card, AssetCard):
             card = dataset_name_or_card
         else:
-            if self._asset_store is None:
-                self._asset_store = get_asset_store()
-
             card = self._asset_store.retrieve_card(dataset_name_or_card)
 
         family = card.field("dataset_family").as_(str)
@@ -176,9 +170,6 @@ class DelegatingDatasetLoader(DatasetLoader[DatasetT]):
         if isinstance(dataset_name_or_card, AssetCard):
             card = dataset_name_or_card
         else:
-            if self._asset_store is None:
-                self._asset_store = get_asset_store()
-
             card = self._asset_store.retrieve_card(dataset_name_or_card)
 
         family = card.field("dataset_family").as_(str)

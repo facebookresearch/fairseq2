@@ -16,7 +16,6 @@ from typing_extensions import override
 
 from fairseq2.console import get_console
 from fairseq2.data.text import load_text_tokenizer
-from fairseq2.dependency import DependencyResolver
 from fairseq2.gang import Gang
 from fairseq2.generation import (
     Chatbot,
@@ -31,7 +30,7 @@ from fairseq2.models.decoder import DecoderModel
 from fairseq2.recipes.cli import CliCommandHandler
 from fairseq2.recipes.logging import setup_basic_logging
 from fairseq2.recipes.utils.argparse import parse_dtype
-from fairseq2.recipes.utils.environment import EnvironmentSetter
+from fairseq2.recipes.utils.environment import default_env_setters
 from fairseq2.recipes.utils.setup import setup_gangs
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import RngBag
@@ -44,7 +43,7 @@ class ChatbotCommandHandler(CliCommandHandler):
     """Runs a chatbot."""
 
     @override
-    def init_parser(self, parser: ArgumentParser, resolver: DependencyResolver) -> None:
+    def init_parser(self, parser: ArgumentParser) -> None:
         parser.add_argument(
             "-m",
             "--model",
@@ -96,7 +95,7 @@ class ChatbotCommandHandler(CliCommandHandler):
             help="maximum sequence generation length (default: %(default)s)",
         )
 
-        clusters = [k for k, _ in resolver.resolve_all_keyed(EnvironmentSetter)]
+        clusters = list(default_env_setters.names())
 
         clusters.sort()
 
@@ -108,25 +107,24 @@ class ChatbotCommandHandler(CliCommandHandler):
         )
 
     @override
-    @torch.inference_mode()
-    def __call__(self, args: Namespace, resolver: DependencyResolver) -> None:
+    def __call__(self, args: Namespace) -> None:
         setup_basic_logging()
 
         # Set up cluster-specific environment variables.
         if args.cluster == "auto":
-            env_setter = resolver.resolve(EnvironmentSetter)
+            env_setter = default_env_setters.get_for_inferred_cluster()
         else:
-            env_setter = resolver.resolve(EnvironmentSetter, args.cluster)
+            try:
+                env_setter = default_env_setters.get(args.cluster)
+            except RuntimeError:
+                log.exception("Chatbot is not running on a '{}' cluster.", args.cluster)  # fmt: skip
 
-        if not env_setter.supports_current_cluster():
-            log.error("Recipe is not running on a '{}' cluster.", args.cluster)
-
-            sys.exit(1)
+                sys.exit(1)
 
         try:
-            env_setter.set_torch_distributed_variables()
+            env_setter.set_torch_distributed_env()
         except RuntimeError:
-            log.exception("'{}' cluster environment cannot be set.", env_setter.supported_cluster)  # fmt: skip
+            log.exception("'{}' cluster environment cannot be set.", env_setter.cluster)  # fmt: skip
 
             sys.exit(1)
 
