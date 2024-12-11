@@ -29,12 +29,12 @@ if TYPE_CHECKING or DOC_MODE:
 
         :param indices:
             A list of indices of the column to keep, or a single index.
-            If a single index is provided and exclude is False,
+            If a single index is provided and ``exclude`` is ``False``,
             the output is a string.
 
         :param exclude:
-            If True, the indices will be excluded from the output,
-            instead of kept. Default to False.
+            If ``True``, the indices will be excluded from the output,
+            instead of kept. Default to ``False``.
 
         Example usage::
 
