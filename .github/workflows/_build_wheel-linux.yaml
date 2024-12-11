@@ -78,9 +78,9 @@ jobs:
 
           # If the version has already a local label, append the variant.
           if [[ $version == *+* ]]; then
-              tools/set-project-version.sh $version.$VARIANT
+              tools/set-project-version.sh --native-only $version.$VARIANT
           else
-              tools/set-project-version.sh $version+$VARIANT
+              tools/set-project-version.sh --native-only $version+$VARIANT
           fi
       - name: Build fairseq2n
         working-directory: native
