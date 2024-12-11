@@ -80,10 +80,6 @@ if [[ $native_only != true ]]; then
         "s/^__version__ = \".*\"$/__version__ = \"$pep_ver\"/"
 fi
 
-replace_match\
-    "$base/setup.py"\
-    "s/^fairseq2n_version = \".*\"$/fairseq2n_version = \"$pep_ver\"/"
-
 # Update fairseq2n CMake project.
 replace_match\
     "$base/native/CMakeLists.txt"\
