@@ -15,7 +15,10 @@ version = "0.3.0.dev0"
 if version.endswith(".dev0"):
     fairseq2n_version_spec = f">={version},<={version[:-5]}"
 else:
-    fairseq2n_version_spec = f"=={version}"
+    p = version.split("+", maxsplit=1)
+
+    fairseq2n_version_spec = "==" + p[0]
+
 
 setup(
     name="fairseq2",

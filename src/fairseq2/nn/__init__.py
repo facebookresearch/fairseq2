@@ -17,10 +17,22 @@ from fairseq2.nn.normalization import LayerNorm as LayerNorm
 from fairseq2.nn.normalization import RMSNorm as RMSNorm
 from fairseq2.nn.normalization import StandardLayerNorm as StandardLayerNorm
 from fairseq2.nn.position_encoder import (
+    InterpolatedPositionEncoder as InterpolatedPositionEncoder,
+)
+from fairseq2.nn.position_encoder import (
     LearnedPositionEncoder as LearnedPositionEncoder,
 )
 from fairseq2.nn.position_encoder import PositionEncoder as PositionEncoder
 from fairseq2.nn.position_encoder import RotaryEncoder as RotaryEncoder
+from fairseq2.nn.position_encoder import (
+    Sinusoidal2dPositionEncoder as Sinusoidal2dPositionEncoder,
+)
+from fairseq2.nn.position_encoder import (
+    Sinusoidal3dPositionEncoder as Sinusoidal3dPositionEncoder,
+)
+from fairseq2.nn.position_encoder import (
+    SinusoidalNdPositionEncoder as SinusoidalNdPositionEncoder,
+)
 from fairseq2.nn.position_encoder import (
     SinusoidalPositionEncoder as SinusoidalPositionEncoder,
 )
