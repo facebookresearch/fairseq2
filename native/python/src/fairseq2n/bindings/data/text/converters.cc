@@ -31,8 +31,8 @@ namespace fairseq2n {
 static std::shared_ptr<string_splitter>
 make_string_splitter(
     std::string_view sep,
-    std::optional<std::vector<std::string>> maybe_names,
-    std::variant<std::size_t, std::vector<std::size_t>> indices,
+    std::optional<std::vector<std::string>> &&maybe_names,
+    std::variant<std::size_t, std::vector<std::size_t>> &&indices,
     bool exclude)
 {
     if (sep.size() != 1)

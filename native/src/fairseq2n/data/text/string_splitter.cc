@@ -18,13 +18,11 @@ using namespace fairseq2n::detail;
 namespace fairseq2n {
 
 static std::vector<std::size_t>
-wrapIndices(std::variant<std::size_t, std::vector<std::size_t>> indices) {
+wrapIndices(std::variant<std::size_t, std::vector<std::size_t>> &&indices) {
     if (std::holds_alternative<std::size_t>(indices)) {
-        // Wrap the size_t value in a new vector
-        return {std::get<std::size_t>(indices)};
+        return {std::get<std::size_t>(std::move(indices))};
     } else {
-        // Move the existing vector
-        return std::move(std::get<std::vector<std::size_t>>(indices));
+        return std::get<std::vector<std::size_t>>(std::move(indices));
     }
 }
 
