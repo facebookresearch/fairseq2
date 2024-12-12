@@ -14,6 +14,8 @@ from fairseq2.models.jepa.factory import JepaEncoderConfig as JepaEncoderConfig
 from fairseq2.models.jepa.factory import create_jepa_model as create_jepa_model
 from fairseq2.models.jepa.factory import jepa_arch as jepa_arch
 from fairseq2.models.jepa.factory import jepa_archs as jepa_archs
+from fairseq2.models.jepa.loader import load_jepa_config as load_jepa_config
+from fairseq2.models.jepa.loader import load_jepa_model as load_jepa_model
 
 # isort: split
 
