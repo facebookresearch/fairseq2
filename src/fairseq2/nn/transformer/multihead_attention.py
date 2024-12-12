@@ -178,9 +178,6 @@ class StandardMultiheadAttention(MultiheadAttention):
     v_proj: Projection
     attn_mask_factory: AttentionMaskFactory | None
     pos_encoder: PositionEncoder | None
-    bias_k: Parameter | None
-    bias_v: Parameter | None
-    add_zero_attn: bool
     sdpa: SDPA
     head_scale_weight: Parameter | None
     output_proj: Projection
@@ -204,6 +201,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         output_proj: Projection | None = None,
         output_proj_init_fn: Callable[[Linear], None] | None = None,
         bias: bool = True,
+        output_proj_bias: bool | None = None,
         state_factory: AttentionStateFactory | None = None,
         device: Device | None = None,
         dtype: DataType | None = None,
@@ -249,8 +247,12 @@ class StandardMultiheadAttention(MultiheadAttention):
         :param output_proj_init_fn:
             The callable to initialize the output projection.
         :param bias:
-            If ``True``, query, key, value, and output projections learn an
-            additive bias. Ignored for explicitly specified projections.
+            If ``True``, query, key, and value projections learn an additive
+            bias. Ignored for explicitly specified projections.
+        :param output_proj_bias:
+            If ``True``, output projection learns an additive bias. If ``None``,
+            the value of ``bias`` is used. Ignored for explicitly specified
+            projections.
         :param state_factory:
             The factory to construct :class:`AttentionState` instances for
             incremental decoding.
@@ -363,10 +365,13 @@ class StandardMultiheadAttention(MultiheadAttention):
         v_dim = v_proj.output_dim * num_query_groups
 
         if output_proj is None:
+            if output_proj_bias is None:
+                output_proj_bias = bias
+
             self.output_proj = Linear(
                 v_dim,
                 model_dim,
-                bias,
+                output_proj_bias,
                 init_fn=output_proj_init_fn or init_output_projection,
                 device=device,
                 dtype=dtype,
