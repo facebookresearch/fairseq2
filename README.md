@@ -24,10 +24,7 @@ For recent changes, you can check out our [changelog](CHANGELOG.md).
 ## Models
 As of today, the following models are available in fairseq2:
 
- * [LLaMA](src/fairseq2/models/llama)
- * [LLaMA 2](src/fairseq2/models/llama)
- * [LLaMA 3](src/fairseq2/models/llama)
- * [LLaMA 3.1](src/fairseq2/models/llama)
+ * [LLaMA](src/fairseq2/models/llama), [LLaMA 2](src/fairseq2/models/llama), [LLaMA 3](src/fairseq2/models/llama), [LLaMA 3.1](src/fairseq2/models/llama), [LLaMA 3.2](src/fairseq2/models/llama)
  * [Mistral 7B](src/fairseq2/mistral)
  * [NLLB-200](src/fairseq2/models/nllb)
  * [S2T Transformer + Conformer](src/fairseq2/models/s2t_transformer)
@@ -140,7 +137,7 @@ variant `cu124`):
 
 ```sh
 pip install fairseq2\
-  --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/pt2.5.1/cu124
+  --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/pt2.1.1/cu121
 ```
 
 > [!WARNING]
