@@ -47,6 +47,7 @@ target_sources(fairseq2n
         data/skip_data_source.cc
         data/take_data_source.cc
         data/tape.cc
+        data/unsorted_map_data_source.cc
         data/yield_from_data_source.cc
         data/zip_data_source.cc
         data/zip_file_data_source.cc
