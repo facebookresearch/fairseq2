@@ -9,3 +9,7 @@ from __future__ import annotations
 
 class AlreadyExistsError(RuntimeError):
     """Raised when an item already exists."""
+
+
+class NotSupportedError(RuntimeError):
+    pass
