@@ -1,0 +1,39 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+name: jepa_vitl16
+model_family: jepa
+model_arch: large
+model_config:
+  encoder_config:
+    input_dims: [16, 224, 224]
+    patch_dims: [2, 16, 16]
+    uniform_power: true
+checkpoint: "https://dl.fbaipublicfiles.com/jepa/vitl16/vitl16.pth.tar"
+
+---
+
+name: jepa_vith16
+model_family: jepa
+model_arch: huge
+model_config:
+  encoder_config:
+    input_dims: [16, 224, 224]
+    patch_dims: [2, 16, 16]
+    uniform_power: true
+checkpoint: "https://dl.fbaipublicfiles.com/jepa/vith16/vith16.pth.tar"
+
+---
+
+name: jepa_vith16_384
+model_family: jepa
+model_arch: huge
+model_config:
+  encoder_config:
+    input_dims: [16, 384, 384]
+    patch_dims: [2, 16, 16]
+    uniform_power: true
+checkpoint: "https://dl.fbaipublicfiles.com/jepa/vith16-384/vith16-384.pth.tar"
