@@ -7,8 +7,11 @@
 from __future__ import annotations
 
 from fairseq2.models.jepa.factory import JEPA_FAMILY as JEPA_FAMILY
+from fairseq2.models.jepa.factory import JepaBuilder as JepaBuilder
 from fairseq2.models.jepa.factory import JepaConfig as JepaConfig
+from fairseq2.models.jepa.factory import JepaEncoderBuilder as JepaEncoderBuilder
 from fairseq2.models.jepa.factory import JepaEncoderConfig as JepaEncoderConfig
+from fairseq2.models.jepa.factory import create_jepa_model as create_jepa_model
 from fairseq2.models.jepa.factory import jepa_arch as jepa_arch
 from fairseq2.models.jepa.factory import jepa_archs as jepa_archs
 
