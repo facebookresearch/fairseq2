@@ -422,7 +422,10 @@ class InterpolatedPositionEncoder(Module, ABC):
         :returns: The inputs with positional information encoded.  *Shape:* Same
             as ``x``.
         """
-        ...
+
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        return f"encoding_dim={self.encoding_dim}"
 
 
 class SinusoidalNdPositionEncoder(InterpolatedPositionEncoder):
@@ -492,6 +495,12 @@ class SinusoidalNdPositionEncoder(InterpolatedPositionEncoder):
         :returns: The interpolated (or extrapolated) frequency table. *Shape:*
             Same as ``x``.
         """
+
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        s = super().extra_repr()
+
+        return f"{s}, grid_dims={self.grid_dims}"
 
 
 class Sinusoidal2dPositionEncoder(SinusoidalNdPositionEncoder):
