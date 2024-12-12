@@ -18,7 +18,7 @@ using namespace fairseq2n::detail;
 namespace fairseq2n {
 
 static std::vector<std::size_t>
-wrapIndices(std::variant<std::size_t, std::vector<std::size_t>> &&indices) {
+wrap_indices(std::variant<std::size_t, std::vector<std::size_t>> &&indices) {
     if (std::holds_alternative<std::size_t>(indices)) {
         return {std::get<std::size_t>(std::move(indices))};
     } else {
@@ -31,7 +31,7 @@ string_splitter::string_splitter(
     std::vector<std::string> names,
     std::variant<std::size_t, std::vector<std::size_t>> indices,
     bool exclude)
-  : separator_{separator}, names_(std::move(names)), indices_{wrapIndices(std::move(indices))}, exclude_{exclude}, single_column_{std::holds_alternative<std::size_t>(indices)}
+  : separator_{separator}, names_(std::move(names)), indices_{wrap_indices(std::move(indices))}, exclude_{exclude}, single_column_{std::holds_alternative<std::size_t>(indices)}
 {
     if (indices_.empty())
         return;
