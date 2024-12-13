@@ -707,6 +707,113 @@ def fake_gangs(device: Device) -> Gangs:
     return Gangs(gang, gang, gang)
 
 
+def setup_2D_mesh_gangs(
+    root_gang: Gang,
+    *,
+    row_length: int = 1,
+    create_single_rank_process_groups: bool = False,
+    dim_descriptions: list[str] | None = None,
+) -> dict[int, Gang]:
+    """Set up gangs for this process as defined by a 2D device mesh.
+
+    The two returned gangs are defined by the process' position in the mesh.
+    First gang is the row in the mesh, second is the column.
+    For example, assuming 8 devices denoted by g0 to g7, calling this function
+    with ``row_length`` = 4 amounts to defining the 2D mesh
+    [[g0, g1, g2, g3], [g4, g5, g6, g7]] and making 2 sets of gangs:
+
+        2 gangs of size 4 (mesh rows):
+            [g0, g1, g2, g3], [g4, g5, g6, g7]
+        4 gangs of size 2 (mesh columns):
+            [g0, g4], [g1, g5], [g2, g6], [g3, g7]
+
+    For the process of rank 5, the function would return the 2 sub-gangs
+    {0: [g4, g5, g6, g7], 1: [g1, g5]}. If adjacent ranks are on the same host
+    (for example, 2 hosts: one with g0 to g3, and the other with g4 to g7),
+    the first gang can be used to maximize local intra-host communication.
+
+    Example use-cases include making tensor- and data- parallel gangs, or
+    sharding and replicating gangs in FSDP's hybrid sharding.
+
+    :param root_gang:
+        The gang whose topology will be used to make the new gangs.
+    :param row_length:
+        The size of the gangs corresponding to the 2D mesh rows.
+    :param create_single_rank_process_groups:
+        If ``True``, create an underlying ``dist.ProcessGroup`` even for single-rank gangs.
+        The gang is faked otherwise.
+    :param dim_descriptions:
+        String descriptions of returned gangs, used in log and error messages.
+
+    :returns:
+        A ``dict`` of two gangs; 0 maps to the gang of 2D mesh row,
+        1 maps to the gang of the 2D mesh column.
+    """
+    if row_length <= 0:
+        raise ValueError(
+            f"`row_length` must be greater than 0, but is {row_length} instead."
+        )
+
+    if row_length > root_gang.size:
+        raise ValueError(
+            f"`row_length` must be less than or equal to `root_gang.size` ({root_gang.size}), but is {row_length} instead."
+        )
+
+    if root_gang.size % row_length != 0:
+        raise ValueError(
+            f"`root_gang.size` ({root_gang.size}) must be divisible by `row_length` ({row_length})."
+        )
+
+    row_count = root_gang.size // row_length
+
+    mesh = torch.arange(root_gang.size).view(row_count, row_length)
+
+    # Get the coordinate of this process in the mesh.
+    rank_coords = [x.item() for x in torch.where(mesh == root_gang.rank)]
+    mesh_shape = mesh.size()
+
+    output = {}
+
+    log.info(
+        "Initializing sub-gangs for a 2D device mesh of shape {}.", list(mesh_shape)
+    )
+    if dim_descriptions is None:
+        dim_descriptions = [f"dim-{dim}" for dim in range(2)]
+
+    for dim in range(2):
+        current_subgang: Gang | None = None
+
+        gang_size = mesh_shape[1 - dim]
+
+        log.info(
+            "Initializing {} gang with a size of {}.", dim_descriptions[dim], gang_size
+        )
+
+        # Match row length (dim 0) or column length (dim 1)
+        match gang_size:
+            case 1:
+                if create_single_rank_process_groups:
+                    current_subgang = root_gang.make_gang([root_gang.rank])
+                else:
+                    current_subgang = FakeGang(device=root_gang.device)
+            case root_gang.size:
+                current_subgang = root_gang
+            case _:
+                # Create 1 gang per row (dim 0) or per column (dim 1)
+                for i in range(mesh_shape[dim]):
+                    ranks = mesh[i, :] if dim == 0 else mesh[:, i]
+                    sub_gang = root_gang.make_gang(ranks.tolist())
+                    if i == rank_coords[dim]:
+                        current_subgang = sub_gang
+
+        if current_subgang is None:
+            raise InternalError(f"`current_gang` ({dim_descriptions[dim]}) is `None`.")
+
+        output[dim] = current_subgang
+
+    return output
+
+
 def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
     """Make gangs to be used for data and tensor parallelism.
 
@@ -741,52 +848,13 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
             f"The number of processes in the root gang is expected to be a multiple of the tensor parallel size ({tp_size}), but is {root_gang.size} instead."
         )
 
-    dp_size = root_gang.size // tp_size
+    output_from_2D_mesh = setup_2D_mesh_gangs(
+        root_gang,
+        row_length=tp_size,
+        dim_descriptions=["tensor parallel", "data parallel"],
+    )
 
-    mesh = torch.arange(root_gang.size).view(dp_size, tp_size)
-
-    # Get the coordinate of this process in the mesh.
-    rank_coords = [x.item() for x in torch.where(mesh == root_gang.rank)]
-
-    dp_gang: Gang | None = None
-
-    log.info("Initializing data parallel gang with a size of {}.", dp_size)
-
-    # Build the gangs for data parallelism.
-    match dp_size:
-        case 1:
-            dp_gang = FakeGang(device=root_gang.device)
-        case root_gang.size:
-            dp_gang = root_gang
-        case _:
-            for i in range(tp_size):
-                sub_gang = root_gang.make_gang(mesh[:, i].tolist())
-                if i == rank_coords[1]:
-                    dp_gang = sub_gang
-
-    if dp_gang is None:
-        raise InternalError("`dp_gang` is `None`.")
-
-    tp_gang: Gang | None = None
-
-    log.info("Initializing tensor parallel gang with a size of {}.", tp_size)
-
-    # Build the gangs for tensor parallelism.
-    match tp_size:
-        case 1:
-            tp_gang = FakeGang(device=root_gang.device)
-        case root_gang.size:
-            tp_gang = root_gang
-        case _:
-            for i in range(dp_size):
-                sub_gang = root_gang.make_gang(mesh[i, :].tolist())
-                if i == rank_coords[0]:
-                    tp_gang = sub_gang
-
-    if tp_gang is None:
-        raise InternalError("`tp_gang` is `None`.")
-
-    return Gangs(root_gang, dp_gang, tp_gang)
+    return Gangs(root_gang, output_from_2D_mesh[1], output_from_2D_mesh[0])
 
 
 def broadcast_flag(gang: Gang, flag: bool, source_rank: int = 0) -> bool:
