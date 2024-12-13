@@ -336,8 +336,9 @@
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>encoding_dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – The dimensionality of positional encodings. Input
-sequences are expected to have the same dimensionality.</p></li>
+<li><p><strong>encoding_dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – The dimensionality of positional encodings. The
+last dimension of input sequences is expected to have the same
+dimensionality.</p></li>
 <li><p><strong>max_seq_len</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em> | </em><em>None</em>) – The maximum allowed length for input sequences.
 Sequences longer than <code class="docutils literal notranslate"><span class="pre">max_seq_len</span></code> will cause a <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ValueError</span></code></a>.
 Typically it is set to the context length of the underlying model.
@@ -410,8 +411,9 @@ information encoded. See <a class="reference internal" href="#fairseq2.nn.Positi
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>encoding_dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – The dimensionality of positional encodings. Input
-sequences are expected to have the same dimensionality.</p></li>
+<li><p><strong>encoding_dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – The dimensionality of positional encodings. The
+last dimension of input sequences is expected to have the same
+dimensionality.</p></li>
 <li><p><strong>max_seq_len</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em> | </em><em>None</em>) – The maximum allowed length for input sequences.
 Sequences longer than <code class="docutils literal notranslate"><span class="pre">max_seq_len</span></code> will cause a <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ValueError</span></code></a>.</p></li>
 </ul>
@@ -480,8 +482,9 @@ information.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>encoding_dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – The dimensionality of positional encodings. Input
-sequences are expected to have the same dimensionality.</p></li>
+<li><p><strong>encoding_dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – The dimensionality of positional encodings. The
+last dimension of input sequences is expected to have the same
+dimensionality.</p></li>
 <li><p><strong>max_seq_len</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em> | </em><em>None</em>) – The maximum allowed length for input sequences.
 Sequences longer than <code class="docutils literal notranslate"><span class="pre">max_seq_len</span></code> will cause a <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ValueError</span></code></a>.</p></li>
 </ul>
@@ -526,8 +529,9 @@ Sequences longer than <code class="docutils literal notranslate"><span class="pr
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>encoding_dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – The dimensionality of positional encodings. Input
-sequences are expected to have the same dimensionality.</p></li>
+<li><p><strong>encoding_dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – The dimensionality of positional encodings. The
+last dimension of input sequences is expected to have the same
+dimensionality.</p></li>
 <li><p><strong>max_seq_len</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em> | </em><em>None</em>) – The maximum allowed length for input sequences.
 Sequences longer than <code class="docutils literal notranslate"><span class="pre">max_seq_len</span></code> will cause a <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ValueError</span></code></a>.</p></li>
 <li><p><strong>theta</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – The coefficient of the long-term decay as described in
@@ -665,7 +669,7 @@ as described in the reference paper.</p></li>
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=80648b48"></script>
+</div><script src="../../../_static/documentation_options.js?v=7bd377ef"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>
