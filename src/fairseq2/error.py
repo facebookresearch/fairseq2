@@ -7,6 +7,10 @@
 from __future__ import annotations
 
 
+class InternalError(Exception):
+    pass
+
+
 class InvalidOperationError(Exception):
     pass
 
