@@ -86,7 +86,7 @@ def setup_gangs(
 
     log.info("Data and tensor parallel gangs initialized.")
 
-    return root_gang, gangs
+    return root_gang, {"dp": gangs.dp, "tp": gangs.tp}
 
 
 def broadcast_model(model: Module, gang: Gang, log: LogWriter) -> None:

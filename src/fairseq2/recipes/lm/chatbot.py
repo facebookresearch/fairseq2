@@ -233,7 +233,7 @@ class ChatbotCommandHandler(CliCommandHandler):
                 raise
         else:
             while True:
-                message_buffer: list[ChatMessage | None] = [None]
+                message_buffer: list[object] = [None]
 
                 gang.broadcast_objects(message_buffer)
 

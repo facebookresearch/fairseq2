@@ -23,6 +23,7 @@ from torch.distributed.fsdp.api import FullStateDictConfig, StateDictType
 from torch.nn import Module
 from typing_extensions import override
 
+from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.typing import CPU
@@ -514,7 +515,7 @@ class FileCheckpointManager(CheckpointManager):
         def maybe_with_dp_process_group() -> AbstractContextManager[None]:
             try:
                 pg = self._dp_gang.as_process_group()
-            except RuntimeError:
+            except NotSupportedError:
                 return nullcontext()
 
             return load_with_process_group(pg)
