@@ -40,7 +40,7 @@ def merge_dataclass(target: T, source: T) -> T:
     """Merge ``target`` with the data contained in ``source``."""
     if type(target) is not type(source):
         raise TypeError(
-            f"`target` and `source` must be of the same type, but they are of types `{type(target)}` and `{type(source)}` instead."
+            f"`target` and `source` are expected to be of the same type, but they are of types `{type(target)}` and `{type(source)}` instead."
         )
 
     return cast(T, _copy_dataclass(target, source))
