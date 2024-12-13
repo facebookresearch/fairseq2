@@ -34,7 +34,7 @@ class MockGang(AbstractGang):
         pass
 
     @override
-    def _do_create_gang(self, ranks: Sequence[int]) -> MockGang | None:
+    def _do_make_gang(self, ranks: Sequence[int]) -> MockGang | None:
         try:
             idx = ranks.index(self._rank)
         except ValueError:
