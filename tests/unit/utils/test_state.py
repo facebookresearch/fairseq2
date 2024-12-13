@@ -57,7 +57,7 @@ class TestStatefulObjectBag:
 
         with pytest.raises(
             ValueError,
-            match="^`state_dict` must contain only the states of the attributes of this object, but it contains the following extra keys: foo3",
+            match="^`state_dict` must contain only the states of the attributes of this object, but it contains the following unexpected keys: foo3",
         ):
             bag.load_state_dict(state_dict)
 
