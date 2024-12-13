@@ -11,6 +11,11 @@ from logging import Logger, getLogger
 from typing import Any, Final, final
 
 
+def get_log_writer(name: str | None = None) -> LogWriter:
+    """Return a :class:`LogWriter` for the logger with the specified name."""
+    return LogWriter(getLogger(name))
+
+
 @final
 class LogWriter:
     """Writes log messages using ``format()`` strings."""
@@ -27,41 +32,41 @@ class LogWriter:
         self._logger = logger
 
     def debug(
-        self, msg: Any, *args: Any, highlight: bool = False, **kwargs: Any
+        self, message: str, *args: Any, highlight: bool = False, **kwargs: Any
     ) -> None:
         """Log a message with level ``DEBUG``."""
-        self._write(logging.DEBUG, msg, args, kwargs, highlight)
+        self._write(logging.DEBUG, message, args, kwargs, highlight)
 
     def info(
-        self, msg: Any, *args: Any, highlight: bool = False, **kwargs: Any
+        self, message: str, *args: Any, highlight: bool = False, **kwargs: Any
     ) -> None:
         """Log a message with level ``INFO``."""
-        self._write(logging.INFO, msg, args, kwargs, highlight)
+        self._write(logging.INFO, message, args, kwargs, highlight)
 
     def warning(
-        self, msg: Any, *args: Any, highlight: bool = False, **kwargs: Any
+        self, message: str, *args: Any, highlight: bool = False, **kwargs: Any
     ) -> None:
         """Log a message with level ``WARNING``."""
-        self._write(logging.WARNING, msg, args, kwargs, highlight)
+        self._write(logging.WARNING, message, args, kwargs, highlight)
 
     def error(
-        self, msg: Any, *args: Any, highlight: bool = False, **kwargs: Any
+        self, message: str, *args: Any, highlight: bool = False, **kwargs: Any
     ) -> None:
         """Log a message with level ``ERROR``."""
-        self._write(logging.ERROR, msg, args, kwargs, highlight)
+        self._write(logging.ERROR, message, args, kwargs, highlight)
 
     def exception(
-        self, msg: Any, *args: Any, highlight: bool = False, **kwargs: Any
+        self, message: str, *args: Any, highlight: bool = False, **kwargs: Any
     ) -> None:
         """Log a message with level ``ERROR``."""
-        self._write(logging.ERROR, msg, args, kwargs, highlight, exc_info=True)
+        self._write(logging.ERROR, message, args, kwargs, highlight, exc_info=True)
 
     def _write(
         self,
         level: int,
-        msg: Any,
-        args: Any,
-        kwargs: Any,
+        message: str,
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
         highlight: bool,
         exc_info: bool = False,
     ) -> None:
@@ -69,11 +74,11 @@ class LogWriter:
             if not self._logger.isEnabledFor(level):
                 return
 
-            msg = str(msg).format(*args, **kwargs)
+            message = str(message).format(*args, **kwargs)
 
         extra = None if highlight else self._NO_HIGHLIGHT
 
-        self._logger.log(level, msg, extra=extra, exc_info=exc_info)
+        self._logger.log(level, message, exc_info=exc_info, extra=extra)
 
     def is_enabled_for(self, level: int) -> bool:
         """Return ``True`` if the writer is enabled for ``level``."""
@@ -88,6 +93,4 @@ class LogWriter:
         return self._logger.isEnabledFor(logging.INFO)
 
 
-def get_log_writer(name: str | None = None) -> LogWriter:
-    """Return a :class:`LogWriter` for the logger with the specified name."""
-    return LogWriter(getLogger(name))
+log = get_log_writer("fairseq2")
