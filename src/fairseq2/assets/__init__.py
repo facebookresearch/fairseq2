@@ -7,10 +7,6 @@
 from __future__ import annotations
 
 from fairseq2.assets.card import AssetCard as AssetCard
-from fairseq2.assets.card import AssetCardError as AssetCardError
-from fairseq2.assets.card import (
-    AssetCardFieldNotFoundError as AssetCardFieldNotFoundError,
-)
 from fairseq2.assets.download_manager import AssetDownloadError as AssetDownloadError
 from fairseq2.assets.download_manager import (
     AssetDownloadManager as AssetDownloadManager,
@@ -19,17 +15,25 @@ from fairseq2.assets.download_manager import (
     InProcAssetDownloadManager as InProcAssetDownloadManager,
 )
 from fairseq2.assets.download_manager import (
-    default_download_manager as default_download_manager,
+    default_asset_download_manager as default_asset_download_manager,
 )
+from fairseq2.assets.error import AssetCardError as AssetCardError
+from fairseq2.assets.error import (
+    AssetCardFieldNotFoundError as AssetCardFieldNotFoundError,
+)
+from fairseq2.assets.error import AssetCardNotFoundError as AssetCardNotFoundError
 from fairseq2.assets.error import AssetError as AssetError
+from fairseq2.assets.error import AssetNotFoundError as AssetNotFoundError
 from fairseq2.assets.metadata_provider import (
     AbstractAssetMetadataProvider as AbstractAssetMetadataProvider,
 )
 from fairseq2.assets.metadata_provider import AssetMetadataError as AssetMetadataError
 from fairseq2.assets.metadata_provider import (
+    AssetMetadataNotFoundError as AssetMetadataNotFoundError,
+)
+from fairseq2.assets.metadata_provider import (
     AssetMetadataProvider as AssetMetadataProvider,
 )
-from fairseq2.assets.metadata_provider import AssetNotFoundError as AssetNotFoundError
 from fairseq2.assets.metadata_provider import (
     FileAssetMetadataProvider as FileAssetMetadataProvider,
 )
@@ -40,6 +44,7 @@ from fairseq2.assets.metadata_provider import (
     PackageAssetMetadataProvider as PackageAssetMetadataProvider,
 )
 from fairseq2.assets.metadata_provider import load_metadata_file as load_metadata_file
+from fairseq2.assets.register import register_assets as register_assets
 from fairseq2.assets.store import AssetStore as AssetStore
 from fairseq2.assets.store import EnvironmentResolver as EnvironmentResolver
 from fairseq2.assets.store import StandardAssetStore as StandardAssetStore

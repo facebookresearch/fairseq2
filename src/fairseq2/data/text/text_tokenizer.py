@@ -20,8 +20,8 @@ from fairseq2.assets import (
     AssetDownloadManager,
     AssetError,
     AssetStore,
+    default_asset_download_manager,
     default_asset_store,
-    default_download_manager,
 )
 from fairseq2.data.vocabulary_info import VocabularyInfo
 from fairseq2.typing import Device
@@ -200,7 +200,7 @@ class AbstractTextTokenizerLoader(ABC, TextTokenizerLoader[TextTokenizerT]):
             be used.
         """
         self._asset_store = asset_store or default_asset_store
-        self._download_manager = download_manager or default_download_manager
+        self._download_manager = download_manager or default_asset_download_manager
 
     @final
     def __call__(

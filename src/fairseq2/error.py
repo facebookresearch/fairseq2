@@ -11,6 +11,10 @@ class InternalError(Exception):
     pass
 
 
+class ContractError(Exception):
+    pass
+
+
 class InvalidOperationError(Exception):
     pass
 

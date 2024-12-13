@@ -265,9 +265,7 @@ def load_wav2vec2_asr_trainer(
 
     if config.resume_checkpoint_dir is not None:
         default_asset_store.metadata_providers.append(
-            CheckpointModelMetadataProvider(
-                config.resume_checkpoint_dir, lower_score_better=True
-            )
+            CheckpointModelMetadataProvider(config.resume_checkpoint_dir)
         )
 
     tokenizer_card = retrieve_asset_card(config.tokenizer)

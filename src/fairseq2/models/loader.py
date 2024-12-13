@@ -18,8 +18,8 @@ from fairseq2.assets import (
     AssetDownloadManager,
     AssetError,
     AssetStore,
+    default_asset_download_manager,
     default_asset_store,
-    default_download_manager,
 )
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
@@ -182,7 +182,7 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
             that do not support PyTorch's ``reset_parameters()`` convention.
         """
         self._asset_store = asset_store or default_asset_store
-        self._download_manager = download_manager or default_download_manager
+        self._download_manager = download_manager or default_asset_download_manager
         self._tensor_loader = tensor_loader or load_tensors
         self._config_loader = config_loader
         self._factory = factory

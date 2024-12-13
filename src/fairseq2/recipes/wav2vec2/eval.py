@@ -109,9 +109,7 @@ def load_wav2vec2_evaluator(
 
     if config.checkpoint_dir is not None:
         default_asset_store.metadata_providers.append(
-            CheckpointModelMetadataProvider(
-                config.checkpoint_dir, lower_score_better=True
-            )
+            CheckpointModelMetadataProvider(config.checkpoint_dir)
         )
 
     gang = setup_root_gang(log)
