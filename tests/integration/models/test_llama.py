@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import os
+from typing import cast
 
 import pytest
 
@@ -44,4 +45,4 @@ def test_convert_to_reference_checkpoint() -> None:
     model = create_llama_model(model_config, device=device)
 
     # This should work.
-    model.load_state_dict(checkpoint["model"])
+    model.load_state_dict(cast(dict[str, object], checkpoint["model"]))

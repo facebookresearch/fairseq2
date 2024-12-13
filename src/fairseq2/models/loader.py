@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from pickle import PickleError
-from typing import Any, Generic, Mapping, Protocol, TypeVar, final
+from typing import Any, Generic, Mapping, Protocol, TypeVar, cast, final
 
 from torch.nn import Module
 from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
@@ -340,12 +340,12 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
 
         # Load the model.
         try:
-            model_key = checkpoint["model_key"]
+            model_key = cast(str, checkpoint["model_key"])
         except KeyError:
             model_key = "model"
 
         try:
-            state_dict = checkpoint[model_key]
+            state_dict = cast(dict[str, object], checkpoint[model_key])
         except KeyError:
             raise AssetError(
                 f"The checkpoint of {card.name} does not contain a '{model_key}' entry."
