@@ -17,7 +17,7 @@ from typing import final
 from typing_extensions import override
 
 from fairseq2.utils.dataclass import EMPTY
-from fairseq2.utils.structured import StructuredError
+from fairseq2.utils.structured import StructureError
 
 
 class SweepTagger(ABC):
@@ -163,7 +163,7 @@ class StandardSweepTagger(SweepTagger):
 
             return
 
-        raise StructuredError(
+        raise StructureError(
             "`unstructured_config` must be a composition of types `bool`, `int`, `float`, `str`, `list`, and `dict`."
         )
 

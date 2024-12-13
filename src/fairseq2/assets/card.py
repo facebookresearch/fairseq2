@@ -15,7 +15,7 @@ from urllib.parse import urlparse, urlunparse
 
 from fairseq2.assets.error import AssetError
 from fairseq2.utils.structured import (
-    StructuredError,
+    StructureError,
     ValueConverter,
     default_value_converter,
 )
@@ -207,7 +207,7 @@ class AssetCardField:
 
         try:
             value = self._card._value_converter.structure(unstructured_value, type_expr)
-        except StructuredError as ex:
+        except StructureError as ex:
             pathname = ".".join(self._path)
 
             raise AssetCardError(

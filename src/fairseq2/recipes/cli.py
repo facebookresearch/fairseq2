@@ -33,7 +33,7 @@ from fairseq2.recipes.utils.log import log_config
 from fairseq2.recipes.utils.sweep import SweepTagger, default_sweep_tagger
 from fairseq2.typing import DataClass
 from fairseq2.utils.structured import (
-    StructuredError,
+    StructureError,
     ValueConverter,
     default_value_converter,
     merge_unstructured,
@@ -565,7 +565,7 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
 
         try:
             unstructured_config = self._value_converter.unstructure(preset_config)
-        except StructuredError:
+        except StructureError:
             log.exception("Preset configuration '{}' cannot be used. Please file a bug report to the recipe author.", args.preset)  # fmt: skip
 
             sys.exit(1)
@@ -585,7 +585,7 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
                     unstructured_config = merge_unstructured(
                         unstructured_config, unstructured_config_overrides
                     )
-                except StructuredError:
+                except StructureError:
                     log.exception("Configuration file '{}' cannot be used.", config_file)  # fmt: skip
 
                     sys.exit(1)
@@ -596,7 +596,7 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
                 unstructured_config = merge_unstructured(
                     unstructured_config, args.config_overrides
                 )
-            except StructuredError:
+            except StructureError:
                 log.exception("Command line configuration overrides cannot be applied.")
 
                 sys.exit(1)
@@ -676,9 +676,9 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
         # Parse the configuration.
         try:
             config = self._value_converter.structure(
-                unstructured_config, type_expr=self._preset_configs.config_kls
+                unstructured_config, self._preset_configs.config_kls
             )
-        except StructuredError:
+        except StructureError:
             log.exception("Configuration cannot be parsed.")
 
             sys.exit(1)
