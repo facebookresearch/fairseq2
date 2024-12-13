@@ -117,18 +117,14 @@ def to_fsdp(
             gang,
             row_length=local_world_size,
             create_single_rank_process_groups=True,
+            dim_descriptions=["sharding", "replication"],
         )
-        sharding_gang = sub_gangs[0]
-        replication_gang = sub_gangs[1]
-
-        log.info("Initialized sharding gangs of size {}.", sharding_gang.size)
-        log.info("Initialized replication gangs of size {}.", replication_gang.size)
 
         sharding_strategy = ShardingStrategy.HYBRID_SHARD
 
         process_group = (
-            sharding_gang.as_process_group(),
-            replication_gang.as_process_group(),
+            sub_gangs[0].as_process_group(),
+            sub_gangs[1].as_process_group(),
         )
     else:
         if reshard_after_forward:
