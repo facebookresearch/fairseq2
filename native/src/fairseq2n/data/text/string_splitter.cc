@@ -17,22 +17,36 @@ using namespace fairseq2n::detail;
 
 namespace fairseq2n {
 
-static std::vector<std::size_t>
-wrap_indices(std::variant<std::size_t, std::vector<std::size_t>> &&indices) {
-    if (std::holds_alternative<std::size_t>(indices)) {
-        return {std::get<std::size_t>(std::move(indices))};
-    } else {
-        return std::get<std::vector<std::size_t>>(std::move(indices));
-    }
+string_splitter::string_splitter(
+    char separator,
+    std::vector<std::string> names,
+    std::vector<std::size_t> indices,
+    bool exclude)
+  : separator_{separator},
+    names_{std::move(names)},
+    indices_{std::move(indices)},
+    exclude_{exclude},
+    single_column_{false}
+{
+    finalize_indices();
 }
 
 string_splitter::string_splitter(
     char separator,
     std::vector<std::string> names,
-    std::variant<std::size_t, std::vector<std::size_t>> indices,
+    std::size_t index,
     bool exclude)
-  : separator_{separator}, names_(std::move(names)), indices_{wrap_indices(std::move(indices))}, exclude_{exclude}, single_column_{std::holds_alternative<std::size_t>(indices)}
+  : separator_{separator},
+    names_{std::move(names)},
+    indices_{index},
+    exclude_{exclude},
+    single_column_{true}
 {
+    finalize_indices();
+}
+
+void
+string_splitter::finalize_indices() {
     if (indices_.empty())
         return;
 

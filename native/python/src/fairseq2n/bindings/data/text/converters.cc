@@ -43,8 +43,12 @@ make_string_splitter(
     if (maybe_names)
         names = *std::move(maybe_names);
 
-    return std::make_shared<string_splitter>(
-        sep[0], std::move(names), std::move(indices), exclude);
+    return std::visit(
+        [&](auto &&idx) {
+            return std::make_shared<string_splitter>(
+                sep[0], std::move(names), std::forward<decltype(idx)>(idx), exclude);
+        },
+        std::move(indices));
 }
 
 void

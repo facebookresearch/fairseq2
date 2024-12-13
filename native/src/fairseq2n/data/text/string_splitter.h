@@ -23,7 +23,14 @@ public:
     string_splitter(
         char separator = '\t',
         std::vector<std::string> names = {},
-        std::variant<std::size_t, std::vector<std::size_t>> indices = {},
+        std::vector<std::size_t> indices = {},
+        bool exclude = false);
+
+    explicit
+    string_splitter(
+        char separator = '\t',
+        std::vector<std::string> names = {},
+        std::size_t index = 0,
         bool exclude = false);
 
     data
@@ -36,6 +43,7 @@ private:
     bool exclude_;
     bool single_column_;
 
+    void finalize_indices();
 };
 
 }  // namespace fairseq2n
