@@ -121,9 +121,9 @@ class InProcAssetDownloadManager(AssetDownloadManager):
     _cache_dir: Path
 
     def __init__(self) -> None:
-        cache_dir = get_path_from_env("FAIRSEQ2_CACHE_DIR", log, missing_ok=True)
+        cache_dir = get_path_from_env("FAIRSEQ2_CACHE_DIR", missing_ok=True)
         if cache_dir is None:
-            cache_dir = get_path_from_env("XDG_CACHE_HOME", log)
+            cache_dir = get_path_from_env("XDG_CACHE_HOME")
             if cache_dir is None:
                 cache_dir = Path("~/.cache").expanduser()
 

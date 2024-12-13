@@ -269,7 +269,7 @@ default_asset_store = _create_default_asset_store()
 
 
 def _load_asset_directory() -> None:
-    asset_dir = get_path_from_env("FAIRSEQ2_ASSET_DIR", log)
+    asset_dir = get_path_from_env("FAIRSEQ2_ASSET_DIR")
     if asset_dir is None:
         asset_dir = Path("/etc/fairseq2/assets").resolve()
         if not asset_dir.exists():
@@ -282,9 +282,9 @@ _load_asset_directory()
 
 
 def _load_user_asset_directory() -> None:
-    asset_dir = get_path_from_env("FAIRSEQ2_USER_ASSET_DIR", log)
+    asset_dir = get_path_from_env("FAIRSEQ2_USER_ASSET_DIR")
     if asset_dir is None:
-        asset_dir = get_path_from_env("XDG_CONFIG_HOME", log)
+        asset_dir = get_path_from_env("XDG_CONFIG_HOME")
         if asset_dir is None:
             asset_dir = Path("~/.config").expanduser()
 
