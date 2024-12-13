@@ -20,7 +20,7 @@ from fairseq2.config_registry import ConfigRegistry
 from fairseq2.typing import DataClass
 from fairseq2.utils.dataclass import merge_dataclass
 from fairseq2.utils.structured import (
-    StructuredError,
+    StructureError,
     ValueConverter,
     default_value_converter,
     merge_unstructured,
@@ -141,7 +141,7 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
                 unstructured_base_config = self._value_converter.unstructure(
                     base_config
                 )
-            except StructuredError as ex:
+            except StructureError as ex:
                 raise AssetError(
                     f"The model configuration class of the '{self._family}' cannot be used. Please file a bug report to the model author."
                 ) from ex
@@ -153,9 +153,9 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
                     )
 
                 base_config = self._value_converter.structure(
-                    unstructured_base_config, type_expr=config_kls
+                    unstructured_base_config, config_kls
                 )
-            except StructuredError as ex:
+            except StructureError as ex:
                 raise AssetError(
                     f"The value of the field 'model_config' of the asset card '{card.name}' cannot be parsed as a valid model configuration. Please file a bug report to the asset author."
                 ) from ex
