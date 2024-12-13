@@ -48,8 +48,31 @@ class StandardResidualConnect(ResidualConnect):
 @final
 class ScaledResidualConnect(ResidualConnect):
     """
-    Scales residuals before adding them to the output of a feed-forward
-    network as described in :cite:t:`https://doi.org/10.48550/arxiv.2110.09456`.
+    Scales residuals by a constant factor before adding them to the output of a
+    Transformer module.
+    """
+
+    scale: float
+
+    def __init__(self, scale: float) -> None:
+        """
+        :param scale: The scale factor.
+        """
+        self.scale = scale
+
+    @override
+    def forward(self, seqs: Tensor, residual: Tensor) -> Tensor:
+        residual = self.scale * residual
+
+        return seqs + residual
+
+
+@final
+class NormFormerResidualConnect(ResidualConnect):
+    """
+    Scales residuals by a learned factor before adding them to the output of a
+    feed-forward network as described in
+    :cite:t:`https://doi.org/10.48550/arxiv.2110.09456`.
     """
 
     scale_proj: Parameter
@@ -89,7 +112,6 @@ class DropPathResidualConnect(ResidualConnect):
     :cite:t:`https://doi.org/10.48550/arxiv.1603.09382`.
 
     .. note::
-
         This implementation is mostly adapted from Ross Wightman's ``drop_path``
         function in timm.
     """
