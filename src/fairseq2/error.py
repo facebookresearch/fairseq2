@@ -7,9 +7,13 @@
 from __future__ import annotations
 
 
-class AlreadyExistsError(RuntimeError):
-    """Raised when an item already exists."""
+class InvalidOperationError(Exception):
+    pass
 
 
-class NotSupportedError(RuntimeError):
+class AlreadyExistsError(Exception):
+    pass
+
+
+class NotSupportedError(Exception):
     pass
