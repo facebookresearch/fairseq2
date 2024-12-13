@@ -29,8 +29,8 @@ from fairseq2.typing import CPU
 from fairseq2.utils.file import (
     TensorDumper,
     TensorLoader,
-    dump_pt_tensors,
-    load_pt_tensors,
+    dump_torch_tensors,
+    load_torch_tensors,
 )
 from fairseq2.utils.structured import default_value_converter
 
@@ -214,8 +214,8 @@ class FileCheckpointManager(CheckpointManager):
         elif dp_gang is not None or tp_gang is not None:
             raise ValueError("`dp_gang` and `tp_gang` must be both specified.")
 
-        self._tensor_loader = tensor_loader or load_pt_tensors
-        self._tensor_dumper = tensor_dumper or dump_pt_tensors
+        self._tensor_loader = tensor_loader or load_torch_tensors
+        self._tensor_dumper = tensor_dumper or dump_torch_tensors
 
         self._lower_score_better = lower_score_better
 
