@@ -25,10 +25,10 @@ from fairseq2.nn.utils.module import load_state_dict
 class Stateful(Protocol):
     """Represents an object that follows the ``state_dict`` convention."""
 
-    def state_dict(self) -> dict[str, Any]:
+    def state_dict(self) -> dict[str, object]:
         ...
 
-    def load_state_dict(self, state_dict: Mapping[str, Any]) -> None:
+    def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
         ...
 
 
@@ -89,7 +89,7 @@ class StatefulObjectBag:
         setattr(self, name, obj)
 
     @final
-    def register_non_stateful(self, name: str, obj: Any) -> None:
+    def register_non_stateful(self, name: str, obj: object) -> None:
         """Add ``obj`` to the bag, but do not preserve its state in ``state_dict``.
 
         :param name:
@@ -107,10 +107,10 @@ class StatefulObjectBag:
         setattr(self, name, obj)
 
     @final
-    def state_dict(self) -> dict[str, Any]:
+    def state_dict(self) -> dict[str, object]:
         state_dict = {}
 
-        state: Any
+        state: object
 
         for name, obj in self.__dict__.items():
             if name in self._non_stateful_attrs:
@@ -146,7 +146,17 @@ class StatefulObjectBag:
         return obj.state_dict()
 
     @final
-    def load_state_dict(self, state_dict: Mapping[str, Any]) -> None:
+    def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
+        def state_error(name: str, obj: object) -> ValueError:
+            return ValueError(
+                f"`state_dict['{name}']` is not a valid `{type(obj)}` state. See the nested exception for details."
+            )
+
+        def state_type_error(name: str, state: object) -> TypeError:
+            return TypeError(
+                f"`state_dict['{name}']` must be of type `{Mapping}`, but is of type `{type(state)}` instead."
+            )
+
         missing_stateful_attrs = []
 
         state_dict_ = dict(state_dict)
@@ -158,20 +168,28 @@ class StatefulObjectBag:
             is_explicit, state_handler = self._is_explicit(name)
 
             if is_explicit:
-                try:
-                    state = state_dict_.pop(name)
-                except KeyError:
+                state = state_dict_.pop(name, None)
+                if state is None:
                     missing_stateful_attrs.append(name)
 
                     continue
 
                 if state_handler is None:
                     if isinstance(obj, Stateful):
-                        self._load_state_dict(obj, state)
+                        if not isinstance(state, Mapping):
+                            raise state_type_error(name, state)
+
+                        try:
+                            self._load_state_dict(obj, state)
+                        except (ValueError, TypeError) as ex:
+                            raise state_error(name, obj) from ex
                     else:
                         setattr(self, name, state)
                 else:
-                    state_handler.set_state(obj, state)
+                    try:
+                        state_handler.set_state(obj, state)
+                    except (ValueError, TypeError) as ex:
+                        raise state_error(name, obj) from ex
             elif isinstance(obj, Stateful) and not self._is_dunder(name):
                 state = state_dict_.pop(name, None)
                 if state is None:
@@ -179,26 +197,32 @@ class StatefulObjectBag:
 
                     continue
 
-                self._load_state_dict(obj, state)
+                if not isinstance(state, Mapping):
+                    raise state_type_error(name, state)
+
+                try:
+                    self._load_state_dict(obj, state)
+                except (ValueError, TypeError) as ex:
+                    raise state_error(name, obj) from ex
 
         if missing_stateful_attrs:
             missing_stateful_attrs.sort()
 
+            s = ", ".join(missing_stateful_attrs)
+
             raise ValueError(
-                f"`state_dict` must contain the states of the following attributes: {', '.join(missing_stateful_attrs)}"
+                f"`state_dict` must contain the states of all of the following attribute(s): {s}"
             )
 
         if state_dict_:
-            extra_keys = list(state_dict_.keys())
-
-            extra_keys.sort()
+            s = ", ".join(sorted(state_dict_.keys()))
 
             raise ValueError(
-                f"`state_dict` must contain only the states of the attributes of this object, but it contains the following extra keys: {', '.join(extra_keys)}"
+                f"`state_dict` must contain only the states of the attributes of this object, but it contains the following unexpected keys: {s}"
             )
 
     @staticmethod
-    def _load_state_dict(obj: Stateful, state: Any) -> None:
+    def _load_state_dict(obj: Stateful, state: Mapping[str, object]) -> None:
         if isinstance(obj, FSDP):
             with catch_warnings():
                 warnings.simplefilter("ignore")  # Suppress noisy FSDP warnings.
@@ -234,11 +258,11 @@ class StateHandler(ABC, Generic[StatefulT]):
     :class:`StatefulObjectBag`."""
 
     @abstractmethod
-    def get_state(self, stateful: StatefulT) -> Any:
+    def get_state(self, stateful: StatefulT) -> object:
         """Get the state of ``stateful``."""
 
     @abstractmethod
-    def set_state(self, stateful: StatefulT, state: Any) -> None:
+    def set_state(self, stateful: StatefulT, state: object) -> None:
         """Set the state of ``stateful`` to ``state``."""
 
 
@@ -257,30 +281,35 @@ class FSDPOptimizerStateHandler(StateHandler[Optimizer]):
         self._module = module
 
     @override
-    def get_state(self, stateful: Optimizer) -> Any:
+    def get_state(self, stateful: Optimizer) -> object:
         with catch_warnings():
             warnings.simplefilter("ignore")  # Suppress noisy FSDP warnings.
 
             try:
-                # FSDP uses warning level to dump a lot of noisy# internal trace
+                # FSDP uses warning level to dump a lot of noisy internal trace
                 # information.
                 logging.disable(logging.WARNING)
 
                 return FSDP.optim_state_dict(self._module, stateful)
             except UnicodeDecodeError as ex:
                 raise RuntimeError(
-                    "FSDP has failed to gather optimizer state with a pickling error. This might indicate a disk space issue. Make sure you have enough space on your file system. See nested exception for details."
+                    "FSDP has failed to gather the optimizer state with a pickling error. This might indicate a disk space issue. Make sure you have enough space on your file system. See the nested exception for details."
                 ) from ex
             finally:
                 logging.disable(logging.NOTSET)
 
     @override
-    def set_state(self, stateful: Optimizer, state: Any) -> None:
+    def set_state(self, stateful: Optimizer, state: object) -> None:
+        if not isinstance(state, dict):
+            raise TypeError(
+                f"`state` must be of type `dict`, but is of type `{type(state)}` instead."
+            )
+
         with catch_warnings():
             warnings.simplefilter("ignore")  # Suppress noisy FSDP warnings.
 
             try:
-                # FSDP uses warning level to dump a lot of noisy# internal trace
+                # FSDP uses warning level to dump a lot of noisy internal trace
                 # information.
                 logging.disable(logging.WARNING)
 
