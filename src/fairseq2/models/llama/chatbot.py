@@ -19,7 +19,7 @@ from fairseq2.generation import (
     ChatDialog,
     ChatMessage,
     SequenceGenerator,
-    chatbot_factory,
+    chatbot_factories,
 )
 from fairseq2.models.llama.factory import LLAMA_FAMILY
 from fairseq2.models.llama.tokenizer import LLaMA3Tokenizer
@@ -206,7 +206,6 @@ class LLaMA3Chatbot(AbstractChatbot):
         return True
 
 
-@chatbot_factory(LLAMA_FAMILY)
 def create_llama_chatbot(
     generator: SequenceGenerator, tokenizer: TextTokenizer
 ) -> Chatbot:
@@ -215,3 +214,6 @@ def create_llama_chatbot(
         return LLaMA3Chatbot(generator, tokenizer)
 
     return LLaMAChatbot(generator, tokenizer)
+
+
+chatbot_factories.register(LLAMA_FAMILY, create_llama_chatbot)

@@ -34,7 +34,6 @@ from fairseq2.generation.chatbot import ChatbotFactory as ChatbotFactory
 from fairseq2.generation.chatbot import ChatDialog as ChatDialog
 from fairseq2.generation.chatbot import ChatMessage as ChatMessage
 from fairseq2.generation.chatbot import chatbot_factories as chatbot_factories
-from fairseq2.generation.chatbot import chatbot_factory as chatbot_factory
 from fairseq2.generation.factory import BeamSearchConfig as BeamSearchConfig
 from fairseq2.generation.factory import SamplingConfig as SamplingConfig
 from fairseq2.generation.factory import (
