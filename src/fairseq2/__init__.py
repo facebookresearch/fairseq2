@@ -55,8 +55,7 @@ def setup_fairseq2() -> None:
     _setup_legacy_extensions()
 
 
-def setup_extensions() -> None:  # compat
-    setup_fairseq2()
+setup_extensions = setup_fairseq2  # compat
 
 
 def _setup_legacy_extensions() -> None:

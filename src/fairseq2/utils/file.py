@@ -58,7 +58,7 @@ def load_torch_tensors(
 ) -> dict[str, object]:
     """Load the PyTorch tensor file stored under ``path``."""
     with catch_warnings():
-        warnings.simplefilter("ignore")  # Suppress the deprecation warning.
+        warnings.simplefilter("ignore")  # Suppress noisy FSDP warnings.
 
         try:
             data: dict[str, object] = torch.load(
@@ -76,12 +76,15 @@ def load_torch_tensors(
 
 def dump_torch_tensors(data: Mapping[str, object], path: Path) -> None:
     """Dump ``data`` to a PyTorch tensor file under ``path``."""
-    try:
-        torch.save(data, path)
-    except (RuntimeError, OSError, PickleError) as ex:
-        raise TensorDumpError(
-            f"The '{path}' tensor file cannot be dumped. See the nested exception for details.",
-        ) from ex
+    with catch_warnings():
+        warnings.simplefilter("ignore")  # Suppress noisy FSDP warnings.
+
+        try:
+            torch.save(data, path)
+        except (RuntimeError, OSError, PickleError) as ex:
+            raise TensorDumpError(
+                f"The '{path}' tensor file cannot be dumped. See the nested exception for details.",
+            ) from ex
 
 
 def load_safetensors(

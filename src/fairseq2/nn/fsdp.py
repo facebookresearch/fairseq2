@@ -28,7 +28,7 @@ from torch.distributed.fsdp.api import (
 from torch.nn import Module, Parameter
 
 from fairseq2.gang import Gang
-from fairseq2.logging import get_log_writer
+from fairseq2.logging import log
 from fairseq2.nn.utils.module import (
     apply_to_parameters,
     infer_device,
@@ -37,8 +37,6 @@ from fairseq2.nn.utils.module import (
     to_empty,
 )
 from fairseq2.typing import DataType, Device
-
-log = get_log_writer(__name__)
 
 
 def to_fsdp(
@@ -102,7 +100,7 @@ def to_fsdp(
 
         if gang.size % local_world_size != 0:
             raise ValueError(
-                f"`gang.size` ({gang.size}) must be divisible by `local_world_size` ({local_world_size})."
+                f"`gang.size` ({gang.size}) must be a multiple of `local_world_size` ({local_world_size})."
             )
 
         # TODO(balioglu): Finish!
@@ -121,7 +119,13 @@ def to_fsdp(
 
     param_init_fn = None
 
-    module_device = infer_device(module)
+    try:
+        module_device = infer_device(module)
+    except ValueError as ex:
+        raise ValueError(
+            "The device of `module` is not valid. See the nested exception for details."
+        ) from ex
+
     if module_device.type == "meta":
         if gang.rank == 0:
             skip_init = not broadcast_state
@@ -168,9 +172,7 @@ def to_fsdp(
     )
 
     with catch_warnings():
-        warnings.simplefilter(
-            "ignore"
-        )  # Suppress the future warning from torch.distributed.fsdp.*
+        warnings.simplefilter("ignore")  # Suppress noisy FSDP warnings.
 
         FSDP.set_state_dict_type(
             fsdp,

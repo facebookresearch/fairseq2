@@ -48,7 +48,7 @@ class MistralChatbot(AbstractChatbot):
                 "One or more required control symbols for the chatbot are not found in the tokenizer. Please make sure that you are using the right tokenizer."
             )
 
-        device = infer_device(generator.model, name="generator.model")
+        device = infer_device(generator.model)
 
         self._bos_idx = torch.tensor([bos_idx], device=device)
         self._eos_idx = torch.tensor([eos_idx], device=device)

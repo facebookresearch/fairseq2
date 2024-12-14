@@ -6,12 +6,14 @@
 
 from __future__ import annotations
 
+import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Iterator, Mapping, Set
 from contextlib import AbstractContextManager, nullcontext
 from pathlib import Path
 from shutil import rmtree
 from typing import final
+from warnings import catch_warnings
 
 from torch.distributed._shard import load_with_process_group
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
@@ -466,12 +468,17 @@ class FileCheckpointManager(CheckpointManager):
 
         log.info("Extracting consolidated model state.")
 
-        with FSDP.state_dict_type(
-            model,
-            StateDictType.FULL_STATE_DICT,
-            state_dict_config=FullStateDictConfig(offload_to_cpu=True, rank0_only=True),
-        ):
-            state_dict = model.state_dict()
+        with catch_warnings():
+            warnings.simplefilter("ignore")  # Suppress noisy FSDP warnings.
+
+            with FSDP.state_dict_type(
+                model,
+                StateDictType.FULL_STATE_DICT,
+                state_dict_config=FullStateDictConfig(
+                    offload_to_cpu=True, rank0_only=True
+                ),
+            ):
+                state_dict = model.state_dict()
 
         self._root_gang.barrier()
 

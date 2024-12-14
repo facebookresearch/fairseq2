@@ -10,7 +10,7 @@ import re
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from itertools import chain
-from typing import Any, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 import torch
 from torch import Tensor
@@ -18,10 +18,8 @@ from torch.nn import Module, Parameter
 from torch.nn.utils import remove_weight_norm  # type: ignore[attr-defined]
 
 from fairseq2.gang import Gang
-from fairseq2.logging import get_log_writer
+from fairseq2.logging import log
 from fairseq2.typing import CPU, Device
-
-log = get_log_writer(__name__)
 
 
 @runtime_checkable
@@ -111,7 +109,13 @@ def to_device(module: Module, device: Device) -> None:
         if m is None:
             continue
 
-        module_device = infer_device(m, name, recurse=False)
+        try:
+            module_device = infer_device(m, recurse=False)
+        except ValueError as ex:
+            raise ValueError(
+                f"The device of `{name}` is not valid. See the nested exception for details."
+            ) from ex
+
         if module_device == device:
             continue
 
@@ -335,9 +339,7 @@ def remove_parametrizations(module: Module, *, recurse: bool = True) -> None:
     visit_module(module, remove, recurse=recurse)
 
 
-def infer_device(
-    module: Module, name: str = "module", *, recurse: bool = True
-) -> Device:
+def infer_device(module: Module, *, recurse: bool = True) -> Device:
     """Infer the device on which ``module``'s parameters and buffers reside.
 
     :param module:
@@ -362,10 +364,10 @@ def infer_device(
     if len(devices) == 1:
         return devices.pop()
 
-    s = ", ".join(sorted(f"'{d.type}'" for d in devices))
+    s = ", ".join(sorted(f"`{d.type}`" for d in devices))
 
     raise ValueError(
-        f"All parameters and buffers of `{name}` must be on the same device, but they are on {s}."
+        f"All parameters and buffers of `module` must be on the same device, but they are on {s}."
     )
 
 
@@ -429,7 +431,7 @@ def broadcast_module(
     _broadcast_coalesced(pg, tensors, bucket_size, source_rank)
 
 
-def load_state_dict(module: Module, state_dict: Mapping[str, Any]) -> None:
+def load_state_dict(module: Module, state_dict: Mapping[str, object]) -> None:
     """Copy parameters and buffers from ``state_dict`` into ``module`` and its
     descendant modules.
 
@@ -453,8 +455,12 @@ def load_state_dict(module: Module, state_dict: Mapping[str, Any]) -> None:
                 unexpected_keys.append(key)
 
     if unexpected_keys:
-        raise RuntimeError(
-            f"Unexpected key(s) in `state_dict`: {', '.join(unexpected_keys)}"
+        unexpected_keys.sort()
+
+        s = ", ".join(unexpected_keys)
+
+        raise ValueError(
+            f"`state_dict` must not contain the following unexpected key(s): {s}"
         )
 
 
