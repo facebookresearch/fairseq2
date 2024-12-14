@@ -9,7 +9,7 @@ from __future__ import annotations
 import sys
 from argparse import ArgumentParser, Namespace
 from collections import defaultdict
-from typing import Any, final
+from typing import Any, cast, final
 
 from rich.console import Console
 from rich.pretty import pretty_repr
@@ -108,7 +108,7 @@ class ListAssetsCommand(CliCommandHandler):
                 name = name[:-1]
 
             try:
-                source = card.metadata["__source__"]
+                source = cast(str, card.metadata["__source__"])
             except KeyError:
                 source = "unknown source"
 

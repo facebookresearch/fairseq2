@@ -16,8 +16,8 @@ from fairseq2.assets import (
     AssetDownloadManager,
     AssetError,
     AssetStore,
+    default_asset_download_manager,
     default_asset_store,
-    default_download_manager,
 )
 
 DatasetT = TypeVar("DatasetT")
@@ -66,7 +66,7 @@ class AbstractDatasetLoader(ABC, DatasetLoader[DatasetT]):
             be used.
         """
         self._asset_store = asset_store or default_asset_store
-        self._download_manager = download_manager or default_download_manager
+        self._download_manager = download_manager or default_asset_download_manager
 
     @final
     def __call__(

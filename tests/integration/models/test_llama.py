@@ -9,7 +9,7 @@ from typing import cast
 
 import pytest
 
-from fairseq2.assets import default_asset_store, default_download_manager
+from fairseq2.assets import default_asset_download_manager, default_asset_store
 from fairseq2.models.llama import create_llama_model, llama_archs
 from fairseq2.models.llama.integ import convert_to_reference_checkpoint
 from fairseq2.models.llama.loader import convert_llama_checkpoint
@@ -26,7 +26,7 @@ def test_convert_to_reference_checkpoint() -> None:
 
     card = default_asset_store.retrieve_card("llama2_7b")
 
-    path = default_download_manager.download_checkpoint(
+    path = default_asset_download_manager.download_checkpoint(
         card.field("checkpoint").as_uri(), model_name="llama2_7b", progress=False
     )
 

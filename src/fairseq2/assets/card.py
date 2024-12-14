@@ -13,12 +13,9 @@ from pathlib import Path
 from typing import Any, Final, cast, final
 from urllib.parse import urlparse, urlunparse
 
-from fairseq2.assets.error import AssetError
-from fairseq2.utils.structured import (
-    StructureError,
-    ValueConverter,
-    default_value_converter,
-)
+from fairseq2.assets.error import AssetCardError, AssetCardFieldNotFoundError
+from fairseq2.error import InternalError
+from fairseq2.utils.structured import StructureError, structure, unstructure
 
 
 @final
@@ -26,15 +23,16 @@ class AssetCard:
     """Holds information about an asset."""
 
     _name: str
-    _metadata: MutableMapping[str, Any]
-    _base: AssetCard | None
-    _value_converter: ValueConverter
+    _metadata: MutableMapping[str, object]
+    _base_card: AssetCard | None
+    _base_path: Path | None
 
     def __init__(
         self,
-        metadata: MutableMapping[str, Any],
-        base: AssetCard | None = None,
-        value_converter: ValueConverter | None = None,
+        name: str,
+        metadata: MutableMapping[str, object],
+        base_card: AssetCard | None = None,
+        base_path: Path | None = None,
     ) -> None:
         """
         :param metadata:
@@ -42,25 +40,11 @@ class AssetCard:
             contain a specific piece of information about the asset.
         :param base:
             The card that this card derives from.
-        :param value_converter:
-            The :class:`ValueConverter` instance to use.
         """
-        try:
-            name = metadata["name"]
-        except KeyError:
-            raise AssetCardError(
-                "`metadata` must contain a key named 'name'."
-            ) from None
-
-        if not isinstance(name, str):
-            raise AssetCardError(
-                f"The value of 'name' in `metadata` must be of type `{str}`, but is of type `{type(name)}` instead."
-            )
-
         self._name = name
         self._metadata = metadata
-        self._base = base
-        self._value_converter = value_converter or default_value_converter
+        self._base_card = base_card
+        self._base_path = base_path
 
     def field(self, name: str) -> AssetCardField:
         """Return a field of this card.
@@ -73,10 +57,11 @@ class AssetCard:
         """
         return AssetCardField(self, path=[name])
 
-    def _get_field_value(self, name: str, path: list[str]) -> object:
-        assert len(path) > 0
+    def _get_field_value(self, leaf_card: AssetCard, path: list[str]) -> object:
+        if len(path) == 0:
+            raise InternalError("`path` has zero length.")
 
-        metadata = self._metadata
+        metadata: object = self._metadata
 
         contains = True
 
@@ -86,11 +71,11 @@ class AssetCard:
 
                 break
 
-            if not isinstance(metadata, Mapping):
+            if not isinstance(metadata, MutableMapping):
                 pathname = ".".join(path)
 
                 raise AssetCardFieldNotFoundError(
-                    f"The asset card '{name}' must have a field named '{pathname}'."
+                    f"The '{leaf_card.name}' asset card does not have a field named '{pathname}'."
                 )
 
             try:
@@ -101,40 +86,42 @@ class AssetCard:
                 break
 
         if not contains:
-            if self._base is not None:
-                return self._base._get_field_value(name, path)
+            if self._base_card is not None:
+                return self._base_card._get_field_value(leaf_card, path)
 
             pathname = ".".join(path)
 
             raise AssetCardFieldNotFoundError(
-                f"The asset card '{name}' must have a field named '{pathname}'."
+                f"The '{leaf_card.name}' asset card does not have a field named '{pathname}'."
             )
 
         return metadata
 
     def _set_field_value(self, path: list[str], value: object) -> None:
-        assert len(path) > 0
+        if len(path) == 0:
+            raise InternalError("`path` has zero length.")
 
         metadata = self._metadata
 
         for depth, field in enumerate(path[:-1]):
-            try:
-                metadata = metadata[field]
-            except KeyError:
-                tmp: dict[str, Any] = {}
+            value_ = metadata.get(field)
+            if value_ is None:
+                tmp: dict[str, object] = {}
 
                 metadata[field] = tmp
 
-                metadata = tmp
+                value_ = tmp
 
-            if not isinstance(metadata, Mapping):
+            if not isinstance(value_, MutableMapping):
                 conflict_pathname = ".".join(path[: depth + 1])
 
                 pathname = ".".join(path)
 
                 raise AssetCardError(
-                    f"The asset card '{self._name}' cannot have a field named '{pathname}' due to path conflict at '{conflict_pathname}'."
+                    f"The '{self._name}' asset card cannot have a field named '{pathname}' due to path conflict at '{conflict_pathname}'."
                 )
+
+            metadata = value_
 
         metadata[path[-1]] = value
 
@@ -147,14 +134,14 @@ class AssetCard:
         return self._name
 
     @property
-    def metadata(self) -> Mapping[str, Any]:
+    def metadata(self) -> Mapping[str, object]:
         """The metadata of the asset."""
         return self._metadata
 
     @property
     def base(self) -> AssetCard | None:
         """The card that this card derives from."""
-        return self._base
+        return self._base_card
 
 
 @final
@@ -185,7 +172,7 @@ class AssetCardField:
     def exists(self) -> bool:
         """Return ``True`` if the field exists."""
         try:
-            self._card._get_field_value(self._card.name, self._path)
+            self._card._get_field_value(self._card, self._path)
         except AssetCardFieldNotFoundError:
             return False
 
@@ -193,25 +180,25 @@ class AssetCardField:
 
     def as_unstructured(self) -> object:
         """Return the value of this field in unstructured form."""
-        return self._card._get_field_value(self._card.name, self._path)
+        return self._card._get_field_value(self._card, self._path)
 
-    def as_(self, type_expr: Any, *, allow_empty: bool = False) -> Any:
+    def as_(self, type_: object, *, allow_empty: bool = False) -> Any:
         """Return the value of this field.
 
-        :param type_expr:
+        :param type_:
             The type expression of the field.
         :param allow_empty:
             If ``True``, allows the field to be empty.
         """
-        unstructured_value = self._card._get_field_value(self._card.name, self._path)
+        unstructured_value = self._card._get_field_value(self._card, self._path)
 
         try:
-            value = self._card._value_converter.structure(unstructured_value, type_expr)
+            value = structure(unstructured_value, type_)
         except StructureError as ex:
             pathname = ".".join(self._path)
 
             raise AssetCardError(
-                f"The value of the field '{pathname}' of the asset card '{self._card.name}' cannot be parsed as `{type_expr}`. See nested exception for details."
+                f"The value of the '{pathname}' field of the '{self._card.name}' asset card cannot be parsed as `{type_}`. See the nested exception for details."
             ) from ex
 
         if value is None:
@@ -221,7 +208,7 @@ class AssetCardField:
             pathname = ".".join(self._path)
 
             raise AssetCardError(
-                f"The value of the field '{pathname}' of the asset card '{self._card.name}' must not be empty."
+                f"The value of the '{pathname}' field of the '{self._card.name}' asset card is empty."
             )
 
         return value
@@ -244,8 +231,10 @@ class AssetCardField:
 
             values.sort()
 
+            s = ", ".join(values)
+
             raise AssetCardError(
-                f"The value of the field '{pathname}' of the asset card '{self._card.name}' must be one of {repr(values)}, but is {repr(value)} instead."
+                f"The value of the '{pathname}' field of the '{self._card.name}' asset card is expected to be one of the following values, but is '{value}' instead: {s}"
             )
 
         return value
@@ -257,20 +246,18 @@ class AssetCardField:
         try:
             if not _starts_with_scheme(value):
                 path = Path(value)
-                if not path.is_absolute():
-                    base_path = self._card.metadata.get("__base_path__")
-                    if base_path is not None:
-                        path = base_path.joinpath(path)
+                if not path.is_absolute() and self._card._base_path is not None:
+                    path = self._card._base_path.joinpath(path)
 
                 return path.as_uri()
 
             return urlunparse(urlparse(value))
-        except ValueError as ex:
+        except ValueError:
             pathname = ".".join(self._path)
 
             raise AssetCardError(
-                f"The value of the field '{pathname}' of the asset card '{self._card.name}' must be a URI or an absolute pathname, but is '{value}' instead."
-            ) from ex
+                f"The value of the '{pathname}' field of the '{self._card.name}' asset card is expected to be a URI or an absolute pathname, but is '{value}' instead."
+            ) from None
 
     def as_filename(self) -> str:
         """Return the value of this field as a filename."""
@@ -280,17 +267,17 @@ class AssetCardField:
             pathname = ".".join(self._path)
 
             raise AssetCardError(
-                f"The value of the field '{pathname}' of the asset card '{self._card.name}' must be a filename, but is '{value}' instead."
+                f"The value of the '{pathname}' field of the '{self._card.name}' asset card is expected to be a filename, but is '{value}' instead."
             )
 
         return value
 
     def get_as_(
-        self, type_expr: Any, default: object = None, *, allow_empty: bool = False
+        self, type_: object, default: object = None, *, allow_empty: bool = False
     ) -> Any:
         """Return the value of this field if it exists; otherwise, return ``default``.
 
-        :param type_expr:
+        :param type_:
             The type expression of the field.
         :param default:
             The default value.
@@ -298,36 +285,20 @@ class AssetCardField:
             If ``True``, allows the field to be empty.
         """
         try:
-            return self.as_(type_expr, allow_empty=allow_empty)
+            return self.as_(type_, allow_empty=allow_empty)
         except AssetCardFieldNotFoundError:
             return default
 
     def set(self, value: object) -> None:
-        """Set the value of this field.
-
-        :param value:
-            The value to set.
-        """
+        """Set the value of this field."""
         try:
-            unstructured_value = self._card._value_converter.unstructure(value)
-        except ValueError as ex:
+            unstructured_value = unstructure(value)
+        except StructureError as ex:
             raise ValueError(
-                "`type_expr` must be a supported type expression. See nested exception for details."
-            ) from ex
-        except TypeError as ex:
-            raise TypeError(
-                "`value` cannot be unstructured. See nested exception for details."
+                "`value` must be of a type that can be unstructured. See the nested exception for details."
             ) from ex
 
         self._card._set_field_value(self._path, unstructured_value)
-
-
-class AssetCardError(AssetError):
-    """Raised when an asset card operation fails."""
-
-
-class AssetCardFieldNotFoundError(AssetCardError):
-    """Raised when an asset card field cannot be found."""
 
 
 _SCHEME_REGEX: Final = re.compile("^[a-zA-Z0-9]+://")
