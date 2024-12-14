@@ -9,8 +9,8 @@ from typing import Final
 import pytest
 import torch
 
+from fairseq2.data.text import load_text_tokenizer
 from fairseq2.generation import BeamSearchSeq2SeqGenerator, TextTranslator
-from fairseq2.models.nllb import load_nllb_tokenizer
 from fairseq2.models.transformer import load_transformer_model
 from tests.common import device
 
@@ -25,7 +25,7 @@ def test_load_dense_distill_600m() -> None:
         model_name, device=device, dtype=torch.float32, progress=False
     )
 
-    tokenizer = load_nllb_tokenizer(model_name, progress=False)
+    tokenizer = load_text_tokenizer(model_name)
 
     generator = BeamSearchSeq2SeqGenerator(model, echo_prompt=True, max_seq_len=128)
 
@@ -56,7 +56,7 @@ def test_load_dense_distill_600m() -> None:
 def test_tokenizer_special_tokens() -> None:
     model_name = "nllb-200_dense_distill_600m"
 
-    tokenizer = load_nllb_tokenizer(model_name, progress=False)
+    tokenizer = load_text_tokenizer(model_name)
 
     text = "Hello world!"
 

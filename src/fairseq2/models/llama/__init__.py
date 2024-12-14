@@ -15,8 +15,6 @@ from fairseq2.models.llama.factory import llama_arch as llama_arch
 from fairseq2.models.llama.factory import llama_archs as llama_archs
 from fairseq2.models.llama.loader import load_llama_config as load_llama_config
 from fairseq2.models.llama.loader import load_llama_model as load_llama_model
-from fairseq2.models.llama.loader import load_llama_tokenizer as load_llama_tokenizer
-from fairseq2.models.llama.tokenizer import LLaMA3Tokenizer as LLaMA3Tokenizer
 
 # isort: split
 

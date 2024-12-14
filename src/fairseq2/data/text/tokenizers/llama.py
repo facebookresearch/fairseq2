@@ -11,7 +11,10 @@ from typing import Final, final
 
 from typing_extensions import override
 
-from fairseq2.data.text import TiktokenEncoder, TiktokenTokenizer
+from fairseq2.assets import AssetCard, AssetCardError
+from fairseq2.data.text.tokenizers.sentencepiece import BasicSentencePieceTokenizer
+from fairseq2.data.text.tokenizers.tiktoken import TiktokenEncoder, TiktokenTokenizer
+from fairseq2.data.text.tokenizers.tokenizer import TextTokenizer
 from fairseq2.typing import Device
 
 
@@ -88,13 +91,9 @@ class LLaMA3Tokenizer(TiktokenTokenizer):
             case "prompt_response":
                 prefix_tokens = []
                 suffix_tokens = [self._eos_token]
-            case "as_is":
-                prefix_tokens = []
-                suffix_tokens = []
             case _:
                 raise ValueError(
-                    f"`mode` must be in `['default', 'prompt', 'prompt_response', "
-                    f"'as_is']` but is '{mode}' instead."
+                    f"`mode` must be 'default' or 'prompt', but is '{mode}' instead."
                 )
 
         return TiktokenEncoder(
@@ -104,3 +103,30 @@ class LLaMA3Tokenizer(TiktokenTokenizer):
             device=device,
             pin_memory=pin_memory,
         )
+
+
+LLAMA_TOKENIZER_FAMILY: Final = "llama"
+
+
+def load_llama_tokenizer(path: Path, card: AssetCard) -> TextTokenizer:
+    use_v2 = card.field("use_v2_tokenizer").get_as_(bool, False)
+    if use_v2:
+        field = card.field("model_config").field("vocab_info").field("eos_idx")
+
+        eos_idx = field.get_as_(int)
+
+        eot_idx = 128_009  # end-of-turn
+
+        try:
+            return LLaMA3Tokenizer(path, instruct=eos_idx == eot_idx)
+        except ValueError as ex:
+            raise AssetCardError(
+                f"The '{card.name}' asset card does not have a valid text tokenizer configuration. See the nested exception for details."
+            ) from ex
+    else:
+        try:
+            return BasicSentencePieceTokenizer(path)
+        except ValueError as ex:
+            raise AssetCardError(
+                f"The '{card.name}' asset card does not have a valid text tokenizer configuration. See the nested exception for details."
+            ) from ex

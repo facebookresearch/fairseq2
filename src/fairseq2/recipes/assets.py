@@ -22,7 +22,6 @@ from fairseq2.assets import (
     default_asset_store,
 )
 from fairseq2.console import get_console
-from fairseq2.data.text import is_tokenizer_card
 from fairseq2.datasets import is_dataset_card
 from fairseq2.logging import get_log_writer
 from fairseq2.models import is_model_card
@@ -123,7 +122,7 @@ class ListAssetsCommand(CliCommandHandler):
                     types.append("dataset")
 
             if args.type == "all" or args.type == "tokenizer":
-                if is_tokenizer_card(card):
+                if self._is_tokenizer_card(card):
                     types.append("tokenizer")
 
             if args.type == "all" and not types:
@@ -138,6 +137,10 @@ class ListAssetsCommand(CliCommandHandler):
                 source_assets.append(f"{t}:{name}")
 
         return [(source, names) for source, names in assets.items()]
+
+    @staticmethod
+    def _is_tokenizer_card(card: AssetCard) -> bool:
+        return card.field("tokenizer_family").exists()
 
     def _dump_assets(
         self, console: Console, assets: list[tuple[str, list[str]]]

@@ -8,7 +8,7 @@ from typing import Final
 
 import torch
 
-from fairseq2.models.nllb import load_nllb_tokenizer
+from fairseq2.data.text import load_text_tokenizer
 from fairseq2.models.transformer import load_transformer_model
 from fairseq2.nn import IncrementalStateBag
 from fairseq2.nn.padding import pad_seqs
@@ -29,7 +29,7 @@ def test_incremental_decoding_works() -> None:
 
     model.eval()
 
-    tokenizer = load_nllb_tokenizer(model_name, progress=False)
+    tokenizer = load_text_tokenizer(model_name)
 
     pad_idx = tokenizer.vocab_info.pad_idx
 

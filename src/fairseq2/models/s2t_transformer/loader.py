@@ -6,13 +6,8 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any, Final, final
+from typing import Any
 
-from typing_extensions import override
-
-from fairseq2.assets import AssetCard
-from fairseq2.data.text import AbstractTextTokenizerLoader, load_text_tokenizer
 from fairseq2.models.config_loader import StandardModelConfigLoader
 from fairseq2.models.loader import StandardModelLoader, load_model
 from fairseq2.models.s2t_transformer.factory import (
@@ -21,7 +16,6 @@ from fairseq2.models.s2t_transformer.factory import (
     create_s2t_transformer_model,
     s2t_transformer_archs,
 )
-from fairseq2.models.s2t_transformer.tokenizer import S2TTransformerTokenizer
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
 
 load_s2t_transformer_config = StandardModelConfigLoader(
@@ -97,27 +91,3 @@ load_s2t_transformer_model = StandardModelLoader(
 )
 
 load_model.register(S2T_TRANSFORMER_FAMILY, load_s2t_transformer_model)
-
-
-@final
-class S2TTransformerTokenizerLoader(
-    AbstractTextTokenizerLoader[S2TTransformerTokenizer]
-):
-    """Loads S2T Transformer tokenizers."""
-
-    _VALID_TASKS: Final = {"translation", "transcription"}
-
-    @override
-    def _load(self, path: Path, card: AssetCard) -> S2TTransformerTokenizer:
-        task = card.field("task").as_one_of(self._VALID_TASKS)
-
-        target_langs = card.field("target_langs").as_(list[str])
-
-        return S2TTransformerTokenizer(
-            path, task, set(target_langs), default_target_lang=target_langs[0]
-        )
-
-
-load_s2t_transformer_tokenizer = S2TTransformerTokenizerLoader()
-
-load_text_tokenizer.register(S2T_TRANSFORMER_FAMILY, load_s2t_transformer_tokenizer)

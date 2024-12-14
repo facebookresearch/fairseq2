@@ -14,9 +14,6 @@ from fairseq2.models.mistral.factory import mistral_arch as mistral_arch
 from fairseq2.models.mistral.factory import mistral_archs as mistral_archs
 from fairseq2.models.mistral.loader import load_mistral_config as load_mistral_config
 from fairseq2.models.mistral.loader import load_mistral_model as load_mistral_model
-from fairseq2.models.mistral.loader import (
-    load_mistral_tokenizer as load_mistral_tokenizer,
-)
 
 # isort: split
 
