@@ -36,12 +36,6 @@ from fairseq2.models.s2t_transformer.loader import (
 from fairseq2.models.s2t_transformer.loader import (
     load_s2t_transformer_model as load_s2t_transformer_model,
 )
-from fairseq2.models.s2t_transformer.loader import (
-    load_s2t_transformer_tokenizer as load_s2t_transformer_tokenizer,
-)
-from fairseq2.models.s2t_transformer.tokenizer import (
-    S2TTransformerTokenizer as S2TTransformerTokenizer,
-)
 
 # isort: split
 

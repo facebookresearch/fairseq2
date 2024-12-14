@@ -8,11 +8,15 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
-from typing import final
+from typing import Final, final
 
 from typing_extensions import override
 
-from fairseq2.data.text import SentencePieceEncoder, SentencePieceTokenizer
+from fairseq2.assets import AssetCard, AssetCardError
+from fairseq2.data.text.tokenizers.sentencepiece import (
+    SentencePieceEncoder,
+    SentencePieceTokenizer,
+)
 from fairseq2.typing import Device
 
 
@@ -59,7 +63,7 @@ class NllbTokenizer(SentencePieceTokenizer):
         device: Device | None = None,
         pin_memory: bool = False,
     ) -> SentencePieceEncoder:
-        """Create a token encoder.
+        """Constructs a token encoder.
 
         :param task:
             Must be 'translation'. If ``None``, defaults to 'translation'.
@@ -118,3 +122,19 @@ class NllbTokenizer(SentencePieceTokenizer):
             device=device,
             pin_memory=pin_memory,
         )
+
+
+NLLB_TOKENIZER_FAMILY: Final = "nllb"
+
+
+def load_nllb_tokenizer(path: Path, card: AssetCard) -> NllbTokenizer:
+    langs = card.field("langs").as_(list[str])
+
+    default_lang = card.field("default_lang").as_(str)
+
+    try:
+        return NllbTokenizer(path, langs, default_lang)
+    except ValueError as ex:
+        raise AssetCardError(
+            f"The '{card.name}' asset card does not have a valid text tokenizer configuration. See the nested exception for details."
+        ) from ex

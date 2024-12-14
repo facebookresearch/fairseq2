@@ -8,8 +8,8 @@ from typing import Final
 
 import torch
 
+from fairseq2.data.text import load_text_tokenizer
 from fairseq2.generation import SamplingSeq2SeqGenerator, TextTranslator, TopKSampler
-from fairseq2.models.nllb import load_nllb_tokenizer
 from fairseq2.models.transformer import load_transformer_model
 from tests.common import device
 
@@ -26,7 +26,7 @@ def test_greedy_sampling() -> None:
         model_name, device=device, dtype=torch.float32, progress=False
     )
 
-    tokenizer = load_nllb_tokenizer(model_name, progress=False)
+    tokenizer = load_text_tokenizer(model_name)
 
     sampler = TopKSampler(k=1)
 

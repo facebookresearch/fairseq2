@@ -6,6 +6,10 @@
 
 from __future__ import annotations
 
-# isort: split
+from typing import Final
 
-import fairseq2.models.nllb.archs  # Register architectures.
+from fairseq2.data.text.tokenizers.sentencepiece import load_raw_sentencepiece
+
+CHAR_TOKENIZER_FAMILY: Final = "char_tokenizer"
+
+load_char_tokenizer = load_raw_sentencepiece

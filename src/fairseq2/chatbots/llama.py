@@ -13,9 +13,8 @@ from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.chatbots.chatbot import AbstractChatbot, Chatbot, ChatDialog, ChatMessage
-from fairseq2.data.text import TextTokenEncoder, TextTokenizer
+from fairseq2.data.text import LLaMA3Tokenizer, TextTokenEncoder, TextTokenizer
 from fairseq2.generation import SequenceGenerator
-from fairseq2.models.llama import LLaMA3Tokenizer
 from fairseq2.nn.utils.module import infer_device
 
 

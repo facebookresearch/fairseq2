@@ -22,6 +22,7 @@ import os
 from importlib_metadata import entry_points
 
 from fairseq2.assets import default_asset_store, register_assets
+from fairseq2.data.text import default_text_tokenizer_registry, register_text_tokenizers
 from fairseq2.extensions import ExtensionError
 from fairseq2.logging import log
 
@@ -51,6 +52,8 @@ def setup_fairseq2() -> None:
     _setup_complete = True
 
     register_assets(default_asset_store)
+
+    register_text_tokenizers(default_text_tokenizer_registry)
 
     _setup_legacy_extensions()
 

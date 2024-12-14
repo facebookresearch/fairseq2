@@ -16,7 +16,7 @@ from tiktoken.load import load_tiktoken_bpe
 from torch import Tensor
 from typing_extensions import override
 
-from fairseq2.data.text.text_tokenizer import (
+from fairseq2.data.text.tokenizers.tokenizer import (
     AbstractTextTokenizer,
     TextTokenDecoder,
     TextTokenEncoder,
