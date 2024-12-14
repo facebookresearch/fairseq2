@@ -12,17 +12,19 @@ from datetime import timedelta
 from typing import final
 
 import torch
+from rich.console import Console
+from torch import Tensor
 from typing_extensions import override
 
+from fairseq2.chatbots import Chatbot, ChatbotRegistry, ChatMessage, register_chatbots
 from fairseq2.console import get_console
-from fairseq2.data.text import load_text_tokenizer
+from fairseq2.data.text import TextTokenDecoder, TextTokenizer, load_text_tokenizer
+from fairseq2.error import InternalError
 from fairseq2.gang import Gang
 from fairseq2.generation import (
-    Chatbot,
-    ChatMessage,
     SamplingSequenceGenerator,
+    SequenceGenerator,
     TopPSampler,
-    chatbot_factories,
 )
 from fairseq2.logging import get_log_writer
 from fairseq2.models import load_model
@@ -168,23 +170,40 @@ class ChatbotCommandHandler(CliCommandHandler):
 
             sys.exit(1)
 
-        try:
-            chatbot_factory = chatbot_factories.get(model.family)
+        registry = ChatbotRegistry()
 
-            chatbot = chatbot_factory(generator, tokenizer)
-        except ValueError:
+        register_chatbots(registry)
+
+        try:
+            handler = registry.get(model.family)
+        except LookupError:
             log.exception("The chatbot cannot be created.")
 
             sys.exit(1)
+
+        chatbot = handler.make(generator, tokenizer)
 
         rng_bag = RngBag.from_device_defaults(CPU, root_gang.device)
 
         # Set the seed for sequence generation.
         rng_bag.manual_seed(args.seed)
 
-        self._do_run(args.model_name, chatbot, root_gang)
+        self._do_run(
+            args.model_name,
+            chatbot,
+            generator,
+            tokenizer,
+            root_gang,
+        )
 
-    def _do_run(self, chatbot_name: str, chatbot: Chatbot, gang: Gang) -> None:
+    def _do_run(
+        self,
+        chatbot_name: str,
+        chatbot: Chatbot,
+        generator: SequenceGenerator,
+        tokenizer: TextTokenizer,
+        gang: Gang,
+    ) -> None:
         dialog = []
 
         if gang.rank == 0:
@@ -218,7 +237,10 @@ class ChatbotCommandHandler(CliCommandHandler):
 
                     console.print(f"\n[blue bold]{chatbot_name}> ", end="")
 
-                    response, _ = chatbot(dialog, stdout=True)
+                    hook = PrintHook(console, tokenizer)
+
+                    with generator.register_step_hook(hook):
+                        response, _ = chatbot(dialog)
 
                     console.print("\n")
 
@@ -252,3 +274,65 @@ class ChatbotCommandHandler(CliCommandHandler):
                 response, _ = chatbot(dialog)
 
                 dialog.append(response)
+
+
+@final
+class PrintHook:
+    _console: Console
+    _text_decoder: TextTokenDecoder
+    _first_print: bool
+    _prev_text_len: int
+
+    def __init__(self, console: Console, tokenizer: TextTokenizer) -> None:
+        self._console = console
+        self._text_decoder = tokenizer.create_decoder()
+        self._first_print = True
+        self._prev_text_len = 0
+
+    def __call__(
+        self,
+        prompt_indices: Tensor,
+        seqs: Tensor,
+        step_scores: Tensor | None,
+        prefill: bool,
+    ) -> None:
+        if len(prompt_indices) != 1:
+            raise InternalError(
+                f"The length of `prompt_indices` is {len(prompt_indices)}."
+            )
+
+        # Do not print anything during prompt prefill.
+        if prefill:
+            return
+
+        text = self._text_decoder(seqs[0])
+
+        text_len = len(text)
+
+        # If this is our first print, determine the length of the prompt text.
+        if self._prev_text_len == 0:
+            prev_text = self._text_decoder(seqs[0][:-1])
+
+            prev_text_len = len(prev_text)
+        else:
+            prev_text_len = self._prev_text_len
+
+        # Cache the length of the text so that we don't have to decode it twice
+        # in the next step.
+        self._prev_text_len = text_len
+
+        # No need to print if we decoded a control symbol (e.g. EOS).
+        if text_len == prev_text_len:
+            return
+
+        text = text[prev_text_len - text_len :]
+
+        # Some models output several whitespace characters after the prompt.
+        if self._first_print:
+            text = text.lstrip()
+            if not text:
+                return
+
+            self._first_print = False
+
+        self._console.print(text, highlight=False, end="")

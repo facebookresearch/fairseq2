@@ -28,12 +28,6 @@ from fairseq2.generation.beam_search.generator import (
 from fairseq2.generation.beam_search.generator import (
     BeamSearchSequenceGenerator as BeamSearchSequenceGenerator,
 )
-from fairseq2.generation.chatbot import AbstractChatbot as AbstractChatbot
-from fairseq2.generation.chatbot import Chatbot as Chatbot
-from fairseq2.generation.chatbot import ChatbotFactory as ChatbotFactory
-from fairseq2.generation.chatbot import ChatDialog as ChatDialog
-from fairseq2.generation.chatbot import ChatMessage as ChatMessage
-from fairseq2.generation.chatbot import chatbot_factories as chatbot_factories
 from fairseq2.generation.factory import BeamSearchConfig as BeamSearchConfig
 from fairseq2.generation.factory import SamplingConfig as SamplingConfig
 from fairseq2.generation.factory import (

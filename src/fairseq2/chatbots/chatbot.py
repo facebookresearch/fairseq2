@@ -8,18 +8,16 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
-from typing import Any, Literal, Protocol, TypeAlias, final
+from typing import Literal, TypeAlias, final
 
 from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.data.text import TextTokenDecoder, TextTokenizer
+from fairseq2.error import ContractError
 from fairseq2.generation.generator import SequenceGenerator, SequenceGeneratorOutput
-from fairseq2.generation.utils import _StdOutPrintHook
 from fairseq2.nn.padding import PaddingMask, pad_seqs
-from fairseq2.utils.registry import Registry
 
 
 @final
@@ -42,13 +40,11 @@ class Chatbot(ABC):
 
     @abstractmethod
     def __call__(
-        self, dialog: ChatDialog, *, stdout: bool = False
+        self, dialog: ChatDialog
     ) -> tuple[ChatMessage, SequenceGeneratorOutput]:
         """
         :param dialog:
             The chat dialog that the bot should respond to.
-        :param stdout:
-            If ``True``, prints the generated message in real-time to stdout.
 
         :returns:
             - The response message of the bot.
@@ -94,23 +90,13 @@ class AbstractChatbot(Chatbot):
     @final
     @override
     def __call__(
-        self, dialog: ChatDialog, *, stdout: bool = False
+        self, dialog: ChatDialog
     ) -> tuple[ChatMessage, SequenceGeneratorOutput]:
         dialog_seq = self._encode_dialog(dialog, "dialog")
 
-        cm: AbstractContextManager[Any]
-
-        if stdout:
-            hook = _StdOutPrintHook(self._text_decoder)
-
-            cm = self._generator.register_step_hook(hook)
-        else:
-            cm = nullcontext()
-
-        with cm:
-            responses, generator_output = self.__do_response(
-                dialog_seq.unsqueeze(0), dialog_padding_mask=None
-            )
+        responses, generator_output = self.__do_response(
+            dialog_seq.unsqueeze(0), dialog_padding_mask=None
+        )
 
         return responses[0], generator_output
 
@@ -144,8 +130,8 @@ class AbstractChatbot(Chatbot):
 
         for idx, hypotheses in enumerate(generator_output.hypotheses):
             if len(hypotheses) == 0:
-                raise RuntimeError(
-                    f"The sequence generator returned no hypothesis at index {idx}. Please file a bug report."
+                raise ContractError(
+                    f"The sequence generator returned no hypothesis at index {idx}."
                 )
 
             response = ChatMessage(
@@ -165,20 +151,3 @@ class AbstractChatbot(Chatbot):
         :param param_name:
             The parameter name to use in case of an argument error.
         """
-
-
-class ChatbotFactory(Protocol):
-    """Constructs instances of :class:`Chatbot`."""
-
-    def __call__(
-        self, generator: SequenceGenerator, tokenizer: TextTokenizer
-    ) -> Chatbot:
-        """
-        :param generator:
-            The sequence generator.
-        :param tokenizer:
-            The text tokenizer.
-        """
-
-
-chatbot_factories = Registry[ChatbotFactory]()

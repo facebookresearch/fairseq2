@@ -6,9 +6,6 @@
 
 from __future__ import annotations
 
-from fairseq2.models.llama.chatbot import LLaMA3Chatbot as LLaMA3Chatbot
-from fairseq2.models.llama.chatbot import LLaMAChatbot as LLaMAChatbot
-from fairseq2.models.llama.chatbot import create_llama_chatbot as create_llama_chatbot
 from fairseq2.models.llama.factory import LLAMA_FAMILY as LLAMA_FAMILY
 from fairseq2.models.llama.factory import LLaMABuilder as LLaMABuilder
 from fairseq2.models.llama.factory import LLaMAConfig as LLaMAConfig
