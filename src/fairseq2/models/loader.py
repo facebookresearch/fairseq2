@@ -327,7 +327,7 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
             self._sharder(model, config, gangs)
 
         try:
-            model_device = infer_device(model, name="model")
+            model_device = infer_device(model)
         except ValueError as ex:
             raise RuntimeError(
                 "`factory` returned a model that is not constructed correctly. See nested exception for details."

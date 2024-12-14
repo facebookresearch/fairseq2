@@ -19,12 +19,13 @@ from torch.nn.parameter import Parameter
 from torch.utils.hooks import RemovableHandle
 from typing_extensions import override
 
+from fairseq2.error import NotSupportedError
 from fairseq2.nn.incremental_state import IncrementalState, IncrementalStateBag
 from fairseq2.nn.ops import repeat_interleave
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.position_encoder import PositionEncoder
 from fairseq2.nn.projection import Linear, Projection
-from fairseq2.nn.transformer.attention import SDPA, create_default_sdpa
+from fairseq2.nn.transformer.attention import SDPA, make_default_sdpa
 from fairseq2.nn.transformer.attention_mask import AttentionMask, AttentionMaskFactory
 from fairseq2.typing import DataType, Device
 
@@ -353,7 +354,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         if sdpa is not None:
             self.sdpa = sdpa
         else:
-            self.sdpa = create_default_sdpa()
+            self.sdpa = make_default_sdpa()
 
         if scale_heads:
             self.head_scale_weight = Parameter(
@@ -936,7 +937,7 @@ class StaticAttentionState(AttentionState):
 
     @override
     def append(self, k: Tensor, v: Tensor) -> None:
-        raise ValueError(" `StaticAttentionState` does not support `append()`.")
+        raise NotSupportedError(f"`{type(self)}` does not support `append()`.")
 
     @override
     def get(self) -> tuple[Tensor, Tensor]:

@@ -10,13 +10,13 @@ from fairseq2.nn.transformer.attention import SDPA as SDPA
 from fairseq2.nn.transformer.attention import NaiveSDPA as NaiveSDPA
 from fairseq2.nn.transformer.attention import SDPAFactory as SDPAFactory
 from fairseq2.nn.transformer.attention import TorchSDPA as TorchSDPA
-from fairseq2.nn.transformer.attention import create_default_sdpa as create_default_sdpa
 from fairseq2.nn.transformer.attention import (
     default_sdpa_factory as default_sdpa_factory,
 )
 from fairseq2.nn.transformer.attention import (
     enable_memory_efficient_torch_sdpa as enable_memory_efficient_torch_sdpa,
 )
+from fairseq2.nn.transformer.attention import make_default_sdpa as make_default_sdpa
 from fairseq2.nn.transformer.attention import (
     set_default_sdpa_factory as set_default_sdpa_factory,
 )
@@ -71,7 +71,7 @@ from fairseq2.nn.transformer.ffn import (
 )
 from fairseq2.nn.transformer.layer_norm import LayerNormFactory as LayerNormFactory
 from fairseq2.nn.transformer.layer_norm import (
-    create_standard_layer_norm as create_standard_layer_norm,
+    make_standard_layer_norm as make_standard_layer_norm,
 )
 from fairseq2.nn.transformer.multihead_attention import AttentionState as AttentionState
 from fairseq2.nn.transformer.multihead_attention import (
@@ -125,4 +125,12 @@ from fairseq2.nn.transformer.shaw_attention import (
 )
 from fairseq2.nn.transformer.shaw_attention import (
     init_shaw_embedding as init_shaw_embedding,
+)
+
+# isort: split
+
+# compat
+from fairseq2.nn.transformer.attention import create_default_sdpa as create_default_sdpa
+from fairseq2.nn.transformer.layer_norm import (
+    create_standard_layer_norm as create_standard_layer_norm,
 )

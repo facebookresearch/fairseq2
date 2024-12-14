@@ -216,7 +216,7 @@ class VocabShardedEmbedding(Embedding):
 
         if num_embeddings % gang.size != 0:
             raise ValueError(
-                f"`num_embeddings` must be divisible by `gang.size` ({gang.size}), but is {num_embeddings} instead."
+                f"`num_embeddings` must be a multiple of `gang.size` ({gang.size}), but is {num_embeddings} instead."
             )
 
         self.gang = gang
@@ -396,7 +396,7 @@ class ShardedEmbedding(Embedding):
 
         if embedding_dim % gang.size != 0:
             raise ValueError(
-                f"`embedding_dim` must be divisible by `gang.size` ({gang.size}), but is {embedding_dim} instead."
+                f"`embedding_dim` must be a multiple of `gang.size` ({gang.size}), but is {embedding_dim} instead."
             )
 
         self.gang = gang

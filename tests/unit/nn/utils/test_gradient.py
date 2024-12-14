@@ -32,6 +32,6 @@ def test_scale_gradient_raises_error_if_tensor_is_non_float() -> None:
 
     with pytest.raises(
         TypeError,
-        match=r"^`x` must be a float tensor, but is of type `torch\.int32` instead\.$",
+        match=r"^`x` is expected to be a float tensor, but is a `torch\.int32` tensor instead\.$",
     ):
         scale_gradient(a, 1.0)
