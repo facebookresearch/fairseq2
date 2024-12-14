@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-from fairseq2.models.mistral.chatbot import MistralChatbot as MistralChatbot
 from fairseq2.models.mistral.factory import MISTRAL_FAMILY as MISTRAL_FAMILY
 from fairseq2.models.mistral.factory import MistralBuilder as MistralBuilder
 from fairseq2.models.mistral.factory import MistralConfig as MistralConfig
