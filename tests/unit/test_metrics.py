@@ -72,6 +72,6 @@ class TestMetricBag:
 
         with pytest.raises(
             ValueError,
-            match=r"^`state_dict` must contain metrics \['test1', 'test2'\], but contains \['foo'\] instead\.$",
+            match=r"^`state_dict` must contain the states of the following metric\(s\): test1, test2$",
         ):
             bag.load_state_dict(state_dict)
