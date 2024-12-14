@@ -16,6 +16,7 @@ from torch.nn.functional import log_softmax
 from typing_extensions import override
 
 from fairseq2.data import VocabularyInfo
+from fairseq2.error import InternalError
 from fairseq2.generation.beam_search.algo import (
     BeamSearchAlgorithm,
     BeamStep,
@@ -27,6 +28,7 @@ from fairseq2.generation.generator import (
     GenerationCounters,
     Hypothesis,
     Seq2SeqGeneratorOutput,
+    SequenceGenerationError,
     SequenceGeneratorOutput,
     StepHook,
 )
@@ -419,7 +421,8 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
     ) -> None:
         self._algorithm = algorithm
 
-        assert vocab_info.eos_idx is not None
+        if vocab_info.eos_idx is None:
+            raise InternalError("`vocab_info.eos_idx` is `None`.")
 
         self._eos_idx = vocab_info.eos_idx
         self._pad_idx = vocab_info.pad_idx
@@ -564,7 +567,7 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
             lprobs = log_softmax(logits, dim=-1, dtype=torch.float32)
 
             if lprobs.isnan().any():
-                raise RuntimeError(
+                raise SequenceGenerationError(
                     "The model has produced one or more NaN probabilities during prefill. The sequence generator cannot continue."
                 )
 
@@ -617,7 +620,7 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
         lprobs.squeeze_(1)
 
         if lprobs.isnan().any():
-            raise RuntimeError(
+            raise SequenceGenerationError(
                 f"The model has produced one or more NaN probabilities at step {self._step_nr}. The sequence generator cannot continue."
             )
 
@@ -667,7 +670,8 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
             beam_size = len(beam_next_step.seq_indices)
 
             # We should have terminated the beam if there are no sequences.
-            assert beam_size > 0
+            if beam_size == 0:
+                raise InternalError("`beam_size` is zero.")
 
             new_beam_sizes.append(beam_size)
 
@@ -705,12 +709,14 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
     ) -> BeamStep | None:
         # Ignore the generated indices for the prompt sequences.
         if self._step_nr < self._max_prompt_len:
-            assert self._prompt_mask is not None
+            if self._prompt_mask is None:
+                raise InternalError("`_prompt_mask` is `None`.")
 
             # Check if the current beam is in a prompt sequence.
             if self._prompt_mask[batch_offset, self._step_nr]:
                 # The size of a beam in a prompt sequence must be always 1.
-                assert len(lprobs) == 1
+                if len(lprobs) != 1:
+                    raise InternalError(f"The length of `lprobs` is {len(lprobs)}.")
 
                 seq_idx = torch.tensor([batch_offset], device=lprobs.device)
 
