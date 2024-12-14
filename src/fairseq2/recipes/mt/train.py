@@ -281,9 +281,8 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
 
     log_model_config(model_config, log)
 
-    checkpoint_manager.save_model_metadata(
-        family=model.family, config=model_config, tokenizer_name=tokenizer_card.name
-    )
+    checkpoint_manager.save_model_metadata(family=model.family, config=model_config)
+    checkpoint_manager.save_tokenizer_metadata(tokenizer_card.name)
 
     has_checkpoint = checkpoint_manager.has_checkpoint()
 

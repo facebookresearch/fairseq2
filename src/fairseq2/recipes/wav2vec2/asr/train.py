@@ -259,9 +259,7 @@ def load_wav2vec2_asr_trainer(
 
     gang = setup_root_gang(log, monitored=config.monitored_gang)
 
-    checkpoint_manager = FileCheckpointManager(
-        output_dir.joinpath("checkpoints"), gang, lower_score_better=True
-    )
+    checkpoint_manager = FileCheckpointManager(output_dir.joinpath("checkpoints"), gang)
 
     if config.resume_checkpoint_dir is not None:
         default_asset_store.metadata_providers.append(
@@ -321,9 +319,8 @@ def load_wav2vec2_asr_trainer(
 
     log_model_config(model_config, log)
 
-    checkpoint_manager.save_model_metadata(
-        family=model.family, config=model_config, tokenizer_name=tokenizer_card.name
-    )
+    checkpoint_manager.save_model_metadata(family=model.family, config=model_config)
+    checkpoint_manager.save_tokenizer_metadata(tokenizer_card.name)
 
     has_checkpoint = checkpoint_manager.has_checkpoint()
 

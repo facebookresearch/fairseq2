@@ -1144,10 +1144,16 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         if nm is not None:
             assert nc is not None
 
-            self._checkpoint_manager.keep_best_n_checkpoints(nm)
-            self._checkpoint_manager.keep_best_n_checkpoints(nc, preserve_model=True)
+            self._checkpoint_manager.keep_best_n_checkpoints(
+                nm, lower_better=self._lower_better
+            )
+            self._checkpoint_manager.keep_best_n_checkpoints(
+                nc, lower_better=self._lower_better, preserve_model=True
+            )
         elif nc is not None:
-            self._checkpoint_manager.keep_best_n_checkpoints(nc)
+            self._checkpoint_manager.keep_best_n_checkpoints(
+                nc, lower_better=self._lower_better
+            )
 
     def _should_do(
         self,
