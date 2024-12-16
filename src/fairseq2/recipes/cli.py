@@ -28,15 +28,12 @@ from typing_extensions import override
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.error import AlreadyExistsError, InvalidOperationError
-from fairseq2.gang import get_world_size
+from fairseq2.gang import get_world_size, is_torchrun
 from fairseq2.logging import log
+from fairseq2.recipes.cluster import ClusterError, ClusterRegistry, register_clusters
 from fairseq2.recipes.console import get_console, set_console
 from fairseq2.recipes.logging import setup_basic_logging, setup_logging
 from fairseq2.recipes.utils.argparse import ConfigAction
-from fairseq2.recipes.utils.environment import (
-    EnvironmentSetterRegistry,
-    default_env_setters,
-)
 from fairseq2.recipes.utils.log import log_config
 from fairseq2.recipes.utils.sweep_tagger import SweepTagger
 from fairseq2.typing import DataClass
@@ -438,7 +435,6 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
     _loader: RecipeLoader[RecipeConfigT]
     _preset_configs: ConfigRegistry[RecipeConfigT]
     _default_preset: str
-    _env_setters: EnvironmentSetterRegistry
     _extra_sweep_keys: Set[Hashable] | None
     _value_converter: ValueConverter
 
@@ -448,7 +444,6 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
         preset_configs: ConfigRegistry[RecipeConfigT],
         default_preset: str,
         *,
-        env_setters: EnvironmentSetterRegistry | None = None,
         extra_sweep_keys: Set[Hashable] | None = None,
         value_converter: ValueConverter | None = None,
     ) -> None:
@@ -459,9 +454,6 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
             The registry containing the preset recipe configurations.
         :param default_preset:
             The name of the default preset.
-        :param env_setters:
-            The registry containing cluster-specific :class:`EnvironmentSetter`
-            instances.
         :param value_converter:
             The :class:`ValueConverter` instance to use. If ``None``, the
             default instance will be used.
@@ -469,7 +461,6 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
         self._loader = loader
         self._preset_configs = preset_configs
         self._default_preset = default_preset
-        self._env_setters = env_setters or default_env_setters
         self._extra_sweep_keys = extra_sweep_keys
         self._value_converter = value_converter or default_value_converter
 
@@ -515,13 +506,8 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
             help="do not create sweep directory",
         )
 
-        clusters = list(self._env_setters.names())
-
-        clusters.sort()
-
         parser.add_argument(
             "--cluster",
-            choices=["auto"] + clusters,
             default="auto",
             help="cluster on which the recipe runs (default: %(default)s)",
         )
@@ -622,21 +608,22 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
                 None, "the following arguments are required: output_dir"
             )
 
-        # Set up cluster-specific environment variables.
-        if args.cluster == "auto":
-            env_setter = self._env_setters.get_for_inferred_cluster()
-        else:
-            try:
-                env_setter = self._env_setters.get(args.cluster)
-            except RuntimeError:
-                log.exception("Recipe is not running on a '{}' cluster.", args.cluster)  # fmt: skip
+        cluster_registry = ClusterRegistry(is_torchrun=is_torchrun())
 
-                sys.exit(1)
+        register_clusters(cluster_registry)
+
+        # Set up cluster-specific environment variables.
+        try:
+            handler = cluster_registry.get(args.cluster)
+        except LookupError:
+            log.exception("Recipe is not running on a '{}' cluster.", args.cluster)  # fmt: skip
+
+            sys.exit(1)
 
         try:
-            env_setter.set_torch_distributed_env()
-        except RuntimeError:
-            log.exception("'{}' cluster environment cannot be set.", env_setter.cluster)  # fmt: skip
+            handler.set_torch_distributed_variables()
+        except ClusterError:
+            log.exception("'{}' cluster environment cannot be set.", args.cluster)  # fmt: skip
 
             sys.exit(1)
 
