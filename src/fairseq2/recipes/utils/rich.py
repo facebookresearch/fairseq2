@@ -23,7 +23,6 @@ from fairseq2.recipes.console import get_error_console
 
 
 def create_rich_progress() -> Progress:
-    """Create a :class:`Progress` instance to report job progress."""
     console = get_error_console()
 
     columns = [
