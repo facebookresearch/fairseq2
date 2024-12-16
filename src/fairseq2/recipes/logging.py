@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 from fairseq2n import DOC_MODE
 from rich.logging import RichHandler
 
-from fairseq2.console import get_error_console
+from fairseq2.recipes.console import get_error_console
 
 
 def setup_basic_logging(*, debug: bool = False, utc_time: bool = False) -> None:

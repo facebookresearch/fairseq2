@@ -21,11 +21,11 @@ from fairseq2.assets import (
     AssetStore,
     default_asset_store,
 )
-from fairseq2.console import get_console
 from fairseq2.datasets import is_dataset_card
 from fairseq2.logging import get_log_writer
 from fairseq2.models import is_model_card
 from fairseq2.recipes.cli import Cli, CliCommandHandler
+from fairseq2.recipes.console import get_console
 
 log = get_log_writer(__name__)
 

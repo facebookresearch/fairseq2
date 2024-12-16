@@ -17,7 +17,6 @@ from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.chatbots import Chatbot, ChatbotRegistry, ChatMessage, register_chatbots
-from fairseq2.console import get_console
 from fairseq2.data.text import TextTokenDecoder, TextTokenizer, load_text_tokenizer
 from fairseq2.error import InternalError
 from fairseq2.gang import Gang
@@ -30,6 +29,7 @@ from fairseq2.logging import get_log_writer
 from fairseq2.models import load_model
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.recipes.cli import CliCommandHandler
+from fairseq2.recipes.console import get_console
 from fairseq2.recipes.logging import setup_basic_logging
 from fairseq2.recipes.utils.argparse import parse_dtype
 from fairseq2.recipes.utils.environment import default_env_setters

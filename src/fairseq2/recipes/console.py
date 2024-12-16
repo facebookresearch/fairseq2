@@ -13,7 +13,6 @@ _console: Console | None = None
 
 
 def get_console() -> Console:
-    """Return the ``stdout`` Rich console."""
     global _console
 
     if _console is None:
@@ -23,7 +22,6 @@ def get_console() -> Console:
 
 
 def set_console(console: Console) -> None:
-    """Set the ``stdout`` Rich console."""
     global _console
 
     _console = console
@@ -33,7 +31,6 @@ _error_console: Console | None = None
 
 
 def get_error_console() -> Console:
-    """Return the ``stderr`` Rich console."""
     global _error_console
 
     if _error_console is None:
@@ -43,7 +40,6 @@ def get_error_console() -> Console:
 
 
 def set_error_console(console: Console) -> None:
-    """Get the ``stderr`` Rich console."""
     global _error_console
 
     _error_console = console
