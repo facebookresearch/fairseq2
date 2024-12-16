@@ -46,7 +46,7 @@ def main() -> None:
 
         _setup_cli(cli)
 
-        cli()
+        cli.run()
 
 
 def _setup_cli(cli: Cli) -> None:

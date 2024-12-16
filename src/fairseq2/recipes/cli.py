@@ -8,7 +8,13 @@ from __future__ import annotations
 
 import sys
 from abc import ABC, abstractmethod
-from argparse import OPTIONAL, ArgumentParser, BooleanOptionalAction, Namespace
+from argparse import (
+    OPTIONAL,
+    ArgumentError,
+    ArgumentParser,
+    BooleanOptionalAction,
+    Namespace,
+)
 from collections.abc import Callable
 from pathlib import Path
 from signal import SIGUSR1, signal
@@ -20,9 +26,9 @@ from rich.console import Console
 from typing_extensions import override
 
 from fairseq2.config_registry import ConfigRegistry
-from fairseq2.console import get_console, set_console
-from fairseq2.error import AlreadyExistsError
-from fairseq2.logging import get_log_writer
+from fairseq2.error import AlreadyExistsError, InvalidOperationError
+from fairseq2.logging import log
+from fairseq2.recipes.console import get_console, set_console
 from fairseq2.recipes.logging import setup_basic_logging, setup_logging
 from fairseq2.recipes.utils.argparse import ConfigAction
 from fairseq2.recipes.utils.environment import (
@@ -39,16 +45,14 @@ from fairseq2.utils.structured import (
     merge_unstructured,
 )
 
-log = get_log_writer(__name__)
-
 
 class Cli:
     """Represents the entry point of a command line program."""
 
     _name: str
+    _description: str | None
     _origin_module: str
     _version: str
-    _description: str | None
     _groups: dict[str, CliGroup]
 
     def __init__(
@@ -60,56 +64,51 @@ class Cli:
         description: str | None = None,
     ) -> None:
         """
-        :param name:
-            The name of the program.
-        :param origin_module:
-            The name of the origin Python module of the command line program.
-        :param version:
-            The version of the program.
-        :param description:
-            The description of the program.
+        :param name: The name of the program.
+        :param origin_module: The name of the origin Python module of the
+            command line program.
+        :param version: The version of the program.
+        :param description: The description of the program.
         """
         self._name = name
+        self._description = description
         self._origin_module = origin_module
         self._version = version
-        self._description = description
         self._groups = {}
 
     def add_group(
         self,
         name: str,
         *,
-        origin_module: str | None = None,
         help: str | None = None,
+        origin_module: str | None = None,
     ) -> CliGroup:
-        """Add a command group.
+        """Add a sub-group."""
+        group = self._get_or_add_group(name)
 
-        :param name:
-            The name of the command group.
-        :param origin_module:
-            The name of origin Python module of the command group.
-        :param help:
-            The help text of the command group.
-        """
-        if name in self._groups:
-            raise AlreadyExistsError(
-                f"`name` must be a unique group name, but '{name}' is already registered."
-            )
+        if help is not None:
+            group._help = help
 
-        group = CliGroup(name, origin_module or self._origin_module, help=help)
-
-        self._groups[group.name] = group
+        if origin_module is not None:
+            group._origin_module = origin_module
 
         return group
 
     def get_group(self, name: str) -> CliGroup:
-        """Return the command group of ``name``."""
+        """Get a sub-group."""
+        return self._get_or_add_group(name)
+
+    def _get_or_add_group(self, name: str) -> CliGroup:
         try:
             return self._groups[name]
         except KeyError:
-            raise LookupError(
-                f"`name` must be a registered group name, but '{name}' is not registered."
-            ) from None
+            pass
+
+        group = CliGroup(name, self._origin_module)
+
+        self._groups[name] = group
+
+        return group
 
     def init_parser(self, parser: ArgumentParser) -> None:
         """Initialize ``parser`` with program-specific arguments."""
@@ -134,13 +133,10 @@ class Cli:
 
             group.init_parser(sub_parser)
 
-    def __call__(self) -> None:
+    def run(self) -> None:
         """Run the program."""
         set_console(Console(highlight=False))
 
-        self._run_command()
-
-    def _run_command(self) -> None:
         parser = ArgumentParser(self._name, description=self._description)
 
         self.init_parser(parser)
@@ -148,9 +144,7 @@ class Cli:
         args = parser.parse_args()
 
         if not hasattr(args, "command"):
-            parser.print_usage(sys.stderr)
-
-            sys.exit(2)
+            parser.error("no command specified")
 
         args.command(args)
 
@@ -158,6 +152,11 @@ class Cli:
     def name(self) -> str:
         """The name of the program."""
         return self._name
+
+    @property
+    def description(self) -> str | None:
+        """The description of the program."""
+        return self._description
 
     @property
     def origin_module(self) -> str:
@@ -169,20 +168,15 @@ class Cli:
         """The version of the program."""
         return self._version
 
-    @property
-    def description(self) -> str | None:
-        """The description of the program."""
-        return self._description
-
 
 class CliGroup:
     """Represents a command group of a command line program."""
 
     _name: str
-    _origin_module: str
-    _help: str | None
     _groups: dict[str, CliGroup]
     _commands: dict[str, CliCommand]
+    _help: str | None
+    _origin_module: str
 
     def __init__(
         self,
@@ -192,32 +186,55 @@ class CliGroup:
         help: str | None = None,
     ) -> None:
         self._name = name
-        self._origin_module = origin_module
-        self._help = help
         self._groups = {}
         self._commands = {}
+        self._help = help
+        self._origin_module = origin_module
 
     def add_group(
         self,
         name: str,
         *,
-        origin_module: str | None = None,
         help: str | None = None,
+        origin_module: str | None = None,
     ) -> CliGroup:
-        """Add a sub-command group.
+        """Add a sub-group."""
+        group = self._get_or_add_group(name)
+        if group is None:
+            raise AlreadyExistsError(
+                f"The command group has already a command named '{name}'."
+            )
 
-        :param name:
-            The name of the command group.
-        :param origin_module:
-            The name of origin Python module of the command group.
-        :param help:
-            The help text of the command group.
-        """
-        self._check_name(name)
+        if help is not None:
+            group._help = help
 
-        group = CliGroup(name, origin_module or self._origin_module, help=help)
+        if origin_module is not None:
+            group._origin_module = origin_module
 
-        self._groups[group.name] = group
+        return group
+
+    def get_group(self, name: str) -> CliGroup:
+        """Get a sub-group."""
+        group = self._get_or_add_group(name)
+        if group is None:
+            raise LookupError(
+                f"The command group does not have a sub-group named '{name}'."
+            ) from None
+
+        return group
+
+    def _get_or_add_group(self, name: str) -> CliGroup | None:
+        try:
+            return self._groups[name]
+        except KeyError:
+            pass
+
+        if name in self._commands:
+            return None
+
+        group = CliGroup(name, self.origin_module)
+
+        self._groups[name] = group
 
         return group
 
@@ -226,49 +243,33 @@ class CliGroup:
         name: str,
         handler: CliCommandHandler,
         *,
-        origin_module: str | None = None,
         help: str | None = None,
+        origin_module: str | None = None,
     ) -> CliCommand:
         """Add a command.
 
-        :param name:
-            The name of the command.
-        :param handler:
-            The handler of the command.
-        :param origin_module:
-            The name of origin Python module of the command.
-        :param help:
-            The help text of the command.
+        :param name: The name of the command.
+        :param handler: The handler of the command.
+        :param origin_module: The name of origin Python module of the command.
+        :param help: The help text of the command.
         """
-        self._check_name(name)
+        if name in self._groups:
+            raise AlreadyExistsError(
+                f"The command group has already a sub-group named '{name}'."
+            )
+
+        if name in self._commands:
+            raise AlreadyExistsError(
+                f"The command group has already a command named '{name}'."
+            )
 
         command = CliCommand(
-            name, handler, origin_module or self._origin_module, help=help
+            name, handler, origin_module or self.origin_module, help=help
         )
 
         self._commands[name] = command
 
         return command
-
-    def _check_name(self, name: str) -> None:
-        if name in self._groups:
-            raise AlreadyExistsError(
-                f"`name` must be a unique name among groups and commands, but '{name}' is already registered as a group name."
-            )
-
-        if name in self._commands:
-            raise AlreadyExistsError(
-                f"`name` must be a unique name among groups and commands, but '{name}' is already registered as a command name."
-            )
-
-    def get_group(self, name: str) -> CliGroup:
-        """Return the sub-command group of ``name``."""
-        try:
-            return self._groups[name]
-        except KeyError:
-            raise LookupError(
-                f"`name` must be a registered group name, but '{name}' is not registered."
-            ) from None
 
     def get_command(self, name: str) -> CliCommand:
         """Return the command of ``name``."""
@@ -276,7 +277,7 @@ class CliGroup:
             return self._commands[name]
         except KeyError:
             raise LookupError(
-                f"`name` must be a registered command name, but '{name}' is not registered."
+                f"The command group does not have a command named '{name}'."
             ) from None
 
     def init_parser(self, parser: ArgumentParser) -> None:
@@ -286,7 +287,7 @@ class CliGroup:
         for group in self._groups.values():
             help = group.help
 
-            if self._origin_module != group.origin_module:
+            if self.origin_module != group.origin_module:
                 s = f"origin: {group.origin_module}"
 
                 if help:
@@ -301,7 +302,7 @@ class CliGroup:
         for command in self._commands.values():
             help = command.help
 
-            if self._origin_module != command.origin_module:
+            if self.origin_module != command.origin_module:
                 s = f"origin: {command.origin_module}"
 
                 if help:
@@ -321,14 +322,14 @@ class CliGroup:
         return self._name
 
     @property
-    def origin_module(self) -> str:
-        """The name of the origin Python module of the command group."""
-        return self._origin_module
-
-    @property
     def help(self) -> str | None:
         """The help text of the command group."""
         return self._help
+
+    @property
+    def origin_module(self) -> str:
+        """The name of the origin Python module of the command group."""
+        return self._origin_module
 
 
 class CliCommand:
@@ -336,8 +337,9 @@ class CliCommand:
 
     _name: str
     _handler: CliCommandHandler
-    _origin_module: str
+    _parser: ArgumentParser | None
     _help: str | None
+    _origin_module: str
 
     def __init__(
         self,
@@ -349,16 +351,26 @@ class CliCommand:
     ) -> None:
         self._name = name
         self._handler = handler
-        self._origin_module = origin_module
         self._help = help
+        self._origin_module = origin_module
 
     def init_parser(self, parser: ArgumentParser) -> None:
         """Initialize ``parser`` with command group-specific arguments."""
         self._handler.init_parser(parser)
 
+        self._parser = parser
+
     def __call__(self, args: Namespace) -> None:
         """Run the command."""
-        self._handler(args)
+        if self._parser is None:
+            raise InvalidOperationError("`init_parser()` must be called first.")
+
+        try:
+            self._handler(args)
+        except ArgumentError as ex:
+            self._parser.error(str(ex))
+        finally:
+            self._parser = None
 
     @property
     def name(self) -> str:
@@ -366,14 +378,14 @@ class CliCommand:
         return self._name
 
     @property
-    def origin_module(self) -> str:
-        """The name of the origin Python module of the command."""
-        return self._origin_module
-
-    @property
     def help(self) -> str | None:
         """The help text of the command."""
         return self._help
+
+    @property
+    def origin_module(self) -> str:
+        """The name of the origin Python module of the command."""
+        return self._origin_module
 
 
 class CliCommandHandler(ABC):
@@ -427,7 +439,6 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
     _env_setters: EnvironmentSetterRegistry
     _value_converter: ValueConverter
     _sweep_tagger: SweepTagger
-    _parser: ArgumentParser | None
 
     def __init__(
         self,
@@ -462,12 +473,9 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
         self._env_setters = env_setters or default_env_setters
         self._value_converter = value_converter or default_value_converter
         self._sweep_tagger = sweep_tagger or default_sweep_tagger
-        self._parser = None
 
     @override
     def init_parser(self, parser: ArgumentParser) -> None:
-        self._parser = parser
-
         parser.add_argument(
             "--list-presets",
             action="store_true",
@@ -537,8 +545,6 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
         console = get_console()
 
         setup_basic_logging(debug=args.debug)
-
-        assert self._parser is not None
 
         # If requested, list the preset configurations and exit.
         if args.list_presets:
@@ -613,9 +619,9 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
 
         # If we are not dumping configuration, `--output-dir` is required.
         if not args.output_dir:
-            self._parser.error("the following arguments are required: output_dir")
-
-        self._parser = None
+            raise ArgumentError(
+                None, "the following arguments are required: output_dir"
+            )
 
         # Set up cluster-specific environment variables.
         if args.cluster == "auto":

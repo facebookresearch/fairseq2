@@ -18,11 +18,11 @@ from warnings import catch_warnings
 from typing_extensions import override
 
 from fairseq2.assets import default_asset_store
-from fairseq2.console import get_error_console
 from fairseq2.logging import get_log_writer
 from fairseq2.models.llama import load_llama_config
 from fairseq2.models.llama.integ import convert_to_reference_checkpoint
 from fairseq2.recipes.cli import CliCommandHandler
+from fairseq2.recipes.console import get_error_console
 from fairseq2.utils.file import dump_torch_tensors, load_torch_tensors
 
 log = get_log_writer(__name__)
