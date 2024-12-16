@@ -36,6 +36,7 @@ from fairseq2.recipes.logging import setup_basic_logging, setup_logging
 from fairseq2.recipes.utils.argparse import ConfigAction
 from fairseq2.recipes.utils.log import log_config
 from fairseq2.recipes.utils.sweep_tagger import SweepTagger
+from fairseq2.setup import setup_fairseq2
 from fairseq2.typing import DataClass
 from fairseq2.utils.structured import (
     StructureError,
@@ -683,6 +684,8 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
             log.exception("Configuration cannot be parsed.")
 
             sys.exit(1)
+
+        setup_fairseq2()
 
         # Load and run the recipe.
         recipe = self._loader(config, output_dir)

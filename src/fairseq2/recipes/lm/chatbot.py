@@ -33,6 +33,7 @@ from fairseq2.recipes.cluster import ClusterError, ClusterRegistry, register_clu
 from fairseq2.recipes.console import get_console
 from fairseq2.recipes.utils.argparse import parse_dtype
 from fairseq2.recipes.utils.setup import setup_gangs
+from fairseq2.setup import setup_fairseq2
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import RngBag
 
@@ -122,6 +123,8 @@ class ChatbotCommandHandler(CliCommandHandler):
             log.exception("'{}' cluster environment cannot be set.", args.cluster)  # fmt: skip
 
             sys.exit(1)
+
+        setup_fairseq2()
 
         # Since this is an interactive program, do not timeout while waiting for
         # user's input.
