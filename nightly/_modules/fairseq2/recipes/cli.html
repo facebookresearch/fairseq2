@@ -342,7 +342,7 @@
 <span class="kn">from</span> <span class="nn">fairseq2.recipes.utils.sweep</span> <span class="kn">import</span> <span class="n">SweepTagger</span><span class="p">,</span> <span class="n">default_sweep_tagger</span>
 <span class="kn">from</span> <span class="nn">fairseq2.typing</span> <span class="kn">import</span> <span class="n">DataClass</span>
 <span class="kn">from</span> <span class="nn">fairseq2.utils.structured</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">StructuredError</span><span class="p">,</span>
+    <span class="n">StructureError</span><span class="p">,</span>
     <span class="n">ValueConverter</span><span class="p">,</span>
     <span class="n">default_value_converter</span><span class="p">,</span>
     <span class="n">merge_unstructured</span><span class="p">,</span>
@@ -921,7 +921,7 @@
 
         <span class="k">try</span><span class="p">:</span>
             <span class="n">unstructured_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_value_converter</span><span class="o">.</span><span class="n">unstructure</span><span class="p">(</span><span class="n">preset_config</span><span class="p">)</span>
-        <span class="k">except</span> <span class="n">StructuredError</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">StructureError</span><span class="p">:</span>
             <span class="n">log</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">&quot;Preset configuration &#39;</span><span class="si">{}</span><span class="s2">&#39; cannot be used. Please file a bug report to the recipe author.&quot;</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">preset</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
 
             <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
@@ -941,7 +941,7 @@
                     <span class="n">unstructured_config</span> <span class="o">=</span> <span class="n">merge_unstructured</span><span class="p">(</span>
                         <span class="n">unstructured_config</span><span class="p">,</span> <span class="n">unstructured_config_overrides</span>
                     <span class="p">)</span>
-                <span class="k">except</span> <span class="n">StructuredError</span><span class="p">:</span>
+                <span class="k">except</span> <span class="n">StructureError</span><span class="p">:</span>
                     <span class="n">log</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">&quot;Configuration file &#39;</span><span class="si">{}</span><span class="s2">&#39; cannot be used.&quot;</span><span class="p">,</span> <span class="n">config_file</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
 
                     <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
@@ -952,7 +952,7 @@
                 <span class="n">unstructured_config</span> <span class="o">=</span> <span class="n">merge_unstructured</span><span class="p">(</span>
                     <span class="n">unstructured_config</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">config_overrides</span>
                 <span class="p">)</span>
-            <span class="k">except</span> <span class="n">StructuredError</span><span class="p">:</span>
+            <span class="k">except</span> <span class="n">StructureError</span><span class="p">:</span>
                 <span class="n">log</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">&quot;Command line configuration overrides cannot be applied.&quot;</span><span class="p">)</span>
 
                 <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
@@ -1032,9 +1032,9 @@
         <span class="c1"># Parse the configuration.</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_value_converter</span><span class="o">.</span><span class="n">structure</span><span class="p">(</span>
-                <span class="n">unstructured_config</span><span class="p">,</span> <span class="n">type_expr</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_preset_configs</span><span class="o">.</span><span class="n">config_kls</span>
+                <span class="n">unstructured_config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_preset_configs</span><span class="o">.</span><span class="n">config_kls</span>
             <span class="p">)</span>
-        <span class="k">except</span> <span class="n">StructuredError</span><span class="p">:</span>
+        <span class="k">except</span> <span class="n">StructureError</span><span class="p">:</span>
             <span class="n">log</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">&quot;Configuration cannot be parsed.&quot;</span><span class="p">)</span>
 
             <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
@@ -1090,7 +1090,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=7bd377ef"></script>
+</div><script src="../../../_static/documentation_options.js?v=be67c5ce"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>

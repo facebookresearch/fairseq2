@@ -316,26 +316,28 @@
           <section id="module-fairseq2.data.text">
 <span id="fairseq2-data-text"></span><h1>fairseq2.data.text<a class="headerlink" href="#module-fairseq2.data.text" title="Link to this heading">¶</a></h1>
 <p>This module contains text tokenizers and text specific data pipeline operators.</p>
-<pre data-zoom-id="id-752a7776-da37-4efa-b7f0-b476f5436b69" class="mermaid">
+<pre data-zoom-id="id-828f1442-afa4-4738-bed9-23e8cf7944c2" class="mermaid">
         classDiagram
-  ABC &lt;|-- AbstractTextTokenizerLoader
   ABC &lt;|-- TextTokenDecoder
   ABC &lt;|-- TextTokenEncoder
   ABC &lt;|-- TextTokenizer
+  ABC &lt;|-- TextTokenizerHandler
   AbstractTextTokenizer &lt;|-- SentencePieceTokenizer
   AbstractTextTokenizer &lt;|-- TiktokenTokenizer
   Enum &lt;|-- LineEnding
   Generic &lt;|-- Protocol
   Protocol &lt;|-- TextTokenizerLoader
   SentencePieceTokenizer &lt;|-- BasicSentencePieceTokenizer
+  SentencePieceTokenizer &lt;|-- NllbTokenizer
   SentencePieceTokenizer &lt;|-- RawSentencePieceTokenizer
+  SentencePieceTokenizer &lt;|-- S2TTransformerTokenizer
   TextTokenDecoder &lt;|-- SentencePieceDecoder
   TextTokenDecoder &lt;|-- TiktokenDecoder
   TextTokenEncoder &lt;|-- SentencePieceEncoder
   TextTokenEncoder &lt;|-- TiktokenEncoder
   TextTokenizer &lt;|-- AbstractTextTokenizer
-  TextTokenizerLoader &lt;|-- AbstractTextTokenizerLoader
-  TextTokenizerLoader &lt;|-- DelegatingTextTokenizerLoader
+  TextTokenizerHandler &lt;|-- StandardTextTokenizerHandler
+  TiktokenTokenizer &lt;|-- LLaMA3Tokenizer
     </pre><div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="text_tokenizers.html">Text Tokenizers</a></li>
@@ -396,7 +398,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=7bd377ef"></script>
+</div><script src="../../../../_static/documentation_options.js?v=be67c5ce"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>
@@ -413,7 +415,7 @@ const load = async () => {
     const mermaids_to_add_zoom = 1 === -1 ? all_mermaids.length : 1;
     const mermaids_processed = document.querySelectorAll(".mermaid[data-processed='true']");
     if(mermaids_to_add_zoom > 0) {
-        var svgs = d3.selectAll(".mermaid[data-zoom-id=id-752a7776-da37-4efa-b7f0-b476f5436b69] svg");
+        var svgs = d3.selectAll(".mermaid[data-zoom-id=id-828f1442-afa4-4738-bed9-23e8cf7944c2] svg");
         if(all_mermaids.length !== mermaids_processed.length) {
             // try again in a sec, wait for mermaids to load
             setTimeout(load, 200);

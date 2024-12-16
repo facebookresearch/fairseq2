@@ -332,7 +332,7 @@
 <span class="kn">from</span> <span class="nn">fairseq2.models.llama</span> <span class="kn">import</span> <span class="n">load_llama_config</span>
 <span class="kn">from</span> <span class="nn">fairseq2.models.llama.integ</span> <span class="kn">import</span> <span class="n">convert_to_reference_checkpoint</span>
 <span class="kn">from</span> <span class="nn">fairseq2.recipes.cli</span> <span class="kn">import</span> <span class="n">CliCommandHandler</span>
-<span class="kn">from</span> <span class="nn">fairseq2.utils.file</span> <span class="kn">import</span> <span class="n">dump_pt_tensors</span><span class="p">,</span> <span class="n">load_pt_tensors</span>
+<span class="kn">from</span> <span class="nn">fairseq2.utils.file</span> <span class="kn">import</span> <span class="n">dump_torch_tensors</span><span class="p">,</span> <span class="n">load_torch_tensors</span>
 
 <span class="n">log</span> <span class="o">=</span> <span class="n">get_log_writer</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
@@ -425,7 +425,7 @@
                     <span class="k">with</span> <span class="n">catch_warnings</span><span class="p">():</span>
                         <span class="n">warnings</span><span class="o">.</span><span class="n">simplefilter</span><span class="p">(</span><span class="s2">&quot;ignore&quot;</span><span class="p">)</span>
 
-                        <span class="n">checkpoint</span> <span class="o">=</span> <span class="n">load_pt_tensors</span><span class="p">(</span><span class="n">input_file</span><span class="p">,</span> <span class="n">restrict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                        <span class="n">checkpoint</span> <span class="o">=</span> <span class="n">load_torch_tensors</span><span class="p">(</span><span class="n">input_file</span><span class="p">,</span> <span class="n">restrict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
                 <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
                     <span class="n">log</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span>
                         <span class="s2">&quot;Checkpoint file </span><span class="si">{}</span><span class="s2"> cannot be loaded.&quot;</span><span class="p">,</span> <span class="n">input_file</span><span class="o">.</span><span class="n">name</span>
@@ -445,7 +445,7 @@
                 <span class="n">ref_state_dict</span> <span class="o">=</span> <span class="n">convert_to_reference_checkpoint</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">)</span>
 
                 <span class="k">try</span><span class="p">:</span>
-                    <span class="n">dump_pt_tensors</span><span class="p">(</span><span class="n">ref_state_dict</span><span class="p">,</span> <span class="n">output_file</span><span class="p">)</span>
+                    <span class="n">dump_torch_tensors</span><span class="p">(</span><span class="n">ref_state_dict</span><span class="p">,</span> <span class="n">output_file</span><span class="p">)</span>
                 <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
                     <span class="n">log</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span>
                         <span class="s2">&quot;Checkpoint file </span><span class="si">{}</span><span class="s2"> cannot be saved.&quot;</span><span class="p">,</span> <span class="n">output_file</span><span class="o">.</span><span class="n">name</span>
@@ -531,7 +531,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=7bd377ef"></script>
+</div><script src="../../../../_static/documentation_options.js?v=be67c5ce"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>

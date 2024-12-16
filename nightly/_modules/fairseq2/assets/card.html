@@ -322,12 +322,9 @@
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Final</span><span class="p">,</span> <span class="n">cast</span><span class="p">,</span> <span class="n">final</span>
 <span class="kn">from</span> <span class="nn">urllib.parse</span> <span class="kn">import</span> <span class="n">urlparse</span><span class="p">,</span> <span class="n">urlunparse</span>
 
-<span class="kn">from</span> <span class="nn">fairseq2.assets.error</span> <span class="kn">import</span> <span class="n">AssetError</span>
-<span class="kn">from</span> <span class="nn">fairseq2.utils.structured</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">StructuredError</span><span class="p">,</span>
-    <span class="n">ValueConverter</span><span class="p">,</span>
-    <span class="n">default_value_converter</span><span class="p">,</span>
-<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">fairseq2.assets.error</span> <span class="kn">import</span> <span class="n">AssetCardError</span><span class="p">,</span> <span class="n">AssetCardFieldNotFoundError</span>
+<span class="kn">from</span> <span class="nn">fairseq2.error</span> <span class="kn">import</span> <span class="n">InternalError</span>
+<span class="kn">from</span> <span class="nn">fairseq2.utils.structured</span> <span class="kn">import</span> <span class="n">StructureError</span><span class="p">,</span> <span class="n">structure</span><span class="p">,</span> <span class="n">unstructure</span>
 
 
 <div class="viewcode-block" id="AssetCard">
@@ -337,15 +334,16 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Holds information about an asset.&quot;&quot;&quot;</span>
 
     <span class="n">_name</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="n">_metadata</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
-    <span class="n">_base</span><span class="p">:</span> <span class="n">AssetCard</span> <span class="o">|</span> <span class="kc">None</span>
-    <span class="n">_value_converter</span><span class="p">:</span> <span class="n">ValueConverter</span>
+    <span class="n">_metadata</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span>
+    <span class="n">_base_card</span><span class="p">:</span> <span class="n">AssetCard</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="n">_base_path</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">metadata</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
-        <span class="n">base</span><span class="p">:</span> <span class="n">AssetCard</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">value_converter</span><span class="p">:</span> <span class="n">ValueConverter</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">metadata</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">],</span>
+        <span class="n">base_card</span><span class="p">:</span> <span class="n">AssetCard</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">base_path</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        :param metadata:</span>
@@ -353,25 +351,11 @@
 <span class="sd">            contain a specific piece of information about the asset.</span>
 <span class="sd">        :param base:</span>
 <span class="sd">            The card that this card derives from.</span>
-<span class="sd">        :param value_converter:</span>
-<span class="sd">            The :class:`ValueConverter` instance to use.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">name</span> <span class="o">=</span> <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span>
-        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">AssetCardError</span><span class="p">(</span>
-                <span class="s2">&quot;`metadata` must contain a key named &#39;name&#39;.&quot;</span>
-            <span class="p">)</span> <span class="kn">from</span> <span class="kc">None</span>
-
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="n">AssetCardError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;The value of &#39;name&#39; in `metadata` must be of type `</span><span class="si">{</span><span class="nb">str</span><span class="si">}</span><span class="s2">`, but is of type `</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">name</span><span class="p">)</span><span class="si">}</span><span class="s2">` instead.&quot;</span>
-            <span class="p">)</span>
-
         <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="n">name</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span> <span class="o">=</span> <span class="n">metadata</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_base</span> <span class="o">=</span> <span class="n">base</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_value_converter</span> <span class="o">=</span> <span class="n">value_converter</span> <span class="ow">or</span> <span class="n">default_value_converter</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_base_card</span> <span class="o">=</span> <span class="n">base_card</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_base_path</span> <span class="o">=</span> <span class="n">base_path</span>
 
 <div class="viewcode-block" id="AssetCard.field">
 <a class="viewcode-back" href="../../../reference/api/fairseq2.assets/index.html#fairseq2.assets.AssetCard.field">[docs]</a>
@@ -387,10 +371,11 @@
         <span class="k">return</span> <span class="n">AssetCardField</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="p">[</span><span class="n">name</span><span class="p">])</span></div>
 
 
-    <span class="k">def</span> <span class="nf">_get_field_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">object</span><span class="p">:</span>
-        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+    <span class="k">def</span> <span class="nf">_get_field_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">leaf_card</span><span class="p">:</span> <span class="n">AssetCard</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">object</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span><span class="s2">&quot;`path` has zero length.&quot;</span><span class="p">)</span>
 
-        <span class="n">metadata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span>
+        <span class="n">metadata</span><span class="p">:</span> <span class="nb">object</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span>
 
         <span class="n">contains</span> <span class="o">=</span> <span class="kc">True</span>
 
@@ -400,11 +385,11 @@
 
                 <span class="k">break</span>
 
-            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">metadata</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">metadata</span><span class="p">,</span> <span class="n">MutableMapping</span><span class="p">):</span>
                 <span class="n">pathname</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
 
                 <span class="k">raise</span> <span class="n">AssetCardFieldNotFoundError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;The asset card &#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; must have a field named &#39;</span><span class="si">{</span><span class="n">pathname</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;The &#39;</span><span class="si">{</span><span class="n">leaf_card</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; asset card does not have a field named &#39;</span><span class="si">{</span><span class="n">pathname</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
                 <span class="p">)</span>
 
             <span class="k">try</span><span class="p">:</span>
@@ -415,40 +400,42 @@
                 <span class="k">break</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">contains</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base</span><span class="o">.</span><span class="n">_get_field_value</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base_card</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base_card</span><span class="o">.</span><span class="n">_get_field_value</span><span class="p">(</span><span class="n">leaf_card</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
 
             <span class="n">pathname</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
 
             <span class="k">raise</span> <span class="n">AssetCardFieldNotFoundError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;The asset card &#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; must have a field named &#39;</span><span class="si">{</span><span class="n">pathname</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;The &#39;</span><span class="si">{</span><span class="n">leaf_card</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; asset card does not have a field named &#39;</span><span class="si">{</span><span class="n">pathname</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
             <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">metadata</span>
 
     <span class="k">def</span> <span class="nf">_set_field_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span><span class="s2">&quot;`path` has zero length.&quot;</span><span class="p">)</span>
 
         <span class="n">metadata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span>
 
         <span class="k">for</span> <span class="n">depth</span><span class="p">,</span> <span class="n">field</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">path</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]):</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">metadata</span> <span class="o">=</span> <span class="n">metadata</span><span class="p">[</span><span class="n">field</span><span class="p">]</span>
-            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
-                <span class="n">tmp</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">value_</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">field</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">value_</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">tmp</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
 
                 <span class="n">metadata</span><span class="p">[</span><span class="n">field</span><span class="p">]</span> <span class="o">=</span> <span class="n">tmp</span>
 
-                <span class="n">metadata</span> <span class="o">=</span> <span class="n">tmp</span>
+                <span class="n">value_</span> <span class="o">=</span> <span class="n">tmp</span>
 
-            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">metadata</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value_</span><span class="p">,</span> <span class="n">MutableMapping</span><span class="p">):</span>
                 <span class="n">conflict_pathname</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">[:</span> <span class="n">depth</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
 
                 <span class="n">pathname</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
 
                 <span class="k">raise</span> <span class="n">AssetCardError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;The asset card &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="si">}</span><span class="s2">&#39; cannot have a field named &#39;</span><span class="si">{</span><span class="n">pathname</span><span class="si">}</span><span class="s2">&#39; due to path conflict at &#39;</span><span class="si">{</span><span class="n">conflict_pathname</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;The &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="si">}</span><span class="s2">&#39; asset card cannot have a field named &#39;</span><span class="si">{</span><span class="n">pathname</span><span class="si">}</span><span class="s2">&#39; due to path conflict at &#39;</span><span class="si">{</span><span class="n">conflict_pathname</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
                 <span class="p">)</span>
+
+            <span class="n">metadata</span> <span class="o">=</span> <span class="n">value_</span>
 
         <span class="n">metadata</span><span class="p">[</span><span class="n">path</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span> <span class="o">=</span> <span class="n">value</span>
 
@@ -461,14 +448,14 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;The metadata of the asset.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">base</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AssetCard</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;The card that this card derives from.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base_card</span></div>
 
 
 
@@ -500,7 +487,7 @@
     <span class="k">def</span> <span class="nf">exists</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return ``True`` if the field exists.&quot;&quot;&quot;</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">_get_field_value</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_path</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">_get_field_value</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_path</span><span class="p">)</span>
         <span class="k">except</span> <span class="n">AssetCardFieldNotFoundError</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">False</span>
 
@@ -508,25 +495,25 @@
 
     <span class="k">def</span> <span class="nf">as_unstructured</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">object</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the value of this field in unstructured form.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">_get_field_value</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_path</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">_get_field_value</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_path</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">as_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">type_expr</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">allow_empty</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">as_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">type_</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">allow_empty</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the value of this field.</span>
 
-<span class="sd">        :param type_expr:</span>
+<span class="sd">        :param type_:</span>
 <span class="sd">            The type expression of the field.</span>
 <span class="sd">        :param allow_empty:</span>
 <span class="sd">            If ``True``, allows the field to be empty.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">unstructured_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">_get_field_value</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_path</span><span class="p">)</span>
+        <span class="n">unstructured_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">_get_field_value</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_path</span><span class="p">)</span>
 
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">_value_converter</span><span class="o">.</span><span class="n">structure</span><span class="p">(</span><span class="n">unstructured_value</span><span class="p">,</span> <span class="n">type_expr</span><span class="p">)</span>
-        <span class="k">except</span> <span class="n">StructuredError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">structure</span><span class="p">(</span><span class="n">unstructured_value</span><span class="p">,</span> <span class="n">type_</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">StructureError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
             <span class="n">pathname</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_path</span><span class="p">)</span>
 
             <span class="k">raise</span> <span class="n">AssetCardError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;The value of the field &#39;</span><span class="si">{</span><span class="n">pathname</span><span class="si">}</span><span class="s2">&#39; of the asset card &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; cannot be parsed as `</span><span class="si">{</span><span class="n">type_expr</span><span class="si">}</span><span class="s2">`. See nested exception for details.&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;The value of the &#39;</span><span class="si">{</span><span class="n">pathname</span><span class="si">}</span><span class="s2">&#39; field of the &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; asset card cannot be parsed as `</span><span class="si">{</span><span class="n">type_</span><span class="si">}</span><span class="s2">`. See the nested exception for details.&quot;</span>
             <span class="p">)</span> <span class="kn">from</span> <span class="nn">ex</span>
 
         <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -536,7 +523,7 @@
             <span class="n">pathname</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_path</span><span class="p">)</span>
 
             <span class="k">raise</span> <span class="n">AssetCardError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;The value of the field &#39;</span><span class="si">{</span><span class="n">pathname</span><span class="si">}</span><span class="s2">&#39; of the asset card &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; must not be empty.&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;The value of the &#39;</span><span class="si">{</span><span class="n">pathname</span><span class="si">}</span><span class="s2">&#39; field of the &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; asset card is empty.&quot;</span>
             <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">value</span>
@@ -559,8 +546,10 @@
 
             <span class="n">values</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
 
+            <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+
             <span class="k">raise</span> <span class="n">AssetCardError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;The value of the field &#39;</span><span class="si">{</span><span class="n">pathname</span><span class="si">}</span><span class="s2">&#39; of the asset card &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; must be one of </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">values</span><span class="p">)</span><span class="si">}</span><span class="s2">, but is </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;The value of the &#39;</span><span class="si">{</span><span class="n">pathname</span><span class="si">}</span><span class="s2">&#39; field of the &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; asset card is expected to be one of the following values, but is &#39;</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">&#39; instead: </span><span class="si">{</span><span class="n">s</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">value</span>
@@ -572,20 +561,18 @@
         <span class="k">try</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">_starts_with_scheme</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
                 <span class="n">path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span><span class="o">.</span><span class="n">is_absolute</span><span class="p">():</span>
-                    <span class="n">base_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;__base_path__&quot;</span><span class="p">)</span>
-                    <span class="k">if</span> <span class="n">base_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                        <span class="n">path</span> <span class="o">=</span> <span class="n">base_path</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span><span class="o">.</span><span class="n">is_absolute</span><span class="p">()</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">_base_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">_base_path</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
 
                 <span class="k">return</span> <span class="n">path</span><span class="o">.</span><span class="n">as_uri</span><span class="p">()</span>
 
             <span class="k">return</span> <span class="n">urlunparse</span><span class="p">(</span><span class="n">urlparse</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>
-        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
             <span class="n">pathname</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_path</span><span class="p">)</span>
 
             <span class="k">raise</span> <span class="n">AssetCardError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;The value of the field &#39;</span><span class="si">{</span><span class="n">pathname</span><span class="si">}</span><span class="s2">&#39; of the asset card &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; must be a URI or an absolute pathname, but is &#39;</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">&#39; instead.&quot;</span>
-            <span class="p">)</span> <span class="kn">from</span> <span class="nn">ex</span>
+                <span class="sa">f</span><span class="s2">&quot;The value of the &#39;</span><span class="si">{</span><span class="n">pathname</span><span class="si">}</span><span class="s2">&#39; field of the &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; asset card is expected to be a URI or an absolute pathname, but is &#39;</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">&#39; instead.&quot;</span>
+            <span class="p">)</span> <span class="kn">from</span> <span class="kc">None</span>
 
     <span class="k">def</span> <span class="nf">as_filename</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the value of this field as a filename.&quot;&quot;&quot;</span>
@@ -595,17 +582,17 @@
             <span class="n">pathname</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_path</span><span class="p">)</span>
 
             <span class="k">raise</span> <span class="n">AssetCardError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;The value of the field &#39;</span><span class="si">{</span><span class="n">pathname</span><span class="si">}</span><span class="s2">&#39; of the asset card &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; must be a filename, but is &#39;</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">&#39; instead.&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;The value of the &#39;</span><span class="si">{</span><span class="n">pathname</span><span class="si">}</span><span class="s2">&#39; field of the &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; asset card is expected to be a filename, but is &#39;</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">&#39; instead.&quot;</span>
             <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">value</span>
 
     <span class="k">def</span> <span class="nf">get_as_</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">type_expr</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">default</span><span class="p">:</span> <span class="nb">object</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">allow_empty</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">type_</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">default</span><span class="p">:</span> <span class="nb">object</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">allow_empty</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the value of this field if it exists; otherwise, return ``default``.</span>
 
-<span class="sd">        :param type_expr:</span>
+<span class="sd">        :param type_:</span>
 <span class="sd">            The type expression of the field.</span>
 <span class="sd">        :param default:</span>
 <span class="sd">            The default value.</span>
@@ -613,36 +600,20 @@
 <span class="sd">            If ``True``, allows the field to be empty.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">as_</span><span class="p">(</span><span class="n">type_expr</span><span class="p">,</span> <span class="n">allow_empty</span><span class="o">=</span><span class="n">allow_empty</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">as_</span><span class="p">(</span><span class="n">type_</span><span class="p">,</span> <span class="n">allow_empty</span><span class="o">=</span><span class="n">allow_empty</span><span class="p">)</span>
         <span class="k">except</span> <span class="n">AssetCardFieldNotFoundError</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">default</span>
 
     <span class="k">def</span> <span class="nf">set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the value of this field.</span>
-
-<span class="sd">        :param value:</span>
-<span class="sd">            The value to set.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the value of this field.&quot;&quot;&quot;</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">unstructured_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">_value_converter</span><span class="o">.</span><span class="n">unstructure</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+            <span class="n">unstructured_value</span> <span class="o">=</span> <span class="n">unstructure</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">StructureError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;`type_expr` must be a supported type expression. See nested exception for details.&quot;</span>
-            <span class="p">)</span> <span class="kn">from</span> <span class="nn">ex</span>
-        <span class="k">except</span> <span class="ne">TypeError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-                <span class="s2">&quot;`value` cannot be unstructured. See nested exception for details.&quot;</span>
+                <span class="s2">&quot;`value` must be of a type that can be unstructured. See the nested exception for details.&quot;</span>
             <span class="p">)</span> <span class="kn">from</span> <span class="nn">ex</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">_set_field_value</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_path</span><span class="p">,</span> <span class="n">unstructured_value</span><span class="p">)</span>
-
-
-<span class="k">class</span> <span class="nc">AssetCardError</span><span class="p">(</span><span class="n">AssetError</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Raised when an asset card operation fails.&quot;&quot;&quot;</span>
-
-
-<span class="k">class</span> <span class="nc">AssetCardFieldNotFoundError</span><span class="p">(</span><span class="n">AssetCardError</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Raised when an asset card field cannot be found.&quot;&quot;&quot;</span>
 
 
 <span class="n">_SCHEME_REGEX</span><span class="p">:</span> <span class="n">Final</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;^[a-zA-Z0-9]+://&quot;</span><span class="p">)</span>
@@ -686,7 +657,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=7bd377ef"></script>
+</div><script src="../../../_static/documentation_options.js?v=be67c5ce"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>

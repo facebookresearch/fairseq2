@@ -328,6 +328,7 @@
 <span class="kn">from</span> <span class="nn">torch.nn.parameter</span> <span class="kn">import</span> <span class="n">Parameter</span>
 <span class="kn">from</span> <span class="nn">typing_extensions</span> <span class="kn">import</span> <span class="n">override</span>
 
+<span class="kn">from</span> <span class="nn">fairseq2.error</span> <span class="kn">import</span> <span class="n">InternalError</span>
 <span class="kn">from</span> <span class="nn">fairseq2.nn.incremental_state</span> <span class="kn">import</span> <span class="n">IncrementalStateBag</span>
 <span class="kn">from</span> <span class="nn">fairseq2.nn.padding</span> <span class="kn">import</span> <span class="n">PaddingMask</span>
 <span class="kn">from</span> <span class="nn">fairseq2.typing</span> <span class="kn">import</span> <span class="n">DataType</span><span class="p">,</span> <span class="n">Device</span>
@@ -486,7 +487,8 @@
 <a class="viewcode-back" href="../../../reference/api/fairseq2.nn/position_encoders.html#fairseq2.nn.SinusoidalPositionEncoder.reset_non_persistent_buffers">[docs]</a>
     <span class="k">def</span> <span class="nf">reset_non_persistent_buffers</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Reset the non-persistent buffers of the module.&quot;&quot;&quot;</span>
-        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_seq_len</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_seq_len</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span><span class="s2">&quot;`max_seq_len` is `None`.&quot;</span><span class="p">)</span>
 
         <span class="n">device</span><span class="p">,</span> <span class="n">dtype</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">freqs</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">freqs</span><span class="o">.</span><span class="n">dtype</span>
 
@@ -678,7 +680,8 @@
 <a class="viewcode-back" href="../../../reference/api/fairseq2.nn/position_encoders.html#fairseq2.nn.RotaryEncoder.reset_non_persistent_buffers">[docs]</a>
     <span class="k">def</span> <span class="nf">reset_non_persistent_buffers</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Reset the non-persistent buffers of the module.&quot;&quot;&quot;</span>
-        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_seq_len</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_seq_len</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span><span class="s2">&quot;`max_seq_len` is `None`.&quot;</span><span class="p">)</span>
 
         <span class="n">device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">freqs</span><span class="o">.</span><span class="n">device</span>
 
@@ -1093,7 +1096,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=7bd377ef"></script>
+</div><script src="../../../_static/documentation_options.js?v=be67c5ce"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>

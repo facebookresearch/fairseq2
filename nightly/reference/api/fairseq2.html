@@ -325,7 +325,15 @@
 <dl class="py function">
 <dt class="sig sig-object py" id="fairseq2.setup_fairseq2">
 <span class="sig-prename descclassname"><span class="pre">fairseq2.</span></span><span class="sig-name descname"><span class="pre">setup_fairseq2</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/fairseq2.html#setup_fairseq2"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.setup_fairseq2" title="Link to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
+<dd><p>Sets up fairseq2.</p>
+<p>As part of the initialization, this function also registers external
+objects with via setuptools’ <a class="reference external" href="https://setuptools.pypa.io/en/latest/userguide/entry_point.html">entry-point</a> mechanism. See
+<a class="reference internal" href="../../basics/runtime_extensions.html"><span class="doc"> Runtime Extensions</span></a> for more information.</p>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>This function must be called before using any of the fairseq2 APIs.</p>
+</div>
+<dl class="field-list simple">
 </dl>
 </dd></dl>
 
@@ -407,7 +415,7 @@
       
     </aside>
   </div>
-</div><script src="../../_static/documentation_options.js?v=7bd377ef"></script>
+</div><script src="../../_static/documentation_options.js?v=be67c5ce"></script>
     <script src="../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/scripts/furo.js?v=5fa4622c"></script>

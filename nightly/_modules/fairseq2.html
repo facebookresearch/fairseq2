@@ -315,7 +315,7 @@
 
 <span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="n">__version__</span> <span class="o">=</span> <span class="s2">&quot;0.3.0.dev202412131240+g5aaa7a8&quot;</span>
+<span class="n">__version__</span> <span class="o">=</span> <span class="s2">&quot;0.3.0.dev202412160150+ga9b46a1&quot;</span>
 
 <span class="kn">import</span> <span class="nn">fairseq2n</span>  <span class="c1"># Report any fairseq2n initialization error eagerly.</span>
 
@@ -330,9 +330,10 @@
 
 <span class="kn">from</span> <span class="nn">importlib_metadata</span> <span class="kn">import</span> <span class="n">entry_points</span>
 
-<span class="kn">from</span> <span class="nn">fairseq2.logging</span> <span class="kn">import</span> <span class="n">get_log_writer</span>
-
-<span class="n">log</span> <span class="o">=</span> <span class="n">get_log_writer</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">fairseq2.assets</span> <span class="kn">import</span> <span class="n">default_asset_store</span><span class="p">,</span> <span class="n">register_assets</span>
+<span class="kn">from</span> <span class="nn">fairseq2.data.text</span> <span class="kn">import</span> <span class="n">default_text_tokenizer_registry</span><span class="p">,</span> <span class="n">register_text_tokenizers</span>
+<span class="kn">from</span> <span class="nn">fairseq2.extensions</span> <span class="kn">import</span> <span class="n">ExtensionError</span>
+<span class="kn">from</span> <span class="nn">fairseq2.logging</span> <span class="kn">import</span> <span class="n">log</span>
 
 <span class="n">_setup_complete</span> <span class="o">=</span> <span class="kc">False</span>
 
@@ -340,12 +341,19 @@
 <div class="viewcode-block" id="setup_fairseq2">
 <a class="viewcode-back" href="../reference/api/fairseq2.html#fairseq2.setup_fairseq2">[docs]</a>
 <span class="k">def</span> <span class="nf">setup_fairseq2</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-    <span class="n">setup_extensions</span><span class="p">()</span></div>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Sets up fairseq2.</span>
 
+<span class="sd">    As part of the initialization, this function also registers external</span>
+<span class="sd">    objects with via setuptools&#39; `entry-point`__ mechanism. See</span>
+<span class="sd">    :doc:`/basics/runtime_extensions` for more information.</span>
 
+<span class="sd">    .. important::</span>
 
-<span class="c1"># legacy</span>
-<span class="k">def</span> <span class="nf">setup_extensions</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="sd">        This function must be called before using any of the fairseq2 APIs.</span>
+
+<span class="sd">    .. __: https://setuptools.pypa.io/en/latest/userguide/entry_point.html</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">global</span> <span class="n">_setup_complete</span>
 
     <span class="k">if</span> <span class="n">_setup_complete</span><span class="p">:</span>
@@ -354,25 +362,42 @@
     <span class="c1"># Mark as complete early on to avoid recursive calls.</span>
     <span class="n">_setup_complete</span> <span class="o">=</span> <span class="kc">True</span>
 
+    <span class="n">register_assets</span><span class="p">(</span><span class="n">default_asset_store</span><span class="p">)</span>
+
+    <span class="n">register_text_tokenizers</span><span class="p">(</span><span class="n">default_text_tokenizer_registry</span><span class="p">)</span>
+
+    <span class="n">_setup_legacy_extensions</span><span class="p">()</span></div>
+
+
+
+<span class="n">setup_extensions</span> <span class="o">=</span> <span class="n">setup_fairseq2</span>  <span class="c1"># compat</span>
+
+
+<span class="k">def</span> <span class="nf">_setup_legacy_extensions</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">should_trace</span> <span class="o">=</span> <span class="s2">&quot;FAIRSEQ2_EXTENSION_TRACE&quot;</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span>
+
     <span class="k">for</span> <span class="n">entry_point</span> <span class="ow">in</span> <span class="n">entry_points</span><span class="p">(</span><span class="n">group</span><span class="o">=</span><span class="s2">&quot;fairseq2&quot;</span><span class="p">):</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">setup_extension</span> <span class="o">=</span> <span class="n">entry_point</span><span class="o">.</span><span class="n">load</span><span class="p">()</span>
 
             <span class="n">setup_extension</span><span class="p">()</span>
         <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;The entry point &#39;</span><span class="si">{</span><span class="n">entry_point</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">&#39; is not a valid fairseq2 setup function.&quot;</span>
-            <span class="p">)</span> <span class="kn">from</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">should_trace</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">ExtensionError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;The &#39;</span><span class="si">{</span><span class="n">entry_point</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">&#39; entry point is not a valid fairseq2 setup function.&quot;</span>
+                <span class="p">)</span> <span class="kn">from</span> <span class="kc">None</span>
+
+            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;The &#39;</span><span class="si">{}</span><span class="s2">&#39; entry point is not a valid fairseq2 setup function. Set `FAIRSEQ2_EXTENSION_TRACE` environment variable to print the stack trace.&quot;</span><span class="p">,</span> <span class="n">entry_point</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-            <span class="k">if</span> <span class="s2">&quot;FAIRSEQ2_EXTENSION_TRACE&quot;</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;The setup function at &#39;</span><span class="si">{</span><span class="n">entry_point</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">&#39; has failed. See nested exception for details.&quot;</span>
+            <span class="k">if</span> <span class="n">should_trace</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">ExtensionError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;The &#39;</span><span class="si">{</span><span class="n">entry_point</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">&#39; fairseq2 setup function has failed. See the nested exception for details.&quot;</span>
                 <span class="p">)</span> <span class="kn">from</span> <span class="nn">ex</span>
 
-            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                <span class="s2">&quot;The setup function at &#39;</span><span class="si">{}</span><span class="s2">&#39; has failed. Set `FAIRSEQ2_EXTENSION_TRACE` environment variable to print the stack trace.&quot;</span><span class="p">,</span>
-                <span class="n">entry_point</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
-            <span class="p">)</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;The &#39;</span><span class="si">{}</span><span class="s2">&#39; fairseq2 setup function has failed. Set `FAIRSEQ2_EXTENSION_TRACE` environment variable to print the stack trace.&quot;</span><span class="p">,</span> <span class="n">entry_point</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
+
+        <span class="k">if</span> <span class="n">should_trace</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;The `</span><span class="si">{}</span><span class="s2">` fairseq2 setup function run successfully.&quot;</span><span class="p">,</span> <span class="n">entry_point</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
 </pre></div>
         </article>
       </div>
@@ -409,7 +434,7 @@
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=7bd377ef"></script>
+</div><script src="../_static/documentation_options.js?v=be67c5ce"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/furo.js?v=5fa4622c"></script>

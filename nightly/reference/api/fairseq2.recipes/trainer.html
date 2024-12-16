@@ -315,7 +315,7 @@
         <article role="main" id="furo-main-content">
           <section id="module-fairseq2.recipes.trainer">
 <span id="fairseq2-recipes-trainer"></span><h1>fairseq2.recipes.trainer<a class="headerlink" href="#module-fairseq2.recipes.trainer" title="Link to this heading">¶</a></h1>
-<pre data-zoom-id="id-e416eeac-622c-41d2-aeb0-9079ed8c8ed0" class="mermaid">
+<pre data-zoom-id="id-88ccae11-45c4-4ef8-96f6-cb65783921e1" class="mermaid">
         classDiagram
   ABC &lt;|-- AbstractAsyncContextManager
   ABC &lt;|-- AbstractContextManager
@@ -334,10 +334,11 @@
   AbstractGang &lt;|-- FakeGang
   AbstractLRScheduler &lt;|-- NoopLR
   BaseException &lt;|-- Exception
+  CheckpointError &lt;|-- CheckpointNotFoundError
   Collection &lt;|-- Sequence
   Container &lt;|-- Collection
   ContextDecorator &lt;|-- record_function
-  Exception &lt;|-- RuntimeError
+  Exception &lt;|-- CheckpointError
   Gang &lt;|-- AbstractGang
   Generic &lt;|-- EvalUnit
   Generic &lt;|-- Metric
@@ -362,7 +363,6 @@
   Protocol &lt;|-- EarlyStopper
   PurePath &lt;|-- Path
   Reversible &lt;|-- Sequence
-  RuntimeError &lt;|-- CheckpointNotFoundError
   Sized &lt;|-- Collection
   StateHandler &lt;|-- FSDPOptimizerStateHandler
   StatefulObjectBag &lt;|-- Trainer
@@ -523,7 +523,7 @@ record.</p></li>
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=7bd377ef"></script>
+</div><script src="../../../_static/documentation_options.js?v=be67c5ce"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>
@@ -540,7 +540,7 @@ const load = async () => {
     const mermaids_to_add_zoom = 1 === -1 ? all_mermaids.length : 1;
     const mermaids_processed = document.querySelectorAll(".mermaid[data-processed='true']");
     if(mermaids_to_add_zoom > 0) {
-        var svgs = d3.selectAll(".mermaid[data-zoom-id=id-e416eeac-622c-41d2-aeb0-9079ed8c8ed0] svg");
+        var svgs = d3.selectAll(".mermaid[data-zoom-id=id-88ccae11-45c4-4ef8-96f6-cb65783921e1] svg");
         if(all_mermaids.length !== mermaids_processed.length) {
             // try again in a sec, wait for mermaids to load
             setTimeout(load, 200);
