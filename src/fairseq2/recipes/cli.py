@@ -15,11 +15,12 @@ from argparse import (
     BooleanOptionalAction,
     Namespace,
 )
-from collections.abc import Callable
+from collections.abc import Callable, Hashable, Set
+from functools import cache
 from pathlib import Path
 from signal import SIGUSR1, signal
 from types import FrameType
-from typing import Generic, Protocol, TypeVar, final, runtime_checkable
+from typing import Generic, Protocol, TypeVar, cast, final, runtime_checkable
 
 import yaml
 from rich.console import Console
@@ -27,6 +28,7 @@ from typing_extensions import override
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.error import AlreadyExistsError, InvalidOperationError
+from fairseq2.gang import get_world_size
 from fairseq2.logging import log
 from fairseq2.recipes.console import get_console, set_console
 from fairseq2.recipes.logging import setup_basic_logging, setup_logging
@@ -36,7 +38,7 @@ from fairseq2.recipes.utils.environment import (
     default_env_setters,
 )
 from fairseq2.recipes.utils.log import log_config
-from fairseq2.recipes.utils.sweep import SweepTagger, default_sweep_tagger
+from fairseq2.recipes.utils.sweep_tagger import SweepTagger
 from fairseq2.typing import DataClass
 from fairseq2.utils.structured import (
     StructureError,
@@ -437,8 +439,8 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
     _preset_configs: ConfigRegistry[RecipeConfigT]
     _default_preset: str
     _env_setters: EnvironmentSetterRegistry
+    _extra_sweep_keys: Set[Hashable] | None
     _value_converter: ValueConverter
-    _sweep_tagger: SweepTagger
 
     def __init__(
         self,
@@ -447,8 +449,8 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
         default_preset: str,
         *,
         env_setters: EnvironmentSetterRegistry | None = None,
+        extra_sweep_keys: Set[Hashable] | None = None,
         value_converter: ValueConverter | None = None,
-        sweep_tagger: SweepTagger | None = None,
     ) -> None:
         """
         :param loader:
@@ -463,16 +465,13 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
         :param value_converter:
             The :class:`ValueConverter` instance to use. If ``None``, the
             default instance will be used.
-        :param sweep_tagger:
-            The :class:`SweepTagger` instance to use. If ``None``, the default
-            instance will be used.
         """
         self._loader = loader
         self._preset_configs = preset_configs
         self._default_preset = default_preset
         self._env_setters = env_setters or default_env_setters
+        self._extra_sweep_keys = extra_sweep_keys
         self._value_converter = value_converter or default_value_converter
-        self._sweep_tagger = sweep_tagger or default_sweep_tagger
 
     @override
     def init_parser(self, parser: ArgumentParser) -> None:
@@ -645,8 +644,17 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
         output_dir = args.output_dir.expanduser().resolve()
 
         if not args.no_sweep_dir:
+            world_size = get_world_size()
+
+            sweep_keys = get_default_sweep_keys()
+
+            if self._extra_sweep_keys is not None:
+                sweep_keys = sweep_keys | self._extra_sweep_keys
+
+            sweep_tagger = SweepTagger(world_size, sweep_keys)
+
             try:
-                tag = self._sweep_tagger(args.preset, unstructured_config)
+                tag = sweep_tagger.generate(args.preset, unstructured_config)
             except LookupError:
                 log.exception("sweep format")
 
@@ -695,11 +703,52 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
         # If the recipe is stoppable, use SIGUSR1 as the stop signal.
         if isinstance(recipe, Stoppable):
 
-            def request_stop(signum: int, frame: FrameType) -> None:
+            def request_stop(signum: int, frame: FrameType | None) -> None:
                 log.info("SIGUSR1 received. Requesting recipe to stop.")
 
-                recipe.request_stop()
+                cast(Stoppable, recipe).request_stop()
 
             signal(SIGUSR1, request_stop)
 
         recipe()
+
+
+@cache
+def get_default_sweep_keys() -> Set[Hashable]:
+    return {
+        "batch_shuffle_window",
+        "betas",
+        "data_parallelism",
+        "dataset",
+        "dtype",
+        "example_shuffle_window",
+        "final_lr_ratio",
+        "final_lr_scale",
+        "fp16_loss_scale",
+        "fsdp_reshard_after_forward",
+        "fsdp_wrap_granularity",
+        "gradient_accumulation",
+        "label_smoothing",
+        "lr",
+        "lr_stage_ratios",
+        "max_gradient_norm",
+        "max_num_elements",
+        "max_num_steps",
+        "max_num_tokens",
+        "max_seq_len",
+        "mixed_precision",
+        "model",
+        "model_arch",
+        "model_config",
+        "num_lr_warmup_steps",
+        "pretrained_model",
+        "seed",
+        "split",
+        "start_lr",
+        "start_lr_scale",
+        "tensor_parallel_size",
+        "tokenizer",
+        "train_split",
+        "valid_split",
+        "weight_decay",
+    }

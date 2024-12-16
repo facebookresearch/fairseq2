@@ -23,7 +23,7 @@ from fairseq2.metrics import (
 )
 from fairseq2.models.model import Model
 from fairseq2.models.sequence import SequenceBatch
-from fairseq2.recipes.utils.cli import create_rich_progress
+from fairseq2.recipes.utils.rich import create_rich_progress
 from fairseq2.utils.profiler import Stopwatch
 
 log = get_log_writer(__name__)
