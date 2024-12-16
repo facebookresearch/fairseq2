@@ -22,6 +22,8 @@ from fairseq2.assets.metadata_provider import (
     PackageAssetMetadataProvider,
 )
 from fairseq2.error import ContractError
+from fairseq2.extensions import run_extensions
+from fairseq2.utils.env import get_path_from_env
 
 AssetScope: TypeAlias = Literal["all", "global", "user"]
 
@@ -243,3 +245,40 @@ class EnvironmentResolver(Protocol):
 
 
 default_asset_store = StandardAssetStore()
+
+
+def setup_asset_store(store: StandardAssetStore) -> None:
+    store.add_package_metadata_provider("fairseq2.assets.cards")
+
+    # /etc/fairseq2/assets
+    _add_etc_dir_metadata_provider(store)
+
+    # ~/.config/fairseq2/assets
+    _add_home_config_dir_metadata_provider(store)
+
+    # Extensions
+    run_extensions("setup_fairseq2_asset_store", store)
+
+
+def _add_etc_dir_metadata_provider(store: StandardAssetStore) -> None:
+    asset_dir = get_path_from_env("FAIRSEQ2_ASSET_DIR")
+    if asset_dir is None:
+        asset_dir = Path("/etc/fairseq2/assets").resolve()
+        if not asset_dir.exists():
+            return
+
+    store.add_file_metadata_provider(asset_dir)
+
+
+def _add_home_config_dir_metadata_provider(store: StandardAssetStore) -> None:
+    asset_dir = get_path_from_env("FAIRSEQ2_USER_ASSET_DIR")
+    if asset_dir is None:
+        asset_dir = get_path_from_env("XDG_CONFIG_HOME")
+        if asset_dir is None:
+            asset_dir = Path("~/.config").expanduser()
+
+        asset_dir = asset_dir.joinpath("fairseq2/assets").resolve()
+        if not asset_dir.exists():
+            return
+
+    store.add_file_metadata_provider(asset_dir, user=True)

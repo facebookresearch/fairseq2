@@ -44,8 +44,8 @@ from fairseq2.assets.metadata_provider import (
     PackageAssetMetadataProvider as PackageAssetMetadataProvider,
 )
 from fairseq2.assets.metadata_provider import load_metadata_file as load_metadata_file
-from fairseq2.assets.register import register_assets as register_assets
 from fairseq2.assets.store import AssetStore as AssetStore
 from fairseq2.assets.store import EnvironmentResolver as EnvironmentResolver
 from fairseq2.assets.store import StandardAssetStore as StandardAssetStore
 from fairseq2.assets.store import default_asset_store as default_asset_store
+from fairseq2.assets.store import setup_asset_store as setup_asset_store
