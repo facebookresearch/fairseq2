@@ -324,3 +324,10 @@ def get_llama_lora_config() -> LoRAConfig:
         dropout_p=0.05,
         keys=[".*decoder.layers.*.self_attn.*(q_proj|v_proj)$"],
     )
+
+
+def get_llama_loraplus_config(lr_ratio: float = 4.0) -> LoRAConfig:
+    config = get_llama_lora_config()
+    config.lr_ratio = lr_ratio
+
+    return config
