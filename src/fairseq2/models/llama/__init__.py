@@ -11,6 +11,9 @@ from fairseq2.models.llama.factory import LLaMABuilder as LLaMABuilder
 from fairseq2.models.llama.factory import LLaMAConfig as LLaMAConfig
 from fairseq2.models.llama.factory import create_llama_model as create_llama_model
 from fairseq2.models.llama.factory import get_llama_lora_config as get_llama_lora_config
+from fairseq2.models.llama.factory import (
+    get_llama_lora_fa_config as get_llama_lora_fa_config,
+)
 from fairseq2.models.llama.factory import llama_arch as llama_arch
 from fairseq2.models.llama.factory import llama_archs as llama_archs
 from fairseq2.models.llama.loader import load_llama_config as load_llama_config
