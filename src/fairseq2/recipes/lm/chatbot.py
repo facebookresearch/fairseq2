@@ -104,7 +104,7 @@ class ChatbotCommandHandler(CliCommandHandler):
         )
 
     @override
-    def __call__(self, args: Namespace) -> None:
+    def run(self, args: Namespace) -> int:
         cluster_registry = ClusterRegistry(is_torchrun=is_torchrun())
 
         register_clusters(cluster_registry)
@@ -191,6 +191,8 @@ class ChatbotCommandHandler(CliCommandHandler):
             tokenizer,
             root_gang,
         )
+
+        return 0
 
     def _do_run(
         self,

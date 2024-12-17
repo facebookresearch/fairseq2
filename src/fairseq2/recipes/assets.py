@@ -73,7 +73,7 @@ class ListAssetsCommand(CliCommandHandler):
         )
 
     @override
-    def __call__(self, args: Namespace) -> None:
+    def run(self, args: Namespace) -> int:
         setup_fairseq2()
 
         usr_assets = self._retrieve_assets(args, user=True)
@@ -88,6 +88,8 @@ class ListAssetsCommand(CliCommandHandler):
         console.print("[green bold]global:")
 
         self._dump_assets(console, glb_assets)
+
+        return 0
 
     def _retrieve_assets(
         self, args: Namespace, user: bool
@@ -198,7 +200,7 @@ class ShowAssetCommand(CliCommandHandler):
         parser.add_argument("name", help="name of the asset")
 
     @override
-    def __call__(self, args: Namespace) -> None:
+    def run(self, args: Namespace) -> int:
         try:
             card: AssetCard | None = self._asset_store.retrieve_card(
                 args.name, envs=args.envs, scope=args.scope
@@ -212,6 +214,8 @@ class ShowAssetCommand(CliCommandHandler):
             self._print_metadata(dict(card.metadata))
 
             card = card.base
+
+        return 0
 
     def _print_metadata(self, metadata: dict[str, Any]) -> None:
         console = get_console()
