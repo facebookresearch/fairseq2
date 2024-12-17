@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Sequence
 
 from torch.optim import Optimizer
 
@@ -90,6 +91,8 @@ def create_cosine_annealing_lr(
         cycle_len = max_num_steps - config.num_warmup_steps
     else:
         cycle_len = config.cycle_len
+
+    final_lr: float = 0.0  # using dummy value to make mypy happy
 
     # set final lr based on config
     if config.final_lr_scale is not None:
