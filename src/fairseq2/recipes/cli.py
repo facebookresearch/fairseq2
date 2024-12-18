@@ -10,38 +10,45 @@ import sys
 from abc import ABC, abstractmethod
 from argparse import OPTIONAL, ArgumentParser, BooleanOptionalAction, Namespace
 from collections.abc import Hashable, Set
-from itertools import chain
 from pathlib import Path
-from typing import Generic, Mapping, Sequence, TypeVar, final
+from typing import Generic, TypeVar, final
 
 from rich.console import Console
 from typing_extensions import override
 
 from fairseq2.config_registry import ConfigNotFoundError, ConfigProvider
-from fairseq2.error import (
-    AlreadyExistsError,
-    ContractError,
-    InvalidOperationError,
-    SetupError,
-)
+from fairseq2.error import AlreadyExistsError, InvalidOperationError, SetupError
+from fairseq2.gang import is_torchrun
 from fairseq2.logging import log
-from fairseq2.recipes.cluster import ClusterError, UnknownClusterError
+from fairseq2.recipes.cluster import (
+    ClusterError,
+    ClusterRegistry,
+    UnknownClusterError,
+    register_clusters,
+)
 from fairseq2.recipes.console import get_console, set_console
-from fairseq2.recipes.logging import setup_basic_logging
-from fairseq2.recipes.runner import RecipeLoader, run_recipe
+from fairseq2.recipes.logging import DistributedLoggingInitializer, setup_basic_logging
+from fairseq2.recipes.runner import (
+    ConfigFileNotFoundError,
+    ConfigReader,
+    EnvironmentBootstrapper,
+    RecipeLoader,
+    RecipeRunner,
+    StandardConfigReader,
+    StandardEnvironmentBootstrapper,
+    StandardRecipeRunner,
+    SystemSignalHandler,
+    create_sweep_tagger,
+)
 from fairseq2.recipes.utils.argparse import ConfigAction
 from fairseq2.recipes.utils.sweep_tagger import (
     SweepFormatError,
     SweepFormatPlaceholderError,
 )
-from fairseq2.typing import DataClass
-from fairseq2.utils.structured import (
-    StructureError,
-    merge_unstructured,
-    structure,
-    unstructure,
-)
-from fairseq2.utils.yaml import YamlError, dump_yaml, load_yaml
+from fairseq2.setup import setup_fairseq2
+from fairseq2.utils.file import StandardFileSystem
+from fairseq2.utils.structured import StructureError
+from fairseq2.utils.yaml import YamlDumper, dump_yaml, load_yaml
 
 
 class Cli:
@@ -406,22 +413,22 @@ class CliArgumentError(Exception):
         super().__init__(message)
 
 
-RecipeConfigT = TypeVar("RecipeConfigT", bound=DataClass)
+ConfigT = TypeVar("ConfigT")
 
 
 @final
-class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
+class RecipeCommandHandler(CliCommandHandler, Generic[ConfigT]):
     """Runs a recipe over command line."""
 
-    _loader: RecipeLoader[RecipeConfigT]
-    _preset_configs: ConfigProvider[RecipeConfigT]
+    _loader: RecipeLoader[ConfigT]
+    _preset_configs: ConfigProvider[ConfigT]
     _default_preset: str
     _extra_sweep_keys: Set[Hashable] | None
 
     def __init__(
         self,
-        loader: RecipeLoader[RecipeConfigT],
-        preset_configs: ConfigProvider[RecipeConfigT],
+        loader: RecipeLoader[ConfigT],
+        preset_configs: ConfigProvider[ConfigT],
         default_preset: str,
         *,
         extra_sweep_keys: Set[Hashable] | None = None,
@@ -509,8 +516,41 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
 
     @override
     def run(self, args: Namespace) -> int:
+        if args.list_presets:
+            self._print_presets()
+
+            return 0
+
+        setup_basic_logging(debug=args.debug)
+
+        setup_fairseq2()
+
+        file_system = StandardFileSystem()
+
+        config_reader = StandardConfigReader(
+            self._preset_configs, file_system, load_yaml
+        )
+
+        cluster_registry = ClusterRegistry(is_torchrun=is_torchrun())
+
+        register_clusters(cluster_registry)
+
+        sweep_tagger = create_sweep_tagger(args.no_sweep_dir, self._extra_sweep_keys)
+
+        logging_initializer = DistributedLoggingInitializer()
+
+        env_bootstrapper = StandardEnvironmentBootstrapper(
+            cluster_registry, sweep_tagger, logging_initializer, file_system, dump_yaml
+        )
+
+        signal_handler = SystemSignalHandler()
+
+        runner = StandardRecipeRunner(self._loader, signal_handler)
+
+        program = RecipeProgram(config_reader, env_bootstrapper, runner, dump_yaml)
+
         try:
-            self._do_run(args)
+            program.run(args)
 
             return 0
         except ClusterError as ex:
@@ -522,19 +562,46 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
 
         return 1
 
-    def _do_run(self, args: Namespace) -> None:
-        setup_basic_logging(debug=args.debug)
+    def _print_presets(self) -> None:
+        console = get_console()
 
-        if args.list_presets:
-            self._list_presets()
+        names = self._preset_configs.names()
 
-            return
+        if names:
+            console.print("available presets:")
 
-        preset_configs = self._preset_configs
+            for preset in names:
+                if preset == self._default_preset:
+                    console.print(f"  - {preset} (default)")
+                else:
+                    console.print(f"  - {preset}")
+        else:
+            console.print("no preset configuration found.")
 
+
+@final
+class RecipeProgram(Generic[ConfigT]):
+    _config_reader: ConfigReader[ConfigT]
+    _env_bootstrapper: EnvironmentBootstrapper
+    _runner: RecipeRunner[ConfigT]
+    _yaml_dumper: YamlDumper
+
+    def __init__(
+        self,
+        config_reader: ConfigReader[ConfigT],
+        env_bootstrapper: EnvironmentBootstrapper,
+        runner: RecipeRunner[ConfigT],
+        yaml_dumper: YamlDumper,
+    ) -> None:
+        self._config_reader = config_reader
+        self._env_bootstrapper = env_bootstrapper
+        self._runner = runner
+        self._yaml_dumper = yaml_dumper
+
+    def run(self, args: Namespace) -> None:
         try:
-            unstructured_config = read_unstructured_config(
-                preset_configs, args.preset, args.config_files, args.config_overrides
+            config = self._config_reader.read(
+                args.preset, args.config_files, args.config_overrides
             )
         except ConfigNotFoundError:
             raise CliArgumentError(
@@ -547,7 +614,7 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
 
         if args.dump_config:
             try:
-                dump_yaml(unstructured_config, sys.stdout)
+                self._yaml_dumper(config, sys.stdout)
             except OSError as ex:
                 raise SetupError(
                     "The recipe configuration cannot be dumped to stdout. See the nested exception for details."
@@ -560,18 +627,13 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
                 None, "the following arguments are required: output_dir"
             )
 
-        config = structure(unstructured_config, preset_configs.config_kls)
-
         try:
-            run_recipe(
-                self._loader,
+            output_dir = self._env_bootstrapper.run(
                 args.preset,
                 config,
                 args.output_dir,
                 cluster=args.cluster,
-                no_sweep_dir=args.no_sweep_dir,
                 sweep_format=args.sweep_format,
-                extra_sweep_keys=self._extra_sweep_keys,
                 debug=args.debug,
             )
         except UnknownClusterError:
@@ -589,84 +651,4 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
                 "--sweep-format", "must be a non-empty string with brace-enclosed placeholders."  # fmt: skip
             ) from None
 
-    def _list_presets(self) -> None:
-        console = get_console()
-
-        presets = self._preset_configs.names()
-
-        if presets:
-            console.print("available presets:")
-
-            for preset in presets:
-                if preset == self._default_preset:
-                    console.print(f"  - {preset} (default)")
-                else:
-                    console.print(f"  - {preset}")
-        else:
-            console.print("no preset configuration found.")
-
-
-def read_unstructured_config(
-    preset_configs: ConfigProvider[object],
-    preset: str,
-    config_files: Sequence[Sequence[Path]] | None,
-    config_overrides: Sequence[Mapping[str, object]] | None,
-) -> object:
-    # Load the preset configuration.
-    preset_config = preset_configs.get(preset)
-
-    try:
-        unstructured_config = unstructure(preset_config)
-    except StructureError as ex:
-        raise ContractError(
-            f"The '{preset}' preset configuration cannot be unstructured. See the nested exception for details."
-        ) from ex
-
-    # Update the configuration with `--config-file`.
-    if config_files:
-        for config_file in chain.from_iterable(config_files):
-            if not config_file.exists() or not config_file.is_file():
-                raise ConfigFileNotFoundError(config_file)
-
-            try:
-                unstructured_config_overrides = load_yaml(config_file)
-            except YamlError as ex:
-                raise StructureError(
-                    f"The '{config_file}' configuration file cannot be merged with the preset configuration. See the nested exception for details."
-                ) from ex
-            except OSError as ex:
-                raise SetupError(
-                    f"The '{config_file}' configuration file cannot be read. See the nested exception for details."
-                ) from ex
-
-            try:
-                unstructured_config = merge_unstructured(
-                    unstructured_config, unstructured_config_overrides[0]
-                )
-            except StructureError as ex:
-                raise StructureError(
-                    f"The '{config_file}' configuration file cannot be merged with the preset configuration. See the nested exception for details."
-                ) from ex
-
-    # Update the configuration with `--config`.
-    if config_overrides:
-        for overrides in config_overrides:
-            try:
-                unstructured_config = merge_unstructured(unstructured_config, overrides)
-            except StructureError as ex:
-                raise StructureError(
-                    "The command line configuration overrides cannot be merged with the preset recipe configuration. See the nested exception for details."
-                ) from ex
-
-    return unstructured_config
-
-
-class ConfigFileNotFoundError(Exception):
-    config_file: Path
-
-    def __init__(self, config_file: Path) -> None:
-        super().__init__(
-            f"The '{config_file}' path does not point to a configuration file."
-        )
-
-        self.config_file = config_file
+        self._runner.run(config, output_dir)

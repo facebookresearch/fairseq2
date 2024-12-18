@@ -10,10 +10,13 @@ from typing import Hashable
 
 import pytest
 
-from fairseq2.recipes.utils.sweep_tagger import SweepFormatPlaceholderError, SweepTagger
+from fairseq2.recipes.utils.sweep_tagger import (
+    StandardSweepTagger,
+    SweepFormatPlaceholderError,
+)
 
 
-class TestSweepTagger:
+class TestStandardSweepTagger:
     def test_call_works(self) -> None:
         config = {
             "foo1": "a",
@@ -24,9 +27,9 @@ class TestSweepTagger:
             "foo6": [1, 2, 3],
         }
 
-        tagger = self._make_tagger()
+        tagger = self._create_tagger()
 
-        tag = tagger.generate("foo", config)
+        tag = tagger.generate(2, "foo", config)
 
         assert tag == "ps_foo.ws_2.a618ea54"
 
@@ -40,9 +43,9 @@ class TestSweepTagger:
             "foo6": [1, 2, 3],
         }
 
-        tagger = self._make_tagger()
+        tagger = self._create_tagger()
 
-        tag = tagger.generate("foo", config)
+        tag = tagger.generate(2, "foo", config)
 
         assert tag == "ps_foo.ws_2.a618ea54"
 
@@ -58,9 +61,9 @@ class TestSweepTagger:
             "foo9": "c",  # should be ignored.
         }
 
-        tagger = self._make_tagger()
+        tagger = self._create_tagger()
 
-        tag = tagger.generate("foo", config)
+        tag = tagger.generate(2, "foo", config)
 
         assert tag == "ps_foo.ws_2.a618ea54"
 
@@ -76,9 +79,9 @@ class TestSweepTagger:
             "foo6": [1, 2, 3],
         }
 
-        tagger = self._make_tagger()
+        tagger = self._create_tagger()
 
-        tag = tagger.generate("foo", config, fmt=fmt)
+        tag = tagger.generate(2, "foo", config, fmt=fmt)
 
         assert tag == "ps_foo.{foo9}.foo5_{2.0}.foo21_0.2.foo61_2.a618ea54"
 
@@ -87,29 +90,27 @@ class TestSweepTagger:
 
         config = {"foo1": "a"}
 
-        tagger = self._make_tagger()
+        tagger = self._create_tagger()
 
         with pytest.raises(
             ValueError, match=r"^`fmt` must have matching opening and closing braces.$"  # fmt: skip
         ):
-            tagger.generate("foo", config, fmt=fmt)
+            tagger.generate(2, "foo", config, fmt=fmt)
 
     def test_call_raises_error_when_sweep_format_has_unknown_key(self) -> None:
         fmt = "foo_{foo2}.foo_{foo3}.foo_{foo2}"
 
         config = {"foo1": "a"}
 
-        tagger = self._make_tagger()
+        tagger = self._create_tagger()
 
         with pytest.raises(
             SweepFormatPlaceholderError, match=r"^`fmt` must contain only placeholders that correspond to the configuration keys, but contains the following unexpected placeholder\(s\): foo2, foo3$"  # fmt: skip
         ):
-            tagger.generate("foo", config, fmt=fmt)
+            tagger.generate(2, "foo", config, fmt=fmt)
 
     @staticmethod
-    def _make_tagger() -> SweepTagger:
-        world_size = 2
-
+    def _create_tagger() -> StandardSweepTagger:
         allowed_keys: set[Hashable] = {f"foo{i}" for i in range(7)}
 
-        return SweepTagger(world_size, allowed_keys)
+        return StandardSweepTagger(allowed_keys)

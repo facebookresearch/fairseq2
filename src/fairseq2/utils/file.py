@@ -7,17 +7,41 @@
 from __future__ import annotations
 
 import warnings
+from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from pickle import PickleError
-from typing import Protocol, TypeAlias
+from typing import Protocol, TypeAlias, final
 from warnings import catch_warnings
 
 import torch
 from torch import Tensor
+from typing_extensions import override
 
 from fairseq2.error import NotSupportedError
 from fairseq2.typing import Device
+
+
+class FileSystem(ABC):
+    @abstractmethod
+    def is_file(self, path: Path) -> bool:
+        ...
+
+    @abstractmethod
+    def make_directory(self, path: Path) -> None:
+        ...
+
+
+@final
+class StandardFileSystem(FileSystem):
+    @override
+    def is_file(self, path: Path) -> bool:
+        return path.is_file()
+
+    @override
+    def make_directory(self, path: Path) -> None:
+        path.mkdir(parents=True, exist_ok=True)
+
 
 MapLocation: TypeAlias = (
     Callable[[Tensor, str], Tensor] | Device | str | dict[str, str] | None
