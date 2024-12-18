@@ -7,32 +7,50 @@
 from __future__ import annotations
 
 import re
+from abc import ABC, abstractmethod
 from collections.abc import Hashable, Iterable, Sequence, Set
 from enum import Enum
 from hashlib import sha1
 from typing import final
 
+from typing_extensions import override
+
 from fairseq2.utils.dataclass import EMPTY
 from fairseq2.utils.structured import StructureError
 
 
-@final
-class SweepTagger:
+class SweepTagger(ABC):
     """Generates a sweep tag from a recipe configuration."""
 
-    _world_size: int
+    @abstractmethod
+    def generate(
+        self,
+        world_size: int,
+        preset: str,
+        unstructured_config: object,
+        fmt: str | None = None,
+    ) -> str:
+        ...
+
+
+@final
+class StandardSweepTagger(SweepTagger):
     _allowed_keys: Set[Hashable]
 
-    def __init__(self, world_size: int, allowed_keys: Set[Hashable]) -> None:
+    def __init__(self, allowed_keys: Set[Hashable]) -> None:
         """
         :param allowed_keys: The recipe configuration keys allowed to be used in
             sweep tags.
         """
-        self._world_size = world_size
         self._allowed_keys = allowed_keys
 
+    @override
     def generate(
-        self, preset: str, unstructured_config: object, fmt: str | None = None
+        self,
+        world_size: int,
+        preset: str,
+        unstructured_config: object,
+        fmt: str | None = None,
     ) -> str:
         if fmt is None:
             fmt = "ps_{preset}.ws_{world_size}.{hash}"
@@ -41,7 +59,7 @@ class SweepTagger:
             if not fmt:
                 raise SweepFormatError("`fmt` must not be empty.")
 
-        tags = {"preset": preset, "world_size": f"{self._world_size}"}
+        tags = {"preset": preset, "world_size": f"{world_size}"}
 
         self._collect_tags(unstructured_config, tags, path="")
 
@@ -205,18 +223,27 @@ class SweepTagger:
         return "".join(output)
 
 
+@final
+class NoopSweepTagger(SweepTagger):
+    @override
+    def generate(
+        self,
+        world_size: int,
+        preset: str,
+        unstructured_config: object,
+        fmt: str | None = None,
+    ) -> str:
+        return ""
+
+
 class SweepFormatError(ValueError):
     pass
 
 
 class SweepFormatPlaceholderError(SweepFormatError):
-    _unknown_keys: Sequence[str]
+    unknown_keys: Sequence[str]
 
     def __init__(self, unknown_keys: Sequence[str], message: str) -> None:
         super().__init__(message)
 
-        self._unknown_keys = unknown_keys
-
-    @property
-    def unknown_keys(self) -> Sequence[str]:
-        return self._unknown_keys
+        self.unknown_keys = unknown_keys

@@ -17,6 +17,7 @@ from typing_extensions import override
 
 from fairseq2.error import AlreadyExistsError
 from fairseq2.extensions import run_extensions
+from fairseq2.gang import get_rank, get_world_size
 
 
 @final
@@ -58,7 +59,7 @@ class ClusterRegistry:
 
 class ClusterHandler(ABC):
     @abstractmethod
-    def set_torch_distributed_variables(self) -> None:
+    def set_torch_distributed_variables(self) -> tuple[int, int]:
         """Set environment variables required to initialize ``torch.distributed``."""
 
     @abstractmethod
@@ -92,7 +93,7 @@ class SlurmClusterHandler(ClusterHandler):
         self._job_id = None
 
     @override
-    def set_torch_distributed_variables(self) -> None:
+    def set_torch_distributed_variables(self) -> tuple[int, int]:
         job_id = self._ensure_job_id()
 
         try:
@@ -114,6 +115,8 @@ class SlurmClusterHandler(ClusterHandler):
             raise ClusterError(
                 "slurm", "Slurm job environment variables are not set correctly. If you are within an allocated job (i.e. `salloc`), make sure to run with `srun`. If you want to run without Slurm, use `--cluster none`."  # fmt: skip
             ) from ex
+
+        return get_world_size(), get_rank()
 
     def _ensure_job_id(self) -> int:
         if self._job_id is not None:
@@ -166,8 +169,8 @@ class SlurmClusterHandler(ClusterHandler):
 @final
 class _NoneClusterHandler(ClusterHandler):
     @override
-    def set_torch_distributed_variables(self) -> None:
-        return
+    def set_torch_distributed_variables(self) -> tuple[int, int]:
+        return get_world_size(), get_rank()
 
     @override
     def supports_current_cluster(self) -> bool:
