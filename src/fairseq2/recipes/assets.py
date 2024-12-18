@@ -26,6 +26,7 @@ from fairseq2.logging import get_log_writer
 from fairseq2.models import is_model_card
 from fairseq2.recipes.cli import Cli, CliCommandHandler
 from fairseq2.recipes.console import get_console
+from fairseq2.setup import setup_fairseq2
 
 log = get_log_writer(__name__)
 
@@ -73,6 +74,8 @@ class ListAssetsCommand(CliCommandHandler):
 
     @override
     def __call__(self, args: Namespace) -> None:
+        setup_fairseq2()
+
         usr_assets = self._retrieve_assets(args, user=True)
         glb_assets = self._retrieve_assets(args, user=False)
 
@@ -173,6 +176,8 @@ class ShowAssetCommand(CliCommandHandler):
             The asset store from which to retrieve the asset cards. If ``None``,
             the default asset store will be used.
         """
+        setup_fairseq2()
+
         self._asset_store = asset_store or default_asset_store
 
     @override
@@ -201,7 +206,7 @@ class ShowAssetCommand(CliCommandHandler):
                 args.name, envs=args.envs, scope=args.scope
             )
         except AssetNotFoundError:
-            log.error("An asset with the name '{}' cannot be found.", args.asset)
+            log.error("An asset with the name '{}' cannot be found.", args.name)
 
             sys.exit(1)
 

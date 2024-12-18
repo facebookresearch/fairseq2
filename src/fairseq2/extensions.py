@@ -23,10 +23,10 @@ def run_extensions(name: str, *args: Any, **kwargs: Any) -> None:
         except Exception as ex:
             if should_trace:
                 raise ExtensionError(
-                    f"The `{entry_point.value}` fairseq2 extension module has failed to load. See the nested exception for details."
+                    entry_point.value, f"The `{entry_point.value}` extension module has failed to load. See the nested exception for details."  # fmt: skip
                 ) from ex
 
-            log.warning("The `{}` fairseq2 extension module has failed to load. Set `FAIRSEQ2_EXTENSION_TRACE` environment variable to print the stack trace.", entry_point.value)  # fmt: skip
+            log.warning("The `{}` extension module has failed to load. Set `FAIRSEQ2_EXTENSION_TRACE` environment variable to print the stack trace.", entry_point.value)  # fmt: skip
 
             continue
 
@@ -40,16 +40,25 @@ def run_extensions(name: str, *args: Any, **kwargs: Any) -> None:
         except Exception as ex:
             if should_trace:
                 raise ExtensionError(
-                    f"The `{entry_point.value}.{name}` fairseq2 extension function has failed. See the nested exception for details."
+                    entry_point.value, f"The `{entry_point.value}.{name}` extension function has failed. See the nested exception for details."  # fmt: skip
                 ) from ex
 
-            log.warning("The `{}.{}` fairseq2 extension function has failed. Set `FAIRSEQ2_EXTENSION_TRACE` environment variable to print the stack trace.", entry_point.value, name)  # fmt: skip
+            log.warning("The `{}.{}` extension function has failed. Set `FAIRSEQ2_EXTENSION_TRACE` environment variable to print the stack trace.", entry_point.value, name)  # fmt: skip
 
             continue
 
         if should_trace:
-            log.info("The `{}.{}` fairseq2 extension function run successfully.", entry_point.value, name)  # fmt: skip
+            log.info("The `{}.{}` extension function run successfully.", entry_point.value, name)  # fmt: skip
 
 
 class ExtensionError(Exception):
-    pass
+    _entry_point: str
+
+    def __init__(self, entry_point: str, message: str) -> None:
+        super().__init__(message)
+
+        self._entry_point = entry_point
+
+    @property
+    def entry_point(self) -> str:
+        return self._entry_point
