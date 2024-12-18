@@ -48,6 +48,7 @@ Documentation
    basics/cli
    basics/assets
    basics/data_pipeline
+   basics/ckpt
    basics/recipe
    basics/runtime_extensions
 
