@@ -12,18 +12,12 @@ import torch
 from torch import Tensor
 from typing_extensions import override
 
+from fairseq2.chatbots.chatbot import AbstractChatbot, ChatDialog
 from fairseq2.data.text import TextTokenEncoder, TextTokenizer
-from fairseq2.generation import (
-    AbstractChatbot,
-    ChatDialog,
-    SequenceGenerator,
-    chatbot_factory,
-)
-from fairseq2.models.mistral.factory import MISTRAL_FAMILY
+from fairseq2.generation import SequenceGenerator
 from fairseq2.nn.utils.module import infer_device
 
 
-@chatbot_factory(MISTRAL_FAMILY)
 @final
 class MistralChatbot(AbstractChatbot):
     """Represents a Mistral chatbot."""
@@ -45,11 +39,14 @@ class MistralChatbot(AbstractChatbot):
         eos_idx = tokenizer.vocab_info.eos_idx
 
         if bos_idx is None or eos_idx is None:
-            raise RuntimeError(
-                "One or more required control symbols for the chatbot are not found in the tokenizer. Please make sure that you are using the right tokenizer."
-            )
+            raise ValueError("`tokenizer` must have BOS and EOS symbols defined.")
 
-        device = infer_device(generator.model, name="generator.model")
+        try:
+            device = infer_device(generator.model)
+        except ValueError as ex:
+            raise ValueError(
+                "The device of `generator.model` is not valid. See the nested exception for details."
+            ) from ex
 
         self._bos_idx = torch.tensor([bos_idx], device=device)
         self._eos_idx = torch.tensor([eos_idx], device=device)
@@ -60,12 +57,12 @@ class MistralChatbot(AbstractChatbot):
     def _encode_dialog(self, dialog: ChatDialog, param_name: str) -> Tensor:
         if len(dialog) == 0:
             raise ValueError(
-                f"`{param_name}` must have at least one message with the role 'user'."
+                f"`{param_name}` must have at least one message with the 'user' role."
             )
 
         if dialog[-1].role != "user":
             raise ValueError(
-                f"The last message of `{param_name}` must have the role 'user'."
+                f"The last message of `{param_name}` must have the 'user' role."
             )
 
         dialog_contents: list[Tensor] = [self._bos_idx]
@@ -73,7 +70,7 @@ class MistralChatbot(AbstractChatbot):
         for user, bot in zip(dialog[::2], dialog[1::2]):
             if user.role != "user" or bot.role != "bot":
                 raise ValueError(
-                    f"The messages of `{param_name}` must alternate between the roles 'user' and 'bot'."
+                    f"The messages of `{param_name}` must alternate between the 'user' and 'bot' roles."
                 )
 
             user_bot_seq = self._text_encoder(
@@ -92,3 +89,9 @@ class MistralChatbot(AbstractChatbot):
     @override
     def supports_system_prompt(self) -> bool:
         return False
+
+
+def make_mistral_chatbot(
+    generator: SequenceGenerator, tokenizer: TextTokenizer
+) -> MistralChatbot:
+    return MistralChatbot(generator, tokenizer)

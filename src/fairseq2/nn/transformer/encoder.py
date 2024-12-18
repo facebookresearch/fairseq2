@@ -18,13 +18,14 @@ from torch.nn import Dropout, Module, ModuleList
 from torch.utils.hooks import RemovableHandle
 from typing_extensions import override
 
+from fairseq2.error import InvalidOperationError
 from fairseq2.nn.normalization import LayerNorm
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.transformer.attention_mask import AttentionMaskFactory
 from fairseq2.nn.transformer.encoder_layer import TransformerEncoderLayer
 from fairseq2.nn.transformer.layer_norm import (
     LayerNormFactory,
-    create_standard_layer_norm,
+    make_standard_layer_norm,
 )
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
 from fairseq2.typing import CPU, DataType, Device
@@ -173,7 +174,7 @@ class StandardTransformerEncoder(TransformerEncoder):
         super().__init__(model_dim)
 
         if layer_norm_factory is None:
-            layer_norm_factory = create_standard_layer_norm
+            layer_norm_factory = make_standard_layer_norm
 
         self.self_attn_mask_factory = self_attn_mask_factory
 
@@ -200,7 +201,7 @@ class StandardTransformerEncoder(TransformerEncoder):
         self, seqs: Tensor, padding_mask: PaddingMask | None
     ) -> tuple[Tensor, PaddingMask | None]:
         if self._layer_output_hooks and self.layer_drop_p > 0.0 and self.training:
-            raise RuntimeError(
+            raise InvalidOperationError(
                 "The layer output hooks cannot be run when LayerDrop is enabled."
             )
 

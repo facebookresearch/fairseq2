@@ -27,6 +27,7 @@ try:
 except ImportError:
     _has_apex = False
 
+from fairseq2.error import NotSupportedError
 from fairseq2.typing import DataType, Device
 
 
@@ -151,12 +152,12 @@ class RMSNorm(LayerNorm):
 
         if impl == "apex":
             if not _has_apex:
-                raise RuntimeError(
+                raise NotSupportedError(
                     "`impl` is 'apex', but no APEX installation can be found."
                 )
 
             if self.bias is not None:
-                raise RuntimeError(
+                raise NotSupportedError(
                     "`impl` is 'apex', but APEX does not support the `bias` parameter."
                 )
         elif impl != "py":

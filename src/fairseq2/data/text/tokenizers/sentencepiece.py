@@ -15,12 +15,10 @@ from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.assets import AssetCard
-from fairseq2.data.text.text_tokenizer import (
+from fairseq2.data.text.tokenizers.tokenizer import (
     AbstractTextTokenizer,
-    AbstractTextTokenizerLoader,
     TextTokenDecoder,
     TextTokenEncoder,
-    load_text_tokenizer,
 )
 from fairseq2.data.vocabulary_info import VocabularyInfo
 from fairseq2.typing import Device
@@ -187,7 +185,7 @@ class BasicSentencePieceTokenizer(SentencePieceTokenizer):
         device: Device | None = None,
         pin_memory: bool = False,
     ) -> SentencePieceEncoder:
-        """Create a token encoder.
+        """Constructs a token encoder.
 
         :param task:
             Must be ``None``.
@@ -232,18 +230,8 @@ class BasicSentencePieceTokenizer(SentencePieceTokenizer):
         )
 
 
-@final
-class BasicSentencePieceTokenizerLoader(
-    AbstractTextTokenizerLoader[BasicSentencePieceTokenizer]
-):
-    """Loads tokenizers of type :class:`BasicSentencePieceTokenizer`."""
-
-    @override
-    def _load(self, path: Path, card: AssetCard) -> BasicSentencePieceTokenizer:
-        return BasicSentencePieceTokenizer(path)
-
-
-default_basic_sentencepiece_tokenizer_loader = BasicSentencePieceTokenizerLoader()
+def load_basic_sentencepiece(path: Path, card: AssetCard) -> SentencePieceTokenizer:
+    return BasicSentencePieceTokenizer(path)
 
 
 @final
@@ -267,7 +255,7 @@ class RawSentencePieceTokenizer(SentencePieceTokenizer):
         device: Device | None = None,
         pin_memory: bool = False,
     ) -> SentencePieceEncoder:
-        """Create a token encoder.
+        """Constructs a token encoder.
 
         :param task:
             Must be ``None``.
@@ -292,18 +280,8 @@ class RawSentencePieceTokenizer(SentencePieceTokenizer):
         return self.create_raw_encoder(device=device, pin_memory=pin_memory)
 
 
-@final
-class RawSentencePieceTokenizerLoader(
-    AbstractTextTokenizerLoader[RawSentencePieceTokenizer]
-):
-    """Loads tokenizers of type :class:`RawSentencePieceTokenizer`."""
-
-    @override
-    def _load(self, path: Path, card: AssetCard) -> RawSentencePieceTokenizer:
-        return RawSentencePieceTokenizer(path)
-
-
-default_raw_sentencepiece_tokenizer_loader = RawSentencePieceTokenizerLoader()
+def load_raw_sentencepiece(path: Path, card: AssetCard) -> SentencePieceTokenizer:
+    return RawSentencePieceTokenizer(path)
 
 
 def vocab_info_from_sentencepiece(model: SentencePieceModel) -> VocabularyInfo:
@@ -315,8 +293,3 @@ def vocab_info_from_sentencepiece(model: SentencePieceModel) -> VocabularyInfo:
         model.eos_idx,
         model.pad_idx,
     )
-
-
-load_char_tokenizer = default_raw_sentencepiece_tokenizer_loader
-
-load_text_tokenizer.register("char_tokenizer", load_char_tokenizer)

@@ -17,7 +17,7 @@ from typing_extensions import override
 from fairseq2.assets import AssetNotFoundError, default_asset_store
 from fairseq2.checkpoint import CheckpointModelMetadataProvider, FileCheckpointManager
 from fairseq2.config_registry import ConfigRegistry
-from fairseq2.data.text import load_char_tokenizer
+from fairseq2.data.text import load_text_tokenizer
 from fairseq2.datasets import LengthBatching
 from fairseq2.datasets.asr import GenericAsrDataset, load_asr_dataset
 from fairseq2.gang import Gang
@@ -259,15 +259,11 @@ def load_wav2vec2_asr_trainer(
 
     gang = setup_root_gang(log, monitored=config.monitored_gang)
 
-    checkpoint_manager = FileCheckpointManager(
-        output_dir.joinpath("checkpoints"), gang, lower_score_better=True
-    )
+    checkpoint_manager = FileCheckpointManager(output_dir.joinpath("checkpoints"), gang)
 
     if config.resume_checkpoint_dir is not None:
         default_asset_store.metadata_providers.append(
-            CheckpointModelMetadataProvider(
-                config.resume_checkpoint_dir, lower_score_better=True
-            )
+            CheckpointModelMetadataProvider(config.resume_checkpoint_dir)
         )
 
     tokenizer_card = retrieve_asset_card(config.tokenizer)
@@ -275,7 +271,7 @@ def load_wav2vec2_asr_trainer(
     # Load the tokenizer.
     log.info("Loading {} tokenizer.", tokenizer_card.name)
 
-    tokenizer = load_char_tokenizer(tokenizer_card)
+    tokenizer = load_text_tokenizer(tokenizer_card)
 
     log.info("Tokenizer loaded.")
 
@@ -323,9 +319,8 @@ def load_wav2vec2_asr_trainer(
 
     log_model_config(model_config, log)
 
-    checkpoint_manager.save_model_metadata(
-        family=model.family, config=model_config, tokenizer_name=tokenizer_card.name
-    )
+    checkpoint_manager.save_model_metadata(family=model.family, config=model_config)
+    checkpoint_manager.save_tokenizer_metadata(tokenizer_card.name)
 
     has_checkpoint = checkpoint_manager.has_checkpoint()
 

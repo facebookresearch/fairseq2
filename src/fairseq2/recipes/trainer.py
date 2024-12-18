@@ -51,7 +51,7 @@ from fairseq2.optim import DynamicLossScaler
 from fairseq2.optim.lr_scheduler import LRScheduler, NoopLR, get_effective_lr
 from fairseq2.recipes.common_metrics import extend_batch_metrics
 from fairseq2.recipes.evaluator import EvalUnit
-from fairseq2.recipes.utils.cli import create_rich_progress
+from fairseq2.recipes.utils.rich import create_rich_progress
 from fairseq2.typing import CPU, DataType
 from fairseq2.utils.profiler import Profiler, Stopwatch
 from fairseq2.utils.rng import RngBag
@@ -1144,10 +1144,16 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         if nm is not None:
             assert nc is not None
 
-            self._checkpoint_manager.keep_best_n_checkpoints(nm)
-            self._checkpoint_manager.keep_best_n_checkpoints(nc, preserve_model=True)
+            self._checkpoint_manager.keep_best_n_checkpoints(
+                nm, lower_better=self._lower_better
+            )
+            self._checkpoint_manager.keep_best_n_checkpoints(
+                nc, lower_better=self._lower_better, preserve_model=True
+            )
         elif nc is not None:
-            self._checkpoint_manager.keep_best_n_checkpoints(nc)
+            self._checkpoint_manager.keep_best_n_checkpoints(
+                nc, lower_better=self._lower_better
+            )
 
     def _should_do(
         self,

@@ -6,44 +6,38 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import Generic, TypeVar
+from abc import ABC, abstractmethod
+from typing import Generic, TypeVar, final
+
+from fairseq2.error import AlreadyExistsError
+
+T_co = TypeVar("T_co", covariant=True)
+
+
+class Provider(ABC, Generic[T_co]):
+    @abstractmethod
+    def get(self, key: str) -> T_co:
+        ...
+
 
 T = TypeVar("T")
 
 
-class Registry(Generic[T]):
-    """Holds objects of type ``T``."""
-
-    _objects: dict[str, T]
+@final
+class Registry(Provider[T]):
+    _entries: dict[str, T]
 
     def __init__(self) -> None:
-        self._objects = {}
+        self._entries = {}
 
-    def get(self, name: str) -> T:
-        """Return the object registered with ``name``."""
+    def get(self, key: str) -> T:
         try:
-            return self._objects[name]
+            return self._entries[key]
         except KeyError:
-            raise ValueError(
-                f"`name` must be a registered name, but '{name}' is not registered."
-            ) from None
+            raise LookupError(f"The registry does not contain a '{key}' key.") from None
 
-    def register(self, name: str, obj: T) -> None:
-        """Register ``obj`` with ``name``."""
-        if name in self._objects:
-            raise ValueError(
-                f"`name` must be a unique name, but '{name}' is already registered."
-            )
+    def register(self, key: str, value: T) -> None:
+        if key in self._entries:
+            raise AlreadyExistsError(f"The registry already contains a '{key}' key.")
 
-        self._objects[name] = obj
-
-    def decorator(self, name: str) -> Callable[[T], T]:
-        """Register ``name`` with the decorated object."""
-
-        def register(obj: T) -> T:
-            self.register(name, obj)
-
-            return obj
-
-        return register
+        self._entries[key] = value

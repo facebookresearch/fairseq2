@@ -19,6 +19,7 @@ from torch.profiler import (
 )
 from typing_extensions import Self
 
+from fairseq2.error import InvalidOperationError
 from fairseq2.gang import Gang
 from fairseq2.typing import Device
 
@@ -137,7 +138,7 @@ class Stopwatch:
     def start(self) -> None:
         """Start the stopwatch."""
         if self._start_time is not None:
-            raise RuntimeError("The stopwatch is already running.")
+            raise InvalidOperationError("The stopwatch is already running.")
 
         self._sync_device()
 
@@ -150,7 +151,7 @@ class Stopwatch:
     def reset(self) -> None:
         """Reset the stopwatch."""
         if self._start_time is None:
-            raise RuntimeError("The stopwatch is not running.")
+            raise InvalidOperationError("The stopwatch is not running.")
 
         self._sync_device()
 

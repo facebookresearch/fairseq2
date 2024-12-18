@@ -19,6 +19,7 @@ from torch.nn.functional import embedding, interpolate
 from torch.nn.parameter import Parameter
 from typing_extensions import override
 
+from fairseq2.error import InternalError
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.typing import DataType, Device
@@ -161,7 +162,8 @@ class SinusoidalPositionEncoder(PositionEncoder):
 
     def reset_non_persistent_buffers(self) -> None:
         """Reset the non-persistent buffers of the module."""
-        assert self.max_seq_len is not None
+        if self.max_seq_len is None:
+            raise InternalError("`max_seq_len` is `None`.")
 
         device, dtype = self.freqs.device, self.freqs.dtype
 
@@ -338,7 +340,8 @@ class RotaryEncoder(PositionEncoder):
 
     def reset_non_persistent_buffers(self) -> None:
         """Reset the non-persistent buffers of the module."""
-        assert self.max_seq_len is not None
+        if self.max_seq_len is None:
+            raise InternalError("`max_seq_len` is `None`.")
 
         device = self.freqs.device
 
@@ -422,7 +425,10 @@ class InterpolatedPositionEncoder(Module, ABC):
         :returns: The inputs with positional information encoded.  *Shape:* Same
             as ``x``.
         """
-        ...
+
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        return f"encoding_dim={self.encoding_dim}"
 
 
 class SinusoidalNdPositionEncoder(InterpolatedPositionEncoder):
@@ -492,6 +498,12 @@ class SinusoidalNdPositionEncoder(InterpolatedPositionEncoder):
         :returns: The interpolated (or extrapolated) frequency table. *Shape:*
             Same as ``x``.
         """
+
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        s = super().extra_repr()
+
+        return f"{s}, grid_dims={self.grid_dims}"
 
 
 class Sinusoidal2dPositionEncoder(SinusoidalNdPositionEncoder):

@@ -7,5 +7,21 @@
 from __future__ import annotations
 
 
-class AlreadyExistsError(RuntimeError):
-    """Raised when an item already exists."""
+class InternalError(Exception):
+    pass
+
+
+class ContractError(Exception):
+    pass
+
+
+class InvalidOperationError(Exception):
+    pass
+
+
+class AlreadyExistsError(Exception):
+    pass
+
+
+class NotSupportedError(Exception):
+    pass

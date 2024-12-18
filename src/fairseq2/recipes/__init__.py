@@ -6,47 +6,77 @@
 
 from __future__ import annotations
 
-from importlib_metadata import entry_points
+import os
+import sys
+from signal import SIG_DFL, SIGINT, raise_signal, signal
+from typing import Iterator
 
+import torch
+from importlib_metadata import entry_points
+from torch.cuda import OutOfMemoryError
+
+from fairseq2.error import ContractError, InternalError
+from fairseq2.extensions import ExtensionError, run_extensions
+from fairseq2.logging import log
 from fairseq2.recipes.cli import Cli
 
 # isort: split
 
-import os
-
-from fairseq2.logging import get_log_writer
 from fairseq2.recipes.assets import _setup_asset_cli
 from fairseq2.recipes.hg import _setup_hg_cli
 from fairseq2.recipes.llama import _setup_llama_cli
 from fairseq2.recipes.lm import _setup_lm_cli
 from fairseq2.recipes.logging import setup_basic_logging
 from fairseq2.recipes.mt import _setup_mt_cli
-from fairseq2.recipes.utils.log import exception_logger
 from fairseq2.recipes.wav2vec2 import _setup_wav2vec2_cli
 from fairseq2.recipes.wav2vec2.asr import _setup_wav2vec2_asr_cli
-
-log = get_log_writer(__name__)
 
 
 def main() -> None:
     """Run the command line fairseq2 program."""
-    from fairseq2 import __version__, setup_extensions
+    exit_code = 1
 
-    with exception_logger(log):
-        setup_basic_logging()
+    try:
+        _run()
 
-        setup_extensions()
+        exit_code = 0
+    except KeyboardInterrupt:
+        log.info("The command has been canceled!")
 
-        cli = Cli(
-            name="fairseq2",
-            origin_module="fairseq2",
-            version=__version__,
-            description="command line interface of fairseq2",
-        )
+        signal(SIGINT, SIG_DFL)
 
-        _setup_cli(cli)
+        raise_signal(SIGINT)
+    except OutOfMemoryError:
+        s = torch.cuda.memory_summary()
 
-        cli()
+        log.exception("CUDA run out of memory. See the logged memory stats.\n{}", s)
+    except ExtensionError as ex:
+        log.exception("The '{}' extension has failed to load. See the logged stack trace for details.", ex.entry_point)  # fmt: skip
+    except InternalError:
+        log.exception("The command has failed with an unexpected internal error. Please file a bug report.")  # fmt: skip
+    except ContractError:
+        log.exception("The command has failed with an unexpected internal error caused by an extension. See the logged stack trace for details and file a bug report to the corresponding extension author.")  # fmt: skip
+    except Exception:
+        log.exception("The command has failed with an unexpected error. See the logged stack trace for details.")  # fmt: skip
+
+    sys.exit(exit_code)
+
+
+def _run() -> None:
+    from fairseq2 import __version__
+
+    setup_basic_logging()
+
+    cli = Cli(
+        name="fairseq2",
+        origin_module="fairseq2",
+        version=__version__,
+        description="command line interface of fairseq2",
+    )
+
+    _setup_cli(cli)
+
+    cli.run()
 
 
 def _setup_cli(cli: Cli) -> None:
@@ -58,23 +88,33 @@ def _setup_cli(cli: Cli) -> None:
     _setup_wav2vec2_asr_cli(cli)
     _setup_hg_cli(cli)
 
-    # Set up 3rd party CLI extensions.
+    run_extensions("setup_fairseq2_cli", cli)
+
+    _setup_legacy_extensions(cli)
+
+
+def _setup_legacy_extensions(cli: Cli) -> None:
+    should_trace = "FAIRSEQ2_EXTENSION_TRACE" in os.environ
+
     for entry_point in entry_points(group="fairseq2.cli"):
         try:
-            setup_cli_extension = entry_point.load()
+            extension = entry_point.load()
 
-            setup_cli_extension(cli)
+            extension(cli)
         except TypeError:
-            raise RuntimeError(
-                f"The entry point '{entry_point.value}' is not a valid fairseq2 CLI setup function."
-            ) from None
+            if should_trace:
+                raise ExtensionError(
+                    entry_point.value, f"The '{entry_point.value}' entry point is not a valid CLI extension function."  # fmt: skip
+                ) from None
+
+            log.warning("The '{}' entry point is not a valid CLI extension function. Set `FAIRSEQ2_EXTENSION_TRACE` environment variable to print the stack trace.", entry_point.value)  # fmt: skip
         except Exception as ex:
-            if "FAIRSEQ2_EXTENSION_TRACE" in os.environ:
-                raise RuntimeError(
-                    f"The CLI setup function at '{entry_point.value}' has failed. See nested exception for details."
+            if should_trace:
+                raise ExtensionError(
+                    entry_point.value, f"The '{entry_point.value}' CLI extension function has failed. See the nested exception for details."  # fmt: skip
                 ) from ex
 
-            log.warning(
-                "The CLI setup function at '{}' has failed. Set `FAIRSEQ2_EXTENSION_TRACE` environment variable to print the stack trace.",
-                entry_point.value,
-            )
+            log.warning("The '{}' CLI extension function has failed. Set `FAIRSEQ2_EXTENSION_TRACE` environment variable to print the stack trace.", entry_point.value)  # fmt: skip
+
+        if should_trace:
+            log.info("The `{}` CLI extension function run successfully.", entry_point.value)  # fmt: skip

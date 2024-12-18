@@ -373,7 +373,7 @@ if TYPE_CHECKING or DOC_MODE:
         def and_return(self, max_num_warnings: int = 0) -> DataPipeline:
             """Return a new :class:`DataPipeline` instance."""
 
-    class DataPipelineError(RuntimeError):
+    class DataPipelineError(Exception):
         """Raised when an error occurs while reading from a data pipeline."""
 
     def get_last_failed_example() -> Any:
@@ -541,10 +541,10 @@ if TYPE_CHECKING or DOC_MODE:
             """
             ...
 
-    class ByteStreamError(RuntimeError):
+    class ByteStreamError(Exception):
         """Raised when a dataset file can't be read."""
 
-    class RecordError(RuntimeError):
+    class RecordError(Exception):
         """Raised when a corrupt record is encountered while reading a dataset."""
 
 else:

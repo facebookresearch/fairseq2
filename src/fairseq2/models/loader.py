@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from pickle import PickleError
-from typing import Any, Generic, Mapping, Protocol, TypeVar, final
+from typing import Any, Generic, Mapping, Protocol, TypeVar, cast, final
 
 from torch.nn import Module
 from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
@@ -18,8 +18,8 @@ from fairseq2.assets import (
     AssetDownloadManager,
     AssetError,
     AssetStore,
+    default_asset_download_manager,
     default_asset_store,
-    default_download_manager,
 )
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
@@ -182,7 +182,7 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
             that do not support PyTorch's ``reset_parameters()`` convention.
         """
         self._asset_store = asset_store or default_asset_store
-        self._download_manager = download_manager or default_download_manager
+        self._download_manager = download_manager or default_asset_download_manager
         self._tensor_loader = tensor_loader or load_tensors
         self._config_loader = config_loader
         self._factory = factory
@@ -327,7 +327,7 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
             self._sharder(model, config, gangs)
 
         try:
-            model_device = infer_device(model, name="model")
+            model_device = infer_device(model)
         except ValueError as ex:
             raise RuntimeError(
                 "`factory` returned a model that is not constructed correctly. See nested exception for details."
@@ -340,12 +340,12 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
 
         # Load the model.
         try:
-            model_key = checkpoint["model_key"]
+            model_key = cast(str, checkpoint["model_key"])
         except KeyError:
             model_key = "model"
 
         try:
-            state_dict = checkpoint[model_key]
+            state_dict = cast(dict[str, object], checkpoint[model_key])
         except KeyError:
             raise AssetError(
                 f"The checkpoint of {card.name} does not contain a '{model_key}' entry."

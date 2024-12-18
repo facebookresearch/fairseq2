@@ -17,9 +17,7 @@ from torch.nn import Module
 from torch.nn.utils import clip_grad_norm_  # type: ignore[attr-defined]
 
 from fairseq2.gang import Gang, all_sum
-from fairseq2.logging import get_log_writer
-
-log = get_log_writer(__name__)
+from fairseq2.logging import log
 
 
 def normalize_gradients(module: Module, gang: Gang, num_targets: int) -> None:
@@ -70,7 +68,7 @@ class _GradientScaleFunction(Function):
     def forward(ctx: Any, x: Tensor, scale: float) -> Tensor:  # type: ignore[override]
         if not x.dtype.is_floating_point:
             raise TypeError(
-                f"`x` must be a float tensor, but is of type `{x.dtype}` instead."
+                f"`x` is expected to be a float tensor, but is a `{x.dtype}` tensor instead."
             )
 
         ctx.scale = scale

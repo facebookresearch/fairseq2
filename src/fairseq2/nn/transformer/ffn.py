@@ -18,7 +18,7 @@ from fairseq2.nn.normalization import LayerNorm
 from fairseq2.nn.projection import Linear, Projection
 from fairseq2.nn.transformer.layer_norm import (
     LayerNormFactory,
-    create_standard_layer_norm,
+    make_standard_layer_norm,
 )
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
 from fairseq2.typing import DataType, Device
@@ -103,7 +103,7 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         super().__init__(model_dim)
 
         if layer_norm_factory is None:
-            layer_norm_factory = create_standard_layer_norm
+            layer_norm_factory = make_standard_layer_norm
 
         self.inner_proj = Linear(
             model_dim, inner_dim, bias, init_fn=proj_init_fn, device=device, dtype=dtype

@@ -18,12 +18,11 @@ from rich.progress import (
 from rich.text import Text
 from typing_extensions import override
 
-from fairseq2.console import get_error_console
 from fairseq2.gang import get_rank
+from fairseq2.recipes.console import get_error_console
 
 
 def create_rich_progress() -> Progress:
-    """Create a :class:`Progress` instance to report job progress."""
     console = get_error_console()
 
     columns = [

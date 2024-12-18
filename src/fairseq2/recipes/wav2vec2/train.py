@@ -218,15 +218,11 @@ def load_wav2vec2_trainer(
 
     gang = setup_root_gang(log, monitored=config.monitored_gang)
 
-    checkpoint_manager = FileCheckpointManager(
-        output_dir.joinpath("checkpoints"), gang, lower_score_better=True
-    )
+    checkpoint_manager = FileCheckpointManager(output_dir.joinpath("checkpoints"), gang)
 
     if config.resume_checkpoint_dir is not None:
         default_asset_store.metadata_providers.append(
-            CheckpointModelMetadataProvider(
-                config.resume_checkpoint_dir, lower_score_better=True
-            )
+            CheckpointModelMetadataProvider(config.resume_checkpoint_dir)
         )
 
     # Load the dataset.

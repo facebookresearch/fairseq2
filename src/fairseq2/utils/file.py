@@ -9,12 +9,14 @@ from __future__ import annotations
 import warnings
 from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Any, Protocol, TypeAlias
+from pickle import PickleError
+from typing import Protocol, TypeAlias
 from warnings import catch_warnings
 
 import torch
 from torch import Tensor
 
+from fairseq2.error import NotSupportedError
 from fairseq2.typing import Device
 
 MapLocation: TypeAlias = (
@@ -26,12 +28,8 @@ class TensorLoader(Protocol):
     """Loads tensors from files."""
 
     def __call__(
-        self,
-        path: Path,
-        *,
-        map_location: MapLocation = None,
-        restrict: bool = False,
-    ) -> dict[str, Any]:
+        self, path: Path, *, map_location: MapLocation = None, restrict: bool = False
+    ) -> dict[str, object]:
         """
         :param path:
             The path to the file.
@@ -46,7 +44,7 @@ class TensorLoader(Protocol):
 class TensorDumper(Protocol):
     """Dumps tensors to files."""
 
-    def __call__(self, data: Mapping[str, Any], path: Path) -> None:
+    def __call__(self, data: Mapping[str, object], path: Path) -> None:
         """
         :param data:
             The dictionary containing tensors and other auxiliary data.
@@ -55,56 +53,62 @@ class TensorDumper(Protocol):
         """
 
 
-def load_pt_tensors(
-    path: Path,
-    *,
-    map_location: MapLocation = None,
-    restrict: bool = False,
-) -> dict[str, Any]:
+def load_torch_tensors(
+    path: Path, *, map_location: MapLocation = None, restrict: bool = False
+) -> dict[str, object]:
     """Load the PyTorch tensor file stored under ``path``."""
     with catch_warnings():
         warnings.simplefilter("ignore")  # Suppress noisy FSDP warnings.
 
-        data: dict[str, Any] = torch.load(
-            str(path), map_location, weights_only=restrict  # type: ignore[arg-type]
-        )
+        try:
+            data: dict[str, object] = torch.load(
+                str(path), map_location, weights_only=restrict  # type: ignore[arg-type]
+            )
+        except FileNotFoundError:
+            raise
+        except (RuntimeError, OSError, PickleError) as ex:
+            raise TensorLoadError(
+                f"The '{path}' tensor file cannot be loaded. See the nested exception for details."
+            ) from ex
 
     return data
 
 
-def dump_pt_tensors(data: Mapping[str, Any], path: Path) -> None:
+def dump_torch_tensors(data: Mapping[str, object], path: Path) -> None:
     """Dump ``data`` to a PyTorch tensor file under ``path``."""
     with catch_warnings():
         warnings.simplefilter("ignore")  # Suppress noisy FSDP warnings.
 
-        torch.save(data, path)
+        try:
+            torch.save(data, path)
+        except (RuntimeError, OSError, PickleError) as ex:
+            raise TensorDumpError(
+                f"The '{path}' tensor file cannot be dumped. See the nested exception for details.",
+            ) from ex
 
 
 def load_safetensors(
-    path: Path,
-    *,
-    map_location: MapLocation = None,
-    restrict: bool = False,
-) -> dict[str, Any]:
+    path: Path, *, map_location: MapLocation = None, restrict: bool = False
+) -> dict[str, object]:
     """Load the Hugging Face Safetensors file(s) stored under ``path``."""
     try:
         from safetensors import safe_open  # type: ignore[import-not-found]
     except ImportError:
-        raise RuntimeError(
+        raise NotSupportedError(
             "Safetensors not found in your Python environment. Use `pip install safetensors`."
         )
 
     if map_location is not None:
         if not isinstance(map_location, (Device, str)):
-            raise RuntimeError(
+            raise NotSupportedError(
                 "Safetensors only supports `torch.device` and `str` for the `map_location` parameter."
             )
 
     if path.is_dir():
-        files = _get_files(path, ".safetensors")
+        files = list(path.glob("*.safetensors"))
         if not files:
-            raise RuntimeError(
-                f"No Safetensors file found under the directory '{path}'."
+            raise TensorLoadError(
+                f"No Safetensors file found under the '{path}' directory."
             )
     else:
         files = [path]
@@ -112,46 +116,56 @@ def load_safetensors(
     tensors = {}
 
     for file in files:
-        with safe_open(file, framework="pt", device=str(map_location)) as f:  # type: ignore[attr-defined]
-            for k in f.keys():
-                if k in tensors:
-                    raise RuntimeError(
-                        f"The '{k}' key exists in more than one Safetensors file under the directory '{path}'."
-                    )
+        try:
+            with safe_open(file, framework="pt", device=str(map_location)) as f:  # type: ignore[attr-defined]
+                for k in f.keys():
+                    if k in tensors:
+                        raise TensorLoadError(
+                            f"The '{k}' key exists in more than one Safetensors file under the '{path}' directory."
+                        )
 
-                tensors[k] = f.get_tensor(k)
+                    tensors[k] = f.get_tensor(k)
+        except FileNotFoundError:
+            raise
+        except (RuntimeError, OSError, PickleError) as ex:
+            raise TensorLoadError(
+                f"The '{file}' tensor file cannot be loaded. See the nested exception for details."
+            ) from ex
 
     return tensors
 
 
 def load_tensors(
-    path: Path,
-    *,
-    map_location: MapLocation = None,
-    restrict: bool = False,
-) -> dict[str, Any]:
+    path: Path, *, map_location: MapLocation = None, restrict: bool = False
+) -> dict[str, object]:
     """Load the tensors stored under ``path``."""
-    loader = load_pt_tensors
+
+    def has_files(path: Path, extension: str) -> bool:
+        try:
+            next(iter(path.glob("*" + extension)))
+        except StopIteration:
+            return False
+
+        return True
 
     if path.is_dir():
-        if not _has_files(path, ".safetensors"):
-            raise RuntimeError(f"'{path}' is a directory with no known tensor files.")
+        if not has_files(path, ".safetensors"):
+            raise TensorLoadError(
+                f"The '{path}' directory does not contain any supported tensor files."
+            )
 
         loader = load_safetensors
     elif path.suffix == ".safetensors":
         loader = load_safetensors
+    else:
+        loader = load_torch_tensors
 
     return loader(path, map_location=map_location, restrict=restrict)
 
 
-def _get_files(path: Path, extension: str) -> list[Path]:
-    return list(path.glob("*" + extension))
+class TensorLoadError(Exception):
+    pass
 
 
-def _has_files(path: Path, extension: str) -> bool:
-    try:
-        next(iter(path.glob("*" + extension)))
-    except StopIteration:
-        return False
-
-    return True
+class TensorDumpError(Exception):
+    pass

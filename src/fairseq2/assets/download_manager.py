@@ -25,11 +25,8 @@ from tqdm import tqdm  # type: ignore[import]
 from typing_extensions import override
 
 from fairseq2.assets.card import _starts_with_scheme
-from fairseq2.assets.error import AssetError
-from fairseq2.logging import get_log_writer
+from fairseq2.logging import log
 from fairseq2.utils.env import get_path_from_env
-
-log = get_log_writer(__name__)
 
 
 class AssetDownloadManager(ABC):
@@ -114,6 +111,10 @@ class AssetDownloadManager(ABC):
         """
 
 
+class AssetDownloadError(Exception):
+    pass
+
+
 @final
 class InProcAssetDownloadManager(AssetDownloadManager):
     """Downloads assets in this process."""
@@ -121,9 +122,9 @@ class InProcAssetDownloadManager(AssetDownloadManager):
     _cache_dir: Path
 
     def __init__(self) -> None:
-        cache_dir = get_path_from_env("FAIRSEQ2_CACHE_DIR", log, missing_ok=True)
+        cache_dir = get_path_from_env("FAIRSEQ2_CACHE_DIR", missing_ok=True)
         if cache_dir is None:
-            cache_dir = get_path_from_env("XDG_CACHE_HOME", log)
+            cache_dir = get_path_from_env("XDG_CACHE_HOME")
             if cache_dir is None:
                 cache_dir = Path("~/.cache").expanduser()
 
@@ -224,7 +225,7 @@ class _AssetDownloadOp:
 
         if (asset_path := self._try_uri_as_path()) is not None:
             if not asset_path.exists():
-                raise AssetError(
+                raise AssetDownloadError(
                     f"The {self._display_name} cannot be found at {asset_path}."
                 )
 
@@ -248,10 +249,10 @@ class _AssetDownloadOp:
                 uri = Path(uri).as_uri()  # Normalize.
 
             parsed_uri = urlparse(uri)
-        except ValueError as ex:
+        except ValueError:
             raise ValueError(
                 f"`uri` must be a URI or an absolute pathname, but is '{uri}' instead."
-            ) from ex
+            ) from None
 
         if parsed_uri.params:
             for param in parsed_uri.params.split(";"):
@@ -279,7 +280,7 @@ class _AssetDownloadOp:
 
         sharded_uri = self._uri.replace("%7Bshard_idx%7D", str(self._shard_idx))
         if sharded_uri == self._uri:
-            raise AssetError(
+            raise AssetDownloadError(
                 f"`shard_idx` is specified, but the {self._display_name} is not sharded."
             )
 
@@ -287,7 +288,7 @@ class _AssetDownloadOp:
 
     def _check_if_gated_asset(self) -> None:
         if self._uri_params.get("gated", "false").strip().lower() == "true":
-            raise AssetError(
+            raise AssetDownloadError(
                 f"The {self._display_name} is gated. Please visit {self._uri} to learn how to get access."
             )
 
@@ -317,7 +318,7 @@ class _AssetDownloadOp:
                     rmtree(asset_dir)
                 except OSError as ex:
                     raise AssetDownloadError(
-                        f"The asset cache directory of the {self._display_name} cannot be deleted. See nested exception for details."
+                        f"The asset cache directory of the {self._display_name} cannot be deleted. See the nested exception for details."
                     ) from ex
 
             download_dir = asset_dir.with_suffix(".download")
@@ -326,7 +327,7 @@ class _AssetDownloadOp:
                     rmtree(download_dir)
                 except OSError as ex:
                     raise AssetDownloadError(
-                        f"The asset download directory of the {self._display_name} cannot be deleted. See nested exception for details."
+                        f"The asset download directory of the {self._display_name} cannot be deleted. See the nested exception for details."
                     ) from ex
 
             download_dir = asset_dir.with_suffix(".download.tmp")
@@ -335,7 +336,7 @@ class _AssetDownloadOp:
                     rmtree(download_dir)
                 except OSError as ex:
                     raise AssetDownloadError(
-                        f"The asset download directory of the {self._display_name} cannot be deleted. See nested exception for details."
+                        f"The asset download directory of the {self._display_name} cannot be deleted. See the nested exception for details."
                     ) from ex
         else:
             if asset_dir.exists():
@@ -365,8 +366,8 @@ class _AssetDownloadOp:
             try:
                 tmp_dir.mkdir(parents=True, exist_ok=True)
             except OSError as ex:
-                raise AssetError(
-                    f"The asset download directory of the {self._display_name} cannot be created. See nested exception for details."
+                raise AssetDownloadError(
+                    f"The asset download directory of the {self._display_name} cannot be created. See the nested exception for details."
                 ) from ex
 
             def remove_tmp_dir() -> None:
@@ -393,7 +394,7 @@ class _AssetDownloadOp:
                 response = cleanup_stack.enter_context(urlopen(request))
             except URLError as ex:
                 raise AssetDownloadError(
-                    f"The download of the {self._display_name} has failed. See nested exception for details."
+                    f"The download of the {self._display_name} has failed. See the nested exception for details."
                 ) from ex
             except HTTPError as ex:
                 raise AssetDownloadError(
@@ -465,15 +466,15 @@ class _AssetDownloadOp:
             try:
                 os.replace(fp.name, asset_file)
             except OSError:
-                raise AssetError(
-                    f"The {self._display_name} cannot be saved to the asset download directory. See nested exception for details."
+                raise AssetDownloadError(
+                    f"The {self._display_name} cannot be saved to the asset download directory. See the nested exception for details."
                 )
 
             try:
                 tmp_dir.replace(download_dir)
             except OSError:
-                raise AssetError(
-                    f"The asset download directory of the {self._display_name} cannot be renamed. See nested exception for details."
+                raise AssetDownloadError(
+                    f"The asset download directory of the {self._display_name} cannot be renamed. See the nested exception for details."
                 )
 
             succeeded = True
@@ -494,8 +495,8 @@ class _AssetDownloadOp:
         try:
             asset_dir.mkdir(parents=True, exist_ok=True)
         except OSError as ex:
-            raise AssetError(
-                f"The asset cache directory of the {self._display_name} cannot be created. See nested exception for details."
+            raise AssetDownloadError(
+                f"The asset cache directory of the {self._display_name} cannot be created. See the nested exception for details."
             ) from ex
 
         def iter_dir() -> Iterator[Path]:
@@ -503,8 +504,8 @@ class _AssetDownloadOp:
                 for path in download_dir.iterdir():
                     yield path
             except OSError as ex:
-                raise AssetError(
-                    f"The asset download directory of the {self._display_name} cannot be traversed. See nested exception for details."
+                raise AssetDownloadError(
+                    f"The asset download directory of the {self._display_name} cannot be traversed. See the nested exception for details."
                 ) from ex
 
         for asset_path in iter_dir():
@@ -518,8 +519,8 @@ class _AssetDownloadOp:
                     with ZipFile(asset_path) as zip_fp:
                         zip_fp.extractall(path=asset_dir)
                 except (KeyError, OSError, BadZipFile) as ex:
-                    raise AssetError(
-                        f"The {self._display_name} cannot be extracted. See nested exception for details."
+                    raise AssetDownloadError(
+                        f"The {self._display_name} cannot be extracted. See the nested exception for details."
                     ) from ex
 
                 try:
@@ -535,8 +536,8 @@ class _AssetDownloadOp:
                     with TarFile(asset_path) as tar_fp:
                         tar_fp.extractall(path=asset_dir)
                 except (KeyError, OSError) as ex:
-                    raise AssetError(
-                        f"The {self._display_name} cannot be extracted. See nested exception for details."
+                    raise AssetDownloadError(
+                        f"The {self._display_name} cannot be extracted. See the nested exception for details."
                     ) from ex
 
                 try:
@@ -549,15 +550,15 @@ class _AssetDownloadOp:
                 try:
                     asset_path.replace(asset_dir.joinpath(asset_path.name))
                 except OSError as ex:
-                    raise AssetError(
-                        f"The {self._display_name} cannot be moved to the asset cache directory. See nested exception for details."
+                    raise AssetDownloadError(
+                        f"The {self._display_name} cannot be moved to the asset cache directory. See the nested exception for details."
                     ) from ex
 
         try:
             rmtree(download_dir)
         except OSError as ex:
-            raise AssetError(
-                f"The asset download directory of the {self._display_name} cannot be deleted. See nested exception for details."
+            raise AssetDownloadError(
+                f"The asset download directory of the {self._display_name} cannot be deleted. See the nested exception for details."
             ) from ex
 
     def _get_final_asset_path(self) -> Path:
@@ -574,12 +575,12 @@ class _AssetDownloadOp:
             try:
                 asset_path.relative_to(asset_dir)
             except ValueError as ex:
-                raise AssetError(
+                raise AssetDownloadError(
                     f"The 'path' URI parameter of the {self._display_name} ({asset_pathname}) points to a path outside of the asset cache directory."
                 ) from ex
 
             if not asset_path.exists():
-                raise AssetError(
+                raise AssetDownloadError(
                     f"The {self._display_name} cannot be found. Please set `force` to `True` and, if the problem persists, file a bug report."
                 )
 
@@ -596,20 +597,16 @@ class _AssetDownloadOp:
 
                 asset_path = path
         except OSError as ex:
-            raise AssetError(
-                f"The asset cache directory of the {self._display_name} cannot be traversed. See nested exception for details."
+            raise AssetDownloadError(
+                f"The asset cache directory of the {self._display_name} cannot be traversed. See the nested exception for details."
             ) from ex
 
         if asset_path is None:
-            raise AssetError(
+            raise AssetDownloadError(
                 f"The asset cache directory of the {self._display_name} is empty. Please set `force` to `True` and, if the problem persists, file a bug report."
             )
 
         return asset_path
 
 
-class AssetDownloadError(AssetError):
-    """Raised when an asset download operation fails."""
-
-
-default_download_manager = InProcAssetDownloadManager()
+default_asset_download_manager = InProcAssetDownloadManager()

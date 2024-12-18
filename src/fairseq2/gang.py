@@ -9,9 +9,10 @@ from __future__ import annotations
 import os
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import timedelta
 from enum import Enum
-from typing import Any, final
+from typing import final
 
 import torch
 import torch.distributed as dist
@@ -20,11 +21,10 @@ from torch.distributed import Backend, ProcessGroup, ReduceOp
 from typing_extensions import override
 
 from fairseq2.device import determine_default_cuda_device, determine_default_device
-from fairseq2.logging import get_log_writer
+from fairseq2.error import InternalError, InvalidOperationError, NotSupportedError
+from fairseq2.logging import log
 from fairseq2.typing import CPU, Device
-from fairseq2.utils.env import get_int_from_env
-
-log = get_log_writer(__name__)
+from fairseq2.utils.env import InvalidEnvironmentVariableError, get_int_from_env
 
 
 class ReduceOperation(Enum):
@@ -45,8 +45,8 @@ class Gang(ABC):
         """Close and destroy the gang."""
 
     @abstractmethod
-    def create_gang(self, ranks: Sequence[int]) -> Gang | None:
-        """Create a new gang.
+    def make_gang(self, ranks: Sequence[int]) -> Gang | None:
+        """Make a new gang.
 
         :param ranks:
             The ranks of processes that will be part of the new gang.
@@ -103,7 +103,7 @@ class Gang(ABC):
         """
 
     @abstractmethod
-    def broadcast_objects(self, objects: list[Any], source_rank: int = 0) -> None:
+    def broadcast_objects(self, objects: list[object], source_rank: int = 0) -> None:
         """Broadcast picklable ``objects`` from ``source_rank`` to all processes.
 
         :param objects:
@@ -127,6 +127,10 @@ class Gang(ABC):
     @abstractmethod
     def device(self) -> Device:
         """The associated device."""
+
+
+class GangError(Exception):
+    pass
 
 
 class AbstractGang(Gang):
@@ -160,7 +164,7 @@ class AbstractGang(Gang):
 
     @final
     @override
-    def create_gang(self, ranks: Sequence[int]) -> Gang | None:
+    def make_gang(self, ranks: Sequence[int]) -> Gang | None:
         if len(set(ranks)) != len(ranks):
             raise ValueError("The ranks in ``ranks`` must be all unique.")
 
@@ -170,11 +174,11 @@ class AbstractGang(Gang):
                     f"The rank at index {idx} in ``ranks`` must be greater than or equal to 0 and less than the size of the gang ({self._size}), but is {rank} instead."
                 )
 
-        return self._do_create_gang(ranks)
+        return self._do_make_gang(ranks)
 
     @abstractmethod
-    def _do_create_gang(self, ranks: Sequence[int]) -> Gang | None:
-        """Create a new gang.
+    def _do_make_gang(self, ranks: Sequence[int]) -> Gang | None:
+        """Make a new gang.
 
         :param ranks:
             The ranks of processes that will be part of the new gang.
@@ -225,7 +229,7 @@ class FakeGang(AbstractGang):
         pass
 
     @override
-    def _do_create_gang(self, ranks: Sequence[int]) -> FakeGang | None:
+    def _do_make_gang(self, ranks: Sequence[int]) -> FakeGang | None:
         try:
             idx = ranks.index(self._rank)
         except ValueError:
@@ -235,7 +239,9 @@ class FakeGang(AbstractGang):
 
     @override
     def as_process_group(self) -> ProcessGroup:
-        raise RuntimeError("`FakeGang` does not support conversion to a process group.")
+        raise NotSupportedError(
+            "`FakeGang` does not support conversion to a process group."
+        )
 
     @override
     def barrier(self) -> None:
@@ -249,7 +255,7 @@ class FakeGang(AbstractGang):
             case ReduceOperation.PRODUCT:
                 tensor.pow_(self._size)
             case _:
-                raise ValueError(
+                raise NotSupportedError(
                     "`FakeGang` supports only `SUM` and `PRODUCT` reduce operations."
                 )
 
@@ -265,7 +271,7 @@ class FakeGang(AbstractGang):
 
         if output_tensor.size(0) != self._size:
             raise ValueError(
-                f"The size of the first dimension of `output_tensor` must match the size of the gang ({self._size}), but is {output_tensor.size(0)} instead."
+                f"The size of the first dimension of `output_tensor` must match the number of processes in the gang ({self._size}), but is {output_tensor.size(0)} instead."
             )
 
         for i in range(self._size):
@@ -277,7 +283,7 @@ class FakeGang(AbstractGang):
     ) -> None:
         if len(output_tensors) != self._size:
             raise ValueError(
-                f"The length of `output_tensors` must match the size of the gang ({self._size}), but is {len(output_tensors)} instead."
+                f"The length of `output_tensors` must match the number of processes in the gang ({self._size}), but is {len(output_tensors)} instead."
             )
 
         for i in range(self._size):
@@ -291,7 +297,7 @@ class FakeGang(AbstractGang):
             )
 
     @override
-    def broadcast_objects(self, objects: list[Any], source_rank: int = 0) -> None:
+    def broadcast_objects(self, objects: list[object], source_rank: int = 0) -> None:
         if source_rank != self._rank:
             raise ValueError(
                 f"`source_rank` must be {self._rank}, but is {source_rank} instead."
@@ -351,7 +357,7 @@ class ProcessGroupGang(AbstractGang):
             dist.set_debug_level_from_env()
 
         if not dist.is_available():
-            raise RuntimeError("`torch.distributed` is not available.")
+            raise GangError("`torch.distributed` is not available.")
 
         if dist.is_initialized():
             if ok_initialized:
@@ -359,9 +365,14 @@ class ProcessGroupGang(AbstractGang):
 
                 return ProcessGroupGang.from_default_process_group()
 
-            raise RuntimeError("The default process group is already initialized.")
+            raise GangError("The default process group is already initialized.")
 
-        num_procs = get_local_world_size()
+        try:
+            num_procs = get_local_world_size()
+        except InvalidEnvironmentVariableError as ex:
+            raise GangError(
+                "The local world size cannot be determined from the environment variables. See the nested exception for details."
+            ) from ex
 
         if num_threads is None:
             if num_procs > 1 and "OMP_NUM_THREADS" not in os.environ:
@@ -377,7 +388,8 @@ class ProcessGroupGang(AbstractGang):
         if device is None:
             device = determine_default_device()
 
-            assert device.type == "cpu" or device.type == "cuda"
+            if device.type != "cpu" and device.type != "cuda":
+                raise InternalError(f"`device` is `{device}`.")
 
         backend: str | None
 
@@ -397,20 +409,28 @@ class ProcessGroupGang(AbstractGang):
         if timeout is None:
             timeout = timedelta(minutes=15)
 
-        dist.init_process_group(backend, timeout=timeout)
+        try:
+            dist.init_process_group(backend, timeout=timeout)
+        except (RuntimeError, ValueError) as ex:
+            raise GangError(
+                "The underlying process group has failed to initialize. See the nested exception for details."
+            ) from ex
 
         pg = dist.group.WORLD
         if pg is None:
-            raise RuntimeError(
-                "The default process group is not available. Please file a bug report."
-            )
+            raise InternalError("`dist.group.WORLD` is `None`.")
 
         if monitored:
             if backend == Backend.GLOO:
                 monitor_pg = pg
             else:
                 # Gloo is needed for monitored barrier support.
-                monitor_pg = dist.new_group(backend=Backend.GLOO, timeout=timeout)
+                try:
+                    monitor_pg = dist.new_group(backend=Backend.GLOO, timeout=timeout)
+                except RuntimeError as ex:
+                    raise GangError(
+                        "The underlying process group used for monitoring has failed to initialize. See the nested exception for details."
+                    ) from ex
         else:
             monitor_pg = None
 
@@ -433,15 +453,20 @@ class ProcessGroupGang(AbstractGang):
     def from_default_process_group(cls) -> ProcessGroupGang:
         """Wrap the default process group as a gang."""
         if not dist.is_available():
-            raise RuntimeError("`torch.distributed` is not available.")
+            raise GangError("`torch.distributed` is not available.")
 
         if not dist.is_initialized():
-            raise RuntimeError("The default process group is not initialized.")
+            raise GangError("The default process group is not initialized.")
 
         if cls._default is not None:
             return cls._default
 
-        backend = dist.get_backend()
+        try:
+            backend = dist.get_backend()
+        except RuntimeError as ex:
+            raise GangError(
+                "The default process group backend cannot be determined. See the nested exception for details."
+            ) from ex
 
         match backend:
             case Backend.GLOO:
@@ -449,20 +474,18 @@ class ProcessGroupGang(AbstractGang):
             case Backend.NCCL:
                 cuda_device = determine_default_cuda_device()
                 if cuda_device is None:
-                    raise RuntimeError(
-                        "The default process group uses the `nccl` backend, but the `cuda` device cannot be determined. Please file a bug report."
+                    raise GangError(
+                        "The default process group uses the `nccl` backend, but the `cuda` device cannot be determined."
                     )
 
                 device = cuda_device
             case _:
-                raise RuntimeError(
+                raise NotSupportedError(
                     f"Only `nccl` and `gloo` backends are supported, but the process group uses the `{backend}` backend."
                 )
 
         if dist.group.WORLD is None:
-            raise RuntimeError(
-                "The default process group is not available. Please file a bug report."
-            )
+            raise InternalError("`dist.group.WORLD` is `None`.")
 
         cls._default = ProcessGroupGang(dist.group.WORLD, device)
 
@@ -473,15 +496,27 @@ class ProcessGroupGang(AbstractGang):
         dist.destroy_process_group(self._pg)
 
     @override
-    def _do_create_gang(self, ranks: Sequence[int]) -> ProcessGroupGang | None:
+    def _do_make_gang(self, ranks: Sequence[int]) -> ProcessGroupGang | None:
         if self._pg is not dist.group.WORLD:
-            raise RuntimeError(
-                "`create_gang()` can only be called on the gang associated with the default (i.e. main) process group."
+            raise InvalidOperationError(
+                "`make_gang()` can only be called on the gang associated with the default (i.e. main) process group."
             )
 
-        backend = dist.get_backend()
+        try:
+            backend = dist.get_backend()
+        except RuntimeError as ex:
+            raise GangError(
+                "The default process group backend cannot be determined. See the nested exception for details."
+            ) from ex
 
-        pg = dist.new_group(ranks, backend=backend)
+        try:
+            pg = dist.new_group(ranks, backend=backend)
+        except RuntimeError as ex:
+            s = ", ".join(sorted(str(r) for r in ranks))
+
+            raise GangError(
+                f"The creation of a new child process group has failed for ranks {s}. See the nested exception for details."
+            ) from ex
 
         if self._rank not in ranks:
             return None
@@ -490,7 +525,14 @@ class ProcessGroupGang(AbstractGang):
             if backend == Backend.GLOO:
                 monitor_pg = pg
             else:
-                monitor_pg = dist.new_group(ranks, backend=Backend.GLOO)
+                try:
+                    monitor_pg = dist.new_group(ranks, backend=Backend.GLOO)
+                except RuntimeError as ex:
+                    s = ", ".join(sorted(str(r) for r in ranks))
+
+                    raise GangError(
+                        f"The creation of a new monitoring child process group has failed for ranks {s}. See the nested exception for details."
+                    ) from ex
         else:
             monitor_pg = None
 
@@ -503,23 +545,43 @@ class ProcessGroupGang(AbstractGang):
     @override
     def barrier(self) -> None:
         if self._monitor_pg is None:
-            dist.barrier(group=self._pg, device_ids=[self._device.index])
+            try:
+                dist.barrier(group=self._pg, device_ids=[self._device.index])
+            except RuntimeError as ex:
+                raise GangError(
+                    "The `barrier` collective operation has failed. See the nested exception for details."
+                ) from ex
         else:
             torch.cuda.synchronize()
 
-            dist.monitored_barrier(group=self._monitor_pg, wait_all_ranks=True)
+            try:
+                dist.monitored_barrier(group=self._monitor_pg, wait_all_ranks=True)
+            except RuntimeError as ex:
+                raise GangError(
+                    "The `monitored_barrier` collective operation has failed. See the nested exception for details."
+                ) from ex
 
     @override
     def all_reduce(self, tensor: Tensor, op: ReduceOperation) -> None:
         self._maybe_monitored_barrier()
 
-        dist.all_reduce(tensor, self._get_reduce_op(op), group=self._pg)
+        try:
+            dist.all_reduce(tensor, self._get_reduce_op(op), group=self._pg)
+        except RuntimeError as ex:
+            raise GangError(
+                "The `all_reduce` collective operation has failed. See the nested exception for details."
+            ) from ex
 
     @override
     def all_gather(self, output_tensor: Tensor, input_tensor: Tensor) -> None:
         self._maybe_monitored_barrier()
 
-        dist.all_gather_into_tensor(output_tensor, input_tensor, group=self._pg)
+        try:
+            dist.all_gather_into_tensor(output_tensor, input_tensor, group=self._pg)
+        except RuntimeError as ex:
+            raise GangError(
+                "The `all_gather` collective operation has failed. See the nested exception for details."
+            ) from ex
 
     @override
     def all_gather_to_list(
@@ -527,19 +589,34 @@ class ProcessGroupGang(AbstractGang):
     ) -> None:
         self._maybe_monitored_barrier()
 
-        dist.all_gather(output_tensors, input_tensor, group=self._pg)
+        try:
+            dist.all_gather(output_tensors, input_tensor, group=self._pg)
+        except RuntimeError as ex:
+            raise GangError(
+                "The `all_gather_to_list` collective operation has failed. See the nested exception for details."
+            ) from ex
 
     @override
     def broadcast(self, tensor: Tensor, source_rank: int = 0) -> None:
         self._maybe_monitored_barrier()
 
-        dist.broadcast(tensor, source_rank, group=self._pg)
+        try:
+            dist.broadcast(tensor, source_rank, group=self._pg)
+        except RuntimeError as ex:
+            raise GangError(
+                "The `broadcast` collective operation has failed. See the nested exception for details."
+            ) from ex
 
     @override
-    def broadcast_objects(self, objects: list[Any], source_rank: int = 0) -> None:
+    def broadcast_objects(self, objects: list[object], source_rank: int = 0) -> None:
         self._maybe_monitored_barrier()
 
-        dist.broadcast_object_list(objects, source_rank, group=self._pg)
+        try:
+            dist.broadcast_object_list(objects, source_rank, group=self._pg)
+        except RuntimeError as ex:
+            raise GangError(
+                "The `broadcast_object_list` collective operation has failed. See the nested exception for details."
+            ) from ex
 
     def _maybe_monitored_barrier(self) -> None:
         if self._monitor_pg is None:
@@ -547,7 +624,12 @@ class ProcessGroupGang(AbstractGang):
 
         torch.cuda.synchronize()
 
-        dist.monitored_barrier(group=self._monitor_pg, wait_all_ranks=True)
+        try:
+            dist.monitored_barrier(group=self._monitor_pg, wait_all_ranks=True)
+        except RuntimeError as ex:
+            raise GangError(
+                "The `monitored_barrier` collective operation has failed. See the nested exception for details."
+            ) from ex
 
     @staticmethod
     def _get_reduce_op(op: ReduceOperation):  # type: ignore[no-untyped-def]
@@ -562,8 +644,8 @@ class ProcessGroupGang(AbstractGang):
         if op == ReduceOperation.MAX:
             return ReduceOp.MAX
 
-        raise ValueError(
-            f"`op` must be an operation supported by the underlying process group, but is `{op}` instead."
+        raise NotSupportedError(
+            f"`{op}` operation is not supported by the underlying process group."
         )
 
 
@@ -579,6 +661,153 @@ def _get_num_cpus(num_procs: int) -> int:
 
     # We should not exceed the number of cores available in the affinity mask.
     return min(max(num_cpus // num_procs, 1), len(affinity_mask))
+
+
+def setup_default_gang(
+    *,
+    device: Device | None = None,
+    timeout: timedelta | None = None,
+    monitored: bool = False,
+) -> Gang:
+    """Make the default gang of this process.
+
+    :param device:
+        If ``None``; if CUDA is available, the gang will use the default CUDA
+        device of the process; otherwise, it will use the CPU.
+    :param timeout:
+        The timeout for collective operations.
+    :param monitored:
+        If ``True``,  puts a monitored barrier before every collective call.
+    """
+    try:
+        world_size = get_world_size()
+    except InvalidEnvironmentVariableError as ex:
+        raise GangError(
+            "The world size cannot be determined from the environment variables. See the nested exception for details."
+        ) from ex
+
+    if world_size == 1:
+        return FakeGang(device=device)
+
+    return ProcessGroupGang.init_default_process_group(
+        device=device, timeout=timeout, monitored=monitored, ok_initialized=True
+    )
+
+
+@dataclass
+class Gangs:
+    root: Gang
+    dp: Gang
+    tp: Gang
+
+
+def fake_gangs(device: Device) -> Gangs:
+    gang = FakeGang(device=device)
+
+    return Gangs(gang, gang, gang)
+
+
+def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
+    """Make gangs to be used for data and tensor parallelism.
+
+    For instance; if we have 8 devices denoted by g0 to g7 and 2 devices are
+    used for tensor parallelism, this function will make 4 tensor parallel
+    gangs and 2 data parallel gangs as:
+
+        4 tensor parallel gangs:
+            [g0, g1], [g2, g3], [g4, g5], [g6, g7]
+        2 data parallel gangs:
+            [g0, g2, g4, g6], [g1, g3, g5, g7]
+
+    For efficiency, the caller should make sure adjacent ranks are on the same
+    host. For example, if there are two hosts with a total of 16 GPUs, ranks 0
+    to 7 belong to the first host and ranks 8 to 15 belong to the second host.
+
+    :param root_gang:
+        The gang whose topology will be used to make the new gangs.
+    :param tp_size:
+        The size of tensor parallel gangs.
+
+    :returns:
+        A ``dict`` of two gangs; (1) the data parallel gang that this process
+        is part of denoted by the key "dp", (2) the tensor parallel gang that
+        this process is part of denoted by the key "tp".
+    """
+    if tp_size <= 0:
+        raise ValueError(f"`tp_size` must be greater than 0, but is {tp_size} instead.")
+
+    if root_gang.size % tp_size != 0:
+        raise GangError(
+            f"The number of processes in the root gang is expected to be a multiple of the tensor parallel size ({tp_size}), but is {root_gang.size} instead."
+        )
+
+    dp_size = root_gang.size // tp_size
+
+    mesh = torch.arange(root_gang.size).view(dp_size, tp_size)
+
+    # Get the coordinate of this process in the mesh.
+    rank_coords = [x.item() for x in torch.where(mesh == root_gang.rank)]
+
+    dp_gang: Gang | None = None
+
+    log.info("Initializing data parallel gang with a size of {}.", dp_size)
+
+    # Build the gangs for data parallelism.
+    match dp_size:
+        case 1:
+            dp_gang = FakeGang(device=root_gang.device)
+        case root_gang.size:
+            dp_gang = root_gang
+        case _:
+            for i in range(tp_size):
+                sub_gang = root_gang.make_gang(mesh[:, i].tolist())
+                if i == rank_coords[1]:
+                    dp_gang = sub_gang
+
+    if dp_gang is None:
+        raise InternalError("`dp_gang` is `None`.")
+
+    tp_gang: Gang | None = None
+
+    log.info("Initializing tensor parallel gang with a size of {}.", tp_size)
+
+    # Build the gangs for tensor parallelism.
+    match tp_size:
+        case 1:
+            tp_gang = FakeGang(device=root_gang.device)
+        case root_gang.size:
+            tp_gang = root_gang
+        case _:
+            for i in range(dp_size):
+                sub_gang = root_gang.make_gang(mesh[i, :].tolist())
+                if i == rank_coords[0]:
+                    tp_gang = sub_gang
+
+    if tp_gang is None:
+        raise InternalError("`tp_gang` is `None`.")
+
+    return Gangs(root_gang, dp_gang, tp_gang)
+
+
+def broadcast_flag(gang: Gang, flag: bool, source_rank: int = 0) -> bool:
+    """Broadcast ``flag`` to  all processes in ``gang`` from ``source_rank``."""
+    tmp = torch.tensor(flag, device=gang.device)
+
+    gang.broadcast(tmp, source_rank)
+
+    return bool(tmp)
+
+
+def all_sum(gang: Gang, value: float | int | Tensor) -> Tensor:
+    """Sum ``value`` over all processes in ``gang``."""
+    if isinstance(value, Tensor):
+        output = value
+    else:
+        output = torch.tensor(value, device=gang.device)
+
+    gang.all_reduce(output, ReduceOperation.SUM)
+
+    return output
 
 
 def get_world_size() -> int:
@@ -609,124 +838,6 @@ def get_local_rank() -> int:
     return 0 if value is None else value
 
 
-def setup_default_gang(
-    *,
-    device: Device | None = None,
-    timeout: timedelta | None = None,
-    monitored: bool = False,
-) -> Gang:
-    """Set up the default gang of this process.
-
-    :param device:
-        If ``None``; if CUDA is available, the gang will use the default CUDA
-        device of the process; otherwise, it will use the CPU.
-    :param timeout:
-        The timeout for collective operations.
-    :param monitored:
-        If ``True``,  puts a monitored barrier before every collective call.
-    """
-    if get_world_size() == 1:
-        return FakeGang(device=device)
-
-    return ProcessGroupGang.init_default_process_group(
-        device=device, timeout=timeout, monitored=monitored, ok_initialized=True
-    )
-
-
-def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> dict[str, Gang]:
-    """Set up gangs to be used for data and tensor parallelism.
-
-    For instance; if we have 8 devices denoted by g0 to g7 and 2 devices are
-    used for tensor parallelism, this function will create 4 tensor parallel
-    gangs and 2 data parallel gangs as:
-
-        4 tensor parallel gangs:
-            [g0, g1], [g2, g3], [g4, g5], [g6, g7]
-        2 data parallel gangs:
-            [g0, g2, g4, g6], [g1, g3, g5, g7]
-
-    For efficiency, the caller should make sure adjacent ranks are on the same
-    host. For example, if there are two hosts with a total of 16 GPUs, ranks 0
-    to 7 belong to the first host and ranks 8 to 15 belong to the second host.
-
-    :param root_gang:
-        The gang whose topology will be used to create the new gangs.
-    :param tp_size:
-        The size of tensor parallel gangs.
-
-    :returns:
-        A ``dict`` of two gangs; (1) the data parallel gang that this process
-        is part of denoted by the key "dp", (2) the tensor parallel gang that
-        this process is part of denoted by the key "tp".
-    """
-    if tp_size <= 0:
-        raise ValueError(f"`tp_size` must be greater than 0, but is {tp_size} instead.")
-
-    if root_gang.size % tp_size != 0:
-        raise ValueError(
-            f"`root_gang.size` ({root_gang.size}) must be divisible by `tp_size` ({tp_size})."
-        )
-
-    dp_size = root_gang.size // tp_size
-
-    if log.is_enabled_for_info():
-        for name, size in [("data", dp_size), ("tensor", tp_size)]:
-            log.info("Initializing {} parallelism with a gang of size {}.", name, size)
-
-    mesh = torch.arange(root_gang.size).view(dp_size, tp_size)
-
-    # Get the coordinate of this process in the mesh.
-    rank_coords = [x.item() for x in torch.where(mesh == root_gang.rank)]
-
-    dp_gang: Gang | None = None
-    tp_gang: Gang | None = None
-
-    # Build the gangs for data parallelism.
-    match dp_size:
-        case 1:
-            dp_gang = FakeGang(device=root_gang.device)
-        case root_gang.size:
-            dp_gang = root_gang
-        case _:
-            for i in range(tp_size):
-                sub_gang = root_gang.create_gang(mesh[:, i].tolist())
-                if i == rank_coords[1]:
-                    dp_gang = sub_gang
-
-    # Build the gangs for tensor parallelism.
-    match tp_size:
-        case 1:
-            tp_gang = FakeGang(device=root_gang.device)
-        case root_gang.size:
-            tp_gang = root_gang
-        case _:
-            for i in range(dp_size):
-                sub_gang = root_gang.create_gang(mesh[i, :].tolist())
-                if i == rank_coords[0]:
-                    tp_gang = sub_gang
-
-    assert dp_gang is not None
-    assert tp_gang is not None
-
-    return {"root": root_gang, "dp": dp_gang, "tp": tp_gang}
-
-
-def broadcast_flag(gang: Gang, flag: bool, source_rank: int = 0) -> bool:
-    """Broadcast ``flag`` to  all processes in ``gang`` from ``source_rank``."""
-    tmp = torch.tensor(flag, device=gang.device)
-
-    gang.broadcast(tmp, source_rank)
-
-    return bool(tmp)
-
-
-def all_sum(gang: Gang, value: float | int | Tensor) -> Tensor:
-    """Sum ``value`` over all processes in ``gang``."""
-    if isinstance(value, Tensor):
-        output = value
-    else:
-        output = torch.tensor(value, device=gang.device)
-
-    gang.all_reduce(output, ReduceOperation.SUM)
-
-    return output
+def is_torchrun() -> bool:
+    """Return ``True`` if this process was spawned by torchrun."""
+    return "TORCHELASTIC_RUN_ID" in os.environ

@@ -59,7 +59,7 @@ class AttentionMaskFactory(Protocol):
     ) -> AttentionMask | None:
         """
         :param seqs:
-            The sequences for which to create a mask. *Shape:* :math:`(N,S,M)`,
+            The sequences for which to make a mask. *Shape:* :math:`(N,S,M)`,
             where :math:`N` is the batch size, :math:`S` is the sequence length,
             and :math:`M` is the dimensionality of the model.
         :param keys:
@@ -163,7 +163,7 @@ class CausalAttentionMask(AbstractAttentionMask):
 
     @override
     def _do_materialize(self) -> Tensor:
-        return _create_causal_attention_mask(
+        return _make_causal_attention_mask(
             self._seq_len,
             self._key_len,
             self._attn_len,
@@ -325,7 +325,7 @@ class ALiBiMask(AbstractAttentionMask):
                 mask[:, :, -causal:] = -torch.inf
         else:
             # (S, S_kv)
-            causal_mask = _create_causal_attention_mask(
+            causal_mask = _make_causal_attention_mask(
                 self._seq_len, self._key_len, attn_len, None, self._device, self._dtype
             )
 
@@ -391,7 +391,7 @@ class ALiBiMaskFactory(AttentionMaskFactory):
         return f"ALiBiMaskFactory(num_attn_heads={self._num_attn_heads})"
 
 
-def _create_causal_attention_mask(
+def _make_causal_attention_mask(
     seq_len: int,
     key_len: int,
     attn_len: int | None,

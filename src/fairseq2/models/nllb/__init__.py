@@ -6,9 +6,6 @@
 
 from __future__ import annotations
 
-from fairseq2.models.nllb.loader import load_nllb_tokenizer as load_nllb_tokenizer
-from fairseq2.models.nllb.tokenizer import NllbTokenizer as NllbTokenizer
-
 # isort: split
 
 import fairseq2.models.nllb.archs  # Register architectures.

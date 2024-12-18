@@ -18,12 +18,13 @@ from warnings import catch_warnings
 from typing_extensions import override
 
 from fairseq2.assets import default_asset_store
-from fairseq2.console import get_error_console
 from fairseq2.logging import get_log_writer
 from fairseq2.models.llama import load_llama_config
 from fairseq2.models.llama.integ import convert_to_reference_checkpoint
 from fairseq2.recipes.cli import CliCommandHandler
-from fairseq2.utils.file import dump_pt_tensors, load_pt_tensors
+from fairseq2.recipes.console import get_error_console
+from fairseq2.setup import setup_fairseq2
+from fairseq2.utils.file import dump_torch_tensors, load_torch_tensors
 
 log = get_log_writer(__name__)
 
@@ -63,6 +64,8 @@ class ConvertCheckpointCommandHandler(CliCommandHandler):
             log.error("`output_dir` must not exist.")
 
             sys.exit(1)
+
+        setup_fairseq2()
 
         arch = (
             default_asset_store.retrieve_card(args.model).field("model_arch").as_(str)
@@ -111,7 +114,7 @@ class ConvertCheckpointCommandHandler(CliCommandHandler):
                     with catch_warnings():
                         warnings.simplefilter("ignore")
 
-                        checkpoint = load_pt_tensors(input_file, restrict=True)
+                        checkpoint = load_torch_tensors(input_file, restrict=True)
                 except RuntimeError:
                     log.exception(
                         "Checkpoint file {} cannot be loaded.", input_file.name
@@ -131,7 +134,7 @@ class ConvertCheckpointCommandHandler(CliCommandHandler):
                 ref_state_dict = convert_to_reference_checkpoint(checkpoint)
 
                 try:
-                    dump_pt_tensors(ref_state_dict, output_file)
+                    dump_torch_tensors(ref_state_dict, output_file)
                 except RuntimeError:
                     log.exception(
                         "Checkpoint file {} cannot be saved.", output_file.name
