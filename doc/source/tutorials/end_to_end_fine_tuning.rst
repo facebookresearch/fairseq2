@@ -149,7 +149,7 @@ Running the fine-tuning recipe is as simple as:
         CONFIG_FILE=/configs/example.yaml
         fairseq2 lm instruction_finetune $OUTPUT_DIR --config-file $CONFIG_FILE
 
-For more details about the recipe configuration, please refer to :ref:`basics-recipe`.
+    For more details about the recipe configuration, please refer to :ref:`basics-recipe`.
 
 Iterative Training
 ^^^^^^^^^^^^^^^^^^
@@ -164,20 +164,31 @@ fairseq2 provides a clean way to handle this through the checkpoint system (lear
 
 .. code-block:: bash
 
-    CKPT_PATH="/checkpoint/user/experiments/run_0/checkpoints/step_1000"  # this is the path to the checkpoint
-    CKPT_DIR=$(dirname "$CKPT_PATH")  # e.g., /checkpoint/user/experiments/run_0/checkpoints
-    CKPT="checkpoint_$(basename "$CKPT_DIR")"  # e.g., checkpoint_step_1000
-
     fairseq2 lm instruction_finetune $OUTPUT_DIR --config \
-        resume_checkpoint_dir=$CKPT_DIR \
-        model=$CKPT \  # Must match the checkpoint step
-        dataset=/path/to/new/data \
-        max_num_tokens=4096 \
-        dtype=float16
+        resume_checkpoint_dir=/path/to/checkpoint \
+        model="last_checkpoint" \  # this will pick up the last checkpoint
+        dataset=/path/to/data
 
-.. note::
+.. dropdown:: To pick up a specific checkpoint
+    :icon: code
+    :animate: fade-in
 
-    The ``model`` parameter must be set to ``checkpoint_step_X`` where X matches the step number of the checkpoint you want to load.
+    .. code-block:: bash
+
+        CKPT_PATH="/checkpoint/user/experiments/run_0/checkpoints/step_1000"  # this is the path to the checkpoint
+        CKPT_DIR=$(dirname "$CKPT_PATH")  # e.g., /checkpoint/user/experiments/run_0/checkpoints
+        CKPT="checkpoint_$(basename "$CKPT_DIR")"  # e.g., checkpoint_step_1000
+
+        fairseq2 lm instruction_finetune $OUTPUT_DIR --config \
+            resume_checkpoint_dir=$CKPT_DIR \
+            model=$CKPT \  # Must match the checkpoint step
+            dataset=/path/to/new/data \
+            max_num_tokens=4096 \
+            dtype=float16
+
+    .. note::
+
+        If you want to pick a specific checkpoint instead of the last checkpoint, the ``model`` parameter must be set to ``checkpoint_step_X`` where X matches the step number of the checkpoint you want to load.
 
 .. dropdown:: A more detailed example
     :icon: code
@@ -194,6 +205,8 @@ fairseq2 provides a clean way to handle this through the checkpoint system (lear
         max_num_steps: 1000
         learning_rate: 1e-5
         # ... other config
+
+    Then run the following commands in bash:
 
     .. code-block:: bash
 
