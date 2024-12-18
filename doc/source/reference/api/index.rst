@@ -7,6 +7,7 @@
     :maxdepth: 1
 
     fairseq2
+    gang
     fairseq2.data/index
     fairseq2.datasets/index
     fairseq2.nn/index
