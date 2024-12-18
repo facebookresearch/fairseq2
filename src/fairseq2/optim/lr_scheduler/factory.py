@@ -91,8 +91,6 @@ def create_cosine_annealing_lr(
     else:
         cycle_len = config.cycle_len
 
-    final_lr: float = 0.0  # using dummy value to make mypy happy
-
     # Validate config and set final_lr
     if (config.final_lr is not None) and (config.final_lr_scale is not None):
         raise ValueError(
@@ -109,7 +107,7 @@ def create_cosine_annealing_lr(
     if config.final_lr_scale is not None:
         final_lr = optimizer.param_groups[0]["lr"] * config.final_lr_scale
     else:
-        final_lr = config.final_lr
+        final_lr = config.final_lr  # type: ignore
 
     if final_lr > optimizer.param_groups[0]["lr"]:
         log.warning(
