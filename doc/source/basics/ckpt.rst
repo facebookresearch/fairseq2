@@ -90,7 +90,7 @@ Keep Last N Checkpoints
     ckpt_manager.keep_last_n_checkpoints(n=5)
 
 Keep Best N Checkpoints
-^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: python
 
