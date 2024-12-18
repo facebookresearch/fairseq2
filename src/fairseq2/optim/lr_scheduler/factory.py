@@ -93,30 +93,27 @@ def create_cosine_annealing_lr(
 
     final_lr: float = 0.0  # using dummy value to make mypy happy
 
-    # set final lr based on config
+    # Validate config and set final_lr
+    if (config.final_lr is not None) and (config.final_lr_scale is not None):
+        raise ValueError(
+            f"Invalid configuration: Both `final_lr` ({config.final_lr}) and `final_lr_scale` "
+            f"({config.final_lr_scale}) are set. Please specify only one."
+        )
+
+    if (config.final_lr is None) and (config.final_lr_scale is None):
+        raise ValueError(
+            "Invalid configuration: Either `final_lr` or `final_lr_scale` must be specified."
+        )
+
+    # Compute final_lr based on the configuration
     if config.final_lr_scale is not None:
         final_lr = optimizer.param_groups[0]["lr"] * config.final_lr_scale
-        assert (
-            config.final_lr is None
-        ), f"final_lr must be None when final_lr_scale is used, but config.final_lr={config.final_lr}"
-
-    if config.final_lr is not None:
+    else:
         final_lr = config.final_lr
-        assert (
-            config.final_lr_scale is None
-        ), f"final_lr_scale must be None when final_lr is used, but config.final_lr_scale={config.final_lr_scale}"
-
-    if (config.final_lr is None and config.final_lr_scale is None) or (
-        config.final_lr is not None and config.final_lr_scale is not None
-    ):
-        # both are none, this is erroneous setup
-        raise ValueError(
-            "Either final_lr or final_lr_scale must be specified, but not both at the same time."
-        )
 
     if final_lr > optimizer.param_groups[0]["lr"]:
         log.warning(
-            f"ATTENTION: Optimizer LR ({optimizer.param_groups[0]['lr']}) < Final LR scheduler value ({final_lr}), this means your LR will increase over the course of training."
+            f"ATTENTION: Final LR scheduler value ({final_lr}) > Optimizer LR ({optimizer.param_groups[0]['lr']}). This means your learning rate will increase over the course of training."
         )
 
     return CosineAnnealingLR(
