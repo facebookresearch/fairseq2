@@ -176,6 +176,8 @@ class ShowAssetCommand(CliCommandHandler):
             The asset store from which to retrieve the asset cards. If ``None``,
             the default asset store will be used.
         """
+        setup_fairseq2()
+
         self._asset_store = asset_store or default_asset_store
 
     @override
@@ -204,7 +206,7 @@ class ShowAssetCommand(CliCommandHandler):
                 args.name, envs=args.envs, scope=args.scope
             )
         except AssetNotFoundError:
-            log.error("An asset with the name '{}' cannot be found.", args.asset)
+            log.error("An asset with the name '{}' cannot be found.", args.name)
 
             sys.exit(1)
 
