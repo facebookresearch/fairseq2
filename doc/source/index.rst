@@ -50,6 +50,7 @@ Documentation
    basics/data_pipeline
    basics/recipe
    basics/runtime_extensions
+   basics/trainer
 
 .. toctree::
    :maxdepth: 1
@@ -58,7 +59,7 @@ Documentation
    tutorials/end_to_end_fine_tuning
    tutorials/monitor_your_experiments
    tutorials/presets
-
+   tutorials/models
 .. toctree::
    :maxdepth: 1
    :caption: FAQ
