@@ -246,3 +246,244 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
         s = super().extra_repr()
 
         return f"{s}, norm_order={self.norm_order.name}"
+    
+
+class CrossAttentionTransformerEncoderLayer(TransformerEncoderLayer):
+    """Represents a Transformer encoder layer as described in
+    :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`.
+    """
+
+    self_attn: MultiheadAttention
+    self_attn_norm: LayerNorm | None
+    self_attn_dropout: Dropout | None
+    self_attn_residual: ResidualConnect
+    self_attn_layer_norm: LayerNorm
+    ffn: FeedForwardNetwork
+    ffn_dropout: Dropout | None
+    ffn_residual: ResidualConnect
+    ffn_layer_norm: LayerNorm
+    norm_order: TransformerNormOrder
+
+    def __init__(
+        self,
+        self_attn: MultiheadAttention,
+        ffn: FeedForwardNetwork,
+        *,
+        dropout_p: float = 0.0,
+        norm_order: TransformerNormOrder = TransformerNormOrder.POST,
+        layer_norm_factory: LayerNormFactory | None = None,
+        self_attn_residual: ResidualConnect | None = None,
+        ffn_residual: ResidualConnect | None = None,
+        device: Device | None = None,
+        dtype: DataType | None = None,
+    ) -> None:
+        """
+        :param self_attn:
+            The self attention layer.
+        :param ffn:
+            The feed-forward network.
+        :param dropout_p:
+            The dropout probability on outputs of the self attention layer and
+            the feed-forward network.
+        :param norm_order:
+            The Layer Normalization order.
+        :param layer_norm_factory:
+            The factory to construct the Layer Normalization modules.
+        :param self_attn_residual:
+            The residual connection between the input and output of the self
+            attention layer.
+        :param ffn_residual:
+            The residual connection between the input and output of the
+            feed-forward network.
+        """
+        model_dim = self_attn.model_dim
+
+        super().__init__(model_dim)
+
+        if layer_norm_factory is None:
+            layer_norm_factory = make_standard_layer_norm
+
+        self_attn_layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
+
+        if norm_order != TransformerNormOrder.POST:
+            self.self_attn_layer_norm = self_attn_layer_norm
+
+        self.self_attn = self_attn
+
+        if norm_order == TransformerNormOrder.PRE_WITH_NORMFORMER:
+            self.self_attn_norm = layer_norm_factory(
+                model_dim, device=device, dtype=dtype
+            )
+        else:
+            self.register_module("self_attn_norm", None)
+
+        if dropout_p > 0.0:
+            self.self_attn_dropout = Dropout(dropout_p)
+        else:
+            self.register_module("self_attn_dropout", None)
+
+        if self_attn_residual is None:
+            self_attn_residual = StandardResidualConnect()
+
+        self.self_attn_residual = self_attn_residual
+
+        if norm_order == TransformerNormOrder.POST:
+            self.self_attn_layer_norm = self_attn_layer_norm
+
+        ffn_layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
+
+        if norm_order != TransformerNormOrder.POST:
+            self.ffn_layer_norm = ffn_layer_norm
+
+        self.ffn = ffn
+
+        if dropout_p > 0.0:
+            self.ffn_dropout = Dropout(dropout_p)
+        else:
+            self.register_module("ffn_dropout", None)
+
+        if ffn_residual is None:
+            ffn_residual = StandardResidualConnect()
+
+        self.ffn_residual = ffn_residual
+
+        if norm_order == TransformerNormOrder.POST:
+            self.ffn_layer_norm = ffn_layer_norm
+
+        self.norm_order = norm_order
+
+    @abstractmethod
+    def forward(
+        self,
+        seqs: Tensor,
+        padding_mask: PaddingMask | None,
+        self_attn_mask: AttentionMask | None = None,
+    ) -> tuple[Tensor, PaddingMask | None]:
+        pass
+
+    def _forward_self_attn(
+        self,
+        seqs: Tensor,
+        padding_mask: PaddingMask | None,
+        self_attn_mask: AttentionMask | None,
+    ) -> Tensor:
+        residual = seqs
+
+        if self.norm_order != TransformerNormOrder.POST:
+            seqs = self.self_attn_layer_norm(seqs)
+
+        seqs = self.self_attn(
+            seqs,
+            padding_mask,
+            keys=seqs,
+            key_padding_mask=padding_mask,
+            values=seqs,
+            attn_mask=self_attn_mask,
+        )
+
+        if self.self_attn_norm is not None:
+            seqs = self.self_attn_norm(seqs)
+
+        if self.self_attn_dropout is not None:
+            seqs = self.self_attn_dropout(seqs)
+
+        seqs = self.self_attn_residual(seqs, residual)
+
+        if self.norm_order == TransformerNormOrder.POST:
+            seqs = self.self_attn_layer_norm(seqs)
+
+        return seqs
+
+    def _forward_ffn(self, seqs: Tensor) -> Tensor:
+        residual = seqs
+
+        if self.norm_order != TransformerNormOrder.POST:
+            seqs = self.ffn_layer_norm(seqs)
+
+        seqs = self.ffn(seqs)
+
+        if self.ffn_dropout is not None:
+            seqs = self.ffn_dropout(seqs)
+
+        seqs = self.ffn_residual(seqs, residual)
+
+        if self.norm_order == TransformerNormOrder.POST:
+            seqs = self.ffn_layer_norm(seqs)
+
+        return seqs
+
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        s = super().extra_repr()
+
+        return f"{s}, norm_order={self.norm_order.name}"
+
+
+class CrossAttentionEncoderLayer(StandardTransformerEncoderLayer):
+    """Represents a Transformer encoder layer as described in
+    :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`.
+    """
+
+    @override
+    def forward(
+        self,
+        seqs: Tensor,
+        padding_mask: PaddingMask | None,
+        self_attn_mask: AttentionMask | None = None,
+    ) -> tuple[Tensor, PaddingMask | None]:
+        seqs = self._forward_self_attn(seqs, padding_mask, self_attn_mask)
+
+        seqs = self._forward_ffn(seqs)
+
+        return seqs, padding_mask
+
+    def _forward_self_attn(
+        self,
+        seqs: Tensor,
+        padding_mask: PaddingMask | None,
+        self_attn_mask: AttentionMask | None,
+    ) -> Tensor:
+        residual = seqs
+
+        if self.norm_order != TransformerNormOrder.POST:
+            seqs = self.self_attn_layer_norm(seqs)
+
+        seqs = self.self_attn(
+            seqs,
+            padding_mask,
+            keys=seqs,
+            key_padding_mask=padding_mask,
+            values=seqs,
+            attn_mask=self_attn_mask,
+        )
+
+        if self.self_attn_norm is not None:
+            seqs = self.self_attn_norm(seqs)
+
+        if self.self_attn_dropout is not None:
+            seqs = self.self_attn_dropout(seqs)
+
+        seqs = self.self_attn_residual(seqs, residual)
+
+        if self.norm_order == TransformerNormOrder.POST:
+            seqs = self.self_attn_layer_norm(seqs)
+
+        return seqs
+
+    def _forward_ffn(self, seqs: Tensor) -> Tensor:
+        residual = seqs
+
+        if self.norm_order != TransformerNormOrder.POST:
+            seqs = self.ffn_layer_norm(seqs)
+
+        seqs = self.ffn(seqs)
+
+        if self.ffn_dropout is not None:
+            seqs = self.ffn_dropout(seqs)
+
+        seqs = self.ffn_residual(seqs, residual)
+
+        if self.norm_order == TransformerNormOrder.POST:
+            seqs = self.ffn_layer_norm(seqs)
+
+        return seqs
