@@ -9,8 +9,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import final
 
-from torch import Tensor
-from torch.nn import Dropout, Module
+from torch import Tensor, zeros
+from torch.nn import Dropout, Module, Parameter
 from typing_extensions import override
 
 from fairseq2.nn.normalization import LayerNorm
@@ -253,11 +253,11 @@ class CrossAttentionTransformerEncoderLayer(TransformerEncoderLayer):
     :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`.
     """
 
-    self_attn: MultiheadAttention
-    self_attn_norm: LayerNorm | None
-    self_attn_dropout: Dropout | None
-    self_attn_residual: ResidualConnect
-    self_attn_layer_norm: LayerNorm
+    cross_attn: MultiheadAttention
+    cross_attn_norm: LayerNorm | None
+    cross_attn_dropout: Dropout | None
+    cross_attn_residual: ResidualConnect
+    cross_attn_layer_norm: LayerNorm
     ffn: FeedForwardNetwork
     ffn_dropout: Dropout | None
     ffn_residual: ResidualConnect
@@ -266,69 +266,73 @@ class CrossAttentionTransformerEncoderLayer(TransformerEncoderLayer):
 
     def __init__(
         self,
-        self_attn: MultiheadAttention,
+        cross_attn: MultiheadAttention,
         ffn: FeedForwardNetwork,
         *,
+        num_queries: int = 1,
         dropout_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
         layer_norm_factory: LayerNormFactory | None = None,
-        self_attn_residual: ResidualConnect | None = None,
+        cross_attn_residual: ResidualConnect | None = None,
         ffn_residual: ResidualConnect | None = None,
+        
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> None:
         """
-        :param self_attn:
-            The self attention layer.
+        :param cross_attn:
+            The cross attention layer.
+        :param num_queries:
+            The number of queries used to cross-attend on the output of the self
         :param ffn:
             The feed-forward network.
         :param dropout_p:
-            The dropout probability on outputs of the self attention layer and
+            The dropout probability on outputs of the cross attention layer and
             the feed-forward network.
         :param norm_order:
             The Layer Normalization order.
         :param layer_norm_factory:
             The factory to construct the Layer Normalization modules.
-        :param self_attn_residual:
+        :param cross_attn_residual:
             The residual connection between the input and output of the self
             attention layer.
         :param ffn_residual:
             The residual connection between the input and output of the
             feed-forward network.
         """
-        model_dim = self_attn.model_dim
+        model_dim = cross_attn.model_dim
 
         super().__init__(model_dim)
 
         if layer_norm_factory is None:
             layer_norm_factory = make_standard_layer_norm
 
-        self_attn_layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
+        cross_attn_layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
 
         if norm_order != TransformerNormOrder.POST:
-            self.self_attn_layer_norm = self_attn_layer_norm
+            self.cross_attn_layer_norm = cross_attn_layer_norm
 
-        self.self_attn = self_attn
+        self.cross_attn = cross_attn
 
         if norm_order == TransformerNormOrder.PRE_WITH_NORMFORMER:
-            self.self_attn_norm = layer_norm_factory(
+            self.cross_attn_norm = layer_norm_factory(
                 model_dim, device=device, dtype=dtype
             )
         else:
-            self.register_module("self_attn_norm", None)
+            self.register_module("cross_attn_norm", None)
 
         if dropout_p > 0.0:
-            self.self_attn_dropout = Dropout(dropout_p)
+            self.cross_attn_dropout = Dropout(dropout_p)
         else:
             self.register_module("self_attn_dropout", None)
 
-        if self_attn_residual is None:
-            self_attn_residual = StandardResidualConnect()
+        if cross_attn_residual is None:
+            cross_attn_residual = StandardResidualConnect()
 
-        self.self_attn_residual = self_attn_residual
+        self.cross_attn_residual = cross_attn_residual
 
         if norm_order == TransformerNormOrder.POST:
-            self.self_attn_layer_norm = self_attn_layer_norm
+            self.cross_attn_layer_norm = cross_attn_residual
 
         ffn_layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
 
@@ -351,6 +355,11 @@ class CrossAttentionTransformerEncoderLayer(TransformerEncoderLayer):
             self.ffn_layer_norm = ffn_layer_norm
 
         self.norm_order = norm_order
+
+        self.query_tokens = Parameter(zeros(1, num_queries, model_dim))
+        
+        self.init_weight()
+        
 
     @abstractmethod
     def forward(
