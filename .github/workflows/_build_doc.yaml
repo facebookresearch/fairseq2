@@ -28,8 +28,9 @@ jobs:
       run:
         shell: bash
     steps:
-      - name: Set up Git LFS
-        uses: actions/git-lfs@v3
+      - name: Install Git LFS
+        run: |
+          yum install -y git-lfs
       - name: Check-out the repository
         uses: actions/checkout@v3
         with:
