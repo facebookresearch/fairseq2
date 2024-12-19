@@ -9,8 +9,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import final
 
-from torch import Tensor
-from torch.nn import Dropout, Module
+from torch import Tensor, zeros
+from torch.nn import Dropout, Module, Parameter
 from typing_extensions import override
 
 from fairseq2.nn.normalization import LayerNorm
@@ -246,3 +246,253 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
         s = super().extra_repr()
 
         return f"{s}, norm_order={self.norm_order.name}"
+    
+
+class CrossAttentionTransformerEncoderLayer(TransformerEncoderLayer):
+    """Represents a Transformer encoder layer as described in
+    :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`.
+    """
+
+    cross_attn: MultiheadAttention
+    cross_attn_norm: LayerNorm | None
+    cross_attn_dropout: Dropout | None
+    cross_attn_residual: ResidualConnect
+    cross_attn_layer_norm: LayerNorm
+    ffn: FeedForwardNetwork
+    ffn_dropout: Dropout | None
+    ffn_residual: ResidualConnect
+    ffn_layer_norm: LayerNorm
+    norm_order: TransformerNormOrder
+
+    def __init__(
+        self,
+        cross_attn: MultiheadAttention,
+        ffn: FeedForwardNetwork,
+        *,
+        num_queries: int = 1,
+        dropout_p: float = 0.0,
+        norm_order: TransformerNormOrder = TransformerNormOrder.POST,
+        layer_norm_factory: LayerNormFactory | None = None,
+        cross_attn_residual: ResidualConnect | None = None,
+        ffn_residual: ResidualConnect | None = None,
+        
+        device: Device | None = None,
+        dtype: DataType | None = None,
+    ) -> None:
+        """
+        :param cross_attn:
+            The cross attention layer.
+        :param num_queries:
+            The number of queries used to cross-attend on the output of the self
+        :param ffn:
+            The feed-forward network.
+        :param dropout_p:
+            The dropout probability on outputs of the cross attention layer and
+            the feed-forward network.
+        :param norm_order:
+            The Layer Normalization order.
+        :param layer_norm_factory:
+            The factory to construct the Layer Normalization modules.
+        :param cross_attn_residual:
+            The residual connection between the input and output of the self
+            attention layer.
+        :param ffn_residual:
+            The residual connection between the input and output of the
+            feed-forward network.
+        """
+        model_dim = cross_attn.model_dim
+
+        super().__init__(model_dim)
+
+        if layer_norm_factory is None:
+            layer_norm_factory = make_standard_layer_norm
+
+        cross_attn_layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
+
+        if norm_order != TransformerNormOrder.POST:
+            self.cross_attn_layer_norm = cross_attn_layer_norm
+
+        self.cross_attn = cross_attn
+
+        if norm_order == TransformerNormOrder.PRE_WITH_NORMFORMER:
+            self.cross_attn_norm = layer_norm_factory(
+                model_dim, device=device, dtype=dtype
+            )
+        else:
+            self.register_module("cross_attn_norm", None)
+
+        if dropout_p > 0.0:
+            self.cross_attn_dropout = Dropout(dropout_p)
+        else:
+            self.register_module("self_attn_dropout", None)
+
+        if cross_attn_residual is None:
+            cross_attn_residual = StandardResidualConnect()
+
+        self.cross_attn_residual = cross_attn_residual
+
+        if norm_order == TransformerNormOrder.POST:
+            self.cross_attn_layer_norm = cross_attn_residual
+
+        ffn_layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
+
+        if norm_order != TransformerNormOrder.POST:
+            self.ffn_layer_norm = ffn_layer_norm
+
+        self.ffn = ffn
+
+        if dropout_p > 0.0:
+            self.ffn_dropout = Dropout(dropout_p)
+        else:
+            self.register_module("ffn_dropout", None)
+
+        if ffn_residual is None:
+            ffn_residual = StandardResidualConnect()
+
+        self.ffn_residual = ffn_residual
+
+        if norm_order == TransformerNormOrder.POST:
+            self.ffn_layer_norm = ffn_layer_norm
+
+        self.norm_order = norm_order
+
+        self.query_tokens = Parameter(zeros(1, num_queries, model_dim))
+        
+        self.init_weight()
+        
+
+    @abstractmethod
+    def forward(
+        self,
+        seqs: Tensor,
+        padding_mask: PaddingMask | None,
+        self_attn_mask: AttentionMask | None = None,
+    ) -> tuple[Tensor, PaddingMask | None]:
+        pass
+
+    def _forward_self_attn(
+        self,
+        seqs: Tensor,
+        padding_mask: PaddingMask | None,
+        self_attn_mask: AttentionMask | None,
+    ) -> Tensor:
+        residual = seqs
+
+        if self.norm_order != TransformerNormOrder.POST:
+            seqs = self.self_attn_layer_norm(seqs)
+
+        seqs = self.self_attn(
+            seqs,
+            padding_mask,
+            keys=seqs,
+            key_padding_mask=padding_mask,
+            values=seqs,
+            attn_mask=self_attn_mask,
+        )
+
+        if self.self_attn_norm is not None:
+            seqs = self.self_attn_norm(seqs)
+
+        if self.self_attn_dropout is not None:
+            seqs = self.self_attn_dropout(seqs)
+
+        seqs = self.self_attn_residual(seqs, residual)
+
+        if self.norm_order == TransformerNormOrder.POST:
+            seqs = self.self_attn_layer_norm(seqs)
+
+        return seqs
+
+    def _forward_ffn(self, seqs: Tensor) -> Tensor:
+        residual = seqs
+
+        if self.norm_order != TransformerNormOrder.POST:
+            seqs = self.ffn_layer_norm(seqs)
+
+        seqs = self.ffn(seqs)
+
+        if self.ffn_dropout is not None:
+            seqs = self.ffn_dropout(seqs)
+
+        seqs = self.ffn_residual(seqs, residual)
+
+        if self.norm_order == TransformerNormOrder.POST:
+            seqs = self.ffn_layer_norm(seqs)
+
+        return seqs
+
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        s = super().extra_repr()
+
+        return f"{s}, norm_order={self.norm_order.name}"
+
+
+class CrossAttentionEncoderLayer(StandardTransformerEncoderLayer):
+    """Represents a Transformer encoder layer as described in
+    :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`.
+    """
+
+    @override
+    def forward(
+        self,
+        seqs: Tensor,
+        padding_mask: PaddingMask | None,
+        self_attn_mask: AttentionMask | None = None,
+    ) -> tuple[Tensor, PaddingMask | None]:
+        seqs = self._forward_self_attn(seqs, padding_mask, self_attn_mask)
+
+        seqs = self._forward_ffn(seqs)
+
+        return seqs, padding_mask
+
+    def _forward_self_attn(
+        self,
+        seqs: Tensor,
+        padding_mask: PaddingMask | None,
+        self_attn_mask: AttentionMask | None,
+    ) -> Tensor:
+        residual = seqs
+
+        if self.norm_order != TransformerNormOrder.POST:
+            seqs = self.self_attn_layer_norm(seqs)
+
+        seqs = self.self_attn(
+            seqs,
+            padding_mask,
+            keys=seqs,
+            key_padding_mask=padding_mask,
+            values=seqs,
+            attn_mask=self_attn_mask,
+        )
+
+        if self.self_attn_norm is not None:
+            seqs = self.self_attn_norm(seqs)
+
+        if self.self_attn_dropout is not None:
+            seqs = self.self_attn_dropout(seqs)
+
+        seqs = self.self_attn_residual(seqs, residual)
+
+        if self.norm_order == TransformerNormOrder.POST:
+            seqs = self.self_attn_layer_norm(seqs)
+
+        return seqs
+
+    def _forward_ffn(self, seqs: Tensor) -> Tensor:
+        residual = seqs
+
+        if self.norm_order != TransformerNormOrder.POST:
+            seqs = self.ffn_layer_norm(seqs)
+
+        seqs = self.ffn(seqs)
+
+        if self.ffn_dropout is not None:
+            seqs = self.ffn_dropout(seqs)
+
+        seqs = self.ffn_residual(seqs, residual)
+
+        if self.norm_order == TransformerNormOrder.POST:
+            seqs = self.ffn_layer_norm(seqs)
+
+        return seqs

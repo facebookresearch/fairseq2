@@ -6,7 +6,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
+from functools import partial
+import math
 from typing import Final, cast
 
 from torch.nn import GELU
@@ -23,6 +26,7 @@ from fairseq2.models.vit import (
 from fairseq2.nn import (
     InterpolatedPositionEncoder,
     LayerNorm,
+    Linear,
     Sinusoidal2dPositionEncoder,
     Sinusoidal3dPositionEncoder,
     StandardLayerNorm,
@@ -39,6 +43,8 @@ from fairseq2.nn.transformer import (
     TransformerNormOrder,
     create_default_sdpa,
 )
+from fairseq2.nn.transformer.residual import DropPathResidualConnect
+from fairseq2.nn.utils.module import init_truncated_uniforma_weights_and_bias as init_module
 from fairseq2.typing import DataType, Device
 
 JEPA_FAMILY: Final = "jepa"
@@ -96,9 +102,15 @@ class JepaEncoderConfig:
     The ratio of the dimensionality of the inner projection layers in
     feed-forward networks to :attr:`model_dim`.
     """
+    
+    init_std: float = 0.02
+    """std to initialize the weights and bias for linear and LayerNorm layers"""
 
     dropout_p: float = 0.0
     """The dropout probability on outputs of Transformer layers."""
+
+    droppath_p: float = 0.0
+    """The probability of output sequence drop."""
 
     uniform_power: bool = False
     """
@@ -181,6 +193,8 @@ class JepaEncoderBuilder:
 
     def build_feature_extractor(self) -> PatchFeatureExtractor:
         config = self._config
+        
+        conv_init_fn = partial(init_module, std=config.init_std)
 
         num_patch_dims = len(config.patch_dims)
 
@@ -191,6 +205,7 @@ class JepaEncoderBuilder:
                 config.num_input_channels,
                 config.model_dim,
                 patch_3d_dims,
+                init_fn=conv_init_fn,
                 device=self._device,
                 dtype=self._dtype,
             )
@@ -201,6 +216,7 @@ class JepaEncoderBuilder:
                 config.num_input_channels,
                 config.model_dim,
                 patch_2d_dims,
+                init_fn=conv_init_fn,
                 device=self._device,
                 dtype=self._dtype,
             )
@@ -255,7 +271,7 @@ class JepaEncoderBuilder:
 
         num_layers = config.num_encoder_layers
 
-        layers = [self.build_encoder_layer() for _ in range(num_layers)]
+        layers = [self.build_encoder_layer(i) for i in range(num_layers)]
 
         return StandardTransformerEncoder(
             layers,
@@ -265,12 +281,14 @@ class JepaEncoderBuilder:
             dtype=self._dtype,
         )
 
-    def build_encoder_layer(self) -> TransformerEncoderLayer:
+    def build_encoder_layer(self, layer_id: int) -> TransformerEncoderLayer:
         config = self._config
 
-        self_attn = self.build_attention()
+        self_attn = self.build_attention(layer_id)
 
-        ffn = self.build_ffn()
+        ffn = self.build_ffn(layer_id)
+        
+        drop_path = DropPathResidualConnect(drop_p=config.droppath_p)
 
         return StandardTransformerEncoderLayer(
             self_attn,
@@ -278,47 +296,85 @@ class JepaEncoderBuilder:
             dropout_p=config.dropout_p,
             norm_order=TransformerNormOrder.PRE,
             layer_norm_factory=self.build_layer_norm,
+            self_attn_residual=drop_path,
+            ffn_residual=drop_path,
             device=self._device,
             dtype=self._dtype,
         )
 
-    def build_attention(self) -> MultiheadAttention:
+    def build_attention(self, layer_id: int) -> MultiheadAttention:
         config = self._config
 
         sdpa = create_default_sdpa(attn_dropout_p=config.attn_dropout_p)
+
+        proj = self.build_projection(layer_id)
 
         return StandardMultiheadAttention(
             config.model_dim,
             config.num_encoder_attn_heads,
             sdpa=sdpa,
             bias=config.qkv_bias,
+            output_proj=proj,
             output_proj_bias=True,
             device=self._device,
             dtype=self._dtype,
         )
 
-    def build_ffn(self) -> FeedForwardNetwork:
+    def build_projection(self, layer_id: int) -> Linear:
         config = self._config
 
-        return StandardFeedForwardNetwork(
+        proj_init_fn: Callable[[Linear], None] = partial(init_module, std=config.init_std)
+
+        proj = Linear(
+            config.model_dim,
+            config.model_dim,
+            bias=True,
+            init_fn=proj_init_fn,
+            device=self._device,
+            dtype=self._dtype,
+        )
+
+        # rescale the linear layer
+        proj.weight.data.div_(math.sqrt(2.0 * layer_id))
+
+        return proj
+
+    def build_ffn(self, layer_id: int) -> FeedForwardNetwork:
+        config = self._config
+
+        proj_init_fn = partial(init_module, std=config.init_std)
+
+        ffn = StandardFeedForwardNetwork(
             config.model_dim,
             int(config.model_dim * config.ffn_inner_dim_ratio),
             bias=True,
             inner_activation=GELU(),
+            proj_init_fn=proj_init_fn,
             norm_order=TransformerNormOrder.PRE,
             device=self._device,
             dtype=self._dtype,
         )
 
-    @staticmethod
+        # rescale the last layer
+        proj = ffn.output_proj
+        assert isinstance(proj, Linear), f"Invalid projection type: {type(proj)}"
+        proj.weight.data.div_(math.sqrt(2.0 * layer_id))
+        
+        return ffn
+
     def build_layer_norm(
+        self,
         model_dim: int,
         *,
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> LayerNorm:
+        config = self._config
+        
+        layer_norm_init_fn = partial(init_module, std=config.init_std)
+        
         return StandardLayerNorm(
-            model_dim, bias=True, eps=1e-6, device=device, dtype=dtype
+            model_dim, bias=True, eps=1e-6, init_fn=layer_norm_init_fn, device=device, dtype=dtype
         )
 
 

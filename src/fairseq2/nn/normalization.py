@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any, Literal, final
 
 import torch
@@ -39,6 +39,8 @@ class LayerNorm(Module, ABC):
     elementwise_affine: bool
     weight: Parameter | None
     bias: Parameter | None
+    init_fn: Callable[[LayerNorm], None] | None
+
 
     def __init__(
         self,
@@ -47,6 +49,7 @@ class LayerNorm(Module, ABC):
         *,
         eps: float = 1e-5,
         elementwise_affine: bool = True,
+        init_fn: Callable[[LayerNorm], None] | None = None,
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> None:
@@ -87,16 +90,21 @@ class LayerNorm(Module, ABC):
             )
         else:
             self.register_parameter("bias", None)
+        
+        self.init_fn = init_fn
 
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
         """Reset the parameters and buffers of the module."""
-        if self.weight is not None:
-            nn.init.ones_(self.weight)
+        if self.init_fn is not None:
+            self.init_fn(self)
+        else:
+            if self.weight is not None:
+                nn.init.ones_(self.weight)
 
-        if self.bias is not None:
-            nn.init.zeros_(self.bias)
+            if self.bias is not None:
+                nn.init.zeros_(self.bias)
 
     @abstractmethod
     def forward(self, x: Tensor) -> Tensor:
