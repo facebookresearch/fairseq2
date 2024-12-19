@@ -134,10 +134,10 @@ For sharded checkpoints (FSDP), each rank has its own files:
 
     checkpoint_dir/
     ├── model.yaml           # Model metadata
-    ├── step_1000/
-    |   ├── model.pt         # Consolidated model
-    |   ├── rank_0.pt        # Model rank 0 state
-    |   └── rank_1.pt        # Model rank 1 state
+    └── step_1000/
+        ├── model.pt         # Consolidated model
+        ├── rank_0.pt        # Model rank 0 state
+        └── rank_1.pt        # Model rank 1 state
 
 Error Handling
 --------------
