@@ -12,8 +12,7 @@ from functools import partial
 import math
 from typing import Final, cast
 
-import torch
-from torch.nn import GELU, Module
+from torch.nn import GELU
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.models.jepa.model import JepaModel
@@ -45,6 +44,7 @@ from fairseq2.nn.transformer import (
     create_default_sdpa,
 )
 from fairseq2.nn.transformer.residual import DropPathResidualConnect
+from fairseq2.nn.utils.module import init_truncated_uniforma_weights_and_bias as init_module
 from fairseq2.typing import DataType, Device
 
 JEPA_FAMILY: Final = "jepa"
@@ -194,7 +194,7 @@ class JepaEncoderBuilder:
     def build_feature_extractor(self) -> PatchFeatureExtractor:
         config = self._config
         
-        conv_init_fn = partial(init_with_explicit_bounds, std=config.init_std)
+        conv_init_fn = partial(init_module, std=config.init_std)
 
         num_patch_dims = len(config.patch_dims)
 
@@ -323,9 +323,7 @@ class JepaEncoderBuilder:
     def build_projection(self, layer_id: int) -> Linear:
         config = self._config
 
-        proj_init_fn: Callable[[Linear], None] = partial(
-            init_with_explicit_bounds, std=config.init_std
-        )
+        proj_init_fn: Callable[[Linear], None] = partial(init_module, std=config.init_std)
 
         proj = Linear(
             config.model_dim,
@@ -344,7 +342,7 @@ class JepaEncoderBuilder:
     def build_ffn(self, layer_id: int) -> FeedForwardNetwork:
         config = self._config
 
-        proj_init_fn = partial(init_with_explicit_bounds, std=config.init_std)
+        proj_init_fn = partial(init_module, std=config.init_std)
 
         ffn = StandardFeedForwardNetwork(
             config.model_dim,
@@ -373,7 +371,7 @@ class JepaEncoderBuilder:
     ) -> LayerNorm:
         config = self._config
         
-        layer_norm_init_fn = partial(init_with_explicit_bounds, std=config.init_std)
+        layer_norm_init_fn = partial(init_module, std=config.init_std)
         
         return StandardLayerNorm(
             model_dim, bias=True, eps=1e-6, init_fn=layer_norm_init_fn, device=device, dtype=dtype
@@ -387,46 +385,3 @@ def create_jepa_model(
     dtype: DataType | None = None,
 ) -> JepaModel:
     return JepaBuilder(config, device=device, dtype=dtype).build_model()
-
-
-def _norm_cdf(x):
-    # Computes standard normal cumulative distribution function
-    return (1.0 + math.erf(x / math.sqrt(2.0))) / 2.0
-    
-
-def normalize_truncate(
-    tensor: torch.Tensor,
-    *,
-    mean: float = 0.0,
-    std: float = 1.0,
-    a: float = -2.0,
-    b: float = 2.0,
-) -> None:
-
-    lower = _norm_cdf((a - mean) / std)
-    upper = _norm_cdf((b - mean) / std)
-    
-    tensor.uniform_(2 * lower - 1, 2 * upper - 1)
-    tensor.erfinv_()
-    
-    tensor.mul_(std * math.sqrt(2.0))
-    tensor.add_(mean)
-    
-    tensor.clamp_(min=a, max=b)
-        
-
-def init_with_explicit_bounds(
-    m: Module,
-    *,
-    mean: float = 0.0,
-    std: float = 1.0,
-    a: float = -2.0,
-    b: float = 2.0,
-):
-    if not hasattr(m, "weight") or not hasattr(m, "bias"):
-        raise ValueError(f"Cannot initialize weights and bias of a {type(m)}")
-    
-    with torch.no_grad():
-        normalize_truncate(m.weight, mean=mean, std=std, a=a, b=b)
-        if m.bias is not None:
-            torch.nn.init.zeros_(m.bias)
