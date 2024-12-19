@@ -4,7 +4,7 @@
 =======================
 
 Instruction Fine-tuning Example
---------------------------------
+-------------------------------
 
 The recipe handler for instruction fine-tuning is registered at :meth:`fairseq2.recipes.lm._setup_cli`. 
 The recipe itself resides at :meth:`fairseq2.recipes.lm.load_instruction_finetuner`. 
@@ -19,7 +19,7 @@ This recipe loads a set of components into a :class:`fairseq2.recipes.trainer.Tr
 The only inputs required are the configuration and an output directory for checkpoints, training events, and more.
 
 How to Configure a Recipe
---------------------------
+-------------------------
 
 Recipe configuration is defined as a class, such as :class:`fairseq2.recipes.lm.instruction_finetune.InstructionFinetuneConfig` for instruction fine-tuning.
 
@@ -45,7 +45,7 @@ This configuration can be loaded using the following command:
     fairseq2 lm instruction_finetune --config-file $YOUR_CONFIG.yaml ...
 
 Key Points on Configuration
-----------------------------
+---------------------------
 
 * **Using YAML Files:**
 
