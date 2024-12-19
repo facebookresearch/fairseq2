@@ -61,8 +61,9 @@ Documentation
    tutorials/end_to_end_fine_tuning
    tutorials/monitor_your_experiments
    tutorials/presets
-   tutorials/models
    tutorials/benchmarking
+   tutorials/pudb
+   tutorials/models
 
 .. toctree::
    :maxdepth: 1
