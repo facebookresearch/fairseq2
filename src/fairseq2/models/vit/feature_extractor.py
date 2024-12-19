@@ -95,7 +95,6 @@ class Conv2dPatchFeatureExtractor(PatchFeatureExtractor):
         else:
             self.conv.reset_parameters()
 
-
     @override
     def forward(self, x: Tensor) -> Tensor:
         # (N, C, H_inp, W_inp) -> (N, H_out, W_out, E)
@@ -115,7 +114,7 @@ class Conv3dPatchFeatureExtractor(PatchFeatureExtractor):
         feature_dim: int,
         patch_dims: tuple[int, int, int],
         *,
-        init_fn: Callable[[Conv2d], None] | None = None,
+        init_fn: Callable[[Conv3d], None] | None = None,
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> None:
@@ -135,7 +134,7 @@ class Conv3dPatchFeatureExtractor(PatchFeatureExtractor):
             device=device,
             dtype=dtype,
         )
-        
+
         self.init_fn = init_fn
 
         self.reset_parameters()
@@ -146,7 +145,6 @@ class Conv3dPatchFeatureExtractor(PatchFeatureExtractor):
             self.init_fn(self.conv)
         else:
             self.conv.reset_parameters()
-
 
     @override
     def forward(self, x: Tensor) -> Tensor:

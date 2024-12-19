@@ -41,7 +41,6 @@ class LayerNorm(Module, ABC):
     bias: Parameter | None
     init_fn: Callable[[LayerNorm], None] | None
 
-
     def __init__(
         self,
         normalized_shape: int | Sequence[int] | Size,
@@ -90,7 +89,7 @@ class LayerNorm(Module, ABC):
             )
         else:
             self.register_parameter("bias", None)
-        
+
         self.init_fn = init_fn
 
         self.reset_parameters()
