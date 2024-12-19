@@ -388,7 +388,9 @@ class JepaEncoderBuilder:
 
         init_std = config.init_std
 
-        init_layer_norm = partial(init_truncated_uniforma_weights_and_bias, std=init_std)
+        init_layer_norm = partial(
+            init_truncated_uniforma_weights_and_bias, std=init_std
+        )
 
         return StandardLayerNorm(
             model_dim,
