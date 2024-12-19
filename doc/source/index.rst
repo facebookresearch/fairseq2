@@ -62,6 +62,8 @@ Documentation
    tutorials/monitor_your_experiments
    tutorials/presets
    tutorials/models
+   tutorials/benchmarking
+
 .. toctree::
    :maxdepth: 1
    :caption: FAQ
