@@ -570,20 +570,3 @@ def get_module_size(module: Module) -> ModuleSizeInfo:
         info.total_size_bytes += size_bytes
 
     return info
-
-
-def init_truncated_uniforma_weights_and_bias(
-    m: Module,
-    *,
-    mean: float = 0.0,
-    std: float = 1.0,
-    a: float = -2.0,
-    b: float = 2.0,
-) -> None:
-    if not hasattr(m, "weight") or not hasattr(m, "bias"):
-        raise ValueError(f"Cannot initialize weights and bias of a {type(m)}")
-
-    with torch.no_grad():
-        torch.nn.init.trunc_normal_(m.weight, mean=mean, std=std, a=a, b=b)
-        if m.bias is not None:
-            torch.nn.init.zeros_(m.bias)

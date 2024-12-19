@@ -44,9 +44,6 @@ from fairseq2.nn.transformer import (
     create_default_sdpa,
 )
 from fairseq2.nn.transformer.residual import DropPathResidualConnect
-from fairseq2.nn.utils.module import (
-    init_truncated_uniforma_weights_and_bias as init_module,
-)
 from fairseq2.typing import DataType, Device
 
 JEPA_FAMILY: Final = "jepa"
@@ -204,7 +201,7 @@ class JepaEncoderBuilder:
 
         init_std = config.init_std
 
-        init_conv = partial(init_module, std=init_std)
+        init_conv = partial(init_truncated_uniforma_weights_and_bias, std=init_std)
 
         num_patch_dims = len(config.patch_dims)
 
@@ -335,7 +332,7 @@ class JepaEncoderBuilder:
         init_std = config.init_std
 
         def init_projection(proj: Linear) -> None:
-            init_module(proj, std=init_std)
+            init_truncated_uniforma_weights_and_bias(proj, std=init_std)
 
             with torch.no_grad():
                 proj.weight.div_(math.sqrt(2.0 * (layer_idx + 1)))
@@ -355,14 +352,14 @@ class JepaEncoderBuilder:
         init_std = config.init_std
 
         def init_projection(proj: Linear) -> None:
-            init_module(proj, std=init_std)
+            init_truncated_uniforma_weights_and_bias(proj, std=init_std)
 
             with torch.no_grad():
                 proj.weight.div_(math.sqrt(2.0 * layer_idx))
 
         inner_dim = int(config.model_dim * config.ffn_inner_dim_ratio)
 
-        return StandardFeedForwardNetwork(
+        ffn = StandardFeedForwardNetwork(
             config.model_dim,
             inner_dim,
             bias=True,
@@ -376,7 +373,7 @@ class JepaEncoderBuilder:
         # rescale the last layer
         proj = ffn.output_proj
         assert isinstance(proj, Linear), f"Invalid projection type: {type(proj)}"
-        proj.weight.data.div_(math.sqrt(2.0 * (layer_id + 1)))
+        proj.weight.data.div_(math.sqrt(2.0 * (layer_idx + 1)))
         
         return ffn
 
@@ -391,7 +388,7 @@ class JepaEncoderBuilder:
 
         init_std = config.init_std
 
-        init_layer_norm = partial(init_module, std=init_std)
+        init_layer_norm = partial(init_truncated_uniforma_weights_and_bias, std=init_std)
 
         return StandardLayerNorm(
             model_dim,
@@ -419,7 +416,7 @@ def init_truncated_uniforma_weights_and_bias(
     std: float = 1.0,
     a: float = -2.0,
     b: float = 2.0,
-):
+) -> None:
     if not hasattr(m, "weight") or not hasattr(m, "bias"):
         raise ValueError(f"Cannot initialize weights and bias of a {type(m)}")
     
