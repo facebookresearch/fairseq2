@@ -9,24 +9,21 @@ from __future__ import annotations
 import logging
 import os
 import time
+from abc import ABC, abstractmethod
 from logging import DEBUG, INFO, FileHandler, Formatter, Handler, NullHandler, getLogger
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, final
 
 from fairseq2n import DOC_MODE
 from rich.logging import RichHandler
+from typing_extensions import override
 
+from fairseq2.error import SetupError
 from fairseq2.gang import get_rank
 from fairseq2.recipes.console import get_error_console
 
 
 def setup_basic_logging(*, debug: bool = False, utc_time: bool = False) -> None:
-    """Set up logging for a command line program.
-
-    :param debug: If ``True``, sets the log level to ``DEBUG``; otherwise,
-        to ``INFO``.
-    :param utc_time: If ``True``, logs dates and times in UTC.
-    """
     rank = get_rank()
 
     _setup_core_logging(rank, debug, utc_time)
@@ -35,42 +32,50 @@ def setup_basic_logging(*, debug: bool = False, utc_time: bool = False) -> None:
         getLogger().addHandler(NullHandler())
 
 
-def setup_logging(
-    log_file: Path, *, debug: bool = False, utc_time: bool = False
-) -> None:
-    """Set up logging for a distributed job.
+class LoggingInitializer(ABC):
+    @abstractmethod
+    def initialize(
+        self, log_file: Path, *, debug: bool = False, utc_time: bool = False
+    ) -> None:
+        ...
 
-    :param log_file: The file to which logs will be written. Must have a
-        'rank' replacement field; for example '/path/to/train_{rank}.log'.
-    :param debug: If ``True``, sets the log level to ``DEBUG``; otherwise,
-        to ``INFO``.
-    :param utc_time: If ``True``, logs dates and times in UTC.
-    """
-    rank = get_rank()
 
-    filename = log_file.name.format(rank=rank)
+@final
+class DistributedLoggingInitializer(LoggingInitializer):
+    @override
+    def initialize(
+        self, log_file: Path, *, debug: bool = False, utc_time: bool = False
+    ) -> None:
+        rank = get_rank()
 
-    if filename == log_file.name:
-        raise ValueError(
-            f"`log_file` must have a 'rank' replacement field (i.e. {{rank}}) in its filename, but is '{log_file}' instead."
+        filename = log_file.name.format(rank=rank)
+
+        if filename == log_file.name:
+            raise ValueError(
+                f"`log_file` must have a 'rank' replacement field (i.e. {{rank}}) in its filename, but is '{log_file}' instead."
+            )
+
+        log_file = log_file.with_name(filename)
+
+        try:
+            log_file.parent.mkdir(parents=True, exist_ok=True)
+        except OSError as ex:
+            raise SetupError(
+                f"The '{log_file}' log file cannot be created. See the nested exception for details."
+            ) from ex
+
+        _setup_core_logging(rank, debug, utc_time)
+
+        handler = FileHandler(log_file)
+
+        handler.setFormatter(
+            Formatter(f"[Rank {rank}] %(asctime)s %(levelname)s %(name)s - %(message)s")
         )
 
-    log_file = log_file.with_name(filename)
+        getLogger().addHandler(handler)
 
-    log_file.parent.mkdir(parents=True, exist_ok=True)
-
-    _setup_core_logging(rank, debug, utc_time)
-
-    handler = FileHandler(log_file)
-
-    handler.setFormatter(
-        Formatter(f"[Rank {rank}] %(asctime)s %(levelname)s %(name)s - %(message)s")
-    )
-
-    getLogger().addHandler(handler)
-
-    _setup_aten_logging(log_file)
-    _setup_nccl_logging(log_file)
+        _setup_aten_logging(log_file)
+        _setup_nccl_logging(log_file)
 
 
 def _setup_core_logging(rank: int, debug: bool = False, utc_time: bool = False) -> None:

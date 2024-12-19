@@ -122,7 +122,13 @@ class ConfigAction(Action):
 
                 directive_keys[key] = parsed_value
 
-        setattr(namespace, self.dest, data)
+        items = getattr(namespace, self.dest, None)
+        if items is None:
+            items = []
+
+        items.append(data)
+
+        setattr(namespace, self.dest, items)
 
 
 def parse_dtype(value: str) -> DataType:
