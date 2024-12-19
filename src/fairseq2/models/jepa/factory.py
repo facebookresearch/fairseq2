@@ -44,7 +44,9 @@ from fairseq2.nn.transformer import (
     create_default_sdpa,
 )
 from fairseq2.nn.transformer.residual import DropPathResidualConnect
-from fairseq2.nn.utils.module import init_truncated_uniforma_weights_and_bias as init_module
+from fairseq2.nn.utils.module import (
+    init_truncated_uniforma_weights_and_bias as init_module,
+)
 from fairseq2.typing import DataType, Device
 
 JEPA_FAMILY: Final = "jepa"
@@ -382,7 +384,9 @@ class JepaEncoderBuilder:
 
         init_std = config.init_std
 
-        init_layer_norm = partial(init_truncated_uniforma_weights_and_bias, std=init_std)
+        init_layer_norm = partial(
+            init_truncated_uniforma_weights_and_bias, std=init_std
+        )
 
         return StandardLayerNorm(
             model_dim,
@@ -401,7 +405,7 @@ def create_jepa_model(
     dtype: DataType | None = None,
 ) -> JepaModel:
     return JepaBuilder(config, device=device, dtype=dtype).build_model()
-        
+
 
 def init_truncated_uniforma_weights_and_bias(
     m: Module,
@@ -413,7 +417,7 @@ def init_truncated_uniforma_weights_and_bias(
 ) -> None:
     if not hasattr(m, "weight") or not hasattr(m, "bias"):
         raise ValueError(f"Cannot initialize weights and bias of a {type(m)}")
-    
+
     with torch.no_grad():
         torch.nn.init.trunc_normal_(m.weight, mean=mean, std=std, a=a, b=b)
         if m.bias is not None:
