@@ -51,6 +51,7 @@ Documentation
    basics/ckpt
    basics/recipe
    basics/runtime_extensions
+   basics/gang
    basics/trainer
 
 .. toctree::
