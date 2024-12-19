@@ -360,7 +360,7 @@ class JepaEncoderBuilder:
 
         inner_dim = int(config.model_dim * config.ffn_inner_dim_ratio)
 
-        ffn = StandardFeedForwardNetwork(
+        return StandardFeedForwardNetwork(
             config.model_dim,
             inner_dim,
             bias=True,
@@ -370,13 +370,6 @@ class JepaEncoderBuilder:
             device=self._device,
             dtype=self._dtype,
         )
-
-        # rescale the last layer
-        proj = ffn.output_proj
-        assert isinstance(proj, Linear), f"Invalid projection type: {type(proj)}"
-        proj.weight.data.div_(math.sqrt(2.0 * (layer_idx + 1)))
-        
-        return ffn
 
     def build_layer_norm(
         self,
