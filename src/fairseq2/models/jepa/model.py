@@ -44,9 +44,7 @@ class JepaModel(Module):
 
     def forward(self, batch: SequenceBatch) -> SequenceBatch:
         seqs, padding_mask = self.encoder_frontend(batch.seqs, batch.padding_mask)
-        out_seqs, out_mask = self.encoder(seqs, padding_mask)  # type: ignore[no-any-return]
-        
-        return SequenceBatch(
-            seqs=out_seqs,
-            padding_mask=out_mask,
-        )
+
+        seqs, padding_mask = self.encoder(seqs, padding_mask)
+
+        return SequenceBatch(seqs, padding_mask)
