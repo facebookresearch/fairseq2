@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from torch.optim import Optimizer
 
 from fairseq2.factory_registry import ConfigBoundFactoryRegistry
+from fairseq2.logging import get_log_writer
 from fairseq2.optim.lr_scheduler.base import LRScheduler
 from fairseq2.optim.lr_scheduler.cosine import CosineAnnealingLR
 from fairseq2.optim.lr_scheduler.myle import MyleLR
@@ -23,6 +24,8 @@ lr_scheduler_factories = ConfigBoundFactoryRegistry[
 ]()
 
 lr_scheduler_factory = lr_scheduler_factories.decorator
+
+log = get_log_writer(__name__)
 
 
 def create_lr_scheduler(
@@ -67,8 +70,11 @@ class CosineAnnealingLRConfig:
     start_lr: float = 0.0
     """The initial warmup learning rate."""
 
-    final_lr: float = 0.0
-    """The final learning rate."""
+    final_lr: float | None = None
+    """The final learning rate, ignored in favor of final_lr_scale if set to None. If this is None, then final_lr_scale has to be not None."""
+
+    final_lr_scale: float | None = 0.2
+    """Scale multipled with optimizer LR to set the final LR. If this is None, then final_lr has to be not None."""
 
 
 @lr_scheduler_factory("cosine-annealing")
@@ -85,6 +91,29 @@ def create_cosine_annealing_lr(
     else:
         cycle_len = config.cycle_len
 
+    # Validate config and set final_lr
+    if (config.final_lr is not None) and (config.final_lr_scale is not None):
+        raise ValueError(
+            f"Invalid configuration: Both `final_lr` ({config.final_lr}) and `final_lr_scale` "
+            f"({config.final_lr_scale}) are set. Please specify only one."
+        )
+
+    if (config.final_lr is None) and (config.final_lr_scale is None):
+        raise ValueError(
+            "Invalid configuration: Either `final_lr` or `final_lr_scale` must be specified."
+        )
+
+    # Compute final_lr based on the configuration
+    if config.final_lr_scale is not None:
+        final_lr = optimizer.param_groups[0]["lr"] * config.final_lr_scale
+    else:
+        final_lr = config.final_lr  # type: ignore
+
+    if final_lr > optimizer.param_groups[0]["lr"]:
+        log.warning(
+            f"ATTENTION: Final LR scheduler value ({final_lr}) > Optimizer LR ({optimizer.param_groups[0]['lr']}). This means your learning rate will increase over the course of training."
+        )
+
     return CosineAnnealingLR(
         optimizer,
         cycle_len,
@@ -92,7 +121,7 @@ def create_cosine_annealing_lr(
         cycle_mul=config.cycle_mul,
         lr_mul=config.lr_mul,
         start_lr=config.start_lr,
-        final_lr=config.final_lr,
+        final_lr=final_lr,
     )
 
 

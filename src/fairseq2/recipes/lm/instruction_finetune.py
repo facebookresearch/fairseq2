@@ -156,7 +156,7 @@ class InstructionFinetuneConfig:
     """The learning rate scheduler."""
 
     lr_scheduler_config: Any = field(
-        default_factory=lambda: CosineAnnealingLRConfig(final_lr=5.5e-06 * 0.2)
+        default_factory=lambda: CosineAnnealingLRConfig(final_lr_scale=0.2)
     )
     """The configuration of the learning rate scheduler."""
 
