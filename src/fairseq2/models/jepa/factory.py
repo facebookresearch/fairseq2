@@ -374,7 +374,7 @@ class JepaEncoderBuilder:
         proj = ffn.output_proj
         assert isinstance(proj, Linear), f"Invalid projection type: {type(proj)}"
         proj.weight.data.div_(math.sqrt(2.0 * (layer_idx + 1)))
-        
+
         return ffn
 
     def build_layer_norm(
@@ -407,7 +407,7 @@ def create_jepa_model(
     dtype: DataType | None = None,
 ) -> JepaModel:
     return JepaBuilder(config, device=device, dtype=dtype).build_model()
-        
+
 
 def init_truncated_uniforma_weights_and_bias(
     m: Module,
@@ -419,7 +419,7 @@ def init_truncated_uniforma_weights_and_bias(
 ) -> None:
     if not hasattr(m, "weight") or not hasattr(m, "bias"):
         raise ValueError(f"Cannot initialize weights and bias of a {type(m)}")
-    
+
     with torch.no_grad():
         torch.nn.init.trunc_normal_(m.weight, mean=mean, std=std, a=a, b=b)
         if m.bias is not None:
