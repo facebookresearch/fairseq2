@@ -138,7 +138,7 @@ class StandardWav2Vec2Masker(Wav2Vec2Masker):
         else:
             mask_indices = compute_mask_indices(
                 (batch_size, seq_len),
-                None if padding_mask is None else padding_mask.materialize(),
+                None if padding_mask is None else ~padding_mask.materialize(),
                 self.max_temporal_mask_prob,
                 self.temporal_span_len,
                 mask_type="static",
