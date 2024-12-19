@@ -355,7 +355,7 @@ class JepaEncoderBuilder:
             init_truncated_uniforma_weights_and_bias(proj, std=init_std)
 
             with torch.no_grad():
-                proj.weight.div_(math.sqrt(2.0 * layer_idx))
+                proj.weight.div_(math.sqrt(2.0 * (layer_idx + 1)))
 
         inner_dim = int(config.model_dim * config.ffn_inner_dim_ratio)
 
