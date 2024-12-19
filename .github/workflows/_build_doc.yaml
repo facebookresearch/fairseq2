@@ -28,9 +28,8 @@ jobs:
       run:
         shell: bash
     steps:
-      - name: Install Git LFS
-        run: |
-          apt-get install -y git-lfs
+      - name: Set up Git LFS
+        uses: actions/git-lfs@v3
       - name: Check-out the repository
         uses: actions/checkout@v3
         with:
