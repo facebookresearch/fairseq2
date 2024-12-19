@@ -11,8 +11,14 @@ from dataclasses import dataclass, field
 from functools import partial
 from typing import Final, cast
 
+<<<<<<< HEAD
 import torch
 from torch.nn import GELU
+=======
+from torch import Tensor
+import torch
+from torch.nn import GELU, Module
+>>>>>>> a09ad4fe (Can's comments)
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.models.jepa.model import JepaModel
@@ -338,7 +344,7 @@ class JepaEncoderBuilder:
             init_module(proj, std=init_std)
 
             with torch.no_grad():
-                proj.weight.div_(math.sqrt(2.0 * layer_idx))
+                proj.weight.div_(math.sqrt(2.0 * (layer_idx + 1)))
 
         return Linear(
             config.model_dim,
@@ -373,6 +379,13 @@ class JepaEncoderBuilder:
             dtype=self._dtype,
         )
 
+        # rescale the last layer
+        proj = ffn.output_proj
+        assert isinstance(proj, Linear), f"Invalid projection type: {type(proj)}"
+        proj.weight.data.div_(math.sqrt(2.0 * (layer_id + 1)))
+        
+        return ffn
+
     def build_layer_norm(
         self,
         model_dim: int,
@@ -403,3 +416,20 @@ def create_jepa_model(
     dtype: DataType | None = None,
 ) -> JepaModel:
     return JepaBuilder(config, device=device, dtype=dtype).build_model()
+        
+
+def init_truncated_uniforma_weights_and_bias(
+    m: Module,
+    *,
+    mean: float = 0.0,
+    std: float = 1.0,
+    a: float = -2.0,
+    b: float = 2.0,
+):
+    if not hasattr(m, "weight") or not hasattr(m, "bias"):
+        raise ValueError(f"Cannot initialize weights and bias of a {type(m)}")
+    
+    with torch.no_grad():
+        torch.nn.init.trunc_normal_(m.weight, mean=mean, std=std, a=a, b=b)
+        if m.bias is not None:
+            torch.nn.init.zeros_(m.bias)

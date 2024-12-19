@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import math
 import re
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
@@ -571,6 +570,7 @@ def get_module_size(module: Module) -> ModuleSizeInfo:
         info.total_size_bytes += size_bytes
 
     return info
+<<<<<<< HEAD
 
 
 def normalize_truncate(
@@ -612,3 +612,5 @@ def init_truncated_uniforma_weights_and_bias(
         normalize_truncate(m.weight, mean=mean, std=std, a=a, b=b)
         if m.bias is not None:
             torch.nn.init.zeros_(m.bias)
+=======
+>>>>>>> a09ad4fe (Can's comments)
