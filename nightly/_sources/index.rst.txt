@@ -48,8 +48,11 @@ Documentation
    basics/cli
    basics/assets
    basics/data_pipeline
+   basics/ckpt
    basics/recipe
    basics/runtime_extensions
+   basics/gang
+   basics/trainer
 
 .. toctree::
    :maxdepth: 1
@@ -58,6 +61,9 @@ Documentation
    tutorials/end_to_end_fine_tuning
    tutorials/monitor_your_experiments
    tutorials/presets
+   tutorials/benchmarking
+   tutorials/pudb
+   tutorials/models
 
 .. toctree::
    :maxdepth: 1

@@ -68,6 +68,9 @@ Use ``--config`` to override specific values:
     # Override multiple values
     fairseq2 lm instruction_finetune <OUTPUT_DIR> --config max_num_tokens=512 max_seq_len=512
 
+    # Override a tuple
+    fairseq2 lm instruction_finetune <OUTPUT_DIR> --config profile="[500,10]"
+
 .. note::
 
   Unlike ``--config-file``, only one ``--config`` argument can be used.
