@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import final
 
 from torch.nn import Module
@@ -43,11 +42,9 @@ class JepaModel(Module):
         self.encoder_frontend = encoder_frontend
         self.encoder = encoder
 
-    def forward(self, batch: SequenceBatch) -> JepaOutput:
-        raise NotImplementedError()
+    def forward(self, batch: SequenceBatch) -> SequenceBatch:
+        seqs, padding_mask = self.encoder_frontend(batch.seqs, batch.padding_mask)
 
+        seqs, padding_mask = self.encoder(seqs, padding_mask)
 
-@final
-@dataclass
-class JepaOutput:
-    pass
+        return SequenceBatch(seqs, padding_mask)
