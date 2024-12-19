@@ -6,10 +6,13 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
+from functools import partial
 from typing import Final, cast
 
-from torch.nn import GELU
+import torch
+from torch.nn import GELU, Module
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.models.jepa.model import JepaModel
@@ -23,6 +26,7 @@ from fairseq2.models.vit import (
 from fairseq2.nn import (
     InterpolatedPositionEncoder,
     LayerNorm,
+    Linear,
     Sinusoidal2dPositionEncoder,
     Sinusoidal3dPositionEncoder,
     StandardLayerNorm,
@@ -38,6 +42,10 @@ from fairseq2.nn.transformer import (
     TransformerEncoderLayer,
     TransformerNormOrder,
     create_default_sdpa,
+)
+from fairseq2.nn.transformer.residual import DropPathResidualConnect
+from fairseq2.nn.utils.module import (
+    init_truncated_uniforma_weights_and_bias as init_module,
 )
 from fairseq2.typing import DataType, Device
 
@@ -97,8 +105,20 @@ class JepaEncoderConfig:
     feed-forward networks to :attr:`model_dim`.
     """
 
+    init_std: float = 0.02
+    """
+    The standard deviation to initialize weights and biases of projection and
+    normalization layers.
+    """
+
     dropout_p: float = 0.0
     """The dropout probability on outputs of Transformer layers."""
+
+    droppath_p: float = 0.0
+    """
+    The probability of dropping sequences from outputs of multi-head attention
+    and feed-forward network layers before adding residuals.
+    """
 
     uniform_power: bool = False
     """
@@ -182,6 +202,10 @@ class JepaEncoderBuilder:
     def build_feature_extractor(self) -> PatchFeatureExtractor:
         config = self._config
 
+        init_std = config.init_std
+
+        init_conv = partial(init_truncated_uniforma_weights_and_bias, std=init_std)
+
         num_patch_dims = len(config.patch_dims)
 
         if num_patch_dims == 3:
@@ -191,6 +215,7 @@ class JepaEncoderBuilder:
                 config.num_input_channels,
                 config.model_dim,
                 patch_3d_dims,
+                init_fn=init_conv,
                 device=self._device,
                 dtype=self._dtype,
             )
@@ -201,6 +226,7 @@ class JepaEncoderBuilder:
                 config.num_input_channels,
                 config.model_dim,
                 patch_2d_dims,
+                init_fn=init_conv,
                 device=self._device,
                 dtype=self._dtype,
             )
@@ -255,7 +281,7 @@ class JepaEncoderBuilder:
 
         num_layers = config.num_encoder_layers
 
-        layers = [self.build_encoder_layer() for _ in range(num_layers)]
+        layers = [self.build_encoder_layer(i) for i in range(num_layers)]
 
         return StandardTransformerEncoder(
             layers,
@@ -265,12 +291,14 @@ class JepaEncoderBuilder:
             dtype=self._dtype,
         )
 
-    def build_encoder_layer(self) -> TransformerEncoderLayer:
+    def build_encoder_layer(self, layer_idx: int) -> TransformerEncoderLayer:
         config = self._config
 
-        self_attn = self.build_attention()
+        self_attn = self.build_attention(layer_idx)
 
-        ffn = self.build_ffn()
+        ffn = self.build_ffn(layer_idx)
+
+        drop_path = DropPathResidualConnect(drop_p=config.droppath_p)
 
         return StandardTransformerEncoderLayer(
             self_attn,
@@ -278,47 +306,95 @@ class JepaEncoderBuilder:
             dropout_p=config.dropout_p,
             norm_order=TransformerNormOrder.PRE,
             layer_norm_factory=self.build_layer_norm,
+            self_attn_residual=drop_path,
+            ffn_residual=drop_path,
             device=self._device,
             dtype=self._dtype,
         )
 
-    def build_attention(self) -> MultiheadAttention:
+    def build_attention(self, layer_idx: int) -> MultiheadAttention:
         config = self._config
 
         sdpa = create_default_sdpa(attn_dropout_p=config.attn_dropout_p)
+
+        output_proj = self.build_mha_output_projection(layer_idx)
 
         return StandardMultiheadAttention(
             config.model_dim,
             config.num_encoder_attn_heads,
             sdpa=sdpa,
             bias=config.qkv_bias,
-            output_proj_bias=True,
+            output_proj=output_proj,
             device=self._device,
             dtype=self._dtype,
         )
 
-    def build_ffn(self) -> FeedForwardNetwork:
+    def build_mha_output_projection(self, layer_idx: int) -> Linear:
         config = self._config
+
+        init_std = config.init_std
+
+        def init_projection(proj: Linear) -> None:
+            init_truncated_uniforma_weights_and_bias(proj, std=init_std)
+
+            with torch.no_grad():
+                proj.weight.div_(math.sqrt(2.0 * (layer_idx + 1)))
+
+        return Linear(
+            config.model_dim,
+            config.model_dim,
+            bias=True,
+            init_fn=init_projection,
+            device=self._device,
+            dtype=self._dtype,
+        )
+
+    def build_ffn(self, layer_idx: int) -> FeedForwardNetwork:
+        config = self._config
+
+        init_std = config.init_std
+
+        def init_projection(proj: Linear) -> None:
+            init_truncated_uniforma_weights_and_bias(proj, std=init_std)
+
+            with torch.no_grad():
+                proj.weight.div_(math.sqrt(2.0 * (layer_idx + 1)))
+
+        inner_dim = int(config.model_dim * config.ffn_inner_dim_ratio)
 
         return StandardFeedForwardNetwork(
             config.model_dim,
-            int(config.model_dim * config.ffn_inner_dim_ratio),
+            inner_dim,
             bias=True,
             inner_activation=GELU(),
+            proj_init_fn=init_projection,
             norm_order=TransformerNormOrder.PRE,
             device=self._device,
             dtype=self._dtype,
         )
 
-    @staticmethod
     def build_layer_norm(
+        self,
         model_dim: int,
         *,
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> LayerNorm:
+        config = self._config
+
+        init_std = config.init_std
+
+        init_layer_norm = partial(
+            init_truncated_uniforma_weights_and_bias, std=init_std
+        )
+
         return StandardLayerNorm(
-            model_dim, bias=True, eps=1e-6, device=device, dtype=dtype
+            model_dim,
+            bias=True,
+            eps=1e-6,
+            init_fn=init_layer_norm,
+            device=device,
+            dtype=dtype,
         )
 
 
@@ -329,3 +405,20 @@ def create_jepa_model(
     dtype: DataType | None = None,
 ) -> JepaModel:
     return JepaBuilder(config, device=device, dtype=dtype).build_model()
+
+
+def init_truncated_uniforma_weights_and_bias(
+    m: Module,
+    *,
+    mean: float = 0.0,
+    std: float = 1.0,
+    a: float = -2.0,
+    b: float = 2.0,
+) -> None:
+    if not hasattr(m, "weight") or not hasattr(m, "bias"):
+        raise ValueError(f"Cannot initialize weights and bias of a {type(m)}")
+
+    with torch.no_grad():
+        torch.nn.init.trunc_normal_(m.weight, mean=mean, std=std, a=a, b=b)
+        if m.bias is not None:
+            torch.nn.init.zeros_(m.bias)

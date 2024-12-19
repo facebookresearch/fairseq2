@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
@@ -570,3 +571,45 @@ def get_module_size(module: Module) -> ModuleSizeInfo:
         info.total_size_bytes += size_bytes
 
     return info
+
+
+def normalize_truncate(
+    tensor: Tensor,
+    *,
+    mean: float = 0.0,
+    std: float = 1.0,
+    a: float = -2.0,
+    b: float = 2.0,
+) -> None:
+    
+    def _norm_cdf(x):
+        # Computes standard normal cumulative distribution function
+        return (1.0 + math.erf(x / math.sqrt(2.0))) / 2.0
+
+    lower = _norm_cdf((a - mean) / std)
+    upper = _norm_cdf((b - mean) / std)
+    
+    tensor.uniform_(2 * lower - 1, 2 * upper - 1)
+    tensor.erfinv_()
+    
+    tensor.mul_(std * math.sqrt(2.0))
+    tensor.add_(mean)
+    
+    tensor.clamp_(min=a, max=b)
+        
+
+def init_truncated_uniforma_weights_and_bias(
+    m: Module,
+    *,
+    mean: float = 0.0,
+    std: float = 1.0,
+    a: float = -2.0,
+    b: float = 2.0,
+):
+    if not hasattr(m, "weight") or not hasattr(m, "bias"):
+        raise ValueError(f"Cannot initialize weights and bias of a {type(m)}")
+    
+    with torch.no_grad():
+        normalize_truncate(m.weight, mean=mean, std=std, a=a, b=b)
+        if m.bias is not None:
+            torch.nn.init.zeros_(m.bias)
