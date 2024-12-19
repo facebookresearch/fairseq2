@@ -11,14 +11,8 @@ from dataclasses import dataclass, field
 from functools import partial
 from typing import Final, cast
 
-<<<<<<< HEAD
-import torch
-from torch.nn import GELU
-=======
-from torch import Tensor
 import torch
 from torch.nn import GELU, Module
->>>>>>> a09ad4fe (Can's comments)
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.models.jepa.model import JepaModel
