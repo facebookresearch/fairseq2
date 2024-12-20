@@ -20,10 +20,13 @@ from fairseq2.assets.metadata_provider import (
     AssetMetadataProvider,
     FileAssetMetadataProvider,
     PackageAssetMetadataProvider,
+    WheelPackageFileLister,
 )
 from fairseq2.error import ContractError
 from fairseq2.extensions import run_extensions
 from fairseq2.utils.env import get_path_from_env
+from fairseq2.utils.file import StandardFileSystem
+from fairseq2.utils.yaml import load_yaml
 
 AssetScope: TypeAlias = Literal["all", "global", "user"]
 
@@ -220,7 +223,9 @@ class StandardAssetStore(AssetStore):
         :param path: The directory under which asset metadata is stored.
         :param user: If ``True``, adds the metadata provider to the user scope.
         """
-        provider = FileAssetMetadataProvider(path)
+        file_system = StandardFileSystem()
+
+        provider = FileAssetMetadataProvider(path, file_system, load_yaml)
 
         providers = self.user_metadata_providers if user else self.metadata_providers
 
@@ -232,7 +237,9 @@ class StandardAssetStore(AssetStore):
         :param package_name: The name of the package in which asset metadata is
             stored.
         """
-        provider = PackageAssetMetadataProvider(package_name)
+        file_lister = WheelPackageFileLister()
+
+        provider = PackageAssetMetadataProvider(package_name, file_lister, load_yaml)
 
         self.metadata_providers.append(provider)
 
