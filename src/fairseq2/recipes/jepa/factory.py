@@ -260,7 +260,7 @@ class AttentivePoolerBuilder:
         sdpa = create_default_sdpa(attn_dropout_p=config.attn_dropout_p)
 
         if is_cross_attn:
-            output_proj = IdentityProjection(config.model_dim, config.model_dim)
+            output_proj: Projection = IdentityProjection(config.model_dim, config.model_dim)
         output_proj = self.build_mha_output_projection(layer_idx)
 
         return StandardMultiheadAttention(
