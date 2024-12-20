@@ -15,6 +15,7 @@ from warnings import catch_warnings
 
 import torch
 from torch import Tensor
+from torch.distributed import ProcessGroup
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.api import (
     BackwardPrefetch,
@@ -27,7 +28,7 @@ from torch.distributed.fsdp.api import (
 )
 from torch.nn import Module, Parameter
 
-from fairseq2.gang import Gang
+from fairseq2.gang import Gang, setup_hybrid_fsdp_gangs
 from fairseq2.logging import log
 from fairseq2.nn.utils.module import (
     apply_to_parameters,
@@ -87,29 +88,26 @@ def to_fsdp(
         If ``True``, the gradients will be reduced in full precision. Only
         relevant if ``mixed_precision_dtype`` is not ``None``.
     """
+    process_group: ProcessGroup | tuple[ProcessGroup, ProcessGroup] | None = None
+
     if local_world_size is not None:
-        if local_world_size == 0:
-            raise ValueError(
-                f"`local_world_size` must be greater than 0, but is {local_world_size} instead."
-            )
+        sharding_strategy = ShardingStrategy.HYBRID_SHARD
 
-        if local_world_size > gang.size:
-            raise ValueError(
-                f"`local_world_size` must be less than or equal to `gang.size` ({gang.size}), but is {local_world_size} instead."
-            )
+        sharding_gang, replication_gang = setup_hybrid_fsdp_gangs(
+            gang, local_world_size
+        )
 
-        if gang.size % local_world_size != 0:
-            raise ValueError(
-                f"`gang.size` ({gang.size}) must be a multiple of `local_world_size` ({local_world_size})."
-            )
-
-        # TODO(balioglu): Finish!
-        raise NotImplementedError("`local_world_size` is not supported yet.")
+        process_group = (
+            sharding_gang.as_process_group(),
+            replication_gang.as_process_group(),
+        )
     else:
         if reshard_after_forward:
             sharding_strategy = ShardingStrategy.FULL_SHARD
         else:
             sharding_strategy = ShardingStrategy.SHARD_GRAD_OP
+
+        process_group = gang.as_process_group()
 
     if memory_policy is None:
         memory_policy = FSDP_STANDARD_MEMORY_POLICY
@@ -156,7 +154,7 @@ def to_fsdp(
 
     fsdp = FSDP(
         module,
-        process_group=gang.as_process_group(),
+        process_group=process_group,
         sharding_strategy=sharding_strategy,
         cpu_offload=CPUOffload() if memory_policy.cpu_offload else None,
         auto_wrap_policy=wrap_policy,
