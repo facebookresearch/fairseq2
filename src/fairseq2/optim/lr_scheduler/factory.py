@@ -103,7 +103,9 @@ def create_cosine_annealing_lr(
     elif config.final_lr is not None:
         final_lr = config.final_lr
     else:
-        raise ValueError("Invalid configuration: Either `final_lr` or `final_lr_scale` must be specified.")
+        raise ValueError(
+            "Invalid configuration: Either `final_lr` or `final_lr_scale` must be specified."
+        )
 
     if final_lr > optimizer.param_groups[0]["lr"]:
         log.warning(
