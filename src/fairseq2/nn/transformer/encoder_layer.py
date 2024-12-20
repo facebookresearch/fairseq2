@@ -7,11 +7,10 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable
 from typing import final
 
-from torch import Tensor, zeros
-from torch.nn import Dropout, Module, Parameter
+from torch import Tensor
+from torch.nn import Dropout, Module
 from typing_extensions import override
 
 from fairseq2.nn.normalization import LayerNorm
