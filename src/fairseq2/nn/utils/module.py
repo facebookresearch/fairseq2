@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import math
 import re
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
