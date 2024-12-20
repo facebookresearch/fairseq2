@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from typing import final
 
 from torch import Tensor
@@ -54,6 +55,7 @@ class Conv2dPatchFeatureExtractor(PatchFeatureExtractor):
     """Extracts patch features from 2-dimensional inputs using convolution."""
 
     conv: Conv2d
+    init_fn: Callable[[Conv2d], None] | None
 
     def __init__(
         self,
@@ -61,6 +63,7 @@ class Conv2dPatchFeatureExtractor(PatchFeatureExtractor):
         feature_dim: int,
         patch_dims: tuple[int, int],
         *,
+        init_fn: Callable[[Conv2d], None] | None = None,
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> None:
@@ -81,6 +84,17 @@ class Conv2dPatchFeatureExtractor(PatchFeatureExtractor):
             dtype=dtype,
         )
 
+        self.init_fn = init_fn
+
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        """Reset the parameters and buffers of the module."""
+        if self.init_fn is not None:
+            self.init_fn(self.conv)
+        else:
+            self.conv.reset_parameters()
+
     @override
     def forward(self, x: Tensor) -> Tensor:
         # (N, C, H_inp, W_inp) -> (N, H_out, W_out, E)
@@ -92,6 +106,7 @@ class Conv3dPatchFeatureExtractor(PatchFeatureExtractor):
     """Extracts patch features from 3-dimensional inputs using convolution."""
 
     conv: Conv3d
+    init_fn: Callable[[Conv3d], None] | None
 
     def __init__(
         self,
@@ -99,6 +114,7 @@ class Conv3dPatchFeatureExtractor(PatchFeatureExtractor):
         feature_dim: int,
         patch_dims: tuple[int, int, int],
         *,
+        init_fn: Callable[[Conv3d], None] | None = None,
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> None:
@@ -118,6 +134,17 @@ class Conv3dPatchFeatureExtractor(PatchFeatureExtractor):
             device=device,
             dtype=dtype,
         )
+
+        self.init_fn = init_fn
+
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        """Reset the parameters and buffers of the module."""
+        if self.init_fn is not None:
+            self.init_fn(self.conv)
+        else:
+            self.conv.reset_parameters()
 
     @override
     def forward(self, x: Tensor) -> Tensor:
