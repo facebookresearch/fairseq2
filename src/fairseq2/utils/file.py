@@ -6,9 +6,10 @@
 
 from __future__ import annotations
 
+import os
 import warnings
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from pathlib import Path
 from pickle import PickleError
 from typing import Protocol, TypeAlias, final
@@ -31,6 +32,16 @@ class FileSystem(ABC):
     def make_directory(self, path: Path) -> None:
         ...
 
+    @abstractmethod
+    def walk_directory(
+        self, path: Path, *, on_error: Callable[[OSError], None] | None
+    ) -> Iterable[tuple[str, Sequence[str]]]:
+        ...
+
+    @abstractmethod
+    def resolve(self, path: Path) -> Path:
+        ...
+
 
 @final
 class StandardFileSystem(FileSystem):
@@ -41,6 +52,17 @@ class StandardFileSystem(FileSystem):
     @override
     def make_directory(self, path: Path) -> None:
         path.mkdir(parents=True, exist_ok=True)
+
+    @override
+    def walk_directory(
+        self, path: Path, *, on_error: Callable[[OSError], None] | None
+    ) -> Iterable[tuple[str, Sequence[str]]]:
+        for dir_pathname, _, filenames in os.walk(path, onerror=on_error):
+            yield dir_pathname, filenames
+
+    @override
+    def resolve(self, path: Path) -> Path:
+        return path.expanduser().resolve()
 
 
 MapLocation: TypeAlias = (

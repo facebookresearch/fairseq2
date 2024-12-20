@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import os
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from copy import deepcopy
@@ -18,7 +17,8 @@ from importlib_resources.readers import MultiplexedPath
 from typing_extensions import override
 
 from fairseq2.error import ContractError, InternalError
-from fairseq2.utils.yaml import YamlError, YamlLoader, load_yaml
+from fairseq2.utils.file import FileSystem
+from fairseq2.utils.yaml import YamlError, YamlLoader
 
 
 class AssetMetadataProvider(ABC):
@@ -102,20 +102,26 @@ class FileAssetMetadataProvider(AbstractAssetMetadataProvider):
     """Provides asset metadata stored on a file system."""
 
     _path: Path
+    _file_system: FileSystem
+    _yaml_loader: YamlLoader
 
-    def __init__(self, path: Path) -> None:
+    def __init__(
+        self, path: Path, file_system: FileSystem, yaml_loader: YamlLoader
+    ) -> None:
         super().__init__()
 
         self._path = path
+        self._file_system = file_system
+        self._yaml_loader = yaml_loader
 
     @override
     def _load_cache(self) -> dict[str, dict[str, object]]:
-        path = self._path.expanduser().resolve()
+        path = self._file_system.resolve(self._path)
 
         cache = {}
 
         def cache_file(file: Path, source: str) -> None:
-            for name, metadata in load_metadata_file(file, load_yaml):
+            for name, metadata in load_metadata_file(file, self._yaml_loader):
                 if name in cache:
                     if file == path:
                         raise AssetMetadataError(
@@ -138,7 +144,9 @@ class FileAssetMetadataProvider(AbstractAssetMetadataProvider):
                     f"The '{path}' base asset metadata directory cannot be traversed. See the nested exception for details."
                 ) from ex
 
-            for dir_pathname, _, filenames in os.walk(path, onerror=on_error):
+            for dir_pathname, filenames in self._file_system.walk_directory(
+                path, on_error=on_error
+            ):
                 metadata_dir = Path(dir_pathname)
 
                 for filename in filenames:
@@ -159,11 +167,20 @@ class PackageAssetMetadataProvider(AbstractAssetMetadataProvider):
     """Provides asset metadata stored in a Python namespace package."""
 
     _package_name: str
+    _package_file_lister: PackageFileLister
+    _yaml_loader: YamlLoader
 
-    def __init__(self, package_name: str) -> None:
+    def __init__(
+        self,
+        package_name: str,
+        package_file_lister: PackageFileLister,
+        yaml_loader: YamlLoader,
+    ) -> None:
         super().__init__()
 
         self._package_name = package_name
+        self._package_file_lister = package_file_lister
+        self._yaml_loader = yaml_loader
 
     @override
     def _load_cache(self) -> dict[str, dict[str, object]]:
@@ -171,11 +188,11 @@ class PackageAssetMetadataProvider(AbstractAssetMetadataProvider):
 
         cache = {}
 
-        for file in self._list_files():
+        for file in self._package_file_lister.list(self._package_name):
             if file.suffix != ".yaml" and file.suffix != ".yml":
                 continue
 
-            for name, metadata in load_metadata_file(file, load_yaml):
+            for name, metadata in load_metadata_file(file, self._yaml_loader):
                 if name in cache:
                     raise AssetMetadataError(
                         f"Two assets in the '{self._package_name}' package have the same name '{name}'."
@@ -187,7 +204,17 @@ class PackageAssetMetadataProvider(AbstractAssetMetadataProvider):
 
         return cache
 
-    def _list_files(self) -> list[Path]:
+
+class PackageFileLister(ABC):
+    @abstractmethod
+    def list(self, package_name: str) -> list[Path]:
+        ...
+
+
+@final
+class WheelPackageFileLister(PackageFileLister):
+    @override
+    def list(self, package_name: str) -> list[Path]:
         files = []
 
         def collect_files(p: MultiplexedPath | Path) -> None:
@@ -202,7 +229,7 @@ class PackageAssetMetadataProvider(AbstractAssetMetadataProvider):
                 for e in p.iterdir():
                     collect_files(e)
 
-        path = get_files(self._package_name)
+        path = get_files(package_name)
 
         collect_files(path)
 
