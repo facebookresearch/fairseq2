@@ -4,9 +4,9 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+import math
 from dataclasses import dataclass, field
 from functools import partial
-import math
 from typing import final
 
 import torch
@@ -20,16 +20,13 @@ from fairseq2.models.jepa.factory import (
     init_truncated_uniforma_weights_and_bias,
 )
 from fairseq2.nn.normalization import LayerNorm, StandardLayerNorm
-from fairseq2.nn.projection import IdentityProjection, Linear
+from fairseq2.nn.projection import IdentityProjection, Linear, Projection
 from fairseq2.nn.transformer import (
     FeedForwardNetwork,
-    TransformerDecoder,
     MultiheadAttention,
     StandardMultiheadAttention,
     create_default_sdpa,
 )
-from fairseq2.nn.transformer.decoder import StandardTransformerDecoder
-from fairseq2.nn.transformer.decoder_layer import StandardTransformerDecoderLayer
 from fairseq2.nn.transformer.encoder import (
     StandardTransformerEncoder,
     TransformerEncoder,
@@ -45,7 +42,7 @@ from fairseq2.recipes.jepa.models import (
     CrossAttentionDecoder,
     JepaForClassification,
 )
-from fairseq2.typing import Device, DataType
+from fairseq2.typing import DataType, Device
 
 
 @dataclass(kw_only=True)
@@ -174,7 +171,7 @@ class AttentivePoolerBuilder:
 
     def __init__(
         self,
-        config: JepaForClassificationConfig,
+        config: AttentivePoolerConfig,
         *,
         device: Device | None = None,
         dtype: DataType | None = None,
@@ -188,7 +185,8 @@ class AttentivePoolerBuilder:
 
         def init_pool(pool: Tensor) -> None:
             std = config.init_std
-            init_truncated_uniforma_weights_and_bias(pool, std=std)
+            with torch.no_grad():
+                torch.nn.init.trunc_normal_(pool, std=std)
 
         decoder = self.build_decoder()
 
@@ -275,7 +273,7 @@ class AttentivePoolerBuilder:
             dtype=self._dtype,
         )
 
-    def build_mha_output_projection(self, layer_idx: int) -> Linear:
+    def build_mha_output_projection(self, layer_idx: int) -> Projection:
         config = self._config
 
         init_std = config.init_std

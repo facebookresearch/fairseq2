@@ -8,37 +8,35 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from typing import final
-from typing_extensions import override
-import torch
 
+import torch
 from torch import Tensor
-from torch.nn import Module, Parameter, Dropout
+from torch.nn import Dropout, Module, Parameter
+from typing_extensions import override
 
 from fairseq2.models.jepa.model import JepaModel
 from fairseq2.models.model import Model
 from fairseq2.models.sequence import SequenceBatch
-
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.normalization import LayerNorm
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.projection import Projection
 from fairseq2.nn.transformer import (
-    TransformerEncoder,
     FeedForwardNetwork,
-    MultiheadAttention,
     LayerNormFactory,
-    TransformerNormOrder,
+    MultiheadAttention,
     ResidualConnect,
+    TransformerEncoder,
+    TransformerNormOrder,
     make_standard_layer_norm,
 )
-
 from fairseq2.nn.transformer.residual import StandardResidualConnect
-from fairseq2.typing import Device, DataType
+from fairseq2.typing import DataType, Device
 
 
 class CrossAttentionDecoder(Module):
     """Represents a simple transformer decoder with only cross attention and layernorm"""
-    
+
     model_dim: int
     cross_attn: MultiheadAttention
     cross_attn_dropout: Dropout | None
@@ -51,7 +49,7 @@ class CrossAttentionDecoder(Module):
 
     def __init__(
         self,
-        cross_attn: MultiheadAttention | None,
+        cross_attn: MultiheadAttention,
         ffn: FeedForwardNetwork,
         *,
         dropout_p: float = 0.0,
@@ -147,9 +145,6 @@ class CrossAttentionDecoder(Module):
                 "`encoder_output` must not be `None` for encoder-decoder attention."
             )
 
-        assert self.cross_attn_residual is not None
-        assert self.cross_attn_layer_norm is not None
-
         seqs = self._forward_cross_attn(
             seqs, padding_mask, encoder_output, encoder_padding_mask, state_bag
         )
@@ -167,6 +162,9 @@ class CrossAttentionDecoder(Module):
     ) -> Tensor:
 
         residual = seqs
+
+        assert self.cross_attn_residual is not None
+        assert self.cross_attn_layer_norm is not None
 
         # Note that the cross-attention norm is applief on encoder output and not seqs
         if self.norm_order != TransformerNormOrder.POST:
@@ -258,7 +256,7 @@ class AttentivePooler(Module):
 
         self.num_pools = num_pools
         self.pool_layer = Parameter(
-            torch.empty(1, num_pools, self.model_dim), device=device, dtype=dtype
+            torch.empty(1, num_pools, self.model_dim, device=device, dtype=dtype)
         )
 
         if init_fn:
@@ -312,7 +310,7 @@ class JepaForClassification(Model):
         encoder_output: SequenceBatch = self.encoder(batch)
         seqs, _ = self.pooler(encoder_output.seqs, encoder_output.padding_mask)
         seqs = seqs.squeeze(1)
-        output = self.head(seqs)
+        output: Tensor = self.head(seqs)
         return output
 
     def extra_repr(self) -> str:
