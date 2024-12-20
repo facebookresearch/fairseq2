@@ -23,6 +23,14 @@ from fairseq2.optim.lr_scheduler import (
     PolynomialDecayLR,
     TriStageLR,
 )
+from fairseq2.optim.lr_scheduler.factory import (
+    CosineAnnealingLRConfig,
+    PolynomialDecayLRConfig,
+    TriStageLRConfig,
+    create_cosine_annealing_lr,
+    create_polynomial_decay_lr,
+    create_tri_stage_lr,
+)
 
 
 class LRSchedulerTestNet(Module):
@@ -544,3 +552,112 @@ class TestLRSchedulers:
 
         assert lr1 == pytest.approx(final_lr1)
         assert lr2 == pytest.approx(final_lr2)
+
+
+class TestLRSchedulerFactory:
+    def setup_method(self) -> None:
+        self.base_lr1 = 0.05
+        self.base_lr2 = 0.5
+
+        self.net = LRSchedulerTestNet()
+        self.opt = SGD(
+            params=[  # type: ignore[arg-type]
+                {"params": self.net.conv1.parameters()},
+                {"params": self.net.conv2.parameters(), "lr": self.base_lr2},
+            ],
+            lr=self.base_lr1,
+        )
+
+    def test_create_cosine_annealing_lr(self) -> None:
+        # Test with final_lr
+        config = CosineAnnealingLRConfig(
+            cycle_len=80,
+            num_warmup_steps=100,
+            cycle_mul=1.2,
+            lr_mul=0.5,
+            start_lr=0.01,
+            final_lr=0.02,
+            final_lr_scale=None,
+        )
+
+        scheduler = create_cosine_annealing_lr(config, self.opt, max_num_steps=1000)
+
+        assert isinstance(scheduler, CosineAnnealingLR)
+        assert scheduler.get_last_lr() == [0.01, 0.01]
+
+        # Test with final_lr_scale
+        config = CosineAnnealingLRConfig(
+            cycle_len=80,
+            num_warmup_steps=100,
+            final_lr=None,
+            final_lr_scale=0.2,
+        )
+
+        scheduler = create_cosine_annealing_lr(config, self.opt, max_num_steps=1000)
+        assert isinstance(scheduler, CosineAnnealingLR)
+
+        # Test error when both final_lr and final_lr_scale are set
+        with pytest.raises(
+            ValueError, match="Both `final_lr` .* and `final_lr_scale` .* are set"
+        ):
+            config = CosineAnnealingLRConfig(final_lr=0.02, final_lr_scale=0.2)
+            create_cosine_annealing_lr(config, self.opt, max_num_steps=1000)
+
+        # Test error when neither final_lr nor final_lr_scale are set
+        with pytest.raises(
+            ValueError, match="Either `final_lr` or `final_lr_scale` must be specified"
+        ):
+            config = CosineAnnealingLRConfig(final_lr=None, final_lr_scale=None)
+            create_cosine_annealing_lr(config, self.opt, max_num_steps=1000)
+
+        # Test error when cycle_len is None and max_num_steps is None
+        with pytest.raises(ValueError, match="`cycle_len` must be specified"):
+            config = CosineAnnealingLRConfig(cycle_len=None)
+            create_cosine_annealing_lr(config, self.opt, max_num_steps=None)
+
+    def test_create_polynomial_decay_lr(self) -> None:
+        config = PolynomialDecayLRConfig(
+            num_steps=200,
+            num_warmup_steps=100,
+            power=1.5,
+            start_lr=0.01,
+            final_lr=0.02,
+        )
+
+        scheduler = create_polynomial_decay_lr(config, self.opt, max_num_steps=1000)
+
+        assert isinstance(scheduler, PolynomialDecayLR)
+        assert scheduler.get_last_lr() == [0.01, 0.01]
+
+        # Test with num_steps=None and max_num_steps provided
+        config = PolynomialDecayLRConfig(num_steps=None)
+        scheduler = create_polynomial_decay_lr(config, self.opt, max_num_steps=1000)
+        assert isinstance(scheduler, PolynomialDecayLR)
+
+        # Test error when both num_steps and max_num_steps are None
+        with pytest.raises(ValueError, match="`max_num_steps` must be specified"):
+            config = PolynomialDecayLRConfig(num_steps=None)
+            create_polynomial_decay_lr(config, self.opt, max_num_steps=None)
+
+    def test_create_tri_stage_lr(self) -> None:
+        config = TriStageLRConfig(
+            num_steps=200,
+            stage_ratio=(0.1, 0.4, 0.5),
+            start_lr_scale=0.05,
+            final_lr_scale=0.1,
+        )
+
+        scheduler = create_tri_stage_lr(config, self.opt, max_num_steps=1000)
+
+        assert isinstance(scheduler, TriStageLR)
+        assert scheduler.get_last_lr() == [self.base_lr1 * 0.05, self.base_lr2 * 0.05]
+
+        # Test with num_steps=None and max_num_steps provided
+        config = TriStageLRConfig(num_steps=None)
+        scheduler = create_tri_stage_lr(config, self.opt, max_num_steps=1000)
+        assert isinstance(scheduler, TriStageLR)
+
+        # Test error when both num_steps and max_num_steps are None
+        with pytest.raises(ValueError, match="`max_num_steps` must be specified"):
+            config = TriStageLRConfig(num_steps=None)
+            create_tri_stage_lr(config, self.opt, max_num_steps=None)
