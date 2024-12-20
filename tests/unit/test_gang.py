@@ -15,7 +15,14 @@ from torch import Tensor
 from torch.distributed import ProcessGroup
 from typing_extensions import override
 
-from fairseq2.gang import AbstractGang, ReduceOperation, setup_2D_mesh_gangs
+from fairseq2.gang import (
+    AbstractGang,
+    GangError,
+    ReduceOperation,
+    _setup_2D_mesh_gangs,
+    setup_hybrid_fsdp_gangs,
+    setup_parallel_gangs,
+)
 
 
 class MockGang(AbstractGang):
@@ -100,7 +107,7 @@ class TestGang:
     ) -> None:
         root_gang = MockGang(list(range(size)), rank=rank)
 
-        gangs = setup_2D_mesh_gangs(
+        gangs = _setup_2D_mesh_gangs(
             root_gang,
             row_length=row_length,
             create_single_rank_process_groups=True,
@@ -122,10 +129,13 @@ class TestGang:
             (0, 16, 7),
         ],
     )
-    def test_setup_2D_mesh_raises_exception_on_bad_mesh(
+    def test_setup_with_2D_mesh_raises_exception_on_bad_mesh(
         self, rank: int, size: int, row_length: int
     ) -> None:
         root_gang = MockGang(list(range(size)), rank=rank)
 
-        with pytest.raises(ValueError):
-            setup_2D_mesh_gangs(root_gang, row_length=row_length)
+        with pytest.raises((ValueError, GangError)):
+            setup_hybrid_fsdp_gangs(root_gang, row_length)
+
+        with pytest.raises((ValueError, GangError)):
+            setup_parallel_gangs(root_gang, tp_size=row_length)

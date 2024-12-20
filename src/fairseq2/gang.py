@@ -707,7 +707,7 @@ def fake_gangs(device: Device) -> Gangs:
     return Gangs(gang, gang, gang)
 
 
-def setup_2D_mesh_gangs(
+def _setup_2D_mesh_gangs(
     root_gang: Gang,
     *,
     row_length: int = 1,
@@ -749,21 +749,6 @@ def setup_2D_mesh_gangs(
         A ``dict`` of two gangs; 0 maps to the gang of 2D mesh row,
         1 maps to the gang of the 2D mesh column.
     """
-    if row_length <= 0:
-        raise ValueError(
-            f"`row_length` must be greater than 0, but is {row_length} instead."
-        )
-
-    if row_length > root_gang.size:
-        raise ValueError(
-            f"`row_length` must be less than or equal to `root_gang.size` ({root_gang.size}), but is {row_length} instead."
-        )
-
-    if root_gang.size % row_length != 0:
-        raise ValueError(
-            f"`root_gang.size` ({root_gang.size}) must be divisible by `row_length` ({row_length})."
-        )
-
     row_count = root_gang.size // row_length
 
     mesh = torch.arange(root_gang.size).view(row_count, row_length)
@@ -814,6 +799,62 @@ def setup_2D_mesh_gangs(
     return output
 
 
+def setup_hybrid_fsdp_gangs(gang: Gang, local_world_size: int) -> tuple[Gang, Gang]:
+    """Make gangs to be used for hybrid-sharding FSDP.
+
+    For instance; if we have 8 devices denoted by g0 to g7 and ``local_world_size``
+    is 4, this function will make 2 sharding gangs and 4 replication gangs:
+
+        2 sharding gangs of size 4:
+            [g0, g1, g2, g3], [g4, g5, g6, g7]
+        4 replication gangs of size 2:
+            [g0, g4], [g1, g5], [g2, g6], [g3, g7]
+
+    For efficiency, the caller should make sure adjacent ranks are on the same
+    host.
+
+    :param gang:
+        The gang over which to shard and replicate.
+    :param local_world_size:
+        ``gang`` will be split into sub-gangs each containing
+        ``local_world_size`` number of consecutive processes.
+        The model will be fully sharded within each sub-gang and
+        will be replicated across sub-gangs.
+
+    :returns:
+        A pair of two gangs: the sharding gang that the current process is
+        part of, and the replication gang that the current process is part of
+    """
+    if local_world_size < 1:
+        raise ValueError(
+            f"`local_world_size` must be greater than 1, but is {local_world_size} instead."
+        )
+
+    if local_world_size == 1:
+        raise GangError(
+            f"`local_world_size` must be greater than 1, but is {local_world_size} instead. This hybrid configuration would force FSDP to switch to use `NO_SHARD`, which is deprecated. Please use DDP instead."
+        )
+
+    if local_world_size > gang.size:
+        raise ValueError(
+            f"`local_world_size` must be less than or equal to `gang.size` ({gang.size}), but is {local_world_size} instead."
+        )
+
+    if gang.size % local_world_size != 0:
+        raise GangError(
+            f"`gang.size` ({gang.size}) must be a multiple of `local_world_size` ({local_world_size})."
+        )
+
+    sub_gangs = _setup_2D_mesh_gangs(
+        gang,
+        row_length=local_world_size,
+        create_single_rank_process_groups=True,
+        dim_descriptions=["sharding", "replication"],
+    )
+
+    return sub_gangs[0], sub_gangs[1]
+
+
 def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
     """Make gangs to be used for data and tensor parallelism.
 
@@ -836,9 +877,9 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
         The size of tensor parallel gangs.
 
     :returns:
-        A ``dict`` of two gangs; (1) the data parallel gang that this process
-        is part of denoted by the key "dp", (2) the tensor parallel gang that
-        this process is part of denoted by the key "tp".
+        Three gangs: the root gang, the data parallel gang that this
+        process is part of, and the tensor parallel gang that this process is
+        part of.
     """
     if tp_size <= 0:
         raise ValueError(f"`tp_size` must be greater than 0, but is {tp_size} instead.")
@@ -848,7 +889,7 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
             f"The number of processes in the root gang is expected to be a multiple of the tensor parallel size ({tp_size}), but is {root_gang.size} instead."
         )
 
-    output_from_2D_mesh = setup_2D_mesh_gangs(
+    output_from_2D_mesh = _setup_2D_mesh_gangs(
         root_gang,
         row_length=tp_size,
         dim_descriptions=["tensor parallel", "data parallel"],

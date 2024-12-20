@@ -28,7 +28,7 @@ from torch.distributed.fsdp.api import (
 )
 from torch.nn import Module, Parameter
 
-from fairseq2.gang import Gang, setup_2D_mesh_gangs
+from fairseq2.gang import Gang, setup_hybrid_fsdp_gangs
 from fairseq2.logging import log
 from fairseq2.nn.utils.module import (
     apply_to_parameters,
@@ -91,40 +91,15 @@ def to_fsdp(
     process_group: ProcessGroup | tuple[ProcessGroup, ProcessGroup] | None = None
 
     if local_world_size is not None:
-        if local_world_size < 1:
-            raise ValueError(
-                f"`local_world_size` must be greater than 1, but is {local_world_size} instead."
-            )
-
-        if local_world_size == 1:
-            raise ValueError(
-                f"`local_world_size` must be greater than 1, but is {local_world_size} instead. "
-                "This hybrid configuration would force FSDP to switch to use `NO_SHARD`, "
-                "which is deprecated. Please use DDP instead."
-            )
-
-        if local_world_size > gang.size:
-            raise ValueError(
-                f"`local_world_size` must be less than or equal to `gang.size` ({gang.size}), but is {local_world_size} instead."
-            )
-
-        if gang.size % local_world_size != 0:
-            raise ValueError(
-                f"`gang.size` ({gang.size}) must be a multiple of `local_world_size` ({local_world_size})."
-            )
-
-        sub_gangs = setup_2D_mesh_gangs(
-            gang,
-            row_length=local_world_size,
-            create_single_rank_process_groups=True,
-            dim_descriptions=["sharding", "replication"],
-        )
-
         sharding_strategy = ShardingStrategy.HYBRID_SHARD
 
+        sharding_gang, replication_gang = setup_hybrid_fsdp_gangs(
+            gang, local_world_size
+        )
+
         process_group = (
-            sub_gangs[0].as_process_group(),
-            sub_gangs[1].as_process_group(),
+            sharding_gang.as_process_group(),
+            replication_gang.as_process_group(),
         )
     else:
         if reshard_after_forward:
