@@ -119,7 +119,7 @@ class Linear(Projection):
         if self.init_fn is not None:
             self.init_fn(self)
         else:
-            _init_uniform_weight_and_bias(self.weight, self.bias)
+            _init_uniform(self.weight, self.bias)
 
     @override
     def forward(self, x: Tensor) -> Tensor:
@@ -566,7 +566,7 @@ class TiedProjection(Projection):
         return linear(x, self.weight, self.bias)
 
 
-def _init_uniform_weight_and_bias(weight: Tensor, bias: Tensor | None) -> None:
+def _init_uniform(weight: Tensor, bias: Tensor | None) -> None:
     nn.init.kaiming_uniform_(weight, a=math.sqrt(5))
 
     if bias is not None:

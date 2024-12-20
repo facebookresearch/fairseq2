@@ -8,12 +8,12 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from functools import partial
 from typing import Final, cast
 
 import torch
 import torch.nn as nn
-from torch.nn import GELU, Module
+from torch import Tensor
+from torch.nn import GELU, Conv2d, Conv3d
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.models.jepa.model import JepaModel
@@ -202,29 +202,33 @@ class JepaEncoderBuilder:
 
         init_std = config.init_std
 
-        init_conv = partial(init_truncated_normal, std=init_std)
-
         num_patch_dims = len(config.patch_dims)
 
         if num_patch_dims == 3:
             patch_3d_dims = cast(tuple[int, int, int], config.patch_dims)
 
+            def init_conv3d(conv: Conv3d) -> None:
+                init_truncated_normal(conv.weight, conv.bias, std=init_std)
+
             return Conv3dPatchFeatureExtractor(
                 config.num_input_channels,
                 config.model_dim,
                 patch_3d_dims,
-                init_fn=init_conv,
+                init_fn=init_conv3d,
                 device=self._device,
                 dtype=self._dtype,
             )
         elif num_patch_dims == 2:
             patch_2d_dims = cast(tuple[int, int], config.patch_dims)
 
+            def init_conv2d(conv: Conv2d) -> None:
+                init_truncated_normal(conv.weight, conv.bias, std=init_std)
+
             return Conv2dPatchFeatureExtractor(
                 config.num_input_channels,
                 config.model_dim,
                 patch_2d_dims,
-                init_fn=init_conv,
+                init_fn=init_conv2d,
                 device=self._device,
                 dtype=self._dtype,
             )
@@ -333,7 +337,7 @@ class JepaEncoderBuilder:
         init_std = config.init_std
 
         def init_projection(proj: Linear) -> None:
-            init_truncated_normal(proj, std=init_std)
+            init_truncated_normal(proj.weight, proj.bias, std=init_std)
 
             with torch.no_grad():
                 proj.weight.div_(math.sqrt(2.0 * (layer_idx + 1)))
@@ -353,7 +357,7 @@ class JepaEncoderBuilder:
         init_std = config.init_std
 
         def init_projection(proj: Linear) -> None:
-            init_truncated_normal(proj, std=init_std)
+            init_truncated_normal(proj.weight, proj.bias, std=init_std)
 
             with torch.no_grad():
                 proj.weight.div_(math.sqrt(2.0 * (layer_idx + 1)))
@@ -382,7 +386,9 @@ class JepaEncoderBuilder:
 
         init_std = config.init_std
 
-        init_layer_norm = partial(init_truncated_normal, std=init_std)
+        def init_layer_norm(m: LayerNorm) -> None:
+            if m.weight is not None:
+                init_truncated_normal(m.weight, m.bias, std=init_std)
 
         return StandardLayerNorm(
             model_dim,
@@ -394,14 +400,13 @@ class JepaEncoderBuilder:
         )
 
 
-def init_truncated_normal(module: Module, *, std: float = 1.0) -> None:
-    if not hasattr(module, "weight"):
-        raise ValueError("`module` does not have a parameter with name `weight`.")
+def init_truncated_normal(
+    weight: Tensor, bias: Tensor | None, *, std: float = 1.0
+) -> None:
+    nn.init.trunc_normal_(weight, std=std)
 
-    nn.init.trunc_normal_(module.weight, std=std)
-
-    if hasattr(module, "bias") and module.bias is not None:
-        nn.init.zeros_(module.bias)
+    if bias is not None:
+        nn.init.zeros_(bias)
 
 
 def create_jepa_model(
