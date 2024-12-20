@@ -125,6 +125,24 @@ class AssetCard:
 
         metadata[path[-1]] = value
 
+    def flatten(self) -> AssetCard:
+        """
+        Flattens the metadata of this card and all its bases into a single one.
+        """
+        all_metadata = []
+
+        card: AssetCard | None = self
+
+        while card is not None:
+            all_metadata.append(card._metadata)
+
+            card = card._base_card
+
+        for metadata in all_metadata[-2::-1]:
+            all_metadata[-1].update(metadata)
+
+        return AssetCard(self._name, all_metadata[-1])
+
     def __repr__(self) -> str:
         return repr(self._metadata)
 
