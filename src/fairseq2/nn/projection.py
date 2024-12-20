@@ -566,6 +566,25 @@ class TiedProjection(Projection):
         return linear(x, self.weight, self.bias)
 
 
+@final
+class IdentityProjection(Projection):
+    """
+    Used to disable a projection layer without changing the module architecture.
+    """
+
+    def __init__(self, input_dim: int, output_dim: int) -> None:
+        if input_dim != output_dim:
+            raise ValueError(
+                f"For identity projection, `input_dim` and `output_dim` must match, but are {input_dim} and {output_dim} instead."
+            )
+
+        super().__init__(input_dim, output_dim)
+
+    @override
+    def forward(self, x: Tensor) -> Tensor:
+        return x
+
+
 def _init_uniform(weight: Tensor, bias: Tensor | None) -> None:
     nn.init.kaiming_uniform_(weight, a=math.sqrt(5))
 
