@@ -12,6 +12,7 @@ from functools import partial
 from typing import Final, cast
 
 import torch
+import torch.nn as nn
 from torch.nn import GELU, Module
 
 from fairseq2.config_registry import ConfigRegistry
@@ -201,7 +202,7 @@ class JepaEncoderBuilder:
 
         init_std = config.init_std
 
-        init_conv = partial(init_truncated_uniforma_weights_and_bias, std=init_std)
+        init_conv = partial(init_truncated_normal, std=init_std)
 
         num_patch_dims = len(config.patch_dims)
 
@@ -332,7 +333,7 @@ class JepaEncoderBuilder:
         init_std = config.init_std
 
         def init_projection(proj: Linear) -> None:
-            init_truncated_uniforma_weights_and_bias(proj, std=init_std)
+            init_truncated_normal(proj, std=init_std)
 
             with torch.no_grad():
                 proj.weight.div_(math.sqrt(2.0 * (layer_idx + 1)))
@@ -352,14 +353,14 @@ class JepaEncoderBuilder:
         init_std = config.init_std
 
         def init_projection(proj: Linear) -> None:
-            init_truncated_uniforma_weights_and_bias(proj, std=init_std)
+            init_truncated_normal(proj, std=init_std)
 
             with torch.no_grad():
                 proj.weight.div_(math.sqrt(2.0 * (layer_idx + 1)))
 
         inner_dim = int(config.model_dim * config.ffn_inner_dim_ratio)
 
-        ffn = StandardFeedForwardNetwork(
+        return StandardFeedForwardNetwork(
             config.model_dim,
             inner_dim,
             bias=True,
@@ -369,13 +370,6 @@ class JepaEncoderBuilder:
             device=self._device,
             dtype=self._dtype,
         )
-
-        # rescale the last layer
-        proj = ffn.output_proj
-        assert isinstance(proj, Linear), f"Invalid projection type: {type(proj)}"
-        proj.weight.data.div_(math.sqrt(2.0 * (layer_idx + 1)))
-
-        return ffn
 
     def build_layer_norm(
         self,
@@ -388,9 +382,7 @@ class JepaEncoderBuilder:
 
         init_std = config.init_std
 
-        init_layer_norm = partial(
-            init_truncated_uniforma_weights_and_bias, std=init_std
-        )
+        init_layer_norm = partial(init_truncated_normal, std=init_std)
 
         return StandardLayerNorm(
             model_dim,
@@ -402,6 +394,16 @@ class JepaEncoderBuilder:
         )
 
 
+def init_truncated_normal(module: Module, *, std: float = 1.0) -> None:
+    if not hasattr(module, "weight"):
+        raise ValueError("`module` does not have a parameter with name `weight`.")
+
+    nn.init.trunc_normal_(module.weight, std=std)
+
+    if hasattr(module, "bias") and module.bias is not None:
+        nn.init.zeros_(module.bias)
+
+
 def create_jepa_model(
     config: JepaConfig,
     *,
@@ -409,20 +411,3 @@ def create_jepa_model(
     dtype: DataType | None = None,
 ) -> JepaModel:
     return JepaBuilder(config, device=device, dtype=dtype).build_model()
-
-
-def init_truncated_uniforma_weights_and_bias(
-    m: Module,
-    *,
-    mean: float = 0.0,
-    std: float = 1.0,
-    a: float = -2.0,
-    b: float = 2.0,
-) -> None:
-    if not hasattr(m, "weight") or not hasattr(m, "bias"):
-        raise ValueError(f"Cannot initialize weights and bias of a {type(m)}")
-
-    with torch.no_grad():
-        torch.nn.init.trunc_normal_(m.weight, mean=mean, std=std, a=a, b=b)
-        if m.bias is not None:
-            torch.nn.init.zeros_(m.bias)
