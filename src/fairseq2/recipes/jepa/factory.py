@@ -75,8 +75,8 @@ class AttentivePoolerConfig:
     layers will have an additive bias.
     """
 
-    num_pools: int = 1
-    """Number of attentive pools"""
+    num_queries: int = 1
+    """Number of query tokens in the attention pool layer"""
 
     attn_dropout_p: float = 0.0
     """The dropout probability on attention weights."""
@@ -198,7 +198,7 @@ class AttentivePoolerBuilder:
         return AttentivePooler(
             decoder=decoder,
             encoder=encoder,
-            num_pools=config.num_pools,
+            num_queries=config.num_queries,
             init_fn=init_pool,
             device=self._device,
             dtype=self._dtype,

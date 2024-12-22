@@ -228,7 +228,7 @@ class AttentivePooler(Module):
     """
 
     model_dim: int
-    num_pools: int
+    num_queries: int
     decoder: CrossAttentionDecoder
     encoder: TransformerEncoder | None
     init_fn: Callable[[Tensor], None] | None
@@ -238,7 +238,7 @@ class AttentivePooler(Module):
         decoder: CrossAttentionDecoder,
         encoder: TransformerEncoder | None,
         *,
-        num_pools: int = 1,
+        num_queries: int = 1,
         init_fn: Callable[[Tensor], None] | None = None,
         device: Device | None = None,
         dtype: DataType | None = None,
@@ -254,9 +254,9 @@ class AttentivePooler(Module):
         else:
             self.register_module("encoder", None)
 
-        self.num_pools = num_pools
-        self.pool_layer = Parameter(
-            torch.empty(1, num_pools, self.model_dim, device=device, dtype=dtype)
+        self.num_queries = num_queries
+        self.query_tokens = Parameter(
+            torch.empty(1, num_queries, self.model_dim, device=device, dtype=dtype)
         )
 
         if init_fn:
@@ -267,15 +267,15 @@ class AttentivePooler(Module):
     ) -> tuple[Tensor, PaddingMask | None]:
         if self.encoder:
             seqs, padding_mask = self.encoder(seqs, padding_mask)
-        pool_layer = self.pool_layer.repeat(len(seqs), 1, 1)
-        seqs, padding_mask = self.decoder(pool_layer, None, seqs, padding_mask)
+        queries = self.query_tokens.repeat(len(seqs), 1, 1)
+        seqs, padding_mask = self.decoder(queries, None, seqs, padding_mask)
         return seqs, padding_mask
 
     def extra_repr(self) -> str:
         """:meta private:"""
         s = super().extra_repr()
 
-        return f"{s}, model_dim={self.model_dim}, pools={self.num_pools}"
+        return f"{s}, model_dim={self.model_dim}, pools={self.num_queries}"
 
 
 @final
