@@ -17,6 +17,7 @@ from typing_extensions import override
 
 from fairseq2.error import AlreadyExistsError
 from fairseq2.extensions import run_extensions
+from fairseq2.gang import get_rank, get_world_size
 
 
 @final
@@ -42,9 +43,7 @@ class ClusterRegistry:
         try:
             return self._entries[name]
         except KeyError:
-            raise LookupError(
-                f"The registry does not have a cluster handler named '{name}'."
-            ) from None
+            raise UnknownClusterError(name) from None
 
     def register(self, name: str, handler: ClusterHandler) -> None:
         if name in self._entries:
@@ -60,7 +59,7 @@ class ClusterRegistry:
 
 class ClusterHandler(ABC):
     @abstractmethod
-    def set_torch_distributed_variables(self) -> None:
+    def set_torch_distributed_variables(self) -> tuple[int, int]:
         """Set environment variables required to initialize ``torch.distributed``."""
 
     @abstractmethod
@@ -68,8 +67,22 @@ class ClusterHandler(ABC):
         """Return ``True`` if this instance supports the current cluster."""
 
 
+class UnknownClusterError(LookupError):
+    cluster: str
+
+    def __init__(self, cluster: str) -> None:
+        super().__init__(f"'{cluster}' is not a known cluster.")
+
+        self.cluster = cluster
+
+
 class ClusterError(Exception):
-    pass
+    cluster: str
+
+    def __init__(self, cluster: str, message: str) -> None:
+        super().__init__(message)
+
+        self.cluster = cluster
 
 
 @final
@@ -80,7 +93,7 @@ class SlurmClusterHandler(ClusterHandler):
         self._job_id = None
 
     @override
-    def set_torch_distributed_variables(self) -> None:
+    def set_torch_distributed_variables(self) -> tuple[int, int]:
         job_id = self._ensure_job_id()
 
         try:
@@ -100,8 +113,10 @@ class SlurmClusterHandler(ClusterHandler):
             os.environ["CUDA_VISIBLE_DEVICES"] = os.environ["SLURM_LOCALID"]
         except KeyError as ex:
             raise ClusterError(
-                "Slurm job environment variables are not set correctly. If you are within an allocated job (i.e. `salloc`), make sure to run with `srun`. If you want to run without Slurm, use `--cluster none`."
+                "slurm", "Slurm job environment variables are not set correctly. If you are within an allocated job (i.e. `salloc`), make sure to run with `srun`. If you want to run without Slurm, use `--cluster none`."  # fmt: skip
             ) from ex
+
+        return get_world_size(), get_rank()
 
     def _ensure_job_id(self) -> int:
         if self._job_id is not None:
@@ -111,13 +126,13 @@ class SlurmClusterHandler(ClusterHandler):
             job_id = os.environ["SLURM_JOB_ID"]
         except KeyError:
             raise ClusterError(
-                "`SLURM_JOB_ID` environment variable does not exist."
+                "slurm", "`SLURM_JOB_ID` environment variable does not exist."
             ) from None
 
         try:
             self._job_id = int(job_id)
         except ValueError as ex:
-            raise ClusterError("Slurm job ID cannot be parsed.") from ex
+            raise ClusterError("slurm", "Slurm job ID cannot be parsed.") from ex
 
         return self._job_id
 
@@ -134,7 +149,7 @@ class SlurmClusterHandler(ClusterHandler):
                 return node_list[0]
 
         raise ClusterError(
-            "The hostname or IP address of the Slurm node corresponding to rank 0 cannot be retrieved."
+            "slurm", "The hostname or IP address of the Slurm node corresponding to rank 0 cannot be retrieved."  # fmt: skip
         )
 
     @staticmethod
@@ -154,8 +169,8 @@ class SlurmClusterHandler(ClusterHandler):
 @final
 class _NoneClusterHandler(ClusterHandler):
     @override
-    def set_torch_distributed_variables(self) -> None:
-        return
+    def set_torch_distributed_variables(self) -> tuple[int, int]:
+        return get_world_size(), get_rank()
 
     @override
     def supports_current_cluster(self) -> bool:

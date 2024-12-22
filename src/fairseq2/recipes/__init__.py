@@ -37,9 +37,7 @@ def main() -> None:
     exit_code = 1
 
     try:
-        _run()
-
-        exit_code = 0
+        exit_code = _run()
     except KeyboardInterrupt:
         log.info("The command has been canceled!")
 
@@ -62,7 +60,7 @@ def main() -> None:
     sys.exit(exit_code)
 
 
-def _run() -> None:
+def _run() -> int:
     from fairseq2 import __version__
 
     setup_basic_logging()
@@ -76,7 +74,7 @@ def _run() -> None:
 
     _setup_cli(cli)
 
-    cli.run()
+    return cli.run()
 
 
 def _setup_cli(cli: Cli) -> None:

@@ -73,7 +73,7 @@ class ListAssetsCommand(CliCommandHandler):
         )
 
     @override
-    def __call__(self, args: Namespace) -> None:
+    def run(self, args: Namespace) -> int:
         setup_fairseq2()
 
         usr_assets = self._retrieve_assets(args, user=True)
@@ -88,6 +88,8 @@ class ListAssetsCommand(CliCommandHandler):
         console.print("[green bold]global:")
 
         self._dump_assets(console, glb_assets)
+
+        return 0
 
     def _retrieve_assets(
         self, args: Namespace, user: bool
@@ -176,6 +178,8 @@ class ShowAssetCommand(CliCommandHandler):
             The asset store from which to retrieve the asset cards. If ``None``,
             the default asset store will be used.
         """
+        setup_fairseq2()
+
         self._asset_store = asset_store or default_asset_store
 
     @override
@@ -198,13 +202,13 @@ class ShowAssetCommand(CliCommandHandler):
         parser.add_argument("name", help="name of the asset")
 
     @override
-    def __call__(self, args: Namespace) -> None:
+    def run(self, args: Namespace) -> int:
         try:
             card: AssetCard | None = self._asset_store.retrieve_card(
                 args.name, envs=args.envs, scope=args.scope
             )
         except AssetNotFoundError:
-            log.error("An asset with the name '{}' cannot be found.", args.asset)
+            log.error("An asset with the name '{}' cannot be found.", args.name)
 
             sys.exit(1)
 
@@ -212,6 +216,8 @@ class ShowAssetCommand(CliCommandHandler):
             self._print_metadata(dict(card.metadata))
 
             card = card.base
+
+        return 0
 
     def _print_metadata(self, metadata: dict[str, Any]) -> None:
         console = get_console()

@@ -54,7 +54,7 @@ class ConvertCheckpointCommandHandler(CliCommandHandler):
         )
 
     @override
-    def __call__(self, args: Namespace) -> None:
+    def run(self, args: Namespace) -> int:
         if not args.input_dir.exists() or not args.input_dir.is_dir():
             log.error("`input_dir` must be a directory.")
 
@@ -183,3 +183,5 @@ class ConvertCheckpointCommandHandler(CliCommandHandler):
                 sys.exit(1)
 
             log.info("params.json generated for {}.", args.model)
+
+        return 0

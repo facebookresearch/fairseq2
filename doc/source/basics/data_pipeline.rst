@@ -144,11 +144,101 @@ fairseq2 provides several ways to combine pipelines:
          C3 --> D3[Output]
       end
 
-Advanced Features
-^^^^^^^^^^^^^^^^^
+More Features
+^^^^^^^^^^^^^
 
-- **Bucketing**: Group examples by size or custom criteria
-- **Shuffling**: Randomize data order with configurable window size
+Shuffling
+~~~~~~~~~
+
+fairseq2 provides flexible shuffling capabilities through the ``shuffle`` operator:
+
+.. code-block:: python
+
+    # Basic shuffling with a window size
+    pipeline = (
+        read_sequence(data)
+        .shuffle(shuffle_window=1000)  # Shuffle using a 1000-example buffer
+        .and_return()
+    )
+
+    # Shuffle between epochs
+    for epoch in range(3):
+        pipeline.reset()  # By default, this re-shuffles data
+        for item in pipeline:
+            process(item)
+
+    # Disable shuffling between epochs
+    pipeline.reset(reset_rng=True)  # Keep the same order
+
+The shuffle operator maintains a buffer of the specified size.
+When requesting the next example, it randomly samples from this buffer and replaces the selected example with a new one from the source.
+Setting ``shuffle_window=0`` loads all examples into memory for full shuffling.
+
+Bucketing
+~~~~~~~~~
+
+Bucketing helps handle variable-length sequences efficiently. There are several bucketing strategies:
+
+1. **Fixed-size Bucketing**: Combine a fixed number of examples
+
+.. code-block:: python
+
+    pipeline = (
+        read_sequence(data)
+        .bucket(bucket_size=32, drop_remainder=True)  # Combine 32 examples into one bucket
+        .and_return()
+    )
+
+2. **Length-based Bucketing**: Group sequences of similar lengths
+
+.. code-block:: python
+
+    from fairseq2.data import create_bucket_sizes
+
+    # Create optimal bucket sizes
+    bucket_sizes = create_bucket_sizes(
+        max_num_elements=1024,   # Max elements per bucket
+        max_seq_len=128,         # Max sequence length
+        min_seq_len=1,           # Min sequence length
+        num_seqs_multiple_of=8   # Ensure bucket sizes are multiples of 8
+    )
+
+    # Use bucketing in pipeline
+    pipeline = (
+        read_sequence(data)
+        .bucket_by_length(
+            bucket_sizes,
+            selector="length",             # Column containing sequence lengths
+            skip_above_max_examples=True,  # Skip sequences longer than max_seq_len
+            drop_remainder=False           # Keep partial buckets
+        )
+        .and_return()
+    )
+
+3. **Dynamic Bucketing**: Combine examples based on a cost function
+
+.. code-block:: python
+
+    def sequence_cost(example):
+        return len(example["text"])
+
+    pipeline = (
+        read_sequence(data)
+        .dynamic_bucket(
+            threshold=1024,        # Target bucket size
+            cost_fn=sequence_cost, # Function to compute example cost
+            min_num_examples=16,   # Min examples per bucket
+            max_num_examples=64,   # Max examples per bucket
+            drop_remainder=False   # Keep partial buckets
+        )
+        .and_return()
+    )
+
+
+This approach efficiently handles variable-length sequences while maintaining appropriate batch sizes for training.
+
+There are more features in fairseq2's data pipeline:
+
 - **Prefetching**: Load data ahead of time for better performance
 - **State Management**: Save and restore pipeline state for resumable processing
 

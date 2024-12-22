@@ -126,6 +126,13 @@ class InstructionFinetuneConfig:
     data_parallelism: Literal["ddp", "fsdp"] = "fsdp"
     """The data parallelism API to use."""
 
+    fsdp_local_world_size: int | None = None
+    """
+    If not ``None``, enables hybrid sharding. The model will be fully sharded
+    within each worker group of size ``local_world_size`` and
+    will be replicated across groups.
+    """
+
     fsdp_wrap_granularity: Literal["layer", "stack", "model"] = "layer"
     """The granularity at which to wrap the model."""
 
@@ -156,7 +163,7 @@ class InstructionFinetuneConfig:
     """The learning rate scheduler."""
 
     lr_scheduler_config: Any = field(
-        default_factory=lambda: CosineAnnealingLRConfig(final_lr=5.5e-06 * 0.2)
+        default_factory=lambda: CosineAnnealingLRConfig(final_lr_scale=0.2)
     )
     """The configuration of the learning rate scheduler."""
 
@@ -407,6 +414,7 @@ def load_instruction_finetuner(
         fsdp_mixed_precision_dtype=mp_dtype,
         fsdp_fp32_reduce=True,
         fsdp_wrap_granularity=config.fsdp_wrap_granularity,
+        fsdp_local_world_size=config.fsdp_local_world_size,
     )
 
     if config.activation_checkpointing:

@@ -119,7 +119,7 @@ class Linear(Projection):
         if self.init_fn is not None:
             self.init_fn(self)
         else:
-            _init_uniform_weight_and_bias(self.weight, self.bias)
+            _init_uniform(self.weight, self.bias)
 
     @override
     def forward(self, x: Tensor) -> Tensor:
@@ -568,15 +568,16 @@ class TiedProjection(Projection):
 
 @final
 class IdentityProjection(Projection):
-    """A projection that does nothing, used to disable the projection layers in
-    different modules without changing module behaviour"""
+    """
+    Used to disable a projection layer without changing the module architecture.
+    """
 
     def __init__(self, input_dim: int, output_dim: int) -> None:
         if input_dim != output_dim:
             raise ValueError(
-                f"Cannot set idenity project with different input and output dimension"
-                f"({input_dim} vs. {output_dim})"
+                f"For identity projection, `input_dim` and `output_dim` must match, but are {input_dim} and {output_dim} instead."
             )
+
         super().__init__(input_dim, output_dim)
 
     @override
@@ -584,7 +585,7 @@ class IdentityProjection(Projection):
         return x
 
 
-def _init_uniform_weight_and_bias(weight: Tensor, bias: Tensor | None) -> None:
+def _init_uniform(weight: Tensor, bias: Tensor | None) -> None:
     nn.init.kaiming_uniform_(weight, a=math.sqrt(5))
 
     if bias is not None:
