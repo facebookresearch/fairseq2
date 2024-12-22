@@ -14,7 +14,6 @@ from torch import Tensor
 from torch.nn import Dropout, Module, Parameter
 from typing_extensions import override
 
-from fairseq2.models.jepa.model import JepaModel
 from fairseq2.models.model import Model
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.nn.incremental_state import IncrementalStateBag
