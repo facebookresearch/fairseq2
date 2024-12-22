@@ -13,12 +13,8 @@ import torch
 from torch import Tensor
 from torch.nn import GELU
 
-from fairseq2.models.jepa.factory import (
-    JepaBuilder,
-    JepaConfig,
-    JepaEncoderConfig,
-    init_truncated_uniforma_weights_and_bias,
-)
+from fairseq2.config_registry import ConfigRegistry
+from fairseq2.models.jepa.factory import init_truncated_normal
 from fairseq2.nn.normalization import LayerNorm, StandardLayerNorm
 from fairseq2.nn.projection import IdentityProjection, Linear, Projection
 from fairseq2.nn.transformer import (
@@ -38,9 +34,9 @@ from fairseq2.nn.transformer.encoder_layer import (
 from fairseq2.nn.transformer.ffn import StandardFeedForwardNetwork
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
 from fairseq2.recipes.jepa.models import (
+    AttentiveClassifier,
     AttentivePooler,
     CrossAttentionDecoder,
-    JepaForClassification,
 )
 from fairseq2.typing import DataType, Device
 
@@ -98,12 +94,7 @@ class AttentivePoolerConfig:
 
 
 @dataclass(kw_only=True)
-class JepaForClassificationConfig:
-
-    encoder_config: JepaEncoderConfig = field(
-        default_factory=lambda: JepaEncoderConfig()
-    )
-    """The configuration of the Vision Transformer encoder."""
+class AttentiveClassifierConfig:
 
     pooler_config: AttentivePoolerConfig = field(
         default_factory=lambda: AttentivePoolerConfig()
@@ -113,17 +104,22 @@ class JepaForClassificationConfig:
     """Size of classification logits"""
 
 
+attentive_archs = ConfigRegistry[AttentiveClassifierConfig]()
+
+attentive_arch = attentive_archs.decorator
+
+
 @final
-class JepaForClassificationBuilder:
+class AttentiveClassifierBuilder:
     """Build a Jepa model that is fine-tuned for classification"""
 
-    _config: JepaForClassificationConfig
+    _config: AttentiveClassifierConfig
     _device: Device | None
     _dtype: DataType | None
 
     def __init__(
         self,
-        config: JepaForClassificationConfig,
+        config: AttentiveClassifierConfig,
         *,
         device: Device | None = None,
         dtype: DataType | None = None,
@@ -131,28 +127,20 @@ class JepaForClassificationBuilder:
 
         self._config = config
 
-        pretrained_config = JepaConfig(encoder_config=config.encoder_config)
-
-        self.encoder_builder = JepaBuilder(
-            pretrained_config, device=device, dtype=dtype
-        )
-
         self.pooler_builer = AttentivePoolerBuilder(
             config.pooler_config, device=device, dtype=dtype
         )
 
         self._device, self._dtype = device, dtype
 
-    def build_model(self) -> JepaForClassification:
+    def build_model(self) -> AttentiveClassifier:
         config = self._config
 
-        encoder = self.encoder_builder.build_model()
+        pooler = self.pooler_builer.build_model()
 
-        pooler = self.pooler_builer.build_pooler()
+        head = Linear(config.pooler_config.model_dim, config.num_classes, bias=True)
 
-        head = Linear(config.encoder_config.model_dim, config.num_classes, bias=True)
-
-        return JepaForClassification(encoder, pooler, head)
+        return AttentiveClassifier(pooler, head)
 
 
 @final
@@ -180,7 +168,7 @@ class AttentivePoolerBuilder:
 
         self._device, self._dtype = device, dtype
 
-    def build_pooler(self) -> AttentivePooler:
+    def build_model(self) -> AttentivePooler:
         config = self._config
 
         def init_pool(pool: Tensor) -> None:
@@ -279,7 +267,7 @@ class AttentivePoolerBuilder:
         init_std = config.init_std
 
         def init_projection(proj: Linear) -> None:
-            init_truncated_uniforma_weights_and_bias(proj, std=init_std)
+            init_truncated_normal(proj.weight, proj.bias, std=init_std)
 
             with torch.no_grad():
                 proj.weight.div_(math.sqrt(2.0 * (layer_idx + 1)))
@@ -299,7 +287,7 @@ class AttentivePoolerBuilder:
         init_std = config.init_std
 
         def init_projection(proj: Linear) -> None:
-            init_truncated_uniforma_weights_and_bias(proj, std=init_std)
+            init_truncated_normal(proj.weight, proj.bias, std=init_std)
 
             with torch.no_grad():
                 proj.weight.div_(math.sqrt(2.0 * (layer_idx)))
@@ -329,7 +317,7 @@ class AttentivePoolerBuilder:
         init_std = config.init_std
 
         init_layer_norm = partial(
-            init_truncated_uniforma_weights_and_bias, std=init_std
+            init_truncated_normal, std=init_std
         )
 
         return StandardLayerNorm(
@@ -340,3 +328,12 @@ class AttentivePoolerBuilder:
             device=device,
             dtype=dtype,
         )
+
+
+def create_attentive_pooler(
+    config: AttentivePoolerConfig,
+    *,
+    device: Device | None = None,
+    dtype: DataType | None = None,
+) -> AttentivePooler:
+    return AttentivePoolerBuilder(config, device=device, dtype=dtype).build_model()

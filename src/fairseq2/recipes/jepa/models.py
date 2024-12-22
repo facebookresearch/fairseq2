@@ -279,7 +279,7 @@ class AttentivePooler(Module):
 
 
 @final
-class JepaForClassification(Model):
+class AttentiveClassifier(Model):
     """
     Represents a pretrained Jepa model, with an attentive probing layer for
     classfication tasks. See
@@ -288,27 +288,23 @@ class JepaForClassification(Model):
     """
 
     model_dim: int
-    encoder: JepaModel
     pooler: AttentivePooler
     head: Projection
 
     def __init__(
         self,
-        encoder: JepaModel,
         pooler: AttentivePooler,
         head: Projection,
     ) -> None:
         super().__init__()
 
-        self.model_dim = encoder.model_dim
+        self.model_dim = pooler.model_dim
 
-        self.encoder = encoder
         self.pooler = pooler
         self.head = head
 
     def forward(self, batch: SequenceBatch) -> Tensor:
-        encoder_output: SequenceBatch = self.encoder(batch)
-        seqs, _ = self.pooler(encoder_output.seqs, encoder_output.padding_mask)
+        seqs, _ = self.pooler(batch.seqs, batch.padding_mask)
         seqs = seqs.squeeze(1)
         output: Tensor = self.head(seqs)
         return output
