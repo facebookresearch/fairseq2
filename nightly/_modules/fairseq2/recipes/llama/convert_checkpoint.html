@@ -374,8 +374,10 @@
         <span class="p">)</span></div>
 
 
+<div class="viewcode-block" id="ConvertCheckpointCommandHandler.run">
+<a class="viewcode-back" href="../../../../reference/api/fairseq2.recipes/llama/convert_checkpoint.html#fairseq2.recipes.llama.convert_checkpoint.ConvertCheckpointCommandHandler.run">[docs]</a>
     <span class="nd">@override</span>
-    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">Namespace</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">Namespace</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">args</span><span class="o">.</span><span class="n">input_dir</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">args</span><span class="o">.</span><span class="n">input_dir</span><span class="o">.</span><span class="n">is_dir</span><span class="p">():</span>
             <span class="n">log</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;`input_dir` must be a directory.&quot;</span><span class="p">)</span>
 
@@ -503,7 +505,10 @@
 
                 <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
 
-            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;params.json generated for </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">model</span><span class="p">)</span></div>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;params.json generated for </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">model</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="mi">0</span></div>
+</div>
 
 </pre></div>
         </article>
@@ -541,7 +546,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=ae99886b"></script>
+</div><script src="../../../../_static/documentation_options.js?v=e66272bf"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>

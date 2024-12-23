@@ -1134,6 +1134,154 @@
 
 
 
+<span class="k">def</span> <span class="nf">_setup_2D_mesh_gangs</span><span class="p">(</span>
+    <span class="n">root_gang</span><span class="p">:</span> <span class="n">Gang</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">row_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">create_single_rank_process_groups</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">dim_descriptions</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Gang</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Set up gangs for this process as defined by a 2D device mesh.</span>
+
+<span class="sd">    The two returned gangs are defined by the process&#39; position in the mesh.</span>
+<span class="sd">    First gang is the row in the mesh, second is the column.</span>
+<span class="sd">    For example, assuming 8 devices denoted by g0 to g7, calling this function</span>
+<span class="sd">    with ``row_length`` = 4 amounts to defining the 2D mesh</span>
+<span class="sd">    [[g0, g1, g2, g3], [g4, g5, g6, g7]] and making 2 sets of gangs:</span>
+
+<span class="sd">        2 gangs of size 4 (mesh rows):</span>
+<span class="sd">            [g0, g1, g2, g3], [g4, g5, g6, g7]</span>
+<span class="sd">        4 gangs of size 2 (mesh columns):</span>
+<span class="sd">            [g0, g4], [g1, g5], [g2, g6], [g3, g7]</span>
+
+<span class="sd">    For the process of rank 5, the function would return the 2 sub-gangs</span>
+<span class="sd">    {0: [g4, g5, g6, g7], 1: [g1, g5]}. If adjacent ranks are on the same host</span>
+<span class="sd">    (for example, 2 hosts: one with g0 to g3, and the other with g4 to g7),</span>
+<span class="sd">    the first gang can be used to maximize local intra-host communication.</span>
+
+<span class="sd">    Example use-cases include making tensor- and data- parallel gangs, or</span>
+<span class="sd">    sharding and replicating gangs in FSDP&#39;s hybrid sharding.</span>
+
+<span class="sd">    :param root_gang:</span>
+<span class="sd">        The gang whose topology will be used to make the new gangs.</span>
+<span class="sd">    :param row_length:</span>
+<span class="sd">        The size of the gangs corresponding to the 2D mesh rows.</span>
+<span class="sd">    :param create_single_rank_process_groups:</span>
+<span class="sd">        If ``True``, create an underlying ``dist.ProcessGroup`` even for single-rank gangs.</span>
+<span class="sd">        The gang is faked otherwise.</span>
+<span class="sd">    :param dim_descriptions:</span>
+<span class="sd">        String descriptions of returned gangs, used in log and error messages.</span>
+
+<span class="sd">    :returns:</span>
+<span class="sd">        A ``dict`` of two gangs; 0 maps to the gang of 2D mesh row,</span>
+<span class="sd">        1 maps to the gang of the 2D mesh column.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">row_count</span> <span class="o">=</span> <span class="n">root_gang</span><span class="o">.</span><span class="n">size</span> <span class="o">//</span> <span class="n">row_length</span>
+
+    <span class="n">mesh</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">root_gang</span><span class="o">.</span><span class="n">size</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">row_count</span><span class="p">,</span> <span class="n">row_length</span><span class="p">)</span>
+
+    <span class="c1"># Get the coordinate of this process in the mesh.</span>
+    <span class="n">rank_coords</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">item</span><span class="p">()</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mesh</span> <span class="o">==</span> <span class="n">root_gang</span><span class="o">.</span><span class="n">rank</span><span class="p">)]</span>
+    <span class="n">mesh_shape</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">size</span><span class="p">()</span>
+
+    <span class="n">output</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+        <span class="s2">&quot;Initializing sub-gangs for a 2D device mesh of shape </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="n">mesh_shape</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">dim_descriptions</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">dim_descriptions</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;dim-</span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)]</span>
+
+    <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">):</span>
+        <span class="n">current_subgang</span><span class="p">:</span> <span class="n">Gang</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="n">gang_size</span> <span class="o">=</span> <span class="n">mesh_shape</span><span class="p">[</span><span class="mi">1</span> <span class="o">-</span> <span class="n">dim</span><span class="p">]</span>
+
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;Initializing </span><span class="si">{}</span><span class="s2"> gang with a size of </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">dim_descriptions</span><span class="p">[</span><span class="n">dim</span><span class="p">],</span> <span class="n">gang_size</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Match row length (dim 0) or column length (dim 1)</span>
+        <span class="k">match</span> <span class="n">gang_size</span><span class="p">:</span>
+            <span class="k">case</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">create_single_rank_process_groups</span><span class="p">:</span>
+                    <span class="n">current_subgang</span> <span class="o">=</span> <span class="n">root_gang</span><span class="o">.</span><span class="n">make_gang</span><span class="p">([</span><span class="n">root_gang</span><span class="o">.</span><span class="n">rank</span><span class="p">])</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">current_subgang</span> <span class="o">=</span> <span class="n">FakeGang</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">root_gang</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+            <span class="k">case</span> <span class="n">root_gang</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
+                <span class="n">current_subgang</span> <span class="o">=</span> <span class="n">root_gang</span>
+            <span class="k">case</span><span class="w"> </span><span class="k">_</span><span class="p">:</span>
+                <span class="c1"># Create 1 gang per row (dim 0) or per column (dim 1)</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">mesh_shape</span><span class="p">[</span><span class="n">dim</span><span class="p">]):</span>
+                    <span class="n">ranks</span> <span class="o">=</span> <span class="n">mesh</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:]</span> <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">mesh</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span>
+                    <span class="n">sub_gang</span> <span class="o">=</span> <span class="n">root_gang</span><span class="o">.</span><span class="n">make_gang</span><span class="p">(</span><span class="n">ranks</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+                    <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">rank_coords</span><span class="p">[</span><span class="n">dim</span><span class="p">]:</span>
+                        <span class="n">current_subgang</span> <span class="o">=</span> <span class="n">sub_gang</span>
+
+        <span class="k">if</span> <span class="n">current_subgang</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`current_gang` (</span><span class="si">{</span><span class="n">dim_descriptions</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span><span class="si">}</span><span class="s2">) is `None`.&quot;</span><span class="p">)</span>
+
+        <span class="n">output</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span> <span class="o">=</span> <span class="n">current_subgang</span>
+
+    <span class="k">return</span> <span class="n">output</span>
+
+
+<span class="k">def</span> <span class="nf">setup_hybrid_fsdp_gangs</span><span class="p">(</span><span class="n">gang</span><span class="p">:</span> <span class="n">Gang</span><span class="p">,</span> <span class="n">local_world_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Gang</span><span class="p">,</span> <span class="n">Gang</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Make gangs to be used for hybrid-sharding FSDP.</span>
+
+<span class="sd">    For instance; if we have 8 devices denoted by g0 to g7 and ``local_world_size``</span>
+<span class="sd">    is 4, this function will make 2 sharding gangs and 4 replication gangs:</span>
+
+<span class="sd">        2 sharding gangs of size 4:</span>
+<span class="sd">            [g0, g1, g2, g3], [g4, g5, g6, g7]</span>
+<span class="sd">        4 replication gangs of size 2:</span>
+<span class="sd">            [g0, g4], [g1, g5], [g2, g6], [g3, g7]</span>
+
+<span class="sd">    For efficiency, the caller should make sure adjacent ranks are on the same</span>
+<span class="sd">    host.</span>
+
+<span class="sd">    :param gang:</span>
+<span class="sd">        The gang over which to shard and replicate.</span>
+<span class="sd">    :param local_world_size:</span>
+<span class="sd">        ``gang`` will be split into sub-gangs each containing</span>
+<span class="sd">        ``local_world_size`` number of consecutive processes.</span>
+<span class="sd">        The model will be fully sharded within each sub-gang and</span>
+<span class="sd">        will be replicated across sub-gangs.</span>
+
+<span class="sd">    :returns:</span>
+<span class="sd">        A pair of two gangs: the sharding gang that the current process is</span>
+<span class="sd">        part of, and the replication gang that the current process is part of</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">local_world_size</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;`local_world_size` must be greater than 1, but is </span><span class="si">{</span><span class="n">local_world_size</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">local_world_size</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">GangError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;`local_world_size` must be greater than 1, but is </span><span class="si">{</span><span class="n">local_world_size</span><span class="si">}</span><span class="s2"> instead. This hybrid configuration would force FSDP to switch to use `NO_SHARD`, which is deprecated. Please use DDP instead.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">local_world_size</span> <span class="o">&gt;</span> <span class="n">gang</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;`local_world_size` must be less than or equal to `gang.size` (</span><span class="si">{</span><span class="n">gang</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">local_world_size</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">gang</span><span class="o">.</span><span class="n">size</span> <span class="o">%</span> <span class="n">local_world_size</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">GangError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;`gang.size` (</span><span class="si">{</span><span class="n">gang</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2">) must be a multiple of `local_world_size` (</span><span class="si">{</span><span class="n">local_world_size</span><span class="si">}</span><span class="s2">).&quot;</span>
+        <span class="p">)</span>
+
+    <span class="n">sub_gangs</span> <span class="o">=</span> <span class="n">_setup_2D_mesh_gangs</span><span class="p">(</span>
+        <span class="n">gang</span><span class="p">,</span>
+        <span class="n">row_length</span><span class="o">=</span><span class="n">local_world_size</span><span class="p">,</span>
+        <span class="n">create_single_rank_process_groups</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">dim_descriptions</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;sharding&quot;</span><span class="p">,</span> <span class="s2">&quot;replication&quot;</span><span class="p">],</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">sub_gangs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">sub_gangs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+
 <div class="viewcode-block" id="setup_parallel_gangs">
 <a class="viewcode-back" href="../../reference/api/gang.html#fairseq2.gang.setup_parallel_gangs">[docs]</a>
 <span class="k">def</span> <span class="nf">setup_parallel_gangs</span><span class="p">(</span><span class="n">root_gang</span><span class="p">:</span> <span class="n">Gang</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">tp_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Gangs</span><span class="p">:</span>
@@ -1158,9 +1306,9 @@
 <span class="sd">        The size of tensor parallel gangs.</span>
 
 <span class="sd">    :returns:</span>
-<span class="sd">        A ``dict`` of two gangs; (1) the data parallel gang that this process</span>
-<span class="sd">        is part of denoted by the key &quot;dp&quot;, (2) the tensor parallel gang that</span>
-<span class="sd">        this process is part of denoted by the key &quot;tp&quot;.</span>
+<span class="sd">        Three gangs: the root gang, the data parallel gang that this</span>
+<span class="sd">        process is part of, and the tensor parallel gang that this process is</span>
+<span class="sd">        part of.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">tp_size</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`tp_size` must be greater than 0, but is </span><span class="si">{</span><span class="n">tp_size</span><span class="si">}</span><span class="s2"> instead.&quot;</span><span class="p">)</span>
@@ -1170,52 +1318,13 @@
             <span class="sa">f</span><span class="s2">&quot;The number of processes in the root gang is expected to be a multiple of the tensor parallel size (</span><span class="si">{</span><span class="n">tp_size</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">root_gang</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
         <span class="p">)</span>
 
-    <span class="n">dp_size</span> <span class="o">=</span> <span class="n">root_gang</span><span class="o">.</span><span class="n">size</span> <span class="o">//</span> <span class="n">tp_size</span>
+    <span class="n">output_from_2D_mesh</span> <span class="o">=</span> <span class="n">_setup_2D_mesh_gangs</span><span class="p">(</span>
+        <span class="n">root_gang</span><span class="p">,</span>
+        <span class="n">row_length</span><span class="o">=</span><span class="n">tp_size</span><span class="p">,</span>
+        <span class="n">dim_descriptions</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;tensor parallel&quot;</span><span class="p">,</span> <span class="s2">&quot;data parallel&quot;</span><span class="p">],</span>
+    <span class="p">)</span>
 
-    <span class="n">mesh</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">root_gang</span><span class="o">.</span><span class="n">size</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">dp_size</span><span class="p">,</span> <span class="n">tp_size</span><span class="p">)</span>
-
-    <span class="c1"># Get the coordinate of this process in the mesh.</span>
-    <span class="n">rank_coords</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">item</span><span class="p">()</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mesh</span> <span class="o">==</span> <span class="n">root_gang</span><span class="o">.</span><span class="n">rank</span><span class="p">)]</span>
-
-    <span class="n">dp_gang</span><span class="p">:</span> <span class="n">Gang</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-
-    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Initializing data parallel gang with a size of </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">dp_size</span><span class="p">)</span>
-
-    <span class="c1"># Build the gangs for data parallelism.</span>
-    <span class="k">match</span> <span class="n">dp_size</span><span class="p">:</span>
-        <span class="k">case</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="n">dp_gang</span> <span class="o">=</span> <span class="n">FakeGang</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">root_gang</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
-        <span class="k">case</span> <span class="n">root_gang</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
-            <span class="n">dp_gang</span> <span class="o">=</span> <span class="n">root_gang</span>
-        <span class="k">case</span><span class="w"> </span><span class="k">_</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">tp_size</span><span class="p">):</span>
-                <span class="n">sub_gang</span> <span class="o">=</span> <span class="n">root_gang</span><span class="o">.</span><span class="n">make_gang</span><span class="p">(</span><span class="n">mesh</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
-                <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">rank_coords</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
-                    <span class="n">dp_gang</span> <span class="o">=</span> <span class="n">sub_gang</span>
-
-    <span class="k">if</span> <span class="n">dp_gang</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span><span class="s2">&quot;`dp_gang` is `None`.&quot;</span><span class="p">)</span>
-
-    <span class="n">tp_gang</span><span class="p">:</span> <span class="n">Gang</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-
-    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Initializing tensor parallel gang with a size of </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">tp_size</span><span class="p">)</span>
-
-    <span class="c1"># Build the gangs for tensor parallelism.</span>
-    <span class="k">match</span> <span class="n">tp_size</span><span class="p">:</span>
-        <span class="k">case</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="n">tp_gang</span> <span class="o">=</span> <span class="n">FakeGang</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">root_gang</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
-        <span class="k">case</span> <span class="n">root_gang</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
-            <span class="n">tp_gang</span> <span class="o">=</span> <span class="n">root_gang</span>
-        <span class="k">case</span><span class="w"> </span><span class="k">_</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dp_size</span><span class="p">):</span>
-                <span class="n">sub_gang</span> <span class="o">=</span> <span class="n">root_gang</span><span class="o">.</span><span class="n">make_gang</span><span class="p">(</span><span class="n">mesh</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
-                <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">rank_coords</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
-                    <span class="n">tp_gang</span> <span class="o">=</span> <span class="n">sub_gang</span>
-
-    <span class="k">if</span> <span class="n">tp_gang</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span><span class="s2">&quot;`tp_gang` is `None`.&quot;</span><span class="p">)</span>
-
-    <span class="k">return</span> <span class="n">Gangs</span><span class="p">(</span><span class="n">root_gang</span><span class="p">,</span> <span class="n">dp_gang</span><span class="p">,</span> <span class="n">tp_gang</span><span class="p">)</span></div>
+    <span class="k">return</span> <span class="n">Gangs</span><span class="p">(</span><span class="n">root_gang</span><span class="p">,</span> <span class="n">output_from_2D_mesh</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">output_from_2D_mesh</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span></div>
 
 
 
@@ -1328,7 +1437,7 @@
       
     </aside>
   </div>
-</div><script src="../../_static/documentation_options.js?v=ae99886b"></script>
+</div><script src="../../_static/documentation_options.js?v=e66272bf"></script>
     <script src="../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/scripts/furo.js?v=5fa4622c"></script>

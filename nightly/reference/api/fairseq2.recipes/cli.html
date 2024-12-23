@@ -375,6 +375,9 @@ command line program.</p></li>
 <span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/recipes/cli.html#Cli.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.cli.Cli.run" title="Link to this definition">¶</a></dt>
 <dd><p>Run the program.</p>
 <dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
+</dd>
 </dl>
 </dd></dl>
 
@@ -506,6 +509,17 @@ command line program.</p></li>
 </dl>
 </dd></dl>
 
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.recipes.cli.CliCommand.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/recipes/cli.html#CliCommand.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.cli.CliCommand.run" title="Link to this definition">¶</a></dt>
+<dd><p>Run the command.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
+</dd>
+</dl>
+</dd></dl>
+
 <dl class="py property">
 <dt class="sig sig-object py" id="fairseq2.recipes.cli.CliCommand.name">
 <em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></em><a class="headerlink" href="#fairseq2.recipes.cli.CliCommand.name" title="Link to this definition">¶</a></dt>
@@ -539,21 +553,33 @@ command line program.</p></li>
 </dl>
 </dd></dl>
 
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.recipes.cli.CliCommandHandler.run">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/recipes/cli.html#CliCommandHandler.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.cli.CliCommandHandler.run" title="Link to this definition">¶</a></dt>
+<dd><p>Run the command.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
+</dd>
+</dl>
+</dd></dl>
+
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.recipes.cli.RecipeCommandHandler">
-<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.cli.</span></span><span class="sig-name descname"><span class="pre">RecipeCommandHandler</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loader</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">preset_configs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default_preset</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extra_sweep_keys</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value_converter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/recipes/cli.html#RecipeCommandHandler"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.cli.RecipeCommandHandler" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#fairseq2.recipes.cli.CliCommandHandler" title="fairseq2.recipes.cli.CliCommandHandler"><code class="xref py py-class docutils literal notranslate"><span class="pre">CliCommandHandler</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Generic" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Generic</span></code></a>[<code class="xref py py-obj docutils literal notranslate"><span class="pre">RecipeConfigT</span></code>]</p>
+<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.cli.</span></span><span class="sig-name descname"><span class="pre">RecipeCommandHandler</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loader</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">preset_configs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default_preset</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extra_sweep_keys</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/recipes/cli.html#RecipeCommandHandler"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.cli.RecipeCommandHandler" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#fairseq2.recipes.cli.CliCommandHandler" title="fairseq2.recipes.cli.CliCommandHandler"><code class="xref py py-class docutils literal notranslate"><span class="pre">CliCommandHandler</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Generic" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Generic</span></code></a>[<code class="xref py py-obj docutils literal notranslate"><span class="pre">ConfigT</span></code>]</p>
 <p>Runs a recipe over command line.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>loader</strong> (<em>RecipeLoader</em><em>[</em><em>RecipeConfigT</em><em>]</em>) – The recipe loader.</p></li>
-<li><p><strong>preset_configs</strong> (<em>ConfigRegistry</em><em>[</em><em>RecipeConfigT</em><em>]</em>) – The registry containing the preset recipe configurations.</p></li>
+<li><p><strong>loader</strong> (<em>RecipeLoader</em><em>[</em><em>ConfigT</em><em>]</em>) – The recipe loader.</p></li>
+<li><p><strong>preset_configs</strong> (<em>ConfigProvider</em><em>[</em><em>ConfigT</em><em>]</em>) – The registry containing the preset recipe
+configurations.</p></li>
 <li><p><strong>default_preset</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>) – The name of the default preset.</p></li>
-<li><p><strong>value_converter</strong> (<em>ValueConverter</em><em> | </em><em>None</em>) – The <code class="xref py py-class docutils literal notranslate"><span class="pre">ValueConverter</span></code> instance to use. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, the
-default instance will be used.</p></li>
+<li><p><strong>extra_sweep_keys</strong> (<em>Set</em><em>[</em><em>Hashable</em><em>] </em><em>| </em><em>None</em>) – The recipe specific configuration keys to
+include in the sweep directory name.</p></li>
 </ul>
 </dd>
 </dl>
@@ -562,6 +588,17 @@ default instance will be used.</p></li>
 <span class="sig-name descname"><span class="pre">init_parser</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parser</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/recipes/cli.html#RecipeCommandHandler.init_parser"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.cli.RecipeCommandHandler.init_parser" title="Link to this definition">¶</a></dt>
 <dd><p>Initialize <code class="docutils literal notranslate"><span class="pre">parser</span></code> with command-specific arguments.</p>
 <dl class="field-list simple">
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.recipes.cli.RecipeCommandHandler.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/recipes/cli.html#RecipeCommandHandler.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.cli.RecipeCommandHandler.run" title="Link to this definition">¶</a></dt>
+<dd><p>Run the command.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
+</dd>
 </dl>
 </dd></dl>
 
@@ -754,6 +791,7 @@ default instance will be used.</p></li>
 </li>
 <li><a class="reference internal" href="#fairseq2.recipes.cli.CliCommand"><code class="docutils literal notranslate"><span class="pre">CliCommand</span></code></a><ul>
 <li><a class="reference internal" href="#fairseq2.recipes.cli.CliCommand.init_parser"><code class="docutils literal notranslate"><span class="pre">CliCommand.init_parser()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.cli.CliCommand.run"><code class="docutils literal notranslate"><span class="pre">CliCommand.run()</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.recipes.cli.CliCommand.name"><code class="docutils literal notranslate"><span class="pre">CliCommand.name</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.recipes.cli.CliCommand.help"><code class="docutils literal notranslate"><span class="pre">CliCommand.help</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.recipes.cli.CliCommand.origin_module"><code class="docutils literal notranslate"><span class="pre">CliCommand.origin_module</span></code></a></li>
@@ -761,10 +799,12 @@ default instance will be used.</p></li>
 </li>
 <li><a class="reference internal" href="#fairseq2.recipes.cli.CliCommandHandler"><code class="docutils literal notranslate"><span class="pre">CliCommandHandler</span></code></a><ul>
 <li><a class="reference internal" href="#fairseq2.recipes.cli.CliCommandHandler.init_parser"><code class="docutils literal notranslate"><span class="pre">CliCommandHandler.init_parser()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.cli.CliCommandHandler.run"><code class="docutils literal notranslate"><span class="pre">CliCommandHandler.run()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#fairseq2.recipes.cli.RecipeCommandHandler"><code class="docutils literal notranslate"><span class="pre">RecipeCommandHandler</span></code></a><ul>
 <li><a class="reference internal" href="#fairseq2.recipes.cli.RecipeCommandHandler.init_parser"><code class="docutils literal notranslate"><span class="pre">RecipeCommandHandler.init_parser()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.cli.RecipeCommandHandler.run"><code class="docutils literal notranslate"><span class="pre">RecipeCommandHandler.run()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -786,7 +826,7 @@ default instance will be used.</p></li>
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=ae99886b"></script>
+</div><script src="../../../_static/documentation_options.js?v=e66272bf"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>

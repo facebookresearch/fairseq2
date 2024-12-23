@@ -323,7 +323,7 @@
 <span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
-<span class="kn">from</span> <span class="nn">collections.abc</span> <span class="kn">import</span> <span class="n">Sequence</span>
+<span class="kn">from</span> <span class="nn">collections.abc</span> <span class="kn">import</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Sequence</span>
 <span class="kn">from</span> <span class="nn">contextlib</span> <span class="kn">import</span> <span class="n">AbstractContextManager</span><span class="p">,</span> <span class="n">nullcontext</span>
 <span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">count</span>
 <span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
@@ -345,8 +345,9 @@
 <span class="kn">from</span> <span class="nn">fairseq2.checkpoint</span> <span class="kn">import</span> <span class="n">CheckpointManager</span><span class="p">,</span> <span class="n">CheckpointNotFoundError</span>
 <span class="kn">from</span> <span class="nn">fairseq2.datasets</span> <span class="kn">import</span> <span class="n">DataReader</span>
 <span class="kn">from</span> <span class="nn">fairseq2.early_stopper</span> <span class="kn">import</span> <span class="n">EarlyStopper</span>
+<span class="kn">from</span> <span class="nn">fairseq2.error</span> <span class="kn">import</span> <span class="n">ContractError</span><span class="p">,</span> <span class="n">InternalError</span><span class="p">,</span> <span class="n">InvalidOperationError</span>
 <span class="kn">from</span> <span class="nn">fairseq2.gang</span> <span class="kn">import</span> <span class="n">FakeGang</span><span class="p">,</span> <span class="n">Gang</span><span class="p">,</span> <span class="n">broadcast_flag</span>
-<span class="kn">from</span> <span class="nn">fairseq2.logging</span> <span class="kn">import</span> <span class="n">get_log_writer</span>
+<span class="kn">from</span> <span class="nn">fairseq2.logging</span> <span class="kn">import</span> <span class="n">log</span>
 <span class="kn">from</span> <span class="nn">fairseq2.metrics</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">JsonFileMetricRecorder</span><span class="p">,</span>
     <span class="n">LogMetricRecorder</span><span class="p">,</span>
@@ -372,9 +373,6 @@
 <span class="kn">from</span> <span class="nn">fairseq2.utils.profiler</span> <span class="kn">import</span> <span class="n">Profiler</span><span class="p">,</span> <span class="n">Stopwatch</span>
 <span class="kn">from</span> <span class="nn">fairseq2.utils.rng</span> <span class="kn">import</span> <span class="n">RngBag</span>
 <span class="kn">from</span> <span class="nn">fairseq2.utils.state</span> <span class="kn">import</span> <span class="n">FSDPOptimizerStateHandler</span><span class="p">,</span> <span class="n">StatefulObjectBag</span>
-
-<span class="n">log</span> <span class="o">=</span> <span class="n">get_log_writer</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
-
 
 <span class="n">BatchT</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;BatchT&quot;</span><span class="p">)</span>
 
@@ -525,6 +523,7 @@
         <span class="n">keep_best_n_checkpoints</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">keep_last_n_models</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">keep_best_n_models</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">metric_recorders</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">MetricRecorder</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">tb_dir</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">metrics_dir</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">wandb_options</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -605,13 +604,14 @@
 <span class="sd">            The number of best checkpoint models to keep based on their</span>
 <span class="sd">            validation score. Must be greater than or equal to</span>
 <span class="sd">            ``keep_best_n_checkpoints``.</span>
+<span class="sd">        :param metric_recorders:</span>
+<span class="sd">            The metric recorders.</span>
 <span class="sd">        :param tb_dir:</span>
-<span class="sd">            The TensorBoard log directory to dump metrics.</span>
+<span class="sd">            Legacy. Use ``metric_recorders``.</span>
 <span class="sd">        :param metrics_dir:</span>
-<span class="sd">            The directory to dump metrics.</span>
+<span class="sd">            Legacy. Use ``metric_recorders``.</span>
 <span class="sd">        :param wandb_options:</span>
-<span class="sd">            The directory, project name, and run name for Weights &amp; Bias metric</span>
-<span class="sd">            logging.</span>
+<span class="sd">            Legacy. Use ``metric_recorders``.</span>
 <span class="sd">        :param publish_metrics_after_n_steps:</span>
 <span class="sd">            The number of steps after which to start publishing metrics.</span>
 <span class="sd">        :param publish_metrics_every_n_steps:</span>
@@ -685,15 +685,17 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">register_stateful</span><span class="p">(</span><span class="s2">&quot;_step_nr&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">max_num_steps</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`max_num_steps` must be greater than zero.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">max_num_steps</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">max_num_steps</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`max_num_steps` must be greater than zero.&quot;</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_max_num_steps</span> <span class="o">=</span> <span class="n">max_num_steps</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">register_stateful</span><span class="p">(</span><span class="s2">&quot;_data_epoch_nr&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">max_num_data_epochs</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`max_num_data_epochs` must be greater than zero.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">max_num_data_epochs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">max_num_data_epochs</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`max_num_data_epochs` must be greater than zero.&quot;</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_max_num_data_epochs</span> <span class="o">=</span> <span class="n">max_num_data_epochs</span>
 
@@ -747,48 +749,54 @@
                 <span class="s2">&quot;`valid_units` and `valid_data_readers` must be both specified.&quot;</span>
             <span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">validate_every_n_steps</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`validate_every_n_steps` must be greater than zero.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">validate_every_n_steps</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">validate_every_n_steps</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`validate_every_n_steps` must be greater than zero.&quot;</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_validate_after_n_steps</span> <span class="o">=</span> <span class="n">validate_after_n_steps</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_validate_every_n_steps</span> <span class="o">=</span> <span class="n">validate_every_n_steps</span>
 
-        <span class="k">if</span> <span class="n">validate_every_n_data_epochs</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;`validate_every_n_data_epochs` must be greater than zero.&quot;</span>
-            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">validate_every_n_data_epochs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">validate_every_n_data_epochs</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;`validate_every_n_data_epochs` must be greater than zero.&quot;</span>
+                <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_validate_after_n_data_epochs</span> <span class="o">=</span> <span class="n">validate_after_n_data_epochs</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_validate_every_n_data_epochs</span> <span class="o">=</span> <span class="n">validate_every_n_data_epochs</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_manager</span> <span class="o">=</span> <span class="n">checkpoint_manager</span>
 
-        <span class="k">if</span> <span class="n">checkpoint_every_n_steps</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`checkpoint_every_n_steps` must be greater than zero.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">checkpoint_every_n_steps</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">checkpoint_every_n_steps</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;`checkpoint_every_n_steps` must be greater than zero.&quot;</span>
+                <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_after_n_steps</span> <span class="o">=</span> <span class="n">checkpoint_after_n_steps</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_every_n_steps</span> <span class="o">=</span> <span class="n">checkpoint_every_n_steps</span>
 
-        <span class="k">if</span> <span class="n">checkpoint_every_n_data_epochs</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;`checkpoint_every_n_data_epochs` must be greater than zero.&quot;</span>
-            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">checkpoint_every_n_data_epochs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">checkpoint_every_n_data_epochs</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;`checkpoint_every_n_data_epochs` must be greater than zero.&quot;</span>
+                <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_after_n_data_epochs</span> <span class="o">=</span> <span class="n">checkpoint_after_n_data_epochs</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_every_n_data_epochs</span> <span class="o">=</span> <span class="n">checkpoint_every_n_data_epochs</span>
 
-        <span class="k">if</span> <span class="n">keep_last_n_checkpoints</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">keep_best_n_checkpoints</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;`keep_last_n_checkpoints` and `keep_best_n_checkpoints` are mutually exclusive and must not be specified at the same time.&quot;</span>
-            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">keep_last_n_checkpoints</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">keep_best_n_checkpoints</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;`keep_last_n_checkpoints` and `keep_best_n_checkpoints` are mutually exclusive and must not be specified at the same time.&quot;</span>
+                <span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">keep_last_n_checkpoints</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`keep_last_n_checkpoints` must be greater than zero.&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">keep_last_n_checkpoints</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`keep_last_n_checkpoints` must be greater than zero.&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">keep_best_n_checkpoints</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">keep_best_n_checkpoints</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`keep_best_n_checkpoints` must be greater than zero.&quot;</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">keep_best_n_checkpoints</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`keep_best_n_checkpoints` must be greater than zero.&quot;</span><span class="p">)</span>
-
-        <span class="k">if</span> <span class="n">keep_best_n_checkpoints</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">checkpoint_every_n_steps</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">score_metric_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
@@ -839,23 +847,27 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_metric_bag</span> <span class="o">=</span> <span class="n">unit</span><span class="o">.</span><span class="n">metric_bag</span>
 
-        <span class="k">if</span> <span class="n">root_gang</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_metric_recorders</span> <span class="o">=</span> <span class="p">[</span><span class="n">LogMetricRecorder</span><span class="p">(</span><span class="n">log</span><span class="p">)]</span>
+        <span class="k">if</span> <span class="n">metric_recorders</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># compat</span>
+            <span class="k">if</span> <span class="n">root_gang</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_metric_recorders</span> <span class="o">=</span> <span class="p">[</span><span class="n">LogMetricRecorder</span><span class="p">(</span><span class="n">log</span><span class="p">)]</span>
 
-            <span class="k">if</span> <span class="n">tb_dir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_metric_recorders</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">TensorBoardRecorder</span><span class="p">(</span><span class="n">tb_dir</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">tb_dir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_metric_recorders</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">TensorBoardRecorder</span><span class="p">(</span><span class="n">tb_dir</span><span class="p">))</span>
 
-            <span class="k">if</span> <span class="n">metrics_dir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_metric_recorders</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">JsonFileMetricRecorder</span><span class="p">(</span><span class="n">metrics_dir</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">metrics_dir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_metric_recorders</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">JsonFileMetricRecorder</span><span class="p">(</span><span class="n">metrics_dir</span><span class="p">))</span>
 
-            <span class="k">if</span> <span class="n">wandb_options</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">wandb_dir</span><span class="p">,</span> <span class="n">wandb_project</span><span class="p">,</span> <span class="n">wandb_name</span> <span class="o">=</span> <span class="n">wandb_options</span>
+                <span class="k">if</span> <span class="n">wandb_options</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">wandb_dir</span><span class="p">,</span> <span class="n">wandb_project</span><span class="p">,</span> <span class="n">wandb_name</span> <span class="o">=</span> <span class="n">wandb_options</span>
 
-                <span class="bp">self</span><span class="o">.</span><span class="n">_metric_recorders</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                    <span class="n">WandbRecorder</span><span class="p">(</span><span class="n">wandb_project</span><span class="p">,</span> <span class="n">wandb_name</span><span class="p">,</span> <span class="n">wandb_dir</span><span class="p">)</span>
-                <span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_metric_recorders</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="n">WandbRecorder</span><span class="p">(</span><span class="n">wandb_project</span><span class="p">,</span> <span class="n">wandb_name</span><span class="p">,</span> <span class="n">wandb_dir</span><span class="p">)</span>
+                    <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_metric_recorders</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_metric_recorders</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_metric_recorders</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">metric_recorders</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">publish_metrics_every_n_steps</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
@@ -877,16 +889,20 @@
             <span class="k">if</span> <span class="n">profile</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">tb_dir</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;No TensorBoard log directory provided. Profiling will be disabled.&quot;</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
 
-            <span class="n">skip_first</span><span class="p">,</span> <span class="n">active_steps</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span>
+            <span class="n">num_skip_steps</span><span class="p">,</span> <span class="n">num_record_steps</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span>
 
             <span class="n">profile_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">()</span>
+
+            <span class="n">enabled</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">skip_first</span><span class="p">,</span> <span class="n">active_steps</span> <span class="o">=</span> <span class="n">profile</span>
+            <span class="n">num_skip_steps</span><span class="p">,</span> <span class="n">num_record_steps</span> <span class="o">=</span> <span class="n">profile</span>
 
             <span class="n">profile_dir</span> <span class="o">=</span> <span class="n">tb_dir</span>
 
+            <span class="n">enabled</span> <span class="o">=</span> <span class="n">num_record_steps</span> <span class="o">&gt;</span> <span class="mi">0</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">_profiler</span> <span class="o">=</span> <span class="n">Profiler</span><span class="p">(</span>
-            <span class="n">skip_first</span><span class="p">,</span> <span class="n">active_steps</span><span class="p">,</span> <span class="n">profile_dir</span><span class="p">,</span> <span class="n">root_gang</span><span class="p">,</span> <span class="n">enabled</span><span class="o">=</span><span class="n">active_steps</span> <span class="o">&gt;</span> <span class="mi">0</span>
+            <span class="n">num_skip_steps</span><span class="p">,</span> <span class="n">num_record_steps</span><span class="p">,</span> <span class="n">profile_dir</span><span class="p">,</span> <span class="n">root_gang</span><span class="p">,</span> <span class="n">enabled</span><span class="o">=</span><span class="n">enabled</span>
         <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_anomaly_detection</span> <span class="o">=</span> <span class="n">anomaly_detection</span>
@@ -914,7 +930,7 @@
 
     <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;The trainer can only be run once.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">InvalidOperationError</span><span class="p">(</span><span class="s2">&quot;The trainer can only be run once.&quot;</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_run</span> <span class="o">=</span> <span class="kc">True</span>
 
@@ -1050,8 +1066,8 @@
 
                 <span class="k">if</span> <span class="n">num_batch_targets</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="k">if</span> <span class="n">num_batch_targets</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-                            <span class="s2">&quot;The train unit returned zero loss targets. Please file a bug report to the recipe author.&quot;</span>
+                        <span class="k">raise</span> <span class="n">ContractError</span><span class="p">(</span>
+                            <span class="s2">&quot;The train unit returned zero loss targets.&quot;</span>
                         <span class="p">)</span>
 
                     <span class="n">num_targets</span> <span class="o">+=</span> <span class="n">num_batch_targets</span>
@@ -1186,9 +1202,7 @@
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_root_gang</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">values</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-                    <span class="s2">&quot;The synchronized metric values are `None`. Please file a bug report.&quot;</span>
-                <span class="p">)</span>
+                <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span><span class="s2">&quot;`values` is `None`.&quot;</span><span class="p">)</span>
 
             <span class="n">extend_batch_metrics</span><span class="p">(</span>
                 <span class="n">values</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_effective_batches</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_total_step_time</span>
@@ -1295,9 +1309,7 @@
             <span class="k">return</span> <span class="kc">None</span>
 
         <span class="k">if</span> <span class="n">values</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-                <span class="s2">&quot;The synchronized validation metric values are `None`. Please file a bug report.&quot;</span>
-            <span class="p">)</span>
+            <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span><span class="s2">&quot;`values` is `None`.&quot;</span><span class="p">)</span>
 
         <span class="n">extend_batch_metrics</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">num_batches</span><span class="p">,</span> <span class="n">elapsed_time</span><span class="p">)</span>
 
@@ -1340,8 +1352,8 @@
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">unit_scores</span><span class="p">:</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_root_gang</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-                    <span class="s2">&quot;None of the validation units returned a score metric value. Please file a bug report to the recipe author.&quot;</span>
+                <span class="k">raise</span> <span class="n">ContractError</span><span class="p">(</span>
+                    <span class="s2">&quot;None of the validation units returned a score metric value.&quot;</span>
                 <span class="p">)</span>
 
             <span class="k">return</span> <span class="kc">None</span>
@@ -1382,9 +1394,7 @@
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_root_gang</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_valid_score</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-                    <span class="s2">&quot;Early stop requested, but the validation score is `None`. Please file a bug report.&quot;</span>
-                <span class="p">)</span>
+                <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span><span class="s2">&quot;Early stopping, but `_valid_score` is `None`.&quot;</span><span class="p">)</span>
 
             <span class="n">should_stop</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_early_stopper</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_step_nr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_valid_score</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
@@ -1452,7 +1462,8 @@
         <span class="n">nm</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_keep_last_n_models</span>
 
         <span class="k">if</span> <span class="n">nm</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">assert</span> <span class="n">nc</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">nc</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span><span class="s2">&quot;`_keep_last_n_checkpoints` is `None`&quot;</span><span class="p">)</span>
 
             <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_manager</span><span class="o">.</span><span class="n">keep_last_n_checkpoints</span><span class="p">(</span><span class="n">nm</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_manager</span><span class="o">.</span><span class="n">keep_last_n_checkpoints</span><span class="p">(</span><span class="n">nc</span><span class="p">,</span> <span class="n">preserve_model</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -1463,7 +1474,8 @@
         <span class="n">nm</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_keep_best_n_models</span>
 
         <span class="k">if</span> <span class="n">nm</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">assert</span> <span class="n">nc</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">nc</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span><span class="s2">&quot;`_keep_best_n_checkpoints` is `None`&quot;</span><span class="p">)</span>
 
             <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_manager</span><span class="o">.</span><span class="n">keep_best_n_checkpoints</span><span class="p">(</span>
                 <span class="n">nm</span><span class="p">,</span> <span class="n">lower_better</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_lower_better</span>
@@ -1548,7 +1560,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=ae99886b"></script>
+</div><script src="../../../_static/documentation_options.js?v=e66272bf"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>

@@ -336,10 +336,13 @@
     <span class="n">AssetMetadataProvider</span><span class="p">,</span>
     <span class="n">FileAssetMetadataProvider</span><span class="p">,</span>
     <span class="n">PackageAssetMetadataProvider</span><span class="p">,</span>
+    <span class="n">WheelPackageFileLister</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">fairseq2.error</span> <span class="kn">import</span> <span class="n">ContractError</span>
 <span class="kn">from</span> <span class="nn">fairseq2.extensions</span> <span class="kn">import</span> <span class="n">run_extensions</span>
 <span class="kn">from</span> <span class="nn">fairseq2.utils.env</span> <span class="kn">import</span> <span class="n">get_path_from_env</span>
+<span class="kn">from</span> <span class="nn">fairseq2.utils.file</span> <span class="kn">import</span> <span class="n">StandardFileSystem</span>
+<span class="kn">from</span> <span class="nn">fairseq2.utils.yaml</span> <span class="kn">import</span> <span class="n">load_yaml</span>
 
 <span class="n">AssetScope</span><span class="p">:</span> <span class="n">TypeAlias</span> <span class="o">=</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="s2">&quot;global&quot;</span><span class="p">,</span> <span class="s2">&quot;user&quot;</span><span class="p">]</span>
 
@@ -545,7 +548,9 @@
 <span class="sd">        :param path: The directory under which asset metadata is stored.</span>
 <span class="sd">        :param user: If ``True``, adds the metadata provider to the user scope.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">provider</span> <span class="o">=</span> <span class="n">FileAssetMetadataProvider</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="n">file_system</span> <span class="o">=</span> <span class="n">StandardFileSystem</span><span class="p">()</span>
+
+        <span class="n">provider</span> <span class="o">=</span> <span class="n">FileAssetMetadataProvider</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">file_system</span><span class="p">,</span> <span class="n">load_yaml</span><span class="p">)</span>
 
         <span class="n">providers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">user_metadata_providers</span> <span class="k">if</span> <span class="n">user</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata_providers</span>
 
@@ -557,7 +562,9 @@
 <span class="sd">        :param package_name: The name of the package in which asset metadata is</span>
 <span class="sd">            stored.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">provider</span> <span class="o">=</span> <span class="n">PackageAssetMetadataProvider</span><span class="p">(</span><span class="n">package_name</span><span class="p">)</span>
+        <span class="n">file_lister</span> <span class="o">=</span> <span class="n">WheelPackageFileLister</span><span class="p">()</span>
+
+        <span class="n">provider</span> <span class="o">=</span> <span class="n">PackageAssetMetadataProvider</span><span class="p">(</span><span class="n">package_name</span><span class="p">,</span> <span class="n">file_lister</span><span class="p">,</span> <span class="n">load_yaml</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">metadata_providers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">provider</span><span class="p">)</span>
 
@@ -643,7 +650,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=ae99886b"></script>
+</div><script src="../../../_static/documentation_options.js?v=e66272bf"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>

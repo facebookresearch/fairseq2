@@ -657,8 +657,6 @@
           <li><a href="reference/api/fairseq2.recipes/llama/convert_checkpoint.html#module-fairseq2.recipes.llama.convert_checkpoint">module</a>
 </li>
         </ul></li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li>
     fairseq2.recipes.lm
 
@@ -666,6 +664,8 @@
           <li><a href="reference/api/fairseq2.recipes/lm/index.html#module-fairseq2.recipes.lm">module</a>
 </li>
         </ul></li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li>
     fairseq2.recipes.trainer
 
@@ -694,6 +694,8 @@
 </li>
         <li><a href="reference/api/fairseq2.data/data_pipeline.html#fairseq2.data.data_pipeline.DataPipelineBuilder.filter">filter() (fairseq2.data.data_pipeline.DataPipelineBuilder method)</a>
 </li>
+        <li><a href="reference/api/fairseq2.assets/index.html#fairseq2.assets.AssetCard.flatten">flatten() (fairseq2.assets.AssetCard method)</a>
+</li>
         <li><a href="reference/api/fairseq2.nn/position_encoders.html#fairseq2.nn.PositionEncoder.forward">forward() (fairseq2.nn.PositionEncoder method)</a>
 </li>
         <li><a href="reference/api/fairseq2.recipes/lm/instruction_finetune.html#fairseq2.recipes.lm.instruction_finetune.InstructionFinetuneConfig.fp16_loss_scale">fp16_loss_scale (fairseq2.recipes.lm.instruction_finetune.InstructionFinetuneConfig attribute)</a>
@@ -705,6 +707,8 @@
         <li><a href="reference/api/gang.html#fairseq2.gang.ProcessGroupGang.from_default_process_group">from_default_process_group() (fairseq2.gang.ProcessGroupGang class method)</a>
 </li>
         <li><a href="reference/api/gang.html#fairseq2.gang.ProcessGroupGang.from_process_group">from_process_group() (fairseq2.gang.ProcessGroupGang static method)</a>
+</li>
+        <li><a href="reference/api/fairseq2.recipes/lm/instruction_finetune.html#fairseq2.recipes.lm.instruction_finetune.InstructionFinetuneConfig.fsdp_local_world_size">fsdp_local_world_size (fairseq2.recipes.lm.instruction_finetune.InstructionFinetuneConfig attribute)</a>
 </li>
         <li><a href="reference/api/fairseq2.recipes/lm/instruction_finetune.html#fairseq2.recipes.lm.instruction_finetune.InstructionFinetuneConfig.fsdp_reshard_after_forward">fsdp_reshard_after_forward (fairseq2.recipes.lm.instruction_finetune.InstructionFinetuneConfig attribute)</a>
 </li>
@@ -1087,14 +1091,14 @@
 </li>
         <li><a href="reference/api/fairseq2.data/data_pipeline.html#fairseq2.data.data_pipeline.DataPipeline.reset">reset() (fairseq2.data.data_pipeline.DataPipeline method)</a>
 </li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/api/fairseq2.nn/position_encoders.html#fairseq2.nn.RotaryEncoder.reset_non_persistent_buffers">reset_non_persistent_buffers() (fairseq2.nn.RotaryEncoder method)</a>
 
         <ul>
           <li><a href="reference/api/fairseq2.nn/position_encoders.html#fairseq2.nn.SinusoidalPositionEncoder.reset_non_persistent_buffers">(fairseq2.nn.SinusoidalPositionEncoder method)</a>
 </li>
         </ul></li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/api/fairseq2.nn/position_encoders.html#fairseq2.nn.LearnedPositionEncoder.reset_parameters">reset_parameters() (fairseq2.nn.LearnedPositionEncoder method)</a>
 
         <ul>
@@ -1118,7 +1122,17 @@
         <li><a href="reference/api/fairseq2.data/data_pipeline.html#fairseq2.data.data_pipeline.DataPipeline.round_robin">round_robin() (fairseq2.data.data_pipeline.DataPipeline static method)</a>
 </li>
         <li><a href="reference/api/fairseq2.recipes/cli.html#fairseq2.recipes.cli.Cli.run">run() (fairseq2.recipes.cli.Cli method)</a>
+
+        <ul>
+          <li><a href="reference/api/fairseq2.recipes/cli.html#fairseq2.recipes.cli.CliCommand.run">(fairseq2.recipes.cli.CliCommand method)</a>
 </li>
+          <li><a href="reference/api/fairseq2.recipes/cli.html#fairseq2.recipes.cli.CliCommandHandler.run">(fairseq2.recipes.cli.CliCommandHandler method)</a>
+</li>
+          <li><a href="reference/api/fairseq2.recipes/cli.html#fairseq2.recipes.cli.RecipeCommandHandler.run">(fairseq2.recipes.cli.RecipeCommandHandler method)</a>
+</li>
+          <li><a href="reference/api/fairseq2.recipes/llama/convert_checkpoint.html#fairseq2.recipes.llama.convert_checkpoint.ConvertCheckpointCommandHandler.run">(fairseq2.recipes.llama.convert_checkpoint.ConvertCheckpointCommandHandler method)</a>
+</li>
+        </ul></li>
     </ul></td>
   </tr></table>
 </section>
@@ -1301,7 +1315,7 @@
       
     </aside>
   </div>
-</div><script src="_static/documentation_options.js?v=ae99886b"></script>
+</div><script src="_static/documentation_options.js?v=e66272bf"></script>
     <script src="_static/doctools.js?v=9a2dae69"></script>
     <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/scripts/furo.js?v=5fa4622c"></script>

@@ -446,6 +446,27 @@
 
         <span class="n">metadata</span><span class="p">[</span><span class="n">path</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span> <span class="o">=</span> <span class="n">value</span>
 
+<div class="viewcode-block" id="AssetCard.flatten">
+<a class="viewcode-back" href="../../../reference/api/fairseq2.assets/index.html#fairseq2.assets.AssetCard.flatten">[docs]</a>
+    <span class="k">def</span> <span class="nf">flatten</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AssetCard</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Flattens the metadata of this card and all its bases into a single one.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">all_metadata</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="n">card</span><span class="p">:</span> <span class="n">AssetCard</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="bp">self</span>
+
+        <span class="k">while</span> <span class="n">card</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">all_metadata</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">card</span><span class="o">.</span><span class="n">_metadata</span><span class="p">)</span>
+
+            <span class="n">card</span> <span class="o">=</span> <span class="n">card</span><span class="o">.</span><span class="n">_base_card</span>
+
+        <span class="k">for</span> <span class="n">metadata</span> <span class="ow">in</span> <span class="n">all_metadata</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">::</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="n">all_metadata</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">metadata</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">AssetCard</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="p">,</span> <span class="n">all_metadata</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span></div>
+
+
     <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span><span class="p">)</span>
 
@@ -664,7 +685,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=ae99886b"></script>
+</div><script src="../../../_static/documentation_options.js?v=e66272bf"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>
