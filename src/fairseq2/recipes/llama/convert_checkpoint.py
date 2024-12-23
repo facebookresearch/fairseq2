@@ -20,7 +20,7 @@ from typing_extensions import override
 from fairseq2.assets import default_asset_store
 from fairseq2.logging import get_log_writer
 from fairseq2.models.llama import load_llama_config
-from fairseq2.models.llama.integ import convert_to_reference_checkpoint
+from fairseq2.models.llama.integ import convert_to_reference_checkpoint, get_ffn_dim_multipliers
 from fairseq2.recipes.cli import CliCommandHandler
 from fairseq2.recipes.console import get_error_console
 from fairseq2.setup import setup_fairseq2
@@ -160,19 +160,10 @@ class ConvertCheckpointCommandHandler(CliCommandHandler):
             if model_config.num_attn_heads != model_config.num_key_value_heads:
                 params["model"]["n_kv_heads"] = model_config.num_key_value_heads
 
-            # we only specify archs where multiplier != 1.0
-            ffn_dim_multipliers = {
-                "llama2_70b": 1.3,
-                "llama3_8b": 1.3,
-                "llama3_70b": 1.3,
-                "llama3_1_8b": 1.3,
-                "llama3_1_70b": 1.3,
-                "llama3_1_405b": 1.2,
-                "llama3_2_1b": 1.5,
-            }
+            ffn_dim_multiplier = get_ffn_dim_multipliers(arch)
 
-            if arch in ffn_dim_multipliers:
-                params["model"]["ffn_dim_multiplier"] = ffn_dim_multipliers[arch]
+            if ffn_dim_multiplier != 1.0:
+                params["model"]["ffn_dim_multiplier"] = ffn_dim_multiplier
 
             try:
                 with args.output_dir.joinpath("params.json").open("w") as fp:

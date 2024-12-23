@@ -11,6 +11,21 @@ from typing import Any
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
 
 
+def get_ffn_dim_multipliers(architecture: str) -> float:
+    # we only specify archs where multiplier != 1.0
+    ffn_dim_multipliers = {
+        "llama2_70b": 1.3,
+        "llama3_8b": 1.3,
+        "llama3_70b": 1.3,
+        "llama3_1_8b": 1.3,
+        "llama3_1_70b": 1.3,
+        "llama3_1_405b": 1.2,
+        "llama3_2_1b": 1.5,
+    }
+    
+    return ffn_dim_multipliers.get(architecture, 1.0)
+
+
 def convert_to_reference_checkpoint(checkpoint: dict[str, Any]) -> dict[str, Any]:
     """Convert a fairseq2 LLaMA checkpoint to the reference format."""
     try:
