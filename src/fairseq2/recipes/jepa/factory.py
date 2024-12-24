@@ -103,6 +103,16 @@ class AttentiveClassifierConfig:
     num_classes: int = 1000
     """Size of classification logits"""
 
+@dataclass(kw_only=True)
+class JepaForClassificationConfig:
+    encoder_model_name: str = ""
+    
+    attentive_classifier_name: str = ""
+    
+    def __post_init__(self):
+        if not self.encoder_model_name:
+            raise ValueError("Must specify encoder_model_name")
+
 
 attentive_archs = ConfigRegistry[AttentiveClassifierConfig]()
 
