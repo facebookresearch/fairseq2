@@ -17,9 +17,8 @@ from typing_extensions import override
 from fairseq2.assets import default_asset_store
 from fairseq2.logging import get_log_writer
 from fairseq2.models.llama import load_llama_config
-from fairseq2.models.llama.factory import convert_to_huggingface_config
+from fairseq2.models.llama.integ import convert_to_huggingface_config
 from fairseq2.recipes.cli import CliCommandHandler
-from fairseq2.recipes.console import get_error_console
 from fairseq2.setup import setup_fairseq2
 
 log = get_log_writer(__name__)
@@ -57,28 +56,27 @@ class WriteHfConfigCommandHandler(CliCommandHandler):
             model_config = None
 
         if model_config is None:
-            log.error("Model config could not be retrieved for model {}", args.model)
+            log.error("Config could not be retrieved for model {}", args.model)
 
             sys.exit(1)
-        
+
         args.output_dir.mkdir(parents=True, exist_ok=True)
 
         # Convert and write the config
-        with get_error_console().status("[bold green]Writing config...") as status:
+        log.info("Writing config...")
 
-            config = convert_to_huggingface_config(arch, model_config)
-            to_write = json.dumps(config, indent=2, sort_keys=True) + "\n"
+        config = convert_to_huggingface_config(arch, model_config)
 
-            json_file = args.output_dir.joinpath("config.json")
+        json_file = args.output_dir.joinpath("config.json")
 
-            try:
-                with json_file.open("w") as fp:
-                    fp.write(to_write)
-            except OSError as ex:
-                raise RuntimeError(
-                    f"The file config.json cannot be saved. See the nested exception for details."
-                ) from ex
+        try:
+            with json_file.open("w") as fp:
+                json.dump(config, fp, indent=2, sort_keys=True)
+        except OSError as ex:
+            raise RuntimeError(
+                f"The file {json_file} cannot be saved. See the nested exception for details."
+            ) from ex
 
-            log.info("Config converted and saved in {}", json_file)
+        log.info("Config converted and saved in {}", json_file)
 
         return 0

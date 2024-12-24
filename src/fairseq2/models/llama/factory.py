@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Any, Final
+from typing import Final
 
 import torch
 from torch import Tensor
@@ -16,7 +16,6 @@ from torch import Tensor
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data import VocabularyInfo
 from fairseq2.models.factory import model_factories
-from fairseq2.models.llama.integ import get_ffn_dim_multipliers
 from fairseq2.models.transformer import (
     TransformerDecoderModel,
     TransformerEmbeddingFrontend,
@@ -325,46 +324,3 @@ def get_llama_lora_config() -> LoRAConfig:
         dropout_p=0.05,
         keys=[".*decoder.layers.*.self_attn.*(q_proj|v_proj)$"],
     )
-
-
-def convert_to_huggingface_config(arch: str, config: LLaMAConfig) -> dict[str, Any]:
-
-    def compute_intermediate_size(n, ffn_dim_multiplier=1, multiple_of=256):
-        """From: https://github.com/huggingface/transformers/blob/82fcac0a7e40dc6cc5e3121d714b9b16775293ad/src/transformers/models/llama/convert_llama_weights_to_hf.py#L171"""
-        return multiple_of * ((int(ffn_dim_multiplier * int(8 * n / 3)) + multiple_of - 1) // multiple_of)
-    
-    if config.use_scaled_rope:
-        rope_scaling = {
-            "factor": 32.0 if "3_2" in arch else 8.0,
-            "low_freq_factor": 1.0,
-            "high_freq_factor": 4.0,
-            "original_max_position_embeddings": 8192,
-            "rope_type": "llama3",
-        }
-    else:
-        # mgleize: I'm not sure what's the to_json behavior is if rope_scaling ever is None
-        rope_scaling = None
-
-    # we only specify the parameters made explicit in the Huggingface converter
-    # https://github.com/huggingface/transformers/blob/93aafdc620d39b9ec714ffecf015a085ea221282/src/transformers/models/llama/convert_llama_weights_to_hf.py#L384
-    return {
-        "architectures": ["Fairseq2LlamaForCausalLM"],
-        "bos_token_id": config.vocab_info.bos_idx,
-        "eos_token_id": config.vocab_info.eos_idx,
-        "hidden_size": config.model_dim,
-        "intermediate_size": compute_intermediate_size(
-            config.model_dim,
-            get_ffn_dim_multipliers(arch),
-            config.ffn_inner_dim_to_multiple,
-        ),
-        "max_position_embeddings": config.max_seq_len,
-        "model_type": "llama",
-        "num_attention_heads": config.num_attn_heads,
-        "num_hidden_layers": config.num_layers,
-        "num_key_value_heads": config.num_key_value_heads,
-        "rms_norm_eps": 1e-5,
-        "rope_scaling": rope_scaling,
-        "rope_theta": config.rope_theta,
-        "tie_word_embeddings": "3_2" in arch,
-        "vocab_size": config.vocab_info.size,
-    }

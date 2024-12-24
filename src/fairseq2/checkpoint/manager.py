@@ -10,7 +10,6 @@ import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Iterator, Mapping, Set
 from contextlib import AbstractContextManager, nullcontext
-import json
 from pathlib import Path
 from shutil import rmtree
 from typing import final
@@ -95,21 +94,7 @@ class CheckpointManager(ABC):
         :param metadata:
             The metadata to save. Must be pickeable.
         """
-    
-    @abstractmethod
-    def save_json_dict(
-        self,
-        output_name: str,
-        json_dict: Mapping[str, object],
-    ) -> None:
-        """Save a collection of key-values in JSON format, associated with the checkpoint.
 
-        :param output_name:
-            The name of the output json artifact.
-        :param json_dict:
-            The key-values to save. Must be json.dumps-able.
-        """
-    
     @abstractmethod
     def save_score(self, score: float | None) -> None:
         """Save the score of the checkpoint."""
@@ -456,27 +441,6 @@ class FileCheckpointManager(CheckpointManager):
             except TensorDumpError as ex:
                 raise CheckpointError(
                     f"The checkpoint metadata of training step {step_nr} cannot be saved to the '{metadata_file}' file. See the nested exception for details."
-                ) from ex
-
-        self._root_gang.barrier()
-    
-    @override
-    def save_json_dict(
-        self,
-        output_name: str,
-        json_dict: Mapping[str, object],
-    ) -> None:
-        to_write = json.dumps(json_dict, indent=2, sort_keys=True) + "\n"
-
-        if self._root_gang.rank == 0:
-            json_file = self._checkpoint_dir.joinpath(f"{output_name}")
-
-            try:
-                with json_file.open("w") as fp:
-                    fp.write(to_write)
-            except OSError as ex:
-                raise CheckpointError(
-                    f"The JSON file named {output_name} cannot be saved at training step {step_nr}. See the nested exception for details."
                 ) from ex
 
         self._root_gang.barrier()
