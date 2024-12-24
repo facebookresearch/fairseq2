@@ -104,9 +104,7 @@ class JepaClassifierBuilder:
     def build_decoder_layer(self) -> CrossAttentionDecoderLayer:
         config = self._config
 
-        cross_attn = self._encoder_builder.build_attention(
-            config.pool_depth, is_cross_attn=True
-        )
+        cross_attn = self.build_cross_attention()
 
         ffn = self._encoder_builder.build_ffn(config.pool_depth)
 
@@ -118,28 +116,24 @@ class JepaClassifierBuilder:
             dtype=self._dtype,
         )
 
-#    def build_attention(
-#        self, layer_idx: int, is_cross_attn: bool = False
-#    ) -> MultiheadAttention:
-#        config = self._config
-#
-#        sdpa = create_default_sdpa(attn_dropout_p=config.attn_dropout_p)
-#
-#        if is_cross_attn:
-#            output_proj: Projection = IdentityProjection(
-#                config.model_dim, config.model_dim
-#            )
-#        output_proj = self.build_mha_output_projection(layer_idx)
-#
-#        return StandardMultiheadAttention(
-#            config.model_dim,
-#            config.num_attn_heads,
-#            sdpa=sdpa,
-#            bias=config.qkv_bias,
-#            output_proj=output_proj,
-#            device=self._device,
-#            dtype=self._dtype,
-#        )
+    def build_cross_attention(self) -> MultiheadAttention:
+        config = self._config.encoder_config
+        
+        model_dim = config.model_dim
+        
+        sdpa = create_default_sdpa(attn_dropout_p=config.attn_dropout_p)
+       
+        output_proj: Projection = IdentityProjection(model_dim, model_dim)
+
+        return StandardMultiheadAttention(
+            model_dim,
+            config.num_encoder_attn_heads,
+            sdpa=sdpa,
+            bias=config.qkv_bias,
+            output_proj=output_proj,
+            device=self._device,
+            dtype=self._dtype,
+        )
 
 
 def create_jepa_classifier_model(
