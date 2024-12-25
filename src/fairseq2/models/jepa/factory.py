@@ -17,6 +17,7 @@ from torch.nn import GELU, Conv2d, Conv3d
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.models.jepa.model import JepaModel
+from fairseq2.models.factory import model_factories
 from fairseq2.models.transformer import TransformerFrontend
 from fairseq2.models.vit import (
     Conv2dPatchFeatureExtractor,
@@ -418,3 +419,11 @@ def create_jepa_model(
     dtype: DataType | None = None,
 ) -> JepaModel:
     return JepaBuilder(config, device=device, dtype=dtype).build_model()
+
+
+model_factories.register(
+    JEPA_FAMILY,
+    create_jepa_model,
+    JepaConfig,
+    jepa_archs,
+)

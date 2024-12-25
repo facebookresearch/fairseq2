@@ -90,12 +90,12 @@ class JepaClassifierBuilder:
         else:
             encoder = None
 
-        decoder_layer = self.build_decoder_layer()
+        decoder = self.build_decoder_layer()
 
         return AttentivePooler(
-            decoder_layer=decoder_layer,
+            decoder=decoder,
             encoder=encoder,
-            num_pools=config.num_queries,
+            num_queries=config.num_queries,
             init_std=config.encoder_config.init_std,
             device=self._device,
             dtype=self._dtype,

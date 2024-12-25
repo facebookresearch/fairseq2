@@ -1,0 +1,12 @@
+
+name: k400_jepa_vitl16_234
+model_family: jepa
+model_arch: large
+model_config:
+  encoder_config:
+    input_dims: [16, 224, 224]
+    patch_dims: [2, 16, 16]
+    uniform_power: true
+  num_classes: 400
+    
+checkpoint: "https://dl.fbaipublicfiles.com/jepa/vitl16/vitl16.pth.tar"
