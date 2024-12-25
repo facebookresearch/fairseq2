@@ -12,7 +12,9 @@ from pathlib import Path
 import torch
 
 from fairseq2.logging import get_log_writer
+from fairseq2.models.jepa import load_jepa_model
 from fairseq2.models.jepa.classifier import load_jepa_classifier_model
+from fairseq2.nn.utils.module import share_parameters
 from fairseq2.recipes.utils.asset import AssetReference
 from fairseq2.recipes.utils.setup import setup_root_gang
 
@@ -31,7 +33,8 @@ class JepaProbingEvalConfig:
     num_classes: int = 400
 
     # Model
-    model_card: AssetReference = ""
+    probe_model: AssetReference = ""
+    pretrained_model: AssetReference = ""
 
 
 def evaluate_jepa_attentive_probing(
@@ -43,7 +46,9 @@ def evaluate_jepa_attentive_probing(
     
     # Load a pretrained model config to a classifier, then update
     # the attentive pooler and head with the attentive checkpoint
-    model = load_jepa_classifier_model(config.model_card, device=gang.device, dtype=torch.float32)
+    model = load_jepa_classifier_model(config.probe_model, device=gang.device, dtype=torch.float32)    
+    pt_model = load_jepa_model(config.pretrained_model, device=gang.device)
+    share_parameters(pt_model.encoder, model.encoder)
 
 
 if __name__ == "__main__":
