@@ -353,7 +353,7 @@ def infer_device(module: Module, *, recurse: bool = True) -> Device:
     devices = set()
     for name, param in module.named_parameters(recurse=True):
         devices.add(param.device)
-        log.info(f"Parameter {name} is in {param.device}")
+        log.warning(f"Parameter {name} is in {param.device}")
 
     for buffer in module.buffers(recurse):
         devices.add(buffer.device)
