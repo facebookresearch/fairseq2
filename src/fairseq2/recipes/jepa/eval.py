@@ -40,6 +40,7 @@ class JepaProbingEvalConfig:
 def evaluate_jepa_attentive_probing(probe: str, pretrain: str, num_classes: int) -> None:
     
     gang = setup_root_gang(log)
+    breakpoint()
     
     config = JepaProbingEvalConfig(
         num_classes=num_classes, probe_model=probe, pretrained_model=pretrain
@@ -52,6 +53,8 @@ def evaluate_jepa_attentive_probing(probe: str, pretrain: str, num_classes: int)
     model = load_jepa_classifier_model(probe_card, device=gang.device, dtype=torch.float32)    
     pt_model = load_jepa_model(config.pretrained_model, device=gang.device)
     share_parameters(pt_model.encoder, model.encoder)
+
+    del pt_model
 
 
 if __name__ == "__main__":
