@@ -124,8 +124,7 @@ class ModelSharder(Protocol[ModelT_contra, ModelConfigT_contra]):
         model: ModelT_contra,
         config: ModelConfigT_contra,
         gangs: Mapping[str, Gang],
-    ) -> None:
-        ...
+    ) -> None: ...
 
 
 @final
