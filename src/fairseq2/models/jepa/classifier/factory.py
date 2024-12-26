@@ -13,7 +13,8 @@ from fairseq2.models.jepa.classifier.model import (
     CrossAttentionDecoderLayer,
     JepaClassifierModel,
 )
-from fairseq2.models.jepa.factory import JepaEncoderBuilder, JepaEncoderConfig
+from fairseq2.models.factory import model_factories
+from fairseq2.models.jepa import JepaEncoderBuilder, JepaEncoderConfig
 from fairseq2.nn.projection import IdentityProjection, Linear, Projection
 from fairseq2.nn.transformer import (
     MultiheadAttention,
@@ -21,6 +22,8 @@ from fairseq2.nn.transformer import (
     create_default_sdpa,
 )
 from fairseq2.typing import DataType, Device
+
+JEPA_CLASSIFIER_FAMILY = "jepa_classifier"
 
 
 @dataclass(kw_only=True)
@@ -143,3 +146,10 @@ def create_jepa_classifier_model(
     dtype: DataType | None = None,
 ) -> JepaClassifierModel:
     return JepaClassifierBuilder(config, device=device, dtype=dtype).build_model()
+
+model_factories.register(
+    JEPA_CLASSIFIER_FAMILY,
+    create_jepa_classifier_model,
+    JepaClassifierConfig,
+    jepa_classifier_archs,
+)

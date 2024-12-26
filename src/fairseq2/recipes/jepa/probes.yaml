@@ -1,6 +1,6 @@
 
 name: k400_jepa_vitl16_234
-model_family: jepa
+model_family: jepa_classifier
 model_arch: large
 model_config:
   encoder_config:
