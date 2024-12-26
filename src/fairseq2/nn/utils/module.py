@@ -431,7 +431,7 @@ def broadcast_module(
     _broadcast_coalesced(pg, tensors, bucket_size, source_rank)
 
 
-def load_state_dict(module: Module, state_dict: Mapping[str, object]) -> None:
+def load_state_dict(module: Module, state_dict: Mapping[str, object], strict: bool = True) -> None:
     """Copy parameters and buffers from ``state_dict`` into ``module`` and its
     descendant modules.
 
@@ -440,7 +440,7 @@ def load_state_dict(module: Module, state_dict: Mapping[str, object]) -> None:
     contain any keys corresponding to descendants that are set to ``None`` via
     :meth:`Module.register_module()`.
     """
-    module.load_state_dict(state_dict, strict=True)
+    module.load_state_dict(state_dict, strict=strict)
 
     unexpected_keys = []
 

@@ -141,6 +141,7 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
     _sharder: ModelSharder[ModelT, ModelConfigT] | None
     _restrict_checkpoints: bool
     _skip_meta_init: bool
+    _strict_state_dict: bool
 
     def __init__(
         self,
@@ -154,6 +155,7 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         sharder: ModelSharder[ModelT, ModelConfigT] | None = None,
         restrict_checkpoints: bool = True,
         skip_meta_init: bool = False,
+        strict_state_dict: bool = True,
     ) -> None:
         """
         :param config_loader:
@@ -190,6 +192,7 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         self._sharder = sharder
         self._restrict_checkpoints = restrict_checkpoints
         self._skip_meta_init = skip_meta_init
+        self._strict_state_dict = strict_state_dict
 
     def __call__(
         self,
@@ -355,7 +358,7 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         consume_prefix_in_state_dict_if_present(state_dict, prefix="module.")
 
         try:
-            load_state_dict(model, state_dict)
+            load_state_dict(model, state_dict, strict=self._strict_state_dict)
         except (KeyError, ValueError) as ex:
             raise AssetError(
                 f"{card.name} cannot be loaded. See nested exception for details."
