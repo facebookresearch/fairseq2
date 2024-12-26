@@ -73,8 +73,29 @@ def _1b() -> Wav2Vec2Config:
     return config
 
 
+@wav2vec2_arch("2b")
+def _2b() -> Wav2Vec2Config:
+    config = _1b()
+
+    config.encoder_config.model_dim = 1920
+    config.encoder_config.ffn_inner_dim = 7680
+
+    return config
+
+
 @wav2vec2_arch("3b")
 def _3b() -> Wav2Vec2Config:
+    config = _1b()
+
+    config.encoder_config.num_encoder_layers = 60
+    config.encoder_config.model_dim = 2048
+    config.encoder_config.ffn_inner_dim = 8192
+
+    return config
+
+
+@wav2vec2_arch("3.25b")
+def _3b_higher() -> Wav2Vec2Config:
     config = _1b()
 
     config.encoder_config.num_encoder_layers = 64
@@ -127,16 +148,6 @@ def _1b_llama() -> Wav2Vec2Config:
     config.quantized_dim = 1024
     config.final_dim = 1024
     config.encoder_config.first_pass_dropout_p = 0.1
-
-    return config
-
-
-@wav2vec2_arch("2b")
-def _2b() -> Wav2Vec2Config:
-    config = _1b()
-
-    config.encoder_config.model_dim = 1920
-    config.encoder_config.ffn_inner_dim = 7680
 
     return config
 
@@ -221,5 +232,40 @@ def _large_encoder() -> Wav2Vec2EncoderConfig:
 @wav2vec2_encoder_arch("large_lv60k")  # LibriVox 60k
 def _large_lv60k_encoder() -> Wav2Vec2EncoderConfig:
     config = _large_lv60k()
+
+    return config.encoder_config
+
+
+@wav2vec2_encoder_arch("1b")
+def _1b_encoder() -> Wav2Vec2EncoderConfig:
+    config = _1b()
+
+    return config.encoder_config
+
+
+@wav2vec2_encoder_arch("1b_llama")
+def _1b_llama_encoder() -> Wav2Vec2EncoderConfig:
+    config = _1b_llama()
+
+    return config.encoder_config
+
+
+@wav2vec2_encoder_arch("2b")
+def _2b_encoder() -> Wav2Vec2EncoderConfig:
+    config = _2b()
+
+    return config.encoder_config
+
+
+@wav2vec2_encoder_arch("3b")
+def _3b_encoder() -> Wav2Vec2EncoderConfig:
+    config = _3b()
+
+    return config.encoder_config
+
+
+@wav2vec2_encoder_arch("3.25b")
+def _3b_higher_encoder() -> Wav2Vec2EncoderConfig:
+    config = _3b_higher()
 
     return config.encoder_config
