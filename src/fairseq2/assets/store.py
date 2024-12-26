@@ -96,7 +96,7 @@ class StandardAssetStore(AssetStore):
 
         if envs is None:
             envs = self._resolve_envs()
-        breakpoint()
+
         return self._do_retrieve_card(name, envs, scope)
 
     def _resolve_envs(self) -> list[str]:
