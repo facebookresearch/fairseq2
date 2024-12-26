@@ -7,8 +7,8 @@
 from __future__ import annotations
 
 from fairseq2.models.jepa.archs import (
-    base as jepa_base, 
-    large as jepa_large, 
+    base as jepa_base,
+    large as jepa_large,
     huge as jepa_huge,
 )
 from fairseq2.models.jepa.classifier.factory import JepaClassifierConfig, jepa_classifier_arch

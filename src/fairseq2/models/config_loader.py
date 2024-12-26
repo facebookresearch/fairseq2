@@ -16,7 +16,7 @@ from fairseq2.assets import (
     AssetStore,
     default_asset_store,
 )
-from fairseq2.config_registry import ConfigRegistry
+from fairseq2.config_registry import ConfigNotFoundError, ConfigRegistry
 from fairseq2.typing import DataClass
 from fairseq2.utils.dataclass import merge_dataclass
 from fairseq2.utils.structured import (
@@ -117,8 +117,9 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
                 )
 
             try:
+                breakpoint()
                 base_config = self._arch_configs.get(arch)
-            except ValueError:
+            except (ValueError, ConfigNotFoundError):
                 raise AssetError(
                     f"The '{self._family}' model family has no architecture named '{arch}'."
                 ) from None
