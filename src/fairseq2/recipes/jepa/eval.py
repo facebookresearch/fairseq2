@@ -37,12 +37,13 @@ class JepaProbingEvalConfig:
     pretrained_model: AssetReference = ""
 
 
-def evaluate_jepa_attentive_probing(
-    config: JepaProbingEvalConfig,
-    output_dir: Path,
-) -> None:
+def evaluate_jepa_attentive_probing(probe: str, pretrain: str, num_classes: int) -> None:
     
     gang = setup_root_gang(log)
+    
+    config = JepaProbingEvalConfig(
+        num_classes=num_classes, probe_model=probe, pretrained_model=pretrain
+    )
     
     # Load a pretrained model config to a classifier, then update
     # the attentive pooler and head with the attentive checkpoint
