@@ -201,7 +201,6 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         dtype: DataType | None = None,
         force: bool = False,
         progress: bool = True,
-
     ) -> ModelT:
         if isinstance(model_name_or_card, AssetCard):
             card = model_name_or_card
