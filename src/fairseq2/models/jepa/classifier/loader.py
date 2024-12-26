@@ -54,4 +54,5 @@ load_jepa_classifier_model = StandardModelLoader(
     config_loader=load_jepa_classifier_config,
     factory=create_jepa_classifier_model,
     checkpoint_converter=convert_jepa_classifier_checkpoint,
+    skip_meta_init=True,
 )
