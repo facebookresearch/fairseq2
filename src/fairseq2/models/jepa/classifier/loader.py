@@ -25,11 +25,11 @@ def convert_jepa_classifier_checkpoint(checkpoint: dict[str, Any], config: JepaC
         # fmt: off
         r"^module\.pooler\.query_tokens":                         r"pooler.query_tokens",
         r"^module\.pooler\.cross_attention_block\.norm1\.":       r"pooler.decoder.cross_attn_layer_norm.",
-        r"^module\.pooler\.cross_attention_block\.xattn\.q\.":    r"pooler.decoder.cross_attn.q_proj",
-        r"^module\.pooler\.cross_attention_block\.xattn\.proj\.": r"pooler.decoder.cross_attn.output_proj",
-        r"^module\.pooler\.cross_attention_block\.norm2\.":       r"pooler.decoder.ffn_layer_norm",
-        r"^module\.pooler\.cross_attention_block\.mlp\.fc1\.":    r"pooler.decoder.ffn.inner_proj",
-        r"^module\.pooler\.cross_attention_block\.mlp\.fc2\.":    r"pooler.decoder.ffn.output_proj",
+        r"^module\.pooler\.cross_attention_block\.xattn\.q\.":    r"pooler.decoder.cross_attn.q_proj.",
+        r"^module\.pooler\.cross_attention_block\.xattn\.proj\.": r"pooler.decoder.cross_attn.output_proj.",
+        r"^module\.pooler\.cross_attention_block\.norm2\.":       r"pooler.decoder.ffn_layer_norm.",
+        r"^module\.pooler\.cross_attention_block\.mlp\.fc1\.":    r"pooler.decoder.ffn.inner_proj.",
+        r"^module\.pooler\.cross_attention_block\.mlp\.fc2\.":    r"pooler.decoder.ffn.output_proj.",
         r"^module\.linear\.":                                     r"head.",
         # fmt: on
     }
