@@ -9,4 +9,4 @@ model_config:
     uniform_power: true
   num_classes: 400
     
-checkpoint: "https://dl.fbaipublicfiles.com/jepa/vitl16/vitl16.pth.tar"
+checkpoint: "/checkpoint/tuantran/v_jepa/public/vitl16/k400-probe.pth.tar"
