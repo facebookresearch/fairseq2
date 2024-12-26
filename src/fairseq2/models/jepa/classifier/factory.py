@@ -150,7 +150,7 @@ class JepaClassifierBuilder:
     def build_cross_attn_output_projection(self) -> Projection:
         config = self._config
         
-        model_dim = config.model_dim
+        model_dim = config.encoder_config.model_dim
         
         if config.decoder_projection:
             return Linear(
