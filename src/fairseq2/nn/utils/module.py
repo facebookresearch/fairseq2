@@ -352,7 +352,7 @@ def infer_device(module: Module, *, recurse: bool = True) -> Device:
     """
     devices = set()
     breakpoint()
-    for naem, param in module.named_parameters(recurse):
+    for name, param in module.named_parameters(recurse=True):
         devices.add(param.device)
 
     for buffer in module.buffers(recurse):
