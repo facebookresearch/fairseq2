@@ -128,8 +128,7 @@ class ModelSharder(Protocol[ModelT_contra, ModelConfigT_contra]):
         model: ModelT_contra,
         config: ModelConfigT_contra,
         gangs: Mapping[str, Gang],
-    ) -> None:
-        ...
+    ) -> None: ...
 
 
 @final
@@ -206,7 +205,6 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         force: bool = False,
         progress: bool = True,
         strict_state_dict: bool = True,
-
     ) -> ModelT:
         if isinstance(model_name_or_card, AssetCard):
             card = model_name_or_card

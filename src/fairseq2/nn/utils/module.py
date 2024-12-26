@@ -431,7 +431,9 @@ def broadcast_module(
     _broadcast_coalesced(pg, tensors, bucket_size, source_rank)
 
 
-def load_state_dict(module: Module, state_dict: Mapping[str, object], strict: bool = True) -> None:
+def load_state_dict(
+    module: Module, state_dict: Mapping[str, object], strict: bool = True
+) -> None:
     """Copy parameters and buffers from ``state_dict`` into ``module`` and its
     descendant modules.
 
