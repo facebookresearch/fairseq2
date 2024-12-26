@@ -353,8 +353,7 @@ def infer_device(module: Module, *, recurse: bool = True) -> Device:
     devices = set()
     for name, param in module.named_parameters(recurse=True):
         devices.add(param.device)
-        if param.device == CPU:
-            log.info(f"Parameter {name} is in CPU")
+        log.info(f"Parameter {name} is in {param.device}")
 
     for buffer in module.buffers(recurse):
         devices.add(buffer.device)
