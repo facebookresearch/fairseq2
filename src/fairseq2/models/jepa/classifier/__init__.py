@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from fairseq2.models.jepa.classifier.factory import create_jepa_classifier_model as create_jepa_classifier_model
+from fairseq2.models.jepa.classifier.factory import jepa_classifier_archs as jepa_classifier_archs
 from fairseq2.models.jepa.classifier.factory import JepaClassifierConfig as JepaClassifierConfig
 from fairseq2.models.jepa.classifier.factory import JepaClassifierBuilder as JepaClassifierBuilder
 from fairseq2.models.jepa.classifier.model import JepaClassifierModel as JepaClassifierModel

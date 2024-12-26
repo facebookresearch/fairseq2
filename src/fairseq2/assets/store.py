@@ -287,5 +287,4 @@ def _add_home_config_dir_metadata_provider(store: StandardAssetStore) -> None:
         asset_dir = asset_dir.joinpath("fairseq2/assets").resolve()
         if not asset_dir.exists():
             return
-
     store.add_file_metadata_provider(asset_dir, user=True)
