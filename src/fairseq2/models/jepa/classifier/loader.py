@@ -10,12 +10,12 @@ from typing import Any, cast
 import torch
 
 from fairseq2.models.config_loader import StandardModelConfigLoader
-from fairseq2.models.jepa.classifier import JepaClassifierConfig, create_jepa_classifier_model, jepa_classifier_archs
+from fairseq2.models.jepa.classifier import JepaClassifierConfig, create_jepa_classifier_model, jepa_classifier_archs, JEPA_CLASSIFIER_FAMILY
 from fairseq2.models.jepa import JEPA_FAMILY
 from fairseq2.models.loader import StandardModelLoader
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
 
-load_jepa_classifier_config = StandardModelConfigLoader(JEPA_FAMILY, JepaClassifierConfig, jepa_classifier_archs)
+load_jepa_classifier_config = StandardModelConfigLoader(JEPA_CLASSIFIER_FAMILY, JepaClassifierConfig, jepa_classifier_archs)
 
 
 def convert_jepa_classifier_checkpoint(checkpoint: dict[str, Any], config: JepaClassifierConfig) -> dict[str, Any]:
