@@ -73,15 +73,11 @@ class JepaClassifierBuilder:
         self._device, self._dtype = device, dtype
 
     def build_model(self) -> JepaClassifierModel:
-        config = self._config
 
         encoder_frontend = self._encoder_builder.build_frontend()
-
         encoder = self._encoder_builder.build_encoder()
-
         pooler = self.build_pooler()
-
-        head = Linear(config.encoder_config.model_dim, config.num_classes, bias=True)
+        head = self.build_head()
 
         return JepaClassifierModel(encoder_frontend, encoder, pooler, head)
 
@@ -102,6 +98,16 @@ class JepaClassifierBuilder:
             init_std=config.encoder_config.init_std,
             device=self._device,
             dtype=self._dtype,
+        )
+    
+    def build_head(self) -> Projection:
+        config = self._config
+        return Linear(
+            config.encoder_config.model_dim,
+            config.num_classes,
+            device=self._device,
+            dtype=self._dtype,
+            bias=True,
         )
 
     def build_decoder_layer(self) -> CrossAttentionDecoderLayer:
