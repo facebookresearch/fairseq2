@@ -86,8 +86,29 @@ def _1b() -> Wav2Vec2Config:
     return config
 
 
+@wav2vec2_arch("2b")
+def _2b() -> Wav2Vec2Config:
+    config = _1b()
+
+    config.encoder_config.model_dim = 1920
+    config.encoder_config.ffn_inner_dim = 7680
+
+    return config
+
+
 @wav2vec2_arch("3b")
 def _3b() -> Wav2Vec2Config:
+    config = _1b()
+
+    config.encoder_config.num_encoder_layers = 60
+    config.encoder_config.model_dim = 2048
+    config.encoder_config.ffn_inner_dim = 8192
+
+    return config
+
+
+@wav2vec2_arch("3.25b")
+def _3b_higher() -> Wav2Vec2Config:
     config = _1b()
 
     config.encoder_config.num_encoder_layers = 64
