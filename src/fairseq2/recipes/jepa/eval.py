@@ -11,6 +11,7 @@ from pathlib import Path
 
 import torch
 
+from fairseq2.assets import default_asset_store, setup_asset_store
 from fairseq2.logging import get_log_writer
 from fairseq2.models.jepa import load_jepa_model
 from fairseq2.models.jepa.classifier import load_jepa_classifier_model
@@ -19,7 +20,6 @@ from fairseq2.recipes.utils.asset import AssetReference, retrieve_asset_card
 from fairseq2.recipes.utils.setup import setup_root_gang
 
 log = get_log_writer(__name__)
-
 
 @dataclass(kw_only=True)
 class JepaProbingEvalConfig:
@@ -50,6 +50,9 @@ def evaluate_jepa_attentive_probing(probe: str, pretrain: str, num_classes: int)
     probe_card = retrieve_asset_card(Path(config.probe_model))
     
     model = load_jepa_classifier_model(probe_card, device=gang.device, dtype=torch.float32, strict_state_dict=False)
+    
+    setup_asset_store(default_asset_store)
+
     pt_model = load_jepa_model(config.pretrained_model, device=gang.device, dtype=torch.float32)
     share_parameters(pt_model.encoder, model.encoder)
 
