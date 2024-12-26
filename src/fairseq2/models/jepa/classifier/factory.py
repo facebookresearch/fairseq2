@@ -8,13 +8,13 @@ from dataclasses import dataclass, field
 from typing import final
 
 from fairseq2.config_registry import ConfigRegistry
+from fairseq2.models.factory import model_factories
+from fairseq2.models.jepa import JepaEncoderBuilder, JepaEncoderConfig
 from fairseq2.models.jepa.classifier.model import (
     AttentivePooler,
     CrossAttentionDecoderLayer,
     JepaClassifierModel,
 )
-from fairseq2.models.factory import model_factories
-from fairseq2.models.jepa import JepaEncoderBuilder, JepaEncoderConfig
 from fairseq2.nn.projection import IdentityProjection, Linear, Projection
 from fairseq2.nn.transformer import (
     MultiheadAttention,
@@ -35,7 +35,7 @@ class JepaClassifierConfig:
 
     pool_depth: int = 1
     """The pool depth (minimum 1 decoder layer)"""
-    
+
     decoder_projection: bool = True
     """If True, the decoder will have a linear layer on top"""
 
@@ -76,7 +76,6 @@ class JepaClassifierBuilder:
         self._device, self._dtype = device, dtype
 
     def build_model(self) -> JepaClassifierModel:
-
         encoder_frontend = self._encoder_builder.build_frontend()
         encoder = self._encoder_builder.build_encoder()
         pooler = self.build_pooler()
@@ -170,7 +169,12 @@ def create_jepa_classifier_model(
     device: Device | None = None,
     dtype: DataType | None = None,
 ) -> JepaClassifierModel:
-    return JepaClassifierBuilder(config, device=device, dtype=dtype).build_model()
+    return JepaClassifierBuilder(
+        config,
+        device=device,
+        dtype=dtype,
+    ).build_model()
+
 
 model_factories.register(
     JEPA_CLASSIFIER_FAMILY,

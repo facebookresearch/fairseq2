@@ -6,32 +6,28 @@
 
 from __future__ import annotations
 
-from fairseq2.models.jepa.archs import (
-    base as jepa_base,
-    large as jepa_large,
-    huge as jepa_huge,
+from fairseq2.models.jepa.archs import base as jepa_base
+from fairseq2.models.jepa.archs import huge as jepa_huge
+from fairseq2.models.jepa.archs import large as jepa_large
+from fairseq2.models.jepa.classifier.factory import (
+    JepaClassifierConfig,
+    jepa_classifier_arch,
 )
-from fairseq2.models.jepa.classifier.factory import JepaClassifierConfig, jepa_classifier_arch
+
 
 @jepa_classifier_arch("base")
 def base() -> JepaClassifierConfig:
     pretrain_config = jepa_base()
-    return JepaClassifierConfig(
-        encoder_config=pretrain_config.encoder_config
-    )
+    return JepaClassifierConfig(encoder_config=pretrain_config.encoder_config)
 
 
 @jepa_classifier_arch("large")
 def large() -> JepaClassifierConfig:
     pretrain_config = jepa_large()
-    return JepaClassifierConfig(
-        encoder_config=pretrain_config.encoder_config
-    )
-    
+    return JepaClassifierConfig(encoder_config=pretrain_config.encoder_config)
+
 
 @jepa_classifier_arch("huge")
 def huge() -> JepaClassifierConfig:
     pretrain_config = jepa_huge()
-    return JepaClassifierConfig(
-        encoder_config=pretrain_config.encoder_config
-    )
+    return JepaClassifierConfig(encoder_config=pretrain_config.encoder_config)

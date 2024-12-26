@@ -182,7 +182,7 @@ class CrossAttentionDecoderLayer(Module):
         self.cross_attn_layer_norm = layer_norm_factory(
             model_dim, device=device, dtype=dtype
         )
-        
+
         self.model_dim = model_dim
 
         self.cross_attn = cross_attn
