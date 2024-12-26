@@ -13,7 +13,8 @@ from fairseq2.models.jepa.classifier.model import (
     CrossAttentionDecoderLayer,
     JepaClassifierModel,
 )
-from fairseq2.models.jepa.factory import JepaEncoderBuilder, JepaEncoderConfig
+from fairseq2.models.factory import model_factories
+from fairseq2.models.jepa import JepaEncoderBuilder, JepaEncoderConfig
 from fairseq2.nn.projection import IdentityProjection, Linear, Projection
 from fairseq2.nn.transformer import (
     MultiheadAttention,
@@ -21,6 +22,8 @@ from fairseq2.nn.transformer import (
     create_default_sdpa,
 )
 from fairseq2.typing import DataType, Device
+
+JEPA_CLASSIFIER_FAMILY = "jepa_classifier"
 
 
 @dataclass(kw_only=True)
@@ -32,6 +35,9 @@ class JepaClassifierConfig:
 
     pool_depth: int = 1
     """The pool depth (minimum 1 decoder layer)"""
+    
+    decoder_projection: bool = True
+    """If True, the decoder will have a linear layer on top"""
 
     num_queries: int = 1
     """Number of query tokens in the attention pool layer"""
@@ -70,15 +76,11 @@ class JepaClassifierBuilder:
         self._device, self._dtype = device, dtype
 
     def build_model(self) -> JepaClassifierModel:
-        config = self._config
 
         encoder_frontend = self._encoder_builder.build_frontend()
-
         encoder = self._encoder_builder.build_encoder()
-
         pooler = self.build_pooler()
-
-        head = Linear(config.encoder_config.model_dim, config.num_classes, bias=True)
+        head = self.build_head()
 
         return JepaClassifierModel(encoder_frontend, encoder, pooler, head)
 
@@ -90,15 +92,25 @@ class JepaClassifierBuilder:
         else:
             encoder = None
 
-        decoder_layer = self.build_decoder_layer()
+        decoder = self.build_decoder_layer()
 
         return AttentivePooler(
-            decoder_layer=decoder_layer,
+            decoder=decoder,
             encoder=encoder,
-            num_pools=config.num_queries,
+            num_queries=config.num_queries,
             init_std=config.encoder_config.init_std,
             device=self._device,
             dtype=self._dtype,
+        )
+
+    def build_head(self) -> Projection:
+        config = self._config
+        return Linear(
+            config.encoder_config.model_dim,
+            config.num_classes,
+            device=self._device,
+            dtype=self._dtype,
+            bias=True,
         )
 
     def build_decoder_layer(self) -> CrossAttentionDecoderLayer:
@@ -118,12 +130,12 @@ class JepaClassifierBuilder:
 
     def build_cross_attention(self) -> MultiheadAttention:
         config = self._config.encoder_config
-        
+
         model_dim = config.model_dim
-        
+
         sdpa = create_default_sdpa(attn_dropout_p=config.attn_dropout_p)
-       
-        output_proj: Projection = IdentityProjection(model_dim, model_dim)
+
+        output_proj = self.build_cross_attn_output_projection()
 
         return StandardMultiheadAttention(
             model_dim,
@@ -135,6 +147,22 @@ class JepaClassifierBuilder:
             dtype=self._dtype,
         )
 
+    def build_cross_attn_output_projection(self) -> Projection:
+        config = self._config
+
+        model_dim = config.encoder_config.model_dim
+
+        if config.decoder_projection:
+            return Linear(
+                model_dim,
+                model_dim,
+                bias=True,
+                device=self._device,
+                dtype=self._dtype,
+            )
+        else:
+            return IdentityProjection(model_dim, model_dim)
+
 
 def create_jepa_classifier_model(
     config: JepaClassifierConfig,
@@ -143,3 +171,10 @@ def create_jepa_classifier_model(
     dtype: DataType | None = None,
 ) -> JepaClassifierModel:
     return JepaClassifierBuilder(config, device=device, dtype=dtype).build_model()
+
+model_factories.register(
+    JEPA_CLASSIFIER_FAMILY,
+    create_jepa_classifier_model,
+    JepaClassifierConfig,
+    jepa_classifier_archs,
+)

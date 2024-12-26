@@ -91,34 +91,34 @@ class AttentivePooler(Module):
     """
 
     model_dim: int
-    decoder_layer: CrossAttentionDecoderLayer
+    decoder: CrossAttentionDecoderLayer
     encoder: TransformerEncoder | None
-    pool_layer: Parameter
+    query_tokens: Parameter
     init_std: float
 
     def __init__(
         self,
-        decoder_layer: CrossAttentionDecoderLayer,
+        decoder: CrossAttentionDecoderLayer,
         encoder: TransformerEncoder | None,
         *,
-        num_pools: int = 1,
+        num_queries: int = 1,
         init_std: float = 0.02,
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> None:
         super().__init__()
 
-        self.model_dim = decoder_layer.model_dim
+        self.model_dim = decoder.model_dim
 
-        self.decoder_layer = decoder_layer
+        self.decoder = decoder
 
         if encoder:
             self.encoder = encoder
         else:
             self.register_module("encoder", None)
 
-        self.pool_layer = Parameter(
-            torch.empty((1, num_pools, self.model_dim), device=device, dtype=dtype)
+        self.query_tokens = Parameter(
+            torch.empty((1, num_queries, self.model_dim), device=device, dtype=dtype)
         )
 
         self.init_std = init_std
@@ -127,7 +127,7 @@ class AttentivePooler(Module):
 
     def reset_parameters(self) -> None:
         """Reset the parameters and buffers of the module."""
-        nn.init.trunc_normal_(self.pool_layer, std=self.init_std)
+        nn.init.trunc_normal_(self.query_tokens, std=self.init_std)
 
     def forward(self, seqs: Tensor) -> Tensor:
         if self.encoder is not None:
@@ -136,13 +136,13 @@ class AttentivePooler(Module):
         batch_size = seqs.size(0)
 
         # (1, P, M) -> (N, P, M)
-        pool_seqs = self.pool_layer.repeat(batch_size, 1, 1)
+        pool_seqs = self.query_tokens.repeat(batch_size, 1, 1)
 
-        return self.decoder_layer(pool_seqs, seqs)  # type: ignore[no-any-return]
+        return self.decoder(pool_seqs, seqs)  # type: ignore[no-any-return]
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        return f"model_dim={self.model_dim}, num_pools={self.pool_layer.size(1)}"
+        return f"model_dim={self.model_dim}, num_queries={self.query_tokens.size(1)}"
 
 
 @final
@@ -182,6 +182,8 @@ class CrossAttentionDecoderLayer(Module):
         self.cross_attn_layer_norm = layer_norm_factory(
             model_dim, device=device, dtype=dtype
         )
+        
+        self.model_dim = model_dim
 
         self.cross_attn = cross_attn
 
