@@ -351,7 +351,7 @@ def infer_device(module: Module, *, recurse: bool = True) -> Device:
         descendant modules as well.
     """
     devices = set()
-
+    breakpoint()
     for param in module.parameters(recurse):
         devices.add(param.device)
 
