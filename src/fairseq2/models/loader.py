@@ -82,7 +82,6 @@ class ModelLoader(Protocol[ModelT_co]):
         dtype: DataType | None = None,
         force: bool = False,
         progress: bool = True,
-        strict_state_dict: bool = True,
     ) -> ModelT_co:
         """
         :param model_name_or_card:
@@ -99,9 +98,6 @@ class ModelLoader(Protocol[ModelT_co]):
             cache.
         :param progress:
             If ``True``, displays a progress bar to stderr.
-        :param strict_state_dict:
-            If ``True``, checkpoint' parameters and layers must be identical to
-            the model state dict)
 
         :returns:
             A model loaded from the checkpoint of ``model_name_or_card``.
@@ -205,7 +201,6 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         dtype: DataType | None = None,
         force: bool = False,
         progress: bool = True,
-        strict_state_dict: bool = True,
 
     ) -> ModelT:
         if isinstance(model_name_or_card, AssetCard):
@@ -361,7 +356,7 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         consume_prefix_in_state_dict_if_present(state_dict, prefix="module.")
 
         try:
-            load_state_dict(model, state_dict, strict=strict_state_dict)
+            load_state_dict(model, state_dict)
         except (KeyError, ValueError) as ex:
             raise AssetError(
                 f"{card.name} cannot be loaded. See nested exception for details."
@@ -402,7 +397,6 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
         dtype: DataType | None = None,
         force: bool = False,
         progress: bool = True,
-        strict_state_dict: bool = True,
     ) -> ModelT:
         if isinstance(model_name_or_card, AssetCard):
             card = model_name_or_card
@@ -426,7 +420,6 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
             dtype=dtype,
             force=force,
             progress=progress,
-            strict_state_dict=strict_state_dict,
         )
 
     def register(self, family: str, loader: ModelLoader[ModelT]) -> None:
