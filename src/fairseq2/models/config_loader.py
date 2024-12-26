@@ -117,7 +117,6 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
                 )
 
             try:
-                breakpoint()
                 base_config = self._arch_configs.get(arch)
             except (ValueError, ConfigNotFoundError):
                 raise AssetError(

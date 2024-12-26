@@ -13,3 +13,7 @@ from fairseq2.models.jepa.classifier.factory import JepaClassifierConfig as Jepa
 from fairseq2.models.jepa.classifier.factory import JepaClassifierBuilder as JepaClassifierBuilder
 from fairseq2.models.jepa.classifier.model import JepaClassifierModel as JepaClassifierModel
 from fairseq2.models.jepa.classifier.loader import load_jepa_classifier_model as load_jepa_classifier_model
+
+# isort: split
+
+import fairseq2.models.jepa.classifier.archs  # Register architectures
