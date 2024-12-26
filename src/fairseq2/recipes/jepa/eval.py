@@ -49,7 +49,7 @@ def evaluate_jepa_attentive_probing(probe: str, pretrain: str, num_classes: int)
     # the attentive pooler and head with the attentive checkpoint
     probe_card = retrieve_asset_card(Path(config.probe_model))
     
-    model = load_jepa_classifier_model(probe_card, device=gang.device, dtype=torch.float32)    
+    model = load_jepa_classifier_model(probe_card, device=gang.device, dtype=torch.float32, strict_state_dict=False)
     pt_model = load_jepa_model(config.pretrained_model, device=gang.device, dtype=torch.float32)
     share_parameters(pt_model.encoder, model.encoder)
 

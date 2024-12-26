@@ -351,9 +351,8 @@ def infer_device(module: Module, *, recurse: bool = True) -> Device:
         descendant modules as well.
     """
     devices = set()
-    for name, param in module.named_parameters(recurse=True):
+    for param in module.parameters(recurse):
         devices.add(param.device)
-        log.warning(f"Parameter {name} is in {param.device}")
 
     for buffer in module.buffers(recurse):
         devices.add(buffer.device)
