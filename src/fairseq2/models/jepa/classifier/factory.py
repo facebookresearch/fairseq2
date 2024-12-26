@@ -35,6 +35,9 @@ class JepaClassifierConfig:
 
     pool_depth: int = 1
     """The pool depth (minimum 1 decoder layer)"""
+    
+    decoder_projection: bool = True
+    """If True, the decoder will have a linear layer on top"""
 
     num_queries: int = 1
     """Number of query tokens in the attention pool layer"""
@@ -132,8 +135,8 @@ class JepaClassifierBuilder:
         
         sdpa = create_default_sdpa(attn_dropout_p=config.attn_dropout_p)
        
-        output_proj: Projection = IdentityProjection(model_dim, model_dim)
-
+        output_proj = self.build_cross_attn_output_projection()
+        
         return StandardMultiheadAttention(
             model_dim,
             config.num_encoder_attn_heads,
@@ -143,6 +146,22 @@ class JepaClassifierBuilder:
             device=self._device,
             dtype=self._dtype,
         )
+
+    def build_cross_attn_output_projection(self) -> Projection:
+        config = self._config
+        
+        model_dim = config.model_dim
+        
+        if config.decoder_projection:
+            return Linear(
+                model_dim,
+                model_dim,
+                bias=True,
+                device=self._device,
+                dtype=self._dtype,
+            )
+        else:
+            return IdentityProjection(model_dim, model_dim)
 
 
 def create_jepa_classifier_model(
