@@ -165,6 +165,7 @@ def _3b_bib61() -> Wav2Vec2AsrConfig:
     config.encoder_config.ffn_inner_dropout_p = 0.1
     config.encoder_config.layer_drop_p = 0.1
 
+
     config.use_masking = False
     config.max_temporal_mask_prob = 0.0
     config.max_spatial_mask_prob = 0.0
