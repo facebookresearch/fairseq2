@@ -1,6 +1,0 @@
-﻿fairseq2.data.ByteStreamError
-=============================
-
-.. currentmodule:: fairseq2.data
-
-.. autoexception:: ByteStreamError

@@ -1,6 +1,0 @@
-﻿fairseq2.data.DataPipelineError
-===============================
-
-.. currentmodule:: fairseq2.data
-
-.. autoexception:: DataPipelineError
