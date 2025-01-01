@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import torch
 
@@ -26,7 +26,10 @@ load_jepa_config = StandardModelConfigLoader(JEPA_FAMILY, JepaConfig, jepa_archs
 def convert_jepa_checkpoint(
     checkpoint: dict[str, Any], config: JepaConfig
 ) -> dict[str, Any]:
-    checkpoint = checkpoint["encoder"]
+    try:
+        checkpoint = checkpoint["target_encoder"]
+    except Exception as _:
+        checkpoint = checkpoint["encoder"]
 
     del checkpoint["module.backbone.pos_embed"]
 
@@ -50,6 +53,25 @@ def convert_jepa_checkpoint(
             new_checkpoint[name[:-8] + "v_proj.bias"] = v_bias
 
             continue
+        
+        # if name == "module.backbone.pos_embed":
+        #     # TODO: This only works for checkpoint that uses sinusoidal interpolated encoders
+        #     _config = config.encoder_config
+        #     input_3d_dims = cast(tuple[int, int, int], _config.input_dims)
+        #     patch_3d_dims = cast(tuple[int, int, int], _config.patch_dims)
+
+        #     d_input_dim, h_input_dim, w_input_dim = input_3d_dims
+        #     d_patch_dim, h_patch_dim, w_patch_dim = patch_3d_dims
+
+        #     target_dims = (
+        #         (d_input_dim // d_patch_dim),
+        #         (h_input_dim // h_patch_dim),
+        #         (w_input_dim // w_patch_dim),
+        #         _config.model_dim,
+        #     )
+        #     new_checkpoint["encoder_frontend.pos_encoder.freqs"] = torch.reshape(param, target_dims)
+            
+        #     continue
 
         new_checkpoint[name] = param
 
