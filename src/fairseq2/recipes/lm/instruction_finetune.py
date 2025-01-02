@@ -36,7 +36,7 @@ from fairseq2.models.sequence import (
 )
 from fairseq2.nn.checkpointing import use_layerwise_activation_checkpointing
 from fairseq2.nn.transformer import enable_memory_efficient_torch_sdpa
-from fairseq2.optim import AdamWConfig, create_optimizer
+from fairseq2.optim import AdamWConfig, SophiaGConfig, create_optimizer
 from fairseq2.optim.lr_scheduler import CosineAnnealingLRConfig, create_lr_scheduler
 from fairseq2.recipes.common_metrics import SequenceMetricBag
 from fairseq2.recipes.evaluator import AbstractEvalUnit
@@ -292,6 +292,17 @@ def _llama2_70b_chat() -> InstructionFinetuneConfig:
 
     config.model = "llama2_70b_chat"
     config.tensor_parallel_size = 8
+
+    return config
+
+
+@instruction_finetune_preset("llama3_2_1b_instruct_sophiag")
+def _llama3_2_1b_instruct_sophiag() -> InstructionFinetuneConfig:
+    config = InstructionFinetuneConfig()
+
+    config.model = "llama3_2_1b_instruct"
+    config.optimizer = "sophiag"
+    config.optimizer_config = SophiaGConfig()
 
     return config
 
