@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, cast
 
 import torch
@@ -19,6 +20,7 @@ from fairseq2.models.jepa.factory import (
 )
 from fairseq2.models.loader import StandardModelLoader
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
+from fairseq2.utils.file import MapLocation, load_tensors
 
 load_jepa_config = StandardModelConfigLoader(JEPA_FAMILY, JepaConfig, jepa_archs)
 
@@ -26,10 +28,6 @@ load_jepa_config = StandardModelConfigLoader(JEPA_FAMILY, JepaConfig, jepa_archs
 def convert_jepa_checkpoint(
     checkpoint: dict[str, Any], config: JepaConfig
 ) -> dict[str, Any]:
-    try:
-        checkpoint = checkpoint["target_encoder"]
-    except Exception as _:
-        checkpoint = checkpoint["encoder"]
 
     del checkpoint["module.backbone.pos_embed"]
 
@@ -76,8 +74,35 @@ def convert_jepa_checkpoint(
     return {"model": checkpoint}
 
 
+def load_encoder_tensor(
+    path: Path, *, map_location: MapLocation = None, restrict: bool = False
+) -> dict[str, object]:
+    """Load encoder tensor"""
+
+    state_dict = load_tensors(path, map_location=map_location, restrict=restrict)
+
+    if "encoder" not in state_dict:
+        raise ValueError(f"`encoder` not found in state dict (available key: {state_dict.keys()})")
+
+    return state_dict["encoder"]
+
+
+def load_target_encoder_tensor(
+    path: Path, *, map_location: MapLocation = None, restrict: bool = False
+) -> dict[str, object]:
+    """Load encoder tensor"""
+
+    state_dict = load_tensors(path, map_location=map_location, restrict=restrict)
+
+    if "encoder" not in state_dict:
+        raise ValueError(f"`encoder` not found in state dict (available key: {state_dict.keys()})")
+
+    return state_dict["encoder"]
+
+
 load_jepa_model = StandardModelLoader(
     config_loader=load_jepa_config,
+    tensor_loader=load_encoder_tensor,
     factory=create_jepa_model,
     checkpoint_converter=convert_jepa_checkpoint,
 )
