@@ -66,10 +66,6 @@ def convert_to_huggingface_config(arch: str, config: LLaMAConfig) -> dict[str, A
             (int(ffn_dim_multiplier * int(8 * n / 3)) + multiple_of - 1) // multiple_of
         )
 
-    def is_llama_3_2(arch: str) -> bool:
-        # TODO: this seems too brittle
-        return "llama3_2_" in arch
-
     if config.rope_scaling is not None:
         rope_scaling = {
             "factor": config.rope_scaling.factor,
@@ -79,7 +75,6 @@ def convert_to_huggingface_config(arch: str, config: LLaMAConfig) -> dict[str, A
             "rope_type": "llama3",
         }
     else:
-        # mgleize: not sure of the json.dump behavior if rope_scaling is None
         rope_scaling = None
 
     # we only specify the parameters made explicit in the Huggingface converter
@@ -102,6 +97,6 @@ def convert_to_huggingface_config(arch: str, config: LLaMAConfig) -> dict[str, A
         "rms_norm_eps": 1e-5,
         "rope_scaling": rope_scaling,
         "rope_theta": config.rope_theta,
-        "tie_word_embeddings": is_llama_3_2(arch),
+        "tie_word_embeddings": False,
         "vocab_size": config.vocab_info.size,
     }
