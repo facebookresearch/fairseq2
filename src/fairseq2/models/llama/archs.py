@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from fairseq2.data import VocabularyInfo
-from fairseq2.models.llama.factory import LLaMAConfig, llama_arch, RopeScaling
+from fairseq2.models.llama.factory import LLaMAConfig, RopeScaling, llama_arch
 
 
 @llama_arch("7b")

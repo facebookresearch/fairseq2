@@ -6,10 +6,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import functools
 import math
-from typing import final, Final
+from dataclasses import dataclass, field
+from typing import Final, final
 
 import torch
 from torch import Tensor
