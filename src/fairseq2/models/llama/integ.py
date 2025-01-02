@@ -67,15 +67,15 @@ def convert_to_huggingface_config(arch: str, config: LLaMAConfig) -> dict[str, A
         )
 
     def is_llama_3_2(arch: str) -> bool:
-        # TODO: this seems too britle
+        # TODO: this seems too brittle
         return "llama3_2_" in arch
 
-    if config.use_scaled_rope:
+    if config.rope_scaling is not None:
         rope_scaling = {
-            "factor": 32.0 if is_llama_3_2(arch) else 8.0,
-            "low_freq_factor": 1.0,
-            "high_freq_factor": 4.0,
-            "original_max_position_embeddings": 8192,
+            "factor": config.rope_scaling.factor,
+            "low_freq_factor": config.rope_scaling.low_freq_factor,
+            "high_freq_factor": config.rope_scaling.high_freq_factor,
+            "original_max_position_embeddings": config.rope_scaling.original_context_length,
             "rope_type": "llama3",
         }
     else:

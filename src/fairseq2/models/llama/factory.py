@@ -6,9 +6,10 @@
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
-from typing import Final
+import functools
+import math
+from typing import final, Final
 
 import torch
 from torch import Tensor
@@ -85,11 +86,33 @@ class LLaMAConfig:
     rope_theta: float = 10_000.0
     """The coefficient of the long-term decay of the Rotary position encoder."""
 
-    use_scaled_rope: bool = False
-    """If ``True``, scales Rotary encoding frequencies to LLaMA 3.1 context length."""
+    rope_scaling: RopeScaling | None = None
+    """If specified, provides scaling parameters for RoPE frequencies,
+    aiming to increase the context length."""
 
     dropout_p: float = 0.1
     """The dropout probability on outputs of Transformer layers."""
+
+
+@final
+@dataclass
+class RopeScaling:
+    """Holds the configuration for RoPE (Rotary Position Embedding)
+    scaling in Llama 3 models.
+    """
+
+    factor: float = 8.0
+    """Ratio between the intended max context length and the model’s
+    original max context length."""
+
+    low_freq_factor: float = 1.0
+    """Factor used to define low frequencies."""
+
+    high_freq_factor: float = 5.0
+    """Factor used to define high frequencies."""
+
+    original_context_length: int = 8192
+    """Original context length. Defaults to LLaMA 3's context length."""
 
 
 llama_archs = ConfigRegistry[LLaMAConfig]()
@@ -217,8 +240,14 @@ class LLaMABuilder:
         sdpa = create_default_sdpa(attn_dropout_p=self._config.dropout_p)
 
         if self._pos_encoder is None:
-            if self._config.use_scaled_rope:
-                freqs_init_fn = self._init_scaled_freqs
+            if self._config.rope_scaling is not None:
+                freqs_init_fn = functools.partial(
+                    self._init_scaled_freqs,
+                    scale_factor=self._config.rope_scaling.factor,
+                    l_freq_factor=self._config.rope_scaling.low_freq_factor,
+                    h_freq_factor=self._config.rope_scaling.high_freq_factor,
+                    old_context_len=self._config.rope_scaling.original_context_length,
+                )
             else:
                 freqs_init_fn = None
 
@@ -265,7 +294,13 @@ class LLaMABuilder:
         return RMSNorm(model_dim, bias=False, device=device, dtype=dtype)
 
     @staticmethod
-    def _init_scaled_freqs(pos_encoder: RotaryEncoder) -> Tensor:
+    def _init_scaled_freqs(
+        pos_encoder: RotaryEncoder,
+        scale_factor: float,
+        l_freq_factor: float,
+        h_freq_factor: float,
+        old_context_len: int,
+    ) -> Tensor:
         device = pos_encoder.freqs.device
 
         # (E / 2)
@@ -277,13 +312,6 @@ class LLaMABuilder:
 
         if device.type == "meta":
             return freqs  # type: ignore[no-any-return]
-
-        old_context_len = 8192  # The context length of LLaMA 3.
-
-        scale_factor = 8.0
-
-        l_freq_factor = 1
-        h_freq_factor = 5
 
         l_freq_wavelen = old_context_len / l_freq_factor
         h_freq_wavelen = old_context_len / h_freq_factor
