@@ -108,7 +108,7 @@ class RopeScaling:
     low_freq_factor: float = 1.0
     """Factor used to define low frequencies."""
 
-    high_freq_factor: float = 5.0
+    high_freq_factor: float = 4.0
     """Factor used to define high frequencies."""
 
     original_context_length: int = 8192
@@ -243,10 +243,7 @@ class LLaMABuilder:
             if self._config.rope_scaling is not None:
                 freqs_init_fn = functools.partial(
                     self._init_scaled_freqs,
-                    scale_factor=self._config.rope_scaling.factor,
-                    l_freq_factor=self._config.rope_scaling.low_freq_factor,
-                    h_freq_factor=self._config.rope_scaling.high_freq_factor,
-                    old_context_len=self._config.rope_scaling.original_context_length,
+                    rope_scaling=self._config.rope_scaling,
                 )
             else:
                 freqs_init_fn = None
@@ -295,13 +292,13 @@ class LLaMABuilder:
 
     @staticmethod
     def _init_scaled_freqs(
-        pos_encoder: RotaryEncoder,
-        scale_factor: float,
-        l_freq_factor: float,
-        h_freq_factor: float,
-        old_context_len: int,
+        pos_encoder: RotaryEncoder, rope_scaling: RopeScaling
     ) -> Tensor:
         device = pos_encoder.freqs.device
+        scale_factor = rope_scaling.factor
+        l_freq_factor = rope_scaling.low_freq_factor
+        h_freq_factor = rope_scaling.high_freq_factor
+        old_context_len = rope_scaling.original_context_length
 
         # (E / 2)
         indices = torch.arange(
