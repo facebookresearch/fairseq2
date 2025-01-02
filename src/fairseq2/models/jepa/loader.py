@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import torch
 
@@ -85,7 +85,7 @@ def load_encoder_tensor(
             f"`encoder` not found in state dict (available key: {state_dict.keys()})"
         )
 
-    return state_dict["encoder"]
+    return cast(dict[str, object], state_dict["encoder"])ß
 
 
 load_jepa_model = StandardModelLoader(
