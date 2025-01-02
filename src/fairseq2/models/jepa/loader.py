@@ -85,7 +85,7 @@ def load_encoder_tensor(
             f"`encoder` not found in state dict (available key: {state_dict.keys()})"
         )
 
-    return cast(dict[str, object], state_dict["encoder"])ß
+    return cast(dict[str, object], state_dict["encoder"])
 
 
 load_jepa_model = StandardModelLoader(
