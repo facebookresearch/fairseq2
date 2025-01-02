@@ -87,19 +87,6 @@ def load_encoder_tensor(
     return state_dict["encoder"]
 
 
-def load_target_encoder_tensor(
-    path: Path, *, map_location: MapLocation = None, restrict: bool = False
-) -> dict[str, object]:
-    """Load encoder tensor"""
-
-    state_dict = load_tensors(path, map_location=map_location, restrict=restrict)
-
-    if "encoder" not in state_dict:
-        raise ValueError(f"`encoder` not found in state dict (available key: {state_dict.keys()})")
-
-    return state_dict["encoder"]
-
-
 load_jepa_model = StandardModelLoader(
     config_loader=load_jepa_config,
     tensor_loader=load_encoder_tensor,
