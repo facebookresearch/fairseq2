@@ -28,6 +28,20 @@ load_jepa_config = StandardModelConfigLoader(JEPA_FAMILY, JepaConfig, jepa_archs
 def convert_jepa_checkpoint(
     checkpoint: dict[str, Any], config: JepaConfig
 ) -> dict[str, Any]:
+    # We have a shared checkpoint, used for other use cases (frozen evaluation,..)
+    if "target_encoder" in checkpoint:
+        return convert_jepa_encoder_checkpoint(checkpoint["target_encoder"], config=config)
+
+    if "encoder" in checkpoint:
+        return convert_jepa_encoder_checkpoint(checkpoint["encoder"], config=config)
+
+    raise ValueError(f"encoder not found (available keys: {checkpoint.keys()})")
+
+
+def convert_jepa_encoder_checkpoint(
+    checkpoint: dict[str, Any], config: JepaConfig
+) -> dict[str, Any]:
+
     del checkpoint["module.backbone.pos_embed"]
 
     new_checkpoint = {}
@@ -73,24 +87,8 @@ def convert_jepa_checkpoint(
     return {"model": checkpoint}
 
 
-def load_encoder_tensor(
-    path: Path, *, map_location: MapLocation = None, restrict: bool = False
-) -> dict[str, object]:
-    """Load encoder tensor"""
-
-    state_dict = load_tensors(path, map_location=map_location, restrict=restrict)
-
-    if "encoder" not in state_dict:
-        raise ValueError(
-            f"`encoder` not found in state dict (available key: {state_dict.keys()})"
-        )
-
-    return cast(dict[str, object], state_dict["encoder"])
-
-
 load_jepa_model = StandardModelLoader(
     config_loader=load_jepa_config,
-    tensor_loader=load_encoder_tensor,
     factory=create_jepa_model,
     checkpoint_converter=convert_jepa_checkpoint,
 )
