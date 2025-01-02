@@ -130,6 +130,7 @@ jepa_archs = ConfigRegistry[JepaConfig]()
 jepa_arch = jepa_archs.decorator
 
 
+# TODO(balioglu): work in progress. Supports only vision encoder.
 class JepaBuilder:
     """Builds modules of a JEPA model."""
 
@@ -278,10 +279,11 @@ class JepaEncoderBuilder:
                 f"The length of `input_dims` must be 2 or 3, but is {num_input_dims} instead."
             )
 
-    def build_encoder(self) -> TransformerEncoder:
+    def build_encoder(self, num_layers: int | None = None) -> TransformerEncoder:
         config = self._config
 
-        num_layers = config.num_encoder_layers
+        if num_layers is None:
+            num_layers = config.num_encoder_layers
 
         layers = [self.build_encoder_layer(i) for i in range(num_layers)]
 

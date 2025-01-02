@@ -122,8 +122,8 @@ class ConvertCheckpointCommandHandler(CliCommandHandler):
 
                     sys.exit(1)
 
-                if "model" not in checkpoint:
-                    log.error("Checkpoint file {} does not contain a 'model' entry.", input_file.name)  # fmt: skip
+                if all(key not in checkpoint for key in ["model_key", "model"]):
+                    log.error("Checkpoint file {} does not contain a 'model_key' nor 'model' entry.", input_file.name)  # fmt: skip
 
                     sys.exit(1)
 
