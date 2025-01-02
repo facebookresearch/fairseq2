@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import torch
 
@@ -28,7 +28,6 @@ load_jepa_config = StandardModelConfigLoader(JEPA_FAMILY, JepaConfig, jepa_archs
 def convert_jepa_checkpoint(
     checkpoint: dict[str, Any], config: JepaConfig
 ) -> dict[str, Any]:
-
     del checkpoint["module.backbone.pos_embed"]
 
     new_checkpoint = {}
@@ -82,7 +81,9 @@ def load_encoder_tensor(
     state_dict = load_tensors(path, map_location=map_location, restrict=restrict)
 
     if "encoder" not in state_dict:
-        raise ValueError(f"`encoder` not found in state dict (available key: {state_dict.keys()})")
+        raise ValueError(
+            f"`encoder` not found in state dict (available key: {state_dict.keys()})"
+        )
 
     return state_dict["encoder"]
 
