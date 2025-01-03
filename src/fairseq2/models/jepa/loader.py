@@ -26,8 +26,21 @@ load_jepa_config = StandardModelConfigLoader(JEPA_FAMILY, JepaConfig, jepa_archs
 def convert_jepa_checkpoint(
     checkpoint: dict[str, Any], config: JepaConfig
 ) -> dict[str, Any]:
-    checkpoint = checkpoint["encoder"]
+    # We have a shared checkpoint, used for other use cases (frozen evaluation,..)
+    if "target_encoder" in checkpoint:
+        return convert_jepa_encoder_checkpoint(
+            checkpoint["target_encoder"], config=config
+        )
 
+    if "encoder" in checkpoint:
+        return convert_jepa_encoder_checkpoint(checkpoint["encoder"], config=config)
+
+    raise ValueError(f"encoder not found (available keys: {checkpoint.keys()})")
+
+
+def convert_jepa_encoder_checkpoint(
+    checkpoint: dict[str, Any], config: JepaConfig
+) -> dict[str, Any]:
     del checkpoint["module.backbone.pos_embed"]
 
     new_checkpoint = {}
