@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from fairseq2.recipes.cli import Cli
 from fairseq2.recipes.llama.convert_checkpoint import ConvertCheckpointCommandHandler
+from fairseq2.recipes.llama.write_hf_config import WriteHfConfigCommandHandler
 
 
 def _setup_llama_cli(cli: Cli) -> None:
@@ -17,4 +18,10 @@ def _setup_llama_cli(cli: Cli) -> None:
         name="convert_checkpoint",
         handler=ConvertCheckpointCommandHandler(),
         help="convert fairseq2 LLaMA checkpoints to reference checkpoints",
+    )
+
+    group.add_command(
+        name="write_hf_config",
+        handler=WriteHfConfigCommandHandler(),
+        help="write fairseq2 LLaMA config in Huggingface config format",
     )

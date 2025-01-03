@@ -8,7 +8,22 @@ from __future__ import annotations
 
 from typing import Any
 
+from fairseq2.models.llama.factory import LLaMAConfig
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
+
+
+def get_ffn_dim_multipliers(architecture: str) -> float:
+    ffn_dim_multipliers = {
+        "llama2_70b": 1.3,
+        "llama3_8b": 1.3,
+        "llama3_70b": 1.3,
+        "llama3_1_8b": 1.3,
+        "llama3_1_70b": 1.3,
+        "llama3_1_405b": 1.2,
+        "llama3_2_1b": 1.5,
+    }
+
+    return ffn_dim_multipliers.get(architecture, 1.0)
 
 
 def convert_to_reference_checkpoint(checkpoint: dict[str, Any]) -> dict[str, Any]:
@@ -38,3 +53,50 @@ def convert_to_reference_checkpoint(checkpoint: dict[str, Any]) -> dict[str, Any
     }
 
     return convert_model_state_dict(state_dict, key_map)
+
+
+def convert_to_huggingface_config(arch: str, config: LLaMAConfig) -> dict[str, Any]:
+    """Convert Llama's config to a dict mirroring Huggingface's format"""
+
+    def compute_intermediate_size(
+        n: int, ffn_dim_multiplier: float = 1, multiple_of: int = 256
+    ) -> int:
+        """From: https://github.com/huggingface/transformers/blob/82fcac0a7e40dc6cc5e3121d714b9b16775293ad/src/transformers/models/llama/convert_llama_weights_to_hf.py#L171"""
+        return multiple_of * (
+            (int(ffn_dim_multiplier * int(8 * n / 3)) + multiple_of - 1) // multiple_of
+        )
+
+    if config.rope_scaling is not None:
+        rope_scaling = {
+            "factor": config.rope_scaling.factor,
+            "low_freq_factor": config.rope_scaling.low_freq_factor,
+            "high_freq_factor": config.rope_scaling.high_freq_factor,
+            "original_max_position_embeddings": config.rope_scaling.original_context_length,
+            "rope_type": "llama3",
+        }
+    else:
+        rope_scaling = None
+
+    # we only specify the parameters made explicit in the Huggingface converter
+    # https://github.com/huggingface/transformers/blob/93aafdc620d39b9ec714ffecf015a085ea221282/src/transformers/models/llama/convert_llama_weights_to_hf.py#L384
+    return {
+        "architectures": ["Fairseq2LlamaForCausalLM"],
+        "bos_token_id": config.vocab_info.bos_idx,
+        "eos_token_id": config.vocab_info.eos_idx,
+        "hidden_size": config.model_dim,
+        "intermediate_size": compute_intermediate_size(
+            config.model_dim,
+            get_ffn_dim_multipliers(arch),
+            config.ffn_inner_dim_to_multiple,
+        ),
+        "max_position_embeddings": config.max_seq_len,
+        "model_type": "llama",
+        "num_attention_heads": config.num_attn_heads,
+        "num_hidden_layers": config.num_layers,
+        "num_key_value_heads": config.num_key_value_heads,
+        "rms_norm_eps": 1e-5,
+        "rope_scaling": rope_scaling,
+        "rope_theta": config.rope_theta,
+        "tie_word_embeddings": False,
+        "vocab_size": config.vocab_info.size,
+    }
