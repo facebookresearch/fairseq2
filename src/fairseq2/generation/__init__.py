@@ -7,20 +7,23 @@
 from __future__ import annotations
 
 from fairseq2.generation.beam_search.algo import (
+    STANDARD_BEAM_SEARCH_ALGO as STANDARD_BEAM_SEARCH_ALGO,
+)
+from fairseq2.generation.beam_search.algo import (
     BeamSearchAlgorithm as BeamSearchAlgorithm,
+)
+from fairseq2.generation.beam_search.algo import (
+    BeamSearchAlgorithmHandler as BeamSearchAlgorithmHandler,
+)
+from fairseq2.generation.beam_search.algo import (
+    BeamSearchAlgorithmNotFoundError as BeamSearchAlgorithmNotFoundError,
 )
 from fairseq2.generation.beam_search.algo import BeamStep as BeamStep
 from fairseq2.generation.beam_search.algo import (
     StandardBeamSearchAlgorithm as StandardBeamSearchAlgorithm,
 )
-from fairseq2.generation.beam_search.factory import (
-    StandardBeamSearchConfig as StandardBeamSearchConfig,
-)
-from fairseq2.generation.beam_search.factory import (
-    beam_search_factories as beam_search_factories,
-)
-from fairseq2.generation.beam_search.factory import (
-    beam_search_factory as beam_search_factory,
+from fairseq2.generation.beam_search.algo import (
+    StandardBeamSearchAlgorithmHandler as StandardBeamSearchAlgorithmHandler,
 )
 from fairseq2.generation.beam_search.generator import (
     BeamSearchSeq2SeqGenerator as BeamSearchSeq2SeqGenerator,
@@ -28,34 +31,20 @@ from fairseq2.generation.beam_search.generator import (
 from fairseq2.generation.beam_search.generator import (
     BeamSearchSequenceGenerator as BeamSearchSequenceGenerator,
 )
-from fairseq2.generation.factory import BeamSearchConfig as BeamSearchConfig
-from fairseq2.generation.factory import SamplingConfig as SamplingConfig
-from fairseq2.generation.factory import (
-    create_beam_search_seq2seq_generator as create_beam_search_seq2seq_generator,
+from fairseq2.generation.beam_search.handler import (
+    BEAM_SEARCH_GENERATOR as BEAM_SEARCH_GENERATOR,
 )
-from fairseq2.generation.factory import (
-    create_beam_search_seq_generator as create_beam_search_seq_generator,
+from fairseq2.generation.beam_search.handler import AlgorithmSection as AlgorithmSection
+from fairseq2.generation.beam_search.handler import (
+    AlgorithmSectionHandler as AlgorithmSectionHandler,
 )
-from fairseq2.generation.factory import (
-    create_sampling_seq2seq_generator as create_sampling_seq2seq_generator,
+from fairseq2.generation.beam_search.handler import BeamSearchConfig as BeamSearchConfig
+from fairseq2.generation.beam_search.handler import (
+    BeamSearchSeq2SeqGeneratorHandler as BeamSearchSeq2SeqGeneratorHandler,
 )
-from fairseq2.generation.factory import (
-    create_sampling_seq_generator as create_sampling_seq_generator,
+from fairseq2.generation.beam_search.handler import (
+    BeamSearchSequenceGeneratorHandler as BeamSearchSequenceGeneratorHandler,
 )
-from fairseq2.generation.factory import (
-    create_seq2seq_generator as create_seq2seq_generator,
-)
-from fairseq2.generation.factory import create_seq_generator as create_seq_generator
-from fairseq2.generation.factory import (
-    seq2seq_generator_factories as seq2seq_generator_factories,
-)
-from fairseq2.generation.factory import (
-    seq2seq_generator_factory as seq2seq_generator_factory,
-)
-from fairseq2.generation.factory import (
-    seq_generator_factories as seq_generator_factories,
-)
-from fairseq2.generation.factory import seq_generator_factory as seq_generator_factory
 from fairseq2.generation.generator import (
     AbstractSeq2SeqGenerator as AbstractSeq2SeqGenerator,
 )
@@ -72,25 +61,59 @@ from fairseq2.generation.generator import (
     SequenceGeneratorOutput as SequenceGeneratorOutput,
 )
 from fairseq2.generation.generator import StepHook as StepHook
-from fairseq2.generation.sampling.factory import TopKSamplerConfig as TopKSamplerConfig
-from fairseq2.generation.sampling.factory import TopPSamplerConfig as TopPSamplerConfig
-from fairseq2.generation.sampling.factory import (
-    create_top_k_sampler as create_top_k_sampler,
+from fairseq2.generation.handler import (
+    Seq2SeqGeneratorHandler as Seq2SeqGeneratorHandler,
 )
-from fairseq2.generation.sampling.factory import (
-    create_top_p_sampler as create_top_p_sampler,
+from fairseq2.generation.handler import (
+    Seq2SeqGeneratorNotFoundError as Seq2SeqGeneratorNotFoundError,
 )
-from fairseq2.generation.sampling.factory import sampler_factories as sampler_factories
-from fairseq2.generation.sampling.factory import sampler_factory as sampler_factory
+from fairseq2.generation.handler import (
+    SequenceGeneratorHandler as SequenceGeneratorHandler,
+)
+from fairseq2.generation.handler import (
+    SequenceGeneratorNotFoundError as SequenceGeneratorNotFoundError,
+)
 from fairseq2.generation.sampling.generator import (
     SamplingSeq2SeqGenerator as SamplingSeq2SeqGenerator,
 )
 from fairseq2.generation.sampling.generator import (
     SamplingSequenceGenerator as SamplingSequenceGenerator,
 )
+from fairseq2.generation.sampling.handler import (
+    SAMPLING_GENERATOR as SAMPLING_GENERATOR,
+)
+from fairseq2.generation.sampling.handler import SamplerSection as SamplerSection
+from fairseq2.generation.sampling.handler import (
+    SamplerSectionHandler as SamplerSectionHandler,
+)
+from fairseq2.generation.sampling.handler import SamplingConfig as SamplingConfig
+from fairseq2.generation.sampling.handler import (
+    SamplingSeq2SeqGeneratorHandler as SamplingSeq2SeqGeneratorHandler,
+)
+from fairseq2.generation.sampling.handler import (
+    SamplingSequenceGeneratorHandler as SamplingSequenceGeneratorHandler,
+)
+from fairseq2.generation.sampling.sampler import TOP_K_SAMPLER as TOP_K_SAMPLER
+from fairseq2.generation.sampling.sampler import TOP_P_SAMPLER as TOP_P_SAMPLER
 from fairseq2.generation.sampling.sampler import Sampler as Sampler
+from fairseq2.generation.sampling.sampler import SamplerHandler as SamplerHandler
+from fairseq2.generation.sampling.sampler import (
+    SamplerNotFoundError as SamplerNotFoundError,
+)
 from fairseq2.generation.sampling.sampler import TopKSampler as TopKSampler
+from fairseq2.generation.sampling.sampler import TopKSamplerConfig as TopKSamplerConfig
+from fairseq2.generation.sampling.sampler import (
+    TopKSamplerHandler as TopKSamplerHandler,
+)
 from fairseq2.generation.sampling.sampler import TopPSampler as TopPSampler
+from fairseq2.generation.sampling.sampler import TopPSamplerConfig as TopPSamplerConfig
+from fairseq2.generation.sampling.sampler import (
+    TopPSamplerHandler as TopPSamplerHandler,
+)
+from fairseq2.generation.static import (
+    create_seq2seq_generator as create_seq2seq_generator,
+)
+from fairseq2.generation.static import create_seq_generator as create_seq_generator
 from fairseq2.generation.step_processor import (
     BannedSequenceProcessor as BannedSequenceProcessor,
 )

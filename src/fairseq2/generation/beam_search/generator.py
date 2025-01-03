@@ -735,7 +735,7 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
         # best 2 x `beam_size` candidates and choose the first `beam_size` of
         # these which don't predict EOS to continue with.
         # (2 x B)
-        next_step = self._algorithm(
+        next_step = self._algorithm.step(
             self._beam_size, lprobs, step_scores[:, : self._step_nr]
         )
 
