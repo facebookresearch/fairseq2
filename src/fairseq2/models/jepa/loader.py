@@ -41,7 +41,6 @@ def convert_jepa_checkpoint(
 def convert_jepa_encoder_checkpoint(
     checkpoint: dict[str, Any], config: JepaConfig
 ) -> dict[str, Any]:
-
     del checkpoint["module.backbone.pos_embed"]
 
     new_checkpoint = {}
