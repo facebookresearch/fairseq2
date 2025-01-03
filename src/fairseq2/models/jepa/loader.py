@@ -6,8 +6,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import torch
 
@@ -20,7 +19,6 @@ from fairseq2.models.jepa.factory import (
 )
 from fairseq2.models.loader import StandardModelLoader
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
-from fairseq2.utils.file import MapLocation, load_tensors
 
 load_jepa_config = StandardModelConfigLoader(JEPA_FAMILY, JepaConfig, jepa_archs)
 
