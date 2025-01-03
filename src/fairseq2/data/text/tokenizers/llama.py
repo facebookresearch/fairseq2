@@ -121,12 +121,12 @@ def load_llama_tokenizer(path: Path, card: AssetCard) -> TextTokenizer:
             return LLaMA3Tokenizer(path, instruct=eos_idx == eot_idx)
         except ValueError as ex:
             raise AssetCardError(
-                f"The '{card.name}' asset card does not have a valid text tokenizer configuration. See the nested exception for details."
+                card.name, f"The '{card.name}' asset card does not have a valid text tokenizer configuration. See the nested exception for details."  # fmt: skip
             ) from ex
     else:
         try:
             return BasicSentencePieceTokenizer(path)
         except ValueError as ex:
             raise AssetCardError(
-                f"The '{card.name}' asset card does not have a valid text tokenizer configuration. See the nested exception for details."
+                card.name, f"The '{card.name}' asset card does not have a valid text tokenizer configuration. See the nested exception for details."  # fmt: skip
             ) from ex

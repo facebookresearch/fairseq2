@@ -14,6 +14,21 @@ from fairseq2.data.text.text_reader import read_text as read_text
 from fairseq2.data.text.tokenizers.char_tokenizer import (
     CHAR_TOKENIZER_FAMILY as CHAR_TOKENIZER_FAMILY,
 )
+from fairseq2.data.text.tokenizers.handler import (
+    StandardTextTokenizerHandler as StandardTextTokenizerHandler,
+)
+from fairseq2.data.text.tokenizers.handler import (
+    TextTokenizerHandler as TextTokenizerHandler,
+)
+from fairseq2.data.text.tokenizers.handler import (
+    TextTokenizerLoader as TextTokenizerLoader,
+)
+from fairseq2.data.text.tokenizers.handler import (
+    TextTokenizerNotFoundError as TextTokenizerNotFoundError,
+)
+from fairseq2.data.text.tokenizers.handler import (
+    get_text_tokenizer_family as get_text_tokenizer_family,
+)
 from fairseq2.data.text.tokenizers.llama import (
     LLAMA_TOKENIZER_FAMILY as LLAMA_TOKENIZER_FAMILY,
 )
@@ -27,24 +42,6 @@ from fairseq2.data.text.tokenizers.nllb import (
 from fairseq2.data.text.tokenizers.nllb import NllbTokenizer as NllbTokenizer
 from fairseq2.data.text.tokenizers.ref import (
     resolve_text_tokenizer_reference as resolve_text_tokenizer_reference,
-)
-from fairseq2.data.text.tokenizers.register import (
-    register_text_tokenizers as register_text_tokenizers,
-)
-from fairseq2.data.text.tokenizers.registry import (
-    StandardTextTokenizerHandler as StandardTextTokenizerHandler,
-)
-from fairseq2.data.text.tokenizers.registry import (
-    TextTokenizerHandler as TextTokenizerHandler,
-)
-from fairseq2.data.text.tokenizers.registry import (
-    TextTokenizerLoader as TextTokenizerLoader,
-)
-from fairseq2.data.text.tokenizers.registry import (
-    TextTokenizerRegistry as TextTokenizerRegistry,
-)
-from fairseq2.data.text.tokenizers.registry import (
-    get_text_tokenizer_family as get_text_tokenizer_family,
 )
 from fairseq2.data.text.tokenizers.s2t_transformer import (
     S2T_TRANSFORMER_TOKENIZER_FAMILY as S2T_TRANSFORMER_TOKENIZER_FAMILY,
@@ -78,9 +75,6 @@ from fairseq2.data.text.tokenizers.sentencepiece import (
 )
 from fairseq2.data.text.tokenizers.sentencepiece import (
     vocab_info_from_sentencepiece as vocab_info_from_sentencepiece,
-)
-from fairseq2.data.text.tokenizers.static import (
-    default_text_tokenizer_registry as default_text_tokenizer_registry,
 )
 from fairseq2.data.text.tokenizers.static import (
     load_text_tokenizer as load_text_tokenizer,

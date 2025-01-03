@@ -18,7 +18,7 @@ from fairseq2.assets import (
     AssetDownloadManager,
     AssetError,
     AssetStore,
-    default_asset_download_manager,
+    InProcAssetDownloadManager,
     default_asset_store,
 )
 from fairseq2.gang import Gang
@@ -82,7 +82,6 @@ class ModelLoader(Protocol[ModelT_co]):
         dtype: DataType | None = None,
         force: bool = False,
         progress: bool = True,
-        strict_state_dict: bool = True,
     ) -> ModelT_co:
         """
         :param model_name_or_card:
@@ -99,9 +98,6 @@ class ModelLoader(Protocol[ModelT_co]):
             cache.
         :param progress:
             If ``True``, displays a progress bar to stderr.
-        :param strict_state_dict:
-            If ``True``, checkpoint' parameters and layers must be identical to
-            the model state dict)
 
         :returns:
             A model loaded from the checkpoint of ``model_name_or_card``.
@@ -186,7 +182,7 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
             that do not support PyTorch's ``reset_parameters()`` convention.
         """
         self._asset_store = asset_store or default_asset_store
-        self._download_manager = download_manager or default_asset_download_manager
+        self._download_manager = download_manager or InProcAssetDownloadManager()
         self._tensor_loader = tensor_loader or load_tensors
         self._config_loader = config_loader
         self._factory = factory
@@ -205,7 +201,6 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         dtype: DataType | None = None,
         force: bool = False,
         progress: bool = True,
-        strict_state_dict: bool = True,
     ) -> ModelT:
         if isinstance(model_name_or_card, AssetCard):
             card = model_name_or_card
@@ -229,7 +224,7 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         num_shards = card.field("num_shards").get_as_(int, default=1)
         if num_shards < 1:
             raise AssetCardError(
-                f"The value of the field 'num_shards' of the asset card '{card.name}' must be greater than or equal to 1, but is {num_shards} instead."
+                card.name, f"The value of the field 'num_shards' of the asset card '{card.name}' must be greater than or equal to 1, but is {num_shards} instead."  # fmt: skip
             )
 
         if num_shards > 1:
@@ -290,7 +285,7 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
             )
         except ValueError as ex:
             raise AssetCardError(
-                f"The value of the field 'checkpoint' of the asset card '{card.name}' must be URI. See nested exception for details."
+                card.name, f"The value of the field 'checkpoint' of the asset card '{card.name}' must be URI. See nested exception for details."  # fmt: skip
             ) from ex
 
         try:
@@ -360,7 +355,7 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         consume_prefix_in_state_dict_if_present(state_dict, prefix="module.")
 
         try:
-            load_state_dict(model, state_dict, strict=strict_state_dict)
+            load_state_dict(model, state_dict)
         except (KeyError, ValueError) as ex:
             raise AssetError(
                 f"{card.name} cannot be loaded. See nested exception for details."
@@ -401,7 +396,6 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
         dtype: DataType | None = None,
         force: bool = False,
         progress: bool = True,
-        strict_state_dict: bool = True,
     ) -> ModelT:
         if isinstance(model_name_or_card, AssetCard):
             card = model_name_or_card
@@ -425,7 +419,6 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
             dtype=dtype,
             force=force,
             progress=progress,
-            strict_state_dict=strict_state_dict,
         )
 
     def register(self, family: str, loader: ModelLoader[ModelT]) -> None:

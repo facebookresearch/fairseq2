@@ -13,6 +13,7 @@ from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.chatbots.chatbot import AbstractChatbot, Chatbot, ChatDialog, ChatMessage
+from fairseq2.chatbots.handler import ChatbotHandler
 from fairseq2.data.text import LLaMA3Tokenizer, TextTokenEncoder, TextTokenizer
 from fairseq2.generation import SequenceGenerator
 from fairseq2.nn.utils.module import infer_device
@@ -206,10 +207,11 @@ class LLaMA3Chatbot(AbstractChatbot):
         return True
 
 
-def make_llama_chatbot(
-    generator: SequenceGenerator, tokenizer: TextTokenizer
-) -> Chatbot:
-    if isinstance(tokenizer, LLaMA3Tokenizer):
-        return LLaMA3Chatbot(generator, tokenizer)
+@final
+class LLaMAChatbotHandler(ChatbotHandler):
+    @override
+    def create(self, generator: SequenceGenerator, tokenizer: TextTokenizer) -> Chatbot:
+        if isinstance(tokenizer, LLaMA3Tokenizer):
+            return LLaMA3Chatbot(generator, tokenizer)
 
-    return LLaMAChatbot(generator, tokenizer)
+        return LLaMAChatbot(generator, tokenizer)

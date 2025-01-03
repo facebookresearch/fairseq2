@@ -18,14 +18,11 @@ from fairseq2.assets.error import AssetCardError, AssetCardNotFoundError
 from fairseq2.assets.metadata_provider import (
     AssetMetadataNotFoundError,
     AssetMetadataProvider,
-    FileAssetMetadataProvider,
     PackageAssetMetadataProvider,
     WheelPackageFileLister,
 )
 from fairseq2.error import ContractError
-from fairseq2.extensions import run_extensions
 from fairseq2.utils.env import get_path_from_env
-from fairseq2.utils.file import StandardFileSystem
 from fairseq2.utils.yaml import load_yaml
 
 AssetScope: TypeAlias = Literal["all", "global", "user"]
@@ -118,7 +115,7 @@ class StandardAssetStore(AssetStore):
             metadata = self._get_metadata(f"{name}@", scope)
         except AssetMetadataNotFoundError:
             raise AssetCardNotFoundError(
-                f"An asset card with name '{name}' is not found."
+                name, f"An asset card with name '{name}' is not found."
             ) from None
 
         # If we have environment-specific metadata, merge it with `metadata`.
@@ -157,7 +154,7 @@ class StandardAssetStore(AssetStore):
                 base_card = self._do_retrieve_card(base_name, envs, scope)
             except AssetCardNotFoundError:
                 raise AssetCardError(
-                    f"A transitive base asset card with name '{name}' is not found."
+                    name, f"A transitive base asset card with name '{base_name}' is not found."  # fmt: skip
                 ) from None
 
         base_path = metadata.get("__base_path__")
@@ -217,20 +214,6 @@ class StandardAssetStore(AssetStore):
         for provider in self.user_metadata_providers:
             provider.clear_cache()
 
-    def add_file_metadata_provider(self, path: Path, user: bool = False) -> None:
-        """Add a new :class:`FileAssetMetadataProvider` pointing to ``path``.
-
-        :param path: The directory under which asset metadata is stored.
-        :param user: If ``True``, adds the metadata provider to the user scope.
-        """
-        file_system = StandardFileSystem()
-
-        provider = FileAssetMetadataProvider(path, file_system, load_yaml)
-
-        providers = self.user_metadata_providers if user else self.metadata_providers
-
-        providers.append(provider)
-
     def add_package_metadata_provider(self, package_name: str) -> None:
         """Add a new :class:`PackageAssetMetadataProvider` for ``package_name``.
 
@@ -254,30 +237,17 @@ class EnvironmentResolver(Protocol):
 default_asset_store = StandardAssetStore()
 
 
-def setup_asset_store(store: StandardAssetStore) -> None:
-    store.add_package_metadata_provider("fairseq2.assets.cards")
-
-    # /etc/fairseq2/assets
-    _add_etc_dir_metadata_provider(store)
-
-    # ~/.config/fairseq2/assets
-    _add_home_config_dir_metadata_provider(store)
-
-    # Extensions
-    run_extensions("setup_fairseq2_asset_store", store)
-
-
-def _add_etc_dir_metadata_provider(store: StandardAssetStore) -> None:
+def get_asset_dir() -> Path | None:
     asset_dir = get_path_from_env("FAIRSEQ2_ASSET_DIR")
     if asset_dir is None:
         asset_dir = Path("/etc/fairseq2/assets").resolve()
         if not asset_dir.exists():
-            return
+            return None
 
-    store.add_file_metadata_provider(asset_dir)
+    return asset_dir
 
 
-def _add_home_config_dir_metadata_provider(store: StandardAssetStore) -> None:
+def get_user_asset_dir() -> Path | None:
     asset_dir = get_path_from_env("FAIRSEQ2_USER_ASSET_DIR")
     if asset_dir is None:
         asset_dir = get_path_from_env("XDG_CONFIG_HOME")
@@ -286,6 +256,6 @@ def _add_home_config_dir_metadata_provider(store: StandardAssetStore) -> None:
 
         asset_dir = asset_dir.joinpath("fairseq2/assets").resolve()
         if not asset_dir.exists():
-            return
+            return None
 
-    store.add_file_metadata_provider(asset_dir, user=True)
+    return asset_dir

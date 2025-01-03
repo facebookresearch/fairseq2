@@ -16,7 +16,7 @@ from fairseq2.assets import (
     AssetDownloadManager,
     AssetError,
     AssetStore,
-    default_asset_download_manager,
+    InProcAssetDownloadManager,
     default_asset_store,
 )
 
@@ -66,7 +66,7 @@ class AbstractDatasetLoader(ABC, DatasetLoader[DatasetT]):
             be used.
         """
         self._asset_store = asset_store or default_asset_store
-        self._download_manager = download_manager or default_asset_download_manager
+        self._download_manager = download_manager or InProcAssetDownloadManager()
 
     @final
     def __call__(
@@ -89,7 +89,7 @@ class AbstractDatasetLoader(ABC, DatasetLoader[DatasetT]):
             )
         except ValueError as ex:
             raise AssetCardError(
-                f"The value of the field 'data' of the asset card '{card.name}' must be a URI. See nested exception for details."
+                card.name, f"The value of the field 'data' of the asset card '{card.name}' must be a URI. See nested exception for details."  # fmt: skip
             ) from ex
 
         try:

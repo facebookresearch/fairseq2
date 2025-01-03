@@ -92,7 +92,7 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
         model_family = get_model_family(card)
         if model_family != self._family:
             raise AssetCardError(
-                f"The value of the field 'model_family' of the asset card '{card.name}' must be '{self._family}', but is '{model_family}' instead."
+                card.name, f"The value of the field 'model_family' of the asset card '{card.name}' must be '{self._family}', but is '{model_family}' instead."  # fmt: skip
             )
 
         config_kls = self._config_kls
@@ -189,5 +189,5 @@ def get_model_family(card: AssetCard) -> str:
         return cast(str, card.field("model_type").as_(str))
     except AssetCardFieldNotFoundError:
         raise AssetCardFieldNotFoundError(
-            f"The asset card '{card.name}' must have a field named 'model_family."
+            card.name, f"The asset card '{card.name}' must have a field named 'model_family."  # fmt: skip
         ) from None

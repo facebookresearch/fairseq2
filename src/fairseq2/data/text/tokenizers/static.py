@@ -6,33 +6,36 @@
 
 from __future__ import annotations
 
-from fairseq2.assets import (
-    AssetCard,
-    default_asset_download_manager,
-    default_asset_store,
-)
-from fairseq2.data.text.tokenizers.ref import resolve_text_tokenizer_reference
-from fairseq2.data.text.tokenizers.registry import (
-    TextTokenizerRegistry,
+from fairseq2.assets import AssetCard
+from fairseq2.context import get_runtime_context
+from fairseq2.data.text.tokenizers.handler import (
+    TextTokenizerHandler,
+    TextTokenizerNotFoundError,
     get_text_tokenizer_family,
 )
+from fairseq2.data.text.tokenizers.ref import resolve_text_tokenizer_reference
 from fairseq2.data.text.tokenizers.tokenizer import TextTokenizer
-
-default_text_tokenizer_registry = TextTokenizerRegistry()
 
 
 def load_text_tokenizer(
     name_or_card: str | AssetCard, *, force: bool = False
 ) -> TextTokenizer:
+    context = get_runtime_context()
+
     if isinstance(name_or_card, AssetCard):
         card = name_or_card
     else:
-        card = default_asset_store.retrieve_card(name_or_card)
+        card = context.asset_store.retrieve_card(name_or_card)
 
-    card = resolve_text_tokenizer_reference(default_asset_store, card)
+    card = resolve_text_tokenizer_reference(context.asset_store, card)
 
     family = get_text_tokenizer_family(card)
 
-    handler = default_text_tokenizer_registry.get(family)
+    registry = context.get_registry(TextTokenizerHandler)
 
-    return handler.load(card, default_asset_download_manager, force=force)
+    try:
+        handler = registry.get(family)
+    except LookupError:
+        raise TextTokenizerNotFoundError(card.name) from None
+
+    return handler.load(card, force=force)

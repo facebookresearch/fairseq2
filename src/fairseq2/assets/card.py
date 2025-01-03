@@ -15,7 +15,11 @@ from urllib.parse import urlparse, urlunparse
 
 from fairseq2.assets.error import AssetCardError, AssetCardFieldNotFoundError
 from fairseq2.error import InternalError
-from fairseq2.utils.structured import StructureError, structure, unstructure
+from fairseq2.utils.structured import (
+    StructureError,
+    default_value_converter,
+    unstructure,
+)
 
 
 @final
@@ -75,7 +79,7 @@ class AssetCard:
                 pathname = ".".join(path)
 
                 raise AssetCardFieldNotFoundError(
-                    f"The '{leaf_card.name}' asset card does not have a field named '{pathname}'."
+                    leaf_card.name, f"The '{leaf_card.name}' asset card does not have a field named '{pathname}'."  # fmt: skip
                 )
 
             try:
@@ -92,7 +96,7 @@ class AssetCard:
             pathname = ".".join(path)
 
             raise AssetCardFieldNotFoundError(
-                f"The '{leaf_card.name}' asset card does not have a field named '{pathname}'."
+                leaf_card.name, f"The '{leaf_card.name}' asset card does not have a field named '{pathname}'."  # fmt: skip
             )
 
         return metadata
@@ -118,7 +122,7 @@ class AssetCard:
                 pathname = ".".join(path)
 
                 raise AssetCardError(
-                    f"The '{self._name}' asset card cannot have a field named '{pathname}' due to path conflict at '{conflict_pathname}'."
+                    self._name, f"The '{self._name}' asset card cannot have a field named '{pathname}' due to path conflict at '{conflict_pathname}'."  # fmt: skip
                 )
 
             metadata = value_
@@ -211,12 +215,12 @@ class AssetCardField:
         unstructured_value = self._card._get_field_value(self._card, self._path)
 
         try:
-            value = structure(unstructured_value, type_)
+            value = default_value_converter.structure(unstructured_value, type_)
         except StructureError as ex:
             pathname = ".".join(self._path)
 
             raise AssetCardError(
-                f"The value of the '{pathname}' field of the '{self._card.name}' asset card cannot be parsed as `{type_}`. See the nested exception for details."
+                self._card.name, f"The value of the '{pathname}' field of the '{self._card.name}' asset card cannot be parsed as `{type_}`. See the nested exception for details."  # fmt: skip
             ) from ex
 
         if value is None:
@@ -226,7 +230,7 @@ class AssetCardField:
             pathname = ".".join(self._path)
 
             raise AssetCardError(
-                f"The value of the '{pathname}' field of the '{self._card.name}' asset card is empty."
+                self._card.name, f"The value of the '{pathname}' field of the '{self._card.name}' asset card is empty."  # fmt: skip
             )
 
         return value
@@ -252,7 +256,7 @@ class AssetCardField:
             s = ", ".join(values)
 
             raise AssetCardError(
-                f"The value of the '{pathname}' field of the '{self._card.name}' asset card is expected to be one of the following values, but is '{value}' instead: {s}"
+                self._card.name, f"The value of the '{pathname}' field of the '{self._card.name}' asset card is expected to be one of the following values, but is '{value}' instead: {s}"  # fmt: skip
             )
 
         return value
@@ -274,7 +278,7 @@ class AssetCardField:
             pathname = ".".join(self._path)
 
             raise AssetCardError(
-                f"The value of the '{pathname}' field of the '{self._card.name}' asset card is expected to be a URI or an absolute pathname, but is '{value}' instead."
+                self._card.name, f"The value of the '{pathname}' field of the '{self._card.name}' asset card is expected to be a URI or an absolute pathname, but is '{value}' instead."  # fmt: skip
             ) from None
 
     def as_filename(self) -> str:
@@ -285,7 +289,7 @@ class AssetCardField:
             pathname = ".".join(self._path)
 
             raise AssetCardError(
-                f"The value of the '{pathname}' field of the '{self._card.name}' asset card is expected to be a filename, but is '{value}' instead."
+                self._card.name, f"The value of the '{pathname}' field of the '{self._card.name}' asset card is expected to be a filename, but is '{value}' instead."  # fmt: skip
             )
 
         return value

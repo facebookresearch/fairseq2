@@ -34,7 +34,7 @@ def retrieve_asset_card(name_or_card: AssetReference) -> AssetCard:
     if isinstance(name_or_card, Path):
         if name_or_card.is_dir():
             raise AssetNotFoundError(
-                f"An asset metadata file cannot be found at {name_or_card}."  # fmt: skip
+                name_or_card.name, f"An asset metadata file cannot be found at {name_or_card}."  # fmt: skip
             )
 
         return _card_from_file(name_or_card)
@@ -55,7 +55,7 @@ def retrieve_asset_card(name_or_card: AssetReference) -> AssetCard:
         if (file.suffix == ".yaml" or file.suffix == ".yml") and file.exists():
             return _card_from_file(file)
 
-    raise AssetNotFoundError(f"An asset with the name '{name}' cannot be found.")
+    raise AssetNotFoundError(name, f"An asset with the name '{name}' cannot be found.")
 
 
 def _card_from_file(file: Path) -> AssetCard:
