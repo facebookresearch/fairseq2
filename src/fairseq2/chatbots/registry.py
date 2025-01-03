@@ -12,9 +12,9 @@ from typing import Protocol, TypeAlias, final
 from typing_extensions import override
 
 from fairseq2.chatbots.chatbot import Chatbot
+from fairseq2.context import Registry
 from fairseq2.data.text import TextTokenizer
 from fairseq2.generation.generator import SequenceGenerator
-from fairseq2.utils.registry import Registry
 
 
 class ChatbotHandler(ABC):

@@ -167,7 +167,7 @@ class ConfigBoundFactoryRegistry(Generic[P, R]):
                     f"The first parameter of the decorated factory `{factory}` must be a dataclass."
                 )
 
-            self.register(name, factory, config_kls)
+            self.register(name, factory, config_kls)  # type: ignore[arg-type]
 
             return factory
 
