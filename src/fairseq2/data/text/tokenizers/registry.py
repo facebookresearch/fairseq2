@@ -13,8 +13,8 @@ from typing import Protocol, TypeAlias, final
 from typing_extensions import override
 
 from fairseq2.assets import AssetCard, AssetDownloadManager
+from fairseq2.context import Registry
 from fairseq2.data.text.tokenizers.tokenizer import TextTokenizer
-from fairseq2.utils.registry import Registry
 
 
 class TextTokenizerHandler(ABC):

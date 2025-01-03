@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Generator
 from contextlib import contextmanager
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -165,7 +166,7 @@ def load_one_fragment(
 
 def apply_filter(
     table: pa.Table,
-    filters: pa.dataset.Expression | None = None,
+    filters: list[Any] | pa.dataset.Expression | None = None,
     drop_null: bool = True,
 ) -> pa.Table:
     if drop_null:
