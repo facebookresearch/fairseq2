@@ -14,7 +14,12 @@ class AssetError(Exception):
 
 
 class AssetCardError(AssetError):
-    pass
+    name: str
+
+    def __init__(self, name: str, message: str) -> None:
+        super().__init__(message)
+
+        self.name = name
 
 
 class AssetCardNotFoundError(AssetCardError):

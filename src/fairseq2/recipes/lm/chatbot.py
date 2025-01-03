@@ -16,7 +16,7 @@ from rich.console import Console
 from torch import Tensor
 from typing_extensions import override
 
-from fairseq2.chatbots import Chatbot, ChatbotRegistry, ChatMessage, register_chatbots
+from fairseq2.chatbots import Chatbot, ChatMessage, create_chatbot
 from fairseq2.data.text import TextTokenDecoder, TextTokenizer, load_text_tokenizer
 from fairseq2.error import InternalError
 from fairseq2.gang import Gang, is_torchrun
@@ -166,18 +166,12 @@ class ChatbotCommandHandler(CliCommandHandler):
 
             sys.exit(1)
 
-        registry = ChatbotRegistry()
-
-        register_chatbots(registry)
-
         try:
-            handler = registry.get(model.family)
+            chatbot = create_chatbot(model.family, generator, tokenizer)
         except LookupError:
             log.exception("The chatbot cannot be created.")
 
             sys.exit(1)
-
-        chatbot = handler.make(generator, tokenizer)
 
         rng_bag = RngBag.from_device_defaults(CPU, root_gang.device)
 

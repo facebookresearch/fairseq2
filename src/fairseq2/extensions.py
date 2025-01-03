@@ -14,41 +14,31 @@ from importlib_metadata import entry_points
 from fairseq2.logging import log
 
 
-def run_extensions(name: str, *args: Any, **kwargs: Any) -> None:
+def run_extensions(extension_name: str, *args: Any, **kwargs: Any) -> None:
     should_trace = "FAIRSEQ2_EXTENSION_TRACE" in os.environ
 
-    for entry_point in entry_points(group="fairseq2.extension"):
+    for entry_point in entry_points(group=extension_name):
         try:
-            extension_module = entry_point.load()
-        except Exception as ex:
-            if should_trace:
-                raise ExtensionError(
-                    entry_point.value, f"The `{entry_point.value}` extension module has failed to load. See the nested exception for details."  # fmt: skip
-                ) from ex
+            extension = entry_point.load()
 
-            log.warning("The `{}` extension module has failed to load. Set `FAIRSEQ2_EXTENSION_TRACE` environment variable to print the stack trace.", entry_point.value)  # fmt: skip
-
-            continue
-
-        try:
-            extension = getattr(extension_module, name)
-        except AttributeError:
-            continue
-
-        try:
             extension(*args, **kwargs)
+        except TypeError:
+            if should_trace:
+                raise ExtensionError(
+                    entry_point.value, f"The '{entry_point.value}' entry point is not a valid extension function."  # fmt: skip
+                ) from None
+
+            log.warning("The '{}' entry point is not a valid extension function. Set `FAIRSEQ2_EXTENSION_TRACE` environment variable to print the stack trace.", entry_point.value)  # fmt: skip
         except Exception as ex:
             if should_trace:
                 raise ExtensionError(
-                    entry_point.value, f"The `{entry_point.value}.{name}` extension function has failed. See the nested exception for details."  # fmt: skip
+                    entry_point.value, f"The '{entry_point.value}' extension function has failed. See the nested exception for details."  # fmt: skip
                 ) from ex
 
-            log.warning("The `{}.{}` extension function has failed. Set `FAIRSEQ2_EXTENSION_TRACE` environment variable to print the stack trace.", entry_point.value, name)  # fmt: skip
-
-            continue
+            log.warning("The '{}' extension function has failed. Set `FAIRSEQ2_EXTENSION_TRACE` environment variable to print the stack trace.", entry_point.value)  # fmt: skip
 
         if should_trace:
-            log.info("The `{}.{}` extension function run successfully.", entry_point.value, name)  # fmt: skip
+            log.info("The `{}` extension function run successfully.", entry_point.value)  # fmt: skip
 
 
 class ExtensionError(Exception):

@@ -126,5 +126,5 @@ def load_s2t_transformer_tokenizer(
         )
     except ValueError as ex:
         raise AssetCardError(
-            f"The '{card.name}' asset card does not have a valid text tokenizer configuration. See the nested exception for details."
+            card.name, f"The '{card.name}' asset card does not have a valid text tokenizer configuration. See the nested exception for details."  # fmt: skip
         ) from ex

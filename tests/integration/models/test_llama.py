@@ -9,7 +9,7 @@ from typing import cast
 
 import pytest
 
-from fairseq2.assets import default_asset_download_manager, default_asset_store
+from fairseq2.context import get_runtime_context
 from fairseq2.models.llama import create_llama_model, llama_archs
 from fairseq2.models.llama.integ import convert_to_reference_checkpoint
 from fairseq2.models.llama.loader import convert_llama_checkpoint
@@ -22,11 +22,13 @@ from tests.common import device
     "FAIR_ENV_CLUSTER" not in os.environ, reason="checkpoints only on faircluster"
 )
 def test_convert_to_reference_checkpoint() -> None:
+    context = get_runtime_context()
+
     model_config = llama_archs.get("llama2_7b")
 
-    card = default_asset_store.retrieve_card("llama2_7b")
+    card = context.asset_store.retrieve_card("llama2_7b")
 
-    path = default_asset_download_manager.download_checkpoint(
+    path = context.asset_download_manager.download_checkpoint(
         card.field("checkpoint").as_uri(), model_name="llama2_7b", progress=False
     )
 

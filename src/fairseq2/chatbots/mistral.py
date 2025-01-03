@@ -12,7 +12,8 @@ import torch
 from torch import Tensor
 from typing_extensions import override
 
-from fairseq2.chatbots.chatbot import AbstractChatbot, ChatDialog
+from fairseq2.chatbots.chatbot import AbstractChatbot, Chatbot, ChatDialog
+from fairseq2.chatbots.handler import ChatbotHandler
 from fairseq2.data.text import TextTokenEncoder, TextTokenizer
 from fairseq2.generation import SequenceGenerator
 from fairseq2.nn.utils.module import infer_device
@@ -91,7 +92,8 @@ class MistralChatbot(AbstractChatbot):
         return False
 
 
-def make_mistral_chatbot(
-    generator: SequenceGenerator, tokenizer: TextTokenizer
-) -> MistralChatbot:
-    return MistralChatbot(generator, tokenizer)
+@final
+class MistralChatbotHandler(ChatbotHandler):
+    @override
+    def create(self, generator: SequenceGenerator, tokenizer: TextTokenizer) -> Chatbot:
+        return MistralChatbot(generator, tokenizer)
