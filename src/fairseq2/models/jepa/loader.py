@@ -28,7 +28,9 @@ def convert_jepa_checkpoint(
 ) -> dict[str, Any]:
     # We have a shared checkpoint, used for other use cases (frozen evaluation,..)
     if "target_encoder" in checkpoint:
-        return convert_jepa_encoder_checkpoint(checkpoint["target_encoder"], config=config)
+        return convert_jepa_encoder_checkpoint(
+            checkpoint["target_encoder"], config=config
+        )
 
     if "encoder" in checkpoint:
         return convert_jepa_encoder_checkpoint(checkpoint["encoder"], config=config)
