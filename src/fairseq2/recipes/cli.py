@@ -27,7 +27,6 @@ from fairseq2.recipes.cluster import (
     ClusterResolver,
     UnknownClusterError,
 )
-from fairseq2.recipes.console import get_console, set_console
 from fairseq2.recipes.logging import DistributedLoggingInitializer, setup_basic_logging
 from fairseq2.recipes.runner import (
     ConfigFileNotFoundError,
@@ -43,6 +42,7 @@ from fairseq2.recipes.runner import (
     get_sweep_keys,
 )
 from fairseq2.recipes.utils.argparse import ConfigAction
+from fairseq2.recipes.utils.rich import get_console, set_console
 from fairseq2.recipes.utils.sweep_tagger import (
     NoopSweepTagger,
     StandardSweepTagger,

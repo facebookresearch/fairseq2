@@ -20,7 +20,7 @@ from typing_extensions import override
 
 from fairseq2.error import SetupError
 from fairseq2.gang import get_rank
-from fairseq2.recipes.console import get_error_console
+from fairseq2.recipes.utils.rich import get_error_console
 
 
 def setup_basic_logging(*, debug: bool = False, utc_time: bool = False) -> None:
