@@ -16,6 +16,7 @@ from typing import (
     Any,
     Literal,
     Protocol,
+    TypeVar,
     Union,
     cast,
     get_args,
@@ -604,8 +605,13 @@ class ValueConverter:
 default_value_converter = ValueConverter()
 
 
-def structure(obj: object, type_: object, *, set_empty: bool = False) -> Any:
-    return default_value_converter.structure(obj, type_, set_empty=set_empty)
+T = TypeVar("T")
+
+
+def structure(obj: object, kls: type[T], *, set_empty: bool = False) -> T:
+    obj = default_value_converter.structure(obj, kls, set_empty=set_empty)
+
+    return cast(T, obj)
 
 
 def unstructure(obj: object) -> object:
