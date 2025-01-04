@@ -28,7 +28,6 @@ from typing_extensions import override
 
 from fairseq2.checkpoint import CheckpointManager, CheckpointNotFoundError
 from fairseq2.datasets import DataReader
-from fairseq2.early_stopper import EarlyStopper
 from fairseq2.error import ContractError, InternalError, InvalidOperationError
 from fairseq2.gang import FakeGang, Gang, broadcast_flag
 from fairseq2.logging import log
@@ -51,6 +50,7 @@ from fairseq2.nn.utils.gradient import (
 from fairseq2.optim import DynamicLossScaler
 from fairseq2.optim.lr_scheduler import LRScheduler, NoopLR, get_effective_lr
 from fairseq2.recipes.common_metrics import extend_batch_metrics
+from fairseq2.recipes.early_stopper import EarlyStopper, NoopEarlyStopper
 from fairseq2.recipes.evaluator import EvalUnit
 from fairseq2.recipes.utils.rich import create_rich_progress
 from fairseq2.typing import CPU, DataType
@@ -403,7 +403,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
                 )
 
             if root_gang.rank != 0:
-                early_stopper = lambda step_nr, score: False
+                early_stopper = NoopEarlyStopper()
 
             self._early_stopper = early_stopper
         else:
@@ -1075,7 +1075,9 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             if self._valid_score is None:
                 raise InternalError("Early stopping, but `_valid_score` is `None`.")
 
-            should_stop = self._early_stopper(self._step_nr, self._valid_score)
+            should_stop = self._early_stopper.should_stop(
+                self._step_nr, self._valid_score
+            )
         else:
             should_stop = False
 
