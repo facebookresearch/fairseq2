@@ -6,18 +6,22 @@
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Protocol, final
+from types import NoneType
+from typing import Final, final
 
 import torch
 from torch import Tensor
+from typing_extensions import override
 
 
-class BeamSearchAlgorithm(Protocol):
+class BeamSearchAlgorithm(ABC):
     """Represents a beam search algorithm."""
 
-    def __call__(self, beam_size: int, lprobs: Tensor, step_scores: Tensor) -> BeamStep:
+    @abstractmethod
+    def step(self, beam_size: int, lprobs: Tensor, step_scores: Tensor) -> BeamStep:
         """Take a single step.
 
         A subclass implementation is expected to return the best 2 x `beam_size`
@@ -41,7 +45,8 @@ class BeamSearchAlgorithm(Protocol):
 class StandardBeamSearchAlgorithm(BeamSearchAlgorithm):
     """Represents a standard beam search algoritm."""
 
-    def __call__(self, beam_size: int, lprobs: Tensor, step_scores: Tensor) -> BeamStep:
+    @override
+    def step(self, beam_size: int, lprobs: Tensor, step_scores: Tensor) -> BeamStep:
         vocab_size = lprobs.size(1)
 
         # Make the probabilities contain cumulative scores for each hypothesis.
@@ -102,3 +107,43 @@ class BeamStep:
         scores = torch.cat([s.scores for s in steps])
 
         return BeamStep(seq_indices, vocab_indices, scores)
+
+
+class BeamSearchAlgorithmHandler(ABC):
+    @abstractmethod
+    def create(self, config: object) -> BeamSearchAlgorithm:
+        ...
+
+    @property
+    @abstractmethod
+    def config_kls(self) -> type:
+        ...
+
+
+class BeamSearchAlgorithmNotFoundError(LookupError):
+    name: str
+
+    def __init__(self, name: str) -> None:
+        super().__init__(f"'{name}' is not a known beam search algorithm.")
+
+        self.name = name
+
+
+STANDARD_BEAM_SEARCH_ALGO: Final = "standard"
+
+
+@final
+class StandardBeamSearchAlgorithmHandler(BeamSearchAlgorithmHandler):
+    @override
+    def create(self, config: object) -> BeamSearchAlgorithm:
+        if config is not None:
+            raise ValueError(
+                "`config` must not be specified for standard beam-search algorithm."
+            )
+
+        return StandardBeamSearchAlgorithm()
+
+    @property
+    @override
+    def config_kls(self) -> type:
+        return NoneType

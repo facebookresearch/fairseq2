@@ -672,7 +672,7 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
                 probs[:, self._eos_idx] = 0
 
             # (N)
-            vocab_indices = self._sampler(probs)
+            vocab_indices = self._sampler.sample(probs)
 
         # EOS mask of the current step.
         # (N)
