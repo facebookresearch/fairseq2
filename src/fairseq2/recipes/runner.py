@@ -14,7 +14,6 @@ from pathlib import Path
 from signal import SIGUSR1, signal
 from types import FrameType
 from typing import (
-    Generic,
     Mapping,
     Protocol,
     Sequence,
@@ -29,14 +28,10 @@ from typing_extensions import override
 from fairseq2.config_registry import ConfigProvider
 from fairseq2.error import ContractError, SetupError
 from fairseq2.logging import log
-from fairseq2.recipes.cluster import ClusterRegistry
+from fairseq2.recipes.cluster import ClusterResolver
 from fairseq2.recipes.logging import LoggingInitializer
 from fairseq2.recipes.utils.log import log_config
-from fairseq2.recipes.utils.sweep_tagger import (
-    NoopSweepTagger,
-    StandardSweepTagger,
-    SweepTagger,
-)
+from fairseq2.recipes.utils.sweep_tagger import SweepTagger
 from fairseq2.utils.file import FileSystem
 from fairseq2.utils.structured import (
     StructureError,
@@ -47,11 +42,9 @@ from fairseq2.utils.structured import (
 from fairseq2.utils.yaml import YamlDumper, YamlError, YamlLoader
 
 
-@runtime_checkable
-class Stoppable(Protocol):
-    """Represents a task that supports graceful stopping."""
-
-    def request_stop(self) -> None:
+class RecipeRunner(ABC):
+    @abstractmethod
+    def run(self, config: object, output_dir: Path) -> None:
         ...
 
 
@@ -69,25 +62,19 @@ class RecipeLoader(Protocol[ConfigT_contra]):
 ConfigT = TypeVar("ConfigT")
 
 
-class RecipeRunner(ABC, Generic[ConfigT]):
-    @abstractmethod
-    def run(self, config: ConfigT, output_dir: Path) -> None:
-        ...
-
-
 @final
-class StandardRecipeRunner(RecipeRunner[ConfigT]):
-    _loader: RecipeLoader[ConfigT]
+class StandardRecipeRunner(RecipeRunner):
+    _loader: RecipeLoader[object]
     _signal_handler: SignalHandler
 
     def __init__(
-        self, loader: RecipeLoader[ConfigT], signal_handler: SignalHandler
+        self, loader: RecipeLoader[object], signal_handler: SignalHandler
     ) -> None:
         self._loader = loader
         self._signal_handler = signal_handler
 
     @override
-    def run(self, config: ConfigT, output_dir: Path) -> None:
+    def run(self, config: object, output_dir: Path) -> None:
         recipe = self._loader(config, output_dir)
 
         # If the recipe is stoppable, use SIGUSR1 as the stop signal.
@@ -103,12 +90,36 @@ class StandardRecipeRunner(RecipeRunner[ConfigT]):
         recipe()
 
 
+@runtime_checkable
+class Stoppable(Protocol):
+    """Represents a task that supports graceful stopping."""
+
+    def request_stop(self) -> None:
+        ...
+
+
+class SignalHandler(ABC):
+    @abstractmethod
+    def set(self, nr: int, callback: Callable[[int], None]) -> None:
+        ...
+
+
+@final
+class SystemSignalHandler(SignalHandler):
+    @override
+    def set(self, nr: int, callback: Callable[[int], None]) -> None:
+        def cb(signum: int, frame: FrameType | None) -> None:
+            callback(signum)
+
+        signal(nr, cb)
+
+
 class EnvironmentBootstrapper(ABC):
     @abstractmethod
     def run(
         self,
         preset: str,
-        config: ConfigT,
+        config: object,
         output_dir: Path,
         *,
         cluster: str = "auto",
@@ -120,38 +131,38 @@ class EnvironmentBootstrapper(ABC):
 
 @final
 class StandardEnvironmentBootstrapper(EnvironmentBootstrapper):
-    _cluster_registry: ClusterRegistry
+    _cluster_resolver: ClusterResolver
     _sweep_tagger: SweepTagger
-    _logging_initializer: LoggingInitializer
     _file_system: FileSystem
+    _logging_initializer: LoggingInitializer
     _yaml_dumper: YamlDumper
 
     def __init__(
         self,
-        cluster_registry: ClusterRegistry,
+        cluster_resolver: ClusterResolver,
         sweep_tagger: SweepTagger,
-        logging_initializer: LoggingInitializer,
         file_system: FileSystem,
+        logging_initializer: LoggingInitializer,
         yaml_dumper: YamlDumper,
     ) -> None:
-        self._cluster_registry = cluster_registry
+        self._cluster_resolver = cluster_resolver
         self._sweep_tagger = sweep_tagger
-        self._logging_initializer = logging_initializer
         self._file_system = file_system
+        self._logging_initializer = logging_initializer
         self._yaml_dumper = yaml_dumper
 
     @override
     def run(
         self,
         preset: str,
-        config: ConfigT,
+        config: object,
         output_dir: Path,
         *,
         cluster: str = "auto",
         sweep_format: str | None = None,
         debug: bool = False,
     ) -> Path:
-        cluster_handler = self._cluster_registry.get(cluster)
+        cluster_handler = self._cluster_resolver.get(cluster)
 
         world_size, rank = cluster_handler.set_torch_distributed_variables()
 
@@ -191,45 +202,26 @@ class StandardEnvironmentBootstrapper(EnvironmentBootstrapper):
         return sweep_output_dir
 
 
-class SignalHandler(ABC):
-    @abstractmethod
-    def set(self, nr: int, callback: Callable[[int], None]) -> None:
-        ...
-
-
-@final
-class SystemSignalHandler(SignalHandler):
-    @override
-    def set(self, nr: int, callback: Callable[[int], None]) -> None:
-        def cb(signum: int, frame: FrameType | None) -> None:
-            callback(signum)
-
-        signal(nr, cb)
-
-
-ConfigT_co = TypeVar("ConfigT_co", covariant=True)
-
-
-class ConfigReader(ABC, Generic[ConfigT_co]):
+class ConfigReader(ABC):
     @abstractmethod
     def read(
         self,
         preset: str,
         config_files: Sequence[Sequence[Path]] | None,
         config_overrides: Sequence[Mapping[str, object]] | None,
-    ) -> ConfigT_co:
+    ) -> object:
         ...
 
 
 @final
-class StandardConfigReader(ConfigReader[ConfigT]):
-    _preset_configs: ConfigProvider[ConfigT]
+class StandardConfigReader(ConfigReader):
+    _preset_configs: ConfigProvider[object]
     _file_system: FileSystem
     _yaml_loader: YamlLoader
 
     def __init__(
         self,
-        preset_configs: ConfigProvider[ConfigT],
+        preset_configs: ConfigProvider[object],
         file_system: FileSystem,
         yaml_loader: YamlLoader,
     ) -> None:
@@ -243,7 +235,7 @@ class StandardConfigReader(ConfigReader[ConfigT]):
         preset: str,
         config_files: Sequence[Sequence[Path]] | None,
         config_overrides: Sequence[Mapping[str, object]] | None,
-    ) -> ConfigT:
+    ) -> object:
         # Load the preset configuration.
         preset_config = self._preset_configs.get(preset)
 
@@ -306,18 +298,13 @@ class ConfigFileNotFoundError(Exception):
         self.config_file = config_file
 
 
-def create_sweep_tagger(
-    no_sweep_dir: bool, extra_sweep_keys: Set[Hashable] | None
-) -> SweepTagger:
-    if no_sweep_dir:
-        return NoopSweepTagger()
-
+def get_sweep_keys(extra_sweep_keys: Set[Hashable] | None) -> Set[Hashable]:
     sweep_keys = get_default_sweep_keys()
 
     if extra_sweep_keys is not None:
         sweep_keys = sweep_keys | extra_sweep_keys
 
-    return StandardSweepTagger(sweep_keys)
+    return sweep_keys
 
 
 @cache

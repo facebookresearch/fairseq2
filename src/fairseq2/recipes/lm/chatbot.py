@@ -17,6 +17,7 @@ from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.chatbots import Chatbot, ChatMessage, create_chatbot
+from fairseq2.context import get_runtime_context
 from fairseq2.data.text import TextTokenDecoder, TextTokenizer, load_text_tokenizer
 from fairseq2.error import InternalError
 from fairseq2.gang import Gang, is_torchrun
@@ -29,11 +30,10 @@ from fairseq2.logging import get_log_writer
 from fairseq2.models import load_model
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.recipes.cli import CliCommandHandler
-from fairseq2.recipes.cluster import ClusterError, ClusterRegistry, register_clusters
+from fairseq2.recipes.cluster import ClusterError, ClusterHandler, ClusterResolver
 from fairseq2.recipes.console import get_console
 from fairseq2.recipes.utils.argparse import parse_dtype
 from fairseq2.recipes.utils.setup import setup_gangs
-from fairseq2.setup import setup_fairseq2
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import RngBag
 
@@ -104,14 +104,16 @@ class ChatbotCommandHandler(CliCommandHandler):
         )
 
     @override
-    def run(self, args: Namespace) -> int:
-        cluster_registry = ClusterRegistry(is_torchrun=is_torchrun())
+    def run(self, parser: ArgumentParser, args: Namespace) -> int:
+        context = get_runtime_context()
 
-        register_clusters(cluster_registry)
+        cluster_handlers = context.get_registry(ClusterHandler)
+
+        cluster_resolver = ClusterResolver(cluster_handlers, is_torchrun=is_torchrun())
 
         # Set up cluster-specific environment variables.
         try:
-            cluster_handler = cluster_registry.get(args.cluster)
+            cluster_handler = cluster_resolver.get(args.cluster)
         except LookupError:
             log.exception("Chatbot is not running on a '{}' cluster.", args.cluster)  # fmt: skip
 
@@ -123,8 +125,6 @@ class ChatbotCommandHandler(CliCommandHandler):
             log.exception("'{}' cluster environment cannot be set.", args.cluster)  # fmt: skip
 
             sys.exit(1)
-
-        setup_fairseq2()
 
         # Since this is an interactive program, do not timeout while waiting for
         # user's input.

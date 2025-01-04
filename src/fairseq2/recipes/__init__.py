@@ -61,9 +61,11 @@ def main() -> None:
 
 
 def _run() -> int:
-    from fairseq2 import __version__
+    from fairseq2 import __version__, setup_fairseq2
 
     setup_basic_logging()
+
+    setup_fairseq2()
 
     cli = Cli(
         name="fairseq2",
@@ -86,33 +88,4 @@ def _setup_cli(cli: Cli) -> None:
     _setup_wav2vec2_asr_cli(cli)
     _setup_hg_cli(cli)
 
-    run_extensions("setup_fairseq2_cli", cli)
-
-    _setup_legacy_extensions(cli)
-
-
-def _setup_legacy_extensions(cli: Cli) -> None:
-    should_trace = "FAIRSEQ2_EXTENSION_TRACE" in os.environ
-
-    for entry_point in entry_points(group="fairseq2.cli"):
-        try:
-            extension = entry_point.load()
-
-            extension(cli)
-        except TypeError:
-            if should_trace:
-                raise ExtensionError(
-                    entry_point.value, f"The '{entry_point.value}' entry point is not a valid CLI extension function."  # fmt: skip
-                ) from None
-
-            log.warning("The '{}' entry point is not a valid CLI extension function. Set `FAIRSEQ2_EXTENSION_TRACE` environment variable to print the stack trace.", entry_point.value)  # fmt: skip
-        except Exception as ex:
-            if should_trace:
-                raise ExtensionError(
-                    entry_point.value, f"The '{entry_point.value}' CLI extension function has failed. See the nested exception for details."  # fmt: skip
-                ) from ex
-
-            log.warning("The '{}' CLI extension function has failed. Set `FAIRSEQ2_EXTENSION_TRACE` environment variable to print the stack trace.", entry_point.value)  # fmt: skip
-
-        if should_trace:
-            log.info("The `{}` CLI extension function run successfully.", entry_point.value)  # fmt: skip
+    run_extensions("fairseq2.cli", cli)

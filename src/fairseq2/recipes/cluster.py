@@ -15,18 +15,17 @@ from typing import final
 
 from typing_extensions import override
 
-from fairseq2.error import AlreadyExistsError
-from fairseq2.extensions import run_extensions
+from fairseq2.context import Provider
 from fairseq2.gang import get_rank, get_world_size
 
 
 @final
-class ClusterRegistry:
-    _entries: dict[str, ClusterHandler]
+class ClusterResolver:
+    _handlers: Provider[ClusterHandler]
     _is_torchrun: bool
 
-    def __init__(self, *, is_torchrun: bool = False) -> None:
-        self._entries = {}
+    def __init__(self, handlers: Provider[ClusterHandler], is_torchrun: bool) -> None:
+        self._handlers = handlers
         self._is_torchrun = is_torchrun
 
     def get(self, name: str) -> ClusterHandler:
@@ -34,27 +33,30 @@ class ClusterRegistry:
             return _NoneClusterHandler()
 
         if name == "auto":
-            for handler in self._entries.values():
+            for _, handler in self._handlers.get_all():
                 if handler.supports_current_cluster():
                     return handler
 
             return _NoneClusterHandler()
 
         try:
-            return self._entries[name]
-        except KeyError:
-            raise UnknownClusterError(name) from None
+            return self._handlers.get(name)
+        except LookupError:
+            raise UnknownClusterError(name, self.supported_clusters()) from None
 
-    def register(self, name: str, handler: ClusterHandler) -> None:
-        if name in self._entries:
-            raise AlreadyExistsError(
-                f"The registry has already a cluster handler named '{name}'."
-            )
+    def supported_clusters(self) -> Collection[str]:
+        return [str(key) for key, _ in self._handlers.get_all()]
 
-        self._entries[name] = handler
 
-    def names(self) -> Collection[str]:
-        return self._entries.keys()
+class UnknownClusterError(LookupError):
+    cluster: str
+    supported_clusters: Collection[str]
+
+    def __init__(self, cluster: str, supported_clusters: Collection[str]) -> None:
+        super().__init__(f"'{cluster}' is not a known cluster.")
+
+        self.cluster = cluster
+        self.supported_clusters = supported_clusters
 
 
 class ClusterHandler(ABC):
@@ -65,15 +67,6 @@ class ClusterHandler(ABC):
     @abstractmethod
     def supports_current_cluster(self) -> bool:
         """Return ``True`` if this instance supports the current cluster."""
-
-
-class UnknownClusterError(LookupError):
-    cluster: str
-
-    def __init__(self, cluster: str) -> None:
-        super().__init__(f"'{cluster}' is not a known cluster.")
-
-        self.cluster = cluster
 
 
 class ClusterError(Exception):
@@ -113,7 +106,7 @@ class SlurmClusterHandler(ClusterHandler):
             os.environ["CUDA_VISIBLE_DEVICES"] = os.environ["SLURM_LOCALID"]
         except KeyError as ex:
             raise ClusterError(
-                "slurm", "Slurm job environment variables are not set correctly. If you are within an allocated job (i.e. `salloc`), make sure to run with `srun`. If you want to run without Slurm, use `--cluster none`."  # fmt: skip
+                "slurm", "Slurm job environment variables are not set correctly."
             ) from ex
 
         return get_world_size(), get_rank()
@@ -175,9 +168,3 @@ class _NoneClusterHandler(ClusterHandler):
     @override
     def supports_current_cluster(self) -> bool:
         return True
-
-
-def register_clusters(registry: ClusterRegistry) -> None:
-    registry.register("slurm", SlurmClusterHandler())
-
-    run_extensions("register_fairseq2_clusters", registry)
