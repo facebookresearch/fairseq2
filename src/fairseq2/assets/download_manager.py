@@ -607,6 +607,3 @@ class _AssetDownloadOp:
             )
 
         return asset_path
-
-
-default_asset_download_manager = InProcAssetDownloadManager()
