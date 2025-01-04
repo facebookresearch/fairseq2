@@ -11,20 +11,21 @@ from abc import ABC, abstractmethod
 from argparse import OPTIONAL, ArgumentParser, BooleanOptionalAction, Namespace
 from collections.abc import Hashable, Set
 from pathlib import Path
-from typing import Generic, TypeVar, final
+from typing import TypeVar, final
 
 from rich.console import Console
 from typing_extensions import override
 
 from fairseq2.config_registry import ConfigNotFoundError, ConfigProvider
+from fairseq2.context import get_runtime_context
 from fairseq2.error import AlreadyExistsError, InvalidOperationError, SetupError
 from fairseq2.gang import is_torchrun
 from fairseq2.logging import log
 from fairseq2.recipes.cluster import (
     ClusterError,
-    ClusterRegistry,
+    ClusterHandler,
+    ClusterResolver,
     UnknownClusterError,
-    register_clusters,
 )
 from fairseq2.recipes.console import get_console, set_console
 from fairseq2.recipes.logging import DistributedLoggingInitializer, setup_basic_logging
@@ -32,20 +33,24 @@ from fairseq2.recipes.runner import (
     ConfigFileNotFoundError,
     ConfigReader,
     EnvironmentBootstrapper,
+    Recipe,
     RecipeLoader,
     RecipeRunner,
     StandardConfigReader,
     StandardEnvironmentBootstrapper,
     StandardRecipeRunner,
     SystemSignalHandler,
-    create_sweep_tagger,
+    get_sweep_keys,
 )
 from fairseq2.recipes.utils.argparse import ConfigAction
 from fairseq2.recipes.utils.sweep_tagger import (
+    NoopSweepTagger,
+    StandardSweepTagger,
     SweepFormatError,
     SweepFormatPlaceholderError,
+    SweepTagger,
 )
-from fairseq2.setup import setup_fairseq2
+from fairseq2.typing import safe_cast
 from fairseq2.utils.file import StandardFileSystem
 from fairseq2.utils.structured import StructureError
 from fairseq2.utils.yaml import YamlDumper, dump_yaml, load_yaml
@@ -371,9 +376,7 @@ class CliCommand:
             raise InvalidOperationError("`init_parser()` must be called first.")
 
         try:
-            return self._handler.run(args)
-        except CliArgumentError as ex:
-            self._parser.error(str(ex))
+            return self._handler.run(self._parser, args)
         finally:
             self._parser = None
 
@@ -401,27 +404,19 @@ class CliCommandHandler(ABC):
         """Initialize ``parser`` with command-specific arguments."""
 
     @abstractmethod
-    def run(self, args: Namespace) -> int:
+    def run(self, parser: ArgumentParser, args: Namespace) -> int:
         """Run the command."""
-
-
-class CliArgumentError(Exception):
-    def __init__(self, argument_name: str | None, message: str) -> None:
-        if argument_name is not None:
-            message = f"argument {argument_name}: {message}"
-
-        super().__init__(message)
 
 
 ConfigT = TypeVar("ConfigT")
 
 
 @final
-class RecipeCommandHandler(CliCommandHandler, Generic[ConfigT]):
+class RecipeCommandHandler(CliCommandHandler):
     """Runs a recipe over command line."""
 
-    _loader: RecipeLoader[ConfigT]
-    _preset_configs: ConfigProvider[ConfigT]
+    _loader: RecipeLoader[object]
+    _preset_configs: ConfigProvider[object]
     _default_preset: str
     _extra_sweep_keys: Set[Hashable] | None
 
@@ -441,7 +436,13 @@ class RecipeCommandHandler(CliCommandHandler, Generic[ConfigT]):
         :param extra_sweep_keys: The recipe specific configuration keys to
             include in the sweep directory name.
         """
-        self._loader = loader
+
+        def untyped_loader(config: object, output_dir: Path) -> Recipe:
+            config = safe_cast("config", config, preset_configs.config_kls)
+
+            return loader(config, output_dir)
+
+        self._loader = untyped_loader
         self._preset_configs = preset_configs
         self._default_preset = default_preset
         self._extra_sweep_keys = extra_sweep_keys
@@ -515,7 +516,7 @@ class RecipeCommandHandler(CliCommandHandler, Generic[ConfigT]):
         )
 
     @override
-    def run(self, args: Namespace) -> int:
+    def run(self, parser: ArgumentParser, args: Namespace) -> int:
         if args.list_presets:
             self._print_presets()
 
@@ -523,38 +524,33 @@ class RecipeCommandHandler(CliCommandHandler, Generic[ConfigT]):
 
         setup_basic_logging(debug=args.debug)
 
-        setup_fairseq2()
-
-        file_system = StandardFileSystem()
-
-        config_reader = StandardConfigReader(
-            self._preset_configs, file_system, load_yaml
-        )
-
-        cluster_registry = ClusterRegistry(is_torchrun=is_torchrun())
-
-        register_clusters(cluster_registry)
-
-        sweep_tagger = create_sweep_tagger(args.no_sweep_dir, self._extra_sweep_keys)
-
-        logging_initializer = DistributedLoggingInitializer()
-
-        env_bootstrapper = StandardEnvironmentBootstrapper(
-            cluster_registry, sweep_tagger, logging_initializer, file_system, dump_yaml
-        )
-
-        signal_handler = SystemSignalHandler()
-
-        runner = StandardRecipeRunner(self._loader, signal_handler)
-
-        program = RecipeProgram(config_reader, env_bootstrapper, runner, dump_yaml)
+        program = self._create_recipe_program(args)
 
         try:
             program.run(args)
 
             return 0
+        except ConfigNotFoundError as ex:
+            parser.error(f"argument --preset: '{ex.name}' is not a known preset configuration. Use `--list-presets` to see the available configurations.")  # fmt: skip
+        except ConfigFileNotFoundError as ex:
+            parser.error(f"argument --config-file: '{ex.config_file}' does not point to a configuration file")  # fmt: skip
+        except MissingOutputDirectoryError:
+            parser.error("the following arguments are required: output_dir")
+        except UnknownClusterError as ex:
+            s = ", ".join(ex.supported_clusters)
+
+            parser.error(f"argument --cluster: '{ex.cluster}' is not a known cluster. Must be one of: auto, none, {s}")  # fmt: skip
+        except SweepFormatPlaceholderError as ex:
+            s = ", ".join(ex.unknown_keys)
+
+            parser.error(f"argument --sweep-format: must contain only placeholders that correspond to the configuration keys, but contains the following unexpected placeholder(s): {s}")  # fmt: skip
+        except SweepFormatError:
+            parser.error("argument --sweep-format: must be a non-empty string with brace-enclosed placeholders.")  # fmt: skip
         except ClusterError as ex:
-            log.exception("'{}' cluster environment cannot be set. See the logged stack trace for details.", ex.cluster)  # fmt: skip
+            if ex.cluster == "slurm":
+                log.exception("'{}' cluster environment cannot be set. See the logged stack trace for details. If you are within an allocated Slurm job (i.e. `salloc`), make sure to run with `srun`. If you want to run without Slurm, use `--cluster none`.", ex.cluster)  # fmt: skip
+            else:
+                log.exception("'{}' cluster environment cannot be set. See the logged stack trace for details.", ex.cluster)  # fmt: skip
         except SetupError:
             log.exception("The recipe initialization has failed. See the logged stack trace for details.")  # fmt: skip
         except StructureError:
@@ -578,19 +574,51 @@ class RecipeCommandHandler(CliCommandHandler, Generic[ConfigT]):
         else:
             console.print("no preset configuration found.")
 
+    def _create_recipe_program(self, args: Namespace) -> RecipeProgram:
+        file_system = StandardFileSystem()
+
+        config_reader = StandardConfigReader(
+            self._preset_configs, file_system, load_yaml
+        )
+
+        context = get_runtime_context()
+
+        cluster_handlers = context.get_registry(ClusterHandler)
+
+        cluster_resolver = ClusterResolver(cluster_handlers, is_torchrun=is_torchrun())
+
+        if not args.no_sweep_dir:
+            sweep_keys = get_sweep_keys(self._extra_sweep_keys)
+
+            sweep_tagger: SweepTagger = StandardSweepTagger(sweep_keys)
+        else:
+            sweep_tagger = NoopSweepTagger()
+
+        logging_initializer = DistributedLoggingInitializer()
+
+        env_bootstrapper = StandardEnvironmentBootstrapper(
+            cluster_resolver, sweep_tagger, file_system, logging_initializer, dump_yaml
+        )
+
+        signal_handler = SystemSignalHandler()
+
+        runner = StandardRecipeRunner(self._loader, signal_handler)
+
+        return RecipeProgram(config_reader, env_bootstrapper, runner, dump_yaml)
+
 
 @final
-class RecipeProgram(Generic[ConfigT]):
-    _config_reader: ConfigReader[ConfigT]
+class RecipeProgram:
+    _config_reader: ConfigReader
     _env_bootstrapper: EnvironmentBootstrapper
-    _runner: RecipeRunner[ConfigT]
+    _runner: RecipeRunner
     _yaml_dumper: YamlDumper
 
     def __init__(
         self,
-        config_reader: ConfigReader[ConfigT],
+        config_reader: ConfigReader,
         env_bootstrapper: EnvironmentBootstrapper,
-        runner: RecipeRunner[ConfigT],
+        runner: RecipeRunner,
         yaml_dumper: YamlDumper,
     ) -> None:
         self._config_reader = config_reader
@@ -599,18 +627,9 @@ class RecipeProgram(Generic[ConfigT]):
         self._yaml_dumper = yaml_dumper
 
     def run(self, args: Namespace) -> None:
-        try:
-            config = self._config_reader.read(
-                args.preset, args.config_files, args.config_overrides
-            )
-        except ConfigNotFoundError:
-            raise CliArgumentError(
-                "--preset", f"'{args.preset}' is not a known preset configuration. Use `--list-presets` to see the available configurations."  # fmt: skip
-            ) from None
-        except ConfigFileNotFoundError as ex:
-            raise CliArgumentError(
-                "--config-file", f"'{ex.config_file}' does not point to a configuration file"  # fmt: skip
-            ) from None
+        config = self._config_reader.read(
+            args.preset, args.config_files, args.config_overrides
+        )
 
         if args.dump_config:
             try:
@@ -623,32 +642,19 @@ class RecipeProgram(Generic[ConfigT]):
             return
 
         if not args.output_dir:
-            raise CliArgumentError(
-                None, "the following arguments are required: output_dir"
-            )
+            raise MissingOutputDirectoryError("`args.output_dir` must be specified.")
 
-        try:
-            output_dir = self._env_bootstrapper.run(
-                args.preset,
-                config,
-                args.output_dir,
-                cluster=args.cluster,
-                sweep_format=args.sweep_format,
-                debug=args.debug,
-            )
-        except UnknownClusterError:
-            raise CliArgumentError(
-                "--cluster", f"'{args.cluster}' is not a known cluster."
-            ) from None
-        except SweepFormatPlaceholderError as ex:
-            s = ", ".join(ex.unknown_keys)
-
-            raise CliArgumentError(
-                "--sweep-format", f"must contain only placeholders that correspond to the configuration keys, but contains the following unexpected placeholder(s): {s}"  # fmt: skip
-            ) from None
-        except SweepFormatError:
-            raise CliArgumentError(
-                "--sweep-format", "must be a non-empty string with brace-enclosed placeholders."  # fmt: skip
-            ) from None
+        output_dir = self._env_bootstrapper.run(
+            args.preset,
+            config,
+            args.output_dir,
+            cluster=args.cluster,
+            sweep_format=args.sweep_format,
+            debug=args.debug,
+        )
 
         self._runner.run(config, output_dir)
+
+
+class MissingOutputDirectoryError(ValueError):
+    pass
