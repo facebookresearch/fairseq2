@@ -16,7 +16,7 @@ from fairseq2.generation.handler import (
 )
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
-from fairseq2.utils.config import ConfigProcessor, ConfigSectionHandler
+from fairseq2.utils.config import process_config
 from fairseq2.utils.structured import structure
 
 
@@ -32,13 +32,17 @@ def create_seq_generator(
     except LookupError:
         raise SequenceGeneratorNotFoundError(name) from None
 
-    config = structure(config, handler.config_kls)
+    if config is None:
+        try:
+            config = handler.config_kls()
+        except TypeError:
+            raise ValueError(
+                f"`config` must be specified for the '{name}' sequence generator."
+            ) from None
+    else:
+        config = structure(config, handler.config_kls)
 
-    config_section_handlers = context.get_registry(ConfigSectionHandler)
-
-    config_processor = ConfigProcessor(config_section_handlers)
-
-    config_processor.process(config)
+    process_config(config)
 
     return handler.create(model, config)
 
@@ -55,12 +59,16 @@ def create_seq2seq_generator(
     except LookupError:
         raise Seq2SeqGeneratorNotFoundError(name) from None
 
-    config = structure(config, handler.config_kls)
+    if config is None:
+        try:
+            config = handler.config_kls()
+        except TypeError:
+            raise ValueError(
+                f"`config` must be specified for the '{name}' sequence-to-sequence generator."
+            ) from None
+    else:
+        config = structure(config, handler.config_kls)
 
-    config_section_handlers = context.get_registry(ConfigSectionHandler)
-
-    config_processor = ConfigProcessor(config_section_handlers)
-
-    config_processor.process(config)
+    process_config(config)
 
     return handler.create(model, config)

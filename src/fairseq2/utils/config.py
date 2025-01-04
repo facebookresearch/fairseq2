@@ -9,7 +9,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import fields, is_dataclass
 
-from fairseq2.context import Provider
+from fairseq2.context import Provider, get_runtime_context
 from fairseq2.utils.structured import StructureError
 
 
@@ -47,3 +47,13 @@ class ConfigSectionHandler(ABC):
     @abstractmethod
     def process(self, section: object) -> None:
         ...
+
+
+def process_config(config: object) -> None:
+    context = get_runtime_context()
+
+    config_section_handlers = context.get_registry(ConfigSectionHandler)
+
+    config_processor = ConfigProcessor(config_section_handlers)
+
+    config_processor.process(config)

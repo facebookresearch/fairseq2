@@ -6,15 +6,20 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from itertools import chain
-from typing import Any, Literal, cast, final
+from typing import Any, Final, Literal, cast, final
 
 import torch
 from torch import Tensor
+from torch.optim import Optimizer
 from torch.optim.adamw import adamw  # type: ignore[attr-defined]
 from typing_extensions import override
 
+from fairseq2.error import NotSupportedError
+from fairseq2.optim.handler import OptimizerHandler
 from fairseq2.optim.optimizer import AbstractOptimizer, ParameterCollection
+from fairseq2.typing import safe_cast
 
 
 @final
@@ -86,14 +91,14 @@ class AdamW(AbstractOptimizer):
 
         if impl == "fused":
             if differentiable:
-                raise RuntimeError(
+                raise NotSupportedError(
                     "`fused` implementation does not support `differentiable`."
                 )
 
             for pg in self.param_groups:
                 for p in pg["params"]:
                     if not torch.is_floating_point(p) or p.device.type != "cuda":
-                        raise RuntimeError(
+                        raise NotSupportedError(
                             "`fused` implementation requires all parameters to be float CUDA tensors."
                         )
 
@@ -169,7 +174,7 @@ class AdamW(AbstractOptimizer):
                     amsgrad,
                 )
 
-            kwargs: dict[str, Any] = {}
+            kwargs: dict[str, object] = {}
 
             if pg["differentiable"]:
                 kwargs["differentiable"] = True
@@ -220,7 +225,7 @@ class AdamW(AbstractOptimizer):
     def _init_param(
         self,
         param: Tensor,
-        param_group: dict[str, Any],
+        param_group: dict[str, object],
         use_fp32: bool,
         params_with_grad: list[Tensor],
         grads: list[Tensor],
@@ -235,7 +240,7 @@ class AdamW(AbstractOptimizer):
             return
 
         if grad.is_sparse:
-            raise RuntimeError("`AdamW` does not support sparse gradients.")
+            raise NotSupportedError("`AdamW` does not support sparse gradients.")
 
         state = cast(dict[str, Tensor], self.state[param])  # type: ignore[index]
 
@@ -275,3 +280,67 @@ class AdamW(AbstractOptimizer):
 
         if amsgrad:
             max_exp_avg_sqs.append(state["max_exp_avg_sq"])
+
+
+ADAMW_OPTIMIZER: Final = "adamw"
+
+
+@dataclass(kw_only=True)
+class AdamWConfig:
+    lr: float = 1e-3
+    """The learning rate."""
+
+    betas: tuple[float, float] = (0.9, 0.999)
+    """The coefficients used for computing running averages of gradient and its
+    square."""
+
+    eps: float = 1e-8
+    """The term added to the denominator to improve numerical stability."""
+
+    weight_decay: float = 0.0
+    """The weight decay coefficient."""
+
+    amsgrad: bool = False
+    """If ``True``, uses the AMSGrad variant."""
+
+    maximize: bool = False
+    """If ``True``, maximizes the parameters instead of minimizing."""
+
+    capturable: bool = False
+    """If ``True``, it is safe to capture this instance in a CUDA graph."""
+
+    differentiable: bool = False
+    """If ``True``, runs the optimizer step under autograd."""
+
+    impl: Literal["auto", "foreach", "fused", "naive"] = "auto"
+    """The implementation variant. See :class:`torch.optim.AdamW` for details."""
+
+    use_fp32: bool = False
+    """If ``True``, stores the optimizer state in single precision and converts
+    gradients on-the-fly to single precision for numerical stability."""
+
+
+@final
+class AdamWHandler(OptimizerHandler):
+    @override
+    def create(self, params: ParameterCollection, config: object) -> Optimizer:
+        config = safe_cast("config", config, AdamWConfig)
+
+        return AdamW(
+            params,
+            lr=config.lr,
+            betas=config.betas,
+            eps=config.eps,
+            weight_decay=config.weight_decay,
+            amsgrad=config.amsgrad,
+            maximize=config.maximize,
+            capturable=config.capturable,
+            differentiable=config.differentiable,
+            impl=config.impl,
+            use_fp32=config.use_fp32,
+        )
+
+    @property
+    @override
+    def config_kls(self) -> type:
+        return AdamWConfig
