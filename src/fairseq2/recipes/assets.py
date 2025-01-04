@@ -18,7 +18,7 @@ from fairseq2.assets import AssetCard, AssetCardNotFoundError, AssetStore
 from fairseq2.context import get_runtime_context
 from fairseq2.logging import get_log_writer
 from fairseq2.recipes.cli import Cli, CliCommandHandler
-from fairseq2.recipes.console import get_console
+from fairseq2.recipes.utils.rich import get_console
 
 log = get_log_writer(__name__)
 

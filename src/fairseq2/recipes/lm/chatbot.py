@@ -31,8 +31,8 @@ from fairseq2.models import load_model
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.recipes.cli import CliCommandHandler
 from fairseq2.recipes.cluster import ClusterError, ClusterHandler, ClusterResolver
-from fairseq2.recipes.console import get_console
 from fairseq2.recipes.utils.argparse import parse_dtype
+from fairseq2.recipes.utils.rich import get_console
 from fairseq2.recipes.utils.setup import setup_gangs
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import RngBag
