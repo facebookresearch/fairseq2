@@ -11,12 +11,12 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast, final
+from typing import Any, Final, cast, final
 
 import torch
 from typing_extensions import override
 
-from fairseq2.assets import AssetCard, AssetError
+from fairseq2.assets import AssetCard
 from fairseq2.data import (
     CollateOptionsOverride,
     Collater,
@@ -29,8 +29,9 @@ from fairseq2.data import (
 from fairseq2.data.text import TextTokenizer
 from fairseq2.datasets.batching import Batching, LengthBatching, StaticBatching
 from fairseq2.datasets.data_reader import DataPipelineReader
-from fairseq2.datasets.loader import AbstractDatasetLoader, DelegatingDatasetLoader
+from fairseq2.datasets.static import load_dataset
 from fairseq2.datasets.utils import _load_files_and_weights
+from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
@@ -64,10 +65,9 @@ class PreferenceOptimizationDataset(ABC):
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         mask_source_tokens: bool = True,
-        src_encode_mode: str = "prompt",
-        tgt_encode_mode: str = "prompt_response",
+        source_encode_mode: str = "prompt",
+        target_encode_mode: str = "prompt_response",
         seed: int = 2,
-        **extras: Any,
     ) -> DataPipelineReader[PreferenceOptimizationBatch]:
         """Create a dataset reader.
 
@@ -109,39 +109,43 @@ class PreferenceOptimizationDataset(ABC):
             The number of batches to prefetch in background.
         :param mask_source_tokens:
             If ``False``, calculates loss on the `src` tokens as well as the `tgt` tokens.
-        :param src_encode_mode:
-            The mode to encode the prompt
-        :param tgt_encode_mode:
-            The mode to encode the target
+        :param source_encode_mode:
+            The mode to encode the source text.
+        :param target_encode_mode:
+            The mode to encode the target text.
         :param seed:
             The seed to initialize the random number generators used internally.
-        :param extras:
-            The extra parameters specific to the dataset implementation.
         """
 
 
-load_preference_optimization_dataset = DelegatingDatasetLoader[
-    PreferenceOptimizationDataset
-]()
-
 # TODO: FIX, INFER
 npc = 10
+
+
+GENERIC_PREFERENCE_OPTIMIZATION_DATASET_FAMILY: Final = (
+    "generic_preference_optimization"
+)
 
 
 @final
 class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
     """Represents a generic JSONL preference optimization dataset."""
 
+    _name: str
     _files: Sequence[Path]
     _weights: Sequence[float]
 
-    def __init__(self, files: Sequence[Path], weights: Sequence[float]) -> None:
+    def __init__(
+        self, name: str, files: Sequence[Path], weights: Sequence[float]
+    ) -> None:
         """
         :param files:
             The instruction files.
         :param weights:
             The weight of each file in ``files``.
         """
+        self._name = name
+
         if len(files) != len(weights):
             raise ValueError(
                 f"The lengths of `files` and `weights` must match, but they are {len(files)} and {len(weights)} instead."
@@ -150,12 +154,16 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
         self._files = files
         self._weights = weights
 
-    @classmethod
-    def from_path(cls, path: Path) -> GenericPreferenceOptimizationDataset:
-        """Load a :class:`PreferenceOptimizationDataset` from ``path``."""
-        files, weights = _load_files_and_weights(path)
+    @staticmethod
+    def from_path(
+        path: Path, name: str | None = None
+    ) -> GenericPreferenceOptimizationDataset:
+        if name is None:
+            name = f"path:{path.name}"
 
-        return GenericPreferenceOptimizationDataset(files, weights)
+        files, weights = _load_files_and_weights(name, path)
+
+        return GenericPreferenceOptimizationDataset(name, files, weights)
 
     @override
     def create_reader(
@@ -174,10 +182,9 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         mask_source_tokens: bool = True,
-        src_encode_mode: str = "prompt",
-        tgt_encode_mode: str = "prompt_response",
+        source_encode_mode: str = "prompt",
+        target_encode_mode: str = "prompt_response",
         seed: int = 2,
-        **extras: Any,
     ) -> DataPipelineReader[PreferenceOptimizationBatch]:
         if len(self._files) == 1:
             builder = self._read_jsonl(self._files[0], tokenizer)
@@ -209,41 +216,41 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
 
         seed += gang.rank
 
-        # Encode prompt and target texts.
-        prompt_encoder = tokenizer.create_encoder(mode=src_encode_mode)
-        target_encoder = tokenizer.create_encoder(mode=tgt_encode_mode)
+        # Encode source and target texts.
+        source_encoder = tokenizer.create_encoder(mode=source_encode_mode)
+        target_encoder = tokenizer.create_encoder(mode=target_encode_mode)
 
-        builder.map(prompt_encoder, selector="src", num_parallel_calls=npc)
+        builder.map(source_encoder, selector="src", num_parallel_calls=npc)
         builder.map(target_encoder, selector="tgt_chosen", num_parallel_calls=npc)
         builder.map(target_encoder, selector="tgt_rejected", num_parallel_calls=npc)
 
         def cat_source_and_target(example: dict[str, Any]) -> dict[str, Any]:
             id_ = example.get("id", None)
 
-            prompt_indices = example["src"]
+            source_indices = example["src"]
             target_indices_chosen = example["tgt_chosen"]
             target_indices_rejected = example["tgt_rejected"]
 
-            indices_chosen = torch.cat([prompt_indices, target_indices_chosen])
-            indices_rejected = torch.cat([prompt_indices, target_indices_rejected])
+            indices_chosen = torch.cat([source_indices, target_indices_chosen])
+            indices_rejected = torch.cat([source_indices, target_indices_rejected])
 
             if mask_source_tokens:
-                prompt_len = len(prompt_indices)
-                target_mask_chosen = torch.arange(len(indices_chosen)) >= prompt_len
-                target_mask_rejected = torch.arange(len(indices_rejected)) >= prompt_len
+                source_len = len(source_indices)
+                target_mask_chosen = torch.arange(len(indices_chosen)) >= source_len
+                target_mask_rejected = torch.arange(len(indices_rejected)) >= source_len
             else:
                 target_mask_chosen = torch.full([len(indices_chosen)], True)
                 target_mask_rejected = torch.full([len(indices_rejected)], True)
 
             total_tokens = (
-                2 * len(prompt_indices)
+                2 * len(source_indices)
                 + len(target_indices_chosen)
                 + len(target_indices_rejected)
             )
 
             return {
                 "id": id_,
-                "indices_prompt": prompt_indices,
+                "indices_prompt": source_indices,
                 "indices_chosen": indices_chosen,
                 "indices_rejected": indices_rejected,
                 "target_mask_chosen": target_mask_chosen,
@@ -278,7 +285,7 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
             # Bucket `batch_size` examples.
             builder.bucket(batching.batch_size, drop_remainder=drop_remainder)
         else:
-            raise RuntimeError(f"`{batching}` is not supported.")
+            raise NotSupportedError(f"`{batching}` is not supported.")
 
         # Shuffle buckets.
         if batch_shuffle_window != 1:
@@ -337,6 +344,7 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
         pipeline = builder.map(to_batch).and_return()
 
         return DataPipelineReader[PreferenceOptimizationBatch](
+            self._name,
             pipeline,
             gang,
             num_accumulate=num_accumulate,
@@ -355,26 +363,7 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
         return read_sequence(lines).map(json.loads, num_parallel_calls=npc)
 
 
-@final
-class GenericPreferenceOptimizationDatasetLoader(
-    AbstractDatasetLoader[GenericPreferenceOptimizationDataset]
-):
-    @override
-    def _load(
-        self, path: Path, card: AssetCard
-    ) -> GenericPreferenceOptimizationDataset:
-        try:
-            return GenericPreferenceOptimizationDataset.from_path(path)
-        except RuntimeError as ex:
-            raise AssetError(
-                f"{card.name} cannot be loaded. See nested exception for details."
-            ) from ex
-
-
-load_generic_preference_optimization_dataset = (
-    GenericPreferenceOptimizationDatasetLoader()
-)
-
-load_preference_optimization_dataset.register(
-    "generic_preference_optimization", load_generic_preference_optimization_dataset
-)
+def load_preference_optimization_dataset(
+    name_or_card: str | AssetCard, *, force: bool = False
+) -> PreferenceOptimizationDataset:
+    return load_dataset(name_or_card, PreferenceOptimizationDataset, force=force)

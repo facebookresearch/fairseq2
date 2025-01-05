@@ -454,8 +454,8 @@ def load_instruction_finetuner(
             batch_shuffle_window=config.batch_shuffle_window,
             num_accumulate=config.gradient_accumulation,
             num_prefetch=config.num_prefetch,
-            src_encode_mode=config.src_encode_mode,
-            tgt_encode_mode=config.tgt_encode_mode,
+            source_encode_mode=config.src_encode_mode,
+            target_encode_mode=config.tgt_encode_mode,
             seed=seed,
         )
     except ValueError as ex:
@@ -506,8 +506,8 @@ def load_instruction_finetuner(
                 sync_mode="until_last",
                 num_accumulate=config.gradient_accumulation,
                 num_prefetch=config.num_prefetch,
-                src_encode_mode=config.src_encode_mode,
-                tgt_encode_mode=config.tgt_encode_mode,
+                source_encode_mode=config.src_encode_mode,
+                target_encode_mode=config.tgt_encode_mode,
                 seed=seed,
             )
         except ValueError as ex:

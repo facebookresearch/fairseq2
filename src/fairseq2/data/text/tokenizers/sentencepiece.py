@@ -218,7 +218,7 @@ class BasicSentencePieceTokenizer(SentencePieceTokenizer):
                 suffix_tokens = ["</s>"]
             case _:
                 raise ValueError(
-                    f"`mode` must be 'default' or 'prompt', but is '{mode}' instead."
+                    f"`mode` must be one of the following values, but is '{mode}' instead: default, prompt, prompt_response"
                 )
 
         return SentencePieceEncoder(

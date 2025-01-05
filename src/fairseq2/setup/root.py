@@ -13,6 +13,7 @@ from fairseq2.setup.assets import _register_assets
 from fairseq2.setup.chatbots import _register_chatbots
 from fairseq2.setup.clusters import _register_clusters
 from fairseq2.setup.config import _register_config_sections
+from fairseq2.setup.datasets import _register_datasets
 from fairseq2.setup.generation import (
     _register_beam_search_algorithms,
     _register_samplers,
@@ -63,6 +64,7 @@ def setup_runtime_context() -> RuntimeContext:
     _register_chatbots(context)
     _register_clusters(context)
     _register_config_sections(context)
+    _register_datasets(context)
     _register_lr_schedulers(context)
     _register_optimizers(context)
     _register_samplers(context)
