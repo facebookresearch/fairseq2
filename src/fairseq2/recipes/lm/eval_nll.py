@@ -18,7 +18,7 @@ from fairseq2.data.text import load_text_tokenizer
 from fairseq2.datasets.batching import LengthBatching
 from fairseq2.datasets.instruction import (
     GenericInstructionDataset,
-    load_generic_instruction_dataset,
+    load_instruction_dataset,
 )
 from fairseq2.logging import get_log_writer
 from fairseq2.models import load_model
@@ -143,7 +143,7 @@ def load_nll_evaluator(
     if dataset_card is not None:
         log.info("Loading {} preference optimization dataset.", dataset_card.name)
 
-        dataset = load_generic_instruction_dataset(dataset_card)
+        dataset = load_instruction_dataset(dataset_card)
 
         log.info("Dataset loaded.")
     else:

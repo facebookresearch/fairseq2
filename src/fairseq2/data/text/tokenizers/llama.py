@@ -91,9 +91,12 @@ class LLaMA3Tokenizer(TiktokenTokenizer):
             case "prompt_response":
                 prefix_tokens = []
                 suffix_tokens = [self._eos_token]
+            case "as_is":
+                prefix_tokens = []
+                suffix_tokens = []
             case _:
                 raise ValueError(
-                    f"`mode` must be 'default' or 'prompt', but is '{mode}' instead."
+                    f"`mode` must be one of the following values, but is '{mode}' instead: default, prompt, prompt_response, as_is"
                 )
 
         return TiktokenEncoder(

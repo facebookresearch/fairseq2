@@ -12,7 +12,6 @@ import fairseq2n  # Report any fairseq2n initialization error eagerly.
 
 # isort: split
 
-import fairseq2.datasets
 import fairseq2.models
 
 # isort: split

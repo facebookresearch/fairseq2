@@ -10,12 +10,12 @@ import json
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Literal, NoReturn, cast, final
+from typing import Any, Final, cast, final
 
 import torch
 from typing_extensions import override
 
-from fairseq2.assets import AssetCard, AssetError
+from fairseq2.assets import AssetCard
 from fairseq2.data import (
     CollateOptionsOverride,
     Collater,
@@ -27,9 +27,11 @@ from fairseq2.data import (
 )
 from fairseq2.data.text import TextTokenizer
 from fairseq2.datasets.batching import Batching, LengthBatching, StaticBatching
-from fairseq2.datasets.data_reader import DataPipelineReader, DataReader
-from fairseq2.datasets.loader import AbstractDatasetLoader, DelegatingDatasetLoader
+from fairseq2.datasets.data_reader import DataPipelineReader, DataReader, SyncMode
+from fairseq2.datasets.error import DatasetError, SplitNotFoundError
+from fairseq2.datasets.static import load_dataset
 from fairseq2.datasets.utils import _load_files_and_weights
+from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
@@ -52,14 +54,13 @@ class InstructionDataset(ABC):
         batch_shuffle_window: int = 1,
         drop_remainder: bool = False,
         sync_batches: bool = True,
-        sync_mode: Literal["until_first", "until_last"] = "until_first",
+        sync_mode: SyncMode = "until_first",
         max_num_batches: int | None = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
-        src_encode_mode: str = "prompt",
-        tgt_encode_mode: str = "prompt_response",
+        source_encode_mode: str = "prompt",
+        target_encode_mode: str = "prompt_response",
         seed: int = 2,
-        **extras: Any,
     ) -> DataReader[SequenceBatch]:
         """Create a dataset reader.
 
@@ -106,14 +107,12 @@ class InstructionDataset(ABC):
             used with gradient accumulation during training.
         :param num_prefetch:
             The number of batches to prefetch in background.
+        :param source_encode_mode:
+            The mode to encode the source text.
+        :param target_encode_mode:
+            The mode to encode the target text.
         :param seed:
             The seed to initialize the random number generators used internally.
-        :param src_encode_mode:
-            The mode to encode the prompt
-        :param tgt_encode_mode:
-            The mode to encode the target
-        :param extras:
-            The extra parameters specific to the dataset implementation.
         """
 
     @abstractmethod
@@ -127,10 +126,9 @@ class InstructionDataset(ABC):
         *,
         drop_remainder: bool = False,
         sync_batches: bool = True,
-        sync_mode: Literal["until_first", "until_last"] = "until_first",
+        sync_mode: SyncMode = "until_first",
         num_prefetch: int = 1,
-        src_encode_mode: str = "prompt",
-        **extras: Any,
+        source_encode_mode: str = "prompt",
     ) -> DataPipelineReader[SequenceBatch]:
         """Create a dataset reader for evaluation.
 
@@ -156,10 +154,8 @@ class InstructionDataset(ABC):
             same number of batches (e.g. during training).
         :param num_prefetch:
             The number of batches to prefetch in background.
-        :param src_encode_mode:
-            The mode to encode the prompt
-        :param extras:
-            The extra parameters specific to the dataset implementation.
+        :param source_encode_mode:
+            The mode to encode the source text.
         """
 
     @abstractmethod
@@ -167,11 +163,11 @@ class InstructionDataset(ABC):
         """Return the set of splits."""
 
 
-load_instruction_dataset = DelegatingDatasetLoader[InstructionDataset]()
-
-
 # TODO: FIX, INFER
 npc = 10
+
+
+GENERIC_INSTRUCTION_DATASET_FAMILY: Final = "generic_instruction"
 
 
 # TODO: Work in progress!
@@ -179,10 +175,11 @@ npc = 10
 class GenericInstructionDataset(InstructionDataset):
     """Represents a generic JSONL instruction dataset."""
 
+    _name: str
     _splits: dict[str, tuple[Sequence[Path], Sequence[float]]]
 
     def __init__(
-        self, splits: dict[str, tuple[Sequence[Path], Sequence[float]]]
+        self, name: str, splits: dict[str, tuple[Sequence[Path], Sequence[float]]]
     ) -> None:
         """
         :param files:
@@ -190,6 +187,8 @@ class GenericInstructionDataset(InstructionDataset):
         :param weights:
             The weight of each file in ``files``.
         """
+        self._name = name
+
         for split, (files, weights) in splits.items():
             if len(files) != len(weights):
                 raise ValueError(
@@ -198,23 +197,32 @@ class GenericInstructionDataset(InstructionDataset):
 
         self._splits = splits
 
-    @classmethod
-    def from_path(cls, path: Path) -> GenericInstructionDataset:
-        """Load a :class:`InstructionDataset` from ``path``."""
+    @staticmethod
+    def from_path(path: Path, name: str | None = None) -> GenericInstructionDataset:
+        if name is None:
+            name = f"path:{path.name}"
+
         splits: dict[str, tuple[Sequence[Path], Sequence[float]]] = {}
 
-        for child_path in path.iterdir():
-            if child_path.is_dir():
-                files, weights = _load_files_and_weights(child_path)
+        if path.is_dir():
+            try:
+                child_dirs = [p for p in path.iterdir() if p.is_dir()]
+            except OSError as ex:
+                raise DatasetError(
+                    name, f"The files under the '{path}' directory cannot be retrieved. See the nested exception for details."  # fmt: skip
+                ) from ex
 
-                splits[child_path.name] = (files, weights)
+            for child_dir in child_dirs:
+                files, weights = _load_files_and_weights(name, child_dir)
+
+                splits[child_dir.name] = (files, weights)
 
         if not splits:
-            files, weights = _load_files_and_weights(path)
+            files, weights = _load_files_and_weights(name, path)
 
             splits["default"] = (files, weights)
 
-        return GenericInstructionDataset(splits)
+        return GenericInstructionDataset(name, splits)
 
     @override
     def create_reader(
@@ -230,19 +238,19 @@ class GenericInstructionDataset(InstructionDataset):
         batch_shuffle_window: int = 1,
         drop_remainder: bool = False,
         sync_batches: bool = True,
-        sync_mode: Literal["until_first", "until_last"] = "until_first",
+        sync_mode: SyncMode = "until_first",
         max_num_batches: int | None = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
+        source_encode_mode: str = "prompt",
+        target_encode_mode: str = "prompt_response",
         seed: int = 2,
-        src_encode_mode: str = "prompt",
-        tgt_encode_mode: str = "prompt_response",
-        **extras: Any,
     ) -> DataPipelineReader[SequenceBatch]:
-        try:
-            files, weights = self._splits[split]
-        except KeyError:
-            self._raise_split_error(split)
+        files_weights = self._splits.get(split)
+        if files_weights is None:
+            raise SplitNotFoundError(self._name, split, self._splits.keys())
+
+        files, weights = files_weights
 
         if len(files) == 1:
             builder = self._read_jsonl(files[0], tokenizer)
@@ -272,22 +280,22 @@ class GenericInstructionDataset(InstructionDataset):
 
         seed += gang.rank
 
-        # Encode prompt and target texts.
-        prompt_encoder = tokenizer.create_encoder(mode=src_encode_mode)
-        target_encoder = tokenizer.create_encoder(mode=tgt_encode_mode)
+        # Encode source and target texts.
+        source_encoder = tokenizer.create_encoder(mode=source_encode_mode)
+        target_encoder = tokenizer.create_encoder(mode=target_encode_mode)
 
-        builder.map(prompt_encoder, selector="src", num_parallel_calls=npc)
+        builder.map(source_encoder, selector="src", num_parallel_calls=npc)
         builder.map(target_encoder, selector="tgt", num_parallel_calls=npc)
 
         def cat_source_and_target(example: dict[str, Any]) -> dict[str, Any]:
             id_ = example.get("id")
 
-            prompt_indices = example["src"]
+            source_indices = example["src"]
             target_indices = example["tgt"]
 
-            indices = torch.cat([prompt_indices, target_indices])
+            indices = torch.cat([source_indices, target_indices])
 
-            target_mask = torch.arange(len(indices)) >= len(prompt_indices)
+            target_mask = torch.arange(len(indices)) >= len(source_indices)
 
             return {"id": id_, "indices": indices, "target_mask": target_mask}
 
@@ -315,7 +323,7 @@ class GenericInstructionDataset(InstructionDataset):
             # Bucket `batch_size` examples.
             builder.bucket(batching.batch_size, drop_remainder=drop_remainder)
         else:
-            raise RuntimeError(f"`{batching}` is not supported.")
+            raise NotSupportedError(f"`{batching}` is not supported.")
 
         # Shuffle buckets.
         if batch_shuffle_window != 1:
@@ -352,6 +360,7 @@ class GenericInstructionDataset(InstructionDataset):
         pipeline = builder.map(to_batch).and_return()
 
         return DataPipelineReader[SequenceBatch](
+            self._name,
             pipeline,
             gang,
             num_accumulate=num_accumulate,
@@ -371,15 +380,14 @@ class GenericInstructionDataset(InstructionDataset):
         *,
         drop_remainder: bool = False,
         sync_batches: bool = True,
-        sync_mode: Literal["until_first", "until_last"] = "until_first",
+        sync_mode: SyncMode = "until_first",
         num_prefetch: int = 1,
-        src_encode_mode: str = "prompt",
-        **extras: Any,
+        source_encode_mode: str = "prompt",
     ) -> DataPipelineReader[SequenceBatch]:
         try:
             files, weights = self._splits[split]
         except KeyError:
-            self._raise_split_error(split)
+            raise SplitNotFoundError(self._name, split, self._splits.keys()) from None
 
         if len(files) == 1:
             builder = self._read_jsonl(files[0], tokenizer)
@@ -396,17 +404,17 @@ class GenericInstructionDataset(InstructionDataset):
         # Shard
         builder.shard(gang.rank, gang.size, allow_uneven=True)
 
-        # Encode prompt texts.
-        text_encoder = tokenizer.create_encoder(mode=src_encode_mode)
+        # Encode source texts.
+        text_encoder = tokenizer.create_encoder(mode=source_encode_mode)
 
         def encode(example: dict[str, Any]) -> dict[str, Any]:
             id_ = example.get("id")
 
-            prompt = example["src"]
+            source = example["src"]
 
-            indices = text_encoder(prompt)
+            indices = text_encoder(source)
 
-            return {"id": id_, "prompt": prompt, "indices": indices}
+            return {"id": id_, "prompt": source, "indices": indices}
 
         builder.map(encode, num_parallel_calls=npc)
 
@@ -438,6 +446,7 @@ class GenericInstructionDataset(InstructionDataset):
         pipeline = builder.map(to_batch).and_return()
 
         return DataPipelineReader[SequenceBatch](
+            self._name,
             pipeline,
             gang,
             drop_remainder=drop_remainder,
@@ -455,30 +464,12 @@ class GenericInstructionDataset(InstructionDataset):
 
         return read_sequence(lines).map(json.loads, num_parallel_calls=npc)
 
-    def _raise_split_error(self, split: str) -> NoReturn:
-        raise ValueError(
-            f"`split` must be one of the following splits, but is '{split}' instead: {', '.join(sorted(self._splits.keys()))}"
-        ) from None
-
     @override
     def splits(self) -> set[str]:
         return set(self._splits.keys())
 
 
-@final
-class GenericInstructionDatasetLoader(AbstractDatasetLoader[GenericInstructionDataset]):
-    @override
-    def _load(self, path: Path, card: AssetCard) -> GenericInstructionDataset:
-        try:
-            return GenericInstructionDataset.from_path(path)
-        except RuntimeError as ex:
-            raise AssetError(
-                f"{card.name} cannot be loaded. See nested exception for details."
-            ) from ex
-
-
-load_generic_instruction_dataset = GenericInstructionDatasetLoader()
-
-load_instruction_dataset.register(
-    "generic_instruction", load_generic_instruction_dataset
-)
+def load_instruction_dataset(
+    name_or_card: str | AssetCard, *, force: bool = False
+) -> InstructionDataset:
+    return load_dataset(name_or_card, InstructionDataset, force=force)

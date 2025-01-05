@@ -406,14 +406,13 @@ def load_preference_finetuner(
             dp_gang,
             max_seq_len=config.max_seq_len,
             batching=batching,
-            max_num_tokens=config.max_num_tokens,
             example_shuffle_window=config.example_shuffle_window,
             batch_shuffle_window=config.batch_shuffle_window,
             num_accumulate=config.gradient_accumulation,
             num_prefetch=config.num_prefetch,
             mask_source_tokens=config.mask_source_tokens,
-            src_encode_mode=config.src_encode_mode,
-            tgt_encode_mode=config.tgt_encode_mode,
+            source_encode_mode=config.src_encode_mode,
+            target_encode_mode=config.tgt_encode_mode,
             seed=config.seed,
         )
     except ValueError as ex:

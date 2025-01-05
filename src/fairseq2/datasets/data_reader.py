@@ -8,19 +8,14 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterator, Mapping
-from typing import Any, Literal, TypeVar, final
+from typing import Literal, TypeAlias, TypeVar, final
 
 from typing_extensions import Self, override
 
-from fairseq2.data import DataPipeline
+from fairseq2.data import DataPipeline, DataPipelineError
+from fairseq2.datasets.error import DataReadError
 from fairseq2.datasets.utils import _min_num_batches, _sum_num_batches
-from fairseq2.gang import Gang
-from fairseq2.logging import get_log_writer
-
-log = get_log_writer(__name__)
-
-
-BatchT = TypeVar("BatchT")
+from fairseq2.gang import Gang, GangError
 
 BatchT_co = TypeVar("BatchT_co", covariant=True)
 
@@ -41,11 +36,11 @@ class DataReader(ABC, Iterator[list[BatchT_co]]):
         """Reset state and move back to the first batch."""
 
     @abstractmethod
-    def state_dict(self) -> dict[str, Any]:
+    def state_dict(self) -> dict[str, object]:
         ...
 
     @abstractmethod
-    def load_state_dict(self, state_dict: Mapping[str, Any]) -> None:
+    def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
         ...
 
     @property
@@ -54,10 +49,17 @@ class DataReader(ABC, Iterator[list[BatchT_co]]):
         """The number of batches accumulated in each iteration."""
 
 
+SyncMode: TypeAlias = Literal["until_first", "until_last"]
+
+
+BatchT = TypeVar("BatchT")
+
+
 @final
 class DataPipelineReader(DataReader[BatchT]):
     """Reads batches of examples from a dataset using a :class:`DataPipeline`."""
 
+    _name: str
     _pipeline: DataPipeline
     _pipeline_iter: Iterator[BatchT]
     _gang: Gang
@@ -67,15 +69,17 @@ class DataPipelineReader(DataReader[BatchT]):
 
     def __init__(
         self,
+        name: str,
         pipeline: DataPipeline,
         gang: Gang,
         *,
         num_accumulate: int = 1,
         drop_remainder: bool = True,
         sync_batches: bool = True,
-        sync_mode: Literal["until_first", "until_last"] = "until_first",
+        sync_mode: SyncMode = "until_first",
     ) -> None:
         """
+        :param name: The name of the dataset.
         :param pipeline:
             The data pipeline to iterate over.
         :param gang:
@@ -97,6 +101,7 @@ class DataPipelineReader(DataReader[BatchT]):
             reaches end of data; ranks that have already reached their end of
             data will return an empty list of batches.
         """
+        self._name = name
         self._pipeline = pipeline
         self._pipeline_iter = iter(pipeline)
         self._gang = gang
@@ -122,6 +127,10 @@ class DataPipelineReader(DataReader[BatchT]):
                 batch = next(self._pipeline_iter)
             except StopIteration:
                 break
+            except DataPipelineError as ex:
+                raise DataReadError(
+                    self._name, "The data pipeline has failed to read the next batch. See the nested exception for details."  # fmt: skip
+                ) from ex
 
             batches.append(batch)
 
@@ -133,13 +142,18 @@ class DataPipelineReader(DataReader[BatchT]):
         local_num_batches = len(batches)
 
         if self._sync_batches and self._gang.size > 1:
-            if self._sync_until_last:
-                num_batches = _sum_num_batches(local_num_batches, self._gang)
-            else:
-                num_batches = _min_num_batches(local_num_batches, self._gang, log)
+            try:
+                if self._sync_until_last:
+                    num_batches = _sum_num_batches(local_num_batches, self._gang)
+                else:
+                    num_batches = _min_num_batches(local_num_batches, self._gang)
 
-                if num_batches != local_num_batches:
-                    batches = batches[:num_batches]
+                    if num_batches != local_num_batches:
+                        batches = batches[:num_batches]
+            except GangError as ex:
+                raise DataReadError(
+                    self._name, "The batch synchronization of the gang processes has failed. See the nested exception for details."  # fmt: skip
+                ) from ex
         else:
             num_batches = local_num_batches
 
@@ -157,11 +171,11 @@ class DataPipelineReader(DataReader[BatchT]):
         self._pipeline.reset()
 
     @override
-    def state_dict(self) -> dict[str, Any]:
+    def state_dict(self) -> dict[str, object]:
         return self._pipeline.state_dict()
 
     @override
-    def load_state_dict(self, state_dict: Mapping[str, Any]) -> None:
+    def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
         self._eod = False
 
         self._pipeline.load_state_dict(state_dict)

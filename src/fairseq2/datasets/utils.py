@@ -7,16 +7,15 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import NoReturn
 
 import torch
 
 from fairseq2.datasets.error import DatasetError
 from fairseq2.gang import Gang, all_sum
-from fairseq2.logging import LogWriter
+from fairseq2.logging import log
 
 
-def _min_num_batches(num_batches: int, gang: Gang, log: LogWriter) -> int:
+def _min_num_batches(num_batches: int, gang: Gang) -> int:
     all_num_batches = torch.zeros((gang.size,), device=gang.device, dtype=torch.int64)
 
     inp = torch.tensor(num_batches, device=gang.device)
@@ -45,7 +44,7 @@ def _sum_num_batches(num_batches: int, gang: Gang) -> int:
     return int(total_num_batches)
 
 
-def _load_files_and_weights(path: Path) -> tuple[list[Path], list[float]]:
+def _load_files_and_weights(name: str, path: Path) -> tuple[list[Path], list[float]]:
     path = path.expanduser().resolve()
 
     if not path.is_dir():
@@ -59,8 +58,8 @@ def _load_files_and_weights(path: Path) -> tuple[list[Path], list[float]]:
     except FileNotFoundError:
         content = None
     except OSError as ex:
-        raise RuntimeError(
-            f"{manifest_file} cannot be read. See nested exception for details."
+        raise DatasetError(
+            name, f"The '{manifest_file}' manifest file cannot be read. See the nested exception for details."  # fmt: skip
         ) from ex
 
     # If the directory does not contain a MANIFEST file, treat all JSONL
@@ -69,8 +68,8 @@ def _load_files_and_weights(path: Path) -> tuple[list[Path], list[float]]:
         try:
             files = list(path.glob("**/*.jsonl"))
         except OSError as ex:
-            raise RuntimeError(
-                f"The JSONL files under {path} cannot be retrieved. See nested exception for details."
+            raise DatasetError(
+                name, f"The JSONL files under the '{path}' directory cannot be retrieved. See the nested exception for details."  # fmt: skip
             ) from ex
 
         weights = [1.0 for _ in range(len(files))]
@@ -88,28 +87,28 @@ def _load_files_and_weights(path: Path) -> tuple[list[Path], list[float]]:
     # and its weight (e.g. number of examples).
     for idx, line in enumerate(content):
 
-        def raise_error() -> NoReturn:
-            raise DatasetError(
-                f"Each line in {manifest_file} must represent a path to a JSONL file and a weight, but line {idx} is '{line}' instead."
+        def error() -> DatasetError:
+            return DatasetError(
+                name, f"Each line in the '{manifest_file}' manifest file must represent a path to a JSONL file and a weight, but line {idx} is '{line}' instead."  # fmt: skip
             )
 
         fields = line.rstrip().split("\t")
 
         if len(fields) != 2:
-            raise_error()
+            raise error()
 
         file_path = fields[0].strip()
         if not file_path:
-            raise_error()
+            raise error()
 
         try:
             file = path.joinpath(file_path)
         except ValueError:
-            raise_error()
+            raise error() from None
 
         if not file.exists():
             raise DatasetError(
-                f"The file '{file}' referred at line {idx} in {manifest_file} does not exist."
+                name, f"The '{file}' file referred at line {idx} in the '{manifest_file}' manifest file does not exist."  # fmt: skip
             )
 
         files.append(file)
@@ -117,7 +116,7 @@ def _load_files_and_weights(path: Path) -> tuple[list[Path], list[float]]:
         try:
             weight = float(fields[1].strip())
         except ValueError:
-            raise_error()
+            raise error() from None
 
         weights.append(weight)
 

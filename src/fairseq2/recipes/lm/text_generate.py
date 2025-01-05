@@ -288,7 +288,6 @@ def load_text_generator(
             batching=StaticBatching(config.batch_size),
             sync_mode="until_last",
             num_prefetch=config.num_prefetch,
-            seed=seed,
         )
     except ValueError as ex:
         raise ValueError(

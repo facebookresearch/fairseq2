@@ -14,7 +14,8 @@ from typing_extensions import override
 
 from fairseq2.chatbots.chatbot import AbstractChatbot, Chatbot, ChatDialog, ChatMessage
 from fairseq2.chatbots.handler import ChatbotHandler
-from fairseq2.data.text import LLaMA3Tokenizer, TextTokenEncoder, TextTokenizer
+from fairseq2.data.text import TextTokenEncoder, TextTokenizer
+from fairseq2.data.text.tokenizers.llama import LLaMA3Tokenizer
 from fairseq2.generation import SequenceGenerator
 from fairseq2.nn.utils.module import infer_device
 

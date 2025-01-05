@@ -8,15 +8,16 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Literal, final
+from typing import Final, final
 
 import torch
 from typing_extensions import override
 
-from fairseq2.assets import AssetCard, AssetError
+from fairseq2.assets import AssetCard
 from fairseq2.datasets.batching import Batching
-from fairseq2.datasets.data_reader import DataPipelineReader, DataReader
-from fairseq2.datasets.loader import AbstractDatasetLoader, DelegatingDatasetLoader
+from fairseq2.datasets.data_reader import DataPipelineReader, DataReader, SyncMode
+from fairseq2.datasets.static import load_dataset
+from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.typing import DataType
@@ -40,12 +41,11 @@ class SpeechDataset(ABC):
         batch_shuffle_window: int = 1,
         drop_remainder: bool = False,
         sync_batches: bool = True,
-        sync_mode: Literal["until_first", "until_last"] = "until_first",
+        sync_mode: SyncMode = "until_first",
         max_num_batches: int | None = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         seed: int = 2,
-        **extras: Any,
     ) -> DataReader[SequenceBatch]:
         """Create a dataset reader.
 
@@ -96,8 +96,6 @@ class SpeechDataset(ABC):
             The number of batches to prefetch in background.
         :param seed:
             The seed to initialize the random number generators used internally.
-        :param extras:
-            The extra parameters specific to the dataset implementation.
         """
 
     @abstractmethod
@@ -105,19 +103,15 @@ class SpeechDataset(ABC):
         """Return the set of splits."""
 
 
-load_speech_dataset = DelegatingDatasetLoader[SpeechDataset]()
+GENERIC_SPEECH_DATASET_FAMILY: Final = "generic_speech"
 
 
 @final
 class GenericSpeechDataset(SpeechDataset):
     """Represents a generic manifest-based Speech dataset."""
 
-    def __init__(self) -> None:
-        pass
-
-    @classmethod
-    def from_path(cls, path: Path) -> GenericSpeechDataset:
-        """Load a :class:`GenericSpeechDataset` from ``path``."""
+    @staticmethod
+    def from_path(path: Path, name: str | None = None) -> GenericSpeechDataset:
         return GenericSpeechDataset()
 
     @override
@@ -135,38 +129,26 @@ class GenericSpeechDataset(SpeechDataset):
         batch_shuffle_window: int = 1,
         drop_remainder: bool = False,
         sync_batches: bool = True,
-        sync_mode: Literal["until_first", "until_last"] = "until_first",
+        sync_mode: SyncMode = "until_first",
         max_num_batches: int | None = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         seed: int = 2,
         cached_fd_count: int = 1000,
-        **extras: Any,
     ) -> DataPipelineReader[SequenceBatch]:
         """
         :param cached_fd_count:
             The maximum number of file descriptors to keep open while reading
             audio files.
         """
-        raise RuntimeError("not supported yet.")
+        raise NotSupportedError("not supported yet.")
 
     @override
     def splits(self) -> set[str]:
         return set()
 
 
-@final
-class GenericSpeechDatasetLoader(AbstractDatasetLoader[GenericSpeechDataset]):
-    @override
-    def _load(self, path: Path, card: AssetCard) -> GenericSpeechDataset:
-        try:
-            return GenericSpeechDataset.from_path(path)
-        except RuntimeError as ex:
-            raise AssetError(
-                f"{card.name} cannot be loaded. See nested exception for details."
-            ) from ex
-
-
-load_generic_speech_dataset = GenericSpeechDatasetLoader()
-
-load_speech_dataset.register("generic_speech", load_generic_speech_dataset)
+def load_speech_dataset(
+    name_or_card: str | AssetCard, *, force: bool = False
+) -> SpeechDataset:
+    return load_dataset(name_or_card, SpeechDataset, force=force)

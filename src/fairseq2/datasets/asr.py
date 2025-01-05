@@ -8,14 +8,14 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Literal, cast, final
+from typing import Any, Final, cast, final
 
 import torch
 from torch import Tensor
 from torch.nn.functional import layer_norm
 from typing_extensions import override
 
-from fairseq2.assets import AssetCard, AssetError
+from fairseq2.assets import AssetCard
 from fairseq2.data import (
     CollateOptionsOverride,
     Collater,
@@ -29,9 +29,10 @@ from fairseq2.data import (
 from fairseq2.data.audio import AudioDecoder
 from fairseq2.data.text import StrSplitter, TextTokenizer, read_text
 from fairseq2.datasets.batching import Batching, LengthBatching, StaticBatching
-from fairseq2.datasets.data_reader import DataPipelineReader, DataReader
-from fairseq2.datasets.error import DatasetError
-from fairseq2.datasets.loader import AbstractDatasetLoader, DelegatingDatasetLoader
+from fairseq2.datasets.data_reader import DataPipelineReader, DataReader, SyncMode
+from fairseq2.datasets.error import DatasetError, SplitNotFoundError
+from fairseq2.datasets.static import load_dataset
+from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
@@ -57,12 +58,11 @@ class AsrDataset(ABC):
         batch_shuffle_window: int = 1,
         drop_remainder: bool = False,
         sync_batches: bool = True,
-        sync_mode: Literal["until_first", "until_last"] = "until_first",
+        sync_mode: SyncMode = "until_first",
         max_num_batches: int | None = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         seed: int = 2,
-        **extras: Any,
     ) -> DataReader[Seq2SeqBatch]:
         """Create a dataset reader.
 
@@ -115,8 +115,6 @@ class AsrDataset(ABC):
             The number of batches to prefetch in background.
         :param seed:
             The seed to initialize the random number generators used internally.
-        :param extras:
-            The extra parameters specific to the dataset implementation.
         """
 
     @abstractmethod
@@ -124,11 +122,11 @@ class AsrDataset(ABC):
         """Return the set of splits."""
 
 
-load_asr_dataset = DelegatingDatasetLoader[AsrDataset]()
-
-
 # TODO: FIX, INFER
 npc = 10
+
+
+GENERIC_ASR_DATASET_FAMILY: Final = "generic_asr"
 
 
 # TODO: Work in progress!
@@ -136,35 +134,39 @@ npc = 10
 class GenericAsrDataset(AsrDataset):
     """Represents a generic manifest-based ASR dataset."""
 
+    _name: str
     _manifest_dir: Path
     _splits: set[str]
 
-    def __init__(self, manifest_dir: Path, splits: set[str]) -> None:
+    def __init__(self, name: str, manifest_dir: Path, splits: set[str]) -> None:
         """
         :param manifest_dir:
             The directory under which the manifest files resides.
         :param splits:
             The available splits.
         """
+        self._name = name
         self._manifest_dir = manifest_dir
         self._splits = splits
 
-    @classmethod
-    def from_path(cls, path: Path) -> GenericAsrDataset:
-        """Load a :class:`GenericAsrDataset` from ``path``."""
+    @staticmethod
+    def from_path(path: Path, name: str | None = None) -> GenericAsrDataset:
+        if name is None:
+            name = f"path:{path.name}"
+
         path = path.expanduser().resolve()
 
         if not path.is_dir():
-            return GenericAsrDataset(manifest_dir=path.parent, splits={path.stem})
+            return GenericAsrDataset(name, manifest_dir=path.parent, splits={path.stem})
 
         try:
             splits = {f.stem for f in path.glob("*.tsv")}
         except OSError as ex:
-            raise RuntimeError(
-                "The splits cannot be determined. See nested exception for details."
+            raise DatasetError(
+                f"The splits under the '{path}' directory cannot be determined. See the nested exception for details."
             ) from ex
 
-        return GenericAsrDataset(path, splits)
+        return GenericAsrDataset(name, path, splits)
 
     @override
     def create_reader(
@@ -182,13 +184,12 @@ class GenericAsrDataset(AsrDataset):
         batch_shuffle_window: int = 1,
         drop_remainder: bool = False,
         sync_batches: bool = True,
-        sync_mode: Literal["until_first", "until_last"] = "until_first",
+        sync_mode: SyncMode = "until_first",
         max_num_batches: int | None = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         seed: int = 2,
         cached_fd_count: int = 1000,
-        **extras: Any,
     ) -> DataPipelineReader[Seq2SeqBatch]:
         """
         :param cached_fd_count:
@@ -196,9 +197,7 @@ class GenericAsrDataset(AsrDataset):
             audio files.
         """
         if split not in self._splits:
-            raise ValueError(
-                f"`split` must be one of the following splits, but is '{split}' instead: {', '.join(sorted(self._splits))}"
-            )
+            raise SplitNotFoundError(self._name, split, self._splits)
 
         audio_dir = self._retrieve_data_directory(split)
 
@@ -234,7 +233,7 @@ class GenericAsrDataset(AsrDataset):
             )
         elif isinstance(batching, StaticBatching):
             # Filter out out-of-range audios.
-            def skip(example: dict[str, Any]) -> bool:
+            def skip(example: dict[str, object]) -> bool:
                 audio_len = cast(int, example["audio_size"])
 
                 return audio_len >= min_audio_len and audio_len <= max_audio_len
@@ -244,7 +243,7 @@ class GenericAsrDataset(AsrDataset):
             # Bucket `batch_size` examples.
             builder.bucket(batching.batch_size, drop_remainder=drop_remainder)
         else:
-            raise RuntimeError(f"`{batching}` is not supported.")
+            raise NotSupportedError(f"`{batching}` is not supported.")
 
         # Shuffle buckets.
         if batch_shuffle_window != 1:
@@ -318,6 +317,7 @@ class GenericAsrDataset(AsrDataset):
         pipeline = builder.map(to_batch).and_return()
 
         return DataPipelineReader[Seq2SeqBatch](
+            self._name,
             pipeline,
             gang,
             num_accumulate=num_accumulate,
@@ -334,14 +334,15 @@ class GenericAsrDataset(AsrDataset):
                 line = fp.readline().rstrip()
         except OSError as ex:
             raise DatasetError(
-                f"{manifest_file} cannot be read. See nested exception for details."
+                self._name,
+                f"The {manifest_file} manifest file cannot be read. See the nested exception for details.",
             ) from ex
 
         try:
             return Path(line)
         except ValueError:
             raise DatasetError(
-                f"The first line of {manifest_file} must point to a data directory."
+                f"The first line of the '{manifest_file}' manifest file must point to a data directory."
             ) from None
 
     def _read_manifest(self, split: str) -> DataPipelineBuilder:
@@ -381,18 +382,7 @@ class GenericAsrDataset(AsrDataset):
         return self._splits
 
 
-@final
-class GenericAsrDatasetLoader(AbstractDatasetLoader[GenericAsrDataset]):
-    @override
-    def _load(self, path: Path, card: AssetCard) -> GenericAsrDataset:
-        try:
-            return GenericAsrDataset.from_path(path)
-        except RuntimeError as ex:
-            raise AssetError(
-                f"{card.name} cannot be loaded. See nested exception for details."
-            ) from ex
-
-
-load_generic_asr_dataset = GenericAsrDatasetLoader()
-
-load_asr_dataset.register("generic_asr", load_generic_asr_dataset)
+def load_asr_dataset(
+    name_or_card: str | AssetCard, *, force: bool = False
+) -> AsrDataset:
+    return load_dataset(name_or_card, AsrDataset, force=force)

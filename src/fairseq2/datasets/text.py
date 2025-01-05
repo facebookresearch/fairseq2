@@ -10,11 +10,11 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from functools import partial
 from pathlib import Path
-from typing import Any, Literal, cast, final
+from typing import Any, Final, cast, final
 
 from typing_extensions import override
 
-from fairseq2.assets import AssetCard, AssetError
+from fairseq2.assets import AssetCard
 from fairseq2.data import (
     Collater,
     DataPipeline,
@@ -24,8 +24,10 @@ from fairseq2.data import (
 )
 from fairseq2.data.text import TextTokenEncoder, read_text
 from fairseq2.datasets.batching import Batching, LengthBatching, StaticBatching
-from fairseq2.datasets.data_reader import DataPipelineReader, DataReader
-from fairseq2.datasets.loader import AbstractDatasetLoader, DelegatingDatasetLoader
+from fairseq2.datasets.data_reader import DataPipelineReader, DataReader, SyncMode
+from fairseq2.datasets.error import DatasetError
+from fairseq2.datasets.static import load_dataset
+from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
@@ -49,12 +51,11 @@ class TextDataset(ABC):
         batch_shuffle_window: int = 1,
         drop_remainder: bool = False,
         sync_batches: bool = True,
-        sync_mode: Literal["until_first", "until_last"] = "until_first",
+        sync_mode: SyncMode = "until_first",
         max_num_batches: int | None = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         seed: int = 2,
-        **extras: Any,
     ) -> DataReader[SequenceBatch]:
         """Create a dataset reader.
 
@@ -103,34 +104,36 @@ class TextDataset(ABC):
             The number of batches to prefetch in background.
         :param seed:
             The seed to initialize the random number generators used internally.
-        :param extras:
-            The extra parameters specific to the dataset implementation.
         """
-
-
-load_text_dataset = DelegatingDatasetLoader[TextDataset]()
 
 
 # TODO: FIX, INFER
 npc = 10
 
 
+GENERIC_TEXT_DATASET_FAMILY: Final = "generic_text"
+
+
 @final
 class GenericTextDataset(TextDataset):
     """Represents a generic file-based text dataset."""
 
+    _name: str
     _files: Sequence[Path]
 
-    def __init__(self, files: Sequence[Path]) -> None:
+    def __init__(self, name: str, files: Sequence[Path]) -> None:
         """
         :param data_dir:
             The list of text files that represent the dataset.
         """
+        self._name = name
         self._files = files
 
     @staticmethod
-    def from_path(path: Path) -> GenericTextDataset:
-        """Load a :class:`GenericTextDataset` from ``path``."""
+    def from_path(path: Path, name: str | None = None) -> GenericTextDataset:
+        if name is None:
+            name = f"path:{path.name}"
+
         path = path.expanduser().resolve()
 
         if not path.is_dir():
@@ -139,13 +142,13 @@ class GenericTextDataset(TextDataset):
             try:
                 files = [f for f in path.glob("**/*.txt") if not f.is_dir()]
             except OSError as ex:
-                raise RuntimeError(
-                    f"The text files under {path} cannot be retrieved. See nested exception for details."
+                raise DatasetError(
+                    name, f"The text files under the '{path}' directory cannot be retrieved. See the nested exception for details."  # fmt: skip
                 ) from ex
 
             files.sort()
 
-        return GenericTextDataset(files)
+        return GenericTextDataset(name, files)
 
     @override
     def create_reader(
@@ -161,12 +164,11 @@ class GenericTextDataset(TextDataset):
         batch_shuffle_window: int = 1,
         drop_remainder: bool = False,
         sync_batches: bool = True,
-        sync_mode: Literal["until_first", "until_last"] = "until_first",
+        sync_mode: SyncMode = "until_first",
         max_num_batches: int | None = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         seed: int = 2,
-        **extras: Any,
     ) -> DataReader[SequenceBatch]:
         if len(self._files) == 1:
             builder = read_text(self._files[0], key="text", rtrim=True)
@@ -224,7 +226,7 @@ class GenericTextDataset(TextDataset):
             # Bucket `batch_size` examples.
             builder.bucket(batching.batch_size, drop_remainder=drop_remainder)
         else:
-            raise RuntimeError(f"`{batching}` is not supported.")
+            raise NotSupportedError(f"`{batching}` is not supported.")
 
         # Shuffle buckets.
         if batch_shuffle_window != 1:
@@ -249,6 +251,7 @@ class GenericTextDataset(TextDataset):
         pipeline = builder.map(f).and_return()
 
         return DataPipelineReader[SequenceBatch](
+            self._name,
             pipeline,
             gang,
             num_accumulate=num_accumulate,
@@ -266,18 +269,7 @@ class GenericTextDataset(TextDataset):
         return SequenceBatch(seqs, padding_mask, example=example)
 
 
-@final
-class GenericTextDatasetLoader(AbstractDatasetLoader[GenericTextDataset]):
-    @override
-    def _load(self, path: Path, card: AssetCard) -> GenericTextDataset:
-        try:
-            return GenericTextDataset.from_path(path)
-        except RuntimeError as ex:
-            raise AssetError(
-                f"{card.name} cannot be loaded. See nested exception for details."
-            ) from ex
-
-
-load_generic_text_dataset = GenericTextDatasetLoader()
-
-load_text_dataset.register("generic_text", load_generic_text_dataset)
+def load_text_dataset(
+    name_or_card: str | AssetCard, *, force: bool = False
+) -> TextDataset:
+    return load_dataset(name_or_card, TextDataset, force=force)
