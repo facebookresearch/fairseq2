@@ -8,30 +8,20 @@ from __future__ import annotations
 
 from fairseq2.context import RuntimeContext
 from fairseq2.data.text import (
+    CHAR_TOKENIZER_FAMILY,
+    LLAMA_TOKENIZER_FAMILY,
+    MISTRAL_TOKENIZER_FAMILY,
+    NLLB_TOKENIZER_FAMILY,
+    S2T_TRANSFORMER_TOKENIZER_FAMILY,
     StandardTextTokenizerHandler,
     TextTokenizerHandler,
     TextTokenizerLoader,
 )
-from fairseq2.data.text.tokenizers.char_tokenizer import (
-    CHAR_TOKENIZER_FAMILY,
-    load_char_tokenizer,
-)
-from fairseq2.data.text.tokenizers.llama import (
-    LLAMA_TOKENIZER_FAMILY,
-    load_llama_tokenizer,
-)
-from fairseq2.data.text.tokenizers.mistral import (
-    MISTRAL_TOKENIZER_FAMILY,
-    load_mistral_tokenizer,
-)
-from fairseq2.data.text.tokenizers.nllb import (
-    NLLB_TOKENIZER_FAMILY,
-    load_nllb_tokenizer,
-)
-from fairseq2.data.text.tokenizers.s2t_transformer import (
-    S2T_TRANSFORMER_TOKENIZER_FAMILY,
-    load_s2t_transformer_tokenizer,
-)
+from fairseq2.data.text.tokenizers.char_tokenizer import load_char_tokenizer
+from fairseq2.data.text.tokenizers.llama import load_llama_tokenizer
+from fairseq2.data.text.tokenizers.mistral import load_mistral_tokenizer
+from fairseq2.data.text.tokenizers.nllb import load_nllb_tokenizer
+from fairseq2.data.text.tokenizers.s2t_transformer import load_s2t_transformer_tokenizer
 
 
 def _register_text_tokenizers(context: RuntimeContext) -> None:

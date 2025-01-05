@@ -8,12 +8,20 @@ from __future__ import annotations
 
 import math
 from collections.abc import Sequence
-from typing import final
+from dataclasses import dataclass
+from typing import Final, final
 
 from torch.optim import Optimizer
 from typing_extensions import override
 
-from fairseq2.optim.lr_scheduler.base import AbstractLRScheduler, _get_per_param_group
+from fairseq2.logging import log
+from fairseq2.optim.lr_scheduler.handler import LRSchedulerHandler
+from fairseq2.optim.lr_scheduler.lr_scheduler import (
+    AbstractLRScheduler,
+    LRScheduler,
+    get_per_param_group,
+)
+from fairseq2.typing import safe_cast
 
 
 @final
@@ -95,8 +103,8 @@ class CosineAnnealingLR(AbstractLRScheduler):
         self._num_warmup_steps = num_warmup_steps
         self._lr_mul = lr_mul
 
-        self._start_lrs = _get_per_param_group(optimizer, "start_lr", start_lr)
-        self._final_lrs = _get_per_param_group(optimizer, "final_lr", final_lr)
+        self._start_lrs = get_per_param_group(optimizer, "start_lr", start_lr)
+        self._final_lrs = get_per_param_group(optimizer, "final_lr", final_lr)
 
         super().__init__(optimizer, last_epoch)
 
@@ -153,3 +161,98 @@ class CosineAnnealingLR(AbstractLRScheduler):
         max_lr *= lr_mul
 
         return min_lr + 0.5 * (max_lr - min_lr) * (1 + c)
+
+
+COSINE_ANNEALING_LR: Final = "cosine-annealing"
+
+
+@dataclass(kw_only=True)
+class CosineAnnealingLRConfig:
+    cycle_len: int | None = None
+    """The number of steps within the first cycle. If ``None``, will be set to
+    ``num_steps - num_warmup_steps``."""
+
+    num_warmup_steps: int = 0
+    """The number of warmup steps."""
+
+    cycle_mul: float = 1.0
+    """The factor to grow the length of each cycle."""
+
+    lr_mul: float = 1.0
+    """The factor to scale the base and final learning rate at the end of each
+    cycle."""
+
+    start_lr: float = 0.0
+    """The initial warmup learning rate."""
+
+    final_lr: float | None = None
+    """The final learning rate. If ``None``, :attr:`final_lr_scale` will be used."""
+
+    final_lr_scale: float | None = 0.2
+    """
+    The optimizer learning rate will be scaled by this value to determine the
+    final learning rate. If ``None``, :attr:`final_lr` will be used.
+    """
+
+
+@final
+class CosineAnnealingLRHandler(LRSchedulerHandler):
+    @override
+    def create(
+        self, optimizer: Optimizer, config: object, num_steps: int | None
+    ) -> LRScheduler:
+        config = safe_cast("config", config, CosineAnnealingLRConfig)
+
+        if config.cycle_len is None:
+            if num_steps is None:
+                raise ValueError(
+                    "`config.cycle_len` must be specified when `num_steps` is not specified."
+                )
+
+            cycle_len = num_steps - config.num_warmup_steps
+        else:
+            cycle_len = config.cycle_len
+
+        if config.final_lr is not None and config.final_lr_scale is not None:
+            raise ValueError(
+                "`config.final_lr` and `config.final_lr_scale` must not be specified at the same time."
+            )
+
+        try:
+            lr = optimizer.param_groups[0]["lr"]
+        except (IndexError, KeyError):
+            raise ValueError(
+                "`optimizer` does not have a parameter group with an assigned learning rate."
+            ) from None
+
+        if config.final_lr_scale is not None:
+            final_lr = lr * config.final_lr_scale
+        elif config.final_lr is not None:
+            final_lr = config.final_lr
+        else:
+            raise ValueError(
+                "Either `config.final_lr` or `config.final_lr_scale` must be specified."
+            )
+
+        if final_lr > lr:
+            log.warning("The final learning rate ({}) is greater than the optimizer learning rate ({}). This means your learning rate will increase over the course of the training.", final_lr, lr)  # fmt: skip
+
+        return CosineAnnealingLR(
+            optimizer,
+            cycle_len,
+            config.num_warmup_steps,
+            cycle_mul=config.cycle_mul,
+            lr_mul=config.lr_mul,
+            start_lr=config.start_lr,
+            final_lr=final_lr,
+        )
+
+    @property
+    @override
+    def requires_num_steps(self) -> bool:
+        return False
+
+    @property
+    @override
+    def config_kls(self) -> type:
+        return CosineAnnealingLRConfig

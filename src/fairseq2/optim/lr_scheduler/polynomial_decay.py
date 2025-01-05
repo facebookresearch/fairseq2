@@ -7,12 +7,19 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import final
+from dataclasses import dataclass
+from typing import Final, final
 
 from torch.optim import Optimizer
 from typing_extensions import override
 
-from fairseq2.optim.lr_scheduler.base import AbstractLRScheduler, _get_per_param_group
+from fairseq2.optim.lr_scheduler.handler import LRSchedulerHandler
+from fairseq2.optim.lr_scheduler.lr_scheduler import (
+    AbstractLRScheduler,
+    LRScheduler,
+    get_per_param_group,
+)
+from fairseq2.typing import safe_cast
 
 
 @final
@@ -83,8 +90,8 @@ class PolynomialDecayLR(AbstractLRScheduler):
         self._num_warmup_steps = num_warmup_steps
         self._power = power
 
-        self._start_lrs = _get_per_param_group(optimizer, "start_lr", start_lr)
-        self._final_lrs = _get_per_param_group(optimizer, "final_lr", final_lr)
+        self._start_lrs = get_per_param_group(optimizer, "start_lr", start_lr)
+        self._final_lrs = get_per_param_group(optimizer, "final_lr", final_lr)
 
         super().__init__(optimizer, last_epoch)
 
@@ -109,3 +116,52 @@ class PolynomialDecayLR(AbstractLRScheduler):
         c = (r / t) ** self._power
 
         return [f + (b - f) * c for b, f in zip(base_lrs, self._final_lrs)]
+
+
+POLYNOMIAL_DECAY_LR: Final = "polynomial-decay"
+
+
+@dataclass(kw_only=True)
+class PolynomialDecayLRConfig:
+    num_warmup_steps: int = 0
+    """The number of warmup steps."""
+
+    power: float = 1.0
+    """The exponent of the polynomial used for decay."""
+
+    start_lr: float = 0.0
+    """The initial warmup learning rate."""
+
+    final_lr: float = 0.0
+    """The final learning rate."""
+
+
+@final
+class PolynomialDecayLRHandler(LRSchedulerHandler):
+    @override
+    def create(
+        self, optimizer: Optimizer, config: object, num_steps: int | None
+    ) -> LRScheduler:
+        config = safe_cast("config", config, PolynomialDecayLRConfig)
+
+        if num_steps is None:
+            raise ValueError("`num_steps` must specified.")
+
+        return PolynomialDecayLR(
+            optimizer,
+            num_steps,
+            config.num_warmup_steps,
+            power=config.power,
+            start_lr=config.start_lr,
+            final_lr=config.final_lr,
+        )
+
+    @property
+    @override
+    def requires_num_steps(self) -> bool:
+        return True
+
+    @property
+    @override
+    def config_kls(self) -> type:
+        return PolynomialDecayLRConfig

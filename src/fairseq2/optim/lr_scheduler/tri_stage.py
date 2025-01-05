@@ -8,12 +8,19 @@ from __future__ import annotations
 
 import math
 from collections.abc import Sequence
-from typing import final
+from dataclasses import dataclass
+from typing import Final, final
 
 from torch.optim import Optimizer
 from typing_extensions import override
 
-from fairseq2.optim.lr_scheduler.base import AbstractLRScheduler, _get_per_param_group
+from fairseq2.optim.lr_scheduler.handler import LRSchedulerHandler
+from fairseq2.optim.lr_scheduler.lr_scheduler import (
+    AbstractLRScheduler,
+    LRScheduler,
+    get_per_param_group,
+)
+from fairseq2.typing import safe_cast
 
 
 @final
@@ -72,10 +79,10 @@ class TriStageLR(AbstractLRScheduler):
 
         self._num_steps = num_steps
 
-        self._start_lr_scales = _get_per_param_group(
+        self._start_lr_scales = get_per_param_group(
             optimizer, "start_lr", start_lr_scale
         )
-        self._final_lr_scales = _get_per_param_group(
+        self._final_lr_scales = get_per_param_group(
             optimizer, "final_lr", final_lr_scale
         )
 
@@ -122,3 +129,48 @@ class TriStageLR(AbstractLRScheduler):
             return [b * math.exp(math.log(f) * c) for b, f in zip(base_lrs, self._final_lr_scales)]  # fmt: skip
 
         return list(self._final_lrs)
+
+
+TRI_STAGE_LR: Final = "tri-stage"
+
+
+@dataclass(kw_only=True)
+class TriStageLRConfig:
+    stage_ratio: tuple[float, float, float] = (0.0, 0.0, 1.0)
+    """The ratios of warmup, hold, and decay stages. Must add up to 1."""
+
+    start_lr_scale: float = 0.01
+    """The scale of the initial warm-up learning rate."""
+
+    final_lr_scale: float = 0.01
+    """The scale of the final learning rate."""
+
+
+@final
+class TriStageLRHandler(LRSchedulerHandler):
+    @override
+    def create(
+        self, optimizer: Optimizer, config: object, num_steps: int | None
+    ) -> LRScheduler:
+        config = safe_cast("config", config, TriStageLRConfig)
+
+        if num_steps is None:
+            raise ValueError("`num_steps` must specified.")
+
+        return TriStageLR(
+            optimizer,
+            num_steps,
+            config.stage_ratio,
+            start_lr_scale=config.start_lr_scale,
+            final_lr_scale=config.final_lr_scale,
+        )
+
+    @property
+    @override
+    def requires_num_steps(self) -> bool:
+        return False
+
+    @property
+    @override
+    def config_kls(self) -> type:
+        return TriStageLRConfig
