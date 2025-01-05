@@ -19,7 +19,7 @@ from fairseq2.setup.generation import (
     _register_seq2seq_generators,
     _register_seq_generators,
 )
-from fairseq2.setup.optim import _register_optimizers
+from fairseq2.setup.optim import _register_lr_schedulers, _register_optimizers
 from fairseq2.setup.text_tokenizers import _register_text_tokenizers
 
 _setup_called: bool = False
@@ -63,6 +63,7 @@ def setup_runtime_context() -> RuntimeContext:
     _register_chatbots(context)
     _register_clusters(context)
     _register_config_sections(context)
+    _register_lr_schedulers(context)
     _register_optimizers(context)
     _register_samplers(context)
     _register_seq2seq_generators(context)

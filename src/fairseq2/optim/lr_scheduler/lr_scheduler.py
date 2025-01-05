@@ -18,11 +18,6 @@ from typing_extensions import override
 LRScheduler: TypeAlias = _LRScheduler
 
 
-def get_effective_lr(scheduler: LRScheduler) -> float:
-    """Return the effective learning rate computed by ``scheduler``."""
-    return scheduler.get_last_lr()[0]
-
-
 class AbstractLRScheduler(ABC, LRScheduler):
     """Provides a skeletal implementation of :class:`LRScheduler`."""
 
@@ -53,7 +48,7 @@ class NoopLR(AbstractLRScheduler):
         return self.base_lrs
 
 
-def _get_per_param_group(
+def get_per_param_group(
     optimizer: Optimizer, name: str, value: float | Sequence[float]
 ) -> Sequence[float]:
     num_param_groups = len(optimizer.param_groups)
@@ -67,3 +62,8 @@ def _get_per_param_group(
         )
 
     return value
+
+
+def get_effective_lr(scheduler: LRScheduler) -> float:
+    """Return the effective learning rate computed by ``scheduler``."""
+    return scheduler.get_last_lr()[0]

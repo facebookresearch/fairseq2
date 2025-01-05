@@ -6,12 +6,15 @@
 
 from __future__ import annotations
 
-from typing import final
+from dataclasses import dataclass
+from typing import Final, final
 
 from torch.optim import Optimizer
 from typing_extensions import override
 
-from fairseq2.optim.lr_scheduler.base import AbstractLRScheduler
+from fairseq2.optim.lr_scheduler.handler import LRSchedulerHandler
+from fairseq2.optim.lr_scheduler.lr_scheduler import AbstractLRScheduler, LRScheduler
+from fairseq2.typing import safe_cast
 
 
 @final
@@ -72,3 +75,33 @@ class NoamLR(AbstractLRScheduler):
             c = self.last_epoch**-0.5
 
         return [b * c for b in self.base_lrs]
+
+
+NOAM_LR: Final = "noam"
+
+
+@dataclass(kw_only=True)
+class NoamLRConfig:
+    num_warmup_steps: int = 0
+    """The number of warmup steps."""
+
+
+@final
+class NoamLRHandler(LRSchedulerHandler):
+    @override
+    def create(
+        self, optimizer: Optimizer, config: object, num_steps: int | None
+    ) -> LRScheduler:
+        config = safe_cast("config", config, NoamLRConfig)
+
+        return NoamLR(optimizer, config.num_warmup_steps)
+
+    @property
+    @override
+    def requires_num_steps(self) -> bool:
+        return False
+
+    @property
+    @override
+    def config_kls(self) -> type:
+        return NoamLRConfig
