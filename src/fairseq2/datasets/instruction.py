@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final, cast, final
 
@@ -26,8 +27,13 @@ from fairseq2.data import (
     read_sequence,
 )
 from fairseq2.data.text import TextTokenizer
-from fairseq2.datasets.batching import Batching, LengthBatching, StaticBatching
-from fairseq2.datasets.data_reader import DataPipelineReader, DataReader, SyncMode
+from fairseq2.datasets.config import (
+    Batching,
+    DataReadOptions,
+    LengthBatching,
+    StaticBatching,
+)
+from fairseq2.datasets.data_reader import DataPipelineReader, DataReader
 from fairseq2.datasets.error import DatasetError, SplitNotFoundError
 from fairseq2.datasets.static import load_dataset
 from fairseq2.datasets.utils import _load_files_and_weights
@@ -46,21 +52,10 @@ class InstructionDataset(ABC):
         split: str,
         tokenizer: TextTokenizer,
         gang: Gang,
+        min_seq_len: int,
         max_seq_len: int,
         batching: Batching,
-        *,
-        sample: bool = False,
-        example_shuffle_window: int = 1,
-        batch_shuffle_window: int = 1,
-        drop_remainder: bool = False,
-        sync_batches: bool = True,
-        sync_mode: SyncMode = "until_first",
-        max_num_batches: int | None = None,
-        num_accumulate: int = 1,
-        num_prefetch: int = 1,
-        source_encode_mode: str = "prompt",
-        target_encode_mode: str = "prompt_response",
-        seed: int = 2,
+        options: InstructionReadOptions | None = None,
     ) -> DataReader[SequenceBatch]:
         """Create a dataset reader.
 
@@ -70,49 +65,16 @@ class InstructionDataset(ABC):
             The tokenizer to encode text.
         :param gang:
             The gang over which to shard the dataset.
+        :param min_seq_len:
+            The minimum sequence length of each example. Examples shorter than
+            this value will be dropped.
         :param max_seq_len:
             The maximum sequence length of each example. Examples longer than
             this value will be dropped.
         :param batching:
             The batching strategy for returned examples.
-        :param sample:
-            If ``True``, instruction sources (e.g. files) will be sampled in
-            proportion to their weights.
-        :param example_shuffle_window:
-            The size of the sliding window for shuffling examples. If ``1``, no
-            shuffling is performed; if ``0``, true shuffling is performed by
-            loading the entire dataset.
-        :param batch_shuffle_window:
-            The size of the sliding window for shuffling batches. If ``1``, no
-            shuffling is performed; if ``0``, true shuffling is performed by
-            loading the entire dataset.
-        :param drop_remainder:
-            If ``True``, drops the last set of batches if they have in total
-            fewer examples than requested.
-        :param sync_batches:
-            If ``True``, ensures that each process in ``gang`` reads the same
-            number of batches. Typically used when the amount of data to be read
-            can vary per process (e.g. due to unbalanced sharding or non-static
-            batching) and it is critical for each process to iterate over the
-            same number of batches (e.g. during training).
-        :param sync_mode:
-            If ``until_first``, stops iteration when the first rank reaches end
-            of data. If ``until_last``, stops iteration when the last rank
-            reaches end of data; ranks that have already reached their end of
-            data will return an empty list of batches.
-        :param max_num_batches:
-            The maximum number of batches to return.
-        :param num_accumulate:
-            The number of batches to accumulate in each iteration. Typically
-            used with gradient accumulation during training.
-        :param num_prefetch:
-            The number of batches to prefetch in background.
-        :param source_encode_mode:
-            The mode to encode the source text.
-        :param target_encode_mode:
-            The mode to encode the target text.
-        :param seed:
-            The seed to initialize the random number generators used internally.
+        :param options:
+            The read options.
         """
 
     @abstractmethod
@@ -121,14 +83,10 @@ class InstructionDataset(ABC):
         split: str,
         tokenizer: TextTokenizer,
         gang: Gang,
+        min_seq_len: int,
         max_seq_len: int,
         batching: StaticBatching,
-        *,
-        drop_remainder: bool = False,
-        sync_batches: bool = True,
-        sync_mode: SyncMode = "until_first",
-        num_prefetch: int = 1,
-        source_encode_mode: str = "prompt",
+        options: InstructionPromptReadOptions | None = None,
     ) -> DataPipelineReader[SequenceBatch]:
         """Create a dataset reader for evaluation.
 
@@ -143,24 +101,34 @@ class InstructionDataset(ABC):
             this value will be dropped.
         :param batching:
             The batching strategy for returned examples.
-        :param drop_remainder:
-            If ``True``, drops the last batch if it has fewer examples than
-            requested.
-        :param sync_batches:
-            If ``True``, ensures that each process in ``gang`` reads the same
-            number of batches. Typically used when the amount of data to be read
-            can vary per process (e.g. due to unbalanced sharding or non-static
-            batching) and it is critical for each process to iterate over the
-            same number of batches (e.g. during training).
-        :param num_prefetch:
-            The number of batches to prefetch in background.
-        :param source_encode_mode:
-            The mode to encode the source text.
+        :param options:
+            The read options.
         """
 
     @abstractmethod
     def splits(self) -> set[str]:
         """Return the set of splits."""
+
+
+@dataclass
+class InstructionReadOptions(DataReadOptions):
+    sample: bool = False
+    """
+    If ``True``, instruction sources (e.g. JSONL files) will be sampled in
+    proportion to their weights.
+    """
+
+    source_encode_mode: str = "prompt"
+    """The tokenizer mode to encode the source text."""
+
+    target_encode_mode: str = "prompt_response"
+    """The tokenizer mode to encode the target text."""
+
+
+@dataclass
+class InstructionPromptReadOptions(DataReadOptions):
+    source_encode_mode: str = "prompt"
+    """The tokenizer mode to encode the source text."""
 
 
 # TODO: FIX, INFER
@@ -230,25 +198,19 @@ class GenericInstructionDataset(InstructionDataset):
         split: str,
         tokenizer: TextTokenizer,
         gang: Gang,
+        min_seq_len: int,
         max_seq_len: int,
         batching: Batching,
-        *,
-        sample: bool = False,
-        example_shuffle_window: int = 1,
-        batch_shuffle_window: int = 1,
-        drop_remainder: bool = False,
-        sync_batches: bool = True,
-        sync_mode: SyncMode = "until_first",
-        max_num_batches: int | None = None,
-        num_accumulate: int = 1,
-        num_prefetch: int = 1,
-        source_encode_mode: str = "prompt",
-        target_encode_mode: str = "prompt_response",
-        seed: int = 2,
+        options: InstructionReadOptions | None = None,
     ) -> DataPipelineReader[SequenceBatch]:
         files_weights = self._splits.get(split)
         if files_weights is None:
             raise SplitNotFoundError(self._name, split, self._splits.keys())
+
+        if options is None:
+            options = InstructionReadOptions()
+
+        seed = options.seed
 
         files, weights = files_weights
 
@@ -262,7 +224,7 @@ class GenericInstructionDataset(InstructionDataset):
 
                 pipelines.append(pipeline)
 
-            if sample:
+            if options.sample:
                 builder = DataPipeline.sample(pipelines, weights=weights, seed=seed)
 
                 seed += 1
@@ -270,8 +232,8 @@ class GenericInstructionDataset(InstructionDataset):
                 builder = DataPipeline.concat(pipelines)
 
         # Shuffle files. Must be consistent across all processes.
-        if example_shuffle_window != 1:
-            builder.shuffle(shuffle_window=0, seed=seed)
+        if options.example_shuffle_window != 1:
+            builder.shuffle(options.example_shuffle_window, seed=seed)
 
         seed += 1
 
@@ -281,8 +243,8 @@ class GenericInstructionDataset(InstructionDataset):
         seed += gang.rank
 
         # Encode source and target texts.
-        source_encoder = tokenizer.create_encoder(mode=source_encode_mode)
-        target_encoder = tokenizer.create_encoder(mode=target_encode_mode)
+        source_encoder = tokenizer.create_encoder(mode=options.source_encode_mode)
+        target_encoder = tokenizer.create_encoder(mode=options.target_encode_mode)
 
         builder.map(source_encoder, selector="src", num_parallel_calls=npc)
         builder.map(target_encoder, selector="tgt", num_parallel_calls=npc)
@@ -303,31 +265,36 @@ class GenericInstructionDataset(InstructionDataset):
 
         if isinstance(batching, LengthBatching):
             bucket_sizes = create_bucket_sizes(
-                max_seq_len=max_seq_len, max_num_elements=batching.max_num_elements
+                min_seq_len=min_seq_len,
+                max_seq_len=max_seq_len,
+                max_num_elements=batching.max_num_elements,
             )
 
             # Bucket by the sequence length.
             builder.bucket_by_length(
                 bucket_sizes,
                 selector="indices",
+                min_data_len=min_seq_len,
                 skip_above_max_examples=True,
-                drop_remainder=drop_remainder,
+                drop_remainder=options.drop_remainder,
             )
         elif isinstance(batching, StaticBatching):
             # Filter out long examples.
             def skip(example: dict[str, Any]) -> bool:
-                return len(example["indices"]) <= max_seq_len
+                seq_len = len(example["indices"])
+
+                return seq_len >= min_seq_len and seq_len <= max_seq_len
 
             builder.filter(skip)
 
             # Bucket `batch_size` examples.
-            builder.bucket(batching.batch_size, drop_remainder=drop_remainder)
+            builder.bucket(batching.batch_size, drop_remainder=options.drop_remainder)
         else:
             raise NotSupportedError(f"`{batching}` is not supported.")
 
         # Shuffle buckets.
-        if batch_shuffle_window != 1:
-            builder.shuffle(batch_shuffle_window, seed=seed)
+        if options.batch_shuffle_window != 1:
+            builder.shuffle(options.batch_shuffle_window, seed=seed)
 
         seed += 1
 
@@ -341,11 +308,11 @@ class GenericInstructionDataset(InstructionDataset):
         builder.map(collater, num_parallel_calls=npc)
 
         # Return only the first `max_num_batches`.
-        if max_num_batches is not None:
-            builder.take(max_num_batches)
+        if options.max_num_batches is not None:
+            builder.take(options.max_num_batches)
 
         # Prefetch `num_prefetch` batches in background.
-        builder.prefetch(num_prefetch)
+        builder.prefetch(options.num_prefetch)
 
         # Wrap examples with `SequenceBatch`.
         def to_batch(example: dict[str, Any]) -> SequenceBatch:
@@ -363,10 +330,10 @@ class GenericInstructionDataset(InstructionDataset):
             self._name,
             pipeline,
             gang,
-            num_accumulate=num_accumulate,
-            drop_remainder=drop_remainder,
-            sync_batches=sync_batches,
-            sync_mode=sync_mode,
+            num_accumulate=options.num_accumulate,
+            drop_remainder=options.drop_remainder,
+            sync_batches=options.sync_batches,
+            sync_mode=options.sync_mode,
         )
 
     @override
@@ -375,19 +342,18 @@ class GenericInstructionDataset(InstructionDataset):
         split: str,
         tokenizer: TextTokenizer,
         gang: Gang,
+        min_seq_len: int,
         max_seq_len: int,
         batching: StaticBatching,
-        *,
-        drop_remainder: bool = False,
-        sync_batches: bool = True,
-        sync_mode: SyncMode = "until_first",
-        num_prefetch: int = 1,
-        source_encode_mode: str = "prompt",
+        options: InstructionPromptReadOptions | None = None,
     ) -> DataPipelineReader[SequenceBatch]:
         try:
             files, weights = self._splits[split]
         except KeyError:
             raise SplitNotFoundError(self._name, split, self._splits.keys()) from None
+
+        if options is None:
+            options = InstructionPromptReadOptions()
 
         if len(files) == 1:
             builder = self._read_jsonl(files[0], tokenizer)
@@ -405,7 +371,7 @@ class GenericInstructionDataset(InstructionDataset):
         builder.shard(gang.rank, gang.size, allow_uneven=True)
 
         # Encode source texts.
-        text_encoder = tokenizer.create_encoder(mode=source_encode_mode)
+        text_encoder = tokenizer.create_encoder(mode=options.source_encode_mode)
 
         def encode(example: dict[str, Any]) -> dict[str, Any]:
             id_ = example.get("id")
@@ -420,12 +386,14 @@ class GenericInstructionDataset(InstructionDataset):
 
         # Filter out long examples.
         def skip(example: dict[str, Any]) -> bool:
-            return len(example["indices"]) <= max_seq_len
+            seq_len = len(example["indices"])
+
+            return seq_len >= min_seq_len and seq_len <= max_seq_len
 
         builder.filter(skip)
 
         # Bucket `batch_size` examples.
-        builder.bucket(batching.batch_size, drop_remainder=drop_remainder)
+        builder.bucket(batching.batch_size, drop_remainder=options.drop_remainder)
 
         # Collate bucketed examples into a batch.
         collater = Collater(pad_value=tokenizer.vocab_info.pad_idx or 0)
@@ -433,7 +401,7 @@ class GenericInstructionDataset(InstructionDataset):
         builder.map(collater, num_parallel_calls=npc)
 
         # Prefetch `num_prefetch` batches in background.
-        builder.prefetch(num_prefetch)
+        builder.prefetch(options.num_prefetch)
 
         # Wrap examples with `SequenceBatch`.
         def to_batch(example: dict[str, Any]) -> SequenceBatch:
@@ -449,9 +417,9 @@ class GenericInstructionDataset(InstructionDataset):
             self._name,
             pipeline,
             gang,
-            drop_remainder=drop_remainder,
-            sync_batches=sync_batches,
-            sync_mode=sync_mode,
+            drop_remainder=options.drop_remainder,
+            sync_batches=options.sync_batches,
+            sync_mode=options.sync_mode,
         )
 
     def _read_jsonl(self, path: Path, tokenizer: TextTokenizer) -> DataPipelineBuilder:

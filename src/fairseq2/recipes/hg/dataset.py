@@ -10,7 +10,7 @@ from collections.abc import Callable
 from typing import Any
 
 from fairseq2.data.data_pipeline import Collater, create_bucket_sizes, read_sequence
-from fairseq2.datasets.batching import Batching, LengthBatching, StaticBatching
+from fairseq2.datasets import Batching, LengthBatching, StaticBatching
 from fairseq2.datasets.data_reader import BatchT, DataPipelineReader
 from fairseq2.gang import Gang
 

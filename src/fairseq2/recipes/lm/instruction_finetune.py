@@ -23,6 +23,7 @@ from fairseq2.data.text import load_text_tokenizer
 from fairseq2.datasets import Batching, LengthBatching, StaticBatching
 from fairseq2.datasets.instruction import (
     GenericInstructionDataset,
+    InstructionReadOptions,
     load_instruction_dataset,
 )
 from fairseq2.gang import Gang
@@ -73,6 +74,9 @@ class InstructionFinetuneConfig:
 
     valid_split: str | None = None
     """The name of the valid data split."""
+
+    min_seq_len: int = 1
+    """The minimum sequence length."""
 
     max_seq_len: int = 8192
     """The maximum sequence length."""
@@ -444,12 +448,7 @@ def load_instruction_finetuner(
         else:
             batching = LengthBatching(config.max_num_tokens)
 
-        data_reader = dataset.create_reader(
-            config.train_split,
-            tokenizer,
-            dp_gang,
-            config.max_seq_len,
-            batching=batching,
+        options = InstructionReadOptions(
             example_shuffle_window=config.example_shuffle_window,
             batch_shuffle_window=config.batch_shuffle_window,
             num_accumulate=config.gradient_accumulation,
@@ -457,6 +456,16 @@ def load_instruction_finetuner(
             source_encode_mode=config.src_encode_mode,
             target_encode_mode=config.tgt_encode_mode,
             seed=seed,
+        )
+
+        data_reader = dataset.create_reader(
+            config.train_split,
+            tokenizer,
+            dp_gang,
+            config.min_seq_len,
+            config.max_seq_len,
+            batching,
+            options,
         )
     except ValueError as ex:
         raise ValueError(
@@ -494,21 +503,26 @@ def load_instruction_finetuner(
 
         max_num_tokens = config.max_num_valid_tokens or config.max_num_tokens
 
+        options = InstructionReadOptions(
+            example_shuffle_window=config.example_shuffle_window,
+            batch_shuffle_window=config.batch_shuffle_window,
+            sync_mode="until_last",
+            num_accumulate=config.gradient_accumulation,
+            num_prefetch=config.num_prefetch,
+            source_encode_mode=config.src_encode_mode,
+            target_encode_mode=config.tgt_encode_mode,
+            seed=seed,
+        )
+
         try:
             valid_data_reader = dataset.create_reader(
                 config.valid_split,
                 tokenizer,
                 dp_gang,
+                config.min_seq_len,
                 config.max_seq_len,
-                batching=LengthBatching(max_num_tokens),
-                example_shuffle_window=config.example_shuffle_window,
-                batch_shuffle_window=config.batch_shuffle_window,
-                sync_mode="until_last",
-                num_accumulate=config.gradient_accumulation,
-                num_prefetch=config.num_prefetch,
-                source_encode_mode=config.src_encode_mode,
-                target_encode_mode=config.tgt_encode_mode,
-                seed=seed,
+                LengthBatching(max_num_tokens),
+                options,
             )
         except ValueError as ex:
             raise ValueError(

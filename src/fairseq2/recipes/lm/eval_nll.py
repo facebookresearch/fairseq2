@@ -15,9 +15,10 @@ import torch
 from fairseq2.assets import AssetNotFoundError
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_text_tokenizer
-from fairseq2.datasets.batching import LengthBatching
+from fairseq2.datasets import LengthBatching
 from fairseq2.datasets.instruction import (
     GenericInstructionDataset,
+    InstructionReadOptions,
     load_instruction_dataset,
 )
 from fairseq2.logging import get_log_writer
@@ -84,6 +85,9 @@ class NLLEvalConfig:
 
     max_num_tokens: int = 8192 * 2
     """The maximum number of tokens per batch."""
+
+    min_seq_len: int = 1
+    """The minimum sequence length."""
 
     max_seq_len: int = 8192
     """The maximum sequence length."""
@@ -208,18 +212,23 @@ def load_nll_evaluator(
     criterion = InstructionFinetuneCriterion(dp_model)
     unit = InstructionValidUnit(criterion, dp_gang)
 
-    data_reader = dataset.create_reader(
-        config.valid_split,
-        tokenizer,
-        dp_gang,
-        config.max_seq_len,
-        batching=LengthBatching(config.max_num_tokens),
+    options = InstructionReadOptions(
         example_shuffle_window=config.example_shuffle_window,
         batch_shuffle_window=config.batch_shuffle_window,
         sync_mode="until_last",
         num_accumulate=1,
         num_prefetch=config.num_prefetch,
         seed=seed,
+    )
+
+    data_reader = dataset.create_reader(
+        config.valid_split,
+        tokenizer,
+        dp_gang,
+        config.min_seq_len,
+        config.max_seq_len,
+        LengthBatching(config.max_num_tokens),
+        options=options,
     )
 
     # TODO: Fix once we support static mixed precision on one device.

@@ -21,6 +21,7 @@ from fairseq2.datasets import LengthBatching, StaticBatching
 from fairseq2.datasets.parallel_text import (
     Direction,
     GenericParallelTextDataset,
+    ParallelTextReadOptions,
     load_parallel_text_dataset,
 )
 from fairseq2.gang import Gang
@@ -61,6 +62,9 @@ class MTEvalConfig:
 
     split: str = "test"
     """The name of the test data split."""
+
+    min_seq_len: int = 1
+    """The maximum sequence length."""
 
     max_seq_len: int = 512
     """The maximum sequence length."""
@@ -211,17 +215,22 @@ def load_mt_evaluator(
 
         units.append(loss_unit)
 
+        options = ParallelTextReadOptions(
+            direction=direction,
+            sync_mode="until_last",
+            num_prefetch=config.num_prefetch,
+            seed=seed,
+        )
+
         try:
             data_reader = dataset.create_reader(
                 config.split,
                 tokenizer,
                 gang,
+                config.min_seq_len,
                 config.max_seq_len,
-                batching=LengthBatching(config.max_num_tokens),
-                direction=direction,
-                sync_mode="until_last",
-                num_prefetch=config.num_prefetch,
-                seed=seed,
+                LengthBatching(config.max_num_tokens),
+                options,
             )
         except ValueError as ex:
             raise ValueError(
@@ -285,17 +294,22 @@ def load_mt_evaluator(
 
         units.append(score_unit)
 
+        options = ParallelTextReadOptions(
+            direction=direction,
+            sync_mode="until_last",
+            num_prefetch=config.num_prefetch,
+            seed=seed,
+        )
+
         try:
             data_reader = dataset.create_reader(
                 config.split,
                 tokenizer,
                 gang,
+                config.min_seq_len,
                 config.max_seq_len,
-                batching=StaticBatching(config.generator_batch_size),
-                direction=direction,
-                sync_mode="until_last",
-                num_prefetch=config.num_prefetch,
-                seed=seed,
+                StaticBatching(config.generator_batch_size),
+                options,
             )
         except ValueError as ex:
             raise ValueError(

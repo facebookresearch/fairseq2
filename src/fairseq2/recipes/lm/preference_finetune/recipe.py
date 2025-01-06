@@ -21,6 +21,7 @@ from fairseq2.datasets import Batching, LengthBatching, StaticBatching
 from fairseq2.datasets.preference import (
     GenericPreferenceOptimizationDataset,
     PreferenceOptimizationBatch,
+    PreferenceReadOptions,
     load_preference_optimization_dataset,
 )
 from fairseq2.logging import get_log_writer
@@ -54,6 +55,10 @@ class PreferenceFinetuneConfig:
     # Data
     dataset: AssetReference = "gsm8k_dpo_data"  # TODO: change!
     """The name, path, or path to the asset card of the preference optimization dataset."""
+
+    min_seq_len: int = 1
+    """The minimum sum of ``src + tgt_chosen`` and ``src + tgt_rejected``.
+    Shorter sequences will be dropped."""
 
     max_seq_len: int = 8192
     """The maximum sum of ``src + tgt_chosen`` and ``src + tgt_rejected``.
@@ -400,20 +405,25 @@ def load_preference_finetuner(
     else:
         batching = LengthBatching(config.max_num_tokens)
 
+    options = PreferenceReadOptions(
+        example_shuffle_window=config.example_shuffle_window,
+        batch_shuffle_window=config.batch_shuffle_window,
+        num_accumulate=config.gradient_accumulation,
+        num_prefetch=config.num_prefetch,
+        mask_source_tokens=config.mask_source_tokens,
+        source_encode_mode=config.src_encode_mode,
+        target_encode_mode=config.tgt_encode_mode,
+        seed=config.seed,
+    )
+
     try:
         data_reader = dataset.create_reader(
             tokenizer,
             dp_gang,
-            max_seq_len=config.max_seq_len,
-            batching=batching,
-            example_shuffle_window=config.example_shuffle_window,
-            batch_shuffle_window=config.batch_shuffle_window,
-            num_accumulate=config.gradient_accumulation,
-            num_prefetch=config.num_prefetch,
-            mask_source_tokens=config.mask_source_tokens,
-            source_encode_mode=config.src_encode_mode,
-            target_encode_mode=config.tgt_encode_mode,
-            seed=config.seed,
+            config.min_seq_len,
+            config.max_seq_len,
+            batching,
+            options,
         )
     except ValueError as ex:
         raise ValueError(
