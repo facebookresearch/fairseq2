@@ -106,15 +106,13 @@ class LLaMA3Chatbot(AbstractChatbot):
     """Represents a LLaMA 3 chatbot."""
 
     _bos_idx: Tensor
+    _eos_idx: Tensor
     _boh_idx: Tensor
     _eoh_idx: Tensor
-    _eot_idx: Tensor
     _text_encoder: TextTokenEncoder
     _break: Tensor
 
-    def __init__(
-        self, generator: SequenceGenerator, tokenizer: LLaMA3Tokenizer
-    ) -> None:
+    def __init__(self, generator: SequenceGenerator, tokenizer: TextTokenizer) -> None:
         """
         :param generator:
             The sequence generator.
@@ -123,6 +121,16 @@ class LLaMA3Chatbot(AbstractChatbot):
         """
         super().__init__(generator, tokenizer)
 
+        bos_idx = tokenizer.vocab_info.bos_idx
+        eos_idx = tokenizer.vocab_info.eos_idx
+        boh_idx = tokenizer.vocab_info.boh_idx
+        eoh_idx = tokenizer.vocab_info.eoh_idx
+
+        if bos_idx is None or eos_idx is None or boh_idx is None or eoh_idx is None:
+            raise ValueError(
+                "`tokenizer` must have BOS, EOS, BOH, EOH symbols defined."
+            )
+
         try:
             device = infer_device(generator.model)
         except ValueError as ex:
@@ -130,20 +138,10 @@ class LLaMA3Chatbot(AbstractChatbot):
                 "The device of `generator.model` is not valid. See the nested exception for details."
             ) from ex
 
-        try:
-            bos_idx = tokenizer.encoding.encode_single_token("<|begin_of_text|>")
-            boh_idx = tokenizer.encoding.encode_single_token("<|start_header_id|>")
-            eoh_idx = tokenizer.encoding.encode_single_token("<|end_header_id|>")
-            eot_idx = tokenizer.encoding.encode_single_token("<|eot_id|>")
-        except KeyError:
-            raise ValueError(
-                "`tokenizer` must have BOS, BOH, EOH, and EOT symbols defined."
-            )
-
         self._bos_idx = torch.tensor([bos_idx], device=device)
+        self._eos_idx = torch.tensor([eos_idx], device=device)
         self._boh_idx = torch.tensor([boh_idx], device=device)
         self._eoh_idx = torch.tensor([eoh_idx], device=device)
-        self._eot_idx = torch.tensor([eot_idx], device=device)
 
         self._text_encoder = tokenizer.create_raw_encoder(device=device)
 
@@ -171,7 +169,7 @@ class LLaMA3Chatbot(AbstractChatbot):
         def encode_content(content: str) -> None:
             seq = self._text_encoder(content.strip())
 
-            dialog_contents.extend([seq, self._eot_idx])
+            dialog_contents.extend([seq, self._eos_idx])
 
         if dialog[0].role == "system":
             encode_role("system")
