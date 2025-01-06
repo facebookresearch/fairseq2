@@ -21,6 +21,7 @@ from fairseq2.data.text import TextTokenDecoder, TextTokenizer, load_text_tokeni
 from fairseq2.datasets import StaticBatching
 from fairseq2.datasets.instruction import (
     GenericInstructionDataset,
+    InstructionPromptReadOptions,
     load_instruction_dataset,
 )
 from fairseq2.gang import Gang
@@ -55,6 +56,9 @@ class TextGenerateConfig:
 
     split: str = "default"
     """The name of the data split."""
+
+    min_seq_len: int = 1
+    """The minimum sequence length."""
 
     max_seq_len: int = 8192
     """The maximum sequence length."""
@@ -279,15 +283,19 @@ def load_text_generator(
         json_output_stream=json_output_fp,
     )
 
+    options = InstructionPromptReadOptions(
+        sync_mode="until_last", num_prefetch=config.num_prefetch
+    )
+
     try:
         data_reader = dataset.create_prompt_reader(
             config.split,
             tokenizer,
             dp_gang,
+            config.min_seq_len,
             config.max_seq_len,
-            batching=StaticBatching(config.batch_size),
-            sync_mode="until_last",
-            num_prefetch=config.num_prefetch,
+            StaticBatching(config.batch_size),
+            options,
         )
     except ValueError as ex:
         raise ValueError(

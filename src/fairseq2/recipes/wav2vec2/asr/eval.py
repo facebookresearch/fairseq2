@@ -18,7 +18,7 @@ from fairseq2.checkpoint import CheckpointModelMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_text_tokenizer
 from fairseq2.datasets import LengthBatching
-from fairseq2.datasets.asr import GenericAsrDataset, load_asr_dataset
+from fairseq2.datasets.asr import AsrReadOptions, GenericAsrDataset, load_asr_dataset
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.models import load_model
@@ -206,19 +206,23 @@ def load_wav2vec2_asr_evaluator(
 
     seed = config.seed
 
+    options = AsrReadOptions(
+        dtype=config.dtype,
+        normalize_audio=config.normalize_audio,
+        sync_mode="until_last",
+        num_prefetch=config.num_prefetch,
+        seed=seed,
+    )
+
     try:
         data_reader = dataset.create_reader(
             config.split,
             tokenizer,
             gang,
-            batching=LengthBatching(config.max_num_elements),
-            dtype=config.dtype,
-            min_audio_len=config.min_audio_len,
-            max_audio_len=config.max_audio_len,
-            normalize_audio=config.normalize_audio,
-            sync_mode="until_last",
-            num_prefetch=config.num_prefetch,
-            seed=seed,
+            config.min_audio_len,
+            config.max_audio_len,
+            LengthBatching(config.max_num_elements),
+            options,
         )
     except ValueError as ex:
         raise ValueError(

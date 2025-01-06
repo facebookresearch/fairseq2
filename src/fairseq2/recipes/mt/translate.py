@@ -18,7 +18,11 @@ from fairseq2.checkpoint import CheckpointModelMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import TextTokenizer, load_text_tokenizer
 from fairseq2.datasets import StaticBatching
-from fairseq2.datasets.text import GenericTextDataset, load_text_dataset
+from fairseq2.datasets.text import (
+    GenericTextDataset,
+    TextReadOptions,
+    load_text_dataset,
+)
 from fairseq2.gang import Gang
 from fairseq2.generation import (
     BeamSearchConfig,
@@ -58,6 +62,9 @@ class TextTranslateConfig:
 
     target_lang: str = "deu_Latn"
     """The code of the language to translate to."""
+
+    min_seq_len: int = 1
+    """The minimum sequence length."""
 
     max_seq_len: int = 512
     """The maximum sequence length."""
@@ -225,16 +232,19 @@ def load_text_translator(
 
     seed = config.seed
 
+    options = TextReadOptions(
+        sync_mode="until_last", num_prefetch=config.num_prefetch, seed=seed
+    )
+
     try:
         data_reader = dataset.create_reader(
             text_encoder,
             tokenizer.vocab_info.pad_idx,
             gang,
+            config.min_seq_len,
             config.max_seq_len,
-            batching=StaticBatching(config.batch_size),
-            sync_mode="until_last",
-            num_prefetch=config.num_prefetch,
-            seed=seed,
+            StaticBatching(config.batch_size),
+            options,
         )
     except ValueError as ex:
         raise ValueError(

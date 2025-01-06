@@ -16,8 +16,12 @@ from typing_extensions import override
 from fairseq2.assets import AssetNotFoundError, default_asset_store
 from fairseq2.checkpoint import CheckpointModelMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
-from fairseq2.datasets.batching import LengthBatching
-from fairseq2.datasets.speech import GenericSpeechDataset, load_speech_dataset
+from fairseq2.datasets import LengthBatching
+from fairseq2.datasets.speech import (
+    GenericSpeechDataset,
+    SpeechReadOptions,
+    load_speech_dataset,
+)
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.models import load_model
@@ -175,18 +179,22 @@ def load_wav2vec2_evaluator(
 
     seed = config.seed
 
+    options = SpeechReadOptions(
+        dtype=config.dtype,
+        normalize_audio=config.normalize_audio,
+        sync_mode="until_last",
+        num_prefetch=config.num_prefetch,
+        seed=seed,
+    )
+
     try:
         data_reader = dataset.create_reader(
             config.split,
             gang,
+            config.min_audio_len,
             config.max_audio_len,
-            batching=LengthBatching(config.max_num_elements),
-            dtype=config.dtype,
-            min_audio_len=config.min_audio_len,
-            normalize_audio=config.normalize_audio,
-            sync_mode="until_last",
-            num_prefetch=config.num_prefetch,
-            seed=seed,
+            LengthBatching(config.max_num_elements),
+            options,
         )
     except ValueError as ex:
         raise ValueError(

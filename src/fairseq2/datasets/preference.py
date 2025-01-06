@@ -27,7 +27,12 @@ from fairseq2.data import (
     read_sequence,
 )
 from fairseq2.data.text import TextTokenizer
-from fairseq2.datasets.batching import Batching, LengthBatching, StaticBatching
+from fairseq2.datasets.config import (
+    Batching,
+    DataReadOptions,
+    LengthBatching,
+    StaticBatching,
+)
 from fairseq2.datasets.data_reader import DataPipelineReader
 from fairseq2.datasets.static import load_dataset
 from fairseq2.datasets.utils import _load_files_and_weights
@@ -53,21 +58,10 @@ class PreferenceOptimizationDataset(ABC):
         self,
         tokenizer: TextTokenizer,
         gang: Gang,
+        min_seq_len: int,
         max_seq_len: int,
         batching: Batching,
-        *,
-        sample: bool = False,
-        example_shuffle_window: int = 1,
-        batch_shuffle_window: int = 1,
-        drop_remainder: bool = False,
-        sync_batches: bool = True,
-        max_num_batches: int | None = None,
-        num_accumulate: int = 1,
-        num_prefetch: int = 1,
-        mask_source_tokens: bool = True,
-        source_encode_mode: str = "prompt",
-        target_encode_mode: str = "prompt_response",
-        seed: int = 2,
+        options: PreferenceReadOptions | None = None,
     ) -> DataPipelineReader[PreferenceOptimizationBatch]:
         """Create a dataset reader.
 
@@ -75,47 +69,38 @@ class PreferenceOptimizationDataset(ABC):
             The tokenizer to encode text.
         :param gang:
             The gang over which to shard the dataset.
+        :param min_seq_len:
+            The minimum sequence length of each example. Examples shorter than
+            this value will be dropped.
         :param max_seq_len:
             The maximum sequence length of each example. Examples longer than
             this value will be dropped.
         :param batching:
             The batching strategy for returned examples.
-        :param sample:
-            If ``True``, instruction sources (e.g. files) will be sampled in
-            proportion to their weights.
-        :param example_shuffle_window:
-            The size of the sliding window for shuffling examples. If ``1``, no
-            shuffling is performed; if ``0``, true shuffling is performed by
-            loading the entire dataset.
-        :param batch_shuffle_window:
-            The size of the sliding window for shuffling batches. If ``1``, no
-            shuffling is performed; if ``0``, true shuffling is performed by
-            loading the entire dataset.
-        :param drop_remainder:
-            If ``True``, drops the last set of batches if they have in total
-            fewer examples than requested.
-        :param sync_batches:
-            If ``True``, ensures that each process in ``gang`` reads the same
-            number of batches. Typically used when the amount of data to be read
-            can vary per process (e.g. due to unbalanced sharding or non-static
-            batching) and it is critical for each process to iterate over the
-            same number of batches (e.g. during training).
-        :param max_num_batches:
-            The maximum number of batches to return.
-        :param num_accumulate:
-            The number of batches to accumulate in each iteration. Typically
-            used with gradient accumulation during training.
-        :param num_prefetch:
-            The number of batches to prefetch in background.
-        :param mask_source_tokens:
-            If ``False``, calculates loss on the `src` tokens as well as the `tgt` tokens.
-        :param source_encode_mode:
-            The mode to encode the source text.
-        :param target_encode_mode:
-            The mode to encode the target text.
-        :param seed:
-            The seed to initialize the random number generators used internally.
+        :param options:
+            The read options.
         """
+
+
+@dataclass
+class PreferenceReadOptions(DataReadOptions):
+    sample: bool = False
+    """
+    If ``True``, instruction sources (e.g. JSONL files) will be sampled in
+    proportion to their weights.
+    """
+
+    mask_source_tokens: bool = True
+    """
+    If ``False``, calculates loss on the source tokens (prompt) as well as the
+    target tokens.
+    """
+
+    source_encode_mode: str = "prompt"
+    """The tokenizer mode to encode the source text."""
+
+    target_encode_mode: str = "prompt_response"
+    """The tokenizer mode to encode the target text."""
 
 
 # TODO: FIX, INFER
@@ -170,22 +155,16 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
         self,
         tokenizer: TextTokenizer,
         gang: Gang,
+        min_seq_len: int,
         max_seq_len: int,
         batching: Batching,
-        *,
-        sample: bool = False,
-        example_shuffle_window: int = 1,
-        batch_shuffle_window: int = 1,
-        drop_remainder: bool = False,
-        sync_batches: bool = True,
-        max_num_batches: int | None = None,
-        num_accumulate: int = 1,
-        num_prefetch: int = 1,
-        mask_source_tokens: bool = True,
-        source_encode_mode: str = "prompt",
-        target_encode_mode: str = "prompt_response",
-        seed: int = 2,
+        options: PreferenceReadOptions | None = None,
     ) -> DataPipelineReader[PreferenceOptimizationBatch]:
+        if options is None:
+            options = PreferenceReadOptions()
+
+        seed = options.seed
+
         if len(self._files) == 1:
             builder = self._read_jsonl(self._files[0], tokenizer)
         else:
@@ -196,7 +175,7 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
 
                 pipelines.append(pipeline)
 
-            if sample:
+            if options.sample:
                 builder = DataPipeline.sample(
                     pipelines, weights=self._weights, seed=seed
                 )
@@ -206,8 +185,8 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
                 builder = DataPipeline.concat(pipelines)
 
         # Shuffle files. Must be consistent across all processes.
-        if example_shuffle_window != 1:
-            builder.shuffle(shuffle_window=0, seed=seed)
+        if options.example_shuffle_window != 1:
+            builder.shuffle(options.example_shuffle_window, seed=seed)
 
         seed += 1
 
@@ -217,8 +196,8 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
         seed += gang.rank
 
         # Encode source and target texts.
-        source_encoder = tokenizer.create_encoder(mode=source_encode_mode)
-        target_encoder = tokenizer.create_encoder(mode=target_encode_mode)
+        source_encoder = tokenizer.create_encoder(mode=options.source_encode_mode)
+        target_encoder = tokenizer.create_encoder(mode=options.target_encode_mode)
 
         builder.map(source_encoder, selector="src", num_parallel_calls=npc)
         builder.map(target_encoder, selector="tgt_chosen", num_parallel_calls=npc)
@@ -234,7 +213,7 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
             indices_chosen = torch.cat([source_indices, target_indices_chosen])
             indices_rejected = torch.cat([source_indices, target_indices_rejected])
 
-            if mask_source_tokens:
+            if options.mask_source_tokens:
                 source_len = len(source_indices)
                 target_mask_chosen = torch.arange(len(indices_chosen)) >= source_len
                 target_mask_rejected = torch.arange(len(indices_rejected)) >= source_len
@@ -262,15 +241,18 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
 
         if isinstance(batching, LengthBatching):
             bucket_sizes = create_bucket_sizes(
-                max_seq_len=max_seq_len, max_num_elements=batching.max_num_elements
+                min_seq_len=min_seq_len,
+                max_seq_len=max_seq_len,
+                max_num_elements=batching.max_num_elements,
             )
 
             # Bucket by the sequence length.
             builder.bucket_by_length(
                 bucket_sizes,
                 selector="total_tokens",
+                min_data_len=min_seq_len,
                 skip_above_max_examples=True,
-                drop_remainder=drop_remainder,
+                drop_remainder=options.drop_remainder,
             )
         elif isinstance(batching, StaticBatching):
             # Filter out long examples.
@@ -278,18 +260,21 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
                 chosen_len = len(example["indices_chosen"])
                 rejected_len = len(example["indices_rejected"])
 
-                return chosen_len <= max_seq_len and rejected_len <= max_seq_len
+                if chosen_len > max_seq_len or rejected_len > max_seq_len:
+                    return False
+
+                return chosen_len >= min_seq_len and rejected_len >= min_seq_len
 
             builder.filter(skip)
 
             # Bucket `batch_size` examples.
-            builder.bucket(batching.batch_size, drop_remainder=drop_remainder)
+            builder.bucket(batching.batch_size, drop_remainder=options.drop_remainder)
         else:
             raise NotSupportedError(f"`{batching}` is not supported.")
 
         # Shuffle buckets.
-        if batch_shuffle_window != 1:
-            builder.shuffle(batch_shuffle_window, seed=seed)
+        if options.batch_shuffle_window != 1:
+            builder.shuffle(options.batch_shuffle_window, seed=seed)
 
         seed += 1
 
@@ -304,11 +289,11 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
         builder.map(collater, num_parallel_calls=npc)
 
         # Return only the first `max_num_batches`.
-        if max_num_batches is not None:
-            builder.take(max_num_batches)
+        if options.max_num_batches is not None:
+            builder.take(options.max_num_batches)
 
         # Prefetch `num_prefetch` batches in background.
-        builder.prefetch(num_prefetch)
+        builder.prefetch(options.num_prefetch)
 
         # Wrap examples with `PreferenceOptimizationBatch`.
         def to_batch(example: dict[str, Any]) -> PreferenceOptimizationBatch:
@@ -347,9 +332,9 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
             self._name,
             pipeline,
             gang,
-            num_accumulate=num_accumulate,
-            drop_remainder=drop_remainder,
-            sync_batches=sync_batches,
+            num_accumulate=options.num_accumulate,
+            drop_remainder=options.drop_remainder,
+            sync_batches=options.sync_batches,
         )
 
     def _read_jsonl(self, path: Path, tokenizer: TextTokenizer) -> DataPipelineBuilder:
