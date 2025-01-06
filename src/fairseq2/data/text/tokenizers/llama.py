@@ -61,6 +61,8 @@ class LLaMA3Tokenizer(TiktokenTokenizer):
             bos_token="<|begin_of_text|>",
             eos_token=self._eos_token,
             pad_token="<|finetune_right_pad_id|>",
+            boh_token="<|start_header_id|>",
+            eoh_token="<|end_header_id|>",
             special_tokens=special_tokens,
         )
 

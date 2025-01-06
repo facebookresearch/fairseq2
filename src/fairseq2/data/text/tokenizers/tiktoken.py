@@ -40,23 +40,22 @@ class TiktokenTokenizer(AbstractTextTokenizer):
         bos_token: str | None = None,
         eos_token: str | None = None,
         pad_token: str | None = None,
+        boh_token: str | None = None,
+        eoh_token: str | None = None,
         special_tokens: Sequence[str] | None = None,
     ) -> None:
         """
-        :param path:
-            The path to the tiktoken BPE file.
-        :param split_regex:
-            The regex pattern string that is used to split the input text.
-        :param unk_token:
-            The token that represents an unknown element (UNK).
-        :param bos_token:
-            The token that represents the beginning of a sequence (BOS).
-        :param eos_token:
-            The token that represents the end of of a sequence (EOS).
-        :param pad_token:
-            The token that is used to pad a sequence (PAD).
-        :param special_tokens:
-            The extra special tokens to include in the tokenizer.
+        :param path: The path to the tiktoken BPE file.
+        :param split_regex: The regex pattern string that is used to split the
+            input text.
+        :param unk_token: The token that represents an unknown element.
+        :param bos_token: The token that represents the beginning of a sequence.
+        :param eos_token: The token that represents the end of a sequence.
+        :param pad_token: The token that is used to pad a sequence.
+        :param boh_token: The token that represents the beginning of a header.
+        :param eoh_token: The token that represents the end of a header.
+        :param special_tokens: The extra special tokens to include in the
+            tokenizer.
         """
         tokens = load_tiktoken_bpe(str(path))
 
@@ -90,6 +89,8 @@ class TiktokenTokenizer(AbstractTextTokenizer):
             bos_idx=maybe_index(bos_token),
             eos_idx=maybe_index(eos_token),
             pad_idx=maybe_index(pad_token),
+            boh_idx=maybe_index(boh_token),
+            eoh_idx=maybe_index(eoh_token),
         )
 
         super().__init__(vocab_info)
@@ -103,12 +104,6 @@ class TiktokenTokenizer(AbstractTextTokenizer):
     @override
     def create_decoder(self) -> TiktokenDecoder:
         return TiktokenDecoder(self._encoding, self._num_bpe_tokens)
-
-    @final
-    @property
-    def encoding(self) -> Encoding:
-        """The tiktoken :class:`Encoding` object."""
-        return self._encoding
 
 
 @final

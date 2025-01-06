@@ -7,10 +7,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import final
 
 
-@final
 @dataclass
 class VocabularyInfo:
     """Describes the vocabulary used by a tokenizer"""
@@ -29,3 +27,9 @@ class VocabularyInfo:
 
     pad_idx: int | None
     """The index of the symbol that is used to pad a sequence (PAD)."""
+
+    boh_idx: int | None = None
+    """The index of the symbol that represents the beginning of a header (BOH)."""
+
+    eoh_idx: int | None = None
+    """The index of the symbol that represents the end of a header (EOH)."""
