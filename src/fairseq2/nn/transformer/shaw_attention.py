@@ -16,7 +16,7 @@ from typing_extensions import override
 from fairseq2.error import InternalError
 from fairseq2.nn.embedding import StandardEmbedding
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.nn.transformer.attention import SDPA, make_default_sdpa
+from fairseq2.nn.transformer.attention import SDPA, create_default_sdpa
 from fairseq2.nn.transformer.attention_mask import AttentionMask, CustomAttentionMask
 from fairseq2.typing import DataType, Device
 
@@ -98,7 +98,7 @@ class ShawRelativePositionSDPA(SDPA):
         if inner_sdpa is not None:
             self.inner_sdpa = inner_sdpa
         else:
-            self.inner_sdpa = make_default_sdpa()
+            self.inner_sdpa = create_default_sdpa()
 
     @override
     def forward(

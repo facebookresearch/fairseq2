@@ -6,29 +6,53 @@
 
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import MutableMapping
+from typing import cast
 
-from fairseq2.models.config_loader import StandardModelConfigLoader
-from fairseq2.models.loader import StandardModelLoader, load_model
-from fairseq2.models.s2t_transformer.factory import (
-    S2T_TRANSFORMER_FAMILY,
+from torch import Tensor
+from torch.nn import Module
+from typing_extensions import override
+
+from fairseq2.models.handler import AbstractModelHandler
+from fairseq2.models.s2t_transformer.config import (
+    S2T_TRANSFORMER_MODEL_FAMILY,
     S2TTransformerConfig,
-    create_s2t_transformer_model,
-    s2t_transformer_archs,
 )
+from fairseq2.models.s2t_transformer.factory import S2TTransformerFactory
+from fairseq2.models.transformer import TransformerModel
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
+from fairseq2.typing import safe_cast
 
-load_s2t_transformer_config = StandardModelConfigLoader(
-    S2T_TRANSFORMER_FAMILY, S2TTransformerConfig, s2t_transformer_archs
-)
+
+class S2TTransformerModelHandler(AbstractModelHandler):
+    @override
+    @property
+    def family(self) -> str:
+        return S2T_TRANSFORMER_MODEL_FAMILY
+
+    @override
+    @property
+    def kls(self) -> type[Module]:
+        return TransformerModel
+
+    @override
+    def _create_model(self, config: object) -> Module:
+        config = safe_cast("config", config, S2TTransformerConfig)
+
+        return S2TTransformerFactory(config).create_model()
+
+    @override
+    def _convert_checkpoint(
+        self, checkpoint: dict[str, object], config: object
+    ) -> dict[str, object]:
+        return convert_s2t_transformer_checkpoint(checkpoint)
 
 
 def convert_s2t_transformer_checkpoint(
-    checkpoint: dict[str, Any], config: S2TTransformerConfig
-) -> dict[str, Any]:
-    """Convert a fairseq S2T Transformer checkpoint to fairseq2 format."""
+    checkpoint: dict[str, object]
+) -> dict[str, object]:
     try:
-        state_dict = checkpoint["model"]
+        state_dict = cast(MutableMapping[str, Tensor], checkpoint["model"])
     except KeyError:
         return checkpoint
 
@@ -81,13 +105,3 @@ def convert_s2t_transformer_checkpoint(
     }
 
     return convert_fairseq_checkpoint(checkpoint, key_map)
-
-
-load_s2t_transformer_model = StandardModelLoader(
-    config_loader=load_s2t_transformer_config,
-    factory=create_s2t_transformer_model,
-    checkpoint_converter=convert_s2t_transformer_checkpoint,
-    restrict_checkpoints=False,
-)
-
-load_model.register(S2T_TRANSFORMER_FAMILY, load_s2t_transformer_model)

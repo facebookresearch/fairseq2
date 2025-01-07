@@ -6,19 +6,23 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Final
-
-from fairseq2.config_registry import ConfigRegistry
-from fairseq2.data import VocabularyInfo
-from fairseq2.models.factory import model_factories
+from fairseq2.models.mistral.config import MistralConfig
 from fairseq2.models.transformer import (
-    TransformerDecoderModel,
     TransformerEmbeddingFrontend,
     TransformerFrontend,
     init_final_projection,
 )
-from fairseq2.nn import LayerNorm, Linear, RMSNorm, RotaryEncoder, StandardEmbedding
+from fairseq2.models.transformer_decoder import TransformerDecoderModel
+from fairseq2.nn import (
+    Embedding,
+    LayerNorm,
+    Linear,
+    PositionEncoder,
+    Projection,
+    RMSNorm,
+    RotaryEncoder,
+    StandardEmbedding,
+)
 from fairseq2.nn.transformer import (
     CausalAttentionMaskFactory,
     FeedForwardNetwork,
@@ -35,230 +39,131 @@ from fairseq2.nn.transformer import (
 )
 from fairseq2.typing import DataType, Device
 
-MISTRAL_FAMILY: Final = "mistral"
 
-
-@dataclass(kw_only=True)
-class MistralConfig:
-    """Holds the configuration of a Mistral model.
-
-    The default values correspond to the base architecture as described in
-    :cite:t:`https://doi.org/10.48550/arXiv.2310.06825`.
-    """
-
-    model_dim: int = 4096
-    """The dimensionality of the model."""
-
-    max_seq_len: int = 8192
-    """The maximum sequence length."""
-
-    vocab_info: VocabularyInfo = field(
-        default_factory=lambda: VocabularyInfo(
-            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
-        )
-    )
-    """The vocabulary information."""
-
-    attn_window_len: int = 4096
-    """The local attention window length."""
-
-    num_layers: int = 32
-    """The number of decoder layers."""
-
-    num_attn_heads: int = 32
-    """The number of attention heads in decoder layers."""
-
-    num_key_value_heads: int = 8
-    """The number of key/value heads for Grouped Query Attention."""
-
-    ffn_inner_dim: int = 14336
-    """The dimensionality of inner projection layers in feed-forward networks."""
-
-    dropout_p: float = 0.1
-    """The dropout probability on outputs of Transformer layers."""
-
-
-mistral_archs = ConfigRegistry[MistralConfig]()
-
-mistral_arch = mistral_archs.decorator
-
-
-class MistralBuilder:
-    """Builds modules of a Mistral model as described in
-    :cite:t:`https://doi.org/10.48550/arXiv.2310.06825`.
-
-    To tweak the architecture, you can derive from this class and override the
-    corresponding methods.
-    """
-
+class MistralFactory:
     _config: MistralConfig
-    _device: Device | None
-    _dtype: DataType | None
-    _pos_encoder: RotaryEncoder | None
 
-    def __init__(
-        self,
-        config: MistralConfig,
-        *,
-        device: Device | None = None,
-        dtype: DataType | None = None,
-    ) -> None:
-        """
-        :param config:
-            The configuration.
-        :param device:
-            The device on which to initialize modules.
-        :param dtype:
-            The data type of module parameters and buffers.
-        """
+    def __init__(self, config: MistralConfig) -> None:
         self._config = config
 
-        self._device, self._dtype = device, dtype
+    def create_model(self) -> TransformerDecoderModel:
+        config = self._config
 
-        self._pos_encoder = None
+        decoder_frontend = self.create_decoder_frontend()
 
-    def build_model(self) -> TransformerDecoderModel:
-        """Build a model."""
-        decoder_frontend = self.build_decoder_frontend()
+        decoder = self.create_decoder()
 
-        decoder = self.build_decoder()
+        final_proj = self.create_final_proj()
 
-        final_proj = Linear(
-            self._config.model_dim,
-            self._config.vocab_info.size,
-            bias=False,
-            init_fn=init_final_projection,
-            device=self._device,
-            dtype=self._dtype,
-        )
-
-        model = TransformerDecoderModel(
+        return TransformerDecoderModel(
             decoder_frontend,
             decoder,
             final_proj,
-            self._config.max_seq_len,
-            self._config.vocab_info,
+            max_seq_len=config.max_seq_len,
+            vocab_info=config.vocab_info,
         )
 
-        model.set_family(MISTRAL_FAMILY)
+    def create_decoder_frontend(self) -> TransformerFrontend:
+        config = self._config
 
-        return model
-
-    def build_decoder_frontend(self) -> TransformerFrontend:
-        """Build a Transformer decoder front-end."""
-        embed = StandardEmbedding(
-            num_embeddings=self._config.vocab_info.size,
-            embedding_dim=self._config.model_dim,
-            device=self._device,
-            dtype=self._dtype,
-        )
+        embed = self.create_embedding()
 
         return TransformerEmbeddingFrontend(
-            embed,
-            pos_encoder=None,
-            no_scale=True,  # Mistral does not use embedding scaling.
-            dropout_p=self._config.dropout_p,
-            device=self._device,
-            dtype=self._dtype,
+            embed, pos_encoder=None, no_scale=True, dropout_p=config.dropout_p
         )
 
-    def build_decoder(self) -> TransformerDecoder:
-        """Build a Transformer decoder."""
-        num_layers = self._config.num_layers
+    def create_embedding(self) -> Embedding:
+        config = self._config
 
-        layers = [self.build_decoder_layer() for _ in range(num_layers)]
+        return StandardEmbedding(
+            num_embeddings=config.vocab_info.size, embedding_dim=config.model_dim
+        )
+
+    def create_decoder(self) -> TransformerDecoder:
+        config = self._config
+
+        pos_encoder = self.create_position_encoder()
+
+        layers = []
+
+        for _ in range(config.num_layers):
+            layer = self.create_decoder_layer(pos_encoder)
+
+            layers.append(layer)
 
         self_attn_mask_factory = CausalAttentionMaskFactory(
-            attn_window_len=self._config.attn_window_len
+            attn_window_len=config.attn_window_len
         )
 
         return StandardTransformerDecoder(
             layers,
             self_attn_mask_factory=self_attn_mask_factory,
             norm_order=TransformerNormOrder.PRE,
-            layer_norm_factory=self.build_layer_norm,
-            device=self._device,
-            dtype=self._dtype,
+            layer_norm_factory=self.create_layer_norm,
         )
 
-    def build_decoder_layer(self) -> TransformerDecoderLayer:
-        """Build a Transformer decoder layer."""
-        self_attn = self.build_attention(
-            self._config.num_attn_heads, self._config.num_key_value_heads
+    def create_position_encoder(self) -> PositionEncoder:
+        config = self._config
+
+        return RotaryEncoder(
+            config.model_dim // config.num_attn_heads,
+            config.max_seq_len,
         )
 
-        ffn = self.build_ffn()
+    def create_decoder_layer(
+        self, pos_encoder: PositionEncoder
+    ) -> TransformerDecoderLayer:
+        config = self._config
+
+        self_attn = self.create_attention(pos_encoder)
+
+        ffn = self.create_ffn()
 
         return StandardTransformerDecoderLayer(
             self_attn,
             encoder_decoder_attn=None,
             ffn=ffn,
-            dropout_p=self._config.dropout_p,
+            dropout_p=config.dropout_p,
             norm_order=TransformerNormOrder.PRE,
-            layer_norm_factory=self.build_layer_norm,
-            device=self._device,
-            dtype=self._dtype,
+            layer_norm_factory=self.create_layer_norm,
         )
 
-    def build_attention(
-        self, num_heads: int, num_key_value_heads: int
-    ) -> MultiheadAttention:
-        """Build a Transformer multi-head attention layer."""
-        sdpa = create_default_sdpa(attn_dropout_p=self._config.dropout_p)
+    def create_attention(self, pos_encoder: PositionEncoder) -> MultiheadAttention:
+        config = self._config
 
-        if self._pos_encoder is None:
-            self._pos_encoder = RotaryEncoder(
-                self._config.model_dim // num_heads,
-                self._config.max_seq_len,
-                device=self._device,
-            )
+        sdpa = create_default_sdpa(attn_dropout_p=config.dropout_p)
 
-        state_factory = LocalAttentionStateFactory(self._config.attn_window_len)
+        state_factory = LocalAttentionStateFactory(config.attn_window_len)
 
         return StandardMultiheadAttention(
-            self._config.model_dim,
-            num_heads,
-            num_key_value_heads=num_key_value_heads,
+            config.model_dim,
+            config.num_attn_heads,
+            num_key_value_heads=config.num_key_value_heads,
             sdpa=sdpa,
-            pos_encoder=self._pos_encoder,
+            pos_encoder=pos_encoder,
             bias=False,
             state_factory=state_factory,
-            device=self._device,
-            dtype=self._dtype,
         )
 
-    def build_ffn(self) -> FeedForwardNetwork:
-        """Build a Transformer feed-forward network."""
+    def create_ffn(self) -> FeedForwardNetwork:
+        config = self._config
+
         return GLUFeedForwardNetwork(
-            self._config.model_dim,
-            self._config.ffn_inner_dim,
-            bias=False,
-            inner_dim_scale=1.0,
-            device=self._device,
-            dtype=self._dtype,
+            config.model_dim, config.ffn_inner_dim, bias=False, inner_dim_scale=1.0
         )
 
-    def build_layer_norm(
-        self,
-        model_dim: int,
-        *,
-        device: Device | None = None,
-        dtype: DataType | None = None,
+    def create_final_proj(self) -> Projection:
+        config = self._config
+
+        return Linear(
+            config.model_dim,
+            config.vocab_info.size,
+            bias=False,
+            init_fn=init_final_projection,
+        )
+
+    @staticmethod
+    def create_layer_norm(
+        model_dim: int, *, device: Device | None = None, dtype: DataType | None = None
     ) -> LayerNorm:
-        """Build a Layer Normalization module."""
         return RMSNorm(model_dim, bias=False, device=device, dtype=dtype)
-
-
-def create_mistral_model(
-    config: MistralConfig,
-    *,
-    device: Device | None = None,
-    dtype: DataType | None = None,
-) -> TransformerDecoderModel:
-    """Create a Mistral model."""
-    return MistralBuilder(config, device=device, dtype=dtype).build_model()
-
-
-model_factories.register(
-    MISTRAL_FAMILY, create_mistral_model, MistralConfig, mistral_archs
-)

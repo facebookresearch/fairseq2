@@ -572,13 +572,8 @@ class IdentityProjection(Projection):
     Used to disable a projection layer without changing the module architecture.
     """
 
-    def __init__(self, input_dim: int, output_dim: int) -> None:
-        if input_dim != output_dim:
-            raise ValueError(
-                f"For identity projection, `input_dim` and `output_dim` must match, but are {input_dim} and {output_dim} instead."
-            )
-
-        super().__init__(input_dim, output_dim)
+    def __init__(self, dim: int) -> None:
+        super().__init__(dim, dim)
 
     @override
     def forward(self, x: Tensor) -> Tensor:

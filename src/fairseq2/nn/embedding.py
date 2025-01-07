@@ -30,7 +30,7 @@ class Embedding(Module, ABC):
     num_embeddings: int
     embedding_dim: int
     pad_idx: int | None
-    padding_idx: int | None  # Compat
+    padding_idx: int | None  # compat
 
     def __init__(
         self, num_embeddings: int, embedding_dim: int, pad_idx: int | None = None

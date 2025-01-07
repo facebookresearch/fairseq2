@@ -7,15 +7,14 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
-from typing import Final, cast
+from typing import cast
 
 import torch
 import torch.nn as nn
 from torch import Tensor
 from torch.nn import GELU, Conv2d, Conv3d
 
-from fairseq2.config_registry import ConfigRegistry
+from fairseq2.models.jepa.config import JepaConfig, JepaEncoderConfig
 from fairseq2.models.jepa.model import JepaModel
 from fairseq2.models.transformer import TransformerFrontend
 from fairseq2.models.vit import (
@@ -47,158 +46,45 @@ from fairseq2.nn.transformer import (
 from fairseq2.nn.transformer.residual import DropPathResidualConnect
 from fairseq2.typing import DataType, Device
 
-JEPA_FAMILY: Final = "jepa"
-
-
-@dataclass(kw_only=True)
-class JepaConfig:
-    """
-    Holds the configuration of a JEPA model.
-
-    The default values correspond to the 'base' JEPA architecture.
-    """
-
-    encoder_config: JepaEncoderConfig = field(
-        default_factory=lambda: JepaEncoderConfig()
-    )
-    """The configuration of the Vision Transformer encoder."""
-
-
-@dataclass(kw_only=True)
-class JepaEncoderConfig:
-    model_dim: int = 768
-    """The dimensionality of the model."""
-
-    num_input_channels: int = 3
-    """The number of input channels per frame."""
-
-    input_dims: tuple[int, ...] = (224, 224)
-    """
-    The supported native dimensionality of inputs. Expected to be 2-dimensional
-    (height, width) for images and 3-dimensional (depth, height, width) for
-    videos.
-    """
-
-    patch_dims: tuple[int, ...] = (16, 16)
-    """The dimensionality of patches to be extracted from inputs."""
-
-    num_encoder_layers: int = 12
-    """The number of encoder layers."""
-
-    num_encoder_attn_heads: int = 12
-    """The number of attention heads in encoder layers."""
-
-    qkv_bias: bool = True
-    """
-    If ``True``, query, key, and value projections in multi-head attention
-    layers will have an additive bias.
-    """
-
-    attn_dropout_p: float = 0.0
-    """The dropout probability on attention weights."""
-
-    ffn_inner_dim_ratio: float = 4.0
-    """
-    The ratio of the dimensionality of the inner projection layers in
-    feed-forward networks to :attr:`model_dim`.
-    """
-
-    init_std: float = 0.02
-    """
-    The standard deviation to initialize weights and biases of projection and
-    normalization layers.
-    """
-
-    dropout_p: float = 0.0
-    """The dropout probability on outputs of Transformer layers."""
-
-    droppath_p: float = 0.0
-    """
-    The probability of dropping sequences from outputs of multi-head attention
-    and feed-forward network layers before adding residuals.
-    """
-
-    uniform_power: bool = False
-    """
-    If ``True``, each patch dimension will have equal representation in the
-    produced positional encodings.
-    """
-
-
-jepa_archs = ConfigRegistry[JepaConfig]()
-
-jepa_arch = jepa_archs.decorator
-
 
 # TODO(balioglu): work in progress. Supports only vision encoder.
-class JepaBuilder:
-    """Builds modules of a JEPA model."""
-
+class JepaFactory:
     _config: JepaConfig
-    _encoder_builder: JepaEncoderBuilder
-    _device: Device | None
-    _dtype: DataType | None
 
-    def __init__(
-        self,
-        config: JepaConfig,
-        encoder_builder: JepaEncoderBuilder | None = None,
-        *,
-        device: Device | None = None,
-        dtype: DataType | None = None,
-    ) -> None:
+    def __init__(self, config: JepaConfig) -> None:
         self._config = config
 
-        if encoder_builder is None:
-            encoder_builder = JepaEncoderBuilder(
-                config.encoder_config, device=device, dtype=dtype
-            )
-
-        self._encoder_builder = encoder_builder
-
-        self._device, self._dtype = device, dtype
-
-    def build_model(self) -> JepaModel:
-        encoder_frontend = self._encoder_builder.build_frontend()
-
-        encoder = self._encoder_builder.build_encoder()
+    def create_model(self) -> JepaModel:
+        encoder_frontend, encoder = self.create_encoder()
 
         return JepaModel(encoder_frontend, encoder)
 
-
-class JepaEncoderBuilder:
-    """Builds modules of a JEPA Vision Transformer encoder."""
-
-    _config: JepaEncoderConfig
-    _device: Device | None
-    _dtype: DataType | None
-
-    def __init__(
-        self,
-        config: JepaEncoderConfig,
-        *,
-        device: Device | None = None,
-        dtype: DataType | None = None,
-    ) -> None:
-        self._config = config
-
-        self._device, self._dtype = device, dtype
-
-    def build_frontend(self) -> TransformerFrontend:
+    def create_encoder(self) -> tuple[TransformerFrontend, TransformerEncoder]:
         config = self._config
 
-        if len(config.input_dims) != len(config.patch_dims):
-            raise ValueError(
-                f"The lengths of `input_dims` and `patch_dims` must match, but they are {len(config.input_dims)} and {len(config.patch_dims)} instead."
-            )
+        factory = JepaEncoderFactory(config.encoder_config)
 
-        feature_extractor = self.build_feature_extractor()
+        encoder_frontend = factory.create_encoder_frontend()
 
-        pos_encoder = self.build_position_encoder()
+        encoder = factory.create_encoder()
+
+        return encoder_frontend, encoder
+
+
+class JepaEncoderFactory:
+    _config: JepaEncoderConfig
+
+    def __init__(self, config: JepaEncoderConfig) -> None:
+        self._config = config
+
+    def create_encoder_frontend(self) -> TransformerFrontend:
+        feature_extractor = self.create_feature_extractor()
+
+        pos_encoder = self.create_position_encoder()
 
         return StandardViTFrontend(feature_extractor, pos_encoder)
 
-    def build_feature_extractor(self) -> PatchFeatureExtractor:
+    def create_feature_extractor(self) -> PatchFeatureExtractor:
         config = self._config
 
         init_std = config.init_std
@@ -209,37 +95,38 @@ class JepaEncoderBuilder:
             patch_3d_dims = cast(tuple[int, int, int], config.patch_dims)
 
             def init_conv3d(conv: Conv3d) -> None:
-                init_truncated_normal(conv.weight, conv.bias, std=init_std)
+                _init_truncated_normal(conv.weight, conv.bias, std=init_std)
 
             return Conv3dPatchFeatureExtractor(
                 config.num_input_channels,
                 config.model_dim,
                 patch_3d_dims,
                 init_fn=init_conv3d,
-                device=self._device,
-                dtype=self._dtype,
             )
         elif num_patch_dims == 2:
             patch_2d_dims = cast(tuple[int, int], config.patch_dims)
 
             def init_conv2d(conv: Conv2d) -> None:
-                init_truncated_normal(conv.weight, conv.bias, std=init_std)
+                _init_truncated_normal(conv.weight, conv.bias, std=init_std)
 
             return Conv2dPatchFeatureExtractor(
                 config.num_input_channels,
                 config.model_dim,
                 patch_2d_dims,
                 init_fn=init_conv2d,
-                device=self._device,
-                dtype=self._dtype,
             )
         else:
             raise ValueError(
-                f"The length of `patch_dims` must be 2 or 3, but is {num_patch_dims} instead."
+                f"The length of `config.patch_dims` must be 2 or 3, but is {num_patch_dims} instead."
             )
 
-    def build_position_encoder(self) -> InterpolatedPositionEncoder:
+    def create_position_encoder(self) -> InterpolatedPositionEncoder:
         config = self._config
+
+        if len(config.input_dims) != len(config.patch_dims):
+            raise ValueError(
+                f"The lengths of `config.input_dims` and `config.patch_dims` must match, but they are {len(config.input_dims)} and {len(config.patch_dims)} instead."
+            )
 
         num_input_dims = len(config.input_dims)
 
@@ -260,7 +147,6 @@ class JepaEncoderBuilder:
                 config.model_dim,
                 grid_3d_dims,
                 uniform_power=config.uniform_power,
-                device=self._device,
             )
         elif num_input_dims == 2:
             input_2d_dims = cast(tuple[int, int], config.input_dims)
@@ -271,36 +157,34 @@ class JepaEncoderBuilder:
 
             grid_2d_dims = (h_input_dim // h_patch_dim), (w_input_dim // w_patch_dim)
 
-            return Sinusoidal2dPositionEncoder(
-                config.model_dim, grid_2d_dims, device=self._device
-            )
+            return Sinusoidal2dPositionEncoder(config.model_dim, grid_2d_dims)
         else:
             raise ValueError(
-                f"The length of `input_dims` must be 2 or 3, but is {num_input_dims} instead."
+                f"The length of `config.input_dims` must be 2 or 3, but is {num_input_dims} instead."
             )
 
-    def build_encoder(self, num_layers: int | None = None) -> TransformerEncoder:
+    def create_encoder(self) -> TransformerEncoder:
         config = self._config
 
-        if num_layers is None:
-            num_layers = config.num_encoder_layers
+        layers = []
 
-        layers = [self.build_encoder_layer(i) for i in range(num_layers)]
+        for idx in range(config.num_encoder_layers):
+            layer = self.create_encoder_layer(idx)
+
+            layers.append(layer)
 
         return StandardTransformerEncoder(
             layers,
             norm_order=TransformerNormOrder.PRE,
-            layer_norm_factory=self.build_layer_norm,
-            device=self._device,
-            dtype=self._dtype,
+            layer_norm_factory=self.create_layer_norm,
         )
 
-    def build_encoder_layer(self, layer_idx: int) -> TransformerEncoderLayer:
+    def create_encoder_layer(self, idx: int) -> TransformerEncoderLayer:
         config = self._config
 
-        self_attn = self.build_attention(layer_idx)
+        self_attn = self.create_attention(idx)
 
-        ffn = self.build_ffn(layer_idx)
+        ffn = self.create_ffn(idx)
 
         drop_path = DropPathResidualConnect(drop_p=config.droppath_p)
 
@@ -309,19 +193,17 @@ class JepaEncoderBuilder:
             ffn,
             dropout_p=config.dropout_p,
             norm_order=TransformerNormOrder.PRE,
-            layer_norm_factory=self.build_layer_norm,
+            layer_norm_factory=self.create_layer_norm,
             self_attn_residual=drop_path,
             ffn_residual=drop_path,
-            device=self._device,
-            dtype=self._dtype,
         )
 
-    def build_attention(self, layer_idx: int) -> MultiheadAttention:
+    def create_attention(self, layer_idx: int) -> MultiheadAttention:
         config = self._config
 
         sdpa = create_default_sdpa(attn_dropout_p=config.attn_dropout_p)
 
-        output_proj = self.build_mha_output_projection(layer_idx)
+        output_proj = self.create_mha_output_projection(layer_idx)
 
         return StandardMultiheadAttention(
             config.model_dim,
@@ -329,37 +211,30 @@ class JepaEncoderBuilder:
             sdpa=sdpa,
             bias=config.qkv_bias,
             output_proj=output_proj,
-            device=self._device,
-            dtype=self._dtype,
         )
 
-    def build_mha_output_projection(self, layer_idx: int) -> Linear:
+    def create_mha_output_projection(self, layer_idx: int) -> Linear:
         config = self._config
 
         init_std = config.init_std
 
         def init_projection(proj: Linear) -> None:
-            init_truncated_normal(proj.weight, proj.bias, std=init_std)
+            _init_truncated_normal(proj.weight, proj.bias, std=init_std)
 
             with torch.no_grad():
                 proj.weight.div_(math.sqrt(2.0 * (layer_idx + 1)))
 
         return Linear(
-            config.model_dim,
-            config.model_dim,
-            bias=True,
-            init_fn=init_projection,
-            device=self._device,
-            dtype=self._dtype,
+            config.model_dim, config.model_dim, bias=True, init_fn=init_projection
         )
 
-    def build_ffn(self, layer_idx: int) -> FeedForwardNetwork:
+    def create_ffn(self, layer_idx: int) -> FeedForwardNetwork:
         config = self._config
 
         init_std = config.init_std
 
         def init_projection(proj: Linear) -> None:
-            init_truncated_normal(proj.weight, proj.bias, std=init_std)
+            _init_truncated_normal(proj.weight, proj.bias, std=init_std)
 
             with torch.no_grad():
                 proj.weight.div_(math.sqrt(2.0 * (layer_idx + 1)))
@@ -373,11 +248,9 @@ class JepaEncoderBuilder:
             inner_activation=GELU(),
             proj_init_fn=init_projection,
             norm_order=TransformerNormOrder.PRE,
-            device=self._device,
-            dtype=self._dtype,
         )
 
-    def build_layer_norm(
+    def create_layer_norm(
         self,
         model_dim: int,
         *,
@@ -390,7 +263,7 @@ class JepaEncoderBuilder:
 
         def init_layer_norm(m: LayerNorm) -> None:
             if m.weight is not None:
-                init_truncated_normal(m.weight, m.bias, std=init_std)
+                _init_truncated_normal(m.weight, m.bias, std=init_std)
 
         return StandardLayerNorm(
             model_dim,
@@ -402,19 +275,10 @@ class JepaEncoderBuilder:
         )
 
 
-def init_truncated_normal(
+def _init_truncated_normal(
     weight: Tensor, bias: Tensor | None, *, std: float = 1.0
 ) -> None:
     nn.init.trunc_normal_(weight, std=std)
 
     if bias is not None:
         nn.init.zeros_(bias)
-
-
-def create_jepa_model(
-    config: JepaConfig,
-    *,
-    device: Device | None = None,
-    dtype: DataType | None = None,
-) -> JepaModel:
-    return JepaBuilder(config, device=device, dtype=dtype).build_model()

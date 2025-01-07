@@ -14,7 +14,6 @@ from typing import Any, Final, cast, final
 
 from typing_extensions import override
 
-from fairseq2.assets import AssetCard
 from fairseq2.data import (
     Collater,
     DataPipeline,
@@ -31,7 +30,7 @@ from fairseq2.datasets.config import (
 )
 from fairseq2.datasets.data_reader import DataPipelineReader, DataReader
 from fairseq2.datasets.error import DatasetError, SplitNotFoundError
-from fairseq2.datasets.static import load_dataset
+from fairseq2.datasets.hub import DatasetHubAccessor
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
 from fairseq2.models.seq2seq import Seq2SeqBatch
@@ -153,12 +152,7 @@ class GenericParallelTextDataset(ParallelTextDataset):
         self._splits = splits
 
     @classmethod
-    def from_path(
-        cls, path: Path, name: str | None = None
-    ) -> GenericParallelTextDataset:
-        if name is None:
-            name = f"path:{path.name}"
-
+    def from_path(cls, path: Path, name: str) -> GenericParallelTextDataset:
         path = path.expanduser().resolve()
 
         if not path.is_dir():
@@ -487,7 +481,4 @@ class GenericParallelTextDataset(ParallelTextDataset):
         return directions_weights[0]
 
 
-def load_parallel_text_dataset(
-    name_or_card: str | AssetCard, *, force: bool = False
-) -> ParallelTextDataset:
-    return load_dataset(name_or_card, ParallelTextDataset, force=force)
+get_parallel_text_dataset_hub = DatasetHubAccessor(ParallelTextDataset)

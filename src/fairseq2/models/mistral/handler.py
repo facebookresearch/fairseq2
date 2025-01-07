@@ -6,27 +6,42 @@
 
 from __future__ import annotations
 
-from typing import Any
+from torch.nn import Module
+from typing_extensions import override
 
-from fairseq2.models.config_loader import StandardModelConfigLoader
-from fairseq2.models.loader import StandardModelLoader, load_model
-from fairseq2.models.mistral.factory import (
-    MISTRAL_FAMILY,
-    MistralConfig,
-    create_mistral_model,
-    mistral_archs,
-)
+from fairseq2.models.handler import AbstractModelHandler
+from fairseq2.models.mistral.config import MISTRAL_MODEL_FAMILY, MistralConfig
+from fairseq2.models.mistral.factory import MistralFactory
+from fairseq2.models.transformer_decoder import TransformerDecoderModel
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
-
-load_mistral_config = StandardModelConfigLoader(
-    MISTRAL_FAMILY, MistralConfig, mistral_archs
-)
+from fairseq2.typing import safe_cast
 
 
-def convert_mistral_checkpoint(
-    checkpoint: dict[str, Any], config: MistralConfig
-) -> dict[str, Any]:
-    """Convert a reference Mistral checkpoint to fairseq2 format."""
+class MistralModelHandler(AbstractModelHandler):
+    @override
+    @property
+    def family(self) -> str:
+        return MISTRAL_MODEL_FAMILY
+
+    @override
+    @property
+    def kls(self) -> type[Module]:
+        return TransformerDecoderModel
+
+    @override
+    def _create_model(self, config: object) -> Module:
+        config = safe_cast("config", config, MistralConfig)
+
+        return MistralFactory(config).create_model()
+
+    @override
+    def _convert_checkpoint(
+        self, checkpoint: dict[str, object], config: object
+    ) -> dict[str, object]:
+        return convert_mistral_checkpoint(checkpoint)
+
+
+def convert_mistral_checkpoint(checkpoint: dict[str, object]) -> dict[str, object]:
     # Check if we have a fairseq2 checkpoint.
     if "model" in checkpoint:
         return checkpoint
@@ -51,12 +66,3 @@ def convert_mistral_checkpoint(
     checkpoint = convert_model_state_dict(checkpoint, key_map)
 
     return {"model": checkpoint}
-
-
-load_mistral_model = StandardModelLoader(
-    config_loader=load_mistral_config,
-    factory=create_mistral_model,
-    checkpoint_converter=convert_mistral_checkpoint,
-)
-
-load_model.register(MISTRAL_FAMILY, load_mistral_model)

@@ -16,7 +16,6 @@ from typing import Any, Final, cast, final
 import torch
 from typing_extensions import override
 
-from fairseq2.assets import AssetCard
 from fairseq2.data import (
     CollateOptionsOverride,
     Collater,
@@ -35,7 +34,7 @@ from fairseq2.datasets.config import (
 )
 from fairseq2.datasets.data_reader import DataPipelineReader, DataReader
 from fairseq2.datasets.error import DatasetError, SplitNotFoundError
-from fairseq2.datasets.static import load_dataset
+from fairseq2.datasets.hub import DatasetHubAccessor
 from fairseq2.datasets.utils import _load_files_and_weights
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
@@ -166,10 +165,7 @@ class GenericInstructionDataset(InstructionDataset):
         self._splits = splits
 
     @staticmethod
-    def from_path(path: Path, name: str | None = None) -> GenericInstructionDataset:
-        if name is None:
-            name = f"path:{path.name}"
-
+    def from_path(path: Path, name: str) -> GenericInstructionDataset:
         splits: dict[str, tuple[Sequence[Path], Sequence[float]]] = {}
 
         if path.is_dir():
@@ -437,7 +433,4 @@ class GenericInstructionDataset(InstructionDataset):
         return set(self._splits.keys())
 
 
-def load_instruction_dataset(
-    name_or_card: str | AssetCard, *, force: bool = False
-) -> InstructionDataset:
-    return load_dataset(name_or_card, InstructionDataset, force=force)
+get_instruction_dataset_hub = DatasetHubAccessor(InstructionDataset)

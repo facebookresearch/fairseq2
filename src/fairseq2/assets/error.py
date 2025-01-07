@@ -6,14 +6,8 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
-
 
 class AssetError(Exception):
-    pass
-
-
-class AssetCardError(AssetError):
     name: str
 
     def __init__(self, name: str, message: str) -> None:
@@ -22,12 +16,13 @@ class AssetCardError(AssetError):
         self.name = name
 
 
+class AssetCardError(AssetError):
+    pass
+
+
 class AssetCardNotFoundError(AssetCardError):
     pass
 
 
 class AssetCardFieldNotFoundError(AssetCardError):
     pass
-
-
-AssetNotFoundError: TypeAlias = AssetCardNotFoundError  # compat

@@ -15,4 +15,6 @@ from fairseq2.data.text.tokenizers import AbstractTextTokenizer as AbstractTextT
 from fairseq2.data.text.tokenizers import TextTokenDecoder as TextTokenDecoder
 from fairseq2.data.text.tokenizers import TextTokenEncoder as TextTokenEncoder
 from fairseq2.data.text.tokenizers import TextTokenizer as TextTokenizer
-from fairseq2.data.text.tokenizers import load_text_tokenizer as load_text_tokenizer
+from fairseq2.data.text.tokenizers import (
+    get_text_tokenizer_hub as get_text_tokenizer_hub,
+)

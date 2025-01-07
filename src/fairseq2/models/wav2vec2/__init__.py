@@ -6,26 +6,20 @@
 
 from __future__ import annotations
 
-from fairseq2.models.wav2vec2.factory import WAV2VEC2_FAMILY as WAV2VEC2_FAMILY
-from fairseq2.models.wav2vec2.factory import Wav2Vec2Builder as Wav2Vec2Builder
-from fairseq2.models.wav2vec2.factory import Wav2Vec2Config as Wav2Vec2Config
-from fairseq2.models.wav2vec2.factory import (
-    Wav2Vec2EncoderBuilder as Wav2Vec2EncoderBuilder,
+from fairseq2.models.wav2vec2.config import (
+    WAV2VEC2_MODEL_FAMILY as WAV2VEC2_MODEL_FAMILY,
 )
-from fairseq2.models.wav2vec2.factory import (
+from fairseq2.models.wav2vec2.config import Wav2Vec2Config as Wav2Vec2Config
+from fairseq2.models.wav2vec2.config import (
     Wav2Vec2EncoderConfig as Wav2Vec2EncoderConfig,
 )
-from fairseq2.models.wav2vec2.factory import (
-    create_wav2vec2_model as create_wav2vec2_model,
-)
-from fairseq2.models.wav2vec2.factory import wav2vec2_arch as wav2vec2_arch
-from fairseq2.models.wav2vec2.factory import wav2vec2_archs as wav2vec2_archs
-from fairseq2.models.wav2vec2.factory import (
-    wav2vec2_encoder_arch as wav2vec2_encoder_arch,
+from fairseq2.models.wav2vec2.config import (
+    register_wav2vec2_configs as register_wav2vec2_configs,
 )
 from fairseq2.models.wav2vec2.factory import (
-    wav2vec2_encoder_archs as wav2vec2_encoder_archs,
+    Wav2Vec2EncoderFactory as Wav2Vec2EncoderFactory,
 )
+from fairseq2.models.wav2vec2.factory import Wav2Vec2Factory as Wav2Vec2Factory
 from fairseq2.models.wav2vec2.feature_extractor import (
     Wav2Vec2FbankFeatureExtractor as Wav2Vec2FbankFeatureExtractor,
 )
@@ -33,8 +27,12 @@ from fairseq2.models.wav2vec2.feature_extractor import (
     Wav2Vec2FeatureExtractor as Wav2Vec2FeatureExtractor,
 )
 from fairseq2.models.wav2vec2.frontend import Wav2Vec2Frontend as Wav2Vec2Frontend
-from fairseq2.models.wav2vec2.loader import load_wav2vec2_config as load_wav2vec2_config
-from fairseq2.models.wav2vec2.loader import load_wav2vec2_model as load_wav2vec2_model
+from fairseq2.models.wav2vec2.handler import (
+    Wav2Vec2ModelHandler as Wav2Vec2ModelHandler,
+)
+from fairseq2.models.wav2vec2.handler import (
+    convert_wav2vec2_checkpoint as convert_wav2vec2_checkpoint,
+)
 from fairseq2.models.wav2vec2.masker import Wav2Vec2Masker as Wav2Vec2Masker
 from fairseq2.models.wav2vec2.model import Wav2Vec2Features as Wav2Vec2Features
 from fairseq2.models.wav2vec2.model import Wav2Vec2Loss as Wav2Vec2Loss
@@ -49,4 +47,6 @@ from fairseq2.models.wav2vec2.position_encoder import (
 
 # isort: split
 
-import fairseq2.models.wav2vec2.archs  # Register architectures.
+from fairseq2.models.hub import ModelHubAccessor
+
+get_wav2vec2_model_hub = ModelHubAccessor(Wav2Vec2Model, Wav2Vec2Config)

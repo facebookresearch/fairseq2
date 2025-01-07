@@ -6,15 +6,11 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from collections import defaultdict
-from collections.abc import Hashable, Iterable
-from typing import Any, Generic, Mapping, TypeVar, final
-
-from typing_extensions import override
+from typing import Any, TypeVar, final
 
 from fairseq2.assets import AssetDownloadManager, StandardAssetStore
-from fairseq2.error import AlreadyExistsError
+from fairseq2.config_registry import ConfigRegistry
+from fairseq2.registry import Registry
 
 T = TypeVar("T")
 
@@ -23,7 +19,8 @@ T = TypeVar("T")
 class RuntimeContext:
     _asset_store: StandardAssetStore
     _asset_download_manager: AssetDownloadManager
-    _registries: Mapping[type, Registry[Any]]
+    _registries: dict[type, Registry[Any]]
+    _config_registries: dict[type, ConfigRegistry[Any]]
 
     def __init__(
         self,
@@ -33,7 +30,8 @@ class RuntimeContext:
         self._asset_store = asset_store
         self._asset_download_manager = asset_download_manager
 
-        self._registries = defaultdict(Registry)
+        self._registries = {}
+        self._config_registries = {}
 
     @property
     def asset_store(self) -> StandardAssetStore:
@@ -44,45 +42,22 @@ class RuntimeContext:
         return self._asset_download_manager
 
     def get_registry(self, kls: type[T]) -> Registry[T]:
-        return self._registries[kls]
+        registry = self._registries.get(kls)
+        if registry is None:
+            registry = Registry(kls)
 
+            self._registries[kls] = registry
 
-T_co = TypeVar("T_co", covariant=True)
+        return registry
 
+    def get_config_registry(self, config_kls: type[T]) -> ConfigRegistry[T]:
+        registry = self._config_registries.get(config_kls)
+        if registry is None:
+            registry = ConfigRegistry(config_kls)
 
-class Provider(ABC, Generic[T_co]):
-    @abstractmethod
-    def get(self, key: Hashable) -> T_co:
-        ...
+            self._config_registries[config_kls] = registry
 
-    @abstractmethod
-    def get_all(self) -> Iterable[tuple[Hashable, T_co]]:
-        ...
-
-
-@final
-class Registry(Provider[T]):
-    _entries: dict[Hashable, T]
-
-    def __init__(self) -> None:
-        self._entries = {}
-
-    @override
-    def get(self, key: Hashable) -> T:
-        try:
-            return self._entries[key]
-        except KeyError:
-            raise LookupError(f"The registry does not contain a '{key}' key.") from None
-
-    @override
-    def get_all(self) -> Iterable[tuple[Hashable, T]]:
-        return self._entries.items()
-
-    def register(self, key: Hashable, value: T) -> None:
-        if key in self._entries:
-            raise AlreadyExistsError(f"The registry already contains a '{key}' key.")
-
-        self._entries[key] = value
+        return registry
 
 
 _default_context: RuntimeContext | None = None

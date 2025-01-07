@@ -6,6 +6,4 @@
 
 from __future__ import annotations
 
-# isort: split
-
-import fairseq2.models.nllb.archs  # Register architectures.
+from fairseq2.models.nllb.config import register_nllb_configs as register_nllb_configs

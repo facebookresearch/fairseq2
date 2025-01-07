@@ -8,14 +8,11 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Set
-from functools import cached_property
-from typing import Any, Generic, Protocol, TypeVar, final, get_args
+from typing import Generic, Protocol, TypeVar, final
 
 from typing_extensions import override
 
 from fairseq2.error import AlreadyExistsError
-
-ConfigT = TypeVar("ConfigT")
 
 ConfigT_co = TypeVar("ConfigT_co", covariant=True)
 
@@ -42,14 +39,19 @@ class ConfigSupplier(Protocol[ConfigT_co]):
         ...
 
 
+ConfigT = TypeVar("ConfigT")
+
+
 @final
 class ConfigRegistry(ConfigProvider[ConfigT]):
     """Holds configurations of type ``ConfigT``."""
 
     _configs: dict[str, ConfigSupplier[ConfigT]]
+    _config_kls: type[ConfigT]
 
-    def __init__(self) -> None:
+    def __init__(self, config_kls: type[ConfigT]) -> None:
         self._configs = {}
+        self._config_kls = config_kls
 
     @override
     def get(self, name: str) -> ConfigT:
@@ -90,13 +92,7 @@ class ConfigRegistry(ConfigProvider[ConfigT]):
     @override
     @property
     def config_kls(self) -> type[ConfigT]:
-        return self._config_kls  # type: ignore[no-any-return]
-
-    @cached_property
-    def _config_kls(self) -> Any:
-        kls_args = get_args(self.__orig_class__)  # type: ignore[attr-defined]
-
-        return kls_args[0]
+        return self._config_kls
 
 
 class ConfigNotFoundError(LookupError):

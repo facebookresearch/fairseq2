@@ -74,16 +74,13 @@ class TensorLoader(Protocol):
     """Loads tensors from files."""
 
     def __call__(
-        self, path: Path, *, map_location: MapLocation = None, restrict: bool = False
+        self, path: Path, *, map_location: MapLocation = None
     ) -> dict[str, object]:
         """
         :param path:
             The path to the file.
         :param map_location:
             Same as the ``map_location`` parameter of :meth:`torch.load`.
-        :param restrict:
-            If ``True``, restricts the Python unpickler to load only tensors,
-            primitive types, and dictionaries.
         """
 
 
@@ -100,9 +97,22 @@ class TensorDumper(Protocol):
 
 
 def load_torch_tensors(
-    path: Path, *, map_location: MapLocation = None, restrict: bool = False
+    path: Path, *, map_location: MapLocation = None
 ) -> dict[str, object]:
     """Load the PyTorch tensor file stored under ``path``."""
+    return _load_torch_tensors(path, map_location=map_location, restrict=True)
+
+
+def load_unsafe_torch_tensors(
+    path: Path, *, map_location: MapLocation = None
+) -> dict[str, object]:
+    """Load the PyTorch tensor file stored under ``path``."""
+    return _load_torch_tensors(path, map_location=map_location, restrict=False)
+
+
+def _load_torch_tensors(
+    path: Path, *, map_location: MapLocation = None, restrict: bool
+) -> dict[str, object]:
     with catch_warnings():
         warnings.simplefilter("ignore")  # Suppress noisy FSDP warnings.
 
@@ -134,7 +144,7 @@ def dump_torch_tensors(data: Mapping[str, object], path: Path) -> None:
 
 
 def load_safetensors(
-    path: Path, *, map_location: MapLocation = None, restrict: bool = False
+    path: Path, *, map_location: MapLocation = None
 ) -> dict[str, object]:
     """Load the Hugging Face Safetensors file(s) stored under ``path``."""
     try:
@@ -181,9 +191,7 @@ def load_safetensors(
     return tensors
 
 
-def load_tensors(
-    path: Path, *, map_location: MapLocation = None, restrict: bool = False
-) -> dict[str, object]:
+def load_tensors(path: Path, *, map_location: MapLocation = None) -> dict[str, object]:
     """Load the tensors stored under ``path``."""
 
     def has_files(path: Path, extension: str) -> bool:
@@ -206,7 +214,7 @@ def load_tensors(
     else:
         loader = load_torch_tensors
 
-    return loader(path, map_location=map_location, restrict=restrict)
+    return loader(path, map_location=map_location)
 
 
 class TensorLoadError(Exception):

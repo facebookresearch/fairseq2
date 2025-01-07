@@ -15,8 +15,8 @@ from typing import final
 
 from typing_extensions import override
 
-from fairseq2.context import Provider
 from fairseq2.gang import get_rank, get_world_size
+from fairseq2.registry import Provider
 
 
 @final

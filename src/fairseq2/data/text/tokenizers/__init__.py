@@ -7,13 +7,10 @@
 from __future__ import annotations
 
 from fairseq2.data.text.tokenizers.handler import (
-    StandardTextTokenizerHandler as StandardTextTokenizerHandler,
+    AbstractTextTokenizerHandler as AbstractTextTokenizerHandler,
 )
 from fairseq2.data.text.tokenizers.handler import (
     TextTokenizerHandler as TextTokenizerHandler,
-)
-from fairseq2.data.text.tokenizers.handler import (
-    TextTokenizerLoader as TextTokenizerLoader,
 )
 from fairseq2.data.text.tokenizers.handler import (
     TextTokenizerNotFoundError as TextTokenizerNotFoundError,
@@ -21,11 +18,12 @@ from fairseq2.data.text.tokenizers.handler import (
 from fairseq2.data.text.tokenizers.handler import (
     get_text_tokenizer_family as get_text_tokenizer_family,
 )
+from fairseq2.data.text.tokenizers.hub import TextTokenizerHub as TextTokenizerHub
+from fairseq2.data.text.tokenizers.hub import (
+    get_text_tokenizer_hub as get_text_tokenizer_hub,
+)
 from fairseq2.data.text.tokenizers.ref import (
     resolve_text_tokenizer_reference as resolve_text_tokenizer_reference,
-)
-from fairseq2.data.text.tokenizers.static import (
-    load_text_tokenizer as load_text_tokenizer,
 )
 from fairseq2.data.text.tokenizers.tokenizer import (
     AbstractTextTokenizer as AbstractTextTokenizer,

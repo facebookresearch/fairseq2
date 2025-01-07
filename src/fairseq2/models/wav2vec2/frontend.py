@@ -130,7 +130,7 @@ class Wav2Vec2Frontend(TransformerFrontend):
     ) -> tuple[Tensor, PaddingMask | None]:
         if state_bag is not None:
             raise NotSupportedError(
-                f"`{type(self)}` does not support incremental decoding."
+                f"`{Wav2Vec2Frontend}` does not support incremental decoding."
             )
 
         seqs, padding_mask, _ = self.extract_features(seqs, padding_mask)

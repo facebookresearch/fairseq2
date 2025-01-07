@@ -12,10 +12,12 @@ from typing import Final, final
 from typing_extensions import override
 
 from fairseq2.assets import AssetCard, AssetCardError
+from fairseq2.data.text.tokenizers.handler import AbstractTextTokenizerHandler
 from fairseq2.data.text.tokenizers.sentencepiece import (
     SentencePieceEncoder,
     SentencePieceTokenizer,
 )
+from fairseq2.data.text.tokenizers.tokenizer import TextTokenizer
 from fairseq2.typing import Device
 
 
@@ -111,20 +113,26 @@ class S2TTransformerTokenizer(SentencePieceTokenizer):
 S2T_TRANSFORMER_TOKENIZER_FAMILY: Final = "s2t_transformer"
 
 
-def load_s2t_transformer_tokenizer(
-    path: Path, card: AssetCard
-) -> S2TTransformerTokenizer:
-    valid_tasks = {"translation", "transcription"}
+@final
+class S2TTransformerTokenizerHandler(AbstractTextTokenizerHandler):
+    @override
+    @property
+    def family(self) -> str:
+        return S2T_TRANSFORMER_TOKENIZER_FAMILY
 
-    task = card.field("task").as_one_of(valid_tasks)
+    @override
+    def _load_tokenizer(self, path: Path, card: AssetCard) -> TextTokenizer:
+        valid_tasks = {"translation", "transcription"}
 
-    target_langs = card.field("target_langs").as_(list[str])
+        task = card.field("task").as_one_of(valid_tasks)
 
-    try:
-        return S2TTransformerTokenizer(
-            path, task, set(target_langs), default_target_lang=target_langs[0]
-        )
-    except ValueError as ex:
-        raise AssetCardError(
-            card.name, f"The '{card.name}' asset card does not have a valid text tokenizer configuration. See the nested exception for details."  # fmt: skip
-        ) from ex
+        target_langs = card.field("target_langs").as_(list[str])
+
+        try:
+            return S2TTransformerTokenizer(
+                path, task, set(target_langs), default_target_lang=target_langs[0]
+            )
+        except ValueError as ex:
+            raise AssetCardError(
+                card.name, f"The '{card.name}' asset card does not have a valid text tokenizer configuration. See the nested exception for details."  # fmt: skip
+            ) from ex

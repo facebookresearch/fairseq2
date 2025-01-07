@@ -6,32 +6,50 @@
 
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import MutableMapping
+from typing import cast
 
 import torch
+from torch import Tensor
+from torch.nn import Module
+from typing_extensions import override
 
-from fairseq2.models.config_loader import StandardModelConfigLoader
-from fairseq2.models.loader import StandardModelLoader, load_model
+from fairseq2.models.handler import AbstractModelHandler
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
-from fairseq2.models.w2vbert.factory import (
-    W2VBERT_FAMILY,
-    W2VBertConfig,
-    create_w2vbert_model,
-    w2vbert_archs,
-)
-
-load_w2vbert_config = StandardModelConfigLoader(
-    W2VBERT_FAMILY, W2VBertConfig, w2vbert_archs
-)
+from fairseq2.models.w2vbert.config import W2VBERT_MODEL_FAMILY, W2VBertConfig
+from fairseq2.models.w2vbert.factory import W2VBertFactory
+from fairseq2.models.w2vbert.model import W2VBertModel
+from fairseq2.typing import CPU, safe_cast
 
 
-def convert_w2vbert_checkpoint(
-    checkpoint: dict[str, Any], config: W2VBertConfig
-) -> dict[str, Any]:
-    """Convert a fairseq w2v-BERT checkpoint to fairseq2 format."""
+class W2VBertModelHandler(AbstractModelHandler):
+    @override
+    @property
+    def family(self) -> str:
+        return W2VBERT_MODEL_FAMILY
+
+    @override
+    @property
+    def kls(self) -> type[Module]:
+        return W2VBertModel
+
+    @override
+    def _create_model(self, config: object) -> Module:
+        config = safe_cast("config", config, W2VBertConfig)
+
+        return W2VBertFactory(config).create_model()
+
+    @override
+    def _convert_checkpoint(
+        self, checkpoint: dict[str, object], config: object
+    ) -> dict[str, object]:
+        return convert_w2vbert_checkpoint(checkpoint)
+
+
+def convert_w2vbert_checkpoint(checkpoint: dict[str, object]) -> dict[str, object]:
     # Check if we have a fairseq2 checkpoint.
     try:
-        state_dict = checkpoint["model"]
+        state_dict = cast(MutableMapping[str, Tensor], checkpoint["model"])
     except KeyError:
         return checkpoint
 
@@ -39,7 +57,7 @@ def convert_w2vbert_checkpoint(
     if "mlm_proj.weight" not in state_dict:
         return checkpoint
 
-    state_dict["w2v2_model.quantizer.num_updates"] = torch.zeros((), device="cpu")
+    state_dict["w2v2_model.quantizer.num_updates"] = torch.zeros((), device=CPU)
 
     key_map = {
         # fmt: off
@@ -74,12 +92,3 @@ def convert_w2vbert_checkpoint(
     }
 
     return convert_fairseq_checkpoint(checkpoint, key_map)
-
-
-load_w2vbert_model = StandardModelLoader(
-    config_loader=load_w2vbert_config,
-    factory=create_w2vbert_model,
-    checkpoint_converter=convert_w2vbert_checkpoint,
-)
-
-load_model.register(W2VBERT_FAMILY, load_w2vbert_model)

@@ -7,72 +7,42 @@
 from __future__ import annotations
 
 from fairseq2.context import RuntimeContext
-from fairseq2.data.text.tokenizers import (
-    StandardTextTokenizerHandler,
-    TextTokenizerHandler,
-    TextTokenizerLoader,
-)
-from fairseq2.data.text.tokenizers.char_tokenizer import (
-    CHAR_TOKENIZER_FAMILY,
-    load_char_tokenizer,
-)
-from fairseq2.data.text.tokenizers.llama import (
-    LLAMA_TOKENIZER_FAMILY,
-    load_llama_tokenizer,
-)
-from fairseq2.data.text.tokenizers.mistral import (
-    MISTRAL_TOKENIZER_FAMILY,
-    load_mistral_tokenizer,
-)
-from fairseq2.data.text.tokenizers.nllb import (
-    NLLB_TOKENIZER_FAMILY,
-    load_nllb_tokenizer,
-)
-from fairseq2.data.text.tokenizers.s2t_transformer import (
-    S2T_TRANSFORMER_TOKENIZER_FAMILY,
-    load_s2t_transformer_tokenizer,
-)
+from fairseq2.data.text.tokenizers import TextTokenizerHandler
+from fairseq2.data.text.tokenizers.char_tokenizer import CharTokenizerHandler
+from fairseq2.data.text.tokenizers.llama import LLaMATokenizerHandler
+from fairseq2.data.text.tokenizers.mistral import MistralTokenizerHandler
+from fairseq2.data.text.tokenizers.nllb import NllbTokenizerHandler
+from fairseq2.data.text.tokenizers.s2t_transformer import S2TTransformerTokenizerHandler
 
 
 def _register_text_tokenizers(context: RuntimeContext) -> None:
-    register_text_tokenizer(
-        context,
-        CHAR_TOKENIZER_FAMILY,
-        loader=load_char_tokenizer,
-    )
-
-    register_text_tokenizer(
-        context,
-        LLAMA_TOKENIZER_FAMILY,
-        loader=load_llama_tokenizer,
-    )
-
-    register_text_tokenizer(
-        context,
-        MISTRAL_TOKENIZER_FAMILY,
-        loader=load_mistral_tokenizer,
-    )
-
-    register_text_tokenizer(
-        context,
-        NLLB_TOKENIZER_FAMILY,
-        loader=load_nllb_tokenizer,
-    )
-
-    register_text_tokenizer(
-        context,
-        S2T_TRANSFORMER_TOKENIZER_FAMILY,
-        loader=load_s2t_transformer_tokenizer,
-    )
-
-
-def register_text_tokenizer(
-    context: RuntimeContext, family: str, *, loader: TextTokenizerLoader
-) -> None:
-    handler = StandardTextTokenizerHandler(
-        loader=loader, asset_download_manager=context.asset_download_manager
-    )
+    asset_download_manager = context.asset_download_manager
 
     registry = context.get_registry(TextTokenizerHandler)
 
-    registry.register(family, handler)
+    handler: TextTokenizerHandler
+
+    # Char Tokenizer
+    handler = CharTokenizerHandler(asset_download_manager)
+
+    registry.register(handler.family, handler)
+
+    # LLaMA
+    handler = LLaMATokenizerHandler(asset_download_manager)
+
+    registry.register(handler.family, handler)
+
+    # Mistral
+    handler = MistralTokenizerHandler(asset_download_manager)
+
+    registry.register(handler.family, handler)
+
+    # NLLB
+    handler = NllbTokenizerHandler(asset_download_manager)
+
+    registry.register(handler.family, handler)
+
+    # S2T Transformer
+    handler = S2TTransformerTokenizerHandler(asset_download_manager)
+
+    registry.register(handler.family, handler)

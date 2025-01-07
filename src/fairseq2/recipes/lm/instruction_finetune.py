@@ -16,19 +16,18 @@ from torch import Tensor
 from torch.nn import Module
 from typing_extensions import override
 
-from fairseq2.assets import AssetNotFoundError, default_asset_store
-from fairseq2.checkpoint import CheckpointModelMetadataProvider, FileCheckpointManager
+from fairseq2.assets import AssetCardNotFoundError, default_asset_store
+from fairseq2.checkpoint import FileCheckpointManager, FileCheckpointMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
-from fairseq2.data.text import load_text_tokenizer
+from fairseq2.data.text import get_text_tokenizer_hub
 from fairseq2.datasets import Batching, LengthBatching, StaticBatching
 from fairseq2.datasets.instruction import (
     GenericInstructionDataset,
     InstructionReadOptions,
-    load_instruction_dataset,
+    get_instruction_dataset_hub,
 )
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
-from fairseq2.models import load_model
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.sequence import (
     SequenceBatch,
@@ -51,6 +50,7 @@ from fairseq2.recipes.utils.log import log_model
 from fairseq2.recipes.utils.setup import (
     check_model_type,
     compile_model,
+    load_model,
     setup_gangs,
     to_data_parallel,
 )
@@ -235,7 +235,7 @@ class InstructionFinetuneConfig:
     """If not ``None``, sets the run name for W&B logging. If None, then W&B creates a random name."""
 
 
-instruction_finetune_presets = ConfigRegistry[InstructionFinetuneConfig]()
+instruction_finetune_presets = ConfigRegistry(InstructionFinetuneConfig)
 
 instruction_finetune_preset = instruction_finetune_presets.decorator
 
@@ -319,7 +319,7 @@ def load_instruction_finetuner(
 
     if config.resume_checkpoint_dir is not None:
         default_asset_store.metadata_providers.append(
-            CheckpointModelMetadataProvider(config.resume_checkpoint_dir)
+            FileCheckpointMetadataProvider(config.resume_checkpoint_dir)
         )
 
     model_card = retrieve_asset_card(config.model)
@@ -327,26 +327,30 @@ def load_instruction_finetuner(
     # Load the tokenizer.
     log.info("Loading {} tokenizer.", model_card.name)
 
-    tokenizer = load_text_tokenizer(model_card)
+    tokenizer_hub = get_text_tokenizer_hub()
+
+    tokenizer = tokenizer_hub.load(model_card)
 
     log.info("Tokenizer loaded.")
 
     # Load the dataset.
     try:
         dataset_card = retrieve_asset_card(config.dataset)
-    except AssetNotFoundError:
+    except AssetCardNotFoundError:
         dataset_card = None
 
     if dataset_card is not None:
         log.info("Loading {} instruction dataset.", dataset_card.name)
 
-        dataset = load_instruction_dataset(dataset_card)
+        dataset_hub = get_instruction_dataset_hub()
+
+        dataset = dataset_hub.load(dataset_card)
 
         log.info("Dataset loaded.")
     else:
         dataset_path = asset_as_path(config.dataset)
 
-        dataset = GenericInstructionDataset.from_path(dataset_path)
+        dataset = GenericInstructionDataset.from_path(dataset_path, "path")
 
     seed = config.seed
 

@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TypeAlias, final
+from typing import final
 
 from typing_extensions import override
 
@@ -140,6 +140,3 @@ class FileCheckpointMetadataProvider(AbstractAssetMetadataProvider):
         if metadata_file.exists():
             for name, metadata in load_metadata_file(metadata_file, load_yaml):
                 cache[name] = metadata
-
-
-CheckpointModelMetadataProvider: TypeAlias = FileCheckpointMetadataProvider  # compat

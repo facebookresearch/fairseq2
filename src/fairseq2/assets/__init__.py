@@ -20,7 +20,6 @@ from fairseq2.assets.error import (
 )
 from fairseq2.assets.error import AssetCardNotFoundError as AssetCardNotFoundError
 from fairseq2.assets.error import AssetError as AssetError
-from fairseq2.assets.error import AssetNotFoundError as AssetNotFoundError
 from fairseq2.assets.metadata_provider import (
     AbstractAssetMetadataProvider as AbstractAssetMetadataProvider,
 )

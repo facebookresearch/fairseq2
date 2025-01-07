@@ -11,7 +11,6 @@ from typing import Final, final
 
 from typing_extensions import override
 
-from fairseq2.context import Provider
 from fairseq2.generation.beam_search.algo import (
     STANDARD_BEAM_SEARCH_ALGO,
     BeamSearchAlgorithmHandler,
@@ -28,6 +27,7 @@ from fairseq2.generation.handler import (
 )
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
+from fairseq2.registry import Provider
 from fairseq2.typing import safe_cast
 from fairseq2.utils.config import ConfigSectionHandler
 from fairseq2.utils.structured import StructureError, structure
