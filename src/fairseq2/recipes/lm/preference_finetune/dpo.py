@@ -44,7 +44,7 @@ log = get_log_writer(__name__)
 class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
     """Represents the language model DPO-finetuning unit. Paper: https://arxiv.org/abs/2305.18290."""
 
-    _reference_model: Module
+    _reference_model: Module | None
     _beta: float
     _nll_scale: float
     _metric_bag: DpoFinetuneMetricBag
@@ -53,7 +53,7 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
     def __init__(
         self,
         model: Module,
-        reference_model: Module,
+        reference_model: Module | None,
         gang: Gang,
         beta: float = 0.1,
         nll_scale: float = 1.0,
@@ -101,7 +101,10 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
                 ref_rejected_logps, ref_average_rejected_logps = _gather_lprobs_avg(
                     ref_rejected_output, rejected_target_batch
                 )
-        else:
+        elif (
+            batch.reference_score_chosen is not None
+            and batch.reference_score_rejected is not None
+        ):
             # reference scores must exist in the batch if reference model is None
             ref_chosen_logps = batch.reference_score_chosen
             ref_average_chosen_logps = (
@@ -110,6 +113,10 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
             ref_rejected_logps = batch.reference_score_rejected
             ref_average_rejected_logps = (
                 ref_rejected_logps / rejected_target_batch.target_mask.sum(-1)
+            )
+        else:
+            raise RuntimeError(
+                f"Reference model is not initialized and data batch does not provide reference score, but at least one must exist."
             )
 
         if self._length_normalization:
@@ -217,8 +224,8 @@ class DpoConfig:
     """Holds the DPO configuration of a language model preference-finetuning task."""
 
     # Reference Model
-    reference_model: AssetReference | Any = "llama3_1_8b_instruct"
-    """The name, path, or path to the asset card of the reference model."""
+    reference_model: AssetReference | None = "llama3_1_8b_instruct"
+    """The name, path, or path to the asset card of the reference model. If reference_model is None, recipe expects to get reference log-probabilities for chosen and rejected targets as float values in the data example (fields `reference_score_rejected` and  `reference_score_chosen`)."""
 
     reference_dtype: DataType = torch.bfloat16
     """The data type of the reference model."""
