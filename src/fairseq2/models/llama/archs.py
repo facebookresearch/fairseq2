@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from fairseq2.data import VocabularyInfo
-from fairseq2.models.llama.factory import LLaMAConfig, llama_arch
+from fairseq2.models.llama.factory import LLaMAConfig, RopeScaling, llama_arch
 
 
 @llama_arch("7b")
@@ -121,7 +121,7 @@ def _llama3_1_8b() -> LLaMAConfig:
     config = _llama3_8b()
 
     config.max_seq_len = 131_072
-    config.use_scaled_rope = True
+    config.rope_scaling = RopeScaling()
 
     return config
 
@@ -131,7 +131,7 @@ def _llama3_1_70b() -> LLaMAConfig:
     config = _llama3_70b()
 
     config.max_seq_len = 131_072
-    config.use_scaled_rope = True
+    config.rope_scaling = RopeScaling()
 
     return config
 
@@ -146,6 +146,7 @@ def _llama3_2_3b() -> LLaMAConfig:
     config.num_attn_heads = 24
     config.num_key_value_heads = 8
     config.num_layers = 28
+    config.rope_scaling = RopeScaling(factor=32.0)
 
     return config
 
@@ -160,5 +161,6 @@ def _llama3_2_1b() -> LLaMAConfig:
     config.num_attn_heads = 32
     config.num_key_value_heads = 8
     config.num_layers = 16
+    config.rope_scaling = RopeScaling(factor=32.0)
 
     return config
