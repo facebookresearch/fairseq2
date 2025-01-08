@@ -19,7 +19,6 @@ from fairseq2.logging import get_log_writer
 from fairseq2.models.llama import load_llama_config
 from fairseq2.models.llama.integ import convert_to_huggingface_config
 from fairseq2.recipes.cli import CliCommandHandler
-from fairseq2.setup import setup_fairseq2
 
 log = get_log_writer(__name__)
 
@@ -43,9 +42,7 @@ class WriteHfConfigCommandHandler(CliCommandHandler):
         )
 
     @override
-    def run(self, args: Namespace) -> int:
-        setup_fairseq2()
-
+    def run(self, parser: ArgumentParser, args: Namespace) -> int:
         arch = (
             default_asset_store.retrieve_card(args.model).field("model_arch").as_(str)
         )
