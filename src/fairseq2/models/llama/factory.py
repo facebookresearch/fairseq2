@@ -349,3 +349,10 @@ def get_llama_lora_config() -> LoRAConfig:
         dropout_p=0.05,
         keys=[".*decoder.layers.*.self_attn.*(q_proj|v_proj)$"],
     )
+
+
+def get_llama_lora_fa_config() -> LoRAConfig:
+    config = get_llama_lora_config()
+    config.trainable_A = False
+
+    return config

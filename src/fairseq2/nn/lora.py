@@ -30,6 +30,7 @@ class LoRAConfig:
     alpha: float
     dropout_p: float
     keys: list[str]
+    trainable_A: bool = True
 
 
 class LoRALayer(ABC):
@@ -112,8 +113,8 @@ class LoRAEmbedding(Embedding, LoRALayer):
 
     def reset_lora_parameters(self) -> None:
         """Reset the parameters and buffers of the module."""
-        nn.init.zeros_(self.lora_A)
-        nn.init.normal_(self.lora_B)
+        nn.init.normal_(self.lora_A)
+        nn.init.zeros_(self.lora_B)
 
     @property
     def wrapped_module(self) -> Embedding:
@@ -182,11 +183,13 @@ class LoRALinear(Projection, LoRALayer):
             self.register_parameter("bias", None)
 
         self.lora_A = Parameter(
-            torch.empty((self.r, self.input_dim), device=device, dtype=dtype)
+            torch.empty((self.r, self.input_dim), device=device, dtype=dtype),
+            requires_grad=config.trainable_A,
         )
 
         self.lora_B = Parameter(
-            torch.empty((self.output_dim, self.r), device=device, dtype=dtype)
+            torch.empty((self.output_dim, self.r), device=device, dtype=dtype),
+            requires_grad=True,
         )
 
         if self.dropout_p > 0.0:
@@ -346,7 +349,7 @@ def freeze_non_lora(
         if isinstance(submodule, LoRALayer):
             for param_name, param in submodule.named_parameters(recurse=False):
                 if param_name in ["lora_A", "lora_B"]:
-                    param.requires_grad = True
+                    continue
                 elif param_name == "bias" and unfreeze_bias in ["all", "lora_only"]:
                     param.requires_grad = True
                 else:
