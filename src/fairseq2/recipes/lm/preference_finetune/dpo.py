@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Mapping, cast, final
+from typing import Mapping, cast, final
 
 import torch
 import torch.distributed
@@ -76,6 +76,11 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
         rejected_input_batch, rejected_target_batch = as_auto_regressive_input(
             rejected_batch
         )
+        if (
+            chosen_target_batch.target_mask is None
+            or rejected_target_batch.target_mask is None
+        ):
+            raise RuntimeError("target_mask attributes must exist for DPO loss")
 
         chosen_output = cast(SequenceModelOutput, self._model(chosen_input_batch))
         rejected_output = cast(SequenceModelOutput, self._model(rejected_input_batch))
@@ -116,7 +121,7 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
             )
         else:
             raise RuntimeError(
-                f"Reference model is not initialized and data batch does not provide reference score, but at least one must exist."
+                "Reference model is not initialized and data batch does not provide reference score, but at least one must exist."
             )
 
         if self._length_normalization:
