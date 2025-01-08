@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Mapping, cast, final
+from typing import Any, Mapping, cast, final
 
 import torch
 import torch.distributed
@@ -87,18 +87,29 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
             rejected_output, rejected_target_batch
         )
 
-        with torch.no_grad():
-            ref_chosen_output = cast(
-                SequenceModelOutput, self._reference_model(chosen_batch)
+        if self._reference_model is not None:
+            with torch.no_grad():
+                ref_chosen_output = cast(
+                    SequenceModelOutput, self._reference_model(chosen_batch)
+                )
+                ref_rejected_output = cast(
+                    SequenceModelOutput, self._reference_model(rejected_batch)
+                )
+                ref_chosen_logps, ref_average_chosen_logps = _gather_lprobs_avg(
+                    ref_chosen_output, chosen_target_batch
+                )
+                ref_rejected_logps, ref_average_rejected_logps = _gather_lprobs_avg(
+                    ref_rejected_output, rejected_target_batch
+                )
+        else:
+            # reference scores must exist in the batch if reference model is None
+            ref_chosen_logps = batch.reference_score_chosen
+            ref_average_chosen_logps = (
+                ref_chosen_logps / chosen_target_batch.target_mask.sum(-1)
             )
-            ref_rejected_output = cast(
-                SequenceModelOutput, self._reference_model(rejected_batch)
-            )
-            ref_chosen_logps, ref_average_chosen_logps = _gather_lprobs_avg(
-                ref_chosen_output, chosen_target_batch
-            )
-            ref_rejected_logps, ref_average_rejected_logps = _gather_lprobs_avg(
-                ref_rejected_output, rejected_target_batch
+            ref_rejected_logps = batch.reference_score_rejected
+            ref_average_rejected_logps = (
+                ref_rejected_logps / rejected_target_batch.target_mask.sum(-1)
             )
 
         if self._length_normalization:
@@ -206,7 +217,7 @@ class DpoConfig:
     """Holds the DPO configuration of a language model preference-finetuning task."""
 
     # Reference Model
-    reference_model: AssetReference = "llama3_1_8b_instruct"
+    reference_model: AssetReference | Any = "llama3_1_8b_instruct"
     """The name, path, or path to the asset card of the reference model."""
 
     reference_dtype: DataType = torch.bfloat16
@@ -230,14 +241,16 @@ class DpoConfig:
 def create_dpo_unit(
     config: DpoConfig, model: Module, root_gang: Gang, gangs: Mapping[str, Gang]
 ) -> DpoFinetuneUnit:
-    reference_model = _load_reference_model(
-        config.reference_model,
-        config.reference_dtype,
-        root_gang,
-        gangs,
-        config.reference_tensor_parallel_size,
-        log,
-    )
+    reference_model = None
+    if config.reference_model is not None:
+        reference_model = _load_reference_model(
+            config.reference_model,
+            config.reference_dtype,
+            root_gang,
+            gangs,
+            config.reference_tensor_parallel_size,
+            log,
+        )
 
     dp_gang = gangs["dp"]  # data
 

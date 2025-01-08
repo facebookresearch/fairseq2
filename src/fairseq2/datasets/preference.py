@@ -48,6 +48,8 @@ class PreferenceOptimizationBatch:
 
     chosen: SequenceBatch
     rejected: SequenceBatch
+    reference_score_chosen: torch.Tensor | None
+    reference_score_rejected: torch.Tensor | None
 
 
 class PreferenceOptimizationDataset(ABC):
@@ -232,6 +234,10 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
                 "indices_prompt": source_indices,
                 "indices_chosen": indices_chosen,
                 "indices_rejected": indices_rejected,
+                "reference_score_chosen": example.get("reference_score_chosen", None),
+                "reference_score_rejected": example.get(
+                    "reference_score_rejected", None
+                ),
                 "target_mask_chosen": target_mask_chosen,
                 "target_mask_rejected": target_mask_rejected,
                 "total_tokens": total_tokens,
@@ -324,7 +330,23 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
                 example=example,
             )
 
-            return PreferenceOptimizationBatch(batch_chosen, batch_rejected)
+            batch_reference_scores_chosen = None
+            if all(example["reference_score_chosen"]):
+                batch_reference_scores_chosen = torch.Tensor(
+                    example["reference_score_chosen"]
+                ).to(gang.device)
+            batch_reference_scores_rejected = None
+            if all(example["reference_score_rejected"]):
+                batch_reference_scores_rejected = torch.Tensor(
+                    example["reference_score_rejected"]
+                ).to(gang.device)
+
+            return PreferenceOptimizationBatch(
+                batch_chosen,
+                batch_rejected,
+                batch_reference_scores_chosen,
+                batch_reference_scores_rejected,
+            )
 
         pipeline = builder.map(to_batch).and_return()
 
