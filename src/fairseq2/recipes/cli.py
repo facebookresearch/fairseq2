@@ -52,8 +52,8 @@ from fairseq2.recipes.utils.sweep_tagger import (
 )
 from fairseq2.typing import safe_cast
 from fairseq2.utils.file import StandardFileSystem
-from fairseq2.utils.structured import StructureError
-from fairseq2.utils.yaml import YamlDumper, dump_yaml, load_yaml
+from fairseq2.utils.structured import StructureError, unstructure
+from fairseq2.utils.yaml import YamlDumper, YamlError, dump_yaml, load_yaml
 
 
 class Cli:
@@ -632,9 +632,11 @@ class RecipeProgram:
         )
 
         if args.dump_config:
+            unstructured_config = unstructure(config)
+
             try:
-                self._yaml_dumper(config, sys.stdout)
-            except OSError as ex:
+                self._yaml_dumper(unstructured_config, sys.stdout)
+            except YamlError as ex:
                 raise SetupError(
                     "The recipe configuration cannot be dumped to stdout. See the nested exception for details."
                 ) from ex
