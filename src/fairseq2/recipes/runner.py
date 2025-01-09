@@ -194,7 +194,7 @@ class StandardEnvironmentBootstrapper(EnvironmentBootstrapper):
 
             try:
                 self._yaml_dumper(unstructured_config, config_file)
-            except OSError as ex:
+            except (OSError, YamlError) as ex:
                 raise SetupError(
                     f"The recipe configuration cannot be saved to the '{config_file}' file. See the nested exception for details."
                 ) from ex
