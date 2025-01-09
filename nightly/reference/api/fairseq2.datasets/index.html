@@ -3,11 +3,11 @@
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link href="../../../_static/img/logo.png" sizes="1132x1126" rel="icon" type="image/png"><link rel="index" title="Index" href="../../../genindex.html" /><link rel="search" title="Search" href="../../../search.html" /><link rel="next" title="Dataset Loaders" href="loader.html" /><link rel="prev" title="fairseq2.data.data_pipeline" href="../fairseq2.data/data_pipeline.html" />
+    <link href="../../../_static/img/logo.png" sizes="1132x1126" rel="icon" type="image/png"><link rel="index" title="Index" href="../../../genindex.html" /><link rel="search" title="Search" href="../../../search.html" /><link rel="next" title="fairseq2.nn" href="../fairseq2.nn/index.html" /><link rel="prev" title="fairseq2.data.data_pipeline" href="../fairseq2.data/data_pipeline.html" />
 
     <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
         <title>fairseq2.datasets - fairseq2 Documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=a746c00c" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo.css?v=354aac6f" />
     <link rel="stylesheet" type="text/css" href="../../../_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo-extensions.css?v=302659d7" />
@@ -251,24 +251,22 @@
 <li class="toctree-l3"><a class="reference internal" href="../fairseq2.data/data_pipeline.html">fairseq2.data.data_pipeline</a></li>
 </ul>
 </li>
-<li class="toctree-l2 current has-children current-page"><a class="current reference internal" href="#">fairseq2.datasets</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" role="switch" type="checkbox"/><label for="toctree-checkbox-5"><div class="visually-hidden">Toggle navigation of fairseq2.datasets</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
-<li class="toctree-l3"><a class="reference internal" href="loader.html">Dataset Loaders</a></li>
-</ul>
-</li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../fairseq2.nn/index.html">fairseq2.nn</a><input class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" role="switch" type="checkbox"/><label for="toctree-checkbox-6"><div class="visually-hidden">Toggle navigation of fairseq2.nn</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2 current current-page"><a class="current reference internal" href="#">fairseq2.datasets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#dataset-loaders">Dataset Loaders</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../fairseq2.nn/index.html">fairseq2.nn</a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" role="switch" type="checkbox"/><label for="toctree-checkbox-5"><div class="visually-hidden">Toggle navigation of fairseq2.nn</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="../fairseq2.nn/position_encoders.html">Position Encoders</a></li>
 </ul>
 </li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../fairseq2.recipes/index.html">fairseq2.recipes</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" role="switch" type="checkbox"/><label for="toctree-checkbox-7"><div class="visually-hidden">Toggle navigation of fairseq2.recipes</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
-<li class="toctree-l3 has-children"><a class="reference internal" href="../fairseq2.recipes/lm/index.html">fairseq2.recipes.lm</a><input class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" role="switch" type="checkbox"/><label for="toctree-checkbox-8"><div class="visually-hidden">Toggle navigation of fairseq2.recipes.lm</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../fairseq2.recipes/index.html">fairseq2.recipes</a><input class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" role="switch" type="checkbox"/><label for="toctree-checkbox-6"><div class="visually-hidden">Toggle navigation of fairseq2.recipes</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../fairseq2.recipes/lm/index.html">fairseq2.recipes.lm</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" role="switch" type="checkbox"/><label for="toctree-checkbox-7"><div class="visually-hidden">Toggle navigation of fairseq2.recipes.lm</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
 <li class="toctree-l4"><a class="reference internal" href="../fairseq2.recipes/lm/instruction_finetune.html">fairseq2.recipes.lm.instruction_finetune</a></li>
 </ul>
 </li>
-<li class="toctree-l3 has-children"><a class="reference internal" href="../fairseq2.recipes/llama/index.html">fairseq2.recipes.llama</a><input class="toctree-checkbox" id="toctree-checkbox-9" name="toctree-checkbox-9" role="switch" type="checkbox"/><label for="toctree-checkbox-9"><div class="visually-hidden">Toggle navigation of fairseq2.recipes.llama</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../fairseq2.recipes/llama/index.html">fairseq2.recipes.llama</a><input class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" role="switch" type="checkbox"/><label for="toctree-checkbox-8"><div class="visually-hidden">Toggle navigation of fairseq2.recipes.llama</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
 <li class="toctree-l4"><a class="reference internal" href="../fairseq2.recipes/llama/convert_checkpoint.html">Convert Checkpoints</a></li>
 </ul>
 </li>
-<li class="toctree-l3 has-children"><a class="reference internal" href="../fairseq2.recipes/wav2vec2/index.html">fairseq2.recipes.wav2vec2</a><input class="toctree-checkbox" id="toctree-checkbox-10" name="toctree-checkbox-10" role="switch" type="checkbox"/><label for="toctree-checkbox-10"><div class="visually-hidden">Toggle navigation of fairseq2.recipes.wav2vec2</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../fairseq2.recipes/wav2vec2/index.html">fairseq2.recipes.wav2vec2</a><input class="toctree-checkbox" id="toctree-checkbox-9" name="toctree-checkbox-9" role="switch" type="checkbox"/><label for="toctree-checkbox-9"><div class="visually-hidden">Toggle navigation of fairseq2.recipes.wav2vec2</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
 <li class="toctree-l4"><a class="reference internal" href="../fairseq2.recipes/wav2vec2/train.html">fairseq2.recipes.wav2vec2.train</a></li>
 </ul>
 </li>
@@ -322,26 +320,59 @@
         <article role="main" id="furo-main-content">
           <section id="module-fairseq2.datasets">
 <span id="fairseq2-datasets"></span><h1>fairseq2.datasets<a class="headerlink" href="#module-fairseq2.datasets" title="Link to this heading">¶</a></h1>
-<p>This module contains dataset loaders.</p>
-<pre data-zoom-id="id-3fa0cf15-f102-4f77-8e27-5639e94e6e92" class="mermaid">
-        classDiagram
-  ABC &lt;|-- AbstractDatasetLoader
-  ABC &lt;|-- DataReader
-  BaseException &lt;|-- Exception
-  DataReader &lt;|-- DataPipelineReader
-  DatasetLoader &lt;|-- AbstractDatasetLoader
-  DatasetLoader &lt;|-- DelegatingDatasetLoader
-  Exception &lt;|-- RuntimeError
-  Generic &lt;|-- Protocol
-  Iterable &lt;|-- Iterator
-  Iterator &lt;|-- DataReader
-  Protocol &lt;|-- DatasetLoader
-  RuntimeError &lt;|-- DatasetError
-    </pre><div class="toctree-wrapper compound">
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="loader.html">Dataset Loaders</a></li>
+</section>
+<section id="dataset-loaders">
+<h1>Dataset Loaders<a class="headerlink" href="#dataset-loaders" title="Link to this heading">¶</a></h1>
+<p>The dataset loader system in fairseq2 provides a flexible and extensible way to load different types of datasets.
+The system uses the concept of dataset families to organize and manage different dataset formats.</p>
+<section id="dataset-family">
+<h2>Dataset Family<a class="headerlink" href="#dataset-family" title="Link to this heading">¶</a></h2>
+<p>A dataset family represents a specific format or structure of data that requires specialized loading logic.
+Each dataset is associated with a family through the <code class="docutils literal notranslate"><span class="pre">dataset_family</span></code> field in its asset card.</p>
+<section id="built-in-dataset-families">
+<h3>Built-in Dataset Families<a class="headerlink" href="#built-in-dataset-families" title="Link to this heading">¶</a></h3>
+<p>fairseq2 includes several built-in dataset families:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">generic_text</span></code>: For plain text datasets</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">generic_parallel_text</span></code>: For parallel text/translation datasets</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">generic_asr</span></code>: For automatic speech recognition datasets</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">generic_speech</span></code>: For speech-only datasets</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">generic_instruction</span></code>: For instruction-tuning datasets</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">generic_preference_optimization</span></code>: For preference optimization datasets</p></li>
 </ul>
+</section>
+<section id="example-asset-card">
+<h3>Example Asset Card<a class="headerlink" href="#example-asset-card" title="Link to this heading">¶</a></h3>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">librispeech_asr</span>
+<span class="nt">dataset_family</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">generic_asr</span>
+<span class="nt">tokenizer</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;https://example.com/tokenizer.model&quot;</span>
+<span class="nt">tokenizer_family</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">char_tokenizer</span>
+</pre></div>
 </div>
+</section>
+</section>
+<section id="usage-examples">
+<h2>Usage Examples<a class="headerlink" href="#usage-examples" title="Link to this heading">¶</a></h2>
+<section id="loading-a-dataset-using-family">
+<h3>Loading a Dataset Using Family<a class="headerlink" href="#loading-a-dataset-using-family" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_text_dataset</span>
+
+<span class="c1"># Load using dataset name (will look up asset card)</span>
+<span class="n">dataset</span> <span class="o">=</span> <span class="n">load_text_dataset</span><span class="p">(</span><span class="s2">&quot;my_text_dataset&quot;</span><span class="p">)</span>
+
+<span class="c1"># Load using explicit asset card</span>
+<span class="n">card</span> <span class="o">=</span> <span class="n">AssetCard</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;custom_dataset&quot;</span><span class="p">,</span> <span class="n">dataset_family</span><span class="o">=</span><span class="s2">&quot;generic_text&quot;</span><span class="p">)</span>
+<span class="n">dataset</span> <span class="o">=</span> <span class="n">load_text_dataset</span><span class="p">(</span><span class="n">card</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="see-also">
+<h2>See Also<a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="../fairseq2.data/text/index.html"><span class="doc">Text Dataset</span></a></p></li>
+</ul>
+</section>
 </section>
 
         </article>
@@ -349,12 +380,12 @@
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="loader.html">
+          <a class="next-page" href="../fairseq2.nn/index.html">
               <div class="page-info">
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title">Dataset Loaders</div>
+                <div class="title">fairseq2.nn</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
@@ -397,47 +428,10 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=960b15e5"></script>
+</div><script src="../../../_static/documentation_options.js?v=370f0e19"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>
     <script src="../../../_static/design-tabs.js?v=36754332"></script>
-    <script type="module" src="https://cdn.jsdelivr.net/npm/mermaid@11.2.0/dist/mermaid.esm.min.mjs"></script>
-    <script type="module" src="https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk@0.1.4/dist/mermaid-layout-elk.esm.min.mjs"></script>
-    <script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.2.0/dist/mermaid.esm.min.mjs";import elkLayouts from "https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk@0.1.4/dist/mermaid-layout-elk.esm.min.mjs";mermaid.registerLayoutLoaders(elkLayouts);mermaid.initialize({startOnLoad:false});</script>
-    <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
-    <script type="module">
-import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.2.0/dist/mermaid.esm.min.mjs";
-const load = async () => {
-    await mermaid.run();
-    const all_mermaids = document.querySelectorAll(".mermaid");
-    const mermaids_to_add_zoom = 1 === -1 ? all_mermaids.length : 1;
-    const mermaids_processed = document.querySelectorAll(".mermaid[data-processed='true']");
-    if(mermaids_to_add_zoom > 0) {
-        var svgs = d3.selectAll(".mermaid[data-zoom-id=id-3fa0cf15-f102-4f77-8e27-5639e94e6e92] svg");
-        if(all_mermaids.length !== mermaids_processed.length) {
-            // try again in a sec, wait for mermaids to load
-            setTimeout(load, 200);
-            return;
-        } else if(svgs.size() !== mermaids_to_add_zoom) {
-            // try again in a sec, wait for mermaids to load
-            setTimeout(load, 200);
-            return;
-        } else {
-            svgs.each(function() {
-                var svg = d3.select(this);
-                svg.html("<g class='wrapper'>" + svg.html() + "</g>");
-                var inner = svg.select("g");
-                var zoom = d3.zoom().on("zoom", function(event) {
-                    inner.attr("transform", event.transform);
-                });
-                svg.call(zoom);
-            });
-        }
-    }
-};
-
-window.addEventListener("load", load);
-</script>
     </body>
 </html>
