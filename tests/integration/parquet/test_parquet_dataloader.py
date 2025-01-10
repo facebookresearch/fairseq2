@@ -33,7 +33,7 @@ except ImportError:
 
 def gen_random_string(length: int) -> str:
     return "".join(
-        random.choice(string.ascii_letters + string.digits) for n in range(length)
+        random.choice(string.ascii_letters + string.digits) for _ in range(length)
     )
 
 

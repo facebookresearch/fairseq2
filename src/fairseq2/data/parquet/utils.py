@@ -123,12 +123,6 @@ def from_pyarrow_to_torch_tensor(
         return arr  # keeping as in the orignal pyarrow form
 
 
-def pyarrow_table_to_torch_dict(tt: pa.Table, strict: bool = True) -> NestedDict:
-    return {
-        col: from_pyarrow_to_torch_tensor(tt[col], strict) for col in tt.column_names
-    }
-
-
 def init_parquet_dataset(
     parquet_path: str,
     filters: pa.dataset.Expression | None = None,
@@ -430,7 +424,7 @@ def get_row_group_level_metadata(
         len(columns_to_exclude) == 0
     ), f"names conflict, rename/remove : {columns_to_exclude}"
 
-    def get_one_row_group_stats(row_group):
+    def get_one_row_group_stats(row_group: pa.dataset.RowGroup) -> dict:
         metadata = row_group.metadata
         info = {
             "row_group_id": row_group.id,
@@ -441,7 +435,7 @@ def get_row_group_level_metadata(
             info[col] = metadata.column(ind).to_dict()
         return info
 
-    def get_fragment_stats(frag):
+    def get_fragment_stats(frag: pa.dataset.Fragment) -> dict:
         return {
             "rg_stats": list(map(get_one_row_group_stats, frag.row_groups)),
             "parquet_file_path": frag.path,
@@ -497,14 +491,14 @@ def get_parquet_dataset_metadata(
             .tolist()
         )
 
-    def get_fragment_full_stats(frag):
+    def get_fragment_full_stats(frag: pa.dataset.Fragment) -> dict:
         return {
             "parquet_file_path": frag.path,
             **frag.metadata.to_dict(),
             **get_partition_keys(frag.partition_expression),
         }
 
-    def get_fragment_minimal_stats(frag):
+    def get_fragment_minimal_stats(frag: pa.dataset.Fragment) -> dict:
         meta = frag.metadata
         return {
             "parquet_file_path": frag.path,

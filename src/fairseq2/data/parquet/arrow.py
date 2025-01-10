@@ -1,6 +1,5 @@
 from typing import Union
 
-import numpy as np
 import pyarrow as pa
 import pyarrow.compute as pc
 
