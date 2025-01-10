@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 from enum import Enum
+from typing import Optional
 
 
 class ParquetBatchFormat(Enum):

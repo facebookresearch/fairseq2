@@ -1,10 +1,9 @@
 from fairseq2.data.parquet.utils import (
     get_parquet_dataset_metadata,
     get_row_group_level_metadata,
-    pyarrow_table_to_torch_dict,
-    NestedDict,
     pa,
     pq,
+    pyarrow_table_to_torch_dict,
 )
 
 

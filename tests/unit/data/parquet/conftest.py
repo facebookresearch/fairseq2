@@ -1,11 +1,12 @@
-from pathlib import Path
 import shutil
 import tempfile
+from pathlib import Path
 from typing import Generator
-import pytest
+
 import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
+import pytest
 
 
 def get_random_table(size: int, seed: int = 123) -> pa.Table:
@@ -17,6 +18,7 @@ def get_random_table(size: int, seed: int = 123) -> pa.Table:
     }
     return pa.Table.from_pydict(data)
 
+
 @pytest.fixture()
 def multi_partition_file_dataset() -> Generator[Path, None, None]:
     tmpdir = tempfile.mkdtemp()
@@ -27,4 +29,3 @@ def multi_partition_file_dataset() -> Generator[Path, None, None]:
 
     yield tmp_parquet_ds_path
     shutil.rmtree(tmpdir)
-
