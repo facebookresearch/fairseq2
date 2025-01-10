@@ -150,7 +150,7 @@ class TopPSamplerHandler(SamplerHandler):
     @property
     @override
     def config_kls(self) -> type:
-        return TopPSamplerHandler
+        return TopPSamplerConfig
 
 
 TOP_K_SAMPLER: Final = "top-k"
@@ -172,4 +172,4 @@ class TopKSamplerHandler(SamplerHandler):
     @property
     @override
     def config_kls(self) -> type:
-        return TopKSamplerHandler
+        return TopKSamplerConfig
