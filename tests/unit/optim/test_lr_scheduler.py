@@ -16,12 +16,15 @@ from torch.nn.functional import relu
 from torch.optim import SGD
 
 from fairseq2.optim.lr_scheduler import (
+    COSINE_ANNEALING_LR,
     CosineAnnealingLR,
+    CosineAnnealingLRConfig,
     LRScheduler,
     MyleLR,
     NoamLR,
     PolynomialDecayLR,
     TriStageLR,
+    create_lr_scheduler,
 )
 
 
@@ -42,6 +45,7 @@ class TestLRSchedulers:
         self.base_lr2 = 0.5
 
         self.net = LRSchedulerTestNet()
+
         self.opt = SGD(
             params=[  # type: ignore[arg-type]
                 {"params": self.net.conv1.parameters()},
@@ -544,3 +548,46 @@ class TestLRSchedulers:
 
         assert lr1 == pytest.approx(final_lr1)
         assert lr2 == pytest.approx(final_lr2)
+
+
+class TestLRSchedulerFactory:
+    def setup_method(self) -> None:
+        self.net = LRSchedulerTestNet()
+
+        self.opt = SGD(
+            params=[  # type: ignore[arg-type]
+                {"params": self.net.conv1.parameters()},
+                {"params": self.net.conv2.parameters(), "lr": 0.5},
+            ],
+            lr=0.05,
+        )
+
+    def test_cosine_annealing_lr_raises_error_when_both_final_lr_and_scale_are_specified(
+        self,
+    ) -> None:
+        config = CosineAnnealingLRConfig(final_lr=0.02, final_lr_scale=0.02)
+
+        with pytest.raises(
+            ValueError, match=r"^`config.final_lr` and `config.final_lr_scale` must not be specified at the same time\.$"  # fmt: skip
+        ):
+            create_lr_scheduler(COSINE_ANNEALING_LR, self.opt, config, max_num_steps=10)
+
+    def test_cosine_annealing_lr_raises_error_when_both_final_lr_and_scale_are_none(
+        self,
+    ) -> None:
+        config = CosineAnnealingLRConfig(final_lr=None, final_lr_scale=None)
+
+        with pytest.raises(
+            ValueError, match=r"^Either `config.final_lr` or `config.final_lr_scale` must be specified."  # fmt: skip
+        ):
+            create_lr_scheduler(COSINE_ANNEALING_LR, self.opt, config, max_num_steps=10)
+
+    def test_cosine_annealing_lr_raises_error_when_cycle_len_is_not_specified(
+        self,
+    ) -> None:
+        config = CosineAnnealingLRConfig(cycle_len=None)
+
+        with pytest.raises(
+            ValueError, match=r"^`config.cycle_len` must be specified when `num_steps` is not specified\.$"  # fmt: skip
+        ):
+            create_lr_scheduler(COSINE_ANNEALING_LR, self.opt, config)

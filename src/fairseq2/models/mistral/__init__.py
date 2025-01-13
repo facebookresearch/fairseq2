@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-from fairseq2.models.mistral.chatbot import MistralChatbot as MistralChatbot
 from fairseq2.models.mistral.factory import MISTRAL_FAMILY as MISTRAL_FAMILY
 from fairseq2.models.mistral.factory import MistralBuilder as MistralBuilder
 from fairseq2.models.mistral.factory import MistralConfig as MistralConfig
@@ -15,15 +14,7 @@ from fairseq2.models.mistral.factory import mistral_arch as mistral_arch
 from fairseq2.models.mistral.factory import mistral_archs as mistral_archs
 from fairseq2.models.mistral.loader import load_mistral_config as load_mistral_config
 from fairseq2.models.mistral.loader import load_mistral_model as load_mistral_model
-from fairseq2.models.mistral.loader import (
-    load_mistral_tokenizer as load_mistral_tokenizer,
-)
 
 # isort: split
 
-from fairseq2.dependency import DependencyContainer
-from fairseq2.models.mistral.archs import register_archs
-
-
-def register_mistral(container: DependencyContainer) -> None:
-    register_archs()
+import fairseq2.models.mistral.archs  # Register architectures.

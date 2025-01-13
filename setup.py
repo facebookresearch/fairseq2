@@ -8,14 +8,17 @@ from __future__ import annotations
 
 from setuptools import find_namespace_packages, setup
 
-version = "0.3.0.dev0"
+version = "0.4.0.dev0"
 
 # If this is a local development install, allow nightly fairseq2n builds to
 # take precedence.
 if version.endswith(".dev0"):
     fairseq2n_version_spec = f">={version},<={version[:-5]}"
 else:
-    fairseq2n_version_spec = f"=={version}"
+    p = version.split("+", maxsplit=1)
+
+    fairseq2n_version_spec = "==" + p[0]
+
 
 setup(
     name="fairseq2",

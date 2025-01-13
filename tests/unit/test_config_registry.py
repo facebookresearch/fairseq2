@@ -50,7 +50,7 @@ class TestConfigRegistry:
         registry.register("name", lambda: Foo("config"))
 
         with pytest.raises(
-            AlreadyExistsError, match=r"^`name` must be a unique configuration name, but 'name' is already registered\.$",  # fmt: skip
+            AlreadyExistsError, match=r"^The registry has already a configuration named 'name'\.$",  # fmt: skip
         ):
             registry.register("name", lambda: Foo("config"))
 
@@ -58,6 +58,6 @@ class TestConfigRegistry:
         registry = ConfigRegistry[Foo]()
 
         with pytest.raises(
-            LookupError, match=r"^`name` must be a registered configuration name, but 'foo' is not registered\.$",  # fmt: skip
+            LookupError, match=r"^'foo' is not a registered configuration name\.$",  # fmt: skip
         ):
             registry.get("foo")

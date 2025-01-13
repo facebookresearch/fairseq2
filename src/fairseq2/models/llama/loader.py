@@ -6,19 +6,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any, Mapping, final
+from typing import Any, Mapping
 
 from torch import Tensor
-from typing_extensions import override
 
-from fairseq2.assets import AssetCard
-from fairseq2.data.text import (
-    AbstractTextTokenizerLoader,
-    BasicSentencePieceTokenizer,
-    TextTokenizer,
-    load_text_tokenizer,
-)
 from fairseq2.gang import Gang
 from fairseq2.models.config_loader import StandardModelConfigLoader
 from fairseq2.models.llama.factory import (
@@ -27,7 +18,6 @@ from fairseq2.models.llama.factory import (
     create_llama_model,
     llama_archs,
 )
-from fairseq2.models.llama.tokenizer import LLaMA3Tokenizer
 from fairseq2.models.loader import StandardModelLoader, load_model
 from fairseq2.models.transformer import (
     TransformerDecoderModel,
@@ -137,24 +127,3 @@ load_llama_model = StandardModelLoader(
 )
 
 load_model.register(LLAMA_FAMILY, load_llama_model)
-
-
-@final
-class LLaMATokenizerLoader(AbstractTextTokenizerLoader[TextTokenizer]):
-    """Loads LLaMA tokenizers."""
-
-    @override
-    def _load(self, path: Path, card: AssetCard) -> TextTokenizer:
-        if card.field("use_v2_tokenizer").get_as_(bool, False):
-            f = card.field("model_config").field("vocab_info").field("eos_idx")
-
-            eot_idx = 128_009  # end-of-turn
-
-            return LLaMA3Tokenizer(path, instruct=f.get_as_(int) == eot_idx)
-
-        return BasicSentencePieceTokenizer(path)
-
-
-load_llama_tokenizer = LLaMATokenizerLoader()
-
-load_text_tokenizer.register(LLAMA_FAMILY, load_llama_tokenizer)

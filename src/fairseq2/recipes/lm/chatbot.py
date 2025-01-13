@@ -12,26 +12,27 @@ from datetime import timedelta
 from typing import final
 
 import torch
+from rich.console import Console
+from torch import Tensor
 from typing_extensions import override
 
-from fairseq2.console import get_console
-from fairseq2.data.text import load_text_tokenizer
-from fairseq2.dependency import DependencyResolver
-from fairseq2.gang import Gang
+from fairseq2.chatbots import Chatbot, ChatMessage, create_chatbot
+from fairseq2.context import get_runtime_context
+from fairseq2.data.text import TextTokenDecoder, TextTokenizer, load_text_tokenizer
+from fairseq2.error import InternalError
+from fairseq2.gang import Gang, is_torchrun
 from fairseq2.generation import (
-    Chatbot,
-    ChatMessage,
     SamplingSequenceGenerator,
+    SequenceGenerator,
     TopPSampler,
-    chatbot_factories,
 )
 from fairseq2.logging import get_log_writer
 from fairseq2.models import load_model
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.recipes.cli import CliCommandHandler
-from fairseq2.recipes.logging import setup_basic_logging
+from fairseq2.recipes.cluster import ClusterError, ClusterHandler, ClusterResolver
 from fairseq2.recipes.utils.argparse import parse_dtype
-from fairseq2.recipes.utils.environment import EnvironmentSetter
+from fairseq2.recipes.utils.rich import get_console
 from fairseq2.recipes.utils.setup import setup_gangs
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import RngBag
@@ -44,7 +45,7 @@ class ChatbotCommandHandler(CliCommandHandler):
     """Runs a chatbot."""
 
     @override
-    def init_parser(self, parser: ArgumentParser, resolver: DependencyResolver) -> None:
+    def init_parser(self, parser: ArgumentParser) -> None:
         parser.add_argument(
             "-m",
             "--model",
@@ -96,37 +97,32 @@ class ChatbotCommandHandler(CliCommandHandler):
             help="maximum sequence generation length (default: %(default)s)",
         )
 
-        clusters = [k for k, _ in resolver.resolve_all_keyed(EnvironmentSetter)]
-
-        clusters.sort()
-
         parser.add_argument(
             "--cluster",
-            choices=["auto"] + clusters,
             default="auto",
-            help="cluster on which the chatbot runs (default: %(default)s)",
+            help="cluster on which the recipe runs (default: %(default)s)",
         )
 
     @override
-    @torch.inference_mode()
-    def __call__(self, args: Namespace, resolver: DependencyResolver) -> None:
-        setup_basic_logging()
+    def run(self, parser: ArgumentParser, args: Namespace) -> int:
+        context = get_runtime_context()
+
+        cluster_handlers = context.get_registry(ClusterHandler)
+
+        cluster_resolver = ClusterResolver(cluster_handlers, is_torchrun=is_torchrun())
 
         # Set up cluster-specific environment variables.
-        if args.cluster == "auto":
-            env_setter = resolver.resolve(EnvironmentSetter)
-        else:
-            env_setter = resolver.resolve(EnvironmentSetter, args.cluster)
-
-        if not env_setter.supports_current_cluster():
-            log.error("Recipe is not running on a '{}' cluster.", args.cluster)
+        try:
+            cluster_handler = cluster_resolver.get(args.cluster)
+        except LookupError:
+            log.exception("Chatbot is not running on a '{}' cluster.", args.cluster)  # fmt: skip
 
             sys.exit(1)
 
         try:
-            env_setter.set_torch_distributed_variables()
-        except RuntimeError:
-            log.exception("'{}' cluster environment cannot be set.", env_setter.supported_cluster)  # fmt: skip
+            cluster_handler.set_torch_distributed_variables()
+        except ClusterError:
+            log.exception("'{}' cluster environment cannot be set.", args.cluster)  # fmt: skip
 
             sys.exit(1)
 
@@ -171,10 +167,8 @@ class ChatbotCommandHandler(CliCommandHandler):
             sys.exit(1)
 
         try:
-            chatbot_factory = chatbot_factories.get(model.family)
-
-            chatbot = chatbot_factory(generator, tokenizer)
-        except ValueError:
+            chatbot = create_chatbot(model.family, generator, tokenizer)
+        except LookupError:
             log.exception("The chatbot cannot be created.")
 
             sys.exit(1)
@@ -184,9 +178,24 @@ class ChatbotCommandHandler(CliCommandHandler):
         # Set the seed for sequence generation.
         rng_bag.manual_seed(args.seed)
 
-        self._do_run(args.model_name, chatbot, root_gang)
+        self._do_run(
+            args.model_name,
+            chatbot,
+            generator,
+            tokenizer,
+            root_gang,
+        )
 
-    def _do_run(self, chatbot_name: str, chatbot: Chatbot, gang: Gang) -> None:
+        return 0
+
+    def _do_run(
+        self,
+        chatbot_name: str,
+        chatbot: Chatbot,
+        generator: SequenceGenerator,
+        tokenizer: TextTokenizer,
+        gang: Gang,
+    ) -> None:
         dialog = []
 
         if gang.rank == 0:
@@ -220,7 +229,10 @@ class ChatbotCommandHandler(CliCommandHandler):
 
                     console.print(f"\n[blue bold]{chatbot_name}> ", end="")
 
-                    response, _ = chatbot(dialog, stdout=True)
+                    hook = PrintHook(console, tokenizer)
+
+                    with generator.register_step_hook(hook):
+                        response, _ = chatbot(dialog)
 
                     console.print("\n")
 
@@ -235,7 +247,7 @@ class ChatbotCommandHandler(CliCommandHandler):
                 raise
         else:
             while True:
-                message_buffer: list[ChatMessage | None] = [None]
+                message_buffer: list[object] = [None]
 
                 gang.broadcast_objects(message_buffer)
 
@@ -254,3 +266,65 @@ class ChatbotCommandHandler(CliCommandHandler):
                 response, _ = chatbot(dialog)
 
                 dialog.append(response)
+
+
+@final
+class PrintHook:
+    _console: Console
+    _text_decoder: TextTokenDecoder
+    _first_print: bool
+    _prev_text_len: int
+
+    def __init__(self, console: Console, tokenizer: TextTokenizer) -> None:
+        self._console = console
+        self._text_decoder = tokenizer.create_decoder()
+        self._first_print = True
+        self._prev_text_len = 0
+
+    def __call__(
+        self,
+        prompt_indices: Tensor,
+        seqs: Tensor,
+        step_scores: Tensor | None,
+        prefill: bool,
+    ) -> None:
+        if len(prompt_indices) != 1:
+            raise InternalError(
+                f"The length of `prompt_indices` is {len(prompt_indices)}."
+            )
+
+        # Do not print anything during prompt prefill.
+        if prefill:
+            return
+
+        text = self._text_decoder(seqs[0])
+
+        text_len = len(text)
+
+        # If this is our first print, determine the length of the prompt text.
+        if self._prev_text_len == 0:
+            prev_text = self._text_decoder(seqs[0][:-1])
+
+            prev_text_len = len(prev_text)
+        else:
+            prev_text_len = self._prev_text_len
+
+        # Cache the length of the text so that we don't have to decode it twice
+        # in the next step.
+        self._prev_text_len = text_len
+
+        # No need to print if we decoded a control symbol (e.g. EOS).
+        if text_len == prev_text_len:
+            return
+
+        text = text[prev_text_len - text_len :]
+
+        # Some models output several whitespace characters after the prompt.
+        if self._first_print:
+            text = text.lstrip()
+            if not text:
+                return
+
+            self._first_print = False
+
+        self._console.print(text, highlight=False, end="")

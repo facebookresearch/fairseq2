@@ -17,6 +17,7 @@ from fairseq2.assets import (
     default_asset_store,
     load_metadata_file,
 )
+from fairseq2.utils.yaml import load_yaml
 
 AssetReference: TypeAlias = str | AssetCard | Path
 
@@ -33,7 +34,7 @@ def retrieve_asset_card(name_or_card: AssetReference) -> AssetCard:
     if isinstance(name_or_card, Path):
         if name_or_card.is_dir():
             raise AssetNotFoundError(
-                f"{name_or_card}", f"An asset metadata file cannot be found at {name_or_card}."  # fmt: skip
+                name_or_card.name, f"An asset metadata file cannot be found at {name_or_card}."  # fmt: skip
             )
 
         return _card_from_file(name_or_card)
@@ -58,7 +59,7 @@ def retrieve_asset_card(name_or_card: AssetReference) -> AssetCard:
 
 
 def _card_from_file(file: Path) -> AssetCard:
-    all_metadata = load_metadata_file(file)
+    all_metadata = load_metadata_file(file, load_yaml)
 
     if len(all_metadata) != 1:
         raise AssetMetadataError(

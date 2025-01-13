@@ -24,8 +24,6 @@ TORCH_VERSION: Final = _get_torch_version()
 
 
 def torch_greater_or_equal(major: int, minor: int) -> bool:
-    """Return ``True`` if the installed version of PyTorch is greater than or
-    equal to the specified major-minor version."""
     if TORCH_VERSION.major <= major - 1:
         return False
 

@@ -10,7 +10,7 @@ set -eo pipefail
 
 function print_usage
 {
-    echo "Usage: set-version PEP440_VERSION"
+    echo "Usage: set-version [--native-only] PEP440_VERSION"
 }
 
 function exit_with_usage
@@ -47,12 +47,20 @@ function extract_mmm_version
     echo "$1" | grep --only-matching --extended-regexp '^([0-9]+\.)*[0-9]+' -
 }
 
-if [[ $# -ne 1 ]]; then
-    exit_with_error
-fi
+if [[ $# -eq 1 ]]; then
+    if [[ $1 == -h || $1 == --help ]]; then
+        exit_with_usage
+    fi
 
-if [[ $1 == -h || $1 == --help ]]; then
-    exit_with_usage
+    native_only=false
+elif [[ $# -eq 2 ]]; then
+    if [[ $1 == "--native-only" ]]; then
+        shift
+
+        native_only=true
+    else
+        exit_with_error
+    fi
 fi
 
 pep_ver=$(extract_pep_version "$1")
@@ -61,14 +69,16 @@ mmm_ver=$(extract_mmm_version "$1")
 base=$(cd "$(dirname "$0")/.." && pwd)
 
 # Update Python distribution.
-replace_match\
-    "$base/setup.py"\
-    "s/^version = \".*\"$/version = \"$pep_ver\"/"
+if [[ $native_only != true ]]; then
+    replace_match\
+        "$base/setup.py"\
+        "s/^version = \".*\"$/version = \"$pep_ver\"/"
 
-# Update Python package.
-replace_match\
-    "$base/src/fairseq2/__init__.py"\
-    "s/^__version__ = \".*\"$/__version__ = \"$pep_ver\"/"
+    # Update Python package.
+    replace_match\
+        "$base/src/fairseq2/__init__.py"\
+        "s/^__version__ = \".*\"$/__version__ = \"$pep_ver\"/"
+fi
 
 # Update fairseq2n CMake project.
 replace_match\

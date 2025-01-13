@@ -1,0 +1,170 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+from __future__ import annotations
+
+import os
+import subprocess
+from abc import ABC, abstractmethod
+from collections.abc import Collection
+from random import Random
+from typing import final
+
+from typing_extensions import override
+
+from fairseq2.context import Provider
+from fairseq2.gang import get_rank, get_world_size
+
+
+@final
+class ClusterResolver:
+    _handlers: Provider[ClusterHandler]
+    _is_torchrun: bool
+
+    def __init__(self, handlers: Provider[ClusterHandler], is_torchrun: bool) -> None:
+        self._handlers = handlers
+        self._is_torchrun = is_torchrun
+
+    def get(self, name: str) -> ClusterHandler:
+        if self._is_torchrun or name == "none":
+            return _NoneClusterHandler()
+
+        if name == "auto":
+            for _, handler in self._handlers.get_all():
+                if handler.supports_current_cluster():
+                    return handler
+
+            return _NoneClusterHandler()
+
+        try:
+            return self._handlers.get(name)
+        except LookupError:
+            raise UnknownClusterError(name, self.supported_clusters()) from None
+
+    def supported_clusters(self) -> Collection[str]:
+        return [str(key) for key, _ in self._handlers.get_all()]
+
+
+class UnknownClusterError(LookupError):
+    cluster: str
+    supported_clusters: Collection[str]
+
+    def __init__(self, cluster: str, supported_clusters: Collection[str]) -> None:
+        super().__init__(f"'{cluster}' is not a known cluster.")
+
+        self.cluster = cluster
+        self.supported_clusters = supported_clusters
+
+
+class ClusterHandler(ABC):
+    @abstractmethod
+    def set_torch_distributed_variables(self) -> tuple[int, int]:
+        """Set environment variables required to initialize ``torch.distributed``."""
+
+    @abstractmethod
+    def supports_current_cluster(self) -> bool:
+        """Return ``True`` if this instance supports the current cluster."""
+
+
+class ClusterError(Exception):
+    cluster: str
+
+    def __init__(self, cluster: str, message: str) -> None:
+        super().__init__(message)
+
+        self.cluster = cluster
+
+
+@final
+class SlurmClusterHandler(ClusterHandler):
+    _job_id: int | None
+
+    def __init__(self) -> None:
+        self._job_id = None
+
+    @override
+    def set_torch_distributed_variables(self) -> tuple[int, int]:
+        job_id = self._ensure_job_id()
+
+        try:
+            os.environ["WORLD_SIZE"] = os.environ["SLURM_NTASKS"]
+            os.environ["RANK"] = os.environ["SLURM_PROCID"]
+
+            try:
+                os.environ["LOCAL_WORLD_SIZE"] = os.environ["SLURM_NTASKS_PER_NODE"]
+            except KeyError:
+                os.environ["LOCAL_WORLD_SIZE"] = "1"
+
+            os.environ["LOCAL_RANK"] = os.environ["SLURM_LOCALID"]
+
+            os.environ["MASTER_ADDR"] = self._get_master_addr()
+            os.environ["MASTER_PORT"] = self._get_master_port(job_id)
+
+            os.environ["CUDA_VISIBLE_DEVICES"] = os.environ["SLURM_LOCALID"]
+        except KeyError as ex:
+            raise ClusterError(
+                "slurm", "Slurm job environment variables are not set correctly."
+            ) from ex
+
+        return get_world_size(), get_rank()
+
+    def _ensure_job_id(self) -> int:
+        if self._job_id is not None:
+            return self._job_id
+
+        try:
+            job_id = os.environ["SLURM_JOB_ID"]
+        except KeyError:
+            raise ClusterError(
+                "slurm", "`SLURM_JOB_ID` environment variable does not exist."
+            ) from None
+
+        try:
+            self._job_id = int(job_id)
+        except ValueError as ex:
+            raise ClusterError("slurm", "Slurm job ID cannot be parsed.") from ex
+
+        return self._job_id
+
+    @staticmethod
+    def _get_master_addr() -> str:
+        nodes = os.environ["SLURM_JOB_NODELIST"]
+
+        result = subprocess.run(
+            ["scontrol", "show", "hostnames", nodes], capture_output=True, text=True
+        )
+
+        if result.returncode == 0:
+            if node_list := result.stdout.split("\n"):
+                return node_list[0]
+
+        raise ClusterError(
+            "slurm", "The hostname or IP address of the Slurm node corresponding to rank 0 cannot be retrieved."  # fmt: skip
+        )
+
+    @staticmethod
+    def _get_master_port(job_id: int) -> str:
+        try:
+            return os.environ["MASTER_PORT"]
+        except KeyError:
+            pass
+
+        return str(Random(job_id).randint(20_000, 60_000))
+
+    @override
+    def supports_current_cluster(self) -> bool:
+        return "SLURM_JOB_ID" in os.environ
+
+
+@final
+class _NoneClusterHandler(ClusterHandler):
+    @override
+    def set_torch_distributed_variables(self) -> tuple[int, int]:
+        return get_world_size(), get_rank()
+
+    @override
+    def supports_current_cluster(self) -> bool:
+        return True

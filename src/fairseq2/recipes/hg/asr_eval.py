@@ -18,9 +18,8 @@ from datasets import (  # type: ignore[attr-defined,import-untyped,import-not-fo
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.data_pipeline import SequenceData
-from fairseq2.data.text import load_text_tokenizer
-from fairseq2.data.text.text_tokenizer import TextTokenizer
-from fairseq2.datasets.batching import StaticBatching
+from fairseq2.data.text import TextTokenizer, load_text_tokenizer
+from fairseq2.datasets import StaticBatching
 from fairseq2.logging import get_log_writer
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch

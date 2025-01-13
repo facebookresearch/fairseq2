@@ -6,6 +6,28 @@
 
 from __future__ import annotations
 
+from typing import TypeAlias
 
-class AssetError(RuntimeError):
-    """Raised when an asset operation fails."""
+
+class AssetError(Exception):
+    pass
+
+
+class AssetCardError(AssetError):
+    name: str
+
+    def __init__(self, name: str, message: str) -> None:
+        super().__init__(message)
+
+        self.name = name
+
+
+class AssetCardNotFoundError(AssetCardError):
+    pass
+
+
+class AssetCardFieldNotFoundError(AssetCardError):
+    pass
+
+
+AssetNotFoundError: TypeAlias = AssetCardNotFoundError  # compat

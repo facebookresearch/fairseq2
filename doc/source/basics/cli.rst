@@ -3,183 +3,126 @@
 :octicon:`terminal` CLI
 =======================
 
-The Command-Line Interface (CLI) is a crucial feature in fairseq2, offering users a powerful and flexible way to interact with the framework. With the CLI, users can quickly and easily execute tasks, customize recipes and configurations, and perform complex operations such as sweep runs and benchmarking. For example:
+The Command-Line Interface (CLI) is a crucial feature in fairseq2, offering users a powerful and flexible way to interact with the framework.
+With the CLI, you can quickly and easily execute tasks, customize recipes and configurations, and perform complex operations such as sweep runs and benchmarking.
+
+Basic Usage
+-----------
+
+Here are some basic examples of using the CLI:
 
 .. code-block:: bash
 
-    # dump the default configuration for instruction finetuning
+    # Get help about available commands
+    fairseq2 -h
+
+    # Get help about a specific command group (e.g. recipe lm)
+    fairseq2 lm -h
+
+    # Get help about a specific command (e.g. recipe lm::instruction_finetune)
+    fairseq2 lm instruction_finetune -h
+
+    # List available presets for a recipe (e.g. recipe lm::instruction_finetune)
+    fairseq2 lm instruction_finetune --list-presets
+
+    # Dump the default configuration for a recipe (e.g. recipe lm::instruction_finetune)
     fairseq2 lm instruction_finetune --dump-config
 
-    # run a recipe - put the OUTPUT_DIR right after the recipe name
+    # Run a recipe with default settings (e.g. recipe lm::instruction_finetune)
+    fairseq2 lm instruction_finetune <OUTPUT_DIR>
+
+    # Run a recipe with a custom config file (e.g. recipe lm::instruction_finetune)
     fairseq2 lm instruction_finetune <OUTPUT_DIR> --config-file <YOUR_CONFIG>.yaml
-    # or, put the OUTPUT_DIR at the end following a "--"
-    fairseq2 lm instruction_finetune --config-file <YOUR_CONFIG>.yaml -- <OUTPUT_DIR>
 
-In this section, we will cover:
+Configuration Customization
+---------------------------
 
-1. `More examples of CLI <#cli-examples>`_
-2. `How to add your CLI <#cli-add>`_
-3. `How the CLI is initialized <#cli-initialize>`_
+fairseq2 provides multiple ways to customize recipe configurations:
 
-Key benefits of CLI in fairseq2:
-- **Rapid Interaction**: The CLI enables users to rapidly interact with fairseq2, allowing for quick execution of tasks and experiments.
-- **Customization**: Users can conveniently customize recipes and configurations by adding or modifying ``--config`` options, making it easy to adapt fairseq2 to specific use cases.
-- **Sweep Runs and Benchmarking**: The CLI facilitates sweep runs and benchmarking with a set of different configurations, enabling users to simply customize bash scripts for sbatch or srun.
+1. Using Config Files
+^^^^^^^^^^^^^^^^^^^^^
 
-
-.. _cli-examples:
-
-More Example CLI-s
-------------------
-   
-   
-To get started, you can use the help with ``-h`` whenever you have a question about the CLI at any level:
-
-.. code-block:: console
-
-    $ fairseq2 -h
-    usage: fairseq2 [-h] [--version] {assets,lm,llama,mt,wav2vec2,wav2vec2_asr} ...
-
-    command line interface of fairseq2
-
-    positional arguments:
-      {assets,lm,llama,mt,wav2vec2,wav2vec2_asr}
-        assets              list and show assets (e.g. models, tokenizers, datasets)
-        lm                  language model recipes
-        llama               LLaMA recipes
-        mt                  machine translation recipes
-        wav2vec2            wav2vec 2.0 pretraining recipes
-        wav2vec2_asr        wav2vec 2.0 ASR recipes
-
-    options:
-      -h, --help            show this help message and exit
-      --version             show program's version number and exit
-
-Each of the positional arguments listed above (``assets``, ``lm``, ``llama``, ...) is called "cli group". For example, in the ``assets`` group, you can list all assets:
+You can specify one or multiple YAML config files:
 
 .. code-block:: bash
 
-    $ fairseq2 assets list
-    user:
-      n/a
+    # Single config file
+    fairseq2 lm instruction_finetune <OUTPUT_DIR> --config-file config1.yaml
 
-    global:
-      package:fairseq2.assets.cards
-      - dataset:openeft
-      - dataset:librilight_asr_10h
-      - dataset:librispeech_asr
-      - dataset:librispeech_asr_100h
-      - dataset:librispeech_960h
-      - model:s2t_transformer_mustc_asr_de_s
-      - model:s2t_transformer_mustc_asr_es_s
-      ...
-      - tokenizer:mistral_7b
-      - tokenizer:mistral_7b_instruct
-      package:fairseq2_ext.cards
-      - dataset:librispeech_asr@awscluster
-      - dataset:librispeech_asr@faircluster
-      ...
-      - dataset:openeft@awscluster
-      - dataset:openeft@faircluster
-      - model:nllb-200@faircluster
-      - model:nllb-200_dense_1b@faircluster
-      ...
-      - tokenizer:llama3_2_3b@awscluster
-      - tokenizer:llama3_2_3b_instruct@awscluster
+    # Multiple config files (merged from left to right)
+    fairseq2 lm instruction_finetune <OUTPUT_DIR> --config-file base.yaml --config-file override.yaml
 
-You can also show a specific asset with more verbose information (`e.g.` checkpoint path), for example:
+2. Command Line Overrides
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Use ``--config`` to override specific values:
 
 .. code-block:: bash
 
-    $ fairseq2 assets show llama3_1_8b_instruct
-    llama3_1_8b_instruct
-      source          : 'package:fairseq2_ext.cards'
-      base            : 'llama3_instruct'
-      model_arch      : 'llama3_1_8b'
-      checkpoint      :
-    '/fsx-ram/shared/Meta-Llama-3.1-8B-Instruct/original/consolidated.00.pth'
+    # Override single value
+    fairseq2 lm instruction_finetune <OUTPUT_DIR> --config max_num_tokens=512
 
-    llama3_instruct
-      source          : 'package:fairseq2.assets.cards'
-      base            : 'llama3'
-      model_config    : {'vocab_info': {'eos_idx': 128009}}
+    # Override nested values
+    fairseq2 lm instruction_finetune <OUTPUT_DIR> --config optimizer_config.lr=4e-5
 
-    llama3
-      source          : 'package:fairseq2_ext.cards'
-      model_family    : 'llama'
-      checkpoint      : 'https://ai.meta.com/llama/;gated=true'
-      tokenizer       : '/fsx-ram/shared/Meta-Llama-3-8B/tokenizer.model'
-      tokenizer_family: 'llama'
-      use_v2_tokenizer: True
+    # Override multiple values
+    fairseq2 lm instruction_finetune <OUTPUT_DIR> --config max_num_tokens=512 max_seq_len=512
 
-.. _cli-add:
+    # Override a tuple
+    fairseq2 lm instruction_finetune <OUTPUT_DIR> --config profile="[500,10]"
 
-How to add a CLI?
------------------
+.. note::
 
-Take ``fairseq2 lm instruction_finetune ...`` as example, the command and handler are registered at :meth:`fairseq2.recipes.lm._setup_lm_cli`.
+  Unlike ``--config-file``, only one ``--config`` argument can be used.
 
-.. code-block:: python
+3. Adding and Removing Values
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-    def _setup_lm_cli(cli: Cli) -> None:
-        group = cli.add_group("lm", help="language model recipes")
+Use ``add:`` and ``del:`` directives for more advanced configuration:
 
-        # Instruction Finetune
-        instruction_finetune_handler = RecipeCommandHandler(
-            loader=load_instruction_finetuner,
-            preset_configs=instruction_finetune_presets,
-            default_preset="llama3_1_instruct",
-        )
+.. code-block:: bash
 
-        group.add_command(
-            name="instruction_finetune",
-            handler=instruction_finetune_handler,
-            help="instruction-finetune a language model",
-        )
+    # Add a new configuration value
+    fairseq2 lm instruction_finetune <OUTPUT_DIR> --config add:new_param=value
 
-The callback function is passed as ``loader``. In this case, you can check the ``load_instruction_finetuner`` :meth:`fairseq2.recipes.lm.instruction_finetune.load_instruction_finetuner` for more details.
+    # Remove a configuration value
+    fairseq2 lm instruction_finetune <OUTPUT_DIR> --config del:unwanted_param
 
-.. _cli-initialize:
+4. Combining Different Methods
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-How is fairseq2 CLI initialized?
---------------------------------
+You can combine all these methods, with later values taking precedence:
 
-The ``Cli`` class is defined :class:`fairseq2.recipes.CLI` and instantiated in :meth:`fairseq2.recipes.main`. For example:
+.. code-block:: bash
 
-.. code-block:: python
+    fairseq2 lm instruction_finetune <OUTPUT_DIR> \
+        --config-file base.yaml \
+        --config-file override.yaml \
+        --config max_num_tokens=512 \
+        optimizer_config.lr=4e-5 \
+        add:custom_param=value
 
-    def main() -> None:
-        """Run the command line fairseq2 program."""
-        from fairseq2 import __version__, setup_fairseq2
+Asset Management
+----------------
 
-        with exception_logger(log):
-            setup_basic_logging()
+fairseq2 provides commands to manage and inspect assets:
 
-            setup_fairseq2()
+.. code-block:: bash
 
-            cli = Cli(
-                name="fairseq2",
-                origin_module="fairseq2",
-                version=__version__,
-                description="command line interface of fairseq2",
-            )
+    # List all available assets
+    fairseq2 assets list
 
-            container = get_container()
+    # Show details of a specific asset
+    fairseq2 assets show llama3_1_8b_instruct
 
-            _setup_cli(cli, container)
-            _setup_cli_extensions(cli, container)
+    # List assets filtered by type
+    fairseq2 assets list --type model
+    fairseq2 assets list --type dataset
+    fairseq2 assets list --type tokenizer
 
-The :meth:`fairseq2.recipes._setup_cli` is where we have all our CLI groups registered:
+See More
+--------
 
-.. code-block:: python
+For more technical details about implementing custom CLIs and extensions, see:
 
-    def _setup_cli(cli: Cli, resolver: DependencyResolver) -> None:
-        _setup_asset_cli(cli)
-        _setup_lm_cli(cli)
-        _setup_llama_cli(cli)
-        _setup_mt_cli(cli)
-        _setup_wav2vec2_cli(cli)
-        _setup_wav2vec2_asr_cli(cli)
-        _setup_hg_cli(cli)
-
-So if you want to add your own group of CLI, don't forget to check it out here.
+- :doc:`/reference/api/fairseq2.recipes/cli`

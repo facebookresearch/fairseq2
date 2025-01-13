@@ -17,11 +17,9 @@ from torch.nn import Module
 from torch.nn.functional import dropout, scaled_dot_product_attention, softmax
 from typing_extensions import override
 
-from fairseq2.logging import get_log_writer
+from fairseq2.logging import log
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.transformer.attention_mask import AttentionMask, CausalAttentionMask
-
-log = get_log_writer(__name__)
 
 
 class SDPA(Module, ABC):
@@ -321,13 +319,16 @@ def set_default_sdpa_factory(factory: SDPAFactory | None) -> None:
         _sdpa_factory = _get_fallback_sdpa_factory()
 
 
-def create_default_sdpa(*, attn_dropout_p: float = 0.0) -> SDPA:
-    """Create an instance of the default :class:`SDPA`.
+def make_default_sdpa(*, attn_dropout_p: float = 0.0) -> SDPA:
+    """Make an instance of the default :class:`SDPA`.
 
     :param attn_dropout_p:
         The dropout probability on attention weights.
     """
     return _sdpa_factory(attn_dropout_p=attn_dropout_p)
+
+
+create_default_sdpa = make_default_sdpa  # compat
 
 
 @contextmanager

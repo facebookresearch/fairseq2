@@ -48,7 +48,7 @@ def setup_root_gang(
 
     log.info("Initializing the root gang.")
 
-    gang = setup_default_gang(device=device, timeout=timeout, monitored=monitored)
+    gang = setup_default_gang(timeout=timeout, monitored=monitored)
 
     log.info("Root gang initialized.")
 
@@ -86,7 +86,7 @@ def setup_gangs(
 
     log.info("Data and tensor parallel gangs initialized.")
 
-    return root_gang, gangs
+    return root_gang, {"dp": gangs.dp, "tp": gangs.tp}
 
 
 def broadcast_model(model: Module, gang: Gang, log: LogWriter) -> None:

@@ -13,12 +13,16 @@ from typing import Any, TextIO, final
 import torch
 from typing_extensions import override
 
-from fairseq2.assets import AssetNotFoundError
+from fairseq2.assets import AssetNotFoundError, default_asset_store
+from fairseq2.checkpoint import CheckpointModelMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import TextTokenizer, load_text_tokenizer
 from fairseq2.datasets import StaticBatching
-from fairseq2.datasets.text import GenericTextDataset, load_text_dataset
-from fairseq2.dependency import resolve, resolve_all
+from fairseq2.datasets.text import (
+    GenericTextDataset,
+    TextReadOptions,
+    load_text_dataset,
+)
 from fairseq2.gang import Gang
 from fairseq2.generation import (
     BeamSearchConfig,
@@ -27,7 +31,6 @@ from fairseq2.generation import (
     create_seq2seq_generator,
 )
 from fairseq2.logging import get_log_writer
-from fairseq2.metrics import MetricRecorder
 from fairseq2.models import load_model
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.sequence import SequenceBatch
@@ -39,7 +42,7 @@ from fairseq2.recipes.utils.asset import (
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import broadcast_model
+from fairseq2.recipes.utils.setup import broadcast_model, setup_root_gang
 from fairseq2.typing import META, DataType
 from fairseq2.utils.profiler import Stopwatch
 
@@ -59,6 +62,9 @@ class TextTranslateConfig:
 
     target_lang: str = "deu_Latn"
     """The code of the language to translate to."""
+
+    min_seq_len: int = 1
+    """The minimum sequence length."""
 
     max_seq_len: int = 512
     """The maximum sequence length."""
@@ -113,7 +119,12 @@ def load_text_translator(
     """Load a :class:`Generator` for text translation."""
     wall_watch = Stopwatch(start=True)
 
-    gang = resolve(Gang)
+    if config.checkpoint_dir is not None:
+        default_asset_store.metadata_providers.append(
+            CheckpointModelMetadataProvider(config.checkpoint_dir)
+        )
+
+    gang = setup_root_gang(log)
 
     model_card = retrieve_asset_card(config.model)
 
@@ -221,16 +232,19 @@ def load_text_translator(
 
     seed = config.seed
 
+    options = TextReadOptions(
+        sync_mode="until_last", num_prefetch=config.num_prefetch, seed=seed
+    )
+
     try:
         data_reader = dataset.create_reader(
             text_encoder,
             tokenizer.vocab_info.pad_idx,
             gang,
+            config.min_seq_len,
             config.max_seq_len,
-            batching=StaticBatching(config.batch_size),
-            sync_mode="until_last",
-            num_prefetch=config.num_prefetch,
-            seed=seed,
+            StaticBatching(config.batch_size),
+            options,
         )
     except ValueError as ex:
         raise ValueError(
@@ -239,8 +253,6 @@ def load_text_translator(
 
     seed += 1
 
-    metric_recorders = resolve_all(MetricRecorder)
-
     # Initialize the generator.
     return Generator[SequenceBatch](
         unit=unit,
@@ -248,7 +260,7 @@ def load_text_translator(
         root_gang=gang,
         dtype=config.dtype,
         amp=config.amp,
-        metric_recorders=metric_recorders,
+        metrics_dir=output_dir.joinpath("metrics"),
         seed=seed,
         wall_watch=wall_watch,
     )

@@ -5,15 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 import os
+from typing import cast
 
 import pytest
 
-from fairseq2.assets import default_asset_store, default_download_manager
+from fairseq2.context import get_runtime_context
 from fairseq2.models.llama import create_llama_model, llama_archs
 from fairseq2.models.llama.integ import convert_to_reference_checkpoint
 from fairseq2.models.llama.loader import convert_llama_checkpoint
 from fairseq2.typing import CPU
-from fairseq2.utils.file import StandardTensorLoader
+from fairseq2.utils.file import load_tensors
 from tests.common import device
 
 
@@ -21,20 +22,17 @@ from tests.common import device
     "FAIR_ENV_CLUSTER" not in os.environ, reason="checkpoints only on faircluster"
 )
 def test_convert_to_reference_checkpoint() -> None:
+    context = get_runtime_context()
+
     model_config = llama_archs.get("llama2_7b")
 
-    card = default_asset_store.retrieve_card("llama2_7b")
+    card = context.asset_store.retrieve_card("llama2_7b")
 
-    checkpoint_uri = card.field("checkpoint").as_uri()
-    checkpoint_checksum = card.field("checksum").get_as_(str)
-
-    path = default_download_manager.download_checkpoint(
-        checkpoint_uri, checkpoint_checksum, model_name="llama2_7b", progress=False
+    path = context.asset_download_manager.download_checkpoint(
+        card.field("checkpoint").as_uri(), model_name="llama2_7b", progress=False
     )
 
-    tensor_loader = StandardTensorLoader()
-
-    checkpoint = tensor_loader(path, map_location=CPU, restrict=True)
+    checkpoint = load_tensors(path, map_location=CPU, restrict=True)
 
     # Convert the reference checkpoint to fairseq2.
     checkpoint = convert_llama_checkpoint(checkpoint, model_config)
@@ -49,4 +47,4 @@ def test_convert_to_reference_checkpoint() -> None:
     model = create_llama_model(model_config, device=device)
 
     # This should work.
-    model.load_state_dict(checkpoint["model"])
+    model.load_state_dict(cast(dict[str, object], checkpoint["model"]))

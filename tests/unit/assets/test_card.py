@@ -20,18 +20,18 @@ class TestAssetCard:
             "field3": 3,
         }
 
-        root_card = AssetCard(root_metadata)
+        root_card = AssetCard("root-card", root_metadata)
 
-        base_metadata = {
+        base_metadata: dict[str, object] = {
             "name": "base-card",
             "field1": "base-foo1",
             "field2": {"sub-field1": "sub-foo1"},
             "field8": [1, "b", 3],
         }
 
-        base_card = AssetCard(base_metadata, root_card)
+        base_card = AssetCard("base-card", base_metadata, root_card)
 
-        metadata = {
+        metadata: dict[str, object] = {
             "name": "test-card",
             "field1": "foo1",
             "field2": {
@@ -45,7 +45,7 @@ class TestAssetCard:
             "field10": None,
         }
 
-        self.card = AssetCard(metadata, base_card)
+        self.card = AssetCard("test-card", metadata, base_card)
 
     def test_field_works(self) -> None:
         value = self.card.field("field1").as_(str)
@@ -70,40 +70,35 @@ class TestAssetCard:
 
     def test_as_raises_error_when_field_type_is_incorrect(self) -> None:
         with pytest.raises(
-            AssetCardError,
-            match=rf"^The value of the field 'field1' of the asset card 'test-card' cannot be parsed as `{int}`. See nested exception for details\.$",
+            AssetCardError, match=rf"^The value of the 'field1' field of the 'test-card' asset card cannot be parsed as `{int}`. See the nested exception for details\.$",  # fmt: skip
         ):
             self.card.field("field1").as_(int)
 
         with pytest.raises(
-            AssetCardError,
-            match=rf"^The value of the field 'field2\.sub-field1' of the asset card 'test-card' cannot be parsed as `{int}`. See nested exception for details\.$",
+            AssetCardError, match=rf"^The value of the 'field2\.sub-field1' field of the 'test-card' asset card cannot be parsed as `{int}`. See the nested exception for details\.$",  # fmt: skip
         ):
             self.card.field("field2").field("sub-field1").as_(int)
 
     def test_as_raises_error_when_field_does_not_exist(self) -> None:
         with pytest.raises(
-            AssetCardFieldNotFoundError,
-            match=r"^The asset card 'test-card' must have a field named 'field11'\.$",
+            AssetCardFieldNotFoundError, match=r"^The 'test-card' asset card does not have a field named 'field11'\.$",  # fmt: skip
         ):
             self.card.field("field11").as_(str)
 
         with pytest.raises(
-            AssetCardError,
-            match=r"^The asset card 'test-card' must have a field named 'field10\.sub-field'\.$",
+            AssetCardFieldNotFoundError, match=r"^The 'test-card' asset card does not have a field named 'field10\.sub-field'\.$",  # fmt: skip
         ):
             self.card.field("field10").field("sub-field").as_(str)
 
     def test_as_raises_error_when_field_is_empty(self) -> None:
         with pytest.raises(
             AssetCardError,
-            match=r"^The value of the field 'field4' of the asset card 'test-card' must not be empty\.$",
+            match=r"^The value of the 'field4' field of the 'test-card' asset card is empty\.$",
         ):
             self.card.field("field4").as_(str)
 
         with pytest.raises(
-            AssetCardError,
-            match=r"^The value of the field 'field5' of the asset card 'test-card' must not be empty\.$",
+            AssetCardError, match=r"^The value of the 'field5' field of the 'test-card' asset card is empty\.$",  # fmt: skip
         ):
             self.card.field("field5").as_(list[str])
 
@@ -123,8 +118,7 @@ class TestAssetCard:
 
     def test_as_list_raises_error_when_field_is_not_a_valid_list(self) -> None:
         with pytest.raises(
-            AssetCardError,
-            match=r"The value of the field 'field7' of the asset card 'test-card' cannot be parsed as `list\[str\]`. See nested exception for details\.$",
+            AssetCardError, match=r"The value of the 'field7' field of the 'test-card' asset card cannot be parsed as `list\[str\]`. See the nested exception for details\.$",  # fmt: skip
         ):
             self.card.field("field7").as_(list[str])
 
@@ -135,8 +129,7 @@ class TestAssetCard:
 
     def test_as_dict_raises_error_when_field_is_not_a_valid_dict(self) -> None:
         with pytest.raises(
-            AssetCardError,
-            match=r"The value of the field 'field2' of the asset card 'test-card' cannot be parsed as `dict\[str, int\]`. See nested exception for details\.$",
+            AssetCardError, match=r"The value of the 'field2' field of the 'test-card' asset card cannot be parsed as `dict\[str, int\]`. See the nested exception for details\.$",  # fmt: skip
         ):
             self.card.field("field2").as_(dict[str, int])
 
@@ -147,8 +140,7 @@ class TestAssetCard:
 
     def test_as_set_raises_error_when_field_is_not_a_valid_set(self) -> None:
         with pytest.raises(
-            AssetCardError,
-            match=r"The value of the field 'field7' of the asset card 'test-card' cannot be parsed as `set\[str\]`. See nested exception for details\.$",
+            AssetCardError, match=r"The value of the 'field7' field of the 'test-card' asset card cannot be parsed as `set\[str\]`. See the nested exception for details\.$",  # fmt: skip
         ):
             self.card.field("field7").as_(set[str])
 
@@ -159,8 +151,7 @@ class TestAssetCard:
 
     def test_as_one_of_raises_error_when_field_is_not_one_of_valid_values(self) -> None:
         with pytest.raises(
-            AssetCardError,
-            match=rf"The value of the field 'field1' of the asset card 'test-card' must be one of \{['foo2', 'foo3']}, but is 'foo1' instead\.$",
+            AssetCardError, match=r"The value of the 'field1' field of the 'test-card' asset card is expected to be one of the following values, but is 'foo1' instead: foo2, foo3$",  # fmt: skip
         ):
             self.card.field("field1").as_one_of({"foo3", "foo2"})
 
@@ -183,15 +174,13 @@ class TestAssetCard:
 
     def test_as_uri_raises_error_when_field_type_is_incorrect(self) -> None:
         with pytest.raises(
-            AssetCardError,
-            match=rf"The value of the field 'field3' of the asset card 'test-card' cannot be parsed as `{str}`. See nested exception for details\.$",
+            AssetCardError, match=rf"The value of the 'field3' field of the 'test-card' asset card cannot be parsed as `{str}`. See the nested exception for details\.$",  # fmt: skip
         ):
             self.card.field("field3").as_uri()
 
     def test_as_uri_raises_error_when_field_is_not_uri_or_absolute_path(self) -> None:
         with pytest.raises(
-            AssetCardError,
-            match=r"The value of the field 'field1' of the asset card 'test-card' must be a URI or an absolute pathname, but is 'foo1' instead\.$",
+            AssetCardError, match=r"The value of the 'field1' field of the 'test-card' asset card is expected to be a URI or an absolute pathname, but is 'foo1' instead\.$",  # fmt: skip
         ):
             self.card.field("field1").as_uri()
 
@@ -202,8 +191,7 @@ class TestAssetCard:
 
     def test_as_filename_raises_error_when_field_is_not_filename(self) -> None:
         with pytest.raises(
-            AssetCardError,
-            match=r"^The value of the field 'field6' of the asset card 'test-card' must be a filename, but is 'invalid/filename' instead\.$",
+            AssetCardError, match=r"^The value of the 'field6' field of the 'test-card' asset card is expected to be a filename, but is 'invalid/filename' instead\.$",  # fmt: skip
         ):
             self.card.field("field6").as_filename()
 
@@ -222,7 +210,27 @@ class TestAssetCard:
 
     def test_set_raises_error_when_path_conflicts(self) -> None:
         with pytest.raises(
-            AssetCardError,
-            match=r"^The asset card 'test-card' cannot have a field named 'field1.field2' due to path conflict at 'field1'\.$",
+            AssetCardError, match=r"^The 'test-card' asset card cannot have a field named 'field1.field2' due to path conflict at 'field1'\.$",  # fmt: skip
         ):
             self.card.field("field1").field("field2").set("foo")
+
+    def test_flatten_works(self) -> None:
+        card = self.card.flatten()
+
+        expected_metadata = {
+            "name": "test-card",
+            "field1": "foo1",
+            "field2": {
+                "sub-field2": "sub-foo2",
+            },
+            "field3": 3,
+            "field4": "",
+            "field5": [],
+            "field6": "invalid/filename",
+            "field7": [1, 3, 2],
+            "field8": [1, "b", 3],
+            "field9": "http://foo.com",
+            "field10": None,
+        }
+
+        assert card.metadata == expected_metadata

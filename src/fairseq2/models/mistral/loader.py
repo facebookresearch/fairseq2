@@ -8,10 +8,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from fairseq2.data.text import (
-    default_basic_sentencepiece_tokenizer_loader,
-    load_text_tokenizer,
-)
 from fairseq2.models.config_loader import StandardModelConfigLoader
 from fairseq2.models.loader import StandardModelLoader, load_model
 from fairseq2.models.mistral.factory import (
@@ -64,7 +60,3 @@ load_mistral_model = StandardModelLoader(
 )
 
 load_model.register(MISTRAL_FAMILY, load_mistral_model)
-
-load_mistral_tokenizer = default_basic_sentencepiece_tokenizer_loader
-
-load_text_tokenizer.register(MISTRAL_FAMILY, load_mistral_tokenizer)

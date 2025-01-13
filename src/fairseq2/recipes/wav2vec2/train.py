@@ -14,15 +14,17 @@ import torch
 from torch import Tensor
 from typing_extensions import override
 
-from fairseq2.assets import AssetNotFoundError
-from fairseq2.checkpoint import CheckpointManager
+from fairseq2.assets import AssetNotFoundError, default_asset_store
+from fairseq2.checkpoint import CheckpointModelMetadataProvider, FileCheckpointManager
 from fairseq2.config_registry import ConfigRegistry
-from fairseq2.datasets.batching import LengthBatching
-from fairseq2.datasets.speech import GenericSpeechDataset, load_speech_dataset
-from fairseq2.dependency import resolve, resolve_all
+from fairseq2.datasets import LengthBatching
+from fairseq2.datasets.speech import (
+    GenericSpeechDataset,
+    SpeechReadOptions,
+    load_speech_dataset,
+)
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
-from fairseq2.metrics import MetricRecorder
 from fairseq2.models import create_model
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2 import Wav2Vec2Model
@@ -35,7 +37,11 @@ from fairseq2.recipes.utils.asset import (
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model, log_model_config
-from fairseq2.recipes.utils.setup import compile_model, to_data_parallel
+from fairseq2.recipes.utils.setup import (
+    compile_model,
+    setup_root_gang,
+    to_data_parallel,
+)
 from fairseq2.recipes.wav2vec2.common import Wav2Vec2Criterion, Wav2Vec2MetricBag
 from fairseq2.recipes.wav2vec2.eval import Wav2Vec2EvalUnit
 from fairseq2.typing import CPU, META, DataType
@@ -137,13 +143,6 @@ class Wav2Vec2TrainConfig:
     feature_penalty_weight: float = 10.0
     """The weight of the regularization penalty applied to the extracted features."""
 
-    # Score
-    score_metric: str | None = "loss"
-    """The name of the metric to use as score."""
-
-    lower_score_better: bool = True
-    """The ``True``, lower scores are considered better."""
-
     # Regime
     max_num_steps: int = 400_000
     """The maximum number of steps to train for."""
@@ -221,9 +220,14 @@ def load_wav2vec2_trainer(
     """Load a :class:`Trainer` for wav2vec 2.0 model training."""
     wall_watch = Stopwatch(start=True)
 
-    gang = resolve(Gang)
+    gang = setup_root_gang(log, monitored=config.monitored_gang)
 
-    checkpoint_manager = resolve(CheckpointManager)
+    checkpoint_manager = FileCheckpointManager(output_dir.joinpath("checkpoints"), gang)
+
+    if config.resume_checkpoint_dir is not None:
+        default_asset_store.metadata_providers.append(
+            CheckpointModelMetadataProvider(config.resume_checkpoint_dir)
+        )
 
     # Load the dataset.
     try:
@@ -297,19 +301,23 @@ def load_wav2vec2_trainer(
     # Initialize the train unit.
     unit = Wav2Vec2TrainUnit(criterion, gang)
 
+    options = SpeechReadOptions(
+        dtype=config.dtype,
+        normalize_audio=config.normalize_audio,
+        batch_shuffle_window=config.batch_shuffle_window,
+        num_accumulate=config.gradient_accumulation,
+        num_prefetch=config.num_prefetch,
+        seed=seed,
+    )
+
     try:
         data_reader = dataset.create_reader(
             config.train_split,
             gang,
-            batching=LengthBatching(config.max_num_elements),
-            dtype=config.dtype,
-            min_audio_len=config.min_audio_len,
-            max_audio_len=config.max_audio_len,
-            normalize_audio=config.normalize_audio,
-            batch_shuffle_window=config.batch_shuffle_window,
-            num_accumulate=config.gradient_accumulation,
-            num_prefetch=config.num_prefetch,
-            seed=seed,
+            config.min_audio_len,
+            config.max_audio_len,
+            LengthBatching(config.max_num_elements),
+            options,
         )
     except ValueError as ex:
         raise ValueError(
@@ -344,18 +352,22 @@ def load_wav2vec2_trainer(
     # Initialize the validation unit.
     valid_unit = Wav2Vec2EvalUnit(criterion, gang)
 
+    options = SpeechReadOptions(
+        dtype=config.dtype,
+        normalize_audio=config.normalize_audio,
+        sync_mode="until_last",
+        num_prefetch=config.num_prefetch,
+        seed=seed,
+    )
+
     try:
         valid_data_reader = dataset.create_reader(
             config.valid_split,
             gang,
-            batching=LengthBatching(config.max_num_elements),
-            dtype=config.dtype,
-            min_audio_len=config.min_audio_len,
-            max_audio_len=config.max_audio_len,
-            normalize_audio=config.normalize_audio,
-            sync_mode="until_last",
-            num_prefetch=config.num_prefetch,
-            seed=seed,
+            config.min_audio_len,
+            config.max_audio_len,
+            LengthBatching(config.max_num_elements),
+            options,
         )
     except ValueError as ex:
         raise ValueError(
@@ -366,8 +378,6 @@ def load_wav2vec2_trainer(
 
     # TODO: Fix once we support static mixed precision on one device.
     amp = gang.size == 1 or config.data_parallelism != "fsdp"
-
-    metric_recorders = resolve_all(MetricRecorder)
 
     # Initialize the trainer.
     return Trainer[SequenceBatch](
@@ -382,8 +392,8 @@ def load_wav2vec2_trainer(
         amp=amp,
         max_num_steps=config.max_num_steps,
         max_num_data_epochs=config.max_num_data_epochs,
-        score_metric_name=config.score_metric,
-        lower_better=config.lower_score_better,
+        score_metric_name="loss",
+        lower_better=True,
         valid_units=[valid_unit],
         valid_data_readers=[valid_data_reader],
         validate_after_n_steps=0,
@@ -392,7 +402,8 @@ def load_wav2vec2_trainer(
         checkpoint_after_n_steps=0,
         checkpoint_every_n_steps=config.checkpoint_every_n_steps,
         keep_best_n_checkpoints=config.keep_best_n_checkpoints,
-        metric_recorders=metric_recorders,
+        tb_dir=output_dir.joinpath("tb"),
+        metrics_dir=output_dir.joinpath("metrics"),
         publish_metrics_every_n_steps=config.publish_metrics_every_n_steps,
         profile=config.profile,
         anomaly_detection=config.anomaly_detection,

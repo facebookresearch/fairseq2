@@ -6,14 +6,6 @@
 
 from __future__ import annotations
 
-from fairseq2.models.nllb.loader import load_nllb_tokenizer as load_nllb_tokenizer
-from fairseq2.models.nllb.tokenizer import NllbTokenizer as NllbTokenizer
-
 # isort: split
 
-from fairseq2.dependency import DependencyContainer
-from fairseq2.models.nllb.archs import register_archs
-
-
-def register_nllb(container: DependencyContainer) -> None:
-    register_archs()
+import fairseq2.models.nllb.archs  # Register architectures.

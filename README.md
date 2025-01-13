@@ -16,7 +16,7 @@ other content generation tasks. It is also the successor of
 [fairseq](https://github.com/facebookresearch/fairseq).
 
 ## Getting Started
-Coming soon...
+Visit our [documentation website](https://facebookresearch.github.io/fairseq2/stable/).
 
 For recent changes, you can check out our [changelog](CHANGELOG.md).
 
@@ -24,13 +24,11 @@ For recent changes, you can check out our [changelog](CHANGELOG.md).
 ## Models
 As of today, the following models are available in fairseq2:
 
- * [LLaMA](src/fairseq2/models/llama)
- * [LLaMA 2](src/fairseq2/models/llama)
- * [LLaMA 3](src/fairseq2/models/llama)
- * [LLaMA 3.1](src/fairseq2/models/llama)
+ * [LLaMA 1 to 3.3](src/fairseq2/models/llama)
  * [Mistral 7B](src/fairseq2/mistral)
  * [NLLB-200](src/fairseq2/models/nllb)
  * [S2T Transformer + Conformer](src/fairseq2/models/s2t_transformer)
+ * [V-JEPA](src/fairseq2/models/jepa)
  * [w2v-BERT](src/fairseq2/models/w2vbert)
  * [wav2vec 2.0](src/fairseq2/models/wav2vec2)
  * [wav2vec 2.0 ASR](src/fairseq2/models/wav2vec2/asr)
@@ -38,6 +36,7 @@ As of today, the following models are available in fairseq2:
 fairseq2 is also used by various external projects such as:
 
  * [Seamless Communication](https://github.com/facebookresearch/seamless_communication)
+ * [Large Concept Model](https://github.com/facebookresearch/large_concept_model)
  * [SONAR](https://github.com/facebookresearch/SONAR)
 
 
@@ -92,6 +91,26 @@ matrix shows the supported combinations.
   <tbody>
     <tr>
       <td rowspan=3><code>HEAD</code></td>
+      <td><code>2.5.0</code>, <code>2.5.1</code></td>
+      <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
+      <td><code>cpu</code>, <code>cu118</code>, <code>cu121</code>, <code>cu124</code></td>
+      <td><code>x86_64</code></td>
+    </tr>
+    <tr>
+      <td><code>2.4.0</code>, <code>2.4.1</code></td>
+      <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
+      <td><code>cpu</code>, <code>cu118</code>, <code>cu121</code>, <code>cu124</code></td>
+      <td><code>x86_64</code></td>
+    </tr>
+    <tr>
+      <td><code>2.3.0</code>, <code>2.3.1</code></td>
+      <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
+      <td><code>cpu</code>, <code>cu118</code>, <code>cu121</code></td>
+      <td><code>x86_64</code></td>
+    </tr>
+  <tbody>
+    <tr>
+      <td rowspan=3><code>0.3.0</code></td>
       <td><code>2.5.0</code>, <code>2.5.1</code></td>
       <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
       <td><code>cpu</code>, <code>cu118</code>, <code>cu121</code>, <code>cu124</code></td>
@@ -202,7 +221,7 @@ the supported combinations.
   </thead>
   <tbody>
     <tr>
-      <td><code>HEAD</code></td>
+      <td><code>0.3.0</code></td>
       <td><code>2.5.1</code></td>
       <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
       <td><code>arm64</code></td>

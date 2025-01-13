@@ -6,23 +6,19 @@
 
 from __future__ import annotations
 
-import sys
 from argparse import ArgumentParser, Namespace
 from collections import defaultdict
-from typing import Any, final
+from typing import final
 
 from rich.console import Console
 from rich.pretty import pretty_repr
 from typing_extensions import override
 
-from fairseq2.assets import AssetCard, AssetNotFoundError, AssetStore
-from fairseq2.console import get_console
-from fairseq2.data.text import is_tokenizer_card
-from fairseq2.datasets import is_dataset_card
-from fairseq2.dependency import DependencyResolver
+from fairseq2.assets import AssetCard, AssetCardNotFoundError, AssetStore
+from fairseq2.context import get_runtime_context
 from fairseq2.logging import get_log_writer
-from fairseq2.models import is_model_card
 from fairseq2.recipes.cli import Cli, CliCommandHandler
+from fairseq2.recipes.utils.rich import get_console
 
 log = get_log_writer(__name__)
 
@@ -34,23 +30,23 @@ def _setup_asset_cli(cli: Cli) -> None:
 
     group.add_command(
         "list",
-        ListAssetsCommand(),
+        ListAssetsHandler(),
         help="list assets",
     )
 
     group.add_command(
         "show",
-        ShowAssetCommand(),
+        ShowAssetHandler(),
         help="show asset",
     )
 
 
 @final
-class ListAssetsCommand(CliCommandHandler):
+class ListAssetsHandler(CliCommandHandler):
     """Lists assets available in the current Python environment."""
 
     @override
-    def init_parser(self, parser: ArgumentParser, resolver: DependencyResolver) -> None:
+    def init_parser(self, parser: ArgumentParser) -> None:
         parser.add_argument(
             "--type",
             choices=["all", "model", "dataset", "tokenizer"],
@@ -59,83 +55,102 @@ class ListAssetsCommand(CliCommandHandler):
         )
 
     @override
-    def __call__(self, args: Namespace, resolver: DependencyResolver) -> None:
-        asset_store = resolver.resolve(AssetStore)
-
-        usr_assets = self._retrieve_assets(asset_store, args, user=True)
-        glb_assets = self._retrieve_assets(asset_store, args, user=False)
+    def run(self, parser: ArgumentParser, args: Namespace) -> int:
+        context = get_runtime_context()
 
         console = get_console()
 
         console.print("[green bold]user:")
 
-        self._dump_assets(console, usr_assets)
+        assets = self._retrieve_assets(context.asset_store, args.type, user=True)
+
+        self._dump_assets(console, assets)
 
         console.print("[green bold]global:")
 
-        self._dump_assets(console, glb_assets)
+        assets = self._retrieve_assets(context.asset_store, args.type, user=False)
 
+        self._dump_assets(console, assets)
+
+        return 0
+
+    @classmethod
     def _retrieve_assets(
-        self, asset_store: AssetStore, args: Namespace, user: bool
+        cls, asset_store: AssetStore, asset_type: str, user: bool
     ) -> list[tuple[str, list[str]]]:
         assets: dict[str, list[str]] = defaultdict(list)
 
-        names = asset_store.retrieve_names(scope="user" if user else "global")
+        asset_names = asset_store.retrieve_names(scope="user" if user else "global")
 
-        for name in names:
+        for asset_name in asset_names:
             try:
                 card = asset_store.retrieve_card(
-                    name, scope="all" if user else "global"
+                    asset_name, scope="all" if user else "global"
                 )
-            except AssetNotFoundError:
-                log.warning("The asset '{}' has an invalid card. Skipping.", name)
+            except AssetCardNotFoundError:
+                log.warning("The '{}' asset card is not valid. Skipping.", asset_name)
 
                 continue
 
-            if name[-1] == "@":
-                name = name[:-1]
+            if asset_name[-1] == "@":
+                asset_name = asset_name[:-1]
 
-            try:
-                source = card.metadata["__source__"]
-            except KeyError:
+            source = card.metadata.get("__source__", "unknown source")
+            if not isinstance(source, str):
                 source = "unknown source"
 
-            types = []
+            asset_types = []
 
-            if args.type == "all" or args.type == "model":
-                if is_model_card(card):
-                    types.append("model")
+            if asset_type == "all" or asset_type == "model":
+                if cls._is_model_card(card):
+                    asset_types.append("model")
 
-            if args.type == "all" or args.type == "dataset":
-                if is_dataset_card(card):
-                    types.append("dataset")
+            if asset_type == "all" or asset_type == "dataset":
+                if cls._is_dataset_card(card):
+                    asset_types.append("dataset")
 
-            if args.type == "all" or args.type == "tokenizer":
-                if is_tokenizer_card(card):
-                    types.append("tokenizer")
+            if asset_type == "all" or asset_type == "tokenizer":
+                if cls._is_tokenizer_card(card):
+                    asset_types.append("tokenizer")
 
-            if args.type == "all" and not types:
-                types.append("other")
+            if asset_type == "all" and not asset_types:
+                asset_types.append("other")
 
-            if not types:
+            if not asset_types:
                 continue
 
             source_assets = assets[source]
 
-            for t in types:
-                source_assets.append(f"{t}:{name}")
+            for t in asset_types:
+                source_assets.append(f"{t}:{asset_name}")
 
-        return [(source, names) for source, names in assets.items()]
+        output = []
 
-    def _dump_assets(
-        self, console: Console, assets: list[tuple[str, list[str]]]
-    ) -> None:
+        for source, asset_names in assets.items():
+            asset_names.sort()
+
+            output.append((source, asset_names))
+
+        output.sort(key=lambda e: e[0])  # sort by source
+
+        return output
+
+    @staticmethod
+    def _is_model_card(card: AssetCard) -> bool:
+        return card.field("model_family").exists()
+
+    @staticmethod
+    def _is_tokenizer_card(card: AssetCard) -> bool:
+        return card.field("tokenizer_family").exists()
+
+    @staticmethod
+    def _is_dataset_card(card: AssetCard) -> bool:
+        return card.field("dataset_family").exists()
+
+    @staticmethod
+    def _dump_assets(console: Console, assets: list[tuple[str, list[str]]]) -> None:
         if assets:
-            assets.sort(key=lambda a: a[0])  # sort by source.
-
             for source, names in assets:
-                names.sort(key=lambda n: n[0])  # sort by name.
-
                 console.print(f"  [blue bold]{source}")
 
                 for idx, name in enumerate(names):
@@ -147,11 +162,11 @@ class ListAssetsCommand(CliCommandHandler):
             console.print()
 
 
-class ShowAssetCommand(CliCommandHandler):
+class ShowAssetHandler(CliCommandHandler):
     """Shows the metadata of an asset."""
 
     @override
-    def init_parser(self, parser: ArgumentParser, resolver: DependencyResolver) -> None:
+    def init_parser(self, parser: ArgumentParser) -> None:
         parser.add_argument(
             "--env",
             dest="envs",
@@ -170,34 +185,28 @@ class ShowAssetCommand(CliCommandHandler):
         parser.add_argument("name", help="name of the asset")
 
     @override
-    def __call__(self, args: Namespace, resolver: DependencyResolver) -> None:
-        asset_store = resolver.resolve(AssetStore)
+    def run(self, parser: ArgumentParser, args: Namespace) -> int:
+        context = get_runtime_context()
 
-        try:
-            card: AssetCard | None = asset_store.retrieve_card(
-                args.name, envs=args.envs, scope=args.scope
-            )
-        except AssetNotFoundError:
-            log.error("An asset with the name '{}' cannot be found.", args.asset)
-
-            sys.exit(1)
+        card: AssetCard | None = context.asset_store.retrieve_card(
+            args.name, envs=args.envs, scope=args.scope
+        )
 
         while card is not None:
             self._print_metadata(dict(card.metadata))
 
             card = card.base
 
-    def _print_metadata(self, metadata: dict[str, Any]) -> None:
+        return 0
+
+    def _print_metadata(self, metadata: dict[str, object]) -> None:
         console = get_console()
 
         name = metadata.pop("name")
 
         console.print(f"[green bold]{name}")
 
-        try:
-            source = metadata.pop("__source__")
-        except KeyError:
-            source = "unknown"
+        source = metadata.pop("__source__", "unknown")
 
         items = list(metadata.items())
 
