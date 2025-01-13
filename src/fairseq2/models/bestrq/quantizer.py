@@ -89,8 +89,7 @@ class RandomVectorQuantizer(Module, ABC):
         if self.normalize_input:
             x = (x - x.mean(dim=[1, 2], keepdims=True)) / x.std(
                 dim=[1, 2], keepdims=True
-            )
-
+            )   
         vector_output = self.random_projection(x).unsqueeze(-2)  # (N, T, quantized_dim)
 
         # Compute l2 norm targets and code vectors

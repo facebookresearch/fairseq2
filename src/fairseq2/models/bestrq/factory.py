@@ -12,7 +12,7 @@ from fairseq2.config_registry import ConfigRegistry
 
 
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
-from fairseq2.models.wav2vec2 import Wav2Vec2EncoderBuilder, Wav2Vec2FeatureExtractor
+from fairseq2.models.wav2vec2 import Wav2Vec2EncoderBuilder, Wav2Vec2FeatureExtractor, Wav2Vec2FbankFeatureExtractor
 from fairseq2.models.wav2vec2.vector_quantizer import VectorQuantizer
 from fairseq2.typing import DataType, Device
 from fairseq2.models.factory import model_factories
@@ -23,47 +23,6 @@ from dataclasses import field
 from math import prod
 
 from fairseq2.models.wav2vec2.factory import Wav2Vec2EncoderConfig
-
-
-@dataclass(kw_only=True)
-class BestRQEncoderConfig(Wav2Vec2EncoderConfig):
-
-    # Featurizer
-    use_conv_encoder: bool = field(
-        default=False,
-        metadata={
-            "help": "Whether to ditch the convolutional encoder and just concat the features"
-        },
-    )
-
-    downsampling_factor: int | None = field(
-        default=20,
-        metadata={
-            "help": "The factor by which the time dimention will be contracted",
-            "is_derived": True,
-        },
-    )
-
-    def _generate_feature_dim(self):
-        """
-        There is a problem here where the field if derived multiple times at different time in the instantiation
-        and that causes problem because it first runs when the overrides aren't applied and the fills up the None
-        field and the is not overriden.
-        """
-        if (
-            not self.use_fbank
-        ):  # if we're using fbank, this can be arbitrary, configure it
-            if self.use_conv_encoder:
-                return self.feature_extractor_layer_descs[-1][0]
-
-
-    def _generate_downsampling_factor(self):
-        if self.use_conv_encoder:
-            return prod([desc[-1] for desc in self.feature_extractor_layer_descs])
-        else:
-            assert self.downsampling_factor is not None
-            return self.downsampling_factor
-
 
 @dataclass(kw_only=True)
 class BestRQConfig:
@@ -131,23 +90,6 @@ class BestRQConfig:
     )
 
 
-class BestRQEncoderBuilder(Wav2Vec2EncoderBuilder):
-
-    def build_feature_extractor(self) -> SequenceFeatureExtractor | None:
-        """Build a feature extractor."""
-        if self._config.use_fbank:
-            raise NotImplementedError()
-
-        return Wav2Vec2FeatureExtractor(
-            self._config.feature_extractor_layer_descs,
-            self._config.feature_extractor_bias,
-            layer_norm=self._config.feature_extractor_layer_norm_convs,
-            gradient_scale=self._config.feature_gradient_scale,
-            device=self._device,
-            dtype=self._dtype,
-        )
-
-
 class BestRQBuilder:
     """Builds modules of a wav2vec 2.0 model as described in
     :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`.
@@ -157,14 +99,14 @@ class BestRQBuilder:
     """
 
     _config: BestRQConfig
-    _encoder_builder: BestRQEncoderBuilder
+    _encoder_builder: Wav2Vec2EncoderBuilder
     _device: Device | None
     _dtype: DataType | None
 
     def __init__(
         self,
         config: BestRQConfig,
-        encoder_builder: BestRQEncoderBuilder | None = None,
+        encoder_builder: Wav2Vec2EncoderBuilder | None = None,
         *,
         device: Device | None = None,
         dtype: DataType | None = None,
@@ -182,7 +124,7 @@ class BestRQBuilder:
         self._config = config
         
         if encoder_builder is None:
-            encoder_builder = BestRQEncoderBuilder(
+            encoder_builder = Wav2Vec2EncoderBuilder(
                 config.encoder_config, device=device, dtype=dtype
             )
             
@@ -232,7 +174,7 @@ class BestRQBuilder:
     def build_quantizer(self) -> VectorQuantizer:
         """Build a vector quantizer."""
         return MultiRandomVectorQuantizer(
-            self._config.encoder_config.feature_extractor_layer_descs[-1][0],
+            self._config.encoder_config.feature_dim,
             self._config.quantized_dim,
             self._config.num_codebook_entries,
             self._config.num_quantizer,
@@ -242,18 +184,22 @@ class BestRQBuilder:
         )
 
     def build_downsampler(self):
-        downsampler_layer_desc = [
-            [c, k, s]
-            for c, k, s in self._config.encoder_config.feature_extractor_layer_descs
-        ]
-        conv_downsampler = Wav2Vec2FeatureExtractor(
-            downsampler_layer_desc,
-            self._config.encoder_config.feature_extractor_bias,
-            layer_norm=self._config.encoder_config.feature_extractor_layer_norm_convs,
-            gradient_scale=self._config.encoder_config.feature_gradient_scale,
-            device=self._device,
-            dtype=self._dtype,
-        )
+        
+        if self._config.encoder_config.use_fbank:
+            conv_downsampler = Wav2Vec2FbankFeatureExtractor(
+                self._config.encoder_config.num_fbank_channels,
+                self._config.encoder_config.fbank_stride,
+                sample_every_k=self._config.encoder_config.sample_fbank_every_k,
+            )
+        else:
+            conv_downsampler = Wav2Vec2FeatureExtractor(
+                self._config.encoder_config.feature_extractor_layer_descs,
+                self._config.encoder_config.feature_extractor_bias,
+                layer_norm=self._config.encoder_config.feature_extractor_layer_norm_convs,
+                gradient_scale=self._config.encoder_config.feature_gradient_scale,
+                device=self._device,
+                dtype=self._dtype,
+            )
         for param in conv_downsampler.parameters():
             param.requires_grad = False
         return conv_downsampler

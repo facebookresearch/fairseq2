@@ -41,6 +41,7 @@ from fairseq2.recipes.bestrq.eval import BestRQEvalUnit
 from fairseq2.typing import CPU, META, DataType
 from fairseq2.utils.profiler import Stopwatch
 from fairseq2.utils.rng import manual_seed
+from fairseq2.models.bestrq import BestRQConfig
 
 log = get_log_writer(__name__)
 
@@ -88,7 +89,9 @@ class BestRQTrainConfig:
     model_arch: str | None = "base"
     """The architecture of the bestrq model."""
 
-    model_config: Any = None
+    model_config: BestRQConfig = field(
+        default_factory=lambda: BestRQConfig()
+    )
     """The configuration of the model."""
 
     dtype: DataType = torch.float16
@@ -187,8 +190,7 @@ bestrq_train_preset = bestrq_train_presets.decorator
 @bestrq_train_preset("base_960h")
 def _base_960h() -> BestRQTrainConfig:
     config = BestRQTrainConfig()
-
-    config.model_config = {"encoder_config": {"first_pass_dropout_p": 0.1}}
+    config.model_config.encoder_config.first_pass_dropout_p = 0.1
 
     return config
 
@@ -203,7 +205,7 @@ def _large_960h() -> BestRQTrainConfig:
     config.max_audio_len = 320_000
     config.max_num_elements = 1_200_000
     config.model_arch = "large"
-    config.model_config = {"encoder_config": {"first_pass_dropout_p": 0.1}}
+    config.model_config.encoder_config.first_pass_dropout_p = 0.1
     config.optimizer_config.lr = 3e-04
     config.lr_scheduler_config.num_warmup_steps = 20_000
     config.max_num_steps = 250_000
@@ -307,6 +309,9 @@ def load_bestrq_trainer(
             num_accumulate=config.gradient_accumulation,
             num_prefetch=config.num_prefetch,
             seed=seed,
+            use_fbank=config.model_config.encoder_config.use_fbank,
+            num_fbank_channels=config.model_config.encoder_config.num_fbank_channels,
+            fbank_stride=config.model_config.encoder_config.fbank_stride,
         )
     except ValueError as ex:
         raise ValueError(
@@ -353,6 +358,9 @@ def load_bestrq_trainer(
             sync_mode="until_last",
             num_prefetch=config.num_prefetch,
             seed=seed,
+            use_fbank=config.model_config.encoder_config.use_fbank,
+            num_fbank_channels=config.model_config.encoder_config.num_fbank_channels,
+            fbank_stride=config.model_config.encoder_config.fbank_stride,
         )
     except ValueError as ex:
         raise ValueError(
