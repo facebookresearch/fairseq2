@@ -14,7 +14,7 @@ import torch
 from typing_extensions import override
 
 from fairseq2.assets import AssetCard, AssetError
-from fairseq2.data.audio import AudioDecoder
+from fairseq2.data.audio import AudioDecoder, WaveformToFbankConverter
 from fairseq2.data.text import StrSplitter, TextTokenizer, read_text
 from fairseq2.datasets.batching import Batching
 from fairseq2.datasets.data_reader import DataPipelineReader, DataReader
@@ -179,6 +179,9 @@ class GenericSpeechDataset(SpeechDataset):
         num_prefetch: int = 1,
         seed: int = 2,
         cached_fd_count: int = 1000,
+        use_fbank: bool = False,
+        num_fbank_channels: int = 80,
+        fbank_stride: int = 2,
         **extras: Any,
     ) -> DataPipelineReader[SequenceBatch]:
         """
@@ -242,11 +245,12 @@ class GenericSpeechDataset(SpeechDataset):
             builder.shuffle(batch_shuffle_window, seed)
 
         seed += 1
-
+        
         # Memory map audio files.
         file_mapper = FileMapper(audio_dir, cached_fd_count=cached_fd_count)
 
         builder.map(file_mapper, selector="[*].audio")
+        
 
         # Decode audio.
         audio_decoder = AudioDecoder(dtype=torch.float32 if normalize_audio else dtype)
@@ -264,7 +268,17 @@ class GenericSpeechDataset(SpeechDataset):
 
         if normalize_audio:
             builder.map(normalize, selector="[*].audio.data.waveform")
-
+            
+        if use_fbank:
+            fbank_converter = WaveformToFbankConverter(
+                num_mel_bins=num_fbank_channels,
+                waveform_scale=1.0,
+                channel_last=True,
+                standardize=False,
+                keep_waveform=True,
+            )
+            builder.map(fbank_converter, selector="[*].audio.data")
+            
         collater = Collater(pad_value=0)
 
         builder.map(collater, num_parallel_calls=npc)
@@ -278,12 +292,14 @@ class GenericSpeechDataset(SpeechDataset):
 
         # Wrap examples with `Seq2SeqBatch`.
         def to_batch(example: dict[str, Any]) -> SequenceBatch:
-            source_data = cast(SequenceData, example["audio"]["data"]["waveform"])
+            if use_fbank:
+                source_data = cast(SequenceData, example["audio"]["data"]["fbank"])
+            else:
+                source_data = cast(SequenceData, example["audio"]["data"]["waveform"])
 
             source_seqs, source_padding_mask = get_seqs_and_padding_mask(
                 source_data, gang.device
             )
-
             return SequenceBatch(
                 seqs=source_seqs,
                 padding_mask=source_padding_mask,
