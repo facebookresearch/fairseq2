@@ -12,6 +12,7 @@ from typing import final
 from torch import Tensor
 
 from fairseq2.data.text import TextTokenDecoder, TextTokenEncoder, TextTokenizer
+from fairseq2.error import ContractError
 from fairseq2.generation.generator import (
     Seq2SeqGenerator,
     Seq2SeqGeneratorOutput,
@@ -49,7 +50,12 @@ class SequenceToTextConverter:
         """
         self._generator = generator
 
-        device = infer_device(generator.model, name="generator.model")
+        try:
+            device = infer_device(generator.model)
+        except ValueError as ex:
+            raise ValueError(
+                "The device of `generator.model` is not valid. See the nested exception for details."
+            ) from ex
 
         target_text_encoder = tokenizer.create_encoder(
             task=task, lang=target_lang, mode="target", device=device
@@ -140,8 +146,8 @@ class SequenceToTextConverter:
 
         for idx, hypotheses in enumerate(generator_output.hypotheses):
             if len(hypotheses) == 0:
-                raise RuntimeError(
-                    f"The sequence generator returned no hypothesis at index {idx}. Please file a bug report."
+                raise ContractError(
+                    f"The sequence generator returned no hypothesis at index {idx}."
                 )
 
             texts.append(self._text_decoder(hypotheses[0].seq))
@@ -192,7 +198,12 @@ class TextTranslator:
 
         self._pad_idx = pad_idx
 
-        device = infer_device(generator.model, name="generator.model")
+        try:
+            device = infer_device(generator.model)
+        except ValueError as ex:
+            raise ValueError(
+                "The device of `generator.model` is not valid. See the nested exception for details."
+            ) from ex
 
         self._source_text_encoder = tokenizer.create_encoder(
             task="translation", lang=source_lang, mode="source", device=device
@@ -264,7 +275,12 @@ class TextCompleter:
         """
         self._generator = generator
 
-        device = infer_device(generator.model, name="generator.model")
+        try:
+            device = infer_device(generator.model)
+        except ValueError as ex:
+            raise ValueError(
+                "The device of `generator.model` is not valid. See the nested exception for details."
+            ) from ex
 
         self._text_encoder = tokenizer.create_encoder(mode="prompt", device=device)
         self._text_decoder = tokenizer.create_decoder()
@@ -317,8 +333,8 @@ class TextCompleter:
 
         for idx, hypotheses in enumerate(generator_output.hypotheses):
             if len(hypotheses) == 0:
-                raise RuntimeError(
-                    f"The sequence generator returned no hypothesis at index {idx}. Please file a bug report."
+                raise ContractError(
+                    f"The sequence generator returned no hypothesis at index {idx}."
                 )
 
             texts.append(self._text_decoder(hypotheses[0].seq))

@@ -10,7 +10,7 @@ from collections.abc import Callable
 from typing import Any
 
 from fairseq2.data.data_pipeline import Collater, create_bucket_sizes, read_sequence
-from fairseq2.datasets.batching import Batching, LengthBatching, StaticBatching
+from fairseq2.datasets import Batching, LengthBatching, StaticBatching
 from fairseq2.datasets.data_reader import BatchT, DataPipelineReader
 from fairseq2.gang import Gang
 
@@ -74,9 +74,6 @@ def create_hf_reader(
         training.
     :param num_prefetch:
         The number of batches to prefetch in background.
-    :param extras:
-        The extra parameters specific to the dataset
-        implementation.
     """
     if not has_datasets:
         raise ModuleNotFoundError(
@@ -150,6 +147,7 @@ def create_hf_reader(
 
     pipeline = builder.map(converter).and_return()
     return DataPipelineReader[BatchT](
+        "hg",
         pipeline,
         gang,
         num_accumulate=num_accumulate,

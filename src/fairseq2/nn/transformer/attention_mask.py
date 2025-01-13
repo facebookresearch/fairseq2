@@ -59,7 +59,7 @@ class AttentionMaskFactory(Protocol):
     ) -> AttentionMask | None:
         """
         :param seqs:
-            The sequences for which to create a mask. *Shape:* :math:`(N,S,M)`,
+            The sequences for which to make a mask. *Shape:* :math:`(N,S,M)`,
             where :math:`N` is the batch size, :math:`S` is the sequence length,
             and :math:`M` is the dimensionality of the model.
         :param keys:

@@ -14,6 +14,7 @@ from typing import Any, final
 from torcheval.metrics import Metric
 from torcheval.metrics.toolkit import sync_and_compute_collection
 
+from fairseq2.error import ContractError, InternalError, InvalidOperationError
 from fairseq2.gang import Gang
 
 
@@ -98,20 +99,20 @@ class MetricBag:
         or ``rollback_updates()``.
         """
         if self._original_metrics is not None:
-            raise ValueError("`begin_updates()` has already been called.")
+            raise InvalidOperationError("`begin_updates()` has already been called.")
 
         try:
             self._original_metrics = deepcopy(self._metrics)
         except Exception as ex:
-            raise RuntimeError(
-                f"The metrics in the bag cannot be copied. See nested exception for details and please file a bug report to the author of `{type(self)}`."
+            raise ContractError(
+                "The metrics in the bag cannot be copied. See the nested exception for details."
             ) from ex
 
     @final
     def commit_updates(self) -> None:
         """Commit pending metric updates."""
         if self._original_metrics is None:
-            raise ValueError("`begin_updates()` must be called first.")
+            raise InvalidOperationError("`begin_updates()` must be called first.")
 
         self._original_metrics = None
 
@@ -119,7 +120,7 @@ class MetricBag:
     def rollback_updates(self) -> None:
         """Discard pending metric updates and rollback to the original state."""
         if self._original_metrics is None:
-            raise ValueError("`begin_updates()` must be called first.")
+            raise InvalidOperationError("`begin_updates()` must be called first.")
 
         self._metrics, self._original_metrics = self._original_metrics, None
 
@@ -141,11 +142,11 @@ class MetricBag:
                 metric.reset()
 
     @final
-    def sync_and_compute_metrics(self) -> dict[str, Any] | None:
+    def sync_and_compute_metrics(self) -> dict[str, object] | None:
         """Sync the metrics across all processes and compute their values."""
         return sync_and_compute_metrics([self])
 
-    def process_metric_values(self, values: dict[str, Any]) -> None:
+    def process_metric_values(self, values: dict[str, object]) -> None:
         """Process metric ``values``."""
 
     @property
@@ -154,8 +155,8 @@ class MetricBag:
         return self._metrics
 
     @final
-    def state_dict(self) -> dict[str, Any]:
-        state_dict = {}
+    def state_dict(self) -> dict[str, object]:
+        state_dict: dict[str, object] = {}
 
         for name, metric in self._persistent_metrics.items():
             state_dict[name] = metric.state_dict()
@@ -163,14 +164,41 @@ class MetricBag:
         return state_dict
 
     @final
-    def load_state_dict(self, state_dict: Mapping[str, Any]) -> None:
-        if self._persistent_metrics.keys() != state_dict.keys():
-            raise ValueError(
-                f"`state_dict` must contain metrics {list(self._persistent_metrics.keys())}, but contains {list(state_dict.keys())} instead."
-            )
+    def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
+        state_keys = set(state_dict.keys())
+
+        metric_names = set(self._persistent_metrics.keys())
+
+        if metric_names != state_keys:
+            missing_metrics = metric_names - state_keys
+            if missing_metrics:
+                s = ", ".join(sorted(missing_metrics))
+
+                raise ValueError(
+                    f"`state_dict` must contain the states of the following metric(s): {s}"
+                )
+
+            extra_keys = state_keys - metric_names
+            if extra_keys:
+                s = ", ".join(sorted(extra_keys))
+
+                raise ValueError(
+                    f"`state_dict` must contain only the states of the metrics of this bag, but it contains the following unexpected key(s): {s}"
+                )
 
         for name, metric in self._persistent_metrics.items():
-            metric.load_state_dict(state_dict[name])
+            metric_state_dict = state_dict[name]
+            if not isinstance(metric_state_dict, dict):
+                raise TypeError(
+                    f"`state_dict['{name}']` must be of type `dict`, but is of type `{type(metric_state_dict)}` instead."
+                )
+
+            try:
+                metric.load_state_dict(metric_state_dict)
+            except (RuntimeError, ValueError) as ex:
+                raise ValueError(
+                    f"`state_dict['{name}']` is not a valid `{type(metric)}` state. See the nested exception for details."
+                ) from ex
 
             metric.to(self._gang.device)
 
@@ -187,7 +215,7 @@ def reset_non_persistent_metrics(bags: Sequence[MetricBag]) -> None:
         bag.reset_non_persistent_metrics()
 
 
-def sync_and_compute_metrics(bags: Sequence[MetricBag]) -> dict[str, Any] | None:
+def sync_and_compute_metrics(bags: Sequence[MetricBag]) -> dict[str, object] | None:
     """Sync the metrics across all processes and and compute their values."""
     if not bags:
         return None
@@ -216,7 +244,8 @@ def sync_and_compute_metrics(bags: Sequence[MetricBag]) -> dict[str, Any] | None
         logging.disable(logging.NOTSET)
 
     if gang.rank == 0:
-        assert values is not None
+        if values is None:
+            raise InternalError("`values` is `None`.")
 
         def strip_underscore(s: str) -> str:
             if s.startswith("_"):

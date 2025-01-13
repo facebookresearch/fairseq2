@@ -64,6 +64,9 @@ from fairseq2.nn.transformer.encoder_layer import (
 from fairseq2.nn.transformer.encoder_layer import (
     TransformerEncoderLayer as TransformerEncoderLayer,
 )
+from fairseq2.nn.transformer.ffn import (
+    DauphinFeedForwardNetwork as DauphinFeedForwardNetwork,
+)
 from fairseq2.nn.transformer.ffn import FeedForwardNetwork as FeedForwardNetwork
 from fairseq2.nn.transformer.ffn import GLUFeedForwardNetwork as GLUFeedForwardNetwork
 from fairseq2.nn.transformer.ffn import (
@@ -109,6 +112,16 @@ from fairseq2.nn.transformer.relative_attention import (
 )
 from fairseq2.nn.transformer.relative_attention import (
     RelativePositionSDPA as RelativePositionSDPA,
+)
+from fairseq2.nn.transformer.residual import (
+    DropPathResidualConnect as DropPathResidualConnect,
+)
+from fairseq2.nn.transformer.residual import (
+    NormFormerResidualConnect as NormFormerResidualConnect,
+)
+from fairseq2.nn.transformer.residual import ResidualConnect as ResidualConnect
+from fairseq2.nn.transformer.residual import (
+    ScaledResidualConnect as ScaledResidualConnect,
 )
 from fairseq2.nn.transformer.shaw_attention import (
     ShawRelativePositionSDPA as ShawRelativePositionSDPA,

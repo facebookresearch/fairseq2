@@ -9,17 +9,11 @@ from __future__ import annotations
 import os
 import platform
 import socket
-import sys
-from collections.abc import Iterator
-from contextlib import contextmanager
-from logging import Logger
-from signal import SIG_DFL, SIGINT, raise_signal, signal
 
 import fairseq2n
 import psutil
 import torch
 from rich.pretty import pretty_repr
-from torch.cuda import OutOfMemoryError
 from torch.nn import Module
 
 import fairseq2
@@ -28,50 +22,16 @@ from fairseq2.nn.utils.module import get_module_size
 from fairseq2.typing import Device
 
 
-@contextmanager
-def exception_logger(log: LogWriter) -> Iterator[None]:
-    """Log exceptions and CUDA OOM errors raised within the context."""
-    try:
-        yield
-    except OutOfMemoryError:
-        s = torch.cuda.memory_summary()
-
-        log.exception("CUDA run out of memory. See memory stats below.\n{}", s)  # fmt: skip
-
-        sys.exit(1)
-    except KeyboardInterrupt:
-        log.info("Command canceled!")
-
-        signal(SIGINT, SIG_DFL)
-
-        raise_signal(SIGINT)
-    except Exception:
-        log.exception("Command has failed.")
-
-        sys.exit(1)
-
-
 def log_config(config: object, log: LogWriter) -> None:
-    """Log ``config``."""
     log.info("Config:\n{}", pretty_repr(config, max_width=88))
 
 
 def log_model_config(config: object, log: LogWriter) -> None:
-    """Log ``config``.
-
-    :param config:
-        The model config to log.
-    :param log:
-        The log to write to.
-    """
     log.info("Model Config:\n{}", pretty_repr(config, max_width=88))
 
 
 def log_environment_info(log: LogWriter, device: Device | None = None) -> None:
     """Log information about the host system and the installed software."""
-    if isinstance(log, Logger):
-        log = LogWriter(log)
-
     log_system_info(log, device)
 
     log_software_info(log, device)
@@ -182,14 +142,14 @@ def log_system_info(log: LogWriter, device: Device | None = None) -> None:
     if device.type == "cpu":
         s = "CPU-only"
     elif device.type == "cuda":
-        pr = torch.cuda.get_device_properties(device)
+        props = torch.cuda.get_device_properties(device)
 
         s = (
             f"ID: {device} | "
-            f"Name: {pr.name} | "
-            f"Memory: {pr.total_memory // (1024 * 1024):,} MiB | "
-            f"Number of SMs: {pr.multi_processor_count} | "
-            f"Compute Capability: {pr.major}.{pr.minor}"
+            f"Name: {props.name} | "
+            f"Memory: {props.total_memory // (1024 * 1024):,} MiB | "
+            f"Number of SMs: {props.multi_processor_count} | "
+            f"Compute Capability: {props.major}.{props.minor}"
         )
     else:
         s = f"ID: {device}"

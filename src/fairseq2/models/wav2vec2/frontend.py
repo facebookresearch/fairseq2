@@ -12,6 +12,7 @@ from torch import Tensor
 from torch.nn import Dropout
 from typing_extensions import override
 
+from fairseq2.error import NotSupportedError
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
 from fairseq2.models.transformer import TransformerFrontend
 from fairseq2.models.wav2vec2.masker import Wav2Vec2Masker
@@ -72,9 +73,9 @@ class Wav2Vec2Frontend(TransformerFrontend):
         self.feature_dim = feature_dim
 
         if feature_extractor is not None:
-            if feature_dim != feature_extractor.feature_dim:
+            if feature_extractor.feature_dim != feature_dim:
                 raise ValueError(
-                    f"`feature_dim` of `feature_extractor` must be equal to `feature_dim` ({feature_dim}), but is {feature_extractor.feature_dim} instead."
+                    f"`feature_extractor.feature_dim` must be equal to `feature_dim` ({feature_dim}), but is {feature_extractor.feature_dim} instead."
                 )
 
             self.feature_extractor = feature_extractor
@@ -100,7 +101,7 @@ class Wav2Vec2Frontend(TransformerFrontend):
         if pos_encoder is not None:
             if pos_encoder.encoding_dim != model_dim:
                 raise ValueError(
-                    f"`encoding_dim` of `pos_encoder` must be equal to `model_dim` ({model_dim}), but is {pos_encoder.encoding_dim} instead."
+                    f"`pos_encoder.encoding_dim` must be equal to `model_dim` ({model_dim}), but is {pos_encoder.encoding_dim} instead."
                 )
 
             self.pos_encoder = pos_encoder
@@ -128,8 +129,8 @@ class Wav2Vec2Frontend(TransformerFrontend):
         state_bag: IncrementalStateBag | None = None,
     ) -> tuple[Tensor, PaddingMask | None]:
         if state_bag is not None:
-            raise ValueError(
-                "`Wav2Vec2Frontend` does not support incremental decoding."
+            raise NotSupportedError(
+                f"`{Wav2Vec2Frontend}` does not support incremental decoding."
             )
 
         seqs, padding_mask, _ = self.extract_features(seqs, padding_mask)
@@ -153,9 +154,9 @@ class Wav2Vec2Frontend(TransformerFrontend):
             is the batch size and :math:`S` is the sequence length.
 
         :returns:
-            - The normalized features. *Shape:* :math:`(N,S_{out},F)`, where
+            - The normalized features. *Shape:* :math:`(N,S_{out},E)`, where
               :math:`N` is the batch size, :math:`S_{out}` is the output
-              sequence length, and :math:`F` is the dimensionality of the
+              sequence length, and :math:`E` is the dimensionality of the
               extracted features.
             - The padding mask of the extracted features. *Shape:*
               :math:`(N,S_{out})`, where :math:`N` is the batch size and
@@ -181,8 +182,8 @@ class Wav2Vec2Frontend(TransformerFrontend):
         """Process extracted features.
 
         :param seqs:
-            The features to process. *Shape:* :math:`(N,S,F)`, where :math:`N`
-            is the batch size, :math:`S` is the sequence length, and :math:`F`
+            The features to process. *Shape:* :math:`(N,S,E)`, where :math:`N`
+            is the batch size, :math:`S` is the sequence length, and :math:`E`
             is the dimensionality of the features.
         :param padding_mask:
             The padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where :math:`N`

@@ -5,48 +5,38 @@
 # LICENSE file in the root directory of this source tree.
 
 import os
+from typing import cast
 
 import pytest
 
-from fairseq2.assets import default_asset_store, default_download_manager
-from fairseq2.models.llama import create_llama_model, llama_archs
+from fairseq2.context import get_runtime_context
+from fairseq2.models.llama import LLaMAConfig, LLaMAFactory, convert_llama_checkpoint
 from fairseq2.models.llama.integ import convert_to_reference_checkpoint
-from fairseq2.models.llama.loader import convert_llama_checkpoint
-from fairseq2.typing import CPU
-from fairseq2.utils.file import StandardTensorLoader
-from tests.common import device
 
 
 @pytest.mark.skipif(
     "FAIR_ENV_CLUSTER" not in os.environ, reason="checkpoints only on faircluster"
 )
 def test_convert_to_reference_checkpoint() -> None:
-    model_config = llama_archs.get("llama2_7b")
+    context = get_runtime_context()
 
-    card = default_asset_store.retrieve_card("llama2_7b")
+    model_config_registry = context.get_config_registry(LLaMAConfig)
 
-    checkpoint_uri = card.field("checkpoint").as_uri()
-    checkpoint_checksum = card.field("checksum").get_as_(str)
+    model_config = model_config_registry.get("llama2_7b")
 
-    path = default_download_manager.download_checkpoint(
-        checkpoint_uri, checkpoint_checksum, model_name="llama2_7b", progress=False
-    )
+    model_factory = LLaMAFactory(model_config)
 
-    tensor_loader = StandardTensorLoader()
+    model = model_factory.create_model()
 
-    checkpoint = tensor_loader(path, map_location=CPU, restrict=True)
+    state_dict = model.state_dict()
 
-    # Convert the reference checkpoint to fairseq2.
-    checkpoint = convert_llama_checkpoint(checkpoint, model_config)
+    checkpoint: dict[str, object] = {"model": state_dict}
 
-    # Convert it back to the reference format.
     checkpoint = convert_to_reference_checkpoint(checkpoint)
 
-    # Now, convert back to fairseq2 again.
     checkpoint = convert_llama_checkpoint(checkpoint, model_config)
 
-    # Try to load the model with the converted fairseq2 checkpoint.
-    model = create_llama_model(model_config, device=device)
+    state_dict = cast(dict[str, object], checkpoint["model"])
 
     # This should work.
-    model.load_state_dict(checkpoint["model"])
+    model.load_state_dict(state_dict)

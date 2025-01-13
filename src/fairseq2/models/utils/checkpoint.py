@@ -8,12 +8,12 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
-from typing import Any
+from typing import cast
 
 
 def convert_model_state_dict(
-    state_dict: dict[str, Any], key_map: Mapping[str, str]
-) -> dict[str, Any]:
+    state_dict: dict[str, object], key_map: Mapping[str, str]
+) -> dict[str, object]:
     """Convert a model state dictionary to fairseq2.
 
     :param state_dict:
@@ -43,8 +43,8 @@ def convert_model_state_dict(
 
 
 def convert_fairseq_checkpoint(
-    checkpoint: dict[str, Any], key_map: Mapping[str, str]
-) -> dict[str, Any]:
+    checkpoint: dict[str, object], key_map: Mapping[str, str]
+) -> dict[str, object]:
     """Convert a fairseq checkpoint to fairseq2.
 
     :param checkpoint:
@@ -55,7 +55,7 @@ def convert_fairseq_checkpoint(
     :returns:
         A converted checkpoint that is compatible with fairseq2.
     """
-    old_state_dict = checkpoint["model"]
+    old_state_dict = cast(dict[str, object], checkpoint["model"])
 
     new_state_dict = convert_model_state_dict(old_state_dict, key_map)
 

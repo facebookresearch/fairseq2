@@ -8,13 +8,13 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable
-from typing import Any, TypeAlias, final
+from typing import TypeAlias, final
 
 import torch
 from torch import Tensor
 from torch.optim import Optimizer
 
-ParameterCollection: TypeAlias = Iterable[Tensor] | Iterable[dict[str, Any]]
+ParameterCollection: TypeAlias = Iterable[Tensor] | Iterable[dict[str, object]]
 
 
 class AbstractOptimizer(ABC, Optimizer):

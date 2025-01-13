@@ -7,12 +7,19 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import final
+from dataclasses import dataclass
+from typing import Final, final
 
 from torch.optim import Optimizer
 from typing_extensions import override
 
-from fairseq2.optim.lr_scheduler.base import AbstractLRScheduler, _get_per_param_group
+from fairseq2.optim.lr_scheduler.handler import LRSchedulerHandler
+from fairseq2.optim.lr_scheduler.lr_scheduler import (
+    AbstractLRScheduler,
+    LRScheduler,
+    get_per_param_group,
+)
+from fairseq2.typing import safe_cast
 
 
 @final
@@ -62,7 +69,7 @@ class MyleLR(AbstractLRScheduler):
 
         self._num_warmup_steps = num_warmup_steps
 
-        self._start_lrs = _get_per_param_group(optimizer, "start_lr", start_lr)
+        self._start_lrs = get_per_param_group(optimizer, "start_lr", start_lr)
 
         super().__init__(optimizer, last_epoch)
 
@@ -81,3 +88,36 @@ class MyleLR(AbstractLRScheduler):
         c = (self._num_warmup_steps / self.last_epoch) ** 0.5
 
         return [b * c for b in base_lrs]
+
+
+MYLE_LR: Final = "myle"
+
+
+@dataclass(kw_only=True)
+class MyleLRConfig:
+    num_warmup_steps: int = 0
+    """The number of warmup steps."""
+
+    start_lr: float = 0.0
+    """The initial warmup learning rate."""
+
+
+@final
+class MyleLRHandler(LRSchedulerHandler):
+    @override
+    def create(
+        self, optimizer: Optimizer, config: object, num_steps: int | None
+    ) -> LRScheduler:
+        config = safe_cast("config", config, MyleLRConfig)
+
+        return MyleLR(optimizer, config.num_warmup_steps, start_lr=config.start_lr)
+
+    @property
+    @override
+    def requires_num_steps(self) -> bool:
+        return False
+
+    @property
+    @override
+    def config_kls(self) -> type:
+        return MyleLRConfig

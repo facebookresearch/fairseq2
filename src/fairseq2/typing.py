@@ -6,12 +6,22 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import Field, is_dataclass
 from typing import Any, ClassVar, Final, Protocol, TypeAlias, TypeGuard, TypeVar
 
-import typing_extensions
 from torch import device, dtype
+from typing_extensions import override as override  # noqa: F401
+
+T = TypeVar("T")
+
+
+def safe_cast(param_name: str, value: object, kls: type[T]) -> T:
+    if not isinstance(value, kls):
+        raise TypeError(
+            f"`{param_name}` must be of type `{kls}`, but is of type `{type(value)}` instead."
+        )
+
+    return value
 
 
 class DataClass(Protocol):
@@ -20,15 +30,9 @@ class DataClass(Protocol):
     __dataclass_fields__: ClassVar[dict[str, Field[Any]]]
 
 
-def is_dataclass_instance(obj: Any) -> TypeGuard[DataClass]:
+def is_dataclass_instance(obj: object) -> TypeGuard[DataClass]:
     """Return ``True`` if ``obj`` is of type :class:`DataClass`."""
     return is_dataclass(obj) and not isinstance(obj, type)
-
-
-F = TypeVar("F", bound=Callable[..., Any])
-
-
-override = typing_extensions.override  # compat
 
 
 Device: TypeAlias = device

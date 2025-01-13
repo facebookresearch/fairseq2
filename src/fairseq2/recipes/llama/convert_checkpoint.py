@@ -17,14 +17,13 @@ from warnings import catch_warnings
 
 from typing_extensions import override
 
-from fairseq2.assets import get_asset_store
-from fairseq2.console import get_error_console
-from fairseq2.dependency import DependencyResolver
+from fairseq2.assets import default_asset_store
 from fairseq2.logging import get_log_writer
-from fairseq2.models.llama import load_llama_config
+from fairseq2.models.llama import get_llama_model_hub
 from fairseq2.models.llama.integ import convert_to_reference_checkpoint
 from fairseq2.recipes.cli import CliCommandHandler
-from fairseq2.utils.file import dump_pt_tensors, load_pt_tensors
+from fairseq2.recipes.utils.rich import get_error_console
+from fairseq2.utils.file import dump_torch_tensors, load_torch_tensors
 
 log = get_log_writer(__name__)
 
@@ -34,7 +33,7 @@ class ConvertCheckpointCommandHandler(CliCommandHandler):
     """Converts fairseq2 LLaMA checkpoints to reference checkpoints."""
 
     @override
-    def init_parser(self, parser: ArgumentParser, resolver: DependencyResolver) -> None:
+    def init_parser(self, parser: ArgumentParser) -> None:
         parser.add_argument(
             "--model",
             metavar="ARCH_NAME",
@@ -54,7 +53,7 @@ class ConvertCheckpointCommandHandler(CliCommandHandler):
         )
 
     @override
-    def __call__(self, args: Namespace, resolver: DependencyResolver) -> None:
+    def run(self, parser: ArgumentParser, args: Namespace) -> int:
         if not args.input_dir.exists() or not args.input_dir.is_dir():
             log.error("`input_dir` must be a directory.")
 
@@ -65,11 +64,12 @@ class ConvertCheckpointCommandHandler(CliCommandHandler):
 
             sys.exit(1)
 
-        asset_store = get_asset_store()
-        arch = asset_store.retrieve_card(args.model).field("model_arch").as_(str)
+        arch = (
+            default_asset_store.retrieve_card(args.model).field("model_arch").as_(str)
+        )
 
         if arch:
-            model_config = load_llama_config(args.model)
+            model_config = get_llama_model_hub().load_config(args.model)
         else:
             model_config = None
 
@@ -111,7 +111,7 @@ class ConvertCheckpointCommandHandler(CliCommandHandler):
                     with catch_warnings():
                         warnings.simplefilter("ignore")
 
-                        checkpoint = load_pt_tensors(input_file, restrict=True)
+                        checkpoint = load_torch_tensors(input_file)
                 except RuntimeError:
                     log.exception(
                         "Checkpoint file {} cannot be loaded.", input_file.name
@@ -119,8 +119,8 @@ class ConvertCheckpointCommandHandler(CliCommandHandler):
 
                     sys.exit(1)
 
-                if "model" not in checkpoint:
-                    log.error("Checkpoint file {} does not contain a 'model' entry.", input_file.name)  # fmt: skip
+                if all(key not in checkpoint for key in ["model_key", "model"]):
+                    log.error("Checkpoint file {} does not contain a 'model_key' nor 'model' entry.", input_file.name)  # fmt: skip
 
                     sys.exit(1)
 
@@ -131,11 +131,9 @@ class ConvertCheckpointCommandHandler(CliCommandHandler):
                 ref_state_dict = convert_to_reference_checkpoint(checkpoint)
 
                 try:
-                    dump_pt_tensors(ref_state_dict, output_file)
+                    dump_torch_tensors(ref_state_dict, output_file)
                 except RuntimeError:
-                    log.exception(
-                        "Checkpoint file {} cannot be saved.", output_file.name
-                    )
+                    log.exception("Checkpoint file {} cannot be saved.", output_file.name)  # fmt: skip
 
                     sys.exit(1)
 
@@ -144,39 +142,28 @@ class ConvertCheckpointCommandHandler(CliCommandHandler):
         # Generate a basic params.json, mainly to use with HG transformers.
         if model_config is not None:
             params = {
-                "model": {
-                    "dim": model_config.model_dim,
-                    "n_layers": model_config.num_layers,
-                    "n_heads": model_config.num_attn_heads,
-                    "multiple_of": model_config.ffn_inner_dim_to_multiple,
-                    "rope_theta": model_config.rope_theta,
-                    "norm_eps": 1e-5,
-                },
+                "dim": model_config.model_dim,
+                "n_layers": model_config.num_layers,
+                "n_heads": model_config.num_attn_heads,
+                "multiple_of": model_config.ffn_inner_dim_to_multiple,
+                "rope_theta": model_config.rope_theta,
+                "norm_eps": 1e-5,
             }
 
             if model_config.num_attn_heads != model_config.num_key_value_heads:
-                params["model"]["n_kv_heads"] = model_config.num_key_value_heads
+                params["n_kv_heads"] = model_config.num_key_value_heads
 
-            # we only specify archs where multiplier != 1.0
-            ffn_dim_multipliers = {
-                "llama2_70b": 1.3,
-                "llama3_8b": 1.3,
-                "llama3_70b": 1.3,
-                "llama3_1_8b": 1.3,
-                "llama3_1_70b": 1.3,
-                "llama3_1_405b": 1.2,
-                "llama3_2_1b": 1.5,
-            }
-
-            if arch in ffn_dim_multipliers:
-                params["model"]["ffn_dim_multiplier"] = ffn_dim_multipliers[arch]
+            if model_config.ffn_inner_dim_multiplier != 1.0:
+                params["ffn_dim_multiplier"] = model_config.ffn_inner_dim_multiplier
 
             try:
                 with args.output_dir.joinpath("params.json").open("w") as fp:
-                    json.dump(params, fp)
+                    json.dump({"model", params}, fp)
             except RuntimeError:
                 log.exception("params.json cannot be created.")
 
                 sys.exit(1)
 
             log.info("params.json generated for {}.", args.model)
+
+        return 0

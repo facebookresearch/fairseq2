@@ -22,12 +22,35 @@ string_splitter::string_splitter(
     std::vector<std::string> names,
     std::vector<std::size_t> indices,
     bool exclude)
-  : separator_{separator}, names_(std::move(names)), indices_{std::move(indices)}, exclude_{exclude}
+  : separator_{separator},
+    names_{std::move(names)},
+    indices_{std::move(indices)},
+    exclude_{exclude},
+    single_column_{false}
 {
+    finalize_indices();
+}
+
+string_splitter::string_splitter(
+    char separator,
+    std::vector<std::string> names,
+    std::size_t index,
+    bool exclude)
+  : separator_{separator},
+    names_{std::move(names)},
+    indices_{index},
+    exclude_{exclude},
+    single_column_{true}
+{
+    finalize_indices();
+}
+
+void
+string_splitter::finalize_indices() {
     if (indices_.empty())
         return;
 
-    if (!names_.empty() && !exclude && names_.size() != indices_.size())
+    if (!names_.empty() && !exclude_ && names_.size() != indices_.size())
         throw_<std::invalid_argument>(
             "`names` and `indices` must have the same length, but have the lengths {} and {} instead.", names_.size(), indices_.size());
 
@@ -76,9 +99,13 @@ string_splitter::operator()(data &&d) const
         throw_<std::invalid_argument>(
             "The input string must have at least {} field(s), but has {} instead.", indices_.back(), idx);
 
-    // If no names specified, return as list.
-    if (names_.empty())
+    // If no names specified, return a list, or a string if a single non-excluding index is specified.
+    if (names_.empty()) {
+        if (single_column_ && !exclude_)
+            return data{std::move(fields[0])};
+
         return fields;
+    }
 
     // Otherwise, as dictionary.
     if (names_.size() != fields.size())

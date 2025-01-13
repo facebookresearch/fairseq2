@@ -13,6 +13,7 @@ import torch.nn as nn
 from torch import Tensor
 from typing_extensions import override
 
+from fairseq2.error import InternalError
 from fairseq2.nn.embedding import StandardEmbedding
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.transformer.attention import SDPA, create_default_sdpa
@@ -145,7 +146,8 @@ class ShawRelativePositionSDPA(SDPA):
         )
 
         if self.rel_v_embed is not None:
-            assert attn_weights is not None
+            if attn_weights is None:
+                raise InternalError("`attn_weights` is `None`.")
 
             # (S_kv, S_kv, V_h)
             rel_pos_values = self.rel_v_embed(rel_indices)

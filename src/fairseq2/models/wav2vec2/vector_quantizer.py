@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import final
 
 import torch
 import torch.nn as nn
@@ -62,7 +61,6 @@ class VectorQuantizerOutput(ABC):
         pass
 
 
-@final
 class GumbelVectorQuantizer(VectorQuantizer):
     """Quantizes incoming data using Gumbel-Softmax."""
 
@@ -144,7 +142,7 @@ class GumbelVectorQuantizer(VectorQuantizer):
         self.num_updates.zero_()
 
     @override
-    def forward(self, x: Tensor) -> "GumbelVectorQuantizerOutput":
+    def forward(self, x: Tensor) -> GumbelVectorQuantizerOutput:
         current_temp = self._compute_current_temp()
 
         bsz, tsz, fsz = x.shape
@@ -223,12 +221,12 @@ class GumbelVectorQuantizer(VectorQuantizer):
 def init_entry_projection(proj: Linear) -> None:
     nn.init.normal_(proj.weight, mean=0.0, std=1.0)
 
-    assert proj.bias is not None
+    if proj.bias is None:
+        raise ValueError("`proj.bias` must not be `None`.")
 
     nn.init.zeros_(proj.bias)
 
 
-@final
 @dataclass
 class GumbelVectorQuantizerOutput(VectorQuantizerOutput):
     cb: Tensor

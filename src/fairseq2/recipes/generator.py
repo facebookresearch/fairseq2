@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Iterable
 from contextlib import AbstractContextManager, nullcontext
 from itertools import count
 from pathlib import Path
@@ -28,7 +27,7 @@ from fairseq2.metrics import (
     record_metrics,
 )
 from fairseq2.recipes.common_metrics import extend_batch_metrics
-from fairseq2.recipes.utils.cli import create_rich_progress
+from fairseq2.recipes.utils.rich import create_rich_progress
 from fairseq2.typing import CPU, DataType
 from fairseq2.utils.profiler import Stopwatch
 from fairseq2.utils.rng import RngBag
@@ -99,7 +98,6 @@ class Generator(Generic[BatchT]):
         tp_gang: Gang | None = None,
         dtype: DataType = torch.float32,
         amp: bool = False,
-        metric_recorders: Iterable[MetricRecorder] | None = None,
         metrics_dir: Path | None = None,
         seed: int = 2,
     ) -> None:
@@ -120,10 +118,8 @@ class Generator(Generic[BatchT]):
             The data type of the model.
         :param amp:
             If ``True``, enables ``torch.amp``.
-        :param metric_recorders:
-            The metric recorders.
         :param metrics_dir:
-            Legacy. Use ``metric_recoders``.
+            The directory to dump metrics.
         :param seed:
             The random number generator seed.
         """
@@ -152,17 +148,13 @@ class Generator(Generic[BatchT]):
 
         self._amp = amp
 
-        if metric_recorders is None:
-            # compat
-            if root_gang.rank == 0:
-                self._metric_recorders = [LogMetricRecorder(log)]
+        if root_gang.rank == 0:
+            self._metric_recorders = [LogMetricRecorder(log)]
 
-                if metrics_dir is not None:
-                    self._metric_recorders.append(JsonFileMetricRecorder(metrics_dir))
-            else:
-                self._metric_recorders = []
+            if metrics_dir is not None:
+                self._metric_recorders.append(JsonFileMetricRecorder(metrics_dir))
         else:
-            self._metric_recorders = list(metric_recorders)
+            self._metric_recorders = []
 
         self._seed = seed
 

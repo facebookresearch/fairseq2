@@ -28,9 +28,13 @@ jobs:
       run:
         shell: bash
     steps:
+      - name: Install Git LFS
+        run: |
+          yum install -y git-lfs
       - name: Check-out the repository
         uses: actions/checkout@v3
         with:
+          lfs: true
           submodules: recursive
       - name: Create the Python virtual environment
         run: |

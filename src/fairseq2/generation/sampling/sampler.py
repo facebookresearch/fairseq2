@@ -6,16 +6,22 @@
 
 from __future__ import annotations
 
-from typing import Protocol, final
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import Final, final
 
 import torch
 from torch import Tensor
+from typing_extensions import override
+
+from fairseq2.typing import safe_cast
 
 
-class Sampler(Protocol):
+class Sampler(ABC):
     """Represents a sampling algorithm."""
 
-    def __call__(self, probs: Tensor) -> Tensor:
+    @abstractmethod
+    def sample(self, probs: Tensor) -> Tensor:
         """
         :param probs:
             The next-step probability of each vocabulary entry. *Shape:*
@@ -42,7 +48,8 @@ class TopPSampler(Sampler):
         """
         self._p = p
 
-    def __call__(self, probs: Tensor) -> Tensor:
+    @override
+    def sample(self, probs: Tensor) -> Tensor:
         # Previous operations in the generation like step processors might have
         # modified the probabilities. Normalize the distribution.
         probs = probs / probs.sum(dim=-1, keepdim=True)
@@ -81,7 +88,8 @@ class TopKSampler(Sampler):
         """
         self._k = k
 
-    def __call__(self, probs: Tensor) -> Tensor:
+    @override
+    def sample(self, probs: Tensor) -> Tensor:
         k = min(self._k, probs.size(1))
 
         if k == 1:
@@ -101,3 +109,67 @@ class TopKSampler(Sampler):
 
         # (N, 1) -> (N)
         return indices.squeeze(-1)
+
+
+class SamplerHandler(ABC):
+    @abstractmethod
+    def create(self, config: object) -> Sampler:
+        ...
+
+    @property
+    @abstractmethod
+    def config_kls(self) -> type:
+        ...
+
+
+class SamplerNotFoundError(LookupError):
+    name: str
+
+    def __init__(self, name: str) -> None:
+        super().__init__(f"'{name}' is not a known sequence generator sampler.")
+
+        self.name = name
+
+
+TOP_P_SAMPLER: Final = "top-p"
+
+
+@dataclass(kw_only=True)
+class TopPSamplerConfig:
+    p: float = 1.0
+
+
+@final
+class TopPSamplerHandler(SamplerHandler):
+    @override
+    def create(self, config: object) -> Sampler:
+        config = safe_cast("config", config, TopPSamplerConfig)
+
+        return TopPSampler(p=config.p)
+
+    @property
+    @override
+    def config_kls(self) -> type:
+        return TopPSamplerConfig
+
+
+TOP_K_SAMPLER: Final = "top-k"
+
+
+@dataclass(kw_only=True)
+class TopKSamplerConfig:
+    k: int = 1
+
+
+@final
+class TopKSamplerHandler(SamplerHandler):
+    @override
+    def create(self, config: object) -> Sampler:
+        config = safe_cast("config", config, TopKSamplerConfig)
+
+        return TopKSampler(k=config.k)
+
+    @property
+    @override
+    def config_kls(self) -> type:
+        return TopKSamplerConfig
