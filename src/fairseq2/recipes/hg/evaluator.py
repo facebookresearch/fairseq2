@@ -12,6 +12,8 @@ from itertools import count
 from pathlib import Path
 from typing import Any, Generic, TypeVar, final
 
+from torch.nn import Module
+
 from fairseq2.datasets import DataReader
 from fairseq2.gang import FakeGang, Gang
 from fairseq2.logging import get_log_writer
@@ -21,9 +23,8 @@ from fairseq2.metrics import (
     TensorBoardRecorder,
     record_metrics,
 )
-from fairseq2.models.model import Model
 from fairseq2.models.sequence import SequenceBatch
-from fairseq2.recipes.utils.cli import create_rich_progress
+from fairseq2.recipes.utils.rich import create_rich_progress
 from fairseq2.utils.profiler import Stopwatch
 
 log = get_log_writer(__name__)
@@ -36,7 +37,7 @@ BatchT = TypeVar("BatchT")
 class HFEvaluator(Generic[BatchT]):
     """Evaluate a machine learning model with HuggingFace's evaluate.Metric library"""
 
-    _model: Model
+    _model: Module
     _preprocessor: Callable[[BatchT], tuple[SequenceBatch, SequenceBatch]]
     _postprocessor: Callable[[Any, SequenceBatch], tuple[list[str], list[str]]]
     _root_gang: Gang
@@ -50,7 +51,7 @@ class HFEvaluator(Generic[BatchT]):
 
     def __init__(
         self,
-        model: Model,
+        model: Module,
         metrics: list[str],
         gang: Gang,
         data_reader: DataReader[BatchT],

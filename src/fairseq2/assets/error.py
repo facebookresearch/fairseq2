@@ -7,5 +7,22 @@
 from __future__ import annotations
 
 
-class AssetError(RuntimeError):
-    """Raised when an asset operation fails."""
+class AssetError(Exception):
+    name: str
+
+    def __init__(self, name: str, message: str) -> None:
+        super().__init__(message)
+
+        self.name = name
+
+
+class AssetCardError(AssetError):
+    pass
+
+
+class AssetCardNotFoundError(AssetCardError):
+    pass
+
+
+class AssetCardFieldNotFoundError(AssetCardError):
+    pass

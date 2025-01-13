@@ -6,13 +6,16 @@
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Final, Protocol, final
+from warnings import catch_warnings
 
 import torch
 from torch import Tensor
+from torch.distributed import ProcessGroup
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.api import (
     BackwardPrefetch,
@@ -25,8 +28,8 @@ from torch.distributed.fsdp.api import (
 )
 from torch.nn import Module, Parameter
 
-from fairseq2.gang import Gang
-from fairseq2.logging import get_log_writer
+from fairseq2.gang import Gang, setup_hybrid_fsdp_gangs
+from fairseq2.logging import log
 from fairseq2.nn.utils.module import (
     apply_to_parameters,
     infer_device,
@@ -35,8 +38,6 @@ from fairseq2.nn.utils.module import (
     to_empty,
 )
 from fairseq2.typing import DataType, Device
-
-log = get_log_writer(__name__)
 
 
 def to_fsdp(
@@ -87,29 +88,26 @@ def to_fsdp(
         If ``True``, the gradients will be reduced in full precision. Only
         relevant if ``mixed_precision_dtype`` is not ``None``.
     """
+    process_group: ProcessGroup | tuple[ProcessGroup, ProcessGroup] | None = None
+
     if local_world_size is not None:
-        if local_world_size == 0:
-            raise ValueError(
-                f"`local_world_size` must be greater than 0, but is {local_world_size} instead."
-            )
+        sharding_strategy = ShardingStrategy.HYBRID_SHARD
 
-        if local_world_size > gang.size:
-            raise ValueError(
-                f"`local_world_size` must be less than or equal to `gang.size` ({gang.size}), but is {local_world_size} instead."
-            )
+        sharding_gang, replication_gang = setup_hybrid_fsdp_gangs(
+            gang, local_world_size
+        )
 
-        if gang.size % local_world_size != 0:
-            raise ValueError(
-                f"`gang.size` ({gang.size}) must be divisible by `local_world_size` ({local_world_size})."
-            )
-
-        # TODO(balioglu): Finish!
-        raise NotImplementedError("`local_world_size` is not supported yet.")
+        process_group = (
+            sharding_gang.as_process_group(),
+            replication_gang.as_process_group(),
+        )
     else:
         if reshard_after_forward:
             sharding_strategy = ShardingStrategy.FULL_SHARD
         else:
             sharding_strategy = ShardingStrategy.SHARD_GRAD_OP
+
+        process_group = gang.as_process_group()
 
     if memory_policy is None:
         memory_policy = FSDP_STANDARD_MEMORY_POLICY
@@ -119,7 +117,13 @@ def to_fsdp(
 
     param_init_fn = None
 
-    module_device = infer_device(module)
+    try:
+        module_device = infer_device(module)
+    except ValueError as ex:
+        raise ValueError(
+            "The device of `module` is not valid. See the nested exception for details."
+        ) from ex
+
     if module_device.type == "meta":
         if gang.rank == 0:
             skip_init = not broadcast_state
@@ -150,7 +154,7 @@ def to_fsdp(
 
     fsdp = FSDP(
         module,
-        process_group=gang.as_process_group(),
+        process_group=process_group,
         sharding_strategy=sharding_strategy,
         cpu_offload=CPUOffload() if memory_policy.cpu_offload else None,
         auto_wrap_policy=wrap_policy,
@@ -165,12 +169,15 @@ def to_fsdp(
         **kwargs,
     )
 
-    FSDP.set_state_dict_type(
-        fsdp,
-        StateDictType.SHARDED_STATE_DICT,
-        state_dict_config=ShardedStateDictConfig(offload_to_cpu=True),
-        optim_state_dict_config=ShardedOptimStateDictConfig(offload_to_cpu=True),
-    )
+    with catch_warnings():
+        warnings.simplefilter("ignore")  # Suppress noisy FSDP warnings.
+
+        FSDP.set_state_dict_type(
+            fsdp,
+            StateDictType.SHARDED_STATE_DICT,
+            state_dict_config=ShardedStateDictConfig(offload_to_cpu=True),
+            optim_state_dict_config=ShardedOptimStateDictConfig(offload_to_cpu=True),
+        )
 
     return fsdp
 

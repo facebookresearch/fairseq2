@@ -9,7 +9,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any
 
 import pytest
 import torch
@@ -17,10 +16,11 @@ import torch
 from fairseq2.typing import DataType
 from fairseq2.utils.dataclass import EMPTY
 from fairseq2.utils.structured import (
-    StructuredError,
-    ValueConverter,
+    StructureError,
     is_unstructured,
     merge_unstructured,
+    structure,
+    unstructure,
 )
 
 # mypy: disable-error-code="arg-type"
@@ -56,123 +56,115 @@ class Foo3:
     f3_2: int = 3
 
 
-class TestValueConverter:
-    def test_structure_works(self) -> None:
-        data = {
-            "f0": "abc",
-            "f1": "2",
-            "f2": {"a": "path1", "b": Path("path2")},
-            "f3": [0, "1", 2, "3"],
-            "f4": {"f3_1": "4"},
-            "f5": ["3.0", "4"],
-            "f6": ["1", "2", "3"],
-            "f7": "VALUE2",
-            "f9": {"f3_2": "4"},
-        }
+def test_structure_works() -> None:
+    data = {
+        "f0": "abc",
+        "f1": "2",
+        "f2": {"a": "path1", "b": Path("path2")},
+        "f3": [0, "1", 2, "3"],
+        "f4": {"f3_1": "4"},
+        "f5": ["3.0", "4"],
+        "f6": ["1", "2", "3"],
+        "f7": "VALUE2",
+        "f9": {"f3_2": "4"},
+    }
 
-        value_converter = ValueConverter()
+    foo = structure(data, Foo1)
 
-        foo = value_converter.structure(data, Foo1)
-
-        expected_foo = Foo1(
-            f0="abc",
-            f1=2,
-            f2={"a": Path("path1"), "b": Path("path2")},
-            f3=[0, 1, 2, 3],
-            f4=Foo3(f3_1=4, f3_2=3),
-            f5=(3.0, 4),
-            f6={1, 2, 3},
-            f7=FooEnum.VALUE2,
-            f8=torch.float32,
-            f9=Foo3(f3_1=2, f3_2=4),
-        )
-
-        assert foo == expected_foo
-
-    def test_structure_works_when_set_empty_is_true(self) -> None:
-        data = {
-            "f0": "abc",
-            "f1": "2",
-            "f2": {"a": "path1", "b": Path("path2")},
-            "f3": [0, "1", 2, "3"],
-            "f4": {"f3_1": "4"},
-            "f5": ["3.0", "4"],
-            "f6": ["1", "2", "3"],
-            "f7": "VALUE2",
-            "f9": {"f3_2": "4"},
-        }
-
-        value_converter = ValueConverter()
-
-        foo = value_converter.structure(data, Foo1, set_empty=True)
-
-        expected_foo = Foo1(
-            f0="abc",
-            f1=2,
-            f2={"a": Path("path1"), "b": Path("path2")},
-            f3=[0, 1, 2, 3],
-            f4=Foo3(f3_1=4, f3_2=EMPTY),
-            f5=(3.0, 4),
-            f6={1, 2, 3},
-            f7=FooEnum.VALUE2,
-            f8=EMPTY,
-            f9=Foo3(f3_1=EMPTY, f3_2=4),
-        )
-
-        assert foo == expected_foo
-
-    @pytest.mark.parametrize(
-        "data,kls",
-        [
-            ("a", int),
-            ({"a": 1}, dict),
-            ("a", list),
-            ("a", FooEnum),
-            ({"f1_1": 2, "f1_2": 3}, Foo2),
-        ],
+    expected_foo = Foo1(
+        f0="abc",
+        f1=2,
+        f2={"a": Path("path1"), "b": Path("path2")},
+        f3=[0, 1, 2, 3],
+        f4=Foo3(f3_1=4, f3_2=3),
+        f5=(3.0, 4),
+        f6={1, 2, 3},
+        f7=FooEnum.VALUE2,
+        f8=torch.float32,
+        f9=Foo3(f3_1=2, f3_2=4),
     )
-    def test_structure_raises_error_when_conversion_fails(
-        self, data: Any, kls: type
-    ) -> None:
-        value_converter = ValueConverter()
 
-        with pytest.raises(
-            StructuredError, match=rf"^`obj` cannot be structured to `{kls}`\. See nested exception for details\.$"  # fmt: skip
-        ):
-            value_converter.structure(data, kls)
+    assert foo == expected_foo
 
-    def test_unstructure_works(self) -> None:
-        foo = Foo1(
-            f0="abc",
-            f1=2,
-            f2={"a": Path("path1"), "b": Path("path2")},
-            f3=[0, 1, 2, 3],
-            f4=Foo3(f3_1=4),
-            f5=(3.0, 4),
-            f6={1, 2, 3},
-            f7=FooEnum.VALUE2,
-            f8=torch.float16,
-            f9=Foo3(f3_1=1),
-        )
 
-        value_converter = ValueConverter()
+def test_structure_works_when_set_empty_is_true() -> None:
+    data = {
+        "f0": "abc",
+        "f1": "2",
+        "f2": {"a": "path1", "b": Path("path2")},
+        "f3": [0, "1", 2, "3"],
+        "f4": {"f3_1": "4"},
+        "f5": ["3.0", "4"],
+        "f6": ["1", "2", "3"],
+        "f7": "VALUE2",
+        "f9": {"f3_2": "4"},
+    }
 
-        data = value_converter.unstructure(foo)
+    foo = structure(data, Foo1, set_empty=True)
 
-        expected_data = {
-            "f0": "abc",
-            "f1": 2,
-            "f2": {"a": "path1", "b": "path2"},
-            "f3": [0, 1, 2, 3],
-            "f4": {"f3_1": 4, "f3_2": 3},
-            "f5": [3.0, 4],
-            "f6": [1, 2, 3],
-            "f7": "VALUE2",
-            "f8": "float16",
-            "f9": {"f3_1": 1, "f3_2": 3},
-        }
+    expected_foo = Foo1(
+        f0="abc",
+        f1=2,
+        f2={"a": Path("path1"), "b": Path("path2")},
+        f3=[0, 1, 2, 3],
+        f4=Foo3(f3_1=4, f3_2=EMPTY),
+        f5=(3.0, 4),
+        f6={1, 2, 3},
+        f7=FooEnum.VALUE2,
+        f8=EMPTY,
+        f9=Foo3(f3_1=EMPTY, f3_2=4),
+    )
 
-        assert data == expected_data
+    assert foo == expected_foo
+
+
+@pytest.mark.parametrize(
+    "data,kls",
+    [
+        ("a", int),
+        ({"a": 1}, dict),
+        ("a", list),
+        ("a", FooEnum),
+        ({"f1_1": 2, "f1_2": 3}, Foo2),
+    ],
+)
+def test_structure_raises_error_when_conversion_fails(data: object, kls: type) -> None:
+    with pytest.raises(
+        StructureError, match=rf"^`obj` cannot be structured to `{kls}`\. See the nested exception for details\.$"  # fmt: skip
+    ):
+        structure(data, kls)
+
+
+def test_unstructure_works() -> None:
+    foo = Foo1(
+        f0="abc",
+        f1=2,
+        f2={"a": Path("path1"), "b": Path("path2")},
+        f3=[0, 1, 2, 3],
+        f4=Foo3(f3_1=4),
+        f5=(3.0, 4),
+        f6={1, 2, 3},
+        f7=FooEnum.VALUE2,
+        f8=torch.float16,
+        f9=Foo3(f3_1=1),
+    )
+
+    data = unstructure(foo)
+
+    expected_data = {
+        "f0": "abc",
+        "f1": 2,
+        "f2": {"a": "path1", "b": "path2"},
+        "f3": [0, 1, 2, 3],
+        "f4": {"f3_1": 4, "f3_2": 3},
+        "f5": [3.0, 4],
+        "f6": [1, 2, 3],
+        "f7": "VALUE2",
+        "f8": "float16",
+        "f9": {"f3_1": 1, "f3_2": 3},
+    }
+
+    assert data == expected_data
 
 
 def test_is_unstructured_works_when_object_is_unstructed() -> None:
@@ -192,8 +184,6 @@ def test_is_unstructured_works_when_object_is_unstructed() -> None:
 
 
 def test_is_unstructured_works_when_object_is_structed() -> None:
-    obj: Any
-
     obj = object()
 
     assert not is_unstructured(obj)
@@ -275,14 +265,14 @@ def test_merge_unstructured_works() -> None:
 
 
 def test_merge_unstructured_raises_error_when_type_is_invalid() -> None:
-    target: Any
-    source: Any
+    target: object
+    source: object
 
     target = object()
     source = None
 
     with pytest.raises(
-        StructuredError, match=r"^`target` must be a composition of types `bool`, `int`, `float`, `str`, `list`, and `dict`\.$"  # fmt: skip
+        StructureError, match=r"^`target` must be of a composition of types `bool`, `int`, `float`, `str`, `list`, and `dict`\.$"  # fmt: skip
     ):
         merge_unstructured(target, source)
 
@@ -290,7 +280,7 @@ def test_merge_unstructured_raises_error_when_type_is_invalid() -> None:
     source = object()
 
     with pytest.raises(
-        StructuredError, match=r"^`source` must be a composition of types `bool`, `int`, `float`, `str`, `list`, and `dict`\.$"  # fmt: skip
+        StructureError, match=r"^`source` must be of a composition of types `bool`, `int`, `float`, `str`, `list`, and `dict`\.$"  # fmt: skip
     ):
         merge_unstructured(target, source)
 
@@ -298,7 +288,7 @@ def test_merge_unstructured_raises_error_when_type_is_invalid() -> None:
     source = {"_del_": "foo"}
 
     with pytest.raises(
-        StructuredError, match=r"^'_del_' in `source` must be of type `list`, but is of type `str` instead\.$"  # fmt: skip
+        StructureError, match=r"^'_del_' in `source` must be of type `list`, but is of type `str` instead\.$"  # fmt: skip
     ):
         merge_unstructured(target, source)
 
@@ -306,7 +296,7 @@ def test_merge_unstructured_raises_error_when_type_is_invalid() -> None:
     source = {"foo1": {"foo2": {"_del_": "foo"}}}
 
     with pytest.raises(
-        StructuredError, match=r"^'foo1\.foo2\._del_' in `source` must be of type `list`, but is of type `str` instead\.$"  # fmt: skip
+        StructureError, match=r"^'foo1\.foo2\._del_' in `source` must be of type `list`, but is of type `str` instead\.$"  # fmt: skip
     ):
         merge_unstructured(target, source)
 
@@ -314,7 +304,7 @@ def test_merge_unstructured_raises_error_when_type_is_invalid() -> None:
     source = {"foo1": {"foo2": {"_del_": [0]}}}
 
     with pytest.raises(
-        StructuredError, match=r"^Each element under 'foo1\.foo2\._del_' in `source` must be of type `str`, but the element at index 0 is of type `int` instead\.$"  # fmt: skip
+        StructureError, match=r"^Each element under 'foo1\.foo2\._del_' in `source` must be of type `str`, but the element at index 0 is of type `int` instead\.$"  # fmt: skip
     ):
         merge_unstructured(target, source)
 
@@ -322,7 +312,7 @@ def test_merge_unstructured_raises_error_when_type_is_invalid() -> None:
     source = {"foo1": {"foo2": {"_add_": "foo"}}}
 
     with pytest.raises(
-        StructuredError, match=r"^'foo1\.foo2\._add_' in `source` must be of type `dict`, but is of type `str` instead\.$"  # fmt: skip
+        StructureError, match=r"^'foo1\.foo2\._add_' in `source` must be of type `dict`, but is of type `str` instead\.$"  # fmt: skip
     ):
         merge_unstructured(target, source)
 
@@ -330,14 +320,14 @@ def test_merge_unstructured_raises_error_when_type_is_invalid() -> None:
     source = {"foo1": {"foo2": {"_add_": {0: "foo"}}}}
 
     with pytest.raises(
-        StructuredError, match=r"^Each key under 'foo1\.foo2\._add_' in `source` must be of type `str`, but the key at index 0 is of type `int` instead\.$"  # fmt: skip
+        StructureError, match=r"^Each key under 'foo1\.foo2\._add_' in `source` must be of type `str`, but the key at index 0 is of type `int` instead\.$"  # fmt: skip
     ):
         merge_unstructured(target, source)
 
 
 def test_merge_unstructured_raises_error_when_path_does_not_exist() -> None:
-    target: Any
-    source: Any
+    target: object
+    source: object
 
     target = {"foo1": 0}
     source = {"foo2": 1}

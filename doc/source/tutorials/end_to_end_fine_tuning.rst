@@ -149,6 +149,87 @@ Running the fine-tuning recipe is as simple as:
         CONFIG_FILE=/configs/example.yaml
         fairseq2 lm instruction_finetune $OUTPUT_DIR --config-file $CONFIG_FILE
 
+    For more details about the recipe configuration, please refer to :ref:`basics-recipe`.
+
+Iterative Training
+^^^^^^^^^^^^^^^^^^
+
+Sometimes you may want to continue fine-tuning from a previously trained checkpoint, either to:
+
+- Resume interrupted training
+- Fine-tune on additional data
+- Perform iterative fine-tuning with different hyperparameters
+
+fairseq2 provides a clean way to handle this through the checkpoint system (learn more about :ref:`basics-ckpt-management`):
+
+.. code-block:: bash
+
+    fairseq2 lm instruction_finetune $OUTPUT_DIR --config \
+        resume_checkpoint_dir=/path/to/checkpoint \
+        model="last_checkpoint" \  # this will pick up the last checkpoint
+        dataset=/path/to/data
+
+.. dropdown:: To pick up a specific checkpoint
+    :icon: code
+    :animate: fade-in
+
+    .. code-block:: bash
+
+        CKPT_PATH="/checkpoint/user/experiments/run_0/checkpoints/step_1000"  # this is the path to the checkpoint
+        CKPT_DIR=$(dirname "$CKPT_PATH")  # e.g., /checkpoint/user/experiments/run_0/checkpoints
+        CKPT="checkpoint_$(basename "$CKPT_DIR")"  # e.g., checkpoint_step_1000
+
+        fairseq2 lm instruction_finetune $OUTPUT_DIR --config \
+            resume_checkpoint_dir=$CKPT_DIR \
+            model=$CKPT \  # Must match the checkpoint step
+            dataset=/path/to/new/data \
+            max_num_tokens=4096 \
+            dtype=float16
+
+    .. note::
+
+        If you want to pick a specific checkpoint instead of the last checkpoint, the ``model`` parameter must be set to ``checkpoint_step_X`` where X matches the step number of the checkpoint you want to load.
+
+.. dropdown:: A more detailed example
+    :icon: code
+    :animate: fade-in
+
+    For iterative fine-tuning across different datasets or with different hyperparameters:
+
+    .. code-block:: yaml
+
+        # config.yaml
+        # First stage - train on dataset A
+        dataset: /path/to/dataset_A
+        model: llama3_2_1b
+        max_num_steps: 1000
+        learning_rate: 1e-5
+        # ... other config
+
+    Then run the following commands in bash:
+
+    .. code-block:: bash
+
+        # First stage
+        fairseq2 lm instruction_finetune run1_output --config-file config.yaml
+
+        # Second stage - continue from first stage checkpoint
+        fairseq2 lm instruction_finetune run2_output --config \
+            resume_checkpoint_dir=run1_output/checkpoints \
+            model=checkpoint_step_1000 \
+            dataset=/path/to/dataset_B \
+            learning_rate=5e-6  # Lower learning rate for second stage
+            max_num_steps=500
+
+    .. tip::
+
+        When doing iterative fine-tuning:
+        
+        - Generally use a lower learning rate in later stages
+        - Consider reducing the number of steps for later stages
+        - You may want to adjust the validation frequency
+        - Make sure to track metrics to compare performance across stages
+
 Multi-Node
 ^^^^^^^^^^
 
@@ -190,8 +271,8 @@ fairseq2 natively supports inference:
     DATASET="/datasets/facebook/fairseq2-lm-gsm8k/test/test.jsonl"
 
     fairseq2 lm generate $SAVE_DIR --no-sweep-dir --config \
-    checkpoint_dir=$CKPT_DIR \
-    model=$CKPT \
+        checkpoint_dir=$CKPT_DIR \
+        model=$CKPT \
         generator_config.temperature=0.1 \
         dataset=$DATASET
 
@@ -204,14 +285,14 @@ To accelerate the inference process, we can convert fairseq2 checkpoints to Hugg
 
 **Step 1: Convert fairseq2 checkpoint to XLFormer checkpoint**
 
-The first step is to use the fairseq2 command-line (CLI) tool to convert the fairseq2 checkpoint to an XLF checkpoint. The command structure is as follows:
+The first step is to use the fairseq2 command-line (:ref:`basics-cli`) tool to convert the fairseq2 checkpoint to an XLF checkpoint. The command structure is as follows:
 
 .. code-block:: bash
 
-    fairseq2 llama convert_checkpoint --arch <architecture> <fairseq2_checkpoint_dir> <xlf_checkpoint_dir>
+    fairseq2 llama convert_checkpoint --model <architecture> <fairseq2_checkpoint_dir> <xlf_checkpoint_dir>
 
 
-* ``<architecture>``: Specify the architecture of the model (`e.g.`, ``llama3``)
+* ``<architecture>``: Specify the architecture of the model -- `e.g.`, ``llama3`` (see :mod:`fairseq2.models.llama`)
 
 * ``<fairseq2_checkpoint_dir>``: Path to the directory containing the Fairseq2 checkpoint
 
@@ -329,6 +410,13 @@ That's pretty much it to get you started. But you can do a lot more. fairseq2 is
 
 Now, up for you to discover!!!
 
+See Also
+--------
+
+- :doc:`Design Philosophy </basics/design_philosophy>`
+- :doc:`Recipe </basics/recipe>`
+- :doc:`CLI </basics/cli>`
+- :doc:`Assets </basics/assets>`
 
 
 .. _LLaMA3.2 1B model: https://huggingface.co/meta-llama/Llama-3.2-1B/tree/main

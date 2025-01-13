@@ -9,7 +9,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from fairseq2.logging import LogWriter
+from fairseq2.logging import log
+from fairseq2.typing import Device
 
 
 def get_int_from_env(var_name: str, allow_zero: bool = False) -> int | None:
@@ -19,7 +20,7 @@ def get_int_from_env(var_name: str, allow_zero: bool = False) -> int | None:
         The name of the environment variable.
     :param allow_zero:
         If ``True``, returns the value if it equals to zero; otherwise, raises
-        a :class:`RuntimeError`.
+        a :class:`InvalidEnvironmentVariableError`.
     """
     s = os.environ.get(var_name)
     if s is None:
@@ -28,27 +29,25 @@ def get_int_from_env(var_name: str, allow_zero: bool = False) -> int | None:
     try:
         value = int(s)
     except ValueError:
-        raise RuntimeError(
-            f"The value of the `{var_name}` environment variable must be an integer, but is '{s}' instead."
+        raise InvalidEnvironmentVariableError(
+            f"The value of the `{var_name}` environment variable is expected to be an integer, but is '{s}' instead."
         ) from None
 
     if not allow_zero:
         if not value >= 1:
-            raise RuntimeError(
-                f"The value of the `{var_name}` environment variable must be greater than 0, but is {value} instead."
+            raise InvalidEnvironmentVariableError(
+                f"The value of the `{var_name}` environment variable is expected to be a positive integer, but is {value} instead."
             )
     else:
         if not value >= 0:
-            raise RuntimeError(
-                f"The value of the `{var_name}` environment variable must be greater than or equal to 0, but is {value} instead."
+            raise InvalidEnvironmentVariableError(
+                f"The value of the `{var_name}` environment variable is expected to be greater than or equal to 0, but is {value} instead."
             )
 
     return value
 
 
-def get_path_from_env(
-    var_name: str, log: LogWriter, missing_ok: bool = False
-) -> Path | None:
+def get_path_from_env(var_name: str, missing_ok: bool = False) -> Path | None:
     """Return the value of an environment variable as :class:`~pathlib.Path`.
 
     :param var_name:
@@ -57,7 +56,7 @@ def get_path_from_env(
         The log to write to.
     :param missing_ok:
         If ``True``, returns ``None`` if the path does not exist; otherwise,
-        raises a :class:`RuntimeError`.
+        raises a :class:`InvalidEnvironmentVariableError`.
     """
     pathname = os.environ.get(var_name)
     if not pathname:
@@ -65,10 +64,10 @@ def get_path_from_env(
 
     try:
         path = Path(pathname)
-    except ValueError as ex:
-        raise RuntimeError(
-            f"The value of the `{var_name}` environment variable must be a pathname, but is '{pathname}' instead."
-        ) from ex
+    except ValueError:
+        raise InvalidEnvironmentVariableError(
+            f"The value of the `{var_name}` environment variable is expected to be a pathname, but is '{pathname}' instead."
+        ) from None
 
     resolved_path = path.expanduser().resolve()
 
@@ -76,8 +75,25 @@ def get_path_from_env(
         if missing_ok:
             return resolved_path
 
-        log.warning("The path '{}' pointed to by the `{}` environment variable does not exist.", path, var_name)  # fmt: skip
+        log.warning("The '{}' path pointed to by the `{}` environment variable does not exist.", path, var_name)  # fmt: skip
 
         return None
 
     return resolved_path
+
+
+def get_device_from_env(var_name: str) -> Device | None:
+    device_str = os.environ.get(var_name)
+    if device_str is None:
+        return None
+
+    try:
+        return Device(device_str)
+    except (RuntimeError, ValueError):
+        raise InvalidEnvironmentVariableError(
+            f"The value of the `{var_name}` environment variable is expected to specify a PyTorch device, but is '{device_str}' instead."
+        ) from None
+
+
+class InvalidEnvironmentVariableError(Exception):
+    pass

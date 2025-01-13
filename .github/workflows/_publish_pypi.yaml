@@ -43,10 +43,16 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
             packages-dir: artifacts/native/python/build/wheelhouse
+            # Disable digital attestation checks as the plugin's support for it
+            # is broken as of this commit.
+            attestations: false
       - name: Publish fairseq2
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
             packages-dir: artifacts/build/wheelhouse
+            # Disable digital attestation checks as the plugin's support for it
+            # is broken as of this commit.
+            attestations: false
             # Multiple build variants will attempt to publish the same fairseq2
             # package. Ignore all but the first one.
             skip-existing: true

@@ -7,9 +7,11 @@
 from __future__ import annotations
 
 import math
+import warnings
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Any, cast, final
+from typing import cast, final
+from warnings import catch_warnings
 
 import torch
 from torch import Tensor
@@ -17,11 +19,10 @@ from torch.cuda.amp.grad_scaler import GradScaler
 from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
 from torch.optim import Optimizer
 
+from fairseq2.error import InvalidOperationError
 from fairseq2.gang import Gang
-from fairseq2.logging import get_log_writer
+from fairseq2.logging import log
 from fairseq2.typing import Device
-
-log = get_log_writer(__name__)
 
 
 @final
@@ -98,13 +99,16 @@ class DynamicLossScaler:
                 scale_window = 1
 
         if not enabled or not sharded or gang.size == 1:
-            self._grad_scaler = _InternalGradScaler(
-                init_scale=init_scale,
-                growth_factor=scale_factor,
-                backoff_factor=1 / scale_factor,
-                growth_interval=scale_window,
-                enabled=enabled,
-            )
+            with catch_warnings():
+                warnings.simplefilter("ignore")  # Suppress deprecation warning.
+
+                self._grad_scaler = _InternalGradScaler(
+                    init_scale=init_scale,
+                    growth_factor=scale_factor,
+                    backoff_factor=1 / scale_factor,
+                    growth_interval=scale_window,
+                    enabled=enabled,
+                )
         else:
             if not supports_manual_gradient_scaling(optimizer):
                 raise ValueError(
@@ -127,15 +131,25 @@ class DynamicLossScaler:
         self._min_scale = min_scale
         self._enabled = enabled
 
-    def state_dict(self) -> dict[str, Any]:
+    def state_dict(self) -> dict[str, object]:
         return {"grad_scaler": self._grad_scaler.state_dict()}
 
-    def load_state_dict(self, state_dict: Mapping[str, Any]) -> None:
+    def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
         try:
-            self._grad_scaler.load_state_dict(state_dict["grad_scaler"])
-        except KeyError as ex:
+            gs_state_dict = state_dict["grad_scaler"]
+        except KeyError:
+            raise ValueError("`state_dict` must contain a 'grad_scaler' key.") from None
+
+        if not isinstance(gs_state_dict, dict):
+            raise TypeError(
+                f"`state_dict['grad_scaler']` must be of type `dict`, but is of type `{type(gs_state_dict)}` instead."
+            )
+
+        try:
+            self._grad_scaler.load_state_dict(gs_state_dict)
+        except (RuntimeError, ValueError) as ex:
             raise ValueError(
-                "`state_dict` must contain the state of the internal `GradScaler`."
+                f"`state_dict['grad_scaler']` is not a valid `{type(self._grad_scaler)}` state. See the nested exception for details."
             ) from ex
 
     def run_optimizer_step(
@@ -195,7 +209,7 @@ class DynamicLossScaler:
     def unscale_gradients_(self) -> None:
         """Unscale the associated optimizer's gradients by the current scale."""
         if self._enabled and not supports_manual_gradient_scaling(self._optimizer):
-            raise RuntimeError(
+            raise InvalidOperationError(
                 "`optimizer` must support manual gradient scaling via `torch.cuda.amp.GradScaler`, but supports only implicit scaling in its step function (i.e. `_step_supports_amp_scaling == True`)."
             )
 
@@ -215,7 +229,6 @@ class DynamicLossScaler:
         return self._enabled
 
 
-@final
 @dataclass(frozen=True)
 class LossScaleResult:
     """Holds the result of a loss scale operation."""
@@ -234,8 +247,10 @@ class LossScaleResult:
 
 
 def supports_manual_gradient_scaling(optimizer: Optimizer) -> bool:
-    """Return ``True`` if ``optimizer`` supports manual gradient scaling via
-    ``torch.cuda.amp.GradScaler``."""
+    """
+    Returns ``True`` if ``optimizer`` supports manual gradient scaling via
+    ``torch.cuda.amp.GradScaler``.
+    """
     return not getattr(optimizer, "_step_supports_amp_scaling", False)
 
 

@@ -47,9 +47,9 @@ class TestMemoryBlock:
         assert view.shape == (12,)
         assert view.strides == (1,)
 
-        view = view.cast("f")
+        float_view = view.cast("f")
 
-        assert view.tolist() == pytest.approx([0.2, 0.4, 0.6])
+        assert float_view.tolist() == pytest.approx([0.2, 0.4, 0.6])
 
     def test_init_works_when_copy_is_true(self) -> None:
         arr = array("B", [0, 1, 2, 3])

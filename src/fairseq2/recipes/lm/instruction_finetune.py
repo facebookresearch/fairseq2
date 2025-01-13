@@ -16,20 +16,18 @@ from torch import Tensor
 from torch.nn import Module
 from typing_extensions import override
 
-from fairseq2.assets import AssetNotFoundError
-from fairseq2.checkpoint import CheckpointManager
+from fairseq2.assets import AssetCardNotFoundError, default_asset_store
+from fairseq2.checkpoint import FileCheckpointManager, FileCheckpointMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
-from fairseq2.data.text import load_text_tokenizer
+from fairseq2.data.text import get_text_tokenizer_hub
 from fairseq2.datasets import Batching, LengthBatching, StaticBatching
 from fairseq2.datasets.instruction import (
     GenericInstructionDataset,
-    load_instruction_dataset,
+    InstructionReadOptions,
+    get_instruction_dataset_hub,
 )
-from fairseq2.dependency import resolve, resolve_all
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
-from fairseq2.metrics import MetricRecorder
-from fairseq2.models import load_model
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.sequence import (
     SequenceBatch,
@@ -52,6 +50,8 @@ from fairseq2.recipes.utils.log import log_model
 from fairseq2.recipes.utils.setup import (
     check_model_type,
     compile_model,
+    load_model,
+    setup_gangs,
     to_data_parallel,
 )
 from fairseq2.typing import CPU, META, DataType
@@ -74,6 +74,9 @@ class InstructionFinetuneConfig:
 
     valid_split: str | None = None
     """The name of the valid data split."""
+
+    min_seq_len: int = 1
+    """The minimum sequence length."""
 
     max_seq_len: int = 8192
     """The maximum sequence length."""
@@ -127,6 +130,13 @@ class InstructionFinetuneConfig:
     data_parallelism: Literal["ddp", "fsdp"] = "fsdp"
     """The data parallelism API to use."""
 
+    fsdp_local_world_size: int | None = None
+    """
+    If not ``None``, enables hybrid sharding. The model will be fully sharded
+    within each worker group of size ``local_world_size`` and
+    will be replicated across groups.
+    """
+
     fsdp_wrap_granularity: Literal["layer", "stack", "model"] = "layer"
     """The granularity at which to wrap the model."""
 
@@ -157,7 +167,7 @@ class InstructionFinetuneConfig:
     """The learning rate scheduler."""
 
     lr_scheduler_config: Any = field(
-        default_factory=lambda: CosineAnnealingLRConfig(final_lr=5.5e-06 * 0.2)
+        default_factory=lambda: CosineAnnealingLRConfig(final_lr_scale=0.2)
     )
     """The configuration of the learning rate scheduler."""
 
@@ -225,7 +235,7 @@ class InstructionFinetuneConfig:
     """If not ``None``, sets the run name for W&B logging. If None, then W&B creates a random name."""
 
 
-instruction_finetune_presets = ConfigRegistry[InstructionFinetuneConfig]()
+instruction_finetune_presets = ConfigRegistry(InstructionFinetuneConfig)
 
 instruction_finetune_preset = instruction_finetune_presets.decorator
 
@@ -296,38 +306,51 @@ def load_instruction_finetuner(
     """Load a :class:`Trainer` for language model instruction-finetuning."""
     wall_watch = Stopwatch(start=True)
 
-    root_gang = resolve(Gang)
+    root_gang, gangs = setup_gangs(
+        log, tp_size=config.tensor_parallel_size, monitored=config.monitored_gang
+    )
 
-    dp_gang = resolve(Gang, key="dp")  # data
-    tp_gang = resolve(Gang, key="tp")  # tensor
+    dp_gang = gangs["dp"]  # data
+    tp_gang = gangs["tp"]  # tensor
 
-    checkpoint_manager = resolve(CheckpointManager)
+    checkpoint_manager = FileCheckpointManager(
+        output_dir.joinpath("checkpoints"), root_gang, dp_gang=dp_gang, tp_gang=tp_gang
+    )
+
+    if config.resume_checkpoint_dir is not None:
+        default_asset_store.metadata_providers.append(
+            FileCheckpointMetadataProvider(config.resume_checkpoint_dir)
+        )
 
     model_card = retrieve_asset_card(config.model)
 
     # Load the tokenizer.
     log.info("Loading {} tokenizer.", model_card.name)
 
-    tokenizer = load_text_tokenizer(model_card)
+    tokenizer_hub = get_text_tokenizer_hub()
+
+    tokenizer = tokenizer_hub.load(model_card)
 
     log.info("Tokenizer loaded.")
 
     # Load the dataset.
     try:
         dataset_card = retrieve_asset_card(config.dataset)
-    except AssetNotFoundError:
+    except AssetCardNotFoundError:
         dataset_card = None
 
     if dataset_card is not None:
         log.info("Loading {} instruction dataset.", dataset_card.name)
 
-        dataset = load_instruction_dataset(dataset_card)
+        dataset_hub = get_instruction_dataset_hub()
+
+        dataset = dataset_hub.load(dataset_card)
 
         log.info("Dataset loaded.")
     else:
         dataset_path = asset_as_path(config.dataset)
 
-        dataset = GenericInstructionDataset.from_path(dataset_path)
+        dataset = GenericInstructionDataset.from_path(dataset_path, "path")
 
     seed = config.seed
 
@@ -339,8 +362,6 @@ def load_instruction_finetuner(
     init_device = META
 
     dtype = config.dtype if config.mixed_precision == "none" else torch.float32
-
-    gangs = {"dp": dp_gang, "tp": tp_gang}
 
     has_checkpoint = checkpoint_manager.has_checkpoint()
 
@@ -401,6 +422,7 @@ def load_instruction_finetuner(
         fsdp_mixed_precision_dtype=mp_dtype,
         fsdp_fp32_reduce=True,
         fsdp_wrap_granularity=config.fsdp_wrap_granularity,
+        fsdp_local_world_size=config.fsdp_local_world_size,
     )
 
     if config.activation_checkpointing:
@@ -430,19 +452,24 @@ def load_instruction_finetuner(
         else:
             batching = LengthBatching(config.max_num_tokens)
 
-        data_reader = dataset.create_reader(
-            config.train_split,
-            tokenizer,
-            dp_gang,
-            config.max_seq_len,
-            batching=batching,
+        options = InstructionReadOptions(
             example_shuffle_window=config.example_shuffle_window,
             batch_shuffle_window=config.batch_shuffle_window,
             num_accumulate=config.gradient_accumulation,
             num_prefetch=config.num_prefetch,
-            src_encode_mode=config.src_encode_mode,
-            tgt_encode_mode=config.tgt_encode_mode,
+            source_encode_mode=config.src_encode_mode,
+            target_encode_mode=config.tgt_encode_mode,
             seed=seed,
+        )
+
+        data_reader = dataset.create_reader(
+            config.train_split,
+            tokenizer,
+            dp_gang,
+            config.min_seq_len,
+            config.max_seq_len,
+            batching,
+            options,
         )
     except ValueError as ex:
         raise ValueError(
@@ -480,21 +507,26 @@ def load_instruction_finetuner(
 
         max_num_tokens = config.max_num_valid_tokens or config.max_num_tokens
 
+        options = InstructionReadOptions(
+            example_shuffle_window=config.example_shuffle_window,
+            batch_shuffle_window=config.batch_shuffle_window,
+            sync_mode="until_last",
+            num_accumulate=config.gradient_accumulation,
+            num_prefetch=config.num_prefetch,
+            source_encode_mode=config.src_encode_mode,
+            target_encode_mode=config.tgt_encode_mode,
+            seed=seed,
+        )
+
         try:
             valid_data_reader = dataset.create_reader(
                 config.valid_split,
                 tokenizer,
                 dp_gang,
+                config.min_seq_len,
                 config.max_seq_len,
-                batching=LengthBatching(max_num_tokens),
-                example_shuffle_window=config.example_shuffle_window,
-                batch_shuffle_window=config.batch_shuffle_window,
-                sync_mode="until_last",
-                num_accumulate=config.gradient_accumulation,
-                num_prefetch=config.num_prefetch,
-                src_encode_mode=config.src_encode_mode,
-                tgt_encode_mode=config.tgt_encode_mode,
-                seed=seed,
+                LengthBatching(max_num_tokens),
+                options,
             )
         except ValueError as ex:
             raise ValueError(
@@ -517,7 +549,17 @@ def load_instruction_finetuner(
     else:
         amp = config.mixed_precision == "dynamic"
 
-    metric_recorders = resolve_all(MetricRecorder)
+    if config.wandb_project is not None:
+        if config.wandb_run_name is None:
+            raise ValueError(
+                "`wandb_run_name` must be specified when `wandb_project` is set."
+            )
+
+        wandb_dir = output_dir.joinpath("wandb")
+
+        wandb_options = (wandb_dir, config.wandb_project, config.wandb_run_name)
+    else:
+        wandb_options = None
 
     # Initialize the trainer.
     return Trainer[SequenceBatch](
@@ -543,7 +585,9 @@ def load_instruction_finetuner(
         checkpoint_every_n_data_epochs=config.checkpoint_every_n_data_epochs,
         keep_last_n_checkpoints=config.keep_last_n_checkpoints,
         keep_last_n_models=config.keep_last_n_models,
-        metric_recorders=metric_recorders,
+        tb_dir=output_dir.joinpath("tb"),
+        metrics_dir=output_dir.joinpath("metrics"),
+        wandb_options=wandb_options,
         publish_metrics_every_n_steps=config.publish_metrics_every_n_steps,
         publish_metrics_every_n_data_epochs=config.publish_metrics_every_n_data_epochs,
         profile=config.profile,

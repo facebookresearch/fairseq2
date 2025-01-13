@@ -10,9 +10,9 @@ from dataclasses import dataclass
 from typing import final
 
 from torch import Tensor
+from torch.nn import Module
 from torch.nn.functional import cross_entropy
 
-from fairseq2.models.model import Model
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2 import Wav2Vec2Loss, Wav2Vec2Model, Wav2Vec2Output
 from fairseq2.models.wav2vec2.masker import extract_masked_elements
@@ -22,7 +22,7 @@ from fairseq2.typing import DataType, Device
 
 
 @final
-class W2VBertModel(Model):
+class W2VBertModel(Module):
     """Represents a w2v-BERT model as described in
     :cite:t`https://doi.org/10.48550/arxiv.2108.06209`."""
 

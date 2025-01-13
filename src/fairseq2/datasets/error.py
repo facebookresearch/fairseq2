@@ -6,6 +6,29 @@
 
 from __future__ import annotations
 
+from collections.abc import Set
 
-class DatasetError(RuntimeError):
-    """Raised when a dataset can't be read."""
+
+class DatasetError(Exception):
+    pass
+
+
+class DataReadError(Exception):
+    pass
+
+
+class SplitNotFoundError(LookupError):
+    name: str
+    split: str
+    available_splits: Set[str]
+
+    def __init__(self, name: str, split: str, available_splits: Set[str]) -> None:
+        s = ", ".join(sorted(available_splits))
+
+        super().__init__(
+            f"`split` must be one of the following splits, but is '{split}' instead: {s}"
+        )
+
+        self.name = name
+        self.split = split
+        self.available_splits = available_splits

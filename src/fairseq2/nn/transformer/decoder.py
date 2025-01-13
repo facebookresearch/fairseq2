@@ -17,6 +17,7 @@ from torch.nn import Dropout, Module, ModuleList
 from torch.utils.hooks import RemovableHandle
 from typing_extensions import override
 
+from fairseq2.error import InvalidOperationError
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.normalization import LayerNorm
 from fairseq2.nn.padding import PaddingMask
@@ -236,7 +237,7 @@ class StandardTransformerDecoder(TransformerDecoder):
         state_bag: IncrementalStateBag | None = None,
     ) -> tuple[Tensor, PaddingMask | None]:
         if self._layer_output_hooks and self.layer_drop_p > 0.0 and self.training:
-            raise RuntimeError(
+            raise InvalidOperationError(
                 "The layer output hooks cannot be run when LayerDrop is enabled."
             )
 

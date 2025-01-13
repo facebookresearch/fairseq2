@@ -28,15 +28,16 @@ from typing_extensions import override
 
 from fairseq2.checkpoint import CheckpointManager, CheckpointNotFoundError
 from fairseq2.datasets import DataReader
-from fairseq2.early_stopper import EarlyStopper
+from fairseq2.error import ContractError, InternalError, InvalidOperationError
 from fairseq2.gang import FakeGang, Gang, broadcast_flag
-from fairseq2.logging import get_log_writer
+from fairseq2.logging import log
 from fairseq2.metrics import (
     JsonFileMetricRecorder,
     LogMetricRecorder,
     MetricBag,
     MetricRecorder,
     TensorBoardRecorder,
+    WandbRecorder,
     format_metric_value,
     record_metrics,
 )
@@ -49,15 +50,13 @@ from fairseq2.nn.utils.gradient import (
 from fairseq2.optim import DynamicLossScaler
 from fairseq2.optim.lr_scheduler import LRScheduler, NoopLR, get_effective_lr
 from fairseq2.recipes.common_metrics import extend_batch_metrics
+from fairseq2.recipes.early_stopper import EarlyStopper, NoopEarlyStopper
 from fairseq2.recipes.evaluator import EvalUnit
-from fairseq2.recipes.utils.cli import create_rich_progress
+from fairseq2.recipes.utils.rich import create_rich_progress
 from fairseq2.typing import CPU, DataType
 from fairseq2.utils.profiler import Profiler, Stopwatch
 from fairseq2.utils.rng import RngBag
 from fairseq2.utils.state import FSDPOptimizerStateHandler, StatefulObjectBag
-
-log = get_log_writer(__name__)
-
 
 BatchT = TypeVar("BatchT")
 
@@ -209,6 +208,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         metric_recorders: Iterable[MetricRecorder] | None = None,
         tb_dir: Path | None = None,
         metrics_dir: Path | None = None,
+        wandb_options: tuple[Path, str, str] | None = None,
         publish_metrics_after_n_steps: int = 0,
         publish_metrics_every_n_steps: int | None = None,
         publish_metrics_after_n_data_epochs: int = 0,
@@ -292,6 +292,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             Legacy. Use ``metric_recorders``.
         :param metrics_dir:
             Legacy. Use ``metric_recorders``.
+        :param wandb_options:
+            Legacy. Use ``metric_recorders``.
         :param publish_metrics_after_n_steps:
             The number of steps after which to start publishing metrics.
         :param publish_metrics_every_n_steps:
@@ -365,15 +367,17 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self.register_stateful("_step_nr", 0)
 
-        if max_num_steps == 0:
-            raise ValueError("`max_num_steps` must be greater than zero.")
+        if max_num_steps is not None:
+            if max_num_steps <= 0:
+                raise ValueError("`max_num_steps` must be greater than zero.")
 
         self._max_num_steps = max_num_steps
 
         self.register_stateful("_data_epoch_nr", 1)
 
-        if max_num_data_epochs == 0:
-            raise ValueError("`max_num_data_epochs` must be greater than zero.")
+        if max_num_data_epochs is not None:
+            if max_num_data_epochs <= 0:
+                raise ValueError("`max_num_data_epochs` must be greater than zero.")
 
         self._max_num_data_epochs = max_num_data_epochs
 
@@ -399,7 +403,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
                 )
 
             if root_gang.rank != 0:
-                early_stopper = lambda step_nr, score: False
+                early_stopper = NoopEarlyStopper()
 
             self._early_stopper = early_stopper
         else:
@@ -427,48 +431,54 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
                 "`valid_units` and `valid_data_readers` must be both specified."
             )
 
-        if validate_every_n_steps == 0:
-            raise ValueError("`validate_every_n_steps` must be greater than zero.")
+        if validate_every_n_steps is not None:
+            if validate_every_n_steps <= 0:
+                raise ValueError("`validate_every_n_steps` must be greater than zero.")
 
         self._validate_after_n_steps = validate_after_n_steps
         self._validate_every_n_steps = validate_every_n_steps
 
-        if validate_every_n_data_epochs == 0:
-            raise ValueError(
-                "`validate_every_n_data_epochs` must be greater than zero."
-            )
+        if validate_every_n_data_epochs is not None:
+            if validate_every_n_data_epochs <= 0:
+                raise ValueError(
+                    "`validate_every_n_data_epochs` must be greater than zero."
+                )
 
         self._validate_after_n_data_epochs = validate_after_n_data_epochs
         self._validate_every_n_data_epochs = validate_every_n_data_epochs
 
         self._checkpoint_manager = checkpoint_manager
 
-        if checkpoint_every_n_steps == 0:
-            raise ValueError("`checkpoint_every_n_steps` must be greater than zero.")
+        if checkpoint_every_n_steps is not None:
+            if checkpoint_every_n_steps <= 0:
+                raise ValueError(
+                    "`checkpoint_every_n_steps` must be greater than zero."
+                )
 
         self._checkpoint_after_n_steps = checkpoint_after_n_steps
         self._checkpoint_every_n_steps = checkpoint_every_n_steps
 
-        if checkpoint_every_n_data_epochs == 0:
-            raise ValueError(
-                "`checkpoint_every_n_data_epochs` must be greater than zero."
-            )
+        if checkpoint_every_n_data_epochs is not None:
+            if checkpoint_every_n_data_epochs <= 0:
+                raise ValueError(
+                    "`checkpoint_every_n_data_epochs` must be greater than zero."
+                )
 
         self._checkpoint_after_n_data_epochs = checkpoint_after_n_data_epochs
         self._checkpoint_every_n_data_epochs = checkpoint_every_n_data_epochs
 
-        if keep_last_n_checkpoints is not None and keep_best_n_checkpoints is not None:
-            raise ValueError(
-                "`keep_last_n_checkpoints` and `keep_best_n_checkpoints` are mutually exclusive and must not be specified at the same time."
-            )
+        if keep_last_n_checkpoints is not None:
+            if keep_best_n_checkpoints is not None:
+                raise ValueError(
+                    "`keep_last_n_checkpoints` and `keep_best_n_checkpoints` are mutually exclusive and must not be specified at the same time."
+                )
 
-        if keep_last_n_checkpoints == 0:
-            raise ValueError("`keep_last_n_checkpoints` must be greater than zero.")
+            if keep_last_n_checkpoints <= 0:
+                raise ValueError("`keep_last_n_checkpoints` must be greater than zero.")
+        elif keep_best_n_checkpoints is not None:
+            if keep_best_n_checkpoints <= 0:
+                raise ValueError("`keep_best_n_checkpoints` must be greater than zero.")
 
-        if keep_best_n_checkpoints == 0:
-            raise ValueError("`keep_best_n_checkpoints` must be greater than zero.")
-
-        if keep_best_n_checkpoints is not None:
             if checkpoint_every_n_steps is not None:
                 if score_metric_name is None:
                     raise ValueError(
@@ -529,6 +539,13 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
                 if metrics_dir is not None:
                     self._metric_recorders.append(JsonFileMetricRecorder(metrics_dir))
+
+                if wandb_options is not None:
+                    wandb_dir, wandb_project, wandb_name = wandb_options
+
+                    self._metric_recorders.append(
+                        WandbRecorder(wandb_project, wandb_name, wandb_dir)
+                    )
             else:
                 self._metric_recorders = []
         else:
@@ -554,16 +571,20 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             if profile is not None and tb_dir is None:
                 log.warning("No TensorBoard log directory provided. Profiling will be disabled.")  # fmt: skip
 
-            skip_first, active_steps = 1, 0
+            num_skip_steps, num_record_steps = 1, 0
 
             profile_dir = Path()
+
+            enabled = False
         else:
-            skip_first, active_steps = profile
+            num_skip_steps, num_record_steps = profile
 
             profile_dir = tb_dir
 
+            enabled = num_record_steps > 0
+
         self._profiler = Profiler(
-            skip_first, active_steps, profile_dir, root_gang, enabled=active_steps > 0
+            num_skip_steps, num_record_steps, profile_dir, root_gang, enabled=enabled
         )
 
         self._anomaly_detection = anomaly_detection
@@ -588,7 +609,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
     def __call__(self) -> None:
         if self._run:
-            raise RuntimeError("The trainer can only be run once.")
+            raise InvalidOperationError("The trainer can only be run once.")
 
         self._run = True
 
@@ -724,8 +745,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
                 if num_batch_targets is not None:
                     if num_batch_targets == 0:
-                        raise RuntimeError(
-                            "The train unit returned zero loss targets. Please file a bug report to the recipe author."
+                        raise ContractError(
+                            "The train unit returned zero loss targets."
                         )
 
                     num_targets += num_batch_targets
@@ -860,9 +881,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         if self._root_gang.rank == 0:
             if values is None:
-                raise RuntimeError(
-                    "The synchronized metric values are `None`. Please file a bug report."
-                )
+                raise InternalError("`values` is `None`.")
 
             extend_batch_metrics(
                 values, self._num_effective_batches, self._total_step_time
@@ -969,9 +988,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             return None
 
         if values is None:
-            raise RuntimeError(
-                "The synchronized validation metric values are `None`. Please file a bug report."
-            )
+            raise InternalError("`values` is `None`.")
 
         extend_batch_metrics(values, num_batches, elapsed_time)
 
@@ -1014,8 +1031,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         if not unit_scores:
             if self._root_gang.rank == 0:
-                raise RuntimeError(
-                    "None of the validation units returned a score metric value. Please file a bug report to the recipe author."
+                raise ContractError(
+                    "None of the validation units returned a score metric value."
                 )
 
             return None
@@ -1056,11 +1073,11 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         if self._root_gang.rank == 0:
             if self._valid_score is None:
-                raise RuntimeError(
-                    "Early stop requested, but the validation score is `None`. Please file a bug report."
-                )
+                raise InternalError("Early stopping, but `_valid_score` is `None`.")
 
-            should_stop = self._early_stopper(self._step_nr, self._valid_score)
+            should_stop = self._early_stopper.should_stop(
+                self._step_nr, self._valid_score
+            )
         else:
             should_stop = False
 
@@ -1126,7 +1143,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         nm = self._keep_last_n_models
 
         if nm is not None:
-            assert nc is not None
+            if nc is None:
+                raise InternalError("`_keep_last_n_checkpoints` is `None`")
 
             self._checkpoint_manager.keep_last_n_checkpoints(nm)
             self._checkpoint_manager.keep_last_n_checkpoints(nc, preserve_model=True)
@@ -1137,12 +1155,19 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         nm = self._keep_best_n_models
 
         if nm is not None:
-            assert nc is not None
+            if nc is None:
+                raise InternalError("`_keep_best_n_checkpoints` is `None`")
 
-            self._checkpoint_manager.keep_best_n_checkpoints(nm)
-            self._checkpoint_manager.keep_best_n_checkpoints(nc, preserve_model=True)
+            self._checkpoint_manager.keep_best_n_checkpoints(
+                nm, lower_better=self._lower_better
+            )
+            self._checkpoint_manager.keep_best_n_checkpoints(
+                nc, lower_better=self._lower_better, preserve_model=True
+            )
         elif nc is not None:
-            self._checkpoint_manager.keep_best_n_checkpoints(nc)
+            self._checkpoint_manager.keep_best_n_checkpoints(
+                nc, lower_better=self._lower_better
+            )
 
     def _should_do(
         self,

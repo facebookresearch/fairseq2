@@ -9,26 +9,24 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, TextIO, final
+from typing import Iterable, Mapping, TextIO, final
 
 import torch
 from typing_extensions import override
 
-from fairseq2.assets import AssetNotFoundError, default_asset_store
-from fairseq2.checkpoint import CheckpointModelMetadataProvider
+from fairseq2.assets import AssetCardNotFoundError, default_asset_store
+from fairseq2.checkpoint import FileCheckpointMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
-from fairseq2.data.text import TextTokenDecoder, TextTokenizer, load_text_tokenizer
+from fairseq2.data.text import TextTokenDecoder, TextTokenizer, get_text_tokenizer_hub
 from fairseq2.datasets import StaticBatching
 from fairseq2.datasets.instruction import (
     GenericInstructionDataset,
-    load_instruction_dataset,
+    InstructionPromptReadOptions,
+    get_instruction_dataset_hub,
 )
-from fairseq2.dependency import resolve, resolve_all
 from fairseq2.gang import Gang
 from fairseq2.generation import SamplingConfig, SequenceGenerator, create_seq_generator
 from fairseq2.logging import get_log_writer
-from fairseq2.metrics import MetricRecorder
-from fairseq2.models import load_model
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.recipes.common_metrics import SequenceGenerationMetricBag
@@ -39,8 +37,8 @@ from fairseq2.recipes.utils.asset import (
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import broadcast_model
-from fairseq2.typing import CPU, META, DataType
+from fairseq2.recipes.utils.setup import broadcast_model, load_model, setup_gangs
+from fairseq2.typing import CPU, META, DataClass, DataType
 from fairseq2.utils.profiler import Stopwatch
 from fairseq2.utils.rng import manual_seed
 
@@ -57,6 +55,9 @@ class TextGenerateConfig:
 
     split: str = "default"
     """The name of the data split."""
+
+    min_seq_len: int = 1
+    """The minimum sequence length."""
 
     max_seq_len: int = 8192
     """The maximum sequence length."""
@@ -87,7 +88,7 @@ class TextGenerateConfig:
     generator: str = "sampling"
     """The sequence generator."""
 
-    generator_config: Any = field(default_factory=lambda: SamplingConfig())
+    generator_config: DataClass | None = field(default_factory=lambda: SamplingConfig())
     """The configuration of the sequence generator."""
 
     # Misc
@@ -95,7 +96,7 @@ class TextGenerateConfig:
     """The random number generator seed to use."""
 
 
-text_generate_presets = ConfigRegistry[TextGenerateConfig]()
+text_generate_presets = ConfigRegistry(TextGenerateConfig)
 
 text_generate_preset = text_generate_presets.decorator
 
@@ -161,39 +162,43 @@ def load_text_generator(
 
     if config.checkpoint_dir is not None:
         default_asset_store.metadata_providers.append(
-            CheckpointModelMetadataProvider(config.checkpoint_dir)
+            FileCheckpointMetadataProvider(config.checkpoint_dir)
         )
 
-    root_gang = resolve(Gang)
+    root_gang, gangs = setup_gangs(log, tp_size=config.tensor_parallel_size)
 
-    dp_gang = resolve(Gang, key="dp")  # data
-    tp_gang = resolve(Gang, key="tp")  # tensor
+    dp_gang = gangs["dp"]  # data
+    tp_gang = gangs["tp"]  # tensor
 
     model_card = retrieve_asset_card(config.model)
 
     # Load the tokenizer.
     log.info("Loading {} tokenizer.", model_card.name)
 
-    tokenizer = load_text_tokenizer(model_card)
+    tokenizer_hub = get_text_tokenizer_hub()
+
+    tokenizer = tokenizer_hub.load(model_card)
 
     log.info("Tokenizer loaded.")
 
     # Load the dataset.
     try:
         dataset_card = retrieve_asset_card(config.dataset)
-    except AssetNotFoundError:
+    except AssetCardNotFoundError:
         dataset_card = None
 
     if dataset_card is not None:
         log.info("Loading {} instruction dataset.", dataset_card.name)
 
-        dataset = load_instruction_dataset(dataset_card)
+        dataset_hub = get_instruction_dataset_hub()
+
+        dataset = dataset_hub.load(dataset_card)
 
         log.info("Dataset loaded.")
     else:
         dataset_path = asset_as_path(config.dataset)
 
-        dataset = GenericInstructionDataset.from_path(dataset_path)
+        dataset = GenericInstructionDataset.from_path(dataset_path, "path")
 
     seed = config.seed
 
@@ -211,10 +216,7 @@ def load_text_generator(
 
     try:
         model = load_model(
-            model_card,
-            gangs={"dp": dp_gang, "tp": tp_gang},
-            device=init_device,
-            dtype=config.dtype,
+            model_card, gangs=gangs, device=init_device, dtype=config.dtype
         )
     except ValueError as ex:
         raise ValueError(
@@ -284,16 +286,19 @@ def load_text_generator(
         json_output_stream=json_output_fp,
     )
 
+    options = InstructionPromptReadOptions(
+        sync_mode="until_last", num_prefetch=config.num_prefetch
+    )
+
     try:
         data_reader = dataset.create_prompt_reader(
             config.split,
             tokenizer,
             dp_gang,
+            config.min_seq_len,
             config.max_seq_len,
-            batching=StaticBatching(config.batch_size),
-            sync_mode="until_last",
-            num_prefetch=config.num_prefetch,
-            seed=seed,
+            StaticBatching(config.batch_size),
+            options,
         )
     except ValueError as ex:
         raise ValueError(
@@ -301,8 +306,6 @@ def load_text_generator(
         ) from ex
 
     seed += 1
-
-    metric_recorders = resolve_all(MetricRecorder)
 
     # Initialize the generator.
     return Generator[SequenceBatch](
@@ -313,7 +316,7 @@ def load_text_generator(
         tp_gang=tp_gang,
         dtype=config.dtype,
         amp=config.amp,
-        metric_recorders=metric_recorders,
+        metrics_dir=output_dir.joinpath("metrics"),
         seed=seed,
         wall_watch=wall_watch,
     )
@@ -353,10 +356,20 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
         if batch.example is None:
             raise ValueError("`batch.example` must not be `None`.")
 
+        if not isinstance(batch.example, Mapping):
+            raise TypeError(
+                f"`batch.example` must be of type `{Mapping}`, but is of type `{type(batch.example)}` instead."
+            )
+
         try:
             prompts = batch.example["prompt"]
         except KeyError:
             raise ValueError("`batch.example` must contain a 'prompt' item.") from None
+
+        if not isinstance(prompts, Iterable):
+            raise TypeError(
+                f"`batch.example['prompt'] must be an iterable of strings, but is of type `{type(prompts)}` instead."
+            )
 
         ids = batch.example["id"]
 

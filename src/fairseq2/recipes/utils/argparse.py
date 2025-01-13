@@ -17,10 +17,9 @@ from argparse import (
 from typing import Any, final
 
 import torch
-import yaml
-from yaml.parser import ParserError
 
 from fairseq2.typing import DataType
+from fairseq2.utils.yaml import YamlError, read_yaml
 
 
 @final
@@ -55,10 +54,7 @@ class ConfigAction(Action):
             node = data
 
             for key in keys[:-1]:
-                try:
-                    child_node = node[key]
-                except KeyError:
-                    child_node = None
+                child_node = node.get(key)
 
                 if not isinstance(child_node, dict):
                     child_node = {}
@@ -80,10 +76,7 @@ class ConfigAction(Action):
 
                 parent_node, key = get_parent_node(path)
 
-                try:
-                    del_keys = parent_node["_del_"]
-                except KeyError:
-                    del_keys = None
+                del_keys = parent_node.get("_del_")
 
                 if not isinstance(del_keys, list):
                     del_keys = []
@@ -99,8 +92,8 @@ class ConfigAction(Action):
                 path, value = path_value
 
                 try:
-                    parsed_value = yaml.safe_load(value.lstrip())
-                except ParserError:
+                    parsed_value = read_yaml(value.lstrip())
+                except YamlError:
                     raise ArgumentError(
                         self, f"invalid key-value pair: {item} (value must be yaml)"
                     )
@@ -120,10 +113,7 @@ class ConfigAction(Action):
 
                 parent_node, key = get_parent_node(path)
 
-                try:
-                    directive_keys = parent_node[directive]
-                except KeyError:
-                    directive_keys = None
+                directive_keys = parent_node.get(directive)
 
                 if not isinstance(directive_keys, dict):
                     directive_keys = {}
@@ -132,7 +122,13 @@ class ConfigAction(Action):
 
                 directive_keys[key] = parsed_value
 
-        setattr(namespace, self.dest, data)
+        items = getattr(namespace, self.dest, None)
+        if items is None:
+            items = []
+
+        items.append(data)
+
+        setattr(namespace, self.dest, items)
 
 
 def parse_dtype(value: str) -> DataType:

@@ -16,6 +16,7 @@ from torch.nn import GELU, Conv1d, Module, Sequential
 from torch.nn.utils import remove_weight_norm, weight_norm  # type: ignore[attr-defined]
 from typing_extensions import override
 
+from fairseq2.error import NotSupportedError
 from fairseq2.nn import LayerNorm, PositionEncoder, StandardLayerNorm
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask, apply_padding_mask
@@ -73,8 +74,8 @@ class Wav2Vec2PositionEncoder(PositionEncoder):
     ) -> Tensor:
         """:meta private:"""
         if state_bag is not None:
-            raise ValueError(
-                "`Wav2Vec2PositionEncoder` does not support incremental decoding."
+            raise NotSupportedError(
+                f"`{Wav2Vec2PositionEncoder}` does not support incremental decoding."
             )
 
         # We have to ensure that the padded elements are correctly set to zero;
@@ -191,8 +192,8 @@ class Wav2Vec2StackedPositionEncoder(PositionEncoder):
     ) -> Tensor:
         """:meta private:"""
         if state_bag is not None:
-            raise ValueError(
-                "`Wav2Vec2StackedPositionEncoder` does not support incremental decoding."
+            raise NotSupportedError(
+                f"`{Wav2Vec2StackedPositionEncoder}` does not support incremental decoding."
             )
 
         # We have to ensure that the padded elements are correctly set to
