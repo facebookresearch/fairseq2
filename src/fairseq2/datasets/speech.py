@@ -127,7 +127,6 @@ npc = 10
 @final
 class GenericSpeechDataset(SpeechDataset):
     """Represents a generic manifest-based Speech dataset."""
-    """Represents a generic manifest-based ASR dataset."""
 
     _manifest_dir: Path
     _splits: set[str]
@@ -181,7 +180,6 @@ class GenericSpeechDataset(SpeechDataset):
         cached_fd_count: int = 1000,
         use_fbank: bool = False,
         num_fbank_channels: int = 80,
-        fbank_stride: int = 2,
         **extras: Any,
     ) -> DataPipelineReader[SequenceBatch]:
         """
