@@ -30,6 +30,7 @@ from fairseq2.recipes.logging import setup_basic_logging
 from fairseq2.recipes.mt import _setup_mt_cli
 from fairseq2.recipes.wav2vec2 import _setup_wav2vec2_cli
 from fairseq2.recipes.wav2vec2.asr import _setup_wav2vec2_asr_cli
+from fairseq2.recipes.bestrq import _setup_bestrq_cli
 
 
 def main() -> None:
@@ -86,6 +87,7 @@ def _setup_cli(cli: Cli) -> None:
     _setup_mt_cli(cli)
     _setup_wav2vec2_cli(cli)
     _setup_wav2vec2_asr_cli(cli)
+    _setup_bestrq_cli(cli)
     _setup_hg_cli(cli)
 
     run_extensions("fairseq2.cli", cli)
