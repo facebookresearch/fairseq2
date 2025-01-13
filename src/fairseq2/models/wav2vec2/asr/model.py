@@ -12,11 +12,10 @@ from typing import final
 import torch
 import torch.nn as nn
 from torch import Tensor
-from torch.nn import Dropout
+from torch.nn import Dropout, Module
 from torch.nn.functional import ctc_loss, log_softmax
 
 from fairseq2.data import VocabularyInfo
-from fairseq2.models.model import Model
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2.frontend import Wav2Vec2Frontend
 from fairseq2.models.wav2vec2.masker import Wav2Vec2Masker
@@ -27,7 +26,7 @@ from fairseq2.typing import DataType, Device
 
 
 @final
-class Wav2Vec2AsrModel(Model):
+class Wav2Vec2AsrModel(Module):
     """Represents a wav2vec 2.0 ASR model as described in
     :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`."""
 

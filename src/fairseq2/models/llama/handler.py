@@ -6,39 +6,66 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+from typing import cast
 
 from torch import Tensor
+from torch.nn import Module
+from typing_extensions import override
 
-from fairseq2.gang import Gang
-from fairseq2.models.config_loader import StandardModelConfigLoader
-from fairseq2.models.llama.factory import (
-    LLAMA_FAMILY,
-    LLaMAConfig,
-    create_llama_model,
-    llama_archs,
-)
-from fairseq2.models.loader import StandardModelLoader, load_model
-from fairseq2.models.transformer import (
+from fairseq2.gang import Gangs
+from fairseq2.models.handler import AbstractModelHandler
+from fairseq2.models.llama.config import LLAMA_MODEL_FAMILY, LLaMAConfig
+from fairseq2.models.llama.factory import LLaMAFactory
+from fairseq2.models.transformer_decoder import (
     TransformerDecoderModel,
     shard_transformer_decoder_model,
 )
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
+from fairseq2.typing import safe_cast
 
-load_llama_config = StandardModelConfigLoader(LLAMA_FAMILY, LLaMAConfig, llama_archs)
+
+class LLaMAModelHandler(AbstractModelHandler):
+    @override
+    @property
+    def family(self) -> str:
+        return LLAMA_MODEL_FAMILY
+
+    @override
+    @property
+    def kls(self) -> type[Module]:
+        return TransformerDecoderModel
+
+    @override
+    def _create_model(self, config: object) -> Module:
+        config = safe_cast("config", config, LLaMAConfig)
+
+        return LLaMAFactory(config).create_model()
+
+    @override
+    def _shard(self, model: Module, config: object, gangs: Gangs) -> None:
+        config = safe_cast("config", config, LLaMAConfig)
+
+        shard_embed_dim = config.max_seq_len < 8192  # LLaMA 1 or 2
+
+        model = cast(TransformerDecoderModel, model)
+
+        shard_transformer_decoder_model(model, gangs, shard_embed_dim)
+
+    @override
+    def _convert_checkpoint(
+        self, checkpoint: dict[str, object], config: object
+    ) -> dict[str, object]:
+        config = safe_cast("config", config, LLaMAConfig)
+
+        return convert_llama_checkpoint(checkpoint, config)
 
 
 def convert_llama_checkpoint(
-    checkpoint: dict[str, Any], config: LLaMAConfig
-) -> dict[str, Any]:
-    """Convert a reference or Hugging Face LLaMA checkpoint to fairseq2 format."""
+    checkpoint: dict[str, object], config: LLaMAConfig
+) -> dict[str, object]:
     # Check if we have a fairseq2 checkpoint.
     if "model" in checkpoint:
         return checkpoint
-
-    # Check if we have a sharded checkpoint.
-    if "weights" in checkpoint:
-        checkpoint = checkpoint["weights"]
 
     # Check if we have a reference or Hugging Face checkpoint.
     if "lm_head.weight" in checkpoint:  # HG
@@ -58,8 +85,8 @@ def convert_llama_checkpoint(
             q_key = f"model.layers.{idx}.self_attn.q_proj.weight"
             k_key = f"model.layers.{idx}.self_attn.k_proj.weight"
 
-            q_proj = checkpoint[q_key]
-            k_proj = checkpoint[k_key]
+            q_proj = cast(Tensor, checkpoint[q_key])
+            k_proj = cast(Tensor, checkpoint[k_key])
 
             q_proj = permute_rotary(q_proj, config.num_attn_heads)
             k_proj = permute_rotary(k_proj, config.num_key_value_heads)
@@ -107,23 +134,3 @@ def convert_llama_checkpoint(
     checkpoint = convert_model_state_dict(checkpoint, key_map)
 
     return {"model": checkpoint}
-
-
-def shard_llama_model(
-    model: TransformerDecoderModel, config: LLaMAConfig, gangs: Mapping[str, Gang]
-) -> None:
-    gang = gangs["tp"]  # tensor parallel
-
-    shard_embed_dim = config.max_seq_len < 8192  # LLaMA 1 or 2
-
-    shard_transformer_decoder_model(model, gang, shard_embed_dim=shard_embed_dim)
-
-
-load_llama_model = StandardModelLoader(
-    config_loader=load_llama_config,
-    factory=create_llama_model,
-    checkpoint_converter=convert_llama_checkpoint,
-    sharder=shard_llama_model,
-)
-
-load_model.register(LLAMA_FAMILY, load_llama_model)

@@ -40,6 +40,7 @@ class TransformerModel(EncoderDecoderModel):
         decoder_frontend: TransformerFrontend,
         decoder: TransformerDecoder,
         final_proj: Projection,
+        *,
         max_target_seq_len: int,
         target_vocab_info: VocabularyInfo,
     ) -> None:

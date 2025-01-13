@@ -20,4 +20,5 @@ from fairseq2.datasets.handler import DatasetLoader as DatasetLoader
 from fairseq2.datasets.handler import DatasetNotFoundError as DatasetNotFoundError
 from fairseq2.datasets.handler import StandardDatasetHandler as StandardDatasetHandler
 from fairseq2.datasets.handler import get_dataset_family as get_dataset_family
-from fairseq2.datasets.static import load_dataset as load_dataset
+from fairseq2.datasets.hub import DatasetHub as DatasetHub
+from fairseq2.datasets.hub import DatasetHubAccessor as DatasetHubAccessor

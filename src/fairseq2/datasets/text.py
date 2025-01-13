@@ -15,7 +15,6 @@ from typing import Any, Final, cast, final
 
 from typing_extensions import override
 
-from fairseq2.assets import AssetCard
 from fairseq2.data import (
     Collater,
     DataPipeline,
@@ -32,7 +31,7 @@ from fairseq2.datasets.config import (
 )
 from fairseq2.datasets.data_reader import DataPipelineReader, DataReader
 from fairseq2.datasets.error import DatasetError
-from fairseq2.datasets.static import load_dataset
+from fairseq2.datasets.hub import DatasetHubAccessor
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
 from fairseq2.models.sequence import SequenceBatch
@@ -103,10 +102,7 @@ class GenericTextDataset(TextDataset):
         self._files = files
 
     @staticmethod
-    def from_path(path: Path, name: str | None = None) -> GenericTextDataset:
-        if name is None:
-            name = f"path:{path.name}"
-
+    def from_path(path: Path, name: str) -> GenericTextDataset:
         path = path.expanduser().resolve()
 
         if not path.is_dir():
@@ -238,7 +234,4 @@ class GenericTextDataset(TextDataset):
         return SequenceBatch(seqs, padding_mask, example=example)
 
 
-def load_text_dataset(
-    name_or_card: str | AssetCard, *, force: bool = False
-) -> TextDataset:
-    return load_dataset(name_or_card, TextDataset, force=force)
+get_text_dataset_hub = DatasetHubAccessor(TextDataset)

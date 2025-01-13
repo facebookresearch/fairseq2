@@ -6,32 +6,54 @@
 
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import MutableMapping
+from typing import cast
 
 import torch
+from torch import Tensor
+from torch.nn import Module
+from typing_extensions import override
 
-from fairseq2.models.config_loader import StandardModelConfigLoader
-from fairseq2.models.loader import StandardModelLoader, load_model
+from fairseq2.models.handler import AbstractModelHandler
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
-from fairseq2.models.wav2vec2.factory import (
-    WAV2VEC2_FAMILY,
-    Wav2Vec2Config,
-    create_wav2vec2_model,
-    wav2vec2_archs,
-)
+from fairseq2.models.wav2vec2.config import WAV2VEC2_MODEL_FAMILY, Wav2Vec2Config
+from fairseq2.models.wav2vec2.factory import Wav2Vec2Factory
+from fairseq2.models.wav2vec2.model import Wav2Vec2Model
 from fairseq2.nn.transformer import TransformerNormOrder
+from fairseq2.typing import CPU, safe_cast
 
-load_wav2vec2_config = StandardModelConfigLoader(
-    WAV2VEC2_FAMILY, Wav2Vec2Config, wav2vec2_archs
-)
+
+class Wav2Vec2ModelHandler(AbstractModelHandler):
+    @override
+    @property
+    def family(self) -> str:
+        return WAV2VEC2_MODEL_FAMILY
+
+    @override
+    @property
+    def kls(self) -> type[Module]:
+        return Wav2Vec2Model
+
+    @override
+    def _create_model(self, config: object) -> Module:
+        config = safe_cast("config", config, Wav2Vec2Config)
+
+        return Wav2Vec2Factory(config).create_model()
+
+    @override
+    def _convert_checkpoint(
+        self, checkpoint: dict[str, object], config: object
+    ) -> dict[str, object]:
+        config = safe_cast("config", config, Wav2Vec2Config)
+
+        return convert_wav2vec2_checkpoint(checkpoint, config)
 
 
 def convert_wav2vec2_checkpoint(
-    checkpoint: dict[str, Any], config: Wav2Vec2Config
-) -> dict[str, Any]:
-    """Convert a fairseq wav2vec 2.0 checkpoint to fairseq2 format."""
+    checkpoint: dict[str, object], config: Wav2Vec2Config
+) -> dict[str, object]:
     try:
-        state_dict = checkpoint["model"]
+        state_dict = cast(MutableMapping[str, Tensor], checkpoint["model"])
     except KeyError:
         return checkpoint
 
@@ -48,7 +70,7 @@ def convert_wav2vec2_checkpoint(
         del state_dict["encoder.layer_norm.weight"]
         del state_dict["encoder.layer_norm.bias"]
 
-    state_dict["quantizer.num_updates"] = torch.zeros((), device="cpu")
+    state_dict["quantizer.num_updates"] = torch.zeros((), device=CPU)
 
     key_map = {
         # fmt: off
@@ -71,13 +93,3 @@ def convert_wav2vec2_checkpoint(
     }
 
     return convert_fairseq_checkpoint(checkpoint, key_map)
-
-
-load_wav2vec2_model = StandardModelLoader(
-    config_loader=load_wav2vec2_config,
-    factory=create_wav2vec2_model,
-    checkpoint_converter=convert_wav2vec2_checkpoint,
-    restrict_checkpoints=False,
-)
-
-load_model.register(WAV2VEC2_FAMILY, load_wav2vec2_model)

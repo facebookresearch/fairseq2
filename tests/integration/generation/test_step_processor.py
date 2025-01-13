@@ -10,14 +10,14 @@ from typing import ClassVar, Final
 import pytest
 import torch
 
-from fairseq2.data.text import TextTokenizer, load_text_tokenizer
+from fairseq2.data.text import TextTokenizer, get_text_tokenizer_hub
 from fairseq2.generation import (
     BannedSequenceProcessor,
     BeamSearchSeq2SeqGenerator,
     TextTranslator,
 )
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
-from fairseq2.models.transformer import load_transformer_model
+from fairseq2.models.transformer import get_transformer_model_hub
 from tests.common import device
 
 BANNED_ENG_SENTENCES: Final = [
@@ -65,11 +65,13 @@ class TestBannedSequenceProcessor:
     def setup_class(cls) -> None:
         model_name = "nllb-200_dense_distill_600m"
 
-        cls.model = load_transformer_model(
-            model_name, device=device, dtype=torch.float32, progress=False
-        )
+        model_hub = get_transformer_model_hub()
 
-        cls.tokenizer = load_text_tokenizer(model_name)
+        cls.model = model_hub.load(model_name, device=device, dtype=torch.float32)
+
+        tokenizer_hub = get_text_tokenizer_hub()
+
+        cls.tokenizer = tokenizer_hub.load(model_name)
 
     @classmethod
     def teardown_class(cls) -> None:

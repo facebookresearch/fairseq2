@@ -19,7 +19,7 @@ from fairseq2.data.audio import AudioDecoder, WaveformToFbankConverter
 from fairseq2.data.text import StrSplitter, TextTokenizer, read_text
 from fairseq2.datasets.batching import Batching
 from fairseq2.datasets.data_reader import DataPipelineReader, DataReader
-from fairseq2.datasets.static import load_dataset
+from fairseq2.datasets.hub import DatasetHubAccessor
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
 from fairseq2.models.sequence import SequenceBatch
@@ -331,7 +331,4 @@ class GenericSpeechDataset(SpeechDataset):
         return self._splits
 
 
-def load_speech_dataset(
-    name_or_card: str | AssetCard, *, force: bool = False
-) -> SpeechDataset:
-    return load_dataset(name_or_card, SpeechDataset, force=force)
+get_speech_dataset_hub = DatasetHubAccessor(SpeechDataset)

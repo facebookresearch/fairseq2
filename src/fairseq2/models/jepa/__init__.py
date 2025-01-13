@@ -6,17 +6,20 @@
 
 from __future__ import annotations
 
-from fairseq2.models.jepa.factory import JEPA_FAMILY as JEPA_FAMILY
-from fairseq2.models.jepa.factory import JepaBuilder as JepaBuilder
-from fairseq2.models.jepa.factory import JepaConfig as JepaConfig
-from fairseq2.models.jepa.factory import JepaEncoderBuilder as JepaEncoderBuilder
-from fairseq2.models.jepa.factory import JepaEncoderConfig as JepaEncoderConfig
-from fairseq2.models.jepa.factory import create_jepa_model as create_jepa_model
-from fairseq2.models.jepa.factory import jepa_arch as jepa_arch
-from fairseq2.models.jepa.factory import jepa_archs as jepa_archs
-from fairseq2.models.jepa.loader import load_jepa_config as load_jepa_config
-from fairseq2.models.jepa.loader import load_jepa_model as load_jepa_model
+from fairseq2.models.jepa.config import JEPA_MODEL_FAMILY as JEPA_MODEL_FAMILY
+from fairseq2.models.jepa.config import JepaConfig as JepaConfig
+from fairseq2.models.jepa.config import JepaEncoderConfig as JepaEncoderConfig
+from fairseq2.models.jepa.config import register_jepa_configs as register_jepa_configs
+from fairseq2.models.jepa.factory import JepaEncoderFactory as JepaEncoderFactory
+from fairseq2.models.jepa.factory import JepaFactory as JepaFactory
+from fairseq2.models.jepa.handler import JepaModelHandler as JepaModelHandler
+from fairseq2.models.jepa.handler import (
+    convert_jepa_checkpoint as convert_jepa_checkpoint,
+)
+from fairseq2.models.jepa.model import JepaModel as JepaModel
 
 # isort: split
 
-import fairseq2.models.jepa.archs  # Register architectures
+from fairseq2.models.hub import ModelHubAccessor
+
+get_jepa_model_hub = ModelHubAccessor(JepaModel, JepaConfig)

@@ -19,11 +19,8 @@ from typing_extensions import override
 
 from fairseq2.assets import default_asset_store
 from fairseq2.logging import get_log_writer
-from fairseq2.models.llama import load_llama_config
-from fairseq2.models.llama.integ import (
-    convert_to_reference_checkpoint,
-    get_ffn_dim_multipliers,
-)
+from fairseq2.models.llama import get_llama_model_hub
+from fairseq2.models.llama.integ import convert_to_reference_checkpoint
 from fairseq2.recipes.cli import CliCommandHandler
 from fairseq2.recipes.utils.rich import get_error_console
 from fairseq2.utils.file import dump_torch_tensors, load_torch_tensors
@@ -72,7 +69,7 @@ class ConvertCheckpointCommandHandler(CliCommandHandler):
         )
 
         if arch:
-            model_config = load_llama_config(args.model)
+            model_config = get_llama_model_hub().load_config(args.model)
         else:
             model_config = None
 
@@ -114,7 +111,7 @@ class ConvertCheckpointCommandHandler(CliCommandHandler):
                     with catch_warnings():
                         warnings.simplefilter("ignore")
 
-                        checkpoint = load_torch_tensors(input_file, restrict=True)
+                        checkpoint = load_torch_tensors(input_file)
                 except RuntimeError:
                     log.exception(
                         "Checkpoint file {} cannot be loaded.", input_file.name
@@ -145,27 +142,23 @@ class ConvertCheckpointCommandHandler(CliCommandHandler):
         # Generate a basic params.json, mainly to use with HG transformers.
         if model_config is not None:
             params = {
-                "model": {
-                    "dim": model_config.model_dim,
-                    "n_layers": model_config.num_layers,
-                    "n_heads": model_config.num_attn_heads,
-                    "multiple_of": model_config.ffn_inner_dim_to_multiple,
-                    "rope_theta": model_config.rope_theta,
-                    "norm_eps": 1e-5,
-                },
+                "dim": model_config.model_dim,
+                "n_layers": model_config.num_layers,
+                "n_heads": model_config.num_attn_heads,
+                "multiple_of": model_config.ffn_inner_dim_to_multiple,
+                "rope_theta": model_config.rope_theta,
+                "norm_eps": 1e-5,
             }
 
             if model_config.num_attn_heads != model_config.num_key_value_heads:
-                params["model"]["n_kv_heads"] = model_config.num_key_value_heads
+                params["n_kv_heads"] = model_config.num_key_value_heads
 
-            ffn_dim_multiplier = get_ffn_dim_multipliers(arch)
-
-            if ffn_dim_multiplier != 1.0:
-                params["model"]["ffn_dim_multiplier"] = ffn_dim_multiplier
+            if model_config.ffn_inner_dim_multiplier != 1.0:
+                params["ffn_dim_multiplier"] = model_config.ffn_inner_dim_multiplier
 
             try:
                 with args.output_dir.joinpath("params.json").open("w") as fp:
-                    json.dump(params, fp)
+                    json.dump({"model", params}, fp)
             except RuntimeError:
                 log.exception("params.json cannot be created.")
 

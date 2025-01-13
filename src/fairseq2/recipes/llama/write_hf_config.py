@@ -16,7 +16,7 @@ from typing_extensions import override
 
 from fairseq2.assets import default_asset_store
 from fairseq2.logging import get_log_writer
-from fairseq2.models.llama import load_llama_config
+from fairseq2.models.llama import get_llama_model_hub
 from fairseq2.models.llama.integ import convert_to_huggingface_config
 from fairseq2.recipes.cli import CliCommandHandler
 
@@ -48,7 +48,7 @@ class WriteHfConfigCommandHandler(CliCommandHandler):
         )
 
         if arch:
-            model_config = load_llama_config(args.model)
+            model_config = get_llama_model_hub().load_config(args.model)
         else:
             model_config = None
 

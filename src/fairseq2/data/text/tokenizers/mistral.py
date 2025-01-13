@@ -6,10 +6,20 @@
 
 from __future__ import annotations
 
-from typing import Final
+from typing import Final, final
 
-from fairseq2.data.text.tokenizers.sentencepiece import load_basic_sentencepiece
+from typing_extensions import override
+
+from fairseq2.data.text.tokenizers.sentencepiece import (
+    BasicSentencePieceTokenizerHandler,
+)
 
 MISTRAL_TOKENIZER_FAMILY: Final = "mistal"
 
-load_mistral_tokenizer = load_basic_sentencepiece
+
+@final
+class MistralTokenizerHandler(BasicSentencePieceTokenizerHandler):
+    @override
+    @property
+    def family(self) -> str:
+        return MISTRAL_TOKENIZER_FAMILY

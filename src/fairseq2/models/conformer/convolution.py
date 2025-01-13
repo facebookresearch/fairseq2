@@ -12,6 +12,7 @@ from torch import Tensor
 from torch.nn import GLU, BatchNorm1d, Conv1d, Module, SiLU
 from torch.nn.functional import pad
 
+from fairseq2.error import InternalError
 from fairseq2.nn import LayerNorm, StandardLayerNorm
 from fairseq2.nn.padding import PaddingMask, apply_padding_mask
 from fairseq2.typing import DataType, Device
@@ -151,7 +152,8 @@ class ConformerConvolution(Module):
         if self.batch_norm is not None:
             seqs = self.batch_norm(seqs)
         else:
-            assert self.layer_norm is not None
+            if self.layer_norm is None:
+                raise InternalError("`layer_norm` is `None`.")
 
             # (N, M, S) -> (N, S, M)
             seqs = seqs.transpose(1, 2)

@@ -11,7 +11,8 @@ from typing import Final, final
 
 from typing_extensions import override
 
-from fairseq2.assets import AssetCard, AssetCardError
+from fairseq2.assets import AssetCard, AssetCardError, AssetCardFieldNotFoundError
+from fairseq2.data.text.tokenizers.handler import AbstractTextTokenizerHandler
 from fairseq2.data.text.tokenizers.sentencepiece import BasicSentencePieceTokenizer
 from fairseq2.data.text.tokenizers.tiktoken import TiktokenEncoder, TiktokenTokenizer
 from fairseq2.data.text.tokenizers.tokenizer import TextTokenizer
@@ -113,25 +114,40 @@ class LLaMA3Tokenizer(TiktokenTokenizer):
 LLAMA_TOKENIZER_FAMILY: Final = "llama"
 
 
-def load_llama_tokenizer(path: Path, card: AssetCard) -> TextTokenizer:
-    use_v2 = card.field("use_v2_tokenizer").get_as_(bool, False)
-    if use_v2:
-        field = card.field("model_config").field("vocab_info").field("eos_idx")
+@final
+class LLaMATokenizerHandler(AbstractTextTokenizerHandler):
+    @override
+    @property
+    def family(self) -> str:
+        return LLAMA_TOKENIZER_FAMILY
 
-        eos_idx = field.get_as_(int)
-
-        eot_idx = 128_009  # end-of-turn
-
+    @override
+    def _load_tokenizer(self, path: Path, card: AssetCard) -> TextTokenizer:
         try:
-            return LLaMA3Tokenizer(path, instruct=eos_idx == eot_idx)
-        except ValueError as ex:
-            raise AssetCardError(
-                card.name, f"The '{card.name}' asset card does not have a valid text tokenizer configuration. See the nested exception for details."  # fmt: skip
-            ) from ex
-    else:
-        try:
-            return BasicSentencePieceTokenizer(path)
-        except ValueError as ex:
-            raise AssetCardError(
-                card.name, f"The '{card.name}' asset card does not have a valid text tokenizer configuration. See the nested exception for details."  # fmt: skip
-            ) from ex
+            use_v2 = card.field("use_v2_tokenizer").as_(bool)
+        except AssetCardFieldNotFoundError:
+            use_v2 = False
+
+        if use_v2:
+            field = card.field("model_config").field("vocab_info").field("eos_idx")
+
+            try:
+                eos_idx = field.as_(int)
+            except AssetCardFieldNotFoundError:
+                eos_idx = 0
+
+            eot_idx = 128_009  # end-of-turn
+
+            try:
+                return LLaMA3Tokenizer(path, instruct=eos_idx == eot_idx)
+            except ValueError as ex:
+                raise AssetCardError(
+                    card.name, f"The '{card.name}' asset card does not have a valid text tokenizer configuration. See the nested exception for details."  # fmt: skip
+                ) from ex
+        else:
+            try:
+                return BasicSentencePieceTokenizer(path)
+            except ValueError as ex:
+                raise AssetCardError(
+                    card.name, f"The '{card.name}' asset card does not have a valid text tokenizer configuration. See the nested exception for details."  # fmt: skip
+                ) from ex

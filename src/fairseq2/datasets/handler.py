@@ -18,11 +18,16 @@ from fairseq2.datasets.error import DatasetError
 
 class DatasetHandler(ABC):
     @abstractmethod
-    def load(self, card: AssetCard, *, force: bool) -> object:
+    def load(self, card: AssetCard) -> object:
         ...
 
     @abstractmethod
-    def load_from_path(self, path: Path) -> object:
+    def load_from_path(self, path: Path, name: str) -> object:
+        ...
+
+    @property
+    @abstractmethod
+    def family(self) -> str:
         ...
 
     @property
@@ -41,44 +46,50 @@ class DatasetNotFoundError(LookupError):
 
 
 class DatasetLoader(Protocol):
-    def __call__(self, path: Path, name: str | None) -> object:
+    def __call__(self, path: Path, name: str) -> object:
         ...
 
 
 @final
 class StandardDatasetHandler(DatasetHandler):
+    _family: str
     _kls: type
     _loader: DatasetLoader
     _asset_download_manager: AssetDownloadManager
 
     def __init__(
         self,
+        family: str,
         kls: type,
         loader: DatasetLoader,
         asset_download_manager: AssetDownloadManager,
     ) -> None:
+        self._family = family
         self._kls = kls
         self._loader = loader
         self._asset_download_manager = asset_download_manager
 
     @override
-    def load(self, card: AssetCard, *, force: bool) -> object:
+    def load(self, card: AssetCard) -> object:
         dataset_uri = card.field("data").as_uri()
 
-        path = self._asset_download_manager.download_dataset(
-            dataset_uri, card.name, force=force
-        )
+        path = self._asset_download_manager.download_dataset(dataset_uri, card.name)
 
         try:
-            return self._loader(path, card.name)
+            return self._loader(path, name=card.name)
         except DatasetError as ex:
             raise AssetError(
-                f"The constructor of the '{card.name}' dataset has raised an error. See the nested exception for details."
+                card.name, f"The constructor of the '{card.name}' dataset has raised an error. See the nested exception for details."  # fmt: skip
             ) from ex
 
     @override
-    def load_from_path(self, path: Path) -> object:
-        return self._loader(path, name=None)
+    def load_from_path(self, path: Path, name: str) -> object:
+        return self._loader(path, name)
+
+    @override
+    @property
+    def family(self) -> str:
+        return self._family
 
     @override
     @property

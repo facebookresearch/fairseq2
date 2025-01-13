@@ -6,9 +6,13 @@
 
 from __future__ import annotations
 
-from fairseq2.models.mistral.factory import MistralConfig, mistral_arch
+from fairseq2.nn.lora import LoRAConfig
 
 
-@mistral_arch("7b")
-def _7b() -> MistralConfig:
-    return MistralConfig()
+def get_llama_lora_config() -> LoRAConfig:
+    return LoRAConfig(
+        r=8,
+        alpha=16.0,
+        dropout_p=0.05,
+        keys=[".*decoder.layers.*.self_attn.*(q_proj|v_proj)$"],
+    )

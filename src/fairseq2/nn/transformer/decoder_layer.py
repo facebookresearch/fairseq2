@@ -20,7 +20,7 @@ from fairseq2.nn.transformer.attention_mask import AttentionMask
 from fairseq2.nn.transformer.ffn import FeedForwardNetwork
 from fairseq2.nn.transformer.layer_norm import (
     LayerNormFactory,
-    make_standard_layer_norm,
+    create_standard_layer_norm,
 )
 from fairseq2.nn.transformer.multihead_attention import MultiheadAttention
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
@@ -152,7 +152,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         super().__init__(model_dim)
 
         if layer_norm_factory is None:
-            layer_norm_factory = make_standard_layer_norm
+            layer_norm_factory = create_standard_layer_norm
 
         self_attn_layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
 

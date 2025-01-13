@@ -6,30 +6,56 @@
 
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import MutableMapping
+from typing import cast
 
-from fairseq2.models.config_loader import StandardModelConfigLoader
-from fairseq2.models.loader import StandardModelLoader, load_model
+from torch import Tensor
+from torch.nn import Module
+from typing_extensions import override
+
+from fairseq2.models.handler import AbstractModelHandler
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
-from fairseq2.models.wav2vec2.asr.factory import (
-    WAV2VEC2_ASR_FAMILY,
+from fairseq2.models.wav2vec2.asr.config import (
+    WAV2VEC2_ASR_MODEL_FAMILY,
     Wav2Vec2AsrConfig,
-    create_wav2vec2_asr_model,
-    wav2vec2_asr_archs,
 )
+from fairseq2.models.wav2vec2.asr.factory import Wav2Vec2AsrFactory
+from fairseq2.models.wav2vec2.asr.model import Wav2Vec2AsrModel
 from fairseq2.nn.transformer import TransformerNormOrder
+from fairseq2.typing import safe_cast
 
-load_wav2vec2_asr_config = StandardModelConfigLoader(
-    WAV2VEC2_ASR_FAMILY, Wav2Vec2AsrConfig, wav2vec2_asr_archs
-)
+
+class Wav2Vec2AsrModelHandler(AbstractModelHandler):
+    @override
+    @property
+    def family(self) -> str:
+        return WAV2VEC2_ASR_MODEL_FAMILY
+
+    @override
+    @property
+    def kls(self) -> type[Module]:
+        return Wav2Vec2AsrModel
+
+    @override
+    def _create_model(self, config: object) -> Module:
+        config = safe_cast("config", config, Wav2Vec2AsrConfig)
+
+        return Wav2Vec2AsrFactory(config).create_model()
+
+    @override
+    def _convert_checkpoint(
+        self, checkpoint: dict[str, object], config: object
+    ) -> dict[str, object]:
+        config = safe_cast("config", config, Wav2Vec2AsrConfig)
+
+        return convert_wav2vec2_asr_checkpoint(checkpoint, config)
 
 
 def convert_wav2vec2_asr_checkpoint(
-    checkpoint: dict[str, Any], config: Wav2Vec2AsrConfig
-) -> dict[str, Any]:
-    """Convert a fairseq wav2vec 2.0 ASR checkpoint to fairseq2 format."""
+    checkpoint: dict[str, object], config: Wav2Vec2AsrConfig
+) -> dict[str, object]:
     try:
-        state_dict = checkpoint["model"]
+        state_dict = cast(MutableMapping[str, Tensor], checkpoint["model"])
     except KeyError:
         return checkpoint
 
@@ -70,13 +96,3 @@ def convert_wav2vec2_asr_checkpoint(
     }
 
     return convert_fairseq_checkpoint(checkpoint, key_map)
-
-
-load_wav2vec2_asr_model = StandardModelLoader(
-    config_loader=load_wav2vec2_asr_config,
-    factory=create_wav2vec2_asr_model,
-    checkpoint_converter=convert_wav2vec2_asr_checkpoint,
-    restrict_checkpoints=False,
-)
-
-load_model.register(WAV2VEC2_ASR_FAMILY, load_wav2vec2_asr_model)

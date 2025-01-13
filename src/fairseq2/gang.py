@@ -45,7 +45,7 @@ class Gang(ABC):
         """Close and destroy the gang."""
 
     @abstractmethod
-    def make_gang(self, ranks: Sequence[int]) -> Gang | None:
+    def create_gang(self, ranks: Sequence[int]) -> Gang | None:
         """Make a new gang.
 
         :param ranks:
@@ -164,7 +164,7 @@ class AbstractGang(Gang):
 
     @final
     @override
-    def make_gang(self, ranks: Sequence[int]) -> Gang | None:
+    def create_gang(self, ranks: Sequence[int]) -> Gang | None:
         if len(set(ranks)) != len(ranks):
             raise ValueError("The ranks in ``ranks`` must be all unique.")
 
@@ -174,10 +174,10 @@ class AbstractGang(Gang):
                     f"The rank at index {idx} in ``ranks`` must be greater than or equal to 0 and less than the size of the gang ({self._size}), but is {rank} instead."
                 )
 
-        return self._do_make_gang(ranks)
+        return self._do_create_gang(ranks)
 
     @abstractmethod
-    def _do_make_gang(self, ranks: Sequence[int]) -> Gang | None:
+    def _do_create_gang(self, ranks: Sequence[int]) -> Gang | None:
         """Make a new gang.
 
         :param ranks:
@@ -221,6 +221,8 @@ class FakeGang(AbstractGang):
         """
         if device is None:
             device = determine_default_device()
+        elif device.type == "meta":
+            raise ValueError("`device` must be a real device.")
 
         super().__init__(rank=rank, size=size, device=device)
 
@@ -229,7 +231,7 @@ class FakeGang(AbstractGang):
         pass
 
     @override
-    def _do_make_gang(self, ranks: Sequence[int]) -> FakeGang | None:
+    def _do_create_gang(self, ranks: Sequence[int]) -> FakeGang | None:
         try:
             idx = ranks.index(self._rank)
         except ValueError:
@@ -496,10 +498,10 @@ class ProcessGroupGang(AbstractGang):
         dist.destroy_process_group(self._pg)
 
     @override
-    def _do_make_gang(self, ranks: Sequence[int]) -> ProcessGroupGang | None:
+    def _do_create_gang(self, ranks: Sequence[int]) -> ProcessGroupGang | None:
         if self._pg is not dist.group.WORLD:
             raise InvalidOperationError(
-                "`make_gang()` can only be called on the gang associated with the default (i.e. main) process group."
+                "`create_gang()` can only be called on the gang associated with the default (i.e. main) process group."
             )
 
         try:
@@ -778,7 +780,7 @@ def _setup_2D_mesh_gangs(
         match gang_size:
             case 1:
                 if create_single_rank_process_groups:
-                    current_subgang = root_gang.make_gang([root_gang.rank])
+                    current_subgang = root_gang.create_gang([root_gang.rank])
                 else:
                     current_subgang = FakeGang(device=root_gang.device)
             case root_gang.size:
@@ -787,7 +789,7 @@ def _setup_2D_mesh_gangs(
                 # Create 1 gang per row (dim 0) or per column (dim 1)
                 for i in range(mesh_shape[dim]):
                     ranks = mesh[i, :] if dim == 0 else mesh[:, i]
-                    sub_gang = root_gang.make_gang(ranks.tolist())
+                    sub_gang = root_gang.create_gang(ranks.tolist())
                     if i == rank_coords[dim]:
                         current_subgang = sub_gang
 

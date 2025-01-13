@@ -21,7 +21,7 @@ class Foo:
 
 class TestConfigRegistry:
     def test_register_works(self) -> None:
-        registry = ConfigRegistry[Foo]()
+        registry = ConfigRegistry(Foo)
 
         registry.register("name1", lambda: Foo("config1"))
         registry.register("name2", lambda: Foo("config2"))
@@ -33,7 +33,7 @@ class TestConfigRegistry:
         assert config2.x == "config2"
 
     def test_names_works(self) -> None:
-        registry = ConfigRegistry[Foo]()
+        registry = ConfigRegistry(Foo)
 
         names = {"name1", "name2", "name3"}
 
@@ -45,7 +45,7 @@ class TestConfigRegistry:
     def test_register_raises_error_when_name_is_already_registered(
         self,
     ) -> None:
-        registry = ConfigRegistry[Foo]()
+        registry = ConfigRegistry(Foo)
 
         registry.register("name", lambda: Foo("config"))
 
@@ -55,7 +55,7 @@ class TestConfigRegistry:
             registry.register("name", lambda: Foo("config"))
 
     def test_get_raises_error_when_name_is_not_registered(self) -> None:
-        registry = ConfigRegistry[Foo]()
+        registry = ConfigRegistry(Foo)
 
         with pytest.raises(
             LookupError, match=r"^'foo' is not a registered configuration name\.$",  # fmt: skip

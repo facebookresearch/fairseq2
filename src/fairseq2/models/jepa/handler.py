@@ -6,46 +6,76 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import torch
+from torch import Tensor
+from torch.nn import Module
+from typing_extensions import override
 
-from fairseq2.models.config_loader import StandardModelConfigLoader
-from fairseq2.models.jepa.factory import (
-    JEPA_FAMILY,
-    JepaConfig,
-    create_jepa_model,
-    jepa_archs,
-)
-from fairseq2.models.loader import StandardModelLoader
+from fairseq2.models.handler import AbstractModelHandler
+from fairseq2.models.jepa.config import JEPA_MODEL_FAMILY, JepaConfig
+from fairseq2.models.jepa.factory import JepaFactory
+from fairseq2.models.jepa.model import JepaModel
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
+from fairseq2.typing import safe_cast
 
-load_jepa_config = StandardModelConfigLoader(JEPA_FAMILY, JepaConfig, jepa_archs)
+
+class JepaModelHandler(AbstractModelHandler):
+    @override
+    @property
+    def family(self) -> str:
+        return JEPA_MODEL_FAMILY
+
+    @override
+    @property
+    def kls(self) -> type[Module]:
+        return JepaModel
+
+    @override
+    def _create_model(self, config: object) -> Module:
+        config = safe_cast("config", config, JepaConfig)
+
+        return JepaFactory(config).create_model()
+
+    @override
+    def _convert_checkpoint(
+        self, checkpoint: dict[str, object], config: object
+    ) -> dict[str, object]:
+        return convert_jepa_checkpoint(checkpoint)
 
 
-def convert_jepa_checkpoint(
-    checkpoint: dict[str, Any], config: JepaConfig
-) -> dict[str, Any]:
-    # We have a shared checkpoint, used for other use cases (frozen evaluation,..)
-    if "target_encoder" in checkpoint:
-        return convert_jepa_encoder_checkpoint(
-            checkpoint["target_encoder"], config=config
+def convert_jepa_checkpoint(checkpoint: dict[str, object]) -> dict[str, object]:
+    encoder_checkpoint = checkpoint.get("target_encoder")
+    if encoder_checkpoint is None:
+        encoder_checkpoint = checkpoint.get("encoder")
+        if encoder_checkpoint is None:
+            raise ValueError(
+                "`checkpoint` does contain neither a 'target_encoder' nor an 'encoder' key."
+            )
+
+    if not isinstance(encoder_checkpoint, dict):
+        raise TypeError(
+            f"The encoder state in `checkpoint` must be of type `dict`, but is of type `{type(encoder_checkpoint)}` instead."
         )
 
-    if "encoder" in checkpoint:
-        return convert_jepa_encoder_checkpoint(checkpoint["encoder"], config=config)
-
-    raise ValueError(f"encoder not found (available keys: {checkpoint.keys()})")
+    return _convert_jepa_encoder_checkpoint(encoder_checkpoint)
 
 
-def convert_jepa_encoder_checkpoint(
-    checkpoint: dict[str, Any], config: JepaConfig
-) -> dict[str, Any]:
-    del checkpoint["module.backbone.pos_embed"]
+def _convert_jepa_encoder_checkpoint(
+    checkpoint: dict[str, object]
+) -> dict[str, object]:
+    try:
+        del checkpoint["module.backbone.pos_embed"]
+    except KeyError:
+        pass
 
-    new_checkpoint = {}
+    new_checkpoint: dict[str, object] = {}
 
     for name, param in checkpoint.items():
+        if not isinstance(param, Tensor):
+            raise TypeError(
+                f"`checkpoint['encoder'][{name}]` must be of type `{Tensor}`, but is of type `{type(param)}` instead."
+            )
+
         if name.endswith("qkv.weight"):
             q_proj, k_proj, v_proj = torch.chunk(param, 3, dim=0)
 
@@ -84,10 +114,3 @@ def convert_jepa_encoder_checkpoint(
     checkpoint = convert_model_state_dict(new_checkpoint, key_map)
 
     return {"model": checkpoint}
-
-
-load_jepa_model = StandardModelLoader(
-    config_loader=load_jepa_config,
-    factory=create_jepa_model,
-    checkpoint_converter=convert_jepa_checkpoint,
-)

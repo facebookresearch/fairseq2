@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Protocol, final
+from typing import final
 
 from typing_extensions import override
 
@@ -18,7 +18,12 @@ from fairseq2.data.text.tokenizers.tokenizer import TextTokenizer
 
 class TextTokenizerHandler(ABC):
     @abstractmethod
-    def load(self, card: AssetCard, *, force: bool = False) -> TextTokenizer:
+    def load(self, card: AssetCard) -> TextTokenizer:
+        ...
+
+    @property
+    @abstractmethod
+    def family(self) -> str:
         ...
 
 
@@ -31,34 +36,24 @@ class TextTokenizerNotFoundError(LookupError):
         self.name = name
 
 
-class TextTokenizerLoader(Protocol):
-    def __call__(self, path: Path, card: AssetCard) -> TextTokenizer:
-        ...
-
-
-@final
-class StandardTextTokenizerHandler(TextTokenizerHandler):
-    _loader: TextTokenizerLoader
+class AbstractTextTokenizerHandler(TextTokenizerHandler):
     _asset_download_manager: AssetDownloadManager
 
-    def __init__(
-        self,
-        *,
-        loader: TextTokenizerLoader,
-        asset_download_manager: AssetDownloadManager,
-    ) -> None:
-        self._loader = loader
+    def __init__(self, asset_download_manager: AssetDownloadManager) -> None:
         self._asset_download_manager = asset_download_manager
 
+    @final
     @override
-    def load(self, card: AssetCard, *, force: bool = False) -> TextTokenizer:
+    def load(self, card: AssetCard) -> TextTokenizer:
         tokenizer_uri = card.field("tokenizer").as_uri()
 
-        path = self._asset_download_manager.download_tokenizer(
-            tokenizer_uri, card.name, force=force
-        )
+        path = self._asset_download_manager.download_tokenizer(tokenizer_uri, card.name)
 
-        return self._loader(path, card)
+        return self._load_tokenizer(path, card)
+
+    @abstractmethod
+    def _load_tokenizer(self, path: Path, card: AssetCard) -> TextTokenizer:
+        ...
 
 
 def get_text_tokenizer_family(card: AssetCard) -> str:

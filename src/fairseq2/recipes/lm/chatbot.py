@@ -18,7 +18,7 @@ from typing_extensions import override
 
 from fairseq2.chatbots import Chatbot, ChatMessage, create_chatbot
 from fairseq2.context import get_runtime_context
-from fairseq2.data.text import TextTokenDecoder, TextTokenizer, load_text_tokenizer
+from fairseq2.data.text import TextTokenDecoder, TextTokenizer, get_text_tokenizer_hub
 from fairseq2.error import InternalError
 from fairseq2.gang import Gang, is_torchrun
 from fairseq2.generation import (
@@ -27,13 +27,12 @@ from fairseq2.generation import (
     TopPSampler,
 )
 from fairseq2.logging import get_log_writer
-from fairseq2.models import load_model
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.recipes.cli import CliCommandHandler
 from fairseq2.recipes.cluster import ClusterError, ClusterHandler, ClusterResolver
 from fairseq2.recipes.utils.argparse import parse_dtype
 from fairseq2.recipes.utils.rich import get_console
-from fairseq2.recipes.utils.setup import setup_gangs
+from fairseq2.recipes.utils.setup import load_model, setup_gangs
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import RngBag
 
@@ -138,7 +137,9 @@ class ChatbotCommandHandler(CliCommandHandler):
         # Load the tokenizer.
         log.info("Loading {} tokenizer.", args.model_name)
 
-        tokenizer = load_text_tokenizer(args.model_name)
+        tokenizer_hub = get_text_tokenizer_hub()
+
+        tokenizer = tokenizer_hub.load(args.model_name)
 
         log.info("Tokenizer loaded.")
 

@@ -11,9 +11,10 @@ from typing import final
 
 import torch
 from torch import Tensor
+from torch.nn import Module
 from torch.nn.functional import cross_entropy
 
-from fairseq2.models.model import Model
+from fairseq2.error import InternalError
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2.frontend import Wav2Vec2Frontend
 from fairseq2.models.wav2vec2.masker import Wav2Vec2Masker, extract_masked_elements
@@ -29,7 +30,7 @@ from fairseq2.typing import DataType, Device
 
 
 @final
-class Wav2Vec2Model(Model):
+class Wav2Vec2Model(Module):
     """Represents a wav2vec 2.0 model as described in
     :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`."""
 
@@ -165,7 +166,8 @@ class Wav2Vec2Model(Model):
             seqs, padding_mask, self.masker
         )
 
-        assert temporal_mask is not None
+        if temporal_mask is None:
+            raise InternalError("`temporal_mask` is `None`.")
 
         targets = extract_masked_elements(targets, temporal_mask)
 

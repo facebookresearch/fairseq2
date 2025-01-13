@@ -29,7 +29,7 @@ from fairseq2.nn.transformer.decoder_layer import TransformerDecoderLayer
 from fairseq2.nn.transformer.encoder import _record_drop_for_backward
 from fairseq2.nn.transformer.layer_norm import (
     LayerNormFactory,
-    make_standard_layer_norm,
+    create_standard_layer_norm,
 )
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
 from fairseq2.typing import CPU, DataType, Device
@@ -199,7 +199,7 @@ class StandardTransformerDecoder(TransformerDecoder):
         super().__init__(model_dim)
 
         if layer_norm_factory is None:
-            layer_norm_factory = make_standard_layer_norm
+            layer_norm_factory = create_standard_layer_norm
 
         if self_attn_mask_factory is not None:
             self.self_attn_mask_factory = self_attn_mask_factory

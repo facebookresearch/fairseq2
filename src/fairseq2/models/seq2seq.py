@@ -8,17 +8,17 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, final
+from typing import final
 
 from torch import Tensor
+from torch.nn import Module
 
 from fairseq2.data import VocabularyInfo
-from fairseq2.models.model import Model
 from fairseq2.models.sequence import SequenceBatch, SequenceModelOutput
 from fairseq2.nn.padding import PaddingMask
 
 
-class Seq2SeqModel(Model, ABC):
+class Seq2SeqModel(Module, ABC):
     """Represents a sequence-to-sequence model."""
 
     max_target_seq_len: int
@@ -73,7 +73,7 @@ class Seq2SeqBatch:
     where :math:`N` is the batch size and :math:`S_{tgt}` is the target sequence
     length."""
 
-    example: Any = None
+    example: object = None
     """The data example from which this batch was constructed."""
 
     @property

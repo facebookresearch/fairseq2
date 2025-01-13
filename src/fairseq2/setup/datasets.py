@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from fairseq2.context import RuntimeContext
-from fairseq2.datasets import DatasetHandler, DatasetLoader, StandardDatasetHandler
+from fairseq2.datasets import DatasetHandler, StandardDatasetHandler
 from fairseq2.datasets.asr import GENERIC_ASR_DATASET_FAMILY, GenericAsrDataset
 from fairseq2.datasets.instruction import (
     GENERIC_INSTRUCTION_DATASET_FAMILY,
@@ -26,54 +26,68 @@ from fairseq2.datasets.text import GENERIC_TEXT_DATASET_FAMILY, GenericTextDatas
 
 
 def _register_datasets(context: RuntimeContext) -> None:
-    register_dataset(
-        context,
-        GENERIC_ASR_DATASET_FAMILY,
-        kls=GenericAsrDataset,
-        loader=GenericAsrDataset.from_path,
-    )
-
-    register_dataset(
-        context,
-        GENERIC_INSTRUCTION_DATASET_FAMILY,
-        kls=GenericInstructionDataset,
-        loader=GenericInstructionDataset.from_path,
-    )
-
-    register_dataset(
-        context,
-        GENERIC_PARALLEL_TEXT_DATASET_FAMILY,
-        kls=GenericParallelTextDataset,
-        loader=GenericParallelTextDataset.from_path,
-    )
-
-    register_dataset(
-        context,
-        GENERIC_PREFERENCE_OPTIMIZATION_DATASET_FAMILY,
-        kls=GenericPreferenceOptimizationDataset,
-        loader=GenericPreferenceOptimizationDataset.from_path,
-    )
-
-    register_dataset(
-        context,
-        GENERIC_SPEECH_DATASET_FAMILY,
-        kls=GenericSpeechDataset,
-        loader=GenericSpeechDataset.from_path,
-    )
-
-    register_dataset(
-        context,
-        GENERIC_TEXT_DATASET_FAMILY,
-        kls=GenericTextDataset,
-        loader=GenericTextDataset.from_path,
-    )
-
-
-def register_dataset(
-    context: RuntimeContext, family: str, *, kls: type, loader: DatasetLoader
-) -> None:
-    handler = StandardDatasetHandler(kls, loader, context.asset_download_manager)
+    asset_download_manager = context.asset_download_manager
 
     registry = context.get_registry(DatasetHandler)
 
-    registry.register(family, handler)
+    handler: DatasetHandler
+
+    # ASR
+    handler = StandardDatasetHandler(
+        GENERIC_ASR_DATASET_FAMILY,
+        GenericAsrDataset,
+        GenericAsrDataset.from_path,
+        asset_download_manager,
+    )
+
+    registry.register(handler.family, handler)
+
+    # Instruction
+    handler = StandardDatasetHandler(
+        GENERIC_INSTRUCTION_DATASET_FAMILY,
+        GenericInstructionDataset,
+        GenericInstructionDataset.from_path,
+        asset_download_manager,
+    )
+
+    registry.register(handler.family, handler)
+
+    # Parallel Text
+    handler = StandardDatasetHandler(
+        GENERIC_PARALLEL_TEXT_DATASET_FAMILY,
+        GenericParallelTextDataset,
+        GenericParallelTextDataset.from_path,
+        asset_download_manager,
+    )
+
+    registry.register(handler.family, handler)
+
+    # Preference Optimization
+    handler = StandardDatasetHandler(
+        GENERIC_PREFERENCE_OPTIMIZATION_DATASET_FAMILY,
+        GenericPreferenceOptimizationDataset,
+        GenericPreferenceOptimizationDataset.from_path,
+        asset_download_manager,
+    )
+
+    registry.register(handler.family, handler)
+
+    # Speech
+    handler = StandardDatasetHandler(
+        GENERIC_SPEECH_DATASET_FAMILY,
+        GenericSpeechDataset,
+        GenericSpeechDataset.from_path,
+        asset_download_manager,
+    )
+
+    registry.register(handler.family, handler)
+
+    # Text
+    handler = StandardDatasetHandler(
+        GENERIC_TEXT_DATASET_FAMILY,
+        GenericTextDataset,
+        GenericTextDataset.from_path,
+        asset_download_manager,
+    )
+
+    registry.register(handler.family, handler)
