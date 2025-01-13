@@ -12,10 +12,4 @@ import fairseq2n  # Report any fairseq2n initialization error eagerly.
 
 # isort: split
 
-import fairseq2.models
-
-# isort: split
-
 from fairseq2.setup import setup_fairseq2 as setup_fairseq2
-
-setup_extensions = setup_fairseq2  # compat

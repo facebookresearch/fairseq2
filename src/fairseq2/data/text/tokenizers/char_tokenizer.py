@@ -6,10 +6,18 @@
 
 from __future__ import annotations
 
-from typing import Final
+from typing import Final, final
 
-from fairseq2.data.text.tokenizers.sentencepiece import load_raw_sentencepiece
+from typing_extensions import override
+
+from fairseq2.data.text.tokenizers.sentencepiece import RawSentencePieceTokenizerHandler
 
 CHAR_TOKENIZER_FAMILY: Final = "char_tokenizer"
 
-load_char_tokenizer = load_raw_sentencepiece
+
+@final
+class CharTokenizerHandler(RawSentencePieceTokenizerHandler):
+    @override
+    @property
+    def family(self) -> str:
+        return CHAR_TOKENIZER_FAMILY

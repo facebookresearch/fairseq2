@@ -13,15 +13,14 @@ from typing import final
 import torch
 from typing_extensions import override
 
-from fairseq2.assets import AssetNotFoundError, default_asset_store
-from fairseq2.checkpoint import CheckpointModelMetadataProvider
+from fairseq2.assets import AssetCardNotFoundError, default_asset_store
+from fairseq2.checkpoint import FileCheckpointMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
-from fairseq2.data.text import load_text_tokenizer
+from fairseq2.data.text import get_text_tokenizer_hub
 from fairseq2.datasets import LengthBatching
-from fairseq2.datasets.asr import AsrReadOptions, GenericAsrDataset, load_asr_dataset
+from fairseq2.datasets.asr import AsrReadOptions, GenericAsrDataset, get_asr_dataset_hub
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
-from fairseq2.models import load_model
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.wav2vec2.asr import Wav2Vec2AsrModel
 from fairseq2.nn.utils.module import remove_parametrizations
@@ -32,7 +31,7 @@ from fairseq2.recipes.utils.asset import (
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import broadcast_model, setup_root_gang
+from fairseq2.recipes.utils.setup import broadcast_model, load_model, setup_root_gang
 from fairseq2.recipes.wav2vec2.asr.common import (
     Wav2Vec2AsrCriterion,
     Wav2Vec2AsrMetricBag,
@@ -88,7 +87,7 @@ class Wav2Vec2AsrEvalConfig:
     """The random number generator seed to use."""
 
 
-wav2vec2_asr_eval_presets = ConfigRegistry[Wav2Vec2AsrEvalConfig]()
+wav2vec2_asr_eval_presets = ConfigRegistry(Wav2Vec2AsrEvalConfig)
 
 wav2vec2_asr_eval_preset = wav2vec2_asr_eval_presets.decorator
 
@@ -107,7 +106,7 @@ def load_wav2vec2_asr_evaluator(
 
     if config.checkpoint_dir is not None:
         default_asset_store.metadata_providers.append(
-            CheckpointModelMetadataProvider(config.checkpoint_dir)
+            FileCheckpointMetadataProvider(config.checkpoint_dir)
         )
 
     gang = setup_root_gang(log)
@@ -117,26 +116,30 @@ def load_wav2vec2_asr_evaluator(
     # Load the tokenizer.
     log.info("Loading {} tokenizer.", model_card.name)
 
-    tokenizer = load_text_tokenizer(model_card)
+    tokenizer_hub = get_text_tokenizer_hub()
+
+    tokenizer = tokenizer_hub.load(model_card)
 
     log.info("Tokenizer loaded.")
 
     # Load the dataset.
     try:
         dataset_card = retrieve_asset_card(config.dataset)
-    except AssetNotFoundError:
+    except AssetCardNotFoundError:
         dataset_card = None
 
     if dataset_card is not None:
         log.info("Loading {} ASR dataset.", dataset_card.name)
 
-        dataset = load_asr_dataset(dataset_card)
+        dataset_hub = get_asr_dataset_hub()
+
+        dataset = dataset_hub.load(dataset_card)
 
         log.info("Dataset loaded.")
     else:
         dataset_path = asset_as_path(config.dataset)
 
-        dataset = GenericAsrDataset.from_path(dataset_path)
+        dataset = GenericAsrDataset.from_path(dataset_path, "path")
 
     # Load the model.
     log.info("Loading {} model on rank 0.", model_card.name)

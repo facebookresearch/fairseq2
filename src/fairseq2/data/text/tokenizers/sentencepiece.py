@@ -15,10 +15,12 @@ from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.assets import AssetCard
+from fairseq2.data.text.tokenizers.handler import AbstractTextTokenizerHandler
 from fairseq2.data.text.tokenizers.tokenizer import (
     AbstractTextTokenizer,
     TextTokenDecoder,
     TextTokenEncoder,
+    TextTokenizer,
 )
 from fairseq2.data.vocabulary_info import VocabularyInfo
 from fairseq2.typing import Device
@@ -230,8 +232,10 @@ class BasicSentencePieceTokenizer(SentencePieceTokenizer):
         )
 
 
-def load_basic_sentencepiece(path: Path, card: AssetCard) -> SentencePieceTokenizer:
-    return BasicSentencePieceTokenizer(path)
+class BasicSentencePieceTokenizerHandler(AbstractTextTokenizerHandler):
+    @override
+    def _load_tokenizer(self, path: Path, card: AssetCard) -> TextTokenizer:
+        return BasicSentencePieceTokenizer(path)
 
 
 @final
@@ -280,8 +284,10 @@ class RawSentencePieceTokenizer(SentencePieceTokenizer):
         return self.create_raw_encoder(device=device, pin_memory=pin_memory)
 
 
-def load_raw_sentencepiece(path: Path, card: AssetCard) -> SentencePieceTokenizer:
-    return RawSentencePieceTokenizer(path)
+class RawSentencePieceTokenizerHandler(AbstractTextTokenizerHandler):
+    @override
+    def _load_tokenizer(self, path: Path, card: AssetCard) -> TextTokenizer:
+        return RawSentencePieceTokenizer(path)
 
 
 def vocab_info_from_sentencepiece(model: SentencePieceModel) -> VocabularyInfo:

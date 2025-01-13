@@ -175,18 +175,18 @@ class ValueConverter:
         if isinstance(obj, kls):
             values = {f.name: getattr(obj, f.name) for f in fields(kls)}
 
-            return self._make_dataclass(kls, values, set_empty)
+            return self._create_dataclass(kls, values, set_empty)
 
         if isinstance(obj, Mapping):
             values = self.structure(obj, dict[str, object])
 
-            return self._make_dataclass(kls, values, set_empty)
+            return self._create_dataclass(kls, values, set_empty)
 
         raise StructureError(
             f"`obj` must be of type `{kls}` or `{Mapping}`, but is of type `{type(obj)}` instead."
         )
 
-    def _make_dataclass(
+    def _create_dataclass(
         self, kls: type[DataClass], values: dict[str, object], set_empty: bool
     ) -> object:
         type_hints = get_type_hints(kls)

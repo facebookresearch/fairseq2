@@ -18,12 +18,9 @@ from fairseq2.assets.error import AssetCardError, AssetCardNotFoundError
 from fairseq2.assets.metadata_provider import (
     AssetMetadataNotFoundError,
     AssetMetadataProvider,
-    PackageAssetMetadataProvider,
-    WheelPackageFileLister,
 )
 from fairseq2.error import ContractError
 from fairseq2.utils.env import get_path_from_env
-from fairseq2.utils.yaml import load_yaml
 
 AssetScope: TypeAlias = Literal["all", "global", "user"]
 
@@ -213,18 +210,6 @@ class StandardAssetStore(AssetStore):
 
         for provider in self.user_metadata_providers:
             provider.clear_cache()
-
-    def add_package_metadata_provider(self, package_name: str) -> None:
-        """Add a new :class:`PackageAssetMetadataProvider` for ``package_name``.
-
-        :param package_name: The name of the package in which asset metadata is
-            stored.
-        """
-        file_lister = WheelPackageFileLister()
-
-        provider = PackageAssetMetadataProvider(package_name, file_lister, load_yaml)
-
-        self.metadata_providers.append(provider)
 
 
 class EnvironmentResolver(Protocol):

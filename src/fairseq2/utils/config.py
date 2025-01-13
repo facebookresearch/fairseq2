@@ -9,7 +9,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import fields, is_dataclass
 
-from fairseq2.context import Provider, get_runtime_context
+from fairseq2.context import get_runtime_context
+from fairseq2.registry import Provider
 from fairseq2.utils.structured import StructureError
 
 

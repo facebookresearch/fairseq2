@@ -294,23 +294,6 @@ class AssetCardField:
 
         return value
 
-    def get_as_(
-        self, type_: object, default: object = None, *, allow_empty: bool = False
-    ) -> Any:
-        """Return the value of this field if it exists; otherwise, return ``default``.
-
-        :param type_:
-            The type expression of the field.
-        :param default:
-            The default value.
-        :param allow_empty:
-            If ``True``, allows the field to be empty.
-        """
-        try:
-            return self.as_(type_, allow_empty=allow_empty)
-        except AssetCardFieldNotFoundError:
-            return default
-
     def set(self, value: object) -> None:
         """Set the value of this field."""
         try:

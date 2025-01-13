@@ -13,19 +13,18 @@ from typing import Any, Literal
 import torch
 import torch.distributed
 
-from fairseq2.assets import AssetNotFoundError, default_asset_store
-from fairseq2.checkpoint import CheckpointModelMetadataProvider, FileCheckpointManager
+from fairseq2.assets import AssetCardNotFoundError, default_asset_store
+from fairseq2.checkpoint import FileCheckpointManager, FileCheckpointMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
-from fairseq2.data.text import load_text_tokenizer
+from fairseq2.data.text import get_text_tokenizer_hub
 from fairseq2.datasets import Batching, LengthBatching, StaticBatching
 from fairseq2.datasets.preference import (
     GenericPreferenceOptimizationDataset,
     PreferenceOptimizationBatch,
     PreferenceReadOptions,
-    load_preference_optimization_dataset,
+    get_preference_dataset_hub,
 )
 from fairseq2.logging import get_log_writer
-from fairseq2.models import load_model
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.nn.checkpointing import use_layerwise_activation_checkpointing
 from fairseq2.nn.transformer import enable_memory_efficient_torch_sdpa
@@ -40,7 +39,12 @@ from fairseq2.recipes.utils.asset import (
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import compile_model, setup_gangs, to_data_parallel
+from fairseq2.recipes.utils.setup import (
+    compile_model,
+    load_model,
+    setup_gangs,
+    to_data_parallel,
+)
 from fairseq2.typing import CPU, META, DataType
 from fairseq2.utils.profiler import Stopwatch
 from fairseq2.utils.rng import manual_seed
@@ -212,7 +216,7 @@ class PreferenceFinetuneConfig:
     """If not ``None``, sets the run name for W&B logging. If None, then W&B creates a random name."""
 
 
-preference_finetune_presets = ConfigRegistry[PreferenceFinetuneConfig]()
+preference_finetune_presets = ConfigRegistry(PreferenceFinetuneConfig)
 
 preference_finetune_preset = preference_finetune_presets.decorator
 
@@ -276,7 +280,7 @@ def load_preference_finetuner(
 
     if config.resume_checkpoint_dir is not None:
         default_asset_store.metadata_providers.append(
-            CheckpointModelMetadataProvider(config.resume_checkpoint_dir)
+            FileCheckpointMetadataProvider(config.resume_checkpoint_dir)
         )
 
     # Load the tokenizer.
@@ -284,26 +288,30 @@ def load_preference_finetuner(
 
     log.info("Loading {} tokenizer.", model_card.name)
 
-    tokenizer = load_text_tokenizer(model_card)
+    tokenizer_hub = get_text_tokenizer_hub()
+
+    tokenizer = tokenizer_hub.load(model_card)
 
     log.info("Tokenizer loaded.")
 
     # Load the dataset.
     try:
         dataset_card = retrieve_asset_card(config.dataset)
-    except AssetNotFoundError:
+    except AssetCardNotFoundError:
         dataset_card = None
 
     if dataset_card is not None:
         log.info("Loading {} preference optimization dataset.", dataset_card.name)
 
-        dataset = load_preference_optimization_dataset(dataset_card)
+        dataset_hub = get_preference_dataset_hub()
+
+        dataset = dataset_hub.load(dataset_card)
 
         log.info("Dataset loaded.")
     else:
         dataset_path = asset_as_path(config.dataset)
 
-        dataset = GenericPreferenceOptimizationDataset.from_path(dataset_path)
+        dataset = GenericPreferenceOptimizationDataset.from_path(dataset_path, "path")
 
     seed = config.seed
 

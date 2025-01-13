@@ -7,7 +7,7 @@
 import torch
 
 from fairseq2.data import VocabularyInfo
-from fairseq2.models.llama import LLaMAConfig, create_llama_model, get_llama_lora_config
+from fairseq2.models.llama import LLaMAConfig, LLaMAFactory, get_llama_lora_config
 from fairseq2.nn.lora import (
     freeze_non_lora,
     merge_lora,
@@ -19,7 +19,7 @@ from fairseq2.nn.lora import (
 
 def test_lora_wrappers_llama_works() -> None:
     # Construct a smaller LLaMAModel to prevent CI from failing
-    llama_config = LLaMAConfig(
+    model_config = LLaMAConfig(
         model_dim=1024,
         max_seq_len=2048,
         vocab_info=VocabularyInfo(
@@ -32,7 +32,10 @@ def test_lora_wrappers_llama_works() -> None:
         ffn_inner_dim_to_multiple=1,
         dropout_p=0.1,
     )
-    model = create_llama_model(llama_config, device=torch.device("cpu"))
+
+    model_factory = LLaMAFactory(model_config)
+
+    model = model_factory.create_model()
 
     lora_config = get_llama_lora_config()
 

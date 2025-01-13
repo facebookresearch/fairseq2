@@ -16,7 +16,6 @@ from typing import Any, Final, cast, final
 import torch
 from typing_extensions import override
 
-from fairseq2.assets import AssetCard
 from fairseq2.data import (
     CollateOptionsOverride,
     Collater,
@@ -34,7 +33,7 @@ from fairseq2.datasets.config import (
     StaticBatching,
 )
 from fairseq2.datasets.data_reader import DataPipelineReader
-from fairseq2.datasets.static import load_dataset
+from fairseq2.datasets.hub import DatasetHubAccessor
 from fairseq2.datasets.utils import _load_files_and_weights
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
@@ -142,12 +141,7 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
         self._weights = weights
 
     @staticmethod
-    def from_path(
-        path: Path, name: str | None = None
-    ) -> GenericPreferenceOptimizationDataset:
-        if name is None:
-            name = f"path:{path.name}"
-
+    def from_path(path: Path, name: str) -> GenericPreferenceOptimizationDataset:
         files, weights = _load_files_and_weights(name, path)
 
         return GenericPreferenceOptimizationDataset(name, files, weights)
@@ -370,7 +364,4 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
         return read_sequence(lines).map(json.loads, num_parallel_calls=npc)
 
 
-def load_preference_optimization_dataset(
-    name_or_card: str | AssetCard, *, force: bool = False
-) -> PreferenceOptimizationDataset:
-    return load_dataset(name_or_card, PreferenceOptimizationDataset, force=force)
+get_preference_dataset_hub = DatasetHubAccessor(PreferenceOptimizationDataset)

@@ -10,12 +10,8 @@ from typing import cast
 import pytest
 
 from fairseq2.context import get_runtime_context
-from fairseq2.models.llama import create_llama_model, llama_archs
+from fairseq2.models.llama import LLaMAConfig, LLaMAFactory, convert_llama_checkpoint
 from fairseq2.models.llama.integ import convert_to_reference_checkpoint
-from fairseq2.models.llama.loader import convert_llama_checkpoint
-from fairseq2.typing import CPU
-from fairseq2.utils.file import load_tensors
-from tests.common import device
 
 
 @pytest.mark.skipif(
@@ -24,27 +20,23 @@ from tests.common import device
 def test_convert_to_reference_checkpoint() -> None:
     context = get_runtime_context()
 
-    model_config = llama_archs.get("llama2_7b")
+    model_config_registry = context.get_config_registry(LLaMAConfig)
 
-    card = context.asset_store.retrieve_card("llama2_7b")
+    model_config = model_config_registry.get("llama2_7b")
 
-    path = context.asset_download_manager.download_checkpoint(
-        card.field("checkpoint").as_uri(), model_name="llama2_7b", progress=False
-    )
+    model_factory = LLaMAFactory(model_config)
 
-    checkpoint = load_tensors(path, map_location=CPU, restrict=True)
+    model = model_factory.create_model()
 
-    # Convert the reference checkpoint to fairseq2.
-    checkpoint = convert_llama_checkpoint(checkpoint, model_config)
+    state_dict = model.state_dict()
 
-    # Convert it back to the reference format.
+    checkpoint: dict[str, object] = {"model": state_dict}
+
     checkpoint = convert_to_reference_checkpoint(checkpoint)
 
-    # Now, convert back to fairseq2 again.
     checkpoint = convert_llama_checkpoint(checkpoint, model_config)
 
-    # Try to load the model with the converted fairseq2 checkpoint.
-    model = create_llama_model(model_config, device=device)
+    state_dict = cast(dict[str, object], checkpoint["model"])
 
     # This should work.
-    model.load_state_dict(cast(dict[str, object], checkpoint["model"]))
+    model.load_state_dict(state_dict)

@@ -12,5 +12,5 @@ from fairseq2.checkpoint.manager import (
 )
 from fairseq2.checkpoint.manager import FileCheckpointManager as FileCheckpointManager
 from fairseq2.checkpoint.metadata_provider import (
-    CheckpointModelMetadataProvider as CheckpointModelMetadataProvider,
+    FileCheckpointMetadataProvider as FileCheckpointMetadataProvider,
 )

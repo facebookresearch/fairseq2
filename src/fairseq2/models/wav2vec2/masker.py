@@ -15,6 +15,7 @@ from torch import Tensor
 from torch.nn import Module, Parameter
 from typing_extensions import override
 
+from fairseq2.error import InternalError
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.utils.mask import RowMaskFactory, compute_row_mask
 from fairseq2.typing import DataType, Device
@@ -130,7 +131,8 @@ class StandardWav2Vec2Masker(Wav2Vec2Masker):
             device=seqs.device,
         )
 
-        assert temporal_mask is not None
+        if temporal_mask is None:
+            raise InternalError("`temporal_mask` is `None`.")
 
         seqs[temporal_mask] = self.temporal_mask_embed.type_as(seqs)
 
@@ -145,7 +147,8 @@ class StandardWav2Vec2Masker(Wav2Vec2Masker):
                 device=seqs.device,
             )
 
-            assert spatial_mask is not None
+            if spatial_mask is None:
+                raise InternalError("`spatial_mask` is `None`.")
 
             # (N, M) -> (N, S, M)
             spatial_mask = spatial_mask.unsqueeze(1).expand(-1, seq_len, -1)

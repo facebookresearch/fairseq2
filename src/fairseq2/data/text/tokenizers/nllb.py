@@ -13,10 +13,12 @@ from typing import Final, final
 from typing_extensions import override
 
 from fairseq2.assets import AssetCard, AssetCardError
+from fairseq2.data.text.tokenizers.handler import AbstractTextTokenizerHandler
 from fairseq2.data.text.tokenizers.sentencepiece import (
     SentencePieceEncoder,
     SentencePieceTokenizer,
 )
+from fairseq2.data.text.tokenizers.tokenizer import TextTokenizer
 from fairseq2.typing import Device
 
 
@@ -127,14 +129,22 @@ class NllbTokenizer(SentencePieceTokenizer):
 NLLB_TOKENIZER_FAMILY: Final = "nllb"
 
 
-def load_nllb_tokenizer(path: Path, card: AssetCard) -> NllbTokenizer:
-    langs = card.field("langs").as_(list[str])
+@final
+class NllbTokenizerHandler(AbstractTextTokenizerHandler):
+    @override
+    @property
+    def family(self) -> str:
+        return NLLB_TOKENIZER_FAMILY
 
-    default_lang = card.field("default_lang").as_(str)
+    @override
+    def _load_tokenizer(self, path: Path, card: AssetCard) -> TextTokenizer:
+        langs = card.field("langs").as_(list[str])
 
-    try:
-        return NllbTokenizer(path, langs, default_lang)
-    except ValueError as ex:
-        raise AssetCardError(
-            card.name, f"The '{card.name}' asset card does not have a valid text tokenizer configuration. See the nested exception for details."  # fmt: skip
-        ) from ex
+        default_lang = card.field("default_lang").as_(str)
+
+        try:
+            return NllbTokenizer(path, langs, default_lang)
+        except ValueError as ex:
+            raise AssetCardError(
+                card.name, f"The '{card.name}' asset card does not have a valid text tokenizer configuration. See the nested exception for details."  # fmt: skip
+            ) from ex

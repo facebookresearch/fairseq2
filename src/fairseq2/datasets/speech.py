@@ -14,10 +14,9 @@ from typing import Final, final
 import torch
 from typing_extensions import override
 
-from fairseq2.assets import AssetCard
 from fairseq2.datasets.config import Batching, DataReadOptions
 from fairseq2.datasets.data_reader import DataPipelineReader, DataReader
-from fairseq2.datasets.static import load_dataset
+from fairseq2.datasets.hub import DatasetHubAccessor
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
 from fairseq2.models.sequence import SequenceBatch
@@ -77,7 +76,7 @@ class GenericSpeechDataset(SpeechDataset):
     """Represents a generic manifest-based Speech dataset."""
 
     @staticmethod
-    def from_path(path: Path, name: str | None = None) -> GenericSpeechDataset:
+    def from_path(path: Path, name: str) -> GenericSpeechDataset:
         return GenericSpeechDataset()
 
     @override
@@ -97,7 +96,4 @@ class GenericSpeechDataset(SpeechDataset):
         return set()
 
 
-def load_speech_dataset(
-    name_or_card: str | AssetCard, *, force: bool = False
-) -> SpeechDataset:
-    return load_dataset(name_or_card, SpeechDataset, force=force)
+get_speech_dataset_hub = DatasetHubAccessor(SpeechDataset)

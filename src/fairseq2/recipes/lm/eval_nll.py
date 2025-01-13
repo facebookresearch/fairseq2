@@ -12,17 +12,16 @@ from typing import Literal
 
 import torch
 
-from fairseq2.assets import AssetNotFoundError
+from fairseq2.assets import AssetCardNotFoundError
 from fairseq2.config_registry import ConfigRegistry
-from fairseq2.data.text import load_text_tokenizer
+from fairseq2.data.text import get_text_tokenizer_hub
 from fairseq2.datasets import LengthBatching
 from fairseq2.datasets.instruction import (
     GenericInstructionDataset,
     InstructionReadOptions,
-    load_instruction_dataset,
+    get_instruction_dataset_hub,
 )
 from fairseq2.logging import get_log_writer
-from fairseq2.models import load_model
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.nn.transformer import enable_memory_efficient_torch_sdpa
@@ -37,7 +36,7 @@ from fairseq2.recipes.utils.asset import (
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import setup_gangs, to_data_parallel
+from fairseq2.recipes.utils.setup import load_model, setup_gangs, to_data_parallel
 from fairseq2.typing import CPU, META, DataType
 from fairseq2.utils.profiler import Stopwatch
 from fairseq2.utils.rng import manual_seed
@@ -108,7 +107,7 @@ class NLLEvalConfig:
     """The random number generator seed to use."""
 
 
-nll_eval_presets = ConfigRegistry[NLLEvalConfig]()
+nll_eval_presets = ConfigRegistry(NLLEvalConfig)
 
 nll_eval_preset = nll_eval_presets.decorator
 
@@ -134,26 +133,30 @@ def load_nll_evaluator(
 
     log.info("Loading {} tokenizer.", model_card.name)
 
-    tokenizer = load_text_tokenizer(model_card)
+    tokenizer_hub = get_text_tokenizer_hub()
+
+    tokenizer = tokenizer_hub.load(model_card)
 
     log.info("Tokenizer loaded.")
 
     # Load the dataset.
     try:
         dataset_card = retrieve_asset_card(config.dataset)
-    except AssetNotFoundError:
+    except AssetCardNotFoundError:
         dataset_card = None
 
     if dataset_card is not None:
         log.info("Loading {} preference optimization dataset.", dataset_card.name)
 
-        dataset = load_instruction_dataset(dataset_card)
+        dataset_hub = get_instruction_dataset_hub()
+
+        dataset = dataset_hub.load(dataset_card)
 
         log.info("Dataset loaded.")
     else:
         dataset_path = asset_as_path(config.dataset)
 
-        dataset = GenericInstructionDataset.from_path(dataset_path)
+        dataset = GenericInstructionDataset.from_path(dataset_path, "path")
 
     seed = config.seed
 

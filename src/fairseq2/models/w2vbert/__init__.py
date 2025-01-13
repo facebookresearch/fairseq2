@@ -6,18 +6,22 @@
 
 from __future__ import annotations
 
-from fairseq2.models.w2vbert.factory import W2VBERT_FAMILY as W2VBERT_FAMILY
-from fairseq2.models.w2vbert.factory import W2VBertBuilder as W2VBertBuilder
-from fairseq2.models.w2vbert.factory import W2VBertConfig as W2VBertConfig
-from fairseq2.models.w2vbert.factory import create_w2vbert_model as create_w2vbert_model
-from fairseq2.models.w2vbert.factory import w2vbert_arch as w2vbert_arch
-from fairseq2.models.w2vbert.factory import w2vbert_archs as w2vbert_archs
-from fairseq2.models.w2vbert.loader import load_w2vbert_config as load_w2vbert_config
-from fairseq2.models.w2vbert.loader import load_w2vbert_model as load_w2vbert_model
+from fairseq2.models.w2vbert.config import W2VBERT_MODEL_FAMILY as W2VBERT_MODEL_FAMILY
+from fairseq2.models.w2vbert.config import W2VBertConfig as W2VBertConfig
+from fairseq2.models.w2vbert.config import (
+    register_w2vbert_configs as register_w2vbert_configs,
+)
+from fairseq2.models.w2vbert.factory import W2VBertFactory as W2VBertFactory
+from fairseq2.models.w2vbert.handler import W2VBertModelHandler as W2VBertModelHandler
+from fairseq2.models.w2vbert.handler import (
+    convert_w2vbert_checkpoint as convert_w2vbert_checkpoint,
+)
 from fairseq2.models.w2vbert.model import W2VBertLoss as W2VBertLoss
 from fairseq2.models.w2vbert.model import W2VBertModel as W2VBertModel
 from fairseq2.models.w2vbert.model import W2VBertOutput as W2VBertOutput
 
 # isort: split
 
-import fairseq2.models.w2vbert.archs  # Register architectures.
+from fairseq2.models.hub import ModelHubAccessor
+
+get_w2vbert_model_hub = ModelHubAccessor(W2VBertModel, W2VBertConfig)

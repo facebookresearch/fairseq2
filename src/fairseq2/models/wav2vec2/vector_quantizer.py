@@ -221,7 +221,8 @@ class GumbelVectorQuantizer(VectorQuantizer):
 def init_entry_projection(proj: Linear) -> None:
     nn.init.normal_(proj.weight, mean=0.0, std=1.0)
 
-    assert proj.bias is not None
+    if proj.bias is None:
+        raise ValueError("`proj.bias` must not be `None`.")
 
     nn.init.zeros_(proj.bias)
 

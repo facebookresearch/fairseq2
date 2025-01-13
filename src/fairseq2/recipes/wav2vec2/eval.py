@@ -13,18 +13,17 @@ from typing import final
 import torch
 from typing_extensions import override
 
-from fairseq2.assets import AssetNotFoundError, default_asset_store
-from fairseq2.checkpoint import CheckpointModelMetadataProvider
+from fairseq2.assets import AssetCardNotFoundError, default_asset_store
+from fairseq2.checkpoint import FileCheckpointMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.datasets import LengthBatching
 from fairseq2.datasets.speech import (
     GenericSpeechDataset,
     SpeechReadOptions,
-    load_speech_dataset,
+    get_speech_dataset_hub,
 )
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
-from fairseq2.models import load_model
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2 import Wav2Vec2Model
 from fairseq2.nn.utils.module import remove_parametrizations
@@ -35,7 +34,7 @@ from fairseq2.recipes.utils.asset import (
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import broadcast_model, setup_root_gang
+from fairseq2.recipes.utils.setup import broadcast_model, load_model, setup_root_gang
 from fairseq2.recipes.wav2vec2.common import Wav2Vec2Criterion, Wav2Vec2MetricBag
 from fairseq2.typing import META, DataType
 from fairseq2.utils.profiler import Stopwatch
@@ -94,7 +93,7 @@ class Wav2Vec2EvalConfig:
     """The random number generator seed to use."""
 
 
-wav2vec2_eval_presets = ConfigRegistry[Wav2Vec2EvalConfig]()
+wav2vec2_eval_presets = ConfigRegistry(Wav2Vec2EvalConfig)
 
 wav2vec2_eval_preset = wav2vec2_eval_presets.decorator
 
@@ -113,7 +112,7 @@ def load_wav2vec2_evaluator(
 
     if config.checkpoint_dir is not None:
         default_asset_store.metadata_providers.append(
-            CheckpointModelMetadataProvider(config.checkpoint_dir)
+            FileCheckpointMetadataProvider(config.checkpoint_dir)
         )
 
     gang = setup_root_gang(log)
@@ -121,19 +120,21 @@ def load_wav2vec2_evaluator(
     # Load the dataset.
     try:
         dataset_card = retrieve_asset_card(config.dataset)
-    except AssetNotFoundError:
+    except AssetCardNotFoundError:
         dataset_card = None
 
     if dataset_card is not None:
         log.info("Loading {} speech dataset.", dataset_card.name)
 
-        dataset = load_speech_dataset(dataset_card)
+        dataset_hub = get_speech_dataset_hub()
+
+        dataset = dataset_hub.load(dataset_card)
 
         log.info("Dataset loaded.")
     else:
         dataset_path = asset_as_path(config.dataset)
 
-        dataset = GenericSpeechDataset.from_path(dataset_path)
+        dataset = GenericSpeechDataset.from_path(dataset_path, "path")
 
     model_card = retrieve_asset_card(config.model)
 
