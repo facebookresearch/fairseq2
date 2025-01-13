@@ -9,52 +9,12 @@ from __future__ import annotations
 from fairseq2.data.text.converters import StrSplitter as StrSplitter
 from fairseq2.data.text.converters import StrToIntConverter as StrToIntConverter
 from fairseq2.data.text.converters import StrToTensorConverter as StrToTensorConverter
-from fairseq2.data.text.sentencepiece import (
-    BasicSentencePieceTokenizer as BasicSentencePieceTokenizer,
-)
-from fairseq2.data.text.sentencepiece import (
-    RawSentencePieceTokenizer as RawSentencePieceTokenizer,
-)
-from fairseq2.data.text.sentencepiece import (
-    SentencePieceDecoder as SentencePieceDecoder,
-)
-from fairseq2.data.text.sentencepiece import (
-    SentencePieceEncoder as SentencePieceEncoder,
-)
-from fairseq2.data.text.sentencepiece import SentencePieceModel as SentencePieceModel
-from fairseq2.data.text.sentencepiece import (
-    SentencePieceTokenizer as SentencePieceTokenizer,
-)
-from fairseq2.data.text.sentencepiece import (
-    default_basic_sentencepiece_tokenizer_loader as default_basic_sentencepiece_tokenizer_loader,
-)
-from fairseq2.data.text.sentencepiece import (
-    default_raw_sentencepiece_tokenizer_loader as default_raw_sentencepiece_tokenizer_loader,
-)
-from fairseq2.data.text.sentencepiece import load_char_tokenizer as load_char_tokenizer
-from fairseq2.data.text.sentencepiece import (
-    vocab_info_from_sentencepiece as vocab_info_from_sentencepiece,
-)
 from fairseq2.data.text.text_reader import LineEnding as LineEnding
 from fairseq2.data.text.text_reader import read_text as read_text
-from fairseq2.data.text.text_tokenizer import (
-    AbstractTextTokenizer as AbstractTextTokenizer,
+from fairseq2.data.text.tokenizers import AbstractTextTokenizer as AbstractTextTokenizer
+from fairseq2.data.text.tokenizers import TextTokenDecoder as TextTokenDecoder
+from fairseq2.data.text.tokenizers import TextTokenEncoder as TextTokenEncoder
+from fairseq2.data.text.tokenizers import TextTokenizer as TextTokenizer
+from fairseq2.data.text.tokenizers import (
+    get_text_tokenizer_hub as get_text_tokenizer_hub,
 )
-from fairseq2.data.text.text_tokenizer import (
-    AbstractTextTokenizerLoader as AbstractTextTokenizerLoader,
-)
-from fairseq2.data.text.text_tokenizer import (
-    DelegatingTextTokenizerLoader as DelegatingTextTokenizerLoader,
-)
-from fairseq2.data.text.text_tokenizer import TextTokenDecoder as TextTokenDecoder
-from fairseq2.data.text.text_tokenizer import TextTokenEncoder as TextTokenEncoder
-from fairseq2.data.text.text_tokenizer import TextTokenizer as TextTokenizer
-from fairseq2.data.text.text_tokenizer import TextTokenizerLoader as TextTokenizerLoader
-from fairseq2.data.text.text_tokenizer import (
-    get_tokenizer_family as get_tokenizer_family,
-)
-from fairseq2.data.text.text_tokenizer import is_tokenizer_card as is_tokenizer_card
-from fairseq2.data.text.text_tokenizer import load_text_tokenizer as load_text_tokenizer
-from fairseq2.data.text.tiktoken import TiktokenDecoder as TiktokenDecoder
-from fairseq2.data.text.tiktoken import TiktokenEncoder as TiktokenEncoder
-from fairseq2.data.text.tiktoken import TiktokenTokenizer as TiktokenTokenizer

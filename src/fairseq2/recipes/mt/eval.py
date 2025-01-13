@@ -8,21 +8,22 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, TextIO, final
+from typing import Any, Iterable, Mapping, TextIO, final
 
 import torch
 from typing_extensions import override
 
-from fairseq2.assets import AssetNotFoundError
+from fairseq2.assets import AssetCardNotFoundError, default_asset_store
+from fairseq2.checkpoint import FileCheckpointMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
-from fairseq2.data.text import TextTokenizer, load_text_tokenizer
+from fairseq2.data.text import TextTokenizer, get_text_tokenizer_hub
 from fairseq2.datasets import LengthBatching, StaticBatching
 from fairseq2.datasets.parallel_text import (
     Direction,
     GenericParallelTextDataset,
-    load_parallel_text_dataset,
+    ParallelTextReadOptions,
+    get_parallel_text_dataset_hub,
 )
-from fairseq2.dependency import resolve, resolve_all
 from fairseq2.gang import Gang
 from fairseq2.generation import (
     BeamSearchConfig,
@@ -31,9 +32,7 @@ from fairseq2.generation import (
     create_seq2seq_generator,
 )
 from fairseq2.logging import get_log_writer
-from fairseq2.metrics import MetricRecorder
 from fairseq2.metrics.text import BleuMetric, ChrfMetric
-from fairseq2.models import load_model
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.recipes.common_metrics import Seq2SeqGenerationMetricBag, Seq2SeqMetricBag
@@ -45,7 +44,7 @@ from fairseq2.recipes.utils.asset import (
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import broadcast_model
+from fairseq2.recipes.utils.setup import broadcast_model, load_model, setup_root_gang
 from fairseq2.typing import META, DataType
 from fairseq2.utils.profiler import Stopwatch
 
@@ -62,6 +61,9 @@ class MTEvalConfig:
 
     split: str = "test"
     """The name of the test data split."""
+
+    min_seq_len: int = 1
+    """The maximum sequence length."""
 
     max_seq_len: int = 512
     """The maximum sequence length."""
@@ -106,7 +108,7 @@ class MTEvalConfig:
     """The random number generator seed to use."""
 
 
-mt_eval_presets = ConfigRegistry[MTEvalConfig]()
+mt_eval_presets = ConfigRegistry(MTEvalConfig)
 
 mt_eval_preset = mt_eval_presets.decorator
 
@@ -123,33 +125,42 @@ def load_mt_evaluator(
     """Load an :class:`Evaluator` for machine translation evaluation."""
     wall_watch = Stopwatch(start=True)
 
-    gang = resolve(Gang)
+    if config.checkpoint_dir is not None:
+        default_asset_store.metadata_providers.append(
+            FileCheckpointMetadataProvider(config.checkpoint_dir)
+        )
+
+    gang = setup_root_gang(log)
 
     model_card = retrieve_asset_card(config.model)
 
     # Load the tokenizer.
     log.info("Loading {} tokenizer.", model_card.name)
 
-    tokenizer = load_text_tokenizer(model_card)
+    tokenizer_hub = get_text_tokenizer_hub()
+
+    tokenizer = tokenizer_hub.load(model_card)
 
     log.info("Tokenizer loaded.")
 
     # Load the dataset.
     try:
         dataset_card = retrieve_asset_card(config.dataset)
-    except AssetNotFoundError:
+    except AssetCardNotFoundError:
         dataset_card = None
 
     if dataset_card is not None:
         log.info("Loading {} parallel text dataset.", dataset_card.name)
 
-        dataset = load_parallel_text_dataset(dataset_card)
+        dataset_hub = get_parallel_text_dataset_hub()
+
+        dataset = dataset_hub.load(dataset_card)
 
         log.info("Dataset loaded.")
     else:
         dataset_path = asset_as_path(config.dataset)
 
-        dataset = GenericParallelTextDataset.from_path(dataset_path)
+        dataset = GenericParallelTextDataset.from_path(dataset_path, "path")
 
     # Load the model.
     log.info("Loading {} model on rank 0.", model_card.name)
@@ -207,17 +218,22 @@ def load_mt_evaluator(
 
         units.append(loss_unit)
 
+        options = ParallelTextReadOptions(
+            direction=direction,
+            sync_mode="until_last",
+            num_prefetch=config.num_prefetch,
+            seed=seed,
+        )
+
         try:
             data_reader = dataset.create_reader(
                 config.split,
                 tokenizer,
                 gang,
+                config.min_seq_len,
                 config.max_seq_len,
-                batching=LengthBatching(config.max_num_tokens),
-                direction=direction,
-                sync_mode="until_last",
-                num_prefetch=config.num_prefetch,
-                seed=seed,
+                LengthBatching(config.max_num_tokens),
+                options,
             )
         except ValueError as ex:
             raise ValueError(
@@ -281,17 +297,22 @@ def load_mt_evaluator(
 
         units.append(score_unit)
 
+        options = ParallelTextReadOptions(
+            direction=direction,
+            sync_mode="until_last",
+            num_prefetch=config.num_prefetch,
+            seed=seed,
+        )
+
         try:
             data_reader = dataset.create_reader(
                 config.split,
                 tokenizer,
                 gang,
+                config.min_seq_len,
                 config.max_seq_len,
-                batching=StaticBatching(config.generator_batch_size),
-                direction=direction,
-                sync_mode="until_last",
-                num_prefetch=config.num_prefetch,
-                seed=seed,
+                StaticBatching(config.generator_batch_size),
+                options,
             )
         except ValueError as ex:
             raise ValueError(
@@ -302,8 +323,6 @@ def load_mt_evaluator(
 
         data_readers.append(data_reader)
 
-    metric_recorders = resolve_all(MetricRecorder)
-
     # Initialize the evaluator.
     return Evaluator[Seq2SeqBatch](
         units=units,
@@ -311,7 +330,8 @@ def load_mt_evaluator(
         root_gang=gang,
         dtype=config.dtype,
         amp=config.amp,
-        metric_recorders=metric_recorders,
+        tb_dir=output_dir.joinpath("tb"),
+        metrics_dir=output_dir.joinpath("metrics"),
         seed=seed,
         wall_watch=wall_watch,
     )
@@ -403,6 +423,11 @@ class MTBleuChrfEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
         if batch.example is None:
             raise ValueError("`batch.example` must not be `None`.")
 
+        if not isinstance(batch.example, Mapping):
+            raise TypeError(
+                f"`batch.example` must be of type `{Mapping}`, but is of type `{type(batch.example)}` instead."
+            )
+
         try:
             srcs = batch.example["source_text"]
         except KeyError:
@@ -410,12 +435,22 @@ class MTBleuChrfEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
                 "`batch.example` must contain a 'source_text' item."
             ) from None
 
+        if not isinstance(srcs, Iterable):
+            raise TypeError(
+                f"`batch.example['source_text'] must be an iterable of strings, but is of type `{type(srcs)}` instead."
+            )
+
         try:
             refs = batch.example["target_text"]
         except KeyError:
             raise ValueError(
                 "`batch.example` must contain a 'target_text' item."
             ) from None
+
+        if not isinstance(refs, Iterable):
+            raise TypeError(
+                f"`batch.example['target_text'] must be an iterable of strings, but is of type `{type(refs)}` instead."
+            )
 
         hyps, output = self._converter.batch_convert(
             batch.source_seqs, batch.source_padding_mask

@@ -18,13 +18,12 @@ from datasets import (  # type: ignore[attr-defined,import-untyped,import-not-fo
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.data_pipeline import SequenceData
-from fairseq2.data.text import load_text_tokenizer
-from fairseq2.data.text.text_tokenizer import TextTokenizer
-from fairseq2.datasets.batching import StaticBatching
+from fairseq2.data.text import TextTokenizer, get_text_tokenizer_hub
+from fairseq2.datasets import StaticBatching
 from fairseq2.logging import get_log_writer
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
-from fairseq2.models.wav2vec2.asr import load_wav2vec2_asr_model
+from fairseq2.models.wav2vec2.asr import get_wav2vec2_asr_model_hub
 from fairseq2.nn.padding import get_seqs_and_padding_mask
 from fairseq2.recipes.hg.dataset import Example, create_hf_reader
 from fairseq2.recipes.hg.evaluator import HFEvaluator
@@ -82,7 +81,7 @@ class AsrEvalConfig:
     """The data type of the model."""
 
 
-asr_eval_presets = ConfigRegistry[AsrEvalConfig]()
+asr_eval_presets = ConfigRegistry(AsrEvalConfig)
 
 asr_eval_preset = asr_eval_presets.decorator
 
@@ -124,7 +123,7 @@ def _librispeech_asr_to_batch(examples: Example) -> Seq2SeqBatch:
 
 @lru_cache(maxsize=None)
 def get_cached_tokenizer(tokenizer_name: str) -> TextTokenizer:
-    return load_text_tokenizer(tokenizer_name)
+    return get_text_tokenizer_hub().load(tokenizer_name)
 
 
 def _preprocess_example(
@@ -220,9 +219,9 @@ def load_wav2vec2_asr_evaluator(
         max_seq_len=config.max_audio_len,
     )
 
-    model = load_wav2vec2_asr_model(
-        config.model_name, device=init_device, dtype=config.dtype
-    )
+    model_hub = get_wav2vec2_asr_model_hub()
+
+    model = model_hub.load(config.model_name, device=init_device, dtype=config.dtype)
 
     wall_watch = Stopwatch(start=True, device=init_device)
 

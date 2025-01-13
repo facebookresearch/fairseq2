@@ -8,19 +8,19 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, final
+from typing import final
 
 import torch
 from torch import Tensor
+from torch.nn import Module
 from torch.nn.functional import log_softmax
 
 from fairseq2.data import VocabularyInfo
-from fairseq2.models.model import Model
 from fairseq2.nn.functional import nll_loss
 from fairseq2.nn.padding import PaddingMask
 
 
-class SequenceModel(Model, ABC):
+class SequenceModel(Module, ABC):
     """Represents a sequence model."""
 
     max_seq_len: int
@@ -65,7 +65,7 @@ class SequenceBatch:
     targets during model training or validation. *Shape:* :math:`(N,S)`, where
     :math:`N` is the batch size and :math:`S` is the sequence length."""
 
-    example: Any = None
+    example: object = None
     """The data example from which this batch was constructed."""
 
     @property

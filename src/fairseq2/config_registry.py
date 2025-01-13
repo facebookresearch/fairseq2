@@ -8,14 +8,11 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Set
-from functools import cached_property
-from typing import Any, Generic, Protocol, TypeVar, final, get_args
+from typing import Generic, Protocol, TypeVar, final
 
 from typing_extensions import override
 
 from fairseq2.error import AlreadyExistsError
-
-ConfigT = TypeVar("ConfigT")
 
 ConfigT_co = TypeVar("ConfigT_co", covariant=True)
 
@@ -31,12 +28,18 @@ class ConfigProvider(ABC, Generic[ConfigT_co]):
     def names(self) -> Set[str]:
         """Return the names of all configurations."""
 
+    @property
+    @abstractmethod
+    def config_kls(self) -> type[ConfigT_co]:
+        """The type of the configuration."""
+
 
 class ConfigSupplier(Protocol[ConfigT_co]):
-    """Supplies instances of ``ConfigT``."""
-
     def __call__(self) -> ConfigT_co:
         ...
+
+
+ConfigT = TypeVar("ConfigT")
 
 
 @final
@@ -44,31 +47,28 @@ class ConfigRegistry(ConfigProvider[ConfigT]):
     """Holds configurations of type ``ConfigT``."""
 
     _configs: dict[str, ConfigSupplier[ConfigT]]
+    _config_kls: type[ConfigT]
 
-    def __init__(self) -> None:
+    def __init__(self, config_kls: type[ConfigT]) -> None:
         self._configs = {}
+        self._config_kls = config_kls
 
     @override
     def get(self, name: str) -> ConfigT:
-        """Return the configuration of ``name``."""
         try:
             return self._configs[name]()
         except KeyError:
-            raise LookupError(
-                f"`name` must be a registered configuration name, but '{name}' is not registered."
-            ) from None
+            raise ConfigNotFoundError(name) from None
 
     def register(self, name: str, supplier: ConfigSupplier[ConfigT]) -> None:
         """Register a new configuration.
 
-        :param name:
-            The name of the configuration.
-        :param config_supplier:
-            The supplier to retrieve configurations.
+        :param name: The name of the configuration.
+        :param config_supplier: The configuration supplier.
         """
         if name in self._configs:
             raise AlreadyExistsError(
-                f"`name` must be a unique configuration name, but '{name}' is already registered."
+                f"The registry has already a configuration named '{name}'."
             )
 
         self._configs[name] = supplier
@@ -87,11 +87,18 @@ class ConfigRegistry(ConfigProvider[ConfigT]):
 
     @override
     def names(self) -> Set[str]:
-        """Return the names of all configurations."""
         return self._configs.keys()
 
-    @cached_property
-    def config_kls(self) -> Any:
-        kls_args = get_args(self.__orig_class__)  # type: ignore[attr-defined]
+    @override
+    @property
+    def config_kls(self) -> type[ConfigT]:
+        return self._config_kls
 
-        return kls_args[0]
+
+class ConfigNotFoundError(LookupError):
+    name: str
+
+    def __init__(self, name: str) -> None:
+        super().__init__(f"'{name}' is not a registered configuration name.")
+
+        self.name = name

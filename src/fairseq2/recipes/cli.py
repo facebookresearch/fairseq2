@@ -9,45 +9,60 @@ from __future__ import annotations
 import sys
 from abc import ABC, abstractmethod
 from argparse import OPTIONAL, ArgumentParser, BooleanOptionalAction, Namespace
-from collections.abc import Callable, Sequence
+from collections.abc import Hashable, Set
 from pathlib import Path
-from signal import SIGUSR1, signal
-from types import FrameType
-from typing import Generic, Hashable, Protocol, TypeVar, final, runtime_checkable
+from typing import TypeVar, final
 
-import yaml
 from rich.console import Console
 from typing_extensions import override
 
-from fairseq2.config_registry import ConfigRegistry
-from fairseq2.console import get_console, set_console
-from fairseq2.dependency import DependencyResolver
-from fairseq2.error import AlreadyExistsError
-from fairseq2.logging import get_log_writer
-from fairseq2.recipes.config_manager import StandardConfigManager
-from fairseq2.recipes.legacy_config import _set_legacy_config
-from fairseq2.recipes.logging import setup_basic_logging, setup_logging
-from fairseq2.recipes.utils.argparse import ConfigAction
-from fairseq2.recipes.utils.environment import EnvironmentSetter
-from fairseq2.recipes.utils.log import log_config
-from fairseq2.recipes.utils.sweep import SweepFormatError, SweepTagger
-from fairseq2.typing import DataClass
-from fairseq2.utils.structured import (
-    StructuredError,
-    ValueConverter,
-    merge_unstructured,
+from fairseq2.config_registry import ConfigNotFoundError, ConfigProvider
+from fairseq2.context import get_runtime_context
+from fairseq2.error import AlreadyExistsError, InvalidOperationError, SetupError
+from fairseq2.gang import is_torchrun
+from fairseq2.logging import log
+from fairseq2.recipes.cluster import (
+    ClusterError,
+    ClusterHandler,
+    ClusterResolver,
+    UnknownClusterError,
 )
-
-log = get_log_writer(__name__)
+from fairseq2.recipes.logging import DistributedLoggingInitializer, setup_basic_logging
+from fairseq2.recipes.runner import (
+    ConfigFileNotFoundError,
+    ConfigReader,
+    EnvironmentBootstrapper,
+    Recipe,
+    RecipeLoader,
+    RecipeRunner,
+    StandardConfigReader,
+    StandardEnvironmentBootstrapper,
+    StandardRecipeRunner,
+    SystemSignalHandler,
+    get_sweep_keys,
+)
+from fairseq2.recipes.utils.argparse import ConfigAction
+from fairseq2.recipes.utils.rich import get_console, set_console
+from fairseq2.recipes.utils.sweep_tagger import (
+    NoopSweepTagger,
+    StandardSweepTagger,
+    SweepFormatError,
+    SweepFormatPlaceholderError,
+    SweepTagger,
+)
+from fairseq2.typing import safe_cast
+from fairseq2.utils.file import StandardFileSystem
+from fairseq2.utils.structured import StructureError, unstructure
+from fairseq2.utils.yaml import YamlDumper, YamlError, dump_yaml, load_yaml
 
 
 class Cli:
     """Represents the entry point of a command line program."""
 
     _name: str
+    _description: str | None
     _origin_module: str
     _version: str
-    _description: str | None
     _groups: dict[str, CliGroup]
 
     def __init__(
@@ -59,58 +74,53 @@ class Cli:
         description: str | None = None,
     ) -> None:
         """
-        :param name:
-            The name of the program.
-        :param origin_module:
-            The name of the origin Python module of the command line program.
-        :param version:
-            The version of the program.
-        :param description:
-            The description of the program.
+        :param name: The name of the program.
+        :param origin_module: The name of the origin Python module of the
+            command line program.
+        :param version: The version of the program.
+        :param description: The description of the program.
         """
         self._name = name
+        self._description = description
         self._origin_module = origin_module
         self._version = version
-        self._description = description
         self._groups = {}
 
     def add_group(
         self,
         name: str,
         *,
-        origin_module: str | None = None,
         help: str | None = None,
+        origin_module: str | None = None,
     ) -> CliGroup:
-        """Add a command group.
+        """Add a sub-group."""
+        group = self._get_or_add_group(name)
 
-        :param name:
-            The name of the command group.
-        :param origin_module:
-            The name of origin Python module of the command group.
-        :param help:
-            The help text of the command group.
-        """
-        if name in self._groups:
-            raise AlreadyExistsError(
-                f"`name` must be a unique group name, but '{name}' is already registered."
-            )
+        if help is not None:
+            group._help = help
 
-        group = CliGroup(name, origin_module or self._origin_module, help=help)
-
-        self._groups[group.name] = group
+        if origin_module is not None:
+            group._origin_module = origin_module
 
         return group
 
     def get_group(self, name: str) -> CliGroup:
-        """Return the command group of ``name``."""
+        """Get a sub-group."""
+        return self._get_or_add_group(name)
+
+    def _get_or_add_group(self, name: str) -> CliGroup:
         try:
             return self._groups[name]
         except KeyError:
-            raise LookupError(
-                f"`name` must be a registered group name, but '{name}' is not registered."
-            ) from None
+            pass
 
-    def init_parser(self, parser: ArgumentParser, resolver: DependencyResolver) -> None:
+        group = CliGroup(name, self._origin_module)
+
+        self._groups[name] = group
+
+        return group
+
+    def init_parser(self, parser: ArgumentParser) -> None:
         """Initialize ``parser`` with program-specific arguments."""
         parser.add_argument(
             "--version", action="version", version=f"%(prog)s {self._version}"
@@ -131,29 +141,32 @@ class Cli:
 
             sub_parser = sub_parsers.add_parser(group.name, help=help)
 
-            group.init_parser(sub_parser, resolver)
+            group.init_parser(sub_parser)
 
-    def __call__(self, resolver: DependencyResolver) -> None:
+    def run(self) -> int:
         """Run the program."""
         set_console(Console(highlight=False))
 
         parser = ArgumentParser(self._name, description=self._description)
 
-        self.init_parser(parser, resolver)
+        self.init_parser(parser)
 
         args = parser.parse_args()
 
         if not hasattr(args, "command"):
-            parser.print_usage(sys.stderr)
+            parser.error("no command specified")
 
-            sys.exit(2)
-
-        args.command(args, resolver)
+        return args.command.run(args)  # type: ignore[no-any-return]
 
     @property
     def name(self) -> str:
         """The name of the program."""
         return self._name
+
+    @property
+    def description(self) -> str | None:
+        """The description of the program."""
+        return self._description
 
     @property
     def origin_module(self) -> str:
@@ -165,20 +178,15 @@ class Cli:
         """The version of the program."""
         return self._version
 
-    @property
-    def description(self) -> str | None:
-        """The description of the program."""
-        return self._description
-
 
 class CliGroup:
     """Represents a command group of a command line program."""
 
     _name: str
-    _origin_module: str
-    _help: str | None
     _groups: dict[str, CliGroup]
     _commands: dict[str, CliCommand]
+    _help: str | None
+    _origin_module: str
 
     def __init__(
         self,
@@ -188,32 +196,55 @@ class CliGroup:
         help: str | None = None,
     ) -> None:
         self._name = name
-        self._origin_module = origin_module
-        self._help = help
         self._groups = {}
         self._commands = {}
+        self._help = help
+        self._origin_module = origin_module
 
     def add_group(
         self,
         name: str,
         *,
-        origin_module: str | None = None,
         help: str | None = None,
+        origin_module: str | None = None,
     ) -> CliGroup:
-        """Add a sub-command group.
+        """Add a sub-group."""
+        group = self._get_or_add_group(name)
+        if group is None:
+            raise AlreadyExistsError(
+                f"The command group has already a command named '{name}'."
+            )
 
-        :param name:
-            The name of the command group.
-        :param origin_module:
-            The name of origin Python module of the command group.
-        :param help:
-            The help text of the command group.
-        """
-        self._check_name(name)
+        if help is not None:
+            group._help = help
 
-        group = CliGroup(name, origin_module or self._origin_module, help=help)
+        if origin_module is not None:
+            group._origin_module = origin_module
 
-        self._groups[group.name] = group
+        return group
+
+    def get_group(self, name: str) -> CliGroup:
+        """Get a sub-group."""
+        group = self._get_or_add_group(name)
+        if group is None:
+            raise LookupError(
+                f"The command group does not have a sub-group named '{name}'."
+            ) from None
+
+        return group
+
+    def _get_or_add_group(self, name: str) -> CliGroup | None:
+        try:
+            return self._groups[name]
+        except KeyError:
+            pass
+
+        if name in self._commands:
+            return None
+
+        group = CliGroup(name, self.origin_module)
+
+        self._groups[name] = group
 
         return group
 
@@ -222,49 +253,33 @@ class CliGroup:
         name: str,
         handler: CliCommandHandler,
         *,
-        origin_module: str | None = None,
         help: str | None = None,
+        origin_module: str | None = None,
     ) -> CliCommand:
         """Add a command.
 
-        :param name:
-            The name of the command.
-        :param handler:
-            The handler of the command.
-        :param origin_module:
-            The name of origin Python module of the command.
-        :param help:
-            The help text of the command.
+        :param name: The name of the command.
+        :param handler: The handler of the command.
+        :param origin_module: The name of origin Python module of the command.
+        :param help: The help text of the command.
         """
-        self._check_name(name)
+        if name in self._groups:
+            raise AlreadyExistsError(
+                f"The command group has already a sub-group named '{name}'."
+            )
+
+        if name in self._commands:
+            raise AlreadyExistsError(
+                f"The command group has already a command named '{name}'."
+            )
 
         command = CliCommand(
-            name, handler, origin_module or self._origin_module, help=help
+            name, handler, origin_module or self.origin_module, help=help
         )
 
         self._commands[name] = command
 
         return command
-
-    def _check_name(self, name: str) -> None:
-        if name in self._groups:
-            raise AlreadyExistsError(
-                f"`name` must be a unique name among groups and commands, but '{name}' is already registered as a group name."
-            )
-
-        if name in self._commands:
-            raise AlreadyExistsError(
-                f"`name` must be a unique name among groups and commands, but '{name}' is already registered as a command name."
-            )
-
-    def get_group(self, name: str) -> CliGroup:
-        """Return the sub-command group of ``name``."""
-        try:
-            return self._groups[name]
-        except KeyError:
-            raise LookupError(
-                f"`name` must be a registered group name, but '{name}' is not registered."
-            ) from None
 
     def get_command(self, name: str) -> CliCommand:
         """Return the command of ``name``."""
@@ -272,17 +287,17 @@ class CliGroup:
             return self._commands[name]
         except KeyError:
             raise LookupError(
-                f"`name` must be a registered command name, but '{name}' is not registered."
+                f"The command group does not have a command named '{name}'."
             ) from None
 
-    def init_parser(self, parser: ArgumentParser, resolver: DependencyResolver) -> None:
+    def init_parser(self, parser: ArgumentParser) -> None:
         """Initialize ``parser`` with command group-specific arguments."""
         sub_parsers = parser.add_subparsers()
 
         for group in self._groups.values():
             help = group.help
 
-            if self._origin_module != group.origin_module:
+            if self.origin_module != group.origin_module:
                 s = f"origin: {group.origin_module}"
 
                 if help:
@@ -292,12 +307,12 @@ class CliGroup:
 
             sub_parser = sub_parsers.add_parser(group.name, help=help)
 
-            group.init_parser(sub_parser, resolver)
+            group.init_parser(sub_parser)
 
         for command in self._commands.values():
             help = command.help
 
-            if self._origin_module != command.origin_module:
+            if self.origin_module != command.origin_module:
                 s = f"origin: {command.origin_module}"
 
                 if help:
@@ -309,7 +324,7 @@ class CliGroup:
 
             sub_parser.set_defaults(command=command)
 
-            command.init_parser(sub_parser, resolver)
+            command.init_parser(sub_parser)
 
     @property
     def name(self) -> str:
@@ -317,14 +332,14 @@ class CliGroup:
         return self._name
 
     @property
-    def origin_module(self) -> str:
-        """The name of the origin Python module of the command group."""
-        return self._origin_module
-
-    @property
     def help(self) -> str | None:
         """The help text of the command group."""
         return self._help
+
+    @property
+    def origin_module(self) -> str:
+        """The name of the origin Python module of the command group."""
+        return self._origin_module
 
 
 class CliCommand:
@@ -332,8 +347,9 @@ class CliCommand:
 
     _name: str
     _handler: CliCommandHandler
-    _origin_module: str
+    _parser: ArgumentParser | None
     _help: str | None
+    _origin_module: str
 
     def __init__(
         self,
@@ -345,16 +361,24 @@ class CliCommand:
     ) -> None:
         self._name = name
         self._handler = handler
-        self._origin_module = origin_module
         self._help = help
+        self._origin_module = origin_module
 
-    def init_parser(self, parser: ArgumentParser, resolver: DependencyResolver) -> None:
+    def init_parser(self, parser: ArgumentParser) -> None:
         """Initialize ``parser`` with command group-specific arguments."""
-        self._handler.init_parser(parser, resolver)
+        self._handler.init_parser(parser)
 
-    def __call__(self, args: Namespace, resolver: DependencyResolver) -> None:
+        self._parser = parser
+
+    def run(self, args: Namespace) -> int:
         """Run the command."""
-        self._handler(args, resolver)
+        if self._parser is None:
+            raise InvalidOperationError("`init_parser()` must be called first.")
+
+        try:
+            return self._handler.run(self._parser, args)
+        finally:
+            self._parser = None
 
     @property
     def name(self) -> str:
@@ -362,95 +386,69 @@ class CliCommand:
         return self._name
 
     @property
-    def origin_module(self) -> str:
-        """The name of the origin Python module of the command."""
-        return self._origin_module
-
-    @property
     def help(self) -> str | None:
         """The help text of the command."""
         return self._help
+
+    @property
+    def origin_module(self) -> str:
+        """The name of the origin Python module of the command."""
+        return self._origin_module
 
 
 class CliCommandHandler(ABC):
     """Represents the handler of a command of a command line program."""
 
     @abstractmethod
-    def init_parser(self, parser: ArgumentParser, resolver: DependencyResolver) -> None:
+    def init_parser(self, parser: ArgumentParser) -> None:
         """Initialize ``parser`` with command-specific arguments."""
 
     @abstractmethod
-    def __call__(self, args: Namespace, resolver: DependencyResolver) -> None:
+    def run(self, parser: ArgumentParser, args: Namespace) -> int:
         """Run the command."""
 
 
-@runtime_checkable
-class Stoppable(Protocol):
-    """Represents a task that supports graceful stopping."""
-
-    def request_stop(self) -> None:
-        ...
-
-
-RecipeConfigT = TypeVar("RecipeConfigT", bound=DataClass)
-
-RecipeConfigT_contra = TypeVar(
-    "RecipeConfigT_contra", bound=DataClass, contravariant=True
-)
-
-
-class RecipeLoader(Protocol[RecipeConfigT_contra]):
-    """Loads a recipe."""
-
-    def __call__(
-        self, config: RecipeConfigT_contra, output_dir: Path
-    ) -> Callable[[], None]:
-        """
-        :param name:
-            The configuration of the recipe.
-        :param output_dir:
-            The directory where to store the recipe artifacts.
-        """
+ConfigT = TypeVar("ConfigT")
 
 
 @final
-class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
+class RecipeCommandHandler(CliCommandHandler):
     """Runs a recipe over command line."""
 
-    _loader: RecipeLoader[RecipeConfigT]
-    _preset_configs: ConfigRegistry[RecipeConfigT]
+    _loader: RecipeLoader[object]
+    _preset_configs: ConfigProvider[object]
     _default_preset: str
-    _sweep_allowed_keys: Sequence[Hashable] | None
-    _parser: ArgumentParser | None
+    _extra_sweep_keys: Set[Hashable] | None
 
     def __init__(
         self,
-        loader: RecipeLoader[RecipeConfigT],
-        preset_configs: ConfigRegistry[RecipeConfigT],
+        loader: RecipeLoader[ConfigT],
+        preset_configs: ConfigProvider[ConfigT],
         default_preset: str,
         *,
-        sweep_allowed_keys: Sequence[Hashable] | None = None,
+        extra_sweep_keys: Set[Hashable] | None = None,
     ) -> None:
         """
-        :param loader:
-            The recipe loader.
-        :param preset_configs:
-            The registry containing the preset recipe configurations.
-        :param default_preset:
-            The name of the default preset.
-        :param sweep_allowed_keys:
-            The recipe-specific configuration keys to use in :class:`SweepTagger`.
+        :param loader: The recipe loader.
+        :param preset_configs: The registry containing the preset recipe
+            configurations.
+        :param default_preset: The name of the default preset.
+        :param extra_sweep_keys: The recipe specific configuration keys to
+            include in the sweep directory name.
         """
-        self._loader = loader
+
+        def untyped_loader(config: object, output_dir: Path) -> Recipe:
+            config = safe_cast("config", config, preset_configs.config_kls)
+
+            return loader(config, output_dir)
+
+        self._loader = untyped_loader
         self._preset_configs = preset_configs
         self._default_preset = default_preset
-        self._sweep_allowed_keys = sweep_allowed_keys
-        self._parser = None
+        self._extra_sweep_keys = extra_sweep_keys
 
     @override
-    def init_parser(self, parser: ArgumentParser, resolver: DependencyResolver) -> None:
-        self._parser = parser
-
+    def init_parser(self, parser: ArgumentParser) -> None:
         parser.add_argument(
             "--list-presets",
             action="store_true",
@@ -468,6 +466,7 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
             dest="config_files",
             metavar="CONFIG_FILE",
             type=Path,
+            action="append",
             nargs="*",
             help="yaml configuration file(s)",
         )
@@ -491,13 +490,14 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
             help="do not create sweep directory",
         )
 
-        clusters = [k for k, _ in resolver.resolve_all_keyed(EnvironmentSetter)]
-
-        clusters.sort()
+        parser.add_argument(
+            "--sweep-format",
+            default="ps_{preset}.ws_{world_size}.{hash}",
+            help="format of the sweep directory name (default: %(default)s)",
+        )
 
         parser.add_argument(
             "--cluster",
-            choices=["auto"] + clusters,
             default="auto",
             help="cluster on which the recipe runs (default: %(default)s)",
         )
@@ -516,180 +516,147 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
         )
 
     @override
-    def __call__(self, args: Namespace, resolver: DependencyResolver) -> None:
-        console = get_console()
+    def run(self, parser: ArgumentParser, args: Namespace) -> int:
+        if args.list_presets:
+            self._print_presets()
+
+            return 0
 
         setup_basic_logging(debug=args.debug)
 
-        assert self._parser is not None
+        program = self._create_recipe_program(args)
 
-        # If requested, list the preset configurations and exit.
-        if args.list_presets:
-            if self._preset_configs.names():
-                console.print("available presets:")
+        try:
+            program.run(args)
 
-                for preset in self._preset_configs.names():
-                    if preset == self._default_preset:
-                        console.print(f"  - {preset} (default)")
-                    else:
-                        console.print(f"  - {preset}")
+            return 0
+        except ConfigNotFoundError as ex:
+            parser.error(f"argument --preset: '{ex.name}' is not a known preset configuration. Use `--list-presets` to see the available configurations.")  # fmt: skip
+        except ConfigFileNotFoundError as ex:
+            parser.error(f"argument --config-file: '{ex.config_file}' does not point to a configuration file")  # fmt: skip
+        except MissingOutputDirectoryError:
+            parser.error("the following arguments are required: output_dir")
+        except UnknownClusterError as ex:
+            s = ", ".join(ex.supported_clusters)
+
+            parser.error(f"argument --cluster: '{ex.cluster}' is not a known cluster. Must be one of: auto, none, {s}")  # fmt: skip
+        except SweepFormatPlaceholderError as ex:
+            s = ", ".join(ex.unknown_keys)
+
+            parser.error(f"argument --sweep-format: must contain only placeholders that correspond to the configuration keys, but contains the following unexpected placeholder(s): {s}")  # fmt: skip
+        except SweepFormatError:
+            parser.error("argument --sweep-format: must be a non-empty string with brace-enclosed placeholders.")  # fmt: skip
+        except ClusterError as ex:
+            if ex.cluster == "slurm":
+                log.exception("'{}' cluster environment cannot be set. See the logged stack trace for details. If you are within an allocated Slurm job (i.e. `salloc`), make sure to run with `srun`. If you want to run without Slurm, use `--cluster none`.", ex.cluster)  # fmt: skip
             else:
-                console.print("no preset configuration found.")
+                log.exception("'{}' cluster environment cannot be set. See the logged stack trace for details.", ex.cluster)  # fmt: skip
+        except SetupError:
+            log.exception("The recipe initialization has failed. See the logged stack trace for details.")  # fmt: skip
+        except StructureError:
+            log.exception("The recipe configuration cannot be parsed. See the logged stack trace for details.")  # fmt: skip
 
-            sys.exit()
+        return 1
 
-        # Load the specified preset configuration.
-        try:
-            preset_config = self._preset_configs.get(args.preset)
-        except ValueError:
-            log.error("'{}' is not a valid preset configuration name. Use `--list-presets` to see the available preset configurations.", args.preset)  # fmt: skip
+    def _print_presets(self) -> None:
+        console = get_console()
 
-            sys.exit(1)
+        names = self._preset_configs.names()
 
-        value_converter = resolver.resolve(ValueConverter)
+        if names:
+            console.print("available presets:")
 
-        try:
-            unstructured_config = value_converter.unstructure(preset_config)
-        except StructuredError:
-            log.exception("Preset configuration '{}' cannot be used. Please file a bug report to the recipe author.", args.preset)  # fmt: skip
-
-            sys.exit(1)
-
-        # Update the configuration with `--config-file`.
-        if args.config_files:
-            for config_file in args.config_files:
-                try:
-                    with config_file.open() as fp:
-                        unstructured_config_overrides = yaml.safe_load(fp)
-                except Exception:
-                    log.exception("Configuration file '{}' cannot be read.", config_file)  # fmt: skip
-
-                    sys.exit(1)
-
-                try:
-                    unstructured_config = merge_unstructured(
-                        unstructured_config, unstructured_config_overrides
-                    )
-                except StructuredError:
-                    log.exception("Configuration file '{}' cannot be used.", config_file)  # fmt: skip
-
-                    sys.exit(1)
-
-        # Update the configuration with `--config`.
-        if args.config_overrides:
-            try:
-                unstructured_config = merge_unstructured(
-                    unstructured_config, args.config_overrides
-                )
-            except StructuredError:
-                log.exception("Command line configuration overrides cannot be applied.")
-
-                sys.exit(1)
-
-        if args.dump_config:
-            try:
-                yaml.safe_dump(unstructured_config, sys.stdout, sort_keys=False)
-            except Exception:
-                log.exception("Configuration cannot be dumped to stdout.")
-
-                sys.exit(1)
-
-            sys.exit()
-
-        # If we are not dumping configuration, `--output-dir` is required.
-        if not args.output_dir:
-            self._parser.error("the following arguments are required: output_dir")
-
-        self._parser = None
-
-        # Set up cluster-specific environment variables.
-        if args.cluster == "auto":
-            env_setter = resolver.resolve(EnvironmentSetter)
+            for preset in names:
+                if preset == self._default_preset:
+                    console.print(f"  - {preset} (default)")
+                else:
+                    console.print(f"  - {preset}")
         else:
-            env_setter = resolver.resolve(EnvironmentSetter, args.cluster)
+            console.print("no preset configuration found.")
 
-        if not env_setter.supports_current_cluster():
-            log.error("Recipe is not running on a '{}' cluster.", args.cluster)
+    def _create_recipe_program(self, args: Namespace) -> RecipeProgram:
+        file_system = StandardFileSystem()
 
-            sys.exit(1)
+        config_reader = StandardConfigReader(
+            self._preset_configs, file_system, load_yaml
+        )
 
-        try:
-            env_setter.set_torch_distributed_variables()
-        except RuntimeError:
-            log.exception("'{}' cluster environment cannot be set.", env_setter.supported_cluster)  # fmt: skip
+        context = get_runtime_context()
 
-            sys.exit(1)
+        cluster_handlers = context.get_registry(ClusterHandler)
 
-        # Determine the output directory.
-        output_dir = args.output_dir.expanduser().resolve()
+        cluster_resolver = ClusterResolver(cluster_handlers, is_torchrun=is_torchrun())
 
         if not args.no_sweep_dir:
-            sweep_tagger = resolver.resolve(SweepTagger)
+            sweep_keys = get_sweep_keys(self._extra_sweep_keys)
 
-            if self._sweep_allowed_keys:
-                sweep_tagger.extend_allowed_keys(self._sweep_allowed_keys)
+            sweep_tagger: SweepTagger = StandardSweepTagger(sweep_keys)
+        else:
+            sweep_tagger = NoopSweepTagger()
+
+        logging_initializer = DistributedLoggingInitializer()
+
+        env_bootstrapper = StandardEnvironmentBootstrapper(
+            cluster_resolver, sweep_tagger, file_system, logging_initializer, dump_yaml
+        )
+
+        signal_handler = SystemSignalHandler()
+
+        runner = StandardRecipeRunner(self._loader, signal_handler)
+
+        return RecipeProgram(config_reader, env_bootstrapper, runner, dump_yaml)
+
+
+@final
+class RecipeProgram:
+    _config_reader: ConfigReader
+    _env_bootstrapper: EnvironmentBootstrapper
+    _runner: RecipeRunner
+    _yaml_dumper: YamlDumper
+
+    def __init__(
+        self,
+        config_reader: ConfigReader,
+        env_bootstrapper: EnvironmentBootstrapper,
+        runner: RecipeRunner,
+        yaml_dumper: YamlDumper,
+    ) -> None:
+        self._config_reader = config_reader
+        self._env_bootstrapper = env_bootstrapper
+        self._runner = runner
+        self._yaml_dumper = yaml_dumper
+
+    def run(self, args: Namespace) -> None:
+        config = self._config_reader.read(
+            args.preset, args.config_files, args.config_overrides
+        )
+
+        if args.dump_config:
+            unstructured_config = unstructure(config)
 
             try:
-                tag = sweep_tagger(args.preset, unstructured_config)
-            except SweepFormatError:
-                log.exception("Sweep directory cannot be created.")
+                self._yaml_dumper(unstructured_config, sys.stdout)
+            except YamlError as ex:
+                raise SetupError(
+                    "The recipe configuration cannot be dumped to stdout. See the nested exception for details."
+                ) from ex
 
-                sys.exit(1)
+            return
 
-            output_dir = output_dir.joinpath(tag)
+        if not args.output_dir:
+            raise MissingOutputDirectoryError("`args.output_dir` must be specified.")
 
-        # Set up distributed logging.
-        log_file = output_dir.joinpath("logs/rank_{rank}.log")
+        output_dir = self._env_bootstrapper.run(
+            args.preset,
+            config,
+            args.output_dir,
+            cluster=args.cluster,
+            sweep_format=args.sweep_format,
+            debug=args.debug,
+        )
 
-        try:
-            setup_logging(log_file, debug=args.debug)
-        except RuntimeError:
-            log.exception("Recipe logging cannot be set up.")
+        self._runner.run(config, output_dir)
 
-            sys.exit(1)
 
-        log.info("Log files stored under {}.", log_file.parent)
-
-        log_config(unstructured_config, log)
-
-        # Save the configuration to a YAML file.
-        config_file = output_dir.joinpath("config.yaml")
-
-        try:
-            with config_file.open("w") as fp:
-                yaml.safe_dump(unstructured_config, fp, sort_keys=False)
-        except Exception:
-            log.exception("The configuration cannot be saved to file.")
-
-            sys.exit(1)
-
-        # Parse the configuration.
-        try:
-            config = value_converter.structure(
-                unstructured_config, type_expr=self._preset_configs.config_kls
-            )
-        except StructuredError:
-            log.exception("Configuration cannot be parsed.")
-
-            sys.exit(1)
-
-        config_manager = resolver.resolve(StandardConfigManager)
-
-        config_manager.update_config_dict({"output_dir": output_dir})
-
-        _set_legacy_config(resolver, config)
-
-        # Load and run the recipe.
-        recipe = self._loader(config, output_dir)
-
-        # If the recipe is stoppable, use SIGUSR1 as the stop signal.
-        if isinstance(recipe, Stoppable):
-
-            def request_stop(signum: int, frame: FrameType) -> None:
-                log.info("SIGUSR1 received. Requesting recipe to stop.")
-
-                recipe.request_stop()
-
-            signal(SIGUSR1, request_stop)
-
-        recipe()
+class MissingOutputDirectoryError(ValueError):
+    pass

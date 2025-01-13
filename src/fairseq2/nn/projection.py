@@ -19,6 +19,7 @@ from torch.nn.functional import linear
 from torch.nn.parameter import Parameter
 from typing_extensions import override
 
+from fairseq2.error import InternalError
 from fairseq2.gang import Gang
 from fairseq2.nn.utils.module import to_empty
 from fairseq2.tensor_parallel import gather, reduce, reduce_on_backward, scatter
@@ -118,7 +119,7 @@ class Linear(Projection):
         if self.init_fn is not None:
             self.init_fn(self)
         else:
-            _init_uniform_weight_and_bias(self.weight, self.bias)
+            _init_uniform(self.weight, self.bias)
 
     @override
     def forward(self, x: Tensor) -> Tensor:
@@ -217,7 +218,7 @@ class ColumnShardedLinear(Projection):
 
         if output_dim % gang.size != 0:
             raise ValueError(
-                f"`output_dim` must be divisible by `gang.size` ({gang.size}), but is {output_dim} instead."
+                f"`output_dim` must be a multiple of `gang.size` ({gang.size}), but is {output_dim} instead."
             )
 
         self.gang = gang
@@ -263,7 +264,8 @@ class ColumnShardedLinear(Projection):
             self.weight.copy_(weight_shards[self.gang.rank])
 
         if self.bias is not None:
-            assert linear.bias is not None
+            if linear.bias is None:
+                raise InternalError("`linear.bias` is `None`.")
 
             with torch.no_grad():
                 bias_shards = linear.bias.split(self.sharded_output_dim)
@@ -293,7 +295,8 @@ class ColumnShardedLinear(Projection):
             linear.weight.copy_(weight)
 
         if self.bias is not None:
-            assert linear.bias is not None
+            if linear.bias is None:
+                raise InternalError("`linear.bias` is `None`.")
 
             with torch.no_grad():
                 bias = gather(self.bias, self.gang, dim=0)
@@ -418,7 +421,7 @@ class RowShardedLinear(Projection):
 
         if input_dim % gang.size != 0:
             raise ValueError(
-                f"`input_dim` must be divisible by `gang.size` ({gang.size}), but is {input_dim} instead."
+                f"`input_dim` must be a multiple of `gang.size` ({gang.size}), but is {input_dim} instead."
             )
 
         self.gang = gang
@@ -464,7 +467,8 @@ class RowShardedLinear(Projection):
             self.weight.copy_(weight_shards[self.gang.rank])
 
         if self.bias is not None:
-            assert linear.bias is not None
+            if linear.bias is None:
+                raise InternalError("`linear.bias` is `None`.")
 
             with torch.no_grad():
                 self.bias.copy_(linear.bias)
@@ -495,7 +499,8 @@ class RowShardedLinear(Projection):
             linear.weight.copy_(weight)
 
         if self.bias is not None:
-            assert linear.bias is not None
+            if linear.bias is None:
+                raise InternalError("`linear.bias` is `None`.")
 
             with torch.no_grad():
                 linear.bias.copy_(self.bias)
@@ -561,7 +566,21 @@ class TiedProjection(Projection):
         return linear(x, self.weight, self.bias)
 
 
-def _init_uniform_weight_and_bias(weight: Tensor, bias: Tensor | None) -> None:
+@final
+class IdentityProjection(Projection):
+    """
+    Used to disable a projection layer without changing the module architecture.
+    """
+
+    def __init__(self, dim: int) -> None:
+        super().__init__(dim, dim)
+
+    @override
+    def forward(self, x: Tensor) -> Tensor:
+        return x
+
+
+def _init_uniform(weight: Tensor, bias: Tensor | None) -> None:
     nn.init.kaiming_uniform_(weight, a=math.sqrt(5))
 
     if bias is not None:

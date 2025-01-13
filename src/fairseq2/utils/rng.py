@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
 from contextlib import AbstractContextManager, contextmanager
-from typing import Any, final
+from typing import final
 
 import torch
 from torch import Generator, Tensor
@@ -45,12 +45,12 @@ class RngBag:
 
     @staticmethod
     def from_device_defaults(*devices: Device) -> RngBag:
-        """Create an :class:`RngBag` from the random number generators of ``devices``."""
+        """Make an :class:`RngBag` from the random number generators of ``devices``."""
         unique_devices = set()
 
         generators = []
 
-        for device in devices:
+        for idx, device in enumerate(devices):
             if device in unique_devices or device.type == "meta":
                 continue
 
@@ -69,7 +69,7 @@ class RngBag:
                 generators.append(torch.cuda.default_generators[idx])
             else:
                 raise ValueError(
-                    f"`devices` must be of type `cpu` or `cuda`, but at least one device is of type `{device.type}` instead."
+                    f"`devices` must be of type `cpu` or `cuda`, but the device at index {idx} is of type `{device.type}` instead."
                 )
 
         return RngBag(*generators)
@@ -113,31 +113,32 @@ class RngBag:
             for g, s in zip(self._generators, original_states):
                 g.set_state(s)
 
-    def state_dict(self) -> dict[str, Any]:
+    def state_dict(self) -> dict[str, object]:
         return {"generators": [g.get_state() for g in self._generators]}
 
-    def load_state_dict(self, state_dict: Mapping[str, Any]) -> None:
+    def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
         try:
             states = state_dict["generators"]
         except KeyError:
-            raise ValueError(
-                "`state_dict` must contain an item named `generators`."
-            ) from None
+            raise ValueError("`state_dict` must contain a 'generators' key.") from None
+
+        if len(state_dict) != 1:
+            raise ValueError("`state_dict` must contain only a 'generators' key.")
 
         if not isinstance(states, list):
             raise TypeError(
-                f"The `generators` item of `state_dict` must be of type `{list}`, but is of type `{type(states)}` instead."
+                f"`state_dict['generators']` must be of type `{list}`, but is of type `{type(states)}` instead."
             )
 
         if len(states) != len(self._generators):
             raise ValueError(
-                f"The number of generators in `state_dict` must match the number of generators in the bag ({len(self._generators)}), but is {len(states)} instead."
+                f"The number of generators in `state_dict['generators']` must match the number of generators in the bag ({len(self._generators)}), but is {len(states)} instead."
             )
 
         for idx, state in enumerate(states):
             if not isinstance(state, Tensor):
                 raise TypeError(
-                    f"The generator states in `state_dict` must be of type `{Tensor}`, but the element at index {idx} is of type `{type(state)}` instead."
+                    f"The generator states in `state_dict['generators']` must be of type `Tensor`, but the item at index {idx} is of type `{type(state)}` instead."
                 )
 
             self._generators[idx].set_state(state.clone())

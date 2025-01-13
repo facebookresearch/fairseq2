@@ -17,21 +17,25 @@ from functools import partial
 from logging import Logger
 from pathlib import Path
 from string import capwords
-from typing import Any, Final, TextIO, final
+from typing import Final, TextIO, final
 
 from torch import Tensor
 from typing_extensions import override
 
-from fairseq2.logging import LogWriter, get_log_writer
+from fairseq2.error import AlreadyExistsError
+from fairseq2.logging import LogWriter, log
 
-log = get_log_writer(__name__)
 
-
-def format_as_int(value: Any, *, postfix: str | None = None) -> str:
+def format_as_int(value: object, *, postfix: str | None = None) -> str:
     """Format metric ``value`` as integer."""
-    try:
-        i = int(value)
-    except ValueError:
+    if isinstance(value, int):
+        i = value
+    elif isinstance(value, (str, Tensor, float)):
+        try:
+            i = int(value)
+        except ValueError:
+            return f"{value}"
+    else:
         return f"{value}"
 
     s = "<1" if i == 0 and isinstance(value, float) else f"{i:,}"
@@ -46,12 +50,19 @@ format_as_seconds = partial(format_as_int, postfix="s")
 """Format metric ``value`` as duration in seconds."""
 
 
-def format_as_float(value: Any, *, postfix: str | None = None) -> str:
+def format_as_float(value: object, *, postfix: str | None = None) -> str:
     """Format metric ``value`` as float."""
-    try:
-        s = f"{float(value):g}"
-    except ValueError:
+    if isinstance(value, float):
+        f = value
+    elif isinstance(value, (str, Tensor, int)):
+        try:
+            f = float(value)
+        except ValueError:
+            return f"{value}"
+    else:
         return f"{value}"
+
+    s = f"{f:g}"
 
     if postfix:
         s += postfix
@@ -62,14 +73,19 @@ def format_as_float(value: Any, *, postfix: str | None = None) -> str:
 _UNITS: Final = ["B", "KiB", "MiB", "GiB", "TiB", "PiB"]
 
 
-def format_as_byte_size(value: Any) -> str:
+def format_as_byte_size(value: object) -> str:
     """Format metric ``value`` in byte units."""
-    unit_idx = 0
-
-    try:
-        size = float(value)
-    except ValueError:
+    if isinstance(value, float):
+        size = value
+    elif isinstance(value, (str, Tensor, int)):
+        try:
+            size = float(value)
+        except ValueError:
+            return f"{value}"
+    else:
         return f"{value}"
+
+    unit_idx = 0
 
     if not math.isfinite(size) or size <= 0.0:
         return "0 B"
@@ -89,7 +105,7 @@ def format_as_byte_size(value: Any) -> str:
 class _MetricFormatter:
     display_name: str
     priority: int
-    fn: Callable[[Any], str] = str
+    fn: Callable[[object], str] = str
     log: bool = True
 
 
@@ -143,7 +159,7 @@ def register_metric_formatter(
     name: str,
     display_name: str,
     priority: int,
-    fn: Callable[[Any], str],
+    fn: Callable[[object], str],
     *,
     log: bool = True,
     overwrite: bool = False,
@@ -164,14 +180,12 @@ def register_metric_formatter(
         If ``True``, overwrites any existing metric formatter with the same name.
     """
     if name in _metric_formatters and not overwrite:
-        raise ValueError(
-            f"`name` must be a unique metric name, but '{name}' is already registered."
-        )
+        raise AlreadyExistsError(f"'{name}' is already a registered metric name.")
 
     _metric_formatters[name] = _MetricFormatter(display_name, priority, fn, log)
 
 
-def format_metric_value(name: str, value: Any) -> str:
+def format_metric_value(name: str, value: object) -> str:
     """Format the specified metric along with its value as a string."""
     formatter = _metric_formatters.get(name)
     if formatter is None:
@@ -187,7 +201,7 @@ class MetricRecorder(ABC):
     def record_metrics(
         self,
         run: str,
-        values: Mapping[str, Any],
+        values: Mapping[str, object],
         step_nr: int | None = None,
         *,
         flush: bool = True,
@@ -209,10 +223,14 @@ class MetricRecorder(ABC):
         """Close the recorder."""
 
 
+class MetricRecordError(Exception):
+    pass
+
+
 def record_metrics(
     recorders: Sequence[MetricRecorder],
     run: str,
-    values: Mapping[str, Any],
+    values: Mapping[str, object],
     step_nr: int | None = None,
     *,
     flush: bool = True,
@@ -254,7 +272,7 @@ class LogMetricRecorder(MetricRecorder):
     def record_metrics(
         self,
         run: str,
-        values: Mapping[str, Any],
+        values: Mapping[str, object],
         step_nr: int | None = None,
         *,
         flush: bool = True,
@@ -318,7 +336,7 @@ class JsonFileMetricRecorder(MetricRecorder):
     def record_metrics(
         self,
         run: str,
-        values: Mapping[str, Any],
+        values: Mapping[str, object],
         step_nr: int | None = None,
         *,
         flush: bool = True,
@@ -345,19 +363,20 @@ class JsonFileMetricRecorder(MetricRecorder):
         # Sort by priority and display name.
         values_and_formatters.sort(key=lambda p: (p[1].priority, p[1].display_name))
 
-        def sanitize(value: Any, formatter: _MetricFormatter) -> Any:
+        def sanitize(value: object, formatter: _MetricFormatter) -> object:
             if isinstance(value, Tensor):
                 value = value.item()
 
             if formatter.fn is format_as_int:
-                try:
-                    value = int(value)
-                except ValueError:
-                    pass
+                if isinstance(value, (str, Tensor, float)):
+                    try:
+                        value = int(value)
+                    except ValueError:
+                        pass
 
             return value
 
-        output: dict[str, Any] = {"Time": datetime.utcnow().isoformat()}
+        output: dict[str, object] = {"Time": datetime.utcnow().isoformat()}
 
         if step_nr is not None:
             output["Step"] = step_nr
@@ -365,12 +384,17 @@ class JsonFileMetricRecorder(MetricRecorder):
         for value, formatter in values_and_formatters:
             output[formatter.display_name] = sanitize(value, formatter)
 
-        json.dump(output, stream, indent=None)
+        try:
+            json.dump(output, stream, indent=None)
 
-        stream.write("\n")
+            stream.write("\n")
 
-        if flush:
-            stream.flush()
+            if flush:
+                stream.flush()
+        except OSError as ex:
+            raise MetricRecordError(
+                f"The metric values of the '{run}' cannot be saved to JSON file. See the nested exception for details."
+            ) from ex
 
     def _get_stream(self, run: str) -> TextIO:
         try:
@@ -383,15 +407,15 @@ class JsonFileMetricRecorder(MetricRecorder):
         try:
             file.parent.mkdir(parents=True, exist_ok=True)
         except OSError as ex:
-            raise RuntimeError(
-                f"The metric directory ({file.parent}) cannot be created. See nested exception for details."
+            raise MetricRecordError(
+                f"The '{file.parent}' metric directory cannot be created. See the nested exception for details."
             ) from ex
 
         try:
             fp = file.open("a")
         except OSError as ex:
-            raise RuntimeError(
-                f"The metric file ({file}) cannot be created. See nested exception for details."
+            raise MetricRecordError(
+                f"The '{file}' metric file for the '{run} run cannot be created. See the nested exception for details."
             ) from ex
 
         self._streams[run] = fp
@@ -436,7 +460,7 @@ class TensorBoardRecorder(MetricRecorder):
     def record_metrics(
         self,
         run: str,
-        values: Mapping[str, Any],
+        values: Mapping[str, object],
         step_nr: int | None = None,
         *,
         flush: bool = True,
@@ -445,25 +469,29 @@ class TensorBoardRecorder(MetricRecorder):
         if writer is None:
             return
 
-        for name, value in values.items():
-            formatter = _metric_formatters.get(name)
-            if formatter is None:
-                display_name = name
-            else:
-                display_name = formatter.display_name
+        try:
+            for name, value in values.items():
+                formatter = _metric_formatters.get(name)
+                if formatter is None:
+                    display_name = name
+                else:
+                    display_name = formatter.display_name
 
-            writer.add_scalar(display_name, value, step_nr)
+                writer.add_scalar(display_name, value, step_nr)
 
-        if flush:
-            writer.flush()
+            if flush:
+                writer.flush()
+        except RuntimeError as ex:
+            raise MetricRecordError(
+                f"The metric values of the '{run}' cannot be saved to TensorBoard. See the nested exception for details."
+            ) from ex
 
     def _get_writer(self, run: str) -> SummaryWriter | None:
         if not has_tensorboard:
             return None
 
-        try:
-            writer = self._writers[run]
-        except KeyError:
+        writer = self._writers.get(run)
+        if writer is None:
             writer = SummaryWriter(self._output_dir.joinpath(run))
 
             self._writers[run] = writer
@@ -474,6 +502,7 @@ class TensorBoardRecorder(MetricRecorder):
     def close(self) -> None:
         for writer in self._writers.values():
             writer.close()
+
         self._writers.clear()
 
 
@@ -492,6 +521,7 @@ class WandbRecorder(MetricRecorder):
     def __init__(self, project: str, name: str, output_dir: Path) -> None:
         """
         :param project: The W&B project name.
+        :param name: The run name.
         :param output_dir: The base directory under which to store the W&B files.
 
         In order to use W&B, run `wandb login` from the command line and enter
@@ -510,7 +540,7 @@ class WandbRecorder(MetricRecorder):
     def record_metrics(
         self,
         run: str,
-        values: Mapping[str, Any],
+        values: Mapping[str, object],
         step_nr: int | None = None,
         *,
         flush: bool = True,
@@ -525,7 +555,12 @@ class WandbRecorder(MetricRecorder):
             else:
                 display_name = formatter.display_name
 
-            self._run.log({display_name: value}, step=step_nr)
+            try:
+                self._run.log({display_name: value}, step=step_nr)
+            except RuntimeError as ex:
+                raise MetricRecordError(
+                    f"The metric values of the '{run}' cannot be saved to Weights & Biases. See the nested exception for details."
+                ) from ex
 
     @override
     def close(self) -> None:

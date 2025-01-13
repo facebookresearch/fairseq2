@@ -14,21 +14,19 @@ import torch
 from torch import Tensor
 from typing_extensions import override
 
-from fairseq2.assets import AssetNotFoundError
-from fairseq2.checkpoint import CheckpointManager
+from fairseq2.assets import AssetCardNotFoundError, default_asset_store
+from fairseq2.checkpoint import FileCheckpointManager, FileCheckpointMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
-from fairseq2.data.text import load_text_tokenizer
+from fairseq2.data.text import get_text_tokenizer_hub
 from fairseq2.datasets import LengthBatching, StaticBatching
 from fairseq2.datasets.parallel_text import (
     GenericParallelTextDataset,
-    load_parallel_text_dataset,
+    ParallelTextReadOptions,
+    get_parallel_text_dataset_hub,
 )
-from fairseq2.dependency import resolve, resolve_all
 from fairseq2.gang import Gang
 from fairseq2.generation import BeamSearchConfig, create_seq2seq_generator
 from fairseq2.logging import get_log_writer
-from fairseq2.metrics import MetricRecorder
-from fairseq2.models import create_model
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.optim import AdamWConfig, create_optimizer
@@ -44,7 +42,7 @@ from fairseq2.recipes.utils.asset import (
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model, log_model_config
-from fairseq2.recipes.utils.setup import to_data_parallel
+from fairseq2.recipes.utils.setup import create_model, setup_root_gang, to_data_parallel
 from fairseq2.typing import CPU, META, DataType
 from fairseq2.utils.profiler import Stopwatch
 from fairseq2.utils.rng import manual_seed
@@ -69,6 +67,9 @@ class MTTrainConfig:
 
     valid_split: str = "valid"
     """The name of the valid data split."""
+
+    min_seq_len: int = 1
+    """The minimum sequence length."""
 
     max_seq_len: int = 512
     """The maximum sequence length."""
@@ -191,7 +192,7 @@ class MTTrainConfig:
     """If ``True``, enables the anomaly detection feature of ``torch.autograd``."""
 
 
-mt_train_presets = ConfigRegistry[MTTrainConfig]()
+mt_train_presets = ConfigRegistry(MTTrainConfig)
 
 mt_train_preset = mt_train_presets.decorator
 
@@ -221,35 +222,44 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
     """Load a :class:`Trainer` for machine translation training."""
     wall_watch = Stopwatch(start=True)
 
-    gang = resolve(Gang)
+    gang = setup_root_gang(log, monitored=config.monitored_gang)
 
-    checkpoint_manager = resolve(CheckpointManager)
+    checkpoint_manager = FileCheckpointManager(output_dir.joinpath("checkpoints"), gang)
+
+    if config.resume_checkpoint_dir is not None:
+        default_asset_store.metadata_providers.append(
+            FileCheckpointMetadataProvider(config.resume_checkpoint_dir)
+        )
 
     tokenizer_card = retrieve_asset_card(config.tokenizer)
 
     # Load the tokenizer.
     log.info("Loading {} tokenizer.", tokenizer_card.name)
 
-    tokenizer = load_text_tokenizer(tokenizer_card)
+    tokenizer_hub = get_text_tokenizer_hub()
+
+    tokenizer = tokenizer_hub.load(tokenizer_card)
 
     log.info("Tokenizer loaded.")
 
     # Load the dataset.
     try:
         dataset_card = retrieve_asset_card(config.dataset)
-    except AssetNotFoundError:
+    except AssetCardNotFoundError:
         dataset_card = None
 
     if dataset_card is not None:
         log.info("Loading {} parallel text dataset.", dataset_card.name)
 
-        dataset = load_parallel_text_dataset(dataset_card)
+        dataset_hub = get_parallel_text_dataset_hub()
+
+        dataset = dataset_hub.load(dataset_card)
 
         log.info("Dataset loaded.")
     else:
         dataset_path = asset_as_path(config.dataset)
 
-        dataset = GenericParallelTextDataset.from_path(dataset_path)
+        dataset = GenericParallelTextDataset.from_path(dataset_path, "path")
 
     seed = config.seed
 
@@ -279,8 +289,10 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
     log_model_config(model_config, log)
 
     checkpoint_manager.save_model_metadata(
-        family=model.family, config=model_config, tokenizer_name=tokenizer_card.name
+        family=config.model_family, config=model_config
     )
+
+    checkpoint_manager.save_tokenizer_metadata(tokenizer_card.name)
 
     has_checkpoint = checkpoint_manager.has_checkpoint()
 
@@ -303,19 +315,24 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
     # Initialize the train unit.
     unit = MTTrainUnit(criterion, gang)
 
+    options = ParallelTextReadOptions(
+        sample=True,
+        example_shuffle_window=config.example_shuffle_window,
+        batch_shuffle_window=config.batch_shuffle_window,
+        num_accumulate=config.gradient_accumulation,
+        num_prefetch=config.num_prefetch,
+        seed=seed,
+    )
+
     try:
         data_reader = dataset.create_reader(
             config.split,
             tokenizer,
             gang,
+            config.min_seq_len,
             config.max_seq_len,
-            batching=LengthBatching(config.max_num_tokens),
-            sample=True,
-            example_shuffle_window=config.example_shuffle_window,
-            batch_shuffle_window=config.batch_shuffle_window,
-            num_accumulate=config.gradient_accumulation,
-            num_prefetch=config.num_prefetch,
-            seed=seed,
+            LengthBatching(config.max_num_tokens),
+            options,
         )
     except ValueError as ex:
         raise ValueError(
@@ -371,17 +388,22 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
 
         valid_units.append(valid_loss_unit)
 
+        options = ParallelTextReadOptions(
+            direction=direction,
+            sync_mode="until_last",
+            num_prefetch=config.num_prefetch,
+            seed=seed,
+        )
+
         try:
             valid_data_reader = dataset.create_reader(
                 config.valid_split,
                 tokenizer,
                 gang,
+                config.min_seq_len,
                 config.max_seq_len,
-                batching=LengthBatching(config.max_num_tokens),
-                direction=direction,
-                sync_mode="until_last",
-                num_prefetch=config.num_prefetch,
-                seed=seed,
+                LengthBatching(config.max_num_tokens),
+                options,
             )
         except ValueError as ex:
             raise ValueError(
@@ -400,17 +422,22 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
 
             valid_units.append(valid_score_unit)
 
+            options = ParallelTextReadOptions(
+                direction=direction,
+                sync_mode="until_last",
+                num_prefetch=config.num_prefetch,
+                seed=seed,
+            )
+
             try:
                 valid_data_reader = dataset.create_reader(
                     config.valid_split,
                     tokenizer,
                     gang,
+                    config.min_seq_len,
                     config.max_seq_len,
-                    batching=StaticBatching(config.generator_batch_size),
-                    direction=direction,
-                    sync_mode="until_last",
-                    num_prefetch=config.num_prefetch,
-                    seed=seed,
+                    StaticBatching(config.generator_batch_size),
+                    options,
                 )
             except ValueError as ex:
                 raise ValueError(
@@ -423,8 +450,6 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
 
     # TODO: Fix once we support static mixed precision on one device.
     amp = gang.size == 1 or config.data_parallelism != "fsdp"
-
-    metric_recorders = resolve_all(MetricRecorder)
 
     # Initialize the trainer.
     return Trainer[Seq2SeqBatch](
@@ -447,7 +472,8 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
         checkpoint_manager=checkpoint_manager,
         checkpoint_after_n_steps=config.checkpoint_after_n_steps,
         checkpoint_every_n_steps=config.checkpoint_every_n_steps,
-        metric_recorders=metric_recorders,
+        tb_dir=output_dir.joinpath("tb"),
+        metrics_dir=output_dir.joinpath("metrics"),
         publish_metrics_every_n_steps=config.publish_metrics_every_n_steps,
         profile=config.profile,
         anomaly_detection=config.anomaly_detection,

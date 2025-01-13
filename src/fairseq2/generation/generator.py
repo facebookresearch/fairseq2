@@ -55,6 +55,59 @@ class SequenceGenerator(ABC):
         """The associated decoder model."""
 
 
+@final
+@dataclass
+class SequenceGeneratorOutput:
+    """Holds the output of a sequence generator."""
+
+    hypotheses: list[list[Hypothesis]]
+    """The list of hypothesis generated per prompt, ordered by score."""
+
+    counters: GenerationCounters
+    """The performance counters of the call."""
+
+
+@final
+@dataclass
+class Hypothesis:
+    """Represents a hypothesis produced by a sequence generator."""
+
+    seq: Tensor
+    """The generated sequence. *Shape:* :math:`(S)`, where :math:`S` is the
+    sequence length."""
+
+    score: Tensor | None
+    """The score of the hypothesis. *Shape:* Scalar."""
+
+    step_scores: Tensor | None
+    """The score of each sequence step. *Shape:* Same as ``seq``."""
+
+
+@final
+@dataclass
+class GenerationCounters:
+    """Holds the performance counters of a generator call."""
+
+    prefill_size: int = 0
+    """The number of elements processed during the prefill step."""
+
+    num_generated_elements: int = 0
+    """The number of generated elements."""
+
+    generation_time: float = 0
+    """The generation time excluding prefill."""
+
+    cache_size: int = 0
+    """The final size of the incremental cache in bytes."""
+
+    cache_capacity: int = 0
+    """The final reserved capacity of the incremental cache in bytes."""
+
+
+class SequenceGenerationError(Exception):
+    pass
+
+
 class AbstractSequenceGenerator(SequenceGenerator):
     """Provides a skeletal implementation of :class:`SequenceGenerator`."""
 
@@ -91,18 +144,6 @@ class AbstractSequenceGenerator(SequenceGenerator):
     @override
     def model(self) -> DecoderModel:
         return self._model
-
-
-@final
-@dataclass
-class SequenceGeneratorOutput:
-    """Holds the output of a sequence generator."""
-
-    hypotheses: list[list[Hypothesis]]
-    """The list of hypothesis generated per prompt, ordered by score."""
-
-    counters: GenerationCounters
-    """The performance counters of the call."""
 
 
 class Seq2SeqGenerator(ABC):
@@ -151,6 +192,27 @@ class Seq2SeqGenerator(ABC):
         """The associated encoder-decoder model."""
 
 
+@final
+@dataclass
+class Seq2SeqGeneratorOutput:
+    hypotheses: list[list[Hypothesis]]
+    """The list of hypothesis generated per prompt, ordered by score."""
+
+    encoder_output: Tensor
+    """The encoder output used in encoder-decoder attention. *Shape:*
+    :math:`(N,S_{enc},M)`, where :math:`N` is the batch size, :math:`S_{enc}` is
+    the encoder output sequence length, and :math:`M` is the dimensionality of
+    the model."""
+
+    encoder_padding_mask: PaddingMask | None
+    """The padding mask of :attr:`encoder_output`. *Shape:* :math:`(N,S_{enc})`,
+    where :math:`N` is the batch size and :math:`S_{enc}` is the encoder output
+    sequence length."""
+
+    counters: GenerationCounters
+    """The performance counters of the call."""
+
+
 class AbstractSeq2SeqGenerator(Seq2SeqGenerator):
     """Provides a skeletal implementation of :class:`Seq2SeqGenerator`."""
 
@@ -187,64 +249,6 @@ class AbstractSeq2SeqGenerator(Seq2SeqGenerator):
     @override
     def model(self) -> EncoderDecoderModel:
         return self._model
-
-
-@final
-@dataclass
-class Seq2SeqGeneratorOutput:
-    hypotheses: list[list[Hypothesis]]
-    """The list of hypothesis generated per prompt, ordered by score."""
-
-    encoder_output: Tensor
-    """The encoder output used in encoder-decoder attention. *Shape:*
-    :math:`(N,S_{enc},M)`, where :math:`N` is the batch size, :math:`S_{enc}` is
-    the encoder output sequence length, and :math:`M` is the dimensionality of
-    the model."""
-
-    encoder_padding_mask: PaddingMask | None
-    """The padding mask of :attr:`encoder_output`. *Shape:* :math:`(N,S_{enc})`,
-    where :math:`N` is the batch size and :math:`S_{enc}` is the encoder output
-    sequence length."""
-
-    counters: GenerationCounters
-    """The performance counters of the call."""
-
-
-@final
-@dataclass
-class Hypothesis:
-    """Represents a hypothesis produced by a sequence generator."""
-
-    seq: Tensor
-    """The generated sequence. *Shape:* :math:`(S)`, where :math:`S` is the
-    sequence length."""
-
-    score: Tensor | None
-    """The score of the hypothesis. *Shape:* Scalar."""
-
-    step_scores: Tensor | None
-    """The score of each sequence step. *Shape:* Same as ``seq``."""
-
-
-@final
-@dataclass
-class GenerationCounters:
-    """Holds the performance counters of a generator call."""
-
-    prefill_size: int = 0
-    """The number of elements processed during the prefill step."""
-
-    num_generated_elements: int = 0
-    """The number of generated elements."""
-
-    generation_time: float = 0
-    """The generation time excluding prefill."""
-
-    cache_size: int = 0
-    """The final size of the incremental cache in bytes."""
-
-    cache_capacity: int = 0
-    """The final reserved capacity of the incremental cache in bytes."""
 
 
 class StepHook(Protocol):

@@ -12,19 +12,16 @@ from typing import Literal
 
 import torch
 
-from fairseq2.assets import AssetNotFoundError
+from fairseq2.assets import AssetCardNotFoundError
 from fairseq2.config_registry import ConfigRegistry
-from fairseq2.data.text import load_text_tokenizer
-from fairseq2.datasets.batching import LengthBatching
+from fairseq2.data.text import get_text_tokenizer_hub
+from fairseq2.datasets import LengthBatching
 from fairseq2.datasets.instruction import (
     GenericInstructionDataset,
-    load_generic_instruction_dataset,
+    InstructionReadOptions,
+    get_instruction_dataset_hub,
 )
-from fairseq2.dependency import resolve, resolve_all
-from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
-from fairseq2.metrics import MetricRecorder
-from fairseq2.models import load_model
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.nn.transformer import enable_memory_efficient_torch_sdpa
@@ -39,7 +36,7 @@ from fairseq2.recipes.utils.asset import (
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import to_data_parallel
+from fairseq2.recipes.utils.setup import load_model, setup_gangs, to_data_parallel
 from fairseq2.typing import CPU, META, DataType
 from fairseq2.utils.profiler import Stopwatch
 from fairseq2.utils.rng import manual_seed
@@ -88,6 +85,9 @@ class NLLEvalConfig:
     max_num_tokens: int = 8192 * 2
     """The maximum number of tokens per batch."""
 
+    min_seq_len: int = 1
+    """The minimum sequence length."""
+
     max_seq_len: int = 8192
     """The maximum sequence length."""
 
@@ -107,7 +107,7 @@ class NLLEvalConfig:
     """The random number generator seed to use."""
 
 
-nll_eval_presets = ConfigRegistry[NLLEvalConfig]()
+nll_eval_presets = ConfigRegistry(NLLEvalConfig)
 
 nll_eval_preset = nll_eval_presets.decorator
 
@@ -123,36 +123,40 @@ def load_nll_evaluator(
 ) -> Evaluator[SequenceBatch]:
     wall_watch = Stopwatch(start=True)
 
-    root_gang = resolve(Gang)
+    root_gang, gangs = setup_gangs(log, tp_size=config.tensor_parallel_size)
 
-    dp_gang = resolve(Gang, key="dp")  # data
-    tp_gang = resolve(Gang, key="tp")  # tensor
+    dp_gang = gangs["dp"]  # data
+    tp_gang = gangs["tp"]  # tensor
 
     # Load the tokenizer.
     model_card = retrieve_asset_card(config.model)
 
     log.info("Loading {} tokenizer.", model_card.name)
 
-    tokenizer = load_text_tokenizer(model_card)
+    tokenizer_hub = get_text_tokenizer_hub()
+
+    tokenizer = tokenizer_hub.load(model_card)
 
     log.info("Tokenizer loaded.")
 
     # Load the dataset.
     try:
         dataset_card = retrieve_asset_card(config.dataset)
-    except AssetNotFoundError:
+    except AssetCardNotFoundError:
         dataset_card = None
 
     if dataset_card is not None:
         log.info("Loading {} preference optimization dataset.", dataset_card.name)
 
-        dataset = load_generic_instruction_dataset(dataset_card)
+        dataset_hub = get_instruction_dataset_hub()
+
+        dataset = dataset_hub.load(dataset_card)
 
         log.info("Dataset loaded.")
     else:
         dataset_path = asset_as_path(config.dataset)
 
-        dataset = GenericInstructionDataset.from_path(dataset_path)
+        dataset = GenericInstructionDataset.from_path(dataset_path, "path")
 
     seed = config.seed
 
@@ -211,12 +215,7 @@ def load_nll_evaluator(
     criterion = InstructionFinetuneCriterion(dp_model)
     unit = InstructionValidUnit(criterion, dp_gang)
 
-    data_reader = dataset.create_reader(
-        config.valid_split,
-        tokenizer,
-        dp_gang,
-        config.max_seq_len,
-        batching=LengthBatching(config.max_num_tokens),
+    options = InstructionReadOptions(
         example_shuffle_window=config.example_shuffle_window,
         batch_shuffle_window=config.batch_shuffle_window,
         sync_mode="until_last",
@@ -225,7 +224,15 @@ def load_nll_evaluator(
         seed=seed,
     )
 
-    metric_recorders = resolve_all(MetricRecorder)
+    data_reader = dataset.create_reader(
+        config.valid_split,
+        tokenizer,
+        dp_gang,
+        config.min_seq_len,
+        config.max_seq_len,
+        LengthBatching(config.max_num_tokens),
+        options=options,
+    )
 
     # TODO: Fix once we support static mixed precision on one device.
     if config.mixed_precision == "static":
@@ -240,7 +247,8 @@ def load_nll_evaluator(
         root_gang=root_gang,
         dtype=config.dtype,
         amp=amp,
-        metric_recorders=metric_recorders,
+        tb_dir=output_dir.joinpath("tb"),
+        metrics_dir=output_dir.joinpath("metrics"),
         seed=seed,
         wall_watch=wall_watch,
     )

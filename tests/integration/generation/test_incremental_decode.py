@@ -8,8 +8,8 @@ from typing import Final
 
 import torch
 
-from fairseq2.models.nllb import load_nllb_tokenizer
-from fairseq2.models.transformer import load_transformer_model
+from fairseq2.data.text import get_text_tokenizer_hub
+from fairseq2.models.transformer import get_transformer_model_hub
 from fairseq2.nn import IncrementalStateBag
 from fairseq2.nn.padding import pad_seqs
 from tests.common import assert_close, device
@@ -23,13 +23,15 @@ EN_SENTENCE: Final = "Lion prides act much like packs of wolves or dogs, animals
 def test_incremental_decoding_works() -> None:
     model_name = "nllb-200_dense_distill_600m"
 
-    model = load_transformer_model(
-        model_name, device=device, dtype=torch.float32, progress=False
-    )
+    model_hub = get_transformer_model_hub()
+
+    model = model_hub.load(model_name, device=device, dtype=torch.float32)
 
     model.eval()
 
-    tokenizer = load_nllb_tokenizer(model_name, progress=False)
+    tokenizer_hub = get_text_tokenizer_hub()
+
+    tokenizer = tokenizer_hub.load(model_name)
 
     pad_idx = tokenizer.vocab_info.pad_idx
 

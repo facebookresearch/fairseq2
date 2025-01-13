@@ -18,11 +18,7 @@ from fairseq2.recipes.wav2vec2.train import (
 
 
 def _setup_wav2vec2_cli(cli: Cli) -> None:
-    sweep_allowed_keys = [
-        "max_audio_len",
-        "min_audio_len",
-        "normalize_audio",
-    ]
+    extra_sweep_keys = {"max_audio_len", "min_audio_len", "normalize_audio"}
 
     group = cli.add_group("wav2vec2", help="wav2vec 2.0 pretraining recipes")
 
@@ -31,7 +27,7 @@ def _setup_wav2vec2_cli(cli: Cli) -> None:
         loader=load_wav2vec2_trainer,
         preset_configs=wav2vec2_train_presets,
         default_preset="base_960h",
-        sweep_allowed_keys=sweep_allowed_keys,
+        extra_sweep_keys=extra_sweep_keys,
     )
 
     group.add_command(
@@ -45,7 +41,7 @@ def _setup_wav2vec2_cli(cli: Cli) -> None:
         loader=load_wav2vec2_evaluator,
         preset_configs=wav2vec2_eval_presets,
         default_preset="base_ls960h",
-        sweep_allowed_keys=sweep_allowed_keys,
+        extra_sweep_keys=extra_sweep_keys,
     )
 
     group.add_command(

@@ -6,24 +6,20 @@
 
 from __future__ import annotations
 
-from fairseq2.models.mistral.chatbot import MistralChatbot as MistralChatbot
-from fairseq2.models.mistral.factory import MISTRAL_FAMILY as MISTRAL_FAMILY
-from fairseq2.models.mistral.factory import MistralBuilder as MistralBuilder
-from fairseq2.models.mistral.factory import MistralConfig as MistralConfig
-from fairseq2.models.mistral.factory import create_mistral_model as create_mistral_model
-from fairseq2.models.mistral.factory import mistral_arch as mistral_arch
-from fairseq2.models.mistral.factory import mistral_archs as mistral_archs
-from fairseq2.models.mistral.loader import load_mistral_config as load_mistral_config
-from fairseq2.models.mistral.loader import load_mistral_model as load_mistral_model
-from fairseq2.models.mistral.loader import (
-    load_mistral_tokenizer as load_mistral_tokenizer,
+from fairseq2.models.mistral.config import MISTRAL_MODEL_FAMILY as MISTRAL_MODEL_FAMILY
+from fairseq2.models.mistral.config import MistralConfig as MistralConfig
+from fairseq2.models.mistral.config import (
+    register_mistral_configs as register_mistral_configs,
+)
+from fairseq2.models.mistral.factory import MistralFactory as MistralFactory
+from fairseq2.models.mistral.handler import MistralModelHandler as MistralModelHandler
+from fairseq2.models.mistral.handler import (
+    convert_mistral_checkpoint as convert_mistral_checkpoint,
 )
 
 # isort: split
 
-from fairseq2.dependency import DependencyContainer
-from fairseq2.models.mistral.archs import register_archs
+from fairseq2.models.hub import ModelHubAccessor
+from fairseq2.models.transformer_decoder import TransformerDecoderModel
 
-
-def register_mistral(container: DependencyContainer) -> None:
-    register_archs()
+get_mistral_model_hub = ModelHubAccessor(TransformerDecoderModel, MistralConfig)

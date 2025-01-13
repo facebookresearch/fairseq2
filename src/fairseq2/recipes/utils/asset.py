@@ -11,12 +11,13 @@ from typing import TypeAlias
 
 from fairseq2.assets import (
     AssetCard,
+    AssetCardNotFoundError,
     AssetMetadataError,
-    AssetNotFoundError,
     InProcAssetMetadataProvider,
     default_asset_store,
     load_metadata_file,
 )
+from fairseq2.utils.yaml import load_yaml
 
 AssetReference: TypeAlias = str | AssetCard | Path
 
@@ -32,8 +33,8 @@ def retrieve_asset_card(name_or_card: AssetReference) -> AssetCard:
 
     if isinstance(name_or_card, Path):
         if name_or_card.is_dir():
-            raise AssetNotFoundError(
-                f"{name_or_card}", f"An asset metadata file cannot be found at {name_or_card}."  # fmt: skip
+            raise AssetCardNotFoundError(
+                name_or_card.name, f"An asset metadata file cannot be found at {name_or_card}."  # fmt: skip
             )
 
         return _card_from_file(name_or_card)
@@ -42,7 +43,7 @@ def retrieve_asset_card(name_or_card: AssetReference) -> AssetCard:
 
     try:
         return default_asset_store.retrieve_card(name)
-    except AssetNotFoundError:
+    except AssetCardNotFoundError:
         pass
 
     try:
@@ -54,11 +55,13 @@ def retrieve_asset_card(name_or_card: AssetReference) -> AssetCard:
         if (file.suffix == ".yaml" or file.suffix == ".yml") and file.exists():
             return _card_from_file(file)
 
-    raise AssetNotFoundError(name, f"An asset with the name '{name}' cannot be found.")
+    raise AssetCardNotFoundError(
+        name, f"An asset with the name '{name}' cannot be found."
+    )
 
 
 def _card_from_file(file: Path) -> AssetCard:
-    all_metadata = load_metadata_file(file)
+    all_metadata = load_metadata_file(file, load_yaml)
 
     if len(all_metadata) != 1:
         raise AssetMetadataError(
@@ -97,7 +100,7 @@ def asset_as_path(name_or_card: AssetReference) -> Path:
         path = None
 
     if path is None or not path.exists():
-        raise AssetNotFoundError(
+        raise AssetCardNotFoundError(
             name_or_card, f"An asset with the name '{name_or_card}' cannot be found."
         ) from None
 

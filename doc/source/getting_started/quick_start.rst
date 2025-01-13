@@ -42,3 +42,12 @@ After fine-tuning a language model, you can generate text with the following com
         model=$CKPT \
         generator_config.temperature=0.1 \
         dataset=$DATASET
+
+
+See Also
+--------
+
+- :doc:`Design Philosophy </basics/design_philosophy>`
+- :doc:`Recipe </basics/recipe>`
+- :doc:`CLI </basics/cli>`
+- :doc:`Assets </basics/assets>`

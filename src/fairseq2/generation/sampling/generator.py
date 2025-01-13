@@ -16,12 +16,14 @@ from torch.nn.functional import softmax
 from typing_extensions import override
 
 from fairseq2.data import VocabularyInfo
+from fairseq2.error import InternalError
 from fairseq2.generation.generator import (
     AbstractSeq2SeqGenerator,
     AbstractSequenceGenerator,
     GenerationCounters,
     Hypothesis,
     Seq2SeqGeneratorOutput,
+    SequenceGenerationError,
     SequenceGeneratorOutput,
     StepHook,
 )
@@ -429,7 +431,8 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
     ) -> None:
         self._sampler = sampler
 
-        assert vocab_info.eos_idx is not None
+        if vocab_info.eos_idx is None:
+            raise InternalError("`vocab_info.eos_idx` is `None`.")
 
         self._eos_idx = vocab_info.eos_idx
         self._pad_idx = vocab_info.pad_idx
@@ -588,7 +591,7 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
             probs = softmax(logits, dim=-1, dtype=torch.float32)
 
             if probs.isnan().any():
-                raise RuntimeError(
+                raise SequenceGenerationError(
                     "The model has produced one or more NaN probabilities during prefill. The sequence generator cannot continue."
                 )
 
@@ -640,7 +643,7 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
         probs.squeeze_(1)
 
         if probs.isnan().any():
-            raise RuntimeError(
+            raise SequenceGenerationError(
                 f"The model has produced one or more NaN probabilities at step {self._step_nr}. The sequence generator cannot continue."
             )
 
@@ -669,7 +672,7 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
                 probs[:, self._eos_idx] = 0
 
             # (N)
-            vocab_indices = self._sampler(probs)
+            vocab_indices = self._sampler.sample(probs)
 
         # EOS mask of the current step.
         # (N)
@@ -677,7 +680,8 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
 
         # Ignore the generated indices for the prompt sequences.
         if self._step_nr < self._max_prompt_len:
-            assert self._prompt_mask is not None
+            if self._prompt_mask is None:
+                raise InternalError("`_prompt_mask` is `None`.")
 
             # (N)
             mask = self._prompt_mask[:, self._step_nr]

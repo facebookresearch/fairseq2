@@ -6,55 +6,73 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from typing import Any, TypeVar, final
 
-from fairseq2.dependency import DependencyContainer, DependencyResolver
-from fairseq2.utils.env import get_int_from_env
+from fairseq2.assets import AssetDownloadManager, StandardAssetStore
+from fairseq2.config_registry import ConfigRegistry
+from fairseq2.registry import Registry
 
-
-def get_world_size() -> int:
-    """Return the world size of the running job."""
-    value = get_int_from_env("WORLD_SIZE")
-
-    return 1 if value is None else value
+T = TypeVar("T")
 
 
-def get_rank() -> int:
-    """Return the rank of this process in the running job."""
-    value = get_int_from_env("RANK", allow_zero=True)
-
-    return 0 if value is None else value
-
-
-def get_local_world_size() -> int:
-    """Return the local world size of the running job."""
-    value = get_int_from_env("LOCAL_WORLD_SIZE")
-
-    return 1 if value is None else value
-
-
-def get_local_rank() -> int:
-    """Return the local rank of this process in the running job."""
-    value = get_int_from_env("LOCAL_RANK", allow_zero=True)
-
-    return 0 if value is None else value
-
-
-@dataclass(frozen=True)
+@final
 class RuntimeContext:
-    """Holds contextual runtime information."""
+    _asset_store: StandardAssetStore
+    _asset_download_manager: AssetDownloadManager
+    _registries: dict[type, Registry[Any]]
+    _config_registries: dict[type, ConfigRegistry[Any]]
 
-    world_size: int
-    rank: int
-    local_world_size: int
-    local_rank: int
+    def __init__(
+        self,
+        asset_store: StandardAssetStore,
+        asset_download_manager: AssetDownloadManager,
+    ) -> None:
+        self._asset_store = asset_store
+        self._asset_download_manager = asset_download_manager
+
+        self._registries = {}
+        self._config_registries = {}
+
+    @property
+    def asset_store(self) -> StandardAssetStore:
+        return self._asset_store
+
+    @property
+    def asset_download_manager(self) -> AssetDownloadManager:
+        return self._asset_download_manager
+
+    def get_registry(self, kls: type[T]) -> Registry[T]:
+        registry = self._registries.get(kls)
+        if registry is None:
+            registry = Registry(kls)
+
+            self._registries[kls] = registry
+
+        return registry
+
+    def get_config_registry(self, config_kls: type[T]) -> ConfigRegistry[T]:
+        registry = self._config_registries.get(config_kls)
+        if registry is None:
+            registry = ConfigRegistry(config_kls)
+
+            self._config_registries[config_kls] = registry
+
+        return registry
 
 
-def register_runtime_context(container: DependencyContainer) -> None:
-    container.register_factory(RuntimeContext, _create_process_runtime_context)
+_default_context: RuntimeContext | None = None
 
 
-def _create_process_runtime_context(resolver: DependencyResolver) -> RuntimeContext:
-    return RuntimeContext(
-        get_world_size(), get_rank(), get_local_world_size(), get_local_rank()
-    )
+def set_runtime_context(context: RuntimeContext) -> None:
+    global _default_context
+
+    _default_context = context
+
+
+def get_runtime_context() -> RuntimeContext:
+    if _default_context is None:
+        raise RuntimeError(
+            "fairseq2 is not initialized. Make sure to call `fairseq2.setup_fairseq2()`."
+        )
+
+    return _default_context

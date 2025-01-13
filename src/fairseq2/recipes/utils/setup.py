@@ -7,21 +7,38 @@
 from __future__ import annotations
 
 from datetime import timedelta
-from typing import Any, Literal
+from typing import Any, Literal, Mapping, cast
 
 import torch
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn import Module
 from torch.nn.parallel import DistributedDataParallel as DDP
 
+from fairseq2.assets import AssetCard
+from fairseq2.context import get_runtime_context
 from fairseq2.device import determine_default_device
-from fairseq2.gang import Gang, setup_default_gang, setup_parallel_gangs
+from fairseq2.gang import (
+    Gang,
+    Gangs,
+    fake_gangs,
+    setup_default_gang,
+    setup_parallel_gangs,
+)
 from fairseq2.logging import LogWriter
+from fairseq2.models import (
+    ModelFamilyNotFoundError,
+    ModelHandler,
+    ModelNotFoundError,
+    get_model_family,
+)
 from fairseq2.models.fsdp import get_fsdp_wrap_policy
 from fairseq2.nn.ddp import to_ddp
 from fairseq2.nn.fsdp import to_fsdp
 from fairseq2.nn.utils.module import broadcast_module, to_device
 from fairseq2.recipes.utils.log import log_environment_info
+from fairseq2.typing import CPU, DataClass, DataType, Device
+from fairseq2.utils.dataclass import merge_dataclass
+from fairseq2.utils.structured import structure
 
 
 def setup_root_gang(
@@ -48,7 +65,7 @@ def setup_root_gang(
 
     log.info("Initializing the root gang.")
 
-    gang = setup_default_gang(device=device, timeout=timeout, monitored=monitored)
+    gang = setup_default_gang(timeout=timeout, monitored=monitored)
 
     log.info("Root gang initialized.")
 
@@ -86,7 +103,116 @@ def setup_gangs(
 
     log.info("Data and tensor parallel gangs initialized.")
 
-    return root_gang, gangs
+    return root_gang, {"root": root_gang, "dp": gangs.dp, "tp": gangs.tp}
+
+
+# DO NOT USE. Temporary till recipe refactoring!
+def load_model(
+    name_or_card: str | AssetCard,
+    *,
+    gangs: Mapping[str, Gang] | None = None,
+    unstructured_config: object = None,
+    device: Device | None = None,
+    dtype: DataType | None = None,
+) -> Module:
+    context = get_runtime_context()
+
+    if isinstance(name_or_card, AssetCard):
+        card = name_or_card
+    else:
+        card = context.asset_store.retrieve_card(name_or_card)
+
+    family = get_model_family(card)
+
+    model_handlers = context.get_registry(ModelHandler)
+
+    try:
+        handler = model_handlers.get(family)
+    except LookupError:
+        raise ModelNotFoundError(card.name) from None
+
+    base_config = cast(DataClass, handler.load_config(card))
+
+    config: DataClass
+
+    if unstructured_config is None:
+        config = base_config
+    else:
+        config = structure(unstructured_config, handler.config_kls, set_empty=True)
+
+        config = merge_dataclass(base_config, config)
+
+    if device is None:
+        device = CPU
+
+        meta = False
+    elif device.type == "meta":
+        device = CPU
+
+        meta = True
+    else:
+        meta = False
+
+    if gangs is not None:
+        gangs_ = Gangs(gangs["root"], gangs["dp"], gangs["tp"])
+    else:
+        gangs_ = fake_gangs(device)
+
+    if dtype is None:
+        dtype = torch.float32
+
+    if meta:
+        model = handler.create(config, gangs_, dtype, meta=True)
+    else:
+        model = handler.load(card, gangs_, dtype, config)
+
+    setattr(model, "family", handler.family)
+
+    return model
+
+
+# DO NOT USE. Temporary till recipe refactoring!
+def create_model(
+    family: str,
+    arch: str | None,
+    unstructured_config: object,
+    device: Device,
+    dtype: DataType,
+) -> tuple[Module, object]:
+    context = get_runtime_context()
+
+    model_handlers = context.get_registry(ModelHandler)
+
+    try:
+        handler = model_handlers.get(family)
+    except LookupError:
+        raise ModelFamilyNotFoundError(family) from None
+
+    base_config = cast(DataClass, handler.get_config(arch))
+
+    config: DataClass
+
+    if unstructured_config is None:
+        config = base_config
+    else:
+        config = structure(unstructured_config, handler.config_kls, set_empty=True)
+
+        config = merge_dataclass(base_config, config)
+
+    if device.type == "meta":
+        meta = True
+
+        gangs = fake_gangs(CPU)
+    else:
+        meta = False
+
+        gangs = fake_gangs(device)
+
+    model = handler.create(config, gangs, dtype, meta)
+
+    setattr(model, "family", handler.family)
+
+    return model, config
 
 
 def broadcast_model(model: Module, gang: Gang, log: LogWriter) -> None:

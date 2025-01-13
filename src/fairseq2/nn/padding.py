@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any, cast, final
+from typing import cast, final
 
 import torch
 from torch import Tensor
@@ -133,7 +133,7 @@ def get_seq_lens(seqs: Tensor, padding_mask: PaddingMask | None) -> Tensor:
 
 
 def apply_padding_mask(
-    seqs: Tensor, padding_mask: PaddingMask | None, pad_value: Any = 0
+    seqs: Tensor, padding_mask: PaddingMask | None, pad_value: int | float | Tensor = 0
 ) -> Tensor:
     """Apply the specified padding mask to ``seqs``.
 

@@ -13,7 +13,7 @@ from fairseq2.recipes.mt.translate import load_text_translator, text_translate_p
 
 
 def _setup_mt_cli(cli: Cli) -> None:
-    sweep_allowed_keys = ["source_lang", "target_lang"]
+    extra_sweep_keys = {"source_lang", "target_lang"}
 
     group = cli.add_group("mt", help="machine translation recipes")
 
@@ -22,7 +22,7 @@ def _setup_mt_cli(cli: Cli) -> None:
         loader=load_mt_trainer,
         preset_configs=mt_train_presets,
         default_preset="nllb_dense_600m",
-        sweep_allowed_keys=sweep_allowed_keys,
+        extra_sweep_keys=extra_sweep_keys,
     )
 
     group.add_command(
@@ -36,7 +36,7 @@ def _setup_mt_cli(cli: Cli) -> None:
         loader=load_mt_evaluator,
         preset_configs=mt_eval_presets,
         default_preset="nllb_dense_600m",
-        sweep_allowed_keys=sweep_allowed_keys,
+        extra_sweep_keys=extra_sweep_keys,
     )
 
     group.add_command(
@@ -50,7 +50,7 @@ def _setup_mt_cli(cli: Cli) -> None:
         loader=load_text_translator,
         preset_configs=text_translate_presets,
         default_preset="nllb_dense_600m",
-        sweep_allowed_keys=sweep_allowed_keys,
+        extra_sweep_keys=extra_sweep_keys,
     )
 
     group.add_command(
