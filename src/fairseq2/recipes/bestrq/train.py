@@ -311,7 +311,6 @@ def load_bestrq_trainer(
             seed=seed,
             use_fbank=config.model_config.encoder_config.use_fbank,
             num_fbank_channels=config.model_config.encoder_config.num_fbank_channels,
-            fbank_stride=config.model_config.encoder_config.fbank_stride,
         )
     except ValueError as ex:
         raise ValueError(
@@ -360,7 +359,6 @@ def load_bestrq_trainer(
             seed=seed,
             use_fbank=config.model_config.encoder_config.use_fbank,
             num_fbank_channels=config.model_config.encoder_config.num_fbank_channels,
-            fbank_stride=config.model_config.encoder_config.fbank_stride,
         )
     except ValueError as ex:
         raise ValueError(
