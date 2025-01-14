@@ -1,8 +1,17 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the license found in the
+# LICENSE file in the root directory of this source tree.
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
+from typing import Any, List, Optional, Union
+
+import pyarrow as pa
+import pyarrow.parquet as pq
 
 
 class ParquetBatchFormat(Enum):
@@ -13,17 +22,42 @@ class ParquetBatchFormat(Enum):
 
 @dataclass
 class ParquetDatasetLimitOptions:
-    fraction_of_files: Optional[float] = None
-    nb_files: Optional[int] = None
-    nb_fragments: Optional[int] = None
-    nb_rows: Optional[int] = None
+    """
+    Contains different options that allows to load only a part of the provided dataset.
+    """
 
-    # TODO implement logic by tokens limits :
-    # limit_nb_tokens: Optional[int] = None
-    # token_columns: Optional[List[str]] = None
-    # """
-    # the list of colums to use count the sentences (supposed to be of list[array[1024]] type corresponding to sonar embeddings)
-    # """
+    columns: Optional[List[str]] = None
+    """The list of columns to load."""
+
+    fraction_of_files: Optional[float] = None
+    """
+    Load only a fraction of the provided dataset.
+    """
+
+    nb_files: Optional[int] = None
+    """
+    Number of files to load.
+    """
+
+    nb_fragments: Optional[int] = None
+    """
+    Number of fragments to load.
+    """
+
+    nb_rows: Optional[int] = None
+    """
+    Number of rows to load.
+    """
+
+    limit_nb_tokens: Optional[int] = None
+    """
+    Number of tokens to load.
+    """
+
+    token_columns: Optional[List[str]] = None
+    """
+    Columns to use for token counting.
+    """
 
 
 @dataclass
@@ -31,8 +65,6 @@ class ParquetDatasetConfig:
     """
     Config for datasets stored in Parquet format.
 
-    XXX: this config should not hold non-trival default values.
-    We want this to make datacards info and hydra config merge easier.
     All None value should be filled up in downstream `build_parquet_iterator_pipeline`.
     """
 
@@ -51,10 +83,8 @@ class ParquetDatasetConfig:
         `create_dataset_config_from_cards`.
     """
 
-    parquet_path: str = str()
+    parquet_path: str = ""
     """The path to parquet dataset file.
-        if `parquet_path` is remote (like stats with "s3://..."),
-        the filesystem will be automatically detected and `filesystem_expr` should remain None
     """
 
     weight: float = 1.0
@@ -82,27 +112,31 @@ class ParquetDatasetConfig:
     Note that for a single file case, there should no partition_filters since there're no partitions !!
     """
 
-    filters: Optional[str] = None
-    """See https://arrow.apache.org/docs/python/generated/pyarrow.dataset.Expression.html#pyarrow.dataset.Expression
+    filters: Optional[Union[List[Any], pa.dataset.Expression]] = None
+    """
+    This can be any valid pyarrow dataset filter expression, or a list of old-style tuples
+    that we convert to an expression in __post_init__.
+
+    See https://arrow.apache.org/docs/python/generated/pyarrow.dataset.Expression.html#pyarrow.dataset.Expression
 
     Some examples :
 
     >>> import pyarrow.compute as pc
     >>> import pyarrow as pa
 
+    >>> filters = [("data_split", "=", "train"), ("lang1", "in", ["eng","spa"]), ("lang2", "=", "eng")])
     >>> filters = (pc.field("data_split") == pc.scalar("train")) & (pc.field("duration") > 7)
     >>> filters = pa.compute.greater(pa.compute.utf8_length(ds.field("lang1_text")), 4)
     >>> filters = pa.compute.less_equal(pa.compute.list_value_length(pa.dataset.field("audio_wav")), 16_000 * 30)
 
     Note that all fields used here should be among existing columns in the dataset schema.
-    For hydra compatibility, we need to pass this filters as an str expression that'll be passed to `eval(...)`
     """
 
-    split_to_row_groups: Optional[bool] = None
+    split_to_row_groups: bool = True
     """If ``True``, uses Parquet row groups instead of simple partitions which
     are generally smaller. Highly recommended for non-partitioned parquet files."""
 
-    nb_parallel_fragments: Optional[int] = None
+    nb_parallel_fragments: Optional[int] = 5
     """
     This parameter can be dataset specific:
     For dataset with large number of sentences per document (sample),
@@ -118,11 +152,14 @@ class ParquetDatasetConfig:
     Leaving ``nb_parallel_fragments`` to None will trigger auto-detection based on dataset metadata.
     """
 
-    sharding_in_memory: bool = False
-    """
-    This option should be activated for sharding small datasets whose total number of row groups is small
-    that makes sharding per row group impossible.
-    """
+    def __post_init__(self) -> None:
+        if not self.parquet_path:
+            raise ValueError(f"requires non-empty path got {self.parquet_path}")
+
+        if self.filters is not None and not isinstance(
+            self.filters, pa.dataset.Expression
+        ):
+            self.filters = pq.filters_to_expression(self.filters)
 
 
 @dataclass
@@ -183,49 +220,6 @@ class DataLoadingConfig:
     Recommended when pre-training with packed data i.e len_to_wrap_long_seq not None and packing=True
     """
 
-    max_sentence_len_in_doc: Optional[int] = None
-    """
-    Remove samples (documents) whose `source_text_column` contains at least one sentence of len > `max_sentence_len_in_doc`.
-    This operations is done after long sequences wrapping (if applicable).
-    Typically values:  100 - 300
-    """
-    min_sentence_len_in_doc: Optional[int] = None
-    """
-    Remove samples (documents) `source_text_column` contains at least one sentence of len < `min_sentence_len_in_doc`.
-    This operations is done after long sequences wrapping (if applicable).
-    Typically values:  5 - 15
-    """
-
-    max_sentence_len_in_target_doc: Optional[int] = None
-    """
-    same filtering option as above but for `target_text_column`
-    """
-    min_sentence_len_in_target_doc: Optional[int] = None
-    """
-    same filtering option as above but for `target_text_column`
-    """
-
-    min_length_of_sequences: Optional[int] = 1
-    """
-    Remove samples (documents) whose `source_text_column` are scrictly shorter than `min_length_of_sequences`.
-    This operations is done after long sequences wrapping (if applicable).
-    One can use here the same value as for sequences wrapping
-    in order to produce all sequences with the same length.
-    """
-    min_length_of_sequences_after_batching: Optional[int] = 1
-    """
-    Remove source sequences shorter than `min_length_of_sequences_after_batching`
-    This filtering is applied after batching and potentially affixing and wrapping.
-    """
-    min_length_of_target_sequences: Optional[int] = 1
-    """
-    Same as above applied for `target_text_column`
-    """
-    min_length_of_target_sequences_after_batching: Optional[int] = 1
-    """
-    Same as above applied for `target_text_column`
-    """
-
     output_format: ParquetBatchFormat = ParquetBatchFormat.torch
     """The format to use for output batches."""
 
@@ -248,11 +242,17 @@ class DataLoadingConfig:
     min_batch_size: int = 1
     """Drops batches whose length is less than ``min_batch_size``"""
 
-    nb_prefetch: float = 3.0
+    nb_prefetch: int = 3
     """The number of producer groups (of size `nb_parallel_fragments`) to
     prefetch."""
 
-    num_parallel_calls: float = 1.5
+    world_size: int = 1
+    """The world size of the process group."""
+
+    rank: int = 0
+    """The rank of this worker in the process group."""
+
+    num_parallel_calls: int = 2
     """The number of parallel calls in map operations."""
 
     use_threads: bool = False
@@ -263,6 +263,11 @@ class DataLoadingConfig:
     ignore_checkpointed_pipeline: bool = False
     """Whether to ignore the saved datapipeline state or load it when resuming.
     Temporary fix for issues re-loading saved checkpoints"""
+
+    sharding_in_memory: bool = False
+    """
+    If True, the dataset will be sharded in memory.
+    """
 
     even_sharding: bool = False
     """
@@ -282,6 +287,16 @@ class DataLoadingConfig:
     If not None, it will be used to limit the number of batches produced per each dataset
     """
 
+    def __post_init__(self) -> None:
+        if not ((self.batch_size is None) ^ (self.max_tokens is None)):
+            raise ValueError("need to provide either `batch_size` either `max_tokens`")
+        if self.max_tokens is not None and self.order_by_length is None:
+            raise ValueError(
+                "`order_by_length` should be given to deal with `max_tokens`"
+            )
+        if not self.sharding_in_memory and self.even_sharding:
+            raise ValueError("`even_sharding` requires `sharding_in_memory=True`")
+
 
 @dataclass
 class ValidationDataLoadingConfig(DataLoadingConfig):
@@ -293,13 +308,15 @@ class ValidationDataLoadingConfig(DataLoadingConfig):
     nb_epochs: int = 1
     min_batch_size: int = 1  # we want to keep all samples
     shuffle: bool = False  # we dont need the randomness here
-    batch_size: Optional[int] = None
+    batch_size: Optional[int] = 10
     max_tokens: Optional[int] = None
     """
-    Leaving both `max_tokens` and `batch_size` to None will trigger auto-detection based on dataset metadata and distributed training world size.
-    to make more or less even distribution of samples across workers. Typically,
-    if worker_batch_size = total_batch_size // world_size <= 40, we will use batch_size=worker_batch_size,
-    otherwise we will use max_tokens=min(total_tokens_number // world_size, 3000).
+    Leaving both `max_tokens` and `batch_size` to None will trigger
+    auto-detection based on dataset metadata and distributed training world size
+    to make more or less even distribution of samples across workers.
+    Typically, if worker_batch_size = total_batch_size // world_size <= 40,
+    we will use batch_size=worker_batch_size, otherwise we will use
+    max_tokens=min(total_tokens_number // world_size, 3000).
     See dataloading:SingleParquetDatasetDataloader::set_validation_params for more details.
     """
 
@@ -320,7 +337,15 @@ class EvaluationDataLoadingConfig(DataLoadingConfig):
     max_tokens: Optional[int] = None  # this should be ok for most of models
     even_sharding: bool = False  # we dont want to lose any sample !
     sharding_in_memory: bool = True  # activate sharding by rank and world size
-    rank: int = 0
-    world_size: int = 1
-    max_samples: Optional[int] = None  # fmt: skip
+    max_samples: Optional[int] = None
     """evaluate only the first n samples (for debugging)"""
+
+
+@dataclass
+class ParquetBasicDataloaderConfig(DataLoadingConfig):
+    """
+    Parquet-specific data loading config that extends the generic DataLoadingConfig.
+    """
+
+    output_format: ParquetBatchFormat = ParquetBatchFormat.pyarrow
+    """The format to use for output batches."""
