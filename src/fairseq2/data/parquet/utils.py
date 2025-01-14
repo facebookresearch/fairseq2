@@ -1,23 +1,24 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 # All rights reserved.
 #
-# This source code is licensed under the BSD-style license found in the
+# This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 
 from __future__ import annotations
 
 from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Any
+from typing import Any, Callable, Dict, Generator, List, Optional, Union, no_type_check
 
-import joblib
 import numpy as np
 import pandas as pd
-import pyarrow as pa
+import pyarrow as pa  # type: ignore
+import pyarrow.compute as pc  # type: ignore
 import pyarrow.parquet as pq
 import torch
 from numpy.typing import NDArray
 from pyarrow.dataset import get_partition_keys  # requires pyarrow >= 13
+
 from tqdm.auto import tqdm
 
 from fairseq2.data import DataPipeline, DataPipelineBuilder, read_sequence
@@ -46,14 +47,100 @@ def torch_random_seed(seed: int | None = None) -> Generator[None, None, None]:
         torch.manual_seed(seed)
     yield
 
+from fairseq2.logging import log
 
 NestedDict = dict[str, "NestedDictValue"]
 NestedDictValue = torch.Tensor | list[str] | pd.Series | NestedDict
 BatchOutputType = pa.Table | pd.DataFrame | NestedDict
 
 
-def from_pyarrow_to_torch_tensor(
-    arr: pa.Array | pa.ChunkedArray, strict: bool = True
+def is_list_like(arr: pa.Array) -> bool:
+    """
+    Check if the array is a list or a large list.
+    """
+    return bool(pa.types.is_list(arr.type) or pa.types.is_large_list(arr.type))
+
+
+def _fix_list_offset(arr: pa.Array) -> pa.Array:
+    """
+    Recursively fixes list offset to 0, so that arr.offsets are always starts from 0
+    and can be used easily downstream.
+    """
+    if not is_list_like(arr):
+        return arr
+    if arr.offset == 0:
+        return arr
+
+    new_values = _fix_list_offset(pc.list_flatten(arr))
+    new_offsets = pc.subtract(arr.offsets, arr.offsets[0])
+
+    return (
+        pa.LargeListArray.from_arrays(new_offsets, new_values)
+        if pa.types.is_large_list(arr.type)
+        else pa.ListArray.from_arrays(new_offsets, new_values)
+    )
+
+
+def pyarrow_column_to_array(arg: Union[pa.ChunkedArray, pa.Array]) -> pa.Array:
+    # see https://github.com/apache/arrow/issues/37318
+    if isinstance(arg, pa.Array):
+        return _fix_list_offset(arg)
+
+    return _fix_list_offset(
+        arg.chunk(0) if arg.num_chunks == 1 else arg.combine_chunks()
+    )
+
+
+def hstack_pyarray_list(*arrays: Union[pa.ChunkedArray, pa.Array]) -> pa.Array:
+    """
+    Example with simple list:
+    >>> a = pa.array([[1], [2,3], [5], []])
+    >>> b = pa.array([[-1, -3], [-11], [], [22]])
+    >>> hstack_pyarray_list(a, b).to_pylist()
+    [[1, -1, -3], [2, 3, -11], [5], [22]]
+
+    Example with nested lists:
+    >>> data = [np.array([[1, 2], [3, 4]]), np.array([[5, 6], [7, 8]]), np.array([[9, 10]])]
+    >>> list_array = nested_numpy_to_pyarrow(data)
+    >>> list_array.type
+    ListType(list<item: fixed_size_list<item: int64>[2]>)
+    >>> truncated_list_array = pc.list_slice(list_array, 1, 2)
+    [[[3, 4]], [[7, 8]], []]
+    >>> hstack_pyarray_list(list_array, truncated_list_array)
+    [[[1, 2], [3, 4], [3, 4]],
+     [[5, 6], [7, 8], [7, 8]],
+     [[9, 10]]]
+    """
+    if not all(map(is_list_like, arrays)):
+        raise ValueError("All pyarrow arrays must be list-like")
+
+    lens = list(set(map(len, arrays)))
+    if len(lens) != 1:
+        raise ValueError("All pyarrow arrays must have the same length")
+
+    list_off_views = [
+        pyarrow_column_to_array(pc.list_flatten(arr.slice(i, 1)))
+        for i in range(lens[0])
+        for arr in arrays
+    ]
+
+    is_large = any(pa.types.is_large_list(arr.type) for arr in arrays)
+
+    offsets = np.concatenate(
+        [
+            np.array([0]),
+            np.sum([pc.list_value_length(arr) for arr in arrays], axis=0),
+        ],
+        dtype=np.int64 if is_large else np.int32,
+    ).cumsum()
+
+    cls = pa.LargeListArray if is_large else pa.ListArray
+    return cls.from_arrays(offsets, pa.concat_arrays(list_off_views))
+
+
+@no_type_check
+def pyarrow_to_torch_tensor(
+    arr: Union[pa.Array, pa.ChunkedArray], strict: bool = False
 ) -> NestedDictValue:
     """
     struct_array = pa.Array.from_pandas([{"x": 4, "y": "RR"}] * 10)
@@ -80,7 +167,7 @@ def from_pyarrow_to_torch_tensor(
         pass
 
     if pa.types.is_dictionary(arr_type):
-        return from_pyarrow_to_torch_tensor(arr.dictionary_decode())
+        return pyarrow_to_torch_tensor(arr.dictionary_decode())
 
     if pa.types.is_string(arr_type):
         return arr.to_pandas().tolist()
@@ -109,13 +196,12 @@ def from_pyarrow_to_torch_tensor(
 
     if pa.types.is_struct(arr_type):
         return {
-            arr_type.field(i).name: from_pyarrow_to_torch_tensor(arr.field(i))
+            arr_type.field(i).name: pyarrow_to_torch_tensor(arr.field(i))
             for i in range(arr_type.num_fields)
         }
 
     if pa.types.is_nested(arr_type):
-        # TODO: deal with arr = [[{'a': 1}, {'a': 2}]]
-        pass
+        raise NotImplementedError("Nested list is not supported")
 
     if strict:
         raise NotImplementedError(f"{arr_type} cannot be converted to torch.Tensor")
@@ -123,12 +209,51 @@ def from_pyarrow_to_torch_tensor(
         return arr  # keeping as in the orignal pyarrow form
 
 
-def init_parquet_dataset(
-    parquet_path: str,
-    filters: pa.dataset.Expression | None = None,
-    filesystem: pa.fs.FileSystem | None = None,
-) -> pq.ParquetDataset:
-    return pq.ParquetDataset(parquet_path, filters=filters, filesystem=filesystem)
+def pyarrow_table_to_torch_dict(tt: pa.Table, strict: bool = False) -> NestedDict:
+    out = {}
+    for col in tt.column_names:
+        try:
+            out[col] = pyarrow_to_torch_tensor(tt[col], strict)
+        except ValueError as e:
+            log.info(
+                f"Column {col} of type {tt[col].type} was not converted to torch as expected",
+                str(e),
+            )
+            out[col] = tt[col]
+    return out
+
+
+# --- tested above --- #
+
+
+@contextmanager
+def pyarrow_cpu(nb_cpu: int) -> Generator[None, None, None]:
+    """
+    Set the number of CPU cores to use for pyarrow.
+    """
+    nb_cpu_old = pa.cpu_count()
+    nb_io_cpu_old = pa.io_thread_count()
+    pa.set_cpu_count(nb_cpu)
+    pa.set_io_thread_count(nb_cpu)
+    try:
+        yield
+    finally:
+        pa.set_cpu_count(nb_cpu_old)
+        pa.set_io_thread_count(nb_io_cpu_old)
+
+
+@contextmanager
+def torch_random_seed(seed: Optional[int] = None) -> Generator[None, None, None]:
+    """
+    Set the random seed for torch.
+
+    Args:
+        seed (Optional[int]): The random seed to set. If None, the seed is not set.
+    """
+    if seed is not None:
+        torch.manual_seed(seed)
+    yield
+>>>>>>> dd85d23b (update parquet utils)
 
 
 def get_dataset_fragments(
@@ -143,7 +268,11 @@ def get_dataset_fragments(
 
 def split_fragment_in_row_groups(
     fragment: pa.dataset.Fragment,
+
 ) -> list[pa.dataset.Fragment]:
+    """
+    Split a fragment into multiple fragments by row groups.
+    """
     return list(fragment.split_by_row_group())
 
 
@@ -166,69 +295,120 @@ def add_partitioning_values(
 def load_one_fragment(
     fragment: pa.dataset.Fragment, columns: list[str] | None = None
 ) -> pa.Table:
+    """
+    Load a single fragment from a dataset as a PyArrow Table.
+
+    This function filters out any column names not present in the fragment's
+    physical schema, then loads the data from the fragment as a PyArrow Table.
+    Finally, it calls `add_partitioning_values` to include partition keys
+    (if that function is defined to do so).
+
+    Args:
+        fragment (pa.dataset.Fragment): The dataset fragment to load.
+        columns (Optional[List[str]]): An optional list of column names to load.
+            If None, all columns in the fragment's physical schema are used.
+
+    Returns:
+        pa.Table: A PyArrow Table containing data from the fragment (and
+        potentially augmented with partitioning values).
+
+    Raises:
+        ValueError: If the fragment is invalid or cannot be read. (You can
+            optionally raise or handle other exceptions as needed.)
+    """
+    # Ensure columns only include names that exist in the fragment
     fragment_columns = columns
     if fragment_columns is not None:
         fragment_columns = [
             col for col in fragment_columns if col in fragment.physical_schema.names
         ]
+    # Load the fragment data into a PyArrow table
     fragment_table = fragment.to_table(columns=fragment_columns, use_threads=False)
+
+    # Add partitioning values if the function is defined
     fragment_table = add_partitioning_values(fragment_table, fragment, columns)
+
     return fragment_table
 
 
-def apply_filter(
-    table: pa.Table,
-    filters: list[Any] | pa.dataset.Expression | None = None,
-    drop_null: bool = True,
-) -> pa.Table:
-    if drop_null:
-        table = table.drop_null()
-    if filters is not None:
-        table = table.filter(filters)
-    return table
-
-
-def concat_table(tables: list[pa.Table], combine: bool = True) -> pa.Table:
-    result = pa.concat_tables(
-        tables,
-        promote_options="permissive",  # needed to get deal with empty segments
-    )
-    if combine:
-        result = result.combine_chunks()
-    return result
-
-
 def compute_length_splits(
-    length_col: NDArray[np.int32], max_tokens: int
-) -> list[NDArray[np.int32]]:
-    """split sequence of length_col in the chunks such that total length is ~ max_tokens
-        countint the padding to max length of elements in a chunk
+    length_col: NDArray[np.int32],
+    max_tokens: int,
+    *,
+    order_by_length: bool = True,
+    drop_long_sample: bool = True,
+) -> List[NDArray[np.int32]]:
+    """
+    Split a sequence of lengths (`length_col`) into chunks so that
+    the total "padded" length in each chunk is ~ `max_tokens`.
+    The "padded" length is computed as the max length in the chunk
+    multiplied by the number of items in that chunk.
 
     Args:
-        length_col (np.ndarray):
-        max_tokens (int):
+        length_col (np.ndarray): Array of sequence lengths.
+        max_tokens (int): Maximum tokens allowed in a chunk
+                          based on padding to the max length in the chunk.
+        order_by_length (bool): If True, sort the sequences by length before splitting.
+        drop_long_sample (bool): If True, drop any items whose length exceeds `max_tokens`.
 
     Returns:
-        list[np.ndarray]: splits that contain indices over the original length_col
+        list[np.ndarray]: A list of arrays, each containing the indices of
+                          the original `length_col` that belong to that split.
     """
-    argsort_ind = np.argsort(length_col)
-    # TODO: remove 0 lengths
+    argsort_ind = (
+        np.argsort(length_col)
+        if order_by_length
+        else np.arange(len(length_col), dtype=np.int32)
+    )
+
     sorted_length_col = length_col[argsort_ind]
 
+    small_elements_masks = sorted_length_col <= max_tokens
+    big_elements_inds = argsort_ind[~small_elements_masks]
+
+    argsort_ind = argsort_ind[small_elements_masks]
+    sorted_length_col = sorted_length_col[small_elements_masks]
+
+    size = len(sorted_length_col)
     splits = []
-    ptr = 0
-    for i, length in enumerate(sorted_length_col):
-        if length * (i - ptr) > max_tokens:
-            splits.append(argsort_ind[ptr : (i - 1)])
-            ptr = i - 1
-    if (
-        length <= max_tokens
-    ):  # we drop the last iteration if it results in a batch greater than max_tokens
-        splits.append(argsort_ind[ptr:])
+    begin, end = 0, 0
+    while end < size:
+        current_max_len = sorted_length_col[begin]
+        begin = end
+        while end < size:
+            current_max_len = max(current_max_len, sorted_length_col[end])
+            if current_max_len * (end + 1 - begin) > max_tokens:
+                splits.append(argsort_ind[begin:end])
+                break
+            end += 1
+    else:
+        if begin < size:
+            splits.append(argsort_ind[begin:])
+
+    # adding big sample at the end one by one
+    if not drop_long_sample and len(big_elements_inds):
+        splits.extend(np.array_split(big_elements_inds, len(big_elements_inds)))
+
     return splits
 
 
 def compute_rows_length(pa_array: pa.Array) -> NDArray[np.int32]:
+    """
+    Compute the length of each row in a PyArrow array.
+
+    This function handles the following types:
+        - List / LargeList: Uses pyarrow.compute.list_value_length
+        - String: Uses pyarrow.compute.utf8_length
+        - Fallback: Tries to convert to pandas and apply len (e.g., for arrays of Python objects)
+
+    Null values (NaNs) are set to 0 in the returned array.
+
+    Args:
+        pa_array (pa.Array): PyArrow array whose element lengths should be computed.
+
+    Returns:
+        NDArray[np.int32]: NumPy array of the computed lengths for each element.
+    """
     type_ = pa_array.type
     if pa.types.is_list(type_) or pa.types.is_large_list(type_):
         length_col = pa.compute.list_value_length(pa_array).to_numpy()
@@ -263,8 +443,8 @@ def _to_real_object(x: _TableWrapper | NestedDict) -> BatchOutputType:
         return x
 
 
-def table_func_wrap(func):  # type: ignore
-    def inner(*args):  # type: ignore
+def table_func_wrap(func: Callable[..., Any]) -> Callable[..., Any]:
+    def inner(*args: Any) -> Any:
         fixed_args = [_to_real_object(x) for x in args]
         result = func(*fixed_args)
         if isinstance(result, (pa.Table, pd.DataFrame)):
@@ -272,261 +452,3 @@ def table_func_wrap(func):  # type: ignore
         return result
 
     return inner
-
-
-def list_parquet_fragments(
-    parquet_path: str,
-    filters: pa.dataset.Expression | None = None,
-    columns: list[str] | None = None,
-    split_to_row_groups: bool = True,
-    filesystem: pa.fs.FileSystem | None = None,
-    shuffle_window: int | None = None,
-    seed: int = 2,
-) -> DataPipelineBuilder:
-    dataset = init_parquet_dataset(parquet_path, filters=filters, filesystem=filesystem)
-    columns = columns or dataset.schema.names
-    if not set(columns).issubset(set(dataset.schema.names)):
-        raise ValueError(
-            f"columns {sorted(set(columns) - set(dataset.schema.names))} are not found in the dataset schema"
-        )
-
-    pipeline_builder = read_sequence(get_dataset_fragments(dataset, filters))
-
-    if shuffle_window is not None:
-        # shuffle them in full memory since fragments are already known
-        pipeline_builder = pipeline_builder.shuffle(shuffle_window=0, seed=seed)
-
-    if split_to_row_groups:
-        pipeline_builder = pipeline_builder.yield_from(
-            lambda fragment: read_sequence(
-                split_fragment_in_row_groups(fragment)
-            ).and_return()
-        )
-        if shuffle_window is not None:
-            pipeline_builder = pipeline_builder.shuffle(
-                shuffle_window=shuffle_window, seed=seed + 1
-            )
-
-    return pipeline_builder
-
-
-def build_iterator_over_one_table(
-    table: pa.Table,
-    order_by_length: str | None = None,
-    batch_size: int | None = None,
-    max_tokens: int | None = None,
-    shuffle: bool = True,
-    seed: int | None = None,
-    num_parallel_calls: int = 8,
-) -> DataPipeline:
-    random_state = np.random.RandomState(seed)
-    if order_by_length is not None:
-        length_col = compute_rows_length(table[order_by_length])
-        # add small perturbation to avoid same sample appear together during different epochs
-        if shuffle:
-            perturbation = random_state.randint(
-                0,
-                np.quantile(length_col, 0.001).astype(np.int32) + 2,
-                len(length_col),
-            )
-            length_col += np.asarray(perturbation, dtype=np.int32)
-    else:
-        if shuffle:
-            length_col = random_state.randint(0, 2**23, len(table))
-        else:
-            length_col = np.zeros(len(table), dtype=np.int32)
-
-    if batch_size is not None:
-        order_tt = pa.Table.from_arrays(
-            [pa.array(np.argsort(length_col, kind="stable"))], ["order"]
-        )
-        batches = [ind["order"] for ind in order_tt.to_batches(batch_size)]
-    elif max_tokens is not None:
-        batches = compute_length_splits(length_col, max_tokens)
-    else:
-        raise ValueError("unknown batching method")
-
-    if shuffle:
-        batches = [batches[i] for i in random_state.permutation(len(batches))]
-
-    return (
-        read_sequence(batches)
-        .map(
-            table_func_wrap(lambda ind: table.take(ind).combine_chunks()),
-            num_parallel_calls=num_parallel_calls,
-        )
-        .and_return(max_num_warnings=4)
-    )
-
-
-def get_row_group_level_metadata(
-    dataset: pq.ParquetDataset,
-    columns: Optional[List[str]] = None,
-    nb_jobs: int = 40,
-    max_fragments: int = -1,
-    seed: int = 123,
-) -> pd.DataFrame:
-    """
-    Parses row group level metadata from a Parquet dataset and returns it as a pandas DataFrame.
-    It's similar to `get_parquet_dataset_metadata`
-    but present a unnested view on row groups statistics for only a subset of columns.
-    This function can be used for any kind of downstream analysis.
-
-    It uses joblib for parallel processing
-    and tqdm for progress tracking, which are good practices for handling large datasets.
-
-    Parameters:
-    - dataset (pq.ParquetDataset): The Parquet dataset to parse.
-    - columns (list of str, optional): The columns to include in the output DataFrame. If not specified, all columns are included.
-                For `columns=[]` no column-vise information will be profided (which is generally much faster).
-    - nb_jobs (int, default=40): The number of parallel jobs to run.
-    - max_fragments (int, default=-1): The maximum number of fragments to include. If -1, all fragments are included.
-    - seed (int, default=123): The seed for the random number generator, used when selecting fragments.
-
-    Returns:
-    - pd.DataFrame: A DataFrame containing the row group level metadata.
-    Example:
-        >>> import pyarrow as pa
-        >>> import pyarrow.fs
-        >>> import pyarrow.compute as pc
-        >>> fs, parquet_uri = pa.fs.FileSystem.from_uri("s3://<bucket_name>/<dataset_name>/")
-        >>> dataset = pq.ParquetDataset(parquet_uri, filesystem=fs, filters=pc.equal(pc.field("split"), "validation"))
-        >>> df_stats = get_row_group_level_metadata(dataset, columns=["col1", "col2", ...])
-    """
-    assert max_fragments >= -1
-    fragments = list(dataset._dataset.get_fragments(filter=dataset._filter_expression))
-
-    if max_fragments != -1 and max_fragments < len(fragments):
-        fragments = (
-            np.random.RandomState(seed)
-            .choice(np.array(fragments, dtype="O"), max_fragments, replace=False)
-            .tolist()
-        )
-
-    physical_schema = fragments[0].physical_schema
-
-    columns = columns if columns is not None else physical_schema.names
-    # taking only existing columns
-    non_existing_columns = tuple(set(columns) - set(physical_schema.names))
-    if non_existing_columns:
-        print(
-            "Following colums are not present in physical schema and will be ignored",
-            non_existing_columns,
-        )
-    columns = [col for col in columns if col in physical_schema.names]
-
-    columns_index = [physical_schema.get_field_index(col) for col in columns]
-
-    columns_to_exclude = set(["row_group_id", "num_rows", "total_byte_size"]) & set(
-        columns
-    )
-    assert (
-        len(columns_to_exclude) == 0
-    ), f"names conflict, rename/remove : {columns_to_exclude}"
-
-    def get_one_row_group_stats(row_group: pa.dataset.RowGroup) -> dict:
-        metadata = row_group.metadata
-        info = {
-            "row_group_id": row_group.id,
-            "num_rows": metadata.num_rows,
-            "total_byte_size": metadata.total_byte_size,
-        }
-        for col, ind in zip(columns, columns_index):
-            info[col] = metadata.column(ind).to_dict()
-        return info
-
-    def get_fragment_stats(frag: pa.dataset.Fragment) -> dict:
-        return {
-            "rg_stats": list(map(get_one_row_group_stats, frag.row_groups)),
-            "parquet_file_path": frag.path,
-            **get_partition_keys(frag.partition_expression),
-        }
-
-    stats = joblib.Parallel(nb_jobs, backend="threading")(
-        joblib.delayed(get_fragment_stats)(frag) for frag in tqdm(fragments)
-    )
-
-    stats = pd.DataFrame(stats).explode("rg_stats")
-    flatten_row_df = pd.DataFrame(stats.pop("rg_stats").tolist(), index=stats.index)
-    result_df = pd.concat([stats, flatten_row_df], axis=1)
-    return result_df
-
-
-def get_parquet_dataset_metadata(
-    dataset: pq.ParquetDataset,
-    full: bool = True,
-    nb_jobs: int = 40,
-    max_fragments: int = -1,
-    seed: int = 123,
-) -> pd.DataFrame:
-    """
-    Extracts metadata from a Parquet dataset.
-    Parameters:
-    - dataset (pq.ParquetDataset): The Parquet dataset to extract metadata from.
-    - full (bool, optional): If True, extracts full stats. If False, extracts minimal stats to speedup the process. Defaults to True.
-    - nb_jobs (int, optional): The number of jobs to run in parallel. Defaults to 40.
-    - max_fragments (int, optional): The maximum number of fragments to process. If -1, all fragments are processed. Defaults to -1.
-    - seed (int, optional): The seed for the random number generator used when selecting fragments. Defaults to 123.
-
-    Returns:
-    pd.DataFrame: A DataFrame containing the extracted metadata.
-
-    Example:
-        >>> import pyarrow as pa
-        >>> import pyarrow.fs
-        >>> import pyarrow.compute as pc
-        >>> fs, parquet_uri = pa.fs.FileSystem.from_uri("s3://<bucket_name>/<dataset_name>/")
-        >>> dataset = pq.ParquetDataset(parquet_uri, filesystem=fs, filters=pc.equal(pc.field("split"), "train"))
-        >>> df_stats = get_parquet_dataset_metadata(dataset, full=True)
-        >>> df_stats.explode("row_groups")  # to see row groups level info
-
-    """
-    assert max_fragments >= -1
-    fragments = list(dataset._dataset.get_fragments(filter=dataset._filter_expression))
-
-    if max_fragments != -1 and max_fragments < len(fragments):
-        fragments = (
-            np.random.RandomState(seed)
-            .choice(np.array(fragments, dtype="O"), max_fragments, replace=False)
-            .tolist()
-        )
-
-    def get_fragment_full_stats(frag: pa.dataset.Fragment) -> dict:
-        return {
-            "parquet_file_path": frag.path,
-            **frag.metadata.to_dict(),
-            **get_partition_keys(frag.partition_expression),
-        }
-
-    def get_fragment_minimal_stats(frag: pa.dataset.Fragment) -> dict:
-        meta = frag.metadata
-        return {
-            "parquet_file_path": frag.path,
-            "num_row_groups": frag.num_row_groups,
-            "num_rows": frag.count_rows(),
-            "num_columns": meta.num_columns,
-            "serialized_size": meta.serialized_size,
-            **get_partition_keys(frag.partition_expression),
-        }
-
-    stats_fn = get_fragment_full_stats if full else get_fragment_minimal_stats
-    stats = joblib.Parallel(nb_jobs, backend="threading")(
-        joblib.delayed(stats_fn)(frag) for frag in tqdm(fragments)
-    )
-
-    df_stats = pd.DataFrame(stats)
-    return df_stats
-
-
-def pyarrow_table_to_torch_dict(tt: pa.Table, strict: bool = False) -> NestedDict:
-    out = {}
-    for col in tt.column_names:
-        try:
-            out[col] = from_pyarrow_to_torch_tensor(tt[col], strict)
-        except ValueError as e:
-            logger.info(
-                f"Column {col} of type {tt[col].type} was not converted to torch as expected",
-                str(e),
-            )
-            out[col] = tt[col]
-    return out
