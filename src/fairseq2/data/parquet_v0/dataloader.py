@@ -7,17 +7,13 @@
 from __future__ import annotations
 
 from collections.abc import Generator
-from dataclasses import dataclass
-from enum import Enum
 from functools import partial
-from typing import Any
-
-import pyarrow as pa
-import pyarrow.parquet as pq
 
 from fairseq2.data import DataPipeline, DataPipelineBuilder
-from fairseq2.data.parquet.utils import (
+from fairseq2.data.parquet import (
     BatchOutputType,
+    ParquetBasicDataloaderConfig,
+    ParquetBatchFormat,
     _TableWrapper,
     _to_real_object,
     apply_filter,
@@ -29,118 +25,6 @@ from fairseq2.data.parquet.utils import (
     pyarrow_table_to_torch_dict,
     table_func_wrap,
 )
-
-
-class ParquetBatchFormat(Enum):
-    pyarrow = 0
-    pandas = 1
-    torch = 2
-
-
-@dataclass
-class ParquetBasicDataloaderConfig:
-    parquet_path: str
-    """The path to parquet dataset file."""
-
-    batch_size: int | None = None
-    """The output batch size."""
-
-    order_by_length: str | None = None
-    """The column in the dataset whose length will be used for batch ordering.
-    This results in batches with relatively homogeneous values, typically to
-    support optimal padding."""
-
-    max_tokens: int | None = None
-    """Used with the ``order_by_length`` option to control the total number of
-    padded tokens in each batch. Typically, this option is preferred over
-    ``batch_size`` to reduce the memory footprint.
-    """
-
-    columns: list[str] | None = None
-    """The list of columns to load."""
-
-    filters: list[Any] | pa.dataset.Expression | None = None
-    """See https://arrow.apache.org/docs/python/generated/pyarrow.dataset.Expression.html#pyarrow.dataset.Expression
-
-    Some examples :
-
-    >>> import pyarrow.compute as pc
-    >>> import pyarrow as pa
-
-    >>> filters = [("data_split", "=", "train"), ("lang1", "in", ["eng","spa"]), ("lang2", "=", "eng")])
-    >>> filters = (pc.field("data_split") == pc.scalar("train")) & (pc.field("duration") > 7)
-    >>> filters = pa.compute.greater(pa.compute.utf8_length(ds.field("lang1_text")), 4)
-    >>> filters = pa.compute.less_equal(pa.compute.list_value_length(pa.dataset.field("audio_wav")), 16_000 * 30)
-
-    Note that all fields used here should be among existing columns in the dataset schema.
-    """
-
-    output_format: ParquetBatchFormat = ParquetBatchFormat.pyarrow
-    """The format to use for output batches."""
-
-    split_to_row_groups: bool = True
-    """If ``True``, uses Parquet row groups instead of simple partitions which
-    are generally smaller. Highly recommended for non-partitioned parquet files."""
-
-    shuffle: bool = True
-    """If ``True``, shuffles the dataset samples during the iteration. If ``False``
-    and ``order_by_length`` is ``None``, the batch samples will be produced in
-    natural Parquet dataset reading order."""
-
-    drop_null: bool = True
-    """If ``True``, drops rows containing any null value."""
-
-    seed: int = 2
-    """The RNG seed value for deterministic behavior."""
-
-    min_batch_size: int = 1
-    """Drops batches whose length is less than ``min_batch_size``"""
-
-    nb_parallel_fragments: int = 5
-    """The number of Parquet fragments allowed to be read in parallel. Higher
-    values will result in higher speeds, better randomization, and higher memory
-    footprint. If partition size is rather small compared to the batch size, we
-    recommend to increase ``nb_parallel_fragments``."""
-
-    nb_prefetch: int = 2
-    """The number of producer groups (of size `nb_parallel_fragments`) to
-    prefetch."""
-
-    world_size: int = 1
-    """The world size of the process group."""
-
-    rank: int = 0
-    """The rank of this worker in the process group."""
-
-    num_parallel_calls: int = 8
-    """The number of parallel calls in map operations."""
-
-    use_threads: bool = False
-    """Whether pyarrow should use its internal threads to read the Parquet file.
-    Since we rely on the external parallelism, this param is tuned off by
-    default."""
-
-    filesystem: pa.fs.FileSystem | None = None
-    """The filesystem to read the Parquet files from. S3 example:
-    >>> import s3fs
-    >>> filesystem = s3fs.core.S3FileSystem(...)
-    """
-
-    def __post_init__(self) -> None:
-        if not self.parquet_path:
-            raise ValueError(f"requires non-empty path got {self.parquet_path}")
-
-        if not ((self.batch_size is None) ^ (self.max_tokens is None)):
-            raise ValueError("need to provide either `batch_size` either `max_tokens`")
-        if self.max_tokens is not None and self.order_by_length is None:
-            raise ValueError(
-                "`order_by_length` should be given to deal with `max_tokens`"
-            )
-
-        if self.filters is not None and not isinstance(
-            self.filters, pa.dataset.Expression
-        ):
-            self.filters = pq.filters_to_expression(self.filters)
 
 
 def build_parquet_iterator_pipeline(
