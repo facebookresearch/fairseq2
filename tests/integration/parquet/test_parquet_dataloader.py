@@ -9,7 +9,6 @@ import random
 import shutil
 import string
 import tempfile
-from collections import Counter
 from collections.abc import Generator
 from typing import Any
 
@@ -22,12 +21,6 @@ try:
     import pyarrow.parquet as pq
     from numpy.typing import NDArray
 
-    from fairseq2.data.parquet import (
-        ParquetBasicDataloaderConfig,
-        ParquetBatchFormat,
-        # parquet_iterator,
-    )
-    from fairseq2.data.parquet.pipeline import 
 except ImportError:
     pytest.skip("arrow not found", allow_module_level=True)
 
