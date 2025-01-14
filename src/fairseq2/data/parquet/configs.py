@@ -175,7 +175,7 @@ class DataLoadingConfig:
     batch_size: Optional[int] = None
     """The output batch size."""
 
-    order_by_length: bool = True
+    order_by_length: Optional[bool] = True
     """
     Whether to create the batches with homogeneous tokens length
     for more efficient padding.
