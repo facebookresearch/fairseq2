@@ -29,3 +29,27 @@ def multi_partition_file_dataset() -> Generator[Path, None, None]:
 
     yield tmp_parquet_ds_path
     shutil.rmtree(tmpdir)
+
+
+@pytest.fixture
+def sample_table() -> pa.Table:
+    return pa.Table.from_pydict(
+        {
+            "id": [1, 2, 3],
+            "tokens": [
+                [1, 2, 3],
+                [4, 5],
+                [6],
+            ],
+        }
+    )
+
+
+@pytest.fixture
+def prefix_array() -> pa.Array:
+    return pa.array([0], type=pa.int32())
+
+
+@pytest.fixture
+def suffix_array() -> pa.Array:
+    return pa.array([999], type=pa.int32())
