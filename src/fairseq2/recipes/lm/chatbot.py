@@ -18,7 +18,11 @@ from typing_extensions import override
 
 from fairseq2.chatbots import Chatbot, ChatMessage, create_chatbot
 from fairseq2.context import get_runtime_context
-from fairseq2.data.text import TextTokenDecoder, TextTokenizer, get_text_tokenizer_hub
+from fairseq2.data.text.tokenizers import (
+    TextTokenDecoder,
+    TextTokenizer,
+    get_text_tokenizer_hub,
+)
 from fairseq2.error import InternalError
 from fairseq2.gang import Gang, is_torchrun
 from fairseq2.generation import (

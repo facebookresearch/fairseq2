@@ -16,7 +16,7 @@ from typing_extensions import override
 from fairseq2.assets import AssetCardNotFoundError, default_asset_store
 from fairseq2.checkpoint import FileCheckpointMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
-from fairseq2.data.text import TextTokenizer, get_text_tokenizer_hub
+from fairseq2.data.text.tokenizers import TextTokenizer, get_text_tokenizer_hub
 from fairseq2.datasets import Batching, LengthBatching, StaticBatching, SyncMode
 from fairseq2.datasets.parallel_text import (
     Direction,
@@ -28,9 +28,9 @@ from fairseq2.gang import Gang
 from fairseq2.generation import (
     BeamSearchConfig,
     Seq2SeqGenerator,
-    SequenceToTextConverter,
     create_seq2seq_generator,
 )
+from fairseq2.generation.text import SequenceToTextConverter
 from fairseq2.logging import get_log_writer
 from fairseq2.metrics.text import BleuMetric, ChrfMetric
 from fairseq2.models.encoder_decoder import EncoderDecoderModel

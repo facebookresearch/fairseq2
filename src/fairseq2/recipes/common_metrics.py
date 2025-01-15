@@ -12,8 +12,7 @@ from torcheval.metrics import Throughput
 
 from fairseq2.gang import Gang
 from fairseq2.generation import Seq2SeqGeneratorOutput, SequenceGeneratorOutput
-from fairseq2.metrics import MetricBag
-from fairseq2.metrics.aggregation import Max, Mean, Sum
+from fairseq2.metrics import Max, Mean, MetricBag, Sum
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
 

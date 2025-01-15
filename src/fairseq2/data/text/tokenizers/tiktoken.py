@@ -16,12 +16,12 @@ from tiktoken.load import load_tiktoken_bpe
 from torch import Tensor
 from typing_extensions import override
 
-from fairseq2.data.text.tokenizers.tokenizer import (
+from fairseq2.data import VocabularyInfo
+from fairseq2.data.text.tokenizers import (
     AbstractTextTokenizer,
     TextTokenDecoder,
     TextTokenEncoder,
 )
-from fairseq2.data.vocabulary_info import VocabularyInfo
 from fairseq2.typing import Device
 
 

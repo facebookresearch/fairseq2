@@ -17,7 +17,7 @@ from typing_extensions import override
 from fairseq2.assets import AssetCardNotFoundError, default_asset_store
 from fairseq2.checkpoint import FileCheckpointManager, FileCheckpointMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
-from fairseq2.data.text import get_text_tokenizer_hub
+from fairseq2.data.text.tokenizers import get_text_tokenizer_hub
 from fairseq2.datasets import Batching, LengthBatching, StaticBatching, SyncMode
 from fairseq2.datasets.parallel_text import (
     GenericParallelTextDataset,

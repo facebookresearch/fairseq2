@@ -10,7 +10,7 @@ from collections.abc import Sequence
 
 import pytest
 
-from fairseq2.data.text.converters import StrSplitter
+from fairseq2.data.text import StrSplitter
 
 
 class TestStrSplitter:

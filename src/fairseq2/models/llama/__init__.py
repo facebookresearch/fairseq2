@@ -6,24 +6,23 @@
 
 from __future__ import annotations
 
-from fairseq2.models.llama.config import LLAMA_MODEL_FAMILY as LLAMA_MODEL_FAMILY
-from fairseq2.models.llama.config import LLaMAConfig as LLaMAConfig
-from fairseq2.models.llama.config import (
+from fairseq2.models.llama._config import LLAMA_MODEL_FAMILY as LLAMA_MODEL_FAMILY
+from fairseq2.models.llama._config import LLaMAConfig as LLaMAConfig
+from fairseq2.models.llama._config import (
     LLaMARopeScalingConfig as LLaMARopeScalingConfig,
 )
-from fairseq2.models.llama.config import (
+from fairseq2.models.llama._config import (
     register_llama_configs as register_llama_configs,
 )
-from fairseq2.models.llama.factory import LLaMAFactory as LLaMAFactory
-from fairseq2.models.llama.handler import LLaMAModelHandler as LLaMAModelHandler
-from fairseq2.models.llama.handler import (
+from fairseq2.models.llama._factory import LLaMAFactory as LLaMAFactory
+from fairseq2.models.llama._handler import LLaMAModelHandler as LLaMAModelHandler
+from fairseq2.models.llama._handler import (
     convert_llama_checkpoint as convert_llama_checkpoint,
 )
-from fairseq2.models.llama.lora import get_llama_lora_config as get_llama_lora_config
 
 # isort: split
 
-from fairseq2.models.hub import ModelHubAccessor
+from fairseq2.models import ModelHubAccessor
 from fairseq2.models.transformer_decoder import TransformerDecoderModel
 
 get_llama_model_hub = ModelHubAccessor(TransformerDecoderModel, LLaMAConfig)

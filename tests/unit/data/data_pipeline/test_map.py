@@ -13,7 +13,7 @@ from dataclasses import dataclass
 import pytest
 
 from fairseq2.data import read_sequence
-from fairseq2.data.text.converters import StrToIntConverter
+from fairseq2.data.text import StrToIntConverter
 
 
 class TestMapOp:

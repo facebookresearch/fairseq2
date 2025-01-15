@@ -6,11 +6,11 @@
 
 from __future__ import annotations
 
-from fairseq2.checkpoint.manager import CheckpointManager as CheckpointManager
-from fairseq2.checkpoint.manager import (
+from fairseq2.checkpoint._manager import CheckpointManager as CheckpointManager
+from fairseq2.checkpoint._manager import (
     CheckpointNotFoundError as CheckpointNotFoundError,
 )
-from fairseq2.checkpoint.manager import FileCheckpointManager as FileCheckpointManager
-from fairseq2.checkpoint.metadata_provider import (
+from fairseq2.checkpoint._manager import FileCheckpointManager as FileCheckpointManager
+from fairseq2.checkpoint._metadata_provider import (
     FileCheckpointMetadataProvider as FileCheckpointMetadataProvider,
 )

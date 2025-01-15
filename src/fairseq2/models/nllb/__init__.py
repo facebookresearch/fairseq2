@@ -6,4 +6,4 @@
 
 from __future__ import annotations
 
-from fairseq2.models.nllb.config import register_nllb_configs as register_nllb_configs
+from fairseq2.models.nllb._config import register_nllb_configs as register_nllb_configs

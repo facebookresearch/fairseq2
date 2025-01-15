@@ -12,7 +12,7 @@ from fairseq2n import DOC_MODE
 from torch import Tensor
 from typing_extensions import NotRequired
 
-from fairseq2.data.memory import MemoryBlock
+from fairseq2.data import MemoryBlock
 from fairseq2.typing import DataType, Device
 
 if TYPE_CHECKING or DOC_MODE:
@@ -50,16 +50,10 @@ if TYPE_CHECKING or DOC_MODE:
             ...
 
 else:
-    from fairseq2n.bindings.data.audio import AudioDecoder as AudioDecoder
-    from fairseq2n.bindings.data.audio import (
+    from fairseq2n.bindings.data.audio import AudioDecoder as AudioDecoder  # noqa: F401
+    from fairseq2n.bindings.data.audio import (  # noqa: F401
         WaveformToFbankConverter as WaveformToFbankConverter,
     )
-
-    def _set_module_name() -> None:
-        for t in [AudioDecoder, WaveformToFbankConverter]:
-            t.__module__ = __name__
-
-    _set_module_name()
 
 
 class AudioDecoderOutput(TypedDict):

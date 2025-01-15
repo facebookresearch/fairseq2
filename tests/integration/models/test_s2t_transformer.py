@@ -9,8 +9,9 @@ from typing import Final
 
 import torch
 
-from fairseq2.data.text import TextTokenizer, get_text_tokenizer_hub
-from fairseq2.generation import BeamSearchSeq2SeqGenerator, SequenceToTextConverter
+from fairseq2.data.text.tokenizers import TextTokenizer, get_text_tokenizer_hub
+from fairseq2.generation import BeamSearchSeq2SeqGenerator
+from fairseq2.generation.text import SequenceToTextConverter
 from fairseq2.models.s2t_transformer import get_s2t_transformer_model_hub
 from fairseq2.models.transformer import TransformerModel
 from tests.common import device

@@ -18,7 +18,7 @@ import torch
 from numpy.typing import NDArray
 from pyarrow.dataset import get_partition_keys  # requires pyarrow >= 13
 
-from fairseq2.data.data_pipeline import DataPipeline, DataPipelineBuilder, read_sequence
+from fairseq2.data import DataPipeline, DataPipelineBuilder, read_sequence
 
 
 @contextmanager

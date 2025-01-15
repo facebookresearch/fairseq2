@@ -6,10 +6,10 @@
 
 from __future__ import annotations
 
-from fairseq2.chatbots.chatbot import AbstractChatbot as AbstractChatbot
-from fairseq2.chatbots.chatbot import Chatbot as Chatbot
-from fairseq2.chatbots.chatbot import ChatDialog as ChatDialog
-from fairseq2.chatbots.chatbot import ChatMessage as ChatMessage
-from fairseq2.chatbots.handler import ChatbotHandler as ChatbotHandler
-from fairseq2.chatbots.handler import ChatbotNotFoundError as ChatbotNotFoundError
-from fairseq2.chatbots.static import create_chatbot as create_chatbot
+from fairseq2.chatbots._chatbot import AbstractChatbot as AbstractChatbot
+from fairseq2.chatbots._chatbot import Chatbot as Chatbot
+from fairseq2.chatbots._chatbot import ChatDialog as ChatDialog
+from fairseq2.chatbots._chatbot import ChatMessage as ChatMessage
+from fairseq2.chatbots._handler import ChatbotHandler as ChatbotHandler
+from fairseq2.chatbots._handler import ChatbotNotFoundError as ChatbotNotFoundError
+from fairseq2.chatbots._static import create_chatbot as create_chatbot

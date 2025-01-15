@@ -13,8 +13,12 @@ import torch
 from torch import Tensor
 
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.nn.transformer import CustomAttentionMask, NaiveSDPA, TorchSDPA
-from fairseq2.nn.transformer.multihead_attention import StandardMultiheadAttention
+from fairseq2.nn.transformer import (
+    CustomAttentionMask,
+    NaiveSDPA,
+    StandardMultiheadAttention,
+    TorchSDPA,
+)
 from tests.common import assert_close, device
 
 

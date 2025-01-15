@@ -14,7 +14,7 @@ import torch
 
 from fairseq2.assets import AssetCardNotFoundError
 from fairseq2.config_registry import ConfigRegistry
-from fairseq2.data.text import get_text_tokenizer_hub
+from fairseq2.data.text.tokenizers import get_text_tokenizer_hub
 from fairseq2.datasets import LengthBatching, SyncMode
 from fairseq2.datasets.instruction import (
     GenericInstructionDataset,

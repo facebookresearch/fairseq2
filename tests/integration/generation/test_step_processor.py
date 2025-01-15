@@ -10,12 +10,9 @@ from typing import ClassVar, Final
 import pytest
 import torch
 
-from fairseq2.data.text import TextTokenizer, get_text_tokenizer_hub
-from fairseq2.generation import (
-    BannedSequenceProcessor,
-    BeamSearchSeq2SeqGenerator,
-    TextTranslator,
-)
+from fairseq2.data.text.tokenizers import TextTokenizer, get_text_tokenizer_hub
+from fairseq2.generation import BannedSequenceProcessor, BeamSearchSeq2SeqGenerator
+from fairseq2.generation.text import TextTranslator
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.transformer import get_transformer_model_hub
 from tests.common import device

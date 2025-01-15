@@ -12,8 +12,8 @@ from typing import Any, Final
 import pytest
 import torch
 
+from fairseq2.data import MemoryBlock
 from fairseq2.data.audio import AudioDecoder
-from fairseq2.data.memory import MemoryBlock
 from tests.common import assert_close, device
 
 TEST_OGG_PATH: Final = Path(__file__).parent.joinpath("test.ogg")

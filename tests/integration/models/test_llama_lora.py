@@ -7,7 +7,8 @@
 import torch
 
 from fairseq2.data import VocabularyInfo
-from fairseq2.models.llama import LLaMAConfig, LLaMAFactory, get_llama_lora_config
+from fairseq2.models.llama import LLaMAConfig, LLaMAFactory
+from fairseq2.models.llama.lora import get_llama_lora_config
 from fairseq2.nn.lora import (
     freeze_non_lora,
     merge_lora,
