@@ -67,7 +67,7 @@ def generated_partitioned_parquet_file(
         path,
         partition_cols=["part_key"] if n_partitions > 0 else None,
         existing_data_behavior="delete_matching",
-        **{"row_group_size": 110},
+        **{"row_group_size": 110},  # type: ignore[arg-type]
     )
 
 
@@ -75,7 +75,9 @@ def generated_partitioned_parquet_file(
 def single_file() -> Generator[str, None, None]:
     tmpdir = tempfile.mkdtemp()
     tmp_parquet_ds_path = os.path.join(tmpdir, "test")
-    generated_partitioned_parquet_file(tmp_parquet_ds_path, size=10**3, n_partitions=0)
+    generated_partitioned_parquet_file(
+        tmp_parquet_ds_path, size=10**3, n_partitions=0
+    )
     yield tmp_parquet_ds_path
     shutil.rmtree(tmpdir)
 

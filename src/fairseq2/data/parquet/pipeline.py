@@ -17,9 +17,14 @@ import torch
 from retrying import retry
 
 from fairseq2.data.data_pipeline import DataPipeline, DataPipelineBuilder, read_sequence
-from fairseq2.data.parquet.configs import ParquetDatasetLimitOptions
+from fairseq2.data.parquet.configs import (
+    ParquetBasicDataloaderConfig,
+    ParquetDatasetConfig,
+    ParquetDatasetLimitOptions,
+)
 from fairseq2.data.parquet.transform import add_fragments_trace
 from fairseq2.data.parquet.utils import (
+    BatchOutputType,
     add_partitioning_values,
     compute_length_splits,
     compute_rows_length,
@@ -112,159 +117,12 @@ class SafeFragment:
         return fragment_table
 
 
-@dataclass
-class PFSState:
-    nb_fully_read_files: int = 0
-    nb_current_file_read_fragements: int = 0
-    total_nb_fragments: int = 0
-    total_nb_rows: int = 0
-
-
-class ParquetFragmentStreamer:
-    def __init__(
-        self,
-        parquet_ds: pq.ParquetDataset,
-        split_to_row_groups: bool = True,
-        limit_options: Optional[ParquetDatasetLimitOptions] = None,
-        read_state: Optional[PFSState] = None,
-    ):
-        self.split_to_row_groups = split_to_row_groups
-        self.limit_options = limit_options or ParquetDatasetLimitOptions()
-        self.parquet_ds = parquet_ds
-
-        if read_state is not None:
-            self.state = read_state
-        else:
-            self.reset_state()
-
-    def reset_state(self) -> None:
-        self.state = PFSState()
-
-    def __reduce__(self) -> tuple[type[ParquetFragmentStreamer], tuple[Any, ...]]:
-        return (
-            self.__class__,
-            (
-                self.parquet_ds,
-                self.split_to_row_groups,
-                self.limit_options,
-                self.state,
-            ),
-        )
-
-    def truncate_files(
-        self,
-        parquet_ds: pq.ParquetDataset,
-        fraction_of_files: Optional[float],
-        nb_files: Optional[int],
-    ) -> List[pa.dataset.Fragment]:
-        file_ds_fragments = get_dataset_fragments(
-            parquet_ds, parquet_ds._filter_expression
-        )
-        self.proxy_ds_path = "/".join(parquet_ds.files[0].split("=")[0].split("/")[:-1])
-        log.info(
-            f"{self.proxy_ds_path} : full number of files {len(file_ds_fragments)}"
-        )
-
-        if fraction_of_files is not None:
-            file_ds_fragments = file_ds_fragments[
-                : max(
-                    int(round(fraction_of_files * len(file_ds_fragments))),
-                    1,
-                )
-            ]
-            log.info(
-                f"{self.proxy_ds_path} : reducing number of files to {len(file_ds_fragments)} because of fraction_of_files={fraction_of_files}"
-            )
-        if nb_files is not None and nb_files < len(file_ds_fragments):
-            file_ds_fragments = file_ds_fragments[:nb_files]
-            log.info(
-                f"{self.proxy_ds_path} : reducing number of files to {len(file_ds_fragments)} because of nb_files={nb_files}"
-            )
-        return file_ds_fragments
-
-    def __iter__(self) -> Iterator[pa.dataset.Fragment]:
-        limit_options = self.limit_options
-
-        file_ds_fragments = self.truncate_files(
-            self.parquet_ds,
-            limit_options.fraction_of_files,
-            limit_options.nb_files,
-        )
-
-        if not self.split_to_row_groups:
-            for frag in file_ds_fragments[
-                self.state.nb_fully_read_files : limit_options.nb_fragments  # noqa: E203
-            ]:
-                self.state.nb_fully_read_files += 1
-                yield frag
-
-                if limit_options.nb_rows is not None:
-                    self.state.total_nb_rows += frag.count_rows()
-                    if self.state.total_nb_rows >= limit_options.nb_rows:
-                        break
-        else:
-            early_stop = False
-            log.info(f"{self.proxy_ds_path} : starting split in row groups")
-
-            for new_file in file_ds_fragments[
-                self.state.nb_fully_read_files :  # noqa: E203
-            ]:
-                new_file_fragments = split_fragment_in_row_groups(new_file)
-                new_file_fragments = new_file_fragments[
-                    self.state.nb_current_file_read_fragements :  # noqa: E203
-                ]
-                if limit_options.nb_rows is not None:
-                    new_file_fragments_stats = [
-                        frag.row_groups[0].num_rows for frag in new_file_fragments
-                    ]
-                else:
-                    new_file_fragments_stats = [0] * len(new_file_fragments)
-
-                for nb_row, frag in zip(new_file_fragments_stats, new_file_fragments):
-                    self.state.total_nb_rows += nb_row
-                    self.state.total_nb_fragments += 1
-                    self.state.nb_current_file_read_fragements += (
-                        1  # increate before yield
-                    )
-                    yield frag
-
-                    if (
-                        limit_options.nb_fragments is not None
-                        and self.state.total_nb_fragments >= limit_options.nb_fragments
-                    ):
-                        early_stop = True
-                        if limit_options.nb_rows is not None:
-                            log.info(
-                                f"{self.proxy_ds_path} : nb_fragments limit {limit_options.nb_fragments} was reached with around {self.state.total_nb_rows} rows"
-                            )
-                        else:
-                            log.info(
-                                f"{self.proxy_ds_path} : nb_fragments limit {limit_options.nb_fragments} was reached"
-                            )
-                        break
-                    if (
-                        limit_options.nb_rows is not None
-                        and self.state.total_nb_rows >= limit_options.nb_rows
-                    ):
-                        early_stop = True
-                        log.info(
-                            f"{self.proxy_ds_path} : nb_rows limit {limit_options.nb_rows} was reached with around {self.state.total_nb_fragments} fragments"
-                        )
-                        break
-                if early_stop:
-                    break
-                # only when full file is read we increament this
-                self.state.nb_fully_read_files += 1
-                self.state.nb_current_file_read_fragements = 0
-
-
 def parquet_fragments_to_pipeline_builder(
     file_ds_fragments: List[pa.dataset.Fragment],
     nb_epochs: int = 1,
     shuffle: bool = True,
     seed: Optional[int] = None,
 ) -> DataPipelineBuilder:
-
     if shuffle:
         if seed is None:
             seed = int(torch.randint(0, 2**31, ()).item())
@@ -364,3 +222,82 @@ def build_iterator_over_one_table(
         )
         .and_return(max_num_warnings=4)
     )
+
+
+def build_parquet_iterator_pipeline(
+    config: ParquetBasicDataloaderConfig,
+) -> DataPipelineBuilder:
+    def inner_iterator(wrap_table: _TableWrapper) -> DataPipeline:
+        return build_iterator_over_one_table(
+            table=wrap_table.table,
+            order_by_length=config.order_by_length,
+            batch_size=config.batch_size,
+            max_tokens=config.max_tokens,
+            shuffle=config.shuffle,
+            seed=config.seed,
+            num_parallel_calls=max(config.num_parallel_calls // 2, 1),
+        )
+
+    pipeline_builder = (
+        list_parquet_fragments(
+            parquet_path=config.parquet_path,
+            filters=config.filters,  # type: ignore[arg-type]
+            columns=config.columns,
+            split_to_row_groups=config.split_to_row_groups,
+            filesystem=config.filesystem,
+            shuffle_window=(
+                2 * config.nb_prefetch * config.nb_parallel_fragments
+                if config.shuffle
+                else None
+            ),
+            seed=config.seed,
+        )
+        .shard(shard_idx=config.rank, num_shards=config.world_size)
+        .map(
+            table_func_wrap(partial(load_one_fragment, columns=config.columns)),
+            num_parallel_calls=config.num_parallel_calls,
+        )
+        .map(
+            table_func_wrap(
+                partial(
+                    apply_filter, filters=config.filters, drop_null=config.drop_null
+                )
+            )
+        )
+        .bucket(config.nb_parallel_fragments)
+        .prefetch(config.nb_prefetch)
+        .map(
+            table_func_wrap(concat_table),
+            num_parallel_calls=config.nb_prefetch,
+        )
+        .yield_from(inner_iterator)
+        .filter(
+            table_func_wrap(lambda table: bool(len(table) >= config.min_batch_size))
+        )
+    )
+
+    if config.output_format == ParquetBatchFormat.pandas:
+        pipeline_builder = pipeline_builder.map(
+            table_func_wrap(lambda table: table.to_pandas())
+        )
+    elif config.output_format == ParquetBatchFormat.torch:
+        pipeline_builder = pipeline_builder.map(
+            table_func_wrap(pyarrow_table_to_torch_dict)
+        )
+    return pipeline_builder
+
+
+def parquet_iterator(
+    dataset_config: ParquetDatasetConfig,
+    dataloader_config: ParquetBasicDataloaderConfig,
+) -> Generator[BatchOutputType, None, None]:
+    """ """
+    with pyarrow_cpu(dataloader_config.num_parallel_calls):
+        yield from map(
+            _to_real_object,
+            iter(
+                build_parquet_iterator_pipeline(config)
+                .prefetch(config.num_parallel_calls)
+                .and_return(max_num_warnings=4)
+            ),
+        )
