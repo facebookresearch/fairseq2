@@ -38,6 +38,10 @@ implicit_reexport = true
 module = "fairseq2.data.parquet_v0.tools,tests.integration.parquet.*,fairseq2.data.parquet"
 ignore_errors = true
 
+[[tool.mypy.overrides]]
+module = "fairseq2.data.parquet.*,tests.unit.data.parquet.*"
+ignore_errors = true
+
 [tool.pytest.ini_options]
 minversion = "7.1"
 testpaths = ["tests"]
