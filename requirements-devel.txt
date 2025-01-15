@@ -2,11 +2,15 @@ black~=25.1
 flake8~=7.1
 flake8-pyi~=24.6
 flake8-pyproject~=1.2
+
 isort~=6.0
 mypy~=1.15.0
+pandas~=2.0.0
+pandas-stubs~=2.2.3
 pyarrow-stubs~=10.0
 pytest~=8.3
 shellcheck-py~=0.9
+types-tqdm~=4.67.0
 types-editdistance~=0.6
 types-psutil~=5.9
 types-PyYAML~=6.0

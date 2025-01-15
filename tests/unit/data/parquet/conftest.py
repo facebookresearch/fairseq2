@@ -1,7 +1,7 @@
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Generator
+from typing import Any, Generator
 
 import numpy as np
 import pyarrow as pa
@@ -46,6 +46,7 @@ def sample_table() -> pa.Table:
 
 
 @pytest.fixture
+
 def prefix_array() -> pa.Array:
     return pa.array([0], type=pa.int32())
 
