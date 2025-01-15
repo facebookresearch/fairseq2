@@ -230,6 +230,7 @@ def register_llama_configs(context: RuntimeContext) -> None:
 
         config.model_dim = 3072
         config.ffn_inner_dim = 3072 * 4
+        config.ffn_inner_dim_multiplier = 1.0
         config.ffn_inner_dim_to_multiple = 256
         config.num_attn_heads = 24
         config.num_key_value_heads = 8
