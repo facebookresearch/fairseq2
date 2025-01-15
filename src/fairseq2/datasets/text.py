@@ -23,12 +23,7 @@ from fairseq2.data import (
     read_sequence,
 )
 from fairseq2.data.text import TextTokenEncoder, read_text
-from fairseq2.datasets.config import (
-    Batching,
-    DataReadOptions,
-    LengthBatching,
-    StaticBatching,
-)
+from fairseq2.datasets.config import DataReadOptions, LengthBatching, StaticBatching
 from fairseq2.datasets.data_reader import DataPipelineReader, DataReader
 from fairseq2.datasets.error import DatasetError
 from fairseq2.datasets.hub import DatasetHubAccessor
@@ -37,6 +32,11 @@ from fairseq2.gang import Gang
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
 from fairseq2.typing import Device
+
+
+@dataclass(kw_only=True)
+class TextReadOptions(DataReadOptions):
+    pass
 
 
 class TextDataset(ABC):
@@ -50,7 +50,6 @@ class TextDataset(ABC):
         gang: Gang,
         min_seq_len: int,
         max_seq_len: int,
-        batching: Batching,
         options: TextReadOptions | None = None,
     ) -> DataReader[SequenceBatch]:
         """Create a dataset reader.
@@ -67,16 +66,9 @@ class TextDataset(ABC):
         :param max_seq_len:
             The maximum sequence length of each example. Examples longer than
             this value will be dropped.
-        :param batching:
-            The batching strategy for returned examples.
         :param options:
             The read options.
         """
-
-
-@dataclass
-class TextReadOptions(DataReadOptions):
-    pass
 
 
 # TODO: FIX, INFER
@@ -127,7 +119,6 @@ class GenericTextDataset(TextDataset):
         gang: Gang,
         min_seq_len: int,
         max_seq_len: int,
-        batching: Batching,
         options: TextReadOptions | None = None,
     ) -> DataReader[SequenceBatch]:
         if options is None:
@@ -162,6 +153,8 @@ class GenericTextDataset(TextDataset):
             return example
 
         builder.map(encode, num_parallel_calls=npc)
+
+        batching = options.batching
 
         if isinstance(batching, LengthBatching):
             # Bucket by the length of the sequence.
@@ -215,15 +208,7 @@ class GenericTextDataset(TextDataset):
 
         pipeline = builder.map(f).and_return()
 
-        return DataPipelineReader[SequenceBatch](
-            self._name,
-            pipeline,
-            gang,
-            num_accumulate=options.num_accumulate,
-            drop_remainder=options.drop_remainder,
-            sync_batches=options.sync_batches,
-            sync_mode=options.sync_mode,
-        )
+        return DataPipelineReader[SequenceBatch](self._name, pipeline, gang, options)
 
     @staticmethod
     def _to_batch(example: dict[str, Any], device: Device) -> SequenceBatch:

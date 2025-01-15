@@ -30,11 +30,7 @@ class S2TTransformerTokenizer(SentencePieceTokenizer):
     _default_target_lang: str
 
     def __init__(
-        self,
-        path: Path,
-        task: str,
-        target_langs: set[str],
-        default_target_lang: str,
+        self, path: Path, task: str, target_langs: set[str], default_target_lang: str
     ) -> None:
         """
         :param path:

@@ -16,7 +16,7 @@ from typing_extensions import override
 from fairseq2.assets import AssetCardNotFoundError, default_asset_store
 from fairseq2.checkpoint import FileCheckpointMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
-from fairseq2.datasets import LengthBatching
+from fairseq2.datasets import LengthBatching, SyncMode
 from fairseq2.datasets.speech import (
     GenericSpeechDataset,
     SpeechReadOptions,
@@ -180,10 +180,13 @@ def load_wav2vec2_evaluator(
 
     seed = config.seed
 
-    options = SpeechReadOptions(
+    batching = LengthBatching(config.max_num_elements)
+
+    read_options = SpeechReadOptions(
+        batching=batching,
         dtype=config.dtype,
         normalize_audio=config.normalize_audio,
-        sync_mode="until_last",
+        sync_mode=SyncMode.UNTIL_LAST,
         num_prefetch=config.num_prefetch,
         seed=seed,
     )
@@ -194,8 +197,7 @@ def load_wav2vec2_evaluator(
             gang,
             config.min_audio_len,
             config.max_audio_len,
-            LengthBatching(config.max_num_elements),
-            options,
+            read_options,
         )
     except ValueError as ex:
         raise ValueError(

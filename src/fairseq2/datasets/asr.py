@@ -28,12 +28,7 @@ from fairseq2.data import (
 )
 from fairseq2.data.audio import AudioDecoder
 from fairseq2.data.text import StrSplitter, TextTokenizer, read_text
-from fairseq2.datasets.config import (
-    Batching,
-    DataReadOptions,
-    LengthBatching,
-    StaticBatching,
-)
+from fairseq2.datasets.config import DataReadOptions, LengthBatching, StaticBatching
 from fairseq2.datasets.data_reader import DataPipelineReader, DataReader
 from fairseq2.datasets.error import DatasetError, SplitNotFoundError
 from fairseq2.datasets.hub import DatasetHubAccessor
@@ -42,6 +37,15 @@ from fairseq2.gang import Gang
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
 from fairseq2.typing import DataType
+
+
+@dataclass(kw_only=True)
+class AsrReadOptions(DataReadOptions):
+    dtype: DataType = torch.float32
+    """The data type of the decoded audio sequences."""
+
+    normalize_audio: bool = False
+    """If ``True``, normalizes audio to have zero mean and unit variance."""
 
 
 class AsrDataset(ABC):
@@ -55,7 +59,6 @@ class AsrDataset(ABC):
         gang: Gang,
         min_audio_len: int,
         max_audio_len: int,
-        batching: Batching,
         options: AsrReadOptions | None = None,
     ) -> DataReader[Seq2SeqBatch]:
         """Create a dataset reader.
@@ -72,8 +75,6 @@ class AsrDataset(ABC):
         :param max_audio_len:
             The maximum audio length of each example. Examples longer than this
             value will be dropped.
-        :param batching:
-            The batching strategy for returned examples.
         :param options:
             The read options.
         """
@@ -81,15 +82,6 @@ class AsrDataset(ABC):
     @abstractmethod
     def splits(self) -> set[str]:
         """Return the set of splits."""
-
-
-@dataclass
-class AsrReadOptions(DataReadOptions):
-    dtype: DataType = torch.float32
-    """The data type of the decoded audio sequences."""
-
-    normalize_audio: bool = False
-    """If ``True``, normalizes audio to have zero mean and unit variance."""
 
 
 # TODO: FIX, INFER
@@ -143,7 +135,6 @@ class GenericAsrDataset(AsrDataset):
         gang: Gang,
         min_audio_len: int,
         max_audio_len: int,
-        batching: Batching,
         options: AsrReadOptions | None = None,
     ) -> DataPipelineReader[Seq2SeqBatch]:
         """
@@ -173,6 +164,8 @@ class GenericAsrDataset(AsrDataset):
         builder.shard(gang.rank, gang.size, allow_uneven=True)
 
         seed += gang.rank
+
+        batching = options.batching
 
         if isinstance(batching, LengthBatching):
             # Bucket by the audio length.
@@ -284,15 +277,7 @@ class GenericAsrDataset(AsrDataset):
 
         pipeline = builder.map(to_batch).and_return()
 
-        return DataPipelineReader[Seq2SeqBatch](
-            self._name,
-            pipeline,
-            gang,
-            num_accumulate=options.num_accumulate,
-            drop_remainder=options.drop_remainder,
-            sync_batches=options.sync_batches,
-            sync_mode=options.sync_mode,
-        )
+        return DataPipelineReader[Seq2SeqBatch](self._name, pipeline, gang, options)
 
     def _retrieve_data_directory(self, split: str) -> Path:
         manifest_file = self._manifest_dir.joinpath(f"{split}.tsv")

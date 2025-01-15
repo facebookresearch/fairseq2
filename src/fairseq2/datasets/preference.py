@@ -26,12 +26,7 @@ from fairseq2.data import (
     read_sequence,
 )
 from fairseq2.data.text import TextTokenizer
-from fairseq2.datasets.config import (
-    Batching,
-    DataReadOptions,
-    LengthBatching,
-    StaticBatching,
-)
+from fairseq2.datasets.config import DataReadOptions, LengthBatching, StaticBatching
 from fairseq2.datasets.data_reader import DataPipelineReader
 from fairseq2.datasets.hub import DatasetHubAccessor
 from fairseq2.datasets.utils import _load_files_and_weights
@@ -39,6 +34,27 @@ from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
+
+
+@dataclass(kw_only=True)
+class PreferenceReadOptions(DataReadOptions):
+    sample: bool = False
+    """
+    If ``True``, instruction sources (e.g. JSONL files) will be sampled in
+    proportion to their weights.
+    """
+
+    mask_source_tokens: bool = True
+    """
+    If ``False``, calculates loss on the source tokens (prompt) as well as the
+    target tokens.
+    """
+
+    source_encode_mode: str = "prompt"
+    """The tokenizer mode to encode the source text."""
+
+    target_encode_mode: str = "prompt_response"
+    """The tokenizer mode to encode the target text."""
 
 
 @dataclass
@@ -61,7 +77,6 @@ class PreferenceOptimizationDataset(ABC):
         gang: Gang,
         min_seq_len: int,
         max_seq_len: int,
-        batching: Batching,
         options: PreferenceReadOptions | None = None,
     ) -> DataPipelineReader[PreferenceOptimizationBatch]:
         """Create a dataset reader.
@@ -76,32 +91,9 @@ class PreferenceOptimizationDataset(ABC):
         :param max_seq_len:
             The maximum sequence length of each example. Examples longer than
             this value will be dropped.
-        :param batching:
-            The batching strategy for returned examples.
         :param options:
             The read options.
         """
-
-
-@dataclass
-class PreferenceReadOptions(DataReadOptions):
-    sample: bool = False
-    """
-    If ``True``, instruction sources (e.g. JSONL files) will be sampled in
-    proportion to their weights.
-    """
-
-    mask_source_tokens: bool = True
-    """
-    If ``False``, calculates loss on the source tokens (prompt) as well as the
-    target tokens.
-    """
-
-    source_encode_mode: str = "prompt"
-    """The tokenizer mode to encode the source text."""
-
-    target_encode_mode: str = "prompt_response"
-    """The tokenizer mode to encode the target text."""
 
 
 # TODO: FIX, INFER
@@ -153,7 +145,6 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
         gang: Gang,
         min_seq_len: int,
         max_seq_len: int,
-        batching: Batching,
         options: PreferenceReadOptions | None = None,
     ) -> DataPipelineReader[PreferenceOptimizationBatch]:
         if options is None:
@@ -238,6 +229,8 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
             }
 
         builder.map(cat_source_and_target, num_parallel_calls=npc)
+
+        batching = options.batching
 
         if isinstance(batching, LengthBatching):
             bucket_sizes = create_bucket_sizes(
@@ -345,12 +338,7 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
         pipeline = builder.map(to_batch).and_return()
 
         return DataPipelineReader[PreferenceOptimizationBatch](
-            self._name,
-            pipeline,
-            gang,
-            num_accumulate=options.num_accumulate,
-            drop_remainder=options.drop_remainder,
-            sync_batches=options.sync_batches,
+            self._name, pipeline, gang, options
         )
 
     def _read_jsonl(self, path: Path, tokenizer: TextTokenizer) -> DataPipelineBuilder:

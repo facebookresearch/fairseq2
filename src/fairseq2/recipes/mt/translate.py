@@ -17,7 +17,7 @@ from fairseq2.assets import AssetCardNotFoundError, default_asset_store
 from fairseq2.checkpoint import FileCheckpointMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import TextTokenizer, get_text_tokenizer_hub
-from fairseq2.datasets import StaticBatching
+from fairseq2.datasets import StaticBatching, SyncMode
 from fairseq2.datasets.text import (
     GenericTextDataset,
     TextReadOptions,
@@ -235,8 +235,13 @@ def load_text_translator(
 
     seed = config.seed
 
-    options = TextReadOptions(
-        sync_mode="until_last", num_prefetch=config.num_prefetch, seed=seed
+    batching = StaticBatching(config.batch_size)
+
+    read_options = TextReadOptions(
+        batching=batching,
+        sync_mode=SyncMode.UNTIL_LAST,
+        num_prefetch=config.num_prefetch,
+        seed=seed,
     )
 
     try:
@@ -246,8 +251,7 @@ def load_text_translator(
             gang,
             config.min_seq_len,
             config.max_seq_len,
-            StaticBatching(config.batch_size),
-            options,
+            read_options,
         )
     except ValueError as ex:
         raise ValueError(

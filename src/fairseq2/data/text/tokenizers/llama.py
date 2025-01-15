@@ -34,6 +34,8 @@ class LLaMA3Tokenizer(TiktokenTokenizer):
         :param instruct:
             If ``True``, uses EOT (end-of-turn) token in-place of EOS token.
         """
+        self._eos_token = "<|eot_id|>" if instruct else "<|end_of_text|>"
+
         special_tokens = [
             "<|begin_of_text|>",
             "<|end_of_text|>",
@@ -52,8 +54,6 @@ class LLaMA3Tokenizer(TiktokenTokenizer):
 
         for i in range(num_reserved_special_tokens - len(special_tokens)):
             special_tokens.append(f"<|reserved_special_token_{2 + i}|>")
-
-        self._eos_token = "<|eot_id|>" if instruct else "<|end_of_text|>"
 
         super().__init__(
             path,

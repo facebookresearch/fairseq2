@@ -14,13 +14,22 @@ from typing import Final, final
 import torch
 from typing_extensions import override
 
-from fairseq2.datasets.config import Batching, DataReadOptions
+from fairseq2.datasets.config import DataReadOptions
 from fairseq2.datasets.data_reader import DataPipelineReader, DataReader
 from fairseq2.datasets.hub import DatasetHubAccessor
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.typing import DataType
+
+
+@dataclass(kw_only=True)
+class SpeechReadOptions(DataReadOptions):
+    dtype: DataType = torch.float32
+    """The data type of the decoded audio sequences."""
+
+    normalize_audio: bool = False
+    """If ``True``, normalizes audio to have zero mean and unit variance."""
 
 
 class SpeechDataset(ABC):
@@ -33,7 +42,6 @@ class SpeechDataset(ABC):
         gang: Gang,
         min_audio_len: int,
         max_audio_len: int,
-        batching: Batching,
         options: SpeechReadOptions | None = None,
     ) -> DataReader[SequenceBatch]:
         """Create a dataset reader.
@@ -48,8 +56,6 @@ class SpeechDataset(ABC):
         :param max_audio_len:
             The maximum audio length of each example. Examples longer than this
             value will be dropped.
-        :param batching:
-            The batching strategy for returned examples.
         :param options:
             The read options.
         """
@@ -57,15 +63,6 @@ class SpeechDataset(ABC):
     @abstractmethod
     def splits(self) -> set[str]:
         """Return the set of splits."""
-
-
-@dataclass
-class SpeechReadOptions(DataReadOptions):
-    dtype: DataType = torch.float32
-    """The data type of the decoded audio sequences."""
-
-    normalize_audio: bool = False
-    """If ``True``, normalizes audio to have zero mean and unit variance."""
 
 
 GENERIC_SPEECH_DATASET_FAMILY: Final = "generic_speech"
@@ -86,7 +83,6 @@ class GenericSpeechDataset(SpeechDataset):
         gang: Gang,
         min_audio_len: int,
         max_audio_len: int,
-        batching: Batching,
         options: SpeechReadOptions | None = None,
     ) -> DataPipelineReader[SequenceBatch]:
         raise NotSupportedError("not supported yet.")
