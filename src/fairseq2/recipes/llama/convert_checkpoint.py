@@ -158,7 +158,7 @@ class ConvertCheckpointCommandHandler(CliCommandHandler):
 
             try:
                 with args.output_dir.joinpath("params.json").open("w") as fp:
-                    json.dump({"model", params}, fp)
+                    json.dump({"model": params}, fp)
             except RuntimeError:
                 log.exception("params.json cannot be created.")
 
