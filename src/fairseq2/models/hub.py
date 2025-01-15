@@ -70,7 +70,7 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
         *,
         gangs: Gangs | None = None,
         device: Device | None = None,
-        dtype: DataType = torch.float32,
+        dtype: DataType | None = None,
         config: ModelConfigT | None = None,
     ) -> ModelT:
         if gangs is not None and device is not None:
@@ -105,6 +105,9 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
             raise TypeError(
                 f"The '{card.name}' model is expected to be of type `{self._kls}`, but is of type `{handler.kls}` instead."
             )
+
+        if dtype is None:
+            dtype = torch.float32
 
         model = handler.load(card, gangs, dtype, config=config)
 
