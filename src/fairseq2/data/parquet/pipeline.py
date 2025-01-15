@@ -6,9 +6,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from functools import partial
 from pickle import dumps, loads
-from typing import Any, Iterator, List, Optional
+from typing import Generator, List, Optional
 
 import numpy as np
 import pyarrow as pa
@@ -19,16 +19,25 @@ from retrying import retry
 from fairseq2.data.data_pipeline import DataPipeline, DataPipelineBuilder, read_sequence
 from fairseq2.data.parquet.configs import (
     ParquetBasicDataloaderConfig,
+    ParquetBatchFormat,
     ParquetDatasetConfig,
-    ParquetDatasetLimitOptions,
 )
-from fairseq2.data.parquet.transform import add_fragments_trace
+from fairseq2.data.parquet.transform import (
+    add_fragments_trace,
+    apply_filter,
+    concat_table,
+)
 from fairseq2.data.parquet.utils import (
     BatchOutputType,
+    _TableWrapper,
+    _to_real_object,
     add_partitioning_values,
     compute_length_splits,
     compute_rows_length,
     get_dataset_fragments,
+    load_one_fragment,
+    pyarrow_cpu,
+    pyarrow_table_to_torch_dict,
     split_fragment_in_row_groups,
     table_func_wrap,
 )
@@ -225,62 +234,76 @@ def build_iterator_over_one_table(
 
 
 def build_parquet_iterator_pipeline(
-    config: ParquetBasicDataloaderConfig,
+    dataset_config: ParquetDatasetConfig,
+    dataloader_config: ParquetBasicDataloaderConfig,
 ) -> DataPipelineBuilder:
     def inner_iterator(wrap_table: _TableWrapper) -> DataPipeline:
         return build_iterator_over_one_table(
             table=wrap_table.table,
-            order_by_length=config.order_by_length,
-            batch_size=config.batch_size,
-            max_tokens=config.max_tokens,
-            shuffle=config.shuffle,
-            seed=config.seed,
-            num_parallel_calls=max(config.num_parallel_calls // 2, 1),
+            order_by_length=dataloader_config.order_by_length,
+            batch_size=dataloader_config.batch_size,
+            max_tokens=dataloader_config.max_tokens,
+            shuffle=dataloader_config.shuffle,
+            seed=dataloader_config.seed,
+            num_parallel_calls=max(dataloader_config.num_parallel_calls // 2, 1),
         )
 
     pipeline_builder = (
         list_parquet_fragments(
-            parquet_path=config.parquet_path,
-            filters=config.filters,  # type: ignore[arg-type]
-            columns=config.columns,
-            split_to_row_groups=config.split_to_row_groups,
-            filesystem=config.filesystem,
+            parquet_path=dataset_config.parquet_path,
+            filters=dataset_config.filters,  # type: ignore[arg-type]
+            columns=dataset_config.columns,
+            split_to_row_groups=dataset_config.split_to_row_groups,
             shuffle_window=(
-                2 * config.nb_prefetch * config.nb_parallel_fragments
-                if config.shuffle
+                2
+                * dataloader_config.nb_prefetch
+                * dataloader_config.nb_parallel_fragments
+                if dataloader_config.shuffle
                 else None
             ),
-            seed=config.seed,
+            seed=dataloader_config.seed,
         )
-        .shard(shard_idx=config.rank, num_shards=config.world_size)
-        .map(
-            table_func_wrap(partial(load_one_fragment, columns=config.columns)),
-            num_parallel_calls=config.num_parallel_calls,
+        .shard(
+            shard_idx=dataloader_config.rank,
+            num_shards=dataloader_config.world_size,
         )
         .map(
             table_func_wrap(
                 partial(
-                    apply_filter, filters=config.filters, drop_null=config.drop_null
+                    load_one_fragment,
+                    columns=dataset_config.columns,
+                )
+            ),
+            num_parallel_calls=dataloader_config.num_parallel_calls,
+        )
+        .map(
+            table_func_wrap(
+                partial(
+                    apply_filter,
+                    filters=dataset_config.filters,  # type: ignore[arg-type]
+                    drop_null=dataset_config.drop_null,
                 )
             )
         )
-        .bucket(config.nb_parallel_fragments)
-        .prefetch(config.nb_prefetch)
+        .bucket(dataloader_config.nb_parallel_fragments)
+        .prefetch(dataloader_config.nb_prefetch)
         .map(
             table_func_wrap(concat_table),
-            num_parallel_calls=config.nb_prefetch,
+            num_parallel_calls=dataloader_config.nb_prefetch,
         )
         .yield_from(inner_iterator)
         .filter(
-            table_func_wrap(lambda table: bool(len(table) >= config.min_batch_size))
+            table_func_wrap(
+                lambda table: bool(len(table) >= dataloader_config.min_batch_size)
+            )
         )
     )
 
-    if config.output_format == ParquetBatchFormat.pandas:
+    if dataloader_config.output_format == ParquetBatchFormat.pandas:
         pipeline_builder = pipeline_builder.map(
             table_func_wrap(lambda table: table.to_pandas())
         )
-    elif config.output_format == ParquetBatchFormat.torch:
+    elif dataloader_config.output_format == ParquetBatchFormat.torch:
         pipeline_builder = pipeline_builder.map(
             table_func_wrap(pyarrow_table_to_torch_dict)
         )
@@ -296,8 +319,8 @@ def parquet_iterator(
         yield from map(
             _to_real_object,
             iter(
-                build_parquet_iterator_pipeline(config)
-                .prefetch(config.num_parallel_calls)
+                build_parquet_iterator_pipeline(dataset_config, dataloader_config)
+                .prefetch(dataloader_config.num_parallel_calls)
                 .and_return(max_num_warnings=4)
             ),
         )
