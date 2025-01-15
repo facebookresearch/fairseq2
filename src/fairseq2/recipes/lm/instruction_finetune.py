@@ -20,7 +20,7 @@ from fairseq2.assets import AssetCardNotFoundError, default_asset_store
 from fairseq2.checkpoint import FileCheckpointManager, FileCheckpointMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import get_text_tokenizer_hub
-from fairseq2.datasets import Batching, LengthBatching, StaticBatching
+from fairseq2.datasets import Batching, LengthBatching, StaticBatching, SyncMode
 from fairseq2.datasets.instruction import (
     GenericInstructionDataset,
     InstructionReadOptions,
@@ -452,7 +452,8 @@ def load_instruction_finetuner(
         else:
             batching = LengthBatching(config.max_num_tokens)
 
-        options = InstructionReadOptions(
+        read_options = InstructionReadOptions(
+            batching=batching,
             example_shuffle_window=config.example_shuffle_window,
             batch_shuffle_window=config.batch_shuffle_window,
             num_accumulate=config.gradient_accumulation,
@@ -468,8 +469,7 @@ def load_instruction_finetuner(
             dp_gang,
             config.min_seq_len,
             config.max_seq_len,
-            batching,
-            options,
+            read_options,
         )
     except ValueError as ex:
         raise ValueError(
@@ -507,10 +507,13 @@ def load_instruction_finetuner(
 
         max_num_tokens = config.max_num_valid_tokens or config.max_num_tokens
 
+        batching = LengthBatching(max_num_tokens)
+
         options = InstructionReadOptions(
+            batching=batching,
             example_shuffle_window=config.example_shuffle_window,
             batch_shuffle_window=config.batch_shuffle_window,
-            sync_mode="until_last",
+            sync_mode=SyncMode.UNTIL_LAST,
             num_accumulate=config.gradient_accumulation,
             num_prefetch=config.num_prefetch,
             source_encode_mode=config.src_encode_mode,
@@ -525,7 +528,6 @@ def load_instruction_finetuner(
                 dp_gang,
                 config.min_seq_len,
                 config.max_seq_len,
-                LengthBatching(max_num_tokens),
                 options,
             )
         except ValueError as ex:

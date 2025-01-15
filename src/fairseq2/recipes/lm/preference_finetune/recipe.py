@@ -413,7 +413,8 @@ def load_preference_finetuner(
     else:
         batching = LengthBatching(config.max_num_tokens)
 
-    options = PreferenceReadOptions(
+    read_options = PreferenceReadOptions(
+        batching=batching,
         example_shuffle_window=config.example_shuffle_window,
         batch_shuffle_window=config.batch_shuffle_window,
         num_accumulate=config.gradient_accumulation,
@@ -426,12 +427,7 @@ def load_preference_finetuner(
 
     try:
         data_reader = dataset.create_reader(
-            tokenizer,
-            dp_gang,
-            config.min_seq_len,
-            config.max_seq_len,
-            batching,
-            options,
+            tokenizer, dp_gang, config.min_seq_len, config.max_seq_len, read_options
         )
     except ValueError as ex:
         raise ValueError(

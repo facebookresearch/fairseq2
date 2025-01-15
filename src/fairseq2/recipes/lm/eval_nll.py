@@ -15,7 +15,7 @@ import torch
 from fairseq2.assets import AssetCardNotFoundError
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import get_text_tokenizer_hub
-from fairseq2.datasets import LengthBatching
+from fairseq2.datasets import LengthBatching, SyncMode
 from fairseq2.datasets.instruction import (
     GenericInstructionDataset,
     InstructionReadOptions,
@@ -213,12 +213,16 @@ def load_nll_evaluator(
 
     # loading the eval unit
     criterion = InstructionFinetuneCriterion(dp_model)
+
     unit = InstructionValidUnit(criterion, dp_gang)
 
-    options = InstructionReadOptions(
+    batching = LengthBatching(config.max_num_tokens)
+
+    read_options = InstructionReadOptions(
+        batching=batching,
         example_shuffle_window=config.example_shuffle_window,
         batch_shuffle_window=config.batch_shuffle_window,
-        sync_mode="until_last",
+        sync_mode=SyncMode.UNTIL_LAST,
         num_accumulate=1,
         num_prefetch=config.num_prefetch,
         seed=seed,
@@ -230,8 +234,7 @@ def load_nll_evaluator(
         dp_gang,
         config.min_seq_len,
         config.max_seq_len,
-        LengthBatching(config.max_num_tokens),
-        options=options,
+        read_options,
     )
 
     # TODO: Fix once we support static mixed precision on one device.

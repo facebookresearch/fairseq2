@@ -8,11 +8,12 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterator, Mapping
-from typing import Literal, TypeAlias, TypeVar, final
+from typing import TypeVar, final
 
 from typing_extensions import Self, override
 
 from fairseq2.data import DataPipeline, DataPipelineError
+from fairseq2.datasets.config import DataReadOptions, SyncMode
 from fairseq2.datasets.error import DataReadError
 from fairseq2.datasets.utils import _min_num_batches, _sum_num_batches
 from fairseq2.gang import Gang, GangError
@@ -49,9 +50,6 @@ class DataReader(ABC, Iterator[list[BatchT_co]]):
         """The number of batches accumulated in each iteration."""
 
 
-SyncMode: TypeAlias = Literal["until_first", "until_last"]
-
-
 BatchT = TypeVar("BatchT")
 
 
@@ -63,52 +61,23 @@ class DataPipelineReader(DataReader[BatchT]):
     _pipeline: DataPipeline
     _pipeline_iter: Iterator[BatchT]
     _gang: Gang
-    _num_accumulate: int
-    _sync_batches: bool
+    _options: DataReadOptions
     _eod: bool
 
     def __init__(
-        self,
-        name: str,
-        pipeline: DataPipeline,
-        gang: Gang,
-        *,
-        num_accumulate: int = 1,
-        drop_remainder: bool = True,
-        sync_batches: bool = True,
-        sync_mode: SyncMode = "until_first",
+        self, name: str, pipeline: DataPipeline, gang: Gang, options: DataReadOptions
     ) -> None:
         """
         :param name: The name of the dataset.
-        :param pipeline:
-            The data pipeline to iterate over.
-        :param gang:
-            The gang over which the underlying dataset is sharded.
-        :param num_accumulate:
-            The number of batches to accumulate in each iteration. Typically
-            used with gradient accumulation during training.
-        :param drop_remainder:
-            If ``True``, skips the last iteration if it returns less than
-            ``num_accumulate`` batches.
-        :param sync_batches:
-            If ``True``, at the end of each ``next()`` call, syncs batches read
-            across all processes in the gang. Typically used when the amount of
-            data to be read can vary per process (e.g. due to bucketing) and it
-            is critical for each process to iterate over same number of batches.
-        :param sync_mode:
-            If ``until_first``, stops iteration when the first rank reaches end
-            of data. If ``until_last``, stops iteration when the last rank
-            reaches end of data; ranks that have already reached their end of
-            data will return an empty list of batches.
+        :param pipeline: The data pipeline to iterate over.
+        :param gang: The gang over which the underlying dataset is sharded.
+        :param options: The read options.
         """
         self._name = name
         self._pipeline = pipeline
         self._pipeline_iter = iter(pipeline)
         self._gang = gang
-        self._num_accumulate = num_accumulate
-        self._drop_remainder = drop_remainder
-        self._sync_batches = sync_batches
-        self._sync_until_last = sync_mode == "until_last"
+        self._options = options
         self._eod = False
 
     @override
@@ -122,7 +91,9 @@ class DataPipelineReader(DataReader[BatchT]):
 
         batches = []
 
-        for idx in range(self._num_accumulate):
+        num_accumulate = self._options.num_accumulate
+
+        for idx in range(num_accumulate):
             try:
                 batch = next(self._pipeline_iter)
             except StopIteration:
@@ -136,14 +107,14 @@ class DataPipelineReader(DataReader[BatchT]):
 
         # If we read less than `num_accumulate` batches, it means we reached end
         # of data.
-        if self._drop_remainder and len(batches) != self._num_accumulate:
+        if self._options.drop_remainder and len(batches) != num_accumulate:
             batches.clear()
 
         local_num_batches = len(batches)
 
-        if self._sync_batches and self._gang.size > 1:
+        if self._options.sync_batches and self._gang.size > 1:
             try:
-                if self._sync_until_last:
+                if self._options.sync_mode == SyncMode.UNTIL_LAST:
                     num_batches = _sum_num_batches(local_num_batches, self._gang)
                 else:
                     num_batches = _min_num_batches(local_num_batches, self._gang)
@@ -183,4 +154,4 @@ class DataPipelineReader(DataReader[BatchT]):
     @property
     @override
     def num_accumulate(self) -> int:
-        return self._num_accumulate
+        return self._options.num_accumulate

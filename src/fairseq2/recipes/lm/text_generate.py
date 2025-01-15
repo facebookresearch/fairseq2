@@ -18,7 +18,7 @@ from fairseq2.assets import AssetCardNotFoundError, default_asset_store
 from fairseq2.checkpoint import FileCheckpointMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import TextTokenDecoder, TextTokenizer, get_text_tokenizer_hub
-from fairseq2.datasets import StaticBatching
+from fairseq2.datasets import StaticBatching, SyncMode
 from fairseq2.datasets.instruction import (
     GenericInstructionDataset,
     InstructionPromptReadOptions,
@@ -286,8 +286,12 @@ def load_text_generator(
         json_output_stream=json_output_fp,
     )
 
-    options = InstructionPromptReadOptions(
-        sync_mode="until_last", num_prefetch=config.num_prefetch
+    batching = StaticBatching(config.batch_size)
+
+    read_options = InstructionPromptReadOptions(
+        batching=batching,
+        sync_mode=SyncMode.UNTIL_LAST,
+        num_prefetch=config.num_prefetch,
     )
 
     try:
@@ -297,8 +301,7 @@ def load_text_generator(
             dp_gang,
             config.min_seq_len,
             config.max_seq_len,
-            StaticBatching(config.batch_size),
-            options,
+            read_options,
         )
     except ValueError as ex:
         raise ValueError(

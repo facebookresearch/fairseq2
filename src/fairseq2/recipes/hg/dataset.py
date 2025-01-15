@@ -10,7 +10,7 @@ from collections.abc import Callable
 from typing import Any
 
 from fairseq2.data.data_pipeline import Collater, create_bucket_sizes, read_sequence
-from fairseq2.datasets import Batching, LengthBatching, StaticBatching
+from fairseq2.datasets import Batching, DataReadOptions, LengthBatching, StaticBatching
 from fairseq2.datasets.data_reader import BatchT, DataPipelineReader
 from fairseq2.gang import Gang
 
@@ -146,11 +146,9 @@ def create_hf_reader(
     builder.prefetch(num_prefetch)
 
     pipeline = builder.map(converter).and_return()
-    return DataPipelineReader[BatchT](
-        "hg",
-        pipeline,
-        gang,
-        num_accumulate=num_accumulate,
-        drop_remainder=False,
-        sync_batches=True,
+
+    options = DataReadOptions(
+        num_accumulate=num_accumulate, drop_remainder=False, sync_batches=True
     )
+
+    return DataPipelineReader[BatchT]("hg", pipeline, gang, options)

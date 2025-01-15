@@ -18,7 +18,7 @@ from fairseq2.assets import AssetCardNotFoundError, default_asset_store
 from fairseq2.checkpoint import FileCheckpointManager, FileCheckpointMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import get_text_tokenizer_hub
-from fairseq2.datasets import LengthBatching, StaticBatching
+from fairseq2.datasets import Batching, LengthBatching, StaticBatching, SyncMode
 from fairseq2.datasets.parallel_text import (
     GenericParallelTextDataset,
     ParallelTextReadOptions,
@@ -315,7 +315,10 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
     # Initialize the train unit.
     unit = MTTrainUnit(criterion, gang)
 
-    options = ParallelTextReadOptions(
+    batching: Batching = LengthBatching(config.max_num_tokens)
+
+    read_options = ParallelTextReadOptions(
+        batching=batching,
         sample=True,
         example_shuffle_window=config.example_shuffle_window,
         batch_shuffle_window=config.batch_shuffle_window,
@@ -331,8 +334,7 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
             gang,
             config.min_seq_len,
             config.max_seq_len,
-            LengthBatching(config.max_num_tokens),
-            options,
+            read_options,
         )
     except ValueError as ex:
         raise ValueError(
@@ -388,9 +390,12 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
 
         valid_units.append(valid_loss_unit)
 
-        options = ParallelTextReadOptions(
+        batching = LengthBatching(config.max_num_tokens)
+
+        read_options = ParallelTextReadOptions(
             direction=direction,
-            sync_mode="until_last",
+            batching=batching,
+            sync_mode=SyncMode.UNTIL_LAST,
             num_prefetch=config.num_prefetch,
             seed=seed,
         )
@@ -402,8 +407,7 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
                 gang,
                 config.min_seq_len,
                 config.max_seq_len,
-                LengthBatching(config.max_num_tokens),
-                options,
+                read_options,
             )
         except ValueError as ex:
             raise ValueError(
@@ -422,9 +426,12 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
 
             valid_units.append(valid_score_unit)
 
+            batching = StaticBatching(config.generator_batch_size)
+
             options = ParallelTextReadOptions(
                 direction=direction,
-                sync_mode="until_last",
+                batching=batching,
+                sync_mode=SyncMode.UNTIL_LAST,
                 num_prefetch=config.num_prefetch,
                 seed=seed,
             )
@@ -436,7 +443,6 @@ def load_mt_trainer(config: MTTrainConfig, output_dir: Path) -> Trainer[Seq2SeqB
                     gang,
                     config.min_seq_len,
                     config.max_seq_len,
-                    StaticBatching(config.generator_batch_size),
                     options,
                 )
             except ValueError as ex:

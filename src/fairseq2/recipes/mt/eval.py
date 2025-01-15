@@ -17,7 +17,7 @@ from fairseq2.assets import AssetCardNotFoundError, default_asset_store
 from fairseq2.checkpoint import FileCheckpointMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import TextTokenizer, get_text_tokenizer_hub
-from fairseq2.datasets import LengthBatching, StaticBatching
+from fairseq2.datasets import Batching, LengthBatching, StaticBatching, SyncMode
 from fairseq2.datasets.parallel_text import (
     Direction,
     GenericParallelTextDataset,
@@ -218,9 +218,12 @@ def load_mt_evaluator(
 
         units.append(loss_unit)
 
-        options = ParallelTextReadOptions(
+        batching: Batching = LengthBatching(config.max_num_tokens)
+
+        read_options = ParallelTextReadOptions(
+            batching=batching,
             direction=direction,
-            sync_mode="until_last",
+            sync_mode=SyncMode.UNTIL_LAST,
             num_prefetch=config.num_prefetch,
             seed=seed,
         )
@@ -232,8 +235,7 @@ def load_mt_evaluator(
                 gang,
                 config.min_seq_len,
                 config.max_seq_len,
-                LengthBatching(config.max_num_tokens),
-                options,
+                read_options,
             )
         except ValueError as ex:
             raise ValueError(
@@ -297,9 +299,12 @@ def load_mt_evaluator(
 
         units.append(score_unit)
 
-        options = ParallelTextReadOptions(
+        batching = StaticBatching(config.generator_batch_size)
+
+        read_options = ParallelTextReadOptions(
             direction=direction,
-            sync_mode="until_last",
+            batching=batching,
+            sync_mode=SyncMode.UNTIL_LAST,
             num_prefetch=config.num_prefetch,
             seed=seed,
         )
@@ -311,8 +316,7 @@ def load_mt_evaluator(
                 gang,
                 config.min_seq_len,
                 config.max_seq_len,
-                StaticBatching(config.generator_batch_size),
-                options,
+                read_options,
             )
         except ValueError as ex:
             raise ValueError(

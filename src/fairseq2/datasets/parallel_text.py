@@ -22,12 +22,7 @@ from fairseq2.data import (
     create_bucket_sizes,
 )
 from fairseq2.data.text import TextTokenizer, read_text
-from fairseq2.datasets.config import (
-    Batching,
-    DataReadOptions,
-    LengthBatching,
-    StaticBatching,
-)
+from fairseq2.datasets.config import DataReadOptions, LengthBatching, StaticBatching
 from fairseq2.datasets.data_reader import DataPipelineReader, DataReader
 from fairseq2.datasets.error import DatasetError, SplitNotFoundError
 from fairseq2.datasets.hub import DatasetHubAccessor
@@ -38,50 +33,7 @@ from fairseq2.nn.padding import get_seqs_and_padding_mask
 from fairseq2.typing import Device
 
 
-class ParallelTextDataset(ABC):
-    """Represents a parallel text dataset."""
-
-    @abstractmethod
-    def create_reader(
-        self,
-        split: str,
-        tokenizer: TextTokenizer,
-        gang: Gang,
-        min_seq_len: int,
-        max_seq_len: int,
-        batching: Batching,
-        options: ParallelTextReadOptions | None = None,
-    ) -> DataReader[Seq2SeqBatch]:
-        """Create a dataset reader.
-
-        :param split:
-            The split to read.
-        :param tokenizer:
-            The tokenizer to encode text.
-        :param gang:
-            The gang over which to shard the dataset.
-        :param min_seq_len:
-            The minimum sequence length of each example. Examples shorter than
-            this value will be dropped.
-        :param max_seq_len:
-            The maximum sequence length of each example. Examples longer than
-            this value will be dropped.
-        :param batching:
-            The batching strategy for returned examples.
-        :param options:
-            The read options.
-        """
-
-    @abstractmethod
-    def splits(self) -> set[str]:
-        """Return the set of splits."""
-
-    @abstractmethod
-    def directions(self, split: str) -> list[Direction]:
-        """Return the directions included ``split``."""
-
-
-@dataclass
+@dataclass(kw_only=True)
 class ParallelTextReadOptions(DataReadOptions):
     direction: Direction | None = None
     """The direction to read. If ``None``, all directions will be read."""
@@ -110,6 +62,46 @@ class Direction:
             s = f"{self.origin}/{s}"
 
         return s
+
+
+class ParallelTextDataset(ABC):
+    """Represents a parallel text dataset."""
+
+    @abstractmethod
+    def create_reader(
+        self,
+        split: str,
+        tokenizer: TextTokenizer,
+        gang: Gang,
+        min_seq_len: int,
+        max_seq_len: int,
+        options: ParallelTextReadOptions | None = None,
+    ) -> DataReader[Seq2SeqBatch]:
+        """Create a dataset reader.
+
+        :param split:
+            The split to read.
+        :param tokenizer:
+            The tokenizer to encode text.
+        :param gang:
+            The gang over which to shard the dataset.
+        :param min_seq_len:
+            The minimum sequence length of each example. Examples shorter than
+            this value will be dropped.
+        :param max_seq_len:
+            The maximum sequence length of each example. Examples longer than
+            this value will be dropped.
+        :param options:
+            The read options.
+        """
+
+    @abstractmethod
+    def splits(self) -> set[str]:
+        """Return the set of splits."""
+
+    @abstractmethod
+    def directions(self, split: str) -> list[Direction]:
+        """Return the directions included ``split``."""
 
 
 # TODO: FIX, INFER
@@ -258,7 +250,6 @@ class GenericParallelTextDataset(ParallelTextDataset):
         gang: Gang,
         min_seq_len: int,
         max_seq_len: int,
-        batching: Batching,
         options: ParallelTextReadOptions | None = None,
     ) -> DataPipelineReader[Seq2SeqBatch]:
         directions_weights = self._splits.get(split)
@@ -344,6 +335,8 @@ class GenericParallelTextDataset(ParallelTextDataset):
 
         builder.map(encode, num_parallel_calls=npc)
 
+        batching = options.batching
+
         if isinstance(batching, LengthBatching):
             bucket_sizes = create_bucket_sizes(
                 min_seq_len=min_seq_len,
@@ -400,15 +393,7 @@ class GenericParallelTextDataset(ParallelTextDataset):
 
         pipeline = builder.map(f).and_return()
 
-        return DataPipelineReader[Seq2SeqBatch](
-            self._name,
-            pipeline,
-            gang,
-            num_accumulate=options.num_accumulate,
-            drop_remainder=options.drop_remainder,
-            sync_batches=options.sync_batches,
-            sync_mode=options.sync_mode,
-        )
+        return DataPipelineReader[Seq2SeqBatch](self._name, pipeline, gang, options)
 
     def _read_direction(self, split: str, direction: Direction) -> DataPipelineBuilder:
         direction_pipeline = DataPipeline.constant(direction).and_return()

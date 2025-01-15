@@ -18,7 +18,7 @@ from fairseq2.assets import AssetCardNotFoundError, default_asset_store
 from fairseq2.checkpoint import FileCheckpointManager, FileCheckpointMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import get_text_tokenizer_hub
-from fairseq2.datasets import LengthBatching
+from fairseq2.datasets import LengthBatching, SyncMode
 from fairseq2.datasets.asr import AsrReadOptions, GenericAsrDataset, get_asr_dataset_hub
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
@@ -394,7 +394,10 @@ def load_wav2vec2_asr_trainer(
         criterion, gang, freeze_encoder_for_n_steps=config.freeze_encoder_for_n_steps
     )
 
-    options = AsrReadOptions(
+    batching = LengthBatching(config.max_num_elements)
+
+    read_options = AsrReadOptions(
+        batching=batching,
         dtype=config.dtype,
         normalize_audio=config.normalize_audio,
         example_shuffle_window=config.example_shuffle_window,
@@ -411,8 +414,7 @@ def load_wav2vec2_asr_trainer(
             gang,
             config.min_audio_len,
             config.max_audio_len,
-            LengthBatching(config.max_num_elements),
-            options,
+            read_options,
         )
     except ValueError as ex:
         raise ValueError(
@@ -452,10 +454,11 @@ def load_wav2vec2_asr_trainer(
     # Initialize the validation unit.
     valid_unit = Wav2Vec2AsrEvalUnit(valid_criterion, gang)
 
-    options = AsrReadOptions(
+    read_options = AsrReadOptions(
+        batching=batching,
         dtype=config.dtype,
         normalize_audio=config.normalize_audio,
-        sync_mode="until_last",
+        sync_mode=SyncMode.UNTIL_LAST,
         num_prefetch=config.num_prefetch,
         seed=seed,
     )
@@ -467,8 +470,7 @@ def load_wav2vec2_asr_trainer(
             gang,
             config.min_audio_len,
             config.max_audio_len,
-            LengthBatching(config.max_num_elements),
-            options,
+            read_options,
         )
     except ValueError as ex:
         raise ValueError(

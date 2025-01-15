@@ -8,9 +8,8 @@ from __future__ import annotations
 
 from collections.abc import MutableMapping
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import TypeAlias
-
-from fairseq2.datasets.data_reader import SyncMode
 
 
 @dataclass
@@ -32,8 +31,25 @@ class LengthBatching:
 Batching: TypeAlias = StaticBatching | LengthBatching
 
 
+class SyncMode(Enum):
+    UNTIL_FIRST = 0
+    """
+    Stop data iteration on all ranks when one of the ranks reaches its end of
+    data.
+    """
+
+    UNTIL_LAST = 1
+    """
+    Stop data iteration when all ranks reach their end of data; ranks that have
+    already reached their end of data will return an empty list of batches.
+    """
+
+
 @dataclass(kw_only=True)
 class DataReadOptions:
+    batching: Batching = field(default_factory=lambda: StaticBatching(1))
+    """The batching strategy for returned examples."""
+
     example_shuffle_window: int = 1
     """
     The size of the sliding window for shuffling examples. If ``1``, no
@@ -56,19 +72,17 @@ class DataReadOptions:
 
     sync_batches: bool = True
     """
-    If ``True``, ensures that each process in ``gang`` reads the same number of
+    If ``True``, ensures that each process in the gang reads the same number of
     batches. Typically used when the amount of data to be read can vary per
     process (e.g. due to unbalanced sharding or non-static batching) and it is
     critical for each process to iterate over the same number of batches (e.g.
     during training).
     """
 
-    sync_mode: SyncMode = "until_first"
+    sync_mode: SyncMode = SyncMode.UNTIL_FIRST
     """
-    If ``until_first``, stops iteration on all ranks when one of the ranks
-    reaches its end of data. If ``until_last``, stops iteration when all ranks
-    reach their end of data; ranks that have already reached their end of data
-    will return an empty list of batches.
+    The data synchronization mode among processes in the gang. Only effective if
+    :attr:`sync_batches` is ``True``.
     """
 
     max_num_batches: int | None = None
