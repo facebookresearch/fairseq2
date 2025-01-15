@@ -1,7 +1,7 @@
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Any, Generator
+from typing import Generator
 
 import numpy as np
 import pyarrow as pa
