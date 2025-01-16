@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import numpy as np
 import polars as pl
@@ -18,7 +18,7 @@ from fairseq2.logging import log
 
 
 def build_uniform_list_column(
-    array: pa.Array,
+    array: Union[pa.Array, pa.ChunkedArray],
     length: int,
 ) -> pa.ChunkedArray:
     """
@@ -45,9 +45,9 @@ def build_uniform_list_column(
 
 
 def maybe_cast(
-    arr: pa.ChunkedArray,
+    arr: Union[pa.ChunkedArray, pa.Array],
     target_type: pa.DataType,
-) -> pa.ChunkedArray:
+) -> Union[pa.ChunkedArray, pa.Array]:
     """
     Casts a ChunkedArray to a target type if the current type does not match.
 
@@ -69,7 +69,7 @@ def affix_list_column(
     *,
     prefix_array: pa.Array | None = None,
     suffix_array: pa.Array | None = None,
-) -> pa.ChunkedArray:
+) -> pa.Array:
     """
     High-level helper that constructs and horizontally stacks prefix + original
     column + suffix for each row in a given list column.
@@ -108,7 +108,7 @@ def affix_list_column(
 def replace_table_column(
     table: pa.Table,
     col_name: str,
-    new_array: pa.Array,
+    new_array: Union[pa.Array, pa.ChunkedArray],
 ) -> pa.Table:
     """
     Replaces an existing column in the Table with a new array.

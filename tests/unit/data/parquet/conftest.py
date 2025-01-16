@@ -46,7 +46,6 @@ def sample_table() -> pa.Table:
 
 
 @pytest.fixture
-
 def prefix_array() -> pa.Array:
     return pa.array([0], type=pa.int32())
 

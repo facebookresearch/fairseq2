@@ -39,7 +39,7 @@ module = "fairseq2.data.parquet_v0.tools,tests.integration.parquet.*,fairseq2.da
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = "fairseq2.data.parquet.*,tests.unit.data.parquet.*"
+module = "fairseq2.data.parquet.*,tests.unit.data.parquet.*,tests.integration.parquet.*"
 ignore_errors = true
 
 [tool.pytest.ini_options]
