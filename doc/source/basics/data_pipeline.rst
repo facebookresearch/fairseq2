@@ -102,7 +102,7 @@ fairseq2 provides several ways to combine pipelines:
     pipeline1 = DataPipeline.constant(0).and_return()
     pipeline2 = read_sequence([1, 2, 3]).and_return()
     
-    for example in DataPipeline.round_robin(pipeline1, pipeline2).and_return():
+    for example in DataPipeline.round_robin([pipeline1, pipeline2]).and_return():
         print(example)
 
     # round_robin yields: 0, 1, 0, 2, 0, 3
@@ -112,7 +112,7 @@ fairseq2 provides several ways to combine pipelines:
     pipeline1 = read_sequence([0]).repeat().and_return()
     pipeline2 = read_sequence([1, 2, 3]).and_return()
     
-    for example in DataPipeline.zip(pipeline1, pipeline2, names=["a", "b"]).and_return():
+    for example in DataPipeline.zip([pipeline1, pipeline2], names=["a", "b"]).and_return():
         print(example)
 
     # Yields: {"a": 0, "b": 1}, {"a": 0, "b": 2}, {"a": 0, "b": 3}
@@ -122,7 +122,7 @@ fairseq2 provides several ways to combine pipelines:
     pipeline1 = read_sequence([0]).repeat().and_return()
     pipeline2 = read_sequence([1, 2, 3]).and_return()
     
-    for example in DataPipeline.sample(pipeline1, pipeline2, weights=[0.5, 0.5]).and_return():
+    for example in DataPipeline.sample([pipeline1, pipeline2], weights=[0.5, 0.5]).and_return():
         print(example)
 
 .. mermaid::
