@@ -122,6 +122,7 @@ Running the Supervised Fine-Tuning (SFT) recipe is as simple as:
         max_num_data_epochs=20 \
         checkpoint_every_n_steps=1000
 
+
 Similarly, we have the Direct Preference Optimization (DPO) recipe:
 
 .. code-block:: bash
@@ -156,6 +157,15 @@ Similarly, we have the Direct Preference Optimization (DPO) recipe:
         fairseq2 lm instruction_finetune $OUTPUT_DIR --config-file $CONFIG_FILE
 
     For more details about the recipe configuration, please refer to :ref:`basics-recipe`.
+
+
+.. important::
+
+    Before running the fine-tuning recipe, ensure the model's vocabulary configuration (``vocab_info``) matches your use case. 
+    For example, LLaMA 3 Instruct model uses a different end-of-sequence (EOS) token indices for chat (128009) vs base models (128001). 
+    Incorrect vocabulary configuration can significantly impact model performance. You can verify the configuration in your 
+    model's YAML card or the model architecture definition.
+
 
 Iterative Training
 ^^^^^^^^^^^^^^^^^^
