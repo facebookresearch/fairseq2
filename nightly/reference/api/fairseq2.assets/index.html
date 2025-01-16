@@ -248,7 +248,6 @@
 <li class="toctree-l4"><a class="reference internal" href="../fairseq2.data/text/text_tokenizers.html">Text Tokenizers</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../fairseq2.data/data_pipeline.html">fairseq2.data.data_pipeline</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../fairseq2.datasets/index.html">fairseq2.datasets</a></li>
@@ -320,7 +319,7 @@
         <article role="main" id="furo-main-content">
           <section id="fairseq2-assets">
 <h1>fairseq2.assets<a class="headerlink" href="#fairseq2-assets" title="Link to this heading">¶</a></h1>
-<pre data-zoom-id="id-8d06d3a8-a664-4cd6-a59b-a6b5bbe66d16" class="mermaid">
+<pre data-zoom-id="id-f14249ca-51de-44c7-ada2-ad18a66fb45b" class="mermaid">
         classDiagram
   ABC &lt;|-- AssetDownloadManager
   ABC &lt;|-- AssetMetadataProvider
@@ -347,12 +346,12 @@
 <h2>Classes<a class="headerlink" href="#classes" title="Link to this heading">¶</a></h2>
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.assets.AssetStore">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.assets.</span></span><span class="sig-name descname"><span class="pre">AssetStore</span></span><a class="reference internal" href="../../../_modules/fairseq2/assets/store.html#AssetStore"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.assets.AssetStore" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.assets.</span></span><span class="sig-name descname"><span class="pre">AssetStore</span></span><a class="reference internal" href="../../../_modules/fairseq2/assets/_store.html#AssetStore"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.assets.AssetStore" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
 <p>Represents a store of assets.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="fairseq2.assets.AssetStore.retrieve_card">
-<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">retrieve_card</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">envs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scope</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'all'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/assets/store.html#AssetStore.retrieve_card"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.assets.AssetStore.retrieve_card" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">retrieve_card</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">envs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scope</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'all'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/assets/_store.html#AssetStore.retrieve_card"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.assets.AssetStore.retrieve_card" title="Link to this definition">¶</a></dt>
 <dd><p>Retrieve the card of the specified asset.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -367,14 +366,14 @@ card. If <code class="docutils literal notranslate"><span class="pre">None</span
 automatically.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.assets.AssetCard" title="fairseq2.assets.card.AssetCard"><em>AssetCard</em></a></p>
+<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.assets.AssetCard" title="fairseq2.assets._card.AssetCard"><em>AssetCard</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="fairseq2.assets.AssetStore.retrieve_names">
-<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">retrieve_names</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scope</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'all'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/assets/store.html#AssetStore.retrieve_names"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.assets.AssetStore.retrieve_names" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">retrieve_names</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scope</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'all'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/assets/_store.html#AssetStore.retrieve_names"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.assets.AssetStore.retrieve_names" title="Link to this definition">¶</a></dt>
 <dd><p>Retrieve the names of the assets contained in this store.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -390,12 +389,12 @@ automatically.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.assets.AssetMetadataProvider">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.assets.</span></span><span class="sig-name descname"><span class="pre">AssetMetadataProvider</span></span><a class="reference internal" href="../../../_modules/fairseq2/assets/metadata_provider.html#AssetMetadataProvider"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.assets.AssetMetadataProvider" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.assets.</span></span><span class="sig-name descname"><span class="pre">AssetMetadataProvider</span></span><a class="reference internal" href="../../../_modules/fairseq2/assets/_metadata_provider.html#AssetMetadataProvider"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.assets.AssetMetadataProvider" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
 <p>Provides asset metadata.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="fairseq2.assets.AssetMetadataProvider.get_metadata">
-<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_metadata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/assets/metadata_provider.html#AssetMetadataProvider.get_metadata"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.assets.AssetMetadataProvider.get_metadata" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_metadata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/assets/_metadata_provider.html#AssetMetadataProvider.get_metadata"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.assets.AssetMetadataProvider.get_metadata" title="Link to this definition">¶</a></dt>
 <dd><p>Return the metadata of the specified asset.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -409,7 +408,7 @@ automatically.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="fairseq2.assets.AssetMetadataProvider.get_names">
-<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_names</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/assets/metadata_provider.html#AssetMetadataProvider.get_names"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.assets.AssetMetadataProvider.get_names" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_names</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/assets/_metadata_provider.html#AssetMetadataProvider.get_names"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.assets.AssetMetadataProvider.get_names" title="Link to this definition">¶</a></dt>
 <dd><p>Return the names of the assets for which this provider has metadata.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
@@ -420,7 +419,7 @@ automatically.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="fairseq2.assets.AssetMetadataProvider.clear_cache">
-<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">clear_cache</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/assets/metadata_provider.html#AssetMetadataProvider.clear_cache"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.assets.AssetMetadataProvider.clear_cache" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">clear_cache</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/assets/_metadata_provider.html#AssetMetadataProvider.clear_cache"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.assets.AssetMetadataProvider.clear_cache" title="Link to this definition">¶</a></dt>
 <dd><p>Clear any cached asset metadata.</p>
 <dl class="field-list simple">
 </dl>
@@ -430,7 +429,7 @@ automatically.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.assets.AssetCard">
-<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.assets.</span></span><span class="sig-name descname"><span class="pre">AssetCard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">base_card</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">base_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/assets/card.html#AssetCard"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.assets.AssetCard" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.assets.</span></span><span class="sig-name descname"><span class="pre">AssetCard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">base_card</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">base_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/assets/_card.html#AssetCard"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.assets.AssetCard" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Holds information about an asset.</p>
 <dl class="field-list simple">
@@ -444,7 +443,7 @@ contain a specific piece of information about the asset.</p></li>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="fairseq2.assets.AssetCard.field">
-<span class="sig-name descname"><span class="pre">field</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/assets/card.html#AssetCard.field"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.assets.AssetCard.field" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">field</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/assets/_card.html#AssetCard.field"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.assets.AssetCard.field" title="Link to this definition">¶</a></dt>
 <dd><p>Return a field of this card.</p>
 <p>If the card does not contain the specified field, its base cards will be
 checked recursively.</p>
@@ -460,11 +459,11 @@ checked recursively.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="fairseq2.assets.AssetCard.flatten">
-<span class="sig-name descname"><span class="pre">flatten</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/assets/card.html#AssetCard.flatten"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.assets.AssetCard.flatten" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">flatten</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/assets/_card.html#AssetCard.flatten"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.assets.AssetCard.flatten" title="Link to this definition">¶</a></dt>
 <dd><p>Flattens the metadata of this card and all its bases into a single one.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.assets.AssetCard" title="fairseq2.assets.card.AssetCard"><em>AssetCard</em></a></p>
+<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.assets.AssetCard" title="fairseq2.assets._card.AssetCard"><em>AssetCard</em></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -483,7 +482,7 @@ checked recursively.</p>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="fairseq2.assets.AssetCard.base">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">base</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#fairseq2.assets.AssetCard" title="fairseq2.assets.card.AssetCard"><span class="pre">AssetCard</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></em><a class="headerlink" href="#fairseq2.assets.AssetCard.base" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">base</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#fairseq2.assets.AssetCard" title="fairseq2.assets._card.AssetCard"><span class="pre">AssetCard</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></em><a class="headerlink" href="#fairseq2.assets.AssetCard.base" title="Link to this definition">¶</a></dt>
 <dd><p>The card that this card derives from.</p>
 </dd></dl>
 
@@ -585,7 +584,7 @@ checked recursively.</p>
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=53d703e6"></script>
+</div><script src="../../../_static/documentation_options.js?v=9f2fe177"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>
@@ -602,7 +601,7 @@ const load = async () => {
     const mermaids_to_add_zoom = 1 === -1 ? all_mermaids.length : 1;
     const mermaids_processed = document.querySelectorAll(".mermaid[data-processed='true']");
     if(mermaids_to_add_zoom > 0) {
-        var svgs = d3.selectAll(".mermaid[data-zoom-id=id-8d06d3a8-a664-4cd6-a59b-a6b5bbe66d16] svg");
+        var svgs = d3.selectAll(".mermaid[data-zoom-id=id-f14249ca-51de-44c7-ada2-ad18a66fb45b] svg");
         if(all_mermaids.length !== mermaids_processed.length) {
             // try again in a sec, wait for mermaids to load
             setTimeout(load, 200);

@@ -247,7 +247,6 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../../reference/api/fairseq2.data/text/text_tokenizers.html">Text Tokenizers</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../../../../reference/api/fairseq2.data/data_pipeline.html">fairseq2.data.data_pipeline</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../reference/api/fairseq2.datasets/index.html">fairseq2.datasets</a></li>
@@ -333,11 +332,8 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.assets</span><span class="w"> </span><span class="kn">import</span> <span class="n">default_asset_store</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_log_writer</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.llama</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_llama_config</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.llama.integ</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">convert_to_reference_checkpoint</span><span class="p">,</span>
-    <span class="n">get_ffn_dim_multipliers</span><span class="p">,</span>
-<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.llama</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_llama_model_hub</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.llama.integ</span><span class="w"> </span><span class="kn">import</span> <span class="n">convert_to_reference_checkpoint</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.cli</span><span class="w"> </span><span class="kn">import</span> <span class="n">CliCommandHandler</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.utils.rich</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_error_console</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.file</span><span class="w"> </span><span class="kn">import</span> <span class="n">dump_torch_tensors</span><span class="p">,</span> <span class="n">load_torch_tensors</span>
@@ -393,7 +389,7 @@
         <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">arch</span><span class="p">:</span>
-            <span class="n">model_config</span> <span class="o">=</span> <span class="n">load_llama_config</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">model</span><span class="p">)</span>
+            <span class="n">model_config</span> <span class="o">=</span> <span class="n">get_llama_model_hub</span><span class="p">()</span><span class="o">.</span><span class="n">load_config</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">model</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">model_config</span> <span class="o">=</span> <span class="kc">None</span>
 
@@ -435,7 +431,7 @@
                     <span class="k">with</span> <span class="n">catch_warnings</span><span class="p">():</span>
                         <span class="n">warnings</span><span class="o">.</span><span class="n">simplefilter</span><span class="p">(</span><span class="s2">&quot;ignore&quot;</span><span class="p">)</span>
 
-                        <span class="n">checkpoint</span> <span class="o">=</span> <span class="n">load_torch_tensors</span><span class="p">(</span><span class="n">input_file</span><span class="p">,</span> <span class="n">restrict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                        <span class="n">checkpoint</span> <span class="o">=</span> <span class="n">load_torch_tensors</span><span class="p">(</span><span class="n">input_file</span><span class="p">)</span>
                 <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
                     <span class="n">log</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span>
                         <span class="s2">&quot;Checkpoint file </span><span class="si">{}</span><span class="s2"> cannot be loaded.&quot;</span><span class="p">,</span> <span class="n">input_file</span><span class="o">.</span><span class="n">name</span>
@@ -466,27 +462,23 @@
         <span class="c1"># Generate a basic params.json, mainly to use with HG transformers.</span>
         <span class="k">if</span> <span class="n">model_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">params</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="p">{</span>
-                    <span class="s2">&quot;dim&quot;</span><span class="p">:</span> <span class="n">model_config</span><span class="o">.</span><span class="n">model_dim</span><span class="p">,</span>
-                    <span class="s2">&quot;n_layers&quot;</span><span class="p">:</span> <span class="n">model_config</span><span class="o">.</span><span class="n">num_layers</span><span class="p">,</span>
-                    <span class="s2">&quot;n_heads&quot;</span><span class="p">:</span> <span class="n">model_config</span><span class="o">.</span><span class="n">num_attn_heads</span><span class="p">,</span>
-                    <span class="s2">&quot;multiple_of&quot;</span><span class="p">:</span> <span class="n">model_config</span><span class="o">.</span><span class="n">ffn_inner_dim_to_multiple</span><span class="p">,</span>
-                    <span class="s2">&quot;rope_theta&quot;</span><span class="p">:</span> <span class="n">model_config</span><span class="o">.</span><span class="n">rope_theta</span><span class="p">,</span>
-                    <span class="s2">&quot;norm_eps&quot;</span><span class="p">:</span> <span class="mf">1e-5</span><span class="p">,</span>
-                <span class="p">},</span>
+                <span class="s2">&quot;dim&quot;</span><span class="p">:</span> <span class="n">model_config</span><span class="o">.</span><span class="n">model_dim</span><span class="p">,</span>
+                <span class="s2">&quot;n_layers&quot;</span><span class="p">:</span> <span class="n">model_config</span><span class="o">.</span><span class="n">num_layers</span><span class="p">,</span>
+                <span class="s2">&quot;n_heads&quot;</span><span class="p">:</span> <span class="n">model_config</span><span class="o">.</span><span class="n">num_attn_heads</span><span class="p">,</span>
+                <span class="s2">&quot;multiple_of&quot;</span><span class="p">:</span> <span class="n">model_config</span><span class="o">.</span><span class="n">ffn_inner_dim_to_multiple</span><span class="p">,</span>
+                <span class="s2">&quot;rope_theta&quot;</span><span class="p">:</span> <span class="n">model_config</span><span class="o">.</span><span class="n">rope_theta</span><span class="p">,</span>
+                <span class="s2">&quot;norm_eps&quot;</span><span class="p">:</span> <span class="mf">1e-5</span><span class="p">,</span>
             <span class="p">}</span>
 
             <span class="k">if</span> <span class="n">model_config</span><span class="o">.</span><span class="n">num_attn_heads</span> <span class="o">!=</span> <span class="n">model_config</span><span class="o">.</span><span class="n">num_key_value_heads</span><span class="p">:</span>
-                <span class="n">params</span><span class="p">[</span><span class="s2">&quot;model&quot;</span><span class="p">][</span><span class="s2">&quot;n_kv_heads&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">model_config</span><span class="o">.</span><span class="n">num_key_value_heads</span>
+                <span class="n">params</span><span class="p">[</span><span class="s2">&quot;n_kv_heads&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">model_config</span><span class="o">.</span><span class="n">num_key_value_heads</span>
 
-            <span class="n">ffn_dim_multiplier</span> <span class="o">=</span> <span class="n">get_ffn_dim_multipliers</span><span class="p">(</span><span class="n">arch</span><span class="p">)</span>
-
-            <span class="k">if</span> <span class="n">ffn_dim_multiplier</span> <span class="o">!=</span> <span class="mf">1.0</span><span class="p">:</span>
-                <span class="n">params</span><span class="p">[</span><span class="s2">&quot;model&quot;</span><span class="p">][</span><span class="s2">&quot;ffn_dim_multiplier&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ffn_dim_multiplier</span>
+            <span class="k">if</span> <span class="n">model_config</span><span class="o">.</span><span class="n">ffn_inner_dim_multiplier</span> <span class="o">!=</span> <span class="mf">1.0</span><span class="p">:</span>
+                <span class="n">params</span><span class="p">[</span><span class="s2">&quot;ffn_dim_multiplier&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">model_config</span><span class="o">.</span><span class="n">ffn_inner_dim_multiplier</span>
 
             <span class="k">try</span><span class="p">:</span>
                 <span class="k">with</span> <span class="n">args</span><span class="o">.</span><span class="n">output_dir</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s2">&quot;params.json&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fp</span><span class="p">:</span>
-                    <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">fp</span><span class="p">)</span>
+                    <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">({</span><span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="n">params</span><span class="p">},</span> <span class="n">fp</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
                 <span class="n">log</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">&quot;params.json cannot be created.&quot;</span><span class="p">)</span>
 
@@ -533,7 +525,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=53d703e6"></script>
+</div><script src="../../../../_static/documentation_options.js?v=9f2fe177"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>

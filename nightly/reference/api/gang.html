@@ -248,7 +248,6 @@
 <li class="toctree-l4"><a class="reference internal" href="fairseq2.data/text/text_tokenizers.html">Text Tokenizers</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="fairseq2.data/data_pipeline.html">fairseq2.data.data_pipeline</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="fairseq2.datasets/index.html">fairseq2.datasets</a></li>
@@ -337,8 +336,8 @@
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.gang.Gang.make_gang">
-<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">make_gang</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ranks</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/fairseq2/gang.html#Gang.make_gang"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.gang.Gang.make_gang" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="fairseq2.gang.Gang.create_gang">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">create_gang</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ranks</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/fairseq2/gang.html#Gang.create_gang"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.gang.Gang.create_gang" title="Link to this definition">¶</a></dt>
 <dd><p>Make a new gang.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -475,8 +474,8 @@ provide lists of equal sizes.</p></li>
 </dd>
 </dl>
 <dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.gang.AbstractGang.make_gang">
-<em class="property"><span class="pre">final</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">make_gang</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ranks</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/fairseq2/gang.html#AbstractGang.make_gang"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.gang.AbstractGang.make_gang" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="fairseq2.gang.AbstractGang.create_gang">
+<em class="property"><span class="pre">final</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">create_gang</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ranks</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/fairseq2/gang.html#AbstractGang.create_gang"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.gang.AbstractGang.create_gang" title="Link to this definition">¶</a></dt>
 <dd><p>Make a new gang.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -1037,7 +1036,7 @@ part of.</p>
 <li><a class="reference internal" href="#classes">Classes</a><ul>
 <li><a class="reference internal" href="#fairseq2.gang.Gang"><code class="docutils literal notranslate"><span class="pre">Gang</span></code></a><ul>
 <li><a class="reference internal" href="#fairseq2.gang.Gang.close"><code class="docutils literal notranslate"><span class="pre">Gang.close()</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.gang.Gang.make_gang"><code class="docutils literal notranslate"><span class="pre">Gang.make_gang()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.gang.Gang.create_gang"><code class="docutils literal notranslate"><span class="pre">Gang.create_gang()</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.gang.Gang.as_process_group"><code class="docutils literal notranslate"><span class="pre">Gang.as_process_group()</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.gang.Gang.barrier"><code class="docutils literal notranslate"><span class="pre">Gang.barrier()</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.gang.Gang.all_reduce"><code class="docutils literal notranslate"><span class="pre">Gang.all_reduce()</span></code></a></li>
@@ -1051,7 +1050,7 @@ part of.</p>
 </ul>
 </li>
 <li><a class="reference internal" href="#fairseq2.gang.AbstractGang"><code class="docutils literal notranslate"><span class="pre">AbstractGang</span></code></a><ul>
-<li><a class="reference internal" href="#fairseq2.gang.AbstractGang.make_gang"><code class="docutils literal notranslate"><span class="pre">AbstractGang.make_gang()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.gang.AbstractGang.create_gang"><code class="docutils literal notranslate"><span class="pre">AbstractGang.create_gang()</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.gang.AbstractGang.rank"><code class="docutils literal notranslate"><span class="pre">AbstractGang.rank</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.gang.AbstractGang.size"><code class="docutils literal notranslate"><span class="pre">AbstractGang.size</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.gang.AbstractGang.device"><code class="docutils literal notranslate"><span class="pre">AbstractGang.device</span></code></a></li>
@@ -1117,7 +1116,7 @@ part of.</p>
       
     </aside>
   </div>
-</div><script src="../../_static/documentation_options.js?v=53d703e6"></script>
+</div><script src="../../_static/documentation_options.js?v=9f2fe177"></script>
     <script src="../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/scripts/furo.js?v=5fa4622c"></script>

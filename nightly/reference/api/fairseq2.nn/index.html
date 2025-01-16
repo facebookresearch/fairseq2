@@ -248,7 +248,6 @@
 <li class="toctree-l4"><a class="reference internal" href="../fairseq2.data/text/text_tokenizers.html">Text Tokenizers</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../fairseq2.data/data_pipeline.html">fairseq2.data.data_pipeline</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../fairseq2.datasets/index.html">fairseq2.datasets</a></li>
@@ -323,7 +322,7 @@
 <p>This module contains various PyTorch modules and related APIs to help with
 building new model architectures. It follows similar conventions to <a class="reference external" href="https://pytorch.org/docs/stable/nn.html#module-torch.nn" title="(in PyTorch v2.5)"><code class="xref py py-mod docutils literal notranslate"><span class="pre">torch.nn</span></code></a>
 and can be considered an addendum to it.</p>
-<pre data-zoom-id="id-070005c3-0133-40e5-a7b1-90ca076e4585" class="mermaid">
+<pre data-zoom-id="id-49e44674-6e43-4eec-91b2-bdfed09aa8ea" class="mermaid">
         classDiagram
   ABC &lt;|-- Embedding
   ABC &lt;|-- IncrementalState
@@ -346,6 +345,7 @@ and can be considered an addendum to it.</p>
   PositionEncoder &lt;|-- RotaryEncoder
   PositionEncoder &lt;|-- SinusoidalPositionEncoder
   Projection &lt;|-- ColumnShardedLinear
+  Projection &lt;|-- IdentityProjection
   Projection &lt;|-- Linear
   Projection &lt;|-- RowShardedLinear
   Projection &lt;|-- TiedProjection
@@ -411,7 +411,7 @@ and can be considered an addendum to it.</p>
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=53d703e6"></script>
+</div><script src="../../../_static/documentation_options.js?v=9f2fe177"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>
@@ -429,7 +429,7 @@ const load = async () => {
     const mermaids_to_add_zoom = 1 === -1 ? all_mermaids.length : 1;
     const mermaids_processed = document.querySelectorAll(".mermaid[data-processed='true']");
     if(mermaids_to_add_zoom > 0) {
-        var svgs = d3.selectAll(".mermaid[data-zoom-id=id-070005c3-0133-40e5-a7b1-90ca076e4585] svg");
+        var svgs = d3.selectAll(".mermaid[data-zoom-id=id-49e44674-6e43-4eec-91b2-bdfed09aa8ea] svg");
         if(all_mermaids.length !== mermaids_processed.length) {
             // try again in a sec, wait for mermaids to load
             setTimeout(load, 200);

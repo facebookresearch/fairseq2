@@ -247,7 +247,6 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../../reference/api/fairseq2.data/text/text_tokenizers.html">Text Tokenizers</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../../../../reference/api/fairseq2.data/data_pipeline.html">fairseq2.data.data_pipeline</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../reference/api/fairseq2.datasets/index.html">fairseq2.datasets</a></li>
@@ -330,19 +329,18 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">Module</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">override</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.assets</span><span class="w"> </span><span class="kn">import</span> <span class="n">AssetNotFoundError</span><span class="p">,</span> <span class="n">default_asset_store</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.checkpoint</span><span class="w"> </span><span class="kn">import</span> <span class="n">CheckpointModelMetadataProvider</span><span class="p">,</span> <span class="n">FileCheckpointManager</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.assets</span><span class="w"> </span><span class="kn">import</span> <span class="n">AssetCardNotFoundError</span><span class="p">,</span> <span class="n">default_asset_store</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.checkpoint</span><span class="w"> </span><span class="kn">import</span> <span class="n">FileCheckpointManager</span><span class="p">,</span> <span class="n">FileCheckpointMetadataProvider</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.config_registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfigRegistry</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.data.text</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_text_tokenizer</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">Batching</span><span class="p">,</span> <span class="n">LengthBatching</span><span class="p">,</span> <span class="n">StaticBatching</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.data.text.tokenizers</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_text_tokenizer_hub</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">Batching</span><span class="p">,</span> <span class="n">LengthBatching</span><span class="p">,</span> <span class="n">StaticBatching</span><span class="p">,</span> <span class="n">SyncMode</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.datasets.instruction</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">GenericInstructionDataset</span><span class="p">,</span>
     <span class="n">InstructionReadOptions</span><span class="p">,</span>
-    <span class="n">load_instruction_dataset</span><span class="p">,</span>
+    <span class="n">get_instruction_dataset_hub</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gang</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_log_writer</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_model</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.decoder</span><span class="w"> </span><span class="kn">import</span> <span class="n">DecoderModel</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.sequence</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">SequenceBatch</span><span class="p">,</span>
@@ -365,6 +363,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.utils.setup</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">check_model_type</span><span class="p">,</span>
     <span class="n">compile_model</span><span class="p">,</span>
+    <span class="n">load_model</span><span class="p">,</span>
     <span class="n">setup_gangs</span><span class="p">,</span>
     <span class="n">to_data_parallel</span><span class="p">,</span>
 <span class="p">)</span>
@@ -552,7 +551,7 @@
 
 
 
-<span class="n">instruction_finetune_presets</span> <span class="o">=</span> <span class="n">ConfigRegistry</span><span class="p">[</span><span class="n">InstructionFinetuneConfig</span><span class="p">]()</span>
+<span class="n">instruction_finetune_presets</span> <span class="o">=</span> <span class="n">ConfigRegistry</span><span class="p">(</span><span class="n">InstructionFinetuneConfig</span><span class="p">)</span>
 
 <span class="n">instruction_finetune_preset</span> <span class="o">=</span> <span class="n">instruction_finetune_presets</span><span class="o">.</span><span class="n">decorator</span>
 
@@ -638,7 +637,7 @@
 
     <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">resume_checkpoint_dir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">default_asset_store</span><span class="o">.</span><span class="n">metadata_providers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-            <span class="n">CheckpointModelMetadataProvider</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">resume_checkpoint_dir</span><span class="p">)</span>
+            <span class="n">FileCheckpointMetadataProvider</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">resume_checkpoint_dir</span><span class="p">)</span>
         <span class="p">)</span>
 
     <span class="n">model_card</span> <span class="o">=</span> <span class="n">retrieve_asset_card</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="p">)</span>
@@ -646,26 +645,30 @@
     <span class="c1"># Load the tokenizer.</span>
     <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Loading </span><span class="si">{}</span><span class="s2"> tokenizer.&quot;</span><span class="p">,</span> <span class="n">model_card</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
 
-    <span class="n">tokenizer</span> <span class="o">=</span> <span class="n">load_text_tokenizer</span><span class="p">(</span><span class="n">model_card</span><span class="p">)</span>
+    <span class="n">tokenizer_hub</span> <span class="o">=</span> <span class="n">get_text_tokenizer_hub</span><span class="p">()</span>
+
+    <span class="n">tokenizer</span> <span class="o">=</span> <span class="n">tokenizer_hub</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">model_card</span><span class="p">)</span>
 
     <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Tokenizer loaded.&quot;</span><span class="p">)</span>
 
     <span class="c1"># Load the dataset.</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">dataset_card</span> <span class="o">=</span> <span class="n">retrieve_asset_card</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">dataset</span><span class="p">)</span>
-    <span class="k">except</span> <span class="n">AssetNotFoundError</span><span class="p">:</span>
+    <span class="k">except</span> <span class="n">AssetCardNotFoundError</span><span class="p">:</span>
         <span class="n">dataset_card</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="k">if</span> <span class="n">dataset_card</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Loading </span><span class="si">{}</span><span class="s2"> instruction dataset.&quot;</span><span class="p">,</span> <span class="n">dataset_card</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
 
-        <span class="n">dataset</span> <span class="o">=</span> <span class="n">load_instruction_dataset</span><span class="p">(</span><span class="n">dataset_card</span><span class="p">)</span>
+        <span class="n">dataset_hub</span> <span class="o">=</span> <span class="n">get_instruction_dataset_hub</span><span class="p">()</span>
+
+        <span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset_hub</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">dataset_card</span><span class="p">)</span>
 
         <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Dataset loaded.&quot;</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">dataset_path</span> <span class="o">=</span> <span class="n">asset_as_path</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">dataset</span><span class="p">)</span>
 
-        <span class="n">dataset</span> <span class="o">=</span> <span class="n">GenericInstructionDataset</span><span class="o">.</span><span class="n">from_path</span><span class="p">(</span><span class="n">dataset_path</span><span class="p">)</span>
+        <span class="n">dataset</span> <span class="o">=</span> <span class="n">GenericInstructionDataset</span><span class="o">.</span><span class="n">from_path</span><span class="p">(</span><span class="n">dataset_path</span><span class="p">,</span> <span class="s2">&quot;path&quot;</span><span class="p">)</span>
 
     <span class="n">seed</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">seed</span>
 
@@ -767,7 +770,8 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="n">batching</span> <span class="o">=</span> <span class="n">LengthBatching</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">max_num_tokens</span><span class="p">)</span>
 
-        <span class="n">options</span> <span class="o">=</span> <span class="n">InstructionReadOptions</span><span class="p">(</span>
+        <span class="n">read_options</span> <span class="o">=</span> <span class="n">InstructionReadOptions</span><span class="p">(</span>
+            <span class="n">batching</span><span class="o">=</span><span class="n">batching</span><span class="p">,</span>
             <span class="n">example_shuffle_window</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">example_shuffle_window</span><span class="p">,</span>
             <span class="n">batch_shuffle_window</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">batch_shuffle_window</span><span class="p">,</span>
             <span class="n">num_accumulate</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">gradient_accumulation</span><span class="p">,</span>
@@ -783,8 +787,7 @@
             <span class="n">dp_gang</span><span class="p">,</span>
             <span class="n">config</span><span class="o">.</span><span class="n">min_seq_len</span><span class="p">,</span>
             <span class="n">config</span><span class="o">.</span><span class="n">max_seq_len</span><span class="p">,</span>
-            <span class="n">batching</span><span class="p">,</span>
-            <span class="n">options</span><span class="p">,</span>
+            <span class="n">read_options</span><span class="p">,</span>
         <span class="p">)</span>
     <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
@@ -822,10 +825,13 @@
 
         <span class="n">max_num_tokens</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">max_num_valid_tokens</span> <span class="ow">or</span> <span class="n">config</span><span class="o">.</span><span class="n">max_num_tokens</span>
 
+        <span class="n">batching</span> <span class="o">=</span> <span class="n">LengthBatching</span><span class="p">(</span><span class="n">max_num_tokens</span><span class="p">)</span>
+
         <span class="n">options</span> <span class="o">=</span> <span class="n">InstructionReadOptions</span><span class="p">(</span>
+            <span class="n">batching</span><span class="o">=</span><span class="n">batching</span><span class="p">,</span>
             <span class="n">example_shuffle_window</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">example_shuffle_window</span><span class="p">,</span>
             <span class="n">batch_shuffle_window</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">batch_shuffle_window</span><span class="p">,</span>
-            <span class="n">sync_mode</span><span class="o">=</span><span class="s2">&quot;until_last&quot;</span><span class="p">,</span>
+            <span class="n">sync_mode</span><span class="o">=</span><span class="n">SyncMode</span><span class="o">.</span><span class="n">UNTIL_LAST</span><span class="p">,</span>
             <span class="n">num_accumulate</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">gradient_accumulation</span><span class="p">,</span>
             <span class="n">num_prefetch</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">num_prefetch</span><span class="p">,</span>
             <span class="n">source_encode_mode</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">src_encode_mode</span><span class="p">,</span>
@@ -840,7 +846,6 @@
                 <span class="n">dp_gang</span><span class="p">,</span>
                 <span class="n">config</span><span class="o">.</span><span class="n">min_seq_len</span><span class="p">,</span>
                 <span class="n">config</span><span class="o">.</span><span class="n">max_seq_len</span><span class="p">,</span>
-                <span class="n">LengthBatching</span><span class="p">(</span><span class="n">max_num_tokens</span><span class="p">),</span>
                 <span class="n">options</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
@@ -1025,7 +1030,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=53d703e6"></script>
+</div><script src="../../../../_static/documentation_options.js?v=9f2fe177"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>

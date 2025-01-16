@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../genindex.html" /><link rel="search" title="Search" href="../../../search.html" />
 
     <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
-        <title>fairseq2.assets.store - fairseq2 Documentation</title>
+        <title>fairseq2.setup._root - fairseq2 Documentation</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo.css?v=354aac6f" />
     <link rel="stylesheet" type="text/css" href="../../../_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
@@ -247,7 +247,6 @@
 <li class="toctree-l4"><a class="reference internal" href="../../../reference/api/fairseq2.data/text/text_tokenizers.html">Text Tokenizers</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../../../reference/api/fairseq2.data/data_pipeline.html">fairseq2.data.data_pipeline</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../reference/api/fairseq2.datasets/index.html">fairseq2.datasets</a></li>
@@ -311,7 +310,7 @@
           </label>
         </div>
         <article role="main" id="furo-main-content">
-          <h1>Source code for fairseq2.assets.store</h1><div class="highlight"><pre>
+          <h1>Source code for fairseq2.setup._root</h1><div class="highlight"><pre>
 <span></span><span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
 <span class="c1"># All rights reserved.</span>
 <span class="c1">#</span>
@@ -320,268 +319,80 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sequence</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">Protocol</span><span class="p">,</span> <span class="n">TypeAlias</span><span class="p">,</span> <span class="n">final</span>
-
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">override</span>
-
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.assets.card</span><span class="w"> </span><span class="kn">import</span> <span class="n">AssetCard</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.assets.error</span><span class="w"> </span><span class="kn">import</span> <span class="n">AssetCardError</span><span class="p">,</span> <span class="n">AssetCardNotFoundError</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.assets.metadata_provider</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">AssetMetadataNotFoundError</span><span class="p">,</span>
-    <span class="n">AssetMetadataProvider</span><span class="p">,</span>
-    <span class="n">PackageAssetMetadataProvider</span><span class="p">,</span>
-    <span class="n">WheelPackageFileLister</span><span class="p">,</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.assets</span><span class="w"> </span><span class="kn">import</span> <span class="n">InProcAssetDownloadManager</span><span class="p">,</span> <span class="n">default_asset_store</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">RuntimeContext</span><span class="p">,</span> <span class="n">set_runtime_context</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_extensions</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._assets</span><span class="w"> </span><span class="kn">import</span> <span class="n">_register_assets</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._chatbots</span><span class="w"> </span><span class="kn">import</span> <span class="n">_register_chatbots</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._clusters</span><span class="w"> </span><span class="kn">import</span> <span class="n">_register_clusters</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._config</span><span class="w"> </span><span class="kn">import</span> <span class="n">_register_config_sections</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">_register_datasets</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._generation</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_register_beam_search_algorithms</span><span class="p">,</span>
+    <span class="n">_register_samplers</span><span class="p">,</span>
+    <span class="n">_register_seq2seq_generators</span><span class="p">,</span>
+    <span class="n">_register_seq_generators</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.error</span><span class="w"> </span><span class="kn">import</span> <span class="n">ContractError</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.env</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_path_from_env</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.yaml</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_yaml</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._models</span><span class="w"> </span><span class="kn">import</span> <span class="n">_register_models</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._optim</span><span class="w"> </span><span class="kn">import</span> <span class="n">_register_lr_schedulers</span><span class="p">,</span> <span class="n">_register_optimizers</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._text_tokenizers</span><span class="w"> </span><span class="kn">import</span> <span class="n">_register_text_tokenizers</span>
 
-<span class="n">AssetScope</span><span class="p">:</span> <span class="n">TypeAlias</span> <span class="o">=</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="s2">&quot;global&quot;</span><span class="p">,</span> <span class="s2">&quot;user&quot;</span><span class="p">]</span>
-
-
-<div class="viewcode-block" id="AssetStore">
-<a class="viewcode-back" href="../../../reference/api/fairseq2.assets/index.html#fairseq2.assets.AssetStore">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">AssetStore</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a store of assets.&quot;&quot;&quot;</span>
-
-<div class="viewcode-block" id="AssetStore.retrieve_card">
-<a class="viewcode-back" href="../../../reference/api/fairseq2.assets/index.html#fairseq2.assets.AssetStore.retrieve_card">[docs]</a>
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">retrieve_card</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">envs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">scope</span><span class="p">:</span> <span class="n">AssetScope</span> <span class="o">=</span> <span class="s2">&quot;all&quot;</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AssetCard</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Retrieve the card of the specified asset.</span>
-
-<span class="sd">        :param name:</span>
-<span class="sd">            The name of the asset.</span>
-<span class="sd">        :para env:</span>
-<span class="sd">            The environments, in order of precedence, in which to retrieve the</span>
-<span class="sd">            card. If ``None``, the available environments will be resolved</span>
-<span class="sd">            automatically.</span>
-<span class="sd">        :param scope:</span>
-<span class="sd">            The scope of retrieval.</span>
-<span class="sd">        &quot;&quot;&quot;</span></div>
+<span class="n">_setup_called</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
 
 
-<div class="viewcode-block" id="AssetStore.retrieve_names">
-<a class="viewcode-back" href="../../../reference/api/fairseq2.assets/index.html#fairseq2.assets.AssetStore.retrieve_names">[docs]</a>
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">retrieve_names</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">scope</span><span class="p">:</span> <span class="n">AssetScope</span> <span class="o">=</span> <span class="s2">&quot;all&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Retrieve the names of the assets contained in this store.</span>
+<div class="viewcode-block" id="setup_fairseq2">
+<a class="viewcode-back" href="../../../reference/api/fairseq2.html#fairseq2.setup_fairseq2">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">setup_fairseq2</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Sets up fairseq2.</span>
 
-<span class="sd">        :param scope:</span>
-<span class="sd">            The scope of retrieval.</span>
-<span class="sd">        &quot;&quot;&quot;</span></div>
-</div>
+<span class="sd">    As part of the initialization, this function also registers extensions</span>
+<span class="sd">    with via setuptools&#39; `entry-point`__ mechanism. See</span>
+<span class="sd">    :doc:`/basics/runtime_extensions` for more information.</span>
+
+<span class="sd">    .. important::</span>
+
+<span class="sd">        This function must be called before using any of the fairseq2 APIs.</span>
+
+<span class="sd">    .. __: https://setuptools.pypa.io/en/latest/userguide/entry_point.html</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">_setup_called</span>
+
+    <span class="k">if</span> <span class="n">_setup_called</span><span class="p">:</span>
+        <span class="k">return</span>
+
+    <span class="n">_setup_called</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># Mark as called to avoid recursive calls.</span>
+
+    <span class="n">context</span> <span class="o">=</span> <span class="n">setup_runtime_context</span><span class="p">()</span>
+
+    <span class="n">set_runtime_context</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+
+    <span class="n">run_extensions</span><span class="p">(</span><span class="s2">&quot;fairseq2&quot;</span><span class="p">)</span>  <span class="c1"># compat</span></div>
 
 
 
-<span class="nd">@final</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">StandardAssetStore</span><span class="p">(</span><span class="n">AssetStore</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a store of assets.&quot;&quot;&quot;</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">setup_runtime_context</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">RuntimeContext</span><span class="p">:</span>
+    <span class="n">asset_download_manager</span> <span class="o">=</span> <span class="n">InProcAssetDownloadManager</span><span class="p">()</span>
 
-    <span class="n">env_resolvers</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">EnvironmentResolver</span><span class="p">]</span>
-    <span class="n">metadata_providers</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">AssetMetadataProvider</span><span class="p">]</span>
-    <span class="n">user_metadata_providers</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">AssetMetadataProvider</span><span class="p">]</span>
+    <span class="n">context</span> <span class="o">=</span> <span class="n">RuntimeContext</span><span class="p">(</span><span class="n">default_asset_store</span><span class="p">,</span> <span class="n">asset_download_manager</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">env_resolvers</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">metadata_providers</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">user_metadata_providers</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">_register_assets</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+    <span class="n">_register_beam_search_algorithms</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+    <span class="n">_register_chatbots</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+    <span class="n">_register_clusters</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+    <span class="n">_register_config_sections</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+    <span class="n">_register_datasets</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+    <span class="n">_register_lr_schedulers</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+    <span class="n">_register_models</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+    <span class="n">_register_optimizers</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+    <span class="n">_register_samplers</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+    <span class="n">_register_seq2seq_generators</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+    <span class="n">_register_seq_generators</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+    <span class="n">_register_text_tokenizers</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
 
-    <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">retrieve_card</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">envs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">scope</span><span class="p">:</span> <span class="n">AssetScope</span> <span class="o">=</span> <span class="s2">&quot;all&quot;</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AssetCard</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">scope</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="s2">&quot;global&quot;</span><span class="p">,</span> <span class="s2">&quot;user&quot;</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;`scope` must be &#39;all&#39;, &#39;global&#39;, or &#39;user&#39;, but is &#39;</span><span class="si">{</span><span class="n">scope</span><span class="si">}</span><span class="s2">&#39; instead.&quot;</span>
-            <span class="p">)</span>
+    <span class="n">run_extensions</span><span class="p">(</span><span class="s2">&quot;fairseq2.extension&quot;</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>
 
-        <span class="n">name_env_pair</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;@&quot;</span><span class="p">,</span> <span class="n">maxsplit</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-
-        <span class="n">name</span> <span class="o">=</span> <span class="n">name_env_pair</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-
-        <span class="c1"># See if we have an environment tag.</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">name_env_pair</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">envs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="s2">&quot;`envs` must be `None` since `name` already contains an environment tag.&quot;</span>
-                <span class="p">)</span>
-
-            <span class="n">envs</span> <span class="o">=</span> <span class="p">[</span><span class="n">name_env_pair</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
-
-        <span class="k">if</span> <span class="n">envs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">envs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_envs</span><span class="p">()</span>
-
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_do_retrieve_card</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">envs</span><span class="p">,</span> <span class="n">scope</span><span class="p">)</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_envs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-        <span class="c1"># This is a special, always available environment for users to override</span>
-        <span class="c1"># asset metadata. For instance, a user can set the checkpoint path of a</span>
-        <span class="c1"># gated model locally by having a same-named asset with a @user suffix.</span>
-        <span class="n">envs</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;user&quot;</span><span class="p">]</span>
-
-        <span class="k">for</span> <span class="n">resolver</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">env_resolvers</span><span class="p">):</span>
-            <span class="k">if</span> <span class="n">env</span> <span class="o">:=</span> <span class="n">resolver</span><span class="p">():</span>
-                <span class="n">envs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">env</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">envs</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">_do_retrieve_card</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">envs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">scope</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AssetCard</span><span class="p">:</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">metadata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_metadata</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">@&quot;</span><span class="p">,</span> <span class="n">scope</span><span class="p">)</span>
-        <span class="k">except</span> <span class="n">AssetMetadataNotFoundError</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">AssetCardNotFoundError</span><span class="p">(</span>
-                <span class="n">name</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;An asset card with name &#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; is not found.&quot;</span>
-            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
-
-        <span class="c1"># If we have environment-specific metadata, merge it with `metadata`.</span>
-        <span class="k">for</span> <span class="n">env</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="n">envs</span><span class="p">):</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">env_metadata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_metadata</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">@</span><span class="si">{</span><span class="n">env</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">scope</span><span class="p">)</span>
-
-                <span class="c1"># Do not allow overriding &#39;name&#39;.</span>
-                <span class="k">try</span><span class="p">:</span>
-                    <span class="k">del</span> <span class="n">env_metadata</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span>
-                <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
-                    <span class="k">pass</span>
-
-                <span class="n">metadata</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">env_metadata</span><span class="p">)</span>
-            <span class="k">except</span> <span class="n">AssetMetadataNotFoundError</span><span class="p">:</span>
-                <span class="k">pass</span>
-
-        <span class="k">def</span><span class="w"> </span><span class="nf">contract_error</span><span class="p">(</span>
-            <span class="n">field</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">expected_kls</span><span class="p">:</span> <span class="nb">object</span>
-        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ContractError</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">ContractError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;The value of the &#39;</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">&#39; field of the &#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; asset card is expected to be of type `</span><span class="si">{</span><span class="n">expected_kls</span><span class="si">}</span><span class="s2">`, but is of type `</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="si">}</span><span class="s2">` instead.&quot;</span>
-            <span class="p">)</span>
-
-        <span class="n">base_name</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;base&quot;</span><span class="p">)</span>
-
-        <span class="n">base_card</span><span class="p">:</span> <span class="n">AssetCard</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-
-        <span class="c1"># If the metadata has a base specified, we have to recursively load the</span>
-        <span class="c1"># entire chain up to the root.</span>
-        <span class="k">if</span> <span class="n">base_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">base_name</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="n">contract_error</span><span class="p">(</span><span class="s2">&quot;base&quot;</span><span class="p">,</span> <span class="n">base_name</span><span class="p">,</span> <span class="s2">&quot;str&quot;</span><span class="p">)</span>
-
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">base_card</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_do_retrieve_card</span><span class="p">(</span><span class="n">base_name</span><span class="p">,</span> <span class="n">envs</span><span class="p">,</span> <span class="n">scope</span><span class="p">)</span>
-            <span class="k">except</span> <span class="n">AssetCardNotFoundError</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">AssetCardError</span><span class="p">(</span>
-                    <span class="n">name</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;A transitive base asset card with name &#39;</span><span class="si">{</span><span class="n">base_name</span><span class="si">}</span><span class="s2">&#39; is not found.&quot;</span>  <span class="c1"># fmt: skip</span>
-                <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
-
-        <span class="n">base_path</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;__base_path__&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">base_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">base_path</span><span class="p">,</span> <span class="n">Path</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="n">contract_error</span><span class="p">(</span><span class="s2">&quot;__base_path__&quot;</span><span class="p">,</span> <span class="n">base_path</span><span class="p">,</span> <span class="n">Path</span><span class="p">)</span>
-
-        <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">name</span>
-
-        <span class="k">return</span> <span class="n">AssetCard</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">metadata</span><span class="p">,</span> <span class="n">base_card</span><span class="p">,</span> <span class="n">base_path</span><span class="p">)</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">_get_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">scope</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
-        <span class="k">if</span> <span class="n">scope</span> <span class="o">==</span> <span class="s2">&quot;all&quot;</span> <span class="ow">or</span> <span class="n">scope</span> <span class="o">==</span> <span class="s2">&quot;user&quot;</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">provider</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">user_metadata_providers</span><span class="p">):</span>
-                <span class="k">try</span><span class="p">:</span>
-                    <span class="k">return</span> <span class="n">provider</span><span class="o">.</span><span class="n">get_metadata</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
-                <span class="k">except</span> <span class="n">AssetMetadataNotFoundError</span><span class="p">:</span>
-                    <span class="k">continue</span>
-
-        <span class="k">if</span> <span class="n">scope</span> <span class="o">==</span> <span class="s2">&quot;all&quot;</span> <span class="ow">or</span> <span class="n">scope</span> <span class="o">==</span> <span class="s2">&quot;global&quot;</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">provider</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata_providers</span><span class="p">):</span>
-                <span class="k">try</span><span class="p">:</span>
-                    <span class="k">return</span> <span class="n">provider</span><span class="o">.</span><span class="n">get_metadata</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
-                <span class="k">except</span> <span class="n">AssetMetadataNotFoundError</span><span class="p">:</span>
-                    <span class="k">continue</span>
-
-        <span class="k">if</span> <span class="n">name</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;@&quot;</span><span class="p">:</span>
-            <span class="n">name</span> <span class="o">=</span> <span class="n">name</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-
-        <span class="k">raise</span> <span class="n">AssetMetadataNotFoundError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;An asset metadata with name &#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; is not found.&quot;</span>
-        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
-
-    <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">retrieve_names</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">scope</span><span class="p">:</span> <span class="n">AssetScope</span> <span class="o">=</span> <span class="s2">&quot;all&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-        <span class="k">if</span> <span class="n">scope</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="s2">&quot;global&quot;</span><span class="p">,</span> <span class="s2">&quot;user&quot;</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;`scope` must be &#39;all&#39;, &#39;global&#39;, or &#39;user&#39;, but is &#39;</span><span class="si">{</span><span class="n">scope</span><span class="si">}</span><span class="s2">&#39; instead.&quot;</span>
-            <span class="p">)</span>
-
-        <span class="n">names</span> <span class="o">=</span> <span class="p">[]</span>
-
-        <span class="k">if</span> <span class="n">scope</span> <span class="o">==</span> <span class="s2">&quot;all&quot;</span> <span class="ow">or</span> <span class="n">scope</span> <span class="o">==</span> <span class="s2">&quot;user&quot;</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">provider</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">user_metadata_providers</span><span class="p">:</span>
-                <span class="n">names</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">provider</span><span class="o">.</span><span class="n">get_names</span><span class="p">())</span>
-
-        <span class="k">if</span> <span class="n">scope</span> <span class="o">==</span> <span class="s2">&quot;all&quot;</span> <span class="ow">or</span> <span class="n">scope</span> <span class="o">==</span> <span class="s2">&quot;global&quot;</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">provider</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata_providers</span><span class="p">:</span>
-                <span class="n">names</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">provider</span><span class="o">.</span><span class="n">get_names</span><span class="p">())</span>
-
-        <span class="k">return</span> <span class="n">names</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">clear_cache</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Clear the cache of the underlying metadata providers.&quot;&quot;&quot;</span>
-        <span class="k">for</span> <span class="n">provider</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata_providers</span><span class="p">:</span>
-            <span class="n">provider</span><span class="o">.</span><span class="n">clear_cache</span><span class="p">()</span>
-
-        <span class="k">for</span> <span class="n">provider</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">user_metadata_providers</span><span class="p">:</span>
-            <span class="n">provider</span><span class="o">.</span><span class="n">clear_cache</span><span class="p">()</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">add_package_metadata_provider</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">package_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add a new :class:`PackageAssetMetadataProvider` for ``package_name``.</span>
-
-<span class="sd">        :param package_name: The name of the package in which asset metadata is</span>
-<span class="sd">            stored.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">file_lister</span> <span class="o">=</span> <span class="n">WheelPackageFileLister</span><span class="p">()</span>
-
-        <span class="n">provider</span> <span class="o">=</span> <span class="n">PackageAssetMetadataProvider</span><span class="p">(</span><span class="n">package_name</span><span class="p">,</span> <span class="n">file_lister</span><span class="p">,</span> <span class="n">load_yaml</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">metadata_providers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">provider</span><span class="p">)</span>
-
-
-<span class="k">class</span><span class="w"> </span><span class="nc">EnvironmentResolver</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Resolves the environment within which assets should be loaded.&quot;&quot;&quot;</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="o">...</span>
-
-
-<span class="n">default_asset_store</span> <span class="o">=</span> <span class="n">StandardAssetStore</span><span class="p">()</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">get_asset_dir</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-    <span class="n">asset_dir</span> <span class="o">=</span> <span class="n">get_path_from_env</span><span class="p">(</span><span class="s2">&quot;FAIRSEQ2_ASSET_DIR&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">asset_dir</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">asset_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;/etc/fairseq2/assets&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">asset_dir</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-            <span class="k">return</span> <span class="kc">None</span>
-
-    <span class="k">return</span> <span class="n">asset_dir</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">get_user_asset_dir</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-    <span class="n">asset_dir</span> <span class="o">=</span> <span class="n">get_path_from_env</span><span class="p">(</span><span class="s2">&quot;FAIRSEQ2_USER_ASSET_DIR&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">asset_dir</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">asset_dir</span> <span class="o">=</span> <span class="n">get_path_from_env</span><span class="p">(</span><span class="s2">&quot;XDG_CONFIG_HOME&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">asset_dir</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">asset_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;~/.config&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">expanduser</span><span class="p">()</span>
-
-        <span class="n">asset_dir</span> <span class="o">=</span> <span class="n">asset_dir</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s2">&quot;fairseq2/assets&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">asset_dir</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-            <span class="k">return</span> <span class="kc">None</span>
-
-    <span class="k">return</span> <span class="n">asset_dir</span>
+    <span class="k">return</span> <span class="n">context</span>
 </pre></div>
         </article>
       </div>
@@ -618,7 +429,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=53d703e6"></script>
+</div><script src="../../../_static/documentation_options.js?v=9f2fe177"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>

@@ -248,7 +248,6 @@
 <li class="toctree-l4"><a class="reference internal" href="text_tokenizers.html">Text Tokenizers</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../data_pipeline.html">fairseq2.data.data_pipeline</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../fairseq2.datasets/index.html">fairseq2.datasets</a></li>
@@ -321,13 +320,9 @@
           <section id="module-fairseq2.data.text">
 <span id="fairseq2-data-text"></span><h1>fairseq2.data.text<a class="headerlink" href="#module-fairseq2.data.text" title="Link to this heading">¶</a></h1>
 <p>This module contains text tokenizers and text specific data pipeline operators.</p>
-<pre data-zoom-id="id-28aeb5ac-f757-4116-85dc-23c8b41b46d2" class="mermaid">
+<pre data-zoom-id="id-13cf69fa-48e9-4e0a-83b2-fcae827c7a6e" class="mermaid">
         classDiagram
-  ABC &lt;|-- TextTokenDecoder
-  ABC &lt;|-- TextTokenEncoder
-  ABC &lt;|-- TextTokenizer
   Enum &lt;|-- LineEnding
-  TextTokenizer &lt;|-- AbstractTextTokenizer
     </pre><div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="text_tokenizers.html">Text Tokenizers</a></li>
@@ -388,7 +383,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=53d703e6"></script>
+</div><script src="../../../../_static/documentation_options.js?v=9f2fe177"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>
@@ -405,7 +400,7 @@ const load = async () => {
     const mermaids_to_add_zoom = 1 === -1 ? all_mermaids.length : 1;
     const mermaids_processed = document.querySelectorAll(".mermaid[data-processed='true']");
     if(mermaids_to_add_zoom > 0) {
-        var svgs = d3.selectAll(".mermaid[data-zoom-id=id-28aeb5ac-f757-4116-85dc-23c8b41b46d2] svg");
+        var svgs = d3.selectAll(".mermaid[data-zoom-id=id-13cf69fa-48e9-4e0a-83b2-fcae827c7a6e] svg");
         if(all_mermaids.length !== mermaids_processed.length) {
             // try again in a sec, wait for mermaids to load
             setTimeout(load, 200);

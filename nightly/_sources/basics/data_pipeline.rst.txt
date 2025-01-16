@@ -246,4 +246,4 @@ There are more features in fairseq2's data pipeline:
    When combining pseudo-infinite pipelines with finite ones, the pseudo-infinite pipeline will stop when the finite pipeline ends.
    For truly infinite behavior, use ``repeat()`` without arguments.
 
-For more technical details, see :doc:`/reference/api/fairseq2.data/data_pipeline`.
+For more technical details, see :doc:`/reference/api/fairseq2.data/index`.
