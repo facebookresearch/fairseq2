@@ -29,7 +29,7 @@ from fairseq2.utils.file import (
     TensorDumpError,
     TensorLoadError,
     dump_torch_tensors,
-    load_torch_tensors,
+    load_unsafe_torch_tensors,
 )
 from fairseq2.utils.structured import unstructure
 from fairseq2.utils.yaml import dump_yaml
@@ -542,7 +542,7 @@ class FileCheckpointManager(CheckpointManager):
         def load_part(filename: str) -> dict[str, object]:
             with maybe_with_dp_process_group():  # Required for `ShardedTensor`.
                 try:
-                    part = load_torch_tensors(
+                    part = load_unsafe_torch_tensors(
                         step_dir.joinpath(filename), map_location=CPU
                     )
                 except FileNotFoundError:
@@ -606,7 +606,7 @@ class FileCheckpointManager(CheckpointManager):
         )
 
         try:
-            metadata = load_torch_tensors(metadata_file, map_location=CPU)
+            metadata = load_unsafe_torch_tensors(metadata_file, map_location=CPU)
         except FileNotFoundError:
             metadata = None
         except TensorLoadError as ex:
