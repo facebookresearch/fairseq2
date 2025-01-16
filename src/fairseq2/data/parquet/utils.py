@@ -54,7 +54,7 @@ NestedDictValue = torch.Tensor | list[str] | pd.Series | NestedDict
 BatchOutputType = pa.Table | pd.DataFrame | NestedDict
 
 
-def is_list_like(arr: pa.Array) -> bool:
+def is_list_like(arr: Union[pa.ChunkedArray, pa.Array]) -> bool:
     """
     Check if the array is a list or a large list.
     """
@@ -332,7 +332,7 @@ def load_one_fragment(
 
 
 def compute_length_splits(
-    length_col: NDArray[np.int32],
+    length_col: Union[NDArray[np.int32], pa.Array],
     max_tokens: int,
     *,
     order_by_length: bool = True,
@@ -392,7 +392,9 @@ def compute_length_splits(
     return splits
 
 
-def compute_rows_length(pa_array: pa.Array) -> NDArray[np.int32]:
+def compute_rows_length(
+    pa_array: Union[pa.Array, pa.ChunkedArray]
+) -> NDArray[np.int32]:
     """
     Compute the length of each row in a PyArrow array.
 
