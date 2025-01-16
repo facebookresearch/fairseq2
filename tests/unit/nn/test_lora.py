@@ -11,8 +11,7 @@ import math
 import torch
 from torch.nn.functional import embedding, linear
 
-from fairseq2.nn import Linear
-from fairseq2.nn.embedding import StandardEmbedding
+from fairseq2.nn import Linear, StandardEmbedding
 from fairseq2.nn.lora import LoRAConfig, LoRAEmbedding, LoRALinear
 
 

@@ -7,12 +7,19 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, TypeVar
 
-from fairseq2.data.data_pipeline import Collater, create_bucket_sizes, read_sequence
-from fairseq2.datasets import Batching, DataReadOptions, LengthBatching, StaticBatching
-from fairseq2.datasets.data_reader import BatchT, DataPipelineReader
+from fairseq2.data import Collater, create_bucket_sizes, read_sequence
+from fairseq2.datasets import (
+    Batching,
+    DataPipelineReader,
+    DataReadOptions,
+    LengthBatching,
+    StaticBatching,
+)
 from fairseq2.gang import Gang
+
+BatchT = TypeVar("BatchT")
 
 try:
     from datasets import (  # type: ignore[attr-defined,import-untyped,import-not-found]

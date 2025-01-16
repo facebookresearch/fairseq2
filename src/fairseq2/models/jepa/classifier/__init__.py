@@ -6,32 +6,32 @@
 
 from __future__ import annotations
 
-from fairseq2.models.jepa.classifier.config import (
+from fairseq2.models.jepa.classifier._config import (
     JEPA_CLASSIFIER_MODEL_FAMILY as JEPA_CLASSIFIER_MODEL_FAMILY,
 )
-from fairseq2.models.jepa.classifier.config import (
+from fairseq2.models.jepa.classifier._config import (
     JepaClassifierConfig as JepaClassifierConfig,
 )
-from fairseq2.models.jepa.classifier.config import (
+from fairseq2.models.jepa.classifier._config import (
     register_jepa_classifier_configs as register_jepa_classifier_configs,
 )
-from fairseq2.models.jepa.classifier.factory import (
+from fairseq2.models.jepa.classifier._factory import (
     JepaClassifierFactory as JepaClassifierFactory,
 )
-from fairseq2.models.jepa.classifier.handler import (
+from fairseq2.models.jepa.classifier._handler import (
     JepaClassifierModelHandler as JepaClassifierModelHandler,
 )
-from fairseq2.models.jepa.classifier.model import AttentivePooler as AttentivePooler
-from fairseq2.models.jepa.classifier.model import (
+from fairseq2.models.jepa.classifier._model import AttentivePooler as AttentivePooler
+from fairseq2.models.jepa.classifier._model import (
     CrossAttentionDecoderLayer as CrossAttentionDecoderLayer,
 )
-from fairseq2.models.jepa.classifier.model import (
+from fairseq2.models.jepa.classifier._model import (
     JepaClassifierModel as JepaClassifierModel,
 )
 
 # isort: split
 
-from fairseq2.models.hub import ModelHubAccessor
+from fairseq2.models import ModelHubAccessor
 
 get_jepa_classifier_model_hub = ModelHubAccessor(
     JepaClassifierModel, JepaClassifierConfig

@@ -6,8 +6,8 @@
 
 from __future__ import annotations
 
-from fairseq2.setup.assets import (
+from fairseq2.setup._assets import (
     register_package_metadata_provider as register_package_metadata_provider,
 )
-from fairseq2.setup.root import setup_fairseq2 as setup_fairseq2
-from fairseq2.setup.root import setup_runtime_context as setup_runtime_context
+from fairseq2.setup._root import setup_fairseq2 as setup_fairseq2
+from fairseq2.setup._root import setup_runtime_context as setup_runtime_context

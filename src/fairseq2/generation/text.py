@@ -11,9 +11,13 @@ from typing import final
 
 from torch import Tensor
 
-from fairseq2.data.text import TextTokenDecoder, TextTokenEncoder, TextTokenizer
+from fairseq2.data.text.tokenizers import (
+    TextTokenDecoder,
+    TextTokenEncoder,
+    TextTokenizer,
+)
 from fairseq2.error import ContractError
-from fairseq2.generation.generator import (
+from fairseq2.generation import (
     Seq2SeqGenerator,
     Seq2SeqGeneratorOutput,
     SequenceGenerator,

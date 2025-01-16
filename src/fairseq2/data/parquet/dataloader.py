@@ -15,7 +15,7 @@ from typing import Any
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from fairseq2.data.data_pipeline import DataPipeline, DataPipelineBuilder
+from fairseq2.data import DataPipeline, DataPipelineBuilder
 from fairseq2.data.parquet.tools import (
     BatchOutputType,
     _TableWrapper,

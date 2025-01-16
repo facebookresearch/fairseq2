@@ -14,9 +14,12 @@ from typing import Final, final
 import torch
 from typing_extensions import override
 
-from fairseq2.datasets.config import DataReadOptions
-from fairseq2.datasets.data_reader import DataPipelineReader, DataReader
-from fairseq2.datasets.hub import DatasetHubAccessor
+from fairseq2.datasets import (
+    DataPipelineReader,
+    DataReader,
+    DataReadOptions,
+    DatasetHubAccessor,
+)
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
 from fairseq2.models.sequence import SequenceBatch

@@ -16,7 +16,7 @@ from typing_extensions import override
 from fairseq2.assets import AssetCardNotFoundError, default_asset_store
 from fairseq2.checkpoint import FileCheckpointMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
-from fairseq2.data.text import get_text_tokenizer_hub
+from fairseq2.data.text.tokenizers import get_text_tokenizer_hub
 from fairseq2.datasets import LengthBatching, SyncMode
 from fairseq2.datasets.asr import AsrReadOptions, GenericAsrDataset, get_asr_dataset_hub
 from fairseq2.gang import Gang

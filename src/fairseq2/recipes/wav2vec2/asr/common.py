@@ -14,9 +14,9 @@ from torch import Tensor
 from torch.nn import Module
 from typing_extensions import override
 
-from fairseq2.data.text import TextTokenDecoder, TextTokenizer
+from fairseq2.data.text.tokenizers import TextTokenDecoder, TextTokenizer
 from fairseq2.gang import Gang
-from fairseq2.metrics.aggregation import Mean
+from fairseq2.metrics import Mean
 from fairseq2.metrics.text import WerMetric
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch

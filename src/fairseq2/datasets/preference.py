@@ -25,11 +25,15 @@ from fairseq2.data import (
     create_bucket_sizes,
     read_sequence,
 )
-from fairseq2.data.text import TextTokenizer
-from fairseq2.datasets.config import DataReadOptions, LengthBatching, StaticBatching
-from fairseq2.datasets.data_reader import DataPipelineReader
-from fairseq2.datasets.hub import DatasetHubAccessor
-from fairseq2.datasets.utils import _load_files_and_weights
+from fairseq2.data.text.tokenizers import TextTokenizer
+from fairseq2.datasets import (
+    DataPipelineReader,
+    DataReadOptions,
+    DatasetHubAccessor,
+    LengthBatching,
+    StaticBatching,
+)
+from fairseq2.datasets._utils import _load_files_and_weights
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
 from fairseq2.models.sequence import SequenceBatch

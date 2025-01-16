@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, TypedDict, final
 from fairseq2n import DOC_MODE
 from torch import Tensor
 
-from fairseq2.data.memory import MemoryBlock
+from fairseq2.data import MemoryBlock
 from fairseq2.typing import Device
 
 if TYPE_CHECKING or DOC_MODE:
@@ -29,13 +29,7 @@ if TYPE_CHECKING or DOC_MODE:
             ...
 
 else:
-    from fairseq2n.bindings.data.image import ImageDecoder as ImageDecoder
-
-    def _set_module_name() -> None:
-        for t in [ImageDecoder]:
-            t.__module__ = __name__
-
-    _set_module_name()
+    from fairseq2n.bindings.data.image import ImageDecoder as ImageDecoder  # noqa: F401
 
 
 class ImageDecoderOutput(TypedDict):

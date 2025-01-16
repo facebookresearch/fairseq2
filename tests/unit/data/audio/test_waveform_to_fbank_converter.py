@@ -13,12 +13,12 @@ from typing import Final
 import pytest
 import torch
 
+from fairseq2.data import MemoryBlock
 from fairseq2.data.audio import (
     AudioDecoder,
     AudioDecoderOutput,
     WaveformToFbankConverter,
 )
-from fairseq2.data.memory import MemoryBlock
 from tests.common import assert_equal, device
 
 TEST_OGG_PATH: Final = Path(__file__).parent.joinpath("test.ogg")

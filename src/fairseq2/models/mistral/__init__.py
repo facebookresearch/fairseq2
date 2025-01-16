@@ -6,20 +6,20 @@
 
 from __future__ import annotations
 
-from fairseq2.models.mistral.config import MISTRAL_MODEL_FAMILY as MISTRAL_MODEL_FAMILY
-from fairseq2.models.mistral.config import MistralConfig as MistralConfig
-from fairseq2.models.mistral.config import (
+from fairseq2.models.mistral._config import MISTRAL_MODEL_FAMILY as MISTRAL_MODEL_FAMILY
+from fairseq2.models.mistral._config import MistralConfig as MistralConfig
+from fairseq2.models.mistral._config import (
     register_mistral_configs as register_mistral_configs,
 )
-from fairseq2.models.mistral.factory import MistralFactory as MistralFactory
-from fairseq2.models.mistral.handler import MistralModelHandler as MistralModelHandler
-from fairseq2.models.mistral.handler import (
+from fairseq2.models.mistral._factory import MistralFactory as MistralFactory
+from fairseq2.models.mistral._handler import MistralModelHandler as MistralModelHandler
+from fairseq2.models.mistral._handler import (
     convert_mistral_checkpoint as convert_mistral_checkpoint,
 )
 
 # isort: split
 
-from fairseq2.models.hub import ModelHubAccessor
+from fairseq2.models import ModelHubAccessor
 from fairseq2.models.transformer_decoder import TransformerDecoderModel
 
 get_mistral_model_hub = ModelHubAccessor(TransformerDecoderModel, MistralConfig)

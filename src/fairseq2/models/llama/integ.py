@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import cast
 
-from fairseq2.models.llama.config import LLaMAConfig
+from fairseq2.models.llama import LLaMAConfig
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
 
 

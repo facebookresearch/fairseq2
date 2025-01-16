@@ -21,11 +21,18 @@ from fairseq2.data import (
     SequenceData,
     create_bucket_sizes,
 )
-from fairseq2.data.text import TextTokenizer, read_text
-from fairseq2.datasets.config import DataReadOptions, LengthBatching, StaticBatching
-from fairseq2.datasets.data_reader import DataPipelineReader, DataReader
-from fairseq2.datasets.error import DatasetError, SplitNotFoundError
-from fairseq2.datasets.hub import DatasetHubAccessor
+from fairseq2.data.text import read_text
+from fairseq2.data.text.tokenizers import TextTokenizer
+from fairseq2.datasets import (
+    DataPipelineReader,
+    DataReader,
+    DataReadOptions,
+    DatasetError,
+    DatasetHubAccessor,
+    LengthBatching,
+    SplitNotFoundError,
+    StaticBatching,
+)
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
 from fairseq2.models.seq2seq import Seq2SeqBatch

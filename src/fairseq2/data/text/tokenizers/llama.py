@@ -12,10 +12,9 @@ from typing import Final, final
 from typing_extensions import override
 
 from fairseq2.assets import AssetCard, AssetCardError, AssetCardFieldNotFoundError
-from fairseq2.data.text.tokenizers.handler import AbstractTextTokenizerHandler
+from fairseq2.data.text.tokenizers import AbstractTextTokenizerHandler, TextTokenizer
 from fairseq2.data.text.tokenizers.sentencepiece import BasicSentencePieceTokenizer
 from fairseq2.data.text.tokenizers.tiktoken import TiktokenEncoder, TiktokenTokenizer
-from fairseq2.data.text.tokenizers.tokenizer import TextTokenizer
 from fairseq2.typing import Device
 
 

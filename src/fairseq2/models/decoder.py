@@ -13,7 +13,7 @@ from typing_extensions import override
 
 from fairseq2.data import VocabularyInfo
 from fairseq2.models.sequence import SequenceBatch, SequenceModel, SequenceModelOutput
-from fairseq2.nn.incremental_state import IncrementalStateBag
+from fairseq2.nn import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask
 
 

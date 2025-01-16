@@ -8,8 +8,9 @@ from typing import Final
 
 import torch
 
-from fairseq2.data.text import get_text_tokenizer_hub
-from fairseq2.generation import SamplingSeq2SeqGenerator, TextTranslator, TopKSampler
+from fairseq2.data.text.tokenizers import get_text_tokenizer_hub
+from fairseq2.generation import SamplingSeq2SeqGenerator, TopKSampler
+from fairseq2.generation.text import TextTranslator
 from fairseq2.models.transformer import get_transformer_model_hub
 from tests.common import device
 

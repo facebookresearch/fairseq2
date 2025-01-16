@@ -15,12 +15,14 @@ from torch.nn import Module
 from torcheval.metrics import MulticlassAccuracy
 
 from fairseq2.gang import Gang
-from fairseq2.metrics.aggregation import Mean
+from fairseq2.metrics import Mean
 from fairseq2.models.sequence import SequenceBatch
-from fairseq2.models.wav2vec2 import Wav2Vec2Loss, Wav2Vec2Model, Wav2Vec2Output
-from fairseq2.models.wav2vec2.vector_quantizer import (
+from fairseq2.models.wav2vec2 import (
     GumbelVectorQuantizerOutput,
     VectorQuantizerOutput,
+    Wav2Vec2Loss,
+    Wav2Vec2Model,
+    Wav2Vec2Output,
 )
 from fairseq2.recipes.common_metrics import BaseMetricBag
 from fairseq2.recipes.utils.setup import check_model_type

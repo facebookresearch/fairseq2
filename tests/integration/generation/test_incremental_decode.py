@@ -8,7 +8,7 @@ from typing import Final
 
 import torch
 
-from fairseq2.data.text import get_text_tokenizer_hub
+from fairseq2.data.text.tokenizers import get_text_tokenizer_hub
 from fairseq2.models.transformer import get_transformer_model_hub
 from fairseq2.nn import IncrementalStateBag
 from fairseq2.nn.padding import pad_seqs

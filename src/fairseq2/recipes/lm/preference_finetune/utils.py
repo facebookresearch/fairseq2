@@ -16,7 +16,7 @@ from torcheval.metrics import Mean
 from fairseq2.datasets.preference import PreferenceOptimizationBatch
 from fairseq2.gang import Gang
 from fairseq2.logging import LogWriter
-from fairseq2.metrics.recorder import format_as_float, register_metric_formatter
+from fairseq2.metrics import format_as_float, register_metric_formatter
 from fairseq2.models.sequence import SequenceBatch, SequenceModelOutput
 from fairseq2.nn.utils.module import freeze_parameters
 from fairseq2.recipes.common_metrics import SequenceMetricBag
