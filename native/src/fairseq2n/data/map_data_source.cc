@@ -15,10 +15,13 @@
 namespace fairseq2n::detail {
 
 map_data_source::map_data_source(
-    std::unique_ptr<data_source> &&inner, std::vector<map_fn> &&fns, std::size_t num_parallel_calls)
+    std::unique_ptr<data_source> &&inner, std::vector<map_fn> &&fns, std::size_t num_parallel_calls, bool deterministic)
   : inner_{std::move(inner)},
     map_fns_{std::move(fns)},
-    num_parallel_calls_{num_parallel_calls}
+    num_parallel_calls_{num_parallel_calls},
+    deterministic_{deterministic},
+    available_workers_semaphore_{deterministic ? 0 : static_cast<ptrdiff_t>(num_parallel_calls)}, // could be raised slightly (2x) to continue reading from inner
+    pool_{deterministic ? 0 : num_parallel_calls}
 {
     buffer_.reserve(num_parallel_calls);
 
@@ -38,14 +41,31 @@ map_data_source::next()
         return std::nullopt;
     }
 
-    do {
-        // Yield a buffered example.
-        for (; buffer_pos_ < buffer_.end(); ++buffer_pos_) {
-            if (*buffer_pos_)
-                return std::move(*buffer_pos_++);
+    if (deterministic_) {
+        do {
+            // Yield a buffered example.
+            for (; buffer_pos_ < buffer_.end(); ++buffer_pos_) {
+                if (*buffer_pos_)
+                    return std::move(*buffer_pos_++);
+            }
+        // If we have exhausted all buffered examples, try to refill the buffer.
+        } while (fill_buffer());
+    } else {
+        // Check that we either have work or waiting outputs
+        while (fill_buffer_async()) {
+            // Wait until the next output is ready
+            std::unique_lock<std::mutex> lock{async_output_queue_mutex_};
+            read_output_condition_.wait(lock, [this]
+            {
+                return !async_output_queue_.empty();
+            });
+
+            auto example = std::move(async_output_queue_.front());
+            async_output_queue_.pop();
+            if (example)
+                return example;
         }
-    // If we have exhausted all buffered examples, try to refill the buffer.
-    } while (fill_buffer());
+    }
 
     return std::nullopt;
 }
@@ -126,6 +146,51 @@ map_data_source::fill_buffer()
     buffer_pos_ = buffer_.begin();
 
     return true;
+}
+
+std::size_t
+map_data_source::acquire_all_available(std::counting_semaphore<>& sem) {
+    std::size_t acquired_count = 0;
+    while (sem.try_acquire()) {
+        acquired_count++;
+    }
+    return acquired_count;
+}
+
+bool
+map_data_source::fill_buffer_async()
+{
+    std::size_t num_slots_available = acquire_all_available(available_workers_semaphore_);
+    std::size_t num_inputs_consumed = 0;
+    bool has_reached_eod = false;
+    for (std::size_t i = 0; i < num_slots_available; i++) {
+        std::optional<data> maybe_example = inner_->next();
+        if (!maybe_example) {
+            has_reached_eod = true;
+            break;
+        }
+        // create task and send to thread pool
+        data example = std::move(*maybe_example);
+        auto apply_function = [this](data&& ex)
+        {
+            // Compute the function (the first one)
+            data result = map_fns_[0](std::move(ex));
+            // Add to output queue
+            {
+                std::unique_lock<std::mutex> lock(async_output_queue_mutex_);
+                async_output_queue_.push(std::move(result));
+            }
+            available_workers_semaphore_.release();
+            read_output_condition_.notify_one();
+        };
+        pool_.enqueue(apply_function, std::move(example));
+        num_inputs_consumed++;
+    }
+
+    // release unused slots
+    available_workers_semaphore_.release(static_cast<ptrdiff_t>(num_slots_available - num_inputs_consumed));
+
+    return num_inputs_consumed > 0 || !has_reached_eod;
 }
 
 std::optional<data>

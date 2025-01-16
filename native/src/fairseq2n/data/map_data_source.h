@@ -9,9 +9,11 @@
 #include <cstddef>
 #include <memory>
 #include <optional>
+#include <semaphore>
 #include <utility>
 #include <vector>
 
+#include "fairseq2n/detail/thread_pool.h"
 #include "fairseq2n/data/data_pipeline.h"
 #include "fairseq2n/data/data_source.h"
 
@@ -23,7 +25,8 @@ public:
     map_data_source(
         std::unique_ptr<data_source> &&inner,
         std::vector<map_fn> &&fns,
-        std::size_t num_parallel_calls);
+        std::size_t num_parallel_calls,
+        bool deterministic_);
 
     std::optional<data>
     next() override;
@@ -47,12 +50,26 @@ private:
     std::optional<data>
     invoke_function(data &&example, std::size_t fn_idx);
 
+    bool
+    fill_buffer_async();
+
+    std::size_t
+    acquire_all_available(std::counting_semaphore<>& sem);
+
 private:
     std::unique_ptr<data_source> inner_;
     std::vector<map_fn> map_fns_;
     std::size_t num_parallel_calls_;
+    bool deterministic_;
     std::vector<std::optional<data>> buffer_{};
     std::vector<std::optional<data>>::iterator buffer_pos_{};
+
+    mutable std::mutex async_output_queue_mutex_{};
+    std::queue<std::optional<data>> async_output_queue_{};
+    mutable std::condition_variable read_output_condition_{};
+    mutable std::counting_semaphore<> available_workers_semaphore_;
+    thread_pool pool_;
+
 };
 
 }  // namespace fairseq2n::detail

@@ -286,6 +286,7 @@ if TYPE_CHECKING or DOC_MODE:
             fn: Callable[[Any], Any] | Sequence[Callable[[Any], Any]],
             selector: str | None = None,
             num_parallel_calls: int = 1,
+            deterministic: bool = True,
         ) -> Self:
             """Apply ``fn`` to each example.
 
@@ -312,6 +313,8 @@ if TYPE_CHECKING or DOC_MODE:
                 See :ref:`basics/data-pipeline/column-selection` for more details.
             :param num_parallel_calls:
                 The number of examples to process in parallel.
+            :param deterministic:
+                TODO:
             """
 
         def prefetch(self, num_examples: int) -> Self:
