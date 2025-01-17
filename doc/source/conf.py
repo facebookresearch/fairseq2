@@ -89,7 +89,7 @@ bibtex_bibfiles = ["_static/bibliography.bib"]
 #
 html_title = project
 html_theme = "furo"
-html_logo = "_static/img/logo.png"
+html_logo = "_static/img/logo.svg"
 
 html_theme_options = {
     "light_css_variables": {
@@ -114,5 +114,5 @@ html_static_path = ["_static"]
 html_title = "fairseq2 Documentation"
 
 favicons = [
-    {"href": "img/logo.png"},  # => use `_static/img/logo.png`
+    {"href": "img/logo.svg"},  # => use `_static/img/logo.svg`
 ]
