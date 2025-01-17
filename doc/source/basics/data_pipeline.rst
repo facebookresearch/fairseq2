@@ -247,3 +247,8 @@ There are more features in fairseq2's data pipeline:
    For truly infinite behavior, use ``repeat()`` without arguments.
 
 For more technical details, see :doc:`/reference/api/fairseq2.data/index`.
+
+See Also
+--------
+
+- Jupyter Notebook Example: :doc:`/notebooks/datapipeline`

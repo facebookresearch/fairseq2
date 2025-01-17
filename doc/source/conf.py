@@ -36,6 +36,8 @@ needs_sphinx = "7.4.0"
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    "IPython.sphinxext.ipython_console_highlighting",
+    "IPython.sphinxext.ipython_directive",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosectionlabel",
     "sphinx.ext.autosummary",
@@ -48,6 +50,7 @@ extensions = [
     "sphinx_design",
     "sphinxcontrib.mermaid",
     "myst_parser",
+    "nbsphinx",
 ]
 
 myst_enable_extensions = ["colon_fence"]

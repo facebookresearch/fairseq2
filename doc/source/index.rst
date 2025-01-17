@@ -66,6 +66,13 @@ Documentation
    tutorials/models
 
 .. toctree::
+   :maxdepth: 2
+   :caption: Notebooks
+
+   notebooks/datapipeline
+   notebooks/dataset_gsm8k_sft
+
+.. toctree::
    :maxdepth: 1
    :caption: FAQ
 
