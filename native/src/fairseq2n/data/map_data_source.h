@@ -56,6 +56,9 @@ private:
     std::size_t
     acquire_all_available(std::counting_semaphore<>& sem);
 
+    bool
+    has_async_output();
+
 private:
     std::unique_ptr<data_source> inner_;
     std::vector<map_fn> map_fns_;
@@ -69,6 +72,9 @@ private:
     mutable std::condition_variable read_output_condition_{};
     mutable std::counting_semaphore<> available_workers_semaphore_;
     thread_pool pool_;
+    mutable std::mutex exception_ptr_mutex_{};
+    std::atomic<bool> has_exception_{false};
+    std::exception_ptr exception_ptr_{};
 
 };
 

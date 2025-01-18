@@ -38,10 +38,12 @@ public:
                             return;
                         }
                         
+                        num_working_++;
                         task = std::move(tasks.front());
                         tasks.pop();
                     }
                     task();
+                    num_working_--;
                 }
             });
         }
@@ -85,12 +87,19 @@ public:
     thread_pool(const thread_pool&) = delete;
     thread_pool& operator=(const thread_pool&) = delete;
 
+    bool
+    is_busy()
+    {
+        return num_working_ > 0;
+    }
+
 private:
     std::vector<std::thread> workers;
     std::queue<std::function<void()>> tasks;
     
     std::mutex queueMutex;
     std::condition_variable condition;
+    std::atomic<int> num_working_{0};
     bool stop;
 };
 

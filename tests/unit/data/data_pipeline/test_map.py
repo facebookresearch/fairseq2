@@ -18,16 +18,24 @@ from fairseq2.data.text import StrToIntConverter
 
 class TestMapOp:
     @pytest.mark.parametrize("num_parallel_calls", [1, 4, 10, 20])
-    def test_op_works(self, num_parallel_calls: int) -> None:
+    @pytest.mark.parametrize("deterministic", [True, False])
+    def test_op_works(self, num_parallel_calls: int, deterministic: bool) -> None:
         def fn(d: int) -> int:
             return d**2
 
         seq = list(range(1, 10))
 
-        pipeline = read_sequence(seq).map(fn, num_parallel_calls=num_parallel_calls).and_return()  # fmt: skip
+        pipeline = (
+            read_sequence(seq)
+            .map(fn, num_parallel_calls=num_parallel_calls, deterministic=deterministic)
+            .and_return()
+        )
 
         for _ in range(2):
-            assert list(pipeline) == [i**2 for i in seq]
+            if deterministic:
+                assert list(pipeline) == [i**2 for i in seq]
+            else:
+                assert set(pipeline) == {i**2 for i in seq}
 
             pipeline.reset()
 

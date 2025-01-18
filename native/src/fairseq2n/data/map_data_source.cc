@@ -57,9 +57,13 @@ map_data_source::next()
             std::unique_lock<std::mutex> lock{async_output_queue_mutex_};
             read_output_condition_.wait(lock, [this]
             {
-                return !async_output_queue_.empty();
+                return !async_output_queue_.empty() || has_exception_;
             });
 
+            if (has_exception_) {
+                std::unique_lock<std::mutex> lock_ex(exception_ptr_mutex_);
+                std::rethrow_exception(exception_ptr_);
+            }
             auto example = std::move(async_output_queue_.front());
             async_output_queue_.pop();
             if (example)
@@ -158,6 +162,13 @@ map_data_source::acquire_all_available(std::counting_semaphore<>& sem) {
 }
 
 bool
+map_data_source::has_async_output()
+{
+    std::unique_lock<std::mutex> lock(async_output_queue_mutex_);
+    return !async_output_queue_.empty();
+}
+
+bool
 map_data_source::fill_buffer_async()
 {
     std::size_t num_slots_available = acquire_all_available(available_workers_semaphore_);
@@ -169,28 +180,41 @@ map_data_source::fill_buffer_async()
             has_reached_eod = true;
             break;
         }
-        // create task and send to thread pool
+        // Create task and send to thread pool
         data example = std::move(*maybe_example);
+
         auto apply_function = [this](data&& ex)
         {
-            // Compute the function (the first one)
-            data result = map_fns_[0](std::move(ex));
-            // Add to output queue
-            {
-                std::unique_lock<std::mutex> lock(async_output_queue_mutex_);
-                async_output_queue_.push(std::move(result));
+            try {
+                // Compute the function (the first one)
+                data result = map_fns_[0](std::move(ex));
+                // Add to output queue
+                {
+                    std::unique_lock<std::mutex> lock(async_output_queue_mutex_);
+                    async_output_queue_.push(std::move(result));
+                }
+            } catch (const std::exception &) {
+                std::unique_lock<std::mutex> lock(exception_ptr_mutex_);
+                exception_ptr_ = std::current_exception();
+                has_exception_ = true;
             }
             available_workers_semaphore_.release();
             read_output_condition_.notify_one();
         };
+        
         pool_.enqueue(apply_function, std::move(example));
         num_inputs_consumed++;
     }
 
-    // release unused slots
+    // Release unused slots
     available_workers_semaphore_.release(static_cast<ptrdiff_t>(num_slots_available - num_inputs_consumed));
 
-    return num_inputs_consumed > 0 || !has_reached_eod;
+    return (
+        num_inputs_consumed > 0
+        || !has_reached_eod
+        || has_async_output()
+        || pool_.is_busy()
+    );
 }
 
 std::optional<data>
