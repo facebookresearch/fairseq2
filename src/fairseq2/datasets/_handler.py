@@ -53,14 +53,14 @@ class DatasetLoader(Protocol):
 @final
 class StandardDatasetHandler(DatasetHandler):
     _family: str
-    _kls: type
+    _kls: type[object]
     _loader: DatasetLoader
     _asset_download_manager: AssetDownloadManager
 
     def __init__(
         self,
         family: str,
-        kls: type,
+        kls: type[object],
         loader: DatasetLoader,
         asset_download_manager: AssetDownloadManager,
     ) -> None:

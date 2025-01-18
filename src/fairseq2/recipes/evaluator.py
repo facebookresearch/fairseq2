@@ -28,7 +28,7 @@ from fairseq2.metrics import (
     TensorBoardRecorder,
     record_metrics,
 )
-from fairseq2.recipes.common_metrics import extend_batch_metrics
+from fairseq2.recipes.metrics import extend_batch_metrics
 from fairseq2.recipes.utils.rich import create_rich_progress
 from fairseq2.typing import CPU, DataType
 from fairseq2.utils.profiler import Stopwatch

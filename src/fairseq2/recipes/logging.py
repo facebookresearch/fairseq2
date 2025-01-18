@@ -6,46 +6,29 @@
 
 from __future__ import annotations
 
-import logging
 import os
-import time
 from abc import ABC, abstractmethod
-from logging import DEBUG, INFO, FileHandler, Formatter, Handler, NullHandler, getLogger
+from logging import FileHandler, Formatter, getLogger
 from pathlib import Path
 from typing import TYPE_CHECKING, final
 
 from fairseq2n import DOC_MODE
-from rich.logging import RichHandler
 from typing_extensions import override
 
 from fairseq2.error import SetupError
 from fairseq2.gang import get_rank
-from fairseq2.recipes.utils.rich import get_error_console
-
-
-def setup_basic_logging(*, debug: bool = False, utc_time: bool = False) -> None:
-    rank = get_rank()
-
-    _setup_core_logging(rank, debug, utc_time)
-
-    if rank != 0:
-        getLogger().addHandler(NullHandler())
 
 
 class LoggingInitializer(ABC):
     @abstractmethod
-    def initialize(
-        self, log_file: Path, *, debug: bool = False, utc_time: bool = False
-    ) -> None:
+    def initialize(self, log_file: Path) -> None:
         ...
 
 
 @final
 class DistributedLoggingInitializer(LoggingInitializer):
     @override
-    def initialize(
-        self, log_file: Path, *, debug: bool = False, utc_time: bool = False
-    ) -> None:
+    def initialize(self, log_file: Path) -> None:
         rank = get_rank()
 
         filename = log_file.name.format(rank=rank)
@@ -64,8 +47,6 @@ class DistributedLoggingInitializer(LoggingInitializer):
                 f"The '{log_file}' log file cannot be created. See the nested exception for details."
             ) from ex
 
-        _setup_core_logging(rank, debug, utc_time)
-
         handler = FileHandler(log_file)
 
         handler.setFormatter(
@@ -76,28 +57,6 @@ class DistributedLoggingInitializer(LoggingInitializer):
 
         _setup_aten_logging(log_file)
         _setup_nccl_logging(log_file)
-
-
-def _setup_core_logging(rank: int, debug: bool = False, utc_time: bool = False) -> None:
-    level = DEBUG if debug else INFO
-
-    if utc_time:
-        Formatter.converter = time.gmtime
-
-    handlers: list[Handler] = []
-
-    if rank == 0:
-        console = get_error_console()
-
-        handler = RichHandler(console=console, show_path=False, keywords=[])
-
-        handler.setFormatter(Formatter("%(name)s - %(message)s"))
-
-        handlers.append(handler)
-
-    datefmt = "%Y-%m-%d %H:%M:%S"
-
-    logging.basicConfig(level=level, handlers=handlers, datefmt=datefmt, force=True)
 
 
 def _setup_aten_logging(log_file: Path) -> None:

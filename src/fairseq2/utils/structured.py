@@ -497,7 +497,7 @@ class ValueConverter:
     def unstructure(self, obj: object) -> object:
         kls = type(obj)
 
-        lookup_kls: type
+        lookup_kls: type[object]
 
         if is_dataclass(kls):
             lookup_kls = DataClass

@@ -26,6 +26,7 @@ from typing import (
 from typing_extensions import override
 
 from fairseq2.config_registry import ConfigProvider
+from fairseq2.context import RuntimeContext
 from fairseq2.error import ContractError, SetupError
 from fairseq2.logging import log
 from fairseq2.recipes.cluster import ClusterResolver
@@ -44,7 +45,7 @@ from fairseq2.utils.yaml import YamlDumper, YamlError, YamlLoader
 
 class RecipeRunner(ABC):
     @abstractmethod
-    def run(self, config: object, output_dir: Path) -> None:
+    def run(self, context: RuntimeContext, config: object, output_dir: Path) -> None:
         ...
 
 
@@ -55,7 +56,9 @@ ConfigT_contra = TypeVar("ConfigT_contra", contravariant=True)
 
 
 class RecipeLoader(Protocol[ConfigT_contra]):
-    def __call__(self, config: ConfigT_contra, output_dir: Path) -> Recipe:
+    def __call__(
+        self, context: RuntimeContext, config: ConfigT_contra, output_dir: Path
+    ) -> Recipe:
         ...
 
 
@@ -74,8 +77,8 @@ class StandardRecipeRunner(RecipeRunner):
         self._signal_handler = signal_handler
 
     @override
-    def run(self, config: object, output_dir: Path) -> None:
-        recipe = self._loader(config, output_dir)
+    def run(self, context: RuntimeContext, config: object, output_dir: Path) -> None:
+        recipe = self._loader(context, config, output_dir)
 
         # If the recipe is stoppable, use SIGUSR1 as the stop signal.
         if isinstance(recipe, Stoppable):
@@ -124,7 +127,6 @@ class EnvironmentBootstrapper(ABC):
         *,
         cluster: str = "auto",
         sweep_format: str | None = None,
-        debug: bool = False,
     ) -> Path:
         ...
 
@@ -160,7 +162,6 @@ class StandardEnvironmentBootstrapper(EnvironmentBootstrapper):
         *,
         cluster: str = "auto",
         sweep_format: str | None = None,
-        debug: bool = False,
     ) -> Path:
         cluster_handler = self._cluster_resolver.get(cluster)
 
@@ -182,7 +183,7 @@ class StandardEnvironmentBootstrapper(EnvironmentBootstrapper):
             ) from ex
 
         self._logging_initializer.initialize(
-            sweep_output_dir.joinpath("logs/rank_{rank}.log"), debug=debug
+            sweep_output_dir.joinpath("logs/rank_{rank}.log")
         )
 
         log.info("The log files stored under the '{}' directory.", sweep_output_dir)

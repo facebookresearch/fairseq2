@@ -7,10 +7,10 @@
 name: CI
 
 on:
-  pull_request:
-    paths-ignore:
-      - '**.md'
-      - 'ci/**'
+#  pull_request:
+#    paths-ignore:
+#      - '**.md'
+#      - 'ci/**'
 
 jobs:
   build_doc:
