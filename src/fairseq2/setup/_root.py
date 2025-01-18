@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from fairseq2.assets import InProcAssetDownloadManager, default_asset_store
-from fairseq2.context import RuntimeContext, set_runtime_context
+from fairseq2.context import RuntimeContext, get_runtime_context, set_runtime_context
 from fairseq2.extensions import run_extensions
 from fairseq2.setup._assets import _register_assets
 from fairseq2.setup._chatbots import _register_chatbots
@@ -22,12 +22,13 @@ from fairseq2.setup._generation import (
 )
 from fairseq2.setup._models import _register_models
 from fairseq2.setup._optim import _register_lr_schedulers, _register_optimizers
+from fairseq2.setup._recipes import _register_recipes
 from fairseq2.setup._text_tokenizers import _register_text_tokenizers
 
 _setup_called: bool = False
 
 
-def setup_fairseq2() -> None:
+def setup_fairseq2() -> RuntimeContext:
     """
     Sets up fairseq2.
 
@@ -44,15 +45,15 @@ def setup_fairseq2() -> None:
     global _setup_called
 
     if _setup_called:
-        return
+        context = get_runtime_context()
+    else:
+        _setup_called = True  # Avoid recursive calls.
 
-    _setup_called = True  # Mark as called to avoid recursive calls.
+        context = setup_runtime_context()
 
-    context = setup_runtime_context()
+        set_runtime_context(context)
 
-    set_runtime_context(context)
-
-    run_extensions("fairseq2")  # compat
+    return context
 
 
 def setup_runtime_context() -> RuntimeContext:
@@ -69,6 +70,7 @@ def setup_runtime_context() -> RuntimeContext:
     _register_lr_schedulers(context)
     _register_models(context)
     _register_optimizers(context)
+    _register_recipes(context)
     _register_samplers(context)
     _register_seq2seq_generators(context)
     _register_seq_generators(context)

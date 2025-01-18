@@ -55,10 +55,14 @@ from fairseq2.generation._generator import (
 from fairseq2.generation._generator import (
     AbstractSequenceGenerator as AbstractSequenceGenerator,
 )
+from fairseq2.generation._generator import GenerationCounters as GenerationCounters
 from fairseq2.generation._generator import Hypothesis as Hypothesis
 from fairseq2.generation._generator import Seq2SeqGenerator as Seq2SeqGenerator
 from fairseq2.generation._generator import (
     Seq2SeqGeneratorOutput as Seq2SeqGeneratorOutput,
+)
+from fairseq2.generation._generator import (
+    SequenceGenerationError as SequenceGenerationError,
 )
 from fairseq2.generation._generator import SequenceGenerator as SequenceGenerator
 from fairseq2.generation._generator import (

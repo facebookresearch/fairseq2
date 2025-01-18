@@ -6,51 +6,34 @@
 
 from __future__ import annotations
 
-from fairseq2.recipes.cli import Cli, RecipeCommandHandler
-from fairseq2.recipes.wav2vec2.asr.eval import (
-    load_wav2vec2_asr_evaluator,
-    wav2vec2_asr_eval_presets,
+from fairseq2.recipes.wav2vec2.asr._common import (
+    Wav2Vec2AsrCriterion as Wav2Vec2AsrCriterion,
 )
-from fairseq2.recipes.wav2vec2.asr.train import (
-    load_wav2vec2_asr_trainer,
-    wav2vec2_asr_train_presets,
+from fairseq2.recipes.wav2vec2.asr._common import (
+    Wav2Vec2AsrMetricBag as Wav2Vec2AsrMetricBag,
 )
-
-
-def _setup_wav2vec2_asr_cli(cli: Cli) -> None:
-    extra_sweep_keys = {
-        "freeze_encoder_for_n_steps",
-        "max_audio_len",
-        "min_audio_len",
-        "normalize_audio",
-    }
-
-    group = cli.add_group("wav2vec2_asr", help="wav2vec 2.0 ASR recipes")
-
-    # Train
-    train_handler = RecipeCommandHandler(
-        loader=load_wav2vec2_asr_trainer,
-        preset_configs=wav2vec2_asr_train_presets,
-        default_preset="base_10h",
-        extra_sweep_keys=extra_sweep_keys,
-    )
-
-    group.add_command(
-        name="train",
-        handler=train_handler,
-        help="train a wav2vec 2.0 ASR model",
-    )
-
-    # Eval
-    eval_handler = RecipeCommandHandler(
-        loader=load_wav2vec2_asr_evaluator,
-        preset_configs=wav2vec2_asr_eval_presets,
-        default_preset="base_10h",
-        extra_sweep_keys=extra_sweep_keys,
-    )
-
-    group.add_command(
-        name="eval",
-        handler=eval_handler,
-        help="evaluate a wav2vec 2.0 ASR model",
-    )
+from fairseq2.recipes.wav2vec2.asr._common import Wav2Vec2AsrScorer as Wav2Vec2AsrScorer
+from fairseq2.recipes.wav2vec2.asr._eval import (
+    Wav2Vec2AsrEvalConfig as Wav2Vec2AsrEvalConfig,
+)
+from fairseq2.recipes.wav2vec2.asr._eval import (
+    Wav2Vec2AsrEvalUnit as Wav2Vec2AsrEvalUnit,
+)
+from fairseq2.recipes.wav2vec2.asr._eval import (
+    load_wav2vec2_asr_evaluator as load_wav2vec2_asr_evaluator,
+)
+from fairseq2.recipes.wav2vec2.asr._eval import (
+    register_wav2vec2_asr_eval_configs as register_wav2vec2_asr_eval_configs,
+)
+from fairseq2.recipes.wav2vec2.asr._train import (
+    Wav2Vec2AsrTrainConfig as Wav2Vec2AsrTrainConfig,
+)
+from fairseq2.recipes.wav2vec2.asr._train import (
+    Wav2Vec2AsrTrainUnit as Wav2Vec2AsrTrainUnit,
+)
+from fairseq2.recipes.wav2vec2.asr._train import (
+    load_wav2vec2_asr_trainer as load_wav2vec2_asr_trainer,
+)
+from fairseq2.recipes.wav2vec2.asr._train import (
+    register_wav2vec2_asr_train_configs as register_wav2vec2_asr_train_configs,
+)

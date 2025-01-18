@@ -6,78 +6,59 @@
 
 from __future__ import annotations
 
-from fairseq2.recipes.cli import Cli, RecipeCommandHandler
-from fairseq2.recipes.lm.chatbot import ChatbotCommandHandler
-from fairseq2.recipes.lm.eval_nll import load_nll_evaluator, nll_eval_presets
-from fairseq2.recipes.lm.instruction_finetune import (
-    instruction_finetune_presets,
-    load_instruction_finetuner,
+from fairseq2.recipes.lm._instruction_finetune import (
+    LMInstructionFinetuneConfig as LMInstructionFinetuneConfig,
 )
-from fairseq2.recipes.lm.preference_finetune import (
-    load_preference_finetuner,
-    preference_finetune_presets,
+from fairseq2.recipes.lm._instruction_finetune import (
+    LMInstructionFinetuneCriterion as LMInstructionFinetuneCriterion,
 )
-from fairseq2.recipes.lm.text_generate import load_text_generator, text_generate_presets
+from fairseq2.recipes.lm._instruction_finetune import (
+    LMInstructionFinetuneUnit as LMInstructionFinetuneUnit,
+)
+from fairseq2.recipes.lm._instruction_finetune import (
+    LMInstructionValidUnit as LMInstructionValidUnit,
+)
+from fairseq2.recipes.lm._instruction_finetune import (
+    load_lm_instruction_finetuner as load_lm_instruction_finetuner,
+)
+from fairseq2.recipes.lm._instruction_finetune import (
+    register_lm_instruction_finetune_configs as register_lm_instruction_finetune_configs,
+)
+from fairseq2.recipes.lm._nll_eval import LMNllEvalConfig as LMNllEvalConfig
+from fairseq2.recipes.lm._nll_eval import load_lm_nll_evaluator as load_lm_nll_evaluator
+from fairseq2.recipes.lm._nll_eval import (
+    register_lm_nll_eval_configs as register_lm_nll_eval_configs,
+)
+from fairseq2.recipes.lm._preference_finetune._recipe import (
+    LMPreferenceFinetuneConfig as LMPreferenceFinetuneConfig,
+)
+from fairseq2.recipes.lm._preference_finetune._recipe import (
+    load_lm_preference_finetuner as load_lm_preference_finetuner,
+)
+from fairseq2.recipes.lm._preference_finetune._recipe import (
+    register_lm_preference_finetune_configs as register_lm_preference_finetune_configs,
+)
+from fairseq2.recipes.lm._preference_finetune.cpo import CpoConfig as CpoConfig
+from fairseq2.recipes.lm._preference_finetune.dpo import DpoConfig as DpoConfig
+from fairseq2.recipes.lm._preference_finetune.orpo import OrpoConfig as OrpoConfig
+from fairseq2.recipes.lm._preference_finetune.simpo import SimPOConfig as SimPOConfig
+from fairseq2.recipes.lm._text_generate import (
+    LMTextGenerateConfig as LMTextGenerateConfig,
+)
+from fairseq2.recipes.lm._text_generate import LMTextGenerateUnit as LMTextGenerateUnit
+from fairseq2.recipes.lm._text_generate import (
+    load_lm_text_generator as load_lm_text_generator,
+)
+from fairseq2.recipes.lm._text_generate import (
+    register_lm_text_generate_configs as register_lm_text_generate_configs,
+)
 
+# isort: split
 
-def _setup_lm_cli(cli: Cli) -> None:
-    group = cli.add_group("lm", help="language model recipes")
-
-    # Chatbot
-    group.add_command(
-        name="chatbot",
-        handler=ChatbotCommandHandler(),
-        help="run a terminal-based chatbot demo",
-    )
-
-    # Instruction Finetune
-    instruction_finetune_handler = RecipeCommandHandler(
-        loader=load_instruction_finetuner,
-        preset_configs=instruction_finetune_presets,
-        default_preset="llama3_1_instruct",
-    )
-
-    group.add_command(
-        name="instruction_finetune",
-        handler=instruction_finetune_handler,
-        help="instruction-finetune a language model",
-    )
-
-    # Preference Finetune
-    preference_finetune_handler = RecipeCommandHandler(
-        loader=load_preference_finetuner,
-        preset_configs=preference_finetune_presets,
-        default_preset="llama3_1_instruct",
-    )
-
-    group.add_command(
-        name="preference_finetune",
-        handler=preference_finetune_handler,
-        help="preference-finetune a language model (e.g. DPO, SimPO).",
-    )
-
-    # Text Generate
-    text_generate_handler = RecipeCommandHandler(
-        loader=load_text_generator,
-        preset_configs=text_generate_presets,
-        default_preset="llama3_1_8b_instruct",
-    )
-
-    group.add_command(
-        name="generate",
-        handler=text_generate_handler,
-        help="generate text",
-    )
-
-    # NLL evaluation
-    nll_eval_handler = RecipeCommandHandler(
-        loader=load_nll_evaluator,
-        preset_configs=nll_eval_presets,
-        default_preset="llama3_1_base_eval",
-    )
-
-    group.add_command(
-        name="nll_eval",
-        handler=nll_eval_handler,
-        help="Evaluate the model and compute NLL loss over a given dataset",
-    )
+import fairseq2.recipes.lm._preference_finetune.cpo
+import fairseq2.recipes.lm._preference_finetune.dpo
+import fairseq2.recipes.lm._preference_finetune.orpo
+import fairseq2.recipes.lm._preference_finetune.simpo
+from fairseq2.recipes.lm._preference_finetune.utils import (
+    preference_unit_factory as preference_unit_factory,
+)

@@ -16,11 +16,11 @@ from datasets import (  # type: ignore[attr-defined,import-untyped,import-not-fo
     load_dataset,
 )
 
-from fairseq2.config_registry import ConfigRegistry
+from fairseq2.context import RuntimeContext
 from fairseq2.data import SequenceData
 from fairseq2.data.text.tokenizers import TextTokenizer, get_text_tokenizer_hub
 from fairseq2.datasets import StaticBatching
-from fairseq2.logging import get_log_writer
+from fairseq2.logging import log
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2.asr import get_wav2vec2_asr_model_hub
@@ -30,8 +30,6 @@ from fairseq2.recipes.hg.evaluator import HFEvaluator
 from fairseq2.recipes.utils.setup import setup_root_gang
 from fairseq2.typing import META, DataType
 from fairseq2.utils.profiler import Stopwatch
-
-log = get_log_writer(__name__)
 
 
 @dataclass(kw_only=True)
@@ -81,19 +79,19 @@ class AsrEvalConfig:
     """The data type of the model."""
 
 
-asr_eval_presets = ConfigRegistry(AsrEvalConfig)
+def register_hg_asr_eval_configs(context: RuntimeContext) -> None:
+    registry = context.get_config_registry(AsrEvalConfig)
 
-asr_eval_preset = asr_eval_presets.decorator
+    preset = registry.decorator
 
-
-@asr_eval_preset("librispeech_asr")
-def _librispeech_asr_config() -> AsrEvalConfig:
-    return AsrEvalConfig(
-        dataset_name="librispeech_asr",
-        model_name="wav2vec2_asr_base_10h",
-        split="test.other",
-        # converter=librispeech_asr_to_batch,
-    )
+    @preset("librispeech_asr")
+    def librispeech_asr_config() -> AsrEvalConfig:
+        return AsrEvalConfig(
+            dataset_name="librispeech_asr",
+            model_name="wav2vec2_asr_base_10h",
+            split="test.other",
+            # converter=librispeech_asr_to_batch,
+        )
 
 
 def _librispeech_asr_to_batch(examples: Example) -> Seq2SeqBatch:
@@ -170,7 +168,7 @@ def postprocesser(
 
 
 def load_wav2vec2_asr_evaluator(
-    config: AsrEvalConfig, output_dir: Path
+    context: RuntimeContext, config: AsrEvalConfig, output_dir: Path
 ) -> HFEvaluator[Seq2SeqBatch]:
     """
     Load the evaluator used for downstream evaluation of the model
