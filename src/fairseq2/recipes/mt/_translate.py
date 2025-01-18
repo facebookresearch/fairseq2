@@ -8,51 +8,62 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable, Mapping, TextIO, final
+from typing import Iterable, Mapping, TextIO, final
 
 import torch
 from typing_extensions import override
 
-from fairseq2.assets import AssetCardNotFoundError, default_asset_store
-from fairseq2.checkpoint import FileCheckpointMetadataProvider
 from fairseq2.context import RuntimeContext
-from fairseq2.data.text.tokenizers import TextTokenizer, get_text_tokenizer_hub
+from fairseq2.data.text.tokenizers import TextTokenizer
 from fairseq2.datasets import StaticBatching, SyncMode
 from fairseq2.datasets.text import (
-    GenericTextDataset,
+    GENERIC_TEXT_DATASET_FAMILY,
+    TextDataset,
     TextReadOptions,
-    get_text_dataset_hub,
 )
-from fairseq2.gang import Gang
-from fairseq2.generation import (
-    BeamSearchConfig,
-    Seq2SeqGenerator,
-    create_seq2seq_generator,
-)
+from fairseq2.error import SetupError
+from fairseq2.gang import Gangs
+from fairseq2.generation import BeamSearchConfig, Seq2SeqGenerator
 from fairseq2.generation.text import SequenceToTextConverter
 from fairseq2.logging import log
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.sequence import SequenceBatch
+from fairseq2.nn.utils.module import remove_parametrizations
+from fairseq2.recipes.common import (
+    broadcast_model,
+    compile_eval_model,
+    create_generator,
+    create_seq2seq_generator,
+    load_dataset,
+    load_eval_model,
+    load_text_tokenizer,
+    register_extra_asset_paths,
+    setup_gangs,
+)
+from fairseq2.recipes.config import (
+    DatasetSection,
+    GenerateRecipeConfig,
+    GeneratorSection,
+    Seq2SeqGeneratorSection,
+)
 from fairseq2.recipes.generator import AbstractGeneratorUnit, Generator
 from fairseq2.recipes.metrics import Seq2SeqGenerationMetricBag
-from fairseq2.recipes.utils.asset import (
-    AssetReference,
-    asset_as_path,
-    retrieve_asset_card,
-)
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import broadcast_model, load_model, setup_root_gang
-from fairseq2.typing import META, DataType
-from fairseq2.utils.profiler import Stopwatch
+from fairseq2.typing import CPU
+from fairseq2.utils.config import process_config
+from fairseq2.utils.file import FileMode
+from fairseq2.utils.rng import manual_seed
 
 
 @dataclass(kw_only=True)
-class MTTranslateConfig:
+class TextTranslateConfig(GenerateRecipeConfig):
     """Holds the configuration of a text translation task."""
 
-    # Data
-    dataset: AssetReference = "foo"  # TODO: change!
-    """The name, path, or path to the asset card of the text dataset."""
+    model: str = "nllb-200_dense_distill_600m"
+
+    dataset: TextTranslateDatasetSection = field(
+        default_factory=lambda: TextTranslateDatasetSection()
+    )
 
     source_lang: str = "eng_Latn"
     """The code of the language to translate from."""
@@ -60,224 +71,164 @@ class MTTranslateConfig:
     target_lang: str = "deu_Latn"
     """The code of the language to translate to."""
 
+    generator: GeneratorSection = field(
+        default_factory=lambda: GeneratorSection(dtype=torch.float16)
+    )
+
+    seq2seq_generator: Seq2SeqGeneratorSection = field(
+        default_factory=lambda: Seq2SeqGeneratorSection(
+            config=BeamSearchConfig(max_gen_len=(1, 256), echo_prompt=True),
+            batch_size=8,
+        )
+    )
+
+
+@dataclass(kw_only=True)
+class TextTranslateDatasetSection(DatasetSection):
+    name: str = "foo"  # TODO: change!
+
+    family: str = GENERIC_TEXT_DATASET_FAMILY
+
+    path: Path | None = None
+
     min_seq_len: int = 1
     """The minimum sequence length."""
 
     max_seq_len: int = 512
     """The maximum sequence length."""
 
-    batch_size: int = 1
-    """The number of sentences per batch."""
-
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
 
-    # Model
-    model: AssetReference = "nllb-200_dense_distill_600m"
-    """The name of the model to translate with."""
 
-    checkpoint_dir: Path | None = None
-    """The checkpoint directory containing models saved by :class:`FileCheckpointManager`."""
-
-    dtype: DataType = torch.float16
-    """The data type of the model."""
-
-    amp: bool = False
-    """If ``True``, runs evaluation with ``torch.amp``."""
-
-    # Generation
-    generator: str = "beam_search"
-    """The sequence generator."""
-
-    generator_config: Any = field(
-        default_factory=lambda: BeamSearchConfig(max_gen_len=(1, 256), echo_prompt=True)
-    )
-    """The configuration of the sequence generator."""
-
-    # Misc
-    seed: int = 2
-    """The random number generator seed to use."""
-
-
-def register_mt_translate_configs(context: RuntimeContext) -> None:
-    registry = context.get_config_registry(MTTranslateConfig)
+def register_text_translate_configs(context: RuntimeContext) -> None:
+    registry = context.get_config_registry(TextTranslateConfig)
 
     preset = registry.decorator
 
     @preset("nllb_dense_600m")
-    def nllb_dense_600m() -> MTTranslateConfig:
-        return MTTranslateConfig()
+    def nllb_dense_600m() -> TextTranslateConfig:
+        return TextTranslateConfig()
 
 
 @torch.inference_mode()
-def load_mt_translator(
-    context: RuntimeContext, config: MTTranslateConfig, output_dir: Path
+def load_text_translator(
+    context: RuntimeContext, config: TextTranslateConfig, output_dir: Path
 ) -> Generator[SequenceBatch]:
-    """Load a :class:`Generator` for text translation."""
-    wall_watch = Stopwatch(start=True)
+    register_extra_asset_paths(context, config.assets)
 
-    if config.checkpoint_dir is not None:
-        default_asset_store.metadata_providers.append(
-            FileCheckpointMetadataProvider(config.checkpoint_dir)
-        )
+    process_config(context, config)
 
-    gang = setup_root_gang(log)
+    gangs = setup_gangs(context, config.gang)
 
-    model_card = retrieve_asset_card(config.model)
+    dataset = load_dataset(TextDataset, context, config.dataset, gangs)
 
-    # Load the tokenizer.
-    log.info("Loading {} tokenizer.", model_card.name)
+    tokenizer = load_text_tokenizer(context, config.model)
 
-    tokenizer_hub = get_text_tokenizer_hub()
+    seed = config.seed
 
-    tokenizer = tokenizer_hub.load(model_card)
+    manual_seed(seed, CPU, context.device)
 
-    log.info("Tokenizer loaded.")
+    seed += 1
 
-    # Load the dataset.
-    try:
-        dataset_card = retrieve_asset_card(config.dataset)
-    except AssetCardNotFoundError:
-        dataset_card = None
-
-    if dataset_card is not None:
-        log.info("Loading {} text dataset.", dataset_card.name)
-
-        dataset_hub = get_text_dataset_hub()
-
-        dataset = dataset_hub.load(dataset_card)
-
-        log.info("Dataset loaded.")
-    else:
-        dataset_path = asset_as_path(config.dataset)
-
-        dataset = GenericTextDataset.from_path(dataset_path, "path")
-
-    # Load the model.
-    log.info("Loading {} model on rank 0.", model_card.name)
-
-    if gang.rank == 0:
-        init_device = gang.device
-    else:
-        init_device = META
-
-    try:
-        model = load_model(model_card, device=init_device, dtype=config.dtype)
-    except ValueError as ex:
-        raise ValueError(
-            "The model cannot be initialized. See nested exception for details."
-        ) from ex
-
-    if not isinstance(model, EncoderDecoderModel):
-        raise ValueError(
-            f"The model must be of type `{EncoderDecoderModel}`, but is of type `{type(model)}` instead."
-        )
-
-    gang.barrier()
-
-    log.info("Model loaded on rank 0.")
-
-    # Distribute the model to all processes in the gang.
-    if gang.size != 1:
-        broadcast_model(model, gang, log)
-
-    log_model(model, log)
-
-    # Initialize the sequence generator.
-    try:
-        generator = create_seq2seq_generator(
-            config.generator, model, config.generator_config
-        )
-    except ValueError as ex:
-        raise ValueError(
-            "The sequence generator cannot be created. See nested exception for details."
-        ) from ex
-
-    # Initialize the generator unit.
-    src_output_file = output_dir.joinpath(
-        f"translations/{config.source_lang}-{config.target_lang}/rank_{gang.rank}.src.txt"
+    model = load_eval_model(
+        EncoderDecoderModel,
+        context,
+        config.model,
+        gangs,
+        config.generator.dtype,
+        mixed_precision=config.generator.amp,
     )
 
-    hyp_output_file = output_dir.joinpath(
-        f"translations/{config.source_lang}-{config.target_lang}/rank_{gang.rank}.hyp.txt"
+    broadcast_model(config.model, model, gangs)
+
+    remove_parametrizations(model)
+
+    log_model(log, model, gangs)
+
+    if config.generator.torch_compile:
+        model = compile_eval_model(context, config.model, model)
+
+    # Initialize the unit.
+    seq2seq_generator = create_seq2seq_generator(
+        context, config.seq2seq_generator, model
     )
 
-    try:
-        src_output_file.parent.mkdir(parents=True, exist_ok=True)
-    except OSError as ex:
-        raise RuntimeError(
-            f"The output directory '{src_output_file.parent}' cannot be created. See nested exception for details."
-        ) from ex
+    if gangs.tp.rank == 0:
+        file_system = context.file_system
 
-    try:
-        src_output_fp = src_output_file.open("w")
-    except OSError as ex:
-        raise RuntimeError(
-            f"The output file '{src_output_file}' cannot be created. See nested exception for details."
-        ) from ex
+        rank = gangs.dp.rank
 
-    try:
-        hyp_output_fp = hyp_output_file.open("w")
-    except OSError as ex:
-        raise RuntimeError(
-            f"The output file '{hyp_output_file}' cannot be created. See nested exception for details."
-        ) from ex
+        src_lang = config.source_lang
+        tgt_lang = config.target_lang
+
+        src_file = output_dir.joinpath(
+            f"translations/{src_lang}-{tgt_lang}/rank_{rank}.src.txt"
+        )
+        hyp_file = output_dir.joinpath(
+            f"translations/{src_lang}-{tgt_lang}/rank_{rank}.hyp.txt"
+        )
+
+        try:
+            file_system.make_directory(src_file.parent)
+        except OSError as ex:
+            raise SetupError(
+                f"The '{src_file.parent}' output directory cannot be created. See the nested exception for details."
+            ) from ex
+
+        try:
+            src_fp = file_system.open_text(src_file, mode=FileMode.WRITE)
+        except OSError as ex:
+            raise SetupError(
+                f"The '{src_file}' output file cannot be created. See the nested exception for details."
+            ) from ex
+
+        try:
+            hyp_fp = file_system.open_text(hyp_file, mode=FileMode.WRITE)
+        except OSError as ex:
+            raise SetupError(
+                f"The '{hyp_file}' output file cannot be created. See the nested exception for details."
+            ) from ex
+    else:
+        src_fp = None
+        hyp_fp = None
 
     unit = TextTranslationUnit(
-        generator, tokenizer, config.target_lang, gang, src_output_fp, hyp_output_fp
+        seq2seq_generator, tokenizer, config.target_lang, gangs, src_fp, hyp_fp
     )
 
     text_encoder = tokenizer.create_encoder(
         task="translation", lang=config.source_lang, mode="source"
     )
 
-    seed = config.seed
-
-    batching = StaticBatching(config.batch_size)
+    batching = StaticBatching(config.seq2seq_generator.batch_size)
 
     read_options = TextReadOptions(
         batching=batching,
         sync_mode=SyncMode.UNTIL_LAST,
-        num_prefetch=config.num_prefetch,
+        num_prefetch=config.dataset.num_prefetch,
         seed=seed,
     )
 
-    try:
-        data_reader = dataset.create_reader(
-            text_encoder,
-            tokenizer.vocab_info.pad_idx,
-            gang,
-            config.min_seq_len,
-            config.max_seq_len,
-            read_options,
-        )
-    except ValueError as ex:
-        raise ValueError(
-            "The data reader cannot be initialized. See nested exception for details."
-        ) from ex
+    data_reader = dataset.create_reader(
+        text_encoder,
+        tokenizer.vocab_info.pad_idx,
+        gangs.dp,
+        config.dataset.min_seq_len,
+        config.dataset.max_seq_len,
+        read_options,
+    )
 
     seed += 1
 
-    # Initialize the generator.
-    return Generator[SequenceBatch](
-        unit=unit,
-        data_reader=data_reader,
-        root_gang=gang,
-        dtype=config.dtype,
-        amp=config.amp,
-        metrics_dir=output_dir.joinpath("metrics"),
-        seed=seed,
-        wall_watch=wall_watch,
-    )
+    return create_generator(context, config, output_dir, unit, data_reader, gangs, seed)
 
 
 @final
 class TextTranslationUnit(AbstractGeneratorUnit[SequenceBatch]):
-    """Represents a text translation unit."""
-
     _converter: SequenceToTextConverter
-    _src_output_stream: TextIO
-    _hyp_output_stream: TextIO
+    _src_output_stream: TextIO | None
+    _hyp_output_stream: TextIO | None
     _metric_bag: Seq2SeqGenerationMetricBag
 
     def __init__(
@@ -285,9 +236,9 @@ class TextTranslationUnit(AbstractGeneratorUnit[SequenceBatch]):
         generator: Seq2SeqGenerator,
         tokenizer: TextTokenizer,
         target_lang: str,
-        gang: Gang,
-        src_output_stream: TextIO,
-        hyp_output_stream: TextIO,
+        gangs: Gangs,
+        src_output_stream: TextIO | None,
+        hyp_output_stream: TextIO | None,
     ) -> None:
         """
         :param generator:
@@ -312,7 +263,7 @@ class TextTranslationUnit(AbstractGeneratorUnit[SequenceBatch]):
         self._src_output_stream = src_output_stream
         self._hyp_output_stream = hyp_output_stream
 
-        self._metric_bag = Seq2SeqGenerationMetricBag(gang)
+        self._metric_bag = Seq2SeqGenerationMetricBag(gangs.dp)
 
     @override
     def __call__(self, batch: SequenceBatch) -> None:
@@ -340,21 +291,21 @@ class TextTranslationUnit(AbstractGeneratorUnit[SequenceBatch]):
 
         # Dump source sentences.
         stream = self._src_output_stream
+        if stream is not None:
+            for src in srcs:
+                stream.write(src)
+                stream.write("\n")
 
-        for src in srcs:
-            stream.write(src)
-            stream.write("\n")
-
-        stream.flush()
+            stream.flush()
 
         # Dump hypotheses.
         stream = self._hyp_output_stream
+        if stream is not None:
+            for hyp in hyps:
+                stream.write(hyp)
+                stream.write("\n")
 
-        for hyp in hyps:
-            stream.write(hyp)
-            stream.write("\n")
-
-        stream.flush()
+            stream.flush()
 
     @property
     @override

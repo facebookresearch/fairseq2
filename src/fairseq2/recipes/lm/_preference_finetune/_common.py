@@ -6,64 +6,14 @@
 
 from __future__ import annotations
 
-from typing import Mapping
-
 import torch
 from torch import Tensor
-from torch.nn import Module
 from torcheval.metrics import Mean
 
-from fairseq2.datasets.preference import PreferenceOptimizationBatch
+from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.gang import Gang
-from fairseq2.logging import LogWriter
-from fairseq2.metrics import format_as_float, register_metric_formatter
 from fairseq2.models.sequence import SequenceBatch, SequenceModelOutput
-from fairseq2.nn.utils.module import freeze_parameters
-from fairseq2.recipes.lm._preference_finetune.factory_registry import (
-    ConfigBoundFactoryRegistry,
-)
 from fairseq2.recipes.metrics import SequenceMetricBag
-from fairseq2.recipes.trainer import TrainUnit
-from fairseq2.recipes.utils.asset import AssetReference, retrieve_asset_card
-from fairseq2.recipes.utils.setup import broadcast_model, load_model
-from fairseq2.typing import META, DataType
-
-
-def _load_reference_model(
-    model_name_or_card: AssetReference,
-    dtype: DataType,
-    root_gang: Gang,
-    gangs: Mapping[str, Gang],
-    tensor_parallel_size: int,
-    log: LogWriter,
-) -> Module:
-    dp_gang = gangs["dp"]
-
-    card = retrieve_asset_card(model_name_or_card)
-
-    log.info("Loading {} reference model on data parallel rank 0 (per shard).", card.name)  # fmt: skip
-
-    if dp_gang.rank == 0:
-        init_device = root_gang.device
-    else:
-        init_device = META
-
-    # TODO: figure out how to load the reference model onto its own gangs
-    model = load_model(card, gangs=gangs, device=init_device, dtype=dtype)
-
-    root_gang.barrier()
-
-    log.info("Reference model loaded on data parallel rank 0.")
-
-    model.eval()
-
-    freeze_parameters(model)
-
-    # Distribute the model to all processes in the gang.
-    if dp_gang.size != 1:
-        broadcast_model(model, dp_gang, log)
-
-    return model
 
 
 def _gather_lprobs(output: SequenceModelOutput, target: SequenceBatch) -> Tensor:
@@ -86,23 +36,7 @@ def _gather_lprobs_avg(
     return total_logps, average_logps
 
 
-register_metric_formatter(
-    "chosen_logps", "Chosen Sequence Log Probabilities", 50, format_as_float
-)
-register_metric_formatter(
-    "rejected_logps", "Rejected Sequence Log Probabilities", 50, format_as_float
-)
-register_metric_formatter(
-    "chosen_lengths", "Chosen Sequence Length", 70, format_as_float
-)
-register_metric_formatter(
-    "rejected_lengths", "Rejected Sequence Length", 70, format_as_float
-)
-
-
-class PreferenceFinetuneMetricBag(SequenceMetricBag):
-    """Holds the metrics of a sequence model preference finetuning task."""
-
+class POFinetuneMetricBag(SequenceMetricBag):
     chosen_logps: Mean
     rejected_logps: Mean
     chosen_lengths: Mean
@@ -125,7 +59,7 @@ class PreferenceFinetuneMetricBag(SequenceMetricBag):
     @torch.inference_mode()
     def update_logps(
         self,
-        batch: PreferenceOptimizationBatch,
+        batch: PreferenceBatch,
         chosen_logps: Tensor,
         rejected_logps: Tensor,
     ) -> None:
@@ -149,7 +83,7 @@ class PreferenceFinetuneMetricBag(SequenceMetricBag):
     @torch.inference_mode()
     def update_sequence_lengths(
         self,
-        batch: PreferenceOptimizationBatch,
+        batch: PreferenceBatch,
     ) -> None:
         """Update the Chosen Sequence Length and Rejected Sequence Length metrics.
 
@@ -164,10 +98,3 @@ class PreferenceFinetuneMetricBag(SequenceMetricBag):
             Tensor([batch.rejected.num_target_elements() / batch.rejected.batch_size]),
             weight=batch.rejected.batch_size,
         )
-
-
-preference_unit_factories = ConfigBoundFactoryRegistry[
-    [Module, Gang, Mapping[str, Gang]], TrainUnit[PreferenceOptimizationBatch]
-]()
-
-preference_unit_factory = preference_unit_factories.decorator

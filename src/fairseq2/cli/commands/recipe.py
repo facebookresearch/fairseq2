@@ -16,7 +16,6 @@ from typing_extensions import override
 
 from fairseq2.cli import CliCommandHandler, setup_logging
 from fairseq2.cli.utils.argparse import ConfigAction
-from fairseq2.cli.utils.rich import get_console
 from fairseq2.config_registry import ConfigNotFoundError
 from fairseq2.context import RuntimeContext
 from fairseq2.error import SetupError
@@ -33,6 +32,7 @@ from fairseq2.recipes.runner import (
     ConfigFileNotFoundError,
     ConfigReader,
     EnvironmentBootstrapper,
+    InferredDefaultDeviceAccessor,
     Recipe,
     RecipeLoader,
     RecipeRunner,
@@ -42,6 +42,7 @@ from fairseq2.recipes.runner import (
     SystemSignalHandler,
     get_sweep_keys,
 )
+from fairseq2.recipes.utils.rich import get_console
 from fairseq2.recipes.utils.sweep_tagger import (
     NoopSweepTagger,
     StandardSweepTagger,
@@ -50,9 +51,13 @@ from fairseq2.recipes.utils.sweep_tagger import (
     SweepTagger,
 )
 from fairseq2.typing import safe_cast
-from fairseq2.utils.file import StandardFileSystem
 from fairseq2.utils.structured import StructureError, unstructure
-from fairseq2.utils.yaml import YamlDumper, YamlError, dump_yaml, load_yaml
+from fairseq2.utils.yaml import (
+    StandardYamlDumper,
+    StandardYamlLoader,
+    YamlDumper,
+    YamlError,
+)
 
 ConfigT = TypeVar("ConfigT")
 
@@ -229,11 +234,13 @@ class RecipeCommandHandler(CliCommandHandler):
     def _create_recipe_program(
         self, context: RuntimeContext, args: Namespace
     ) -> RecipeProgram:
-        file_system = StandardFileSystem()
+        file_system = context.file_system
 
         recipe_configs = context.get_config_registry(self._config_kls)
 
-        config_reader = StandardConfigReader(recipe_configs, file_system, load_yaml)
+        yaml_loader = StandardYamlLoader(file_system)
+
+        config_reader = StandardConfigReader(recipe_configs, file_system, yaml_loader)
 
         cluster_handlers = context.get_registry(ClusterHandler)
 
@@ -246,17 +253,27 @@ class RecipeCommandHandler(CliCommandHandler):
         else:
             sweep_tagger = NoopSweepTagger()
 
-        logging_initializer = DistributedLoggingInitializer()
+        logging_initializer = DistributedLoggingInitializer(file_system)
+
+        yaml_dumper = StandardYamlDumper(file_system)
 
         env_bootstrapper = StandardEnvironmentBootstrapper(
-            cluster_resolver, sweep_tagger, file_system, logging_initializer, dump_yaml
+            cluster_resolver,
+            sweep_tagger,
+            file_system,
+            logging_initializer,
+            yaml_dumper,
         )
+
+        default_device_accessor = InferredDefaultDeviceAccessor()
 
         signal_handler = SystemSignalHandler()
 
-        runner = StandardRecipeRunner(self._loader, signal_handler)
+        runner = StandardRecipeRunner(
+            self._loader, default_device_accessor, signal_handler
+        )
 
-        return RecipeProgram(config_reader, env_bootstrapper, runner, dump_yaml)
+        return RecipeProgram(config_reader, env_bootstrapper, runner, yaml_dumper)
 
 
 @final
@@ -287,7 +304,7 @@ class RecipeProgram:
             unstructured_config = unstructure(config)
 
             try:
-                self._yaml_dumper(unstructured_config, sys.stdout)
+                self._yaml_dumper.dump(unstructured_config, sys.stdout)
             except YamlError as ex:
                 raise SetupError(
                     "The recipe configuration cannot be dumped to stdout. See the nested exception for details."

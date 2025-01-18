@@ -7,54 +7,51 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Mapping, cast, final
+from typing import Final, cast, final
 
 import torch
 import torch.distributed
 from torch import Tensor
 from torch.nn import Module
-from torcheval.metrics import Mean
 from typing_extensions import override
 
-from fairseq2.datasets.preference import PreferenceOptimizationBatch
-from fairseq2.gang import Gang
-from fairseq2.logging import get_log_writer
-from fairseq2.metrics import format_as_float, register_metric_formatter
+from fairseq2.datasets.preference import PreferenceBatch
+from fairseq2.gang import Gang, Gangs
+from fairseq2.metrics import Mean
 from fairseq2.models.sequence import SequenceModelOutput, as_auto_regressive_input
-from fairseq2.recipes.lm._preference_finetune.utils import (
-    PreferenceFinetuneMetricBag,
+from fairseq2.recipes.lm._preference_finetune._common import (
+    POFinetuneMetricBag,
     _gather_lprobs,
-    preference_unit_factory,
 )
-from fairseq2.recipes.trainer import AbstractTrainUnit
-
-log = get_log_writer(__name__)
+from fairseq2.recipes.lm._preference_finetune._handler import POFinetuneUnitHandler
+from fairseq2.recipes.trainer import AbstractTrainUnit, TrainUnit
+from fairseq2.typing import safe_cast
 
 
 @final
-class OrpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
-    """Represents the language model ORPO-finetuning unit. Paper: https://arxiv.org/abs/2403.07691."""
+class CpoFinetuneUnit(AbstractTrainUnit[PreferenceBatch]):
+    """Represents the language model CPO-finetuning unit. Paper: https://arxiv.org/abs/2401.08417."""
 
-    _lambda: float
+    _beta: float
     _nll_scale: float
-    _metric_bag: OrpoFinetuneMetricBag
+    _metric_bag: CpoFinetuneMetricBag
 
     def __init__(
         self,
         model: Module,
-        gang: Gang,
-        orpo_lambda: float = 1.0,
+        gangs: Gangs,
+        beta: float = 1.0,
         nll_scale: float = 1.0,
     ) -> None:
         super().__init__(model)
 
-        self._lambda = orpo_lambda
+        self._beta = beta
         self._nll_scale = nll_scale
 
-        self._metric_bag = OrpoFinetuneMetricBag(gang)
+        self._metric_bag = CpoFinetuneMetricBag(gangs.dp)
 
     @override
-    def __call__(self, batch: PreferenceOptimizationBatch) -> tuple[Tensor, int]:
+    def __call__(self, batch: PreferenceBatch) -> tuple[Tensor, int]:
         chosen_batch = batch.chosen
         chosen_input_batch, chosen_target_batch = as_auto_regressive_input(chosen_batch)
         rejected_batch = batch.rejected
@@ -68,13 +65,13 @@ class OrpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
         chosen_logps = _gather_lprobs(chosen_output, chosen_target_batch)
         rejected_logps = _gather_lprobs(rejected_output, rejected_target_batch)
 
-        orpo_loss = self._compute_orpo_loss(chosen_logps, rejected_logps)
+        cpo_loss = self._compute_cpo_loss(chosen_logps, rejected_logps)
 
         nll_loss = chosen_output.compute_loss(
             chosen_target_batch.seqs, loss_mask=chosen_target_batch.target_mask
         )
 
-        self._metric_bag.update_orpo_loss(batch, orpo_loss)
+        self._metric_bag.update_cpo_loss(batch, cpo_loss)
 
         self._metric_bag.update_nll_loss(chosen_batch, nll_loss)
 
@@ -85,7 +82,7 @@ class OrpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
         self._metric_bag.update_batch_metrics(chosen_batch)
 
         loss = (
-            orpo_loss
+            cpo_loss
             + self._nll_scale
             * nll_loss
             * chosen_target_batch.batch_size
@@ -94,18 +91,15 @@ class OrpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
 
         return loss, chosen_target_batch.batch_size
 
-    def _compute_orpo_loss(
+    def _compute_cpo_loss(
         self,
         chosen_logps: Tensor,
         rejected_logps: Tensor,
     ) -> Tensor:
-        log_odds = (chosen_logps - rejected_logps) - (
-            torch.log1p(-torch.exp(chosen_logps))
-            - torch.log1p(-torch.exp(rejected_logps))
+        cpo_loss = -torch.nn.functional.logsigmoid(
+            self._beta * (chosen_logps - rejected_logps)
         )
-
-        orpo_loss = -torch.nn.functional.logsigmoid(log_odds)
-        return orpo_loss.sum()
+        return cpo_loss.sum()
 
     @override
     def set_step_nr(self, step_nr: int) -> None:
@@ -114,55 +108,57 @@ class OrpoFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
 
     @property
     @override
-    def metric_bag(self) -> OrpoFinetuneMetricBag:
+    def metric_bag(self) -> CpoFinetuneMetricBag:
         return self._metric_bag
 
 
-register_metric_formatter("orpo_loss", "ORPO Loss", 0, format_as_float)
+class CpoFinetuneMetricBag(POFinetuneMetricBag):
+    """Holds the metrics of a CPO preference finetuning task."""
 
-
-class OrpoFinetuneMetricBag(PreferenceFinetuneMetricBag):
-    """Holds the metrics of a ORPO preference finetuning task."""
-
-    orpo_loss: Mean
+    cpo_loss: Mean
 
     def __init__(self, gang: Gang) -> None:
         super().__init__(gang)
 
-        self.register_metric("orpo_loss", Mean(device=gang.device), persistent=False)
+        self.register_metric("cpo_loss", Mean(device=gang.device), persistent=False)
 
     @torch.inference_mode()
-    def update_orpo_loss(
-        self, batch: PreferenceOptimizationBatch, loss: Tensor
-    ) -> None:
-        """Update the ORPO loss metric.
+    def update_cpo_loss(self, batch: PreferenceBatch, loss: Tensor) -> None:
+        """Update the CPO loss metric.
 
         :param batch:
             The batch processed by the model.
         :param loss:
-            The ORPO loss of ``batch``.
+            The CPO loss of ``batch``.
         """
-        self.orpo_loss.update(
+        self.cpo_loss.update(
             loss / batch.chosen.batch_size, weight=batch.chosen.batch_size
         )
 
 
-@dataclass(kw_only=True)
-class OrpoConfig:
-    """Holds the ORPO configuration of a language model preference-finetuning task."""
+CPO_FINETUNE_UNIT: Final = "cpo"
 
-    # Hyperparameters
-    orpo_lambda: float = 1.0
-    """The coefficient of the odds-ratio component of ORPO loss"""
+
+@dataclass(kw_only=True)
+class CpoFinetuneConfig:
+    beta: float = 1.0
+    """The coefficient applied to the difference between preferred and dispreferred sequences."""
 
     nll_scale: float = 1.0
-    """The coefficient of the NLL component of ORPO loss."""
+    """The coefficient of NLL loss added to the CPO loss."""
 
 
-@preference_unit_factory("orpo")
-def create_orpo_unit(
-    config: OrpoConfig, model: Module, root_gang: Gang, gangs: Mapping[str, Gang]
-) -> OrpoFinetuneUnit:
-    dp_gang = gangs["dp"]  # data
+@final
+class CpoFinetuneUnitHandler(POFinetuneUnitHandler):
+    @override
+    def create(
+        self, model: Module, gangs: Gangs, config: object
+    ) -> TrainUnit[PreferenceBatch]:
+        config = safe_cast("config", config, CpoFinetuneConfig)
 
-    return OrpoFinetuneUnit(model, dp_gang, config.orpo_lambda, config.nll_scale)
+        return CpoFinetuneUnit(model, gangs, config.beta, config.nll_scale)
+
+    @property
+    @override
+    def config_kls(self) -> type[object]:
+        return CpoFinetuneConfig

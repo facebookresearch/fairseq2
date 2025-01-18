@@ -6,51 +6,70 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import final
 
 import torch
 from typing_extensions import override
 
-from fairseq2.assets import AssetCardNotFoundError, default_asset_store
-from fairseq2.checkpoint import FileCheckpointMetadataProvider
 from fairseq2.context import RuntimeContext
-from fairseq2.data.text.tokenizers import get_text_tokenizer_hub
 from fairseq2.datasets import LengthBatching, SyncMode
-from fairseq2.datasets.asr import AsrReadOptions, GenericAsrDataset, get_asr_dataset_hub
-from fairseq2.gang import Gang
+from fairseq2.datasets.asr import GENERIC_ASR_DATASET_FAMILY, AsrDataset, AsrReadOptions
+from fairseq2.error import SetupError
+from fairseq2.gang import Gangs
 from fairseq2.logging import log
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.wav2vec2.asr import Wav2Vec2AsrModel
 from fairseq2.nn.utils.module import remove_parametrizations
-from fairseq2.recipes.evaluator import AbstractEvalUnit, Evaluator
-from fairseq2.recipes.utils.asset import (
-    AssetReference,
-    asset_as_path,
-    retrieve_asset_card,
+from fairseq2.recipes.common import (
+    broadcast_model,
+    compile_eval_model,
+    create_evaluator,
+    load_dataset,
+    load_eval_model,
+    load_text_tokenizer,
+    register_extra_asset_paths,
+    setup_gangs,
 )
+from fairseq2.recipes.config import DatasetSection, EvalRecipeConfig, EvaluatorSection
+from fairseq2.recipes.evaluator import AbstractEvalUnit, Evaluator
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import broadcast_model, load_model, setup_root_gang
 from fairseq2.recipes.wav2vec2.asr._common import (
     Wav2Vec2AsrCriterion,
     Wav2Vec2AsrMetricBag,
     Wav2Vec2AsrScorer,
 )
-from fairseq2.typing import META, DataType
-from fairseq2.utils.profiler import Stopwatch
+from fairseq2.typing import CPU
+from fairseq2.utils.config import process_config
+from fairseq2.utils.file import FileMode
+from fairseq2.utils.rng import manual_seed
 
 
 @dataclass(kw_only=True)
-class Wav2Vec2AsrEvalConfig:
+class Wav2Vec2AsrEvalConfig(EvalRecipeConfig):
     """Holds the configuration of a wav2vec 2.0 ASR model evaluation task."""
 
-    # Data
-    dataset: AssetReference = "librilight_asr_10h"
-    """The name, path, or path to the asset card of the ASR dataset."""
+    model: str = "wav2vec2_asr_base_10h"
+
+    dataset: Wav2Vec2AsrEvalDatasetSection = field(
+        default_factory=lambda: Wav2Vec2AsrEvalDatasetSection()
+    )
+
+    evaluator: EvaluatorSection = field(
+        default_factory=lambda: EvaluatorSection(dtype=torch.float16)
+    )
+
+
+@dataclass(kw_only=True)
+class Wav2Vec2AsrEvalDatasetSection(DatasetSection):
+    name: str | None = "librilight_asr_10h"
+
+    family: str = GENERIC_ASR_DATASET_FAMILY
+
+    path: Path | None = None
 
     split: str = "test_other"
-    """The name of the eval data split."""
 
     min_audio_len: int = 1
     """The minimum audio sequence length."""
@@ -67,23 +86,6 @@ class Wav2Vec2AsrEvalConfig:
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
 
-    # Model
-    model: AssetReference = "wav2vec2_asr_base_10h"
-    """The name or path to the asset card of the wav2vec 2.0 ASR model to evaluate."""
-
-    checkpoint_dir: Path | None = None
-    """The checkpoint directory containing models saved by :class:`FileCheckpointManager`."""
-
-    dtype: DataType = torch.float16
-    """The data type of the model."""
-
-    amp: bool = False
-    """If ``True``, runs evaluation with ``torch.amp``."""
-
-    # Misc
-    seed: int = 2
-    """The random number generator seed to use."""
-
 
 def register_wav2vec2_asr_eval_configs(context: RuntimeContext) -> None:
     registry = context.get_config_registry(Wav2Vec2AsrEvalConfig)
@@ -99,152 +101,105 @@ def register_wav2vec2_asr_eval_configs(context: RuntimeContext) -> None:
 def load_wav2vec2_asr_evaluator(
     context: RuntimeContext, config: Wav2Vec2AsrEvalConfig, output_dir: Path
 ) -> Evaluator[Seq2SeqBatch]:
-    """Load an :class:`Evaluator` for wav2vec 2.0 ASR model evaluation."""
-    wall_watch = Stopwatch(start=True)
+    register_extra_asset_paths(context, config.assets)
 
-    if config.checkpoint_dir is not None:
-        default_asset_store.metadata_providers.append(
-            FileCheckpointMetadataProvider(config.checkpoint_dir)
-        )
+    process_config(context, config)
 
-    gang = setup_root_gang(log)
+    gangs = setup_gangs(context, config.gang)
 
-    model_card = retrieve_asset_card(config.model)
+    dataset = load_dataset(AsrDataset, context, config.dataset, gangs)
 
-    # Load the tokenizer.
-    log.info("Loading {} tokenizer.", model_card.name)
+    tokenizer = load_text_tokenizer(context, config.model)
 
-    tokenizer_hub = get_text_tokenizer_hub()
+    seed = config.seed
 
-    tokenizer = tokenizer_hub.load(model_card)
+    manual_seed(seed, CPU, context.device)
 
-    log.info("Tokenizer loaded.")
+    seed += 1
 
-    # Load the dataset.
-    try:
-        dataset_card = retrieve_asset_card(config.dataset)
-    except AssetCardNotFoundError:
-        dataset_card = None
+    model = load_eval_model(
+        Wav2Vec2AsrModel,
+        context,
+        config.model,
+        gangs,
+        config.evaluator.dtype,
+        mixed_precision=config.evaluator.amp,
+    )
 
-    if dataset_card is not None:
-        log.info("Loading {} ASR dataset.", dataset_card.name)
-
-        dataset_hub = get_asr_dataset_hub()
-
-        dataset = dataset_hub.load(dataset_card)
-
-        log.info("Dataset loaded.")
-    else:
-        dataset_path = asset_as_path(config.dataset)
-
-        dataset = GenericAsrDataset.from_path(dataset_path, "path")
-
-    # Load the model.
-    log.info("Loading {} model on rank 0.", model_card.name)
-
-    if gang.rank == 0:
-        init_device = gang.device
-    else:
-        init_device = META
-
-    try:
-        model = load_model(model_card, device=init_device, dtype=config.dtype)
-    except ValueError as ex:
-        raise ValueError(
-            "The model cannot be initialized. See nested exception for details."
-        ) from ex
-
-    if not isinstance(model, Wav2Vec2AsrModel):
-        raise ValueError(
-            f"The model must be of type `{Wav2Vec2AsrModel}`, but is of type `{type(model)}` instead."
-        )
-
-    gang.barrier()
-
-    log.info("Model loaded on rank 0.")
+    broadcast_model(config.model, model, gangs)
 
     remove_parametrizations(model)
 
-    # Distribute the model to all processes in the gang.
-    if gang.size != 1:
-        broadcast_model(model, gang, log)
+    log_model(log, model, gangs)
 
-    log_model(model, log)
+    if config.evaluator.torch_compile:
+        model = compile_eval_model(context, config.model, model)
 
-    # Initialize the criterion.
-    ref_output_file = output_dir.joinpath(f"transcriptions/rank_{gang.rank}.ref.txt")
-    hyp_output_file = output_dir.joinpath(f"transcriptions/rank_{gang.rank}.hyp.txt")
+    # Initialize the unit.
+    if gangs.tp.rank == 0:
+        file_system = context.file_system
 
-    try:
-        ref_output_file.parent.mkdir(parents=True, exist_ok=True)
-    except OSError as ex:
-        raise RuntimeError(
-            f"The output directory '{ref_output_file.parent}' cannot be created. See nested exception for details."
-        ) from ex
+        rank = gangs.dp.rank
 
-    try:
-        ref_output_fp = ref_output_file.open("w")
-    except OSError as ex:
-        raise RuntimeError(
-            f"The output file '{ref_output_file}' cannot be created. See nested exception for details."
-        ) from ex
+        ref_file = output_dir.joinpath(f"transcriptions/rank_{rank}.ref.txt")
+        hyp_file = output_dir.joinpath(f"transcriptions/rank_{rank}.hyp.txt")
 
-    try:
-        hyp_output_fp = hyp_output_file.open("w")
-    except OSError as ex:
-        raise RuntimeError(
-            f"The output file '{hyp_output_file}' cannot be created. See nested exception for details."
-        ) from ex
+        try:
+            file_system.make_directory(ref_file.parent)
+        except OSError as ex:
+            raise SetupError(
+                f"The '{ref_file.parent}' output directory cannot be created. See the nested exception for details."
+            ) from ex
+
+        try:
+            ref_fp = file_system.open_text(ref_file, mode=FileMode.WRITE)
+        except OSError as ex:
+            raise SetupError(
+                f"The '{ref_file}' output file cannot be created. See the nested exception for details."
+            ) from ex
+
+        try:
+            hyp_fp = file_system.open_text(hyp_file, mode=FileMode.WRITE)
+        except OSError as ex:
+            raise SetupError(
+                f"The '{hyp_file}' output file cannot be created. See the nested exception for details."
+            ) from ex
+    else:
+        ref_fp = None
+        hyp_fp = None
 
     scorer = Wav2Vec2AsrScorer(
-        tokenizer, ref_output_stream=ref_output_fp, hyp_output_stream=hyp_output_fp
+        tokenizer, ref_output_stream=ref_fp, hyp_output_stream=hyp_fp
     )
 
     criterion = Wav2Vec2AsrCriterion(model, scorer)
 
-    # Initialize the unit.
-    unit = Wav2Vec2AsrEvalUnit(criterion, gang)
+    unit = Wav2Vec2AsrEvalUnit(criterion, gangs)
 
-    seed = config.seed
-
-    batching = LengthBatching(config.max_num_elements)
+    batching = LengthBatching(config.dataset.max_num_elements)
 
     read_options = AsrReadOptions(
         batching=batching,
-        dtype=config.dtype,
-        normalize_audio=config.normalize_audio,
+        dtype=config.evaluator.dtype,
+        normalize_audio=config.dataset.normalize_audio,
         sync_mode=SyncMode.UNTIL_LAST,
-        num_prefetch=config.num_prefetch,
+        num_prefetch=config.dataset.num_prefetch,
         seed=seed,
     )
 
-    try:
-        data_reader = dataset.create_reader(
-            config.split,
-            tokenizer,
-            gang,
-            config.min_audio_len,
-            config.max_audio_len,
-            read_options,
-        )
-    except ValueError as ex:
-        raise ValueError(
-            "The data reader cannot be initialized. See nested exception for details."
-        ) from ex
+    data_reader = dataset.create_reader(
+        config.dataset.split,
+        tokenizer,
+        gangs.dp,
+        config.dataset.min_audio_len,
+        config.dataset.max_audio_len,
+        read_options,
+    )
 
     seed += 1
 
-    # Initialize the evaluator.
-    return Evaluator[Seq2SeqBatch](
-        units=[unit],
-        data_readers=[data_reader],
-        root_gang=gang,
-        dtype=config.dtype,
-        amp=config.amp,
-        tb_dir=output_dir.joinpath("tb"),
-        metrics_dir=output_dir.joinpath("metrics"),
-        seed=seed,
-        wall_watch=wall_watch,
+    return create_evaluator(
+        context, config, output_dir, [unit], [data_reader], gangs, seed
     )
 
 
@@ -253,12 +208,12 @@ class Wav2Vec2AsrEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
     _criterion: Wav2Vec2AsrCriterion
     _metric_bag: Wav2Vec2AsrMetricBag
 
-    def __init__(self, criterion: Wav2Vec2AsrCriterion, gang: Gang) -> None:
+    def __init__(self, criterion: Wav2Vec2AsrCriterion, gangs: Gangs) -> None:
         super().__init__(criterion.model)
 
         self._criterion = criterion
 
-        self._metric_bag = Wav2Vec2AsrMetricBag(gang, train=False)
+        self._metric_bag = Wav2Vec2AsrMetricBag(gangs.dp, train=False)
 
     @override
     def __call__(self, batch: Seq2SeqBatch) -> None:

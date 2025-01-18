@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import final
 
 import torch
 from torch import Tensor
@@ -46,7 +45,6 @@ class SequenceModel(Module, ABC):
         """
 
 
-@final
 @dataclass
 class SequenceBatch:
     """Represents a sequence batch."""
@@ -122,7 +120,6 @@ def as_auto_regressive_input(
     return batch, target_batch
 
 
-@final
 @dataclass
 class SequenceModelOutput:
     """Holds the output of a sequence model."""

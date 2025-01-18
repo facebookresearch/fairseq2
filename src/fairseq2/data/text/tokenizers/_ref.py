@@ -6,18 +6,31 @@
 
 from __future__ import annotations
 
-from fairseq2.assets import AssetCard, AssetCardFieldNotFoundError, AssetStore
+from fairseq2.assets import (
+    AssetCard,
+    AssetCardError,
+    AssetCardFieldNotFoundError,
+    AssetCardNotFoundError,
+    AssetStore,
+)
 
 
 def resolve_text_tokenizer_reference(
     asset_store: AssetStore, card: AssetCard
 ) -> AssetCard:
+    name = card.name
+
     while True:
         try:
             ref_name = card.field("tokenizer_ref").as_(str)
         except AssetCardFieldNotFoundError:
             break
 
-        card = asset_store.retrieve_card(ref_name)
+        try:
+            card = asset_store.retrieve_card(ref_name)
+        except AssetCardNotFoundError:
+            raise AssetCardError(
+                name, f"The '{ref_name}' text tokenizer referenced by the '{name}' asset card cannot be resolved."  # fmt: skip
+            ) from None
 
     return card

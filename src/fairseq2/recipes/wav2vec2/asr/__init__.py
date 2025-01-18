@@ -17,6 +17,9 @@ from fairseq2.recipes.wav2vec2.asr._eval import (
     Wav2Vec2AsrEvalConfig as Wav2Vec2AsrEvalConfig,
 )
 from fairseq2.recipes.wav2vec2.asr._eval import (
+    Wav2Vec2AsrEvalDatasetSection as Wav2Vec2AsrEvalDatasetSection,
+)
+from fairseq2.recipes.wav2vec2.asr._eval import (
     Wav2Vec2AsrEvalUnit as Wav2Vec2AsrEvalUnit,
 )
 from fairseq2.recipes.wav2vec2.asr._eval import (
@@ -27,6 +30,12 @@ from fairseq2.recipes.wav2vec2.asr._eval import (
 )
 from fairseq2.recipes.wav2vec2.asr._train import (
     Wav2Vec2AsrTrainConfig as Wav2Vec2AsrTrainConfig,
+)
+from fairseq2.recipes.wav2vec2.asr._train import (
+    Wav2Vec2AsrTrainDatasetSection as Wav2Vec2AsrTrainDatasetSection,
+)
+from fairseq2.recipes.wav2vec2.asr._train import (
+    Wav2Vec2AsrTrainerSection as Wav2Vec2AsrTrainerSection,
 )
 from fairseq2.recipes.wav2vec2.asr._train import (
     Wav2Vec2AsrTrainUnit as Wav2Vec2AsrTrainUnit,

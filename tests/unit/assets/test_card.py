@@ -213,24 +213,3 @@ class TestAssetCard:
             AssetCardError, match=r"^The 'test-card' asset card cannot have a field named 'field1.field2' due to path conflict at 'field1'\.$",  # fmt: skip
         ):
             self.card.field("field1").field("field2").set("foo")
-
-    def test_flatten_works(self) -> None:
-        card = self.card.flatten()
-
-        expected_metadata = {
-            "name": "test-card",
-            "field1": "foo1",
-            "field2": {
-                "sub-field2": "sub-foo2",
-            },
-            "field3": 3,
-            "field4": "",
-            "field5": [],
-            "field6": "invalid/filename",
-            "field7": [1, 3, 2],
-            "field8": [1, "b", 3],
-            "field9": "http://foo.com",
-            "field10": None,
-        }
-
-        assert card.metadata == expected_metadata

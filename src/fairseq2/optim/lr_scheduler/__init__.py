@@ -22,7 +22,10 @@ from fairseq2.optim.lr_scheduler._handler import (
     LRSchedulerHandler as LRSchedulerHandler,
 )
 from fairseq2.optim.lr_scheduler._handler import (
-    LRSchedulerNotFoundError as LRSchedulerNotFoundError,
+    UnknownLRSchedulerError as UnknownLRSchedulerError,
+)
+from fairseq2.optim.lr_scheduler._handler import (
+    UnspecifiedNumberOfStepsError as UnspecifiedNumberOfStepsError,
 )
 from fairseq2.optim.lr_scheduler._lr_scheduler import (
     AbstractLRScheduler as AbstractLRScheduler,
@@ -51,9 +54,6 @@ from fairseq2.optim.lr_scheduler._polynomial_decay import (
 )
 from fairseq2.optim.lr_scheduler._polynomial_decay import (
     PolynomialDecayLRHandler as PolynomialDecayLRHandler,
-)
-from fairseq2.optim.lr_scheduler._static import (
-    create_lr_scheduler as create_lr_scheduler,
 )
 from fairseq2.optim.lr_scheduler._tri_stage import TRI_STAGE_LR as TRI_STAGE_LR
 from fairseq2.optim.lr_scheduler._tri_stage import TriStageLR as TriStageLR

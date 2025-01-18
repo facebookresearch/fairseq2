@@ -8,55 +8,127 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal
+from typing import final
 
 import torch
 import torch.distributed
+from typing_extensions import override
 
-from fairseq2.assets import AssetCardNotFoundError, default_asset_store
-from fairseq2.checkpoint import FileCheckpointManager, FileCheckpointMetadataProvider
 from fairseq2.context import RuntimeContext
-from fairseq2.data.text.tokenizers import get_text_tokenizer_hub
 from fairseq2.datasets import Batching, LengthBatching, StaticBatching
 from fairseq2.datasets.preference import (
-    GenericPreferenceOptimizationDataset,
-    PreferenceOptimizationBatch,
+    GENERIC_PREFERENCE_DATASET_FAMILY,
+    PreferenceBatch,
+    PreferenceDataset,
     PreferenceReadOptions,
-    get_preference_dataset_hub,
 )
 from fairseq2.logging import log
 from fairseq2.models.decoder import DecoderModel
-from fairseq2.nn.checkpointing import use_layerwise_activation_checkpointing
 from fairseq2.nn.transformer import enable_memory_efficient_torch_sdpa
-from fairseq2.optim import AdamWConfig, create_optimizer
-from fairseq2.optim.lr_scheduler import CosineAnnealingLRConfig, create_lr_scheduler
-from fairseq2.recipes.lm._preference_finetune.dpo import DpoConfig
-from fairseq2.recipes.lm._preference_finetune.utils import preference_unit_factories
-from fairseq2.recipes.trainer import Trainer
-from fairseq2.recipes.utils.asset import (
-    AssetReference,
-    asset_as_path,
-    retrieve_asset_card,
-)
-from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import (
+from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
+from fairseq2.optim.lr_scheduler import COSINE_ANNEALING_LR, CosineAnnealingLRConfig
+from fairseq2.recipes.common import (
     compile_model,
+    create_checkpoint_manager,
+    create_lr_scheduler,
+    create_optimizer,
+    create_trainer,
+    load_dataset,
     load_model,
+    load_text_tokenizer,
+    prepare_model,
+    register_extra_asset_paths,
+    save_checkpoint_card,
     setup_gangs,
-    to_data_parallel,
+    wrap_data_parallel,
 )
-from fairseq2.typing import CPU, META, DataType
-from fairseq2.utils.profiler import Stopwatch
+from fairseq2.recipes.config import (
+    DatasetSection,
+    LRSchedulerSection,
+    ModelSection,
+    OptimizerSection,
+    RegimeSection,
+    TrainerSection,
+    TrainRecipeConfig,
+)
+from fairseq2.recipes.lm._preference_finetune._dpo import (
+    DPO_FINETUNE_UNIT,
+    DpoFinetuneConfig,
+)
+from fairseq2.recipes.lm._preference_finetune._handler import (
+    POFinetuneUnitHandler,
+    UnknownPOFinetuneUnitError,
+)
+from fairseq2.recipes.trainer import Trainer
+from fairseq2.recipes.utils.log import log_model, log_model_config
+from fairseq2.registry import Provider
+from fairseq2.typing import CPU, safe_cast
+from fairseq2.utils.config import ConfigSectionHandler, process_config
 from fairseq2.utils.rng import manual_seed
+from fairseq2.utils.structured import StructureError, structure
 
 
 @dataclass(kw_only=True)
-class LMPreferenceFinetuneConfig:
+class POFinetuneConfig(TrainRecipeConfig):
     """Holds the configuration of a language model preference-finetuning task."""
 
-    # Data
-    dataset: AssetReference = "gsm8k_dpo_data"  # TODO: change!
-    """The name, path, or path to the asset card of the preference optimization dataset."""
+    model: ModelSection = field(
+        default_factory=lambda: ModelSection(name="llama3_1_8b_instruct")
+    )
+
+    dataset: POFinetuneDatasetSection = field(
+        default_factory=lambda: POFinetuneDatasetSection()
+    )
+
+    tokenizer: str | None = None
+
+    trainer: TrainerSection = field(
+        default_factory=lambda: TrainerSection(
+            dtype=torch.bfloat16, data_parallelism="fsdp", activation_checkpointing=True
+        )
+    )
+
+    optimizer: OptimizerSection = field(
+        default_factory=lambda: OptimizerSection(
+            name=ADAMW_OPTIMIZER,
+            config=AdamWConfig(lr=5.5e-06, betas=(0.9, 0.95), weight_decay=0.1),
+        )
+    )
+
+    lr_scheduler: LRSchedulerSection = field(
+        default_factory=lambda: LRSchedulerSection(
+            name=COSINE_ANNEALING_LR, config=CosineAnnealingLRConfig(final_lr_scale=0.2)
+        )
+    )
+
+    criterion: POCriterionSection = field(default_factory=lambda: POCriterionSection())
+
+    regime: RegimeSection = field(
+        default_factory=lambda: RegimeSection(
+            num_steps=5_000,
+            checkpoint_every_n_steps=1_000,
+            keep_last_n_checkpoints=1,
+            publish_metrics_every_n_steps=10,
+        )
+    )
+
+
+@dataclass(kw_only=True)
+class POFinetuneDatasetSection(DatasetSection):
+    name: str = "gsm8k_dpo"
+
+    family: str = GENERIC_PREFERENCE_DATASET_FAMILY
+
+    path: Path | None = None
+
+    source_encode_mode: str = "prompt"
+    """The encode mode for the prompt, determines what special tokens to add."""
+
+    target_encode_mode: str = "prompt_response"
+    """The encode mode for the target, determines what special tokens to add."""
+
+    mask_source_tokens: bool = True
+    """If ``False``, calculates loss on the `src` tokens as well as the `tgt` tokens."""
 
     min_seq_len: int = 1
     """The minimum sum of ``src + tgt_chosen`` and ``src + tgt_rejected``.
@@ -75,143 +147,42 @@ class LMPreferenceFinetuneConfig:
     example_shuffle_window: int = 10_000
     """The size of the sliding window for shuffling examples."""
 
-    batch_shuffle_window: int = 1000
+    batch_shuffle_window: int = 1_000
     """The size of the sliding window for shuffling batches."""
 
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
 
-    mask_source_tokens: bool = True
-    """If ``False``, calculates loss on the `src` tokens as well as the `tgt` tokens."""
 
-    src_encode_mode: str = "prompt"
-    """The encode mode for the prompt, determines what special tokens to add."""
+@dataclass(kw_only=True)
+class POCriterionSection:
+    name: str = DPO_FINETUNE_UNIT
 
-    tgt_encode_mode: str = "prompt_response"
-    """The encode mode for the target, determines what special tokens to add."""
+    config: object = field(default_factory=lambda: DpoFinetuneConfig())
 
-    # Model
-    model: AssetReference = "llama3_1_8b_instruct"
-    """The name or path to the asset card of the language model to finetune."""
 
-    model_config: Any = None
-    """
-    The model configuration overrides. The provided values must be compatible
-    with the checkpoint; otherwise, the model will fail to load.
-    """
+@final
+class POCriterionSectionHandler(ConfigSectionHandler):
+    _unit_handlers: Provider[POFinetuneUnitHandler]
 
-    dtype: DataType = torch.bfloat16
-    """The data type of the model."""
+    def __init__(self, unit_handlers: Provider[POFinetuneUnitHandler]) -> None:
+        self._unit_handlers = unit_handlers
 
-    mixed_precision: Literal["none", "static", "dynamic"] = "static"
-    """
-    If 'none', the whole training will be run in `dtype`. If 'static', forward
-    and backward passes will be run in `dtype`, but the optimizer step will be
-    run in full precision. If 'dynamic', forward and backward passes will be run
-    with `torch.amp` in `dtype`, but the optimizer step will be run in full
-    precision.
-    """
+    @override
+    def process(self, section: object) -> None:
+        section = safe_cast("section", section, POCriterionSection)
 
-    data_parallelism: Literal["ddp", "fsdp"] = "fsdp"
-    """The data parallelism API to use."""
+        try:
+            unit_handler = self._unit_handlers.get(section.name)
+        except LookupError:
+            return
 
-    fsdp_wrap_granularity: Literal["layer", "stack", "model"] = "layer"
-    """The granularity at which to wrap the model."""
-
-    fsdp_reshard_after_forward: bool = True
-    """If ``True``, reshards the parameters only after the backward pass."""
-
-    tensor_parallel_size: int = 1
-    """The size of tensor parallelism."""
-
-    activation_checkpointing: bool = True
-    """If ``True``, uses layer-wise activation checkpointing."""
-
-    torch_compile: bool = False
-    """If ``True``, applies ``torch.compile()`` to the decoder. (experimental)"""
-
-    # Criterion
-    criterion: str = "dpo"
-    """The preference optimization criterion."""
-
-    criterion_config: Any = field(default_factory=lambda: DpoConfig())
-    """The configuration of the preference optimization criterion."""
-
-    # Optimizer, LR, and Loss
-    optimizer: str = "adamw"
-    """The optimizer."""
-
-    optimizer_config: Any = field(
-        default_factory=lambda: AdamWConfig(
-            lr=5.5e-06, betas=(0.9, 0.95), weight_decay=0.1
-        )
-    )
-    """The configuration of the optimizer."""
-
-    lr_scheduler: str = "cosine-annealing"
-    """The learning rate scheduler."""
-
-    lr_scheduler_config: Any = field(
-        default_factory=lambda: CosineAnnealingLRConfig(final_lr_scale=0.2)
-    )
-    """The configuration of the learning rate scheduler."""
-
-    gradient_accumulation: int = 1
-    """The number of steps to accumulate gradients before an optimizer update."""
-
-    max_gradient_norm: float | None = None
-    """The maximum gradient norm. If ``None``, no clipping will be applied."""
-
-    fp16_loss_scale: tuple[float, float] = (128.0, 0.0001)
-    """The initial and minimum loss scale for fp16 training."""
-
-    # Regime
-    max_num_steps: int = 5000
-    """The maximum number of steps to train for."""
-
-    max_num_data_epochs: int | None = None
-    """The maximum number of data epochs to train for."""
-
-    checkpoint_every_n_steps: int = 1000
-    """The step interval at which to checkpoint."""
-
-    checkpoint_every_n_data_epochs: int | None = None
-    """The data epoch interval at which to checkpoint."""
-
-    keep_last_n_checkpoints: int | None = 1
-    """The number of checkpoints to keep. If ``None``, none will be deleted."""
-
-    keep_last_n_models: int | None = None
-    """The number of checkpoint models to keep."""
-
-    publish_metrics_every_n_steps: int = 10
-    """The step interval at which to publish training metrics."""
-
-    publish_metrics_every_n_data_epochs: int | None = None
-    """The data epoch interval at which to publish training metrics."""
-
-    # Checkpoint
-    resume_checkpoint_dir: Path | None = None
-    """If not ``None``, adds the specified path to the default asset store."""
-
-    # Misc
-    seed: int = 2
-    """The random number generator seed to use."""
-
-    profile: tuple[int, int] | None = None
-    """The number of steps that the PyTorch profiler should skip and then record."""
-
-    monitored_gang: bool = False
-    """If ``True``, puts a monitored barrier before every collective call."""
-
-    anomaly_detection: bool = False
-    """If ``True``, turns on anomaly detection feature in ``torch.autograd``."""
-
-    wandb_project: str | None = None
-    """If not ``None``, sets the project name for W&B logging."""
-
-    wandb_run_name: str | None = None
-    """If not ``None``, sets the run name for W&B logging. If None, then W&B creates a random name."""
+        try:
+            section.config = structure(section.config, unit_handler.config_kls)
+        except StructureError as ex:
+            raise StructureError(
+                "`config` cannot be structured. See the nested exception for details."
+            ) from ex
 
 
 @dataclass(kw_only=True)
@@ -219,286 +190,148 @@ class DropoutConfig:
     dropout_p: float = 0.0
 
 
-def register_lm_preference_finetune_configs(context: RuntimeContext) -> None:
-    registry = context.get_config_registry(LMPreferenceFinetuneConfig)
+def register_po_finetune_configs(context: RuntimeContext) -> None:
+    registry = context.get_config_registry(POFinetuneConfig)
 
     preset = registry.decorator
 
     @preset("llama3_1_instruct")
-    def llama3_1_instruct() -> LMPreferenceFinetuneConfig:
-        config = LMPreferenceFinetuneConfig()
-        config.model_config = DropoutConfig()
+    def llama3_1_instruct() -> POFinetuneConfig:
+        config = POFinetuneConfig()
+
+        config.model.config = DropoutConfig()
+
         return config
 
     @preset("llama3_1_instruct_constant_lr")
-    def llama3_1_instruct_constant_lr() -> LMPreferenceFinetuneConfig:
+    def llama3_1_instruct_constant_lr() -> POFinetuneConfig:
         config = llama3_1_instruct()
-        # setting up final lr to be the optmiizer base lr, lr_mul is 1.0 by default
-        config.lr_scheduler_config.final_lr = config.optimizer_config.lr
+
+        assert isinstance(config.optimizer.config, AdamWConfig)
+        assert isinstance(config.lr_scheduler.config, CosineAnnealingLRConfig)
+
+        config.lr_scheduler.config.final_lr = config.optimizer.config.lr
+
         return config
 
     @preset("llama3_1_instruct_lr_anneal_0")
-    def llama3_1_instruct_lr_anneal_0() -> LMPreferenceFinetuneConfig:
+    def llama3_1_instruct_lr_anneal_0() -> POFinetuneConfig:
         config = llama3_1_instruct()
-        # setting up final lr to be 0.0 at the end of the cycle
-        config.lr_scheduler_config.final_lr = 0.0
+
+        assert isinstance(config.lr_scheduler.config, CosineAnnealingLRConfig)
+
+        config.lr_scheduler.config.final_lr = 0.0
+
         return config
 
     @preset("llama3_1_70b_instruct")
-    def llama3_1_70b_instruct() -> LMPreferenceFinetuneConfig:
+    def llama3_1_70b_instruct() -> POFinetuneConfig:
         config = llama3_1_instruct()
 
-        config.model = "llama3_1_70b_instruct"
-        config.tensor_parallel_size = 8
-        config.criterion_config.reference_model = "llama3_1_70b_instruct"
-        config.criterion_config.reference_tensor_parallel_size = 8
+        assert isinstance(config.criterion.config, DpoFinetuneConfig)
+
+        config.model.name = "llama3_1_70b_instruct"
+        config.gang.tensor_parallel_size = 8
+        config.criterion.config.reference_model = "llama3_1_70b_instruct"
 
         return config
 
 
-def load_lm_preference_finetuner(
-    context: RuntimeContext, config: LMPreferenceFinetuneConfig, output_dir: Path
-) -> Trainer[PreferenceOptimizationBatch]:
-    """Load a :class:`Trainer` for language model preference optimization-finetuning."""
-    wall_watch = Stopwatch(start=True)
+def load_po_finetuner(
+    context: RuntimeContext, config: POFinetuneConfig, output_dir: Path
+) -> Trainer[PreferenceBatch]:
+    register_extra_asset_paths(context, config.assets)
 
-    root_gang, gangs = setup_gangs(
-        log, tp_size=config.tensor_parallel_size, monitored=config.monitored_gang
-    )
+    process_config(context, config)
 
-    dp_gang = gangs["dp"]  # data
-    tp_gang = gangs["tp"]  # tensor
+    gangs = setup_gangs(context, config.gang)
 
-    checkpoint_manager = FileCheckpointManager(
-        output_dir.joinpath("checkpoints"), root_gang, dp_gang=dp_gang, tp_gang=tp_gang
-    )
+    checkpoint_manager = create_checkpoint_manager(context, gangs, output_dir)
 
-    if config.resume_checkpoint_dir is not None:
-        default_asset_store.metadata_providers.append(
-            FileCheckpointMetadataProvider(config.resume_checkpoint_dir)
-        )
+    dataset = load_dataset(PreferenceDataset, context, config.dataset, gangs)
 
-    # Load the tokenizer.
-    model_card = retrieve_asset_card(config.model)
-
-    log.info("Loading {} tokenizer.", model_card.name)
-
-    tokenizer_hub = get_text_tokenizer_hub()
-
-    tokenizer = tokenizer_hub.load(model_card)
-
-    log.info("Tokenizer loaded.")
-
-    # Load the dataset.
-    try:
-        dataset_card = retrieve_asset_card(config.dataset)
-    except AssetCardNotFoundError:
-        dataset_card = None
-
-    if dataset_card is not None:
-        log.info("Loading {} preference optimization dataset.", dataset_card.name)
-
-        dataset_hub = get_preference_dataset_hub()
-
-        dataset = dataset_hub.load(dataset_card)
-
-        log.info("Dataset loaded.")
-    else:
-        dataset_path = asset_as_path(config.dataset)
-
-        dataset = GenericPreferenceOptimizationDataset.from_path(dataset_path, "path")
+    tokenizer = load_text_tokenizer(context, config.model.name, config.tokenizer)
 
     seed = config.seed
 
-    # Load the model
-    manual_seed(seed, CPU, root_gang.device)
+    manual_seed(seed, CPU, context.device)
 
     seed += 1
 
-    init_device = META
+    log_model_config(log, config.model.config)
 
-    dtype = config.dtype if config.mixed_precision == "none" else torch.float32
+    model = load_model(DecoderModel, context, config, gangs, checkpoint_manager)
 
-    has_checkpoint = checkpoint_manager.has_checkpoint()
+    dp_model = wrap_data_parallel(context, config, model, gangs, checkpoint_manager)
 
-    if has_checkpoint:
-        try:
-            model = load_model(
-                model_card,
-                gangs=gangs,
-                unstructured_config=config.model_config,
-                device=init_device,
-                dtype=dtype,
-            )
-        except ValueError as ex:
-            raise ValueError(
-                "The model cannot be initialized. See nested exception for details."
-            ) from ex
-    # If we don't have a checkpoint, load the pretrained model on rank 0 and
-    # broadcast it to the gang.
-    else:
-        log.info("Loading {} model on data parallel rank 0 (per shard).", model_card.name)  # fmt: skip
+    dp_model = prepare_model(context, config, dp_model, gangs)
 
-        if dp_gang.rank == 0:
-            init_device = root_gang.device
+    log_model(log, dp_model, gangs)
 
-        model = load_model(
-            model_card,
-            gangs=gangs,
-            unstructured_config=config.model_config,
-            device=init_device,
-            dtype=dtype,
-        )
-
-        root_gang.barrier()
-
-        log.info("Model loaded on data parallel rank 0.")
-
-    if not isinstance(model, DecoderModel):
-        raise ValueError(
-            f"The model must be of type `{DecoderModel}`, but is of type `{type(model)}` instead."
-        )
-
-    checkpoint_manager.save_model_metadata(base_asset=model_card.name)
-
-    mp_dtype = config.dtype if config.mixed_precision == "static" else None
-
-    dp_model = to_data_parallel(
-        model,
-        dp_gang,
-        config.data_parallelism,
-        log,
-        fsdp_broadcast_state=not has_checkpoint,
-        fsdp_reshard_after_forward=config.fsdp_reshard_after_forward,
-        fsdp_mixed_precision_dtype=mp_dtype,
-        fsdp_fp32_reduce=True,
-        fsdp_wrap_granularity=config.fsdp_wrap_granularity,
-    )
-
-    if config.activation_checkpointing:
-        use_layerwise_activation_checkpointing(dp_model)
-
-    if config.torch_compile:
-        model.decoder = compile_model(model.decoder, log)
+    if config.trainer.torch_compile:
+        dp_model = compile_model(context, config.model, dp_model)
 
     # TODO(balioglu): investigate!
     # The memory efficient SDPA implementation in PyTorch is not stable when
     # used with padded inputs.
     enable_memory_efficient_torch_sdpa(dp_model, False)
 
-    log_model(dp_model, log, rank=root_gang.rank)
+    save_checkpoint_card(context, config, checkpoint_manager, config.tokenizer)
+
+    optimizer = create_optimizer(context, config, dp_model)
+
+    lr_scheduler = create_lr_scheduler(context, config, optimizer)
 
     # Initialize the train unit.
+    unit_handlers = context.get_registry(POFinetuneUnitHandler)
+
     try:
-        unit_factory = preference_unit_factories.get(
-            config.criterion, config.criterion_config
-        )
+        unit_handler = unit_handlers.get(config.criterion.name)
+    except LookupError:
+        raise UnknownPOFinetuneUnitError(config.criterion.name) from None
 
-        unit = unit_factory(dp_model, root_gang, gangs)
-    except ValueError as ex:
-        raise ValueError(
-            "The criterion cannot be initialized. See nested exception for details."
-        ) from ex
+    unit = unit_handler.create(dp_model, gangs, config.criterion.config)
 
-    # Initialize the data reader.
     batching: Batching
 
-    if config.batch_size is not None:
-        batching = StaticBatching(config.batch_size)
+    if config.dataset.batch_size is not None:
+        batching = StaticBatching(config.dataset.batch_size)
     else:
-        batching = LengthBatching(config.max_num_tokens)
+        batching = LengthBatching(config.dataset.max_num_tokens)
 
     read_options = PreferenceReadOptions(
         batching=batching,
-        example_shuffle_window=config.example_shuffle_window,
-        batch_shuffle_window=config.batch_shuffle_window,
-        num_accumulate=config.gradient_accumulation,
-        num_prefetch=config.num_prefetch,
-        mask_source_tokens=config.mask_source_tokens,
-        source_encode_mode=config.src_encode_mode,
-        target_encode_mode=config.tgt_encode_mode,
+        example_shuffle_window=config.dataset.example_shuffle_window,
+        batch_shuffle_window=config.dataset.batch_shuffle_window,
+        num_accumulate=config.trainer.gradient_accumulation,
+        num_prefetch=config.dataset.num_prefetch,
+        mask_source_tokens=config.dataset.mask_source_tokens,
+        source_encode_mode=config.dataset.source_encode_mode,
+        target_encode_mode=config.dataset.target_encode_mode,
         seed=config.seed,
     )
 
-    try:
-        data_reader = dataset.create_reader(
-            tokenizer, dp_gang, config.min_seq_len, config.max_seq_len, read_options
-        )
-    except ValueError as ex:
-        raise ValueError(
-            "The data reader cannot be initialized. See nested exception for details."
-        ) from ex
+    data_reader = dataset.create_reader(
+        tokenizer,
+        gangs.dp,
+        config.dataset.min_seq_len,
+        config.dataset.max_seq_len,
+        read_options,
+    )
 
     seed += 1
 
-    # Initialize the optimizer.
-    try:
-        optimizer = create_optimizer(
-            config.optimizer, dp_model, config.optimizer_config
-        )
-    except ValueError as ex:
-        raise ValueError(
-            "The optimizer cannot be created. See nested exception for details."
-        ) from ex
-
-    # Initialize the learning rate scheduler.
-    try:
-        lr_scheduler = create_lr_scheduler(
-            config.lr_scheduler,
-            optimizer,
-            config.lr_scheduler_config,
-            max_num_steps=config.max_num_steps,
-        )
-    except ValueError as ex:
-        raise ValueError(
-            "The learning rate scheduler cannot be created. See nested exception for details."
-        ) from ex
-
-    # TODO: Fix once we support static mixed precision on one device.
-    if config.mixed_precision == "static":
-        amp = root_gang.size == 1 or config.data_parallelism != "fsdp"
-    else:
-        amp = config.mixed_precision == "dynamic"
-
-    if config.wandb_project is not None:
-        if config.wandb_run_name is None:
-            raise ValueError(
-                "`wandb_run_name` must be specified when `wandb_project` is set."
-            )
-
-        wandb_dir = output_dir.joinpath("wandb")
-
-        wandb_options = (wandb_dir, config.wandb_project, config.wandb_run_name)
-    else:
-        wandb_options = None
-
-    # Initialize the trainer.
-    return Trainer[PreferenceOptimizationBatch](
-        unit=unit,
-        data_reader=data_reader,
-        root_gang=root_gang,
-        dp_gang=dp_gang,
-        tp_gang=tp_gang,
-        dtype=config.dtype,
-        optimizer=optimizer,
-        lr_scheduler=lr_scheduler,
-        fp16_loss_scale=config.fp16_loss_scale,
-        max_gradient_norm=config.max_gradient_norm,
-        amp=amp,
-        max_num_steps=config.max_num_steps,
-        max_num_data_epochs=config.max_num_data_epochs,
-        checkpoint_manager=checkpoint_manager,
-        checkpoint_every_n_steps=config.checkpoint_every_n_steps,
-        checkpoint_every_n_data_epochs=config.checkpoint_every_n_data_epochs,
-        keep_last_n_checkpoints=config.keep_last_n_checkpoints,
-        keep_last_n_models=config.keep_last_n_models,
-        tb_dir=output_dir.joinpath("tb"),
-        metrics_dir=output_dir.joinpath("metrics"),
-        wandb_options=wandb_options,
-        publish_metrics_every_n_steps=config.publish_metrics_every_n_steps,
-        publish_metrics_every_n_data_epochs=config.publish_metrics_every_n_data_epochs,
-        profile=config.profile,
-        anomaly_detection=config.anomaly_detection,
-        seed=config.seed,
-        wall_watch=wall_watch,
+    return create_trainer(
+        context,
+        config,
+        output_dir,
+        unit,
+        data_reader,
+        [],
+        [],
+        gangs,
+        checkpoint_manager,
+        optimizer,
+        lr_scheduler,
+        seed,
     )

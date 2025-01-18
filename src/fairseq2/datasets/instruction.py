@@ -30,8 +30,8 @@ from fairseq2.datasets import (
     DataPipelineReader,
     DataReader,
     DataReadOptions,
-    DatasetError,
     DatasetHubAccessor,
+    DatasetLoadError,
     LengthBatching,
     SplitNotFoundError,
     StaticBatching,
@@ -170,7 +170,7 @@ class GenericInstructionDataset(InstructionDataset):
             try:
                 child_dirs = [p for p in path.iterdir() if p.is_dir()]
             except OSError as ex:
-                raise DatasetError(
+                raise DatasetLoadError(
                     name, f"The files under the '{path}' directory cannot be retrieved. See the nested exception for details."  # fmt: skip
                 ) from ex
 

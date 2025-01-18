@@ -17,6 +17,7 @@ from typing_extensions import override
 
 from fairseq2.error import SetupError
 from fairseq2.gang import get_rank
+from fairseq2.utils.file import FileSystem
 
 
 class LoggingInitializer(ABC):
@@ -27,9 +28,20 @@ class LoggingInitializer(ABC):
 
 @final
 class DistributedLoggingInitializer(LoggingInitializer):
+    _file_system: FileSystem
+
+    def __init__(self, file_system: FileSystem) -> None:
+        self._file_system = file_system
+
     @override
     def initialize(self, log_file: Path) -> None:
         rank = get_rank()
+
+        logger = getLogger()
+
+        if rank != 0:
+            for handler in logger.handlers[:]:
+                logger.removeHandler(handler)
 
         filename = log_file.name.format(rank=rank)
 
@@ -41,7 +53,7 @@ class DistributedLoggingInitializer(LoggingInitializer):
         log_file = log_file.with_name(filename)
 
         try:
-            log_file.parent.mkdir(parents=True, exist_ok=True)
+            self._file_system.make_directory(log_file.parent)
         except OSError as ex:
             raise SetupError(
                 f"The '{log_file}' log file cannot be created. See the nested exception for details."
@@ -53,24 +65,34 @@ class DistributedLoggingInitializer(LoggingInitializer):
             Formatter(f"[Rank {rank}] %(asctime)s %(levelname)s %(name)s - %(message)s")
         )
 
-        getLogger().addHandler(handler)
+        logger.addHandler(handler)
 
-        _setup_aten_logging(log_file)
-        _setup_nccl_logging(log_file)
+        self._setup_aten_logging(log_file)
+        self._setup_nccl_logging(log_file)
 
+    def _setup_aten_logging(self, log_file: Path) -> None:
+        if "TORCH_CPP_LOG_LEVEL" in os.environ:
+            return
 
-def _setup_aten_logging(log_file: Path) -> None:
-    if "TORCH_CPP_LOG_LEVEL" in os.environ:
-        return
+        aten_log_file = log_file.parent.joinpath("aten", log_file.name)
 
-    aten_log_file = log_file.parent.joinpath("aten", log_file.name)
+        self._file_system.make_directory(aten_log_file.parent)
 
-    aten_log_file.parent.mkdir(parents=True, exist_ok=True)
+        _enable_aten_logging(aten_log_file)
 
-    _enable_aten_logging(aten_log_file)
+        # This variable has no effect at this point; set for completeness.
+        os.environ["TORCH_CPP_LOG_LEVEL"] = "INFO"
 
-    # This variable has no effect at this point; set for completeness.
-    os.environ["TORCH_CPP_LOG_LEVEL"] = "INFO"
+    def _setup_nccl_logging(self, log_file: Path) -> None:
+        if "NCCL_DEBUG" in os.environ:
+            return
+
+        nccl_log_file = log_file.parent.joinpath("nccl", log_file.name)
+
+        self._file_system.make_directory(nccl_log_file.parent)
+
+        os.environ["NCCL_DEBUG"] = "INFO"
+        os.environ["NCCL_DEBUG_FILE"] = str(nccl_log_file)
 
 
 if TYPE_CHECKING or DOC_MODE:
@@ -80,15 +102,3 @@ if TYPE_CHECKING or DOC_MODE:
 
 else:
     from fairseq2n.bindings import _enable_aten_logging
-
-
-def _setup_nccl_logging(log_file: Path) -> None:
-    if "NCCL_DEBUG" in os.environ:
-        return
-
-    nccl_log_file = log_file.parent.joinpath("nccl", log_file.name)
-
-    nccl_log_file.parent.mkdir(parents=True, exist_ok=True)
-
-    os.environ["NCCL_DEBUG"] = "INFO"
-    os.environ["NCCL_DEBUG_FILE"] = str(nccl_log_file)

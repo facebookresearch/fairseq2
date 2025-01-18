@@ -24,8 +24,8 @@ from fairseq2.models.wav2vec2 import (
     Wav2Vec2Model,
     Wav2Vec2Output,
 )
+from fairseq2.recipes.common import check_model_type
 from fairseq2.recipes.metrics import BaseMetricBag
-from fairseq2.recipes.utils.setup import check_model_type
 
 
 @final

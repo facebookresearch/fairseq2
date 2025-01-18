@@ -23,8 +23,8 @@ from fairseq2.generation._sampling._generator import (
 from fairseq2.generation._sampling._sampler import (
     TOP_P_SAMPLER,
     SamplerHandler,
-    SamplerNotFoundError,
     TopPSamplerConfig,
+    UnknownSamplerError,
 )
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
@@ -96,7 +96,7 @@ class SamplerSectionHandler(ConfigSectionHandler):
         try:
             sampler_handler = self._sampler_handlers.get(section.name)
         except LookupError:
-            raise SamplerNotFoundError(section.name) from None
+            return
 
         try:
             section.config = structure(section.config, sampler_handler.config_kls)
@@ -122,7 +122,7 @@ class SamplingSequenceGeneratorHandler(SequenceGeneratorHandler):
         try:
             sampler_handler = self._sampler_handlers.get(sampler_section.name)
         except LookupError:
-            raise SamplerNotFoundError(sampler_section.name) from None
+            raise UnknownSamplerError(sampler_section.name) from None
 
         sampler = sampler_handler.create(sampler_section.config)
 
@@ -152,7 +152,7 @@ class SamplingSequenceGeneratorHandler(SequenceGeneratorHandler):
 
     @property
     @override
-    def config_kls(self) -> type:
+    def config_kls(self) -> type[object]:
         return SamplingConfig
 
 
@@ -172,7 +172,7 @@ class SamplingSeq2SeqGeneratorHandler(Seq2SeqGeneratorHandler):
         try:
             sampler_handler = self._sampler_handlers.get(sampler_section.name)
         except LookupError:
-            raise SamplerNotFoundError(sampler_section.name) from None
+            raise UnknownSamplerError(sampler_section.name) from None
 
         sampler = sampler_handler.create(sampler_section.config)
 
@@ -199,5 +199,5 @@ class SamplingSeq2SeqGeneratorHandler(Seq2SeqGeneratorHandler):
 
     @property
     @override
-    def config_kls(self) -> type:
+    def config_kls(self) -> type[object]:
         return SamplingConfig

@@ -9,16 +9,45 @@ from __future__ import annotations
 from collections.abc import Set
 
 
-class DatasetError(Exception):
-    pass
+class UnknownDatasetError(Exception):
+    name: str
+
+    def __init__(self, name: str) -> None:
+        super().__init__(f"'{name}' is not a known dataset.")
+
+        self.name = name
+
+
+class UnknownDatasetFamilyError(Exception):
+    family: str
+    dataset_name: str | None
+
+    def __init__(self, family: str, dataset_name: str | None = None) -> None:
+        super().__init__(f"'{family}' is not a known dataset family.")
+
+        self.family = family
+        self.dataset_name = dataset_name
+
+
+class DatasetLoadError(Exception):
+    name: str
+
+    def __init__(self, name: str, message: str) -> None:
+        super().__init__(message)
+
+        self.name = name
 
 
 class DataReadError(Exception):
-    pass
-
-
-class SplitNotFoundError(LookupError):
     name: str
+
+    def __init__(self, name: str, message: str) -> None:
+        super().__init__(message)
+
+        self.name = name
+
+
+class SplitNotFoundError(DataReadError):
     split: str
     available_splits: Set[str]
 
@@ -26,9 +55,8 @@ class SplitNotFoundError(LookupError):
         s = ", ".join(sorted(available_splits))
 
         super().__init__(
-            f"`split` must be one of the following splits, but is '{split}' instead: {s}"
+            name, f"`split` must be one of the following splits, but is '{split}' instead: {s}"  # fmt: skip
         )
 
-        self.name = name
         self.split = split
         self.available_splits = available_splits

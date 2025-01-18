@@ -62,7 +62,7 @@ class PreferenceReadOptions(DataReadOptions):
 
 
 @dataclass
-class PreferenceOptimizationBatch:
+class PreferenceBatch:
     """Represents a preference optimization dataset batch."""
 
     chosen: SequenceBatch
@@ -71,7 +71,7 @@ class PreferenceOptimizationBatch:
     reference_score_rejected: torch.Tensor | None
 
 
-class PreferenceOptimizationDataset(ABC):
+class PreferenceDataset(ABC):
     """Represents a preference optimization dataset."""
 
     @abstractmethod
@@ -82,7 +82,7 @@ class PreferenceOptimizationDataset(ABC):
         min_seq_len: int,
         max_seq_len: int,
         options: PreferenceReadOptions | None = None,
-    ) -> DataPipelineReader[PreferenceOptimizationBatch]:
+    ) -> DataPipelineReader[PreferenceBatch]:
         """Create a dataset reader.
 
         :param tokenizer:
@@ -104,13 +104,11 @@ class PreferenceOptimizationDataset(ABC):
 npc = 10
 
 
-GENERIC_PREFERENCE_OPTIMIZATION_DATASET_FAMILY: Final = (
-    "generic_preference_optimization"
-)
+GENERIC_PREFERENCE_DATASET_FAMILY: Final = "generic_preference"
 
 
 @final
-class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
+class GenericPreferenceDataset(PreferenceDataset):
     """Represents a generic JSONL preference optimization dataset."""
 
     _name: str
@@ -137,10 +135,10 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
         self._weights = weights
 
     @staticmethod
-    def from_path(path: Path, name: str) -> GenericPreferenceOptimizationDataset:
+    def from_path(path: Path, name: str) -> GenericPreferenceDataset:
         files, weights = _load_files_and_weights(name, path)
 
-        return GenericPreferenceOptimizationDataset(name, files, weights)
+        return GenericPreferenceDataset(name, files, weights)
 
     @override
     def create_reader(
@@ -150,7 +148,7 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
         min_seq_len: int,
         max_seq_len: int,
         options: PreferenceReadOptions | None = None,
-    ) -> DataPipelineReader[PreferenceOptimizationBatch]:
+    ) -> DataPipelineReader[PreferenceBatch]:
         if options is None:
             options = PreferenceReadOptions()
 
@@ -292,8 +290,8 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
         # Prefetch `num_prefetch` batches in background.
         builder.prefetch(options.num_prefetch)
 
-        # Wrap examples with `PreferenceOptimizationBatch`.
-        def to_batch(example: dict[str, Any]) -> PreferenceOptimizationBatch:
+        # Wrap examples with `PreferenceBatch`.
+        def to_batch(example: dict[str, Any]) -> PreferenceBatch:
             indices_chosen = cast(SequenceData, example["indices_chosen"])
             indices_rejected = cast(SequenceData, example["indices_rejected"])
 
@@ -332,7 +330,7 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
                     example["reference_score_rejected"]
                 ).to(gang.device)
 
-            return PreferenceOptimizationBatch(
+            return PreferenceBatch(
                 batch_chosen,
                 batch_rejected,
                 batch_reference_scores_chosen,
@@ -341,9 +339,7 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
 
         pipeline = builder.map(to_batch).and_return()
 
-        return DataPipelineReader[PreferenceOptimizationBatch](
-            self._name, pipeline, gang, options
-        )
+        return DataPipelineReader[PreferenceBatch](self._name, pipeline, gang, options)
 
     def _read_jsonl(self, path: Path, tokenizer: TextTokenizer) -> DataPipelineBuilder:
         lines = []
@@ -356,4 +352,4 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
         return read_sequence(lines).map(json.loads, num_parallel_calls=npc)
 
 
-get_preference_dataset_hub = DatasetHubAccessor(PreferenceOptimizationDataset)
+get_preference_dataset_hub = DatasetHubAccessor(PreferenceDataset)

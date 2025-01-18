@@ -14,9 +14,9 @@ from typing_extensions import override
 from fairseq2.assets import (
     AbstractAssetMetadataProvider,
     AssetMetadataError,
-    load_metadata_file,
+    MetadataFileLoader,
 )
-from fairseq2.utils.yaml import load_yaml
+from fairseq2.utils.file import FileSystem
 
 
 @final
@@ -24,8 +24,14 @@ class FileCheckpointMetadataProvider(AbstractAssetMetadataProvider):
     """Provides checkpoint model metadata saved by a :class:`FileCheckpointManager.`"""
 
     _checkpoint_dir: Path
+    _file_system: FileSystem
 
-    def __init__(self, checkpoint_dir: Path) -> None:
+    def __init__(
+        self,
+        checkpoint_dir: Path,
+        file_system: FileSystem,
+        metadata_file_loader: MetadataFileLoader,
+    ) -> None:
         """
         :param checkpoint_dir:
             The base directory under which the checkpoints are stored.
@@ -33,6 +39,8 @@ class FileCheckpointMetadataProvider(AbstractAssetMetadataProvider):
         super().__init__()
 
         self._checkpoint_dir = checkpoint_dir
+        self._file_system = file_system
+        self._metadata_file_loader = metadata_file_loader
 
     @override
     def _load_cache(self) -> dict[str, dict[str, object]]:
@@ -45,11 +53,9 @@ class FileCheckpointMetadataProvider(AbstractAssetMetadataProvider):
         return cache
 
     def _load_model(self, cache: dict[str, dict[str, object]]) -> None:
-        checkpoint_dir = self._checkpoint_dir.expanduser().resolve()
+        metadata_file = self._checkpoint_dir.joinpath("model.yaml")
 
-        metadata_file = checkpoint_dir.joinpath("model.yaml")
-
-        for name, metadata in load_metadata_file(metadata_file, load_yaml):
+        for name, metadata in self._metadata_file_loader.load(metadata_file):
             cache[name] = metadata
 
         try:
@@ -79,8 +85,8 @@ class FileCheckpointMetadataProvider(AbstractAssetMetadataProvider):
         scores = []
 
         try:
-            for step_dir in checkpoint_dir.glob("step_*"):
-                if not step_dir.is_dir():
+            for step_dir in self._file_system.glob(self._checkpoint_dir, "step_*"):
+                if not self._file_system.is_dir(step_dir):
                     continue
 
                 try:
@@ -96,14 +102,17 @@ class FileCheckpointMetadataProvider(AbstractAssetMetadataProvider):
 
                 # Load score.
                 score_file = step_dir.joinpath("score.txt")
-                if score_file.exists():
+                if self._file_system.exists(score_file):
+                    fp = self._file_system.open_text(score_file)
+
                     try:
-                        with score_file.open() as fp:
-                            line = fp.readline()
+                        line = fp.readline()
                     except OSError as ex:
                         raise AssetMetadataError(
                             f"The score of the training step {step_nr} cannot be loaded from the '{score_file}' file. See the nested exception for details."
                         ) from ex
+                    finally:
+                        fp.close()
 
                     try:
                         score = float(line)
@@ -115,11 +124,13 @@ class FileCheckpointMetadataProvider(AbstractAssetMetadataProvider):
                     scores.append((score, step_nr))
         except OSError as ex:
             raise AssetMetadataError(
-                f"The base '{checkpoint_dir}' checkpoint directory cannot be traversed. See the nested exception for details."
+                f"The base '{self._checkpoint_dir}' checkpoint directory cannot be traversed. See the nested exception for details."
             ) from ex
 
         if max_step_nr >= 0:
-            last_model_file = checkpoint_dir.joinpath(f"step_{max_step_nr}/{filename}")
+            last_model_file = self._checkpoint_dir.joinpath(
+                f"step_{max_step_nr}/{filename}"
+            )
 
             add_checkpoint_metadata("last_checkpoint@", last_model_file)
 
@@ -128,15 +139,13 @@ class FileCheckpointMetadataProvider(AbstractAssetMetadataProvider):
         last_idx = len(scores) - 1
 
         for i, (_, step_nr) in enumerate(scores):
-            model_file = checkpoint_dir.joinpath(f"step_{step_nr}/{filename}")
+            model_file = self._checkpoint_dir.joinpath(f"step_{step_nr}/{filename}")
 
             add_checkpoint_metadata(f"checkpoint_lowest_{i}@", model_file)
             add_checkpoint_metadata(f"checkpoint_highest_{last_idx - i}@", model_file)
 
     def _load_tokenizer(self, cache: dict[str, dict[str, object]]) -> None:
-        checkpoint_dir = self._checkpoint_dir.expanduser().resolve()
-
-        metadata_file = checkpoint_dir.joinpath("tokenizer.yaml")
-        if metadata_file.exists():
-            for name, metadata in load_metadata_file(metadata_file, load_yaml):
+        metadata_file = self._checkpoint_dir.joinpath("tokenizer.yaml")
+        if self._file_system.exists(metadata_file):
+            for name, metadata in self._metadata_file_loader.load(metadata_file):
                 cache[name] = metadata

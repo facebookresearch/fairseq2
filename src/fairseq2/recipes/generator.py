@@ -9,33 +9,23 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from contextlib import AbstractContextManager, nullcontext
 from itertools import count
-from pathlib import Path
-from typing import Generic, TypeVar, final
+from typing import Generic, Sequence, TypeVar, final
 
 import torch
 from torch.nn import Module
 from typing_extensions import override
 
 from fairseq2.datasets import DataReader
-from fairseq2.gang import FakeGang, Gang
-from fairseq2.logging import get_log_writer
-from fairseq2.metrics import (
-    JsonFileMetricRecorder,
-    LogMetricRecorder,
-    MetricBag,
-    MetricRecorder,
-    record_metrics,
-)
+from fairseq2.error import InternalError, InvalidOperationError
+from fairseq2.gang import Gangs
+from fairseq2.logging import log
+from fairseq2.metrics import MetricBag
+from fairseq2.metrics.recorders import MetricRecorder, record_metrics
 from fairseq2.recipes.metrics import extend_batch_metrics
 from fairseq2.recipes.utils.rich import create_rich_progress
 from fairseq2.typing import CPU, DataType
 from fairseq2.utils.profiler import Stopwatch
 from fairseq2.utils.rng import RngBag
-
-log = get_log_writer(__name__)
-
-
-BatchT = TypeVar("BatchT")
 
 BatchT_contra = TypeVar("BatchT_contra", contravariant=True)
 
@@ -58,6 +48,9 @@ class GeneratorUnit(ABC, Generic[BatchT_contra]):
         """The generation-related metrics."""
 
 
+BatchT = TypeVar("BatchT")
+
+
 class AbstractGeneratorUnit(GeneratorUnit[BatchT]):
     """Provides a skeletal implementation of :class:`GeneratorUnit`."""
 
@@ -77,12 +70,10 @@ class Generator(Generic[BatchT]):
 
     _unit: GeneratorUnit[BatchT]
     _data_reader: DataReader[BatchT]
-    _root_gang: Gang
-    _dp_gang: Gang
-    _tp_gang: Gang
+    _gangs: Gangs
     _dtype: DataType
     _amp: bool
-    _metric_recorders: list[MetricRecorder]
+    _metric_recorders: Sequence[MetricRecorder]
     _seed: int
     _wall_watch: Stopwatch
     _run: bool
@@ -92,69 +83,38 @@ class Generator(Generic[BatchT]):
         *,
         unit: GeneratorUnit[BatchT],
         data_reader: DataReader[BatchT],
-        root_gang: Gang,
+        gangs: Gangs,
+        metric_recorders: Sequence[MetricRecorder],
         wall_watch: Stopwatch,
-        dp_gang: Gang | None = None,
-        tp_gang: Gang | None = None,
         dtype: DataType = torch.float32,
         amp: bool = False,
-        metrics_dir: Path | None = None,
         seed: int = 2,
     ) -> None:
         """
-        :param unit:
-            The generator unit.
-        :param data_reader:
-            The data reader.
-        :param root_gang:
-            The gang for distributed generation.
-        :param wall_watch:
-            The stopwatch to track process wall-time.
-        :param dp_gang:
-            The data parallel gang. If ``None``, ``gang`` will be used.
-        :param tp_gang:
-            The tensor parallel gang. Only required for tensor parallel models.
-        :param dtype:
-            The data type of the model.
-        :param amp:
-            If ``True``, enables ``torch.amp``.
-        :param metrics_dir:
-            The directory to dump metrics.
-        :param seed:
-            The random number generator seed.
+        :param unit: The generator unit.
+        :param data_reader: The data reader.
+        :param wall_watch: The stopwatch to track process wall-time.
+        :param dtype: The data type of the model.
+        :param amp: If ``True``, enables ``torch.amp``.
+        :param seed: The random number generator seed.
         """
         self._unit = unit
 
         self._data_reader = data_reader
 
-        self._root_gang = root_gang
-
-        if dp_gang is not None and tp_gang is not None:
-            self._dp_gang = dp_gang
-            self._tp_gang = tp_gang
-        elif dp_gang is None and tp_gang is None:
-            self._dp_gang = root_gang
-            self._tp_gang = FakeGang(device=root_gang.device)
-        else:
-            raise ValueError("`dp_gang` and `tp_gang` must be both specified.")
-
-        if root_gang.rank == 0:
-            if self._dp_gang.rank != 0 or self._tp_gang.rank != 0:
+        if gangs.root.rank == 0:
+            if gangs.dp.rank != 0 or gangs.tp.rank != 0:
                 raise ValueError(
-                    f"The coordinator process of `root_gang` (i.e. rank 0) must be rank 0 in `dp_gang` and `tp_gang`, but is {self._dp_gang.rank} and {self._tp_gang.rank} instead."
+                    "The coordinator process of the root gang (i.e. rank 0) must be rank 0 in all parallel gangs."
                 )
+
+        self._gangs = gangs
 
         self._dtype = dtype
 
         self._amp = amp
 
-        if root_gang.rank == 0:
-            self._metric_recorders = [LogMetricRecorder(log)]
-
-            if metrics_dir is not None:
-                self._metric_recorders.append(JsonFileMetricRecorder(metrics_dir))
-        else:
-            self._metric_recorders = []
+        self._metric_recorders = metric_recorders
 
         self._seed = seed
 
@@ -165,11 +125,11 @@ class Generator(Generic[BatchT]):
     @torch.inference_mode()
     def __call__(self) -> None:
         if self._run:
-            raise RuntimeError("The generator can only be run once.")
+            raise InvalidOperationError("The generator can only be run once.")
 
         self._run = True
 
-        log.info("Running generation on {} device(s).", self._root_gang.size)
+        log.info("Running generation on {} device(s).", self._gangs.root.size)
 
         try:
             self._do_run()
@@ -183,11 +143,11 @@ class Generator(Generic[BatchT]):
         log.info("Generation complete in {:,} seconds!", int(elapsed_time))
 
     def _do_run(self) -> None:
-        rng_bag = RngBag.from_device_defaults(CPU, self._root_gang.device)
+        rng_bag = RngBag.from_device_defaults(CPU, self._gangs.root.device)
 
         rng_bag.manual_seed(self._seed)
 
-        watch = Stopwatch(start=True, device=self._root_gang.device)
+        watch = Stopwatch(start=True, device=self._gangs.root.device)
 
         self._unit.model.eval()
 
@@ -218,21 +178,23 @@ class Generator(Generic[BatchT]):
         if self._dtype == torch.float32 or not self._amp:
             return nullcontext()
 
-        return torch.autocast(device_type=self._dp_gang.device.type, dtype=self._dtype)
+        return torch.autocast(
+            device_type=self._gangs.root.device.type, dtype=self._dtype
+        )
 
     def _publish_metrics(self, num_batches: int, elapsed_time: float) -> None:
         log.debug("Syncing metrics.")
 
-        if self._tp_gang.rank != 0:
+        if self._gangs.tp.rank != 0:
             return
 
         values = self._unit.metric_bag.sync_and_compute_metrics()
 
-        if self._root_gang.rank != 0:
+        if self._gangs.root.rank != 0:
             return
 
         if values is None:
-            raise RuntimeError(
+            raise InternalError(
                 "The synchronized metric values are `None`. Please file a bug report."
             )
 

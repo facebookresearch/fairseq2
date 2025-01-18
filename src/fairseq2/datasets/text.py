@@ -28,8 +28,8 @@ from fairseq2.datasets import (
     DataPipelineReader,
     DataReader,
     DataReadOptions,
-    DatasetError,
     DatasetHubAccessor,
+    DatasetLoadError,
     LengthBatching,
     StaticBatching,
 )
@@ -109,7 +109,7 @@ class GenericTextDataset(TextDataset):
             try:
                 files = [f for f in path.glob("**/*.txt") if not f.is_dir()]
             except OSError as ex:
-                raise DatasetError(
+                raise DatasetLoadError(
                     name, f"The text files under the '{path}' directory cannot be retrieved. See the nested exception for details."  # fmt: skip
                 ) from ex
 

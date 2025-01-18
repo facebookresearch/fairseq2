@@ -14,7 +14,10 @@ from typing import Final, final
 from torch.optim import Optimizer
 from typing_extensions import override
 
-from fairseq2.optim.lr_scheduler._handler import LRSchedulerHandler
+from fairseq2.optim.lr_scheduler._handler import (
+    LRSchedulerHandler,
+    UnspecifiedNumberOfStepsError,
+)
 from fairseq2.optim.lr_scheduler._lr_scheduler import (
     AbstractLRScheduler,
     LRScheduler,
@@ -155,7 +158,7 @@ class TriStageLRHandler(LRSchedulerHandler):
         config = safe_cast("config", config, TriStageLRConfig)
 
         if num_steps is None:
-            raise ValueError("`num_steps` must specified.")
+            raise UnspecifiedNumberOfStepsError(TRI_STAGE_LR)
 
         return TriStageLR(
             optimizer,
@@ -168,9 +171,9 @@ class TriStageLRHandler(LRSchedulerHandler):
     @property
     @override
     def requires_num_steps(self) -> bool:
-        return False
+        return True
 
     @property
     @override
-    def config_kls(self) -> type:
+    def config_kls(self) -> type[object]:
         return TriStageLRConfig

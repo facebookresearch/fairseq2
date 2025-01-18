@@ -10,7 +10,7 @@ from pathlib import Path
 
 import torch
 
-from fairseq2.datasets._error import DatasetError
+from fairseq2.datasets._error import DatasetLoadError
 from fairseq2.gang import Gang, all_sum
 from fairseq2.logging import log
 
@@ -58,7 +58,7 @@ def _load_files_and_weights(name: str, path: Path) -> tuple[list[Path], list[flo
     except FileNotFoundError:
         content = None
     except OSError as ex:
-        raise DatasetError(
+        raise DatasetLoadError(
             name, f"The '{manifest_file}' manifest file cannot be read. See the nested exception for details."  # fmt: skip
         ) from ex
 
@@ -68,7 +68,7 @@ def _load_files_and_weights(name: str, path: Path) -> tuple[list[Path], list[flo
         try:
             files = list(path.glob("**/*.jsonl"))
         except OSError as ex:
-            raise DatasetError(
+            raise DatasetLoadError(
                 name, f"The JSONL files under the '{path}' directory cannot be retrieved. See the nested exception for details."  # fmt: skip
             ) from ex
 
@@ -87,8 +87,8 @@ def _load_files_and_weights(name: str, path: Path) -> tuple[list[Path], list[flo
     # and its weight (e.g. number of examples).
     for idx, line in enumerate(content):
 
-        def error() -> DatasetError:
-            return DatasetError(
+        def error() -> DatasetLoadError:
+            return DatasetLoadError(
                 name, f"Each line in the '{manifest_file}' manifest file must represent a path to a JSONL file and a weight, but line {idx} is '{line}' instead."  # fmt: skip
             )
 
@@ -107,7 +107,7 @@ def _load_files_and_weights(name: str, path: Path) -> tuple[list[Path], list[flo
             raise error() from None
 
         if not file.exists():
-            raise DatasetError(
+            raise DatasetLoadError(
                 name, f"The '{file}' file referred at line {idx} in the '{manifest_file}' manifest file does not exist."  # fmt: skip
             )
 

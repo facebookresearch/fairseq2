@@ -27,12 +27,14 @@ from typing_extensions import override
 
 from fairseq2.config_registry import ConfigProvider
 from fairseq2.context import RuntimeContext
+from fairseq2.device import determine_default_device
 from fairseq2.error import ContractError, SetupError
 from fairseq2.logging import log
 from fairseq2.recipes.cluster import ClusterResolver
 from fairseq2.recipes.logging import LoggingInitializer
-from fairseq2.recipes.utils.log import log_config
+from fairseq2.recipes.utils.log import log_config, log_environment_info
 from fairseq2.recipes.utils.sweep_tagger import SweepTagger
+from fairseq2.typing import Device
 from fairseq2.utils.file import FileSystem
 from fairseq2.utils.structured import (
     StructureError,
@@ -68,16 +70,27 @@ ConfigT = TypeVar("ConfigT")
 @final
 class StandardRecipeRunner(RecipeRunner):
     _loader: RecipeLoader[object]
+    _default_device_accessor: DefaultDeviceAccessor
     _signal_handler: SignalHandler
 
     def __init__(
-        self, loader: RecipeLoader[object], signal_handler: SignalHandler
+        self,
+        loader: RecipeLoader[object],
+        default_device_accessor: DefaultDeviceAccessor,
+        signal_handler: SignalHandler,
     ) -> None:
         self._loader = loader
+        self._default_device_accessor = default_device_accessor
         self._signal_handler = signal_handler
 
     @override
     def run(self, context: RuntimeContext, config: object, output_dir: Path) -> None:
+        device = self._default_device_accessor.get()
+
+        context.set_device(device)
+
+        log_environment_info(log, device)
+
         recipe = self._loader(context, config, output_dir)
 
         # If the recipe is stoppable, use SIGUSR1 as the stop signal.
@@ -99,6 +112,19 @@ class Stoppable(Protocol):
 
     def request_stop(self) -> None:
         ...
+
+
+class DefaultDeviceAccessor(ABC):
+    @abstractmethod
+    def get(self) -> Device:
+        ...
+
+
+@final
+class InferredDefaultDeviceAccessor(DefaultDeviceAccessor):
+    @override
+    def get(self) -> Device:
+        return determine_default_device()
 
 
 class SignalHandler(ABC):
@@ -186,15 +212,15 @@ class StandardEnvironmentBootstrapper(EnvironmentBootstrapper):
             sweep_output_dir.joinpath("logs/rank_{rank}.log")
         )
 
-        log.info("The log files stored under the '{}' directory.", sweep_output_dir)
+        log.info("The log files are stored under the '{}' directory.", sweep_output_dir)
 
-        log_config(unstructured_config, log)
+        log_config(log, unstructured_config)
 
         if rank == 0:
             config_file = sweep_output_dir.joinpath("config.yaml")
 
             try:
-                self._yaml_dumper(unstructured_config, config_file)
+                self._yaml_dumper.dump(unstructured_config, config_file)
             except (OSError, YamlError) as ex:
                 raise SetupError(
                     f"The recipe configuration cannot be saved to the '{config_file}' file. See the nested exception for details."
@@ -254,7 +280,7 @@ class StandardConfigReader(ConfigReader):
                     raise ConfigFileNotFoundError(config_file)
 
                 try:
-                    unstructured_config_overrides = self._yaml_loader(config_file)
+                    unstructured_config_overrides = self._yaml_loader.load(config_file)
                 except YamlError as ex:
                     raise StructureError(
                         f"The '{config_file}' configuration file cannot be merged with the preset configuration. See the nested exception for details."

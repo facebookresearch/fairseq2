@@ -118,11 +118,11 @@ class SamplerHandler(ABC):
 
     @property
     @abstractmethod
-    def config_kls(self) -> type:
+    def config_kls(self) -> type[object]:
         ...
 
 
-class SamplerNotFoundError(LookupError):
+class UnknownSamplerError(Exception):
     name: str
 
     def __init__(self, name: str) -> None:
@@ -149,7 +149,7 @@ class TopPSamplerHandler(SamplerHandler):
 
     @property
     @override
-    def config_kls(self) -> type:
+    def config_kls(self) -> type[object]:
         return TopPSamplerConfig
 
 
@@ -171,5 +171,5 @@ class TopKSamplerHandler(SamplerHandler):
 
     @property
     @override
-    def config_kls(self) -> type:
+    def config_kls(self) -> type[object]:
         return TopKSamplerConfig
