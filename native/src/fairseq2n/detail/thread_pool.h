@@ -13,6 +13,7 @@
 #include <condition_variable>
 #include <functional>
 #include <memory>
+#include <stdexcept>
 
 namespace fairseq2n::detail {
 
