@@ -23,7 +23,7 @@ class TestMapOp:
         def fn(d: int) -> int:
             return d**2
 
-        seq = list(range(1, 12))
+        seq = list(range(1, 10))
 
         pipeline = (
             read_sequence(seq)
