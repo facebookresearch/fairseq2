@@ -345,9 +345,10 @@ class TestMapOp:
 
         with pytest.raises(StopIteration):
             next(iter(pipeline))
-    
+
     @pytest.mark.parametrize("num_parallel_calls", [1, 4, 20])
     def test_op_saves_and_restores_its_state_non_deterministic(self, num_parallel_calls: int) -> None:  # fmt: skip
+
         def fn(d: int) -> int:
             return d
 
@@ -358,10 +359,10 @@ class TestMapOp:
             .map(fn, num_parallel_calls=num_parallel_calls, deterministic=False)
             .and_return()
         )
-        
+
         remaining = set(seq)
         seen = set()
-        
+
         d = None
 
         it = iter(pipeline)
@@ -388,7 +389,7 @@ class TestMapOp:
             assert d in remaining
             remaining.remove(d)
             seen.add(d)
-        
+
         assert not remaining
         assert seen == set(seq)
 
