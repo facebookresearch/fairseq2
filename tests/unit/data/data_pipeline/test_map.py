@@ -23,7 +23,7 @@ class TestMapOp:
         def fn(d: int) -> int:
             return d**2
 
-        seq = list(range(1, 10))
+        seq = list(range(1, 12))
 
         pipeline = (
             read_sequence(seq)
@@ -345,3 +345,59 @@ class TestMapOp:
 
         with pytest.raises(StopIteration):
             next(iter(pipeline))
+    
+    @pytest.mark.parametrize("num_parallel_calls", [1, 4, 20])
+    def test_op_saves_and_restores_its_state_non_deterministic(self, num_parallel_calls: int) -> None:  # fmt: skip
+        def fn(d: int) -> int:
+            return d
+
+        seq = list(range(1, 10))
+
+        pipeline = (
+            read_sequence(seq)
+            .map(fn, num_parallel_calls=num_parallel_calls, deterministic=False)
+            .and_return()
+        )
+        
+        remaining = set(seq)
+        seen = set()
+        
+        d = None
+
+        it = iter(pipeline)
+
+        # Move to the second example.
+        for _ in range(2):
+            d = next(it)
+            assert d in remaining
+            remaining.remove(d)
+            seen.add(d)
+
+        state_dict = pipeline.state_dict()
+
+        # Read a few examples before we roll back.
+        for _ in range(4):
+            d = next(it)
+
+        # Expected to roll back to the second example.
+        pipeline.load_state_dict(state_dict)
+
+        # Move to EOD.
+        for _ in range(7):
+            d = next(it)
+            assert d in remaining
+            remaining.remove(d)
+            seen.add(d)
+        
+        assert not remaining
+        assert seen == set(seq)
+
+        state_dict = pipeline.state_dict()
+
+        pipeline.reset()
+
+        # Expected to be EOD.
+        pipeline.load_state_dict(state_dict)
+
+        with pytest.raises(StopIteration):
+            d = next(iter(pipeline))

@@ -9,7 +9,6 @@
 #include <cstddef>
 #include <memory>
 #include <optional>
-#include <semaphore>
 #include <utility>
 #include <vector>
 
@@ -53,11 +52,14 @@ private:
     bool
     fill_buffer_async();
 
-    std::size_t
-    acquire_all_available(std::counting_semaphore<>& sem);
-
     bool
     has_async_output();
+
+    void
+    wait_until_done() const;
+
+    void
+    reset_async_state();
 
 private:
     std::unique_ptr<data_source> inner_;
@@ -66,15 +68,15 @@ private:
     bool deterministic_;
     std::vector<std::optional<data>> buffer_{};
     std::vector<std::optional<data>>::iterator buffer_pos_{};
-
-    mutable std::mutex async_output_queue_mutex_{};
-    std::queue<std::optional<data>> async_output_queue_{};
+    
+    mutable std::mutex async_output_mutex_{};
+    std::deque<std::optional<data>> async_queue_{};
     mutable std::condition_variable read_output_condition_{};
-    mutable std::counting_semaphore<> available_workers_semaphore_;
-    thread_pool pool_;
-    mutable std::mutex exception_ptr_mutex_{};
-    std::atomic<bool> has_exception_{false};
+    std::atomic<bool> finished_{false};
+    std::atomic<size_t> tasks_in_flight_{0};
     std::exception_ptr exception_ptr_{};
+    // TODO: Use this conditionally on FAIRSEQ2N_USE_TBB instead: tbb::task_arena pool_;
+    mutable thread_pool pool_;
 
 };
 

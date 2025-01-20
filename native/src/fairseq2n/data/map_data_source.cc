@@ -15,12 +15,14 @@
 namespace fairseq2n::detail {
 
 map_data_source::map_data_source(
-    std::unique_ptr<data_source> &&inner, std::vector<map_fn> &&fns, std::size_t num_parallel_calls, bool deterministic)
+    std::unique_ptr<data_source> &&inner,
+    std::vector<map_fn> &&fns,
+    std::size_t num_parallel_calls,
+    bool deterministic)
   : inner_{std::move(inner)},
     map_fns_{std::move(fns)},
     num_parallel_calls_{num_parallel_calls},
-    deterministic_{deterministic},
-    available_workers_semaphore_{deterministic ? 0 : static_cast<ptrdiff_t>(num_parallel_calls)}, // could be raised slightly (2x) to continue reading from inner
+    deterministic_{deterministic || num_parallel_calls == 1},
     pool_{deterministic ? 0 : num_parallel_calls}
 {
     buffer_.reserve(num_parallel_calls);
@@ -54,18 +56,17 @@ map_data_source::next()
         // Check that we either have work or waiting outputs
         while (fill_buffer_async()) {
             // Wait until the next output is ready
-            std::unique_lock<std::mutex> lock{async_output_queue_mutex_};
+            std::unique_lock<std::mutex> lock{async_output_mutex_};
             read_output_condition_.wait(lock, [this]
             {
-                return !async_output_queue_.empty() || has_exception_;
+                return !async_queue_.empty() || exception_ptr_;
             });
 
-            if (has_exception_) {
-                std::unique_lock<std::mutex> lock_ex(exception_ptr_mutex_);
+            if (exception_ptr_)
                 std::rethrow_exception(exception_ptr_);
-            }
-            auto example = std::move(async_output_queue_.front());
-            async_output_queue_.pop();
+
+            auto example = std::move(async_queue_.front());
+            async_queue_.pop_front();
             if (example)
                 return example;
         }
@@ -80,6 +81,10 @@ map_data_source::reset(bool reset_rng)
     buffer_.clear();
 
     buffer_pos_ = buffer_.begin();
+    
+    reset_async_state();
+
+    async_queue_.clear();
 
     inner_->reset(reset_rng);
 }
@@ -88,9 +93,22 @@ void
 map_data_source::record_position(tape &t, bool strict) const
 {
     if (strict) {
-        t.record(buffer_);
+        if (deterministic_) {
+            t.record(buffer_);
 
-        t.record(buffer_pos_ - buffer_.begin());
+            t.record(buffer_pos_ - buffer_.begin());
+        } else {
+            // Wait until all current tasks have output to the queue
+            wait_until_done();
+            // Write the queue on the tape
+            {
+                std::unique_lock<std::mutex> lock{async_output_mutex_};
+                t.record(async_queue_.size());
+
+                for (const auto &element : async_queue_)
+                    t.record(element);
+            }
+        }
     }
 
     inner_->record_position(t, strict);
@@ -99,14 +117,31 @@ map_data_source::record_position(tape &t, bool strict) const
 void
 map_data_source::reload_position(tape &t, bool strict)
 {
-    if (strict) {
+    if (strict && deterministic_) {
         buffer_ = t.read<std::vector<std::optional<data>>>();
 
         buffer_pos_ = buffer_.begin() + t.read<std::ptrdiff_t>();
+    } else if (strict && !deterministic_) {
+        // Wait for all tasks to complete and reset state
+        reset_async_state();
+
+        async_queue_.clear();
+
+        // Fill the queue again from the tape
+        std::size_t size = t.read<std::size_t>();
+        for (std::size_t i = 0; i < size; ++i)
+            async_queue_.push_back(t.read<std::optional<data>>());
+
+        buffer_.clear();
+        buffer_pos_ = buffer_.begin();
     } else {
         buffer_.clear();
 
         buffer_pos_ = buffer_.begin();
+
+        reset_async_state();
+
+        async_queue_.clear();
     }
 
     inner_->reload_position(t, strict);
@@ -152,34 +187,46 @@ map_data_source::fill_buffer()
     return true;
 }
 
-std::size_t
-map_data_source::acquire_all_available(std::counting_semaphore<>& sem) {
-    std::size_t acquired_count = 0;
-    while (sem.try_acquire()) {
-        acquired_count++;
-    }
-    return acquired_count;
-}
-
 bool
 map_data_source::has_async_output()
 {
-    std::unique_lock<std::mutex> lock(async_output_queue_mutex_);
-    return !async_output_queue_.empty();
+    std::unique_lock<std::mutex> lock(async_output_mutex_);
+    return !async_queue_.empty();
+}
+
+void
+map_data_source::reset_async_state()
+{
+    wait_until_done();
+
+    finished_ = false;
+}
+
+void
+map_data_source::wait_until_done() const
+{
+    std::unique_lock<std::mutex> lock{async_output_mutex_};
+    read_output_condition_.wait(lock, [this]
+    {
+        return tasks_in_flight_ == 0 || exception_ptr_;
+    });
+
+    if (exception_ptr_)
+        std::rethrow_exception(exception_ptr_);
 }
 
 bool
 map_data_source::fill_buffer_async()
 {
-    std::size_t num_slots_available = acquire_all_available(available_workers_semaphore_);
-    std::size_t num_inputs_consumed = 0;
-    bool has_reached_eod = false;
-    for (std::size_t i = 0; i < num_slots_available; i++) {
+    for (std::size_t i = tasks_in_flight_; i < num_parallel_calls_; i++) {
         std::optional<data> maybe_example = inner_->next();
         if (!maybe_example) {
-            has_reached_eod = true;
+            finished_ = true;
             break;
         }
+
+        tasks_in_flight_++;
+
         // Create task and send to thread pool
         data example = std::move(*maybe_example);
 
@@ -190,31 +237,22 @@ map_data_source::fill_buffer_async()
                 data result = map_fns_[0](std::move(ex));
                 // Add to output queue
                 {
-                    std::unique_lock<std::mutex> lock(async_output_queue_mutex_);
-                    async_output_queue_.push(std::move(result));
+                    std::unique_lock<std::mutex> lock(async_output_mutex_);
+                    async_queue_.push_back(std::move(result));
                 }
             } catch (const std::exception &) {
-                std::unique_lock<std::mutex> lock(exception_ptr_mutex_);
+                std::unique_lock<std::mutex> lock(async_output_mutex_);
                 exception_ptr_ = std::current_exception();
-                has_exception_ = true;
             }
-            available_workers_semaphore_.release();
+            
+            tasks_in_flight_--;
             read_output_condition_.notify_one();
         };
         
         pool_.enqueue(apply_function, std::move(example));
-        num_inputs_consumed++;
     }
 
-    // Release unused slots
-    available_workers_semaphore_.release(static_cast<ptrdiff_t>(num_slots_available - num_inputs_consumed));
-
-    return (
-        num_inputs_consumed > 0
-        || !has_reached_eod
-        || has_async_output()
-        || pool_.is_busy()
-    );
+    return !finished_ || tasks_in_flight_ > 0 || has_async_output();
 }
 
 std::optional<data>

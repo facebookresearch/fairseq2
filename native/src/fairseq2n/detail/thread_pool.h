@@ -12,38 +12,38 @@
 #include <mutex>
 #include <condition_variable>
 #include <functional>
-#include <future>
 #include <memory>
-#include <stdexcept>
+//#include <stdexcept>
 
 namespace fairseq2n::detail {
 
 class thread_pool {
 public:
     explicit
-    thread_pool(size_t numThreads) : stop(false) {
-        
-        workers.reserve(numThreads);
-        for (size_t i = 0; i < numThreads; ++i) {
-            workers.emplace_back([this] {
+    thread_pool(size_t num_threads) : num_threads_(num_threads), stop_(false) {
+        workers_.reserve(num_threads_);
+
+        for (size_t i = 0; i < num_threads_; ++i) {
+            workers_.emplace_back([this] {
                 while (true) {
                     std::function<void()> task;
                     {
-                        std::unique_lock<std::mutex> lock(queueMutex);
-                        condition.wait(lock, [this] {
-                            return stop || !tasks.empty();
+                        std::unique_lock<std::mutex> lock(queue_mutex_);
+                        queued_condition_.wait(lock, [this] {
+                            return stop_ || !tasks_.empty();
                         });
                         
-                        if (stop && tasks.empty()) {
+                        if (stop_ && tasks_.empty()) {
                             return;
                         }
                         
                         num_working_++;
-                        task = std::move(tasks.front());
-                        tasks.pop();
+                        task = std::move(tasks_.front());
+                        tasks_.pop();
                     }
                     task();
                     num_working_--;
+                    completion_condition_.notify_all();
                 }
             });
         }
@@ -56,29 +56,29 @@ public:
             std::forward<F>(f), std::forward<Args>(args)...);
         
         {
-            std::unique_lock<std::mutex> lock(queueMutex);
-            if (stop) {
+            std::unique_lock<std::mutex> lock(queue_mutex_);
+            if (stop_) {
                 throw std::runtime_error("Cannot enqueue on stopped ThreadPool");
             }
             
-            tasks.emplace([task]() {
+            tasks_.emplace([task]() {
                 std::apply(std::move(std::get<0>(*task)), 
                     [&task]() {
                         return std::tuple<Args...>(std::move(std::get<Args>(*task))...);
                     }());
             });
         }
-        condition.notify_one();
+        queued_condition_.notify_one();
     }
     
     ~thread_pool() {
         {
-            std::unique_lock<std::mutex> lock(queueMutex);
-            stop = true;
+            std::unique_lock<std::mutex> lock(queue_mutex_);
+            stop_ = true;
         }
-        condition.notify_all();
+        queued_condition_.notify_all();
         
-        for (std::thread& worker : workers) {
+        for (std::thread& worker : workers_) {
             worker.join();
         }
     }
@@ -87,20 +87,16 @@ public:
     thread_pool(const thread_pool&) = delete;
     thread_pool& operator=(const thread_pool&) = delete;
 
-    bool
-    is_busy()
-    {
-        return num_working_ > 0;
-    }
-
 private:
-    std::vector<std::thread> workers;
-    std::queue<std::function<void()>> tasks;
+    size_t num_threads_;
+    std::vector<std::thread> workers_;
+    std::queue<std::function<void()>> tasks_;
     
-    std::mutex queueMutex;
-    std::condition_variable condition;
+    std::mutex queue_mutex_;
+    std::condition_variable queued_condition_;
+    std::condition_variable completion_condition_;
     std::atomic<int> num_working_{0};
-    bool stop;
+    bool stop_;
 };
 
 }

@@ -314,7 +314,8 @@ if TYPE_CHECKING or DOC_MODE:
             :param num_parallel_calls:
                 The number of examples to process in parallel.
             :param deterministic:
-                TODO:
+                If ``False``, the output ordering is not guaranteed to match the input ordering.
+                Can yield gains in execution speed when used with ``num_parallel_calls > 1``.
             """
 
         def prefetch(self, num_examples: int) -> Self:
