@@ -20,7 +20,7 @@ namespace fairseq2n::detail {
 class thread_pool {
 public:
     explicit
-    thread_pool(size_t num_threads) : num_threads_(num_threads), stop_(false) {
+    thread_pool(size_t num_threads) : num_threads_(num_threads) {
         workers_.reserve(num_threads_);
 
         for (size_t i = 0; i < num_threads_; ++i) {
@@ -91,7 +91,7 @@ private:
     
     std::mutex queue_mutex_;
     std::condition_variable queued_condition_;
-    bool stop_;
+    bool stop_{false};
 };
 
 }

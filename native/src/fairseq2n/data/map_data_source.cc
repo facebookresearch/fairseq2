@@ -128,7 +128,7 @@ map_data_source::reload_position(tape &t, bool strict)
         async_queue_.clear();
 
         // Fill the queue again from the tape
-        std::size_t size = t.read<std::size_t>();
+        auto size = t.read<std::size_t>();
         for (std::size_t i = 0; i < size; ++i)
             async_queue_.push_back(t.read<std::optional<data>>());
 
@@ -238,7 +238,7 @@ map_data_source::fill_buffer_async()
                 // Add to output queue
                 {
                     std::unique_lock<std::mutex> lock(async_output_mutex_);
-                    async_queue_.push_back(std::move(result));
+                    async_queue_.emplace_back(std::move(result));
                 }
             } catch (const std::exception &) {
                 std::unique_lock<std::mutex> lock(async_output_mutex_);
