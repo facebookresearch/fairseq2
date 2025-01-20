@@ -13,7 +13,6 @@
 #include <condition_variable>
 #include <functional>
 #include <memory>
-//#include <stdexcept>
 
 namespace fairseq2n::detail {
 
@@ -36,14 +35,11 @@ public:
                         if (stop_ && tasks_.empty()) {
                             return;
                         }
-                        
-                        num_working_++;
+
                         task = std::move(tasks_.front());
                         tasks_.pop();
                     }
                     task();
-                    num_working_--;
-                    completion_condition_.notify_all();
                 }
             });
         }
@@ -94,8 +90,6 @@ private:
     
     std::mutex queue_mutex_;
     std::condition_variable queued_condition_;
-    std::condition_variable completion_condition_;
-    std::atomic<int> num_working_{0};
     bool stop_;
 };
 
