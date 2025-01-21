@@ -299,7 +299,7 @@ The first step is to use the fairseq2 command-line (:ref:`basics-cli`) tool to g
 
 .. note::
 
-    Architecture ``--model`` must exist and be defined in `e.g.` :meth:`fairseq2.models.llama.archs.register_archs`.
+    Architecture ``--model`` must exist and be defined in `e.g.` :meth:`fairseq2.models.llama._config.register_llama_configs`.
 
 
 **Step 2: Deploy with VLLM**
