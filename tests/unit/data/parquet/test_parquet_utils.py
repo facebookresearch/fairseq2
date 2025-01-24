@@ -23,8 +23,6 @@ from pyarrow.dataset import Fragment
 
 from fairseq2.data.parquet.utils import (
     _fix_list_offset,
-    _TableWrapper,
-    _to_real_object,
     add_partitioning_values,
     compute_length_splits,
     compute_rows_length,
@@ -37,7 +35,6 @@ from fairseq2.data.parquet.utils import (
     pyarrow_table_to_torch_dict,
     pyarrow_to_torch_tensor,
     split_fragment_in_row_groups,
-    table_func_wrap,
     torch_random_seed,
 )
 
@@ -780,142 +777,3 @@ class TestComputeRowsLength(unittest.TestCase):
         arr = pa.array([], type=pa.list_(pa.int64()))
         lengths = compute_rows_length(arr)
         assert len(lengths) == 0
-
-
-class TestTableWrapper:
-    def test_table_wrapper_basic(self) -> None:
-        """Test that _TableWrapper correctly wraps and returns a pa.Table."""
-        data = pa.table({"col1": [1, 2, 3]})
-        wrapper = _TableWrapper(data)
-        assert wrapper.table.equals(
-            data
-        ), "Wrapped table should match the original pa.Table"
-
-
-class TestToRealObject:
-    def test__to_real_object_with_table_wrapper(self) -> None:
-        """Test that _to_real_object unwraps a _TableWrapper to its pa.Table."""
-        data = pa.table({"col1": [1, 2, 3]})
-        wrapper = _TableWrapper(data)
-        unwrapped = _to_real_object(wrapper)
-        assert isinstance(unwrapped, pa.Table), "Should unwrap to pa.Table"
-        assert unwrapped.equals(data), "Unwrapped table should match the original"
-
-    def test__to_real_object_with_nested_list(self) -> None:
-        """
-        Test that _to_real_object can handle lists of objects, including
-        nested _TableWrapper instances.
-        """
-        data1 = pa.table({"col1": [1]})
-        data2 = pa.table({"col2": [10, 20]})
-        wrapper1 = _TableWrapper(data1)
-        wrapper2 = _TableWrapper(data2)
-
-        nested_list = [wrapper1, [wrapper2, 42], "not wrapped"]
-        unwrapped = _to_real_object(nested_list)  # type: ignore
-
-        # unwrapped should mirror nested_list structure, but with pa.Table objects instead of wrappers
-        assert isinstance(unwrapped, list)
-        assert isinstance(unwrapped[0], pa.Table)
-        assert unwrapped[0].equals(data1)
-
-        assert isinstance(unwrapped[1], list)
-        assert isinstance(unwrapped[1][0], pa.Table)
-        assert unwrapped[1][0].equals(data2)
-        assert unwrapped[1][1] == 42
-
-        assert unwrapped[2] == "not wrapped"
-
-    def test__to_real_object_with_tuple(self) -> None:
-        """
-        Test that _to_real_object can handle tuples of objects, including
-        nested _TableWrapper instances.
-        """
-        data1 = pa.table({"col1": [1, 2]})
-        wrapper1 = _TableWrapper(data1)
-        nested_tuple = (42, wrapper1)
-        unwrapped = _to_real_object(nested_tuple)  # type: ignore
-
-        assert isinstance(unwrapped, tuple)
-        assert unwrapped[0] == 42
-        assert isinstance(unwrapped[1], pa.Table)
-        assert unwrapped[1].equals(data1)
-
-    def test__to_real_object_with_dict(self) -> None:
-        """
-        Test that _to_real_object with a dictionary (NestedDict) simply returns the dictionary
-        unchanged (since there's no specific recursion for dict in the snippet).
-        If you do have custom handling for nested dict, adapt the test accordingly.
-        """
-        some_dict = {"a": 1, "b": 2}
-        unwrapped = _to_real_object(some_dict)  # type: ignore
-        assert unwrapped is some_dict, "Dictionaries should be returned as is"
-
-
-class TestTableFuncWrap:
-    def test_table_func_wrap_no_wrap_return(self) -> None:
-        """
-        Test that a function wrapped by table_func_wrap returns the result as is
-        if it's NOT a pa.Table or pd.DataFrame.
-        """
-
-        @table_func_wrap
-        def add_numbers(x: int, y: int) -> int:
-            return x + y
-
-        result = add_numbers(2, 3)
-        assert result == 5, "Result should be the sum of two integers"
-        assert not isinstance(
-            result, _TableWrapper
-        ), "Non-table return should NOT be wrapped"
-
-    def test_table_func_wrap_wrap_return_pa_table(self) -> None:
-        """
-        Test that a function returning a pa.Table gets wrapped by _TableWrapper.
-        """
-        table_data = pa.table({"col1": [1, 2], "col2": [10, 20]})
-
-        @table_func_wrap
-        def return_table() -> pa.Table:
-            return table_data
-
-        result = return_table()
-        assert isinstance(result, _TableWrapper), "Should return a wrapped table"
-        assert result.table.equals(table_data)
-
-    def test_table_func_wrap_wrap_return_pd_dataframe(self) -> None:
-        """
-        Test that a function returning a pd.DataFrame gets wrapped by _TableWrapper.
-        """
-        df_data = pd.DataFrame({"col1": [1, 2], "col2": [10, 20]})
-
-        @table_func_wrap
-        def return_df() -> pd.DataFrame:
-            return df_data
-
-        result = return_df()
-        assert isinstance(result, _TableWrapper), "Should return a wrapped dataframe"
-
-        # Here we check that the underlying data matches the original DataFrame
-        assert isinstance(
-            result.table, pd.DataFrame
-        ), "Wrapped object should still be a DataFrame"
-        pd.testing.assert_frame_equal(result.table, df_data)
-
-    def test_table_func_wrap_args_unwrapped(self) -> None:
-        """
-        Test that the arguments to the wrapped function are unwrapped properly
-        (if they are _TableWrapper or nested).
-        """
-        table_data = pa.table({"col": [1, 2, 3]})
-
-        @table_func_wrap
-        def process_table(t: pa.Table) -> int:
-            # Inside the function, we expect 't' to be a real pa.Table, not a _TableWrapper
-            assert isinstance(t, pa.Table), "t should be unwrapped pa.Table"
-            return len(t.columns)
-
-        wrapped_table = _TableWrapper(table_data)
-        result = process_table(wrapped_table)
-        # The result should be an integer => the number of columns
-        assert result == 1, "Number of columns in table_data is 1"

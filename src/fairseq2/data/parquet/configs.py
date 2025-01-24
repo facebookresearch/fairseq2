@@ -136,7 +136,7 @@ class ParquetDatasetConfig:
     """If ``True``, uses Parquet row groups instead of simple partitions which
     are generally smaller. Highly recommended for non-partitioned parquet files."""
 
-    nb_parallel_fragments: Optional[int] = 5
+    nb_parallel_fragments: Optional[int] = None
     """
     This parameter can be dataset specific:
     For dataset with large number of sentences per document (sample),

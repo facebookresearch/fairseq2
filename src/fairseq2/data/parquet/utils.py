@@ -422,6 +422,7 @@ def compute_rows_length(
     length_col = length_col.copy()
     length_col[np.isnan(length_col)] = 0
     return np.asarray(length_col, dtype=np.int32)
+<<<<<<< HEAD
 
 
 class _TableWrapper:
@@ -454,3 +455,5 @@ def table_func_wrap(func: Callable[..., Any]) -> Callable[..., Any]:
         return result
 
     return inner
+=======
+>>>>>>> 395d7061 (cleanup)

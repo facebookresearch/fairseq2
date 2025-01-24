@@ -281,9 +281,9 @@ def filter_strings_by_length(
     # and take the 'list.min()' and 'list.max()' as needed.
     filter_series = df_pl.with_columns(
         (
-            (pl.col(column).list.eval(pl.col("").str.len_bytes()).list.min() >= min_len)
+            (pl.col(column).list.eval(pl.col("").str.len_chars()).list.min() >= min_len)
             & (
-                pl.col(column).list.eval(pl.col("").str.len_bytes()).list.max()
+                pl.col(column).list.eval(pl.col("").str.len_chars()).list.max()
                 <= max_len
             )
         ).alias("mask")
