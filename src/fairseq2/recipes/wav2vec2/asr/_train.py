@@ -25,6 +25,7 @@ from fairseq2.models.wav2vec2.asr import Wav2Vec2AsrModel
 from fairseq2.nn.utils.module import freeze_parameters, share_parameters, to_device
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.optim.lr_scheduler import TRI_STAGE_LR, TriStageLRConfig
+from fairseq2.recipes.asr import AsrCriterion, AsrEvalUnit, AsrMetricBag, AsrScorer
 from fairseq2.recipes.common import (
     compile_model,
     create_checkpoint_manager,
@@ -52,12 +53,6 @@ from fairseq2.recipes.config import (
 )
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
 from fairseq2.recipes.utils.log import log_model, log_model_config
-from fairseq2.recipes.wav2vec2.asr._common import (
-    Wav2Vec2AsrCriterion,
-    Wav2Vec2AsrMetricBag,
-    Wav2Vec2AsrScorer,
-)
-from fairseq2.recipes.wav2vec2.asr._eval import Wav2Vec2AsrEvalUnit
 from fairseq2.typing import CPU
 from fairseq2.utils.config import process_config
 from fairseq2.utils.rng import manual_seed
@@ -280,7 +275,7 @@ def load_wav2vec2_asr_trainer(
     lr_scheduler = create_lr_scheduler(context, config, optimizer)
 
     # Initialize the train unit.
-    criterion = Wav2Vec2AsrCriterion(dp_model)
+    criterion = AsrCriterion(dp_model)
 
     unit = Wav2Vec2AsrTrainUnit(
         criterion, gangs.dp, config.trainer.freeze_encoder_for_n_steps
@@ -312,11 +307,11 @@ def load_wav2vec2_asr_trainer(
 
     # Initialize the validation unit.
     if config.dataset.valid_split is not None:
-        valid_scorer = Wav2Vec2AsrScorer(tokenizer)
+        valid_scorer = AsrScorer(tokenizer)
 
-        valid_criterion = Wav2Vec2AsrCriterion(dp_model, valid_scorer)
+        valid_criterion = AsrCriterion(dp_model, valid_scorer)
 
-        valid_unit = Wav2Vec2AsrEvalUnit(valid_criterion, gangs)
+        valid_unit = AsrEvalUnit(valid_criterion, gangs)
 
         read_options = AsrReadOptions(
             batching=batching,
@@ -364,15 +359,12 @@ def load_wav2vec2_asr_trainer(
 
 @final
 class Wav2Vec2AsrTrainUnit(AbstractTrainUnit[Seq2SeqBatch]):
-    _criterion: Wav2Vec2AsrCriterion
+    _criterion: AsrCriterion
     _freeze_encoder_for_n_steps: int
-    _metric_bag: Wav2Vec2AsrMetricBag
+    _metric_bag: AsrMetricBag
 
     def __init__(
-        self,
-        criterion: Wav2Vec2AsrCriterion,
-        gang: Gang,
-        freeze_encoder_for_n_steps: int,
+        self, criterion: AsrCriterion, gang: Gang, freeze_encoder_for_n_steps: int
     ) -> None:
         """
         :param freeze_encoder_for_n_steps: The encoder will be frozen for this
@@ -384,7 +376,7 @@ class Wav2Vec2AsrTrainUnit(AbstractTrainUnit[Seq2SeqBatch]):
 
         self._freeze_encoder_for_n_steps = freeze_encoder_for_n_steps
 
-        self._metric_bag = Wav2Vec2AsrMetricBag(gang)
+        self._metric_bag = AsrMetricBag(gang)
 
     @override
     def __call__(self, batch: Seq2SeqBatch) -> tuple[Tensor, int]:
@@ -417,5 +409,5 @@ class Wav2Vec2AsrTrainUnit(AbstractTrainUnit[Seq2SeqBatch]):
 
     @property
     @override
-    def metric_bag(self) -> Wav2Vec2AsrMetricBag:
+    def metric_bag(self) -> AsrMetricBag:
         return self._metric_bag

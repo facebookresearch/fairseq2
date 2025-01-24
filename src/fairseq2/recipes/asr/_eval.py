@@ -19,9 +19,10 @@ from fairseq2.datasets.asr import GENERIC_ASR_DATASET_FAMILY, AsrDataset, AsrRea
 from fairseq2.error import SetupError
 from fairseq2.gang import Gangs
 from fairseq2.logging import log
+from fairseq2.models.asr import AsrModel
 from fairseq2.models.seq2seq import Seq2SeqBatch
-from fairseq2.models.wav2vec2.asr import Wav2Vec2AsrModel
 from fairseq2.nn.utils.module import remove_parametrizations
+from fairseq2.recipes.asr._common import AsrCriterion, AsrMetricBag, AsrScorer
 from fairseq2.recipes.common import (
     broadcast_model,
     compile_eval_model,
@@ -35,11 +36,6 @@ from fairseq2.recipes.common import (
 from fairseq2.recipes.config import DatasetSection, EvalRecipeConfig, EvaluatorSection
 from fairseq2.recipes.evaluator import AbstractEvalUnit, Evaluator
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.wav2vec2.asr._common import (
-    Wav2Vec2AsrCriterion,
-    Wav2Vec2AsrMetricBag,
-    Wav2Vec2AsrScorer,
-)
 from fairseq2.typing import CPU
 from fairseq2.utils.config import process_config
 from fairseq2.utils.file import FileMode
@@ -47,13 +43,13 @@ from fairseq2.utils.rng import manual_seed
 
 
 @dataclass(kw_only=True)
-class Wav2Vec2AsrEvalConfig(EvalRecipeConfig):
-    """Holds the configuration of a wav2vec 2.0 ASR model evaluation task."""
+class AsrEvalConfig(EvalRecipeConfig):
+    """Holds the configuration of an ASR model evaluation task."""
 
     model: str = "wav2vec2_asr_base_10h"
 
-    dataset: Wav2Vec2AsrEvalDatasetSection = field(
-        default_factory=lambda: Wav2Vec2AsrEvalDatasetSection()
+    dataset: AsrEvalDatasetSection = field(
+        default_factory=lambda: AsrEvalDatasetSection()
     )
 
     evaluator: EvaluatorSection = field(
@@ -62,7 +58,7 @@ class Wav2Vec2AsrEvalConfig(EvalRecipeConfig):
 
 
 @dataclass(kw_only=True)
-class Wav2Vec2AsrEvalDatasetSection(DatasetSection):
+class AsrEvalDatasetSection(DatasetSection):
     name: str | None = "librilight_asr_10h"
 
     family: str = GENERIC_ASR_DATASET_FAMILY
@@ -87,19 +83,19 @@ class Wav2Vec2AsrEvalDatasetSection(DatasetSection):
     """The number of batches to prefetch in background."""
 
 
-def register_wav2vec2_asr_eval_configs(context: RuntimeContext) -> None:
-    registry = context.get_config_registry(Wav2Vec2AsrEvalConfig)
+def register_asr_eval_configs(context: RuntimeContext) -> None:
+    registry = context.get_config_registry(AsrEvalConfig)
 
     preset = registry.decorator
 
-    @preset("base_10h")
-    def base_10h() -> Wav2Vec2AsrEvalConfig:
-        return Wav2Vec2AsrEvalConfig()
+    @preset("wav2vec2_base_10h")
+    def base_10h() -> AsrEvalConfig:
+        return AsrEvalConfig()
 
 
 @torch.inference_mode()
-def load_wav2vec2_asr_evaluator(
-    context: RuntimeContext, config: Wav2Vec2AsrEvalConfig, output_dir: Path
+def load_asr_evaluator(
+    context: RuntimeContext, config: AsrEvalConfig, output_dir: Path
 ) -> Evaluator[Seq2SeqBatch]:
     register_extra_asset_paths(context, config.assets)
 
@@ -118,7 +114,7 @@ def load_wav2vec2_asr_evaluator(
     seed += 1
 
     model = load_eval_model(
-        Wav2Vec2AsrModel,
+        AsrModel,
         context,
         config.model,
         gangs,
@@ -168,13 +164,11 @@ def load_wav2vec2_asr_evaluator(
         ref_fp = None
         hyp_fp = None
 
-    scorer = Wav2Vec2AsrScorer(
-        tokenizer, ref_output_stream=ref_fp, hyp_output_stream=hyp_fp
-    )
+    scorer = AsrScorer(tokenizer, ref_output_stream=ref_fp, hyp_output_stream=hyp_fp)
 
-    criterion = Wav2Vec2AsrCriterion(model, scorer)
+    criterion = AsrCriterion(model, scorer)
 
-    unit = Wav2Vec2AsrEvalUnit(criterion, gangs)
+    unit = AsrEvalUnit(criterion, gangs)
 
     batching = LengthBatching(config.dataset.max_num_elements)
 
@@ -204,16 +198,16 @@ def load_wav2vec2_asr_evaluator(
 
 
 @final
-class Wav2Vec2AsrEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
-    _criterion: Wav2Vec2AsrCriterion
-    _metric_bag: Wav2Vec2AsrMetricBag
+class AsrEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
+    _criterion: AsrCriterion
+    _metric_bag: AsrMetricBag
 
-    def __init__(self, criterion: Wav2Vec2AsrCriterion, gangs: Gangs) -> None:
+    def __init__(self, criterion: AsrCriterion, gangs: Gangs) -> None:
         super().__init__(criterion.model)
 
         self._criterion = criterion
 
-        self._metric_bag = Wav2Vec2AsrMetricBag(gangs.dp, train=False)
+        self._metric_bag = AsrMetricBag(gangs.dp, train=False)
 
     @override
     def __call__(self, batch: Seq2SeqBatch) -> None:
@@ -221,5 +215,5 @@ class Wav2Vec2AsrEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
 
     @property
     @override
-    def metric_bag(self) -> Wav2Vec2AsrMetricBag:
+    def metric_bag(self) -> AsrMetricBag:
         return self._metric_bag

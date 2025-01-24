@@ -18,27 +18,27 @@ from fairseq2.data.text.tokenizers import TextTokenDecoder, TextTokenizer
 from fairseq2.gang import Gang
 from fairseq2.metrics import Mean
 from fairseq2.metrics.text import WerMetric
+from fairseq2.models.asr import AsrModel, AsrModelOutput
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
-from fairseq2.models.wav2vec2.asr import Wav2Vec2AsrModel, Wav2Vec2AsrOutput
 from fairseq2.recipes.common import check_model_type
 from fairseq2.recipes.metrics import BaseMetricBag
 
 
 @final
-class Wav2Vec2AsrCriterion:
+class AsrCriterion:
     _model: Module
-    _scorer: Wav2Vec2AsrScorer | None
+    _scorer: AsrScorer | None
 
-    def __init__(self, model: Module, scorer: Wav2Vec2AsrScorer | None = None) -> None:
-        check_model_type(model, Wav2Vec2AsrModel)
+    def __init__(self, model: Module, scorer: AsrScorer | None = None) -> None:
+        check_model_type(model, AsrModel)
 
         self._model = model
 
         self._scorer = scorer
 
     def __call__(
-        self, batch: Seq2SeqBatch, metric_bag: Wav2Vec2AsrMetricBag
+        self, batch: Seq2SeqBatch, metric_bag: AsrMetricBag
     ) -> tuple[Tensor, int]:
         input_batch = SequenceBatch(batch.source_seqs, batch.source_padding_mask)
 
@@ -55,7 +55,7 @@ class Wav2Vec2AsrCriterion:
 
         return loss, batch.batch_size
 
-    def _forward(self, batch: SequenceBatch) -> Wav2Vec2AsrOutput:
+    def _forward(self, batch: SequenceBatch) -> AsrModelOutput:
         return self._model(batch)  # type: ignore[no-any-return]
 
     @property
@@ -64,7 +64,7 @@ class Wav2Vec2AsrCriterion:
 
 
 @final
-class Wav2Vec2AsrScorer:
+class AsrScorer:
     _text_decoder: TextTokenDecoder
     _pad_idx: int
     _blank_label: int
@@ -101,10 +101,7 @@ class Wav2Vec2AsrScorer:
         self._hyp_output_stream = hyp_output_stream
 
     def __call__(
-        self,
-        batch: Seq2SeqBatch,
-        output: Wav2Vec2AsrOutput,
-        metric_bag: Wav2Vec2AsrMetricBag,
+        self, batch: Seq2SeqBatch, output: AsrModelOutput, metric_bag: AsrMetricBag
     ) -> None:
         # (N, S), (N, S)
         ref_seqs, ref_padding_mask = batch.target_seqs, batch.target_padding_mask
@@ -140,7 +137,7 @@ class Wav2Vec2AsrScorer:
             stream.flush()
 
 
-class Wav2Vec2AsrMetricBag(BaseMetricBag):
+class AsrMetricBag(BaseMetricBag):
     ctc_loss: Mean
     wer: WerMetric
 

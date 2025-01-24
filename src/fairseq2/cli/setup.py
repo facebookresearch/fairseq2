@@ -15,6 +15,7 @@ from fairseq2.cli.commands.llama import (
 )
 from fairseq2.cli.commands.recipe import RecipeCommandHandler
 from fairseq2.extensions import run_extensions
+from fairseq2.recipes.asr import AsrEvalConfig, load_asr_evaluator
 from fairseq2.recipes.lm import (
     InstructionFinetuneConfig,
     LMLossEvalConfig,
@@ -40,23 +41,42 @@ from fairseq2.recipes.wav2vec2 import (
     load_wav2vec2_trainer,
 )
 from fairseq2.recipes.wav2vec2.asr import (
-    Wav2Vec2AsrEvalConfig,
     Wav2Vec2AsrTrainConfig,
-    load_wav2vec2_asr_evaluator,
     load_wav2vec2_asr_trainer,
 )
 
 
 def setup_cli(cli: Cli) -> None:
+    _setup_asr_cli(cli)
     _setup_asset_cli(cli)
     _setup_chatbot_cli(cli)
     _setup_llama_cli(cli)
     _setup_lm_cli(cli)
     _setup_mt_cli(cli)
-    _setup_wav2vec2_cli(cli)
     _setup_wav2vec2_asr_cli(cli)
+    _setup_wav2vec2_cli(cli)
 
     run_extensions("fairseq2.cli", cli)
+
+
+def _setup_asr_cli(cli: Cli) -> None:
+    extra_sweep_keys = {"max_audio_len", "min_audio_len", "normalize_audio"}
+
+    group = cli.add_group("asr", help="ASR recipes")
+
+    # Eval
+    eval_handler = RecipeCommandHandler(
+        loader=load_asr_evaluator,
+        config_kls=AsrEvalConfig,
+        default_preset="wav2vec2_base_10h",
+        extra_sweep_keys=extra_sweep_keys,
+    )
+
+    group.add_command(
+        name="eval",
+        handler=eval_handler,
+        help="evaluate an ASR model",
+    )
 
 
 def _setup_asset_cli(cli: Cli) -> None:
@@ -250,20 +270,6 @@ def _setup_wav2vec2_asr_cli(cli: Cli) -> None:
     }
 
     group = cli.add_group("wav2vec2_asr", help="wav2vec 2.0 ASR recipes")
-
-    # Eval
-    eval_handler = RecipeCommandHandler(
-        loader=load_wav2vec2_asr_evaluator,
-        config_kls=Wav2Vec2AsrEvalConfig,
-        default_preset="base_10h",
-        extra_sweep_keys=extra_sweep_keys,
-    )
-
-    group.add_command(
-        name="eval",
-        handler=eval_handler,
-        help="evaluate a wav2vec 2.0 ASR model",
-    )
 
     # Train
     train_handler = RecipeCommandHandler(
