@@ -127,29 +127,6 @@ class SafeFragment:
         return fragment_table
 
 
-def parquet_fragments_to_pipeline_builder(
-    file_ds_fragments: List[pa.dataset.Fragment],
-    nb_epochs: int = 1,
-    shuffle: bool = True,
-    seed: Optional[int] = None,
-) -> DataPipelineBuilder:
-    if shuffle:
-        if seed is None:
-            seed = int(torch.randint(0, 2**31, ()).item())
-
-        rsg = np.random.RandomState(seed)
-        ds_fragments_ = np.asarray(file_ds_fragments, dtype="O")
-        ds_fragments = np.concatenate(
-            [rsg.permutation(ds_fragments_) for _ in range(nb_epochs)]
-        ).tolist()
-    else:
-        ds_fragments = file_ds_fragments * nb_epochs
-
-    pipeline_builder = read_sequence(ds_fragments)
-    pipeline_builder = pipeline_builder.map(SafeFragment)
-    return pipeline_builder
-
-
 def list_parquet_fragments(
     parquet_path: str,
     filters: Optional[pa.dataset.Expression] = None,

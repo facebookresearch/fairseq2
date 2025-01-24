@@ -17,7 +17,6 @@ from fairseq2.data.parquet.pipeline import (
     SafeFragment,
     build_iterator_over_one_table,
     list_parquet_fragments,
-    parquet_fragments_to_pipeline_builder,
     parquet_iterator,
 )
 
@@ -156,118 +155,6 @@ class TestSafeFragmentPartitioned:
         # Verify fragment index
         fragment_indices = set(combined.column("__fragment_index").to_pylist())
         assert len(fragment_indices) == 1
-
-
-class TestParquetFragmentsPipeline:
-    def test_pipeline_without_shuffle(self, test_fragments):
-        """Test pipeline creation without shuffling."""
-        pipeline_builder = parquet_fragments_to_pipeline_builder(
-            test_fragments, nb_epochs=2, shuffle=False
-        )
-
-        pipeline = pipeline_builder.and_return()
-
-        # First epoch
-        fragments = list(pipeline)
-        assert len(fragments) == 6
-
-        # Verify fragment order for first epoch
-        tables = [fragment.load() for fragment in fragments]
-        first_values = [table["col1"][0].as_py() for table in tables]
-        assert first_values == [0, 10, 20, 0, 10, 20]
-
-        # Reset and check second epoch
-        pipeline.reset()
-        fragments_second = list(pipeline)
-        tables_second = [fragment.load() for fragment in fragments_second]
-        first_values_second = [table["col1"][0].as_py() for table in tables_second]
-        assert first_values_second == [
-            0,
-            10,
-            20,
-            0,
-            10,
-            20,
-        ]  # Same order in second epoch
-
-    def test_pipeline_with_shuffle(self, test_fragments):
-        """Test pipeline creation with shuffling and seed."""
-        # First pipeline with seed=42
-        pipeline_builder1 = parquet_fragments_to_pipeline_builder(
-            test_fragments, nb_epochs=2, shuffle=True, seed=42
-        )
-        pipeline1 = pipeline_builder1.and_return()
-
-        # Second pipeline with same seed
-        pipeline_builder2 = parquet_fragments_to_pipeline_builder(
-            test_fragments, nb_epochs=2, shuffle=True, seed=42
-        )
-        pipeline2 = pipeline_builder2.and_return()
-
-        # Third pipeline with shuffle=False
-        pipeline_builder3 = parquet_fragments_to_pipeline_builder(
-            test_fragments, nb_epochs=2, shuffle=False
-        )
-        pipeline3 = pipeline_builder3.and_return()
-
-        # Get results from first epoch of each pipeline
-        fragments1 = list(pipeline1)
-        fragments2 = list(pipeline2)
-        fragments3 = list(pipeline3)
-
-        # Convert to tables for easier comparison
-        tables1 = [fragment.load() for fragment in fragments1]
-        tables2 = [fragment.load() for fragment in fragments2]
-        tables3 = [fragment.load() for fragment in fragments3]
-
-        # Check that pipelines with same seed give same order
-        first_values1 = [table["col1"][0].as_py() for table in tables1]
-        first_values2 = [table["col1"][0].as_py() for table in tables2]
-        first_values3 = [table["col1"][0].as_py() for table in tables3]
-
-        assert first_values1 == first_values2  # Same seed should give same order
-        assert (
-            first_values1 != first_values3
-        )  # Shuffle vs no shuffle should give different order
-
-        # Check second epoch
-        pipeline1.reset()
-        pipeline2.reset()
-
-        fragments1_second = list(pipeline1)
-        fragments2_second = list(pipeline2)
-
-        tables1_second = [fragment.load() for fragment in fragments1_second]
-        tables2_second = [fragment.load() for fragment in fragments2_second]
-
-        first_values1_second = [table["col1"][0].as_py() for table in tables1_second]
-        first_values2_second = [table["col1"][0].as_py() for table in tables2_second]
-
-        assert (
-            first_values1_second == first_values2_second
-        )  # Same seed should still match
-        assert (
-            first_values1 == first_values1_second
-        )  # Different epoch have the same order
-
-    def test_pipeline_multiple_epochs(self, test_fragments):
-        """Test pipeline with multiple epochs."""
-        pipeline_builder = parquet_fragments_to_pipeline_builder(
-            test_fragments, nb_epochs=3, shuffle=False
-        )
-        pipeline = pipeline_builder.and_return()
-
-        # Count total fragments processed
-        all_fragments = list(pipeline)
-        assert len(all_fragments) == 9  # 3 fragments * 3 epochs
-
-        # Verify the order repeats every 3 fragments
-        tables = [fragment.load() for fragment in all_fragments]
-        first_values = [table["col1"][0].as_py() for table in tables]
-
-        assert first_values[:3] == [0, 10, 20]
-        assert first_values[3:6] == [0, 10, 20]
-        assert first_values[6:9] == [0, 10, 20]
 
 
 class TestListParquetFragments:
