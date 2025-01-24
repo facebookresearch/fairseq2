@@ -11,13 +11,12 @@ from fairseq2.models.llama.integ import convert_to_huggingface_config
 
 
 def test_intermediate_size_is_correct() -> None:
-    # "intermediate_size" is an expected parameter in the HF Llama config
-    # and is computed dynamically from other parameters in Fairseq2
-    # We only check it for one arch
-    arch = "llama3_2_1b"
+    model_hub = get_llama_model_hub()
 
-    model_config = get_llama_model_hub().load_config(arch)
+    model_config = model_hub.load_config("llama3_2_1b")
 
-    config_json = convert_to_huggingface_config(arch, model_config)
+    hg_config = convert_to_huggingface_config(model_config)
 
-    assert config_json["intermediate_size"] == 8192
+    # `intermediate_size` is a required parameter in the Hugging Face LLaMA
+    # configuration that is computed dynamically in fairseq2.
+    assert hg_config["intermediate_size"] == 8192
