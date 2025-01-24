@@ -13,7 +13,6 @@ from fairseq2.optim._adamw import AdamWHandler as AdamWHandler
 from fairseq2.optim._dynamic_loss_scaler import DynamicLossScaler as DynamicLossScaler
 from fairseq2.optim._dynamic_loss_scaler import LossScaleResult as LossScaleResult
 from fairseq2.optim._handler import OptimizerHandler as OptimizerHandler
-from fairseq2.optim._handler import OptimizerNotFoundError as OptimizerNotFoundError
+from fairseq2.optim._handler import UnknownOptimizerError as UnknownOptimizerError
 from fairseq2.optim._optimizer import AbstractOptimizer as AbstractOptimizer
 from fairseq2.optim._optimizer import ParameterCollection as ParameterCollection
-from fairseq2.optim._static import create_optimizer as create_optimizer

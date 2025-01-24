@@ -16,9 +16,9 @@ from typing_extensions import override
 
 from fairseq2.assets import AssetCard, AssetCardNotFoundError, AssetStore
 from fairseq2.cli import CliCommandHandler
-from fairseq2.cli.utils.rich import get_console
 from fairseq2.context import RuntimeContext
 from fairseq2.logging import log
+from fairseq2.recipes.utils.rich import get_console
 
 
 @final

@@ -12,4 +12,3 @@ from fairseq2.chatbots._chatbot import ChatDialog as ChatDialog
 from fairseq2.chatbots._chatbot import ChatMessage as ChatMessage
 from fairseq2.chatbots._handler import ChatbotHandler as ChatbotHandler
 from fairseq2.chatbots._handler import ChatbotNotFoundError as ChatbotNotFoundError
-from fairseq2.chatbots._static import create_chatbot as create_chatbot

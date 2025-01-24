@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from pathlib import Path
 from time import perf_counter
 from typing import Any, final
@@ -17,18 +18,52 @@ from torch.profiler import (
     schedule,
     tensorboard_trace_handler,
 )
-from typing_extensions import Self
+from typing_extensions import Self, override
 
 from fairseq2.error import InvalidOperationError
 from fairseq2.gang import Gang
 from fairseq2.typing import Device
 
 
+class Profiler(ABC):
+    @abstractmethod
+    def start(self) -> None:
+        ...
+
+    @abstractmethod
+    def stop(self) -> None:
+        ...
+
+    @abstractmethod
+    def step(self) -> None:
+        """Move to the next profiling step."""
+
+    @abstractmethod
+    def __enter__(self) -> Self:
+        ...
+
+    @abstractmethod
+    def __exit__(self, *exc: Any) -> None:
+        ...
+
+
+class AbstractProfiler(Profiler):
+    @override
+    def __enter__(self) -> Self:
+        self.start()
+
+        return self
+
+    @override
+    def __exit__(self, *exc: Any) -> None:
+        self.stop()
+
+
 @final
-class Profiler:
+class TorchProfiler(AbstractProfiler):
     """Represents a convenience wrapper for :class:`profile`."""
 
-    _profile: profile | None
+    _profile: profile
 
     def __init__(
         self,
@@ -36,28 +71,17 @@ class Profiler:
         active: int,
         log_dir: Path,
         gang: Gang,
-        enabled: bool = False,
     ) -> None:
         """
-        :param skip_first:
-            The number of steps to skip at the beginning. The last skipped step
-            will be treated as the warm-up step.
-        :param active:
-            The number of steps with active recording.
-        :param log_dir:
-            The TensorBoard log directory under which to store the trace files.
-        :param gang:
-            The associated gang.
-        :param enabled:
-            If ``False``, skips recording and becomes a no-op.
+        :param skip_first: The number of steps to skip at the beginning of the
+            job. The last skipped step will be treated as the warm-up step.
+        :param active: The number of steps with active recording.
+        :param log_dir: The TensorBoard log directory under which to store the
+            trace files.
+        :param gang: The associated gang.
         """
         if skip_first <= 0:
             raise ValueError("`skip_first` must be greater than zero.")
-
-        if not enabled:
-            self._profile = None
-
-            return
 
         activities = [ProfilerActivity.CPU, ProfilerActivity.CUDA]
 
@@ -77,33 +101,39 @@ class Profiler:
             with_stack=True,
         )
 
+    @override
     def start(self) -> None:
-        """Start profiling."""
         if self._profile is not None:
             self._profile.start()
 
+    @override
     def stop(self) -> None:
-        """Stop profiling."""
         if self._profile is not None:
             self._profile.stop()
 
+    @override
     def step(self) -> None:
-        """Move to the next profiling step."""
         if self._profile is not None:
             self._profile.step()
 
-    def __enter__(self) -> Self:
-        self.start()
-
-        return self
-
-    def __exit__(self, *exc: Any) -> None:
-        self.stop()
-
     @property
-    def wrapped_profile(self) -> profile | None:
-        """The wrapped :class:`profile` instance."""
+    def wrapped_profile(self) -> profile:
         return self._profile
+
+
+@final
+class NoopProfiler(AbstractProfiler):
+    @override
+    def start(self) -> None:
+        pass
+
+    @override
+    def stop(self) -> None:
+        pass
+
+    @override
+    def step(self) -> None:
+        pass
 
 
 @final
@@ -115,12 +145,11 @@ class Stopwatch:
 
     def __init__(self, *, start: bool = False, device: Device | None = None) -> None:
         """
-        :param start:
-            If ``True``, starts the stopwatch immediately.
-        :param device:
-            If not ``None``, waits for all operations on ``device`` to complete
-            before measuring the elapsed time. Note that this can have a
-            negative impact on the runtime performance if not used carefully.
+        :param start: If ``True``, starts the stopwatch immediately.
+        :param device: If not ``None``, waits for all operations on ``device``
+            to complete before measuring the elapsed time. Note that this can
+            have a negative impact on the runtime performance if not used
+            carefully.
         """
         self._start_time = None
 

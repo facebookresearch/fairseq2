@@ -17,16 +17,17 @@ from rich.pretty import pretty_repr
 from torch.nn import Module
 
 import fairseq2
+from fairseq2.gang import Gangs
 from fairseq2.logging import LogWriter
 from fairseq2.nn.utils.module import get_module_size
 from fairseq2.typing import Device
 
 
-def log_config(config: object, log: LogWriter) -> None:
+def log_config(log: LogWriter, config: object) -> None:
     log.info("Config:\n{}", pretty_repr(config, max_width=88))
 
 
-def log_model_config(config: object, log: LogWriter) -> None:
+def log_model_config(log: LogWriter, config: object) -> None:
     log.info("Model Config:\n{}", pretty_repr(config, max_width=88))
 
 
@@ -200,20 +201,15 @@ def log_environment_variables(log: LogWriter) -> None:
         if k.startswith("BASH_FUNC") or k in skip_list:
             continue
 
-        kv.append(f"{k}: {v}")
+        kv.append(f"{k}={v}")
 
     log.info("Environment Variables - {}", ", ".join(kv))
 
 
-def log_model(model: Module, log: LogWriter, *, rank: int | None = None) -> None:
+def log_model(log: LogWriter, model: Module, gangs: Gangs) -> None:
     """Log information about ``model``."""
     if not log.is_enabled_for_info():
         return
-
-    if rank is None:
-        r = ""
-    else:
-        r = f" (rank {rank})"
 
     si = get_module_size(model)
 
@@ -228,4 +224,4 @@ def log_model(model: Module, log: LogWriter, *, rank: int | None = None) -> None
         f"Total Size (bytes): {si.total_size_bytes:,}"
     )
 
-    log.info("Model{} - {} | Layout:\n{}", r, s, model)
+    log.info("Model (rank {}) - {} | Layout:\n{}", gangs.root.rank, s, model)

@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from fairseq2.checkpoint._manager import CheckpointError as CheckpointError
 from fairseq2.checkpoint._manager import CheckpointManager as CheckpointManager
 from fairseq2.checkpoint._manager import (
     CheckpointNotFoundError as CheckpointNotFoundError,

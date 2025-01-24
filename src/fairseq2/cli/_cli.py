@@ -11,9 +11,9 @@ from argparse import ArgumentParser, Namespace
 
 from rich.console import Console
 
-from fairseq2.cli.utils.rich import set_console
 from fairseq2.context import RuntimeContext
 from fairseq2.error import AlreadyExistsError, InvalidOperationError
+from fairseq2.recipes.utils.rich import set_console
 
 
 class Cli:

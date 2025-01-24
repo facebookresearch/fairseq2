@@ -12,7 +12,11 @@ from typing import Final, final
 from typing_extensions import override
 
 from fairseq2.assets import AssetCard, AssetCardError, AssetCardFieldNotFoundError
-from fairseq2.data.text.tokenizers import AbstractTextTokenizerHandler, TextTokenizer
+from fairseq2.data.text.tokenizers import (
+    AbstractTextTokenizerHandler,
+    TextTokenizer,
+    TextTokenizerLoadError,
+)
 from fairseq2.data.text.tokenizers.sentencepiece import BasicSentencePieceTokenizer
 from fairseq2.data.text.tokenizers.tiktoken import TiktokenEncoder, TiktokenTokenizer
 from fairseq2.typing import Device
@@ -141,12 +145,16 @@ class LLaMATokenizerHandler(AbstractTextTokenizerHandler):
                 return LLaMA3Tokenizer(path, instruct=eos_idx == eot_idx)
             except ValueError as ex:
                 raise AssetCardError(
-                    card.name, f"The '{card.name}' asset card does not have a valid text tokenizer configuration. See the nested exception for details."  # fmt: skip
+                    card.name, f"The value of the `model_config.vocab_info.eos_idx` field of the '{card.name}' asset card does not represent a valid LLaMA tokenizer configuration. See the nested exception for details."  # fmt: skip
+                ) from ex
+            except RuntimeError as ex:
+                raise TextTokenizerLoadError(
+                    card.name, f"The '{card.name}' text tokenizer cannot be loaded. See the nested exception for details."  # fmt: skip
                 ) from ex
         else:
             try:
                 return BasicSentencePieceTokenizer(path)
-            except ValueError as ex:
-                raise AssetCardError(
-                    card.name, f"The '{card.name}' asset card does not have a valid text tokenizer configuration. See the nested exception for details."  # fmt: skip
+            except RuntimeError as ex:
+                raise TextTokenizerLoadError(
+                    card.name, f"The '{card.name}' text tokenizer cannot be loaded. See the nested exception for details."  # fmt: skip
                 ) from ex

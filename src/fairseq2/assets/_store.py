@@ -219,9 +219,6 @@ class EnvironmentResolver(Protocol):
         ...
 
 
-default_asset_store = StandardAssetStore()
-
-
 def get_asset_dir() -> Path | None:
     asset_dir = get_path_from_env("FAIRSEQ2_ASSET_DIR")
     if asset_dir is None:

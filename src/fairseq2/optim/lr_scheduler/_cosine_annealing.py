@@ -235,7 +235,7 @@ class CosineAnnealingLRHandler(LRSchedulerHandler):
             )
 
         if final_lr > lr:
-            log.warning("The final learning rate ({}) is greater than the optimizer learning rate ({}). This means your learning rate will increase over the course of the training.", final_lr, lr)  # fmt: skip
+            log.warning("The final learning rate ({}) is greater than the optimizer learning rate ({}). This means the learning rate will increase over the course of the training.", final_lr, lr)  # fmt: skip
 
         return CosineAnnealingLR(
             optimizer,
@@ -254,5 +254,5 @@ class CosineAnnealingLRHandler(LRSchedulerHandler):
 
     @property
     @override
-    def config_kls(self) -> type:
+    def config_kls(self) -> type[object]:
         return CosineAnnealingLRConfig

@@ -115,7 +115,6 @@ def init_final_projection(proj: Linear) -> None:
         nn.init.zeros_(proj.bias)
 
 
-@final
 @dataclass
 class Wav2Vec2AsrOutput:
     logits: Tensor

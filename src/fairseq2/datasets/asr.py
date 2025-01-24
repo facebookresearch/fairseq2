@@ -32,9 +32,10 @@ from fairseq2.data.text.tokenizers import TextTokenizer
 from fairseq2.datasets import (
     DataPipelineReader,
     DataReader,
+    DataReadError,
     DataReadOptions,
-    DatasetError,
     DatasetHubAccessor,
+    DatasetLoadError,
     LengthBatching,
     SplitNotFoundError,
     StaticBatching,
@@ -128,8 +129,8 @@ class GenericAsrDataset(AsrDataset):
         try:
             splits = {f.stem for f in path.glob("*.tsv")}
         except OSError as ex:
-            raise DatasetError(
-                f"The splits under the '{path}' directory cannot be determined. See the nested exception for details."
+            raise DatasetLoadError(
+                name, f"The splits under the '{path}' directory cannot be determined. See the nested exception for details."  # fmt: skip
             ) from ex
 
         return GenericAsrDataset(name, path, splits)
@@ -293,16 +294,15 @@ class GenericAsrDataset(AsrDataset):
             with manifest_file.open() as fp:
                 line = fp.readline().rstrip()
         except OSError as ex:
-            raise DatasetError(
-                self._name,
-                f"The {manifest_file} manifest file cannot be read. See the nested exception for details.",
+            raise DataReadError(
+                self._name, f"The {manifest_file} manifest file cannot be read. See the nested exception for details."  # fmt: skip
             ) from ex
 
         try:
             return Path(line)
         except ValueError:
-            raise DatasetError(
-                f"The first line of the '{manifest_file}' manifest file must point to a data directory."
+            raise DataReadError(
+                self._name, f"The first line of the '{manifest_file}' manifest file must point to a data directory."  # fmt: skip
             ) from None
 
     def _read_manifest(self, split: str) -> DataPipelineBuilder:

@@ -48,7 +48,7 @@ def convert_to_reference_checkpoint(checkpoint: dict[str, object]) -> dict[str, 
     return convert_model_state_dict(state_dict, key_map)
 
 
-def convert_to_huggingface_config(arch: str, config: LLaMAConfig) -> dict[str, object]:
+def convert_to_huggingface_config(config: LLaMAConfig) -> dict[str, object]:
     """Convert a fairseq2 LLaMA configuration to the HuggingFace format."""
     multiplier = config.ffn_inner_dim_multiplier
 
@@ -68,7 +68,7 @@ def convert_to_huggingface_config(arch: str, config: LLaMAConfig) -> dict[str, o
     else:
         rope_scaling = None
 
-    # We only specify the parameters made explicit in the Huggingface converter.
+    # We only specify the parameters made explicit in the Hugging Face converter.
     # See https://github.com/huggingface/transformers/blob/93aafdc620d39b9ec714ffecf015a085ea221282/src/transformers/models/llama/convert_llama_weights_to_hf.py#L384.
     return {
         "architectures": ["Fairseq2LlamaForCausalLM"],

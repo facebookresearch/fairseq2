@@ -7,32 +7,29 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Mapping, cast, final
+from typing import Final, cast, final
 
 import torch
 import torch.distributed
 from torch import Tensor
 from torch.nn import Module
-from torcheval.metrics import Mean
 from typing_extensions import override
 
-from fairseq2.datasets.preference import PreferenceOptimizationBatch
-from fairseq2.gang import Gang
-from fairseq2.logging import get_log_writer
-from fairseq2.metrics import format_as_float, register_metric_formatter
+from fairseq2.datasets.preference import PreferenceBatch
+from fairseq2.gang import Gang, Gangs
+from fairseq2.metrics import Mean
 from fairseq2.models.sequence import SequenceModelOutput, as_auto_regressive_input
-from fairseq2.recipes.lm._preference_finetune.utils import (
-    PreferenceFinetuneMetricBag,
+from fairseq2.recipes.lm._preference_finetune._common import (
+    POFinetuneMetricBag,
     _gather_lprobs_avg,
-    preference_unit_factory,
 )
-from fairseq2.recipes.trainer import AbstractTrainUnit
-
-log = get_log_writer(__name__)
+from fairseq2.recipes.lm._preference_finetune._handler import POFinetuneUnitHandler
+from fairseq2.recipes.trainer import AbstractTrainUnit, TrainUnit
+from fairseq2.typing import safe_cast
 
 
 @final
-class SimPOFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
+class SimPOFinetuneUnit(AbstractTrainUnit[PreferenceBatch]):
     """Represents the language model SimPO-finetuning unit. Paper: https://arxiv.org/abs/2405.14734."""
 
     _beta: float
@@ -43,7 +40,7 @@ class SimPOFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
     def __init__(
         self,
         model: Module,
-        gang: Gang,
+        gangs: Gangs,
         beta: float = 0.1,
         gamma: float = 0.5,
         nll_scale: float = 1.0,
@@ -54,10 +51,10 @@ class SimPOFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
         self._gamma = gamma
         self._nll_scale = nll_scale
 
-        self._metric_bag = SimPOFinetuneMetricBag(gang)
+        self._metric_bag = SimPOFinetuneMetricBag(gangs.dp)
 
     @override
-    def __call__(self, batch: PreferenceOptimizationBatch) -> tuple[Tensor, int]:
+    def __call__(self, batch: PreferenceBatch) -> tuple[Tensor, int]:
         chosen_batch = batch.chosen
         chosen_input_batch, chosen_target_batch = as_auto_regressive_input(chosen_batch)
         rejected_batch = batch.rejected
@@ -121,10 +118,7 @@ class SimPOFinetuneUnit(AbstractTrainUnit[PreferenceOptimizationBatch]):
         return self._metric_bag
 
 
-register_metric_formatter("simpo_loss", "SimPO Loss", 0, format_as_float)
-
-
-class SimPOFinetuneMetricBag(PreferenceFinetuneMetricBag):
+class SimPOFinetuneMetricBag(POFinetuneMetricBag):
     """Holds the metrics of a SimPO preference finetuning task."""
 
     simpo_loss: Mean
@@ -135,9 +129,7 @@ class SimPOFinetuneMetricBag(PreferenceFinetuneMetricBag):
         self.register_metric("simpo_loss", Mean(device=gang.device), persistent=False)
 
     @torch.inference_mode()
-    def update_simpo_loss(
-        self, batch: PreferenceOptimizationBatch, loss: Tensor
-    ) -> None:
+    def update_simpo_loss(self, batch: PreferenceBatch, loss: Tensor) -> None:
         """Update the SimPO loss metric.
 
         :param batch:
@@ -150,10 +142,11 @@ class SimPOFinetuneMetricBag(PreferenceFinetuneMetricBag):
         )
 
 
-@dataclass(kw_only=True)
-class SimPOConfig:
-    """Holds the SimPO configuration of a language model preference-finetuning task."""
+SIMPO_FINETUNE_UNIT: Final = "simpo"
 
+
+@dataclass(kw_only=True)
+class SimPOFinetuneConfig:
     beta: float = 1
     """The coefficient of KL-divergence regularization."""
 
@@ -164,12 +157,19 @@ class SimPOConfig:
     """The coefficient of NLL loss added to the SimPO loss."""
 
 
-@preference_unit_factory("simpo")
-def create_simpo_unit(
-    config: SimPOConfig, model: Module, root_gang: Gang, gangs: Mapping[str, Gang]
-) -> SimPOFinetuneUnit:
-    dp_gang = gangs["dp"]  # data
+@final
+class SimPOFinetuneUnitHandler(POFinetuneUnitHandler):
+    @override
+    def create(
+        self, model: Module, gangs: Gangs, config: object
+    ) -> TrainUnit[PreferenceBatch]:
+        config = safe_cast("config", config, SimPOFinetuneConfig)
 
-    return SimPOFinetuneUnit(
-        model, dp_gang, config.beta, config.gamma, config.nll_scale
-    )
+        return SimPOFinetuneUnit(
+            model, gangs, config.beta, config.gamma, config.nll_scale
+        )
+
+    @property
+    @override
+    def config_kls(self) -> type[object]:
+        return SimPOFinetuneConfig

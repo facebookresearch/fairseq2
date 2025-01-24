@@ -8,18 +8,29 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import fields, is_dataclass
+from typing import final
 
-from fairseq2.context import get_runtime_context
+from typing_extensions import override
+
+from fairseq2.context import RuntimeContext
 from fairseq2.registry import Provider
 from fairseq2.utils.structured import StructureError
 
 
-class ConfigProcessor:
+class ConfigProcessor(ABC):
+    @abstractmethod
+    def process(self, config: object) -> None:
+        ...
+
+
+@final
+class StandardConfigProcessor(ConfigProcessor):
     _section_handlers: Provider[ConfigSectionHandler]
 
     def __init__(self, section_handlers: Provider[ConfigSectionHandler]) -> None:
         self._section_handlers = section_handlers
 
+    @override
     def process(self, config: object) -> None:
         config_kls = type(config)
 
@@ -50,11 +61,9 @@ class ConfigSectionHandler(ABC):
         ...
 
 
-def process_config(config: object) -> None:
-    context = get_runtime_context()
-
+def process_config(context: RuntimeContext, config: object) -> None:
     config_section_handlers = context.get_registry(ConfigSectionHandler)
 
-    config_processor = ConfigProcessor(config_section_handlers)
+    config_processor = StandardConfigProcessor(config_section_handlers)
 
     config_processor.process(config)

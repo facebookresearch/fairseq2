@@ -125,7 +125,6 @@ class W2VBertModel(Module):
         )
 
 
-@final
 @dataclass
 class W2VBertOutput:
     """Holds the output of a w2v-BERT model."""
@@ -187,7 +186,6 @@ class W2VBertOutput:
         )
 
 
-@final
 @dataclass
 class W2VBertLoss:
     """Holds the loss of a w2v-BERT model."""

@@ -21,8 +21,8 @@ from fairseq2.metrics.text import WerMetric
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2.asr import Wav2Vec2AsrModel, Wav2Vec2AsrOutput
+from fairseq2.recipes.common import check_model_type
 from fairseq2.recipes.metrics import BaseMetricBag
-from fairseq2.recipes.utils.setup import check_model_type
 
 
 @final
@@ -122,7 +122,8 @@ class Wav2Vec2AsrScorer:
         )
 
         # Dump references.
-        if stream := self._ref_output_stream:
+        stream = self._ref_output_stream
+        if stream is not None:
             for ref in refs:
                 stream.write(ref)
                 stream.write("\n")
@@ -130,7 +131,8 @@ class Wav2Vec2AsrScorer:
             stream.flush()
 
         # Dump hypotheses.
-        if stream := self._hyp_output_stream:
+        stream = self._hyp_output_stream
+        if stream is not None:
             for hyp in hyps:
                 stream.write(hyp)
                 stream.write("\n")

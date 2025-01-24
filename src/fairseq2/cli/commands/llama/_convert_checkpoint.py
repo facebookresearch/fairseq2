@@ -18,12 +18,12 @@ from warnings import catch_warnings
 from typing_extensions import override
 
 from fairseq2.cli import CliCommandHandler
-from fairseq2.cli.utils.rich import get_error_console
 from fairseq2.context import RuntimeContext
 from fairseq2.logging import log
 from fairseq2.models.llama import get_llama_model_hub
 from fairseq2.models.llama.integ import convert_to_reference_checkpoint
-from fairseq2.utils.file import dump_torch_tensors, load_torch_tensors
+from fairseq2.recipes.utils.rich import get_error_console
+from fairseq2.utils.file import TorchTensorDumper, TorchTensorLoader
 
 
 @final
@@ -107,11 +107,13 @@ class ConvertLLaMACheckpointHandler(CliCommandHandler):
             for input_file, output_file in zip(input_files, output_files):
                 status.update(f"[bold green]Loading {input_file.name}...")
 
+                tensor_loader = TorchTensorLoader(context.file_system)
+
                 try:
                     with catch_warnings():
                         warnings.simplefilter("ignore")
 
-                        checkpoint = load_torch_tensors(input_file)
+                        checkpoint = tensor_loader.load(input_file)
                 except RuntimeError:
                     log.exception(
                         "Checkpoint file {} cannot be loaded.", input_file.name
@@ -130,8 +132,10 @@ class ConvertLLaMACheckpointHandler(CliCommandHandler):
 
                 ref_state_dict = convert_to_reference_checkpoint(checkpoint)
 
+                tensor_dumper = TorchTensorDumper(context.file_system)
+
                 try:
-                    dump_torch_tensors(ref_state_dict, output_file)
+                    tensor_dumper.dump(ref_state_dict, output_file)
                 except RuntimeError:
                     log.exception("Checkpoint file {} cannot be saved.", output_file.name)  # fmt: skip
 

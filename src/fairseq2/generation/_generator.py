@@ -55,7 +55,6 @@ class SequenceGenerator(ABC):
         """The associated decoder model."""
 
 
-@final
 @dataclass
 class SequenceGeneratorOutput:
     """Holds the output of a sequence generator."""
@@ -67,7 +66,6 @@ class SequenceGeneratorOutput:
     """The performance counters of the call."""
 
 
-@final
 @dataclass
 class Hypothesis:
     """Represents a hypothesis produced by a sequence generator."""
@@ -83,7 +81,6 @@ class Hypothesis:
     """The score of each sequence step. *Shape:* Same as ``seq``."""
 
 
-@final
 @dataclass
 class GenerationCounters:
     """Holds the performance counters of a generator call."""
@@ -192,7 +189,6 @@ class Seq2SeqGenerator(ABC):
         """The associated encoder-decoder model."""
 
 
-@final
 @dataclass
 class Seq2SeqGeneratorOutput:
     hypotheses: list[list[Hypothesis]]

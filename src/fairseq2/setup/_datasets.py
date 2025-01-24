@@ -18,8 +18,8 @@ from fairseq2.datasets.parallel_text import (
     GenericParallelTextDataset,
 )
 from fairseq2.datasets.preference import (
-    GENERIC_PREFERENCE_OPTIMIZATION_DATASET_FAMILY,
-    GenericPreferenceOptimizationDataset,
+    GENERIC_PREFERENCE_DATASET_FAMILY,
+    GenericPreferenceDataset,
 )
 from fairseq2.datasets.speech import GENERIC_SPEECH_DATASET_FAMILY, GenericSpeechDataset
 from fairseq2.datasets.text import GENERIC_TEXT_DATASET_FAMILY, GenericTextDataset
@@ -64,9 +64,9 @@ def _register_datasets(context: RuntimeContext) -> None:
 
     # Preference Optimization
     handler = StandardDatasetHandler(
-        GENERIC_PREFERENCE_OPTIMIZATION_DATASET_FAMILY,
-        GenericPreferenceOptimizationDataset,
-        GenericPreferenceOptimizationDataset.from_path,
+        GENERIC_PREFERENCE_DATASET_FAMILY,
+        GenericPreferenceDataset,
+        GenericPreferenceDataset.from_path,
         asset_download_manager,
     )
 

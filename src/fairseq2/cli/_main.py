@@ -53,6 +53,8 @@ def _run() -> int:
 
     setup_logging()
 
+    torch.set_float32_matmul_precision("high")
+
     context = setup_fairseq2()
 
     cli = Cli(

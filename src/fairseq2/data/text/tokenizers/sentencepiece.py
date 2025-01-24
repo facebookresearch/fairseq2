@@ -22,6 +22,7 @@ from fairseq2.data.text.tokenizers import (
     TextTokenDecoder,
     TextTokenEncoder,
     TextTokenizer,
+    TextTokenizerLoadError,
 )
 from fairseq2.typing import Device
 
@@ -235,7 +236,12 @@ class BasicSentencePieceTokenizer(SentencePieceTokenizer):
 class BasicSentencePieceTokenizerHandler(AbstractTextTokenizerHandler):
     @override
     def _load_tokenizer(self, path: Path, card: AssetCard) -> TextTokenizer:
-        return BasicSentencePieceTokenizer(path)
+        try:
+            return BasicSentencePieceTokenizer(path)
+        except RuntimeError as ex:
+            raise TextTokenizerLoadError(
+                card.name, f"The '{card.name}' text tokenizer cannot be loaded. See the nested exception for details."  # fmt: skip
+            ) from ex
 
 
 @final
@@ -287,7 +293,12 @@ class RawSentencePieceTokenizer(SentencePieceTokenizer):
 class RawSentencePieceTokenizerHandler(AbstractTextTokenizerHandler):
     @override
     def _load_tokenizer(self, path: Path, card: AssetCard) -> TextTokenizer:
-        return RawSentencePieceTokenizer(path)
+        try:
+            return RawSentencePieceTokenizer(path)
+        except RuntimeError as ex:
+            raise TextTokenizerLoadError(
+                card.name, f"The '{card.name}' text tokenizer cannot be loaded. See the nested exception for details."  # fmt: skip
+            ) from ex
 
 
 def vocab_info_from_sentencepiece(model: SentencePieceModel) -> VocabularyInfo:

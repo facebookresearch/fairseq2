@@ -12,8 +12,7 @@ from typing import Protocol, final
 
 from typing_extensions import override
 
-from fairseq2.assets import AssetCard, AssetDownloadManager, AssetError
-from fairseq2.datasets._error import DatasetError
+from fairseq2.assets import AssetCard, AssetDownloadManager
 
 
 class DatasetHandler(ABC):
@@ -32,17 +31,8 @@ class DatasetHandler(ABC):
 
     @property
     @abstractmethod
-    def kls(self) -> type:
+    def kls(self) -> type[object]:
         ...
-
-
-class DatasetNotFoundError(LookupError):
-    name: str
-
-    def __init__(self, name: str) -> None:
-        super().__init__(f"'{name}' is not a known dataset.")
-
-        self.name = name
 
 
 class DatasetLoader(Protocol):
@@ -75,12 +65,7 @@ class StandardDatasetHandler(DatasetHandler):
 
         path = self._asset_download_manager.download_dataset(dataset_uri, card.name)
 
-        try:
-            return self._loader(path, name=card.name)
-        except DatasetError as ex:
-            raise AssetError(
-                card.name, f"The constructor of the '{card.name}' dataset has raised an error. See the nested exception for details."  # fmt: skip
-            ) from ex
+        return self._loader(path, name=card.name)
 
     @override
     def load_from_path(self, path: Path, name: str) -> object:
@@ -93,7 +78,7 @@ class StandardDatasetHandler(DatasetHandler):
 
     @override
     @property
-    def kls(self) -> type:
+    def kls(self) -> type[object]:
         return self._kls
 
 

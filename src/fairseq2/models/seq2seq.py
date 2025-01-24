@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import final
 
 from torch import Tensor
 from torch.nn import Module
@@ -48,7 +47,6 @@ class Seq2SeqModel(Module, ABC):
         """
 
 
-@final
 @dataclass
 class Seq2SeqBatch:
     """Represents a sequence-to-sequence batch."""

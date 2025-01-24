@@ -14,7 +14,7 @@ from typing_extensions import override
 from fairseq2.generation._beam_search._algo import (
     STANDARD_BEAM_SEARCH_ALGO,
     BeamSearchAlgorithmHandler,
-    BeamSearchAlgorithmNotFoundError,
+    UnknownBeamSearchAlgorithmError,
 )
 from fairseq2.generation._beam_search._generator import (
     BeamSearchSeq2SeqGenerator,
@@ -37,7 +37,9 @@ BEAM_SEARCH_GENERATOR: Final = "beam_search"
 
 @dataclass(kw_only=True)
 class BeamSearchConfig:
-    algorithm: AlgorithmSection = field(default_factory=lambda: AlgorithmSection())
+    algorithm: BeamSearchAlgorithmSection = field(
+        default_factory=lambda: BeamSearchAlgorithmSection()
+    )
     """The beam search algorithm."""
 
     beam_size: int = 5
@@ -75,14 +77,14 @@ class BeamSearchConfig:
 
 
 @dataclass(kw_only=True)
-class AlgorithmSection:
+class BeamSearchAlgorithmSection:
     name: str = STANDARD_BEAM_SEARCH_ALGO
 
     config: object = None
 
 
 @final
-class AlgorithmSectionHandler(ConfigSectionHandler):
+class BeamSearchAlgorithmSectionHandler(ConfigSectionHandler):
     _algorithm_handlers: Provider[BeamSearchAlgorithmHandler]
 
     def __init__(
@@ -92,12 +94,12 @@ class AlgorithmSectionHandler(ConfigSectionHandler):
 
     @override
     def process(self, section: object) -> None:
-        section = safe_cast("section", section, AlgorithmSection)
+        section = safe_cast("section", section, BeamSearchAlgorithmSection)
 
         try:
             algorithm_handler = self._algorithm_handlers.get(section.name)
         except LookupError:
-            raise BeamSearchAlgorithmNotFoundError(section.name) from None
+            return
 
         try:
             section.config = structure(section.config, algorithm_handler.config_kls)
@@ -125,7 +127,7 @@ class BeamSearchSequenceGeneratorHandler(SequenceGeneratorHandler):
         try:
             algorithm_handler = self._algorithm_handlers.get(algorithm_section.name)
         except LookupError:
-            raise BeamSearchAlgorithmNotFoundError(algorithm_section.name) from None
+            raise UnknownBeamSearchAlgorithmError(algorithm_section.name) from None
 
         algorithm = algorithm_handler.create(algorithm_section.config)
 
@@ -155,7 +157,7 @@ class BeamSearchSequenceGeneratorHandler(SequenceGeneratorHandler):
 
     @property
     @override
-    def config_kls(self) -> type:
+    def config_kls(self) -> type[object]:
         return BeamSearchConfig
 
 
@@ -177,7 +179,7 @@ class BeamSearchSeq2SeqGeneratorHandler(Seq2SeqGeneratorHandler):
         try:
             algorithm_handler = self._algorithm_handlers.get(algorithm_section.name)
         except LookupError:
-            raise BeamSearchAlgorithmNotFoundError(algorithm_section.name) from None
+            raise UnknownBeamSearchAlgorithmError(algorithm_section.name) from None
 
         algorithm = algorithm_handler.create(algorithm_section.config)
 
@@ -204,5 +206,5 @@ class BeamSearchSeq2SeqGeneratorHandler(Seq2SeqGeneratorHandler):
 
     @property
     @override
-    def config_kls(self) -> type:
+    def config_kls(self) -> type[object]:
         return BeamSearchConfig

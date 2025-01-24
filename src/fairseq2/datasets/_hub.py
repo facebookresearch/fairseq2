@@ -8,13 +8,10 @@ from __future__ import annotations
 
 from typing import Generic, TypeVar, cast, final
 
-from fairseq2.assets import AssetCard, AssetStore
+from fairseq2.assets import AssetCard, AssetCardNotFoundError, AssetStore
 from fairseq2.context import get_runtime_context
-from fairseq2.datasets._handler import (
-    DatasetHandler,
-    DatasetNotFoundError,
-    get_dataset_family,
-)
+from fairseq2.datasets._error import UnknownDatasetError, UnknownDatasetFamilyError
+from fairseq2.datasets._handler import DatasetHandler, get_dataset_family
 from fairseq2.registry import Provider
 
 DatasetT = TypeVar("DatasetT")
@@ -40,14 +37,17 @@ class DatasetHub(Generic[DatasetT]):
         if isinstance(name_or_card, AssetCard):
             card = name_or_card
         else:
-            card = self._asset_store.retrieve_card(name_or_card)
+            try:
+                card = self._asset_store.retrieve_card(name_or_card)
+            except AssetCardNotFoundError:
+                raise UnknownDatasetError(name_or_card) from None
 
         family = get_dataset_family(card)
 
         try:
             handler = self._dataset_handlers.get(family)
         except LookupError:
-            raise DatasetNotFoundError(card.name) from None
+            raise UnknownDatasetFamilyError(family, card.name) from None
 
         if not issubclass(handler.kls, self._kls):
             raise TypeError(

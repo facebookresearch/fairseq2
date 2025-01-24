@@ -11,10 +11,11 @@ from typing import Generic, TypeVar, cast, final
 import torch
 from torch.nn import Module
 
-from fairseq2.assets import AssetCard, AssetStore
+from fairseq2.assets import AssetCard, AssetCardNotFoundError, AssetStore
 from fairseq2.context import get_runtime_context
 from fairseq2.gang import Gangs, fake_gangs
-from fairseq2.models._handler import ModelHandler, ModelNotFoundError, get_model_family
+from fairseq2.models._error import UnknownModelError, UnknownModelFamilyError
+from fairseq2.models._handler import ModelHandler, get_model_family
 from fairseq2.registry import Provider
 from fairseq2.typing import CPU, DataType, Device
 
@@ -46,14 +47,17 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
         if isinstance(name_or_card, AssetCard):
             card = name_or_card
         else:
-            card = self._asset_store.retrieve_card(name_or_card)
+            try:
+                card = self._asset_store.retrieve_card(name_or_card)
+            except AssetCardNotFoundError:
+                raise UnknownModelError(name_or_card) from None
 
         family = get_model_family(card)
 
         try:
             handler = self._model_handlers.get(family)
         except LookupError:
-            raise ModelNotFoundError(card.name) from None
+            raise UnknownModelFamilyError(family, card.name) from None
 
         if not issubclass(handler.config_kls, self._config_kls):
             raise TypeError(
@@ -92,14 +96,17 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
         if isinstance(name_or_card, AssetCard):
             card = name_or_card
         else:
-            card = self._asset_store.retrieve_card(name_or_card)
+            try:
+                card = self._asset_store.retrieve_card(name_or_card)
+            except AssetCardNotFoundError:
+                raise UnknownModelError(name_or_card) from None
 
         family = get_model_family(card)
 
         try:
             handler = self._model_handlers.get(family)
         except LookupError:
-            raise ModelNotFoundError(card.name) from None
+            raise UnknownModelFamilyError(family, card.name) from None
 
         if not issubclass(handler.kls, self._kls):
             raise TypeError(

@@ -119,5 +119,5 @@ class MyleLRHandler(LRSchedulerHandler):
 
     @property
     @override
-    def config_kls(self) -> type:
+    def config_kls(self) -> type[object]:
         return MyleLRConfig

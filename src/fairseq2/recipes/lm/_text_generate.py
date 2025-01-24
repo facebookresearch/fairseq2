@@ -14,49 +14,77 @@ from typing import Iterable, Mapping, TextIO, final
 import torch
 from typing_extensions import override
 
-from fairseq2.assets import AssetCardNotFoundError, default_asset_store
-from fairseq2.checkpoint import FileCheckpointMetadataProvider
 from fairseq2.context import RuntimeContext
-from fairseq2.data.text.tokenizers import (
-    TextTokenDecoder,
-    TextTokenizer,
-    get_text_tokenizer_hub,
-)
+from fairseq2.data.text.tokenizers import TextTokenDecoder, TextTokenizer
 from fairseq2.datasets import StaticBatching, SyncMode
 from fairseq2.datasets.instruction import (
-    GenericInstructionDataset,
+    GENERIC_INSTRUCTION_DATASET_FAMILY,
+    InstructionDataset,
     InstructionPromptReadOptions,
-    get_instruction_dataset_hub,
 )
-from fairseq2.gang import Gang
-from fairseq2.generation import SamplingConfig, SequenceGenerator, create_seq_generator
+from fairseq2.error import InternalError, SetupError
+from fairseq2.gang import Gangs
+from fairseq2.generation import SamplingConfig, SequenceGenerator
 from fairseq2.logging import log
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.sequence import SequenceBatch
+from fairseq2.nn.utils.module import remove_parametrizations
+from fairseq2.recipes.common import (
+    broadcast_model,
+    compile_eval_model,
+    create_generator,
+    create_seq_generator,
+    load_dataset,
+    load_eval_model,
+    load_text_tokenizer,
+    register_extra_asset_paths,
+    setup_gangs,
+)
+from fairseq2.recipes.config import (
+    DatasetSection,
+    GenerateRecipeConfig,
+    GeneratorSection,
+    SequenceGeneratorSection,
+)
 from fairseq2.recipes.generator import AbstractGeneratorUnit, Generator
 from fairseq2.recipes.metrics import SequenceGenerationMetricBag
-from fairseq2.recipes.utils.asset import (
-    AssetReference,
-    asset_as_path,
-    retrieve_asset_card,
-)
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import broadcast_model, load_model, setup_gangs
-from fairseq2.typing import CPU, META, DataClass, DataType
-from fairseq2.utils.profiler import Stopwatch
+from fairseq2.typing import CPU
+from fairseq2.utils.config import process_config
+from fairseq2.utils.file import FileMode
 from fairseq2.utils.rng import manual_seed
 
 
 @dataclass(kw_only=True)
-class LMTextGenerateConfig:
+class TextGenerateConfig(GenerateRecipeConfig):
     """Holds the configuration of a text generation task."""
 
-    # Data
-    dataset: AssetReference = "foo"  # TODO: change!
-    """The name, path, or path to the asset card of the instruction dataset."""
+    model: str = "llama3_8b_instruct"
+
+    dataset: TextGenerateDatasetSection = field(
+        default_factory=lambda: TextGenerateDatasetSection()
+    )
+
+    generator: GeneratorSection = field(
+        default_factory=lambda: GeneratorSection(dtype=torch.bfloat16)
+    )
+
+    seq_generator: SequenceGeneratorSection = field(
+        default_factory=lambda: SequenceGeneratorSection(
+            config=SamplingConfig(), batch_size=1
+        )
+    )
+
+
+@dataclass(kw_only=True)
+class TextGenerateDatasetSection(DatasetSection):
+    name: str = "foo"  # TODO: change!
+
+    family: str = GENERIC_INSTRUCTION_DATASET_FAMILY
+
+    path: Path | None = None
 
     split: str = "default"
-    """The name of the data split."""
 
     min_seq_len: int = 1
     """The minimum sequence length."""
@@ -64,47 +92,17 @@ class LMTextGenerateConfig:
     max_seq_len: int = 8192
     """The maximum sequence length."""
 
-    batch_size: int = 1
-    """The number of prompts per batch."""
-
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
 
-    # Model
-    model: AssetReference = "llama3_8b_instruct"
-    """The name of the model to generate with."""
 
-    checkpoint_dir: Path | None = None
-    """The checkpoint directory containing models saved by :class:`FileCheckpointManager`."""
-
-    dtype: DataType = torch.bfloat16
-    """The data type of the model."""
-
-    amp: bool = False
-    """If ``True``, runs evaluation with ``torch.amp``."""
-
-    tensor_parallel_size: int = 1
-    """The size of tensor parallelism."""
-
-    # Generation
-    generator: str = "sampling"
-    """The sequence generator."""
-
-    generator_config: DataClass | None = field(default_factory=lambda: SamplingConfig())
-    """The configuration of the sequence generator."""
-
-    # Misc
-    seed: int = 2
-    """The random number generator seed to use."""
-
-
-def register_lm_text_generate_configs(context: RuntimeContext) -> None:
-    registry = context.get_config_registry(LMTextGenerateConfig)
+def register_text_generate_configs(context: RuntimeContext) -> None:
+    registry = context.get_config_registry(TextGenerateConfig)
 
     preset = registry.decorator
 
     @preset("llama2_7b_chat")
-    def llama2_7b_chat() -> LMTextGenerateConfig:
+    def llama2_7b_chat() -> TextGenerateConfig:
         config = llama3_8b_instruct()
 
         config.model = "llama2_7b_chat"
@@ -112,29 +110,29 @@ def register_lm_text_generate_configs(context: RuntimeContext) -> None:
         return config
 
     @preset("llama2_70b_chat")
-    def llama2_70b_chat() -> LMTextGenerateConfig:
+    def llama2_70b_chat() -> TextGenerateConfig:
         config = llama2_7b_chat()
 
         config.model = "llama2_70b_chat"
-        config.tensor_parallel_size = 8
+        config.gang.tensor_parallel_size = 8
 
         return config
 
     @preset("llama3_8b_instruct")
-    def llama3_8b_instruct() -> LMTextGenerateConfig:
-        return LMTextGenerateConfig()
+    def llama3_8b_instruct() -> TextGenerateConfig:
+        return TextGenerateConfig()
 
     @preset("llama3_70b_instruct")
-    def llama3_70b_instruct() -> LMTextGenerateConfig:
+    def llama3_70b_instruct() -> TextGenerateConfig:
         config = llama3_8b_instruct()
 
         config.model = "llama3_70b_instruct"
-        config.tensor_parallel_size = 8
+        config.gang.tensor_parallel_size = 8
 
         return config
 
     @preset("llama3_1_8b_instruct")
-    def llama3_1_8b_instruct() -> LMTextGenerateConfig:
+    def llama3_1_8b_instruct() -> TextGenerateConfig:
         config = llama3_8b_instruct()
 
         config.model = "llama3_1_8b_instruct"
@@ -142,7 +140,7 @@ def register_lm_text_generate_configs(context: RuntimeContext) -> None:
         return config
 
     @preset("llama3_1_70b_instruct")
-    def llama3_1_70b_instruct() -> LMTextGenerateConfig:
+    def llama3_1_70b_instruct() -> TextGenerateConfig:
         config = llama3_70b_instruct()
 
         config.model = "llama3_1_70b_instruct"
@@ -151,179 +149,111 @@ def register_lm_text_generate_configs(context: RuntimeContext) -> None:
 
 
 @torch.inference_mode()
-def load_lm_text_generator(
-    context: RuntimeContext, config: LMTextGenerateConfig, output_dir: Path
+def load_text_generator(
+    context: RuntimeContext, config: TextGenerateConfig, output_dir: Path
 ) -> Generator[SequenceBatch]:
-    """Load a :class:`Generator` for text generation."""
-    wall_watch = Stopwatch(start=True)
+    register_extra_asset_paths(context, config.assets)
 
-    if config.checkpoint_dir is not None:
-        default_asset_store.metadata_providers.append(
-            FileCheckpointMetadataProvider(config.checkpoint_dir)
-        )
+    process_config(context, config)
 
-    root_gang, gangs = setup_gangs(log, tp_size=config.tensor_parallel_size)
+    gangs = setup_gangs(context, config.gang)
 
-    dp_gang = gangs["dp"]  # data
-    tp_gang = gangs["tp"]  # tensor
+    dataset = load_dataset(InstructionDataset, context, config.dataset, gangs)
 
-    model_card = retrieve_asset_card(config.model)
-
-    # Load the tokenizer.
-    log.info("Loading {} tokenizer.", model_card.name)
-
-    tokenizer_hub = get_text_tokenizer_hub()
-
-    tokenizer = tokenizer_hub.load(model_card)
-
-    log.info("Tokenizer loaded.")
-
-    # Load the dataset.
-    try:
-        dataset_card = retrieve_asset_card(config.dataset)
-    except AssetCardNotFoundError:
-        dataset_card = None
-
-    if dataset_card is not None:
-        log.info("Loading {} instruction dataset.", dataset_card.name)
-
-        dataset_hub = get_instruction_dataset_hub()
-
-        dataset = dataset_hub.load(dataset_card)
-
-        log.info("Dataset loaded.")
-    else:
-        dataset_path = asset_as_path(config.dataset)
-
-        dataset = GenericInstructionDataset.from_path(dataset_path, "path")
+    tokenizer = load_text_tokenizer(context, config.model)
 
     seed = config.seed
 
-    # Load the model
-    manual_seed(seed, CPU, root_gang.device)
+    manual_seed(seed, CPU, context.device)
 
     seed += 1
 
-    log.info("Loading {} model on data parallel rank 0 (per shard).", model_card.name)
-
-    if dp_gang.rank == 0:
-        init_device = dp_gang.device
-    else:
-        init_device = META
-
-    try:
-        model = load_model(
-            model_card, gangs=gangs, device=init_device, dtype=config.dtype
-        )
-    except ValueError as ex:
-        raise ValueError(
-            "The model cannot be initialized. See nested exception for details."
-        ) from ex
-
-    if not isinstance(model, DecoderModel):
-        raise ValueError(
-            f"The model must be of type `{DecoderModel}`, but is of type `{type(model)}` instead."
-        )
-
-    root_gang.barrier()
-
-    log.info("Model loaded on data parallel rank 0.")
-
-    # Distribute the model to all processes in the gang.
-    if dp_gang.size != 1:
-        broadcast_model(model, dp_gang, log)
-
-    log_model(model, log)
-
-    # Initialize the sequence generator.
-    try:
-        generator = create_seq_generator(
-            config.generator, model, config.generator_config
-        )
-    except ValueError as ex:
-        raise ValueError(
-            "The sequence generator cannot be created. See nested exception for details."
-        ) from ex
-
-    # Initialize the generator unit.
-    if tp_gang.rank == 0:
-        text_output_file = output_dir.joinpath(f"output/rank_{dp_gang.rank}.txt")
-        json_output_file = output_dir.joinpath(f"output/rank_{dp_gang.rank}.jsonl")
-
-        try:
-            text_output_file.parent.mkdir(parents=True, exist_ok=True)
-        except OSError as ex:
-            raise RuntimeError(
-                f"The output directory '{text_output_file.parent}' cannot be created. See nested exception for details."
-            ) from ex
-
-        try:
-            text_output_fp = text_output_file.open("w")
-        except OSError as ex:
-            raise RuntimeError(
-                f"The output file '{text_output_file}' cannot be created. See nested exception for details."
-            ) from ex
-
-        try:
-            json_output_fp = json_output_file.open("w")
-        except OSError as ex:
-            raise RuntimeError(
-                f"The output file '{json_output_file}' cannot be created. See nested exception for details."
-            ) from ex
-
-    else:
-        text_output_fp = None
-        json_output_fp = None
-
-    unit = LMTextGenerateUnit(
-        generator,
-        tokenizer,
-        dp_gang,
-        text_output_stream=text_output_fp,
-        json_output_stream=json_output_fp,
+    model = load_eval_model(
+        DecoderModel,
+        context,
+        config.model,
+        gangs,
+        config.generator.dtype,
+        mixed_precision=config.generator.amp,
     )
 
-    batching = StaticBatching(config.batch_size)
+    broadcast_model(config.model, model, gangs)
+
+    remove_parametrizations(model)
+
+    log_model(log, model, gangs)
+
+    if config.generator.torch_compile:
+        model = compile_eval_model(context, config.model, model)
+
+    # Initialize the unit.
+    seq_generator = create_seq_generator(context, config.seq_generator, model)
+
+    if gangs.tp.rank == 0:
+        file_system = context.file_system
+
+        rank = gangs.dp.rank
+
+        text_file = output_dir.joinpath(f"output/rank_{rank}.txt")
+        json_file = output_dir.joinpath(f"output/rank_{rank}.jsonl")
+
+        try:
+            file_system.make_directory(text_file.parent)
+        except OSError as ex:
+            raise SetupError(
+                f"The '{text_file.parent}' output directory cannot be created. See the nested exception for details."
+            ) from ex
+
+        try:
+            text_fp = file_system.open_text(text_file, mode=FileMode.WRITE)
+        except OSError as ex:
+            raise SetupError(
+                f"The '{text_file}' output file cannot be created. See the nested exception for details."
+            ) from ex
+
+        try:
+            json_fp = file_system.open_text(json_file, mode=FileMode.WRITE)
+        except OSError as ex:
+            raise SetupError(
+                f"The '{json_file}' output file cannot be created. See the nested exception for details."
+            ) from ex
+    else:
+        text_fp = None
+        json_fp = None
+
+    unit = TextGenerateUnit(
+        seq_generator,
+        tokenizer,
+        gangs,
+        text_output_stream=text_fp,
+        json_output_stream=json_fp,
+    )
+
+    batching = StaticBatching(config.seq_generator.batch_size)
 
     read_options = InstructionPromptReadOptions(
         batching=batching,
         sync_mode=SyncMode.UNTIL_LAST,
-        num_prefetch=config.num_prefetch,
+        num_prefetch=config.dataset.num_prefetch,
+        seed=seed,
     )
 
-    try:
-        data_reader = dataset.create_prompt_reader(
-            config.split,
-            tokenizer,
-            dp_gang,
-            config.min_seq_len,
-            config.max_seq_len,
-            read_options,
-        )
-    except ValueError as ex:
-        raise ValueError(
-            "The data reader cannot be initialized. See nested exception for details."
-        ) from ex
+    data_reader = dataset.create_prompt_reader(
+        config.dataset.split,
+        tokenizer,
+        gangs.dp,
+        config.dataset.min_seq_len,
+        config.dataset.max_seq_len,
+        read_options,
+    )
 
     seed += 1
 
-    # Initialize the generator.
-    return Generator[SequenceBatch](
-        unit=unit,
-        data_reader=data_reader,
-        root_gang=root_gang,
-        dp_gang=dp_gang,
-        tp_gang=tp_gang,
-        dtype=config.dtype,
-        amp=config.amp,
-        metrics_dir=output_dir.joinpath("metrics"),
-        seed=seed,
-        wall_watch=wall_watch,
-    )
+    return create_generator(context, config, output_dir, unit, data_reader, gangs, seed)
 
 
 @final
-class LMTextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
+class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
     """Represents a text generation unit."""
 
     _generator: SequenceGenerator
@@ -336,7 +266,7 @@ class LMTextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
         self,
         generator: SequenceGenerator,
         tokenizer: TextTokenizer,
-        gang: Gang,
+        gangs: Gangs,
         text_output_stream: TextIO | None,
         json_output_stream: TextIO | None,
     ) -> None:
@@ -349,7 +279,7 @@ class LMTextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
         self._text_output_stream = text_output_stream
         self._json_output_stream = json_output_stream
 
-        self._metric_bag = SequenceGenerationMetricBag(gang)
+        self._metric_bag = SequenceGenerationMetricBag(gangs.dp)
 
     @override
     def __call__(self, batch: SequenceBatch) -> None:
@@ -378,12 +308,12 @@ class LMTextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
         self._metric_bag.update_batch_metrics(output)
 
         # Check if we are in the first tensor parallel group.
-        if not self._text_output_stream and not self._json_output_stream:
+        if self._text_output_stream is None and self._json_output_stream is None:
             return
 
         for id_, prompt, hypotheses in zip(ids, prompts, output.hypotheses):
             if len(hypotheses) == 0:
-                raise RuntimeError(
+                raise InternalError(
                     "The sequence generator returned no hypothesis. Please file a bug report."
                 )
 
@@ -406,7 +336,8 @@ class LMTextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
                 step_scores = hypothesis.step_scores.tolist()
 
             # Dump as text.
-            if stream := self._text_output_stream:
+            stream = self._text_output_stream
+            if stream is not None:
                 if id_ is not None:
                     stream.write("<<<<< ID >>>>>")
                     stream.write("\n")
@@ -442,7 +373,8 @@ class LMTextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
                 stream.write("\n\n\n============================\n\n\n")
 
             # Dump as JSON.
-            if stream := self._json_output_stream:
+            stream = self._json_output_stream
+            if stream is not None:
                 json_output = {
                     "id": id_,
                     "prompt": prompt,
@@ -456,10 +388,12 @@ class LMTextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
 
                 stream.write("\n")
 
-        if stream := self._text_output_stream:
+        stream = self._text_output_stream
+        if stream is not None:
             stream.flush()
 
-        if stream := self._json_output_stream:
+        stream = self._json_output_stream
+        if stream is not None:
             stream.flush()
 
     @property

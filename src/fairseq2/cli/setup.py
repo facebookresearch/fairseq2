@@ -16,22 +16,22 @@ from fairseq2.cli.commands.llama import (
 from fairseq2.cli.commands.recipe import RecipeCommandHandler
 from fairseq2.extensions import run_extensions
 from fairseq2.recipes.lm import (
-    LMInstructionFinetuneConfig,
-    LMNllEvalConfig,
-    LMPreferenceFinetuneConfig,
-    LMTextGenerateConfig,
-    load_lm_instruction_finetuner,
-    load_lm_nll_evaluator,
-    load_lm_preference_finetuner,
-    load_lm_text_generator,
+    InstructionFinetuneConfig,
+    LMLossEvalConfig,
+    POFinetuneConfig,
+    TextGenerateConfig,
+    load_instruction_finetuner,
+    load_lm_loss_evaluator,
+    load_po_finetuner,
+    load_text_generator,
 )
 from fairseq2.recipes.mt import (
     MTEvalConfig,
     MTTrainConfig,
-    MTTranslateConfig,
+    TextTranslateConfig,
     load_mt_evaluator,
     load_mt_trainer,
-    load_mt_translator,
+    load_text_translator,
 )
 from fairseq2.recipes.wav2vec2 import (
     Wav2Vec2EvalConfig,
@@ -108,8 +108,8 @@ def _setup_lm_cli(cli: Cli) -> None:
 
     # Instruction Finetune
     instruction_finetune_handler = RecipeCommandHandler(
-        loader=load_lm_instruction_finetuner,
-        config_kls=LMInstructionFinetuneConfig,
+        loader=load_instruction_finetuner,
+        config_kls=InstructionFinetuneConfig,
         default_preset="llama3_1_instruct",
     )
 
@@ -119,36 +119,36 @@ def _setup_lm_cli(cli: Cli) -> None:
         help="instruction-finetune a language model",
     )
 
-    # NLL Evaluation
-    nll_eval_handler = RecipeCommandHandler(
-        loader=load_lm_nll_evaluator,
-        config_kls=LMNllEvalConfig,
+    # Loss Evaluation
+    loss_eval_handler = RecipeCommandHandler(
+        loader=load_lm_loss_evaluator,
+        config_kls=LMLossEvalConfig,
         default_preset="llama3_1_base_eval",
     )
 
     group.add_command(
         name="nll_eval",
-        handler=nll_eval_handler,
+        handler=loss_eval_handler,
         help="Evaluate the model and compute NLL loss over a given dataset",
     )
 
-    # Preference Finetune
-    preference_finetune_handler = RecipeCommandHandler(
-        loader=load_lm_preference_finetuner,
-        config_kls=LMPreferenceFinetuneConfig,
+    # PO Finetune
+    po_finetune_handler = RecipeCommandHandler(
+        loader=load_po_finetuner,
+        config_kls=POFinetuneConfig,
         default_preset="llama3_1_instruct",
     )
 
     group.add_command(
         name="preference_finetune",
-        handler=preference_finetune_handler,
+        handler=po_finetune_handler,
         help="preference-finetune a language model (e.g. DPO, SimPO).",
     )
 
     # Text Generate
     text_generate_handler = RecipeCommandHandler(
-        loader=load_lm_text_generator,
-        config_kls=LMTextGenerateConfig,
+        loader=load_text_generator,
+        config_kls=TextGenerateConfig,
         default_preset="llama3_1_8b_instruct",
     )
 
@@ -193,16 +193,16 @@ def _setup_mt_cli(cli: Cli) -> None:
     )
 
     # Translate
-    translate_handler = RecipeCommandHandler(
-        loader=load_mt_translator,
-        config_kls=MTTranslateConfig,
+    text_translate_handler = RecipeCommandHandler(
+        loader=load_text_translator,
+        config_kls=TextTranslateConfig,
         default_preset="nllb_dense_600m",
         extra_sweep_keys=extra_sweep_keys,
     )
 
     group.add_command(
         name="translate",
-        handler=translate_handler,
+        handler=text_translate_handler,
         help="translate text",
     )
 

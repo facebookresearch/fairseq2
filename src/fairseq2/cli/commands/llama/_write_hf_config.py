@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import json
-import sys
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 from typing import final
@@ -43,26 +42,14 @@ class WriteLLaMAHFConfigHandler(CliCommandHandler):
     def run(
         self, context: RuntimeContext, parser: ArgumentParser, args: Namespace
     ) -> int:
-        arch = (
-            context.asset_store.retrieve_card(args.model).field("model_arch").as_(str)
-        )
-
-        if arch:
-            model_config = get_llama_model_hub().load_config(args.model)
-        else:
-            model_config = None
-
-        if model_config is None:
-            log.error("Config could not be retrieved for model {}", args.model)
-
-            sys.exit(1)
+        model_config = get_llama_model_hub().load_config(args.model)
 
         args.output_dir.mkdir(parents=True, exist_ok=True)
 
         # Convert and write the config
         log.info("Writing config...")
 
-        config = convert_to_huggingface_config(arch, model_config)
+        config = convert_to_huggingface_config(model_config)
 
         json_file = args.output_dir.joinpath("config.json")
 

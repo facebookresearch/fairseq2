@@ -7,10 +7,9 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Sequence
+from collections.abc import Sequence
 from contextlib import AbstractContextManager, nullcontext
 from itertools import count
-from pathlib import Path
 from statistics import mean
 from typing import Generic, TypeVar, final
 
@@ -31,16 +30,8 @@ from fairseq2.datasets import DataReader
 from fairseq2.error import ContractError, InternalError, InvalidOperationError
 from fairseq2.gang import FakeGang, Gang, broadcast_flag
 from fairseq2.logging import log
-from fairseq2.metrics import (
-    JsonFileMetricRecorder,
-    LogMetricRecorder,
-    MetricBag,
-    MetricRecorder,
-    TensorBoardRecorder,
-    WandbRecorder,
-    format_metric_value,
-    record_metrics,
-)
+from fairseq2.metrics import MetricBag, MetricDescriptor
+from fairseq2.metrics.recorders import MetricRecorder, record_metrics
 from fairseq2.nn.fsdp import summon_fsdp_for_validation
 from fairseq2.nn.utils.gradient import (
     check_gradient_norms,
@@ -48,7 +39,7 @@ from fairseq2.nn.utils.gradient import (
     normalize_gradients,
 )
 from fairseq2.optim import DynamicLossScaler
-from fairseq2.optim.lr_scheduler import LRScheduler, NoopLR, get_effective_lr
+from fairseq2.optim.lr_scheduler import LRScheduler, get_effective_lr
 from fairseq2.recipes.early_stopper import EarlyStopper, NoopEarlyStopper
 from fairseq2.recipes.evaluator import EvalUnit
 from fairseq2.recipes.metrics import extend_batch_metrics
@@ -134,7 +125,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     _end_of_data_epoch: bool
     _end_of_data: bool
     _should_stop: bool
-    _score_metric_name: str | None
+    _score_metric_descriptor: MetricDescriptor | None
     _lower_better: bool
     _early_stopper: EarlyStopper | None
     _best_step_and_score: tuple[int, float] | None
@@ -155,7 +146,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     _keep_last_n_models: int | None
     _keep_best_n_models: int | None
     _metric_bag: MetricBag
-    _metric_recorders: list[MetricRecorder]
+    _metric_recorders: Sequence[MetricRecorder]
     _publish_metrics_after_n_steps: int
     _publish_metrics_every_n_steps: int | None
     _publish_metrics_after_n_data_epochs: int
@@ -177,18 +168,20 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         data_reader: DataReader[BatchT],
         root_gang: Gang,
         optimizer: Optimizer,
+        lr_scheduler: LRScheduler,
         checkpoint_manager: CheckpointManager,
+        metric_recorders: Sequence[MetricRecorder],
+        profiler: Profiler,
         wall_watch: Stopwatch,
         dp_gang: Gang | None = None,
         tp_gang: Gang | None = None,
         dtype: DataType = torch.float32,
-        lr_scheduler: LRScheduler | None = None,
         fp16_loss_scale: tuple[float, float] = (128.0, 0.0001),
         max_gradient_norm: float | None = None,
         amp: bool = False,
         max_num_steps: int | None = None,
         max_num_data_epochs: int | None = None,
-        score_metric_name: str | None = None,
+        score_metric_descriptor: MetricDescriptor | None = None,
         lower_better: bool = False,
         early_stopper: EarlyStopper | None = None,
         valid_units: Sequence[EvalUnit[BatchT]] | None = None,
@@ -205,15 +198,10 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         keep_best_n_checkpoints: int | None = None,
         keep_last_n_models: int | None = None,
         keep_best_n_models: int | None = None,
-        metric_recorders: Iterable[MetricRecorder] | None = None,
-        tb_dir: Path | None = None,
-        metrics_dir: Path | None = None,
-        wandb_options: tuple[Path, str, str] | None = None,
         publish_metrics_after_n_steps: int = 0,
         publish_metrics_every_n_steps: int | None = None,
         publish_metrics_after_n_data_epochs: int = 0,
         publish_metrics_every_n_data_epochs: int | None = None,
-        profile: tuple[int, int] | None = None,
         anomaly_detection: bool = False,
         seed: int = 2,
     ) -> None:
@@ -248,8 +236,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             The maximum number of steps to train for.
         :param max_num_data_epochs:
             The maximum number of data epochs to train for.
-        :param score_metric_name:
-            The name of the metric to use for score calculation.
+        :param score_metric_descriptor:
+            The descriptor of the metric to use for score calculation.
         :param lower_better:
             If ``True``, lower scores are considered better.
         :param early_stopper:
@@ -288,12 +276,6 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             ``keep_best_n_checkpoints``.
         :param metric_recorders:
             The metric recorders.
-        :param tb_dir:
-            Legacy. Use ``metric_recorders``.
-        :param metrics_dir:
-            Legacy. Use ``metric_recorders``.
-        :param wandb_options:
-            Legacy. Use ``metric_recorders``.
         :param publish_metrics_after_n_steps:
             The number of steps after which to start publishing metrics.
         :param publish_metrics_every_n_steps:
@@ -302,9 +284,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             The number of data epochs after which to start publishing metrics.
         :param publish_metrics_every_n_data_epochs:
             The data epoch interval at which to publish metrics.
-        :param profile:
-            The number of steps that the PyTorch profiler should skip and then
-            record.
+        :param profile: The profiler.
         :param anomaly_detection:
             If ``True``, turns on anomaly detection feature in ``torch.autograd``.
         :param seed:
@@ -347,7 +327,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         else:
             self._optimizer = optimizer
 
-        self._lr_scheduler = lr_scheduler or NoopLR(optimizer)
+        self._lr_scheduler = lr_scheduler
 
         fp16_init_scale, fp16_min_scale = fp16_loss_scale
 
@@ -392,14 +372,14 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._should_stop = False
 
-        self._score_metric_name = score_metric_name
+        self._score_metric_descriptor = score_metric_descriptor
 
         self._lower_better = lower_better
 
         if early_stopper is not None:
-            if score_metric_name is None:
+            if score_metric_descriptor is None:
                 raise ValueError(
-                    "`score_metric_name` must be specified when `early_stopper` is specified."
+                    "`score_metric_descriptor` must be specified when `early_stopper` is specified."
                 )
 
             if root_gang.rank != 0:
@@ -480,9 +460,9 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
                 raise ValueError("`keep_best_n_checkpoints` must be greater than zero.")
 
             if checkpoint_every_n_steps is not None:
-                if score_metric_name is None:
+                if score_metric_descriptor is None:
                     raise ValueError(
-                        "`score_metric_name` must be specified when `keep_best_n_checkpoints` is specified."
+                        "`score_metric_descriptor` must be specified when `keep_best_n_checkpoints` is specified."
                     )
 
                 if validate_every_n_steps is None:
@@ -529,27 +509,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._metric_bag = unit.metric_bag
 
-        if metric_recorders is None:
-            # compat
-            if root_gang.rank == 0:
-                self._metric_recorders = [LogMetricRecorder(log)]
-
-                if tb_dir is not None:
-                    self._metric_recorders.append(TensorBoardRecorder(tb_dir))
-
-                if metrics_dir is not None:
-                    self._metric_recorders.append(JsonFileMetricRecorder(metrics_dir))
-
-                if wandb_options is not None:
-                    wandb_dir, wandb_project, wandb_name = wandb_options
-
-                    self._metric_recorders.append(
-                        WandbRecorder(wandb_project, wandb_name, wandb_dir)
-                    )
-            else:
-                self._metric_recorders = []
-        else:
-            self._metric_recorders = list(metric_recorders)
+        self._metric_recorders = metric_recorders
 
         if publish_metrics_every_n_steps == 0:
             raise ValueError(
@@ -567,25 +527,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         self._publish_metrics_after_n_data_epochs = publish_metrics_after_n_data_epochs
         self._publish_metrics_every_n_data_epochs = publish_metrics_every_n_data_epochs
 
-        if profile is None or tb_dir is None:
-            if profile is not None and tb_dir is None:
-                log.warning("No TensorBoard log directory provided. Profiling will be disabled.")  # fmt: skip
-
-            num_skip_steps, num_record_steps = 1, 0
-
-            profile_dir = Path()
-
-            enabled = False
-        else:
-            num_skip_steps, num_record_steps = profile
-
-            profile_dir = tb_dir
-
-            enabled = num_record_steps > 0
-
-        self._profiler = Profiler(
-            num_skip_steps, num_record_steps, profile_dir, root_gang, enabled=enabled
-        )
+        self._profiler = profiler
 
         self._anomaly_detection = anomaly_detection
 
@@ -1011,10 +953,10 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         if metric_values is None:
             return None
 
-        if self._score_metric_name is None:
+        if self._score_metric_descriptor is None:
             return None
 
-        score = metric_values.get(self._score_metric_name)
+        score = metric_values.get(self._score_metric_descriptor.name)
         if score is None:
             return None
 
@@ -1026,7 +968,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         return float(score)
 
     def _compute_valid_score(self, unit_scores: list[float]) -> float | None:
-        if self._score_metric_name is None:
+        if self._score_metric_descriptor is None:
             return None
 
         if not unit_scores:
@@ -1037,7 +979,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
             return None
 
-        score = mean(unit_scores)
+        last_score = mean(unit_scores)
 
         def is_better_score() -> bool:
             if self._best_step_and_score is None:
@@ -1045,10 +987,14 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
             best_score = self._best_step_and_score[1]
 
-            return best_score > score if self._lower_better else best_score < score
+            return (
+                best_score > last_score
+                if self._lower_better
+                else best_score < last_score
+            )
 
         if is_better_score():
-            self._best_step_and_score = (self._step_nr, score)
+            self._best_step_and_score = (self._step_nr, last_score)
 
         if log.is_enabled_for_info():
             best_step_nr, best_score = self._best_step_and_score  # type: ignore[misc]
@@ -1060,12 +1006,15 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
                 m1 = ""
                 m2 = "Best "
 
-            s1 = format_metric_value(self._score_metric_name, score)
-            s2 = format_metric_value(self._score_metric_name, best_score)
+            v1 = self._score_metric_descriptor.formatter(last_score)
+            v2 = self._score_metric_descriptor.formatter(best_score)
+
+            s1 = f"{self._score_metric_descriptor.display_name}: {v1}"
+            s2 = f"{self._score_metric_descriptor.display_name}: {v2}"
 
             log.info("Score (step {}) - {}{} | {}{} at step {}", self._step_nr, m1, s1, m2, s2, best_step_nr)  # fmt: skip
 
-        return score
+        return last_score
 
     def _maybe_request_early_stop(self) -> None:
         if self._early_stopper is None:
@@ -1120,7 +1069,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         log.info("Trainer state saved.")
 
-        if self._score_metric_name is not None:
+        if self._score_metric_descriptor is not None:
             log.info("Saving checkpoint score.")
 
             self._checkpoint_manager.save_score(self._valid_score)

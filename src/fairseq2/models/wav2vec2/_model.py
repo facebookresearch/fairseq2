@@ -289,7 +289,6 @@ class Wav2Vec2Model(Module):
         )
 
 
-@final
 @dataclass
 class Wav2Vec2Features:
     """Holds the extracted features of a wav2vec 2.0 model."""
@@ -319,7 +318,6 @@ class Wav2Vec2Features:
     """The raw features returned by the frontend. *Shape*: Same as :attr:`seqs`."""
 
 
-@final
 @dataclass
 class Wav2Vec2Output:
     """Holds the output of a wav2vec 2.0 model."""
@@ -410,7 +408,6 @@ class Wav2Vec2Output:
         return self.raw_features.float().pow(2).mean() * batch_size * seq_len
 
 
-@final
 @dataclass
 class Wav2Vec2Loss:
     """Holds the loss of a wav2vec 2.0 model."""

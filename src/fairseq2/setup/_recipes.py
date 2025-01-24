@@ -7,16 +7,28 @@
 from __future__ import annotations
 
 from fairseq2.context import RuntimeContext
+from fairseq2.models import ModelHandler
+from fairseq2.models.decoder import DecoderModel
+from fairseq2.recipes.common import RecipeEvalModelLoader
 from fairseq2.recipes.lm import (
-    register_lm_instruction_finetune_configs,
-    register_lm_nll_eval_configs,
-    register_lm_preference_finetune_configs,
-    register_lm_text_generate_configs,
+    CPO_FINETUNE_UNIT,
+    DPO_FINETUNE_UNIT,
+    ORPO_FINETUNE_UNIT,
+    SIMPO_FINETUNE_UNIT,
+    CpoFinetuneUnitHandler,
+    DpoFinetuneUnitHandler,
+    OrpoFinetuneUnitHandler,
+    POFinetuneUnitHandler,
+    SimPOFinetuneUnitHandler,
+    register_instruction_finetune_configs,
+    register_lm_loss_eval_configs,
+    register_po_finetune_configs,
+    register_text_generate_configs,
 )
 from fairseq2.recipes.mt import (
     register_mt_eval_configs,
     register_mt_train_configs,
-    register_mt_translate_configs,
+    register_text_translate_configs,
 )
 from fairseq2.recipes.wav2vec2 import (
     register_wav2vec2_eval_configs,
@@ -29,14 +41,31 @@ from fairseq2.recipes.wav2vec2.asr import (
 
 
 def _register_recipes(context: RuntimeContext) -> None:
-    register_lm_nll_eval_configs(context)
-    register_lm_instruction_finetune_configs(context)
-    register_lm_preference_finetune_configs(context)
-    register_lm_text_generate_configs(context)
+    register_instruction_finetune_configs(context)
+    register_lm_loss_eval_configs(context)
     register_mt_eval_configs(context)
     register_mt_train_configs(context)
-    register_mt_translate_configs(context)
+    register_po_finetune_configs(context)
+    register_text_generate_configs(context)
+    register_text_translate_configs(context)
     register_wav2vec2_asr_eval_configs(context)
     register_wav2vec2_asr_train_configs(context)
     register_wav2vec2_eval_configs(context)
     register_wav2vec2_train_configs(context)
+
+    _register_po_finetune_units(context)
+
+
+def _register_po_finetune_units(context: RuntimeContext) -> None:
+    registry = context.get_registry(POFinetuneUnitHandler)
+
+    model_handlers = context.get_registry(ModelHandler)
+
+    eval_model_loader = RecipeEvalModelLoader(
+        DecoderModel, context.asset_store, model_handlers
+    )
+
+    registry.register(CPO_FINETUNE_UNIT, CpoFinetuneUnitHandler())
+    registry.register(DPO_FINETUNE_UNIT, DpoFinetuneUnitHandler(eval_model_loader))
+    registry.register(ORPO_FINETUNE_UNIT, OrpoFinetuneUnitHandler())
+    registry.register(SIMPO_FINETUNE_UNIT, SimPOFinetuneUnitHandler())

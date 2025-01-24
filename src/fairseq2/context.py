@@ -11,6 +11,9 @@ from typing import Any, TypeVar, final
 from fairseq2.assets import AssetDownloadManager, StandardAssetStore
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.registry import Registry
+from fairseq2.typing import CPU, Device
+from fairseq2.utils.file import FileSystem
+from fairseq2.utils.profiler import Stopwatch
 
 T = TypeVar("T")
 
@@ -19,19 +22,28 @@ T = TypeVar("T")
 class RuntimeContext:
     _asset_store: StandardAssetStore
     _asset_download_manager: AssetDownloadManager
+    _device: Device
+    _file_system: FileSystem
     _registries: dict[type, Registry[Any]]
     _config_registries: dict[type, ConfigRegistry[Any]]
+    _wall_watch: Stopwatch
 
     def __init__(
         self,
         asset_store: StandardAssetStore,
         asset_download_manager: AssetDownloadManager,
+        file_system: FileSystem,
     ) -> None:
         self._asset_store = asset_store
         self._asset_download_manager = asset_download_manager
+        self._file_system = file_system
+
+        self._device = CPU
 
         self._registries = {}
         self._config_registries = {}
+
+        self._wall_watch = Stopwatch(start=True)
 
     @property
     def asset_store(self) -> StandardAssetStore:
@@ -40,6 +52,17 @@ class RuntimeContext:
     @property
     def asset_download_manager(self) -> AssetDownloadManager:
         return self._asset_download_manager
+
+    @property
+    def device(self) -> Device:
+        return self._device
+
+    def set_device(self, device: Device) -> None:
+        self._device = device
+
+    @property
+    def file_system(self) -> FileSystem:
+        return self._file_system
 
     def get_registry(self, kls: type[T]) -> Registry[T]:
         registry = self._registries.get(kls)
@@ -58,6 +81,10 @@ class RuntimeContext:
             self._config_registries[config_kls] = registry
 
         return registry
+
+    @property
+    def wall_watch(self) -> Stopwatch:
+        return self._wall_watch
 
 
 _default_context: RuntimeContext | None = None

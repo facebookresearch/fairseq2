@@ -14,8 +14,8 @@ from torch.nn import Module
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.seq2seq import Seq2SeqBatch, as_auto_regressive_input
 from fairseq2.models.sequence import SequenceModelOutput
+from fairseq2.recipes.common import check_model_type
 from fairseq2.recipes.metrics import Seq2SeqMetricBag
-from fairseq2.recipes.utils.setup import check_model_type
 
 
 @final
