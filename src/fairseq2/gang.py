@@ -713,6 +713,12 @@ def fake_gangs(device: Device) -> Gangs:
     return Gangs(gang, gang, gang)
 
 
+def to_gangs(gang: Gang) -> Gangs:
+    fake_gang = FakeGang(device=gang.device)
+
+    return Gangs(gang, gang, fake_gang)
+
+
 def _setup_2D_mesh_gangs(
     root_gang: Gang,
     *,
