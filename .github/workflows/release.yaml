@@ -69,16 +69,17 @@ jobs:
       release_type: ${{ inputs.release_type }}
       version_override: ${{ needs.process_version.outputs.version_override }}
 
-  build_doc:
-    name: Build documentation
-    needs: [process_version]
-    uses: ./.github/workflows/_build_doc.yaml
-    with:
-      version_override: ${{ needs.process_version.outputs.version_override }}
+#  build_doc:
+#    name: Build documentation
+#    needs: [process_version]
+#    uses: ./.github/workflows/_build_doc.yaml
+#    with:
+#      version_override: ${{ needs.process_version.outputs.version_override }}
 
   publish:
     name: Publish
-    needs: [build_wheels, build_doc]
+    needs: [build_wheels]
+#    needs: [build_wheels, build_doc]
     uses: ./.github/workflows/_publish.yaml
     with:
       release_type: ${{ inputs.release_type }}
