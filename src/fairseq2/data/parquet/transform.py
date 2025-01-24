@@ -143,48 +143,6 @@ def prefix_and_suffix_one_list_column(
     return replace_table_column(table, column, new_array)
 
 
-def correct_paragraph_length(
-    table: pa.Table,
-    page_lens_column: str,
-    len_break: int,
-    len_prefix: int,
-    len_suffix: int,
-) -> pa.Table:
-    """Adjusts paragraph-length arrays by adding specific offsets.
-
-    When a prefix or suffix is injected into the text, the paragraph
-    boundaries often need an extra offset. This function adds `len_break`
-    to each element, plus `len_prefix - len_break` to the first element,
-    and `len_suffix - len_break` to the last.
-
-    Args:
-        table: The input pyarrow Table.
-        page_lens_column: Name of the column with paragraph-length arrays.
-        len_break: Amount to add to every element except first/last.
-        len_prefix: Additional offset for only the first element.
-        len_suffix: Additional offset for only the last element.
-
-    Returns:
-        A new pyarrow Table with corrected paragraph-length arrays.
-    """
-
-    def _correct(row_lengths: List[int]) -> List[int]:
-        # Shift entire row by len_break
-        shifted = [val + len_break for val in row_lengths]
-        # Then adjust first and last
-        shifted[0] += len_prefix - len_break
-        shifted[-1] += len_suffix - len_break
-        return shifted
-
-    # Convert to Python lists
-    page_lengths = table[page_lens_column].to_pylist()
-    corrected_data = [_correct(x) for x in page_lengths]
-
-    # Rebuild into a PyArrow array
-    corrected_lens = pa.array(corrected_data, type=pa.list_(pa.int32()))
-    return replace_table_column(table, page_lens_column, corrected_lens)
-
-
 def add_fragments_trace(table: pa.Table, fragment: pa.dataset.Fragment) -> pa.Table:
     """
     Adds a trace of the row groups and fragment ids to the table.
