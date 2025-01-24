@@ -9,6 +9,7 @@ from __future__ import annotations
 from fairseq2.context import RuntimeContext
 from fairseq2.models import ModelHandler
 from fairseq2.models.decoder import DecoderModel
+from fairseq2.recipes.asr import register_asr_eval_configs
 from fairseq2.recipes.common import RecipeEvalModelLoader
 from fairseq2.recipes.lm import (
     CPO_FINETUNE_UNIT,
@@ -34,13 +35,11 @@ from fairseq2.recipes.wav2vec2 import (
     register_wav2vec2_eval_configs,
     register_wav2vec2_train_configs,
 )
-from fairseq2.recipes.wav2vec2.asr import (
-    register_wav2vec2_asr_eval_configs,
-    register_wav2vec2_asr_train_configs,
-)
+from fairseq2.recipes.wav2vec2.asr import register_wav2vec2_asr_train_configs
 
 
 def _register_recipes(context: RuntimeContext) -> None:
+    register_asr_eval_configs(context)
     register_instruction_finetune_configs(context)
     register_lm_loss_eval_configs(context)
     register_mt_eval_configs(context)
@@ -48,7 +47,6 @@ def _register_recipes(context: RuntimeContext) -> None:
     register_po_finetune_configs(context)
     register_text_generate_configs(context)
     register_text_translate_configs(context)
-    register_wav2vec2_asr_eval_configs(context)
     register_wav2vec2_asr_train_configs(context)
     register_wav2vec2_eval_configs(context)
     register_wav2vec2_train_configs(context)

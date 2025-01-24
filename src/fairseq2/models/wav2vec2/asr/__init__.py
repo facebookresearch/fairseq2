@@ -23,7 +23,6 @@ from fairseq2.models.wav2vec2.asr._handler import (
     convert_wav2vec2_asr_checkpoint as convert_wav2vec2_asr_checkpoint,
 )
 from fairseq2.models.wav2vec2.asr._model import Wav2Vec2AsrModel as Wav2Vec2AsrModel
-from fairseq2.models.wav2vec2.asr._model import Wav2Vec2AsrOutput as Wav2Vec2AsrOutput
 
 # isort: split
 
