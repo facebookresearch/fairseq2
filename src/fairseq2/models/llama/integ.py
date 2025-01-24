@@ -55,7 +55,7 @@ def convert_to_huggingface_config(config: LLaMAConfig) -> dict[str, object]:
     multiple_of = config.ffn_inner_dim_to_multiple
 
     # Taken from https://github.com/huggingface/transformers/blob/82fcac0a7e40dc6cc5e3121d714b9b16775293ad/src/transformers/models/llama/convert_llama_weights_to_hf.py#L171.
-    intermediate_size = multiple_of * (int(multiplier * int(8 * config.model_dim / 3)) + multiple_of - 1) // multiple_of  # fmt: skip
+    intermediate_size = multiple_of * ((int(multiplier * int(8 * config.model_dim / 3)) + multiple_of - 1) // multiple_of)  # fmt: skip
 
     if config.rope_scaling is not None:
         rope_scaling = {
