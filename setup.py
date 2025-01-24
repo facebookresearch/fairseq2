@@ -73,7 +73,6 @@ setup(
     extras_require={
         "arrow": [
             "pyarrow>=13.0.0",
-            "joblib~=1.4.2",
             "retrying~=1.3.4",
             "polars~=1.19.0",
         ],
