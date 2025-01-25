@@ -77,8 +77,10 @@ class FileCheckpointMetadataProvider(AbstractAssetMetadataProvider):
         else:
             filename = "model.{shard_idx}.pt"
 
-        def add_checkpoint_metadata(name: str, path: Path) -> None:
-            cache[name] = {"base": "checkpoint", "checkpoint": str(path)}
+        def add_checkpoint_metadata(name: str, step_nr: int) -> None:
+            model_file = self._checkpoint_dir.joinpath(f"step_{step_nr}/{filename}")
+
+            cache[name] = {"base": "checkpoint", "checkpoint": str(model_file)}
 
         max_step_nr = -1
 
@@ -94,9 +96,7 @@ class FileCheckpointMetadataProvider(AbstractAssetMetadataProvider):
                 except ValueError:
                     continue
 
-                add_checkpoint_metadata(
-                    f"checkpoint_step_{step_nr}@", step_dir.joinpath(filename)
-                )
+                add_checkpoint_metadata(f"checkpoint_step_{step_nr}@", step_nr)
 
                 max_step_nr = max(max_step_nr, step_nr)
 
@@ -127,22 +127,22 @@ class FileCheckpointMetadataProvider(AbstractAssetMetadataProvider):
                 f"The base '{self._checkpoint_dir}' checkpoint directory cannot be traversed. See the nested exception for details."
             ) from ex
 
-        if max_step_nr >= 0:
-            last_model_file = self._checkpoint_dir.joinpath(
-                f"step_{max_step_nr}/{filename}"
-            )
+        if max_step_nr == -1:
+            return
 
-            add_checkpoint_metadata("last_checkpoint@", last_model_file)
+        add_checkpoint_metadata("last_checkpoint@", max_step_nr)
+
+        if not scores:
+            return
 
         scores.sort()
 
-        last_idx = len(scores) - 1
+        best_step_nr = scores[-1][1]
 
-        for i, (_, step_nr) in enumerate(scores):
-            model_file = self._checkpoint_dir.joinpath(f"step_{step_nr}/{filename}")
+        add_checkpoint_metadata("best_checkpoint@", best_step_nr)
 
-            add_checkpoint_metadata(f"checkpoint_lowest_{i}@", model_file)
-            add_checkpoint_metadata(f"checkpoint_highest_{last_idx - i}@", model_file)
+        for idx, (_, step_nr) in enumerate(reversed(scores)):
+            add_checkpoint_metadata(f"best_checkpoint_{idx}@", step_nr)
 
     def _load_tokenizer(self, cache: dict[str, dict[str, object]]) -> None:
         metadata_file = self._checkpoint_dir.joinpath("tokenizer.yaml")

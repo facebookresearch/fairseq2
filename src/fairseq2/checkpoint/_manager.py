@@ -81,7 +81,7 @@ class CheckpointManager(ABC):
         """
 
     @abstractmethod
-    def save_score(self, score: float | None) -> None:
+    def save_score(self, score: float | None, lower_better: bool = False) -> None:
         """Save the score of the checkpoint."""
 
     @abstractmethod
@@ -134,9 +134,7 @@ class CheckpointManager(ABC):
         """
 
     @abstractmethod
-    def keep_best_n_checkpoints(
-        self, n: int, *, preserve_model: bool = False, lower_better: bool = False
-    ) -> None:
+    def keep_best_n_checkpoints(self, n: int, *, preserve_model: bool = False) -> None:
         """Delete all but the best ``n`` checkpoints based on their score.
 
         :param n:
@@ -387,16 +385,18 @@ class FileCheckpointManager(CheckpointManager):
         self._gangs.root.barrier()
 
     @override
-    def save_score(self, score: float | None) -> None:
+    def save_score(self, score: float | None, lower_better: bool = False) -> None:
         step_nr = self._get_checkpoint_step_nr()
 
-        if self._gangs.root.rank == 0:
+        if self._gangs.root.rank == 0 and score is not None:
             score_file = self._checkpoint_dir.joinpath(f"step_{step_nr}.tmp/score.txt")
 
             fp = self._file_system.open_text(score_file, mode=FileMode.WRITE)
 
+            direction = "-" if lower_better else ""
+
             try:
-                fp.write(f"{score}\n")
+                fp.write(f"{direction}{score}\n")
             except OSError as ex:
                 raise CheckpointError(
                     f"The checkpoint score of training step {step_nr} cannot be saved to the '{score_file}' file. See the nested exception for details."
@@ -633,9 +633,7 @@ class FileCheckpointManager(CheckpointManager):
             self.delete_checkpoint(step_nr, preserve_model=preserve_model)
 
     @override
-    def keep_best_n_checkpoints(
-        self, n: int, *, preserve_model: bool = False, lower_better: bool = False
-    ) -> None:
+    def keep_best_n_checkpoints(self, n: int, *, preserve_model: bool = False) -> None:
         if n == 0:
             raise ValueError("`n` must be greater than zero.")
 
@@ -645,7 +643,7 @@ class FileCheckpointManager(CheckpointManager):
 
         last_step_nr = step_numbers[-1]
 
-        scores = self._load_scores(step_numbers, lower_better)
+        scores = self._load_scores(step_numbers)
         if not scores:
             return
 
@@ -656,9 +654,7 @@ class FileCheckpointManager(CheckpointManager):
             if step_nr != last_step_nr:
                 self.delete_checkpoint(step_nr, preserve_model=preserve_model)
 
-    def _load_scores(
-        self, step_numbers: list[int], lower_better: bool
-    ) -> list[tuple[float, int]]:
+    def _load_scores(self, step_numbers: list[int]) -> list[tuple[float, int]]:
         scores = []
 
         for step_nr in step_numbers:
@@ -684,10 +680,7 @@ class FileCheckpointManager(CheckpointManager):
 
             scores.append((score, step_nr))
 
-        if lower_better:
-            scores.sort(key=lambda e: (-e[0], e[1]))
-        else:
-            scores.sort()
+        scores.sort()
 
         return scores
 
