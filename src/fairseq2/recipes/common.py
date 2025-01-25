@@ -134,14 +134,27 @@ def register_extra_asset_paths(
 
     metadata_file_loader = StandardMetadataFileLoader(yaml_loader)
 
+    def access_error(path: Path) -> SetupError:
+        return SetupError(
+            f"The '{path}' path cannot be accessed. See the nested exception for details."
+        )
+
     path = config_section.extra_path
     if path is not None:
-        if not file_system.exists(path):
+        try:
+            path_exists = file_system.exists(path)
+        except OSError as ex:
+            raise access_error(path) from ex
+
+        if not path_exists:
             log.warning("The '{}' path pointed to by the `extra_asset_card_path` configuration does not exist.", path)  # fmt: skip
 
             return
 
-        path = file_system.resolve(path)
+        try:
+            path = file_system.resolve(path)
+        except OSError as ex:
+            raise access_error(path) from ex
 
         context.asset_store.user_metadata_providers.append(
             FileAssetMetadataProvider(path, file_system, metadata_file_loader)
@@ -150,12 +163,21 @@ def register_extra_asset_paths(
     path = config_section.checkpoint_dir
     if path is not None:
         metadata_file = path.joinpath("model.yaml")
-        if not file_system.exists(metadata_file):
+
+        try:
+            metadata_exists = file_system.exists(metadata_file)
+        except OSError as ex:
+            raise access_error(metadata_file) from ex
+
+        if not metadata_exists:
             log.warning("The checkpoint metadata file (model.yaml) is not found under the '{}' directory. Make sure that the `checkpoint_search_dir` configuration points to the base checkpoint directory used during training.", path)  # fmt: skip
 
             return
 
-        path = file_system.resolve(path)
+        try:
+            path = file_system.resolve(path)
+        except OSError as ex:
+            raise access_error(path) from ex
 
         context.asset_store.user_metadata_providers.append(
             FileCheckpointMetadataProvider(path, file_system, metadata_file_loader)

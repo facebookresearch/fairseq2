@@ -76,7 +76,12 @@ class DistributedLoggingInitializer(LoggingInitializer):
 
         aten_log_file = log_file.parent.joinpath("aten", log_file.name)
 
-        self._file_system.make_directory(aten_log_file.parent)
+        try:
+            self._file_system.make_directory(aten_log_file.parent)
+        except OSError as ex:
+            raise SetupError(
+                f"The '{aten_log_file.parent}' ATen log directory cannot be created. See the nested exception for details."
+            ) from ex
 
         _enable_aten_logging(aten_log_file)
 
@@ -89,7 +94,12 @@ class DistributedLoggingInitializer(LoggingInitializer):
 
         nccl_log_file = log_file.parent.joinpath("nccl", log_file.name)
 
-        self._file_system.make_directory(nccl_log_file.parent)
+        try:
+            self._file_system.make_directory(nccl_log_file.parent)
+        except OSError as ex:
+            raise SetupError(
+                f"The '{nccl_log_file.parent}' NCCL log directory cannot be created. See the nested exception for details."
+            ) from ex
 
         os.environ["NCCL_DEBUG"] = "INFO"
         os.environ["NCCL_DEBUG_FILE"] = str(nccl_log_file)

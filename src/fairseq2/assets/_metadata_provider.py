@@ -119,7 +119,7 @@ class FileAssetMetadataProvider(AbstractAssetMetadataProvider):
 
     @override
     def _load_cache(self) -> dict[str, dict[str, object]]:
-        path = self._file_system.resolve(self._path)
+        path = self._path
 
         cache = {}
 
@@ -139,7 +139,14 @@ class FileAssetMetadataProvider(AbstractAssetMetadataProvider):
 
                 cache[name] = metadata
 
-        if self._file_system.is_dir(path):
+        try:
+            is_dir = self._file_system.is_dir(path)
+        except OSError as ex:
+            raise AssetMetadataError(
+                f"The '{path}' path cannot be accessed. See the nested exception for details."
+            ) from ex
+
+        if is_dir:
             source = f"directory:{path}"
 
             def on_error(ex: OSError) -> NoReturn:

@@ -315,7 +315,7 @@ class RecipeProgram:
         if not args.output_dir:
             raise MissingOutputDirectoryError("`args.output_dir` must be specified.")
 
-        output_dir = self._env_bootstrapper.run(
+        sweep_output_dir = self._env_bootstrapper.run(
             args.preset,
             config,
             args.output_dir,
@@ -323,7 +323,7 @@ class RecipeProgram:
             sweep_format=args.sweep_format,
         )
 
-        self._runner.run(context, config, output_dir)
+        self._runner.run(context, config, sweep_output_dir)
 
 
 class MissingOutputDirectoryError(ValueError):
