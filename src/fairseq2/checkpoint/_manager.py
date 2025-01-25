@@ -11,6 +11,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterable, Iterator, Mapping, Set
 from contextlib import AbstractContextManager, nullcontext
 from pathlib import Path
+from shutil import Error
 from typing import final
 from warnings import catch_warnings
 
@@ -32,18 +33,10 @@ from fairseq2.utils.file import (
     TensorLoader,
     TensorLoadError,
 )
-from fairseq2.utils.structured import unstructure
-from fairseq2.utils.yaml import YamlDumper
 
 
 class CheckpointManager(ABC):
     """Saves and loads training checkpoints."""
-
-    @abstractmethod
-    def save_checkpoint_card(
-        self, family: str, config: object, tokenizer_name: str | None = None
-    ) -> None:
-        """Save the checkpoint model metadata."""
 
     @abstractmethod
     def begin_checkpoint(self, step_nr: int) -> None:
@@ -166,8 +159,6 @@ class FileCheckpointManager(CheckpointManager):
     _file_system: FileSystem
     _tensor_loader: TensorLoader
     _tensor_dumper: TensorDumper
-    _yaml_dumper: YamlDumper
-    _num_shards: int
     _shard_suffix: str
     _checkpoint_step_nr: int | None
 
@@ -178,7 +169,6 @@ class FileCheckpointManager(CheckpointManager):
         file_system: FileSystem,
         tensor_loader: TensorLoader,
         tensor_dumper: TensorDumper,
-        yaml_dumper: YamlDumper,
     ) -> None:
         self._checkpoint_dir = checkpoint_dir.expanduser().resolve()
 
@@ -189,52 +179,12 @@ class FileCheckpointManager(CheckpointManager):
         self._tensor_loader = tensor_loader
         self._tensor_dumper = tensor_dumper
 
-        self._yaml_dumper = yaml_dumper
-
-        self._num_shards = gangs.tp.size
-
-        if self._num_shards > 1:
+        if gangs.tp.rank > 1:
             self._shard_suffix = f".{gangs.tp.rank}"
         else:
             self._shard_suffix = ""
 
         self._checkpoint_step_nr = None
-
-    @override
-    def save_checkpoint_card(
-        self, family: str, config: object, tokenizer_name: str | None = None
-    ) -> None:
-        if self._gangs.root.rank == 0:
-            metadata: dict[str, object] = {
-                "name": "checkpoint",
-                "model_family": family,
-                "model_config": unstructure(config),
-            }
-
-            if tokenizer_name is not None:
-                metadata["tokenizer_ref"] = tokenizer_name
-
-            if self._num_shards != 1:
-                metadata["num_shards"] = self._num_shards
-
-            metadata_file = self._checkpoint_dir.joinpath("model.yaml")
-
-            def save_error() -> CheckpointError:
-                return CheckpointError(
-                    f"The model metadata cannot be saved to the '{metadata_file}' file. See the nested exception for details."
-                )
-
-            try:
-                self._file_system.make_directory(self._checkpoint_dir)
-            except OSError as ex:
-                raise save_error() from ex
-
-            try:
-                self._yaml_dumper.dump(metadata, metadata_file)
-            except OSError as ex:
-                raise save_error() from ex
-
-        self._gangs.root.barrier()
 
     @override
     def begin_checkpoint(self, step_nr: int) -> None:
@@ -270,6 +220,8 @@ class FileCheckpointManager(CheckpointManager):
         model_key: str = "model",
         replicated_keys: Set[str] | None = None,
     ) -> None:
+        gangs = self._gangs
+
         step_nr = self._get_checkpoint_step_nr()
 
         tmp_step_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}.tmp")
@@ -280,7 +232,7 @@ class FileCheckpointManager(CheckpointManager):
         rank_part["model_key"] = model_key
 
         def model_replicated() -> bool:
-            if self._gangs.dp.size == 1:
+            if gangs.dp.size == 1:
                 return True
 
             if not replicated_keys:
@@ -294,7 +246,7 @@ class FileCheckpointManager(CheckpointManager):
             if state_dict is not None:
                 del rank_part["model_key"]
 
-                if self._gangs.dp.rank == 0:
+                if gangs.dp.rank == 0:
                     model_file = tmp_step_dir.joinpath(f"model{self._shard_suffix}.pt")
 
                     try:
@@ -306,11 +258,11 @@ class FileCheckpointManager(CheckpointManager):
                             step_nr, f"The replicated model state of training step {step_nr} cannot be saved to the '{model_file}' file. See the nested exception for details."  # fmt: skip
                         ) from ex
 
-                self._gangs.root.barrier()
+                gangs.root.barrier()
 
         # Save the replicated state.
         if replicated_keys:
-            if self._gangs.dp.rank == 0:
+            if gangs.dp.rank == 0:
                 replicated_part = {}
 
                 if "*" in replicated_keys:
@@ -343,7 +295,7 @@ class FileCheckpointManager(CheckpointManager):
                         except KeyError:
                             pass
 
-            self._gangs.root.barrier()
+            gangs.root.barrier()
 
             # Check if anything is left to save for the rank.
             skip_rank = len(rank_part) == 0
@@ -353,7 +305,7 @@ class FileCheckpointManager(CheckpointManager):
         # Save the per-rank state.
         if not skip_rank:
             rank_file = tmp_step_dir.joinpath(
-                f"rank_{self._gangs.dp.rank}{self._shard_suffix}.pt"
+                f"rank_{gangs.dp.rank}{self._shard_suffix}.pt"
             )
 
             try:
@@ -363,7 +315,30 @@ class FileCheckpointManager(CheckpointManager):
                     step_nr, f"The checkpoint state of training step {step_nr} cannot be saved to the '{rank_file}' file. See the nested exception for details."  # fmt: skip
                 ) from ex
 
-            self._gangs.root.barrier()
+            gangs.root.barrier()
+
+        # Copy carbon-copy files to the checkpoint directory.
+        if gangs.root.rank == 0:
+            cc_dir = self._checkpoint_dir.joinpath("cc")
+
+            try:
+                cc_exists = self._file_system.exists(cc_dir)
+            except OSError as ex:
+                raise CheckpointSaveError(
+                    step_nr,
+                    "The checkpoint carbon copy directory cannot be accessed. See the nested exception for details.",
+                ) from ex
+
+            if cc_exists:
+                try:
+                    self._file_system.copy_directory(cc_dir, tmp_step_dir)
+                except (OSError, Error) as ex:
+                    raise CheckpointSaveError(
+                        step_nr,
+                        f"The checkpoint carbon copy directory cannot be copied to the '{tmp_step_dir}' directory. See the nested exception for details.",
+                    ) from ex
+
+        gangs.root.barrier()
 
     @override
     def save_metadata(self, metadata: Mapping[str, object]) -> None:

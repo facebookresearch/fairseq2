@@ -12,7 +12,9 @@ from fairseq2.models.llama import LLaMAConfig
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
 
 
-def convert_to_reference_checkpoint(checkpoint: dict[str, object]) -> dict[str, object]:
+def convert_to_reference_llama_checkpoint(
+    checkpoint: dict[str, object]
+) -> dict[str, object]:
     """Convert a fairseq2 LLaMA checkpoint to the reference format."""
     model_key = checkpoint.get("model_key", "model")
 
@@ -48,7 +50,7 @@ def convert_to_reference_checkpoint(checkpoint: dict[str, object]) -> dict[str, 
     return convert_model_state_dict(state_dict, key_map)
 
 
-def convert_to_huggingface_config(config: LLaMAConfig) -> dict[str, object]:
+def convert_to_hg_llama_config(config: LLaMAConfig) -> dict[str, object]:
     """Convert a fairseq2 LLaMA configuration to the HuggingFace format."""
     multiplier = config.ffn_inner_dim_multiplier
 

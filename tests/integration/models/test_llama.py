@@ -11,7 +11,7 @@ import pytest
 
 from fairseq2.context import get_runtime_context
 from fairseq2.models.llama import LLaMAConfig, LLaMAFactory, convert_llama_checkpoint
-from fairseq2.models.llama.integ import convert_to_reference_checkpoint
+from fairseq2.models.llama.integ import convert_to_reference_llama_checkpoint
 
 
 @pytest.mark.skipif(
@@ -32,7 +32,7 @@ def test_convert_to_reference_checkpoint() -> None:
 
     checkpoint: dict[str, object] = {"model": state_dict}
 
-    checkpoint = convert_to_reference_checkpoint(checkpoint)
+    checkpoint = convert_to_reference_llama_checkpoint(checkpoint)
 
     checkpoint = convert_llama_checkpoint(checkpoint, model_config)
 

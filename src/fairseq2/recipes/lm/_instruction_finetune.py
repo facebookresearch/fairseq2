@@ -80,8 +80,6 @@ class InstructionFinetuneConfig(TrainRecipeConfig):
         default_factory=lambda: InstructionFinetuneDatasetSection()
     )
 
-    tokenizer: str | None = None
-
     trainer: TrainerSection = field(
         default_factory=lambda: TrainerSection(
             dtype=torch.bfloat16, data_parallelism="fsdp", activation_checkpointing=True
@@ -241,7 +239,7 @@ def load_instruction_finetuner(
 
     dataset = load_dataset(InstructionDataset, context, config.dataset, gangs)
 
-    tokenizer = load_text_tokenizer(context, config.model.name, config.tokenizer)
+    tokenizer = load_text_tokenizer(context, config.model.name)
 
     seed = config.seed
 
@@ -267,7 +265,7 @@ def load_instruction_finetuner(
     # used with padded inputs.
     enable_memory_efficient_torch_sdpa(dp_model, False)
 
-    save_checkpoint_card(context, config, checkpoint_manager, config.tokenizer)
+    save_checkpoint_card(context, config, output_dir, gangs)
 
     optimizer = create_optimizer(context, config, dp_model)
 

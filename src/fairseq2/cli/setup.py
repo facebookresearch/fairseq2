@@ -11,7 +11,7 @@ from fairseq2.cli.commands.assets import ListAssetsHandler, ShowAssetHandler
 from fairseq2.cli.commands.chatbot import ChatbotHandler
 from fairseq2.cli.commands.llama import (
     ConvertLLaMACheckpointHandler,
-    WriteLLaMAHFConfigHandler,
+    WriteHFLLaMAConfigHandler,
 )
 from fairseq2.cli.commands.recipe import RecipeCommandHandler
 from fairseq2.extensions import run_extensions
@@ -118,8 +118,8 @@ def _setup_llama_cli(cli: Cli) -> None:
 
     group.add_command(
         name="write_hf_config",
-        handler=WriteLLaMAHFConfigHandler(),
-        help="write fairseq2 LLaMA config in Huggingface config format",
+        handler=WriteHFLLaMAConfigHandler(),
+        help="write fairseq2 LLaMA configurations in Hugging Face format",
     )
 
 

@@ -13,6 +13,9 @@ from fairseq2.models._error import ModelLoadError as ModelLoadError
 from fairseq2.models._error import (
     NonDataParallelismNotSupported as NonDataParallelismNotSupported,
 )
+from fairseq2.models._error import (
+    UnknownModelArchitectureError as UnknownModelArchitectureError,
+)
 from fairseq2.models._error import UnknownModelError as UnknownModelError
 from fairseq2.models._error import UnknownModelFamilyError as UnknownModelFamilyError
 from fairseq2.models._handler import AbstractModelHandler as AbstractModelHandler

@@ -20,15 +20,16 @@ from typing_extensions import override
 
 from fairseq2.assets import (
     AssetCardNotFoundError,
+    AssetMetadataError,
     AssetStore,
     FileAssetMetadataProvider,
     StandardMetadataFileLoader,
 )
 from fairseq2.checkpoint import (
-    CheckpointError,
     CheckpointManager,
     FileCheckpointManager,
     FileCheckpointMetadataProvider,
+    FileCheckpointMetadataSaver,
 )
 from fairseq2.context import RuntimeContext
 from fairseq2.data.text.tokenizers import (
@@ -195,10 +196,8 @@ def create_checkpoint_manager(
 
     tensor_dumper = TorchTensorDumper(file_system)
 
-    yaml_dumper = StandardYamlDumper(file_system)
-
     return FileCheckpointManager(
-        checkpoint_dir, gangs, file_system, tensor_loader, tensor_dumper, yaml_dumper
+        checkpoint_dir, gangs, file_system, tensor_loader, tensor_dumper
     )
 
 
@@ -737,20 +736,21 @@ class RecipeModelFactory:
 
 def save_checkpoint_card(
     context: RuntimeContext,
-    config: TrainRecipeConfig,
-    checkpoint_manager: CheckpointManager,
+    recipe_config: TrainRecipeConfig,
+    output_dir: Path,
+    gangs: Gangs,
     tokenizer_name: str | None = None,
 ) -> None:
-    model_family = config.model.family
-    if model_family is None:
+    family = recipe_config.model.family
+    if family is None:
         raise ValueError("`config.model.family` must not be `None`.")
 
-    model_config = config.model.config
-    if model_config is None:
+    config = recipe_config.model.config
+    if config is None:
         raise ValueError("`config.model.config` must not be `None`.")
 
     if tokenizer_name is None:
-        tokenizer_name = config.model.name
+        tokenizer_name = recipe_config.model.name
         if tokenizer_name is not None:
             try:
                 card = context.asset_store.retrieve_card(tokenizer_name)
@@ -761,11 +761,19 @@ def save_checkpoint_card(
 
             tokenizer_name = card.name
 
+    checkpoint_dir = output_dir.joinpath("checkpoints")
+
+    file_system = context.file_system
+
+    yaml_dumper = StandardYamlDumper(file_system)
+
+    metadata_saver = FileCheckpointMetadataSaver(
+        checkpoint_dir, gangs, file_system, yaml_dumper
+    )
+
     try:
-        checkpoint_manager.save_checkpoint_card(
-            model_family, model_config, tokenizer_name
-        )
-    except CheckpointError as ex:
+        metadata_saver.save(family, config, tokenizer_name)
+    except AssetMetadataError as ex:
         raise SetupError(
             "The checkpoint model card cannot be saved. See the nested exception for details."
         ) from ex

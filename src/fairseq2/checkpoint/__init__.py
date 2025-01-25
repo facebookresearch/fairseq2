@@ -18,3 +18,6 @@ from fairseq2.checkpoint._manager import FileCheckpointManager as FileCheckpoint
 from fairseq2.checkpoint._metadata_provider import (
     FileCheckpointMetadataProvider as FileCheckpointMetadataProvider,
 )
+from fairseq2.checkpoint._metadata_provider import (
+    FileCheckpointMetadataSaver as FileCheckpointMetadataSaver,
+)
