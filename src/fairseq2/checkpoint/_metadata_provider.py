@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import final
+from typing import Iterable, final
 
 from typing_extensions import override
 
@@ -86,46 +86,62 @@ class FileCheckpointMetadataProvider(AbstractAssetMetadataProvider):
 
         scores = []
 
-        try:
-            for step_dir in self._file_system.glob(self._checkpoint_dir, "step_*"):
-                if not self._file_system.is_dir(step_dir):
-                    continue
+        def iter_step_dirs() -> Iterable[Path]:
+            try:
+                for step_dir in self._file_system.glob(self._checkpoint_dir, "step_*"):
+                    if not self._file_system.is_dir(step_dir):
+                        continue
+
+                    yield step_dir
+            except OSError as ex:
+                raise AssetMetadataError(
+                    f"The '{self._checkpoint_dir}' base checkpoint directory cannot be traversed. See the nested exception for details."
+                ) from ex
+
+        for step_dir in iter_step_dirs():
+            try:
+                step_nr = int(step_dir.name[5:])
+            except ValueError:
+                continue
+
+            add_checkpoint_metadata(f"checkpoint_step_{step_nr}@", step_nr)
+
+            max_step_nr = max(max_step_nr, step_nr)
+
+            # Load score.
+            score_file = step_dir.joinpath("score.txt")
+
+            def load_error() -> AssetMetadataError:
+                return AssetMetadataError(
+                    f"The score of the training step {step_nr} cannot be loaded from the '{score_file}' file. See the nested exception for details."
+                )
+
+            try:
+                score_exists = self._file_system.exists(score_file)
+            except OSError as ex:
+                raise load_error() from ex
+
+            if score_exists:
+                try:
+                    fp = self._file_system.open_text(score_file)
+                except OSError as ex:
+                    raise load_error() from ex
 
                 try:
-                    step_nr = int(step_dir.name[5:])
+                    line = fp.readline()
+                except OSError as ex:
+                    raise load_error() from ex
+                finally:
+                    fp.close()
+
+                try:
+                    score = float(line)
                 except ValueError:
-                    continue
+                    raise AssetMetadataError(
+                        f"The score of the training step {step_nr} cannot be parsed as a floating-point number."
+                    ) from None
 
-                add_checkpoint_metadata(f"checkpoint_step_{step_nr}@", step_nr)
-
-                max_step_nr = max(max_step_nr, step_nr)
-
-                # Load score.
-                score_file = step_dir.joinpath("score.txt")
-                if self._file_system.exists(score_file):
-                    fp = self._file_system.open_text(score_file)
-
-                    try:
-                        line = fp.readline()
-                    except OSError as ex:
-                        raise AssetMetadataError(
-                            f"The score of the training step {step_nr} cannot be loaded from the '{score_file}' file. See the nested exception for details."
-                        ) from ex
-                    finally:
-                        fp.close()
-
-                    try:
-                        score = float(line)
-                    except ValueError:
-                        raise AssetMetadataError(
-                            f"The score of the training step {step_nr} cannot be parsed as a floating-point number."
-                        ) from None
-
-                    scores.append((score, step_nr))
-        except OSError as ex:
-            raise AssetMetadataError(
-                f"The base '{self._checkpoint_dir}' checkpoint directory cannot be traversed. See the nested exception for details."
-            ) from ex
+                scores.append((score, step_nr))
 
         if max_step_nr == -1:
             return
@@ -146,6 +162,14 @@ class FileCheckpointMetadataProvider(AbstractAssetMetadataProvider):
 
     def _load_tokenizer(self, cache: dict[str, dict[str, object]]) -> None:
         metadata_file = self._checkpoint_dir.joinpath("tokenizer.yaml")
-        if self._file_system.exists(metadata_file):
+
+        try:
+            tokenizer_exists = self._file_system.exists(metadata_file)
+        except OSError as ex:
+            raise AssetMetadataError(
+                f"The '{metadata_file}' path cannot be accessed. See the nested exception for details."
+            ) from ex
+
+        if tokenizer_exists:
             for name, metadata in self._metadata_file_loader.load(metadata_file):
                 cache[name] = metadata

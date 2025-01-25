@@ -199,6 +199,13 @@ class StandardEnvironmentBootstrapper(EnvironmentBootstrapper):
             world_size, preset, unstructured_config, sweep_format
         )
 
+        try:
+            output_dir = self._file_system.resolve(output_dir)
+        except OSError as ex:
+            raise SetupError(
+                f"The '{output_dir}' path cannot be accessed. See the nested exception for details."
+            ) from ex
+
         sweep_output_dir = output_dir.joinpath(sweep_tag)
 
         try:
@@ -212,7 +219,7 @@ class StandardEnvironmentBootstrapper(EnvironmentBootstrapper):
             sweep_output_dir.joinpath("logs/rank_{rank}.log")
         )
 
-        log.info("The log files are stored under the '{}' directory.", sweep_output_dir)
+        log.info("Log files stored under {}.", sweep_output_dir)
 
         log_config(log, unstructured_config)
 
@@ -276,7 +283,14 @@ class StandardConfigReader(ConfigReader):
         # Update the configuration with `--config-file`.
         if config_files:
             for config_file in chain.from_iterable(config_files):
-                if not self._file_system.is_file(config_file):
+                try:
+                    is_file = self._file_system.is_file(config_file)
+                except OSError as ex:
+                    raise SetupError(
+                        f"The '{config_file}' configuration file cannot be accessed. See the nested exception for details."
+                    ) from ex
+
+                if not is_file:
                     raise ConfigFileNotFoundError(config_file)
 
                 try:

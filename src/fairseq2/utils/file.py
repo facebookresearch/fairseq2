@@ -214,7 +214,15 @@ class TorchTensorLoader(TensorLoader):
         with catch_warnings():
             warnings.simplefilter("ignore")  # Suppress noisy FSDP warnings.
 
-            fp = self._file_system.open(path)
+            def load_error() -> TensorLoadError:
+                return TensorLoadError(
+                    f"The '{path}' tensor file cannot be loaded. See the nested exception for details."
+                )
+
+            try:
+                fp = self._file_system.open(path)
+            except OSError as ex:
+                raise load_error() from ex
 
             try:
                 data: dict[str, object] = torch.load(
@@ -223,9 +231,7 @@ class TorchTensorLoader(TensorLoader):
             except FileNotFoundError:
                 raise
             except (RuntimeError, OSError, PickleError) as ex:
-                raise TensorLoadError(
-                    f"The '{path}' tensor file cannot be loaded. See the nested exception for details."
-                ) from ex
+                raise load_error() from ex
             finally:
                 fp.close()
 
@@ -244,14 +250,20 @@ class TorchTensorDumper(TensorDumper):
         with catch_warnings():
             warnings.simplefilter("ignore")  # Suppress noisy FSDP warnings.
 
-            fp = self._file_system.open(path, mode=FileMode.WRITE)
+            def dump_error() -> TensorDumpError:
+                return TensorDumpError(
+                    f"The '{path}' tensor file cannot be dumped. See the nested exception for details.",
+                )
+
+            try:
+                fp = self._file_system.open(path, mode=FileMode.WRITE)
+            except OSError as ex:
+                raise dump_error() from ex
 
             try:
                 torch.save(data, fp)
             except (RuntimeError, OSError, PickleError) as ex:
-                raise TensorDumpError(
-                    f"The '{path}' tensor file cannot be dumped. See the nested exception for details.",
-                ) from ex
+                raise dump_error() from ex
             finally:
                 fp.close()
 
@@ -282,10 +294,21 @@ class SafetensorLoader(TensorLoader):
                     "Safetensors only supports `torch.device` and `str` for the `map_location` parameter."
                 )
 
-        if self._file_system.is_dir(path):
-            file_iter = self._file_system.glob(path, "*.safetensors")
+        try:
+            is_dir = self._file_system.is_dir(path)
+        except OSError as ex:
+            raise TensorLoadError(
+                f"The '{path}' path cannot be accessed. See the nested exception for details."
+            ) from ex
 
-            files = list(file_iter)
+        if is_dir:
+            try:
+                files = list(self._file_system.glob(path, "*.safetensors"))
+            except OSError as ex:
+                raise TensorLoadError(
+                    f"The '{path}' directory cannot be traversed. See the nested exception for details."
+                ) from ex
+
             if not files:
                 raise TensorLoadError(
                     f"No Safetensors file found under the '{path}' directory."
@@ -329,11 +352,13 @@ class StandardTensorLoader(TensorLoader):
     def load(
         self, path: Path, *, map_location: MapLocation = None
     ) -> dict[str, object]:
-        def has_files(path: Path, extension: str) -> bool:
-            file_iter = self._file_system.glob(path, f"*{extension}")
-
+        def has_files(extension: str) -> bool:
             try:
-                next(iter(file_iter))
+                next(iter(self._file_system.glob(path, f"*{extension}")))
+            except OSError as ex:
+                raise TensorLoadError(
+                    f"The '{path}' directory cannot be traversed. See the nested exception for details."
+                ) from ex
             except StopIteration:
                 return False
 
@@ -341,8 +366,15 @@ class StandardTensorLoader(TensorLoader):
 
         loader: TensorLoader
 
-        if self._file_system.is_dir(path):
-            if not has_files(path, ".safetensors"):
+        try:
+            is_dir = self._file_system.is_dir(path)
+        except OSError as ex:
+            raise TensorLoadError(
+                f"The '{path}' path cannot be accessed. See the nested exception for details."
+            ) from ex
+
+        if is_dir:
+            if not has_files(".safetensors"):
                 raise TensorLoadError(
                     f"The '{path}' directory does not contain any supported tensor files."
                 )
