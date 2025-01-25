@@ -10,5 +10,5 @@ from fairseq2.cli.commands.llama._convert_checkpoint import (
     ConvertLLaMACheckpointHandler as ConvertLLaMACheckpointHandler,
 )
 from fairseq2.cli.commands.llama._write_hf_config import (
-    WriteLLaMAHFConfigHandler as WriteLLaMAHFConfigHandler,
+    WriteHFLLaMAConfigHandler as WriteHFLLaMAConfigHandler,
 )

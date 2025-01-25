@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from fairseq2.models.llama import get_llama_model_hub
-from fairseq2.models.llama.integ import convert_to_huggingface_config
+from fairseq2.models.llama.integ import convert_to_hg_llama_config
 
 
 def test_intermediate_size_is_correct() -> None:
@@ -15,7 +15,7 @@ def test_intermediate_size_is_correct() -> None:
 
     model_config = model_hub.load_config("llama3_2_1b")
 
-    hg_config = convert_to_huggingface_config(model_config)
+    hg_config = convert_to_hg_llama_config(model_config)
 
     # `intermediate_size` is a required parameter in the Hugging Face LLaMA
     # configuration that is computed dynamically in fairseq2.

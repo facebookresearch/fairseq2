@@ -215,7 +215,7 @@ def load_wav2vec2_trainer(
     if config.trainer.torch_compile:
         model = compile_model(context, config.model, model)
 
-    save_checkpoint_card(context, config, checkpoint_manager)
+    save_checkpoint_card(context, config, output_dir, gangs)
 
     optimizer = create_optimizer(context, config, dp_model)
 

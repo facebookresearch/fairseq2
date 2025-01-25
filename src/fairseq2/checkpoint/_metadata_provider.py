@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Iterable, final
 
@@ -16,7 +17,106 @@ from fairseq2.assets import (
     AssetMetadataError,
     MetadataFileLoader,
 )
-from fairseq2.utils.file import FileSystem
+from fairseq2.gang import Gangs
+from fairseq2.models.llama import LLAMA_MODEL_FAMILY, LLaMAConfig
+from fairseq2.models.llama.integ import convert_to_hg_llama_config
+from fairseq2.utils.file import FileMode, FileSystem
+from fairseq2.utils.structured import unstructure
+from fairseq2.utils.yaml import YamlDumper
+
+
+@final
+class FileCheckpointMetadataSaver:
+    _checkpoint_dir: Path
+    _gangs: Gangs
+    _file_system: FileSystem
+    _yaml_dumper: YamlDumper
+
+    def __init__(
+        self,
+        checkpoint_dir: Path,
+        gangs: Gangs,
+        file_system: FileSystem,
+        yaml_dumper: YamlDumper,
+    ) -> None:
+        self._checkpoint_dir = checkpoint_dir
+        self._gangs = gangs
+        self._file_system = file_system
+        self._yaml_dumper = yaml_dumper
+
+    def save(
+        self, family: str, config: object, tokenizer_name: str | None = None
+    ) -> None:
+        if self._gangs.root.rank == 0:
+            unstructured_config = unstructure(config)
+
+            metadata: dict[str, object] = {
+                "name": "checkpoint",
+                "model_family": family,
+                "model_config": unstructured_config,
+            }
+
+            if tokenizer_name is not None:
+                metadata["tokenizer_ref"] = tokenizer_name
+
+            if self._gangs.tp.size != 1:
+                metadata["num_shards"] = self._gangs.tp.size
+
+            metadata_file = self._checkpoint_dir.joinpath("model.yaml")
+
+            def save_error() -> AssetMetadataError:
+                return AssetMetadataError(
+                    f"The model metadata cannot be saved to the '{metadata_file}' file. See the nested exception for details."
+                )
+
+            try:
+                self._file_system.make_directory(metadata_file.parent)
+            except OSError as ex:
+                raise save_error() from ex
+
+            try:
+                self._yaml_dumper.dump(metadata, metadata_file)
+            except OSError as ex:
+                raise save_error() from ex
+
+            self._save_huggingface_config(family, config)
+
+        self._gangs.root.barrier()
+
+    def _save_huggingface_config(self, family: str, config: object) -> None:
+        if family != LLAMA_MODEL_FAMILY:
+            return
+
+        if not isinstance(config, LLaMAConfig):
+            raise TypeError(
+                f"`config` must be of type `{LLaMAConfig}`, but is of type `{type(config)}` instead."
+            )
+
+        hg_config = convert_to_hg_llama_config(config)
+
+        hg_config_file = self._checkpoint_dir.joinpath("cc/config.json")
+
+        def save_error() -> AssetMetadataError:
+            return AssetMetadataError(
+                f"The Hugging Face model configuration cannot be saved to the '{hg_config_file}' file. See the nested exception for details."
+            )
+
+        try:
+            self._file_system.make_directory(hg_config_file.parent)
+        except OSError as ex:
+            raise save_error() from ex
+
+        try:
+            fp = self._file_system.open_text(hg_config_file, mode=FileMode.WRITE)
+        except OSError as ex:
+            raise save_error() from ex
+
+        try:
+            json.dump(hg_config, fp, indent=2, sort_keys=True)
+        except OSError as ex:
+            raise save_error() from ex
+        finally:
+            fp.close()
 
 
 @final
@@ -46,13 +146,6 @@ class FileCheckpointMetadataProvider(AbstractAssetMetadataProvider):
     def _load_cache(self) -> dict[str, dict[str, object]]:
         cache: dict[str, dict[str, object]] = {}
 
-        self._load_model(cache)
-
-        self._load_tokenizer(cache)
-
-        return cache
-
-    def _load_model(self, cache: dict[str, dict[str, object]]) -> None:
         metadata_file = self._checkpoint_dir.joinpath("model.yaml")
 
         for name, metadata in self._metadata_file_loader.load(metadata_file):
@@ -144,12 +237,12 @@ class FileCheckpointMetadataProvider(AbstractAssetMetadataProvider):
                 scores.append((score, step_nr))
 
         if max_step_nr == -1:
-            return
+            return cache
 
         add_checkpoint_metadata("last_checkpoint@", max_step_nr)
 
         if not scores:
-            return
+            return cache
 
         scores.sort()
 
@@ -160,16 +253,4 @@ class FileCheckpointMetadataProvider(AbstractAssetMetadataProvider):
         for idx, (_, step_nr) in enumerate(reversed(scores)):
             add_checkpoint_metadata(f"best_checkpoint_{idx}@", step_nr)
 
-    def _load_tokenizer(self, cache: dict[str, dict[str, object]]) -> None:
-        metadata_file = self._checkpoint_dir.joinpath("tokenizer.yaml")
-
-        try:
-            tokenizer_exists = self._file_system.exists(metadata_file)
-        except OSError as ex:
-            raise AssetMetadataError(
-                f"The '{metadata_file}' path cannot be accessed. See the nested exception for details."
-            ) from ex
-
-        if tokenizer_exists:
-            for name, metadata in self._metadata_file_loader.load(metadata_file):
-                cache[name] = metadata
+        return cache

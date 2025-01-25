@@ -13,7 +13,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from enum import Enum
 from pathlib import Path
 from pickle import PickleError
-from shutil import rmtree
+from shutil import copytree, rmtree
 from typing import BinaryIO, TextIO, TypeAlias, cast, final
 from warnings import catch_warnings
 
@@ -62,6 +62,10 @@ class FileSystem(ABC):
 
     @abstractmethod
     def make_directory(self, path: Path) -> None:
+        ...
+
+    @abstractmethod
+    def copy_directory(self, source_path: Path, target_path: Path) -> None:
         ...
 
     @abstractmethod
@@ -144,6 +148,10 @@ class StandardFileSystem(FileSystem):
     @override
     def make_directory(self, path: Path) -> None:
         path.mkdir(parents=True, exist_ok=True)
+
+    @override
+    def copy_directory(self, source_path: Path, target_path: Path) -> None:
+        copytree(source_path, target_path, dirs_exist_ok=True)
 
     @override
     def remove_directory(self, path: Path) -> None:
