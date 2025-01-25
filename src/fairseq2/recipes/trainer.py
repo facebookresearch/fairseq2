@@ -1072,7 +1072,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         if self._score_metric_descriptor is not None:
             log.info("Saving checkpoint score.")
 
-            self._checkpoint_manager.save_score(self._valid_score)
+            self._checkpoint_manager.save_score(self._valid_score, self._lower_better)
 
             log.info("Checkpoint score saved.")
 
@@ -1107,16 +1107,10 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             if nc is None:
                 raise InternalError("`_keep_best_n_checkpoints` is `None`")
 
-            self._checkpoint_manager.keep_best_n_checkpoints(
-                nm, lower_better=self._lower_better
-            )
-            self._checkpoint_manager.keep_best_n_checkpoints(
-                nc, lower_better=self._lower_better, preserve_model=True
-            )
+            self._checkpoint_manager.keep_best_n_checkpoints(nm)
+            self._checkpoint_manager.keep_best_n_checkpoints(nc, preserve_model=True)
         elif nc is not None:
-            self._checkpoint_manager.keep_best_n_checkpoints(
-                nc, lower_better=self._lower_better
-            )
+            self._checkpoint_manager.keep_best_n_checkpoints(nc)
 
     def _should_do(
         self,
