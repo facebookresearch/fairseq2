@@ -18,45 +18,50 @@ from fairseq2.datasets.instruction import (
     InstructionDataset,
     InstructionReadOptions,
 )
-from fairseq2.logging import log
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.sequence import SequenceBatch
-from fairseq2.nn.utils.module import remove_parametrizations
 from fairseq2.recipes.common import (
-    broadcast_model,
-    compile_eval_model,
     create_evaluator,
     load_dataset,
-    load_eval_model,
     load_text_tokenizer,
     register_extra_asset_paths,
     setup_gangs,
+    setup_reference_model,
 )
-from fairseq2.recipes.config import DatasetSection, EvalRecipeConfig, EvaluatorSection
+from fairseq2.recipes.config import (
+    CommonSection,
+    DatasetSection,
+    EvaluatorSection,
+    GangSection,
+    ReferenceModelSection,
+)
 from fairseq2.recipes.evaluator import Evaluator
 from fairseq2.recipes.lm._instruction_finetune import (
     InstructionFinetuneCriterion,
     InstructionLossEvalUnit,
 )
-from fairseq2.recipes.utils.log import log_model
 from fairseq2.typing import CPU
-from fairseq2.utils.config import process_config
 from fairseq2.utils.rng import manual_seed
+from fairseq2.utils.structured import structure
 
 
 @dataclass(kw_only=True)
-class LMLossEvalConfig(EvalRecipeConfig):
-    """Holds configuration of the perplexity evaluator recipe"""
-
-    model: str = "llama3_1_8b"
+class LMLossEvalConfig:
+    model: ReferenceModelSection = field(
+        default_factory=lambda: ReferenceModelSection(name="llama3_1_8b")
+    )
 
     dataset: LMLossEvalDatasetSection = field(
         default_factory=lambda: LMLossEvalDatasetSection()
     )
 
+    gang: GangSection = field(default_factory=lambda: GangSection())
+
     evaluator: EvaluatorSection = field(
         default_factory=lambda: EvaluatorSection(dtype=torch.bfloat16)
     )
+
+    common: CommonSection = field(default_factory=lambda: CommonSection())
 
 
 @dataclass(kw_only=True)
@@ -94,41 +99,35 @@ def register_lm_loss_eval_configs(context: RuntimeContext) -> None:
 
 @torch.inference_mode()
 def load_lm_loss_evaluator(
-    context: RuntimeContext, config: LMLossEvalConfig, output_dir: Path
+    context: RuntimeContext, config: object, output_dir: Path
 ) -> Evaluator[SequenceBatch]:
-    register_extra_asset_paths(context, config.assets)
+    config = structure(config, LMLossEvalConfig)
 
-    process_config(context, config)
+    register_extra_asset_paths(context, config)
 
-    gangs = setup_gangs(context, config.gang)
+    torch.set_float32_matmul_precision("high")
 
-    dataset = load_dataset(InstructionDataset, context, config.dataset, gangs)
+    gangs = setup_gangs(context, config)
 
-    tokenizer = load_text_tokenizer(context, config.model)
+    seed = config.common.seed
 
-    seed = config.seed
-
-    manual_seed(seed, CPU, context.device)
+    manual_seed(seed, CPU, gangs.root.device)
 
     seed += 1
 
-    model = load_eval_model(
+    model = setup_reference_model(
         DecoderModel,
         context,
-        config.model,
+        config.model.name,
         gangs,
         config.evaluator.dtype,
-        mixed_precision=config.evaluator.amp,
+        config.evaluator.amp,
+        config.evaluator.torch_compile,
     )
 
-    broadcast_model(config.model, model, gangs)
+    dataset = load_dataset(InstructionDataset, context, config, gangs)
 
-    remove_parametrizations(model)
-
-    log_model(log, model, gangs)
-
-    if config.evaluator.torch_compile:
-        model = compile_eval_model(context, config.model, model)
+    tokenizer = load_text_tokenizer(context, config)
 
     # Initialize the unit.
     criterion = InstructionFinetuneCriterion(model)

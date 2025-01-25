@@ -18,14 +18,14 @@ from fairseq2.optim.lr_scheduler._cosine_annealing import (
 from fairseq2.optim.lr_scheduler._cosine_annealing import (
     CosineAnnealingLRHandler as CosineAnnealingLRHandler,
 )
-from fairseq2.optim.lr_scheduler._handler import (
-    LRSchedulerHandler as LRSchedulerHandler,
-)
-from fairseq2.optim.lr_scheduler._handler import (
+from fairseq2.optim.lr_scheduler._error import (
     UnknownLRSchedulerError as UnknownLRSchedulerError,
 )
-from fairseq2.optim.lr_scheduler._handler import (
+from fairseq2.optim.lr_scheduler._error import (
     UnspecifiedNumberOfStepsError as UnspecifiedNumberOfStepsError,
+)
+from fairseq2.optim.lr_scheduler._handler import (
+    LRSchedulerHandler as LRSchedulerHandler,
 )
 from fairseq2.optim.lr_scheduler._lr_scheduler import (
     AbstractLRScheduler as AbstractLRScheduler,

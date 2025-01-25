@@ -7,10 +7,7 @@
 from __future__ import annotations
 
 from fairseq2.context import RuntimeContext
-from fairseq2.models import ModelHandler
-from fairseq2.models.decoder import DecoderModel
 from fairseq2.recipes.asr import register_asr_eval_configs
-from fairseq2.recipes.common import RecipeEvalModelLoader
 from fairseq2.recipes.lm import (
     CPO_FINETUNE_UNIT,
     DPO_FINETUNE_UNIT,
@@ -57,13 +54,7 @@ def _register_recipes(context: RuntimeContext) -> None:
 def _register_po_finetune_units(context: RuntimeContext) -> None:
     registry = context.get_registry(POFinetuneUnitHandler)
 
-    model_handlers = context.get_registry(ModelHandler)
-
-    eval_model_loader = RecipeEvalModelLoader(
-        DecoderModel, context.asset_store, model_handlers
-    )
-
     registry.register(CPO_FINETUNE_UNIT, CpoFinetuneUnitHandler())
-    registry.register(DPO_FINETUNE_UNIT, DpoFinetuneUnitHandler(eval_model_loader))
+    registry.register(DPO_FINETUNE_UNIT, DpoFinetuneUnitHandler(context))
     registry.register(ORPO_FINETUNE_UNIT, OrpoFinetuneUnitHandler())
     registry.register(SIMPO_FINETUNE_UNIT, SimPOFinetuneUnitHandler())

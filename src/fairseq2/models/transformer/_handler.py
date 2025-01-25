@@ -22,23 +22,22 @@ from fairseq2.models.transformer._config import (
 from fairseq2.models.transformer._factory import TransformerFactory
 from fairseq2.models.transformer._model import TransformerModel
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
-from fairseq2.typing import safe_cast
 
 
 class TransformerModelHandler(AbstractModelHandler):
-    @override
     @property
+    @override
     def family(self) -> str:
         return TRANSFORMER_MODEL_FAMILY
 
-    @override
     @property
+    @override
     def kls(self) -> type[Module]:
         return TransformerModel
 
     @override
     def _create_model(self, config: object) -> Module:
-        config = safe_cast("config", config, TransformerConfig)
+        config = cast(TransformerConfig, config)
 
         return TransformerFactory(config).create_model()
 

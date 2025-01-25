@@ -21,23 +21,22 @@ from fairseq2.models.s2t_transformer._config import (
 from fairseq2.models.s2t_transformer._factory import S2TTransformerFactory
 from fairseq2.models.transformer import TransformerModel
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
-from fairseq2.typing import safe_cast
 
 
 class S2TTransformerModelHandler(AbstractModelHandler):
-    @override
     @property
+    @override
     def family(self) -> str:
         return S2T_TRANSFORMER_MODEL_FAMILY
 
-    @override
     @property
+    @override
     def kls(self) -> type[Module]:
         return TransformerModel
 
     @override
     def _create_model(self, config: object) -> Module:
-        config = safe_cast("config", config, S2TTransformerConfig)
+        config = cast(S2TTransformerConfig, config)
 
         return S2TTransformerFactory(config).create_model()
 
@@ -49,7 +48,7 @@ class S2TTransformerModelHandler(AbstractModelHandler):
 
 
 def convert_s2t_transformer_checkpoint(
-    checkpoint: dict[str, object]
+    checkpoint: dict[str, object],
 ) -> dict[str, object]:
     try:
         state_dict = cast(MutableMapping[str, Tensor], checkpoint["model"])

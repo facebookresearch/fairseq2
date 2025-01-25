@@ -22,7 +22,7 @@ from fairseq2.metrics.recorders._recorder import (
     NoopMetricRecorder,
 )
 from fairseq2.registry import Provider
-from fairseq2.typing import safe_cast
+from fairseq2.utils.structured import structure
 
 try:
     import wandb  # type: ignore[import-not-found]
@@ -121,7 +121,7 @@ class WandbRecorderHandler(MetricRecorderHandler):
 
     @override
     def create(self, output_dir: Path, config: object) -> MetricRecorder:
-        config = safe_cast("config", config, WandbRecorderConfig)
+        config = structure(config, WandbRecorderConfig)
 
         if not config.enabled:
             return NoopMetricRecorder()

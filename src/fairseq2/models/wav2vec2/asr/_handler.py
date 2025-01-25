@@ -22,23 +22,22 @@ from fairseq2.models.wav2vec2.asr._config import (
 from fairseq2.models.wav2vec2.asr._factory import Wav2Vec2AsrFactory
 from fairseq2.models.wav2vec2.asr._model import Wav2Vec2AsrModel
 from fairseq2.nn.transformer import TransformerNormOrder
-from fairseq2.typing import safe_cast
 
 
 class Wav2Vec2AsrModelHandler(AbstractModelHandler):
-    @override
     @property
+    @override
     def family(self) -> str:
         return WAV2VEC2_ASR_MODEL_FAMILY
 
-    @override
     @property
+    @override
     def kls(self) -> type[Module]:
         return Wav2Vec2AsrModel
 
     @override
     def _create_model(self, config: object) -> Module:
-        config = safe_cast("config", config, Wav2Vec2AsrConfig)
+        config = cast(Wav2Vec2AsrConfig, config)
 
         return Wav2Vec2AsrFactory(config).create_model()
 
@@ -46,7 +45,7 @@ class Wav2Vec2AsrModelHandler(AbstractModelHandler):
     def _convert_checkpoint(
         self, checkpoint: dict[str, object], config: object
     ) -> dict[str, object]:
-        config = safe_cast("config", config, Wav2Vec2AsrConfig)
+        config = cast(Wav2Vec2AsrConfig, config)
 
         return convert_wav2vec2_asr_checkpoint(checkpoint, config)
 

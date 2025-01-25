@@ -7,10 +7,10 @@
 from __future__ import annotations
 
 from fairseq2.recipes.mt._common import MTCriterion as MTCriterion
+from fairseq2.recipes.mt._common import MTLossSection as MTLossSection
 from fairseq2.recipes.mt._eval import MTBleuChrfEvalUnit as MTBleuChrfEvalUnit
 from fairseq2.recipes.mt._eval import MTEvalConfig as MTEvalConfig
 from fairseq2.recipes.mt._eval import MTEvalDatasetSection as MTEvalDatasetSection
-from fairseq2.recipes.mt._eval import MTEvaluatorSection as MTEvaluatorSection
 from fairseq2.recipes.mt._eval import MTLossEvalUnit as MTLossEvalUnit
 from fairseq2.recipes.mt._eval import load_mt_evaluator as load_mt_evaluator
 from fairseq2.recipes.mt._eval import (
@@ -18,7 +18,6 @@ from fairseq2.recipes.mt._eval import (
 )
 from fairseq2.recipes.mt._train import MTTrainConfig as MTTrainConfig
 from fairseq2.recipes.mt._train import MTTrainDatasetSection as MTTrainDatasetSection
-from fairseq2.recipes.mt._train import MTTrainerSection as MTTrainerSection
 from fairseq2.recipes.mt._train import MTTrainUnit as MTTrainUnit
 from fairseq2.recipes.mt._train import MTValidationSection as MTValidationSection
 from fairseq2.recipes.mt._train import load_mt_trainer as load_mt_trainer

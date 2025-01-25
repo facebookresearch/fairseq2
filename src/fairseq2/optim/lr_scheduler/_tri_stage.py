@@ -14,16 +14,14 @@ from typing import Final, final
 from torch.optim import Optimizer
 from typing_extensions import override
 
-from fairseq2.optim.lr_scheduler._handler import (
-    LRSchedulerHandler,
-    UnspecifiedNumberOfStepsError,
-)
+from fairseq2.optim.lr_scheduler._error import UnspecifiedNumberOfStepsError
+from fairseq2.optim.lr_scheduler._handler import LRSchedulerHandler
 from fairseq2.optim.lr_scheduler._lr_scheduler import (
     AbstractLRScheduler,
     LRScheduler,
     get_per_param_group,
 )
-from fairseq2.typing import safe_cast
+from fairseq2.utils.structured import structure
 
 
 @final
@@ -134,7 +132,7 @@ class TriStageLR(AbstractLRScheduler):
         return list(self._final_lrs)
 
 
-TRI_STAGE_LR: Final = "tri-stage"
+TRI_STAGE_LR: Final = "tri_stage"
 
 
 @dataclass(kw_only=True)
@@ -155,7 +153,7 @@ class TriStageLRHandler(LRSchedulerHandler):
     def create(
         self, optimizer: Optimizer, config: object, num_steps: int | None
     ) -> LRScheduler:
-        config = safe_cast("config", config, TriStageLRConfig)
+        config = structure(config, TriStageLRConfig)
 
         if num_steps is None:
             raise UnspecifiedNumberOfStepsError(TRI_STAGE_LR)

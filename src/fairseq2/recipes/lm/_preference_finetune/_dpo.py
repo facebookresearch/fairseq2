@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Final, cast, final
 
 import torch
@@ -16,6 +16,7 @@ from torch.nn import Module
 from torcheval.metrics import Mean
 from typing_extensions import override
 
+from fairseq2.context import RuntimeContext
 from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.gang import Gang, Gangs
 from fairseq2.models.decoder import DecoderModel
@@ -24,15 +25,18 @@ from fairseq2.models.sequence import (
     SequenceModelOutput,
     as_auto_regressive_input,
 )
-from fairseq2.nn.utils.module import freeze_parameters
-from fairseq2.recipes.common import EvalModelLoader, broadcast_model
+from fairseq2.nn.utils.module import freeze_parameters, remove_parametrizations
+from fairseq2.recipes.common import broadcast_model, load_reference_model
+from fairseq2.recipes.config import ReferenceModelSection, get_config_section
 from fairseq2.recipes.lm._preference_finetune._common import (
+    POCriterionSection,
     POFinetuneMetricBag,
     _gather_lprobs_avg,
 )
 from fairseq2.recipes.lm._preference_finetune._handler import POFinetuneUnitHandler
 from fairseq2.recipes.trainer import AbstractTrainUnit, TrainUnit
-from fairseq2.typing import DataType, safe_cast
+from fairseq2.typing import DataType
+from fairseq2.utils.structured import structure
 
 
 @final
@@ -221,8 +225,14 @@ DPO_FINETUNE_UNIT: Final = "dpo"
 
 @dataclass(kw_only=True)
 class DpoFinetuneConfig:
-    reference_model: str | None = "llama3_1_8b_instruct"
-    """The name, path, or path to the asset card of the reference model. If reference_model is None, recipe expects to get reference log-probabilities for chosen and rejected targets as float values in the data example (fields `reference_score_rejected` and  `reference_score_chosen`)."""
+    reference_model: ReferenceModelSection = field(
+        default_factory=lambda: ReferenceModelSection(name="llama3_1_8b_instruct")
+    )
+    """
+    The reference model. If ``None``, the recipe expects to get reference
+    log-probabilities for chosen and rejected targets as float values in the
+    data example (fields `reference_score_rejected` and  `reference_score_chosen`).
+    """
 
     reference_dtype: DataType = torch.bfloat16
     """The data type of the reference model."""
@@ -240,28 +250,38 @@ class DpoFinetuneConfig:
 
 @final
 class DpoFinetuneUnitHandler(POFinetuneUnitHandler):
-    _model_loader: EvalModelLoader[DecoderModel]
+    _context: RuntimeContext
 
-    def __init__(self, model_loader: EvalModelLoader[DecoderModel]) -> None:
-        self._model_loader = model_loader
+    def __init__(self, context: RuntimeContext) -> None:
+        self._context = context
 
     @override
     def create(
-        self, model: Module, gangs: Gangs, config: object
+        self, model: Module, gangs: Gangs, recipe_config: object
     ) -> TrainUnit[PreferenceBatch]:
-        config = safe_cast("config", config, DpoFinetuneConfig)
+        criterion_section = get_config_section(
+            recipe_config, "criterion", POCriterionSection
+        )
+
+        config = structure(criterion_section.config, DpoFinetuneConfig)
 
         if config.reference_model is not None:
-            reference_model = self._model_loader.load(
-                config.reference_model,
+            reference_model = load_reference_model(
+                DecoderModel,
+                self._context,
+                config.reference_model.name,
                 gangs,
                 config.reference_dtype,
                 mp=False,
             )
 
+            broadcast_model(config.reference_model.name, reference_model, gangs)
+
+            remove_parametrizations(reference_model)
+
             freeze_parameters(reference_model)
 
-            broadcast_model(config.reference_model, reference_model, gangs)
+            reference_model.eval()
         else:
             reference_model = None
 

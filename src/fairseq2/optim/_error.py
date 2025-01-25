@@ -7,22 +7,10 @@
 from __future__ import annotations
 
 
-class AssetError(Exception):
+class UnknownOptimizerError(Exception):
     name: str
 
-    def __init__(self, name: str, message: str) -> None:
-        super().__init__(message)
+    def __init__(self, name: str) -> None:
+        super().__init__(f"'{name}' is not a known optimizer.")
 
         self.name = name
-
-
-class AssetCardError(AssetError):
-    pass
-
-
-class AssetCardNotFoundError(AssetCardError):
-    pass
-
-
-class AssetCardFieldNotFoundError(AssetCardError):
-    pass

@@ -17,35 +17,12 @@ class LRSchedulerHandler(ABC):
     @abstractmethod
     def create(
         self, optimizer: Optimizer, config: object, num_steps: int | None
-    ) -> LRScheduler:
-        ...
+    ) -> LRScheduler: ...
 
     @property
     @abstractmethod
-    def requires_num_steps(self) -> bool:
-        ...
+    def requires_num_steps(self) -> bool: ...
 
     @property
     @abstractmethod
-    def config_kls(self) -> type[object]:
-        ...
-
-
-class UnknownLRSchedulerError(Exception):
-    name: str
-
-    def __init__(self, name: str) -> None:
-        super().__init__(f"'{name}' is not a known learning rate scheduler.")
-
-        self.name = name
-
-
-class UnspecifiedNumberOfStepsError(ValueError):
-    name: str
-
-    def __init__(self, name: str) -> None:
-        super().__init__(
-            f"`num_steps` must be specified for the '{name}' learning rate scheduler."
-        )
-
-        self.name = name
+    def config_kls(self) -> type[object]: ...

@@ -316,7 +316,7 @@ class StandardMultiheadAttention(MultiheadAttention):
 
             if qkv_proj_init_fn is not None:
                 raise ValueError(
-                    "`qkv_proj_init_fn` must be `None`, when `q_proj`, `k_proj`, `v_proj` are specified."
+                    "`qkv_proj_init_fn` must not be specified when `q_proj`, `k_proj`, `v_proj` are specified."
                 )
 
             if q_proj.input_dim != self.kv_dim:
@@ -384,7 +384,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         else:
             if output_proj_init_fn is not None:
                 raise ValueError(
-                    "`output_proj_init_fn` must be `None`, when `output_proj` is specified."
+                    "`output_proj_init_fn` must not be specified when `output_proj` is specified."
                 )
 
             if v_dim != output_proj.input_dim:
@@ -431,7 +431,7 @@ class StandardMultiheadAttention(MultiheadAttention):
             if seqs is keys:  # Self attention
                 if key_padding_mask is not None:
                     raise ValueError(
-                        "`key_padding_mask` must be `None` during incremental decoding."
+                        "`key_padding_mask` must not be specified during incremental decoding."
                     )
 
                 # k: (N, S_step, M) -> (N, H_kv, S_step, K_h)

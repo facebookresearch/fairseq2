@@ -21,7 +21,7 @@ from fairseq2.optim.lr_scheduler._lr_scheduler import (
     LRScheduler,
     get_per_param_group,
 )
-from fairseq2.typing import safe_cast
+from fairseq2.utils.structured import structure
 
 
 @final
@@ -163,7 +163,7 @@ class CosineAnnealingLR(AbstractLRScheduler):
         return min_lr + 0.5 * (max_lr - min_lr) * (1 + c)
 
 
-COSINE_ANNEALING_LR: Final = "cosine-annealing"
+COSINE_ANNEALING_LR: Final = "cosine_annealing"
 
 
 @dataclass(kw_only=True)
@@ -201,7 +201,7 @@ class CosineAnnealingLRHandler(LRSchedulerHandler):
     def create(
         self, optimizer: Optimizer, config: object, num_steps: int | None
     ) -> LRScheduler:
-        config = safe_cast("config", config, CosineAnnealingLRConfig)
+        config = structure(config, CosineAnnealingLRConfig)
 
         if config.cycle_len is None:
             if num_steps is None:

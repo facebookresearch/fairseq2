@@ -35,7 +35,7 @@ from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.nn import IncrementalStateBag
 from fairseq2.nn.ops import repeat_interleave
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.utils.profiler import Stopwatch
+from fairseq2.utils.stopwatch import Stopwatch
 
 
 @final
@@ -743,8 +743,7 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
         return True
 
     @abstractmethod
-    def _decode(self, seqs: Tensor) -> SequenceModelOutput:
-        ...
+    def _decode(self, seqs: Tensor) -> SequenceModelOutput: ...
 
     def _finish_sequence(self, seq_idx: int) -> None:
         if self._echo_prompt:

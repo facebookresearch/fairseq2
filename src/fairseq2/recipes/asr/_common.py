@@ -15,6 +15,7 @@ from torch.nn import Module
 from typing_extensions import override
 
 from fairseq2.data.text.tokenizers import TextTokenDecoder, TextTokenizer
+from fairseq2.error import ProgramError
 from fairseq2.gang import Gang
 from fairseq2.metrics import Mean
 from fairseq2.metrics.text import WerMetric
@@ -118,23 +119,28 @@ class AsrScorer:
             refs, ref_seqs, ref_padding_mask, hyps, hyp_seqs, hyp_padding_mask
         )
 
-        # Dump references.
-        stream = self._ref_output_stream
-        if stream is not None:
-            for ref in refs:
-                stream.write(ref)
-                stream.write("\n")
+        try:
+            # Dump references.
+            stream = self._ref_output_stream
+            if stream is not None:
+                for ref in refs:
+                    stream.write(ref)
+                    stream.write("\n")
 
-            stream.flush()
+                stream.flush()
 
-        # Dump hypotheses.
-        stream = self._hyp_output_stream
-        if stream is not None:
-            for hyp in hyps:
-                stream.write(hyp)
-                stream.write("\n")
+            # Dump hypotheses.
+            stream = self._hyp_output_stream
+            if stream is not None:
+                for hyp in hyps:
+                    stream.write(hyp)
+                    stream.write("\n")
 
-            stream.flush()
+                stream.flush()
+        except OSError as ex:
+            raise ProgramError(
+                "The generator output cannot be written to the stream. See the nested exception for details."
+            ) from ex
 
 
 class AsrMetricBag(BaseMetricBag):

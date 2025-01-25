@@ -33,62 +33,53 @@ class FileMode(Enum):
 
 class FileSystem(ABC):
     @abstractmethod
-    def is_file(self, path: Path) -> bool:
-        ...
+    def is_file(self, path: Path) -> bool: ...
 
     @abstractmethod
-    def is_dir(self, path: Path) -> bool:
-        ...
+    def is_dir(self, path: Path) -> bool: ...
 
     @abstractmethod
-    def open(self, path: Path, mode: FileMode = FileMode.READ) -> BinaryIO:
-        ...
+    def open(self, path: Path, mode: FileMode = FileMode.READ) -> BinaryIO: ...
 
     @abstractmethod
-    def open_text(self, path: Path, mode: FileMode = FileMode.READ) -> TextIO:
-        ...
+    def open_text(self, path: Path, mode: FileMode = FileMode.READ) -> TextIO: ...
 
     @abstractmethod
-    def exists(self, path: Path) -> bool:
-        ...
+    def exists(self, path: Path) -> bool: ...
 
     @abstractmethod
-    def move(self, old_path: Path, new_path: Path) -> None:
-        ...
+    def move(self, old_path: Path, new_path: Path) -> None: ...
 
     @abstractmethod
-    def remove(self, path: Path) -> None:
-        ...
+    def remove(self, path: Path) -> None: ...
 
     @abstractmethod
-    def make_directory(self, path: Path) -> None:
-        ...
+    def make_directory(self, path: Path) -> None: ...
 
     @abstractmethod
-    def copy_directory(self, source_path: Path, target_path: Path) -> None:
-        ...
+    def copy_directory(self, source_path: Path, target_path: Path) -> None: ...
 
     @abstractmethod
-    def remove_directory(self, path: Path) -> None:
-        ...
+    def remove_directory(self, path: Path) -> None: ...
 
     @abstractmethod
-    def glob(self, path: Path, pattern: str) -> Iterable[Path]:
-        ...
+    def glob(self, path: Path, pattern: str) -> Iterable[Path]: ...
 
     @abstractmethod
     def walk_directory(
         self, path: Path, *, on_error: Callable[[OSError], None] | None
-    ) -> Iterable[tuple[str, Sequence[str]]]:
-        ...
+    ) -> Iterable[tuple[str, Sequence[str]]]: ...
 
     @abstractmethod
-    def resolve(self, path: Path) -> Path:
-        ...
+    def resolve(self, path: Path) -> Path: ...
+
+    @property
+    @abstractmethod
+    def is_local(self) -> bool: ...
 
 
 @final
-class StandardFileSystem(FileSystem):
+class LocalFileSystem(FileSystem):
     @override
     def is_file(self, path: Path) -> bool:
         return path.is_file()
@@ -172,6 +163,12 @@ class StandardFileSystem(FileSystem):
     def resolve(self, path: Path) -> Path:
         return path.expanduser().resolve()
 
+    @final
+    @property
+    @override
+    def is_local(self) -> bool:
+        return True
+
 
 MapLocation: TypeAlias = (
     Callable[[Tensor, str], Tensor] | Device | str | dict[str, str] | None
@@ -224,7 +221,7 @@ class TorchTensorLoader(TensorLoader):
 
             def load_error() -> TensorLoadError:
                 return TensorLoadError(
-                    f"The '{path}' tensor file cannot be loaded. See the nested exception for details."
+                    path, f"The '{path}' tensor file cannot be loaded. See the nested exception for details."  # fmt: skip
                 )
 
             try:
@@ -260,7 +257,7 @@ class TorchTensorDumper(TensorDumper):
 
             def dump_error() -> TensorDumpError:
                 return TensorDumpError(
-                    f"The '{path}' tensor file cannot be dumped. See the nested exception for details.",
+                    path, f"The '{path}' tensor file cannot be dumped. See the nested exception for details.",  # fmt: skip
                 )
 
             try:
@@ -283,6 +280,9 @@ class SafetensorLoader(TensorLoader):
     _file_system: FileSystem
 
     def __init__(self, file_system: FileSystem) -> None:
+        if not file_system.is_local:
+            raise NotSupportedError("Safetensors supports only local file system.")
+
         self._file_system = file_system
 
     @override
@@ -306,7 +306,7 @@ class SafetensorLoader(TensorLoader):
             is_dir = self._file_system.is_dir(path)
         except OSError as ex:
             raise TensorLoadError(
-                f"The '{path}' path cannot be accessed. See the nested exception for details."
+                path, f"The '{path}' path cannot be accessed. See the nested exception for details."  # fmt: skip
             ) from ex
 
         if is_dir:
@@ -314,12 +314,12 @@ class SafetensorLoader(TensorLoader):
                 files = list(self._file_system.glob(path, "*.safetensors"))
             except OSError as ex:
                 raise TensorLoadError(
-                    f"The '{path}' directory cannot be traversed. See the nested exception for details."
+                    path, f"The '{path}' directory cannot be traversed. See the nested exception for details."  # fmt: skip
                 ) from ex
 
             if not files:
                 raise TensorLoadError(
-                    f"No Safetensors file found under the '{path}' directory."
+                    path, f"No Safetensors file found under the '{path}' directory."  # fmt: skip
                 )
         else:
             files = [path]
@@ -332,7 +332,7 @@ class SafetensorLoader(TensorLoader):
                     for k in f.keys():
                         if k in tensors:
                             raise TensorLoadError(
-                                f"The '{k}' key exists in more than one Safetensors file under the '{path}' directory."
+                                path, f"The '{k}' key exists in more than one Safetensors file under the '{path}' directory."  # fmt: skip
                             )
 
                         tensors[k] = f.get_tensor(k)
@@ -340,7 +340,7 @@ class SafetensorLoader(TensorLoader):
                 raise
             except (RuntimeError, OSError, PickleError) as ex:
                 raise TensorLoadError(
-                    f"The '{file}' tensor file cannot be loaded. See the nested exception for details."
+                    file, f"The '{file}' tensor file cannot be loaded. See the nested exception for details."  # fmt: skip
                 ) from ex
 
         return tensors
@@ -365,7 +365,7 @@ class StandardTensorLoader(TensorLoader):
                 next(iter(self._file_system.glob(path, f"*{extension}")))
             except OSError as ex:
                 raise TensorLoadError(
-                    f"The '{path}' directory cannot be traversed. See the nested exception for details."
+                    path, f"The '{path}' directory cannot be traversed. See the nested exception for details."  # fmt: skip
                 ) from ex
             except StopIteration:
                 return False
@@ -378,13 +378,13 @@ class StandardTensorLoader(TensorLoader):
             is_dir = self._file_system.is_dir(path)
         except OSError as ex:
             raise TensorLoadError(
-                f"The '{path}' path cannot be accessed. See the nested exception for details."
+                path, f"The '{path}' path cannot be accessed. See the nested exception for details."  # fmt: skip
             ) from ex
 
         if is_dir:
             if not has_files(".safetensors"):
                 raise TensorLoadError(
-                    f"The '{path}' directory does not contain any supported tensor files."
+                    path, f"The '{path}' directory does not contain any supported tensor files."  # fmt: skip
                 )
 
             loader = SafetensorLoader(self._file_system)
@@ -397,8 +397,18 @@ class StandardTensorLoader(TensorLoader):
 
 
 class TensorLoadError(Exception):
-    pass
+    path: Path
+
+    def __init__(self, path: Path, message: str) -> None:
+        super().__init__(message)
+
+        self.path = path
 
 
 class TensorDumpError(Exception):
-    pass
+    path: Path
+
+    def __init__(self, path: Path, message: str) -> None:
+        super().__init__(message)
+
+        self.path = path

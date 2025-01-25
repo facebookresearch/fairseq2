@@ -17,7 +17,7 @@ CHAR_TOKENIZER_FAMILY: Final = "char_tokenizer"
 
 @final
 class CharTokenizerHandler(RawSentencePieceTokenizerHandler):
-    @override
     @property
+    @override
     def family(self) -> str:
         return CHAR_TOKENIZER_FAMILY

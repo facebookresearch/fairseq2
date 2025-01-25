@@ -6,56 +6,49 @@
 
 from __future__ import annotations
 
-import os
-from abc import ABC, abstractmethod
-from logging import FileHandler, Formatter, getLogger
+from collections.abc import MutableMapping
+from logging import FileHandler, Formatter, Logger
 from pathlib import Path
 from typing import TYPE_CHECKING, final
 
 from fairseq2n import DOC_MODE
-from typing_extensions import override
 
-from fairseq2.error import SetupError
-from fairseq2.gang import get_rank
+from fairseq2.logging import LoggingSetupError
+from fairseq2.utils.env import InvalidEnvironmentVariableError, get_rank
 from fairseq2.utils.file import FileSystem
 
 
-class LoggingInitializer(ABC):
-    @abstractmethod
-    def initialize(self, log_file: Path) -> None:
-        ...
-
-
 @final
-class DistributedLoggingInitializer(LoggingInitializer):
+class DistributedLoggingInitializer:
+    _logger: Logger
+    _env: MutableMapping[str, str]
     _file_system: FileSystem
 
-    def __init__(self, file_system: FileSystem) -> None:
+    def __init__(
+        self, logger: Logger, env: MutableMapping[str, str], file_system: FileSystem
+    ) -> None:
+        self._logger = logger
+        self._env = env
         self._file_system = file_system
 
-    @override
-    def initialize(self, log_file: Path) -> None:
-        rank = get_rank()
-
-        logger = getLogger()
+    def initialize(self, output_dir: Path) -> None:
+        try:
+            rank = get_rank(self._env)
+        except InvalidEnvironmentVariableError as ex:
+            raise LoggingSetupError(
+                "The rank of the process cannot be determined. See the nested exception for details."
+            ) from ex
 
         if rank != 0:
-            for handler in logger.handlers[:]:
-                logger.removeHandler(handler)
+            for handler in self._logger.handlers[:]:
+                self._logger.removeHandler(handler)
 
-        filename = log_file.name.format(rank=rank)
-
-        if filename == log_file.name:
-            raise ValueError(
-                f"`log_file` must have a 'rank' replacement field (i.e. {{rank}}) in its filename, but is '{log_file}' instead."
-            )
-
-        log_file = log_file.with_name(filename)
+        log_file = output_dir.joinpath(f"logs/rank_{rank}.log")
 
         try:
             self._file_system.make_directory(log_file.parent)
         except OSError as ex:
-            raise SetupError(
+            raise LoggingSetupError(
                 f"The '{log_file}' log file cannot be created. See the nested exception for details."
             ) from ex
 
@@ -65,13 +58,13 @@ class DistributedLoggingInitializer(LoggingInitializer):
             Formatter(f"[Rank {rank}] %(asctime)s %(levelname)s %(name)s - %(message)s")
         )
 
-        logger.addHandler(handler)
+        self._logger.addHandler(handler)
 
         self._setup_aten_logging(log_file)
         self._setup_nccl_logging(log_file)
 
     def _setup_aten_logging(self, log_file: Path) -> None:
-        if "TORCH_CPP_LOG_LEVEL" in os.environ:
+        if "TORCH_CPP_LOG_LEVEL" in self._env:
             return
 
         aten_log_file = log_file.parent.joinpath("aten", log_file.name)
@@ -79,17 +72,17 @@ class DistributedLoggingInitializer(LoggingInitializer):
         try:
             self._file_system.make_directory(aten_log_file.parent)
         except OSError as ex:
-            raise SetupError(
+            raise LoggingSetupError(
                 f"The '{aten_log_file.parent}' ATen log directory cannot be created. See the nested exception for details."
             ) from ex
 
         _enable_aten_logging(aten_log_file)
 
         # This variable has no effect at this point; set for completeness.
-        os.environ["TORCH_CPP_LOG_LEVEL"] = "INFO"
+        self._env["TORCH_CPP_LOG_LEVEL"] = "INFO"
 
     def _setup_nccl_logging(self, log_file: Path) -> None:
-        if "NCCL_DEBUG" in os.environ:
+        if "NCCL_DEBUG" in self._env:
             return
 
         nccl_log_file = log_file.parent.joinpath("nccl", log_file.name)
@@ -97,18 +90,17 @@ class DistributedLoggingInitializer(LoggingInitializer):
         try:
             self._file_system.make_directory(nccl_log_file.parent)
         except OSError as ex:
-            raise SetupError(
+            raise LoggingSetupError(
                 f"The '{nccl_log_file.parent}' NCCL log directory cannot be created. See the nested exception for details."
             ) from ex
 
-        os.environ["NCCL_DEBUG"] = "INFO"
-        os.environ["NCCL_DEBUG_FILE"] = str(nccl_log_file)
+        self._env["NCCL_DEBUG"] = "INFO"
+        self._env["NCCL_DEBUG_FILE"] = str(nccl_log_file)
 
 
 if TYPE_CHECKING or DOC_MODE:
 
-    def _enable_aten_logging(log_file: Path) -> Path:
-        ...
+    def _enable_aten_logging(log_file: Path) -> Path: ...
 
 else:
     from fairseq2n.bindings import _enable_aten_logging

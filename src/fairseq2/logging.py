@@ -85,12 +85,17 @@ class LogWriter:
         return self._logger.isEnabledFor(level)
 
     def is_enabled_for_debug(self) -> bool:
-        """Return ``True`` if the writer is enabled for ``logging.DEBUG``."""
         return self._logger.isEnabledFor(logging.DEBUG)
 
     def is_enabled_for_info(self) -> bool:
-        """Return ``True`` if the writer is enabled for ``loggig.INFO``."""
         return self._logger.isEnabledFor(logging.INFO)
+
+    def is_enabled_for_error(self) -> bool:
+        return self._logger.isEnabledFor(logging.ERROR)
 
 
 log = get_log_writer("fairseq2")
+
+
+class LoggingSetupError(Exception):
+    pass

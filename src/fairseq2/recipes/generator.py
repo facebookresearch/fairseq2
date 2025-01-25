@@ -9,10 +9,11 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from contextlib import AbstractContextManager, nullcontext
 from itertools import count
-from typing import Generic, Sequence, TypeVar, final
+from typing import Generic, TypeVar, final
 
 import torch
 from torch.nn import Module
+from torch.profiler import record_function
 from typing_extensions import override
 
 from fairseq2.datasets import DataReader
@@ -20,12 +21,13 @@ from fairseq2.error import InternalError, InvalidOperationError
 from fairseq2.gang import Gangs
 from fairseq2.logging import log
 from fairseq2.metrics import MetricBag
-from fairseq2.metrics.recorders import MetricRecorder, record_metrics
+from fairseq2.metrics.recorders import MetricRecorder
+from fairseq2.profilers import Profiler
 from fairseq2.recipes.metrics import extend_batch_metrics
-from fairseq2.recipes.utils.rich import create_rich_progress
+from fairseq2.recipes.utils.progress import NoopProgressReporter, ProgressReporter
 from fairseq2.typing import CPU, DataType
-from fairseq2.utils.profiler import Stopwatch
 from fairseq2.utils.rng import RngBag
+from fairseq2.utils.stopwatch import Stopwatch
 
 BatchT_contra = TypeVar("BatchT_contra", contravariant=True)
 
@@ -73,10 +75,12 @@ class Generator(Generic[BatchT]):
     _gangs: Gangs
     _dtype: DataType
     _amp: bool
-    _metric_recorders: Sequence[MetricRecorder]
+    _metric_recorder: MetricRecorder
+    _profiler: Profiler
     _seed: int
     _wall_watch: Stopwatch
     _run: bool
+    _progress_reporter: ProgressReporter
 
     def __init__(
         self,
@@ -84,7 +88,8 @@ class Generator(Generic[BatchT]):
         unit: GeneratorUnit[BatchT],
         data_reader: DataReader[BatchT],
         gangs: Gangs,
-        metric_recorders: Sequence[MetricRecorder],
+        metric_recorder: MetricRecorder,
+        profiler: Profiler,
         wall_watch: Stopwatch,
         dtype: DataType = torch.float32,
         amp: bool = False,
@@ -114,7 +119,9 @@ class Generator(Generic[BatchT]):
 
         self._amp = amp
 
-        self._metric_recorders = metric_recorders
+        self._metric_recorder = metric_recorder
+
+        self._profiler = profiler
 
         self._seed = seed
 
@@ -122,12 +129,17 @@ class Generator(Generic[BatchT]):
 
         self._run = False
 
+        self._progress_reporter = NoopProgressReporter()
+
     @torch.inference_mode()
-    def __call__(self) -> None:
+    def __call__(self, progress_reporter: ProgressReporter | None = None) -> None:
         if self._run:
             raise InvalidOperationError("The generator can only be run once.")
 
         self._run = True
+
+        if progress_reporter is not None:
+            self._progress_reporter = progress_reporter
 
         log.info("Running generation on {} device(s).", self._gangs.root.size)
 
@@ -137,6 +149,8 @@ class Generator(Generic[BatchT]):
             log.info("Generation terminated!")
 
             raise
+        finally:
+            self._gangs.close()
 
         elapsed_time = self._wall_watch.get_elapsed_time()
 
@@ -153,24 +167,33 @@ class Generator(Generic[BatchT]):
 
         num_effective_batches = 0
 
-        with create_rich_progress() as progress:
-            task = progress.add_task("generate", total=None)
+        with self._progress_reporter, self._profiler:
+            task = self._progress_reporter.create_task("generate", total=None)
 
             for step_nr in count(start=1):
-                progress.update(task, advance=1)
+                with record_function(f"step_{step_nr}"):
+                    task.step(1)
 
-                log.debug("Running step {}.", step_nr)
+                    log.debug("Running step {}.", step_nr)
 
-                try:
-                    batches = next(self._data_reader)
-                except StopIteration:
-                    break
+                    # Collect the batches.
+                    with record_function(f"step_{step_nr}_data_load"):
+                        try:
+                            batches = next(self._data_reader)
+                        except StopIteration:
+                            break
 
-                for batch in batches:
-                    with self._maybe_autocast():
-                        self._unit(batch)
+                    # Call the unit.
+                    for batch_nr, batch in enumerate(batches):
+                        with record_function(f"step_{step_nr}_{batch_nr}_forward"):
+                            with self._maybe_autocast():
+                                self._unit(batch)
+
+                self._profiler.step()
 
                 num_effective_batches += 1
+
+            task.close()
 
         self._publish_metrics(num_effective_batches, watch.get_elapsed_time())
 
@@ -204,4 +227,4 @@ class Generator(Generic[BatchT]):
 
         values["wall_time"] = self._wall_watch.get_elapsed_time()
 
-        record_metrics(self._metric_recorders, "generate", values)
+        self._metric_recorder.record_metrics("generate", values)

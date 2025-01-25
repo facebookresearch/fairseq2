@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 from typing import final
 
 import torch
@@ -26,6 +27,15 @@ from fairseq2.models.wav2vec2 import (
 )
 from fairseq2.recipes.common import check_model_type
 from fairseq2.recipes.metrics import BaseMetricBag
+
+
+@dataclass(kw_only=True)
+class Wav2Vec2LossSection:
+    diversity_loss_weight: float = 0.1
+    """The weight of the diversity loss."""
+
+    feature_penalty_weight: float = 10.0
+    """The weight of the regularization penalty applied to the extracted features."""
 
 
 @final

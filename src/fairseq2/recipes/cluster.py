@@ -6,27 +6,27 @@
 
 from __future__ import annotations
 
-import os
 import subprocess
 from abc import ABC, abstractmethod
-from collections.abc import Collection
+from collections.abc import Collection, Mapping, MutableMapping
 from random import Random
 from typing import final
 
 from typing_extensions import override
 
-from fairseq2.gang import get_rank, get_world_size
 from fairseq2.registry import Provider
 
 
 @final
 class ClusterResolver:
     _handlers: Provider[ClusterHandler]
-    _is_torchrun: bool
 
-    def __init__(self, handlers: Provider[ClusterHandler], is_torchrun: bool) -> None:
+    def __init__(
+        self, handlers: Provider[ClusterHandler], env: Mapping[str, str]
+    ) -> None:
         self._handlers = handlers
-        self._is_torchrun = is_torchrun
+
+        self._is_torchrun = "TORCHELASTIC_RUN_ID" in env
 
     def get(self, name: str) -> ClusterHandler:
         if self._is_torchrun or name == "none":
@@ -61,7 +61,7 @@ class UnknownClusterError(Exception):
 
 class ClusterHandler(ABC):
     @abstractmethod
-    def set_torch_distributed_variables(self) -> tuple[int, int]:
+    def set_torch_distributed_variables(self) -> None:
         """Set environment variables required to initialize ``torch.distributed``."""
 
     @abstractmethod
@@ -81,42 +81,44 @@ class ClusterError(Exception):
 @final
 class SlurmClusterHandler(ClusterHandler):
     _job_id: int | None
+    _env: MutableMapping[str, str]
 
-    def __init__(self) -> None:
+    def __init__(self, env: MutableMapping[str, str]) -> None:
         self._job_id = None
+        self._env = env
 
     @override
-    def set_torch_distributed_variables(self) -> tuple[int, int]:
+    def set_torch_distributed_variables(self) -> None:
         job_id = self._ensure_job_id()
 
+        env = self._env
+
         try:
-            os.environ["WORLD_SIZE"] = os.environ["SLURM_NTASKS"]
-            os.environ["RANK"] = os.environ["SLURM_PROCID"]
+            env["WORLD_SIZE"] = env["SLURM_NTASKS"]
+            env["RANK"] = env["SLURM_PROCID"]
 
             try:
-                os.environ["LOCAL_WORLD_SIZE"] = os.environ["SLURM_NTASKS_PER_NODE"]
+                env["LOCAL_WORLD_SIZE"] = env["SLURM_NTASKS_PER_NODE"]
             except KeyError:
-                os.environ["LOCAL_WORLD_SIZE"] = "1"
+                env["LOCAL_WORLD_SIZE"] = "1"
 
-            os.environ["LOCAL_RANK"] = os.environ["SLURM_LOCALID"]
+            env["LOCAL_RANK"] = env["SLURM_LOCALID"]
 
-            os.environ["MASTER_ADDR"] = self._get_master_addr()
-            os.environ["MASTER_PORT"] = self._get_master_port(job_id)
+            env["MASTER_ADDR"] = self._get_master_addr()
+            env["MASTER_PORT"] = self._get_master_port(job_id)
 
-            os.environ["CUDA_VISIBLE_DEVICES"] = os.environ["SLURM_LOCALID"]
+            env["CUDA_VISIBLE_DEVICES"] = env["SLURM_LOCALID"]
         except KeyError as ex:
             raise ClusterError(
                 "slurm", "Slurm job environment variables are not set correctly."
             ) from ex
-
-        return get_world_size(), get_rank()
 
     def _ensure_job_id(self) -> int:
         if self._job_id is not None:
             return self._job_id
 
         try:
-            job_id = os.environ["SLURM_JOB_ID"]
+            job_id = self._env["SLURM_JOB_ID"]
         except KeyError:
             raise ClusterError(
                 "slurm", "`SLURM_JOB_ID` environment variable does not exist."
@@ -129,9 +131,8 @@ class SlurmClusterHandler(ClusterHandler):
 
         return self._job_id
 
-    @staticmethod
-    def _get_master_addr() -> str:
-        nodes = os.environ["SLURM_JOB_NODELIST"]
+    def _get_master_addr(self) -> str:
+        nodes = self._env["SLURM_JOB_NODELIST"]
 
         result = subprocess.run(
             ["scontrol", "show", "hostnames", nodes], capture_output=True, text=True
@@ -145,10 +146,9 @@ class SlurmClusterHandler(ClusterHandler):
             "slurm", "The hostname or IP address of the Slurm node corresponding to rank 0 cannot be retrieved."  # fmt: skip
         )
 
-    @staticmethod
-    def _get_master_port(job_id: int) -> str:
+    def _get_master_port(self, job_id: int) -> str:
         try:
-            return os.environ["MASTER_PORT"]
+            return self._env["MASTER_PORT"]
         except KeyError:
             pass
 
@@ -156,14 +156,14 @@ class SlurmClusterHandler(ClusterHandler):
 
     @override
     def supports_current_cluster(self) -> bool:
-        return "SLURM_JOB_ID" in os.environ
+        return "SLURM_JOB_ID" in self._env
 
 
 @final
 class _NoneClusterHandler(ClusterHandler):
     @override
-    def set_torch_distributed_variables(self) -> tuple[int, int]:
-        return get_world_size(), get_rank()
+    def set_torch_distributed_variables(self) -> None:
+        pass
 
     @override
     def supports_current_cluster(self) -> bool:

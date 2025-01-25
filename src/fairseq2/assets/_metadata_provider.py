@@ -36,34 +36,20 @@ class AssetMetadataProvider(ABC):
     def get_names(self) -> list[str]:
         """Return the names of the assets for which this provider has metadata."""
 
-    @abstractmethod
-    def clear_cache(self) -> None:
-        """Clear any cached asset metadata."""
 
+@final
+class CachedAssetMetadataProvider(AssetMetadataProvider):
+    _metadata: dict[str, dict[str, object]]
 
-class AbstractAssetMetadataProvider(AssetMetadataProvider):
-    """Provides a skeletal implementation of :class:`AssetMetadataProvider`."""
+    def __init__(self, metadata: dict[str, dict[str, object]]) -> None:
+        self._metadata = metadata
 
-    _cache: dict[str, dict[str, object]] | None
-
-    def __init__(self) -> None:
-        """
-        :param scope:
-            The scope of the provider.
-        """
-        self._cache = None
-
-    @final
     @override
     def get_metadata(self, name: str) -> dict[str, object]:
-        cache = self._ensure_cache_loaded()
-
         try:
-            metadata = cache[name]
+            metadata = self._metadata[name]
         except KeyError:
-            raise AssetMetadataNotFoundError(
-                f"An asset metadata with name '{name}' is not found."
-            ) from None
+            raise AssetMetadataNotFoundError(name) from None
 
         try:
             return deepcopy(metadata)
@@ -72,44 +58,24 @@ class AbstractAssetMetadataProvider(AssetMetadataProvider):
                 f"The metadata of the '{name}' asset cannot be copied. See the nested exception for details."
             ) from ex
 
-    @final
     @override
     def get_names(self) -> list[str]:
-        cache = self._ensure_cache_loaded()
-
-        return list(cache.keys())
-
-    @final
-    @override
-    def clear_cache(self) -> None:
-        self._cache = None
-
-    def _ensure_cache_loaded(self) -> dict[str, dict[str, object]]:
-        if self._cache is not None:
-            return self._cache
-
-        self._cache = self._load_cache()
-
-        return self._cache
-
-    @abstractmethod
-    def _load_cache(self) -> dict[str, dict[str, object]]:
-        ...
+        return list(self._metadata.keys())
 
 
 @final
-class FileAssetMetadataProvider(AbstractAssetMetadataProvider):
+class FileAssetMetadataLoader:
     """Provides asset metadata stored on a file system."""
 
     _path: Path
     _file_system: FileSystem
-    _metadata_file_loader: MetadataFileLoader
+    _metadata_file_loader: AssetMetadataFileLoader
 
     def __init__(
         self,
         path: Path,
         file_system: FileSystem,
-        metadata_file_loader: MetadataFileLoader,
+        metadata_file_loader: AssetMetadataFileLoader,
     ) -> None:
         super().__init__()
 
@@ -117,8 +83,7 @@ class FileAssetMetadataProvider(AbstractAssetMetadataProvider):
         self._file_system = file_system
         self._metadata_file_loader = metadata_file_loader
 
-    @override
-    def _load_cache(self) -> dict[str, dict[str, object]]:
+    def load(self) -> AssetMetadataProvider:
         path = self._path
 
         cache = {}
@@ -127,11 +92,11 @@ class FileAssetMetadataProvider(AbstractAssetMetadataProvider):
             for name, metadata in self._metadata_file_loader.load(file):
                 if name in cache:
                     if file == path:
-                        raise AssetMetadataError(
+                        raise AssetMetadataLoadError(
                             f"Two assets in the '{path}' file have the same name '{name}'."
                         )
                     else:
-                        raise AssetMetadataError(
+                        raise AssetMetadataLoadError(
                             f"Two assets under the '{path}' directory have the same name '{name}'."
                         )
 
@@ -142,7 +107,7 @@ class FileAssetMetadataProvider(AbstractAssetMetadataProvider):
         try:
             is_dir = self._file_system.is_dir(path)
         except OSError as ex:
-            raise AssetMetadataError(
+            raise AssetMetadataLoadError(
                 f"The '{path}' path cannot be accessed. See the nested exception for details."
             ) from ex
 
@@ -150,7 +115,7 @@ class FileAssetMetadataProvider(AbstractAssetMetadataProvider):
             source = f"directory:{path}"
 
             def on_error(ex: OSError) -> NoReturn:
-                raise AssetMetadataError(
+                raise AssetMetadataLoadError(
                     f"The '{path}' base asset metadata directory cannot be traversed. See the nested exception for details."
                 ) from ex
 
@@ -169,78 +134,22 @@ class FileAssetMetadataProvider(AbstractAssetMetadataProvider):
         else:
             cache_file(path, source=f"file:{path}")
 
-        return cache
-
-
-class MetadataFileLoader(ABC):
-    @abstractmethod
-    def load(self, file: Path) -> list[tuple[str, dict[str, object]]]:
-        """Load asset metadata included in ``file``."""
+        return CachedAssetMetadataProvider(cache)
 
 
 @final
-class StandardMetadataFileLoader(MetadataFileLoader):
-    def __init__(self, yaml_loader: YamlLoader) -> None:
-        self._yaml_loader = yaml_loader
-
-    @override
-    def load(self, file: Path) -> list[tuple[str, dict[str, object]]]:
-        output = []
-
-        try:
-            all_metadata = self._yaml_loader.load(file)
-        except (OSError, YamlError) as ex:
-            raise AssetMetadataError(
-                f"The '{file}' asset metadata file cannot be loaded as YAML. See the nested exception for details."
-            ) from ex
-
-        for idx, metadata in enumerate(all_metadata):
-            if not isinstance(metadata, dict):
-                raise AssetMetadataError(
-                    f"The asset metadata at index {idx} in the '{file}' file is expected to be of type `dict`, but is of type `{type(metadata)}` instead."
-                )
-
-            try:
-                name = metadata.pop("name")
-            except KeyError:
-                raise AssetMetadataError(
-                    f"The asset metadata at index {idx} in the '{file}' file does not have a name."
-                ) from None
-
-            try:
-                canonical_name = _canonicalize_name(name)
-            except ValueError as ex:
-                raise AssetMetadataError(
-                    f"The asset metadata at index {idx} in the '{file}' file does not have a valid name. See the nested exception for details."
-                ) from ex
-
-            base = metadata.get("base")
-            if base is not None:
-                if not isinstance(base, str) or "@" in base:
-                    raise AssetMetadataError(
-                        f"The asset metadata at index {idx} in the '{file}' file does not have a valid base name."
-                    )
-
-            metadata["__base_path__"] = file.parent
-
-            output.append((canonical_name, metadata))
-
-        return output
-
-
-@final
-class PackageAssetMetadataProvider(AbstractAssetMetadataProvider):
+class PackageAssetMetadataLoader:
     """Provides asset metadata stored in a Python namespace package."""
 
     _package_name: str
     _file_lister: PackageFileLister
-    _metadata_file_loader: MetadataFileLoader
+    _metadata_file_loader: AssetMetadataFileLoader
 
     def __init__(
         self,
         package_name: str,
         file_lister: PackageFileLister,
-        metadata_file_loader: MetadataFileLoader,
+        metadata_file_loader: AssetMetadataFileLoader,
     ) -> None:
         super().__init__()
 
@@ -248,8 +157,7 @@ class PackageAssetMetadataProvider(AbstractAssetMetadataProvider):
         self._file_lister = file_lister
         self._metadata_file_loader = metadata_file_loader
 
-    @override
-    def _load_cache(self) -> dict[str, dict[str, object]]:
+    def load(self) -> AssetMetadataProvider:
         source = f"package:{self._package_name}"
 
         cache = {}
@@ -260,7 +168,7 @@ class PackageAssetMetadataProvider(AbstractAssetMetadataProvider):
 
             for name, metadata in self._metadata_file_loader.load(file):
                 if name in cache:
-                    raise AssetMetadataError(
+                    raise AssetMetadataLoadError(
                         f"Two assets in the '{self._package_name}' package have the same name '{name}'."
                     )
 
@@ -268,13 +176,70 @@ class PackageAssetMetadataProvider(AbstractAssetMetadataProvider):
 
                 cache[name] = metadata
 
-        return cache
+        return CachedAssetMetadataProvider(cache)
+
+
+class AssetMetadataFileLoader(ABC):
+    @abstractmethod
+    def load(self, file: Path) -> list[tuple[str, dict[str, object]]]:
+        """Load asset metadata included in ``file``."""
+
+
+@final
+class StandardAssetMetadataFileLoader(AssetMetadataFileLoader):
+    _yaml_loader: YamlLoader
+
+    def __init__(self, yaml_loader: YamlLoader) -> None:
+        self._yaml_loader = yaml_loader
+
+    @override
+    def load(self, file: Path) -> list[tuple[str, dict[str, object]]]:
+        output = []
+
+        try:
+            all_metadata = self._yaml_loader.load(file)
+        except (OSError, YamlError) as ex:
+            raise AssetMetadataLoadError(
+                f"The '{file}' asset metadata file cannot be loaded as YAML. See the nested exception for details."
+            ) from ex
+
+        for idx, metadata in enumerate(all_metadata):
+            if not isinstance(metadata, dict):
+                raise AssetMetadataLoadError(
+                    f"The asset metadata at index {idx} in the '{file}' file is expected to be of type `dict`, but is of type `{type(metadata)}` instead."
+                )
+
+            try:
+                name = metadata.pop("name")
+            except KeyError:
+                raise AssetMetadataLoadError(
+                    f"The asset metadata at index {idx} in the '{file}' file does not have a name."
+                ) from None
+
+            try:
+                canonical_name = _canonicalize_name(name)
+            except ValueError as ex:
+                raise AssetMetadataLoadError(
+                    f"The asset metadata at index {idx} in the '{file}' file does not have a valid name. See the nested exception for details."
+                ) from ex
+
+            base = metadata.get("base")
+            if base is not None:
+                if not isinstance(base, str) or "@" in base:
+                    raise AssetMetadataLoadError(
+                        f"The asset metadata at index {idx} in the '{file}' file does not have a valid base name."
+                    )
+
+            metadata["__base_path__"] = file.parent
+
+            output.append((canonical_name, metadata))
+
+        return output
 
 
 class PackageFileLister(ABC):
     @abstractmethod
-    def list(self, package_name: str) -> list[Path]:
-        ...
+    def list(self, package_name: str) -> list[Path]: ...
 
 
 @final
@@ -303,72 +268,49 @@ class WheelPackageFileLister(PackageFileLister):
 
 
 @final
-class InProcAssetMetadataProvider(AssetMetadataProvider):
+class InProcAssetMetadataLoader:
     """Provides asset metadata stored in memory."""
 
-    _metadata: dict[str, dict[str, object]]
-    _scope: str
+    _metadata: Sequence[dict[str, object]]
 
     def __init__(self, metadata: Sequence[dict[str, object]]) -> None:
-        super().__init__()
+        self._metadata = metadata
 
-        self._metadata = {}
+    def load(self) -> AssetMetadataProvider:
+        cache = {}
 
-        for idx, metadata_ in enumerate(metadata):
+        for idx, metadata in enumerate(self._metadata):
             try:
-                name = metadata_.pop("name")
+                name = metadata.pop("name")
             except KeyError:
-                raise AssetMetadataError(
+                raise AssetMetadataLoadError(
                     f"The asset metadata at index {idx} in `metadata` does not have a name."
                 ) from None
 
             try:
                 canonical_name = _canonicalize_name(name)
             except ValueError as ex:
-                raise AssetMetadataError(
+                raise AssetMetadataLoadError(
                     f"The asset metadata at index {idx} in `metadata` does not have a valid name. See the nested exception for details."
                 ) from ex
 
-            if canonical_name in self._metadata:
-                raise AssetMetadataError(
+            if canonical_name in cache:
+                raise AssetMetadataLoadError(
                     f"Two assets in `metadata` have the same name '{canonical_name}'."
                 )
 
-            base = metadata_.get("base")
+            base = metadata.get("base")
             if base is not None:
                 if not isinstance(base, str) or "@" in base:
-                    raise AssetMetadataError(
+                    raise AssetMetadataLoadError(
                         f"The asset metadata at index {idx} in `metadata` file does not have a valid base name."
                     )
 
-            metadata_["__source__"] = "inproc"
+            metadata["__source__"] = "inproc"
 
-            self._metadata[canonical_name] = metadata_
+            cache[canonical_name] = metadata
 
-    @override
-    def get_metadata(self, name: str) -> dict[str, object]:
-        try:
-            return deepcopy(self._metadata[name])
-        except KeyError:
-            raise AssetMetadataNotFoundError(
-                f"An asset metadata with name '{name}' is not found."
-            ) from None
-
-    @override
-    def get_names(self) -> list[str]:
-        return list(self._metadata.keys())
-
-    @override
-    def clear_cache(self) -> None:
-        pass
-
-
-class AssetMetadataError(Exception):
-    pass
-
-
-class AssetMetadataNotFoundError(AssetMetadataError):
-    pass
+        return CachedAssetMetadataProvider(cache)
 
 
 def _canonicalize_name(name: object) -> str:
@@ -388,3 +330,20 @@ def _canonicalize_name(name: object) -> str:
         name_env_pair.append("")  # empty env
 
     return "@".join(name_env_pair)
+
+
+class AssetMetadataNotFoundError(Exception):
+    name: str
+
+    def __init__(self, name: str) -> None:
+        super().__init__(f"An asset metadata with name '{name}' is not found.")
+
+        self.name = name
+
+
+class AssetMetadataLoadError(Exception):
+    pass
+
+
+class AssetMetadataSaveError(Exception):
+    pass

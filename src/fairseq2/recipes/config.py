@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, TypeAlias
+from typing import Literal, TypeAlias, TypeVar
 
 import torch
 
@@ -29,33 +29,8 @@ from fairseq2.metrics.recorders import (
     WandbRecorderConfig,
 )
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
+from fairseq2.profilers import TORCH_PROFILER, TorchProfilerConfig
 from fairseq2.typing import DataType
-
-
-@dataclass(kw_only=True)
-class TrainRecipeConfig:
-    model: ModelSection
-
-    dataset: DatasetSection
-
-    gang: GangSection = field(default_factory=lambda: GangSection())
-
-    trainer: TrainerSection = field(default_factory=lambda: TrainerSection())
-
-    optimizer: OptimizerSection = field(default_factory=lambda: OptimizerSection())
-
-    lr_scheduler: LRSchedulerSection = field(
-        default_factory=lambda: LRSchedulerSection()
-    )
-
-    regime: RegimeSection = field(default_factory=lambda: RegimeSection())
-
-    metrics: MetricsSection = field(default_factory=lambda: MetricsSection())
-
-    assets: AssetsSection = field(default_factory=lambda: AssetsSection())
-
-    seed: int = 2
-    """The random number generator seed to use."""
 
 
 @dataclass(kw_only=True)
@@ -67,6 +42,38 @@ class ModelSection:
     arch: str | None = None
 
     config: object = None
+
+    checkpoint: Path | None = None
+
+
+@dataclass
+class ReferenceModelSection:
+    name: str
+
+
+@dataclass(kw_only=True)
+class DatasetSection:
+    name: str | None
+
+    path: Path | None = None
+
+    family: str
+
+
+@dataclass(kw_only=True)
+class TextTokenizerSection:
+    name: str
+
+
+@dataclass(kw_only=True)
+class GangSection:
+    tensor_parallel_size: int = 1
+
+    timeout: int = 15
+
+    high_priority: bool = True
+
+    monitored: bool = False
 
 
 DataParallelism: TypeAlias = Literal["ddp", "fsdp"]
@@ -108,6 +115,9 @@ class TrainerSection:
     profile: tuple[int, int] | None = None
     """The number of steps that the PyTorch profiler should skip and then record."""
 
+    gradient_check: bool = False
+    """if ``True``, ensures that gradients are in sync across processes."""
+
     anomaly_detection: bool = False
     """If ``True``, turns on anomaly detection feature in ``torch.autograd``."""
 
@@ -117,15 +127,19 @@ FsdpGranularity: TypeAlias = Literal["layer", "stack", "model"]
 
 @dataclass(kw_only=True)
 class FsdpSection:
+    version: Literal["v1", "v2"] = "v1"
+    """The PyTorch FSDP version."""
+
     granularity: FsdpGranularity = "layer"
     """The granularity at which to wrap the model."""
+
+    hsdp: bool = False
+    """If ``True``, uses hybrid sharded data parallelism."""
 
     reshard_after_forward: bool = True
     """If ``True``, reshards the parameters only after the backward pass."""
 
     fp32_reduce: bool = False
-
-    local_world_size: int | None = None
 
 
 @dataclass(kw_only=True)
@@ -196,24 +210,6 @@ class RegimeSection:
 
 
 @dataclass(kw_only=True)
-class EvalRecipeConfig:
-    model: str
-
-    dataset: DatasetSection
-
-    gang: GangSection = field(default_factory=lambda: GangSection())
-
-    evaluator: EvaluatorSection = field(default_factory=lambda: EvaluatorSection())
-
-    metrics: MetricsSection = field(default_factory=lambda: MetricsSection())
-
-    assets: AssetsSection = field(default_factory=lambda: AssetsSection())
-
-    seed: int = 2
-    """The random number generator seed to use."""
-
-
-@dataclass(kw_only=True)
 class EvaluatorSection:
     dtype: DataType = torch.float32
     """The data type of the model."""
@@ -222,24 +218,6 @@ class EvaluatorSection:
     """If ``True``, runs evaluation with ``torch.amp``."""
 
     torch_compile: bool = False
-
-
-@dataclass(kw_only=True)
-class GenerateRecipeConfig:
-    model: str
-
-    dataset: DatasetSection
-
-    gang: GangSection = field(default_factory=lambda: GangSection())
-
-    generator: GeneratorSection = field(default_factory=lambda: GeneratorSection())
-
-    metrics: MetricsSection = field(default_factory=lambda: MetricsSection())
-
-    assets: AssetsSection = field(default_factory=lambda: AssetsSection())
-
-    seed: int = 2
-    """The random number generator seed to use."""
 
 
 @dataclass(kw_only=True)
@@ -254,26 +232,8 @@ class GeneratorSection:
 
 
 @dataclass(kw_only=True)
-class DatasetSection:
-    name: str | None
-
-    path: Path | None = None
-
-    family: str
-
-
-@dataclass(kw_only=True)
-class GangSection:
-    tensor_parallel_size: int = 1
-
-    timeout: int = 15
-
-    monitored: bool = False
-
-
-@dataclass(kw_only=True)
-class MetricsSection:
-    recorders: dict[str, object] = field(
+class CommonSection:
+    metric_recorders: dict[str, object] = field(
         default_factory=lambda: {
             LOG_METRIC_RECORDER: LogMetricRecorderConfig(),
             JSONL_METRIC_RECORDER: JsonlMetricRecorderConfig(),
@@ -281,6 +241,16 @@ class MetricsSection:
             WANDB_RECORDER: WandbRecorderConfig(),
         }
     )
+
+    profilers: dict[str, object] = field(
+        default_factory=lambda: {
+            TORCH_PROFILER: TorchProfilerConfig(),
+        }
+    )
+
+    assets: AssetsSection = field(default_factory=lambda: AssetsSection())
+
+    seed: int = 2
 
 
 @dataclass(kw_only=True)
@@ -307,3 +277,33 @@ class Seq2SeqGeneratorSection:
     config: object = field(default_factory=BeamSearchConfig)
 
     batch_size: int = 1
+
+
+ConfigSectionT = TypeVar("ConfigSectionT")
+
+
+def get_config_section(
+    config: object, name: str, kls: type[ConfigSectionT]
+) -> ConfigSectionT:
+    try:
+        section = getattr(config, name)
+    except AttributeError:
+        raise ConfigSectionNotFoundError(name) from None
+
+    if not isinstance(section, kls):
+        raise TypeError(
+            f"The '{name}' configuration section must be of type `{kls}`, but is of type `{type(section)}` instead."
+        )
+
+    return section
+
+
+class ConfigSectionNotFoundError(Exception):
+    section: str
+
+    def __init__(self, section: str) -> None:
+        super().__init__(
+            f"The recipe configuration does not have a section named '{section}'."
+        )
+
+        self.section = section

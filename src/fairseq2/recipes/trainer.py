@@ -15,7 +15,6 @@ from typing import Generic, TypeVar, final
 
 import torch
 import torch.distributed
-from rich.progress import Progress, TaskID
 from torch import Tensor
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn import Module
@@ -25,13 +24,13 @@ from torch.profiler import record_function
 from torcheval.metrics import Mean
 from typing_extensions import override
 
-from fairseq2.checkpoint import CheckpointManager, CheckpointNotFoundError
+from fairseq2.checkpoint import CheckpointManager, NoCheckpointFoundError
 from fairseq2.datasets import DataReader
 from fairseq2.error import ContractError, InternalError, InvalidOperationError
-from fairseq2.gang import FakeGang, Gang, broadcast_flag
+from fairseq2.gang import Gangs, broadcast_flag
 from fairseq2.logging import log
 from fairseq2.metrics import MetricBag, MetricDescriptor
-from fairseq2.metrics.recorders import MetricRecorder, record_metrics
+from fairseq2.metrics.recorders import MetricRecorder
 from fairseq2.nn.fsdp import summon_fsdp_for_validation
 from fairseq2.nn.utils.gradient import (
     check_gradient_norms,
@@ -40,14 +39,19 @@ from fairseq2.nn.utils.gradient import (
 )
 from fairseq2.optim import DynamicLossScaler
 from fairseq2.optim.lr_scheduler import LRScheduler, get_effective_lr
+from fairseq2.profilers import Profiler
 from fairseq2.recipes.early_stopper import EarlyStopper, NoopEarlyStopper
 from fairseq2.recipes.evaluator import EvalUnit
 from fairseq2.recipes.metrics import extend_batch_metrics
-from fairseq2.recipes.utils.rich import create_rich_progress
+from fairseq2.recipes.utils.progress import (
+    NoopProgressReporter,
+    ProgressReporter,
+    ProgressTask,
+)
 from fairseq2.typing import CPU, DataType
-from fairseq2.utils.profiler import Profiler, Stopwatch
 from fairseq2.utils.rng import RngBag
 from fairseq2.utils.state import FSDPOptimizerStateHandler, StatefulObjectBag
+from fairseq2.utils.stopwatch import Stopwatch
 
 BatchT = TypeVar("BatchT")
 
@@ -106,9 +110,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     _model: Module
     _unit: TrainUnit[BatchT]
     _data_reader: DataReader[BatchT]
-    _root_gang: Gang
-    _dp_gang: Gang
-    _tp_gang: Gang
+    _gangs: Gangs
     _dtype: DataType
     _optimizer: Optimizer
     _lr_scheduler: LRScheduler
@@ -146,35 +148,34 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     _keep_last_n_models: int | None
     _keep_best_n_models: int | None
     _metric_bag: MetricBag
-    _metric_recorders: Sequence[MetricRecorder]
+    _metric_recorder: MetricRecorder
     _publish_metrics_after_n_steps: int
     _publish_metrics_every_n_steps: int | None
     _publish_metrics_after_n_data_epochs: int
     _publish_metrics_every_n_data_epochs: int | None
     _profiler: Profiler
+    _gradient_check: bool
     _anomaly_detection: bool
     _seed: int
     _rng_bag: RngBag
     _wall_watch: Stopwatch
     _total_step_time: float
     _run: bool
-    _progress: Progress
-    _train_task_id: TaskID
+    _progress_reporter: ProgressReporter
+    _train_task: ProgressTask | None
 
     def __init__(
         self,
         *,
         unit: TrainUnit[BatchT],
         data_reader: DataReader[BatchT],
-        root_gang: Gang,
+        gangs: Gangs,
         optimizer: Optimizer,
         lr_scheduler: LRScheduler,
         checkpoint_manager: CheckpointManager,
-        metric_recorders: Sequence[MetricRecorder],
+        metric_recorder: MetricRecorder,
         profiler: Profiler,
         wall_watch: Stopwatch,
-        dp_gang: Gang | None = None,
-        tp_gang: Gang | None = None,
         dtype: DataType = torch.float32,
         fp16_loss_scale: tuple[float, float] = (128.0, 0.0001),
         max_gradient_norm: float | None = None,
@@ -202,6 +203,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         publish_metrics_every_n_steps: int | None = None,
         publish_metrics_after_n_data_epochs: int = 0,
         publish_metrics_every_n_data_epochs: int | None = None,
+        gradient_check: bool = False,
         anomaly_detection: bool = False,
         seed: int = 2,
     ) -> None:
@@ -210,8 +212,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             The training unit.
         :param data_reader:
             The data reader for training.
-        :param root_gang:
-            The gang for distributed training.
+        :param gangs:
+            The gangs to train on.
         :param optimizer:
             The parameter optimizer.
         :param checkpoint_manager:
@@ -220,10 +222,6 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             The stopwatch to track process wall-time.
         :param dtype:
             The data type of the model.
-        :param dp_gang:
-            The data parallel gang. If ``None``, ``gang`` will be used.
-        :param tp_gang:
-            The tensor parallel gang. Only required for tensor parallel models.
         :param lr_scheduler:
             The learning rate scheduler.
         :param amp:
@@ -274,8 +272,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             The number of best checkpoint models to keep based on their
             validation score. Must be greater than or equal to
             ``keep_best_n_checkpoints``.
-        :param metric_recorders:
-            The metric recorders.
+        :param metric_recorder:
+            The metric recorder.
         :param publish_metrics_after_n_steps:
             The number of steps after which to start publishing metrics.
         :param publish_metrics_every_n_steps:
@@ -292,7 +290,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         """
         super().__init__()
 
-        device = root_gang.device
+        device = gangs.root.device
 
         self._model = unit.model
 
@@ -300,22 +298,13 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._data_reader = data_reader
 
-        self._root_gang = root_gang
-
-        if dp_gang is not None and tp_gang is not None:
-            self._dp_gang = dp_gang
-            self._tp_gang = tp_gang
-        elif dp_gang is None and tp_gang is None:
-            self._dp_gang = root_gang
-            self._tp_gang = FakeGang(device=device)
-        else:
-            raise ValueError("`dp_gang` and `tp_gang` must be both specified.")
-
-        if root_gang.rank == 0:
-            if self._dp_gang.rank != 0 or self._tp_gang.rank != 0:
+        if gangs.root.rank == 0:
+            if gangs.dp.rank != 0 or gangs.tp.rank != 0:
                 raise ValueError(
-                    f"The coordinator process of `root_gang` (i.e. rank 0) must be rank 0 in `dp_gang` and `tp_gang`, but is {self._dp_gang.rank} and {self._tp_gang.rank} instead."
+                    f"The coordinator process of the root gang (i.e. rank 0) must be rank 0 in data and tensor parallel gangs but is {self._gangs.dp.rank} and {self._gangs.tp.rank} instead."
                 )
+
+        self._gangs = gangs
 
         self._dtype = dtype
 
@@ -333,8 +322,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._loss_scaler = DynamicLossScaler(
             optimizer,
-            root_gang,
-            sharded=uses_fsdp or self._tp_gang.size > 1,
+            gangs.root,
+            sharded=uses_fsdp or self._gangs.tp.size > 1,
             init_scale=fp16_init_scale,
             min_scale=fp16_min_scale,
             gradient_accumulation=self._data_reader.num_accumulate,
@@ -382,7 +371,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
                     "`score_metric_descriptor` must be specified when `early_stopper` is specified."
                 )
 
-            if root_gang.rank != 0:
+            if gangs.root.rank != 0:
                 early_stopper = NoopEarlyStopper()
 
             self._early_stopper = early_stopper
@@ -450,7 +439,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         if keep_last_n_checkpoints is not None:
             if keep_best_n_checkpoints is not None:
                 raise ValueError(
-                    "`keep_last_n_checkpoints` and `keep_best_n_checkpoints` are mutually exclusive and must not be specified at the same time."
+                    "`keep_last_n_checkpoints` and `keep_best_n_checkpoints` must not be specified at the same time."
                 )
 
             if keep_last_n_checkpoints <= 0:
@@ -481,7 +470,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         if keep_last_n_models is not None:
             if keep_last_n_checkpoints is None:
                 raise ValueError(
-                    "`keep_last_n_models` must be `None` when `keep_last_n_checkpoints` is `None`."
+                    "`keep_last_n_models` must not be specified when `keep_last_n_checkpoints` is not specified."
                 )
 
             if keep_last_n_checkpoints > keep_last_n_models:
@@ -492,7 +481,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         if keep_best_n_models is not None:
             if keep_best_n_checkpoints is None:
                 raise ValueError(
-                    "`keep_best_n_models` must be `None` when `keep_best_n_checkpoints` is `None`."
+                    "`keep_best_n_models` must not be specified when `keep_best_n_checkpoints` is not specified."
                 )
 
             if keep_best_n_checkpoints > keep_best_n_models:
@@ -509,7 +498,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._metric_bag = unit.metric_bag
 
-        self._metric_recorders = metric_recorders
+        self._metric_recorder = metric_recorder
 
         if publish_metrics_every_n_steps == 0:
             raise ValueError(
@@ -529,6 +518,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._profiler = profiler
 
+        self._gradient_check = gradient_check
+
         self._anomaly_detection = anomaly_detection
 
         self._seed = seed
@@ -541,7 +532,9 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._run = False
 
-        self._progress = create_rich_progress()
+        self._progress_reporter = NoopProgressReporter()
+
+        self._train_task = None
 
     def request_stop(self) -> None:
         """Request a graceful stop of the training."""
@@ -549,14 +542,17 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._should_stop = True
 
-    def __call__(self) -> None:
+    def __call__(self, progress_reporter: ProgressReporter | None = None) -> None:
         if self._run:
             raise InvalidOperationError("The trainer can only be run once.")
 
         self._run = True
 
+        if progress_reporter is not None:
+            self._progress_reporter = progress_reporter
+
         # Set the per-rank seed for training.
-        self._rng_bag.manual_seed(self._seed + self._root_gang.rank)
+        self._rng_bag.manual_seed(self._seed + self._gangs.root.rank)
 
         try:
             self._maybe_restore_state()
@@ -565,7 +561,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
             raise
 
-        log.info("Running training on {} device(s).", self._root_gang.size)
+        log.info("Running training on {} device(s).", self._gangs.root.size)
 
         try:
             self._do_run()
@@ -573,6 +569,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             log.info("Training terminated at step {}!", self._step_nr)
 
             raise
+        finally:
+            self._gangs.close()
 
         if self._should_stop:
             log.info("Training stopped at step {}!", self._step_nr)
@@ -588,7 +586,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         try:
             step_nr, state = self._checkpoint_manager.load_last_checkpoint()
-        except CheckpointNotFoundError:
+        except NoCheckpointFoundError:
             log.info("No checkpoint found. Starting training.")
 
             return
@@ -599,13 +597,13 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self.load_state_dict(state)
 
-        self._root_gang.barrier()
+        self._gangs.root.barrier()
 
         log.info("Training restored, resuming.")
 
     def _do_run(self) -> None:
-        with self._progress, self._profiler:
-            self._train_task_id = self._progress.add_task(
+        with self._progress_reporter, self._profiler:
+            self._train_task = self._progress_reporter.create_task(
                 "train", total=self._max_num_steps, completed=self._step_nr
             )
 
@@ -614,7 +612,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
                 self._step_nr += 1
 
-                self._progress.update(self._train_task_id, advance=1)
+                self._train_task.step(1)
 
                 detect_anomaly = torch.autograd.set_detect_anomaly(  # type: ignore[attr-defined]
                     self._anomaly_detection, check_nan=True
@@ -661,7 +659,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         log.debug("{} training step {}.", "Repeating" if self._repeat_step else "Running", step_nr)  # fmt: skip
 
-        watch = Stopwatch(start=True, device=self._root_gang.device)
+        watch = Stopwatch(start=True, device=self._gangs.root.device)
 
         # Collect the batches.
         with record_function(f"step_{step_nr}_data_load"):
@@ -698,7 +696,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         # Normalize.
         if num_targets > 0:
-            normalize_gradients(self._model, self._dp_gang, num_targets=num_targets)
+            normalize_gradients(self._model, self._gangs.dp, num_targets=num_targets)
 
         # Clip.
         with record_function(f"step_{step_nr}_grad_norm"):
@@ -709,11 +707,12 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
                 self._model, max_norm=self._max_gradient_norm
             )
 
-            # Sanity check.
-            if not check_gradient_norms(grad_norm, self._dp_gang, step_nr):
-                raise FloatingPointError(
-                    f"The gradients are inconsistent between processes at step {step_nr}. Training cannot continue."
-                )
+            if self._gradient_check:
+                # Sanity check.
+                if not check_gradient_norms(grad_norm, self._gangs.dp, step_nr):
+                    raise FloatingPointError(
+                        f"The gradients are inconsistent between processes at step {step_nr}. Training cannot continue."
+                    )
 
         # Update the parameters.
         with record_function(f"step_{step_nr}_optimizer"):
@@ -730,7 +729,10 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             # Repeat the step with the next batch.
             self._step_nr -= 1
 
-            self._progress.update(self._train_task_id, advance=-1)
+            if self._train_task is None:
+                raise InternalError("`_train_task` is `None`.")
+
+            self._train_task.step(-1)
 
             self._repeat_step = True
         else:
@@ -779,7 +781,10 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         # Repeat the step with the first batch of the next epoch.
         self._step_nr -= 1
 
-        self._progress.update(self._train_task_id, advance=-1)
+        if self._train_task is None:
+            raise InternalError("`_train_task` is `None`.")
+
+        self._train_task.step(-1)
 
         self._repeat_step = True
 
@@ -788,7 +793,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     def _maybe_no_sync(
         self, batch_nr: int, num_batches: int
     ) -> AbstractContextManager[None]:
-        if batch_nr < num_batches - 1 and self._dp_gang.size > 1:
+        if batch_nr < num_batches - 1 and self._gangs.dp.size > 1:
             return self._model.no_sync()  # type: ignore[no-any-return]
 
         return nullcontext()
@@ -801,7 +806,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         if self._dtype == torch.float32 or not self._amp:
             return nullcontext()
 
-        return torch.autocast(device_type=self._dp_gang.device.type, dtype=self._dtype)
+        return torch.autocast(device_type=self._gangs.dp.device.type, dtype=self._dtype)
 
     def _should_publish_metrics(self) -> bool:
         return self._should_do(
@@ -814,14 +819,14 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     def _publish_metrics(self) -> None:
         log.debug("Syncing metrics.")
 
-        if self._tp_gang.rank == 0:
+        if self._gangs.tp.rank == 0:
             values = self._metric_bag.sync_and_compute_metrics()
         else:
             values = None
 
         self._metric_bag.reset_non_persistent_metrics()
 
-        if self._root_gang.rank == 0:
+        if self._gangs.root.rank == 0:
             if values is None:
                 raise InternalError("`values` is `None`.")
 
@@ -837,7 +842,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
             values["wall_time"] = self._wall_watch.get_elapsed_time()
 
-            record_metrics(self._metric_recorders, "train", values, self._step_nr)
+            self._metric_recorder.record_metrics("train", values, self._step_nr)
 
         self._num_effective_batches = 0
 
@@ -880,16 +885,16 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     def _validate_unit(
         self, unit: EvalUnit[BatchT], data_reader: DataReader[BatchT]
     ) -> float | None:
-        watch = Stopwatch(start=True, device=self._root_gang.device)
+        watch = Stopwatch(start=True, device=self._gangs.root.device)
 
         unit.set_step_nr(self._step_nr)
 
-        valid_task = self._progress.add_task("valid", total=None)
+        valid_task = self._progress_reporter.create_task("valid", total=None)
 
         num_effective_batches = 0
 
         for step_nr in count(start=1):
-            self._progress.update(valid_task, advance=1)
+            valid_task.step(1)
 
             log.debug("Running validation step {}.", step_nr)
 
@@ -904,7 +909,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
             num_effective_batches += 1
 
-        self._progress.remove_task(valid_task)
+        valid_task.close()
 
         data_reader.reset()
 
@@ -919,14 +924,14 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     ) -> dict[str, object] | None:
         log.debug("Syncing validation metrics.")
 
-        if self._tp_gang.rank == 0:
+        if self._gangs.tp.rank == 0:
             values = unit.metric_bag.sync_and_compute_metrics()
         else:
             values = None
 
         unit.metric_bag.reset_metrics()
 
-        if self._root_gang.rank != 0:
+        if self._gangs.root.rank != 0:
             return None
 
         if values is None:
@@ -945,7 +950,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         else:
             run_name = "valid"
 
-        record_metrics(self._metric_recorders, run_name, values, self._step_nr)
+        self._metric_recorder.record_metrics(run_name, values, self._step_nr)
 
         return values
 
@@ -972,7 +977,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             return None
 
         if not unit_scores:
-            if self._root_gang.rank == 0:
+            if self._gangs.root.rank == 0:
                 raise ContractError(
                     "None of the validation units returned a score metric value."
                 )
@@ -1020,7 +1025,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         if self._early_stopper is None:
             return
 
-        if self._root_gang.rank == 0:
+        if self._gangs.root.rank == 0:
             if self._valid_score is None:
                 raise InternalError("Early stopping, but `_valid_score` is `None`.")
 
@@ -1030,7 +1035,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         else:
             should_stop = False
 
-        self._should_stop = broadcast_flag(self._root_gang, should_stop)
+        self._should_stop = broadcast_flag(self._gangs.root, should_stop)
 
         if self._should_stop:
             log.info("Early stop requested. Training will be terminated after saving checkpoint.")  # fmt: skip
@@ -1058,7 +1063,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         log.info("Saving trainer state.")
 
-        if self._dp_gang.size > 1 and isinstance(self._model, DDP):
+        if self._gangs.dp.size > 1 and isinstance(self._model, DDP):
             replicated_keys = {"_model", "_optimizer"}
         else:
             replicated_keys = None

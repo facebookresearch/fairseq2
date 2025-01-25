@@ -37,8 +37,8 @@ from fairseq2.datasets import (
     DatasetHubAccessor,
     DatasetLoadError,
     LengthBatching,
-    SplitNotFoundError,
     StaticBatching,
+    UnknownSplitError,
 )
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
@@ -130,7 +130,7 @@ class GenericAsrDataset(AsrDataset):
             splits = {f.stem for f in path.glob("*.tsv")}
         except OSError as ex:
             raise DatasetLoadError(
-                name, f"The splits under the '{path}' directory cannot be determined. See the nested exception for details."  # fmt: skip
+                name, f"The splits under the '{path}' directory of the '{name}' dataset cannot be determined. See the nested exception for details."  # fmt: skip
             ) from ex
 
         return GenericAsrDataset(name, path, splits)
@@ -151,7 +151,7 @@ class GenericAsrDataset(AsrDataset):
             audio files.
         """
         if split not in self._splits:
-            raise SplitNotFoundError(self._name, split, self._splits)
+            raise UnknownSplitError(self._name, split, self._splits)
 
         if options is None:
             options = AsrReadOptions()
@@ -285,7 +285,9 @@ class GenericAsrDataset(AsrDataset):
 
         pipeline = builder.map(to_batch).and_return()
 
-        return DataPipelineReader[Seq2SeqBatch](self._name, pipeline, gang, options)
+        return DataPipelineReader[Seq2SeqBatch](
+            self._name, split, pipeline, gang, options
+        )
 
     def _retrieve_data_directory(self, split: str) -> Path:
         manifest_file = self._manifest_dir.joinpath(f"{split}.tsv")
@@ -295,14 +297,14 @@ class GenericAsrDataset(AsrDataset):
                 line = fp.readline().rstrip()
         except OSError as ex:
             raise DataReadError(
-                self._name, f"The {manifest_file} manifest file cannot be read. See the nested exception for details."  # fmt: skip
+                self._name, split, f"The {manifest_file} manifest file cannot be read. See the nested exception for details."  # fmt: skip
             ) from ex
 
         try:
             return Path(line)
         except ValueError:
             raise DataReadError(
-                self._name, f"The first line of the '{manifest_file}' manifest file must point to a data directory."  # fmt: skip
+                self._name, split, f"The first line of the '{manifest_file}' manifest file must point to a data directory."  # fmt: skip
             ) from None
 
     def _read_manifest(self, split: str) -> DataPipelineBuilder:

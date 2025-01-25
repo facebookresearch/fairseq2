@@ -21,49 +21,50 @@ from fairseq2.datasets.text import (
     TextDataset,
     TextReadOptions,
 )
-from fairseq2.error import SetupError
+from fairseq2.error import ProgramError
 from fairseq2.gang import Gangs
 from fairseq2.generation import BeamSearchConfig, Seq2SeqGenerator
 from fairseq2.generation.text import SequenceToTextConverter
-from fairseq2.logging import log
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.sequence import SequenceBatch
-from fairseq2.nn.utils.module import remove_parametrizations
 from fairseq2.recipes.common import (
-    broadcast_model,
-    compile_eval_model,
     create_generator,
     create_seq2seq_generator,
     load_dataset,
-    load_eval_model,
     load_text_tokenizer,
     register_extra_asset_paths,
     setup_gangs,
+    setup_reference_model,
 )
 from fairseq2.recipes.config import (
+    CommonSection,
     DatasetSection,
-    GenerateRecipeConfig,
+    GangSection,
     GeneratorSection,
+    ReferenceModelSection,
     Seq2SeqGeneratorSection,
 )
 from fairseq2.recipes.generator import AbstractGeneratorUnit, Generator
 from fairseq2.recipes.metrics import Seq2SeqGenerationMetricBag
-from fairseq2.recipes.utils.log import log_model
 from fairseq2.typing import CPU
-from fairseq2.utils.config import process_config
 from fairseq2.utils.file import FileMode
 from fairseq2.utils.rng import manual_seed
+from fairseq2.utils.structured import structure
 
 
 @dataclass(kw_only=True)
-class TextTranslateConfig(GenerateRecipeConfig):
-    """Holds the configuration of a text translation task."""
-
-    model: str = "nllb-200_dense_distill_600m"
+class TextTranslateConfig:
+    model: ReferenceModelSection = field(
+        default_factory=lambda: ReferenceModelSection(
+            name="nllb-200_dense_distill_600m"
+        )
+    )
 
     dataset: TextTranslateDatasetSection = field(
         default_factory=lambda: TextTranslateDatasetSection()
     )
+
+    gang: GangSection = field(default_factory=lambda: GangSection())
 
     source_lang: str = "eng_Latn"
     """The code of the language to translate from."""
@@ -81,6 +82,8 @@ class TextTranslateConfig(GenerateRecipeConfig):
             batch_size=8,
         )
     )
+
+    common: CommonSection = field(default_factory=lambda: CommonSection())
 
 
 @dataclass(kw_only=True)
@@ -113,46 +116,38 @@ def register_text_translate_configs(context: RuntimeContext) -> None:
 
 @torch.inference_mode()
 def load_text_translator(
-    context: RuntimeContext, config: TextTranslateConfig, output_dir: Path
+    context: RuntimeContext, config: object, output_dir: Path
 ) -> Generator[SequenceBatch]:
-    register_extra_asset_paths(context, config.assets)
+    config = structure(config, TextTranslateConfig)
 
-    process_config(context, config)
+    register_extra_asset_paths(context, config)
 
-    gangs = setup_gangs(context, config.gang)
+    torch.set_float32_matmul_precision("high")
 
-    dataset = load_dataset(TextDataset, context, config.dataset, gangs)
+    gangs = setup_gangs(context, config)
 
-    tokenizer = load_text_tokenizer(context, config.model)
+    seed = config.common.seed
 
-    seed = config.seed
-
-    manual_seed(seed, CPU, context.device)
+    manual_seed(seed, CPU, gangs.root.device)
 
     seed += 1
 
-    model = load_eval_model(
+    model = setup_reference_model(
         EncoderDecoderModel,
         context,
-        config.model,
+        config.model.name,
         gangs,
         config.generator.dtype,
-        mixed_precision=config.generator.amp,
+        config.generator.amp,
+        config.generator.torch_compile,
     )
 
-    broadcast_model(config.model, model, gangs)
+    dataset = load_dataset(TextDataset, context, config, gangs)
 
-    remove_parametrizations(model)
-
-    log_model(log, model, gangs)
-
-    if config.generator.torch_compile:
-        model = compile_eval_model(context, config.model, model)
+    tokenizer = load_text_tokenizer(context, config)
 
     # Initialize the unit.
-    seq2seq_generator = create_seq2seq_generator(
-        context, config.seq2seq_generator, model
-    )
+    seq2seq_generator = create_seq2seq_generator(context, config, model)
 
     if gangs.tp.rank == 0:
         file_system = context.file_system
@@ -172,21 +167,21 @@ def load_text_translator(
         try:
             file_system.make_directory(src_file.parent)
         except OSError as ex:
-            raise SetupError(
+            raise ProgramError(
                 f"The '{src_file.parent}' output directory cannot be created. See the nested exception for details."
             ) from ex
 
         try:
             src_fp = file_system.open_text(src_file, mode=FileMode.WRITE)
         except OSError as ex:
-            raise SetupError(
+            raise ProgramError(
                 f"The '{src_file}' output file cannot be created. See the nested exception for details."
             ) from ex
 
         try:
             hyp_fp = file_system.open_text(hyp_file, mode=FileMode.WRITE)
         except OSError as ex:
-            raise SetupError(
+            raise ProgramError(
                 f"The '{hyp_file}' output file cannot be created. See the nested exception for details."
             ) from ex
     else:
@@ -289,23 +284,28 @@ class TextTranslationUnit(AbstractGeneratorUnit[SequenceBatch]):
 
         self._metric_bag.update_batch_metrics(output, batch.num_elements())
 
-        # Dump source sentences.
-        stream = self._src_output_stream
-        if stream is not None:
-            for src in srcs:
-                stream.write(src)
-                stream.write("\n")
+        try:
+            # Dump source sentences.
+            stream = self._src_output_stream
+            if stream is not None:
+                for src in srcs:
+                    stream.write(src)
+                    stream.write("\n")
 
-            stream.flush()
+                stream.flush()
 
-        # Dump hypotheses.
-        stream = self._hyp_output_stream
-        if stream is not None:
-            for hyp in hyps:
-                stream.write(hyp)
-                stream.write("\n")
+            # Dump hypotheses.
+            stream = self._hyp_output_stream
+            if stream is not None:
+                for hyp in hyps:
+                    stream.write(hyp)
+                    stream.write("\n")
 
-            stream.flush()
+                stream.flush()
+        except OSError as ex:
+            raise ProgramError(
+                "The generator output cannot be written to the stream. See the nested exception for details."
+            ) from ex
 
     @property
     @override

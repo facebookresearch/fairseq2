@@ -8,16 +8,20 @@ from __future__ import annotations
 
 from typing import final
 
-from fairseq2.assets import AssetCard, AssetCardNotFoundError, AssetStore
+from fairseq2.assets import (
+    AssetCard,
+    AssetCardError,
+    AssetCardFieldNotFoundError,
+    AssetCardNotFoundError,
+    AssetStore,
+)
 from fairseq2.context import get_runtime_context
 from fairseq2.data.text.tokenizers._error import (
     UnknownTextTokenizerError,
     UnknownTextTokenizerFamilyError,
+    text_tokenizer_asset_card_error,
 )
-from fairseq2.data.text.tokenizers._handler import (
-    TextTokenizerHandler,
-    get_text_tokenizer_family,
-)
+from fairseq2.data.text.tokenizers._handler import TextTokenizerHandler
 from fairseq2.data.text.tokenizers._ref import resolve_text_tokenizer_reference
 from fairseq2.data.text.tokenizers._tokenizer import TextTokenizer
 from fairseq2.registry import Provider
@@ -39,20 +43,36 @@ class TextTokenizerHub:
     def load(self, name_or_card: str | AssetCard) -> TextTokenizer:
         if isinstance(name_or_card, AssetCard):
             card = name_or_card
+
+            tokenizer_name = card.name
         else:
+            tokenizer_name = name_or_card
+
             try:
-                card = self._asset_store.retrieve_card(name_or_card)
+                card = self._asset_store.retrieve_card(tokenizer_name)
             except AssetCardNotFoundError:
-                raise UnknownTextTokenizerError(name_or_card) from None
-
-        card = resolve_text_tokenizer_reference(self._asset_store, card)
-
-        family = get_text_tokenizer_family(card)
+                raise UnknownTextTokenizerError(tokenizer_name) from None
+            except AssetCardError as ex:
+                raise text_tokenizer_asset_card_error(tokenizer_name) from ex
 
         try:
-            handler = self._tokenizer_handlers.get(family)
+            card = resolve_text_tokenizer_reference(self._asset_store, card)
+        except AssetCardError as ex:
+            raise text_tokenizer_asset_card_error(tokenizer_name) from ex
+
+        try:
+            tokenizer_family = card.field("tokenizer_family").as_(str)
+        except AssetCardFieldNotFoundError:
+            raise UnknownTextTokenizerError(tokenizer_name) from None
+        except AssetCardError as ex:
+            raise text_tokenizer_asset_card_error(tokenizer_name) from ex
+
+        try:
+            handler = self._tokenizer_handlers.get(tokenizer_family)
         except LookupError:
-            raise UnknownTextTokenizerFamilyError(family, card.name) from None
+            raise UnknownTextTokenizerFamilyError(
+                tokenizer_family, tokenizer_name
+            ) from None
 
         return handler.load(card)
 

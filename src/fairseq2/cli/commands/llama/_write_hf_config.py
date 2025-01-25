@@ -13,11 +13,16 @@ from typing import final
 
 from typing_extensions import override
 
-from fairseq2.assets import AssetCardNotFoundError
+from fairseq2.assets import (
+    AssetCardError,
+    AssetCardFieldNotFoundError,
+    AssetCardNotFoundError,
+)
 from fairseq2.cli import CliCommandHandler
 from fairseq2.context import RuntimeContext
+from fairseq2.error import InternalError, ProgramError
 from fairseq2.logging import log
-from fairseq2.models import ModelHandler, UnknownModelArchitectureError
+from fairseq2.models import ModelConfigLoadError, ModelHandler
 from fairseq2.models.llama import LLAMA_MODEL_FAMILY, LLaMAConfig
 from fairseq2.models.llama.integ import convert_to_hg_llama_config
 from fairseq2.utils.file import FileMode
@@ -25,8 +30,6 @@ from fairseq2.utils.file import FileMode
 
 @final
 class WriteHFLLaMAConfigHandler(CliCommandHandler):
-    """Writes fairseq2 LLaMA configurations in Hugging Face format."""
-
     @override
     def init_parser(self, parser: ArgumentParser) -> None:
         parser.add_argument(
@@ -48,51 +51,72 @@ class WriteHFLLaMAConfigHandler(CliCommandHandler):
         try:
             card = context.asset_store.retrieve_card(args.model)
         except AssetCardNotFoundError:
-            parser.error("unknown LLaMA model. Use `fairseq2 assets list` to see the available models.")  # fmt: skip
+            log.error(f"argument model: '{args.model}' is not a known LLaMA model. Use `fairseq2 assets list` to see the available models.")  # fmt: skip
 
-            return 1
+            return 2
+        except AssetCardError as ex:
+            raise ProgramError(
+                f"The '{args.model}' asset card cannot be read. See the nested exception for details."
+            ) from ex
+
+        try:
+            family = card.field("model_family").as_(str)
+        except AssetCardFieldNotFoundError:
+            log.error(f"argument model: '{args.model}' is not a known LLaMA model. Use `fairseq2 assets list` to see the available models.")  # fmt: skip
+
+            return 2
+        except AssetCardError as ex:
+            raise ProgramError(
+                f"The '{args.model}' asset card cannot be read. See the nested exception for details."
+            ) from ex
+
+        if family != LLAMA_MODEL_FAMILY:
+            log.error(f"argument model: '{args.model}' is not a model of LLaMA family.")  # fmt: skip
+
+            return 2
 
         model_handlers = context.get_registry(ModelHandler)
 
         try:
             model_handler = model_handlers.get(LLAMA_MODEL_FAMILY)
         except LookupError:
-            log.error("LLaMA model handler cannot be found. Please file a bug report.")  # fmt: skip
-
-            return 1
+            raise InternalError(
+                "The LLaMA model handler cannot be found. Please file a bug report."
+            ) from None
 
         try:
             model_config = model_handler.load_config(card)
-        except UnknownModelArchitectureError:
-            log.error("Model has an unknown architecture. Please file a bug report to the model author.")  # fmt: skip
-
-            return 1
+        except ModelConfigLoadError as ex:
+            raise ProgramError(
+                f"The configuration of the '{args.model}' cannot be loaded. See the nested exception for details."
+            ) from ex
 
         if not isinstance(model_config, LLaMAConfig):
-            log.error("Model configuration has an invalid type. Please file a bug report.")  # fmt: skip
-
-            return 1
+            raise InternalError(
+                "The model configuration type is not valid. Please file a bug report."
+            )
 
         hg_config = convert_to_hg_llama_config(model_config)
 
         hg_config_file = args.output_dir.joinpath("config.json")
 
+        def config_write_error() -> ProgramError:
+            return ProgramError(
+                f"The configuration cannot be saved to the '{hg_config_file}' file. See the nested exception for details."
+            )
+
         try:
             fp = context.file_system.open_text(hg_config_file, mode=FileMode.WRITE)
-        except OSError:
-            log.exception("Configuration cannot be saved. See the logged stack trace for details.")  # fmt: skip
-
-            return 1
+        except OSError as ex:
+            raise config_write_error() from ex
 
         try:
             json.dump(hg_config, fp, indent=2, sort_keys=True)
-        except OSError:
-            log.exception("Configuration cannot be saved. See the logged stack trace for details.")  # fmt: skip
-
-            return 1
+        except OSError as ex:
+            raise config_write_error() from ex
         finally:
             fp.close()
 
-        log.info("Configuration saved in {}.", hg_config_file)
+        log.info("Configuration saved to {}.", hg_config_file)
 
         return 0

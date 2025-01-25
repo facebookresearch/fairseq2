@@ -19,7 +19,7 @@ from typing_extensions import override
 from fairseq2.error import NotSupportedError
 from fairseq2.optim._handler import OptimizerHandler
 from fairseq2.optim._optimizer import AbstractOptimizer, ParameterCollection
-from fairseq2.typing import safe_cast
+from fairseq2.utils.structured import structure
 
 
 @final
@@ -324,7 +324,7 @@ class AdamWConfig:
 class AdamWHandler(OptimizerHandler):
     @override
     def create(self, params: ParameterCollection, config: object) -> Optimizer:
-        config = safe_cast("config", config, AdamWConfig)
+        config = structure(config, AdamWConfig)
 
         return AdamW(
             params,

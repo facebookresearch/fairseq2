@@ -19,13 +19,15 @@ from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.gang import Gang, Gangs
 from fairseq2.metrics import Mean
 from fairseq2.models.sequence import SequenceModelOutput, as_auto_regressive_input
+from fairseq2.recipes.config import get_config_section
 from fairseq2.recipes.lm._preference_finetune._common import (
+    POCriterionSection,
     POFinetuneMetricBag,
     _gather_lprobs_avg,
 )
 from fairseq2.recipes.lm._preference_finetune._handler import POFinetuneUnitHandler
 from fairseq2.recipes.trainer import AbstractTrainUnit, TrainUnit
-from fairseq2.typing import safe_cast
+from fairseq2.utils.structured import structure
 
 
 @final
@@ -161,9 +163,13 @@ class SimPOFinetuneConfig:
 class SimPOFinetuneUnitHandler(POFinetuneUnitHandler):
     @override
     def create(
-        self, model: Module, gangs: Gangs, config: object
+        self, model: Module, gangs: Gangs, recipe_config: object
     ) -> TrainUnit[PreferenceBatch]:
-        config = safe_cast("config", config, SimPOFinetuneConfig)
+        criterion_section = get_config_section(
+            recipe_config, "criterion", POCriterionSection
+        )
+
+        config = structure(criterion_section, SimPOFinetuneConfig)
 
         return SimPOFinetuneUnit(
             model, gangs, config.beta, config.gamma, config.nll_scale

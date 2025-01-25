@@ -24,7 +24,6 @@ from fairseq2.datasets.instruction import (
     InstructionReadOptions,
 )
 from fairseq2.gang import Gangs
-from fairseq2.logging import log
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.sequence import (
     SequenceBatch,
@@ -36,42 +35,37 @@ from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.optim.lr_scheduler import COSINE_ANNEALING_LR, CosineAnnealingLRConfig
 from fairseq2.recipes.common import (
     check_model_type,
-    compile_model,
     create_checkpoint_manager,
     create_lr_scheduler,
     create_optimizer,
     create_trainer,
     load_dataset,
-    load_model,
     load_text_tokenizer,
-    prepare_model,
     register_extra_asset_paths,
-    save_checkpoint_card,
     setup_gangs,
-    wrap_data_parallel,
+    setup_model,
 )
 from fairseq2.recipes.config import (
+    CommonSection,
     DatasetSection,
+    FsdpSection,
+    GangSection,
     LRSchedulerSection,
     ModelSection,
     OptimizerSection,
     RegimeSection,
     TrainerSection,
-    TrainRecipeConfig,
 )
 from fairseq2.recipes.evaluator import AbstractEvalUnit
 from fairseq2.recipes.metrics import SequenceMetricBag
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
-from fairseq2.recipes.utils.log import log_model, log_model_config
 from fairseq2.typing import CPU
-from fairseq2.utils.config import process_config
 from fairseq2.utils.rng import manual_seed
+from fairseq2.utils.structured import structure
 
 
 @dataclass(kw_only=True)
-class InstructionFinetuneConfig(TrainRecipeConfig):
-    """Holds the configuration of a language model instruction-finetuning task."""
-
+class InstructionFinetuneConfig:
     model: ModelSection = field(
         default_factory=lambda: ModelSection(name="llama3_1_8b_instruct")
     )
@@ -80,13 +74,17 @@ class InstructionFinetuneConfig(TrainRecipeConfig):
         default_factory=lambda: InstructionFinetuneDatasetSection()
     )
 
+    gang: GangSection = field(default_factory=lambda: GangSection())
+
     trainer: TrainerSection = field(
         default_factory=lambda: TrainerSection(
-            dtype=torch.bfloat16, data_parallelism="fsdp", activation_checkpointing=True
+            dtype=torch.bfloat16,
+            data_parallelism="fsdp",
+            fsdp=FsdpSection(fp32_reduce=True),
+            activation_checkpointing=True,
         )
     )
 
-    # Optimizer, Learning Rate
     optimizer: OptimizerSection = field(
         default_factory=lambda: OptimizerSection(
             name=ADAMW_OPTIMIZER,
@@ -109,6 +107,8 @@ class InstructionFinetuneConfig(TrainRecipeConfig):
             publish_metrics_every_n_steps=10,
         )
     )
+
+    common: CommonSection = field(default_factory=lambda: CommonSection())
 
 
 @dataclass(kw_only=True)
@@ -227,52 +227,43 @@ def register_instruction_finetune_configs(context: RuntimeContext) -> None:
 
 
 def load_instruction_finetuner(
-    context: RuntimeContext, config: InstructionFinetuneConfig, output_dir: Path
+    context: RuntimeContext, config: object, output_dir: Path
 ) -> Trainer[SequenceBatch]:
-    register_extra_asset_paths(context, config.assets)
+    config = structure(config, InstructionFinetuneConfig)
 
-    process_config(context, config)
+    register_extra_asset_paths(context, config)
 
-    gangs = setup_gangs(context, config.gang)
+    torch.set_float32_matmul_precision("high")
+
+    gangs = setup_gangs(context, config)
 
     checkpoint_manager = create_checkpoint_manager(context, gangs, output_dir)
 
-    dataset = load_dataset(InstructionDataset, context, config.dataset, gangs)
+    seed = config.common.seed
 
-    tokenizer = load_text_tokenizer(context, config.model.name)
-
-    seed = config.seed
-
-    manual_seed(seed, CPU, context.device)
+    manual_seed(seed, CPU, gangs.root.device)
 
     seed += 1
 
-    log_model_config(log, config.model.config)
-
-    model = load_model(DecoderModel, context, config, gangs, checkpoint_manager)
-
-    dp_model = wrap_data_parallel(context, config, model, gangs, checkpoint_manager)
-
-    dp_model = prepare_model(context, config, dp_model, gangs)
-
-    log_model(log, dp_model, gangs)
-
-    if config.trainer.torch_compile:
-        dp_model = compile_model(context, config.model, dp_model)
+    model = setup_model(
+        DecoderModel, context, config, output_dir, gangs, checkpoint_manager
+    )
 
     # TODO(balioglu): investigate!
     # The memory efficient SDPA implementation in PyTorch is not stable when
     # used with padded inputs.
-    enable_memory_efficient_torch_sdpa(dp_model, False)
+    enable_memory_efficient_torch_sdpa(model, False)
 
-    save_checkpoint_card(context, config, output_dir, gangs)
-
-    optimizer = create_optimizer(context, config, dp_model)
+    optimizer = create_optimizer(context, config, model)
 
     lr_scheduler = create_lr_scheduler(context, config, optimizer)
 
+    dataset = load_dataset(InstructionDataset, context, config, gangs)
+
+    tokenizer = load_text_tokenizer(context, config)
+
     # Initialize the unit.
-    criterion = InstructionFinetuneCriterion(dp_model)
+    criterion = InstructionFinetuneCriterion(model)
 
     unit = InstructionFinetuneUnit(criterion, gangs)
 

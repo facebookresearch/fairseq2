@@ -23,15 +23,11 @@ from fairseq2.nn.utils.module import get_module_size
 from fairseq2.typing import Device
 
 
-def log_config(log: LogWriter, config: object) -> None:
-    log.info("Config:\n{}", pretty_repr(config, max_width=88))
+def log_config(log: LogWriter, title: str, config: object) -> None:
+    log.info("{}:\n{}", title, pretty_repr(config, max_width=88))
 
 
-def log_model_config(log: LogWriter, config: object) -> None:
-    log.info("Model Config:\n{}", pretty_repr(config, max_width=88))
-
-
-def log_environment_info(log: LogWriter, device: Device | None = None) -> None:
+def log_environment_info(log: LogWriter, device: Device) -> None:
     """Log information about the host system and the installed software."""
     log_system_info(log, device)
 
@@ -40,7 +36,7 @@ def log_environment_info(log: LogWriter, device: Device | None = None) -> None:
     log_environment_variables(log)
 
 
-def log_system_info(log: LogWriter, device: Device | None = None) -> None:
+def log_system_info(log: LogWriter, device: Device) -> None:
     """Log information about the host system."""
     if not log.is_enabled_for_info():
         return
@@ -137,9 +133,6 @@ def log_system_info(log: LogWriter, device: Device | None = None) -> None:
 
     log.info("Host - {}", s)
 
-    if device is None:
-        return
-
     if device.type == "cpu":
         s = "CPU-only"
     elif device.type == "cuda":
@@ -158,14 +151,14 @@ def log_system_info(log: LogWriter, device: Device | None = None) -> None:
     log.info("Device - {}", s)
 
 
-def log_software_info(log: LogWriter, device: Device | None = None) -> None:
+def log_software_info(log: LogWriter, device: Device) -> None:
     """Log information about the installed software."""
     if not log.is_enabled_for_info():
         return
 
     s = f"Python: {platform.python_version()} | PyTorch: {torch.__version__}"
 
-    if device is not None and device.type == "cuda":
+    if device.type == "cuda":
         s = (
             f"{s} | "
             f"CUDA: {torch.version.cuda} | "

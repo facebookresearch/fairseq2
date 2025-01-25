@@ -12,19 +12,23 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import timedelta
 from enum import Enum
-from typing import final
+from typing import Any, final
 
 import torch
 import torch.distributed as dist
 from torch import Tensor
-from torch.distributed import Backend, ProcessGroup, ReduceOp
+from torch.distributed import Backend, ProcessGroup, ProcessGroupNCCL, ReduceOp
 from typing_extensions import override
 
-from fairseq2.device import determine_default_cuda_device, determine_default_device
 from fairseq2.error import InternalError, InvalidOperationError, NotSupportedError
 from fairseq2.logging import log
 from fairseq2.typing import CPU, Device
-from fairseq2.utils.env import InvalidEnvironmentVariableError, get_int_from_env
+from fairseq2.utils.env import (
+    InvalidEnvironmentVariableError,
+    get_local_world_size,
+    get_world_size,
+)
+from fairseq2.utils.version import torch_greater_or_equal
 
 
 class ReduceOperation(Enum):
@@ -161,6 +165,9 @@ class AbstractGang(Gang):
                 f"`rank` must be less than `size` ({size}), but is {rank} instead."
             )
 
+        if device.type == "meta":
+            raise ValueError("`device` must be a real device.")
+
         self._rank = rank
         self._size = size
 
@@ -212,23 +219,14 @@ class FakeGang(AbstractGang):
     """Represents a non-distributed gang for local use."""
 
     def __init__(
-        self, *, rank: int = 0, size: int = 1, device: Device | None = None
+        self, device: Device | None = None, *, rank: int = 0, size: int = 1
     ) -> None:
         """
-        :param rank:
-            The emulated rank of this process in the gang.
-        :param size:
-            The emulated number of processes that are part of the gang.
-        :param device:
-            If ``None``; if CUDA is available, the gang will use the default
-            CUDA device of the process; otherwise, it will use the CPU.
+        :param device: If ``None``, CPU will be used.
+        :param rank: The emulated rank of this process in the gang.
+        :param size: The emulated number of processes that are part of the gang.
         """
-        if device is None:
-            device = determine_default_device()
-        elif device.type == "meta":
-            raise ValueError("`device` must be a real device.")
-
-        super().__init__(rank=rank, size=size, device=device)
+        super().__init__(rank=rank, size=size, device=device or CPU)
 
     @override
     def close(self) -> None:
@@ -314,8 +312,6 @@ class FakeGang(AbstractGang):
 class ProcessGroupGang(AbstractGang):
     """Represents a gang that wraps a process group."""
 
-    _default: ProcessGroupGang | None = None
-
     _pg: ProcessGroup
     _monitor_pg: ProcessGroup | None
 
@@ -332,30 +328,27 @@ class ProcessGroupGang(AbstractGang):
         self._monitor_pg = monitor_pg
 
     @classmethod
-    def init_default_process_group(
+    def init_root_process_group(
         cls,
+        device: Device,
         *,
-        device: Device | None = None,
         timeout: timedelta | None = None,
+        high_priority: bool = False,
         num_threads: int | None = None,
         monitored: bool = False,
-        ok_initialized: bool = False,
     ) -> ProcessGroupGang:
-        """Initialize the default process group and wrap it as a gang.
+        """Initialize the root process group and wrap it as a gang.
 
-        :param device:
-            If ``None``; if CUDA is available, the gang will use the default
-            CUDA device of the process; otherwise, it will use the CPU.
-        :param timeout:
-            The timeout for collective operations. If ``None``, the default
-            timeout value (15 minutes) will be used.
-        :param num_threads:
-            The number of threads to use for interaop parallelism.
-        :param monitored:
-            If ``True``,  puts a monitored barrier before every collective call.
-        :param ok_initialized:
-            If ``True``, does not raise an error if the default process group is
-            already initialized.
+        :param device: The device for which to initialize the gang. For CUDA
+            devices, NCCL; for CPU, Gloo will be used.
+        :param timeout: The timeout for collective operations. If ``None``, the
+            default timeout value (15 minutes) will be used.
+        :param num_threads: The number of threads to use for interaop
+            parallelism.
+        :param high_priority: If ``True``, the underlying collective operations
+            will be performed on high priority channels (e.g. CUDA streams).
+        :param monitored: If ``True``,  puts a monitored barrier before every
+            collective call for troubleshooting purposes.
         """
         if log.is_enabled_for_debug():
             os.environ["TORCH_DISTRIBUTED_DEBUG"] = "INFO"
@@ -366,21 +359,27 @@ class ProcessGroupGang(AbstractGang):
             raise GangSetupError("`torch.distributed` is not available.")
 
         if dist.is_initialized():
-            if ok_initialized:
-                log.info("Default process group is already initialized. Skipping initialization.")  # fmt: skip
-
-                return ProcessGroupGang.from_default_process_group()
-
             raise GangSetupError("The default process group is already initialized.")
 
-        try:
-            num_procs = get_local_world_size()
-        except InvalidEnvironmentVariableError as ex:
-            raise GangSetupError(
-                "The local world size cannot be determined from the environment variables. See the nested exception for details."
-            ) from ex
+        backend: str | None
+
+        if device.type == "cpu":
+            backend = Backend.GLOO
+        elif device.type == "cuda":
+            backend = Backend.NCCL
+        else:
+            raise NotSupportedError(
+                f"`device` must be of type `cpu` and `cuda`, but is of type `{device.type}` instead."
+            )
 
         if num_threads is None:
+            try:
+                num_procs = get_local_world_size(os.environ)
+            except InvalidEnvironmentVariableError as ex:
+                raise GangSetupError(
+                    "The local world size cannot be determined from the environment variables. See the nested exception for details."
+                ) from ex
+
             if num_procs > 1 and "OMP_NUM_THREADS" not in os.environ:
                 # To prevent thread oversubscription, we distribute cores evenly
                 # across the workers.
@@ -391,23 +390,6 @@ class ProcessGroupGang(AbstractGang):
 
             log.info("Setting the number of threads used for intraop parallelism to {}.", num_threads)  # fmt: skip
 
-        if device is None:
-            device = determine_default_device()
-
-            if device.type != "cpu" and device.type != "cuda":
-                raise InternalError(f"`device` is `{device}`.")
-
-        backend: str | None
-
-        if device.type == "cpu":
-            backend = Backend.GLOO
-        elif device.type == "cuda":
-            backend = Backend.NCCL
-        else:
-            raise ValueError(
-                f"`device` must be of type `cpu` and `cuda`, but is of type `{device.type}` instead."
-            )
-
         if device.type == "cuda":
             # See https://github.com/pytorch/pytorch/issues/46874.
             os.environ["TORCH_NCCL_ASYNC_ERROR_HANDLING"] = "1"
@@ -415,8 +397,23 @@ class ProcessGroupGang(AbstractGang):
         if timeout is None:
             timeout = timedelta(minutes=15)
 
+        kwargs: dict[str, Any] = {}
+
+        if torch_greater_or_equal(2, 3):
+            # Forces NCCL to initialize immediately which enables deterministic
+            # behavior.
+            kwargs = {"device_id": device}
+
+        # If enabled, uses high priority CUDA streams for NCCL.
+        if device.type == "cuda" and high_priority:
+            pg_options = ProcessGroupNCCL.Options(is_high_priority_stream=True)
+        else:
+            pg_options = None
+
         try:
-            dist.init_process_group(backend, timeout=timeout)
+            dist.init_process_group(
+                backend, timeout=timeout, pg_options=pg_options, **kwargs
+            )
         except (RuntimeError, ValueError) as ex:
             raise GangSetupError(
                 "The underlying process group has failed to initialize. See the nested exception for details."
@@ -440,62 +437,7 @@ class ProcessGroupGang(AbstractGang):
         else:
             monitor_pg = None
 
-        cls._default = ProcessGroupGang(pg, device, monitor_pg=monitor_pg)
-
-        return cls._default
-
-    @staticmethod
-    def from_process_group(pg: ProcessGroup, device: Device) -> ProcessGroupGang:
-        """Wrap ``pg`` as a gang.
-
-        :param pg:
-            The process group to wrap.
-        :param device:
-            The associated device.
-        """
-        return ProcessGroupGang(pg, device)
-
-    @classmethod
-    def from_default_process_group(cls) -> ProcessGroupGang:
-        """Wrap the default process group as a gang."""
-        if not dist.is_available():
-            raise GangSetupError("`torch.distributed` is not available.")
-
-        if not dist.is_initialized():
-            raise GangSetupError("The default process group is not initialized.")
-
-        if cls._default is not None:
-            return cls._default
-
-        try:
-            backend = dist.get_backend()
-        except RuntimeError as ex:
-            raise GangSetupError(
-                "The default process group backend cannot be determined. See the nested exception for details."
-            ) from ex
-
-        match backend:
-            case Backend.GLOO:
-                device = CPU
-            case Backend.NCCL:
-                cuda_device = determine_default_cuda_device()
-                if cuda_device is None:
-                    raise GangSetupError(
-                        "The default process group uses the `nccl` backend, but the `cuda` device cannot be determined."
-                    )
-
-                device = cuda_device
-            case _:
-                raise NotSupportedError(
-                    f"Only `nccl` and `gloo` backends are supported, but the process group uses the `{backend}` backend."
-                )
-
-        if dist.group.WORLD is None:
-            raise InternalError("`dist.group.WORLD` is `None`.")
-
-        cls._default = ProcessGroupGang(dist.group.WORLD, device)
-
-        return cls._default
+        return ProcessGroupGang(pg, device, monitor_pg=monitor_pg)
 
     @override
     def close(self) -> None:
@@ -661,7 +603,7 @@ def _get_num_cpus(num_procs: int) -> int:
     affinity_mask = os.sched_getaffinity(0)
 
     if num_cpus is None or affinity_mask is None:
-        log.warning("The number of CPUs cannot be determined.")
+        log.warning("The number of CPU cores cannot be determined.")
 
         return 1
 
@@ -669,34 +611,36 @@ def _get_num_cpus(num_procs: int) -> int:
     return min(max(num_cpus // num_procs, 1), len(affinity_mask))
 
 
-def setup_default_gang(
+def setup_root_gang(
+    device: Device,
     *,
-    device: Device | None = None,
     timeout: timedelta | None = None,
+    high_priority: bool = False,
     monitored: bool = False,
 ) -> Gang:
-    """Make the default gang of this process.
+    """Create the root gang of this process.
 
-    :param device:
-        If ``None``; if CUDA is available, the gang will use the default CUDA
-        device of the process; otherwise, it will use the CPU.
-    :param timeout:
-        The timeout for collective operations.
-    :param monitored:
-        If ``True``,  puts a monitored barrier before every collective call.
+    :param device: The device for which to initialize the gang. For CUDA
+        devices, NCCL; for CPU, Gloo will be used.
+    :param timeout: The timeout for collective operations. If ``None``, the
+        default timeout value (15 minutes) will be used.
+    :param high_priority: If ``True``, the underlying collective operations
+        will be performed on high priority channels (e.g. CUDA streams).
+    :param monitored: If ``True``,  puts a monitored barrier before every
+        collective call for troubleshooting purposes.
     """
     try:
-        world_size = get_world_size()
+        world_size = get_world_size(os.environ)
     except InvalidEnvironmentVariableError as ex:
         raise GangSetupError(
-            "The world size cannot be determined from the environment variables. See the nested exception for details."
+            "The world size cannot be determined. See the nested exception for details."
         ) from ex
 
     if world_size == 1:
-        return FakeGang(device=device)
+        return FakeGang(device)
 
-    return ProcessGroupGang.init_default_process_group(
-        device=device, timeout=timeout, monitored=monitored, ok_initialized=True
+    return ProcessGroupGang.init_root_process_group(
+        device, timeout=timeout, monitored=monitored
     )
 
 
@@ -705,6 +649,9 @@ class Gangs:
     root: Gang
     dp: Gang
     tp: Gang
+
+    def close(self) -> None:
+        self.root.close()
 
 
 def fake_gangs(device: Device) -> Gangs:
@@ -929,36 +876,3 @@ def all_sum(gang: Gang, value: float | int | Tensor) -> Tensor:
     gang.all_reduce(output, ReduceOperation.SUM)
 
     return output
-
-
-def get_world_size() -> int:
-    """Return the world size of the running job."""
-    value = get_int_from_env("WORLD_SIZE")
-
-    return 1 if value is None else value
-
-
-def get_rank() -> int:
-    """Return the rank of this process in the running job."""
-    value = get_int_from_env("RANK", allow_zero=True)
-
-    return 0 if value is None else value
-
-
-def get_local_world_size() -> int:
-    """Return the local world size of the running job."""
-    value = get_int_from_env("LOCAL_WORLD_SIZE")
-
-    return 1 if value is None else value
-
-
-def get_local_rank() -> int:
-    """Return the local rank of this process in the running job."""
-    value = get_int_from_env("LOCAL_RANK", allow_zero=True)
-
-    return 0 if value is None else value
-
-
-def is_torchrun() -> bool:
-    """Return ``True`` if this process was spawned by torchrun."""
-    return "TORCHELASTIC_RUN_ID" in os.environ

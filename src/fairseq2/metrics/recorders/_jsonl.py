@@ -25,8 +25,8 @@ from fairseq2.metrics.recorders._recorder import (
     NoopMetricRecorder,
 )
 from fairseq2.registry import Provider
-from fairseq2.typing import safe_cast
 from fairseq2.utils.file import FileMode, FileSystem
+from fairseq2.utils.structured import structure
 
 
 @final
@@ -181,7 +181,7 @@ class JsonlMetricRecorderHandler(MetricRecorderHandler):
 
     @override
     def create(self, output_dir: Path, config: object) -> MetricRecorder:
-        config = safe_cast("config", config, JsonlMetricRecorderConfig)
+        config = structure(config, JsonlMetricRecorderConfig)
 
         if not config.enabled:
             return NoopMetricRecorder()

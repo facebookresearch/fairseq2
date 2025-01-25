@@ -22,11 +22,9 @@ if TYPE_CHECKING or DOC_MODE:
             self,
             device: Device | None = None,
             pin_memory: bool = False,
-        ) -> None:
-            ...
+        ) -> None: ...
 
-        def __call__(self, memory_block: MemoryBlock) -> ImageDecoderOutput:
-            ...
+        def __call__(self, memory_block: MemoryBlock) -> ImageDecoderOutput: ...
 
 else:
     from fairseq2n.bindings.data.image import ImageDecoder as ImageDecoder  # noqa: F401

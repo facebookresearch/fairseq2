@@ -14,7 +14,7 @@ import torch
 from torch import Tensor
 from typing_extensions import override
 
-from fairseq2.typing import safe_cast
+from fairseq2.utils.structured import structure
 
 
 class Sampler(ABC):
@@ -113,13 +113,11 @@ class TopKSampler(Sampler):
 
 class SamplerHandler(ABC):
     @abstractmethod
-    def create(self, config: object) -> Sampler:
-        ...
+    def create(self, config: object) -> Sampler: ...
 
     @property
     @abstractmethod
-    def config_kls(self) -> type[object]:
-        ...
+    def config_kls(self) -> type[object]: ...
 
 
 class UnknownSamplerError(Exception):
@@ -131,7 +129,7 @@ class UnknownSamplerError(Exception):
         self.name = name
 
 
-TOP_P_SAMPLER: Final = "top-p"
+TOP_P_SAMPLER: Final = "top_p"
 
 
 @dataclass(kw_only=True)
@@ -143,7 +141,7 @@ class TopPSamplerConfig:
 class TopPSamplerHandler(SamplerHandler):
     @override
     def create(self, config: object) -> Sampler:
-        config = safe_cast("config", config, TopPSamplerConfig)
+        config = structure(config, TopPSamplerConfig)
 
         return TopPSampler(p=config.p)
 
@@ -153,7 +151,7 @@ class TopPSamplerHandler(SamplerHandler):
         return TopPSamplerConfig
 
 
-TOP_K_SAMPLER: Final = "top-k"
+TOP_K_SAMPLER: Final = "top_k"
 
 
 @dataclass(kw_only=True)
@@ -165,7 +163,7 @@ class TopKSamplerConfig:
 class TopKSamplerHandler(SamplerHandler):
     @override
     def create(self, config: object) -> Sampler:
-        config = safe_cast("config", config, TopKSamplerConfig)
+        config = structure(config, TopKSamplerConfig)
 
         return TopKSampler(k=config.k)
 

@@ -6,23 +6,22 @@
 
 from __future__ import annotations
 
-import os
+from collections.abc import Mapping
 from pathlib import Path
 
-from fairseq2.logging import log
 from fairseq2.typing import Device
 
 
-def get_int_from_env(var_name: str, allow_zero: bool = False) -> int | None:
+def get_int_from_env(
+    env: Mapping[str, str], name: str, allow_zero: bool = False
+) -> int | None:
     """Return the value of an environment variable as ``int``.
 
-    :param var_name:
-        The name of the environment variable.
-    :param allow_zero:
-        If ``True``, returns the value if it equals to zero; otherwise, raises
-        a :class:`InvalidEnvironmentVariableError`.
+    :param name: The name of the environment variable.
+    :param allow_zero: If ``True``, returns the value if it equals to zero;
+        otherwise, raises a :class:`InvalidEnvironmentVariableError`.
     """
-    s = os.environ.get(var_name)
+    s = env.get(name)
     if s is None:
         return None
 
@@ -30,60 +29,42 @@ def get_int_from_env(var_name: str, allow_zero: bool = False) -> int | None:
         value = int(s)
     except ValueError:
         raise InvalidEnvironmentVariableError(
-            f"The value of the `{var_name}` environment variable is expected to be an integer, but is '{s}' instead."
+            name, f"The value of the `{name}` environment variable is expected to be an integer, but is '{s}' instead."  # fmt: skip
         ) from None
 
     if not allow_zero:
         if not value >= 1:
             raise InvalidEnvironmentVariableError(
-                f"The value of the `{var_name}` environment variable is expected to be a positive integer, but is {value} instead."
+                name, f"The value of the `{name}` environment variable is expected to be a positive integer, but is {value} instead."  # fmt: skip
             )
     else:
         if not value >= 0:
             raise InvalidEnvironmentVariableError(
-                f"The value of the `{var_name}` environment variable is expected to be greater than or equal to 0, but is {value} instead."
+                name, f"The value of the `{name}` environment variable is expected to be greater than or equal to 0, but is {value} instead."  # fmt: skip
             )
 
     return value
 
 
-def get_path_from_env(var_name: str, missing_ok: bool = False) -> Path | None:
+def get_path_from_env(env: Mapping[str, str], name: str) -> Path | None:
     """Return the value of an environment variable as :class:`~pathlib.Path`.
 
-    :param var_name:
-        The name of the environment variable.
-    :param log:
-        The log to write to.
-    :param missing_ok:
-        If ``True``, returns ``None`` if the path does not exist; otherwise,
-        raises a :class:`InvalidEnvironmentVariableError`.
+    :param name: The name of the environment variable.
     """
-    pathname = os.environ.get(var_name)
+    pathname = env.get(name)
     if not pathname:
         return None
 
     try:
-        path = Path(pathname)
+        return Path(pathname)
     except ValueError:
         raise InvalidEnvironmentVariableError(
-            f"The value of the `{var_name}` environment variable is expected to be a pathname, but is '{pathname}' instead."
+            name, f"The value of the `{name}` environment variable is expected to be a pathname, but is '{pathname}' instead."  # fmt: skip
         ) from None
 
-    resolved_path = path.expanduser().resolve()
 
-    if not resolved_path.exists():
-        if missing_ok:
-            return resolved_path
-
-        log.warning("The '{}' path pointed to by the `{}` environment variable does not exist.", path, var_name)  # fmt: skip
-
-        return None
-
-    return resolved_path
-
-
-def get_device_from_env(var_name: str) -> Device | None:
-    device_str = os.environ.get(var_name)
+def get_device_from_env(env: Mapping[str, str], name: str) -> Device | None:
+    device_str = env.get(name)
     if device_str is None:
         return None
 
@@ -91,9 +72,38 @@ def get_device_from_env(var_name: str) -> Device | None:
         return Device(device_str)
     except (RuntimeError, ValueError):
         raise InvalidEnvironmentVariableError(
-            f"The value of the `{var_name}` environment variable is expected to specify a PyTorch device, but is '{device_str}' instead."
+            name, f"The value of the `{name}` environment variable is expected to specify a PyTorch device, but is '{device_str}' instead."  # fmt: skip
         ) from None
 
 
+def get_world_size(env: Mapping[str, str]) -> int:
+    value = get_int_from_env(env, "WORLD_SIZE")
+
+    return 1 if value is None else value
+
+
+def get_rank(env: Mapping[str, str]) -> int:
+    value = get_int_from_env(env, "RANK", allow_zero=True)
+
+    return 0 if value is None else value
+
+
+def get_local_world_size(env: Mapping[str, str]) -> int:
+    value = get_int_from_env(env, "LOCAL_WORLD_SIZE")
+
+    return 1 if value is None else value
+
+
+def get_local_rank(env: Mapping[str, str]) -> int:
+    value = get_int_from_env(env, "LOCAL_RANK", allow_zero=True)
+
+    return 0 if value is None else value
+
+
 class InvalidEnvironmentVariableError(Exception):
-    pass
+    name: str
+
+    def __init__(self, name: str, message: str) -> None:
+        super().__init__(message)
+
+        self.name = name

@@ -11,9 +11,10 @@ from argparse import ArgumentParser, Namespace
 
 from rich.console import Console
 
+from fairseq2.cli.utils.rich import set_console
 from fairseq2.context import RuntimeContext
-from fairseq2.error import AlreadyExistsError, InvalidOperationError
-from fairseq2.recipes.utils.rich import set_console
+from fairseq2.error import AlreadyExistsError, InvalidOperationError, ProgramError
+from fairseq2.logging import log
 
 
 class Cli:
@@ -24,6 +25,7 @@ class Cli:
     _origin_module: str
     _version: str
     _groups: dict[str, CliGroup]
+    _user_error_types: set[type[Exception]]
 
     def __init__(
         self,
@@ -45,6 +47,7 @@ class Cli:
         self._origin_module = origin_module
         self._version = version
         self._groups = {}
+        self._user_error_types = set()
 
     def add_group(
         self,
@@ -116,7 +119,22 @@ class Cli:
         if not hasattr(args, "command"):
             parser.error("no command specified")
 
-        return args.command.run(context, args)  # type: ignore[no-any-return]
+        try:
+            return args.command.run(context, args)  # type: ignore[no-any-return]
+        except ProgramError:
+            log.exception("Command failed. See logged stack trace for details.")
+
+            return 1
+        except Exception as ex:
+            if type(ex) in self._user_error_types:
+                log.error(str(ex))
+
+                return 1
+
+            raise
+
+    def register_user_error_type(self, kls: type[Exception]) -> None:
+        self._user_error_types.add(kls)
 
     @property
     def name(self) -> str:

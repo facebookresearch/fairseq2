@@ -8,11 +8,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import final
 
 import torch
 import torch.distributed
-from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import Batching, LengthBatching, StaticBatching
@@ -22,35 +20,33 @@ from fairseq2.datasets.preference import (
     PreferenceDataset,
     PreferenceReadOptions,
 )
-from fairseq2.logging import log
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.nn.transformer import enable_memory_efficient_torch_sdpa
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.optim.lr_scheduler import COSINE_ANNEALING_LR, CosineAnnealingLRConfig
 from fairseq2.recipes.common import (
-    compile_model,
     create_checkpoint_manager,
     create_lr_scheduler,
     create_optimizer,
     create_trainer,
     load_dataset,
-    load_model,
     load_text_tokenizer,
-    prepare_model,
     register_extra_asset_paths,
-    save_checkpoint_card,
     setup_gangs,
-    wrap_data_parallel,
+    setup_model,
 )
 from fairseq2.recipes.config import (
+    CommonSection,
     DatasetSection,
+    FsdpSection,
+    GangSection,
     LRSchedulerSection,
     ModelSection,
     OptimizerSection,
     RegimeSection,
     TrainerSection,
-    TrainRecipeConfig,
 )
+from fairseq2.recipes.lm._preference_finetune._common import POCriterionSection
 from fairseq2.recipes.lm._preference_finetune._dpo import (
     DPO_FINETUNE_UNIT,
     DpoFinetuneConfig,
@@ -60,18 +56,13 @@ from fairseq2.recipes.lm._preference_finetune._handler import (
     UnknownPOFinetuneUnitError,
 )
 from fairseq2.recipes.trainer import Trainer
-from fairseq2.recipes.utils.log import log_model, log_model_config
-from fairseq2.registry import Provider
-from fairseq2.typing import CPU, safe_cast
-from fairseq2.utils.config import ConfigSectionHandler, process_config
+from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
-from fairseq2.utils.structured import StructureError, structure
+from fairseq2.utils.structured import structure
 
 
 @dataclass(kw_only=True)
-class POFinetuneConfig(TrainRecipeConfig):
-    """Holds the configuration of a language model preference-finetuning task."""
-
+class POFinetuneConfig:
     model: ModelSection = field(
         default_factory=lambda: ModelSection(name="llama3_1_8b_instruct")
     )
@@ -80,9 +71,20 @@ class POFinetuneConfig(TrainRecipeConfig):
         default_factory=lambda: POFinetuneDatasetSection()
     )
 
+    gang: GangSection = field(default_factory=lambda: GangSection())
+
     trainer: TrainerSection = field(
         default_factory=lambda: TrainerSection(
-            dtype=torch.bfloat16, data_parallelism="fsdp", activation_checkpointing=True
+            dtype=torch.bfloat16,
+            data_parallelism="fsdp",
+            fsdp=FsdpSection(fp32_reduce=True),
+            activation_checkpointing=True,
+        )
+    )
+
+    criterion: POCriterionSection = field(
+        default_factory=lambda: POCriterionSection(
+            name=DPO_FINETUNE_UNIT, config=DpoFinetuneConfig()
         )
     )
 
@@ -99,8 +101,6 @@ class POFinetuneConfig(TrainRecipeConfig):
         )
     )
 
-    criterion: POCriterionSection = field(default_factory=lambda: POCriterionSection())
-
     regime: RegimeSection = field(
         default_factory=lambda: RegimeSection(
             num_steps=5_000,
@@ -109,6 +109,8 @@ class POFinetuneConfig(TrainRecipeConfig):
             publish_metrics_every_n_steps=10,
         )
     )
+
+    common: CommonSection = field(default_factory=lambda: CommonSection())
 
 
 @dataclass(kw_only=True)
@@ -150,37 +152,6 @@ class POFinetuneDatasetSection(DatasetSection):
 
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
-
-
-@dataclass(kw_only=True)
-class POCriterionSection:
-    name: str = DPO_FINETUNE_UNIT
-
-    config: object = field(default_factory=lambda: DpoFinetuneConfig())
-
-
-@final
-class POCriterionSectionHandler(ConfigSectionHandler):
-    _unit_handlers: Provider[POFinetuneUnitHandler]
-
-    def __init__(self, unit_handlers: Provider[POFinetuneUnitHandler]) -> None:
-        self._unit_handlers = unit_handlers
-
-    @override
-    def process(self, section: object) -> None:
-        section = safe_cast("section", section, POCriterionSection)
-
-        try:
-            unit_handler = self._unit_handlers.get(section.name)
-        except LookupError:
-            return
-
-        try:
-            section.config = structure(section.config, unit_handler.config_kls)
-        except StructureError as ex:
-            raise StructureError(
-                "`config` cannot be structured. See the nested exception for details."
-            ) from ex
 
 
 @dataclass(kw_only=True)
@@ -230,55 +201,46 @@ def register_po_finetune_configs(context: RuntimeContext) -> None:
 
         config.model.name = "llama3_1_70b_instruct"
         config.gang.tensor_parallel_size = 8
-        config.criterion.config.reference_model = "llama3_1_70b_instruct"
+        config.criterion.config.reference_model.name = "llama3_1_70b_instruct"
 
         return config
 
 
 def load_po_finetuner(
-    context: RuntimeContext, config: POFinetuneConfig, output_dir: Path
+    context: RuntimeContext, config: object, output_dir: Path
 ) -> Trainer[PreferenceBatch]:
-    register_extra_asset_paths(context, config.assets)
+    config = structure(config, POFinetuneConfig)
 
-    process_config(context, config)
+    register_extra_asset_paths(context, config)
 
-    gangs = setup_gangs(context, config.gang)
+    torch.set_float32_matmul_precision("high")
+
+    gangs = setup_gangs(context, config)
 
     checkpoint_manager = create_checkpoint_manager(context, gangs, output_dir)
 
-    dataset = load_dataset(PreferenceDataset, context, config.dataset, gangs)
+    seed = config.common.seed
 
-    tokenizer = load_text_tokenizer(context, config.model.name)
-
-    seed = config.seed
-
-    manual_seed(seed, CPU, context.device)
+    manual_seed(seed, CPU, gangs.root.device)
 
     seed += 1
 
-    log_model_config(log, config.model.config)
-
-    model = load_model(DecoderModel, context, config, gangs, checkpoint_manager)
-
-    dp_model = wrap_data_parallel(context, config, model, gangs, checkpoint_manager)
-
-    dp_model = prepare_model(context, config, dp_model, gangs)
-
-    log_model(log, dp_model, gangs)
-
-    if config.trainer.torch_compile:
-        dp_model = compile_model(context, config.model, dp_model)
+    model = setup_model(
+        DecoderModel, context, config, output_dir, gangs, checkpoint_manager
+    )
 
     # TODO(balioglu): investigate!
     # The memory efficient SDPA implementation in PyTorch is not stable when
     # used with padded inputs.
-    enable_memory_efficient_torch_sdpa(dp_model, False)
+    enable_memory_efficient_torch_sdpa(model, False)
 
-    save_checkpoint_card(context, config, output_dir, gangs)
-
-    optimizer = create_optimizer(context, config, dp_model)
+    optimizer = create_optimizer(context, config, model)
 
     lr_scheduler = create_lr_scheduler(context, config, optimizer)
+
+    dataset = load_dataset(PreferenceDataset, context, config, gangs)
+
+    tokenizer = load_text_tokenizer(context, config)
 
     # Initialize the train unit.
     unit_handlers = context.get_registry(POFinetuneUnitHandler)
@@ -288,7 +250,7 @@ def load_po_finetuner(
     except LookupError:
         raise UnknownPOFinetuneUnitError(config.criterion.name) from None
 
-    unit = unit_handler.create(dp_model, gangs, config.criterion.config)
+    unit = unit_handler.create(model, gangs, config)
 
     batching: Batching
 
@@ -306,7 +268,7 @@ def load_po_finetuner(
         mask_source_tokens=config.dataset.mask_source_tokens,
         source_encode_mode=config.dataset.source_encode_mode,
         target_encode_mode=config.dataset.target_encode_mode,
-        seed=config.seed,
+        seed=seed,
     )
 
     data_reader = dataset.create_reader(

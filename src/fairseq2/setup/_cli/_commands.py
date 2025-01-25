@@ -8,12 +8,13 @@ from __future__ import annotations
 
 from fairseq2.cli import Cli
 from fairseq2.cli.commands.assets import ListAssetsHandler, ShowAssetHandler
-from fairseq2.cli.commands.chatbot import ChatbotHandler
+from fairseq2.cli.commands.chatbot import RunChatbotHandler
 from fairseq2.cli.commands.llama import (
     ConvertLLaMACheckpointHandler,
     WriteHFLLaMAConfigHandler,
 )
 from fairseq2.cli.commands.recipe import RecipeCommandHandler
+from fairseq2.context import RuntimeContext
 from fairseq2.extensions import run_extensions
 from fairseq2.recipes.asr import AsrEvalConfig, load_asr_evaluator
 from fairseq2.recipes.lm import (
@@ -44,22 +45,36 @@ from fairseq2.recipes.wav2vec2.asr import (
     Wav2Vec2AsrTrainConfig,
     load_wav2vec2_asr_trainer,
 )
+from fairseq2.setup._cli._error_types import _register_user_error_types
 
 
-def setup_cli(cli: Cli) -> None:
-    _setup_asr_cli(cli)
-    _setup_asset_cli(cli)
-    _setup_chatbot_cli(cli)
-    _setup_llama_cli(cli)
-    _setup_lm_cli(cli)
-    _setup_mt_cli(cli)
-    _setup_wav2vec2_asr_cli(cli)
-    _setup_wav2vec2_cli(cli)
+def setup_cli(context: RuntimeContext) -> Cli:
+    from fairseq2 import __version__
 
-    run_extensions("fairseq2.cli", cli)
+    cli = Cli(
+        name="fairseq2",
+        origin_module="fairseq2",
+        version=__version__,
+        description="command line interface of fairseq2",
+    )
+
+    _register_asr_cli(cli)
+    _register_asset_cli(cli)
+    _register_chatbot_cli(cli)
+    _register_llama_cli(cli)
+    _register_lm_cli(cli)
+    _register_mt_cli(cli)
+    _register_wav2vec2_asr_cli(cli)
+    _register_wav2vec2_cli(cli)
+
+    _register_user_error_types(cli)
+
+    run_extensions("fairseq2.cli", context, cli)
+
+    return cli
 
 
-def _setup_asr_cli(cli: Cli) -> None:
+def _register_asr_cli(cli: Cli) -> None:
     extra_sweep_keys = {"max_audio_len", "min_audio_len", "normalize_audio"}
 
     group = cli.add_group("asr", help="ASR recipes")
@@ -79,7 +94,7 @@ def _setup_asr_cli(cli: Cli) -> None:
     )
 
 
-def _setup_asset_cli(cli: Cli) -> None:
+def _register_asset_cli(cli: Cli) -> None:
     group = cli.add_group(
         "assets", help="list and show assets (e.g. models, tokenizers, datasets)"
     )
@@ -97,17 +112,17 @@ def _setup_asset_cli(cli: Cli) -> None:
     )
 
 
-def _setup_chatbot_cli(cli: Cli) -> None:
+def _register_chatbot_cli(cli: Cli) -> None:
     group = cli.add_group("chatbot", help="chatbot demo")
 
     group.add_command(
         name="run",
-        handler=ChatbotHandler(),
+        handler=RunChatbotHandler(),
         help="run a terminal-based chatbot demo",
     )
 
 
-def _setup_llama_cli(cli: Cli) -> None:
+def _register_llama_cli(cli: Cli) -> None:
     group = cli.add_group("llama", help="LLaMA recipes")
 
     group.add_command(
@@ -123,7 +138,7 @@ def _setup_llama_cli(cli: Cli) -> None:
     )
 
 
-def _setup_lm_cli(cli: Cli) -> None:
+def _register_lm_cli(cli: Cli) -> None:
     group = cli.add_group("lm", help="language model recipes")
 
     # Instruction Finetune
@@ -179,7 +194,7 @@ def _setup_lm_cli(cli: Cli) -> None:
     )
 
 
-def _setup_mt_cli(cli: Cli) -> None:
+def _register_mt_cli(cli: Cli) -> None:
     extra_sweep_keys = {"source_lang", "target_lang"}
 
     group = cli.add_group("mt", help="machine translation recipes")
@@ -227,7 +242,7 @@ def _setup_mt_cli(cli: Cli) -> None:
     )
 
 
-def _setup_wav2vec2_cli(cli: Cli) -> None:
+def _register_wav2vec2_cli(cli: Cli) -> None:
     extra_sweep_keys = {"max_audio_len", "min_audio_len", "normalize_audio"}
 
     group = cli.add_group("wav2vec2", help="wav2vec 2.0 pretraining recipes")
@@ -261,7 +276,7 @@ def _setup_wav2vec2_cli(cli: Cli) -> None:
     )
 
 
-def _setup_wav2vec2_asr_cli(cli: Cli) -> None:
+def _register_wav2vec2_asr_cli(cli: Cli) -> None:
     extra_sweep_keys = {
         "freeze_encoder_for_n_steps",
         "max_audio_len",

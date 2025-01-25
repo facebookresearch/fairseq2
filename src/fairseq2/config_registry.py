@@ -25,6 +25,9 @@ class ConfigProvider(ABC, Generic[ConfigT_co]):
         """Return the configuration of ``name``."""
 
     @abstractmethod
+    def has(self, name: str) -> bool: ...
+
+    @abstractmethod
     def names(self) -> Set[str]:
         """Return the names of all configurations."""
 
@@ -35,8 +38,7 @@ class ConfigProvider(ABC, Generic[ConfigT_co]):
 
 
 class ConfigSupplier(Protocol[ConfigT_co]):
-    def __call__(self) -> ConfigT_co:
-        ...
+    def __call__(self) -> ConfigT_co: ...
 
 
 ConfigT = TypeVar("ConfigT")
@@ -59,6 +61,10 @@ class ConfigRegistry(ConfigProvider[ConfigT]):
             return self._configs[name]()
         except KeyError:
             raise ConfigNotFoundError(name) from None
+
+    @override
+    def has(self, name: str) -> bool:
+        return name in self._configs
 
     def register(self, name: str, supplier: ConfigSupplier[ConfigT]) -> None:
         """Register a new configuration.
@@ -89,8 +95,8 @@ class ConfigRegistry(ConfigProvider[ConfigT]):
     def names(self) -> Set[str]:
         return self._configs.keys()
 
-    @override
     @property
+    @override
     def config_kls(self) -> type[ConfigT]:
         return self._config_kls
 

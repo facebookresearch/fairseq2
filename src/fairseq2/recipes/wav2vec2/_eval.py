@@ -21,41 +21,52 @@ from fairseq2.datasets.speech import (
     SpeechReadOptions,
 )
 from fairseq2.gang import Gangs
-from fairseq2.logging import log
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2 import Wav2Vec2Model
-from fairseq2.nn.utils.module import remove_parametrizations
 from fairseq2.recipes.common import (
-    broadcast_model,
-    compile_eval_model,
     create_evaluator,
     load_dataset,
-    load_eval_model,
     register_extra_asset_paths,
     setup_gangs,
+    setup_reference_model,
 )
-from fairseq2.recipes.config import DatasetSection, EvalRecipeConfig, EvaluatorSection
+from fairseq2.recipes.config import (
+    CommonSection,
+    DatasetSection,
+    EvaluatorSection,
+    GangSection,
+    ReferenceModelSection,
+)
 from fairseq2.recipes.evaluator import AbstractEvalUnit, Evaluator
-from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.wav2vec2._common import Wav2Vec2Criterion, Wav2Vec2MetricBag
+from fairseq2.recipes.wav2vec2._common import (
+    Wav2Vec2Criterion,
+    Wav2Vec2LossSection,
+    Wav2Vec2MetricBag,
+)
 from fairseq2.typing import CPU
-from fairseq2.utils.config import process_config
 from fairseq2.utils.rng import manual_seed
+from fairseq2.utils.structured import structure
 
 
 @dataclass(kw_only=True)
-class Wav2Vec2EvalConfig(EvalRecipeConfig):
-    """Holds the configuration of a wav2vec 2.0 model evaluation task."""
-
-    model: str = "wav2vec2_base"
+class Wav2Vec2EvalConfig:
+    model: ReferenceModelSection = field(
+        default_factory=lambda: ReferenceModelSection(name="wav2vec2_base")
+    )
 
     dataset: Wav2Vec2EvalDatasetSection = field(
         default_factory=lambda: Wav2Vec2EvalDatasetSection()
     )
 
-    evaluator: Wav2Vec2EvaluatorSection = field(
-        default_factory=lambda: Wav2Vec2EvaluatorSection(dtype=torch.float16)
+    gang: GangSection = field(default_factory=lambda: GangSection())
+
+    evaluator: EvaluatorSection = field(
+        default_factory=lambda: EvaluatorSection(dtype=torch.float16)
     )
+
+    loss: Wav2Vec2LossSection = field(default_factory=lambda: Wav2Vec2LossSection())
+
+    common: CommonSection = field(default_factory=lambda: CommonSection())
 
 
 @dataclass(kw_only=True)
@@ -84,15 +95,6 @@ class Wav2Vec2EvalDatasetSection(DatasetSection):
     """The number of batches to prefetch in background."""
 
 
-@dataclass(kw_only=True)
-class Wav2Vec2EvaluatorSection(EvaluatorSection):
-    diversity_loss_weight: float = 0.1
-    """The weight of the diversity loss."""
-
-    feature_penalty_weight: float = 10.0
-    """The weight of the regularization penalty applied to the extracted features."""
-
-
 def register_wav2vec2_eval_configs(context: RuntimeContext) -> None:
     registry = context.get_config_registry(Wav2Vec2EvalConfig)
 
@@ -105,45 +107,37 @@ def register_wav2vec2_eval_configs(context: RuntimeContext) -> None:
 
 @torch.inference_mode()
 def load_wav2vec2_evaluator(
-    context: RuntimeContext, config: Wav2Vec2EvalConfig, output_dir: Path
+    context: RuntimeContext, config: object, output_dir: Path
 ) -> Evaluator[SequenceBatch]:
-    register_extra_asset_paths(context, config.assets)
+    config = structure(config, Wav2Vec2EvalConfig)
 
-    process_config(context, config)
+    register_extra_asset_paths(context, config)
 
-    gangs = setup_gangs(context, config.gang)
+    torch.set_float32_matmul_precision("high")
 
-    dataset = load_dataset(SpeechDataset, context, config.dataset, gangs)
+    gangs = setup_gangs(context, config)
 
-    seed = config.seed
+    seed = config.common.seed
 
-    manual_seed(seed, CPU, context.device)
+    manual_seed(seed, CPU, gangs.root.device)
 
     seed += 1
 
-    model = load_eval_model(
+    model = setup_reference_model(
         Wav2Vec2Model,
         context,
-        config.model,
+        config.model.name,
         gangs,
         config.evaluator.dtype,
-        mixed_precision=config.evaluator.amp,
+        config.evaluator.amp,
+        config.evaluator.torch_compile,
     )
 
-    broadcast_model(config.model, model, gangs)
-
-    remove_parametrizations(model)
-
-    log_model(log, model, gangs)
-
-    if config.evaluator.torch_compile:
-        model = compile_eval_model(context, config.model, model)
+    dataset = load_dataset(SpeechDataset, context, config, gangs)
 
     # Initialize the unut.
     criterion = Wav2Vec2Criterion(
-        model,
-        config.evaluator.diversity_loss_weight,
-        config.evaluator.feature_penalty_weight,
+        model, config.loss.diversity_loss_weight, config.loss.feature_penalty_weight
     )
 
     unit = Wav2Vec2EvalUnit(criterion, gangs)
