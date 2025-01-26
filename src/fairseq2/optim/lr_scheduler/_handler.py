@@ -27,14 +27,25 @@ class LRSchedulerHandler(ABC):
 
     @property
     @abstractmethod
-    def config_kls(self) -> type:
+    def config_kls(self) -> type[object]:
         ...
 
 
-class LRSchedulerNotFoundError(LookupError):
+class UnknownLRSchedulerError(Exception):
     name: str
 
     def __init__(self, name: str) -> None:
         super().__init__(f"'{name}' is not a known learning rate scheduler.")
+
+        self.name = name
+
+
+class UnspecifiedNumberOfStepsError(ValueError):
+    name: str
+
+    def __init__(self, name: str) -> None:
+        super().__init__(
+            f"`num_steps` must be specified for the '{name}' learning rate scheduler."
+        )
 
         self.name = name

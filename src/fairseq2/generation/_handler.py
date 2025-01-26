@@ -20,11 +20,11 @@ class SequenceGeneratorHandler(ABC):
 
     @property
     @abstractmethod
-    def config_kls(self) -> type:
+    def config_kls(self) -> type[object]:
         ...
 
 
-class SequenceGeneratorNotFoundError(LookupError):
+class UnknownSequenceGeneratorError(Exception):
     name: str
 
     def __init__(self, name: str) -> None:
@@ -40,11 +40,11 @@ class Seq2SeqGeneratorHandler(ABC):
 
     @property
     @abstractmethod
-    def config_kls(self) -> type:
+    def config_kls(self) -> type[object]:
         ...
 
 
-class Seq2SeqGeneratorNotFoundError(LookupError):
+class UnknownSeq2SeqGeneratorError(Exception):
     name: str
 
     def __init__(self, name: str) -> None:

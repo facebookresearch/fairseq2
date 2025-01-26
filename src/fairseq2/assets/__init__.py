@@ -36,17 +36,19 @@ from fairseq2.assets._metadata_provider import (
 from fairseq2.assets._metadata_provider import (
     InProcAssetMetadataProvider as InProcAssetMetadataProvider,
 )
+from fairseq2.assets._metadata_provider import MetadataFileLoader as MetadataFileLoader
 from fairseq2.assets._metadata_provider import (
     PackageAssetMetadataProvider as PackageAssetMetadataProvider,
 )
 from fairseq2.assets._metadata_provider import PackageFileLister as PackageFileLister
 from fairseq2.assets._metadata_provider import (
+    StandardMetadataFileLoader as StandardMetadataFileLoader,
+)
+from fairseq2.assets._metadata_provider import (
     WheelPackageFileLister as WheelPackageFileLister,
 )
-from fairseq2.assets._metadata_provider import load_metadata_file as load_metadata_file
 from fairseq2.assets._store import AssetStore as AssetStore
 from fairseq2.assets._store import EnvironmentResolver as EnvironmentResolver
 from fairseq2.assets._store import StandardAssetStore as StandardAssetStore
-from fairseq2.assets._store import default_asset_store as default_asset_store
 from fairseq2.assets._store import get_asset_dir as get_asset_dir
 from fairseq2.assets._store import get_user_asset_dir as get_user_asset_dir

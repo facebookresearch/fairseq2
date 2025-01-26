@@ -133,6 +133,10 @@ class GangError(Exception):
     pass
 
 
+class GangSetupError(GangError):
+    pass
+
+
 class AbstractGang(Gang):
     """Provides a skeletal implementation of :class:`Gang`."""
 
@@ -359,7 +363,7 @@ class ProcessGroupGang(AbstractGang):
             dist.set_debug_level_from_env()
 
         if not dist.is_available():
-            raise GangError("`torch.distributed` is not available.")
+            raise GangSetupError("`torch.distributed` is not available.")
 
         if dist.is_initialized():
             if ok_initialized:
@@ -367,12 +371,12 @@ class ProcessGroupGang(AbstractGang):
 
                 return ProcessGroupGang.from_default_process_group()
 
-            raise GangError("The default process group is already initialized.")
+            raise GangSetupError("The default process group is already initialized.")
 
         try:
             num_procs = get_local_world_size()
         except InvalidEnvironmentVariableError as ex:
-            raise GangError(
+            raise GangSetupError(
                 "The local world size cannot be determined from the environment variables. See the nested exception for details."
             ) from ex
 
@@ -414,7 +418,7 @@ class ProcessGroupGang(AbstractGang):
         try:
             dist.init_process_group(backend, timeout=timeout)
         except (RuntimeError, ValueError) as ex:
-            raise GangError(
+            raise GangSetupError(
                 "The underlying process group has failed to initialize. See the nested exception for details."
             ) from ex
 
@@ -430,7 +434,7 @@ class ProcessGroupGang(AbstractGang):
                 try:
                     monitor_pg = dist.new_group(backend=Backend.GLOO, timeout=timeout)
                 except RuntimeError as ex:
-                    raise GangError(
+                    raise GangSetupError(
                         "The underlying process group used for monitoring has failed to initialize. See the nested exception for details."
                     ) from ex
         else:
@@ -455,10 +459,10 @@ class ProcessGroupGang(AbstractGang):
     def from_default_process_group(cls) -> ProcessGroupGang:
         """Wrap the default process group as a gang."""
         if not dist.is_available():
-            raise GangError("`torch.distributed` is not available.")
+            raise GangSetupError("`torch.distributed` is not available.")
 
         if not dist.is_initialized():
-            raise GangError("The default process group is not initialized.")
+            raise GangSetupError("The default process group is not initialized.")
 
         if cls._default is not None:
             return cls._default
@@ -466,7 +470,7 @@ class ProcessGroupGang(AbstractGang):
         try:
             backend = dist.get_backend()
         except RuntimeError as ex:
-            raise GangError(
+            raise GangSetupError(
                 "The default process group backend cannot be determined. See the nested exception for details."
             ) from ex
 
@@ -476,7 +480,7 @@ class ProcessGroupGang(AbstractGang):
             case Backend.NCCL:
                 cuda_device = determine_default_cuda_device()
                 if cuda_device is None:
-                    raise GangError(
+                    raise GangSetupError(
                         "The default process group uses the `nccl` backend, but the `cuda` device cannot be determined."
                     )
 
@@ -507,7 +511,7 @@ class ProcessGroupGang(AbstractGang):
         try:
             backend = dist.get_backend()
         except RuntimeError as ex:
-            raise GangError(
+            raise GangSetupError(
                 "The default process group backend cannot be determined. See the nested exception for details."
             ) from ex
 
@@ -516,7 +520,7 @@ class ProcessGroupGang(AbstractGang):
         except RuntimeError as ex:
             s = ", ".join(sorted(str(r) for r in ranks))
 
-            raise GangError(
+            raise GangSetupError(
                 f"The creation of a new child process group has failed for ranks {s}. See the nested exception for details."
             ) from ex
 
@@ -532,7 +536,7 @@ class ProcessGroupGang(AbstractGang):
                 except RuntimeError as ex:
                     s = ", ".join(sorted(str(r) for r in ranks))
 
-                    raise GangError(
+                    raise GangSetupError(
                         f"The creation of a new monitoring child process group has failed for ranks {s}. See the nested exception for details."
                     ) from ex
         else:
@@ -684,7 +688,7 @@ def setup_default_gang(
     try:
         world_size = get_world_size()
     except InvalidEnvironmentVariableError as ex:
-        raise GangError(
+        raise GangSetupError(
             "The world size cannot be determined from the environment variables. See the nested exception for details."
         ) from ex
 
@@ -707,6 +711,12 @@ def fake_gangs(device: Device) -> Gangs:
     gang = FakeGang(device=device)
 
     return Gangs(gang, gang, gang)
+
+
+def to_gangs(gang: Gang) -> Gangs:
+    fake_gang = FakeGang(device=gang.device)
+
+    return Gangs(gang, gang, fake_gang)
 
 
 def _setup_2D_mesh_gangs(
@@ -833,7 +843,7 @@ def setup_hybrid_fsdp_gangs(gang: Gang, local_world_size: int) -> tuple[Gang, Ga
         )
 
     if local_world_size == 1:
-        raise GangError(
+        raise GangSetupError(
             f"`local_world_size` must be greater than 1, but is {local_world_size} instead. This hybrid configuration would force FSDP to switch to use `NO_SHARD`, which is deprecated. Please use DDP instead."
         )
 
@@ -843,7 +853,7 @@ def setup_hybrid_fsdp_gangs(gang: Gang, local_world_size: int) -> tuple[Gang, Ga
         )
 
     if gang.size % local_world_size != 0:
-        raise GangError(
+        raise GangSetupError(
             f"`gang.size` ({gang.size}) must be a multiple of `local_world_size` ({local_world_size})."
         )
 
@@ -887,7 +897,7 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
         raise ValueError(f"`tp_size` must be greater than 0, but is {tp_size} instead.")
 
     if root_gang.size % tp_size != 0:
-        raise GangError(
+        raise GangSetupError(
             f"The number of processes in the root gang is expected to be a multiple of the tensor parallel size ({tp_size}), but is {root_gang.size} instead."
         )
 

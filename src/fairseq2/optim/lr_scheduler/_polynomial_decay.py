@@ -13,7 +13,10 @@ from typing import Final, final
 from torch.optim import Optimizer
 from typing_extensions import override
 
-from fairseq2.optim.lr_scheduler._handler import LRSchedulerHandler
+from fairseq2.optim.lr_scheduler._handler import (
+    LRSchedulerHandler,
+    UnspecifiedNumberOfStepsError,
+)
 from fairseq2.optim.lr_scheduler._lr_scheduler import (
     AbstractLRScheduler,
     LRScheduler,
@@ -145,7 +148,7 @@ class PolynomialDecayLRHandler(LRSchedulerHandler):
         config = safe_cast("config", config, PolynomialDecayLRConfig)
 
         if num_steps is None:
-            raise ValueError("`num_steps` must specified.")
+            raise UnspecifiedNumberOfStepsError(POLYNOMIAL_DECAY_LR)
 
         return PolynomialDecayLR(
             optimizer,
@@ -163,5 +166,5 @@ class PolynomialDecayLRHandler(LRSchedulerHandler):
 
     @property
     @override
-    def config_kls(self) -> type:
+    def config_kls(self) -> type[object]:
         return PolynomialDecayLRConfig

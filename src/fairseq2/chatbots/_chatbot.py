@@ -20,7 +20,6 @@ from fairseq2.generation import SequenceGenerator, SequenceGeneratorOutput
 from fairseq2.nn.padding import PaddingMask, pad_seqs
 
 
-@final
 @dataclass
 class ChatMessage:
     """Represents a chat message exchanged between a user and a bot."""

@@ -48,7 +48,7 @@ class ClusterResolver:
         return [str(key) for key, _ in self._handlers.get_all()]
 
 
-class UnknownClusterError(LookupError):
+class UnknownClusterError(Exception):
     cluster: str
     supported_clusters: Collection[str]
 

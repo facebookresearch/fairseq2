@@ -9,60 +9,56 @@ from __future__ import annotations
 from fairseq2.assets import (
     FileAssetMetadataProvider,
     PackageAssetMetadataProvider,
-    StandardAssetStore,
+    StandardMetadataFileLoader,
     WheelPackageFileLister,
     get_asset_dir,
     get_user_asset_dir,
 )
 from fairseq2.context import RuntimeContext
-from fairseq2.utils.file import StandardFileSystem
-from fairseq2.utils.yaml import load_yaml
+from fairseq2.utils.yaml import StandardYamlLoader
 
 
 def _register_assets(context: RuntimeContext) -> None:
+    register_package_metadata_provider(context, "fairseq2.assets.cards")
+
     asset_store = context.asset_store
 
-    # Package Metadata
-    register_package_metadata_provider(asset_store, "fairseq2.assets.cards")
+    file_system = context.file_system
+
+    yaml_loader = StandardYamlLoader(file_system)
+
+    metadata_file_loader = StandardMetadataFileLoader(yaml_loader)
 
     # /etc/fairseq2/assets
-    _register_asset_dir(asset_store)
+    config_dir = get_asset_dir()
+    if config_dir is not None:
+        provider = FileAssetMetadataProvider(
+            config_dir, file_system, metadata_file_loader
+        )
+
+        asset_store.metadata_providers.append(provider)
 
     # ~/.config/fairseq2/assets
-    _register_user_asset_dir(asset_store)
-
-
-def _register_asset_dir(asset_store: StandardAssetStore) -> None:
-    config_dir = get_asset_dir()
-    if config_dir is None:
-        return
-
-    file_system = StandardFileSystem()
-
-    provider = FileAssetMetadataProvider(config_dir, file_system, load_yaml)
-
-    asset_store.metadata_providers.append(provider)
-
-
-def _register_user_asset_dir(asset_store: StandardAssetStore) -> None:
     config_dir = get_user_asset_dir()
-    if config_dir is None:
-        return
+    if config_dir is not None:
+        provider = FileAssetMetadataProvider(
+            config_dir, file_system, metadata_file_loader
+        )
 
-    file_system = StandardFileSystem()
-
-    provider = FileAssetMetadataProvider(config_dir, file_system, load_yaml)
-
-    asset_store.user_metadata_providers.append(provider)
+        asset_store.user_metadata_providers.append(provider)
 
 
 def register_package_metadata_provider(
-    asset_store: StandardAssetStore, package_name: str
+    context: RuntimeContext, package_name: str
 ) -> None:
-    package_file_lister = WheelPackageFileLister()
+    file_lister = WheelPackageFileLister()
+
+    yaml_loader = StandardYamlLoader(context.file_system)
+
+    metadata_file_loader = StandardMetadataFileLoader(yaml_loader)
 
     provider = PackageAssetMetadataProvider(
-        package_name, package_file_lister, load_yaml
+        package_name, file_lister, metadata_file_loader
     )
 
-    asset_store.metadata_providers.append(provider)
+    context.asset_store.metadata_providers.append(provider)

@@ -26,9 +26,10 @@ from fairseq2.data.text.tokenizers import TextTokenizer
 from fairseq2.datasets import (
     DataPipelineReader,
     DataReader,
+    DataReadError,
     DataReadOptions,
-    DatasetError,
     DatasetHubAccessor,
+    DatasetLoadError,
     LengthBatching,
     SplitNotFoundError,
     StaticBatching,
@@ -155,14 +156,14 @@ class GenericParallelTextDataset(ParallelTextDataset):
         path = path.expanduser().resolve()
 
         if not path.is_dir():
-            raise DatasetError(
+            raise DatasetLoadError(
                 name, f"The '{path}' path is expected to be a directory with a MANIFEST file."  # fmt: skip
             )
 
         try:
             split_names = [d.name for d in path.iterdir() if d.is_dir()]
         except OSError as ex:
-            raise DatasetError(
+            raise DatasetLoadError(
                 name, f"The splits under the '{path}' directory cannot be determined. See the nested exception for details."  # fmt: skip
             ) from ex
 
@@ -175,7 +176,7 @@ class GenericParallelTextDataset(ParallelTextDataset):
                 with manifest_file.open() as fp:
                     content = list(fp)
             except OSError as ex:
-                raise DatasetError(
+                raise DatasetLoadError(
                     name, f"The '{manifest_file}' file cannot be read. See the nested exception for details."  # fmt: skip
                 ) from ex
 
@@ -190,8 +191,8 @@ class GenericParallelTextDataset(ParallelTextDataset):
             # its weight (e.g. number of examples) in the split.
             for idx, line in enumerate(content):
 
-                def error() -> DatasetError:
-                    return DatasetError(
+                def error() -> DatasetLoadError:
+                    return DatasetLoadError(
                         name, f"Each line in the '{manifest_file}' manifest file must represent a valid direction and a weight, but line {idx} is '{line}' instead."  # fmt: skip
                     )
 
@@ -419,12 +420,12 @@ class GenericParallelTextDataset(ParallelTextDataset):
         target_file = target_file.joinpath(f"{source}-{target}.{target}.txt")
 
         if not source_file.exists():
-            raise DatasetError(
+            raise DataReadError(
                 self._name, f"The source file '{source_file}' is not found under {self._data_dir}."  # fmt: skip
             )
 
         if not target_file.exists():
-            raise DatasetError(
+            raise DataReadError(
                 self._name, f"The target file '{target_file}' is not found under {self._data_dir}."  # fmt: skip
             )
 

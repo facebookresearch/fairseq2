@@ -18,11 +18,16 @@ from fairseq2.assets import (
     AssetCardError,
     AssetCardFieldNotFoundError,
     AssetDownloadManager,
-    AssetError,
 )
-from fairseq2.config_registry import ConfigProvider
-from fairseq2.error import ContractError, NotSupportedError
+from fairseq2.config_registry import ConfigNotFoundError, ConfigProvider
+from fairseq2.error import ContractError
 from fairseq2.gang import Gangs
+from fairseq2.models._error import (
+    MetaDeviceNotSupportedError,
+    ModelLoadError,
+    NonDataParallelismNotSupported,
+    UnknownModelArchitectureError,
+)
 from fairseq2.nn.utils.module import (
     load_state_dict,
     reset_non_persistent_buffers,
@@ -60,6 +65,10 @@ class ModelHandler(ABC):
     ) -> Module:
         ...
 
+    @abstractmethod
+    def compile(self, model: Module) -> Module:
+        ...
+
     @property
     @abstractmethod
     def family(self) -> str:
@@ -72,31 +81,13 @@ class ModelHandler(ABC):
 
     @property
     @abstractmethod
-    def config_kls(self) -> type:
+    def config_kls(self) -> type[object]:
         ...
 
     @property
     @abstractmethod
     def supports_meta(self) -> bool:
         ...
-
-
-class ModelNotFoundError(LookupError):
-    name: str
-
-    def __init__(self, name: str) -> None:
-        super().__init__(f"'{name}' is not a known model.")
-
-        self.name = name
-
-
-class ModelFamilyNotFoundError(LookupError):
-    name: str
-
-    def __init__(self, name: str) -> None:
-        super().__init__(f"'{name}' is not a known model family.")
-
-        self.name = name
 
 
 class AbstractModelHandler(ModelHandler):
@@ -122,7 +113,10 @@ class AbstractModelHandler(ModelHandler):
         if arch is None:
             arch = self._default_arch
 
-        return self._configs.get(arch)
+        try:
+            return self._configs.get(arch)
+        except ConfigNotFoundError:
+            raise UnknownModelArchitectureError(self.family, arch) from None
 
     @override
     def load_config(self, card: AssetCard) -> object:
@@ -133,10 +127,10 @@ class AbstractModelHandler(ModelHandler):
 
         try:
             config = self.get_config(arch)
-        except LookupError:
-            raise AssetError(
-                card.name, f"The '{arch}' architecture of the '{card.name}' model is not a known '{self.family}' model architecture."  # fmt: skip
-            ) from None
+        except UnknownModelArchitectureError as ex:
+            ex.model_name = card.name
+
+            raise
 
         # Override the default architecture configuration if the asset card or
         # its bases have a 'model_config' field.
@@ -240,19 +234,19 @@ class AbstractModelHandler(ModelHandler):
 
         if num_shards < 1:
             raise AssetCardError(
-                card.name, f"The value of the 'num_shards' field of the '{card.name}' asset card is expected to be a positive integer, but is {num_shards} instead."  # fmt: skip
+                card.name, f"The value of the `num_shards` field of the '{card.name}' asset card is expected to be a positive integer, but is {num_shards} instead."  # fmt: skip
             )
 
         tp_gang = gangs.tp  # tensor parallel
 
         if num_shards > 1:
             if tp_gang.size != num_shards:
-                raise AssetError(
+                raise ModelLoadError(
                     card.name, f"The number of processes in the tensor parallel gang is expected to match the number of checkpoint shards of the '{card.name}' model ({num_shards}), but is {tp_gang.size} instead."  # fmt: skip
                 )
         else:
             if tp_gang.size != 1:
-                raise AssetError(
+                raise ModelLoadError(
                     card.name, f"The size of the tensor parallel gang is expected to be 1 since the checkpoint of the '{card.name}' model is not sharded, but is {tp_gang.size} instead."  # fmt: skip
                 )
 
@@ -273,20 +267,20 @@ class AbstractModelHandler(ModelHandler):
         )
 
         try:
-            checkpoint = self._tensor_loader(path, map_location=CPU)
+            checkpoint = self._tensor_loader.load(path, map_location=CPU)
         except TensorLoadError as ex:
-            raise AssetError(
+            raise ModelLoadError(
                 card.name, f"The checkpoint of the '{card.name}' model cannot be loaded. See the nested exception for details."  # fmt: skip
             ) from ex
 
         try:
             checkpoint = self._convert_checkpoint(checkpoint, config)
         except (KeyError, ValueError) as ex:
-            raise AssetError(
+            raise ModelLoadError(
                 card.name, f"The checkpoint of the '{card.name}' model cannot be converted to a fairseq2 compatible format. See the nested exception for details."  # fmt: skip
             ) from ex
 
-        # Make the model.
+        # Create the model.
         try:
             model = self.create(config, gangs, dtype, meta=self.supports_meta)
         except ValueError as ex:
@@ -294,7 +288,7 @@ class AbstractModelHandler(ModelHandler):
                 raise
 
             raise AssetCardError(
-                card.name, f"The '{card.name}' asset card does not have a valid model configuration. See the nested exception for details."  # fmt: skip
+                card.name, f"The value of the `model_config` field of the '{card.name}' asset card does not represent a valid '{self.family}' model configuration. See the nested exception for details."  # fmt: skip
             ) from ex
 
         if self.supports_meta:
@@ -306,19 +300,19 @@ class AbstractModelHandler(ModelHandler):
         model_key = checkpoint.get("model_key", "model")
 
         if not isinstance(model_key, str):
-            raise AssetError(
+            raise ModelLoadError(
                 card.name, f"The 'model_key' in the '{card.name}' checkpoint is expected to be of type `str`, but is of type `{type(model_key)}` instead."  # fmt: skip
             )
 
         try:
             state_dict = checkpoint[model_key]
         except KeyError:
-            raise AssetError(
+            raise ModelLoadError(
                 card.name, f"The '{card.name}' checkpoint does not contain a '{model_key}' key."  # fmt: skip
             ) from None
 
         if not isinstance(state_dict, dict):
-            raise AssetError(
+            raise ModelLoadError(
                 card.name, f"The model state dictionary in the '{card.name}' checkpoint is expected to be of type `dict`, but is of type `{type(state_dict)}` instead."  # fmt: skip
             )
 
@@ -328,7 +322,7 @@ class AbstractModelHandler(ModelHandler):
         try:
             load_state_dict(model, state_dict)
         except (KeyError, ValueError) as ex:
-            raise AssetError(
+            raise ModelLoadError(
                 card.name, f"The state of the '{card.name}' model cannot be loaded from the checkpoint. See the nested exception for details."  # fmt: skip
             ) from ex
 
@@ -345,22 +339,18 @@ class AbstractModelHandler(ModelHandler):
         return checkpoint
 
     @override
+    def compile(self, model: Module) -> Module:
+        return torch.compile(model)  # type: ignore[return-value]
+
+    @override
     @property
-    def config_kls(self) -> type:
+    def config_kls(self) -> type[object]:
         return self._configs.config_kls
 
     @override
     @property
     def supports_meta(self) -> bool:
         return True
-
-
-class MetaDeviceNotSupportedError(NotSupportedError):
-    pass
-
-
-class NonDataParallelismNotSupported(NotSupportedError):
-    pass
 
 
 def get_model_family(card: AssetCard) -> str:

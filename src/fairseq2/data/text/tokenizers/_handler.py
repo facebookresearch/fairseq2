@@ -27,15 +27,6 @@ class TextTokenizerHandler(ABC):
         ...
 
 
-class TextTokenizerNotFoundError(LookupError):
-    name: str
-
-    def __init__(self, name: str) -> None:
-        super().__init__(f"'{name}' is not a known text tokenizer.")
-
-        self.name = name
-
-
 class AbstractTextTokenizerHandler(TextTokenizerHandler):
     _asset_download_manager: AssetDownloadManager
 

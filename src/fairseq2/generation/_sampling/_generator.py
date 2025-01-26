@@ -767,7 +767,8 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
             # (S)
             step_scores = self._step_scores[seq_idx, :seq_len]
 
-            score = step_scores.sum()
+            # Skip the first step since its score is always 0.
+            score = step_scores[1:].log().sum()
 
             if self._normalize_scores:
                 # Since the first step's score is always 0, do not include it in

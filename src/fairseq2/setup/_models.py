@@ -47,11 +47,15 @@ from fairseq2.models.wav2vec2.asr import (
     Wav2Vec2AsrModelHandler,
     register_wav2vec2_asr_configs,
 )
-from fairseq2.utils.file import load_tensors, load_unsafe_torch_tensors
+from fairseq2.utils.file import StandardTensorLoader, TorchTensorLoader
 
 
 def _register_models(context: RuntimeContext) -> None:
     asset_download_manager = context.asset_download_manager
+
+    tensor_loader = StandardTensorLoader(context.file_system)
+
+    unsafe_tensor_loader = TorchTensorLoader(context.file_system, restrict=False)
 
     registry = context.get_registry(ModelHandler)
 
@@ -65,7 +69,7 @@ def _register_models(context: RuntimeContext) -> None:
     default_arch = "base"
 
     handler = JepaModelHandler(
-        configs, default_arch, asset_download_manager, load_tensors
+        configs, default_arch, asset_download_manager, tensor_loader
     )
 
     registry.register(handler.family, handler)
@@ -78,7 +82,7 @@ def _register_models(context: RuntimeContext) -> None:
     default_arch = "base"
 
     handler = JepaClassifierModelHandler(
-        configs, default_arch, asset_download_manager, load_tensors
+        configs, default_arch, asset_download_manager, tensor_loader
     )
 
     registry.register(handler.family, handler)
@@ -91,7 +95,7 @@ def _register_models(context: RuntimeContext) -> None:
     default_arch = "llama3_1_8b"
 
     handler = LLaMAModelHandler(
-        configs, default_arch, asset_download_manager, load_tensors
+        configs, default_arch, asset_download_manager, tensor_loader
     )
 
     registry.register(handler.family, handler)
@@ -104,7 +108,7 @@ def _register_models(context: RuntimeContext) -> None:
     default_arch = "7b"
 
     handler = MistralModelHandler(
-        configs, default_arch, asset_download_manager, load_tensors
+        configs, default_arch, asset_download_manager, tensor_loader
     )
 
     registry.register(handler.family, handler)
@@ -120,7 +124,7 @@ def _register_models(context: RuntimeContext) -> None:
     default_arch = "medium"
 
     handler = S2TTransformerModelHandler(
-        configs, default_arch, asset_download_manager, load_unsafe_torch_tensors
+        configs, default_arch, asset_download_manager, unsafe_tensor_loader
     )
 
     registry.register(handler.family, handler)
@@ -133,7 +137,7 @@ def _register_models(context: RuntimeContext) -> None:
     default_arch = "base"
 
     handler = TransformerModelHandler(
-        configs, default_arch, asset_download_manager, load_unsafe_torch_tensors
+        configs, default_arch, asset_download_manager, unsafe_tensor_loader
     )
 
     registry.register(handler.family, handler)
@@ -146,7 +150,7 @@ def _register_models(context: RuntimeContext) -> None:
     default_arch = "300m"
 
     handler = W2VBertModelHandler(
-        configs, default_arch, asset_download_manager, load_tensors
+        configs, default_arch, asset_download_manager, tensor_loader
     )
 
     registry.register(handler.family, handler)
@@ -159,7 +163,7 @@ def _register_models(context: RuntimeContext) -> None:
     default_arch = "base"
 
     handler = Wav2Vec2ModelHandler(
-        configs, default_arch, asset_download_manager, load_unsafe_torch_tensors
+        configs, default_arch, asset_download_manager, unsafe_tensor_loader
     )
 
     registry.register(handler.family, handler)
@@ -172,7 +176,7 @@ def _register_models(context: RuntimeContext) -> None:
     default_arch = "base_10h"
 
     handler = Wav2Vec2AsrModelHandler(
-        configs, default_arch, asset_download_manager, load_unsafe_torch_tensors
+        configs, default_arch, asset_download_manager, unsafe_tensor_loader
     )
 
     registry.register(handler.family, handler)
