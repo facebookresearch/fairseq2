@@ -1,9 +1,19 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the license found in the
+# LICENSE file in the root directory of this source tree.
+
 from unittest.mock import MagicMock, patch
 
 import pyarrow as pa
 import pytest
+import tempfile
+import pyarrow.parquet as pq
 
 from fairseq2.data.parquet.pipeline import SafeFragment, init_parquet_dataset
+from fairseq2.data.parquet.utils import get_dataset_fragments
+from tests.unit.data.parquet.conftest import create_sample_parquet_dataset
 
 
 @pytest.fixture
@@ -123,23 +133,26 @@ class TestSafeFragment:
         assert "row_groups = [1, 2]" in repr_str
         assert "physical_schema" in repr_str
 
-    def test_load_without_columns(self, mock_fragment: MagicMock) -> None:
-        mock_table = pa.Table.from_arrays(
-            [pa.array([1, 2, 3]), pa.array(["a", "b", "c"])], names=["col1", "col2"]
-        )
+    def test_load_without_columns(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create a sample dataset with 3 Parquet files
+            create_sample_parquet_dataset(tmpdir, num_files=3, num_row_groups=2)
 
-        mock_fragment.to_table.return_value = mock_table
+            # Create a ParquetDataset
+            dataset = pq.ParquetDataset(tmpdir)
 
-        safe_fragment = SafeFragment(mock_fragment)
-        _ = safe_fragment.load()
+            # Call the function
+            fragments = get_dataset_fragments(dataset, None)
 
-        expected_columns = [
-            "col1",
-            "col2",
-            "__batch_index",
-            "__fragment_index",
-            "__filename",
-        ]
-        mock_fragment.to_table.assert_called_once_with(
-            columns=expected_columns, use_threads=False
-        )
+            safe_fragment = SafeFragment(fragments[0])
+            _ = safe_fragment.load()
+
+            expected_columns = [
+                "id",
+                "value",
+                "__batch_index",
+                "__fragment_index",
+                "__filename",
+            ]
+            table = fragments[0].to_table(columns=expected_columns, use_threads=False)
+            assert table.column_names == expected_columns

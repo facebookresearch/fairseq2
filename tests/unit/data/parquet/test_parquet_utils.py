@@ -37,6 +37,7 @@ from fairseq2.data.parquet.utils import (
     split_fragment_in_row_groups,
     torch_random_seed,
 )
+from tests.unit.data.parquet.conftest import create_sample_parquet_dataset
 
 
 def test_nested_text_conversion() -> None:

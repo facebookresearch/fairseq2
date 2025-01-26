@@ -187,39 +187,6 @@ class DataLoadingConfig:
     ``batch_size`` to reduce the memory footprint.
     """
 
-    len_to_wrap_long_seq: Optional[int] = None
-    """
-    Wrapping a source sequences to the length of `len_to_wrap_long_seq`.
-    For instance, for a `len_to_wrap_long_seq=2`
-    batch = {
-        "source": [["v1", "v2", "v3", "v4", "v5"], ["u1", "u2", "u3"], ["w1"]],
-    }
-    will be transormed to
-    1. if packing is False :
-    batch = {
-        "source": [['v1', 'v2'], ['v3', 'v4'], ['v5'], ["u1", "u2"], ["u3"], ["w1"]]
-    }
-    1. if packing is True :
-    batch = {
-        "source": [['v1', 'v2'], ['v3', 'v4'], ['v5', 'u1'], ["u2", "u3"], ["w1"]]
-    }
-
-    Note: currently only allowed to be used with no "target" provided (unsupervised style) !
-    """
-
-    packing: bool = False
-    """
-    If True, all sequential documents (seqs of sentences) will be concated into one big document
-    before applying wrapping.
-    This will result in all samples (except maybe one) having exactly `len_to_wrap_long_seq` length !
-    """
-
-    wrap_before_affixing: bool = False
-    """
-    If True, we will wrap the sequences before adding the source prefix/suffix.
-    Recommended when pre-training with packed data i.e len_to_wrap_long_seq not None and packing=True
-    """
-
     output_format: ParquetBatchFormat = ParquetBatchFormat.torch
     """The format to use for output batches."""
 
@@ -282,6 +249,7 @@ class DataLoadingConfig:
     For training use case, it should left to False and combined with large number of epochs.
     For evaluation use case, it also should be False since we dont care about the batch syncronization across different workers.
     """
+
     max_iteration_steps: Optional[int] = None
     """
     If not None, it will be used to limit the number of batches produced per each dataset
