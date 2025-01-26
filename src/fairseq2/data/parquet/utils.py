@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Any, Callable, Dict, Generator, List, Optional, Union, no_type_check
+from typing import Dict, Generator, List, Optional, Union, no_type_check
 
 import numpy as np
 import pandas as pd
@@ -18,7 +18,6 @@ import pyarrow.parquet as pq
 import torch
 from numpy.typing import NDArray
 from pyarrow.dataset import get_partition_keys  # requires pyarrow >= 13
-
 from tqdm.auto import tqdm
 
 from fairseq2.data import DataPipeline, DataPipelineBuilder, read_sequence
@@ -46,6 +45,7 @@ def torch_random_seed(seed: int | None = None) -> Generator[None, None, None]:
     if seed is not None:
         torch.manual_seed(seed)
     yield
+
 
 from fairseq2.logging import log
 
@@ -253,7 +253,6 @@ def torch_random_seed(seed: Optional[int] = None) -> Generator[None, None, None]
     if seed is not None:
         torch.manual_seed(seed)
     yield
->>>>>>> dd85d23b (update parquet utils)
 
 
 def get_dataset_fragments(
@@ -268,7 +267,6 @@ def get_dataset_fragments(
 
 def split_fragment_in_row_groups(
     fragment: pa.dataset.Fragment,
-
 ) -> list[pa.dataset.Fragment]:
     """
     Split a fragment into multiple fragments by row groups.
@@ -422,38 +420,3 @@ def compute_rows_length(
     length_col = length_col.copy()
     length_col[np.isnan(length_col)] = 0
     return np.asarray(length_col, dtype=np.int32)
-<<<<<<< HEAD
-
-
-class _TableWrapper:
-    """
-    class to avoid fairseq2 casting pa.Table to iterable objects
-    which currently fails
-    """
-
-    def __init__(self, table: pa.Table) -> None:
-        self.table: pa.Table = table
-
-
-def _to_real_object(x: _TableWrapper | NestedDict) -> BatchOutputType:
-    if isinstance(x, _TableWrapper):
-        return x.table
-    elif isinstance(x, list):
-        return [_to_real_object(e) for e in x]
-    elif isinstance(x, tuple):
-        return tuple(_to_real_object(e) for e in x)
-    else:
-        return x
-
-
-def table_func_wrap(func: Callable[..., Any]) -> Callable[..., Any]:
-    def inner(*args: Any) -> Any:
-        fixed_args = [_to_real_object(x) for x in args]
-        result = func(*fixed_args)
-        if isinstance(result, (pa.Table, pd.DataFrame)):
-            result = _TableWrapper(result)
-        return result
-
-    return inner
-=======
->>>>>>> 395d7061 (cleanup)
