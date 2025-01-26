@@ -281,41 +281,37 @@ VLLM Support
 ^^^^^^^^^^^^
 
 
-To accelerate the inference process, we can convert fairseq2 checkpoints to HuggingFace checkpoints, which can be deployed with VLLM. This takes 2 steps:
+To accelerate the inference process, we can deploy fairseq2 checkpoints with VLLM. This takes 2 steps:
 
-**Step 1: Convert fairseq2 checkpoint to XLFormer checkpoint**
+**Step 1: Generate the Huggingface config.json file**
 
-The first step is to use the fairseq2 command-line (:ref:`basics-cli`) tool to convert the fairseq2 checkpoint to an XLF checkpoint. The command structure is as follows:
+The first step is to use the fairseq2 command-line (:ref:`basics-cli`) tool to generate the ``config.json`` file part of the Huggingface model format, which vLLM expects. The command structure is as follows:
 
 .. code-block:: bash
 
-    fairseq2 llama convert_checkpoint --model <architecture> <fairseq2_checkpoint_dir> <xlf_checkpoint_dir>
+    fairseq2 llama write_hf_config --model <architecture> <fairseq2_checkpoint_dir>
 
 
 * ``<architecture>``: Specify the architecture of the model -- `e.g.`, ``llama3`` (see :mod:`fairseq2.models.llama`)
 
-* ``<fairseq2_checkpoint_dir>``: Path to the directory containing the Fairseq2 checkpoint
-
-* ``<xlf_checkpoint_dir>``: Path where the XLF checkpoint will be saved
+* ``<fairseq2_checkpoint_dir>``: Path to the directory containing your Fairseq2 checkpoint, where ``config.json`` will be added.
 
 
 .. note::
 
-    Architecture ``--arch`` must exist and be defined in `e.g.` :meth:`fairseq2.models.llama.archs.register_archs`.
+    Architecture ``--model`` must exist and be defined in `e.g.` :meth:`fairseq2.models.llama._config.register_llama_configs`.
 
 
-**Step 2: Convert XLFormer checkpoint to HF checkpoint**
-
-After obtaining the XLFormer checkpoint, the next step is to convert it to the Hugging Face format. Please refer to the official `HF script`_.
-
-
-**Step 3: Deploy with VLLM**
+**Step 2: Deploy with VLLM**
 
 .. code-block:: python
 
     from vllm import LLM
 
-    llm = LLM(model=<path_to_hf_checkpoint>)  # path of your model
+    llm = LLM(
+        model=<path_to_fs2_checkpoint>,  # path of your model
+        tokenizer=<name_or_path_of_hf_tokenizer>,  # path of your tokenizer files
+    )
     output = llm.generate("Hello, my name is")
     print(output)
 
