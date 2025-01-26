@@ -1,8 +1,14 @@
-====================
-fairseq2.recipes.cli
-====================
+============
+fairseq2.cli
+============
 
-.. currentmodule:: fairseq2.recipes.cli
+.. currentmodule:: fairseq2.cli
+
+.. toctree::
+    :maxdepth: 1
+
+    llama/index
+
 
 Classes
 -------
@@ -19,8 +25,9 @@ Classes
 .. autoclass:: CliCommandHandler
    :members:
 
-.. autoclass:: RecipeCommandHandler
+.. autoclass:: fairseq2.cli.commands.recipe.RecipeCommandHandler
    :members:
+
 
 Examples
 --------
@@ -38,7 +45,8 @@ Here's a complete example:
 
 .. code-block:: python
 
-    from fairseq2.recipes.cli import Cli, CliCommandHandler, RecipeCommandHandler
+    from fairseq2.cli import Cli, CliCommandHandler
+    from fairseq2.cli.commands.recipe import RecipeCommandHandler
     
     def setup_custom_cli(cli: Cli) -> None:
         # Create a new command group
@@ -47,21 +55,31 @@ Here's a complete example:
             help="Custom recipes and utilities"
         )
         
-        # Add a command using RecipeCommandHandler
-        custom_handler = RecipeCommandHandler(
-            loader=load_custom_recipe,      # this is the recipe entrypoint callback function
-            preset_configs=custom_presets,  # this is the preset configs registry
-            default_preset="default",       # this is the default preset name
-            sweep_allowed_keys=["model", "dataset"]  # Optional
-        )
-        
         group.add_command(
             name="custom_command",
-            handler=custom_handler,
+            handler=custom_handler(),  # this is the command handler fn.
             help="Run custom recipe"
         )
 
-You can find more examples in our recipe examples:
+    def setup_recipe_cli(cli: Cli) -> None:
+        # Create a new command group for recipes
+        group = cli.add_group("recipe_name", help="Recipe commands")
+        
+        # create a recipe command handler first
+        recipe_handler = RecipeCommandHandler(
+            loader=recipe_loader,
+            config_kls=recipe_config_kls,
+            default_preset="recipe_default_preset",
+        )
+
+        group.add_command(
+            name="recipe_command_name",
+            handler=recipe_handler,
+            help="recipe_command_help",
+        )
+
+
+You can find more examples in our recipe command examples:
 
 * :mod:`fairseq2.recipes.lm.instruction_finetune`
 * :mod:`fairseq2.recipes.llama.convert_checkpoint`

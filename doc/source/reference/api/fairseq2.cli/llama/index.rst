@@ -1,12 +1,12 @@
-.. _reference-recipes-lm-convert-checkpoint:
+.. _reference-cli-llama:
 
 ===================
 Convert Checkpoints
 ===================
 
-.. module:: fairseq2.recipes.llama.convert_checkpoint
+.. module:: fairseq2.cli.commands.llama
 
-The checkpoint conversion module provides utilities to convert fairseq2 model checkpoints to different formats for interoperability with other frameworks.
+The checkpoint conversion handlers provides utilities to convert fairseq2 model checkpoints to different formats for interoperability with other frameworks.
 
 Command Line Interface
 ----------------------
@@ -74,23 +74,27 @@ Usage Example
 
 2. Convert to HuggingFace format:
 
-After converting to reference format, use the HuggingFace conversion script to convert to HF format:
-
 .. code-block:: bash
 
-    python -m transformers.models.llama.convert_llama_weights_to_hf \
-        --input_dir /path/to/output/dir \
-        --model_size 1B \
-        --output_dir /path/to/hf/model
+    fairseq2 llama write_hf_config --model <architecture> <fairseq2_checkpoint_dir>
+
+* ``<architecture>``: Specify the architecture of the model -- `e.g.`, ``llama3`` (see :mod:`fairseq2.models.llama`)
+
+* ``<fairseq2_checkpoint_dir>``: Path to the directory containing your Fairseq2 checkpoint, where ``config.json`` will be added.
+
+.. note::
+
+    Architecture ``--model`` must exist and be defined in `e.g.` :meth:`fairseq2.models.llama._config.register_llama_configs`.
 
 API Details
 -----------
 
-.. autoclass:: ConvertCheckpointCommandHandler
+.. autoclass:: ConvertLLaMACheckpointHandler
+
+.. autoclass:: WriteHFLLaMAConfigHandler
 
 See Also
 --------
 
 - :doc:`End-to-End Fine-Tuning Tutorial </tutorials/end_to_end_fine_tuning>`
-- :class:`fairseq2.models.llama.factory.LLaMAConfig`
-- :class:`fairseq2.models.llama.archs`
+- :class:`fairseq2.models.llama._config.LLaMAConfig`
