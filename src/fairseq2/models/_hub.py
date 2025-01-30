@@ -17,7 +17,7 @@ from fairseq2.gang import Gangs, fake_gangs
 from fairseq2.models._error import UnknownModelError, UnknownModelFamilyError
 from fairseq2.models._handler import ModelHandler, get_model_family
 from fairseq2.registry import Provider
-from fairseq2.typing import CPU, DataType, Device
+from fairseq2.typing import DataType, Device
 
 ModelT = TypeVar("ModelT", bound=Module)
 
