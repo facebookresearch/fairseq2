@@ -17,7 +17,7 @@ from fairseq2.gang import Gangs, fake_gangs
 from fairseq2.models._error import UnknownModelError, UnknownModelFamilyError
 from fairseq2.models._handler import ModelHandler, get_model_family
 from fairseq2.registry import Provider
-from fairseq2.typing import CPU, DataType, Device
+from fairseq2.typing import DataType, Device
 
 ModelT = TypeVar("ModelT", bound=Module)
 
@@ -81,6 +81,8 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
             raise ValueError(
                 "`gangs` and `device` must not be specified at the same time."
             )
+        if device is None:
+            device = torch.get_default_device()
 
         if device is not None:
             if device.type == "meta":
@@ -88,7 +90,7 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
 
             gangs = fake_gangs(device)
         elif gangs is None:
-            gangs = fake_gangs(CPU)
+            gangs = fake_gangs(device)
         else:
             if gangs.root.device.type == "meta":
                 raise ValueError("`gangs` must be on a real device.")
@@ -114,7 +116,7 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
             )
 
         if dtype is None:
-            dtype = torch.float32
+            dtype = torch.get_default_dtype()
 
         model = handler.load(card, gangs, dtype, config=config)
 
