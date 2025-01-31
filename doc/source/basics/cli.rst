@@ -60,13 +60,13 @@ Use ``--config`` to override specific values:
 .. code-block:: bash
 
     # Override single value
-    fairseq2 lm instruction_finetune <OUTPUT_DIR> --config max_num_tokens=512
+    fairseq2 lm instruction_finetune <OUTPUT_DIR> --config dataset.max_num_tokens=512
 
     # Override nested values
-    fairseq2 lm instruction_finetune <OUTPUT_DIR> --config optimizer_config.lr=4e-5
+    fairseq2 lm instruction_finetune <OUTPUT_DIR> --config optimizer.config.lr=4e-5
 
     # Override multiple values
-    fairseq2 lm instruction_finetune <OUTPUT_DIR> --config max_num_tokens=512 max_seq_len=512
+    fairseq2 lm instruction_finetune <OUTPUT_DIR> --config dataset.max_num_tokens=512 dataset.max_seq_len=512
 
     # Override a tuple
     fairseq2 lm instruction_finetune <OUTPUT_DIR> --config profile="[500,10]"
@@ -112,13 +112,39 @@ fairseq2 provides commands to manage and inspect assets:
     # List all available assets
     fairseq2 assets list
 
-    # Show details of a specific asset
-    fairseq2 assets show llama3_1_8b_instruct
-
     # List assets filtered by type
     fairseq2 assets list --type model
     fairseq2 assets list --type dataset
     fairseq2 assets list --type tokenizer
+
+    # Show details of a specific asset
+    fairseq2 assets show llama3_1_8b_instruct
+
+LLaMA Utilities
+---------------
+
+fairseq2 provides utilities for working with LLaMA models:
+
+.. code-block:: bash
+
+    # Convert fairseq2 LLaMA checkpoints to reference format
+    fairseq2 llama convert_checkpoint <MODEL_NAME> <INPUT_DIR> <OUTPUT_DIR>
+
+    # Write LLaMA configurations in Hugging Face format
+    fairseq2 llama write_hf_config <MODEL_NAME> <OUTPUT_DIR>
+
+Available Recipe Groups
+-----------------------
+
+fairseq2 includes several recipe groups for different tasks:
+
+- ``asr``: ASR (Automatic Speech Recognition) recipes
+- ``lm``: Language model recipes (instruction fine-tuning, preference optimization, etc.)
+- ``mt``: Machine translation recipes
+- ``wav2vec2``: wav2vec 2.0 pretraining recipes
+- ``wav2vec2_asr``: wav2vec 2.0 ASR recipes
+
+For more details about the recipe configurations, please refer to :ref:`basics-recipe`.
 
 See More
 --------

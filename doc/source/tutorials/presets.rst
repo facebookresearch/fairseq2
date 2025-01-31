@@ -60,10 +60,24 @@ fairseq2 comes with several built-in presets for common scenarios. To use a pres
 
 .. code-block:: bash
 
-    fairseq2 lm instruction_finetune $OUTPUT_DIR --preset base_10h
+    fairseq2 lm instruction_finetune $OUTPUT_DIR --preset llama3_1_instruct
 
 The preset will set default values for all configuration parameters.
 You can override any of these values using ``--config``.
+
+Available Presets
+^^^^^^^^^^^^^^^^^
+
+For instruction fine-tuning:
+
+* ``llama3_1_instruct`` - Base LLaMA 3 1.8B configuration
+* ``llama3_1_instruct_constant_lr`` - With constant learning rate
+* ``llama3_1_instruct_lr_anneal_0`` - With LR annealing to 0
+* ``llama3_1_70b_instruct`` - LLaMA 3 70B configuration
+
+For preference optimization (DPO/CPO/ORPO/SimPO):
+
+* Similar presets are available with additional criterion-specific configurations
 
 
 Creating Custom Presets
@@ -134,14 +148,16 @@ You can override any preset values in two ways:
 
     fairseq2 lm instruction_finetune $OUTPUT_DIR \
         --preset llama3_1_instruct \
-        --config learning_rate=2e-4 batch_size=16
+        --config optimizer.config.lr=2e-4 dataset.batch_size=16
 
 2. Using a YAML configuration file:
 
 .. code-block:: yaml
     
     # my_config.yaml
-    learning_rate: 2e-4
+    optimizer:
+      config:
+        lr: 2e-4
     batch_size: 16
 
 .. code-block:: bash

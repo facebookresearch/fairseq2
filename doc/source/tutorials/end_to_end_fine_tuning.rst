@@ -114,13 +114,13 @@ Running the Supervised Fine-Tuning (SFT) recipe is as simple as:
 .. code-block:: bash
 
     fairseq2 lm instruction_finetune $OUTPUT_DIR --config \
-        dataset=/datasets/facebook/fairseq2-lm-gsm8k/sft \
-        model=llama3_2_1b \
-        max_num_tokens=4096 \
-        dtype=float16 \
-        max_num_steps=1000 \
-        max_num_data_epochs=20 \
-        checkpoint_every_n_steps=1000
+        dataset.path=/datasets/facebook/fairseq2-lm-gsm8k/sft \
+        model.name=llama3_2_1b \
+        dataset.max_num_tokens=4096 \
+        trainer.dtype=float16 \
+        regime.num_steps=1000 \
+        regime.num_data_epochs=20 \
+        regime.checkpoint_every_n_steps=1000
 
 
 Similarly, we have the Direct Preference Optimization (DPO) recipe:
@@ -129,6 +129,7 @@ Similarly, we have the Direct Preference Optimization (DPO) recipe:
 
     fairseq2 lm preference_finetune $OUTPUT_DIR --config ...
 
+Read more about this recipe in :ref:`tutorial-preference-optimization`.
 
 .. dropdown:: You can also put the configuration in a YAML file
     :icon: code
@@ -137,17 +138,21 @@ Similarly, we have the Direct Preference Optimization (DPO) recipe:
     .. code-block:: yaml
 
         # /configs/example.yaml
-        dataset: /datasets/facebook/fairseq2-lm-gsm8k/sft
-        model: llama3_2_1b
-        max_num_tokens: 4096
-        max_seq_len: 4096
-        max_num_steps: 1000
-        max_num_data_epochs: 20
-        checkpoint_every_n_steps: 1000
-        keep_last_n_checkpoints: 1
-        keep_last_n_models: 1
-        publish_metrics_every_n_steps: 5
-        dtype: float16  # volta32gb gpus do not support bfloat16
+        dataset:
+            path: /datasets/facebook/fairseq2-lm-gsm8k/sft
+            max_num_tokens: 4096
+            max_seq_len: 4096
+        model:
+            name: llama3_2_1b
+        trainer:
+            dtype: float16  # volta32gb gpus do not support bfloat16
+        regime:
+            num_steps: 1000
+            num_data_epochs: 20
+            checkpoint_every_n_steps: 1000
+            keep_last_n_checkpoints: 1
+            keep_last_n_models: 1
+            publish_metrics_every_n_steps: 5
 
     Then run:
 
@@ -178,12 +183,13 @@ Sometimes you may want to continue fine-tuning from a previously trained checkpo
 
 fairseq2 provides a clean way to handle this through the checkpoint system (learn more about :ref:`basics-ckpt-management`):
 
+
 .. code-block:: bash
 
     fairseq2 lm instruction_finetune $OUTPUT_DIR --config \
-        resume_checkpoint_dir=/path/to/checkpoint \
-        model="last_checkpoint" \  # this will pick up the last checkpoint
-        dataset=/path/to/data
+        assets.checkpoint_dir=/path/to/checkpoint \
+        model.name=last_checkpoint \  # this will pick up the last checkpoint
+        dataset.path=/path/to/data
 
 .. dropdown:: To pick up a specific checkpoint
     :icon: code
@@ -196,11 +202,12 @@ fairseq2 provides a clean way to handle this through the checkpoint system (lear
         CKPT="checkpoint_$(basename "$CKPT_PATH")"  # e.g., checkpoint_step_1000
 
         fairseq2 lm instruction_finetune $OUTPUT_DIR --config \
-            resume_checkpoint_dir=$CKPT_DIR \
-            model=$CKPT \  # Must match the checkpoint step
-            dataset=/path/to/new/data \
-            max_num_tokens=4096 \
-            dtype=float16
+            assets.checkpoint_dir=$CKPT_DIR \
+            model.name=$CKPT \  # Must match the checkpoint step
+            dataset.path=/path/to/new/data \
+            dataset.max_num_tokens=4096 \
+            trainer.dtype=float16
+
 
     .. note::
 
@@ -216,10 +223,16 @@ fairseq2 provides a clean way to handle this through the checkpoint system (lear
 
         # config.yaml
         # First stage - train on dataset A
-        dataset: /path/to/dataset_A
-        model: llama3_2_1b
-        max_num_steps: 1000
-        learning_rate: 1e-5
+        dataset:
+            path: /path/to/dataset_A
+        model:
+            name: llama3_2_1b
+        regime:
+            num_steps: 1000
+        optimizer:
+            name: adamw
+            config:
+                lr: 1e-5
         # ... other config
 
     Then run the following commands in bash:
@@ -231,11 +244,11 @@ fairseq2 provides a clean way to handle this through the checkpoint system (lear
 
         # Second stage - continue from first stage checkpoint
         fairseq2 lm instruction_finetune run2_output --config \
-            resume_checkpoint_dir=run1_output/checkpoints \
-            model=checkpoint_step_1000 \
-            dataset=/path/to/dataset_B \
-            learning_rate=5e-6  # Lower learning rate for second stage
-            max_num_steps=500
+            assets.checkpoint_dir=run1_output/checkpoints \
+            model.name=checkpoint_step_1000 \
+            dataset.path=/path/to/dataset_B \
+            optimizer.config.lr=5e-6  # Lower learning rate for second stage
+            regime.num_steps=500
 
     .. tip::
 
@@ -282,15 +295,15 @@ fairseq2 natively supports inference:
 
     CKPT_PATH="/checkpoint/$USER/experiments/$EXPERIMENT_NAME/checkpoints/step_1000"
     CKPT_DIR=$(dirname "$CKPT_PATH")
-    CKPT="checkpoint_$(basename "$CKPT_DIR")"  # e.g., checkpoint_step_1000
+    CKPT="checkpoint_$(basename "$CKPT_PATH")"  # e.g., checkpoint_step_1000
     SAVE_DIR="$CKPT_DIR/generation"
     DATASET="/datasets/facebook/fairseq2-lm-gsm8k/test/test.jsonl"
 
     fairseq2 lm generate $SAVE_DIR --no-sweep-dir --config \
-        checkpoint_dir=$CKPT_DIR \
-        model=$CKPT \
-        generator_config.temperature=0.1 \
-        dataset=$DATASET
+        assets.checkpoint_dir=$CKPT_DIR \
+        model.name=$CKPT \
+        seq_generator.config.temperature=0.1 \
+        dataset.path=$DATASET
 
 
 VLLM Support
