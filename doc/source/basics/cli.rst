@@ -125,4 +125,4 @@ See More
 
 For more technical details about implementing custom CLIs and extensions, see:
 
-- :doc:`/reference/api/fairseq2.recipes/cli`
+- :doc:`/reference/api/fairseq2.cli/index`
