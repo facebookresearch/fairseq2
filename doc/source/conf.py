@@ -36,6 +36,8 @@ needs_sphinx = "7.4.0"
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    "IPython.sphinxext.ipython_console_highlighting",
+    "IPython.sphinxext.ipython_directive",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosectionlabel",
     "sphinx.ext.autosummary",
@@ -48,6 +50,7 @@ extensions = [
     "sphinx_design",
     "sphinxcontrib.mermaid",
     "myst_parser",
+    "nbsphinx",
 ]
 
 myst_enable_extensions = ["colon_fence"]
@@ -89,7 +92,7 @@ bibtex_bibfiles = ["_static/bibliography.bib"]
 #
 html_title = project
 html_theme = "furo"
-html_logo = "_static/img/logo.png"
+html_logo = "_static/img/logo.svg"
 
 html_theme_options = {
     "light_css_variables": {
@@ -114,5 +117,5 @@ html_static_path = ["_static"]
 html_title = "fairseq2 Documentation"
 
 favicons = [
-    {"href": "img/logo.png"},  # => use `_static/img/logo.png`
+    {"href": "img/logo.svg"},  # => use `_static/img/logo.svg`
 ]

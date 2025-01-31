@@ -28,9 +28,9 @@ jobs:
       run:
         shell: bash
     steps:
-      - name: Install Git LFS
+      - name: Install Package
         run: |
-          yum install -y git-lfs
+          yum install -y git-lfs epel-release pandoc
       - name: Check-out the repository
         uses: actions/checkout@v3
         with:

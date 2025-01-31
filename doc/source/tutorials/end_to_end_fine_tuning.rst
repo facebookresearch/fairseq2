@@ -103,13 +103,13 @@ Follow the `HuggingFace Datasets Tutorial`_ to download the `gsm8k data`_, (form
 We will use the ``sft/train.jsonl`` to fine-tune the model and use the ``test/test.jsonl`` for evaluation.
 
 
-Fine-Tune
----------
+Fine-Tuning
+-----------
 
 One-Liner
 ^^^^^^^^^
 
-Running the fine-tuning recipe is as simple as:
+Running the Supervised Fine-Tuning (SFT) recipe is as simple as:
 
 .. code-block:: bash
 
@@ -121,6 +121,13 @@ Running the fine-tuning recipe is as simple as:
         max_num_steps=1000 \
         max_num_data_epochs=20 \
         checkpoint_every_n_steps=1000
+
+
+Similarly, we have the Direct Preference Optimization (DPO) recipe:
+
+.. code-block:: bash
+
+    fairseq2 lm preference_finetune $OUTPUT_DIR --config ...
 
 
 .. dropdown:: You can also put the configuration in a YAML file
@@ -151,6 +158,15 @@ Running the fine-tuning recipe is as simple as:
 
     For more details about the recipe configuration, please refer to :ref:`basics-recipe`.
 
+
+.. important::
+
+    Before running the fine-tuning recipe, ensure the model's vocabulary configuration (``vocab_info``) matches your use case. 
+    For example, LLaMA 3 Instruct model uses a different end-of-sequence (EOS) token indices for chat (128009) vs base models (128001). 
+    Incorrect vocabulary configuration can significantly impact model performance. You can verify the configuration in your 
+    model's YAML card or the model architecture definition.
+
+
 Iterative Training
 ^^^^^^^^^^^^^^^^^^
 
@@ -177,7 +193,7 @@ fairseq2 provides a clean way to handle this through the checkpoint system (lear
 
         CKPT_PATH="/checkpoint/user/experiments/run_0/checkpoints/step_1000"  # this is the path to the checkpoint
         CKPT_DIR=$(dirname "$CKPT_PATH")  # e.g., /checkpoint/user/experiments/run_0/checkpoints
-        CKPT="checkpoint_$(basename "$CKPT_DIR")"  # e.g., checkpoint_step_1000
+        CKPT="checkpoint_$(basename "$CKPT_PATH")"  # e.g., checkpoint_step_1000
 
         fairseq2 lm instruction_finetune $OUTPUT_DIR --config \
             resume_checkpoint_dir=$CKPT_DIR \

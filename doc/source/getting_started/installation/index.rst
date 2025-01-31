@@ -235,4 +235,4 @@ installation.
     :caption: Other Installation Guides
 
     installation_from_source
-
+    setup_with_uv

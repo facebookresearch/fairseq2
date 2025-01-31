@@ -46,7 +46,7 @@ How to Customize Your Assets
 
     ---
 
-    name: gsm8k_sft@awscluster
+    name: gsm8k_sft@user
     data: "/data/gsm8k_data/sft"
 
 
@@ -58,7 +58,7 @@ How to Customize Your Assets
 
 .. code-block:: yaml
 
-    name: llama3_2_1b@awscluster
+    name: llama3_2_1b@user
     checkpoint: "/models/Llama-3.2-1B/original/consolidated.00.pth"
 
 
@@ -72,10 +72,10 @@ A store is a place where all the model cards are stored. In fairseq2, a store is
 :py:class:`fairseq2.assets.AssetStore`. Multiple stores are allowed. By default, fairseq2 will look up the following stores:
 
 * System asset store: Cards that are shared by all users. By default, the system store is `/etc/fairseq2/assets`,
-    but this can be changed via the environment variable `FAIRSEQ2_ASSET_DIR`
+    but this can be changed via the environment variable `FAIRSEQ2_ASSET_DIR`.
 
-* User asset store: Cards that are only available to the user. By default, the user store is 
-    `~/.config/fairseq2/assets`, but this can be changed via the environment variable `FAIRSEQ2_USER_ASSET_DIR`
+* User asset store: Cards can be created with name with the suffix ``@user`` (`e.g.` ``llama3_2_1b@user``) that are only available to the user.
+    By default, the user store is ``~/.config/fairseq2/assets``, but this can be changed via the environment variable `FAIRSEQ2_USER_ASSET_DIR`.
 
 To register a new store, implement a :py:class:`fairseq2.assets.AssetMetadataProvider` and add them to 
 :py:class:`fairseq2.assets.asset_store`. Here is an example to register a new directory as a model store:
