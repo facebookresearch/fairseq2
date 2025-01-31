@@ -179,7 +179,7 @@ class FileCheckpointManager(CheckpointManager):
         self._tensor_loader = tensor_loader
         self._tensor_dumper = tensor_dumper
 
-        if gangs.tp.rank > 1:
+        if gangs.tp.size > 1:
             self._shard_suffix = f".{gangs.tp.rank}"
         else:
             self._shard_suffix = ""
@@ -468,15 +468,15 @@ class FileCheckpointManager(CheckpointManager):
 
         def load_part(filename: str) -> dict[str, object]:
             with maybe_with_dp_process_group():  # Required for `ShardedTensor`.
+                file = step_dir.joinpath(filename)
+
                 try:
-                    part = self._tensor_loader.load(
-                        step_dir.joinpath(filename), map_location=CPU
-                    )
+                    part = self._tensor_loader.load(file, map_location=CPU)
                 except FileNotFoundError:
                     part = {}
                 except TensorLoadError as ex:
                     raise CheckpointLoadError(
-                        step_nr, f"The '{filename}' checkpoint file of training step {step_nr} cannot be loaded. See the nested exception for details."  # fmt: skip
+                        step_nr, f"The '{file}' checkpoint file of training step {step_nr} cannot be loaded. See the nested exception for details."  # fmt: skip
                     ) from ex
 
                 self._gangs.root.barrier()
