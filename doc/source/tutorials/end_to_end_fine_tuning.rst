@@ -310,7 +310,7 @@ VLLM Support
 ^^^^^^^^^^^^
 
 
-To accelerate the inference process, we can deploy fairseq2 checkpoints with VLLM.
+To accelerate the inference process, we can deploy fairseq2 LLaMA checkpoints with VLLM.
 This is done by pointing vLLM to both the fairseq2 checkpoint directory and the Huggingface tokenizer:
 
 .. code-block:: python
