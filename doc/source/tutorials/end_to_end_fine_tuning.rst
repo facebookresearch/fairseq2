@@ -310,28 +310,8 @@ VLLM Support
 ^^^^^^^^^^^^
 
 
-To accelerate the inference process, we can deploy fairseq2 checkpoints with VLLM. This takes 2 steps:
-
-**Step 1: Generate the Huggingface config.json file**
-
-The first step is to use the fairseq2 command-line (:ref:`basics-cli`) tool to generate the ``config.json`` file part of the Huggingface model format, which vLLM expects. The command structure is as follows:
-
-.. code-block:: bash
-
-    fairseq2 llama write_hf_config --model <architecture> <fairseq2_checkpoint_dir>
-
-
-* ``<architecture>``: Specify the architecture of the model -- `e.g.`, ``llama3`` (see :mod:`fairseq2.models.llama`)
-
-* ``<fairseq2_checkpoint_dir>``: Path to the directory containing your Fairseq2 checkpoint, where ``config.json`` will be added.
-
-
-.. note::
-
-    Architecture ``--model`` must exist and be defined in `e.g.` :meth:`fairseq2.models.llama._config.register_llama_configs`.
-
-
-**Step 2: Deploy with VLLM**
+To accelerate the inference process, we can deploy fairseq2 LLaMA checkpoints with VLLM.
+This is done by pointing vLLM to both the fairseq2 checkpoint directory and the Huggingface tokenizer:
 
 .. code-block:: python
 
@@ -345,6 +325,7 @@ The first step is to use the fairseq2 command-line (:ref:`basics-cli`) tool to g
     print(output)
 
 Please refer to the `VLLM documentation`_ for more details.
+
 
 Check the Accuracy
 ^^^^^^^^^^^^^^^^^^
