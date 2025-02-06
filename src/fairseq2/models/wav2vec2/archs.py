@@ -94,6 +94,19 @@ def _3b() -> Wav2Vec2Config:
     return config
 
 
+@wav2vec2_arch("3b_mel")
+def _3b_mel() -> Wav2Vec2Config:
+    config = _3b()
+
+    config.encoder_config.use_fbank = True
+    config.encoder_config.num_fbank_channels = 80
+    config.encoder_config.fbank_stride = 2
+    config.encoder_config.sample_fbank_every_k = 1
+    config.encoder_config.feature_dim = 160
+
+    return config
+
+
 @wav2vec2_arch("3.25b")
 def _3b_higher() -> Wav2Vec2Config:
     config = _1b()
