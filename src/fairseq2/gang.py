@@ -399,15 +399,14 @@ class ProcessGroupGang(AbstractGang):
 
         kwargs: dict[str, Any] = {}
 
-#        if torch_greater_or_equal(2, 3):
-#            # Forces NCCL to initialize immediately which enables deterministic
-#            # behavior.
-#            kwargs = {"device_id": device}
+        if torch_greater_or_equal(2, 3):
+            # Forces NCCL to initialize immediately which enables deterministic
+            # behavior.
+            kwargs = {"device_id": device}
 
         # If enabled, uses high priority CUDA streams for NCCL.
         if device.type == "cuda" and high_priority:
-#            pg_options = ProcessGroupNCCL.Options(is_high_priority_stream=True)
-            pg_options = None
+            pg_options = ProcessGroupNCCL.Options(is_high_priority_stream=True)
         else:
             pg_options = None
 
