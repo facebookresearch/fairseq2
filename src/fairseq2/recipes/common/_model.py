@@ -81,6 +81,7 @@ def setup_model(
         kls, context, recipe_config, output_dir, gangs, checkpoint_manager
     )
 
+    log_model(log, model, gangs)
     model = setup_data_parallel_model(
         context, recipe_config, model, gangs, checkpoint_manager, static_graph
     )
@@ -255,7 +256,7 @@ class CardBasedModelLoader:
             dtype = torch.float32
 
         def create_model(meta: bool) -> Module:
-            return handler.create(model_section.config, gangs, dtype, meta)
+            return handler.create(model_config, gangs, dtype, meta)
 
         # Shortcut if there is a checkpoint. No need to load the model.
         try:
@@ -353,7 +354,7 @@ class PathBasedModelLoader:
             dtype = torch.float32
 
         def create_model(meta: bool) -> Module:
-            return handler.create(model_section.config, gangs, dtype, meta)
+            return handler.create(model_config, gangs, dtype, meta)
 
         # Shortcut if there is a checkpoint. No need to load the model.
         try:
