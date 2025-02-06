@@ -107,7 +107,7 @@ class LLaMAFactory:
 
         if config.use_scaled_rope:
             freqs_init_fn = partial(
-                self._init_scaled_freqs, rope_scaling=config.rope_scaling
+                _init_scaled_freqs, rope_scaling=config.rope_scaling
             )
         else:
             freqs_init_fn = None
@@ -178,48 +178,48 @@ class LLaMAFactory:
     ) -> LayerNorm:
         return RMSNorm(model_dim, bias=False, device=device, dtype=dtype)
 
-    @staticmethod
-    def _init_scaled_freqs(
-        pos_encoder: RotaryEncoder, rope_scaling: LLaMARopeScalingConfig
-    ) -> Tensor:
-        device = pos_encoder.freqs.device
 
-        # (E / 2)
-        indices = torch.arange(
-            0, pos_encoder.encoding_dim, step=2, device=device, dtype=torch.float32
-        )
+def _init_scaled_freqs(
+    pos_encoder: RotaryEncoder, rope_scaling: LLaMARopeScalingConfig
+) -> Tensor:
+    device = pos_encoder.freqs.device
 
-        freqs = 1.0 / (pos_encoder.theta ** (indices / pos_encoder.encoding_dim))
+    # (E / 2)
+    indices = torch.arange(
+        0, pos_encoder.encoding_dim, step=2, device=device, dtype=torch.float32
+    )
 
-        if device.type == "meta":
-            return freqs  # type: ignore[no-any-return]
+    freqs = 1.0 / (pos_encoder.theta ** (indices / pos_encoder.encoding_dim))
 
-        old_context_len = rope_scaling.original_context_length
+    if device.type == "meta":
+        return freqs  # type: ignore[no-any-return]
 
-        scale_factor = rope_scaling.factor
+    old_context_len = rope_scaling.original_context_length
 
-        l_freq_factor, h_freq_factor = rope_scaling.frequency_factors
+    scale_factor = rope_scaling.factor
 
-        l_freq_wavelen = old_context_len / l_freq_factor
-        h_freq_wavelen = old_context_len / h_freq_factor
+    l_freq_factor, h_freq_factor = rope_scaling.frequency_factors
 
-        new_freqs = []
+    l_freq_wavelen = old_context_len / l_freq_factor
+    h_freq_wavelen = old_context_len / h_freq_factor
 
-        for freq in freqs.tolist():
-            wavelen = 2 * math.pi / freq
+    new_freqs = []
 
-            if wavelen < h_freq_wavelen:
-                new_freqs.append(freq)
+    for freq in freqs.tolist():
+        wavelen = 2 * math.pi / freq
 
-                continue
+        if wavelen < h_freq_wavelen:
+            new_freqs.append(freq)
 
-            if wavelen > l_freq_wavelen:
-                new_freqs.append(freq / scale_factor)
+            continue
 
-                continue
+        if wavelen > l_freq_wavelen:
+            new_freqs.append(freq / scale_factor)
 
-            smooth = (old_context_len / wavelen - l_freq_factor) / (h_freq_factor - l_freq_factor)  # fmt: skip
+            continue
 
-            new_freqs.append((1 - smooth) * freq / scale_factor + smooth * freq)
+        smooth = (old_context_len / wavelen - l_freq_factor) / (h_freq_factor - l_freq_factor)  # fmt: skip
 
-        return torch.tensor(new_freqs, dtype=freqs.dtype, device=device)
+        new_freqs.append((1 - smooth) * freq / scale_factor + smooth * freq)
+
+    return torch.tensor(new_freqs, dtype=freqs.dtype, device=device)

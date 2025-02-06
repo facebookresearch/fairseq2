@@ -137,10 +137,6 @@ class GangError(Exception):
     pass
 
 
-class GangSetupError(GangError):
-    pass
-
-
 class AbstractGang(Gang):
     """Provides a skeletal implementation of :class:`Gang`."""
 
@@ -356,10 +352,10 @@ class ProcessGroupGang(AbstractGang):
             dist.set_debug_level_from_env()
 
         if not dist.is_available():
-            raise GangSetupError("`torch.distributed` is not available.")
+            raise GangError("`torch.distributed` is not available.")
 
         if dist.is_initialized():
-            raise GangSetupError("The default process group is already initialized.")
+            raise GangError("The default process group is already initialized.")
 
         backend: str | None
 
@@ -376,7 +372,7 @@ class ProcessGroupGang(AbstractGang):
             try:
                 num_procs = get_local_world_size(os.environ)
             except InvalidEnvironmentVariableError as ex:
-                raise GangSetupError(
+                raise GangError(
                     "The local world size cannot be determined from the environment variables. See the nested exception for details."
                 ) from ex
 
@@ -415,7 +411,7 @@ class ProcessGroupGang(AbstractGang):
                 backend, timeout=timeout, pg_options=pg_options, **kwargs
             )
         except (RuntimeError, ValueError) as ex:
-            raise GangSetupError(
+            raise GangError(
                 "The underlying process group has failed to initialize. See the nested exception for details."
             ) from ex
 
@@ -431,7 +427,7 @@ class ProcessGroupGang(AbstractGang):
                 try:
                     monitor_pg = dist.new_group(backend=Backend.GLOO, timeout=timeout)
                 except RuntimeError as ex:
-                    raise GangSetupError(
+                    raise GangError(
                         "The underlying process group used for monitoring has failed to initialize. See the nested exception for details."
                     ) from ex
         else:
@@ -453,7 +449,7 @@ class ProcessGroupGang(AbstractGang):
         try:
             backend = dist.get_backend()
         except RuntimeError as ex:
-            raise GangSetupError(
+            raise GangError(
                 "The default process group backend cannot be determined. See the nested exception for details."
             ) from ex
 
@@ -462,7 +458,7 @@ class ProcessGroupGang(AbstractGang):
         except RuntimeError as ex:
             s = ", ".join(sorted(str(r) for r in ranks))
 
-            raise GangSetupError(
+            raise GangError(
                 f"The creation of a new child process group has failed for ranks {s}. See the nested exception for details."
             ) from ex
 
@@ -478,7 +474,7 @@ class ProcessGroupGang(AbstractGang):
                 except RuntimeError as ex:
                     s = ", ".join(sorted(str(r) for r in ranks))
 
-                    raise GangSetupError(
+                    raise GangError(
                         f"The creation of a new monitoring child process group has failed for ranks {s}. See the nested exception for details."
                     ) from ex
         else:
@@ -632,7 +628,7 @@ def setup_root_gang(
     try:
         world_size = get_world_size(os.environ)
     except InvalidEnvironmentVariableError as ex:
-        raise GangSetupError(
+        raise GangError(
             "The world size cannot be determined. See the nested exception for details."
         ) from ex
 
@@ -666,156 +662,8 @@ def to_gangs(gang: Gang) -> Gangs:
     return Gangs(gang, gang, fake_gang)
 
 
-def _setup_2D_mesh_gangs(
-    root_gang: Gang,
-    *,
-    row_length: int = 1,
-    create_single_rank_process_groups: bool = False,
-    dim_descriptions: list[str] | None = None,
-) -> dict[int, Gang]:
-    """Set up gangs for this process as defined by a 2D device mesh.
-
-    The two returned gangs are defined by the process' position in the mesh.
-    First gang is the row in the mesh, second is the column.
-    For example, assuming 8 devices denoted by g0 to g7, calling this function
-    with ``row_length`` = 4 amounts to defining the 2D mesh
-    [[g0, g1, g2, g3], [g4, g5, g6, g7]] and making 2 sets of gangs:
-
-        2 gangs of size 4 (mesh rows):
-            [g0, g1, g2, g3], [g4, g5, g6, g7]
-        4 gangs of size 2 (mesh columns):
-            [g0, g4], [g1, g5], [g2, g6], [g3, g7]
-
-    For the process of rank 5, the function would return the 2 sub-gangs
-    {0: [g4, g5, g6, g7], 1: [g1, g5]}. If adjacent ranks are on the same host
-    (for example, 2 hosts: one with g0 to g3, and the other with g4 to g7),
-    the first gang can be used to maximize local intra-host communication.
-
-    Example use-cases include making tensor- and data- parallel gangs, or
-    sharding and replicating gangs in FSDP's hybrid sharding.
-
-    :param root_gang:
-        The gang whose topology will be used to make the new gangs.
-    :param row_length:
-        The size of the gangs corresponding to the 2D mesh rows.
-    :param create_single_rank_process_groups:
-        If ``True``, create an underlying ``dist.ProcessGroup`` even for single-rank gangs.
-        The gang is faked otherwise.
-    :param dim_descriptions:
-        String descriptions of returned gangs, used in log and error messages.
-
-    :returns:
-        A ``dict`` of two gangs; 0 maps to the gang of 2D mesh row,
-        1 maps to the gang of the 2D mesh column.
-    """
-    row_count = root_gang.size // row_length
-
-    mesh = torch.arange(root_gang.size).view(row_count, row_length)
-
-    # Get the coordinate of this process in the mesh.
-    rank_coords = [x.item() for x in torch.where(mesh == root_gang.rank)]
-    mesh_shape = mesh.size()
-
-    output = {}
-
-    log.info(
-        "Initializing sub-gangs for a 2D device mesh of shape {}.", list(mesh_shape)
-    )
-    if dim_descriptions is None:
-        dim_descriptions = [f"dim-{dim}" for dim in range(2)]
-
-    for dim in range(2):
-        current_subgang: Gang | None = None
-
-        gang_size = mesh_shape[1 - dim]
-
-        log.info(
-            "Initializing {} gang with a size of {}.", dim_descriptions[dim], gang_size
-        )
-
-        # Match row length (dim 0) or column length (dim 1)
-        match gang_size:
-            case 1:
-                if create_single_rank_process_groups:
-                    current_subgang = root_gang.create_gang([root_gang.rank])
-                else:
-                    current_subgang = FakeGang(device=root_gang.device)
-            case root_gang.size:
-                current_subgang = root_gang
-            case _:
-                # Create 1 gang per row (dim 0) or per column (dim 1)
-                for i in range(mesh_shape[dim]):
-                    ranks = mesh[i, :] if dim == 0 else mesh[:, i]
-                    sub_gang = root_gang.create_gang(ranks.tolist())
-                    if i == rank_coords[dim]:
-                        current_subgang = sub_gang
-
-        if current_subgang is None:
-            raise InternalError(f"`current_gang` ({dim_descriptions[dim]}) is `None`.")
-
-        output[dim] = current_subgang
-
-    return output
-
-
-def setup_hybrid_fsdp_gangs(gang: Gang, local_world_size: int) -> tuple[Gang, Gang]:
-    """Make gangs to be used for hybrid-sharding FSDP.
-
-    For instance; if we have 8 devices denoted by g0 to g7 and ``local_world_size``
-    is 4, this function will make 2 sharding gangs and 4 replication gangs:
-
-        2 sharding gangs of size 4:
-            [g0, g1, g2, g3], [g4, g5, g6, g7]
-        4 replication gangs of size 2:
-            [g0, g4], [g1, g5], [g2, g6], [g3, g7]
-
-    For efficiency, the caller should make sure adjacent ranks are on the same
-    host.
-
-    :param gang:
-        The gang over which to shard and replicate.
-    :param local_world_size:
-        ``gang`` will be split into sub-gangs each containing
-        ``local_world_size`` number of consecutive processes.
-        The model will be fully sharded within each sub-gang and
-        will be replicated across sub-gangs.
-
-    :returns:
-        A pair of two gangs: the sharding gang that the current process is
-        part of, and the replication gang that the current process is part of
-    """
-    if local_world_size < 1:
-        raise ValueError(
-            f"`local_world_size` must be greater than 1, but is {local_world_size} instead."
-        )
-
-    if local_world_size == 1:
-        raise GangSetupError(
-            f"`local_world_size` must be greater than 1, but is {local_world_size} instead. This hybrid configuration would force FSDP to switch to use `NO_SHARD`, which is deprecated. Please use DDP instead."
-        )
-
-    if local_world_size > gang.size:
-        raise ValueError(
-            f"`local_world_size` must be less than or equal to `gang.size` ({gang.size}), but is {local_world_size} instead."
-        )
-
-    if gang.size % local_world_size != 0:
-        raise GangSetupError(
-            f"`gang.size` ({gang.size}) must be a multiple of `local_world_size` ({local_world_size})."
-        )
-
-    sub_gangs = _setup_2D_mesh_gangs(
-        gang,
-        row_length=local_world_size,
-        create_single_rank_process_groups=True,
-        dim_descriptions=["sharding", "replication"],
-    )
-
-    return sub_gangs[0], sub_gangs[1]
-
-
 def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
-    """Make gangs to be used for data and tensor parallelism.
+    """Sets up gangs to be used for data and model parallelism.
 
     For instance; if we have 8 devices denoted by g0 to g7 and 2 devices are
     used for tensor parallelism, this function will make 4 tensor parallel
@@ -830,31 +678,151 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
     host. For example, if there are two hosts with a total of 16 GPUs, ranks 0
     to 7 belong to the first host and ranks 8 to 15 belong to the second host.
 
-    :param root_gang:
-        The gang whose topology will be used to make the new gangs.
-    :param tp_size:
-        The size of tensor parallel gangs.
-
-    :returns:
-        Three gangs: the root gang, the data parallel gang that this
-        process is part of, and the tensor parallel gang that this process is
-        part of.
+    :param root_gang: The gang whose topology will be used to make the new gangs.
+    :param tp_size: The size of tensor parallel gangs.
     """
-    if tp_size <= 0:
+    if tp_size < 1:
         raise ValueError(f"`tp_size` must be greater than 0, but is {tp_size} instead.")
 
-    if root_gang.size % tp_size != 0:
-        raise GangSetupError(
-            f"The number of processes in the root gang is expected to be a multiple of the tensor parallel size ({tp_size}), but is {root_gang.size} instead."
+    if tp_size > root_gang.size:
+        raise ValueError(
+            f"`tp_size` must be less than or equal to the number of processes in the root gang ({root_gang.size}), but is {tp_size} instead."
         )
 
-    output_from_2D_mesh = _setup_2D_mesh_gangs(
-        root_gang,
-        row_length=tp_size,
-        dim_descriptions=["tensor parallel", "data parallel"],
+    if root_gang.size % tp_size != 0:
+        raise ValueError(
+            f"`root_gang.size` is expected to be a multiple of `tp_size` ({tp_size}), but is {root_gang.size} instead."
+        )
+
+    dp_size = root_gang.size // tp_size
+
+    mesh = torch.arange(root_gang.size).view(dp_size, tp_size)
+
+    # Get the coordinate of this process in the mesh.
+    rank_coords = [x.item() for x in torch.where(mesh == root_gang.rank)]
+
+    dp_gang: Gang | None = None
+
+    log.info("Initializing data parallel gang with a size of {}.", dp_size)
+
+    # Build the gangs for data parallelism.
+    match dp_size:
+        case 1:
+            dp_gang = FakeGang(device=root_gang.device)
+        case root_gang.size:
+            dp_gang = root_gang
+        case _:
+            for i in range(tp_size):
+                sub_gang = root_gang.create_gang(mesh[:, i].tolist())
+                if i == rank_coords[1]:
+                    dp_gang = sub_gang
+
+    if dp_gang is None:
+        raise InternalError("`dp_gang` is `None`.")
+
+    tp_gang: Gang | None = None
+
+    log.info("Initializing tensor parallel gang with a size of {}.", tp_size)
+
+    # Build the gangs for tensor parallelism.
+    match tp_size:
+        case 1:
+            tp_gang = FakeGang(device=root_gang.device)
+        case root_gang.size:
+            tp_gang = root_gang
+        case _:
+            for i in range(dp_size):
+                sub_gang = root_gang.create_gang(mesh[i, :].tolist())
+                if i == rank_coords[0]:
+                    tp_gang = sub_gang
+
+    if tp_gang is None:
+        raise InternalError("`tp_gang` is `None`.")
+
+    return Gangs(root_gang, dp_gang, tp_gang)
+
+
+def setup_hsdp_gangs(dp_gang: Gang, local_world_size: int) -> tuple[Gang, Gang]:
+    """
+    Sets up gangs to be used for hybrid sharded data parallelism.
+
+    For instance; if we have 8 devices denoted by g0 to g7 and ``local_world_size``
+    is 4, this function will make 2 intra-node gangs and 4 inter-node gangs:
+
+        2 intra-node gangs of size 4:
+            [g0, g1, g2, g3], [g4, g5, g6, g7]
+        4 inter-node gangs of size 2:
+            [g0, g4], [g1, g5], [g2, g6], [g3, g7]
+
+    For efficiency, the caller should make sure adjacent ranks are on the same
+    host.
+
+    :returs:
+        A tuple of intra-node gang for sharding and inter-node gang for
+        replication.
+    """
+    if local_world_size <= 1:
+        raise ValueError(
+            f"`local_world_size` must be greater than 1, but is {local_world_size} instead."
+        )
+
+    if dp_gang.size % local_world_size != 0:
+        raise ValueError(
+            f"`dp_gang.size` is expected to be a multiple of `local_world_size` ({local_world_size}), but is {dp_gang.size} instead."
+        )
+
+    intra_node_size = local_world_size
+
+    inter_node_size = dp_gang.size // local_world_size
+
+    mesh = torch.arange(dp_gang.size).view(inter_node_size, intra_node_size)
+
+    # Get the coordinate of this process in the mesh.
+    rank_coords = [x.item() for x in torch.where(mesh == dp_gang.rank)]
+
+    inter_node_gang: Gang | None = None
+
+    log.info(
+        "Initializing inter-node data parallel gang with a size of {}.", inter_node_size
     )
 
-    return Gangs(root_gang, output_from_2D_mesh[1], output_from_2D_mesh[0])
+    # Build the gangs for inter-node data parallelism.
+    match inter_node_size:
+        case 1:
+            inter_node_gang = FakeGang(device=dp_gang.device)
+        case dp_gang.size:
+            inter_node_gang = dp_gang
+        case _:
+            for i in range(intra_node_size):
+                sub_gang = dp_gang.create_gang(mesh[:, i].tolist())
+                if i == rank_coords[1]:
+                    inter_node_gang = sub_gang
+
+    if inter_node_gang is None:
+        raise InternalError("`inter_node_gang` is `None`.")
+
+    intra_node_gang: Gang | None = None
+
+    log.info(
+        "Initializing intra-node data parallel gang with a size of {}.", intra_node_size
+    )
+
+    # Build the gangs for intra-node data parallelism.
+    match intra_node_size:
+        case 1:
+            intra_node_gang = FakeGang(device=dp_gang.device)
+        case dp_gang.size:
+            intra_node_gang = dp_gang
+        case _:
+            for i in range(inter_node_size):
+                sub_gang = dp_gang.create_gang(mesh[i, :].tolist())
+                if i == rank_coords[0]:
+                    intra_node_gang = sub_gang
+
+    if intra_node_gang is None:
+        raise InternalError("`intra_node_gang` is `None`.")
+
+    return intra_node_gang, inter_node_gang
 
 
 def broadcast_flag(gang: Gang, flag: bool, source_rank: int = 0) -> bool:

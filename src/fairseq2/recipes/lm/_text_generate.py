@@ -44,6 +44,7 @@ from fairseq2.recipes.config import (
     ReferenceModelSection,
     SequenceGeneratorSection,
 )
+from fairseq2.recipes.error import UnitError
 from fairseq2.recipes.generator import AbstractGeneratorUnit, Generator
 from fairseq2.recipes.metrics import SequenceGenerationMetricBag
 from fairseq2.typing import CPU
@@ -189,28 +190,33 @@ def load_text_generator(
 
         rank = gangs.dp.rank
 
-        text_file = output_dir.joinpath(f"output/rank_{rank}.txt")
-        json_file = output_dir.joinpath(f"output/rank_{rank}.jsonl")
-
         try:
-            file_system.make_directory(text_file.parent)
-        except OSError as ex:
-            raise ProgramError(
-                f"The '{text_file.parent}' output directory cannot be created. See the nested exception for details."
-            ) from ex
+            text_file = output_dir.joinpath(f"output/rank_{rank}.txt")
+            json_file = output_dir.joinpath(f"output/rank_{rank}.jsonl")
 
-        try:
-            text_fp = file_system.open_text(text_file, mode=FileMode.WRITE)
-        except OSError as ex:
-            raise ProgramError(
-                f"The '{text_file}' output file cannot be created. See the nested exception for details."
-            ) from ex
+            try:
+                file_system.make_directory(text_file.parent)
+            except OSError as ex:
+                raise UnitError(
+                    f"The '{text_file.parent}' output directory cannot be created. See the nested exception for details."
+                ) from ex
 
-        try:
-            json_fp = file_system.open_text(json_file, mode=FileMode.WRITE)
-        except OSError as ex:
+            try:
+                text_fp = file_system.open_text(text_file, mode=FileMode.WRITE)
+            except OSError as ex:
+                raise UnitError(
+                    f"The '{text_file}' output file cannot be created. See the nested exception for details."
+                ) from ex
+
+            try:
+                json_fp = file_system.open_text(json_file, mode=FileMode.WRITE)
+            except OSError as ex:
+                raise UnitError(
+                    f"The '{json_file}' output file cannot be created. See the nested exception for details."
+                ) from ex
+        except UnitError as ex:
             raise ProgramError(
-                f"The '{json_file}' output file cannot be created. See the nested exception for details."
+                "The generation unit cannot be initialized. See the nested exception for details."
             ) from ex
     else:
         text_fp = None
@@ -392,7 +398,7 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
             if stream is not None:
                 stream.flush()
         except OSError as ex:
-            raise ProgramError(
+            raise UnitError(
                 "The generator output cannot be written to the stream. See the nested exception for details."
             ) from ex
 

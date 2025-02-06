@@ -49,6 +49,7 @@ from fairseq2.models import (
     UnknownModelFamilyError,
     model_asset_card_error,
 )
+from fairseq2.models.compile import compile_model
 from fairseq2.nn.checkpointing import use_layerwise_activation_checkpointing
 from fairseq2.recipes.common._distributed import setup_data_parallel_model
 from fairseq2.recipes.config import (
@@ -569,7 +570,7 @@ def prepare_model(
     if trainer_section.activation_checkpointing:
         use_layerwise_activation_checkpointing(model)
 
-    #    if trainer_section.torch_compile:
-    #        model = handler.compile(model, model_config)
+    if trainer_section.torch_compile:
+        model = compile_model(model, gangs)
 
     return model

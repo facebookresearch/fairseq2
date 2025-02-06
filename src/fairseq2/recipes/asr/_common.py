@@ -15,7 +15,6 @@ from torch.nn import Module
 from typing_extensions import override
 
 from fairseq2.data.text.tokenizers import TextTokenDecoder, TextTokenizer
-from fairseq2.error import ProgramError
 from fairseq2.gang import Gang
 from fairseq2.metrics import Mean
 from fairseq2.metrics.text import WerMetric
@@ -23,6 +22,7 @@ from fairseq2.models.asr import AsrModel, AsrModelOutput
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.recipes.common import check_model_type
+from fairseq2.recipes.error import UnitError
 from fairseq2.recipes.metrics import BaseMetricBag
 
 
@@ -138,7 +138,7 @@ class AsrScorer:
 
                 stream.flush()
         except OSError as ex:
-            raise ProgramError(
+            raise UnitError(
                 "The generator output cannot be written to the stream. See the nested exception for details."
             ) from ex
 

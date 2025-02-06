@@ -36,6 +36,7 @@ from fairseq2.recipes.config import (
     GangSection,
     ReferenceModelSection,
 )
+from fairseq2.recipes.error import UnitError
 from fairseq2.recipes.evaluator import AbstractEvalUnit, Evaluator
 from fairseq2.typing import CPU
 from fairseq2.utils.file import FileMode
@@ -136,28 +137,33 @@ def load_asr_evaluator(
 
         rank = gangs.dp.rank
 
-        ref_file = output_dir.joinpath(f"transcriptions/rank_{rank}.ref.txt")
-        hyp_file = output_dir.joinpath(f"transcriptions/rank_{rank}.hyp.txt")
-
         try:
-            file_system.make_directory(ref_file.parent)
-        except OSError as ex:
-            raise ProgramError(
-                f"The '{ref_file.parent}' output directory cannot be created. See the nested exception for details."
-            ) from ex
+            ref_file = output_dir.joinpath(f"transcriptions/rank_{rank}.ref.txt")
+            hyp_file = output_dir.joinpath(f"transcriptions/rank_{rank}.hyp.txt")
 
-        try:
-            ref_fp = file_system.open_text(ref_file, mode=FileMode.WRITE)
-        except OSError as ex:
-            raise ProgramError(
-                f"The '{ref_file}' output file cannot be created. See the nested exception for details."
-            ) from ex
+            try:
+                file_system.make_directory(ref_file.parent)
+            except OSError as ex:
+                raise UnitError(
+                    f"The '{ref_file.parent}' output directory cannot be created. See the nested exception for details."
+                ) from ex
 
-        try:
-            hyp_fp = file_system.open_text(hyp_file, mode=FileMode.WRITE)
-        except OSError as ex:
+            try:
+                ref_fp = file_system.open_text(ref_file, mode=FileMode.WRITE)
+            except OSError as ex:
+                raise UnitError(
+                    f"The '{ref_file}' output file cannot be created. See the nested exception for details."
+                ) from ex
+
+            try:
+                hyp_fp = file_system.open_text(hyp_file, mode=FileMode.WRITE)
+            except OSError as ex:
+                raise UnitError(
+                    f"The '{hyp_file}' output file cannot be created. See the nested exception for details."
+                ) from ex
+        except UnitError as ex:
             raise ProgramError(
-                f"The '{hyp_file}' output file cannot be created. See the nested exception for details."
+                "The evaluation unit cannot be initialized. See the nested exception for details."
             ) from ex
     else:
         ref_fp = None

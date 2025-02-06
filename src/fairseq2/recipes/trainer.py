@@ -607,6 +607,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
                 "train", total=self._max_num_steps, completed=self._step_nr
             )
 
+            first_iter = True
+
             while self._should_run_step():
                 self._maybe_advance_data_epoch()
 
@@ -636,6 +638,14 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
                 self._profiler.step()
 
                 self._valid_score = None
+
+                if first_iter:
+                    # Emptying the CUDA memory allocator cache after the first
+                    # iteration can reduce fragmentation and avoid OOM.
+                    if self._gangs.root.device.type == "cuda":
+                        torch.cuda.empty_cache()
+
+                    first_iter = False
 
     def _should_run_step(self) -> bool:
         if self._end_of_data or self._should_stop:

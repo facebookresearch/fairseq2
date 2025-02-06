@@ -13,6 +13,9 @@ from fairseq2.recipes.common._checkpoint import (
     create_checkpoint_manager as create_checkpoint_manager,
 )
 from fairseq2.recipes.common._dataset import load_dataset as load_dataset
+from fairseq2.recipes.common._distributed import (
+    NotSupportedDistributedFeature as NotSupportedDistributedFeature,
+)
 from fairseq2.recipes.common._distributed import broadcast_model as broadcast_model
 from fairseq2.recipes.common._distributed import check_model_type as check_model_type
 from fairseq2.recipes.common._distributed import (

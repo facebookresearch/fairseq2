@@ -68,9 +68,6 @@ class ModelHandler(ABC):
         self, path: Path, model_name: str, config: object, gangs: Gangs, dtype: DataType
     ) -> Module: ...
 
-    @abstractmethod
-    def compile(self, model: Module, config: object) -> Module: ...
-
     @property
     @abstractmethod
     def family(self) -> str: ...
@@ -361,10 +358,6 @@ class AbstractModelHandler(ModelHandler):
         self, checkpoint: dict[str, object], config: object
     ) -> dict[str, object]:
         return checkpoint
-
-    @override
-    def compile(self, model: Module, config: object) -> Module:
-        return torch.compile(model)  # type: ignore[return-value]
 
     @final
     @property

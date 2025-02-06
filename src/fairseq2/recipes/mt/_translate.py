@@ -44,6 +44,7 @@ from fairseq2.recipes.config import (
     ReferenceModelSection,
     Seq2SeqGeneratorSection,
 )
+from fairseq2.recipes.error import UnitError
 from fairseq2.recipes.generator import AbstractGeneratorUnit, Generator
 from fairseq2.recipes.metrics import Seq2SeqGenerationMetricBag
 from fairseq2.typing import CPU
@@ -157,32 +158,37 @@ def load_text_translator(
         src_lang = config.source_lang
         tgt_lang = config.target_lang
 
-        src_file = output_dir.joinpath(
-            f"translations/{src_lang}-{tgt_lang}/rank_{rank}.src.txt"
-        )
-        hyp_file = output_dir.joinpath(
-            f"translations/{src_lang}-{tgt_lang}/rank_{rank}.hyp.txt"
-        )
-
         try:
-            file_system.make_directory(src_file.parent)
-        except OSError as ex:
-            raise ProgramError(
-                f"The '{src_file.parent}' output directory cannot be created. See the nested exception for details."
-            ) from ex
+            src_file = output_dir.joinpath(
+                f"translations/{src_lang}-{tgt_lang}/rank_{rank}.src.txt"
+            )
+            hyp_file = output_dir.joinpath(
+                f"translations/{src_lang}-{tgt_lang}/rank_{rank}.hyp.txt"
+            )
 
-        try:
-            src_fp = file_system.open_text(src_file, mode=FileMode.WRITE)
-        except OSError as ex:
-            raise ProgramError(
-                f"The '{src_file}' output file cannot be created. See the nested exception for details."
-            ) from ex
+            try:
+                file_system.make_directory(src_file.parent)
+            except OSError as ex:
+                raise UnitError(
+                    f"The '{src_file.parent}' output directory cannot be created. See the nested exception for details."
+                ) from ex
 
-        try:
-            hyp_fp = file_system.open_text(hyp_file, mode=FileMode.WRITE)
-        except OSError as ex:
+            try:
+                src_fp = file_system.open_text(src_file, mode=FileMode.WRITE)
+            except OSError as ex:
+                raise UnitError(
+                    f"The '{src_file}' output file cannot be created. See the nested exception for details."
+                ) from ex
+
+            try:
+                hyp_fp = file_system.open_text(hyp_file, mode=FileMode.WRITE)
+            except OSError as ex:
+                raise UnitError(
+                    f"The '{hyp_file}' output file cannot be created. See the nested exception for details."
+                ) from ex
+        except UnitError as ex:
             raise ProgramError(
-                f"The '{hyp_file}' output file cannot be created. See the nested exception for details."
+                "The generation unit cannot be initialized. See the nested exception for details."
             ) from ex
     else:
         src_fp = None
@@ -303,7 +309,7 @@ class TextTranslationUnit(AbstractGeneratorUnit[SequenceBatch]):
 
                 stream.flush()
         except OSError as ex:
-            raise ProgramError(
+            raise UnitError(
                 "The generator output cannot be written to the stream. See the nested exception for details."
             ) from ex
 

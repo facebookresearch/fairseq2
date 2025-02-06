@@ -32,6 +32,7 @@ from fairseq2.models import (
     UnknownModelFamilyError,
     model_asset_card_error,
 )
+from fairseq2.models.compile import compile_model
 from fairseq2.nn.utils.module import remove_parametrizations
 from fairseq2.recipes.common._distributed import broadcast_model
 from fairseq2.recipes.utils.log import log_model
@@ -165,7 +166,7 @@ def prepare_reference_model(
 ) -> ModelT:
     remove_parametrizations(model)
 
-    #    if torch_compile:
-    #        model = handler.compile(model, model_config)
+    if torch_compile:
+        model = cast(ModelT, compile_model(model, gangs))
 
     return model

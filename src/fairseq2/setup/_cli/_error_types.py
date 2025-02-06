@@ -41,7 +41,10 @@ from fairseq2.optim.lr_scheduler import (
     UnspecifiedNumberOfStepsError,
 )
 from fairseq2.profilers import UnknownProfilerError
-from fairseq2.recipes.common import InvalidCheckpointPathError
+from fairseq2.recipes.common import (
+    InvalidCheckpointPathError,
+    NotSupportedDistributedFeature,
+)
 
 
 def _register_user_error_types(cli: Cli) -> None:
@@ -50,6 +53,7 @@ def _register_user_error_types(cli: Cli) -> None:
     cli.register_user_error_type(InvalidModelTypeError)
     cli.register_user_error_type(ModelCheckpointNotFoundError)
     cli.register_user_error_type(ModelParallelismNotSupportedError)
+    cli.register_user_error_type(NotSupportedDistributedFeature)
     cli.register_user_error_type(ShardedModelLoadError)
     cli.register_user_error_type(UnknownBeamSearchAlgorithmError)
     cli.register_user_error_type(UnknownChatbotError)

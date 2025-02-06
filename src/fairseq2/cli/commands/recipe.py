@@ -95,13 +95,13 @@ class RecipeCommandHandler(CliCommandHandler):
         )
 
         parser.add_argument(
-            "--config-override",
+            "--config-file",
             dest="config_override_files",
-            metavar="CONFIG_OVERRIDE_FILE",
+            metavar="CONFIG_FILE",
             type=Path,
             action="append",
             nargs="*",
-            help="configuration override file(s)",
+            help="configuration file(s)",
         )
 
         parser.add_argument(
@@ -114,7 +114,7 @@ class RecipeCommandHandler(CliCommandHandler):
         parser.add_argument(
             "--export-config",
             action="store_true",
-            help="export the configuration in mergeable format to standard output",
+            help="dump the configuration in mergeable format to standard output",
         )
 
         parser.add_argument(
@@ -498,8 +498,6 @@ class ConfigDumper:
         self._yaml_dumper = yaml_dumper
 
     def dump(self, recipe_config: object, output_dir: Path) -> None:
-        recipe_config = unstructure(recipe_config)
-
         log_config(log, "Config", recipe_config)
 
         try:
@@ -513,6 +511,8 @@ class ConfigDumper:
             return
 
         file = output_dir.joinpath("config.yaml")
+
+        recipe_config = to_mergeable(recipe_config)
 
         try:
             self._yaml_dumper.dump(recipe_config, file)

@@ -225,7 +225,9 @@ class MergeError(Exception):
 
 def to_mergeable(obj: object) -> object:
     if not isinstance(obj, Mapping):
-        raise TypeError("dede")
+        raise MergeError(
+            f"`obj` must be of type `{Mapping}`, but is of type `{type(obj)}` instead."
+        )
 
     output = {}
 

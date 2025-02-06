@@ -28,8 +28,8 @@ from torch.distributed.fsdp.api import (
 )
 from torch.nn import Module, Parameter
 
-from fairseq2.gang import Gang, setup_hybrid_fsdp_gangs
-from fairseq2.logging import log
+from fairseq2.gang import Gang, GangError, setup_hsdp_gangs
+from fairseq2.nn.ddp import DistributedSetupError
 from fairseq2.nn.utils.module import (
     apply_to_parameters,
     infer_device,
@@ -42,11 +42,10 @@ from fairseq2.typing import DataType, Device
 
 def to_fsdp(
     module: Module,
-    gang: Gang,
+    dp_gang: Gang,
     wrap_policy: FSDPWrapPolicy | None,
     *,
     ignored_modules: Sequence[Module] | None = None,
-    skip_init: bool = False,
     broadcast_state: bool = False,
     memory_policy: FSDPMemoryPolicy | None = None,
     reshard_after_forward: bool = True,
@@ -56,50 +55,47 @@ def to_fsdp(
 ) -> FSDP:
     """Wrap ``module`` with FSDP.
 
-    :param module:
-        The module to wrap.
-    :param gang:
-        The gang over which to shard ``module``.
-    :param wrap_policy:
-        The FSDP wrap policy to apply to ``module``. If ``None``, wraps only
-        ``module`` itself.
-    :param ignored_param_names:
-        The ignored parameter names. Can contain regular expressions.
-    :param skip_init:
-        Not used.
-    :param broadcast_state:
-        If ``True``, each FSDP module will broadcast its parameters and buffers
-        from rank 0 to ensure that they are replicated across all processes.
-    :param memory_policy:
-        The policy to instruct FSDP when and how to allocate memory.
-    :param reshard_after_forward:
-        If ``True``, unshards the parameters before the forward pass and only
-        reshards them after the backward pass.
-    :param local_world_size:
-        If not ``None``, enables hybrid sharding. ``gang`` will be split into
-        sub-gangs each containing ``local_world_size`` number of consecutive
-        processes. The model will be fully sharded within each sub-gang and
-        will be replicated across sub-gangs.
-    :param mixed_precision_dtype:
-        If not ``None``, parameters, buffers, and gradients will use this data
-        type during forward and backward passes. Outside forward and backward
-        passes, the model will be kept in full precision.
-    :param fp32_reduce:
-        If ``True``, the gradients will be reduced in full precision. Only
-        relevant if ``mixed_precision_dtype`` is not ``None``.
+    :param module: The module to wrap.
+    :param dp_gang: The data parallel gang over which to shard ``module``.
+    :param wrap_policy: The FSDP wrap policy to apply to ``module``. If ``None``,
+        wraps only ``module`` itself.
+    :param ignored_param_names: The ignored parameter names. Can contain regular
+        expressions.
+    :param broadcast_state: If ``True``, each FSDP module will broadcast its
+        parameters and buffers from rank 0 to ensure that they are replicated
+        across all processes.
+    :param memory_policy: The policy to instruct FSDP when and how to allocate
+        memory.
+    :param reshard_after_forward: If ``True``, unshards the parameters before
+        the forward pass and only reshards them after the backward pass.
+    :param local_world_size: If not ``None``, enables hybrid sharding. ``gang``
+        will be split into sub-gangs each containing ``local_world_size`` number
+        of consecutive processes. The model will be fully sharded within each
+        sub-gang and will be replicated across sub-gangs.
+    :param mixed_precision_dtype: If not ``None``, parameters, buffers, and
+        gradients will use this data type during forward and backward passes.
+        Outside forward and backward passes, the model will be kept in full
+        precision.
+    :param fp32_reduce: If ``True``, the gradients will be reduced in full
+        precision. Only relevant if ``mixed_precision_dtype`` is not ``None``.
     """
-    process_group: ProcessGroup | tuple[ProcessGroup, ProcessGroup] | None = None
+    process_group: ProcessGroup | tuple[ProcessGroup, ProcessGroup]
 
-    if local_world_size is not None:
+    if local_world_size is not None and local_world_size != dp_gang.size:
         sharding_strategy = ShardingStrategy.HYBRID_SHARD
 
-        sharding_gang, replication_gang = setup_hybrid_fsdp_gangs(
-            gang, local_world_size
-        )
+        try:
+            intra_node_gang, inter_node_gang = setup_hsdp_gangs(
+                dp_gang, local_world_size
+            )
+        except GangError as ex:
+            raise DistributedSetupError(
+                "The inter-node and intra-node gangs for HSDP cannot be setup. See the nested exception for details."
+            ) from ex
 
         process_group = (
-            sharding_gang.as_process_group(),
-            replication_gang.as_process_group(),
+            intra_node_gang.as_process_group(),
+            intra_node_gang.as_process_group(),
         )
     else:
         if reshard_after_forward:
@@ -107,30 +103,27 @@ def to_fsdp(
         else:
             sharding_strategy = ShardingStrategy.SHARD_GRAD_OP
 
-        process_group = gang.as_process_group()
+        process_group = dp_gang.as_process_group()
 
     if memory_policy is None:
         memory_policy = FSDP_STANDARD_MEMORY_POLICY
-
-    if skip_init:
-        log.warning("`skip_init` parameter has no effect and will be removed in a future release.")  # fmt: skip
 
     param_init_fn = None
 
     try:
         module_device = infer_device(module)
     except ValueError as ex:
-        raise ValueError(
+        raise DistributedSetupError(
             "The device of `module` is not valid. See the nested exception for details."
         ) from ex
 
     if module_device.type == "meta":
-        if gang.rank == 0:
+        if dp_gang.rank == 0:
             skip_init = not broadcast_state
         else:
             skip_init = True
 
-        param_init_fn = FSDPParameterInitializer(gang.device, skip_init)
+        param_init_fn = FSDPParameterInitializer(dp_gang.device, skip_init)
 
     if mixed_precision_dtype is None:
         mp = None
@@ -152,22 +145,27 @@ def to_fsdp(
     if ignored_modules:
         kwargs["ignored_states"] = ignored_modules
 
-    fsdp = FSDP(
-        module,
-        process_group=process_group,
-        sharding_strategy=sharding_strategy,
-        cpu_offload=CPUOffload() if memory_policy.cpu_offload else None,
-        auto_wrap_policy=wrap_policy,
-        backward_prefetch=memory_policy.backward_prefetch,
-        mixed_precision=mp,
-        param_init_fn=param_init_fn,
-        device_id=gang.device,
-        sync_module_states=broadcast_state,
-        forward_prefetch=False,
-        limit_all_gathers=memory_policy.limit_all_gathers,
-        use_orig_params=True,
-        **kwargs,
-    )
+    try:
+        fsdp = FSDP(
+            module,
+            process_group=process_group,
+            sharding_strategy=sharding_strategy,
+            cpu_offload=CPUOffload() if memory_policy.cpu_offload else None,
+            auto_wrap_policy=wrap_policy,
+            backward_prefetch=memory_policy.backward_prefetch,
+            mixed_precision=mp,
+            param_init_fn=param_init_fn,
+            device_id=dp_gang.device,
+            sync_module_states=broadcast_state,
+            forward_prefetch=False,
+            limit_all_gathers=memory_policy.limit_all_gathers,
+            use_orig_params=True,
+            **kwargs,
+        )
+    except (RuntimeError, ValueError) as ex:
+        raise DistributedSetupError(
+            "FSDP cannot be initialized. See the nested exception for details."
+        ) from ex
 
     with catch_warnings():
         warnings.simplefilter("ignore")  # Suppress noisy FSDP warnings.

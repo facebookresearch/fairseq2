@@ -46,6 +46,7 @@ from fairseq2.recipes.config import (
     ReferenceModelSection,
     Seq2SeqGeneratorSection,
 )
+from fairseq2.recipes.error import UnitError
 from fairseq2.recipes.evaluator import AbstractEvalUnit, Evaluator, EvalUnit
 from fairseq2.recipes.metrics import Seq2SeqGenerationMetricBag, Seq2SeqMetricBag
 from fairseq2.recipes.mt._common import MTCriterion, MTLossSection
@@ -193,42 +194,47 @@ def load_mt_evaluator(
 
             rank = gangs.dp.rank
 
-            src_file = output_dir.joinpath(
-                f"translations/{direction}/rank_{rank}.src.txt"
-            )
-            ref_file = output_dir.joinpath(
-                f"translations/{direction}/rank_{rank}.ref.txt"
-            )
-            hyp_file = output_dir.joinpath(
-                f"translations/{direction}/rank_{rank}.hyp.txt"
-            )
-
             try:
-                file_system.make_directory(src_file.parent)
-            except OSError as ex:
-                raise ProgramError(
-                    f"The '{src_file.parent}' output directory cannot be created. See the nested exception for details."
-                ) from ex
+                src_file = output_dir.joinpath(
+                    f"translations/{direction}/rank_{rank}.src.txt"
+                )
+                ref_file = output_dir.joinpath(
+                    f"translations/{direction}/rank_{rank}.ref.txt"
+                )
+                hyp_file = output_dir.joinpath(
+                    f"translations/{direction}/rank_{rank}.hyp.txt"
+                )
 
-            try:
-                src_fp = file_system.open_text(src_file, mode=FileMode.WRITE)
-            except OSError as ex:
-                raise ProgramError(
-                    f"The '{src_file}' output file cannot be created. See the nested exception for details."
-                ) from ex
+                try:
+                    file_system.make_directory(src_file.parent)
+                except OSError as ex:
+                    raise UnitError(
+                        f"The '{src_file.parent}' output directory cannot be created. See the nested exception for details."
+                    ) from ex
 
-            try:
-                ref_fp = file_system.open_text(ref_file, mode=FileMode.WRITE)
-            except OSError as ex:
-                raise ProgramError(
-                    f"The '{ref_file}' output file cannot be created. See the nested exception for details."
-                ) from ex
+                try:
+                    src_fp = file_system.open_text(src_file, mode=FileMode.WRITE)
+                except OSError as ex:
+                    raise UnitError(
+                        f"The '{src_file}' output file cannot be created. See the nested exception for details."
+                    ) from ex
 
-            try:
-                hyp_fp = file_system.open_text(hyp_file, mode=FileMode.WRITE)
-            except OSError as ex:
+                try:
+                    ref_fp = file_system.open_text(ref_file, mode=FileMode.WRITE)
+                except OSError as ex:
+                    raise UnitError(
+                        f"The '{ref_file}' output file cannot be created. See the nested exception for details."
+                    ) from ex
+
+                try:
+                    hyp_fp = file_system.open_text(hyp_file, mode=FileMode.WRITE)
+                except OSError as ex:
+                    raise UnitError(
+                        f"The '{hyp_file}' output file cannot be created. See the nested exception for details."
+                    ) from ex
+            except UnitError as ex:
                 raise ProgramError(
-                    f"The '{hyp_file}' output file cannot be created. See the nested exception for details."
+                    "The evaluation unit cannot be initialized. See the nested exception for details."
                 ) from ex
         else:
             src_fp = None
@@ -429,7 +435,7 @@ class MTBleuChrfEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
 
                 stream.flush()
         except OSError as ex:
-            raise ProgramError(
+            raise UnitError(
                 "The generator output cannot be written to the stream. See the nested exception for details."
             ) from ex
 
