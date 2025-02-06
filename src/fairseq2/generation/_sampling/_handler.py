@@ -144,10 +144,7 @@ class SamplingSeq2SeqGeneratorHandler(Seq2SeqGeneratorHandler):
 
     @override
     def create(self, model: EncoderDecoderModel, config: object) -> Seq2SeqGenerator:
-        if config is None:
-            config = SamplingConfig()
-        else:
-            config = structure(config, SamplingConfig)
+        config = structure(config, SamplingConfig)
 
         sampler_section = config.sampler
 

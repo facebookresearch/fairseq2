@@ -144,10 +144,7 @@ class BeamSearchSeq2SeqGeneratorHandler(Seq2SeqGeneratorHandler):
 
     @override
     def create(self, model: EncoderDecoderModel, config: object) -> Seq2SeqGenerator:
-        if config is None:
-            config = BeamSearchConfig()
-        else:
-            config = structure(config, BeamSearchConfig)
+        config = structure(config, BeamSearchConfig)
 
         algorithm_section = config.algorithm
 

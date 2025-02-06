@@ -53,6 +53,7 @@ from fairseq2.recipes.config import (
     TrainerSection,
 )
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
+from fairseq2.recipes.utils.log import log_model
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
@@ -259,13 +260,15 @@ def load_wav2vec2_asr_trainer(
     # We never train the feature extractor.
     freeze_parameters(base_model.encoder_frontend.feature_extractor)
 
+    prepare_model(context, config, base_model, gangs)
+
     static_graph = config.trainer.freeze_encoder_for_n_steps == 0
 
     model = setup_data_parallel_model(
         context, config, base_model, gangs, checkpoint_manager, static_graph
     )
 
-    model = prepare_model(context, config, model, gangs)
+    log_model(log, model, gangs)
 
     optimizer = create_optimizer(context, config, model)
 

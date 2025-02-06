@@ -69,7 +69,7 @@ class ModelHandler(ABC):
     ) -> Module: ...
 
     @abstractmethod
-    def compile(self, model: Module) -> Module: ...
+    def compile(self, model: Module, config: object) -> Module: ...
 
     @property
     @abstractmethod
@@ -363,7 +363,7 @@ class AbstractModelHandler(ModelHandler):
         return checkpoint
 
     @override
-    def compile(self, model: Module) -> Module:
+    def compile(self, model: Module, config: object) -> Module:
         return torch.compile(model)  # type: ignore[return-value]
 
     @final

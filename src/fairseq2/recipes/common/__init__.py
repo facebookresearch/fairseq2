@@ -33,16 +33,12 @@ from fairseq2.recipes.common._metrics import (
 from fairseq2.recipes.common._model import (
     InvalidCheckpointPathError as InvalidCheckpointPathError,
 )
-from fairseq2.recipes.common._model import compile_model as compile_model
 from fairseq2.recipes.common._model import load_base_model as load_base_model
 from fairseq2.recipes.common._model import prepare_model as prepare_model
 from fairseq2.recipes.common._model import setup_model as setup_model
 from fairseq2.recipes.common._optim import create_lr_scheduler as create_lr_scheduler
 from fairseq2.recipes.common._optim import create_optimizer as create_optimizer
 from fairseq2.recipes.common._profilers import create_profiler as create_profiler
-from fairseq2.recipes.common._ref_model import (
-    compile_reference_model as compile_reference_model,
-)
 from fairseq2.recipes.common._ref_model import (
     load_reference_model as load_reference_model,
 )

@@ -19,15 +19,20 @@ from typing_extensions import override
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.gang import Gang, Gangs
+from fairseq2.logging import log
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.sequence import (
     SequenceBatch,
     SequenceModelOutput,
     as_auto_regressive_input,
 )
-from fairseq2.nn.utils.module import freeze_parameters, remove_parametrizations
-from fairseq2.recipes.common import broadcast_model, load_reference_model
-from fairseq2.recipes.config import ReferenceModelSection, get_config_section
+from fairseq2.nn.utils.module import freeze_parameters
+from fairseq2.recipes.common import setup_reference_model
+from fairseq2.recipes.config import (
+    ReferenceModelSection,
+    TrainerSection,
+    get_config_section,
+)
 from fairseq2.recipes.lm._preference_finetune._common import (
     POCriterionSection,
     POFinetuneMetricBag,
@@ -266,22 +271,25 @@ class DpoFinetuneUnitHandler(POFinetuneUnitHandler):
         config = structure(criterion_section.config, DpoFinetuneConfig)
 
         if config.reference_model is not None:
-            reference_model = load_reference_model(
+            log.info("Setting up DPO with reference model.")
+
+            trainer_section = get_config_section(
+                recipe_config, "trainer", TrainerSection
+            )
+
+            reference_model = setup_reference_model(
                 DecoderModel,
                 self._context,
                 config.reference_model.name,
                 gangs,
                 config.reference_dtype,
                 mp=False,
+                torch_compile=trainer_section.torch_compile,
             )
-
-            broadcast_model(config.reference_model.name, reference_model, gangs)
-
-            remove_parametrizations(reference_model)
 
             freeze_parameters(reference_model)
 
-            reference_model.eval()
+            log.info("DPO setup complete.")
         else:
             reference_model = None
 

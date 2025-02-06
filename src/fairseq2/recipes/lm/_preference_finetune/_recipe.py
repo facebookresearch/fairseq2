@@ -211,6 +211,10 @@ def load_po_finetuner(
 ) -> Trainer[PreferenceBatch]:
     config = structure(config, POFinetuneConfig)
 
+    from fairseq2.logging import log
+    from fairseq2.recipes.utils.log import log_config
+
+    log_config(log, "dede", config)
     register_extra_asset_paths(context, config)
 
     torch.set_float32_matmul_precision("high")

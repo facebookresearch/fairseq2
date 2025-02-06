@@ -221,3 +221,26 @@ def _do_merge_map(target: object, source: object, path: list[str]) -> object:
 
 class MergeError(Exception):
     pass
+
+
+def to_mergeable(obj: object) -> object:
+    if not isinstance(obj, Mapping):
+        raise TypeError("dede")
+
+    output = {}
+
+    set_map = None
+
+    for key, value in obj.items():
+        if isinstance(value, Mapping):
+            output[key] = to_mergeable(value)
+        else:
+            if set_map is None:
+                set_map = {}
+
+            set_map[key] = value
+
+    if set_map:
+        output["_set_"] = set_map
+
+    return output

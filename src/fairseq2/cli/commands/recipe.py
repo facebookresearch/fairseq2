@@ -39,7 +39,7 @@ from fairseq2.recipes.utils.sweep_tag import (
 )
 from fairseq2.utils.env import InvalidEnvironmentVariableError, get_rank, get_world_size
 from fairseq2.utils.file import FileSystem
-from fairseq2.utils.merge import MergeError, merge_map
+from fairseq2.utils.merge import MergeError, merge_map, to_mergeable
 from fairseq2.utils.structured import StructureError, unstructure
 from fairseq2.utils.yaml import (
     StandardYamlDumper,
@@ -95,16 +95,7 @@ class RecipeCommandHandler(CliCommandHandler):
         )
 
         parser.add_argument(
-            "--config-file",
-            dest="config_file",
-            metavar="CONFIG_FILE",
-            type=Path,
-            required=False,
-            help="configuration file",
-        )
-
-        parser.add_argument(
-            "--config-override-file",
+            "--config-override",
             dest="config_override_files",
             metavar="CONFIG_OVERRIDE_FILE",
             type=Path,
@@ -121,9 +112,9 @@ class RecipeCommandHandler(CliCommandHandler):
         )
 
         parser.add_argument(
-            "--dump-config",
+            "--export-config",
             action="store_true",
-            help="dump the configuration to standard output",
+            help="export the configuration in mergeable format to standard output",
         )
 
         parser.add_argument(
@@ -180,21 +171,11 @@ class RecipeCommandHandler(CliCommandHandler):
 
             return 2
         except ConfigFileNotFoundError as ex:
-            if ex.config_file == args.config_file:
-                arg_name = "config-file"
-            else:
-                arg_name = "config-override-file"
-
-            log.error("argument --{}: {} does not point to a configuration file.", arg_name, ex.config_file)  # fmt: skip
+            log.error("argument --config-override: {} does not point to a configuration file.", ex.config_file)  # fmt: skip
 
             return 2
         except InvalidConfigFileError as ex:
-            if ex.config_file == args.config_file:
-                arg_name = "config-file"
-            else:
-                arg_name = "config-override-file"
-
-            log.exception("argument --{}: {} does not contain a valid configuration override. See logged stack trace for details.", arg_name, ex.config_file)  # fmt: skip
+            log.exception("argument --config-override: {} does not contain a valid configuration override. See logged stack trace for details.", ex.config_file)  # fmt: skip
 
             return 2
         except InvalidConfigOverrideError:
@@ -202,11 +183,13 @@ class RecipeCommandHandler(CliCommandHandler):
 
             return 2
 
-        if args.dump_config:
+        if args.export_config:
+            mergeable_config = to_mergeable(config)
+
             yaml_dumper = StandardYamlDumper(context.file_system)
 
             try:
-                yaml_dumper.dump(config, sys.stdout)
+                yaml_dumper.dump(mergeable_config, sys.stdout)
             except YamlError as ex:
                 raise ProgramError(
                     "The recipe configuration cannot be dumped to stdout. See the nested exception for details."
@@ -312,7 +295,7 @@ class RecipeCommandHandler(CliCommandHandler):
             config_override_files = None
 
         return config_reader.read(
-            args.preset, args.config_file, config_override_files, args.config_overrides
+            args.preset, config_override_files, args.config_overrides
         )
 
     def _dump_config(
@@ -417,46 +400,18 @@ class RecipeConfigReader:
     def read(
         self,
         preset: str,
-        config_file: Path | None,
         config_override_files: Iterable[Path] | None,
         config_overrides: Iterable[Mapping[str, object]] | None,
     ) -> object:
         # Load the preset configuration.
-        if config_file is not None:
-            try:
-                is_file = self._file_system.is_file(config_file)
-            except OSError as ex:
-                raise ProgramError(
-                    f"The '{config_file}' configuration file cannot be read. See the nested exception for details."
-                ) from ex
+        preset_config = self._configs.get(preset)
 
-            if not is_file:
-                raise ConfigFileNotFoundError(config_file)
-
-            try:
-                unstructured_configs = self._yaml_loader.load(config_file)
-            except YamlError as ex:
-                raise InvalidConfigFileError(
-                    config_file, f"The '{config_file}' configuration file cannot be read. See the nested exception for details."  # fmt: skip
-                ) from ex
-            except OSError as ex:
-                raise ProgramError(
-                    f"The '{config_file}' configuration file cannot be read. See the nested exception for details."  # fmt: skip
-                ) from ex
-
-            if len(unstructured_configs) == 0:
-                raise ConfigFileNotFoundError(config_file)
-
-            unstructured_config = unstructured_configs[0]
-        else:
-            preset_config = self._configs.get(preset)
-
-            try:
-                unstructured_config = unstructure(preset_config)
-            except StructureError as ex:
-                raise ContractError(
-                    f"The '{preset}' preset configuration cannot be unstructured. See the nested exception for details."
-                ) from ex
+        try:
+            unstructured_config = unstructure(preset_config)
+        except StructureError as ex:
+            raise ContractError(
+                f"The '{preset}' preset configuration cannot be unstructured. See the nested exception for details."
+            ) from ex
 
         # Update the configuration with `--config-override-file`.
         if config_override_files:

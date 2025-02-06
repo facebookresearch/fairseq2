@@ -81,12 +81,13 @@ def setup_model(
         kls, context, recipe_config, output_dir, gangs, checkpoint_manager
     )
 
-    log_model(log, model, gangs)
+    model = prepare_model(context, recipe_config, model, gangs)
+
     model = setup_data_parallel_model(
         context, recipe_config, model, gangs, checkpoint_manager, static_graph
     )
 
-    model = prepare_model(context, recipe_config, model, gangs)
+    log_model(log, model, gangs)
 
     return model
 
@@ -243,7 +244,7 @@ class CardBasedModelLoader:
                 model_name, f"The '{model_name}' model configuration cannot be loaded. See the nested exception for details."  # fmt: skip
             ) from ex
 
-        model_config = apply_config_overrides(model_config, model_section.config)
+        model_config = apply_model_config_overrides(model_config, model_section.config)
 
         log_config(log, "Model Config", model_config)
 
@@ -341,7 +342,7 @@ class PathBasedModelLoader:
 
         model_config = handler.get_config(model_section.arch)
 
-        model_config = apply_config_overrides(model_config, model_section.config)
+        model_config = apply_model_config_overrides(model_config, model_section.config)
 
         log_config(log, "Model Config", model_config)
 
@@ -456,7 +457,7 @@ class ModelCreator:
 
         model_config = handler.get_config(model_section.arch)
 
-        model_config = apply_config_overrides(model_config, model_section.config)
+        model_config = apply_model_config_overrides(model_config, model_section.config)
 
         log_config(log, "Model Config", model_config)
 
@@ -475,22 +476,22 @@ class ModelCreator:
         return model
 
 
-def apply_config_overrides(config: object, overrides: object) -> object:
+def apply_model_config_overrides(model_config: object, overrides: object) -> object:
     if overrides is None:
-        return config
+        return model_config
 
     try:
-        structured_overrides = structure(overrides, type(config), set_empty=True)
+        structured_overrides = structure(overrides, type(model_config), set_empty=True)
     except StructureError as ex:
         raise StructureError(
             "`model.config` cannot be structured. See the nested exception for details."
         ) from ex
 
-    if not is_dataclass_instance(config):
+    if not is_dataclass_instance(model_config):
         return structured_overrides
 
     try:
-        return merge_dataclass(config, cast(DataClass, structured_overrides))
+        return merge_dataclass(model_config, cast(DataClass, structured_overrides))
     except MergeError as ex:
         raise ContractError(
             "`overrides` cannot be merged with `config`. See the nested exception for details."
@@ -568,16 +569,7 @@ def prepare_model(
     if trainer_section.activation_checkpointing:
         use_layerwise_activation_checkpointing(model)
 
-    log_model(log, model, gangs)
+    #    if trainer_section.torch_compile:
+    #        model = handler.compile(model, model_config)
 
-    if trainer_section.torch_compile:
-        model = compile_model(context, recipe_config, model)
-
-    return model
-
-
-def compile_model(
-    context: RuntimeContext, recipe_config: object, model: Module
-) -> Module:
-    # TODO: implement!
     return model
