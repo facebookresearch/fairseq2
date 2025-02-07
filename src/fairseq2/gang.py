@@ -17,7 +17,7 @@ from typing import Any, final
 import torch
 import torch.distributed as dist
 from torch import Tensor
-from torch.distributed import Backend, ProcessGroup, ProcessGroupNCCL, ReduceOp
+from torch.distributed import Backend, ProcessGroup, ReduceOp
 from typing_extensions import override
 
 from fairseq2.error import InternalError, InvalidOperationError, NotSupportedError
@@ -402,6 +402,9 @@ class ProcessGroupGang(AbstractGang):
 
         # If enabled, uses high priority CUDA streams for NCCL.
         if device.type == "cuda" and high_priority:
+            # Not available unless PyTorch is built with NCCL.
+            from torch.distributed import ProcessGroupNCCL
+
             pg_options = ProcessGroupNCCL.Options(is_high_priority_stream=True)
         else:
             pg_options = None
@@ -636,7 +639,7 @@ def setup_root_gang(
         return FakeGang(device)
 
     return ProcessGroupGang.init_root_process_group(
-        device, timeout=timeout, monitored=monitored
+        device, timeout=timeout, high_priority=high_priority, monitored=monitored
     )
 
 
