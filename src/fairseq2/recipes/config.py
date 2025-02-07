@@ -54,22 +54,7 @@ class ModelSection:
                 result.add_error(
                     "`family` must be specified when `checkpoint` is specified."
                 )
-
-            if self.name is not None:
-                result.add_error(
-                    "`name` must not be specified when `checkpoint` is specified."
-                )
-        elif self.name is not None:
-            if self.family is not None:
-                result.add_error(
-                    "`name` and `family` must not be specified at the same time."
-                )
-
-            if self.arch is not None:
-                result.add_error(
-                    "`arch` must not be specified when `name` is specified."
-                )
-        elif self.family is None:
+        elif self.name is None and self.family is None:
             result.add_error("Either `name` or `family` must be specified.")
 
         if result.has_error:
@@ -94,12 +79,7 @@ class DatasetSection:
     def validate(self) -> None:
         result = ValidationResult()
 
-        if self.name is not None:
-            if self.path is not None:
-                result.add_error(
-                    "`name` and `path` must not be specified at the same time."
-                )
-        elif self.path is None:
+        if self.name is None and self.path is None:
             result.add_error("Either `name` or `path` must be specified.")
 
         if result.has_error:

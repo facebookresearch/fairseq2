@@ -98,6 +98,9 @@ class TextGenerateDatasetSection(DatasetSection):
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
 
+    extras: dict[str, object] = field(default_factory=dict)
+    """The dataset-specific extra options."""
+
 
 def register_text_generate_configs(context: RuntimeContext) -> None:
     registry = context.get_config_registry(TextGenerateConfig)
@@ -240,6 +243,7 @@ def load_text_generator(
         sync_mode=SyncMode.UNTIL_LAST,
         num_prefetch=config.dataset.num_prefetch,
         seed=seed,
+        extras=config.dataset.extras,
     )
 
     data_reader = dataset.create_prompt_reader(
