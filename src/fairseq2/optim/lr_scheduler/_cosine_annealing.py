@@ -22,6 +22,7 @@ from fairseq2.optim.lr_scheduler._lr_scheduler import (
     get_per_param_group,
 )
 from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import ValidationError, ValidationResult, validate
 
 
 @final
@@ -194,6 +195,22 @@ class CosineAnnealingLRConfig:
     final learning rate. If ``None``, :attr:`final_lr` will be used.
     """
 
+    def validate(self) -> None:
+        result = ValidationResult()
+
+        if self.final_lr is not None:
+            if self.final_lr_scale is not None:
+                result.add_error(
+                    "`final_lr` and `final_lr_scale` must not be specified at the same time."
+                )
+        elif self.final_lr_scale is None:
+            result.add_error("Either `final_lr` or `final_lr_scale` must be specified.")
+
+        if result.has_error:
+            raise ValidationError(
+                "The cosine-annealing learning rate scheduler configuration has one or more validation errors:", result  # fmt: skip
+            )
+
 
 @final
 class CosineAnnealingLRHandler(LRSchedulerHandler):
@@ -202,6 +219,8 @@ class CosineAnnealingLRHandler(LRSchedulerHandler):
         self, optimizer: Optimizer, config: object, num_steps: int | None
     ) -> LRScheduler:
         config = structure(config, CosineAnnealingLRConfig)
+
+        validate(config)
 
         if config.cycle_len is None:
             if num_steps is None:

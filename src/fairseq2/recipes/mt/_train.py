@@ -60,6 +60,7 @@ from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import validate
 
 
 @dataclass(kw_only=True)
@@ -197,6 +198,8 @@ def load_mt_trainer(
     context: RuntimeContext, config: object, output_dir: Path
 ) -> Trainer[Seq2SeqBatch]:
     config = structure(config, MTTrainConfig)
+
+    validate(config)
 
     register_extra_asset_paths(context, config)
 

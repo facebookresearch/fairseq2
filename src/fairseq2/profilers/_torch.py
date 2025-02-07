@@ -22,6 +22,7 @@ from fairseq2.gang import Gangs
 from fairseq2.profilers._handler import ProfilerHandler
 from fairseq2.profilers._profiler import AbstractProfiler, NoopProfiler, Profiler
 from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import validate
 
 
 @final
@@ -103,6 +104,8 @@ class TorchProfilerHandler(ProfilerHandler):
     @override
     def create(self, config: object, gangs: Gangs, output_dir: Path) -> Profiler:
         config = structure(config, TorchProfilerConfig)
+
+        validate(config)
 
         if not config.enabled:
             return NoopProfiler()

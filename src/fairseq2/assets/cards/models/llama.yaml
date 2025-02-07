@@ -75,7 +75,7 @@ use_v2_tokenizer: true
 
 name: llama3_instruct
 base: llama3
-model_config_override:
+model_config:
   vocab_info:
     _set_:
       eos_idx: 128009  # end-of-turn

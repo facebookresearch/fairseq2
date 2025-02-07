@@ -11,6 +11,7 @@ from typing import Final
 
 from fairseq2.context import RuntimeContext
 from fairseq2.nn.transformer import TransformerNormOrder
+from fairseq2.utils.validation import ValidationError, ValidationResult
 
 WAV2VEC2_MODEL_FAMILY: Final = "wav2vec2"
 
@@ -184,6 +185,19 @@ class Wav2Vec2EncoderConfig:
 
     depthwise_conv_kernel_size: int = 0
     """The kernel size of depthwise convolutions in Conformer blocks."""
+
+    def validate(self) -> None:
+        result = ValidationResult()
+
+        if self.use_conformer and self.norm_order != TransformerNormOrder.POST:
+            result.add_error(
+                f"`norm_order` must be `POST` when `use_conformer` is `True`, but is `{self.norm_order}` instead."
+            )
+
+        if result.has_error:
+            raise ValidationError(
+                "The wav2vec 2.0 encoder configuration has one or more validation errors:", result  # fmt: skip
+            )
 
 
 def register_wav2vec2_configs(context: RuntimeContext) -> None:

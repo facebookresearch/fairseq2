@@ -52,12 +52,6 @@ class Foo2:
 class Foo3:
     f3_1: int = 2
     f3_2: int = 3
-    f3_3: Foo4 = field(default_factory=lambda: Foo4(0))
-
-
-@dataclass
-class Foo4:
-    f4_1: int = 4
 
 
 def test_structure_works() -> None:
@@ -70,7 +64,7 @@ def test_structure_works() -> None:
         "f5": ["3.0", "4"],
         "f6": ["1", "2", "3"],
         "f7": "VALUE2",
-        "f9": {"f3_2": "4", "f3_3": "_default_"},
+        "f9": {"f3_2": "4"},
     }
 
     foo = structure(data, Foo1)
@@ -80,12 +74,12 @@ def test_structure_works() -> None:
         f1=2,
         f2={"a": Path("path1"), "b": Path("path2")},
         f3=[0, 1, 2, 3],
-        f4=Foo3(f3_1=4, f3_2=3, f3_3=Foo4(0)),
+        f4=Foo3(f3_1=4, f3_2=3),
         f5=(3.0, 4),
         f6={1, 2, 3},
         f7=FooEnum.VALUE2,
         f8=torch.float32,
-        f9=Foo3(f3_1=2, f3_2=4, f3_3=Foo4()),
+        f9=Foo3(f3_1=2, f3_2=4),
     )
 
     assert foo == expected_foo
@@ -111,12 +105,12 @@ def test_structure_works_when_set_empty_is_true() -> None:
         f1=2,
         f2={"a": Path("path1"), "b": Path("path2")},
         f3=[0, 1, 2, 3],
-        f4=Foo3(f3_1=4, f3_2=EMPTY, f3_3=EMPTY),
+        f4=Foo3(f3_1=4, f3_2=EMPTY),
         f5=(3.0, 4),
         f6={1, 2, 3},
         f7=FooEnum.VALUE2,
         f8=EMPTY,
-        f9=Foo3(f3_1=EMPTY, f3_2=4, f3_3=EMPTY),
+        f9=Foo3(f3_1=EMPTY, f3_2=4),
     )
 
     assert foo == expected_foo
@@ -145,7 +139,7 @@ def test_unstructure_works() -> None:
         f1=2,
         f2={"a": Path("path1"), "b": Path("path2")},
         f3=[0, 1, 2, 3],
-        f4=Foo3(f3_1=4, f3_3=Foo4(5)),
+        f4=Foo3(f3_1=4),
         f5=(3.0, 4),
         f6={1, 2, 3},
         f7=FooEnum.VALUE2,
@@ -160,12 +154,12 @@ def test_unstructure_works() -> None:
         "f1": 2,
         "f2": {"a": "path1", "b": "path2"},
         "f3": [0, 1, 2, 3],
-        "f4": {"f3_1": 4, "f3_2": 3, "f3_3": {"f4_1": 5}},
+        "f4": {"f3_1": 4, "f3_2": 3},
         "f5": [3.0, 4],
         "f6": [1, 2, 3],
         "f7": "VALUE2",
         "f8": "float16",
-        "f9": {"f3_1": 1, "f3_2": 3, "f3_3": {"f4_1": 0}},
+        "f9": {"f3_1": 1, "f3_2": 3},
     }
 
     assert data == expected_data

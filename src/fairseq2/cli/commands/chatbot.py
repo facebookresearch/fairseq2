@@ -16,7 +16,7 @@ from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.chatbots import Chatbot, ChatbotHandler, ChatMessage, UnknownChatbotError
-from fairseq2.cli import CliCommandHandler
+from fairseq2.cli import CliArgumentError, CliCommandHandler
 from fairseq2.cli.utils.argparse import parse_dtype
 from fairseq2.cli.utils.cluster import set_torch_distributed_variables
 from fairseq2.cli.utils.rich import get_console
@@ -37,7 +37,7 @@ from fairseq2.recipes.common import (
     setup_gangs,
     setup_reference_model,
 )
-from fairseq2.recipes.config import GangSection, TextTokenizerSection
+from fairseq2.recipes.config import GangSection, ReferenceModelSection
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import RngBag
 
@@ -49,7 +49,7 @@ class RunChatbotHandler(CliCommandHandler):
         parser.add_argument(
             "-m",
             "--model",
-            dest="model",
+            dest="model_name",
             metavar="MODEL_NAME",
             default="llama3_1_8b_instruct",
             help="instruct model name (default: %(default)s)",
@@ -110,46 +110,46 @@ class RunChatbotHandler(CliCommandHandler):
     ) -> int:
         console = get_console()
 
-        view = CliChatbotView(args.model, console)
+        view = CliChatbotView(args.model_name, console)
 
         try:
             set_torch_distributed_variables(context, args.cluster)
         except UnknownClusterError as ex:
             s = ", ".join(ex.supported_clusters)
 
-            log.error("argument --cluster: '{}' is not a known cluster. Must be one of: auto, none, {}", ex.cluster, s)  # fmt: skip
-
-            return 2
+            raise CliArgumentError(
+                "cluster", f"'{ex.cluster}' is not a known cluster. Must be one of: auto, none, {s}"  # fmt: skip
+            ) from None
         except ClusterError as ex:
             if ex.cluster == "slurm":
-                log.exception("'{}' cluster environment cannot be set. See logged stack trace for details. If you are within an allocated Slurm job (i.e. `salloc`), make sure to run with `srun`. If you want to run without Slurm, use `--cluster none`.", ex.cluster)  # fmt: skip
+                message = f"'{ex.cluster}' cluster environment cannot be set. See logged stack trace for details. If you are within an allocated Slurm job (i.e. `salloc`), make sure to run with `srun`. If you want to run without Slurm, use `--cluster none`."
             else:
-                log.exception("'{}' cluster environment cannot be set. See logged stack trace for details.", ex.cluster)  # fmt: skip
+                message = f"'{ex.cluster}' cluster environment cannot be set. See logged stack trace for details."
 
-            return 1
-
-        torch.set_float32_matmul_precision("high")
+            raise ProgramError(message) from ex
 
         args.gang = GangSection(
             tensor_parallel_size=args.tensor_parallel_size, timeout=999
         )
+
+        torch.set_float32_matmul_precision("high")
 
         gangs = setup_gangs(context, args)
 
         if gangs.dp.size > 1:
             log.warning("Using redundant data parallelism which may reduce token throughput. It is recommended to use one device per model shard (i.e. a single device for a non-sharded model).")  # fmt: skip
 
+        args.model = ReferenceModelSection(name=args.model_name)
+
         model = setup_reference_model(
             DecoderModel,
             context,
-            args.model,
+            args.model_name,
             gangs,
             args.dtype,
             mp=False,
             torch_compile=False,
         )
-
-        args.text_tokenizer = TextTokenizerSection(name=args.model)
 
         tokenizer = load_text_tokenizer(context, args)
 
@@ -159,7 +159,7 @@ class RunChatbotHandler(CliCommandHandler):
             model, sampler, temperature=args.temperature, max_gen_len=args.max_gen_len
         )
 
-        card = context.asset_store.retrieve_card(args.model)
+        card = context.asset_store.retrieve_card(args.model_name)
 
         family = card.field("model_family").as_(str)
 
@@ -168,7 +168,7 @@ class RunChatbotHandler(CliCommandHandler):
         try:
             chatbot_handler = chatbot_handlers.get(family)
         except LookupError:
-            raise UnknownChatbotError(args.model) from None
+            raise UnknownChatbotError(args.model_name) from None
 
         chatbot = chatbot_handler.create(generator, tokenizer)
 

@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from fairseq2.cli._cli import Cli as Cli
+from fairseq2.cli._cli import CliArgumentError as CliArgumentError
 from fairseq2.cli._cli import CliCommand as CliCommand
 from fairseq2.cli._cli import CliCommandHandler as CliCommandHandler
 from fairseq2.cli._cli import CliGroup as CliGroup

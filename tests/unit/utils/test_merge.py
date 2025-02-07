@@ -56,7 +56,7 @@ def test_merge_dataclass() -> None:
     assert target == Foo1(a=2, b=Foo2(x=1), c="foo")
 
 
-def test_merge_map_works() -> None:
+def test_merge_object_works() -> None:
     target = {
         "foo1": "abc",
         "foo2": {

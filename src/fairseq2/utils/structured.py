@@ -178,11 +178,6 @@ class ValueConverter:
 
             return self._create_dataclass(kls, values, set_empty)
 
-        if isinstance(obj, str) and obj == "_default_":
-            values = {}
-
-            return self._create_dataclass(kls, values, set_empty)
-
         raise StructureError(
             f"`obj` must be of type `{kls}` or `{Mapping}`, but is of type `{type(obj)}` instead."
         )

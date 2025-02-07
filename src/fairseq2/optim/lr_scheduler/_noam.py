@@ -15,6 +15,7 @@ from typing_extensions import override
 from fairseq2.optim.lr_scheduler._handler import LRSchedulerHandler
 from fairseq2.optim.lr_scheduler._lr_scheduler import AbstractLRScheduler, LRScheduler
 from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import validate
 
 
 @final
@@ -93,6 +94,8 @@ class NoamLRHandler(LRSchedulerHandler):
         self, optimizer: Optimizer, config: object, num_steps: int | None
     ) -> LRScheduler:
         config = structure(config, NoamLRConfig)
+
+        validate(config)
 
         return NoamLR(optimizer, config.num_warmup_steps)
 

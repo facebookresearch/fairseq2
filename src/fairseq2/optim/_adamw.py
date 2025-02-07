@@ -20,6 +20,7 @@ from fairseq2.error import NotSupportedError
 from fairseq2.optim._handler import OptimizerHandler
 from fairseq2.optim._optimizer import AbstractOptimizer, ParameterCollection
 from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import validate
 
 
 @final
@@ -325,6 +326,8 @@ class AdamWHandler(OptimizerHandler):
     @override
     def create(self, params: ParameterCollection, config: object) -> Optimizer:
         config = structure(config, AdamWConfig)
+
+        validate(config)
 
         return AdamW(
             params,

@@ -51,6 +51,7 @@ from fairseq2.typing import CPU
 from fairseq2.utils.file import FileMode
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import validate
 
 
 @dataclass(kw_only=True)
@@ -120,6 +121,8 @@ def load_text_translator(
     context: RuntimeContext, config: object, output_dir: Path
 ) -> Generator[SequenceBatch]:
     config = structure(config, TextTranslateConfig)
+
+    validate(config)
 
     register_extra_asset_paths(context, config)
 

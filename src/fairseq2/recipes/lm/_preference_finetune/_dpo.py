@@ -42,6 +42,7 @@ from fairseq2.recipes.lm._preference_finetune._handler import POFinetuneUnitHand
 from fairseq2.recipes.trainer import AbstractTrainUnit, TrainUnit
 from fairseq2.typing import DataType
 from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import validate
 
 
 @final
@@ -269,6 +270,8 @@ class DpoFinetuneUnitHandler(POFinetuneUnitHandler):
         )
 
         config = structure(criterion_section.config, DpoFinetuneConfig)
+
+        validate(config)
 
         if config.reference_model is not None:
             log.info("Setting up DPO with reference model.")

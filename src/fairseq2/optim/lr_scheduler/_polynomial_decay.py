@@ -21,6 +21,7 @@ from fairseq2.optim.lr_scheduler._lr_scheduler import (
     get_per_param_group,
 )
 from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import validate
 
 
 @final
@@ -144,6 +145,8 @@ class PolynomialDecayLRHandler(LRSchedulerHandler):
         self, optimizer: Optimizer, config: object, num_steps: int | None
     ) -> LRScheduler:
         config = structure(config, PolynomialDecayLRConfig)
+
+        validate(config)
 
         if num_steps is None:
             raise UnspecifiedNumberOfStepsError(POLYNOMIAL_DECAY_LR)

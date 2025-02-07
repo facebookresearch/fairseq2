@@ -31,54 +31,40 @@ class LogWriter:
         """
         self._logger = logger
 
-    def debug(
-        self, message: str, *args: Any, highlight: bool = False, **kwargs: Any
-    ) -> None:
+    def debug(self, message: str, *args: Any) -> None:
         """Log a message with level ``DEBUG``."""
-        self._write(logging.DEBUG, message, args, kwargs, highlight)
+        self._write(logging.DEBUG, message, args)
 
-    def info(
-        self, message: str, *args: Any, highlight: bool = False, **kwargs: Any
-    ) -> None:
+    def info(self, message: str, *args: Any) -> None:
         """Log a message with level ``INFO``."""
-        self._write(logging.INFO, message, args, kwargs, highlight)
+        self._write(logging.INFO, message, args)
 
-    def warning(
-        self, message: str, *args: Any, highlight: bool = False, **kwargs: Any
-    ) -> None:
+    def warning(self, message: str, *args: Any) -> None:
         """Log a message with level ``WARNING``."""
-        self._write(logging.WARNING, message, args, kwargs, highlight)
+        self._write(logging.WARNING, message, args)
 
-    def error(
-        self, message: str, *args: Any, highlight: bool = False, **kwargs: Any
-    ) -> None:
+    def error(self, message: str, *args: Any, ex: BaseException | None = None) -> None:
         """Log a message with level ``ERROR``."""
-        self._write(logging.ERROR, message, args, kwargs, highlight)
+        self._write(logging.ERROR, message, args, exc_info=ex or False)
 
-    def exception(
-        self, message: str, *args: Any, highlight: bool = False, **kwargs: Any
-    ) -> None:
+    def exception(self, message: str, *args: Any) -> None:
         """Log a message with level ``ERROR``."""
-        self._write(logging.ERROR, message, args, kwargs, highlight, exc_info=True)
+        self._write(logging.ERROR, message, args, exc_info=True)
 
     def _write(
         self,
         level: int,
         message: str,
         args: tuple[Any, ...],
-        kwargs: dict[str, Any],
-        highlight: bool,
-        exc_info: bool = False,
+        exc_info: bool | BaseException = False,
     ) -> None:
-        if args or kwargs:
+        if args:
             if not self._logger.isEnabledFor(level):
                 return
 
-            message = str(message).format(*args, **kwargs)
+            message = str(message).format(*args)
 
-        extra = None if highlight else self._NO_HIGHLIGHT
-
-        self._logger.log(level, message, exc_info=exc_info, extra=extra)
+        self._logger.log(level, message, exc_info=exc_info, extra=self._NO_HIGHLIGHT)
 
     def is_enabled_for(self, level: int) -> bool:
         """Return ``True`` if the writer is enabled for ``level``."""

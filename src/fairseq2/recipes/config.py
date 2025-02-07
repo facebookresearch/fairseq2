@@ -31,6 +31,7 @@ from fairseq2.metrics.recorders import (
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.profilers import TORCH_PROFILER, TorchProfilerConfig
 from fairseq2.typing import DataType
+from fairseq2.utils.validation import ValidationError, ValidationResult
 
 
 @dataclass(kw_only=True)
@@ -45,6 +46,37 @@ class ModelSection:
 
     checkpoint: Path | None = None
 
+    def validate(self) -> None:
+        result = ValidationResult()
+
+        if self.checkpoint is not None:
+            if self.family is None:
+                result.add_error(
+                    "`family` must be specified when `checkpoint` is specified."
+                )
+
+            if self.name is not None:
+                result.add_error(
+                    "`name` must not be specified when `checkpoint` is specified."
+                )
+        elif self.name is not None:
+            if self.family is not None:
+                result.add_error(
+                    "`name` and `family` must not be specified at the same time."
+                )
+
+            if self.arch is not None:
+                result.add_error(
+                    "`arch` must not be specified when `name` is specified."
+                )
+        elif self.family is None:
+            result.add_error("Either `name` or `family` must be specified.")
+
+        if result.has_error:
+            raise ValidationError(
+                "The model configuration section has one or more validation errors:", result  # fmt: skip
+            )
+
 
 @dataclass
 class ReferenceModelSection:
@@ -58,6 +90,22 @@ class DatasetSection:
     path: Path | None = None
 
     family: str
+
+    def validate(self) -> None:
+        result = ValidationResult()
+
+        if self.name is not None:
+            if self.path is not None:
+                result.add_error(
+                    "`name` and `path` must not be specified at the same time."
+                )
+        elif self.path is None:
+            result.add_error("Either `name` or `path` must be specified.")
+
+        if result.has_error:
+            raise ValidationError(
+                "The dataset configuration section has one or more validation errors:", result  # fmt: skip
+            )
 
 
 @dataclass(kw_only=True)
@@ -207,6 +255,111 @@ class RegimeSection:
 
     publish_metrics_every_n_data_epochs: int | None = None
     """The data epoch interval at which to publish training metrics."""
+
+    def validate(self) -> None:
+        result = ValidationResult()
+
+        if self.num_steps is not None:
+            if self.num_steps == 0:
+                result.add_error("`num_steps` must be greater than or equal to 1.")
+
+        if self.num_data_epochs is not None:
+            if self.num_data_epochs == 0:
+                result.add_error(
+                    "`num_data_epochs` must be greater than or equal to 1."
+                )
+
+        if self.validate_every_n_steps is not None:
+            if self.validate_every_n_steps == 0:
+                result.add_error(
+                    "`validate_every_n_steps` must be greater than or equal to 1."
+                )
+
+        if self.validate_every_n_data_epochs is not None:
+            if self.validate_every_n_data_epochs == 0:
+                result.add_error(
+                    "`validate_every_n_data_epochs` must be greater than or equal to 1."
+                )
+
+        if self.checkpoint_every_n_steps is not None:
+            if self.checkpoint_every_n_steps == 0:
+                result.add_error(
+                    "`checkpoint_every_n_steps` must be greater than or equal to 1."
+                )
+
+        if self.checkpoint_every_n_data_epochs is not None:
+            if self.checkpoint_every_n_data_epochs == 0:
+                result.add_error(
+                    "`checkpoint_every_n_data_epochs` must be greater than or equal to 1."
+                )
+
+        if self.keep_last_n_checkpoints is not None:
+            if self.keep_best_n_checkpoints is not None:
+                result.add_error(
+                    "`keep_last_n_checkpoints` and `keep_best_n_checkpoints` must not be specified at the same time."
+                )
+
+            if self.keep_last_n_checkpoints == 0:
+                result.add_error(
+                    "`keep_last_n_checkpoints` must be greater than or equal to 1."
+                )
+        elif self.keep_best_n_checkpoints is not None:
+            if self.keep_best_n_checkpoints == 0:
+                result.add_error(
+                    "`keep_best_n_checkpoints` must be greater than or equal to 1."
+                )
+
+            if self.checkpoint_every_n_steps is not None:
+                if self.score_metric is None:
+                    result.add_error(
+                        "`score_metric` must be specified when `keep_best_n_checkpoints` is specified."
+                    )
+
+                if self.validate_every_n_steps is None:
+                    result.add_error(
+                        "`validate_every_n_steps` must be specified when `keep_best_n_checkpoints` is specified."
+                    )
+                elif self.checkpoint_every_n_steps % self.validate_every_n_steps != 0:
+                    result.add_error(
+                        f"`checkpoint_every_n_steps` must be a multiple of `validate_every_n_steps` ({self.validate_every_n_steps}), but is {self.checkpoint_every_n_steps} instead."
+                    )
+
+        if self.keep_last_n_models is not None:
+            if self.keep_last_n_checkpoints is None:
+                result.add_error(
+                    "`keep_last_n_checkpoints` must be specified when `keep_last_n_models` is specified."
+                )
+            elif self.keep_last_n_checkpoints > self.keep_last_n_models:
+                result.add_error(
+                    f"`keep_last_n_models` must be greater than or equal to `keep_last_n_checkpoints` ({self.keep_last_n_checkpoints}), but is {self.keep_last_n_models} instead."
+                )
+
+        if self.keep_best_n_models is not None:
+            if self.keep_best_n_checkpoints is None:
+                result.add_error(
+                    "`keep_best_n_checkpoints` must be specified when `keep_best_n_models` is specified."
+                )
+            elif self.keep_best_n_checkpoints > self.keep_best_n_models:
+                result.add_error(
+                    f"`keep_best_n_models` must be greater than or equal to `keep_best_n_checkpoints` ({self.keep_best_n_checkpoints}), but is {self.keep_best_n_models} instead."
+                )
+
+        if self.publish_metrics_every_n_steps is not None:
+            if self.publish_metrics_every_n_steps == 0:
+                result.add_error(
+                    "`publish_metrics_every_n_steps` must be greater than or equal to 1."
+                )
+
+        if self.publish_metrics_every_n_data_epochs is not None:
+            if self.publish_metrics_every_n_data_epochs == 0:
+                result.add_error(
+                    "`publish_metrics_every_n_data_epochs` must be greater than or equal to 1."
+                )
+
+        if result.has_error:
+            raise ValidationError(
+                "The regime configuration section has one or more validation errors:", result  # fmt: skip
+            )
 
 
 @dataclass(kw_only=True)

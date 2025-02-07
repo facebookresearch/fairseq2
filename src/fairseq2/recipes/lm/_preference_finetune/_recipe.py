@@ -59,6 +59,7 @@ from fairseq2.recipes.trainer import Trainer
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import validate
 
 
 @dataclass(kw_only=True)
@@ -210,6 +211,8 @@ def load_po_finetuner(
     context: RuntimeContext, config: object, output_dir: Path
 ) -> Trainer[PreferenceBatch]:
     config = structure(config, POFinetuneConfig)
+
+    validate(config)
 
     register_extra_asset_paths(context, config)
 

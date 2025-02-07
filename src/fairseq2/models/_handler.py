@@ -42,8 +42,9 @@ from fairseq2.nn.utils.module import (
 )
 from fairseq2.typing import CPU, META, DataType
 from fairseq2.utils.file import TensorLoader, TensorLoadError
-from fairseq2.utils.merge import MergeError, merge_map
+from fairseq2.utils.merge import MergeError, merge_object
 from fairseq2.utils.structured import StructureError, structure, unstructure
+from fairseq2.utils.validation import validate
 
 
 class ModelHandler(ABC):
@@ -144,8 +145,8 @@ class AbstractModelHandler(ModelHandler):
         base_card: AssetCard | None = card
 
         while base_card is not None:
-            if "model_config_override" in base_card.metadata:
-                config_override_field = base_card.field("model_config_override")
+            if "model_config" in base_card.metadata:
+                config_override_field = base_card.field("model_config")
 
                 config_override = config_override_field.as_unstructured()
 
@@ -163,7 +164,7 @@ class AbstractModelHandler(ModelHandler):
 
             try:
                 for config_override in reversed(config_overrides):
-                    unstructured_config = merge_map(
+                    unstructured_config = merge_object(
                         unstructured_config, config_override
                     )
 
@@ -191,6 +192,8 @@ class AbstractModelHandler(ModelHandler):
             device = gangs.root.device
 
         config = structure(config, self._configs.config_kls)
+
+        validate(config)
 
         original_dtype = torch.get_default_dtype()
 

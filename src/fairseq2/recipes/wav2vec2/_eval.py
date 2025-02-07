@@ -46,6 +46,7 @@ from fairseq2.recipes.wav2vec2._common import (
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import validate
 
 
 @dataclass(kw_only=True)
@@ -110,6 +111,8 @@ def load_wav2vec2_evaluator(
     context: RuntimeContext, config: object, output_dir: Path
 ) -> Evaluator[SequenceBatch]:
     config = structure(config, Wav2Vec2EvalConfig)
+
+    validate(config)
 
     register_extra_asset_paths(context, config)
 

@@ -43,6 +43,7 @@ from fairseq2.recipes.lm._instruction_finetune import (
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import validate
 
 
 @dataclass(kw_only=True)
@@ -102,6 +103,8 @@ def load_lm_loss_evaluator(
     context: RuntimeContext, config: object, output_dir: Path
 ) -> Evaluator[SequenceBatch]:
     config = structure(config, LMLossEvalConfig)
+
+    validate(config)
 
     register_extra_asset_paths(context, config)
 

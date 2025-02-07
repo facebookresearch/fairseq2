@@ -42,6 +42,7 @@ from fairseq2.typing import CPU
 from fairseq2.utils.file import FileMode
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import validate
 
 
 @dataclass(kw_only=True)
@@ -104,6 +105,8 @@ def load_asr_evaluator(
     context: RuntimeContext, config: object, output_dir: Path
 ) -> Evaluator[Seq2SeqBatch]:
     config = structure(config, AsrEvalConfig)
+
+    validate(config)
 
     register_extra_asset_paths(context, config)
 

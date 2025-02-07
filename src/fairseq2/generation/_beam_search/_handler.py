@@ -29,6 +29,7 @@ from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.registry import Provider
 from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import validate
 
 BEAM_SEARCH_GENERATOR: Final = "beam_search"
 
@@ -94,6 +95,8 @@ class BeamSearchSequenceGeneratorHandler(SequenceGeneratorHandler):
     def create(self, model: DecoderModel, config: object) -> SequenceGenerator:
         config = structure(config, BeamSearchConfig)
 
+        validate(config)
+
         algorithm_section = config.algorithm
 
         try:
@@ -145,6 +148,8 @@ class BeamSearchSeq2SeqGeneratorHandler(Seq2SeqGeneratorHandler):
     @override
     def create(self, model: EncoderDecoderModel, config: object) -> Seq2SeqGenerator:
         config = structure(config, BeamSearchConfig)
+
+        validate(config)
 
         algorithm_section = config.algorithm
 

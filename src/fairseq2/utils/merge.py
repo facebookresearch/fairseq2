@@ -90,16 +90,22 @@ def _copy_dataclass_with_defaults(obj: DataClass) -> DataClass:
         ) from ex
 
 
-def merge_map(target: object, source: object) -> object:
-    if not isinstance(source, Mapping):
-        raise MergeError(
-            f"Both `source` and `target` must be of type `{Mapping}`, but they are of types `{type(source)}` and `{type(target)}` instead."
-        )
+def merge_object(target: object, source: object) -> object:
+    if not isinstance(target, Mapping) or not isinstance(source, Mapping):
+        return source
 
+    return merge_map(target, source)
+
+
+def merge_map(
+    target: Mapping[str, object], source: Mapping[str, object]
+) -> Mapping[str, object]:
     return _do_merge_map(target, source, [])
 
 
-def _do_merge_map(target: object, source: object, path: list[str]) -> object:
+def _do_merge_map(
+    target: object, source: object, path: list[str]
+) -> Mapping[str, object]:
     def build_pathname(subpath: str | None = None) -> str:
         if subpath is not None:
             return ".".join(path + [subpath])
@@ -225,17 +231,19 @@ class MergeError(Exception):
 
 def to_mergeable(obj: object) -> object:
     if not isinstance(obj, Mapping):
-        raise MergeError(
-            f"`obj` must be of type `{Mapping}`, but is of type `{type(obj)}` instead."
-        )
+        return obj
 
+    return to_mergeable_map(obj)
+
+
+def to_mergeable_map(obj: Mapping[str, object]) -> Mapping[str, object]:
     output = {}
 
     set_map = None
 
     for key, value in obj.items():
         if isinstance(value, Mapping):
-            output[key] = to_mergeable(value)
+            output[key] = to_mergeable_map(value)
         else:
             if set_map is None:
                 set_map = {}

@@ -103,10 +103,8 @@ def wrap_fsdp(
     static_graph: bool,
     local_world_size: int | None,
 ) -> Module:
-    if gangs.dp.size == 1:
-        to_device(base_model, gangs.root.device)
-
-        return base_model
+    if trainer_section.fsdp.version == "v2":
+        raise NotSupportedDistributedFeature("FSDP2 is not supported yet.")
 
     if not static_graph:
         raise NotSupportedDistributedFeature(
@@ -118,6 +116,11 @@ def wrap_fsdp(
             raise NotSupportedDistributedFeature(
                 "HSDP cannot be used with non-data parallelism."
             )
+
+    if gangs.dp.size == 1:
+        to_device(base_model, gangs.root.device)
+
+        return base_model
 
     has_checkpoint = checkpoint_manager.has_checkpoint()
 
@@ -163,7 +166,7 @@ def broadcast_model(name: str, model: Module, gangs: Gangs) -> None:
     if gangs.dp.size == 1:
         return
 
-    log.info("Broadcasting the '{}' model to all processes.", name)
+    log.info("Broadcasting '{}' model to all processes.", name)
 
     try:
         broadcast_module(model, gangs.dp)

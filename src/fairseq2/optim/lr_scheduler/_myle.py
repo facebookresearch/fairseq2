@@ -20,6 +20,7 @@ from fairseq2.optim.lr_scheduler._lr_scheduler import (
     get_per_param_group,
 )
 from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import ValidationError, ValidationResult, validate
 
 
 @final
@@ -101,6 +102,17 @@ class MyleLRConfig:
     start_lr: float = 0.0
     """The initial warmup learning rate."""
 
+    def validate(self) -> None:
+        result = ValidationResult()
+
+        if self.num_warmup_steps == 0:
+            result.add_error("`num_warmup_steps` must be greater than or equal to 1.")
+
+        if result.has_error:
+            raise ValidationError(
+                "The Myle learning rate scheduler configuration has one or more validation errors:", result  # fmt: skip
+            )
+
 
 @final
 class MyleLRHandler(LRSchedulerHandler):
@@ -109,6 +121,8 @@ class MyleLRHandler(LRSchedulerHandler):
         self, optimizer: Optimizer, config: object, num_steps: int | None
     ) -> LRScheduler:
         config = structure(config, MyleLRConfig)
+
+        validate(config)
 
         return MyleLR(optimizer, config.num_warmup_steps, start_lr=config.start_lr)
 

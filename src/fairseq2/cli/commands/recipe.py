@@ -19,7 +19,7 @@ from typing import Protocol, TypeAlias, final, runtime_checkable
 
 from typing_extensions import override
 
-from fairseq2.cli import CliCommandHandler, setup_logging
+from fairseq2.cli import CliArgumentError, CliCommandHandler, setup_logging
 from fairseq2.cli.utils.argparse import ConfigAction
 from fairseq2.cli.utils.cluster import set_torch_distributed_variables
 from fairseq2.cli.utils.rich import create_rich_progress_reporter, get_console
@@ -39,7 +39,7 @@ from fairseq2.recipes.utils.sweep_tag import (
 )
 from fairseq2.utils.env import InvalidEnvironmentVariableError, get_rank, get_world_size
 from fairseq2.utils.file import FileSystem
-from fairseq2.utils.merge import MergeError, merge_map, to_mergeable
+from fairseq2.utils.merge import MergeError, merge_object, to_mergeable
 from fairseq2.utils.structured import StructureError, unstructure
 from fairseq2.utils.yaml import (
     StandardYamlDumper,
@@ -112,7 +112,7 @@ class RecipeCommandHandler(CliCommandHandler):
         )
 
         parser.add_argument(
-            "--export-config",
+            "--dump-config",
             action="store_true",
             help="dump the configuration in mergeable format to standard output",
         )
@@ -152,11 +152,6 @@ class RecipeCommandHandler(CliCommandHandler):
     def run(
         self, context: RuntimeContext, parser: ArgumentParser, args: Namespace
     ) -> int:
-        return self._do_run(context, parser, args)
-
-    def _do_run(
-        self, context: RuntimeContext, parser: ArgumentParser, args: Namespace
-    ) -> int:
         if args.list_preset_configs:
             self._print_preset_configs(context)
 
@@ -165,31 +160,36 @@ class RecipeCommandHandler(CliCommandHandler):
         setup_logging(debug=args.debug)
 
         try:
-            config = self._read_recipe_config(context, args)
+            config = self._read_config(context, args)
         except ConfigNotFoundError as ex:
-            log.error("argument --preset: '{}' is not a known preset name. Use `--list-preset-configs` to see the available configurations.", ex.name)  # fmt: skip
-
-            return 2
+            raise CliArgumentError(
+                "preset", f"'{ex.name}' is not a known preset name. Use `--list-preset-configs` to see the available configurations."  # fmt: skip
+            ) from None
         except ConfigFileNotFoundError as ex:
-            log.error("argument --config-override: {} does not point to a configuration file.", ex.config_file)  # fmt: skip
-
-            return 2
+            raise CliArgumentError(
+                "--config-file", f"{ex.config_file} does not point to a configuration file."  # fmt: skip
+            ) from None
         except InvalidConfigFileError as ex:
-            log.exception("argument --config-override: {} does not contain a valid configuration override. See logged stack trace for details.", ex.config_file)  # fmt: skip
+            raise CliArgumentError(
+                "--config-file", f"{ex.config_file} does not contain a valid configuration override. See logged stack trace for details."  # fmt: skip
+            ) from ex
+        except InvalidConfigOverrideError as ex:
+            raise CliArgumentError(
+                "--config-file", "key-value pair(s) cannot be applied over the preset configuration. See logged stack trace for details."  # fmt: skip
+            ) from ex
+        except ConfigReadError as ex:
+            raise ProgramError(
+                "The recipe configuration cannot be read. See the nested exception for details."
+            ) from ex
 
-            return 2
-        except InvalidConfigOverrideError:
-            log.exception("argument --config: key-value pair(s) cannot be applied over the preset configuration. See logged stack trace for details.")  # fmt: skip
-
-            return 2
-
-        if args.export_config:
-            mergeable_config = to_mergeable(config)
+        if args.dump_config:
+            if isinstance(config, Mapping):
+                config = to_mergeable(config)
 
             yaml_dumper = StandardYamlDumper(context.file_system)
 
             try:
-                yaml_dumper.dump(mergeable_config, sys.stdout)
+                yaml_dumper.dump(config, sys.stdout)
             except YamlError as ex:
                 raise ProgramError(
                     "The recipe configuration cannot be dumped to stdout. See the nested exception for details."
@@ -198,25 +198,23 @@ class RecipeCommandHandler(CliCommandHandler):
             return 0
 
         if not args.output_dir:
-            parser.error("the following arguments are required: output_dir")
-
-            return 2
+            raise CliArgumentError("output_dir", "required")
 
         try:
             set_torch_distributed_variables(context, args.cluster)
         except UnknownClusterError as ex:
             s = ", ".join(ex.supported_clusters)
 
-            log.error("argument --cluster: '{}' is not a known cluster. Must be one of: auto, none, {}", ex.cluster, s)  # fmt: skip
-
-            return 2
+            raise CliArgumentError(
+                "cluster", f"'{ex.cluster}' is not a known cluster. Must be one of: auto, none, {s}"  # fmt: skip
+            ) from None
         except ClusterError as ex:
             if ex.cluster == "slurm":
-                log.exception("'{}' cluster environment cannot be set. See logged stack trace for details. If you are within an allocated Slurm job (i.e. `salloc`), make sure to run with `srun`. If you want to run without Slurm, use `--cluster none`.", ex.cluster)  # fmt: skip
+                message = f"'{ex.cluster}' cluster environment cannot be set. See logged stack trace for details. If you are within an allocated Slurm job (i.e. `salloc`), make sure to run with `srun`. If you want to run without Slurm, use `--cluster none`."
             else:
-                log.exception("'{}' cluster environment cannot be set. See logged stack trace for details.", ex.cluster)  # fmt: skip
+                message = f"'{ex.cluster}' cluster environment cannot be set. See logged stack trace for details."
 
-            return 1
+            raise ProgramError(message) from ex
 
         output_dir: Path = args.output_dir
 
@@ -225,13 +223,17 @@ class RecipeCommandHandler(CliCommandHandler):
         except SweepFormatPlaceholderError as ex:
             s = ", ".join(ex.unknown_keys)
 
-            log.error("argument --sweep-format: must contain only placeholders that correspond to the configuration keys, but contains the following unexpected placeholder(s): {}", s)  # fmt: skip
-
-            return 2
+            raise CliArgumentError(
+                "--sweep-format", f"must contain only placeholders that correspond to the configuration keys, but contains the following unexpected placeholder(s): {s}"  # fmt: skip
+            ) from None
         except SweepFormatError:
-            log.error("argument --sweep-format: must be a non-empty string with brace-enclosed placeholders.")  # fmt: skip
-
-            return 2
+            raise CliArgumentError(
+                "--sweep-format", "must be a non-empty string with brace-enclosed placeholders."  # fmt: skip
+            ) from None
+        except SweepTagError as ex:
+            raise ProgramError(
+                "The sweep tag cannot be generated. See the nested exception for details."
+            ) from ex
 
         output_dir = self._create_output_directory(context, output_dir, sweep_tag)
 
@@ -242,8 +244,8 @@ class RecipeCommandHandler(CliCommandHandler):
         try:
             recipe = self._loader(context, config, output_dir)
         except StructureError as ex:
-            raise StructureError(
-                "The recipe configuration cannot be parsed. See the nested exception for details."
+            raise CliArgumentError(
+                None, "The recipe configuration cannot be parsed. See logged stack trace for details."  # fmt: skip
             ) from ex
 
         # If the recipe is stoppable, use SIGUSR1 as the stop signal.
@@ -280,14 +282,14 @@ class RecipeCommandHandler(CliCommandHandler):
         else:
             console.print("no preset configuration found.")
 
-    def _read_recipe_config(self, context: RuntimeContext, args: Namespace) -> object:
+    def _read_config(self, context: RuntimeContext, args: Namespace) -> object:
         configs = context.get_config_registry(self._config_kls)
 
         file_system = context.file_system
 
         yaml_loader = StandardYamlLoader(file_system)
 
-        config_reader = RecipeConfigReader(configs, file_system, yaml_loader)
+        config_reader = ConfigReader(configs, file_system, yaml_loader)
 
         if args.config_override_files:
             config_override_files = chain.from_iterable(args.config_override_files)
@@ -298,20 +300,6 @@ class RecipeCommandHandler(CliCommandHandler):
             args.preset, config_override_files, args.config_overrides
         )
 
-    def _dump_config(
-        self, context: RuntimeContext, config: object, output_dir: Path
-    ) -> None:
-        yaml_dumper = StandardYamlDumper(context.file_system)
-
-        dumper = ConfigDumper(os.environ, yaml_dumper)
-
-        try:
-            dumper.dump(config, output_dir)
-        except ConfigDumpError as ex:
-            raise ProgramError(
-                "The recipe configuration cannot be saved. See the nested exception for details."
-            ) from ex
-
     def _create_sweep_tag(
         self, context: RuntimeContext, args: Namespace, config: object
     ) -> str | None:
@@ -321,15 +309,15 @@ class RecipeCommandHandler(CliCommandHandler):
         try:
             world_size = get_world_size(os.environ)
         except InvalidEnvironmentVariableError as ex:
-            raise ProgramError(
+            raise SweepTagError(
                 "The world size cannot be determined. See the nested exception for details."
             ) from ex
 
         keys = get_sweep_keys(self._extra_sweep_keys)
 
-        generator = SweepTagGenerator(world_size, keys, args.sweep_format)
+        tag_generator = SweepTagGenerator(world_size, keys, args.sweep_format)
 
-        return generator.generate(args.preset, config)
+        return tag_generator.generate(args.preset, config)
 
     @staticmethod
     def _create_output_directory(
@@ -364,6 +352,23 @@ class RecipeCommandHandler(CliCommandHandler):
 
         log.info("Log files are stored under {}.", output_dir)
 
+    @staticmethod
+    def _dump_config(context: RuntimeContext, config: object, output_dir: Path) -> None:
+        yaml_dumper = StandardYamlDumper(context.file_system)
+
+        dumper = ConfigDumper(os.environ, yaml_dumper)
+
+        try:
+            dumper.dump(config, output_dir)
+        except ConfigDumpError as ex:
+            raise ProgramError(
+                "The recipe configuration cannot be saved. See the nested exception for details."
+            ) from ex
+
+
+class SweepTagError(Exception):
+    pass
+
 
 Recipe: TypeAlias = Callable[[ProgressReporter], None]
 
@@ -382,7 +387,7 @@ class Stoppable(Protocol):
 
 
 @final
-class RecipeConfigReader:
+class ConfigReader:
     _configs: ConfigProvider[object]
     _file_system: FileSystem
     _yaml_loader: YamlLoader
@@ -419,7 +424,7 @@ class RecipeConfigReader:
                 try:
                     is_file = self._file_system.is_file(config_override_file)
                 except OSError as ex:
-                    raise ProgramError(
+                    raise ConfigReadError(
                         f"The '{config_override_file}' configuration file cannot be read. See the nested exception for details."
                     ) from ex
 
@@ -432,18 +437,20 @@ class RecipeConfigReader:
                     )
                 except YamlError as ex:
                     raise InvalidConfigFileError(
-                        config_override_file, f"The '{config_override_file}' configuration file cannot be merged with the preset configuration. See the nested exception for details."  # fmt: skip
+                        config_override_file, f"The '{config_override_file}' configuration file cannot be loaded. See the nested exception for details."  # fmt: skip
                     ) from ex
                 except OSError as ex:
-                    raise ProgramError(
+                    raise ConfigReadError(
                         f"The '{config_override_file}' configuration file cannot be read. See the nested exception for details."
                     ) from ex
 
                 if len(unstructured_config_overrides) == 0:
-                    raise ConfigFileNotFoundError(config_override_file)
+                    raise InvalidConfigFileError(
+                        config_override_file, f"The '{config_override_file}' does not contain any YAML document."  # fmt: skip
+                    )
 
                 try:
-                    unstructured_config = merge_map(
+                    unstructured_config = merge_object(
                         unstructured_config, unstructured_config_overrides[0]
                     )
                 except MergeError as ex:
@@ -455,13 +462,17 @@ class RecipeConfigReader:
         if config_overrides:
             for overrides in config_overrides:
                 try:
-                    unstructured_config = merge_map(unstructured_config, overrides)
+                    unstructured_config = merge_object(unstructured_config, overrides)
                 except MergeError as ex:
                     raise InvalidConfigOverrideError(
                         "The configuration overrides cannot be merged with the preset recipe configuration. See the nested exception for details."
                     ) from ex
 
         return unstructured_config
+
+
+class ConfigReadError(Exception):
+    pass
 
 
 class ConfigFileNotFoundError(Exception):
@@ -497,8 +508,8 @@ class ConfigDumper:
         self._env = env
         self._yaml_dumper = yaml_dumper
 
-    def dump(self, recipe_config: object, output_dir: Path) -> None:
-        log_config(log, "Config", recipe_config)
+    def dump(self, config: object, output_dir: Path) -> None:
+        log_config(log, "Config", config)
 
         try:
             rank = get_rank(self._env)
@@ -512,10 +523,11 @@ class ConfigDumper:
 
         file = output_dir.joinpath("config.yaml")
 
-        recipe_config = to_mergeable(recipe_config)
+        if isinstance(config, Mapping):
+            config = to_mergeable(config)
 
         try:
-            self._yaml_dumper.dump(recipe_config, file)
+            self._yaml_dumper.dump(config, file)
         except OSError as ex:
             raise ConfigDumpError(
                 f"The configuration cannot be saved to the '{file}' file. See the nested exception for details."

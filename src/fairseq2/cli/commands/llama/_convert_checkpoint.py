@@ -19,7 +19,7 @@ from fairseq2.assets import (
     AssetCardFieldNotFoundError,
     AssetCardNotFoundError,
 )
-from fairseq2.cli import CliCommandHandler
+from fairseq2.cli import CliArgumentError, CliCommandHandler
 from fairseq2.cli.utils.rich import get_error_console
 from fairseq2.context import RuntimeContext
 from fairseq2.error import InternalError, ProgramError
@@ -77,9 +77,7 @@ class ConvertLLaMACheckpointHandler(CliCommandHandler):
             raise read_error() from ex
 
         if not input_exists:
-            log.error("argument input_dir: must be a directory")
-
-            return 2
+            raise CliArgumentError("input_dir", "must be a directory")
 
         # Determine input checkpoint files.
         input_file = input_dir.joinpath("model.pt")
@@ -108,9 +106,9 @@ class ConvertLLaMACheckpointHandler(CliCommandHandler):
                 input_files.append(input_file)
 
         if not input_files:
-            log.error("argument input_dir: must contain a model checkpoint file (i.e. model.pt)")  # fmt: skip
-
-            return 2
+            raise CliArgumentError(
+                "input_dir", "must contain a model checkpoint file (i.e. model.pt)"
+            )
 
         output_dir: Path = args.output_dir
 
@@ -146,9 +144,9 @@ class ConvertLLaMACheckpointHandler(CliCommandHandler):
         try:
             card = context.asset_store.retrieve_card(args.model)
         except AssetCardNotFoundError:
-            log.error(f"argument model: '{args.model}' is not a known LLaMA model. Use `fairseq2 assets list` to see the available models.")  # fmt: skip
-
-            return 2
+            raise CliArgumentError(
+                "model", f"'{args.model}' is not a known LLaMA model. Use `fairseq2 assets list` to see the available models."  # fmt: skip
+            ) from None
         except AssetCardError as ex:
             raise ProgramError(
                 f"The '{args.model}' asset card cannot be read. See the nested exception for details."
@@ -157,18 +155,18 @@ class ConvertLLaMACheckpointHandler(CliCommandHandler):
         try:
             family = card.field("model_family").as_(str)
         except AssetCardFieldNotFoundError:
-            log.error(f"argument model: '{args.model}' is not a known LLaMA model. Use `fairseq2 assets list` to see the available models.")  # fmt: skip
-
-            return 2
+            raise CliArgumentError(
+                "model", f"'{args.model}' is not a known LLaMA model. Use `fairseq2 assets list` to see the available models."  # fmt: skip
+            ) from None
         except AssetCardError as ex:
             raise ProgramError(
                 f"The '{args.model}' asset card cannot be read. See the nested exception for details."
             ) from ex
 
         if family != LLAMA_MODEL_FAMILY:
-            log.error(f"argument model: '{args.model}' is not a model of LLaMA family.")  # fmt: skip
-
-            return 2
+            raise CliArgumentError(
+                "model", f"'{args.model}' is not a model of LLaMA family."
+            )
 
         model_handlers = context.get_registry(ModelHandler)
 

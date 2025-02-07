@@ -45,6 +45,7 @@ from fairseq2.recipes.common import (
     InvalidCheckpointPathError,
     NotSupportedDistributedFeature,
 )
+from fairseq2.utils.validation import ValidationError
 
 
 def _register_user_error_types(cli: Cli) -> None:
@@ -74,3 +75,4 @@ def _register_user_error_types(cli: Cli) -> None:
     cli.register_user_error_type(UnknownTextTokenizerError)
     cli.register_user_error_type(UnknownTextTokenizerFamilyError)
     cli.register_user_error_type(UnspecifiedNumberOfStepsError)
+    cli.register_user_error_type(ValidationError)

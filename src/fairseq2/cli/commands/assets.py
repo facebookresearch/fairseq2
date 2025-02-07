@@ -22,7 +22,7 @@ from fairseq2.assets import (
     AssetMetadataLoadError,
     AssetStore,
 )
-from fairseq2.cli import CliCommandHandler
+from fairseq2.cli import CliArgumentError, CliCommandHandler
 from fairseq2.cli.utils.rich import get_console
 from fairseq2.context import RuntimeContext
 from fairseq2.error import ProgramError
@@ -187,9 +187,9 @@ class ShowAssetHandler(CliCommandHandler):
                 args.name, envs=args.envs, scope=scope
             )
         except AssetCardNotFoundError:
-            log.error("argument name: '{}' is not a known asset. Use `fairseq2 assets list` to see the available assets.", args.name)  # fmt: skip
-
-            return 2
+            raise CliArgumentError(
+                "name", f"'{args.name}' is not a known asset. Use `fairseq2 assets list` to see the available assets."  # fmt: skip
+            ) from None
         except AssetCardError as ex:
             raise ProgramError(
                 f"The '{args.name}' asset card cannot be read. See the nested exception for details."

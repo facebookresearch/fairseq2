@@ -15,6 +15,7 @@ from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import validate
 
 
 class Sampler(ABC):
@@ -143,6 +144,8 @@ class TopPSamplerHandler(SamplerHandler):
     def create(self, config: object) -> Sampler:
         config = structure(config, TopPSamplerConfig)
 
+        validate(config)
+
         return TopPSampler(p=config.p)
 
     @property
@@ -164,6 +167,8 @@ class TopKSamplerHandler(SamplerHandler):
     @override
     def create(self, config: object) -> Sampler:
         config = structure(config, TopKSamplerConfig)
+
+        validate(config)
 
         return TopKSampler(k=config.k)
 

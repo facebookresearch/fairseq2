@@ -121,6 +121,10 @@ class Cli:
 
         try:
             return args.command.run(context, args)  # type: ignore[no-any-return]
+        except CliArgumentError as ex:
+            log.error(str(ex), ex=ex.__cause__)
+
+            return 2
         except ProgramError:
             log.exception("Command failed. See logged stack trace for details.")
 
@@ -386,3 +390,15 @@ class CliCommandHandler(ABC):
         self, context: RuntimeContext, parser: ArgumentParser, args: Namespace
     ) -> int:
         """Run the command."""
+
+
+class CliArgumentError(Exception):
+    param_name: str | None
+
+    def __init__(self, param_name: str | None, message: str) -> None:
+        if param_name is not None:
+            message = f"argument: {param_name}: {message}"
+
+        super().__init__(message)
+
+        self.param_name = param_name

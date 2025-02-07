@@ -61,7 +61,7 @@ class FileCheckpointMetadataSaver(CheckpointMetadataSaver):
             metadata: dict[str, object] = {
                 "name": "checkpoint",
                 "model_family": model_family,
-                "model_config_override": {
+                "model_config": {
                     "_set_": unstructured_config,
                 },
             }

@@ -7,7 +7,7 @@
 name: s2t_transformer_mustc_asr_de_s
 model_family: s2t_transformer
 model_arch: small
-model_config_override:
+model_config:
   target_vocab_info:
     size: 5000
 task: transcription
@@ -21,7 +21,7 @@ tokenizer_family: s2t_transformer
 name: s2t_transformer_mustc_asr_es_s
 model_family: s2t_transformer
 model_arch: small
-model_config_override:
+model_config:
   target_vocab_info:
     _set_:
       size: 5000
@@ -47,7 +47,7 @@ tokenizer_family: s2t_transformer
 name: s2t_transformer_mustc_st_de_s
 model_family: s2t_transformer
 model_arch: small
-model_config_override:
+model_config:
   target_vocab_info:
     _set_:
       size: 8000

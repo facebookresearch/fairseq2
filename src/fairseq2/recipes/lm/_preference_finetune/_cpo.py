@@ -28,6 +28,7 @@ from fairseq2.recipes.lm._preference_finetune._common import (
 from fairseq2.recipes.lm._preference_finetune._handler import POFinetuneUnitHandler
 from fairseq2.recipes.trainer import AbstractTrainUnit, TrainUnit
 from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import validate
 
 
 @final
@@ -161,6 +162,8 @@ class CpoFinetuneUnitHandler(POFinetuneUnitHandler):
         )
 
         config = structure(criterion_section.config, CpoFinetuneConfig)
+
+        validate(config)
 
         return CpoFinetuneUnit(model, gangs, config.beta, config.nll_scale)
 

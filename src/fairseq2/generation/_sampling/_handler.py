@@ -30,6 +30,7 @@ from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.registry import Provider
 from fairseq2.utils.structured import StructureError, structure
+from fairseq2.utils.validation import validate
 
 SAMPLING_GENERATOR: Final = "sampling"
 
@@ -91,6 +92,8 @@ class SamplingSequenceGeneratorHandler(SequenceGeneratorHandler):
     def create(self, model: DecoderModel, config: object) -> SequenceGenerator:
         config = structure(config, SamplingConfig)
 
+        validate(config)
+
         sampler_section = config.sampler
 
         try:
@@ -145,6 +148,8 @@ class SamplingSeq2SeqGeneratorHandler(Seq2SeqGeneratorHandler):
     @override
     def create(self, model: EncoderDecoderModel, config: object) -> Seq2SeqGenerator:
         config = structure(config, SamplingConfig)
+
+        validate(config)
 
         sampler_section = config.sampler
 
