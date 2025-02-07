@@ -7,17 +7,24 @@
 from __future__ import annotations
 
 import logging
+import os
 import time
 from logging import DEBUG, INFO, Formatter, Handler, NullHandler
 
 from rich.logging import RichHandler
 
-from fairseq2.gang import get_rank
-from fairseq2.recipes.utils.rich import get_error_console
+from fairseq2.cli.utils.rich import get_error_console
+from fairseq2.logging import LoggingSetupError
+from fairseq2.utils.env import InvalidEnvironmentVariableError, get_rank
 
 
 def setup_logging(*, debug: bool = False, utc_time: bool = False) -> None:
-    rank = get_rank()
+    try:
+        rank = get_rank(os.environ)
+    except InvalidEnvironmentVariableError as ex:
+        raise LoggingSetupError(
+            "The rank of the process cannot be determined. See the nested exception for details."
+        ) from ex
 
     level = DEBUG if debug else INFO
 

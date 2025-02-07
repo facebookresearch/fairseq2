@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 from torch.nn import Module
 from typing_extensions import override
 
@@ -14,23 +16,22 @@ from fairseq2.models.mistral._config import MISTRAL_MODEL_FAMILY, MistralConfig
 from fairseq2.models.mistral._factory import MistralFactory
 from fairseq2.models.transformer_decoder import TransformerDecoderModel
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
-from fairseq2.typing import safe_cast
 
 
 class MistralModelHandler(AbstractModelHandler):
-    @override
     @property
+    @override
     def family(self) -> str:
         return MISTRAL_MODEL_FAMILY
 
-    @override
     @property
+    @override
     def kls(self) -> type[Module]:
         return TransformerDecoderModel
 
     @override
     def _create_model(self, config: object) -> Module:
-        config = safe_cast("config", config, MistralConfig)
+        config = cast(MistralConfig, config)
 
         return MistralFactory(config).create_model()
 

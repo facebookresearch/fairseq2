@@ -8,12 +8,12 @@ from __future__ import annotations
 
 
 class UnknownTextTokenizerError(Exception):
-    name: str
+    tokenizer_name: str
 
-    def __init__(self, name: str) -> None:
-        super().__init__(f"'{name}' is not a known text tokenizer.")
+    def __init__(self, tokenizer_name: str) -> None:
+        super().__init__(f"'{tokenizer_name}' is not a known text tokenizer.")
 
-        self.name = name
+        self.tokenizer_name = tokenizer_name
 
 
 class UnknownTextTokenizerFamilyError(Exception):
@@ -21,16 +21,27 @@ class UnknownTextTokenizerFamilyError(Exception):
     tokenizer_name: str | None
 
     def __init__(self, family: str, tokenizer_name: str | None = None) -> None:
-        super().__init__(f"'{family}' is not a known text tokenizer family.")
+        if tokenizer_name is None:
+            message = f"'{family}' is not a known text tokenizer family."
+        else:
+            message = f"The '{tokenizer_name}' text tokenizer has an unknown family '{family}'"
+
+        super().__init__(message)
 
         self.family = family
         self.tokenizer_name = tokenizer_name
 
 
 class TextTokenizerLoadError(Exception):
-    name: str
+    tokenizer_name: str
 
-    def __init__(self, name: str, message: str) -> None:
+    def __init__(self, tokenizer_name: str, message: str) -> None:
         super().__init__(message)
 
-        self.name = name
+        self.tokenizer_name = tokenizer_name
+
+
+def text_tokenizer_asset_card_error(tokenizer_name: str) -> TextTokenizerLoadError:
+    return TextTokenizerLoadError(
+        tokenizer_name, f"The '{tokenizer_name}' asset card cannot be read. See the nested exception for details."  # fmt: skip
+    )

@@ -13,7 +13,7 @@ from fairseq2.models.utils.checkpoint import convert_model_state_dict
 
 
 def convert_to_reference_llama_checkpoint(
-    checkpoint: dict[str, object]
+    checkpoint: dict[str, object],
 ) -> dict[str, object]:
     """Convert a fairseq2 LLaMA checkpoint to the reference format."""
     model_key = checkpoint.get("model_key", "model")

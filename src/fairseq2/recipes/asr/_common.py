@@ -22,6 +22,7 @@ from fairseq2.models.asr import AsrModel, AsrModelOutput
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.recipes.common import check_model_type
+from fairseq2.recipes.error import UnitError
 from fairseq2.recipes.metrics import BaseMetricBag
 
 
@@ -118,23 +119,28 @@ class AsrScorer:
             refs, ref_seqs, ref_padding_mask, hyps, hyp_seqs, hyp_padding_mask
         )
 
-        # Dump references.
-        stream = self._ref_output_stream
-        if stream is not None:
-            for ref in refs:
-                stream.write(ref)
-                stream.write("\n")
+        try:
+            # Dump references.
+            stream = self._ref_output_stream
+            if stream is not None:
+                for ref in refs:
+                    stream.write(ref)
+                    stream.write("\n")
 
-            stream.flush()
+                stream.flush()
 
-        # Dump hypotheses.
-        stream = self._hyp_output_stream
-        if stream is not None:
-            for hyp in hyps:
-                stream.write(hyp)
-                stream.write("\n")
+            # Dump hypotheses.
+            stream = self._hyp_output_stream
+            if stream is not None:
+                for hyp in hyps:
+                    stream.write(hyp)
+                    stream.write("\n")
 
-            stream.flush()
+                stream.flush()
+        except OSError as ex:
+            raise UnitError(
+                "The generator output cannot be written to the stream. See the nested exception for details."
+            ) from ex
 
 
 class AsrMetricBag(BaseMetricBag):

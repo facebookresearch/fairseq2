@@ -14,12 +14,12 @@ from fairseq2.data.text.tokenizers.sentencepiece import (
     BasicSentencePieceTokenizerHandler,
 )
 
-MISTRAL_TOKENIZER_FAMILY: Final = "mistal"
+MISTRAL_TOKENIZER_FAMILY: Final = "mistral"
 
 
 @final
 class MistralTokenizerHandler(BasicSentencePieceTokenizerHandler):
-    @override
     @property
+    @override
     def family(self) -> str:
         return MISTRAL_TOKENIZER_FAMILY

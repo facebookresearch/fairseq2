@@ -33,8 +33,8 @@ from fairseq2.datasets import (
     DatasetHubAccessor,
     DatasetLoadError,
     LengthBatching,
-    SplitNotFoundError,
     StaticBatching,
+    UnknownSplitError,
 )
 from fairseq2.datasets._utils import _load_files_and_weights
 from fairseq2.error import NotSupportedError
@@ -171,7 +171,7 @@ class GenericInstructionDataset(InstructionDataset):
                 child_dirs = [p for p in path.iterdir() if p.is_dir()]
             except OSError as ex:
                 raise DatasetLoadError(
-                    name, f"The files under the '{path}' directory cannot be retrieved. See the nested exception for details."  # fmt: skip
+                    name, f"The files under the '{path}' directory of the '{name}' dataset cannot be retrieved. See the nested exception for details."  # fmt: skip
                 ) from ex
 
             for child_dir in child_dirs:
@@ -198,7 +198,7 @@ class GenericInstructionDataset(InstructionDataset):
     ) -> DataPipelineReader[SequenceBatch]:
         files_weights = self._splits.get(split)
         if files_weights is None:
-            raise SplitNotFoundError(self._name, split, self._splits.keys())
+            raise UnknownSplitError(self._name, split, self._splits.keys())
 
         if options is None:
             options = InstructionReadOptions()
@@ -321,7 +321,9 @@ class GenericInstructionDataset(InstructionDataset):
 
         pipeline = builder.map(to_batch).and_return()
 
-        return DataPipelineReader[SequenceBatch](self._name, pipeline, gang, options)
+        return DataPipelineReader[SequenceBatch](
+            self._name, split, pipeline, gang, options
+        )
 
     @override
     def create_prompt_reader(
@@ -336,7 +338,7 @@ class GenericInstructionDataset(InstructionDataset):
         try:
             files, weights = self._splits[split]
         except KeyError:
-            raise SplitNotFoundError(self._name, split, self._splits.keys()) from None
+            raise UnknownSplitError(self._name, split, self._splits.keys()) from None
 
         if options is None:
             options = InstructionPromptReadOptions()
@@ -404,7 +406,9 @@ class GenericInstructionDataset(InstructionDataset):
 
         pipeline = builder.map(to_batch).and_return()
 
-        return DataPipelineReader[SequenceBatch](self._name, pipeline, gang, options)
+        return DataPipelineReader[SequenceBatch](
+            self._name, split, pipeline, gang, options
+        )
 
     def _read_jsonl(self, path: Path, tokenizer: TextTokenizer) -> DataPipelineBuilder:
         lines = []

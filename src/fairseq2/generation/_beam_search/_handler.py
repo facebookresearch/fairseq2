@@ -28,9 +28,8 @@ from fairseq2.generation._handler import (
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.registry import Provider
-from fairseq2.typing import safe_cast
-from fairseq2.utils.config import ConfigSectionHandler
-from fairseq2.utils.structured import StructureError, structure
+from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import validate
 
 BEAM_SEARCH_GENERATOR: Final = "beam_search"
 
@@ -84,32 +83,6 @@ class BeamSearchAlgorithmSection:
 
 
 @final
-class BeamSearchAlgorithmSectionHandler(ConfigSectionHandler):
-    _algorithm_handlers: Provider[BeamSearchAlgorithmHandler]
-
-    def __init__(
-        self, algorithm_handlers: Provider[BeamSearchAlgorithmHandler]
-    ) -> None:
-        self._algorithm_handlers = algorithm_handlers
-
-    @override
-    def process(self, section: object) -> None:
-        section = safe_cast("section", section, BeamSearchAlgorithmSection)
-
-        try:
-            algorithm_handler = self._algorithm_handlers.get(section.name)
-        except LookupError:
-            return
-
-        try:
-            section.config = structure(section.config, algorithm_handler.config_kls)
-        except StructureError as ex:
-            raise StructureError(
-                "`config` cannot be structured. See the nested exception for details."
-            ) from ex
-
-
-@final
 class BeamSearchSequenceGeneratorHandler(SequenceGeneratorHandler):
     _algorithm_handlers: Provider[BeamSearchAlgorithmHandler]
 
@@ -120,7 +93,9 @@ class BeamSearchSequenceGeneratorHandler(SequenceGeneratorHandler):
 
     @override
     def create(self, model: DecoderModel, config: object) -> SequenceGenerator:
-        config = safe_cast("config", config, BeamSearchConfig)
+        config = structure(config, BeamSearchConfig)
+
+        validate(config)
 
         algorithm_section = config.algorithm
 
@@ -172,7 +147,9 @@ class BeamSearchSeq2SeqGeneratorHandler(Seq2SeqGeneratorHandler):
 
     @override
     def create(self, model: EncoderDecoderModel, config: object) -> Seq2SeqGenerator:
-        config = safe_cast("config", config, BeamSearchConfig)
+        config = structure(config, BeamSearchConfig)
+
+        validate(config)
 
         algorithm_section = config.algorithm
 

@@ -18,14 +18,12 @@ from fairseq2.recipes.trainer import TrainUnit
 class POFinetuneUnitHandler(ABC):
     @abstractmethod
     def create(
-        self, model: Module, gangs: Gangs, config: object
-    ) -> TrainUnit[PreferenceBatch]:
-        ...
+        self, model: Module, gangs: Gangs, recipe_config: object
+    ) -> TrainUnit[PreferenceBatch]: ...
 
     @property
     @abstractmethod
-    def config_kls(self) -> type[object]:
-        ...
+    def config_kls(self) -> type[object]: ...
 
 
 class UnknownPOFinetuneUnitError(Exception):

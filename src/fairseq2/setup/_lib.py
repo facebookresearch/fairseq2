@@ -6,13 +6,18 @@
 
 from __future__ import annotations
 
-from fairseq2.assets import InProcAssetDownloadManager, StandardAssetStore
-from fairseq2.context import RuntimeContext, get_runtime_context, set_runtime_context
+import os
+
+from fairseq2.assets import (
+    AssetDirectories,
+    InProcAssetDownloadManager,
+    StandardAssetStore,
+)
+from fairseq2.context import RuntimeContext, set_runtime_context
 from fairseq2.extensions import run_extensions
 from fairseq2.setup._assets import _register_assets
 from fairseq2.setup._chatbots import _register_chatbots
 from fairseq2.setup._clusters import _register_clusters
-from fairseq2.setup._config import _register_config_sections
 from fairseq2.setup._datasets import _register_datasets
 from fairseq2.setup._generation import (
     _register_beam_search_algorithms,
@@ -26,14 +31,15 @@ from fairseq2.setup._metrics import (
 )
 from fairseq2.setup._models import _register_models
 from fairseq2.setup._optim import _register_lr_schedulers, _register_optimizers
+from fairseq2.setup._profilers import _register_profilers
 from fairseq2.setup._recipes import _register_recipes
 from fairseq2.setup._text_tokenizers import _register_text_tokenizers
-from fairseq2.utils.file import StandardFileSystem
+from fairseq2.utils.file import LocalFileSystem
 
 _setup_called: bool = False
 
 
-def setup_fairseq2() -> RuntimeContext:
+def setup_fairseq2() -> None:
     """
     Sets up fairseq2.
 
@@ -50,23 +56,25 @@ def setup_fairseq2() -> RuntimeContext:
     global _setup_called
 
     if _setup_called:
-        context = get_runtime_context()
-    else:
-        _setup_called = True  # Avoid recursive calls.
+        return
 
-        context = setup_runtime_context()
+    _setup_called = True  # Mark early to avoid recursive calls.
 
-        set_runtime_context(context)
+    context = setup_library()
 
-    return context
+    set_runtime_context(context)
 
 
-def setup_runtime_context() -> RuntimeContext:
+def setup_library() -> RuntimeContext:
     asset_store = StandardAssetStore()
 
-    asset_download_manager = InProcAssetDownloadManager()
+    file_system = LocalFileSystem()
 
-    file_system = StandardFileSystem()
+    asset_dirs = AssetDirectories(os.environ, file_system)
+
+    asset_cache_dir = asset_dirs.get_cache_dir()
+
+    asset_download_manager = InProcAssetDownloadManager(asset_cache_dir)
 
     context = RuntimeContext(asset_store, asset_download_manager, file_system)
 
@@ -74,13 +82,13 @@ def setup_runtime_context() -> RuntimeContext:
     _register_beam_search_algorithms(context)
     _register_chatbots(context)
     _register_clusters(context)
-    _register_config_sections(context)
     _register_datasets(context)
     _register_lr_schedulers(context)
     _register_metric_descriptors(context)
     _register_metric_recorders(context)
     _register_models(context)
     _register_optimizers(context)
+    _register_profilers(context)
     _register_recipes(context)
     _register_samplers(context)
     _register_seq2seq_generators(context)

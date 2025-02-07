@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 import torch
 from torch import Tensor
 from torch.nn import Module
@@ -16,23 +18,22 @@ from fairseq2.models.jepa._config import JEPA_MODEL_FAMILY, JepaConfig
 from fairseq2.models.jepa._factory import JepaFactory
 from fairseq2.models.jepa._model import JepaModel
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
-from fairseq2.typing import safe_cast
 
 
 class JepaModelHandler(AbstractModelHandler):
-    @override
     @property
+    @override
     def family(self) -> str:
         return JEPA_MODEL_FAMILY
 
-    @override
     @property
+    @override
     def kls(self) -> type[Module]:
         return JepaModel
 
     @override
     def _create_model(self, config: object) -> Module:
-        config = safe_cast("config", config, JepaConfig)
+        config = cast(JepaConfig, config)
 
         return JepaFactory(config).create_model()
 
@@ -61,7 +62,7 @@ def convert_jepa_checkpoint(checkpoint: dict[str, object]) -> dict[str, object]:
 
 
 def _convert_jepa_encoder_checkpoint(
-    checkpoint: dict[str, object]
+    checkpoint: dict[str, object],
 ) -> dict[str, object]:
     try:
         del checkpoint["module.backbone.pos_embed"]

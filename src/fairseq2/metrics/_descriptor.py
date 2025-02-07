@@ -15,8 +15,7 @@ from torch import Tensor
 
 
 class MetricFormatter(Protocol):
-    def __call__(self, value: object) -> str:
-        ...
+    def __call__(self, value: object) -> str: ...
 
 
 @dataclass

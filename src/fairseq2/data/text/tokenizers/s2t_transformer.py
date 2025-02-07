@@ -16,6 +16,7 @@ from fairseq2.data.text.tokenizers import (
     AbstractTextTokenizerHandler,
     TextTokenizer,
     TextTokenizerLoadError,
+    text_tokenizer_asset_card_error,
 )
 from fairseq2.data.text.tokenizers.sentencepiece import (
     SentencePieceEncoder,
@@ -114,8 +115,8 @@ S2T_TRANSFORMER_TOKENIZER_FAMILY: Final = "s2t_transformer"
 
 @final
 class S2TTransformerTokenizerHandler(AbstractTextTokenizerHandler):
-    @override
     @property
+    @override
     def family(self) -> str:
         return S2T_TRANSFORMER_TOKENIZER_FAMILY
 
@@ -123,17 +124,23 @@ class S2TTransformerTokenizerHandler(AbstractTextTokenizerHandler):
     def _load_tokenizer(self, path: Path, card: AssetCard) -> TextTokenizer:
         valid_tasks = {"translation", "transcription"}
 
-        task = card.field("task").as_one_of(valid_tasks)
+        try:
+            task = card.field("task").as_one_of(valid_tasks)
+        except AssetCardError as ex:
+            raise text_tokenizer_asset_card_error(card.name) from ex
 
-        target_langs = card.field("target_langs").as_(list[str])
+        try:
+            target_langs = card.field("target_langs").as_(list[str])
+        except AssetCardError as ex:
+            raise text_tokenizer_asset_card_error(card.name) from ex
 
         try:
             return S2TTransformerTokenizer(
                 path, task, set(target_langs), default_target_lang=target_langs[0]
             )
         except ValueError as ex:
-            raise AssetCardError(
-                card.name, f"The values of the `task` and `target_langs` fields of the '{card.name}' asset card do not represent a valid S2T Transformer tokenizer configuration. See the nested exception for details."  # fmt: skip
+            raise TextTokenizerLoadError(
+                card.name, f"The '{card.name}' asset card does not contain a valid text tokenizer configuration of the '{self.family}' family. See the nested exception for details."  # fmt: skip
             ) from ex
         except RuntimeError as ex:
             raise TextTokenizerLoadError(

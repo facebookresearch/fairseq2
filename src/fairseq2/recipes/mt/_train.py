@@ -23,53 +23,49 @@ from fairseq2.datasets.parallel_text import (
 )
 from fairseq2.gang import Gangs
 from fairseq2.generation import BeamSearchConfig
-from fairseq2.logging import log
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.optim.lr_scheduler import MYLE_LR, MyleLRConfig
 from fairseq2.recipes.common import (
-    compile_model,
     create_checkpoint_manager,
     create_lr_scheduler,
     create_optimizer,
     create_seq2seq_generator,
     create_trainer,
     load_dataset,
-    load_model,
     load_text_tokenizer,
-    prepare_model,
     register_extra_asset_paths,
-    save_checkpoint_card,
     setup_gangs,
-    wrap_data_parallel,
+    setup_model,
 )
 from fairseq2.recipes.config import (
+    CommonSection,
     DatasetSection,
     FsdpSection,
+    GangSection,
     LRSchedulerSection,
     ModelSection,
     OptimizerSection,
     RegimeSection,
     Seq2SeqGeneratorSection,
+    TextTokenizerSection,
     TrainerSection,
-    TrainRecipeConfig,
 )
 from fairseq2.recipes.evaluator import EvalUnit
 from fairseq2.recipes.metrics import Seq2SeqMetricBag
-from fairseq2.recipes.mt._common import MTCriterion
+from fairseq2.recipes.mt._common import MTCriterion, MTLossSection
 from fairseq2.recipes.mt._eval import MTBleuChrfEvalUnit, MTLossEvalUnit
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
-from fairseq2.recipes.utils.log import log_model, log_model_config
 from fairseq2.typing import CPU
-from fairseq2.utils.config import process_config
 from fairseq2.utils.rng import manual_seed
+from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import validate
 
 
 @dataclass(kw_only=True)
-class MTTrainConfig(TrainRecipeConfig):
-    """Holds the configuration of a machine translation training task.
-
+class MTTrainConfig:
+    """
     The default values correspond to the baseline NLLB-200 training setup as
     described in cite:t:`https://doi.org/10.48550/arxiv.2207.04672`.
     """
@@ -84,16 +80,22 @@ class MTTrainConfig(TrainRecipeConfig):
         default_factory=lambda: MTTrainDatasetSection()
     )
 
-    tokenizer: str | None = "nllb-200"
+    text_tokenizer: TextTokenizerSection = field(
+        default_factory=lambda: TextTokenizerSection(name="nllb-200")
+    )
 
-    trainer: MTTrainerSection = field(
-        default_factory=lambda: MTTrainerSection(
+    gang: GangSection = field(default_factory=lambda: GangSection())
+
+    trainer: TrainerSection = field(
+        default_factory=lambda: TrainerSection(
             dtype=torch.float16,
             data_parallelism="fsdp",
             fsdp=FsdpSection(granularity="stack"),
             gradient_accumulation=2,
         )
     )
+
+    loss: MTLossSection = field(default_factory=lambda: MTLossSection())
 
     optimizer: OptimizerSection = field(
         default_factory=lambda: OptimizerSection(
@@ -119,6 +121,8 @@ class MTTrainConfig(TrainRecipeConfig):
     validation: MTValidationSection = field(
         default_factory=lambda: MTValidationSection()
     )
+
+    common: CommonSection = field(default_factory=lambda: CommonSection())
 
 
 @dataclass(kw_only=True)
@@ -150,12 +154,6 @@ class MTTrainDatasetSection(DatasetSection):
 
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
-
-
-@dataclass(kw_only=True)
-class MTTrainerSection(TrainerSection):
-    label_smoothing: float = 0.1
-    """The amount of label smoothing to apply while computing the loss."""
 
 
 @dataclass(kw_only=True)
@@ -197,47 +195,40 @@ def register_mt_train_configs(context: RuntimeContext) -> None:
 
 
 def load_mt_trainer(
-    context: RuntimeContext, config: MTTrainConfig, output_dir: Path
+    context: RuntimeContext, config: object, output_dir: Path
 ) -> Trainer[Seq2SeqBatch]:
-    register_extra_asset_paths(context, config.assets)
+    config = structure(config, MTTrainConfig)
 
-    process_config(context, config)
+    validate(config)
 
-    gangs = setup_gangs(context, config.gang)
+    register_extra_asset_paths(context, config)
+
+    torch.set_float32_matmul_precision("high")
+
+    gangs = setup_gangs(context, config)
 
     checkpoint_manager = create_checkpoint_manager(context, gangs, output_dir)
 
-    dataset = load_dataset(ParallelTextDataset, context, config.dataset, gangs)
+    seed = config.common.seed
 
-    tokenizer = load_text_tokenizer(context, config.model.name, config.tokenizer)
-
-    seed = config.seed
-
-    manual_seed(seed, CPU, context.device)
+    manual_seed(seed, CPU, gangs.root.device)
 
     seed += 1
 
-    log_model_config(log, config.model.config)
+    model = setup_model(
+        EncoderDecoderModel, context, config, output_dir, gangs, checkpoint_manager
+    )
 
-    model = load_model(EncoderDecoderModel, context, config, gangs, checkpoint_manager)
-
-    dp_model = wrap_data_parallel(context, config, model, gangs, checkpoint_manager)
-
-    dp_model = prepare_model(context, config, dp_model, gangs)
-
-    log_model(log, dp_model, gangs)
-
-    if config.trainer.torch_compile:
-        model = compile_model(context, config.model, model)
-
-    save_checkpoint_card(context, config, output_dir, gangs, config.tokenizer)
-
-    optimizer = create_optimizer(context, config, dp_model)
+    optimizer = create_optimizer(context, config, model)
 
     lr_scheduler = create_lr_scheduler(context, config, optimizer)
 
+    dataset = load_dataset(ParallelTextDataset, context, config, gangs)
+
+    tokenizer = load_text_tokenizer(context, config)
+
     # Initialize the train unit.
-    criterion = MTCriterion(dp_model, label_smoothing=config.trainer.label_smoothing)
+    criterion = MTCriterion(model, label_smoothing=config.loss.label_smoothing)
 
     unit = MTTrainUnit(criterion, gangs)
 
@@ -270,9 +261,7 @@ def load_mt_trainer(
 
     # Initialize the validation units.
     if config.validation.compute_bleu_chrf:
-        seq2seq_generator = create_seq2seq_generator(
-            context, config.validation.seq2seq_generator, model
-        )
+        seq2seq_generator = create_seq2seq_generator(context, config, model)
     else:
         seq2seq_generator = None
 

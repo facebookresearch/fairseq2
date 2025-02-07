@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import os
+
 from fairseq2.context import RuntimeContext
 from fairseq2.recipes.cluster import ClusterHandler, SlurmClusterHandler
 
@@ -13,4 +15,4 @@ from fairseq2.recipes.cluster import ClusterHandler, SlurmClusterHandler
 def _register_clusters(context: RuntimeContext) -> None:
     registry = context.get_registry(ClusterHandler)
 
-    registry.register("slurm", SlurmClusterHandler())
+    registry.register("slurm", SlurmClusterHandler(os.environ))

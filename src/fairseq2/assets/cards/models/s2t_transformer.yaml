@@ -23,7 +23,8 @@ model_family: s2t_transformer
 model_arch: small
 model_config:
   target_vocab_info:
-    size: 5000
+    _set_:
+      size: 5000
 task: transcription
 target_langs: [en]
 checkpoint: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_es_asr_transformer_s.pt"
@@ -48,7 +49,8 @@ model_family: s2t_transformer
 model_arch: small
 model_config:
   target_vocab_info:
-    size: 8000
+    _set_:
+      size: 8000
 task: translation
 target_langs: [de]
 checkpoint: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_de_st_transformer_s.pt"

@@ -22,48 +22,49 @@ from fairseq2.datasets.instruction import (
     InstructionDataset,
     InstructionPromptReadOptions,
 )
-from fairseq2.error import InternalError, SetupError
+from fairseq2.error import InternalError, ProgramError
 from fairseq2.gang import Gangs
 from fairseq2.generation import SamplingConfig, SequenceGenerator
-from fairseq2.logging import log
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.sequence import SequenceBatch
-from fairseq2.nn.utils.module import remove_parametrizations
 from fairseq2.recipes.common import (
-    broadcast_model,
-    compile_eval_model,
     create_generator,
     create_seq_generator,
     load_dataset,
-    load_eval_model,
     load_text_tokenizer,
     register_extra_asset_paths,
     setup_gangs,
+    setup_reference_model,
 )
 from fairseq2.recipes.config import (
+    CommonSection,
     DatasetSection,
-    GenerateRecipeConfig,
+    GangSection,
     GeneratorSection,
+    ReferenceModelSection,
     SequenceGeneratorSection,
 )
+from fairseq2.recipes.error import UnitError
 from fairseq2.recipes.generator import AbstractGeneratorUnit, Generator
 from fairseq2.recipes.metrics import SequenceGenerationMetricBag
-from fairseq2.recipes.utils.log import log_model
 from fairseq2.typing import CPU
-from fairseq2.utils.config import process_config
 from fairseq2.utils.file import FileMode
 from fairseq2.utils.rng import manual_seed
+from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import validate
 
 
 @dataclass(kw_only=True)
-class TextGenerateConfig(GenerateRecipeConfig):
-    """Holds the configuration of a text generation task."""
-
-    model: str = "llama3_8b_instruct"
+class TextGenerateConfig:
+    model: ReferenceModelSection = field(
+        default_factory=lambda: ReferenceModelSection(name="llama3_8b_instruct")
+    )
 
     dataset: TextGenerateDatasetSection = field(
         default_factory=lambda: TextGenerateDatasetSection()
     )
+
+    gang: GangSection = field(default_factory=lambda: GangSection())
 
     generator: GeneratorSection = field(
         default_factory=lambda: GeneratorSection(dtype=torch.bfloat16)
@@ -74,6 +75,8 @@ class TextGenerateConfig(GenerateRecipeConfig):
             config=SamplingConfig(), batch_size=1
         )
     )
+
+    common: CommonSection = field(default_factory=lambda: CommonSection())
 
 
 @dataclass(kw_only=True)
@@ -105,7 +108,7 @@ def register_text_generate_configs(context: RuntimeContext) -> None:
     def llama2_7b_chat() -> TextGenerateConfig:
         config = llama3_8b_instruct()
 
-        config.model = "llama2_7b_chat"
+        config.model.name = "llama2_7b_chat"
 
         return config
 
@@ -113,7 +116,7 @@ def register_text_generate_configs(context: RuntimeContext) -> None:
     def llama2_70b_chat() -> TextGenerateConfig:
         config = llama2_7b_chat()
 
-        config.model = "llama2_70b_chat"
+        config.model.name = "llama2_70b_chat"
         config.gang.tensor_parallel_size = 8
 
         return config
@@ -126,7 +129,7 @@ def register_text_generate_configs(context: RuntimeContext) -> None:
     def llama3_70b_instruct() -> TextGenerateConfig:
         config = llama3_8b_instruct()
 
-        config.model = "llama3_70b_instruct"
+        config.model.name = "llama3_70b_instruct"
         config.gang.tensor_parallel_size = 8
 
         return config
@@ -135,7 +138,7 @@ def register_text_generate_configs(context: RuntimeContext) -> None:
     def llama3_1_8b_instruct() -> TextGenerateConfig:
         config = llama3_8b_instruct()
 
-        config.model = "llama3_1_8b_instruct"
+        config.model.name = "llama3_1_8b_instruct"
 
         return config
 
@@ -143,79 +146,80 @@ def register_text_generate_configs(context: RuntimeContext) -> None:
     def llama3_1_70b_instruct() -> TextGenerateConfig:
         config = llama3_70b_instruct()
 
-        config.model = "llama3_1_70b_instruct"
+        config.model.name = "llama3_1_70b_instruct"
 
         return config
 
 
 @torch.inference_mode()
 def load_text_generator(
-    context: RuntimeContext, config: TextGenerateConfig, output_dir: Path
+    context: RuntimeContext, config: object, output_dir: Path
 ) -> Generator[SequenceBatch]:
-    register_extra_asset_paths(context, config.assets)
+    config = structure(config, TextGenerateConfig)
 
-    process_config(context, config)
+    validate(config)
 
-    gangs = setup_gangs(context, config.gang)
+    register_extra_asset_paths(context, config)
 
-    dataset = load_dataset(InstructionDataset, context, config.dataset, gangs)
+    torch.set_float32_matmul_precision("high")
 
-    tokenizer = load_text_tokenizer(context, config.model)
+    gangs = setup_gangs(context, config)
 
-    seed = config.seed
+    seed = config.common.seed
 
-    manual_seed(seed, CPU, context.device)
+    manual_seed(seed, CPU, gangs.root.device)
 
     seed += 1
 
-    model = load_eval_model(
+    model = setup_reference_model(
         DecoderModel,
         context,
-        config.model,
+        config.model.name,
         gangs,
         config.generator.dtype,
-        mixed_precision=config.generator.amp,
+        config.generator.amp,
+        config.generator.torch_compile,
     )
 
-    broadcast_model(config.model, model, gangs)
+    dataset = load_dataset(InstructionDataset, context, config, gangs)
 
-    remove_parametrizations(model)
-
-    log_model(log, model, gangs)
-
-    if config.generator.torch_compile:
-        model = compile_eval_model(context, config.model, model)
+    tokenizer = load_text_tokenizer(context, config)
 
     # Initialize the unit.
-    seq_generator = create_seq_generator(context, config.seq_generator, model)
+    seq_generator = create_seq_generator(context, config, model)
 
     if gangs.tp.rank == 0:
         file_system = context.file_system
 
         rank = gangs.dp.rank
 
-        text_file = output_dir.joinpath(f"output/rank_{rank}.txt")
-        json_file = output_dir.joinpath(f"output/rank_{rank}.jsonl")
-
         try:
-            file_system.make_directory(text_file.parent)
-        except OSError as ex:
-            raise SetupError(
-                f"The '{text_file.parent}' output directory cannot be created. See the nested exception for details."
-            ) from ex
+            text_file = output_dir.joinpath(f"output/rank_{rank}.txt")
+            json_file = output_dir.joinpath(f"output/rank_{rank}.jsonl")
 
-        try:
-            text_fp = file_system.open_text(text_file, mode=FileMode.WRITE)
-        except OSError as ex:
-            raise SetupError(
-                f"The '{text_file}' output file cannot be created. See the nested exception for details."
-            ) from ex
+            try:
+                file_system.make_directory(text_file.parent)
+            except OSError as ex:
+                raise UnitError(
+                    f"The '{text_file.parent}' output directory cannot be created. See the nested exception for details."
+                ) from ex
 
-        try:
-            json_fp = file_system.open_text(json_file, mode=FileMode.WRITE)
-        except OSError as ex:
-            raise SetupError(
-                f"The '{json_file}' output file cannot be created. See the nested exception for details."
+            try:
+                text_fp = file_system.open_text(text_file, mode=FileMode.WRITE)
+            except OSError as ex:
+                raise UnitError(
+                    f"The '{text_file}' output file cannot be created. See the nested exception for details."
+                ) from ex
+
+            try:
+                json_fp = file_system.open_text(json_file, mode=FileMode.WRITE)
+            except OSError as ex:
+                raise UnitError(
+                    f"The '{json_file}' output file cannot be created. See the nested exception for details."
+                ) from ex
+        except UnitError as ex:
+            raise ProgramError(
+                "The generation unit cannot be initialized. See the nested exception for details."
             ) from ex
     else:
         text_fp = None
@@ -311,90 +315,95 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
         if self._text_output_stream is None and self._json_output_stream is None:
             return
 
-        for id_, prompt, hypotheses in zip(ids, prompts, output.hypotheses):
-            if len(hypotheses) == 0:
-                raise InternalError(
-                    "The sequence generator returned no hypothesis. Please file a bug report."
-                )
+        try:
+            for id_, prompt, hypotheses in zip(ids, prompts, output.hypotheses):
+                if len(hypotheses) == 0:
+                    raise InternalError(
+                        "The sequence generator returned no hypothesis. Please file a bug report."
+                    )
 
-            hypothesis = hypotheses[0]
+                hypothesis = hypotheses[0]
 
-            seq = hypothesis.seq
+                seq = hypothesis.seq
 
-            response = self._text_decoder(seq)
+                response = self._text_decoder(seq)
 
-            token_indices = seq.tolist()
+                token_indices = seq.tolist()
 
-            if hypothesis.score is None:
-                score = None
-            else:
-                score = float(hypothesis.score)
+                if hypothesis.score is None:
+                    score = None
+                else:
+                    score = float(hypothesis.score)
 
-            if hypothesis.step_scores is None:
-                step_scores = None
-            else:
-                step_scores = hypothesis.step_scores.tolist()
+                if hypothesis.step_scores is None:
+                    step_scores = None
+                else:
+                    step_scores = hypothesis.step_scores.tolist()
 
-            # Dump as text.
+                # Dump as text.
+                stream = self._text_output_stream
+                if stream is not None:
+                    if id_ is not None:
+                        stream.write("<<<<< ID >>>>>")
+                        stream.write("\n")
+                        stream.write(f"{id_}")
+                        stream.write("\n\n")
+
+                    stream.write("<<<<< PROMPT >>>>>")
+                    stream.write("\n")
+                    stream.write(prompt)
+
+                    stream.write("\n\n")
+                    stream.write("<<<<< RESPONSE >>>>>")
+                    stream.write("\n")
+                    stream.write(response)
+
+                    stream.write("\n\n")
+                    stream.write("<<<<< TOKEN INDICES >>>>>")
+                    stream.write("\n")
+                    stream.write(", ".join(f"{t}" for t in token_indices))
+
+                    if score is not None:
+                        stream.write("\n\n")
+                        stream.write("<<<<< SCORE >>>>>")
+                        stream.write("\n")
+                        stream.write(f"{score:.8f}")
+
+                    if step_scores is not None:
+                        stream.write("\n\n")
+                        stream.write("<<<<< STEP SCORES >>>>>")
+                        stream.write("\n")
+                        stream.write(", ".join(f"{s:.8f}" for s in step_scores))
+
+                    stream.write("\n\n\n============================\n\n\n")
+
+                # Dump as JSON.
+                stream = self._json_output_stream
+                if stream is not None:
+                    json_output = {
+                        "id": id_,
+                        "prompt": prompt,
+                        "response": response,
+                        "token_indices": token_indices,
+                        "score": score,
+                        "step_scores": step_scores,
+                    }
+
+                    json.dump(json_output, stream, indent=None)
+
+                    stream.write("\n")
+
             stream = self._text_output_stream
             if stream is not None:
-                if id_ is not None:
-                    stream.write("<<<<< ID >>>>>")
-                    stream.write("\n")
-                    stream.write(f"{id_}")
-                    stream.write("\n\n")
+                stream.flush()
 
-                stream.write("<<<<< PROMPT >>>>>")
-                stream.write("\n")
-                stream.write(prompt)
-
-                stream.write("\n\n")
-                stream.write("<<<<< RESPONSE >>>>>")
-                stream.write("\n")
-                stream.write(response)
-
-                stream.write("\n\n")
-                stream.write("<<<<< TOKEN INDICES >>>>>")
-                stream.write("\n")
-                stream.write(", ".join(f"{t}" for t in token_indices))
-
-                if score is not None:
-                    stream.write("\n\n")
-                    stream.write("<<<<< SCORE >>>>>")
-                    stream.write("\n")
-                    stream.write(f"{score:.8f}")
-
-                if step_scores is not None:
-                    stream.write("\n\n")
-                    stream.write("<<<<< STEP SCORES >>>>>")
-                    stream.write("\n")
-                    stream.write(", ".join(f"{s:.8f}" for s in step_scores))
-
-                stream.write("\n\n\n============================\n\n\n")
-
-            # Dump as JSON.
             stream = self._json_output_stream
             if stream is not None:
-                json_output = {
-                    "id": id_,
-                    "prompt": prompt,
-                    "response": response,
-                    "token_indices": token_indices,
-                    "score": score,
-                    "step_scores": step_scores,
-                }
-
-                json.dump(json_output, stream, indent=None)
-
-                stream.write("\n")
-
-        stream = self._text_output_stream
-        if stream is not None:
-            stream.flush()
-
-        stream = self._json_output_stream
-        if stream is not None:
-            stream.flush()
+                stream.flush()
+        except OSError as ex:
+            raise UnitError(
+                "The generator output cannot be written to the stream. See the nested exception for details."
+            ) from ex
 
     @property
     @override

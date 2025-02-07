@@ -14,14 +14,19 @@ from typing import final
 
 from typing_extensions import override
 
-from fairseq2.assets import AssetCardNotFoundError
-from fairseq2.cli import CliCommandHandler
+from fairseq2.assets import (
+    AssetCardError,
+    AssetCardFieldNotFoundError,
+    AssetCardNotFoundError,
+)
+from fairseq2.cli import CliArgumentError, CliCommandHandler
+from fairseq2.cli.utils.rich import get_error_console
 from fairseq2.context import RuntimeContext
+from fairseq2.error import InternalError, ProgramError
 from fairseq2.logging import log
-from fairseq2.models import ModelHandler, UnknownModelArchitectureError
+from fairseq2.models import ModelConfigLoadError, ModelHandler
 from fairseq2.models.llama import LLAMA_MODEL_FAMILY, LLaMAConfig
 from fairseq2.models.llama.integ import convert_to_reference_llama_checkpoint
-from fairseq2.recipes.utils.rich import get_error_console
 from fairseq2.utils.file import (
     FileMode,
     TensorDumpError,
@@ -33,8 +38,6 @@ from fairseq2.utils.file import (
 
 @final
 class ConvertLLaMACheckpointHandler(CliCommandHandler):
-    """Converts fairseq2 LLaMA checkpoints to reference checkpoints."""
-
     @override
     def init_parser(self, parser: ArgumentParser) -> None:
         parser.add_argument(
@@ -61,71 +64,28 @@ class ConvertLLaMACheckpointHandler(CliCommandHandler):
     ) -> int:
         file_system = context.file_system
 
-        try:
-            if file_system.exists(args.input_dir):
-                input_exists = file_system.is_dir(args.input_dir)
-            else:
-                input_exists = False
-        except OSError:
-            log.exception("Input directory cannot be read. See the logged stack trace for details.")  # fmt: skip
+        input_dir: Path = args.input_dir
 
-            return 1
+        def read_error() -> ProgramError:
+            return ProgramError(
+                f"The '{input_dir}' directory cannot be read. See the nested exception for details."
+            )
+
+        try:
+            input_exists = file_system.is_dir(input_dir)
+        except OSError as ex:
+            raise read_error() from ex
 
         if not input_exists:
-            parser.error("input must be a directory")
-
-            return 1
-
-        try:
-            output_exists = file_system.exists(args.output_dir)
-        except OSError:
-            log.exception("Output directory cannot be read. See the logged stack trace for details.")  # fmt: skip
-
-            return 1
-
-        if output_exists:
-            parser.error("output directory already exists")
-
-            return 1
-
-        # Load the model configuration.
-        try:
-            card = context.asset_store.retrieve_card(args.model)
-        except AssetCardNotFoundError:
-            parser.error("unknown LLaMA model. Use `fairseq2 assets list` to see the available models.")  # fmt: skip
-
-            return 1
-
-        model_handlers = context.get_registry(ModelHandler)
-
-        try:
-            model_handler = model_handlers.get(LLAMA_MODEL_FAMILY)
-        except LookupError:
-            log.error("LLaMA model handler cannot be found. Please file a bug report.")  # fmt: skip
-
-            return 1
-
-        try:
-            model_config = model_handler.load_config(card)
-        except UnknownModelArchitectureError:
-            log.error("Model has an unknown architecture. Please file a bug report to the model author.")  # fmt: skip
-
-            return 1
-
-        if not isinstance(model_config, LLaMAConfig):
-            log.error("Model configuration has an invalid type. Please file a bug report.")  # fmt: skip
-
-            return 1
+            raise CliArgumentError("input_dir", "must be a directory")
 
         # Determine input checkpoint files.
-        input_file = args.input_dir.joinpath("model.pt")
+        input_file = input_dir.joinpath("model.pt")
 
         try:
             input_file_exists = file_system.exists(input_file)
-        except OSError:
-            log.exception("Input directory cannot be read. See the logged stack trace for details.")  # fmt: skip
-
-            return 1
+        except OSError as ex:
+            raise read_error() from ex
 
         input_files = []
 
@@ -137,10 +97,8 @@ class ConvertLLaMACheckpointHandler(CliCommandHandler):
 
                 try:
                     input_file_exists = file_system.exists(input_file)
-                except OSError:
-                    log.exception("Input directory cannot be read. See the logged stack trace for details.")  # fmt: skip
-
-                    return 1
+                except OSError as ex:
+                    raise read_error() from ex
 
                 if not input_file_exists:
                     break
@@ -148,57 +106,121 @@ class ConvertLLaMACheckpointHandler(CliCommandHandler):
                 input_files.append(input_file)
 
         if not input_files:
-            parser.error("input directory must contain a model checkpoint file (i.e. model.pt)")  # fmt: skip
+            raise CliArgumentError(
+                "input_dir", "must contain a model checkpoint file (i.e. model.pt)"
+            )
 
-            return 1
+        output_dir: Path = args.output_dir
+
+        def write_error() -> ProgramError:
+            return ProgramError(
+                f"The '{output_dir}' directory cannot be created. See the nested exception for details."
+            )
+
+        try:
+            output_exists = file_system.exists(output_dir)
+        except OSError as ex:
+            raise write_error() from ex
+
+        if output_exists:
+            log.error("argument output_dir: already exists")
+
+            return 2
 
         output_files = []
 
         # Determine output checkpoint filenames.
         for shard_idx in range(len(input_files)):
-            output_file = args.output_dir.joinpath(f"consolidated.{shard_idx:02d}.pth")
+            output_file = output_dir.joinpath(f"consolidated.{shard_idx:02d}.pth")
 
             output_files.append(output_file)
 
         try:
-            file_system.make_directory(args.output_dir)
-        except OSError:
-            log.exception("Output directory cannot be created. See the logged stack trace for details.")  # fmt: skip
+            file_system.make_directory(output_dir)
+        except OSError as ex:
+            raise write_error() from ex
 
-            return 1
+        # Load the model configuration.
+        try:
+            card = context.asset_store.retrieve_card(args.model)
+        except AssetCardNotFoundError:
+            raise CliArgumentError(
+                "model", f"'{args.model}' is not a known LLaMA model. Use `fairseq2 assets list` to see the available models."  # fmt: skip
+            ) from None
+        except AssetCardError as ex:
+            raise ProgramError(
+                f"The '{args.model}' asset card cannot be read. See the nested exception for details."
+            ) from ex
+
+        try:
+            family = card.field("model_family").as_(str)
+        except AssetCardFieldNotFoundError:
+            raise CliArgumentError(
+                "model", f"'{args.model}' is not a known LLaMA model. Use `fairseq2 assets list` to see the available models."  # fmt: skip
+            ) from None
+        except AssetCardError as ex:
+            raise ProgramError(
+                f"The '{args.model}' asset card cannot be read. See the nested exception for details."
+            ) from ex
+
+        if family != LLAMA_MODEL_FAMILY:
+            raise CliArgumentError(
+                "model", f"'{args.model}' is not a model of LLaMA family."
+            )
+
+        model_handlers = context.get_registry(ModelHandler)
+
+        try:
+            model_handler = model_handlers.get(LLAMA_MODEL_FAMILY)
+        except LookupError:
+            raise InternalError(
+                "The LLaMA model handler cannot be found. Please file a bug report."
+            ) from None
+
+        try:
+            model_config = model_handler.load_config(card)
+        except ModelConfigLoadError as ex:
+            raise ProgramError(
+                f"The configuration of '{args.model}' cannot be loaded. See the nested exception for details."
+            ) from ex
+
+        if not isinstance(model_config, LLaMAConfig):
+            raise InternalError(
+                "The model configuration type is not valid. Please file a bug report."
+            )
 
         # Begin conversion.
         console = get_error_console()
 
-        tensor_loader = TorchTensorLoader(context.file_system)
-        tensor_dumper = TorchTensorDumper(context.file_system)
+        tensor_loader = TorchTensorLoader(file_system)
+        tensor_dumper = TorchTensorDumper(file_system)
 
         with console.status("[bold green]Converting...") as status:
             for input_file, output_file in zip(input_files, output_files):
+
+                def file_write_error() -> ProgramError:
+                    return ProgramError(
+                        f"The '{input_file}' checkpoint file cannot be converted. See the nested exception for details."
+                    )
+
                 status.update(f"[bold green]Loading {input_file.name}...")
 
                 try:
                     checkpoint = tensor_loader.load(input_file)
-                except TensorLoadError:
-                    log.exception("{} checkpoint file cannot be loaded. See the logged stack trace for details.", input_file.name)  # fmt: skip
-
-                    return 1
+                except TensorLoadError as ex:
+                    raise file_write_error() from ex
 
                 status.update(f"[bold green]Converting {input_file.name} to {output_file.name}...")  # fmt: skip
 
                 try:
                     ref_state_dict = convert_to_reference_llama_checkpoint(checkpoint)
-                except (TypeError, KeyError):
-                    log.exception("{} checkpoint file cannot be converted. See the logged stack trace for details.", input_file.name)  # fmt: skip
-
-                    return 1
+                except (TypeError, KeyError) as ex:
+                    raise file_write_error() from ex
 
                 try:
                     tensor_dumper.dump(ref_state_dict, output_file)
-                except TensorDumpError:
-                    log.exception("{} checkpoint file cannot be saved. See the logged stack trace for details.", output_file.name)  # fmt: skip
-
-                    return 1
+                except TensorDumpError as ex:
+                    raise file_write_error() from ex
 
                 log.info("{} converted!", input_file.name)
 
@@ -223,24 +245,23 @@ class ConvertLLaMACheckpointHandler(CliCommandHandler):
 
         params_file = args.output_dir.joinpath("params.json")
 
+        def param_write_error() -> ProgramError:
+            return ProgramError(
+                "params.json file cannot be created. See the nested exception for details."
+            )
+
         try:
             fp = file_system.open_text(params_file, mode=FileMode.WRITE)
-        except OSError:
-            log.exception("params.json file cannot be created. See the logged stack trace for details.")  # fmt: skip
-
-            return 1
+        except OSError as ex:
+            raise param_write_error() from ex
 
         try:
             json.dump({"model": params}, fp)
-        except (OSError, RuntimeError):
-            log.exception(
-                "params.json file cannot be created. See the logged stack trace for details."
-            )
-
-            return 1
+        except OSError as ex:
+            raise param_write_error() from ex
         finally:
             fp.close()
 
-        log.info("params.json generated for {}.", args.model)
+        log.info("params.json generated for {}!", args.model)
 
         return 0

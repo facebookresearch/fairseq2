@@ -14,16 +14,15 @@ from typing import Final, final
 from torch.optim import Optimizer
 from typing_extensions import override
 
-from fairseq2.optim.lr_scheduler._handler import (
-    LRSchedulerHandler,
-    UnspecifiedNumberOfStepsError,
-)
+from fairseq2.optim.lr_scheduler._error import UnspecifiedNumberOfStepsError
+from fairseq2.optim.lr_scheduler._handler import LRSchedulerHandler
 from fairseq2.optim.lr_scheduler._lr_scheduler import (
     AbstractLRScheduler,
     LRScheduler,
     get_per_param_group,
 )
-from fairseq2.typing import safe_cast
+from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import ValidationError, ValidationResult, validate
 
 
 @final
@@ -75,9 +74,10 @@ class TriStageLR(AbstractLRScheduler):
         :param final_lr_scale:
             The scale of the final learning rate.
         """
-        if not math.isclose((s := sum(stage_ratio)), 1.0):
+        ratio_sum = sum(stage_ratio)
+        if not math.isclose(ratio_sum, 1.0):
             raise ValueError(
-                f"The sum of `stage_ratio` values must be 1.0, but is {s} instead."
+                f"The sum of `stage_ratio` values must be 1.0, but is {ratio_sum} instead."
             )
 
         self._num_steps = num_steps
@@ -134,7 +134,7 @@ class TriStageLR(AbstractLRScheduler):
         return list(self._final_lrs)
 
 
-TRI_STAGE_LR: Final = "tri-stage"
+TRI_STAGE_LR: Final = "tri_stage"
 
 
 @dataclass(kw_only=True)
@@ -148,6 +148,20 @@ class TriStageLRConfig:
     final_lr_scale: float = 0.01
     """The scale of the final learning rate."""
 
+    def validate(self) -> None:
+        result = ValidationResult()
+
+        ratio_sum = sum(self.stage_ratio)
+        if not math.isclose(ratio_sum, 1.0):
+            result.add_error(
+                f"The sum of `stage_ratio` values must be 1.0, but is {ratio_sum} instead."
+            )
+
+        if result.has_error:
+            raise ValidationError(
+                "The tri-stage learning rate scheduler configuratio has one or more validation errors:", result  # fmt: skip
+            )
+
 
 @final
 class TriStageLRHandler(LRSchedulerHandler):
@@ -155,7 +169,9 @@ class TriStageLRHandler(LRSchedulerHandler):
     def create(
         self, optimizer: Optimizer, config: object, num_steps: int | None
     ) -> LRScheduler:
-        config = safe_cast("config", config, TriStageLRConfig)
+        config = structure(config, TriStageLRConfig)
+
+        validate(config)
 
         if num_steps is None:
             raise UnspecifiedNumberOfStepsError(TRI_STAGE_LR)

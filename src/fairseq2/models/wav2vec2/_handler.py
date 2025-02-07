@@ -20,23 +20,23 @@ from fairseq2.models.wav2vec2._config import WAV2VEC2_MODEL_FAMILY, Wav2Vec2Conf
 from fairseq2.models.wav2vec2._factory import Wav2Vec2Factory
 from fairseq2.models.wav2vec2._model import Wav2Vec2Model
 from fairseq2.nn.transformer import TransformerNormOrder
-from fairseq2.typing import CPU, safe_cast
+from fairseq2.typing import CPU
 
 
 class Wav2Vec2ModelHandler(AbstractModelHandler):
-    @override
     @property
+    @override
     def family(self) -> str:
         return WAV2VEC2_MODEL_FAMILY
 
-    @override
     @property
+    @override
     def kls(self) -> type[Module]:
         return Wav2Vec2Model
 
     @override
     def _create_model(self, config: object) -> Module:
-        config = safe_cast("config", config, Wav2Vec2Config)
+        config = cast(Wav2Vec2Config, config)
 
         return Wav2Vec2Factory(config).create_model()
 
@@ -44,7 +44,7 @@ class Wav2Vec2ModelHandler(AbstractModelHandler):
     def _convert_checkpoint(
         self, checkpoint: dict[str, object], config: object
     ) -> dict[str, object]:
-        config = safe_cast("config", config, Wav2Vec2Config)
+        config = cast(Wav2Vec2Config, config)
 
         return convert_wav2vec2_checkpoint(checkpoint, config)
 

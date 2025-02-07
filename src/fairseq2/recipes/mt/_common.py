@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import final
 
 from torch import Tensor
@@ -16,6 +17,12 @@ from fairseq2.models.seq2seq import Seq2SeqBatch, as_auto_regressive_input
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.recipes.common import check_model_type
 from fairseq2.recipes.metrics import Seq2SeqMetricBag
+
+
+@dataclass(kw_only=True)
+class MTLossSection:
+    label_smoothing: float = 0.1
+    """The amount of label smoothing to apply while computing the loss."""
 
 
 @final

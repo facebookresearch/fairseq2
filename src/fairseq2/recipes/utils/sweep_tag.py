@@ -7,65 +7,50 @@
 from __future__ import annotations
 
 import re
-from abc import ABC, abstractmethod
 from collections.abc import Hashable, Iterable, Sequence, Set
 from enum import Enum
+from functools import cache
 from hashlib import sha1
 from typing import final
 
-from typing_extensions import override
-
-from fairseq2.utils.dataclass import EMPTY
+from fairseq2.error import InternalError
+from fairseq2.typing import EMPTY
 from fairseq2.utils.structured import StructureError
 
 
-class SweepTagger(ABC):
-    """Generates a sweep tag from a recipe configuration."""
-
-    @abstractmethod
-    def generate(
-        self,
-        world_size: int,
-        preset: str,
-        unstructured_config: object,
-        fmt: str | None = None,
-    ) -> str:
-        ...
-
-
 @final
-class StandardSweepTagger(SweepTagger):
+class SweepTagGenerator:
+    _world_size: int
     _allowed_keys: Set[Hashable]
+    _format: str
 
-    def __init__(self, allowed_keys: Set[Hashable]) -> None:
+    def __init__(
+        self, world_size: int, allowed_keys: Set[Hashable], fmt: str | None = None
+    ) -> None:
         """
         :param allowed_keys: The recipe configuration keys allowed to be used in
             sweep tags.
         """
+        self._world_size = world_size
         self._allowed_keys = allowed_keys
 
-    @override
-    def generate(
-        self,
-        world_size: int,
-        preset: str,
-        unstructured_config: object,
-        fmt: str | None = None,
-    ) -> str:
         if fmt is None:
-            fmt = "ps_{preset}.ws_{world_size}.{hash}"
+            self._format = "ps_{preset}.ws_{world_size}.{hash}"
         else:
-            fmt = fmt.strip()
-            if not fmt:
-                raise SweepFormatError("`fmt` must not be empty.")
+            self._format = fmt.strip()
+            if not self._format:
+                raise ValueError("`fmt` must not be empty.")
 
-        tags = {"preset": preset, "world_size": f"{world_size}"}
+            self._safe_format({}, dry_run=True)
+
+    def generate(self, preset: str, unstructured_config: object) -> str:
+        tags = {"preset": preset, "world_size": f"{self._world_size}"}
 
         self._collect_tags(unstructured_config, tags, path="")
 
         tags["hash"] = self._generate_hash(tags)
 
-        return self._safe_format(fmt, tags)
+        return self._safe_format(tags, dry_run=False)
 
     def _collect_tags(self, obj: object, tags: dict[str, str], path: str) -> None:
         if obj is None:
@@ -141,8 +126,7 @@ class StandardSweepTagger(SweepTagger):
 
         return h[:8]
 
-    @staticmethod
-    def _safe_format(fmt: str, tags: dict[str, str]) -> str:
+    def _safe_format(self, tags: dict[str, str], dry_run: bool) -> str:
         class State(Enum):
             LITERAL = 0
             PLACEHOLDER = 1
@@ -157,52 +141,56 @@ class StandardSweepTagger(SweepTagger):
 
         state = State.LITERAL
 
-        for c in fmt:
+        for c in self._format:
             match state:
                 case State.LITERAL:
                     if c == "{":
                         state = State.OPENING_BRACE
                     elif c == "}":
                         state = State.CLOSING_BRACE
-                    else:
+                    elif not dry_run:
                         output.append(c)
                 case State.OPENING_BRACE:
                     if c == "{":  # escape
                         state = State.LITERAL
 
-                        output.append("{")
+                        if not dry_run:
+                            output.append("{")
                     elif c == "}":
                         raise SweepFormatError(
-                            "`fmt` must not have any empty placeholders"
+                            "`fmt` must not have any empty placeholders."
                         )
                     else:
                         state = State.PLACEHOLDER
 
-                        placeholder.append(c)
+                        if not dry_run:
+                            placeholder.append(c)
                 case State.PLACEHOLDER:
                     if c == "}":
                         state = State.LITERAL
 
-                        key = "".join(placeholder)
+                        if not dry_run:
+                            key = "".join(placeholder)
 
-                        tag: Iterable[str] | None = tags.get(key)
-                        if tag is None:
-                            tag = placeholder
+                            tag: Iterable[str] | None = tags.get(key)
+                            if tag is None:
+                                tag = placeholder
 
-                            unknown_keys.add(key)
+                                unknown_keys.add(key)
 
-                        output.extend(tag)
+                            output.extend(tag)
 
-                        placeholder.clear()
-                    else:
+                            placeholder.clear()
+                    elif not dry_run:
                         placeholder.append(c)
                 case State.CLOSING_BRACE:
                     state = State.LITERAL
 
-                    if c == "}":  # escape
-                        output.append("}")
-                    else:
-                        output.append(c)
+                    if not dry_run:
+                        if c == "}":  # escape
+                            output.append("}")
+                        else:
+                            output.append(c)
 
         if state != State.LITERAL:
             raise SweepFormatError(
@@ -210,6 +198,11 @@ class StandardSweepTagger(SweepTagger):
             )
 
         if unknown_keys:
+            if dry_run:
+                raise InternalError(
+                    "`dry_run` is set, but `unknown_keys` is not empty."
+                )
+
             keys = list(unknown_keys)
 
             keys.sort()
@@ -217,33 +210,73 @@ class StandardSweepTagger(SweepTagger):
             s = ", ".join(keys)
 
             raise SweepFormatPlaceholderError(
-                keys, f"`fmt` must contain only placeholders that correspond to the configuration keys, but contains the following unexpected placeholder(s): {s}"  # fmt: skip
+                keys, f"The sweep format string must contain only placeholders that correspond to the configuration keys, but contains the following unexpected placeholder(s): {s}"  # fmt: skip
             )
 
+        if dry_run:
+            return ""
+
         return "".join(output)
-
-
-@final
-class NoopSweepTagger(SweepTagger):
-    @override
-    def generate(
-        self,
-        world_size: int,
-        preset: str,
-        unstructured_config: object,
-        fmt: str | None = None,
-    ) -> str:
-        return ""
 
 
 class SweepFormatError(ValueError):
     pass
 
 
-class SweepFormatPlaceholderError(SweepFormatError):
+class SweepFormatPlaceholderError(ValueError):
     unknown_keys: Sequence[str]
 
     def __init__(self, unknown_keys: Sequence[str], message: str) -> None:
         super().__init__(message)
 
         self.unknown_keys = unknown_keys
+
+
+def get_sweep_keys(extra_sweep_keys: Set[Hashable] | None) -> Set[Hashable]:
+    sweep_keys = get_default_sweep_keys()
+
+    if extra_sweep_keys is not None:
+        sweep_keys = sweep_keys | extra_sweep_keys
+
+    return sweep_keys
+
+
+@cache
+def get_default_sweep_keys() -> Set[Hashable]:
+    return {
+        "batch_shuffle_window",
+        "betas",
+        "data_parallelism",
+        "dataset",
+        "dtype",
+        "example_shuffle_window",
+        "final_lr_ratio",
+        "final_lr_scale",
+        "fp16_loss_scale",
+        "fsdp_reshard_after_forward",
+        "fsdp_wrap_granularity",
+        "gradient_accumulation",
+        "label_smoothing",
+        "lr",
+        "lr_stage_ratios",
+        "max_gradient_norm",
+        "max_num_elements",
+        "max_num_steps",
+        "max_num_tokens",
+        "max_seq_len",
+        "mixed_precision",
+        "model",
+        "model_arch",
+        "model_config",
+        "num_lr_warmup_steps",
+        "pretrained_model",
+        "seed",
+        "split",
+        "start_lr",
+        "start_lr_scale",
+        "tensor_parallel_size",
+        "tokenizer",
+        "train_split",
+        "valid_split",
+        "weight_decay",
+    }

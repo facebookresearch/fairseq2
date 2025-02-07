@@ -1,4 +1,4 @@
-black~=23.3
+black~=25.1
 flake8~=7.1
 flake8-pyi~=24.6
 flake8-pyproject~=1.2

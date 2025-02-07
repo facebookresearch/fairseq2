@@ -7,15 +7,16 @@
 from __future__ import annotations
 
 import json
+from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Iterable, final
 
-from typing_extensions import override
-
 from fairseq2.assets import (
-    AbstractAssetMetadataProvider,
-    AssetMetadataError,
-    MetadataFileLoader,
+    AssetMetadataFileLoader,
+    AssetMetadataLoadError,
+    AssetMetadataProvider,
+    AssetMetadataSaveError,
+    CachedAssetMetadataProvider,
 )
 from fairseq2.gang import Gangs
 from fairseq2.models.llama import LLAMA_MODEL_FAMILY, LLaMAConfig
@@ -25,8 +26,15 @@ from fairseq2.utils.structured import unstructure
 from fairseq2.utils.yaml import YamlDumper
 
 
+class CheckpointMetadataSaver(ABC):
+    @abstractmethod
+    def save(
+        self, model_family: str, model_config: object, tokenizer_name: str | None = None
+    ) -> None: ...
+
+
 @final
-class FileCheckpointMetadataSaver:
+class FileCheckpointMetadataSaver(CheckpointMetadataSaver):
     _checkpoint_dir: Path
     _gangs: Gangs
     _file_system: FileSystem
@@ -45,15 +53,17 @@ class FileCheckpointMetadataSaver:
         self._yaml_dumper = yaml_dumper
 
     def save(
-        self, family: str, config: object, tokenizer_name: str | None = None
+        self, model_family: str, model_config: object, tokenizer_name: str | None = None
     ) -> None:
         if self._gangs.root.rank == 0:
-            unstructured_config = unstructure(config)
+            unstructured_config = unstructure(model_config)
 
             metadata: dict[str, object] = {
                 "name": "checkpoint",
-                "model_family": family,
-                "model_config": unstructured_config,
+                "model_family": model_family,
+                "model_config": {
+                    "_set_": unstructured_config,
+                },
             }
 
             if tokenizer_name is not None:
@@ -64,8 +74,8 @@ class FileCheckpointMetadataSaver:
 
             metadata_file = self._checkpoint_dir.joinpath("model.yaml")
 
-            def save_error() -> AssetMetadataError:
-                return AssetMetadataError(
+            def save_error() -> AssetMetadataSaveError:
+                return AssetMetadataSaveError(
                     f"The model metadata cannot be saved to the '{metadata_file}' file. See the nested exception for details."
                 )
 
@@ -79,25 +89,25 @@ class FileCheckpointMetadataSaver:
             except OSError as ex:
                 raise save_error() from ex
 
-            self._save_huggingface_config(family, config)
+            self._save_huggingface_config(model_family, model_config)
 
         self._gangs.root.barrier()
 
-    def _save_huggingface_config(self, family: str, config: object) -> None:
-        if family != LLAMA_MODEL_FAMILY:
+    def _save_huggingface_config(self, model_family: str, model_config: object) -> None:
+        if model_family != LLAMA_MODEL_FAMILY:
             return
 
-        if not isinstance(config, LLaMAConfig):
+        if not isinstance(model_config, LLaMAConfig):
             raise TypeError(
-                f"`config` must be of type `{LLaMAConfig}`, but is of type `{type(config)}` instead."
+                f"`model_config` must be of type `{LLaMAConfig}`, but is of type `{type(model_config)}` instead."
             )
 
-        hg_config = convert_to_hg_llama_config(config)
+        hg_config = convert_to_hg_llama_config(model_config)
 
         hg_config_file = self._checkpoint_dir.joinpath("cc/config.json")
 
-        def save_error() -> AssetMetadataError:
-            return AssetMetadataError(
+        def save_error() -> AssetMetadataSaveError:
+            return AssetMetadataSaveError(
                 f"The Hugging Face model configuration cannot be saved to the '{hg_config_file}' file. See the nested exception for details."
             )
 
@@ -120,7 +130,7 @@ class FileCheckpointMetadataSaver:
 
 
 @final
-class FileCheckpointMetadataProvider(AbstractAssetMetadataProvider):
+class FileCheckpointMetadataLoader:
     """Provides checkpoint model metadata saved by a :class:`FileCheckpointManager.`"""
 
     _checkpoint_dir: Path
@@ -130,7 +140,7 @@ class FileCheckpointMetadataProvider(AbstractAssetMetadataProvider):
         self,
         checkpoint_dir: Path,
         file_system: FileSystem,
-        metadata_file_loader: MetadataFileLoader,
+        metadata_file_loader: AssetMetadataFileLoader,
     ) -> None:
         """
         :param checkpoint_dir:
@@ -142,7 +152,11 @@ class FileCheckpointMetadataProvider(AbstractAssetMetadataProvider):
         self._file_system = file_system
         self._metadata_file_loader = metadata_file_loader
 
-    @override
+    def load(self) -> AssetMetadataProvider:
+        cache = self._load_cache()
+
+        return CachedAssetMetadataProvider(cache)
+
     def _load_cache(self) -> dict[str, dict[str, object]]:
         cache: dict[str, dict[str, object]] = {}
 
@@ -154,14 +168,14 @@ class FileCheckpointMetadataProvider(AbstractAssetMetadataProvider):
         try:
             metadata = cache["checkpoint@"]
         except KeyError:
-            raise AssetMetadataError(
+            raise AssetMetadataLoadError(
                 "The checkpoint metadata does not have a 'checkpoint@' entry."
             ) from None
 
         num_shards = metadata.get("num_shards", 1)
 
         if not isinstance(num_shards, int) or num_shards < 1:
-            raise AssetMetadataError(
+            raise AssetMetadataLoadError(
                 "The 'num_shards' value in the checkpoint metadata is not a positive integer."
             )
 
@@ -187,7 +201,7 @@ class FileCheckpointMetadataProvider(AbstractAssetMetadataProvider):
 
                     yield step_dir
             except OSError as ex:
-                raise AssetMetadataError(
+                raise AssetMetadataLoadError(
                     f"The '{self._checkpoint_dir}' base checkpoint directory cannot be traversed. See the nested exception for details."
                 ) from ex
 
@@ -204,8 +218,8 @@ class FileCheckpointMetadataProvider(AbstractAssetMetadataProvider):
             # Load score.
             score_file = step_dir.joinpath("score.txt")
 
-            def load_error() -> AssetMetadataError:
-                return AssetMetadataError(
+            def load_error() -> AssetMetadataLoadError:
+                return AssetMetadataLoadError(
                     f"The score of the training step {step_nr} cannot be loaded from the '{score_file}' file. See the nested exception for details."
                 )
 
@@ -230,7 +244,7 @@ class FileCheckpointMetadataProvider(AbstractAssetMetadataProvider):
                 try:
                     score = float(line)
                 except ValueError:
-                    raise AssetMetadataError(
+                    raise AssetMetadataLoadError(
                         f"The score of the training step {step_nr} cannot be parsed as a floating-point number."
                     ) from None
 

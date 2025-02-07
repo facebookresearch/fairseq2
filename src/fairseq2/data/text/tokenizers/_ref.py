@@ -30,7 +30,7 @@ def resolve_text_tokenizer_reference(
             card = asset_store.retrieve_card(ref_name)
         except AssetCardNotFoundError:
             raise AssetCardError(
-                name, f"The '{ref_name}' text tokenizer referenced by the '{name}' asset card cannot be resolved."  # fmt: skip
+                name, f"The '{ref_name}' asset card referenced by the '{name}' text tokenizer cannot be found."  # fmt: skip
             ) from None
 
     return card

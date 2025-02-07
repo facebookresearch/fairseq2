@@ -19,14 +19,12 @@ from fairseq2.utils.file import FileMode, FileSystem
 
 class YamlLoader(ABC):
     @abstractmethod
-    def load(self, input_: Path | IO[str]) -> list[object]:
-        ...
+    def load(self, input_: Path | IO[str]) -> list[object]: ...
 
 
 class YamlDumper(ABC):
     @abstractmethod
-    def dump(self, obj: object, output: Path | IO[str]) -> None:
-        ...
+    def dump(self, obj: object, output: Path | IO[str]) -> None: ...
 
 
 YamlError: TypeAlias = YAMLError

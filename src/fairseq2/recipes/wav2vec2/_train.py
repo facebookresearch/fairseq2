@@ -22,47 +22,46 @@ from fairseq2.datasets.speech import (
     SpeechReadOptions,
 )
 from fairseq2.gang import Gangs
-from fairseq2.logging import log
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2 import Wav2Vec2Model
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.optim.lr_scheduler import POLYNOMIAL_DECAY_LR, PolynomialDecayLRConfig
 from fairseq2.recipes.common import (
-    compile_model,
     create_checkpoint_manager,
     create_lr_scheduler,
     create_optimizer,
     create_trainer,
     load_dataset,
-    load_model,
-    prepare_model,
     register_extra_asset_paths,
-    save_checkpoint_card,
     setup_gangs,
-    wrap_data_parallel,
+    setup_model,
 )
 from fairseq2.recipes.config import (
+    CommonSection,
     DatasetSection,
+    GangSection,
     LRSchedulerSection,
     ModelSection,
     OptimizerSection,
     RegimeSection,
     TrainerSection,
-    TrainRecipeConfig,
 )
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
-from fairseq2.recipes.utils.log import log_model, log_model_config
-from fairseq2.recipes.wav2vec2._common import Wav2Vec2Criterion, Wav2Vec2MetricBag
+from fairseq2.recipes.wav2vec2._common import (
+    Wav2Vec2Criterion,
+    Wav2Vec2LossSection,
+    Wav2Vec2MetricBag,
+)
 from fairseq2.recipes.wav2vec2._eval import Wav2Vec2EvalUnit
 from fairseq2.typing import CPU
-from fairseq2.utils.config import process_config
 from fairseq2.utils.rng import manual_seed
+from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import validate
 
 
 @dataclass(kw_only=True)
-class Wav2Vec2TrainConfig(TrainRecipeConfig):
-    """Holds the configuration of a wav2vec 2.0 model training task.
-
+class Wav2Vec2TrainConfig:
+    """
     The default values correspond to the base ls960h training setup as described
     in :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`.
     """
@@ -75,9 +74,13 @@ class Wav2Vec2TrainConfig(TrainRecipeConfig):
         default_factory=lambda: Wav2Vec2TrainDatasetSection()
     )
 
-    trainer: Wav2Vec2TrainerSection = field(
-        default_factory=lambda: Wav2Vec2TrainerSection(dtype=torch.float16)
+    gang: GangSection = field(default_factory=lambda: GangSection())
+
+    trainer: TrainerSection = field(
+        default_factory=lambda: TrainerSection(dtype=torch.float16)
     )
+
+    loss: Wav2Vec2LossSection = field(default_factory=lambda: Wav2Vec2LossSection())
 
     optimizer: OptimizerSection = field(
         default_factory=lambda: OptimizerSection(
@@ -103,6 +106,8 @@ class Wav2Vec2TrainConfig(TrainRecipeConfig):
             publish_metrics_every_n_steps=200,
         )
     )
+
+    common: CommonSection = field(default_factory=lambda: CommonSection())
 
 
 @dataclass(kw_only=True)
@@ -142,15 +147,6 @@ class Wav2Vec2TrainDatasetSection(DatasetSection):
     """The number of batches to prefetch in background."""
 
 
-@dataclass(kw_only=True)
-class Wav2Vec2TrainerSection(TrainerSection):
-    diversity_loss_weight: float = 0.1
-    """The weight of the diversity loss."""
-
-    feature_penalty_weight: float = 10.0
-    """The weight of the regularization penalty applied to the extracted features."""
-
-
 def register_wav2vec2_train_configs(context: RuntimeContext) -> None:
     registry = context.get_config_registry(Wav2Vec2TrainConfig)
 
@@ -184,48 +180,39 @@ def register_wav2vec2_train_configs(context: RuntimeContext) -> None:
 
 
 def load_wav2vec2_trainer(
-    context: RuntimeContext, config: Wav2Vec2TrainConfig, output_dir: Path
+    context: RuntimeContext, config: object, output_dir: Path
 ) -> Trainer[SequenceBatch]:
-    register_extra_asset_paths(context, config.assets)
+    config = structure(config, Wav2Vec2TrainConfig)
 
-    process_config(context, config)
+    validate(config)
 
-    gangs = setup_gangs(context, config.gang)
+    register_extra_asset_paths(context, config)
+
+    torch.set_float32_matmul_precision("high")
+
+    gangs = setup_gangs(context, config)
 
     checkpoint_manager = create_checkpoint_manager(context, gangs, output_dir)
 
-    dataset = load_dataset(SpeechDataset, context, config.dataset, gangs)
+    seed = config.common.seed
 
-    seed = config.seed
-
-    manual_seed(seed, CPU, context.device)
+    manual_seed(seed, CPU, gangs.root.device)
 
     seed += 1
 
-    log_model_config(log, config.model.config)
+    model = setup_model(
+        Wav2Vec2Model, context, config, output_dir, gangs, checkpoint_manager
+    )
 
-    model = load_model(Wav2Vec2Model, context, config, gangs, checkpoint_manager)
-
-    dp_model = wrap_data_parallel(context, config, model, gangs, checkpoint_manager)
-
-    dp_model = prepare_model(context, config, dp_model, gangs)
-
-    log_model(log, dp_model, gangs)
-
-    if config.trainer.torch_compile:
-        model = compile_model(context, config.model, model)
-
-    save_checkpoint_card(context, config, output_dir, gangs)
-
-    optimizer = create_optimizer(context, config, dp_model)
+    optimizer = create_optimizer(context, config, model)
 
     lr_scheduler = create_lr_scheduler(context, config, optimizer)
 
+    dataset = load_dataset(SpeechDataset, context, config, gangs)
+
     # Initialize the train unit.
     criterion = Wav2Vec2Criterion(
-        dp_model,
-        config.trainer.diversity_loss_weight,
-        config.trainer.feature_penalty_weight,
+        model, config.loss.diversity_loss_weight, config.loss.feature_penalty_weight
     )
 
     unit = Wav2Vec2TrainUnit(criterion, gangs)

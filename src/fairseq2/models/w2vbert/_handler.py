@@ -19,23 +19,23 @@ from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
 from fairseq2.models.w2vbert._config import W2VBERT_MODEL_FAMILY, W2VBertConfig
 from fairseq2.models.w2vbert._factory import W2VBertFactory
 from fairseq2.models.w2vbert._model import W2VBertModel
-from fairseq2.typing import CPU, safe_cast
+from fairseq2.typing import CPU
 
 
 class W2VBertModelHandler(AbstractModelHandler):
-    @override
     @property
+    @override
     def family(self) -> str:
         return W2VBERT_MODEL_FAMILY
 
-    @override
     @property
+    @override
     def kls(self) -> type[Module]:
         return W2VBertModel
 
     @override
     def _create_model(self, config: object) -> Module:
-        config = safe_cast("config", config, W2VBertConfig)
+        config = cast(W2VBertConfig, config)
 
         return W2VBertFactory(config).create_model()
 

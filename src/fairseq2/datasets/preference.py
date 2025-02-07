@@ -339,7 +339,9 @@ class GenericPreferenceDataset(PreferenceDataset):
 
         pipeline = builder.map(to_batch).and_return()
 
-        return DataPipelineReader[PreferenceBatch](self._name, pipeline, gang, options)
+        return DataPipelineReader[PreferenceBatch](
+            self._name, "default", pipeline, gang, options
+        )
 
     def _read_jsonl(self, path: Path, tokenizer: TextTokenizer) -> DataPipelineBuilder:
         lines = []

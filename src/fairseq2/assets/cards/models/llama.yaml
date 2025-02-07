@@ -77,7 +77,8 @@ name: llama3_instruct
 base: llama3
 model_config:
   vocab_info:
-    eos_idx: 128009  # end-of-turn
+    _set_:
+      eos_idx: 128009  # end-of-turn
 
 ---
 
