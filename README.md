@@ -91,6 +91,12 @@ matrix shows the supported combinations.
   <tbody>
     <tr>
       <td rowspan=3><code>HEAD</code></td>
+      <td><code>2.6.0</code></td>
+      <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
+      <td><code>cpu</code>, <code>cu118</code>, <code>cu124</code></td>
+      <td><code>x86_64</code></td>
+    </tr>
+    <tr>
       <td><code>2.5.0</code>, <code>2.5.1</code></td>
       <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
       <td><code>cpu</code>, <code>cu118</code>, <code>cu121</code>, <code>cu124</code></td>
@@ -103,14 +109,13 @@ matrix shows the supported combinations.
       <td><code>x86_64</code></td>
     </tr>
     <tr>
-      <td><code>2.3.0</code>, <code>2.3.1</code></td>
+      <td rowspan=3><code>0.4</code></td>
+      <td><code>2.6.0</code></td>
       <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
-      <td><code>cpu</code>, <code>cu118</code>, <code>cu121</code></td>
+      <td><code>cpu</code>, <code>cu118</code>, <code>cu124</code></td>
       <td><code>x86_64</code></td>
     </tr>
-  <tbody>
     <tr>
-      <td rowspan=3><code>0.3.0</code></td>
       <td><code>2.5.0</code>, <code>2.5.1</code></td>
       <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
       <td><code>cpu</code>, <code>cu118</code>, <code>cu121</code>, <code>cu124</code></td>
@@ -120,31 +125,6 @@ matrix shows the supported combinations.
       <td><code>2.4.0</code>, <code>2.4.1</code></td>
       <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
       <td><code>cpu</code>, <code>cu118</code>, <code>cu121</code>, <code>cu124</code></td>
-      <td><code>x86_64</code></td>
-    </tr>
-    <tr>
-      <td><code>2.3.0</code>, <code>2.3.1</code></td>
-      <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
-      <td><code>cpu</code>, <code>cu118</code>, <code>cu121</code></td>
-      <td><code>x86_64</code></td>
-    </tr>
-    <tr>
-      <td rowspan=3><code>0.2.0</code></td>
-      <td><code>2.1.1</code></td>
-      <td><code>&gt;=3.8</code>, <code>&lt;=3.11</code></td>
-      <td><code>cpu</code>, <code>cu118</code>, <code>cu121</code></td>
-      <td><code>x86_64</code></td>
-    </tr>
-    <tr>
-      <td><code>2.0.1</code></td>
-      <td><code>&gt;=3.8</code>, <code>&lt;=3.11</code></td>
-      <td><code>cpu</code>, <code>cu117</code>, <code>cu118</code></td>
-      <td><code>x86_64</code></td>
-    </tr>
-    <tr>
-      <td><code>1.13.1</code></td>
-      <td><code>&gt;=3.8</code>, <code>&lt;=3.10</code></td>
-      <td><code>cpu</code>, <code>cu116</code></td>
       <td><code>x86_64</code></td>
     </tr>
   </tbody>
@@ -154,12 +134,12 @@ matrix shows the supported combinations.
 
 To install a specific combination, first follow the installation instructions on
 [pytorch.org](https://pytorch.org/get-started/locally) for the desired PyTorch
-version, and then use the following command (shown for PyTorch `2.5.1` and
+version, and then use the following command (shown for PyTorch `2.6.0` and
 variant `cu124`):
 
 ```sh
 pip install fairseq2\
-  --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/pt2.5.1/cu124
+  --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/pt2.6.0/cu124
 ```
 
 > [!WARNING]
@@ -174,12 +154,12 @@ pip install fairseq2\
 For Linux, we also host nightly builds on FAIR's package repository. The
 supported variants are identical to the ones listed in *Variants* above. Once
 you have installed the desired PyTorch version, you can use the following
-command to install the corresponding nightly package  (shown for PyTorch `2.5.1`
+command to install the corresponding nightly package  (shown for PyTorch `2.6.0`
 and variant `cu124`):
 
 ```sh
 pip install fairseq2\
-  --pre --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/nightly/pt2.5.1/cu124
+  --pre --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/nightly/pt2.6.0/cu124
 ```
 
 
@@ -221,8 +201,8 @@ the supported combinations.
   </thead>
   <tbody>
     <tr>
-      <td><code>0.3.0</code></td>
-      <td><code>2.5.1</code></td>
+      <td><code>0.4.0</code></td>
+      <td><code>2.6.0</code></td>
       <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
       <td><code>arm64</code></td>
     </tr>
@@ -231,11 +211,11 @@ the supported combinations.
 
 To install a specific combination, first follow the installation instructions on
 [pytorch.org](https://pytorch.org/get-started/locally) for the desired PyTorch
-version, and then use the following command (shown for PyTorch `2.5.1`):
+version, and then use the following command (shown for PyTorch `2.6.0`):
 
 ```sh
 pip install fairseq2\
-  --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/pt2.5.1/cpu
+  --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/pt2.6.0/cpu
 ```
 
 > [!WARNING]
@@ -250,11 +230,11 @@ pip install fairseq2\
 For macOS, we also host nightly builds on FAIR's package repository. The
 supported variants are identical to the ones listed in *Variants* above. Once
 you have installed the desired PyTorch version, you can use the following
-command to install the corresponding nightly package  (shown for PyTorch `2.5.1`):
+command to install the corresponding nightly package  (shown for PyTorch `2.6.0`):
 
 ```sh
 pip install fairseq2\
-  --pre --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/nightly/pt2.5.1/cpu
+  --pre --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/nightly/pt2.6.0/cpu
 ```
 
 
