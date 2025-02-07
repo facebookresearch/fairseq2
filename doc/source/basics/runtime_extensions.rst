@@ -36,8 +36,10 @@ To create an extension, define a setup function:
 
 .. code-block:: python
 
-    def setup_my_extension() -> None:
-        # Register your custom components here
+    from fairseq2.context import RuntimeContext
+
+    def setup_my_extension(context: RuntimeContext) -> None:
+        # Register your custom components here using `context`.
         pass
 
 Registering Extensions

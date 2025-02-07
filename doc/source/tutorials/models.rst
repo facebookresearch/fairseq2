@@ -60,10 +60,10 @@ The directory structure for a fairseq2 model typically looks like this:
 
     src/fairseq2/models/your_model/
     ├── __init__.py
-    ├── _config.py      # Model configuration and presets
-    ├── _factory.py     # Model factory
-    ├── _handler.py     # Model handler for creation and loading
-    └── _model.py       # Model implementation
+    ├── config.py      # Model configuration and presets
+    ├── factory.py     # Model factory
+    ├── handler.py     # Model handler for creation and loading
+    └── model.py       # Model implementation
 
 Step-by-Step Guide
 ------------------
@@ -71,7 +71,7 @@ Step-by-Step Guide
 1. Define Model Configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-First, create a configuration class in ``_config.py``:
+First, create a configuration class in ``config.py``:
 
 .. code-block:: python
 
@@ -80,8 +80,6 @@ First, create a configuration class in ``_config.py``:
 
     from fairseq2.context import RuntimeContext
     from fairseq2.data import VocabularyInfo
-
-    YOUR_MODEL_FAMILY: Final = "your_model"
 
     @dataclass(kw_only=True)
     class YourModelConfig:
@@ -117,7 +115,7 @@ First, create a configuration class in ``_config.py``:
 2. Create Model Class
 ^^^^^^^^^^^^^^^^^^^^^
 
-Implement your model in ``_model.py``:
+Implement your model in ``model.py``:
 
 .. code-block:: python
 
@@ -158,7 +156,13 @@ Implement your model in ``_model.py``:
 3. Implement Model Factory
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Create a factory in ``_factory.py``:
+.. note::
+    
+    This factory pattern is a convention and not strictly required.
+    It is helpful to subclass and change specific parts of the model construction logic if needed.
+    The most important is to have a ``create_model(config: YourModelConfig) -> YourModel`` method to integrate with fairseq2.
+
+Create a factory in ``factory.py``:
 
 .. code-block:: python
 
@@ -183,17 +187,11 @@ Create a factory in ``_factory.py``:
                 vocab_info=config.vocab_info,
             )
 
-.. note::
-    
-    This factory pattern is a convention and not strictly required.
-    It is helpful to subclass and change specific parts of the model construction logic if needed.
-    The most important is to have a ``create_model(config: YourModelConfig) -> YourModel`` method to integrate with fairseq2.
-
 
 4. Create Model Handler
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-Implement a handler in ``_handler.py``:
+Implement a handler in ``handler.py``:
 
 .. code-block:: python
 
@@ -203,16 +201,18 @@ Implement a handler in ``_handler.py``:
     from typing_extensions import override
 
     from fairseq2.models import AbstractModelHandler
-    from fairseq2.models.your_model._config import YOUR_MODEL_FAMILY, YourModelConfig
+    from fairseq2.models.your_model._config import YourModelConfig
     from fairseq2.models.your_model._factory import YourModelFactory
     from fairseq2.models.your_model._model import YourModel
-    from fairseq2.typing import safe_cast
 
     class YourModelHandler(AbstractModelHandler):
+        # A 'family' represents a group of related models sharing a common
+        # architecture. For instance, `llama` is the model family of
+        # `llama_3_2_8b_instruct`.
         @override
         @property
         def family(self) -> str:
-            return YOUR_MODEL_FAMILY
+            return "my_model_family"
         
         @override
         @property
@@ -221,48 +221,34 @@ Implement a handler in ``_handler.py``:
         
         @override
         def _create_model(self, config: object) -> Module:
-            config = safe_cast("config", config, YourModelConfig)
+            config = cast(YourModelConfig, config)
             
             return YourModelFactory(config).create_model()
-        
-        @override
-        def _convert_checkpoint(
-            self,
-            checkpoint: dict[str, object],
-            config: object
-        ) -> dict[str, object]:
-            # Handle checkpoint conversion here
-            if "model" in checkpoint:
-                return checkpoint
-            
-            # Convert external format to fairseq2 format
-            key_map = {
-                # Map external checkpoint keys to your model keys
-                r"^encoder\.": r"encoder.",
-                r"^decoder\.": r"decoder.",
-            }
-            
-            return {"model": convert_model_state_dict(checkpoint, key_map)}
 
 5. Register the Model
 ^^^^^^^^^^^^^^^^^^^^^
 
-Add to ``setup_fairseq2_extension`` if you want to extend fairseq2 or ``src/fairseq2/setup/_models.py`` if you want to register a new model in fairseq2:
+Add to your ``setup_fairseq2_extension``:
 
 .. code-block:: python
 
-    # Your model registration
-    configs = context.get_config_registry(YourModelConfig)
+    def setup_fairseq2_extension(context: RuntimeContext) -> None:
+        # fairseq2's global model registry.
+        model_registry = context.get_registry(ModelHandler)
 
-    default_arch = "base"
+        # Registry my model.
+        configs = context.get_config_registry(YourModelConfig)
 
-    handler = YourModelHandler(
-        configs, default_arch, asset_download_manager, tensor_loader
-    )
+        default_arch = "base"
 
-    registry.register(handler.family, handler)
+        handler = YourModelHandler(
+            configs, default_arch, asset_download_manager, tensor_loader
+        )
 
-    register_your_model_configs(context)
+        model_registry.register(handler.family, handler)
+
+        # Register my model architecture configurations.
+        register_your_model_configs(context)
 
 Best Practices
 --------------
@@ -293,7 +279,6 @@ Common Pitfalls
 #. **Type Safety**:
     * Always use type hints
     * Validate config parameters
-    * Use ``safe_cast`` for type checking
 
 #. **Checkpoint Compatibility**:
     * Handle missing or extra parameters

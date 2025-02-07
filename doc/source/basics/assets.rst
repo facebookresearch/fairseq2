@@ -65,42 +65,41 @@ How to Customize Your Assets
 Advanced Topics
 ---------------
 
-Model Store
+Asset Store
 ~~~~~~~~~~~
 
 A store is a place where all the model cards are stored. In fairseq2, a store is accessed via 
-:py:class:`fairseq2.assets.AssetStore`. Multiple stores are allowed. By default, fairseq2 will look up the following stores:
+:py:class:`fairseq2.assets.AssetStore`. By default, fairseq2 will look up the following paths to
+find asset cards:
 
-* System asset store: Cards that are shared by all users. By default, the system store is `/etc/fairseq2/assets`,
+* System: Cards that are shared by all users. By default, the system store is `/etc/fairseq2/assets`,
     but this can be changed via the environment variable `FAIRSEQ2_ASSET_DIR`.
 
-* User asset store: Cards can be created with name with the suffix ``@user`` (`e.g.` ``llama3_2_1b@user``) that are only available to the user.
+* User: Cards can be created with name with the suffix ``@user`` (`e.g.` ``llama3_2_1b@user``) that are only available to the user.
     By default, the user store is ``~/.config/fairseq2/assets``, but this can be changed via the environment variable `FAIRSEQ2_USER_ASSET_DIR`.
 
-To register a new store, implement a :py:class:`fairseq2.assets.AssetMetadataProvider` and add them to 
-:py:class:`fairseq2.assets.asset_store`. Here is an example to register a new directory as a model store:
+Here is an example on how to register a new directory to the a asset store:
 
 .. code-block:: python
 
     from pathlib import Path
-    from fairseq2.assets import FileAssetMetadataProvider, asset_store
+    from fairseq2.assets import FileAssetMetadataLoader, StandardAssetStore
 
-    my_dir = Path("/path/to/model_store")
-    asset_store.metadata_providers.append(FileAssetMetadataProvider(my_dir))
+    def register_my_models(asset_store: StandardAssetStore) -> None:
+        my_dir = Path("/path/to/model_store")
+        loader = FileAssetMetadataLoader(my_dir)
+        asset_provider = loader.load()
+        asset_store.metadata_providers.append(asset_provider)
 
 
-Model Card
+Asset Card
 ~~~~~~~~~~
 
-A model card is a .YAML file that contains information about a model and instructs a 
-:py:class:`fairseq2.models.utils.generic_loaders.ModelLoader` on how to load the model into the memory. Each model card
-must have 2 mandatory attributes: `name` and `checkpoint`. `name` will be used to identify the model card, and it must
-be unique `across` all 
-fairseq2 provides example cards for different LLMs in
-:py:mod:`fairseq2.assets.cards`. 
-
-In fairseq2, a model card is accessed via :py:class:`fairseq2.assets.AssetCard`. Alternatively, one can call 
-`fairseq2.assets.AssetMetadataProvider.get_metadata(name: str)` to get the meta data of a given model card name.
+A model card is a .YAML file that contains information about an asset such as
+a model, dataset, or tokenizer. Each asset card must have a mandatory attribute
+`name`. `name` will be used to identify the relevant asset, and it must be
+unique across all fairseq2 provides example cards for different assets in
+:py:mod:`fairseq2.assets.cards`.
 
 See Also
 --------

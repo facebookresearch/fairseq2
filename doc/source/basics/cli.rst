@@ -22,7 +22,7 @@ Here are some basic examples of using the CLI:
     # Get help about a specific command (e.g. recipe lm::instruction_finetune)
     fairseq2 lm instruction_finetune -h
 
-    # List available presets for a recipe (e.g. recipe lm::instruction_finetune)
+    # List available configuration presets for a recipe (e.g. recipe lm::instruction_finetune)
     fairseq2 lm instruction_finetune --list-presets
 
     # Dump the default configuration for a recipe (e.g. recipe lm::instruction_finetune)
@@ -70,6 +70,16 @@ Use ``--config`` to override specific values:
 
     # Override a tuple
     fairseq2 lm instruction_finetune <OUTPUT_DIR> --config profile="[500,10]"
+
+or add, delete values:
+
+.. code-block:: bash
+
+    # Delete a configuration key
+    fairseq2 lm instruction_finetune <OUTPUT_DIR> --config del:common.metric_recorders.tensorboard
+
+    # Add a configuration key
+    fairseq2 lm instruction_finetune <OUTPUT_DIR> --config add:common.metric_recorders.tensorboard="{enabled: true}"
 
 .. note::
 

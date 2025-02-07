@@ -268,7 +268,7 @@ To help accelerate the training, fairseq2 is able to automatically detect multi-
 
     .. code-block:: bash
 
-        srun --nodes=2 --ntasks-per-node=8 \
+        srun --pty --nodes=2 --ntasks-per-node=8 \
             fairseq2 lm instruction_finetune $OUTPUT_DIR \
             ...
 
@@ -306,12 +306,12 @@ fairseq2 natively supports inference:
         dataset.path=$DATASET
 
 
-VLLM Support
+vLLM Support
 ^^^^^^^^^^^^
 
 
 To accelerate the inference process, we can deploy fairseq2 LLaMA checkpoints with VLLM.
-This is done by pointing vLLM to both the fairseq2 checkpoint directory and the Huggingface tokenizer:
+This is done by pointing vLLM to both the fairseq2 checkpoint directory and the Hugging Face tokenizer:
 
 .. code-block:: python
 

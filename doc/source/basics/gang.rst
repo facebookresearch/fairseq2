@@ -190,11 +190,11 @@ For standard distributed training:
 
 .. code-block:: python
 
-    from fairseq2.gang import setup_default_gang
+    from fairseq2.gang import setup_root_gang
     from datetime import timedelta
 
     # Initialize the default gang with custom settings
-    gang = setup_default_gang(
+    gang = setup_root_gang(
         timeout=timedelta(minutes=30),  # Custom timeout for monitored barriers
         monitored=True  # Enable monitored barriers for deadlock detection
     )
@@ -228,7 +228,7 @@ You can create sub-groups of processes (`e.g.`, for model parallelism):
     from fairseq2.gang import setup_parallel_gangs
 
     # Setup root gang first
-    root_gang = setup_default_gang()
+    root_gang = setup_root_gang()
 
     # Create DP and TP gangs with tensor parallel size = 2
     gangs = setup_parallel_gangs(root_gang, tp_size=2)
@@ -246,10 +246,10 @@ A minimal example of distributed training with gangs:
 
     # script.py
     import torch
-    from fairseq2.gang import setup_default_gang, ReduceOperation
+    from fairseq2.gang import setup_root_gang, ReduceOperation
 
     # Initialize gang
-    gang = setup_default_gang()
+    gang = setup_root_gang()
 
     # Dummy tensor
     tensor = torch.tensor(gang.rank + 1.0, device=gang.device)

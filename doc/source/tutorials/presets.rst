@@ -54,7 +54,7 @@ fairseq2 comes with several built-in presets for common scenarios. To use a pres
 
 .. code-block:: bash
 
-    fairseq2 lm instruction_finetune --list-presets
+    fairseq2 lm instruction_finetune --list-preset-configs
 
 2. Use a preset:
 
@@ -80,63 +80,6 @@ For preference optimization (DPO/CPO/ORPO/SimPO):
 * Similar presets are available with additional criterion-specific configurations
 
 
-Creating Custom Presets
------------------------
-
-You can create custom presets by:
-
-1. Define a configuration class (if not using an existing one)
-
-.. code-block:: python
-
-    @dataclass(kw_only=True)
-    class MyTrainConfig:
-        """Configuration for my training task."""
-        
-        learning_rate: float = 1e-4
-        """The learning rate."""
-
-        batch_size: int = 32 
-        """The batch size."""
-
-        profile: tuple[int, int] | None = None
-        """The number of steps that the PyTorch profiler should skip and then record."""
-
-2. Create a preset registry
-
-.. code-block:: python
-
-    my_train_presets = ConfigRegistry[MyTrainConfig]()
-
-    my_train_preset = my_train_presets.decorator
-
-3. Define presets using the decorator
-
-.. code-block:: python
-
-    @my_train_preset("fast")
-    def _fast() -> MyTrainConfig:
-        return MyTrainConfig(
-            learning_rate=1e-3,
-            batch_size=64,
-            profile=(1000, 10),  # skip 1000 steps then record 10 steps
-        )
-
-    @my_train_preset("accurate") 
-    def _accurate() -> MyTrainConfig:
-        return MyTrainConfig(
-            learning_rate=1e-5,
-            batch_size=16,
-            profile=(1000, 10),  # skip 1000 steps then record 10 steps
-        )
-
-For a complete example of preset implementation, here are a couple of examples:
-
-* :mod:`fairseq2.recipes.wav2vec2.train <fairseq2.recipes.wav2vec2.train>`
-
-* :mod:`fairseq2.recipes.lm.instruction_finetune <fairseq2.recipes.lm.instruction_finetune>`
-
-
 Overriding Preset Values
 ------------------------
 
@@ -157,8 +100,8 @@ You can override any preset values in two ways:
     # my_config.yaml
     optimizer:
       config:
-        lr: 2e-4
-    batch_size: 16
+        _set_:
+            lr: 2e-4
 
 .. code-block:: bash
 

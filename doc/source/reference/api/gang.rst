@@ -40,13 +40,8 @@ Classes
 Functions
 ---------
 
-.. autofunction:: setup_default_gang
+.. autofunction:: setup_root_gang
 .. autofunction:: fake_gangs
 .. autofunction:: setup_parallel_gangs
 .. autofunction:: broadcast_flag
 .. autofunction:: all_sum
-.. autofunction:: get_world_size
-.. autofunction:: get_rank
-.. autofunction:: get_local_world_size
-.. autofunction:: get_local_rank
-.. autofunction:: is_torchrun
