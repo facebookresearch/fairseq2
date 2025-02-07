@@ -54,6 +54,7 @@ Types of Gangs
    - Wraps PyTorch's ProcessGroup for actual distributed training
    - Supports both NCCL (for GPU) and Gloo (for CPU) backends
    - Handles monitored barriers and collective operations (e.g., `all_reduce`, `all_gather`, `broadcast`)
+   - Supports configurable timeouts for detecting deadlocks when using monitored barriers
 
 Distributed Training Basics
 ---------------------------
@@ -96,6 +97,8 @@ Parallel Training Architecture
 
 In fairseq2, parallel training is organized around Data Parallel (DP) Gangs and Tensor Parallel (TP) Gangs, which together enable scalable training of large models.
 For example, the ``setup_parallel_gangs(root_gang, tp_size=2)`` function creates a root gang (e.g., 8 processes) and then creates 2 DP gangs and 4 TP gangs.
+
+fairseq2 also supports hybrid-sharding FSDP configurations through ``setup_hybrid_fsdp_gangs()``, which creates specialized gang arrangements for efficient model sharding and replication across devices.
 
 .. image:: /_static/img/gang.svg
     :width: 600px
@@ -187,10 +190,14 @@ For standard distributed training:
 
 .. code-block:: python
 
-    from fairseq2.gang import setup_default_gang
+    from fairseq2.gang import setup_root_gang
+    from datetime import timedelta
 
-    # Initialize the default gang
-    gang = setup_default_gang()
+    # Initialize the default gang with custom settings
+    gang = setup_root_gang(
+        timeout=timedelta(minutes=30),  # Custom timeout for monitored barriers
+        monitored=True  # Enable monitored barriers for deadlock detection
+    )
 
     print(f"Process rank: {gang.rank}, World size: {gang.size}")
 
@@ -221,7 +228,7 @@ You can create sub-groups of processes (`e.g.`, for model parallelism):
     from fairseq2.gang import setup_parallel_gangs
 
     # Setup root gang first
-    root_gang = setup_default_gang()
+    root_gang = setup_root_gang()
 
     # Create DP and TP gangs with tensor parallel size = 2
     gangs = setup_parallel_gangs(root_gang, tp_size=2)
@@ -239,10 +246,10 @@ A minimal example of distributed training with gangs:
 
     # script.py
     import torch
-    from fairseq2.gang import setup_default_gang, ReduceOperation
+    from fairseq2.gang import setup_root_gang, ReduceOperation
 
     # Initialize gang
-    gang = setup_default_gang()
+    gang = setup_root_gang()
 
     # Dummy tensor
     tensor = torch.tensor(gang.rank + 1.0, device=gang.device)

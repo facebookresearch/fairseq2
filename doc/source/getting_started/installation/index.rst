@@ -129,8 +129,6 @@ and variant `cu121`):
     pip install fairseq2\
       --pre --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/nightly/pt2.4.0/cu121
 
----
-
 .. _installation_mac:
 
 Installing on macOS
@@ -215,7 +213,6 @@ command to install the corresponding nightly package  (shown for PyTorch `2.4.0`
     pip install fairseq2\
       --pre --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/nightly/pt2.4.0/cpu
 
----
 
 .. _installation_windows:
 
@@ -235,4 +232,4 @@ installation.
     :caption: Other Installation Guides
 
     installation_from_source
-
+    setup_with_uv

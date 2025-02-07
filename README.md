@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="doc/source/_static/img/logo.png" width="150"><br />
+  <img src="doc/source/_static/img/logo.svg" width="150"><br />
 </p>
 
 # fairseq2: FAIR Sequence Modeling Toolkit 2

@@ -11,11 +11,11 @@ Overview
 The extension system is built around a dependency injection container (learn more in :ref:`basics-design-philosophy`) that manages fairseq2's components.
 Through this system, you can:
 
-* Register new models
-* Add custom asset providers
+* Register new models and model cards
+* Add custom asset providers and validators  
 * Extend the runtime context
 * Register custom tensor loaders/dumpers
-* Add value converters
+* Add value converters and type validators
 * And more...
 
 Basic Usage
@@ -36,8 +36,10 @@ To create an extension, define a setup function:
 
 .. code-block:: python
 
-    def setup_my_extension() -> None:
-        # Register your custom components here
+    from fairseq2.context import RuntimeContext
+
+    def setup_my_extension(context: RuntimeContext) -> None:
+        # Register your custom components here using `context`.
         pass
 
 Registering Extensions
@@ -52,7 +54,7 @@ Using setup.py:
     setup(
         name="my-fairseq2-extension",
         entry_points={
-            "fairseq2": [
+            "fairseq2.extension": [
                 "my_extension = my_package.module:setup_my_extension",
             ],
         },
@@ -62,7 +64,7 @@ Using pyproject.toml:
 
 .. code-block:: toml
 
-    [project.entry-points."fairseq2"]
+    [project.entry-points."fairseq2.extension"]
     my_extension = "my_package.module:setup_my_extension"
 
 Extension Loading Process
@@ -81,10 +83,21 @@ Here's a complete example of implementing a fairseq2 extension:
 
 .. code-block:: python
 
-    from fairseq2.assets import default_asset_store
+    from fairseq2.context import RuntimeContext
+    from fairseq2.setup import register_package_metadata_provider
 
-    def setup_my_extension() -> None:
-        default_asset_store.add_package_metadata_provider("my_package")
+    def setup_my_extension(context: RuntimeContext) -> None:
+    
+        # Get the global asset store
+        asset_store = context.asset_store
+
+        # To manage assets from a custom source, you can append a function that returns the asset source name to the list of environment resolvers
+        # For example, the following code registers a function that returns "mycluster" as the asset source name.
+        # This allows you to add assets in the asset cards with identifiers that ends with "@mycluster".
+        asset_store.env_resolvers.append(lambda: "mycluster")
+    
+        # Register a package metadata provider for the "my_package" and read the model cards from the "my_package.cards" module.
+        register_package_metadata_provider(context, "my_package.cards")
 
 Error Handling
 --------------

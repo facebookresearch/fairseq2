@@ -128,11 +128,21 @@ The :class:`fairseq2.recipes.trainer.Trainer` class accepts a wide range of conf
         # Checkpoint parameters
         checkpoint_every_n_steps=5_000,      # Checkpoint frequency
         keep_last_n_checkpoints=5,           # Number of checkpoints to keep
+        keep_best_n_checkpoints=3,           # Number of best checkpoints to keep
+        keep_last_n_models=5,                # Number of models to keep
+        keep_best_n_models=3,                # Number of best models to keep
         
         # Metric parameters
         publish_metrics_every_n_steps=100,   # Metric publishing frequency
         tb_dir=Path("runs"),                 # TensorBoard directory
         metrics_dir=Path("metrics"),         # Metrics directory
+        
+        # Advanced parameters
+        fp16_loss_scale=(128.0, 0.0001),    # Initial and min loss scale for fp16
+        max_gradient_norm=None,              # Max gradient norm for clipping
+        amp=False,                           # Enable automatic mixed precision
+        anomaly_detection=False,             # Enable autograd anomaly detection
+        seed=2                               # Random seed
     )
 
 Training Flow
@@ -218,8 +228,6 @@ The training process follows this simplified sequence:
     .. code-block:: python
 
         def _validate(self) -> None:
-            log.info("Starting validation after step {}.", self._step_nr)
-
             self._model.eval()
 
             with summon_fsdp_for_validation(self._model):
@@ -234,82 +242,40 @@ The training process follows this simplified sequence:
 
             self._model.train()
 
-            log.info("Validation complete.")
+    5. **Checkpoint Management**: The trainer supports flexible checkpoint management:
+        - Save checkpoints at regular intervals (steps or epochs)
+        - Keep N most recent checkpoints
+        - Keep N best checkpoints based on validation score
+        - Separate policies for full checkpoints vs model-only checkpoints
+        - Support for FSDP model consolidation
 
-    - Validation occurs at specified intervals (steps or epochs).
-    - `e.g.`: ``validate_every_n_steps`` or ``validate_every_n_data_epochs``
-    - It computes a score (like accuracy) using :class:`fairseq2.recipes.evaluator.EvalUnit` objects and logs metrics.
-    - The validation score is compared to previous scores to:
-        - Save the best checkpoints.
-        - Stop early if performance stagnates.
-
-    5. **Checkpoint**: The checkpointing logic is implemented in the ``_checkpoint`` method:
-
-    .. code-block:: python
-
-        def _checkpoint(self) -> None:
-            # Save checkpoint
-            step_nr = self._step_nr
-
-            self._checkpoint_manager.begin_checkpoint(step_nr)
-
-            self._checkpoint_manager.save_state(
-                self.state_dict(), model_key="_model"
-            )
-
-    - The trainer saves checkpoints periodically at specified intervals (steps or epochs):
-        - `e.g.`: ``checkpoint_every_n_steps`` or ``checkpoint_every_n_data_epochs``
-        - Both model weights and optimizer state are saved.
-        - Best-performing models are saved based on the validation score.
-        - `e.g.`: ``keep_best_n_checkpoints=3``
-    - The checkpoint manager handles the checkpoint saving and loading, which ensures:
-        - Training can be resumed after interruptions.
-        - Best models are preserved for deployment.
-
-    6. **Metrics Logging**: The metrics logging logic is implemented in the ``_publish_metrics`` method:
-
-    .. code-block:: python
-
-        def _publish_metrics(self) -> None:
-            if self._tp_gang.rank == 0:
-                values = self._metric_bag.sync_and_compute_metrics()
-                record_metrics(self._metric_recorders, "train", values, self._step_nr)
-
-    - The trainer supports multiple logging backends:
+    6. **Metrics Logging**: The trainer supports multiple logging backends:
         - TensorBoard: Visualize training curves
-            - ``tb_dir = Path("logs/tb")``
         - JSON Logs: Store metrics in files
-            - ``metrics_dir = Path("logs/metrics")``
-        - Weights & Biases (WandB): Collaborative logging
-            - ``wandb_options = (Path("logs/wandb"), "project_name", "run_name")``
-
+        - Weights & Biases (WandB): Collaborative experiment tracking
 
 Best Practices
 --------------
 
 #. **Metric Tracking**:
-
    - Register all relevant metrics in the train unit
    - Use appropriate metric types (Mean, Sum, etc.)
    - Consider adding validation metrics
 
 #. **Resource Management**:
-
    - Use appropriate batch sizes for your hardware
    - Enable ``amp`` for memory efficiency
    - Configure gradient accumulation as needed
 
 #. **Checkpoint Management**:
-
    - Save checkpoints regularly
-   - Implement proper cleanup strategy
+   - Use both ``keep_last_n_checkpoints`` and ``keep_best_n_checkpoints``
+   - Consider separate policies for full checkpoints vs models
 
 #. **Validation**:
-
    - Validate at appropriate intervals
    - Track relevant validation metrics
    - Implement early stopping if needed
-
 
 Advanced Features
 -----------------
@@ -322,12 +288,18 @@ Advanced Features
             # Custom early stopping logic
             return score < threshold
 
+        metric_descriptors = get_runtime_context().get_registry(MetricDescriptor)
+
+        try:
+            score_metric_descriptor = metric_descriptors.get(metric_name)
+        except LookupError:
+            raise UnknownMetricDescriptorError(metric_name) from None
+
         trainer = Trainer(
             early_stopper=early_stopper,
-            score_metric_name="validation_loss",
+            score_metric_descriptor=score_metric_descriptor,
             lower_better=True,
         )
-
 
 #. **Custom Learning Rate Scheduling**:
 
@@ -342,13 +314,20 @@ Advanced Features
             lr_scheduler=CustomLRScheduler(optimizer),
         )
 
-
 #. **Profiling**:
 
     .. code-block:: python
 
+        num_skip_steps, num_record_steps = (100, 10)
+
+        profile_dir = Path("logs/tb")
+
+        profiler = TorchProfiler(
+            num_skip_steps, num_record_steps, profile_dir, gangs.root
+        )
+
         trainer = Trainer(
-            profile=(100, 10),  # Skip 100 steps, profile 10 steps
-            tb_dir=Path("logs/tb"),  # Save profiles to TensorBoard
+            profiler=profiler,
+            ...
         )
 

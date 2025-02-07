@@ -102,7 +102,11 @@ fairseq2 provides several ways to combine pipelines:
     pipeline1 = DataPipeline.constant(0).and_return()
     pipeline2 = read_sequence([1, 2, 3]).and_return()
     
-    for example in DataPipeline.round_robin(pipeline1, pipeline2).and_return():
+    for example in DataPipeline.round_robin(
+        [pipeline1, pipeline2],
+        stop_at_shortest=False,  # Continue until longest pipeline ends
+        allow_repeats=True       # Allow repeating from finished pipelines
+    ).and_return():
         print(example)
 
     # round_robin yields: 0, 1, 0, 2, 0, 3
@@ -112,7 +116,13 @@ fairseq2 provides several ways to combine pipelines:
     pipeline1 = read_sequence([0]).repeat().and_return()
     pipeline2 = read_sequence([1, 2, 3]).and_return()
     
-    for example in DataPipeline.zip(pipeline1, pipeline2, names=["a", "b"]).and_return():
+    for example in DataPipeline.zip(
+        [pipeline1, pipeline2],
+        names=["a", "b"],           # Name the columns
+        zip_to_shortest=False,      # Continue until longest pipeline ends
+        flatten=False,              # Keep structure as is
+        disable_parallelism=False   # Allow parallel processing
+    ).and_return():
         print(example)
 
     # Yields: {"a": 0, "b": 1}, {"a": 0, "b": 2}, {"a": 0, "b": 3}
@@ -122,7 +132,7 @@ fairseq2 provides several ways to combine pipelines:
     pipeline1 = read_sequence([0]).repeat().and_return()
     pipeline2 = read_sequence([1, 2, 3]).and_return()
     
-    for example in DataPipeline.sample(pipeline1, pipeline2, weights=[0.5, 0.5]).and_return():
+    for example in DataPipeline.sample([pipeline1, pipeline2], weights=[0.5, 0.5]).and_return():
         print(example)
 
 .. mermaid::
@@ -247,3 +257,47 @@ There are more features in fairseq2's data pipeline:
    For truly infinite behavior, use ``repeat()`` without arguments.
 
 For more technical details, see :doc:`/reference/api/fairseq2.data/index`.
+
+See Also
+--------
+
+- Jupyter Notebook Example: :doc:`/notebooks/datapipeline`
+
+Error Handling
+~~~~~~~~~~~~~~
+
+fairseq2 provides robust error handling capabilities:
+
+.. code-block:: python
+
+    # Control maximum number of warnings before raising an error
+    pipeline = (
+        read_sequence(data)
+        .filter(error_prone_function)
+        .and_return(max_num_warnings=3)  # Allow up to 3 errors before failing
+    )
+
+    # Access the last failed example for debugging
+    from fairseq2.data import get_last_failed_example
+
+    try:
+        for item in pipeline:
+            process(item)
+    except Exception as e:
+        failed_example = get_last_failed_example()
+        print(f"Failed on example: {failed_example}")
+
+State Management
+~~~~~~~~~~~~~~~~
+
+The pipeline state can be saved and restored for resumable processing:
+
+.. code-block:: python
+
+    pipeline = read_sequence(data).and_return()
+    
+    # Save state after processing some examples
+    state_dict = pipeline.state_dict()
+    
+    # Restore state later
+    pipeline.load_state_dict(state_dict)

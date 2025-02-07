@@ -11,7 +11,5 @@ different model architectures.
     :maxdepth: 1
 
     lm/index
-    llama/index
     wav2vec2/index
-    cli
     trainer

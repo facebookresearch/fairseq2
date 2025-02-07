@@ -103,25 +103,33 @@ Follow the `HuggingFace Datasets Tutorial`_ to download the `gsm8k data`_, (form
 We will use the ``sft/train.jsonl`` to fine-tune the model and use the ``test/test.jsonl`` for evaluation.
 
 
-Fine-Tune
----------
+Fine-Tuning
+-----------
 
 One-Liner
 ^^^^^^^^^
 
-Running the fine-tuning recipe is as simple as:
+Running the Supervised Fine-Tuning (SFT) recipe is as simple as:
 
 .. code-block:: bash
 
     fairseq2 lm instruction_finetune $OUTPUT_DIR --config \
-        dataset=/datasets/facebook/fairseq2-lm-gsm8k/sft \
-        model=llama3_2_1b \
-        max_num_tokens=4096 \
-        dtype=float16 \
-        max_num_steps=1000 \
-        max_num_data_epochs=20 \
-        checkpoint_every_n_steps=1000
+        dataset.path=/datasets/facebook/fairseq2-lm-gsm8k/sft \
+        model.name=llama3_2_1b \
+        dataset.max_num_tokens=4096 \
+        trainer.dtype=float16 \
+        regime.num_steps=1000 \
+        regime.num_data_epochs=20 \
+        regime.checkpoint_every_n_steps=1000
 
+
+Similarly, we have the Direct Preference Optimization (DPO) recipe:
+
+.. code-block:: bash
+
+    fairseq2 lm preference_finetune $OUTPUT_DIR --config ...
+
+Read more about this recipe in :ref:`tutorial-preference-optimization`.
 
 .. dropdown:: You can also put the configuration in a YAML file
     :icon: code
@@ -130,17 +138,21 @@ Running the fine-tuning recipe is as simple as:
     .. code-block:: yaml
 
         # /configs/example.yaml
-        dataset: /datasets/facebook/fairseq2-lm-gsm8k/sft
-        model: llama3_2_1b
-        max_num_tokens: 4096
-        max_seq_len: 4096
-        max_num_steps: 1000
-        max_num_data_epochs: 20
-        checkpoint_every_n_steps: 1000
-        keep_last_n_checkpoints: 1
-        keep_last_n_models: 1
-        publish_metrics_every_n_steps: 5
-        dtype: float16  # volta32gb gpus do not support bfloat16
+        dataset:
+            path: /datasets/facebook/fairseq2-lm-gsm8k/sft
+            max_num_tokens: 4096
+            max_seq_len: 4096
+        model:
+            name: llama3_2_1b
+        trainer:
+            dtype: float16  # volta32gb gpus do not support bfloat16
+        regime:
+            num_steps: 1000
+            num_data_epochs: 20
+            checkpoint_every_n_steps: 1000
+            keep_last_n_checkpoints: 1
+            keep_last_n_models: 1
+            publish_metrics_every_n_steps: 5
 
     Then run:
 
@@ -150,6 +162,15 @@ Running the fine-tuning recipe is as simple as:
         fairseq2 lm instruction_finetune $OUTPUT_DIR --config-file $CONFIG_FILE
 
     For more details about the recipe configuration, please refer to :ref:`basics-recipe`.
+
+
+.. important::
+
+    Before running the fine-tuning recipe, ensure the model's vocabulary configuration (``vocab_info``) matches your use case. 
+    For example, LLaMA 3 Instruct model uses a different end-of-sequence (EOS) token indices for chat (128009) vs base models (128001). 
+    Incorrect vocabulary configuration can significantly impact model performance. You can verify the configuration in your 
+    model's YAML card or the model architecture definition.
+
 
 Iterative Training
 ^^^^^^^^^^^^^^^^^^
@@ -162,12 +183,13 @@ Sometimes you may want to continue fine-tuning from a previously trained checkpo
 
 fairseq2 provides a clean way to handle this through the checkpoint system (learn more about :ref:`basics-ckpt-management`):
 
+
 .. code-block:: bash
 
     fairseq2 lm instruction_finetune $OUTPUT_DIR --config \
-        resume_checkpoint_dir=/path/to/checkpoint \
-        model="last_checkpoint" \  # this will pick up the last checkpoint
-        dataset=/path/to/data
+        assets.checkpoint_dir=/path/to/checkpoint \
+        model.name=last_checkpoint \  # this will pick up the last checkpoint
+        dataset.path=/path/to/data
 
 .. dropdown:: To pick up a specific checkpoint
     :icon: code
@@ -177,14 +199,15 @@ fairseq2 provides a clean way to handle this through the checkpoint system (lear
 
         CKPT_PATH="/checkpoint/user/experiments/run_0/checkpoints/step_1000"  # this is the path to the checkpoint
         CKPT_DIR=$(dirname "$CKPT_PATH")  # e.g., /checkpoint/user/experiments/run_0/checkpoints
-        CKPT="checkpoint_$(basename "$CKPT_DIR")"  # e.g., checkpoint_step_1000
+        CKPT="checkpoint_$(basename "$CKPT_PATH")"  # e.g., checkpoint_step_1000
 
         fairseq2 lm instruction_finetune $OUTPUT_DIR --config \
-            resume_checkpoint_dir=$CKPT_DIR \
-            model=$CKPT \  # Must match the checkpoint step
-            dataset=/path/to/new/data \
-            max_num_tokens=4096 \
-            dtype=float16
+            assets.checkpoint_dir=$CKPT_DIR \
+            model.name=$CKPT \  # Must match the checkpoint step
+            dataset.path=/path/to/new/data \
+            dataset.max_num_tokens=4096 \
+            trainer.dtype=float16
+
 
     .. note::
 
@@ -200,10 +223,16 @@ fairseq2 provides a clean way to handle this through the checkpoint system (lear
 
         # config.yaml
         # First stage - train on dataset A
-        dataset: /path/to/dataset_A
-        model: llama3_2_1b
-        max_num_steps: 1000
-        learning_rate: 1e-5
+        dataset:
+            path: /path/to/dataset_A
+        model:
+            name: llama3_2_1b
+        regime:
+            num_steps: 1000
+        optimizer:
+            name: adamw
+            config:
+                lr: 1e-5
         # ... other config
 
     Then run the following commands in bash:
@@ -215,11 +244,11 @@ fairseq2 provides a clean way to handle this through the checkpoint system (lear
 
         # Second stage - continue from first stage checkpoint
         fairseq2 lm instruction_finetune run2_output --config \
-            resume_checkpoint_dir=run1_output/checkpoints \
-            model=checkpoint_step_1000 \
-            dataset=/path/to/dataset_B \
-            learning_rate=5e-6  # Lower learning rate for second stage
-            max_num_steps=500
+            assets.checkpoint_dir=run1_output/checkpoints \
+            model.name=checkpoint_step_1000 \
+            dataset.path=/path/to/dataset_B \
+            optimizer.config.lr=5e-6  # Lower learning rate for second stage
+            regime.num_steps=500
 
     .. tip::
 
@@ -239,7 +268,7 @@ To help accelerate the training, fairseq2 is able to automatically detect multi-
 
     .. code-block:: bash
 
-        srun --nodes=2 --ntasks-per-node=8 \
+        srun --pty --nodes=2 --ntasks-per-node=8 \
             fairseq2 lm instruction_finetune $OUTPUT_DIR \
             ...
 
@@ -266,60 +295,37 @@ fairseq2 natively supports inference:
 
     CKPT_PATH="/checkpoint/$USER/experiments/$EXPERIMENT_NAME/checkpoints/step_1000"
     CKPT_DIR=$(dirname "$CKPT_PATH")
-    CKPT="checkpoint_$(basename "$CKPT_DIR")"  # e.g., checkpoint_step_1000
+    CKPT="checkpoint_$(basename "$CKPT_PATH")"  # e.g., checkpoint_step_1000
     SAVE_DIR="$CKPT_DIR/generation"
     DATASET="/datasets/facebook/fairseq2-lm-gsm8k/test/test.jsonl"
 
     fairseq2 lm generate $SAVE_DIR --no-sweep-dir --config \
-        checkpoint_dir=$CKPT_DIR \
-        model=$CKPT \
-        generator_config.temperature=0.1 \
-        dataset=$DATASET
+        assets.checkpoint_dir=$CKPT_DIR \
+        model.name=$CKPT \
+        seq_generator.config.temperature=0.1 \
+        dataset.path=$DATASET
 
 
-VLLM Support
+vLLM Support
 ^^^^^^^^^^^^
 
 
-To accelerate the inference process, we can convert fairseq2 checkpoints to HuggingFace checkpoints, which can be deployed with VLLM. This takes 2 steps:
-
-**Step 1: Convert fairseq2 checkpoint to XLFormer checkpoint**
-
-The first step is to use the fairseq2 command-line (:ref:`basics-cli`) tool to convert the fairseq2 checkpoint to an XLF checkpoint. The command structure is as follows:
-
-.. code-block:: bash
-
-    fairseq2 llama convert_checkpoint --model <architecture> <fairseq2_checkpoint_dir> <xlf_checkpoint_dir>
-
-
-* ``<architecture>``: Specify the architecture of the model -- `e.g.`, ``llama3`` (see :mod:`fairseq2.models.llama`)
-
-* ``<fairseq2_checkpoint_dir>``: Path to the directory containing the Fairseq2 checkpoint
-
-* ``<xlf_checkpoint_dir>``: Path where the XLF checkpoint will be saved
-
-
-.. note::
-
-    Architecture ``--arch`` must exist and be defined in `e.g.` :meth:`fairseq2.models.llama.archs.register_archs`.
-
-
-**Step 2: Convert XLFormer checkpoint to HF checkpoint**
-
-After obtaining the XLFormer checkpoint, the next step is to convert it to the Hugging Face format. Please refer to the official `HF script`_.
-
-
-**Step 3: Deploy with VLLM**
+To accelerate the inference process, we can deploy fairseq2 LLaMA checkpoints with VLLM.
+This is done by pointing vLLM to both the fairseq2 checkpoint directory and the Hugging Face tokenizer:
 
 .. code-block:: python
 
     from vllm import LLM
 
-    llm = LLM(model=<path_to_hf_checkpoint>)  # path of your model
+    llm = LLM(
+        model=<path_to_fs2_checkpoint>,  # path of your model
+        tokenizer=<name_or_path_of_hf_tokenizer>,  # path of your tokenizer files
+    )
     output = llm.generate("Hello, my name is")
     print(output)
 
 Please refer to the `VLLM documentation`_ for more details.
+
 
 Check the Accuracy
 ^^^^^^^^^^^^^^^^^^
