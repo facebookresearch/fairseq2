@@ -22,7 +22,8 @@ from fairseq2.metrics.recorders._recorder import (
     NoopMetricRecorder,
 )
 from fairseq2.registry import Provider
-from fairseq2.typing import safe_cast
+from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import ValidationError, ValidationResult, validate
 
 try:
     import wandb  # type: ignore[import-not-found]
@@ -111,6 +112,20 @@ class WandbRecorderConfig:
 
     run: str | None = None
 
+    def validate(self) -> None:
+        result = ValidationResult()
+
+        if self.enabled:
+            if self.project is None or self.run is None:
+                result.add_error(
+                    "Both `project` and `run` must be specified when `enabled` is set."
+                )
+
+        if result.has_error:
+            raise ValidationError(
+                "The Weights & Biases recorder configuration has one or more validation errors:", result  # fmt: skip
+            )
+
 
 @final
 class WandbRecorderHandler(MetricRecorderHandler):
@@ -121,7 +136,9 @@ class WandbRecorderHandler(MetricRecorderHandler):
 
     @override
     def create(self, output_dir: Path, config: object) -> MetricRecorder:
-        config = safe_cast("config", config, WandbRecorderConfig)
+        config = structure(config, WandbRecorderConfig)
+
+        validate(config)
 
         if not config.enabled:
             return NoopMetricRecorder()

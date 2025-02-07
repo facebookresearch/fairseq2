@@ -26,7 +26,6 @@ from typing_extensions import override
 
 from fairseq2.assets._card import _starts_with_scheme
 from fairseq2.logging import log
-from fairseq2.utils.env import get_path_from_env
 
 
 class AssetDownloadManager(ABC):
@@ -121,15 +120,7 @@ class InProcAssetDownloadManager(AssetDownloadManager):
 
     _cache_dir: Path
 
-    def __init__(self) -> None:
-        cache_dir = get_path_from_env("FAIRSEQ2_CACHE_DIR", missing_ok=True)
-        if cache_dir is None:
-            cache_dir = get_path_from_env("XDG_CACHE_HOME")
-            if cache_dir is None:
-                cache_dir = Path("~/.cache").expanduser()
-
-            cache_dir = cache_dir.joinpath("fairseq2/assets").resolve()
-
+    def __init__(self, cache_dir: Path) -> None:
         self._cache_dir = cache_dir
 
     @override

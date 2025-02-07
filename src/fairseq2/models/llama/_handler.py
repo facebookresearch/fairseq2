@@ -21,29 +21,33 @@ from fairseq2.models.transformer_decoder import (
     shard_transformer_decoder_model,
 )
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
-from fairseq2.typing import safe_cast
 
 
 class LLaMAModelHandler(AbstractModelHandler):
-    @override
     @property
+    @override
     def family(self) -> str:
         return LLAMA_MODEL_FAMILY
 
-    @override
     @property
+    @override
     def kls(self) -> type[Module]:
         return TransformerDecoderModel
 
+    @property
+    @override
+    def supports_sharding(self) -> bool:
+        return True
+
     @override
     def _create_model(self, config: object) -> Module:
-        config = safe_cast("config", config, LLaMAConfig)
+        config = cast(LLaMAConfig, config)
 
         return LLaMAFactory(config).create_model()
 
     @override
     def _shard(self, model: Module, config: object, gangs: Gangs) -> None:
-        config = safe_cast("config", config, LLaMAConfig)
+        config = cast(LLaMAConfig, config)
 
         shard_embed_dim = config.max_seq_len < 8192  # LLaMA 1 or 2
 
@@ -55,7 +59,7 @@ class LLaMAModelHandler(AbstractModelHandler):
     def _convert_checkpoint(
         self, checkpoint: dict[str, object], config: object
     ) -> dict[str, object]:
-        config = safe_cast("config", config, LLaMAConfig)
+        config = cast(LLaMAConfig, config)
 
         return convert_llama_checkpoint(checkpoint, config)
 

@@ -95,7 +95,7 @@ def clip_gradient_norm(
     if max_norm is None:
         max_norm = torch.inf
 
-    if isinstance(module, FSDP):
+    if isinstance(module, FSDP):  # FSDP2 natively supports `clip_grad_norm_`.
         if not module.check_is_root():
             raise ValueError("`module` must be the root FSDP module.")
 

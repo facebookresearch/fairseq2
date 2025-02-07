@@ -44,7 +44,9 @@ def _sum_num_batches(num_batches: int, gang: Gang) -> int:
     return int(total_num_batches)
 
 
-def _load_files_and_weights(name: str, path: Path) -> tuple[list[Path], list[float]]:
+def _load_files_and_weights(
+    dataset_name: str, path: Path
+) -> tuple[list[Path], list[float]]:
     path = path.expanduser().resolve()
 
     if not path.is_dir():
@@ -59,7 +61,7 @@ def _load_files_and_weights(name: str, path: Path) -> tuple[list[Path], list[flo
         content = None
     except OSError as ex:
         raise DatasetLoadError(
-            name, f"The '{manifest_file}' manifest file cannot be read. See the nested exception for details."  # fmt: skip
+            dataset_name, f"The '{manifest_file}' manifest file of the '{dataset_name}' dataset cannot be read. See the nested exception for details."  # fmt: skip
         ) from ex
 
     # If the directory does not contain a MANIFEST file, treat all JSONL
@@ -69,7 +71,7 @@ def _load_files_and_weights(name: str, path: Path) -> tuple[list[Path], list[flo
             files = list(path.glob("**/*.jsonl"))
         except OSError as ex:
             raise DatasetLoadError(
-                name, f"The JSONL files under the '{path}' directory cannot be retrieved. See the nested exception for details."  # fmt: skip
+                dataset_name, f"The JSONL files under the '{path}' directory of the '{dataset_name}' dataset cannot be retrieved. See the nested exception for details."  # fmt: skip
             ) from ex
 
         weights = [1.0 for _ in range(len(files))]
@@ -89,7 +91,7 @@ def _load_files_and_weights(name: str, path: Path) -> tuple[list[Path], list[flo
 
         def error() -> DatasetLoadError:
             return DatasetLoadError(
-                name, f"Each line in the '{manifest_file}' manifest file must represent a path to a JSONL file and a weight, but line {idx} is '{line}' instead."  # fmt: skip
+                dataset_name, f"Each line in the '{manifest_file}' manifest file of the '{dataset_name}' dataset must represent a path to a JSONL file and a weight, but line {idx} is '{line}' instead."  # fmt: skip
             )
 
         fields = line.rstrip().split("\t")
@@ -108,7 +110,7 @@ def _load_files_and_weights(name: str, path: Path) -> tuple[list[Path], list[flo
 
         if not file.exists():
             raise DatasetLoadError(
-                name, f"The '{file}' file referred at line {idx} in the '{manifest_file}' manifest file does not exist."  # fmt: skip
+                dataset_name, f"The '{file}' path referred at line {idx} in the '{manifest_file}' manifest file of the '{dataset_name}' dataset does not exist."  # fmt: skip
             )
 
         files.append(file)

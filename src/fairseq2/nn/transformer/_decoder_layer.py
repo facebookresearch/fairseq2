@@ -297,14 +297,14 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         if self.encoder_decoder_attn is None:
             if encoder_output is not None:
                 raise ValueError(
-                    "`encoder_output` must be `None` for decoder-only attention."
+                    "`encoder_output` must not be specified for decoder-only attention."
                 )
 
             return seqs
 
         if encoder_output is None:
             raise ValueError(
-                "`encoder_output` must not be `None` for encoder-decoder attention."
+                "`encoder_output` must be specified for encoder-decoder attention."
             )
 
         assert self.encoder_decoder_attn_residual is not None

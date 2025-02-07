@@ -19,7 +19,7 @@ from fairseq2.nn.utils.module import to_device
 
 def to_ddp(
     module: Module,
-    gang: Gang,
+    dp_gang: Gang,
     *,
     broadcast_buffers: bool = False,
     find_unused_parameters: bool = False,
@@ -28,35 +28,34 @@ def to_ddp(
 ) -> DDP:
     """Wrap ``module`` with DDP.
 
-    :param module:
-        The module to be wrapped with DDP.
-    :param gang:
-        The gang over which to replicate the module.
-    :param broadcast_buffers:
-        See the corresponding DDP documentation.
-    :param find_unused_parameters:
-        See the corresponding DDP documentation.
-    :param static_graph:
-        See the corresponding DDP documentation.
-    :param normalize_gradients:
-        If ``True``, normalizes gradients by the world size of the underlying
-        process group.
+    :param module: The module to be wrapped with DDP.
+    :param dp_gang: The data parallel gang over which to replicate the module.
+    :param broadcast_buffers: See the corresponding DDP documentation.
+    :param find_unused_parameters: See the corresponding DDP documentation.
+    :param static_graph: See the corresponding DDP documentation.
+    :param normalize_gradients: If ``True``, normalizes gradients by the world
+        size of the underlying process group.
     """
-    to_device(module, gang.device)
+    to_device(module, dp_gang.device)
 
-    ddp = DDP(
-        module,
-        broadcast_buffers=broadcast_buffers,
-        process_group=gang.as_process_group(),
-        find_unused_parameters=find_unused_parameters,
-        static_graph=static_graph,
-    )
+    try:
+        ddp = DDP(
+            module,
+            broadcast_buffers=broadcast_buffers,
+            process_group=dp_gang.as_process_group(),
+            find_unused_parameters=find_unused_parameters,
+            static_graph=static_graph,
+        )
+    except (RuntimeError, ValueError) as ex:
+        raise DistributedSetupError(
+            "DDP cannot be initialized. See the nested exception for details."
+        ) from ex
 
     # DDP, by default, normalizes gradients by the world size of the underlying
     # process group. For sequence-based tasks this is typically not ideal since
     # batch sizes can vary. Here, we disable that behavior.
     if not normalize_gradients:
-        ddp.register_comm_hook(state=gang, hook=_allreduce_hook)
+        ddp.register_comm_hook(state=dp_gang, hook=_allreduce_hook)
 
     return ddp
 
@@ -73,3 +72,7 @@ def _allreduce_hook(gang: Gang, bucket: GradBucket) -> Future[Tensor]:
         return output[0]
 
     return ft.then(return_reduced_bucket)  # type: ignore[no-any-return]
+
+
+class DistributedSetupError(Exception):
+    pass

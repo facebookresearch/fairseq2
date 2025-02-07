@@ -10,12 +10,12 @@ from collections.abc import Set
 
 
 class UnknownDatasetError(Exception):
-    name: str
+    dataset_name: str
 
-    def __init__(self, name: str) -> None:
-        super().__init__(f"'{name}' is not a known dataset.")
+    def __init__(self, dataset_name: str) -> None:
+        super().__init__(f"'{dataset_name}' is not a known dataset.")
 
-        self.name = name
+        self.dataset_name = dataset_name
 
 
 class UnknownDatasetFamilyError(Exception):
@@ -23,40 +23,69 @@ class UnknownDatasetFamilyError(Exception):
     dataset_name: str | None
 
     def __init__(self, family: str, dataset_name: str | None = None) -> None:
-        super().__init__(f"'{family}' is not a known dataset family.")
+        if dataset_name is None:
+            message = f"'{family}' is not a known dataset family."
+        else:
+            message = f"The '{dataset_name}' dataset has an unknown family '{family}'"
+
+        super().__init__(message)
 
         self.family = family
         self.dataset_name = dataset_name
 
 
 class DatasetLoadError(Exception):
-    name: str
+    dataset_name: str
 
-    def __init__(self, name: str, message: str) -> None:
+    def __init__(self, dataset_name: str, message: str) -> None:
         super().__init__(message)
 
-        self.name = name
+        self.dataset_name = dataset_name
 
 
-class DataReadError(Exception):
-    name: str
+def dataset_asset_card_error(dataset_name: str) -> DatasetLoadError:
+    return DatasetLoadError(
+        dataset_name, f"The '{dataset_name}' asset card cannot be read. See the nested exception for details."  # fmt: skip
+    )
 
-    def __init__(self, name: str, message: str) -> None:
+
+class InvalidDatasetTypeError(Exception):
+    kls: type[object]
+    expected_kls: type[object]
+    dataset_name: str | None
+
+    def __init__(
+        self,
+        kls: type[object],
+        expected_kls: type[object],
+        dataset_name: str | None = None,
+    ) -> None:
+        if dataset_name is None:
+            message = f"The dataset is expected to be of type `{expected_kls}`, but is of type `{kls}` instead."
+        else:
+            message = f"The '{dataset_name}' dataset is expected to be of type `{expected_kls}`, but is of type `{kls}` instead."
+
         super().__init__(message)
 
-        self.name = name
+        self.kls = kls
+        self.expected_kls = expected_kls
+        self.dataset_name = dataset_name
 
 
-class SplitNotFoundError(DataReadError):
+class UnknownSplitError(ValueError):
+    dataset_name: str
     split: str
     available_splits: Set[str]
 
-    def __init__(self, name: str, split: str, available_splits: Set[str]) -> None:
+    def __init__(
+        self, dataset_name: str, split: str, available_splits: Set[str]
+    ) -> None:
         s = ", ".join(sorted(available_splits))
 
         super().__init__(
-            name, f"`split` must be one of the following splits, but is '{split}' instead: {s}"  # fmt: skip
+            f"'{split}' is not a known split of the '{dataset_name}' dataset. The following splits are available: {s}"
         )
 
+        self.dataset_name = dataset_name
         self.split = split
         self.available_splits = available_splits

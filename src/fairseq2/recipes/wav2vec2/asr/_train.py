@@ -27,53 +27,58 @@ from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.optim.lr_scheduler import TRI_STAGE_LR, TriStageLRConfig
 from fairseq2.recipes.asr import AsrCriterion, AsrEvalUnit, AsrMetricBag, AsrScorer
 from fairseq2.recipes.common import (
-    compile_model,
     create_checkpoint_manager,
     create_lr_scheduler,
     create_optimizer,
     create_trainer,
+    load_base_model,
     load_dataset,
-    load_eval_model,
-    load_model,
+    load_reference_model,
     load_text_tokenizer,
     prepare_model,
     register_extra_asset_paths,
-    save_checkpoint_card,
+    setup_data_parallel_model,
     setup_gangs,
-    wrap_data_parallel,
 )
 from fairseq2.recipes.config import (
+    CommonSection,
     DatasetSection,
+    GangSection,
     LRSchedulerSection,
     ModelSection,
     OptimizerSection,
+    ReferenceModelSection,
     RegimeSection,
+    TextTokenizerSection,
     TrainerSection,
-    TrainRecipeConfig,
 )
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
-from fairseq2.recipes.utils.log import log_model, log_model_config
+from fairseq2.recipes.utils.log import log_model
 from fairseq2.typing import CPU
-from fairseq2.utils.config import process_config
 from fairseq2.utils.rng import manual_seed
+from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import validate
 
 
 @dataclass(kw_only=True)
-class Wav2Vec2AsrTrainConfig(TrainRecipeConfig):
-    """Holds the configuration of a wav2vec 2.0 ASR model training task."""
-
+class Wav2Vec2AsrTrainConfig:
     model: ModelSection = field(
         default_factory=lambda: ModelSection(family="wav2vec2_asr", arch="base_10h")
     )
 
-    pretrained_model: str = "wav2vec2_base"
-    """The name or path to the asset card of the wav2vec 2.0 model to finetune."""
+    pretrained_model: ReferenceModelSection = field(
+        default_factory=lambda: ReferenceModelSection(name="wav2vec2_base")
+    )
 
     dataset: Wav2Vec2AsrTrainDatasetSection = field(
         default_factory=lambda: Wav2Vec2AsrTrainDatasetSection()
     )
 
-    tokenizer: str | None = "librispeech_asr"
+    text_tokenizer: TextTokenizerSection = field(
+        default_factory=lambda: TextTokenizerSection(name="librispeech_asr")
+    )
+
+    gang: GangSection = field(default_factory=lambda: GangSection())
 
     trainer: Wav2Vec2AsrTrainerSection = field(
         default_factory=lambda: Wav2Vec2AsrTrainerSection(
@@ -106,6 +111,8 @@ class Wav2Vec2AsrTrainConfig(TrainRecipeConfig):
             publish_metrics_every_n_steps=200,
         )
     )
+
+    common: CommonSection = field(default_factory=lambda: CommonSection())
 
 
 @dataclass(kw_only=True)
@@ -178,7 +185,7 @@ def register_wav2vec2_asr_train_configs(context: RuntimeContext) -> None:
         assert isinstance(config.optimizer.config, AdamWConfig)
 
         config.model.arch = "large_10h"
-        config.pretrained_model = "wav2vec2_large"
+        config.pretrained_model.name = "wav2vec2_large"
         config.dataset.max_audio_len = 640_000
         config.dataset.max_num_elements = 1_280_000
         config.trainer.gradient_accumulation = 5
@@ -201,81 +208,81 @@ def register_wav2vec2_asr_train_configs(context: RuntimeContext) -> None:
 
 
 def load_wav2vec2_asr_trainer(
-    context: RuntimeContext, config: Wav2Vec2AsrTrainConfig, output_dir: Path
+    context: RuntimeContext, config: object, output_dir: Path
 ) -> Trainer[Seq2SeqBatch]:
-    register_extra_asset_paths(context, config.assets)
+    config = structure(config, Wav2Vec2AsrTrainConfig)
 
-    process_config(context, config)
+    validate(config)
 
-    gangs = setup_gangs(context, config.gang)
+    register_extra_asset_paths(context, config)
+
+    torch.set_float32_matmul_precision("high")
+
+    gangs = setup_gangs(context, config)
 
     checkpoint_manager = create_checkpoint_manager(context, gangs, output_dir)
 
-    dataset = load_dataset(AsrDataset, context, config.dataset, gangs)
+    seed = config.common.seed
 
-    tokenizer = load_text_tokenizer(context, config.model.name, config.tokenizer)
-
-    seed = config.seed
-
-    manual_seed(seed, CPU, context.device)
+    manual_seed(seed, CPU, gangs.root.device)
 
     seed += 1
 
-    log_model_config(log, config.model.config)
-
-    model = load_model(Wav2Vec2AsrModel, context, config, gangs, checkpoint_manager)
+    base_model = load_base_model(
+        Wav2Vec2AsrModel, context, config, output_dir, gangs, checkpoint_manager
+    )
 
     # If we start the training with an empty ASR model, use the weights of a
     # pretrained wav2vec 2.0 model.
-    if config.model.name is None and not checkpoint_manager.has_checkpoint():
-        pt_model = load_eval_model(
+    empty = config.model.name is None and config.model.checkpoint is None
+    if empty and not checkpoint_manager.has_checkpoint():
+        pt_model = load_reference_model(
             Wav2Vec2Model,
             context,
-            config.pretrained_model,
+            config.pretrained_model.name,
             gangs,
             config.trainer.dtype,
-            mixed_precision=config.trainer.mixed_precision is not None,
+            mp=config.trainer.mixed_precision is not None,
         )
 
-        share_parameters(pt_model.encoder_frontend, model.encoder_frontend)
-        share_parameters(pt_model.encoder, model.encoder)
+        share_parameters(pt_model.encoder_frontend, base_model.encoder_frontend)
+        share_parameters(pt_model.encoder, base_model.encoder)
 
-        if model.masker is not None:
-            share_parameters(pt_model.masker, model.masker)
+        if base_model.masker is not None:
+            share_parameters(pt_model.masker, base_model.masker)
 
         del pt_model
 
         # Make sure that the final projection layer is instantiated along with
         # the pretrained parameters if it was on the meta device.
         if gangs.dp.rank == 0:
-            to_device(model, gangs.root.device)
+            to_device(base_model, gangs.root.device)
 
         gangs.root.barrier()
 
     # We never train the feature extractor.
-    freeze_parameters(model.encoder_frontend.feature_extractor)
+    freeze_parameters(base_model.encoder_frontend.feature_extractor)
+
+    prepare_model(context, config, base_model, gangs)
 
     static_graph = config.trainer.freeze_encoder_for_n_steps == 0
 
-    dp_model = wrap_data_parallel(
-        context, config, model, gangs, checkpoint_manager, static_graph
+    model = setup_data_parallel_model(
+        context, config, base_model, gangs, checkpoint_manager, static_graph
     )
 
-    dp_model = prepare_model(context, config, dp_model, gangs)
+    log_model(log, model, gangs)
 
-    log_model(log, dp_model, gangs)
-
-    if config.trainer.torch_compile:
-        model = compile_model(context, config.model, model)
-
-    save_checkpoint_card(context, config, output_dir, gangs, config.tokenizer)
-
-    optimizer = create_optimizer(context, config, dp_model)
+    optimizer = create_optimizer(context, config, model)
 
     lr_scheduler = create_lr_scheduler(context, config, optimizer)
 
+    dataset = load_dataset(AsrDataset, context, config, gangs)
+
+    tokenizer = load_text_tokenizer(context, config)
+
     # Initialize the train unit.
-    criterion = AsrCriterion(dp_model)
+    criterion = AsrCriterion(model)
 
     unit = Wav2Vec2AsrTrainUnit(
         criterion, gangs.dp, config.trainer.freeze_encoder_for_n_steps
@@ -309,7 +316,7 @@ def load_wav2vec2_asr_trainer(
     if config.dataset.valid_split is not None:
         valid_scorer = AsrScorer(tokenizer)
 
-        valid_criterion = AsrCriterion(dp_model, valid_scorer)
+        valid_criterion = AsrCriterion(model, valid_scorer)
 
         valid_unit = AsrEvalUnit(valid_criterion, gangs)
 

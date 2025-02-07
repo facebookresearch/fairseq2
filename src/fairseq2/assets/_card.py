@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Any, Final, cast, final
 from urllib.parse import urlparse, urlunparse
 
-from fairseq2.assets._error import AssetCardError, AssetCardFieldNotFoundError
 from fairseq2.error import InternalError
 from fairseq2.utils.structured import (
     StructureError,
@@ -286,6 +285,28 @@ class AssetCardField:
             ) from ex
 
         self._card._set_field_value(self._path, unstructured_value)
+
+
+class AssetCardNotFoundError(Exception):
+    name: str
+
+    def __init__(self, name: str) -> None:
+        super().__init__(f"An asset card with name '{name}' is not found.")
+
+        self.name = name
+
+
+class AssetCardError(Exception):
+    name: str
+
+    def __init__(self, name: str, message: str) -> None:
+        super().__init__(message)
+
+        self.name = name
+
+
+class AssetCardFieldNotFoundError(AssetCardError):
+    pass
 
 
 _SCHEME_REGEX: Final = re.compile("^[a-zA-Z0-9]+://")

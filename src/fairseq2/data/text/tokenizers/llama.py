@@ -16,6 +16,7 @@ from fairseq2.data.text.tokenizers import (
     AbstractTextTokenizerHandler,
     TextTokenizer,
     TextTokenizerLoadError,
+    text_tokenizer_asset_card_error,
 )
 from fairseq2.data.text.tokenizers.sentencepiece import BasicSentencePieceTokenizer
 from fairseq2.data.text.tokenizers.tiktoken import TiktokenEncoder, TiktokenTokenizer
@@ -119,8 +120,8 @@ LLAMA_TOKENIZER_FAMILY: Final = "llama"
 
 @final
 class LLaMATokenizerHandler(AbstractTextTokenizerHandler):
-    @override
     @property
+    @override
     def family(self) -> str:
         return LLAMA_TOKENIZER_FAMILY
 
@@ -130,6 +131,8 @@ class LLaMATokenizerHandler(AbstractTextTokenizerHandler):
             use_v2 = card.field("use_v2_tokenizer").as_(bool)
         except AssetCardFieldNotFoundError:
             use_v2 = False
+        except AssetCardError as ex:
+            raise text_tokenizer_asset_card_error(card.name) from ex
 
         if use_v2:
             field = card.field("model_config").field("vocab_info").field("eos_idx")
@@ -138,14 +141,16 @@ class LLaMATokenizerHandler(AbstractTextTokenizerHandler):
                 eos_idx = field.as_(int)
             except AssetCardFieldNotFoundError:
                 eos_idx = 0
+            except AssetCardError as ex:
+                raise text_tokenizer_asset_card_error(card.name) from ex
 
             eot_idx = 128_009  # end-of-turn
 
             try:
                 return LLaMA3Tokenizer(path, instruct=eos_idx == eot_idx)
             except ValueError as ex:
-                raise AssetCardError(
-                    card.name, f"The value of the `model_config.vocab_info.eos_idx` field of the '{card.name}' asset card does not represent a valid LLaMA tokenizer configuration. See the nested exception for details."  # fmt: skip
+                raise TextTokenizerLoadError(
+                    card.name, f"The '{card.name}' asset card does not contain a valid text tokenizer configuration of the '{self.family}' family. See the nested exception for details."  # fmt: skip
                 ) from ex
             except RuntimeError as ex:
                 raise TextTokenizerLoadError(

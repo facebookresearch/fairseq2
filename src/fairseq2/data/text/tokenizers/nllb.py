@@ -17,6 +17,7 @@ from fairseq2.data.text.tokenizers import (
     AbstractTextTokenizerHandler,
     TextTokenizer,
     TextTokenizerLoadError,
+    text_tokenizer_asset_card_error,
 )
 from fairseq2.data.text.tokenizers.sentencepiece import (
     SentencePieceEncoder,
@@ -134,22 +135,28 @@ NLLB_TOKENIZER_FAMILY: Final = "nllb"
 
 @final
 class NllbTokenizerHandler(AbstractTextTokenizerHandler):
-    @override
     @property
+    @override
     def family(self) -> str:
         return NLLB_TOKENIZER_FAMILY
 
     @override
     def _load_tokenizer(self, path: Path, card: AssetCard) -> TextTokenizer:
-        langs = card.field("langs").as_(list[str])
+        try:
+            langs = card.field("langs").as_(list[str])
+        except AssetCardError as ex:
+            raise text_tokenizer_asset_card_error(card.name) from ex
 
-        default_lang = card.field("default_lang").as_(str)
+        try:
+            default_lang = card.field("default_lang").as_(str)
+        except AssetCardError as ex:
+            raise text_tokenizer_asset_card_error(card.name) from ex
 
         try:
             return NllbTokenizer(path, langs, default_lang)
         except ValueError as ex:
-            raise AssetCardError(
-                card.name, f"The values of the `langs` and `default_langs` fields of the '{card.name}' asset card do not represent a valid NLLB tokenizer configuration. See the nested exception for details."  # fmt: skip
+            raise TextTokenizerLoadError(
+                card.name, f"The '{card.name}' asset card does not contain a valid text tokenizer configuration of the '{self.family}' family. See the nested exception for details."  # fmt: skip
             ) from ex
         except RuntimeError as ex:
             raise TextTokenizerLoadError(

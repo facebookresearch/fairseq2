@@ -15,39 +15,19 @@ from fairseq2.models.encoder_decoder import EncoderDecoderModel
 
 class SequenceGeneratorHandler(ABC):
     @abstractmethod
-    def create(self, model: DecoderModel, config: object) -> SequenceGenerator:
-        ...
+    def create(self, model: DecoderModel, config: object) -> SequenceGenerator: ...
 
     @property
     @abstractmethod
-    def config_kls(self) -> type[object]:
-        ...
-
-
-class UnknownSequenceGeneratorError(Exception):
-    name: str
-
-    def __init__(self, name: str) -> None:
-        super().__init__(f"'{name}' is not a known sequence generator.")
-
-        self.name = name
+    def config_kls(self) -> type[object]: ...
 
 
 class Seq2SeqGeneratorHandler(ABC):
     @abstractmethod
-    def create(self, model: EncoderDecoderModel, config: object) -> Seq2SeqGenerator:
-        ...
+    def create(
+        self, model: EncoderDecoderModel, config: object
+    ) -> Seq2SeqGenerator: ...
 
     @property
     @abstractmethod
-    def config_kls(self) -> type[object]:
-        ...
-
-
-class UnknownSeq2SeqGeneratorError(Exception):
-    name: str
-
-    def __init__(self, name: str) -> None:
-        super().__init__(f"'{name}' is not a known sequence-to-sequence generator.")
-
-        self.name = name
+    def config_kls(self) -> type[object]: ...

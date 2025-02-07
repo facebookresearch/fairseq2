@@ -22,7 +22,8 @@ from fairseq2.metrics.recorders._recorder import (
     NoopMetricRecorder,
 )
 from fairseq2.registry import Provider
-from fairseq2.typing import safe_cast
+from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import validate
 
 try:
     from torch.utils.tensorboard import SummaryWriter  # type: ignore[attr-defined]
@@ -126,7 +127,9 @@ class TensorBoardRecorderHandler(MetricRecorderHandler):
 
     @override
     def create(self, output_dir: Path, config: object) -> MetricRecorder:
-        config = safe_cast("config", config, TensorBoardRecorderConfig)
+        config = structure(config, TensorBoardRecorderConfig)
+
+        validate(config)
 
         if not config.enabled:
             return NoopMetricRecorder()

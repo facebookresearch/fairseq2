@@ -6,28 +6,37 @@
 
 from __future__ import annotations
 
+from collections.abc import MutableMapping
 from dataclasses import Field, is_dataclass
-from typing import Any, ClassVar, Final, Protocol, TypeAlias, TypeGuard, TypeVar
+from typing import Any, ClassVar, Final, Protocol, TypeAlias, TypeGuard
 
 from torch import device, dtype
+from typing_extensions import Self
 from typing_extensions import override as override  # noqa: F401
-
-T = TypeVar("T")
-
-
-def safe_cast(param_name: str, value: object, kls: type[T]) -> T:
-    if not isinstance(value, kls):
-        raise TypeError(
-            f"`{param_name}` must be of type `{kls}`, but is of type `{type(value)}` instead."
-        )
-
-    return value
 
 
 class DataClass(Protocol):
     """Represents a data class object."""
 
     __dataclass_fields__: ClassVar[dict[str, Field[Any]]]
+
+
+class _EmptyType:
+    def __reduce__(self) -> str:
+        return "EMPTY"
+
+    def __copy__(self) -> Self:
+        return self
+
+    def __deepcopy__(self, memo: MutableMapping[Any, Any]) -> Self:
+        return self
+
+    def __repr__(self) -> str:
+        return "<empty>"
+
+
+EMPTY = _EmptyType()
+"""A sentinel signifying no value for a dataclass field."""
 
 
 def is_dataclass_instance(obj: object) -> TypeGuard[DataClass]:

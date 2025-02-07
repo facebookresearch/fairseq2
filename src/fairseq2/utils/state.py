@@ -25,11 +25,9 @@ from fairseq2.nn.utils.module import load_state_dict
 class Stateful(Protocol):
     """Represents an object that follows the ``state_dict`` convention."""
 
-    def state_dict(self) -> dict[str, object]:
-        ...
+    def state_dict(self) -> dict[str, object]: ...
 
-    def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
-        ...
+    def load_state_dict(self, state_dict: Mapping[str, object]) -> None: ...
 
 
 StatefulT = TypeVar("StatefulT")

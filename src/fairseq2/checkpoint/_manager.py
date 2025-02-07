@@ -325,8 +325,7 @@ class FileCheckpointManager(CheckpointManager):
                 cc_exists = self._file_system.exists(cc_dir)
             except OSError as ex:
                 raise CheckpointSaveError(
-                    step_nr,
-                    "The checkpoint carbon copy directory cannot be accessed. See the nested exception for details.",
+                    step_nr, "The checkpoint carbon copy directory cannot be accessed. See the nested exception for details."  # fmt: skip
                 ) from ex
 
             if cc_exists:
@@ -334,8 +333,7 @@ class FileCheckpointManager(CheckpointManager):
                     self._file_system.copy_directory(cc_dir, tmp_step_dir)
                 except (OSError, Error) as ex:
                     raise CheckpointSaveError(
-                        step_nr,
-                        f"The checkpoint carbon copy directory cannot be copied to the '{tmp_step_dir}' directory. See the nested exception for details.",
+                        step_nr, f"The checkpoint carbon copy directory cannot be copied to the '{tmp_step_dir}' directory. See the nested exception for details."  # fmt: skip
                     ) from ex
 
         gangs.root.barrier()
@@ -508,9 +506,7 @@ class FileCheckpointManager(CheckpointManager):
             pass
 
         if not checkpoint:
-            raise CheckpointNotFoundError(
-                step_nr, f"The checkpoint of training step {step_nr} is not found."  # fmt: skip
-            )
+            raise CheckpointNotFoundError(step_nr)
 
         return checkpoint
 
@@ -518,7 +514,7 @@ class FileCheckpointManager(CheckpointManager):
     def load_last_checkpoint(self) -> tuple[int, dict[str, object]]:
         step_numbers = self.get_step_numbers()
         if not step_numbers:
-            raise CheckpointNotFoundError(-1, "No checkpoint found.")  # fmt: skip
+            raise NoCheckpointFoundError()
 
         last_step_nr = step_numbers[-1]
 
@@ -730,6 +726,20 @@ class FileCheckpointManager(CheckpointManager):
             ) from ex
 
 
+class NoCheckpointFoundError(Exception):
+    def __init__(self) -> None:
+        super().__init__("No checkpoint found.")
+
+
+class CheckpointNotFoundError(Exception):
+    step_nr: int
+
+    def __init__(self, step_nr: int) -> None:
+        super().__init__(f"No checkpoint found for training step {step_nr}.")
+
+        self.step_nr = step_nr
+
+
 class CheckpointError(Exception):
     pass
 
@@ -750,10 +760,6 @@ class CheckpointLoadError(CheckpointError):
         super().__init__(message)
 
         self.step_nr = step_nr
-
-
-class CheckpointNotFoundError(CheckpointLoadError):
-    pass
 
 
 class CheckpointDeleteError(CheckpointError):

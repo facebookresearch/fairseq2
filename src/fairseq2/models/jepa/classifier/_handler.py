@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 from torch.nn import Module
 from typing_extensions import override
 
@@ -16,22 +18,21 @@ from fairseq2.models.jepa.classifier._config import (
 )
 from fairseq2.models.jepa.classifier._factory import JepaClassifierFactory
 from fairseq2.models.jepa.classifier._model import JepaClassifierModel
-from fairseq2.typing import safe_cast
 
 
 class JepaClassifierModelHandler(AbstractModelHandler):
-    @override
     @property
+    @override
     def family(self) -> str:
         return JEPA_CLASSIFIER_MODEL_FAMILY
 
-    @override
     @property
+    @override
     def kls(self) -> type[Module]:
         return JepaClassifierModel
 
     @override
     def _create_model(self, config: object) -> Module:
-        config = safe_cast("config", config, JepaClassifierConfig)
+        config = cast(JepaClassifierConfig, config)
 
         return JepaClassifierFactory(config).create_model()

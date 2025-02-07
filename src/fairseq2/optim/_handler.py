@@ -15,19 +15,8 @@ from fairseq2.optim._optimizer import ParameterCollection
 
 class OptimizerHandler(ABC):
     @abstractmethod
-    def create(self, params: ParameterCollection, config: object) -> Optimizer:
-        ...
+    def create(self, params: ParameterCollection, config: object) -> Optimizer: ...
 
     @property
     @abstractmethod
-    def config_kls(self) -> type[object]:
-        ...
-
-
-class UnknownOptimizerError(Exception):
-    name: str
-
-    def __init__(self, name: str) -> None:
-        super().__init__(f"'{name}' is not a known optimizer.")
-
-        self.name = name
+    def config_kls(self) -> type[object]: ...

@@ -14,13 +14,11 @@ from fairseq2.metrics.recorders._recorder import MetricRecorder
 
 class MetricRecorderHandler(ABC):
     @abstractmethod
-    def create(self, output_dir: Path, config: object) -> MetricRecorder:
-        ...
+    def create(self, output_dir: Path, config: object) -> MetricRecorder: ...
 
     @property
     @abstractmethod
-    def config_kls(self) -> type[object]:
-        ...
+    def config_kls(self) -> type[object]: ...
 
 
 class UnknownMetricRecorderError(Exception):

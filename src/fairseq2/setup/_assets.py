@@ -6,46 +6,75 @@
 
 from __future__ import annotations
 
+import os
+
 from fairseq2.assets import (
-    FileAssetMetadataProvider,
-    PackageAssetMetadataProvider,
-    StandardMetadataFileLoader,
+    AssetDirectories,
+    AssetMetadataLoadError,
+    FileAssetMetadataLoader,
+    PackageAssetMetadataLoader,
+    StandardAssetMetadataFileLoader,
     WheelPackageFileLister,
-    get_asset_dir,
-    get_user_asset_dir,
 )
 from fairseq2.context import RuntimeContext
+from fairseq2.setup._error import SetupError
 from fairseq2.utils.yaml import StandardYamlLoader
 
 
 def _register_assets(context: RuntimeContext) -> None:
     register_package_metadata_provider(context, "fairseq2.assets.cards")
 
-    asset_store = context.asset_store
-
     file_system = context.file_system
 
     yaml_loader = StandardYamlLoader(file_system)
 
-    metadata_file_loader = StandardMetadataFileLoader(yaml_loader)
+    asset_metadata_file_loader = StandardAssetMetadataFileLoader(yaml_loader)
+
+    asset_dirs = AssetDirectories(os.environ, file_system)
 
     # /etc/fairseq2/assets
-    config_dir = get_asset_dir()
+    try:
+        config_dir = asset_dirs.get_system_dir()
+    except AssetMetadataLoadError as ex:
+        raise SetupError(
+            "The system asset metadata directory cannot be determined. See the nested exception for details."
+        ) from ex
+
     if config_dir is not None:
-        provider = FileAssetMetadataProvider(
-            config_dir, file_system, metadata_file_loader
+        metadata_loader = FileAssetMetadataLoader(
+            config_dir, file_system, asset_metadata_file_loader
         )
 
-        asset_store.metadata_providers.append(provider)
+        try:
+            provider = metadata_loader.load()
+        except AssetMetadataLoadError as ex:
+            raise SetupError(
+                f"The asset metadata at the '{config_dir}' path cannot be loaded. See the nested exception for details."
+            ) from ex
+
+        context.asset_store.metadata_providers.append(provider)
 
     # ~/.config/fairseq2/assets
-    config_dir = get_user_asset_dir()
+    try:
+        config_dir = asset_dirs.get_user_dir()
+    except AssetMetadataLoadError as ex:
+        raise SetupError(
+            "The user asset metadata directory cannot be determined. See the nested exception for details."
+        ) from ex
+
     if config_dir is not None:
-        provider = FileAssetMetadataProvider(
-            config_dir, file_system, metadata_file_loader
+        metadata_loader = FileAssetMetadataLoader(
+            config_dir, file_system, asset_metadata_file_loader
         )
 
-        asset_store.user_metadata_providers.append(provider)
+        try:
+            provider = metadata_loader.load()
+        except AssetMetadataLoadError as ex:
+            raise SetupError(
+                f"The asset metadata at the '{config_dir}' path cannot be loaded. See the nested exception for details."
+            ) from ex
+
+        context.asset_store.user_metadata_providers.append(provider)
 
 
 def register_package_metadata_provider(
@@ -55,10 +84,17 @@ def register_package_metadata_provider(
 
     yaml_loader = StandardYamlLoader(context.file_system)
 
-    metadata_file_loader = StandardMetadataFileLoader(yaml_loader)
+    asset_metadata_file_loader = StandardAssetMetadataFileLoader(yaml_loader)
 
-    provider = PackageAssetMetadataProvider(
-        package_name, file_lister, metadata_file_loader
+    metadata_loader = PackageAssetMetadataLoader(
+        package_name, file_lister, asset_metadata_file_loader
     )
+
+    try:
+        provider = metadata_loader.load()
+    except AssetMetadataLoadError as ex:
+        raise SetupError(
+            f"The asset metadata of the '{package_name}' package cannot be loaded. See the nested exception for details."
+        ) from ex
 
     context.asset_store.metadata_providers.append(provider)

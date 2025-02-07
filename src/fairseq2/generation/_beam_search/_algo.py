@@ -110,13 +110,11 @@ class BeamStep:
 
 class BeamSearchAlgorithmHandler(ABC):
     @abstractmethod
-    def create(self, config: object) -> BeamSearchAlgorithm:
-        ...
+    def create(self, config: object) -> BeamSearchAlgorithm: ...
 
     @property
     @abstractmethod
-    def config_kls(self) -> type[object]:
-        ...
+    def config_kls(self) -> type[object]: ...
 
 
 class UnknownBeamSearchAlgorithmError(Exception):

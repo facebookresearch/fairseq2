@@ -31,8 +31,8 @@ from fairseq2.datasets import (
     DatasetHubAccessor,
     DatasetLoadError,
     LengthBatching,
-    SplitNotFoundError,
     StaticBatching,
+    UnknownSplitError,
 )
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
@@ -157,14 +157,14 @@ class GenericParallelTextDataset(ParallelTextDataset):
 
         if not path.is_dir():
             raise DatasetLoadError(
-                name, f"The '{path}' path is expected to be a directory with a MANIFEST file."  # fmt: skip
+                name, f"The '{path}' path of the '{name}' dataset is expected to be a directory with a MANIFEST file."  # fmt: skip
             )
 
         try:
             split_names = [d.name for d in path.iterdir() if d.is_dir()]
         except OSError as ex:
             raise DatasetLoadError(
-                name, f"The splits under the '{path}' directory cannot be determined. See the nested exception for details."  # fmt: skip
+                name, f"The splits under the '{path}' directory of the '{name}' dataset cannot be determined. See the nested exception for details."  # fmt: skip
             ) from ex
 
         splits = {}
@@ -177,7 +177,7 @@ class GenericParallelTextDataset(ParallelTextDataset):
                     content = list(fp)
             except OSError as ex:
                 raise DatasetLoadError(
-                    name, f"The '{manifest_file}' file cannot be read. See the nested exception for details."  # fmt: skip
+                    name, f"The '{manifest_file}' file of the '{name}' dataset cannot be read. See the nested exception for details."  # fmt: skip
                 ) from ex
 
             # Sort the directions in alphabetical order.
@@ -193,7 +193,7 @@ class GenericParallelTextDataset(ParallelTextDataset):
 
                 def error() -> DatasetLoadError:
                     return DatasetLoadError(
-                        name, f"Each line in the '{manifest_file}' manifest file must represent a valid direction and a weight, but line {idx} is '{line}' instead."  # fmt: skip
+                        name, f"Each line in the '{manifest_file}' manifest file of the '{name}' dataset must represent a valid direction and a weight, but line {idx} is '{line}' instead."  # fmt: skip
                     )
 
                 fields = line.rstrip().split("\t")
@@ -262,7 +262,7 @@ class GenericParallelTextDataset(ParallelTextDataset):
     ) -> DataPipelineReader[Seq2SeqBatch]:
         directions_weights = self._splits.get(split)
         if directions_weights is None:
-            raise SplitNotFoundError(self._name, split, self._splits.keys())
+            raise UnknownSplitError(self._name, split, self._splits.keys())
 
         if options is None:
             options = ParallelTextReadOptions()
@@ -401,7 +401,9 @@ class GenericParallelTextDataset(ParallelTextDataset):
 
         pipeline = builder.map(f).and_return()
 
-        return DataPipelineReader[Seq2SeqBatch](self._name, pipeline, gang, options)
+        return DataPipelineReader[Seq2SeqBatch](
+            self._name, split, pipeline, gang, options
+        )
 
     def _read_direction(self, split: str, direction: Direction) -> DataPipelineBuilder:
         direction_pipeline = DataPipeline.constant(direction).and_return()
@@ -421,12 +423,12 @@ class GenericParallelTextDataset(ParallelTextDataset):
 
         if not source_file.exists():
             raise DataReadError(
-                self._name, f"The source file '{source_file}' is not found under {self._data_dir}."  # fmt: skip
+                self._name, split, f"The '{source_file}' file is not found under the '{self._data_dir}' directory of the '{self._name}' dataset."  # fmt: skip
             )
 
         if not target_file.exists():
             raise DataReadError(
-                self._name, f"The target file '{target_file}' is not found under {self._data_dir}."  # fmt: skip
+                self._name, split, f"The '{target_file}' file is not found under the '{self._data_dir}' directory of the '{self._name}' dataset."  # fmt: skip
             )
 
         source_builder = read_text(source_file, rtrim=True, memory_map=True)
@@ -469,7 +471,7 @@ class GenericParallelTextDataset(ParallelTextDataset):
     def directions(self, split: str) -> list[Direction]:
         directions_weights = self._splits.get(split)
         if directions_weights is None:
-            raise SplitNotFoundError(self._name, split, self._splits.keys())
+            raise UnknownSplitError(self._name, split, self._splits.keys())
 
         return directions_weights[0]
 

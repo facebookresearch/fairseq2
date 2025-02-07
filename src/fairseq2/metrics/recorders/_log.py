@@ -19,7 +19,8 @@ from fairseq2.metrics import MetricDescriptor
 from fairseq2.metrics.recorders._handler import MetricRecorderHandler
 from fairseq2.metrics.recorders._recorder import MetricRecorder, NoopMetricRecorder
 from fairseq2.registry import Provider
-from fairseq2.typing import safe_cast
+from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import validate
 
 
 @final
@@ -110,7 +111,9 @@ class LogMetricRecorderHandler(MetricRecorderHandler):
 
     @override
     def create(self, output_dir: Path, config: object) -> MetricRecorder:
-        config = safe_cast("config", config, LogMetricRecorderConfig)
+        config = structure(config, LogMetricRecorderConfig)
+
+        validate(config)
 
         if not config.enabled:
             return NoopMetricRecorder()
