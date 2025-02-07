@@ -154,6 +154,9 @@ class POFinetuneDatasetSection(DatasetSection):
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
 
+    extras: dict[str, object] = field(default_factory=dict)
+    """The dataset-specific extra options."""
+
 
 @dataclass(kw_only=True)
 class DropoutConfig:
@@ -272,6 +275,7 @@ def load_po_finetuner(
         source_encode_mode=config.dataset.source_encode_mode,
         target_encode_mode=config.dataset.target_encode_mode,
         seed=seed,
+        extras=config.dataset.extras,
     )
 
     data_reader = dataset.create_reader(

@@ -242,7 +242,7 @@ def to_mergeable_map(obj: Mapping[str, object]) -> Mapping[str, object]:
     set_map = None
 
     for key, value in obj.items():
-        if isinstance(value, Mapping):
+        if isinstance(value, Mapping) and len(value) > 0:
             output[key] = to_mergeable_map(value)
         else:
             if set_map is None:

@@ -95,6 +95,9 @@ class Wav2Vec2EvalDatasetSection(DatasetSection):
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
 
+    extras: dict[str, object] = field(default_factory=dict)
+    """The dataset-specific extra options."""
+
 
 def register_wav2vec2_eval_configs(context: RuntimeContext) -> None:
     registry = context.get_config_registry(Wav2Vec2EvalConfig)
@@ -154,6 +157,7 @@ def load_wav2vec2_evaluator(
         sync_mode=SyncMode.UNTIL_LAST,
         num_prefetch=config.dataset.num_prefetch,
         seed=seed,
+        extras=config.dataset.extras,
     )
 
     data_reader = dataset.create_reader(
