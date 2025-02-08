@@ -41,6 +41,7 @@ ignore_errors = true
 [tool.pytest.ini_options]
 minversion = "7.1"
 testpaths = ["tests"]
+asyncio_default_fixture_loop_scope = "function"
 filterwarnings = [
     "ignore:distutils Version classes are deprecated:DeprecationWarning",
     "ignore:pkg_resources is deprecated:DeprecationWarning",
