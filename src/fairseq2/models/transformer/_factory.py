@@ -14,6 +14,7 @@ from fairseq2.models.transformer._frontend import (
 from fairseq2.models.transformer._model import TransformerModel
 from fairseq2.nn import (
     Embedding,
+    Linear,
     PositionEncoder,
     Projection,
     SinusoidalPositionEncoder,
@@ -163,4 +164,9 @@ class TransformerFactory:
         )
 
     def create_final_proj(self, embed: Embedding) -> Projection:
-        return TiedProjection(embed.weight, bias=None)
+        config = self._config
+
+        if isinstance(embed, StandardEmbedding):
+            return TiedProjection(embed.weight, bias=None)
+
+        return Linear(config.model_dim, config.vocab_info.size, bias=False)

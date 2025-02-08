@@ -19,6 +19,7 @@ from fairseq2.recipes.metrics import SequenceMetricBag
 
 
 def _gather_lprobs(output: SequenceModelOutput, target: SequenceBatch) -> Tensor:
+    assert target.target_mask is not None
     logprobs = torch.log_softmax(output.logits, dim=-1)
     chosen_logps = torch.gather(logprobs, -1, target.seqs.unsqueeze(-1)).squeeze(-1)
     chosen_logps = (chosen_logps * target.target_mask).sum(dim=-1)  # [Batch, 1]
@@ -29,6 +30,7 @@ def _gather_lprobs(output: SequenceModelOutput, target: SequenceBatch) -> Tensor
 def _gather_lprobs_avg(
     output: SequenceModelOutput, target: SequenceBatch
 ) -> tuple[Tensor, Tensor]:
+    assert target.target_mask is not None
     logprobs = torch.log_softmax(output.logits, dim=-1)
     per_token_logps = torch.gather(logprobs, -1, target.seqs.unsqueeze(-1)).squeeze(-1)
     total_logps = (per_token_logps * target.target_mask).sum(dim=-1)  # [Batch, 1]

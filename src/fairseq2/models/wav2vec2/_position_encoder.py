@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import final
+from typing import cast, final
 from warnings import catch_warnings
 
 import torch.nn as nn
@@ -130,8 +130,10 @@ class Wav2Vec2PositionalConv1d(Conv1d):
 
                 weight_norm(self, dim=2)
 
-            self.weight_v.requires_grad_(weight.requires_grad)
-            self.weight_g.requires_grad_(weight.requires_grad)
+            requires_grad = cast(bool, weight.requires_grad)
+
+            self.weight_v.requires_grad_(requires_grad)
+            self.weight_g.requires_grad_(requires_grad)
 
         if self.bias is not None:
             nn.init.constant_(self.bias, 0.0)
