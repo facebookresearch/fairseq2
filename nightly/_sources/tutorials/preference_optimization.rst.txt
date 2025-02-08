@@ -1,0 +1,650 @@
+.. _tutorial-preference-optimization:
+
+======================================
+:octicon:`law` Preference Optimization
+======================================
+
+.. dropdown:: What you will learn
+    :icon: multi-select
+    :animate: fade-in
+
+    * How to run preference optimization recipe
+
+    * How to customize the criterion units and use DPO/CPO/ORPO/SimPO
+
+    * How to run preference optimization with multiple nodes in fairseq2
+
+.. dropdown:: Prerequisites
+    :icon: multi-select
+    :animate: fade-in
+
+    * Get familiar with fairseq2 basics (:ref:`basics-overview`)
+
+    * Ensure you have fairseq2 installed (:ref:`installation`)
+
+    * Get familiar with the tutorial on end-to-end fine-tuning (:ref:`tutorial-end-to-end-fine-tuning`)
+
+
+Overview
+--------
+
+#. **Prepare**
+
+    * Download the `LLaMA3.1 8B instruction finetuned model`_ from HuggingFace
+
+    * Download the `gsm8k data`_ prepared for this tutorial
+
+#. **Fine-Tune**
+
+    * One simple command to run the preference optimization recipe
+
+    * Choose between different preference optimization methods (DPO/CPO/ORPO/SimPO)
+
+    * Customize configurations for each method
+
+    * Accelerate the training with multiple nodes
+
+#. **Generate**
+
+    * One simple command to generate from the finetuned model
+
+    * Since this step is similar to what has been covered in :ref:`tutorial-end-to-end-fine-tuning`, we would not elaborate on this topic.
+
+
+Prepare
+-------
+
+Model
+^^^^^
+
+Follow the `HuggingFace Models Tutorial`_ to download the `LLaMA3.1 8B instruction finetuned model`_, which can be run on volta32gb GPUs.
+Once you have the model in your local path, (`e.g.`` ``/models/Llama-3.1-8B/original/consolidated.00.pth``), 
+you need to register the model in a YAML card so that fairseq2 will know from where to pull the model 
+(read more about :ref:`basics-assets`). To do that:
+
+* Create a YAML file (e.g. ``my_llama3_1_8b_instruct.yaml``) with the following content:
+
+.. code-block:: yaml
+
+    name: llama3_1_8b_instruct@user
+    checkpoint: "/models/Meta-Llama-3-8B-Instruct/original/consolidated.00.pth"
+    tokenizer: "/models/Meta-Llama-3-8B-Instruct/original/tokenizer.model"
+
+.. tip::
+
+    The ``@user`` specifies this is your special environment. This can also be extended to help resolve different domain name for your clusters
+
+
+* Save the file in one of the following locations:
+
+    * `Option 1`: Place it in the default fairseq2 asset directory
+
+        * ``mkdir -p ~/.config/fairseq2/assets``
+
+        * ``mv my_llama3_2_1b.yaml ~/.config/fairseq2/assets/``
+
+    * `Option 2`: Specify a custom directory and point ``FAIRSEQ2_USER_ASSET_DIR`` to it
+
+        * ``export FAIRSEQ2_USER_ASSET_DIR=/path/to/custom/asset/directory``
+
+        * ``mv my_llama3_2_1b.yaml /path/to/custom/asset/directory/``
+
+Dataset
+^^^^^^^
+
+Follow the `HuggingFace Datasets Tutorial`_ to download the `gsm8k data`_, (formatted with fairseq2 flavor) to your local path (`e.g.` ``/datasets/facebook/fairseq2-lm-gsm8k/``).
+We will use the ``dpo/train.jsonl`` to fine-tune the model and use the ``test/test.jsonl`` for evaluation.
+
+
+Fine-Tune
+---------
+
+One-Liner
+^^^^^^^^^
+
+Running the preference optimization recipe is as simple as:
+
+.. code-block:: bash
+
+    fairseq2 lm preference_finetune $OUTPUT_DIR --config \
+        dataset.path=/datasets/facebook/fairseq2-lm-gsm8k/dpo \
+        model.name=llama3_2_1b \
+        trainer.dtype=float16 \
+        regime.num_steps=1000 \
+        regime.num_data_epochs=20 \
+        regime.checkpoint_every_n_steps=1000
+
+By default, DPO (direct preference optimization) is applied (``--config criterion.name=dpo``).
+The use of other methods (CPO/ORPO/SimPO) is documented below.
+The configuration fields are detailed in the page :ref:`basics-recipe`.
+The fields follows nested structure, where each field is a key-value pair.
+In the example above, we have made changes to config sections including ``dataset``, ``model``, ``trainer``, ``regime``.
+For a quick overview of all the sections and fields, you can use the ``--dump-config`` command:
+
+.. code-block:: bash
+
+    fairseq2 lm preference_finetune --dump-config
+
+Preference Optimization Methods
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+fairseq2 supports four different preference optimization methods:
+
+1. **DPO (Direct Preference Optimization)**
+
+    * Paper: https://arxiv.org/abs/2305.18290
+    * Key configuration parameters:
+        - ``beta``: Coefficient of regularization towards reference model (default: 0.1)
+        - ``nll_scale``: Coefficient of NLL loss (default: 0.0)
+        - ``length_normalization``: Whether to use length normalized rewards (default: False)
+        - ``reference_model``: Name of reference model (default: llama3_1_8b_instruct)
+        - ``reference_dtype``: Data type of reference model (default: float16)
+
+.. dropdown:: Example preset for DPO
+    :icon: code
+    :animate: fade-in
+
+    Here's an example preset config for DPO:
+
+    .. code-block:: yaml
+
+        # dpo.yaml
+        dataset:
+            name: gsm8k_dpo
+            path: /datasets/facebook/fairseq2-lm-gsm8k/dpo
+            batch_size: 1
+        model: 
+            name: llama3_1_8b_instruct
+        optimizer:
+            name: adamw
+            config:
+                lr: 5e-07
+                betas:
+                - 0.9
+                - 0.95
+                eps: 1.0e-08
+                weight_decay: 0.1
+                amsgrad: false
+                maximize: false
+                capturable: false
+                differentiable: false
+                impl: auto
+                use_fp32: false
+        lr_scheduler:
+            name: cosine-annealing
+            config:
+                cycle_len: null
+                num_warmup_steps: 50
+                cycle_mul: 1.0
+                lr_mul: 1.0
+                start_lr: 0.0
+        gang:
+            monitored: false
+        trainer:
+            dtype: bfloat16
+            data_parallelism: fsdp
+            fsdp:
+                reshard_after_forward: true
+            activation_checkpointing: true
+            gradient_accumulation: 4
+            max_gradient_norm: 1.0
+            fp16_loss_scale:
+            - 128.0
+            - 0.0001
+            torch_compile: false
+            profile: null
+            anomaly_detection: false
+        regime:
+            num_steps: 500
+            num_data_epochs: 100
+            checkpoint_every_n_steps: 100
+            checkpoint_every_n_data_epochs: 1
+            keep_last_n_checkpoints: 1
+            keep_last_n_models: 100
+            publish_metrics_every_n_steps: 1
+            publish_metrics_every_n_data_epochs: null
+        metrics:
+            recorders:
+                wandb:
+                enabled: true
+                project: better_prompts
+                run: unit_test_0
+        assets:
+            extra_path: null
+            checkpoint_dir: null
+        seed: 2
+        criterion:
+            name: dpo
+            config:
+                reference_model: llama3_1_8b_instruct
+                reference_dtype: bfloat16
+                beta: 0.1
+                nll_scale: 0.0
+
+    .. code-block:: bash
+
+        fairseq2 lm preference_finetune $OUTPUT_DIR --config-file \
+            /path/to/dpo.yaml
+
+2. **CPO (Contrastive Preference Optimization)**
+
+    * Paper: https://arxiv.org/abs/2401.08417
+    * Key configuration parameters:
+        - ``beta``: Coefficient for preferred vs dispreferred sequences (default: 1.0)
+        - ``nll_scale``: Coefficient of NLL loss (default: 1.0)
+
+    For CPO/ORPO/SimPO, we will need to do some tiny extra customization when running the recipe.
+    Please check the examples for more details.
+
+.. dropdown:: Example preset for CPO
+    :icon: code
+    :animate: fade-in
+
+    Here's an example preset config for CPO:
+
+    .. code-block:: yaml
+
+        # cpo.yaml
+        dataset: 
+            name: gsm8k_dpo
+            path: /checkpoint/seamless/data/gsm8k_data/dpo
+            batch_size: 1
+        model: 
+            name: llama3_1_8b_instruct
+        optimizer:
+            name: adamw
+            config:
+                lr: 5e-07
+                betas:
+                - 0.9
+                - 0.95
+                eps: 1.0e-08
+                weight_decay: 0.1
+                amsgrad: false
+                maximize: false
+                capturable: false
+                differentiable: false
+                impl: auto
+                use_fp32: false
+        lr_scheduler:
+            name: cosine-annealing
+            config:
+                cycle_len: null
+                num_warmup_steps: 50
+                cycle_mul: 1.0
+                lr_mul: 1.0
+                start_lr: 0.0
+        gang:
+            monitored: false
+        trainer:
+            dtype: bfloat16
+            data_parallelism: fsdp
+            fsdp:
+                reshard_after_forward: true
+            activation_checkpointing: true
+            gradient_accumulation: 4
+            max_gradient_norm: 1.0
+            fp16_loss_scale:
+            - 128.0
+            - 0.0001
+            torch_compile: false
+            profile: null
+            anomaly_detection: false
+        regime:
+            num_steps: 500
+            num_data_epochs: 100
+            checkpoint_every_n_steps: 100
+            checkpoint_every_n_data_epochs: 1
+            keep_last_n_checkpoints: 1
+            keep_last_n_models: 100
+            publish_metrics_every_n_steps: 1
+            publish_metrics_every_n_data_epochs: null
+        metrics:
+            recorders:
+                wandb:
+                enabled: true
+                project: better_prompts
+                run: unit_test_0
+        assets:
+            extra_path: null
+            checkpoint_dir: null
+        seed: 2
+        criterion:
+            name: cpo
+            config:
+                beta: 0.1
+                nll_scale: 0.0
+
+    Then, to run the preference finetuning recipe with CPO unit:
+
+    .. code-block:: bash
+    
+        fairseq2 lm preference_finetune $OUTPUT_DIR --config-file \
+        /path/to/cpo.yaml \
+        --config \
+        del:criterion.config.reference_model \
+        del:criterion.config.reference_dtype \
+        del:criterion.config.length_normalization
+
+    Note that since DPO is the default train unit (``criterion.name``), we will need to remove the irrelavant fields.
+
+3. **ORPO (Odds Ratio Preference Optimization)**
+
+    * Paper: https://arxiv.org/abs/2403.07691
+    * Key configuration parameters:
+        - ``orpo_lambda``: Coefficient of odds-ratio component (default: 1.0)
+        - ``nll_scale``: Coefficient of NLL loss (default: 1.0)
+
+.. dropdown:: Example preset for ORPO
+    :icon: code
+    :animate: fade-in
+
+    Here's an example preset config for ORPO:
+
+    .. code-block:: yaml
+
+        # orpo.yaml
+        dataset: 
+            name: gsm8k_dpo
+            path: /checkpoint/seamless/data/gsm8k_data/dpo
+        batch_size: 1
+        model: 
+            name: llama3_1_8b_instruct
+        optimizer:
+            name: adamw
+            config:
+                lr: 5e-07
+                betas:
+                - 0.9
+                - 0.95
+                eps: 1.0e-08
+                weight_decay: 0.1
+                amsgrad: false
+                maximize: false
+                capturable: false
+                differentiable: false
+                impl: auto
+                use_fp32: false
+        lr_scheduler:
+            name: cosine-annealing
+            config:
+                cycle_len: null
+                num_warmup_steps: 50
+                cycle_mul: 1.0
+                lr_mul: 1.0
+                start_lr: 0.0
+        gang:
+            monitored: false
+        trainer:
+            dtype: bfloat16
+            data_parallelism: fsdp
+            fsdp:
+                reshard_after_forward: true
+            activation_checkpointing: true
+            gradient_accumulation: 4
+            max_gradient_norm: 1.0
+            fp16_loss_scale:
+            - 128.0
+            - 0.0001
+            torch_compile: false
+            profile: null
+            anomaly_detection: false
+        regime:
+            num_steps: 500
+            num_data_epochs: 100
+            checkpoint_every_n_steps: 100
+            checkpoint_every_n_data_epochs: 1
+            keep_last_n_checkpoints: 1
+            keep_last_n_models: 100
+            publish_metrics_every_n_steps: 1
+            publish_metrics_every_n_data_epochs: null
+        metrics:
+            recorders:
+                wandb:
+                enabled: true
+                project: better_prompts
+                run: unit_test_0
+        assets:
+            extra_path: null
+            checkpoint_dir: null
+        seed: 2
+        criterion:
+            name: orpo
+            config:
+                nll_scale: 0.0
+
+    Then, to run the preference finetuning recipe with ORPO unit:
+
+    .. code-block:: bash
+    
+        fairseq2 lm preference_finetune $OUTPUT_DIR --config-file \
+            /path/to/orpo.yaml \
+            --config \
+            del:criterion.config.reference_model \
+            del:criterion.config.reference_dtype \
+            del:criterion.config.length_normalization \
+            del:criterion.config.beta \
+            add:criterion.config.orpo_lambda=0.1
+
+    Note that since DPO is the default train unit (``criterion.name``), we will need to remove the irrelavant fields and add missing fields.
+    The ``orpo_lambda`` is a specific config field for the ORPO train unit.
+    Do not include it in the config yaml file, but rather ``add:`` it directly through the CLI.
+
+
+4. **SimPO (Simple Preference Optimization)**
+
+    * Paper: https://arxiv.org/abs/2405.14734
+    * Key configuration parameters:
+        - ``beta``: Coefficient of KL-divergence regularization (default: 1.0)
+        - ``gamma``: Target reward margin between completions (default: 0.5)
+        - ``nll_scale``: Coefficient of NLL loss (default: 0.0)
+
+.. dropdown:: Example preset for SimPO
+    :icon: code
+    :animate: fade-in
+
+    Here's an example preset config for SimPO:
+
+    .. code-block:: yaml
+
+        # simpo.yaml
+        dataset: 
+            name: gsm8k_dpo
+            path: /checkpoint/seamless/data/gsm8k_data/dpo
+            batch_size: 1
+        model: 
+            name: llama3_1_8b_instruct
+        optimizer:
+            name: adamw
+            config:
+                lr: 5e-07
+                betas:
+                - 0.9
+                - 0.95
+                eps: 1.0e-08
+                weight_decay: 0.1
+                amsgrad: false
+                maximize: false
+                capturable: false
+                differentiable: false
+                impl: auto
+                use_fp32: false
+        lr_scheduler:
+            name: cosine-annealing
+            config:
+                cycle_len: null
+                num_warmup_steps: 50
+                cycle_mul: 1.0
+                lr_mul: 1.0
+                start_lr: 0.0
+        gang:
+            monitored: false
+            trainer:
+            dtype: bfloat16
+            data_parallelism: fsdp
+            fsdp:
+                reshard_after_forward: true
+            activation_checkpointing: true
+            gradient_accumulation: 4
+            max_gradient_norm: 1.0
+            fp16_loss_scale:
+            - 128.0
+            - 0.0001
+            torch_compile: false
+            profile: null
+            anomaly_detection: false
+        regime:
+            num_steps: 500
+            num_data_epochs: 100
+            checkpoint_every_n_steps: 100
+            checkpoint_every_n_data_epochs: 1
+            keep_last_n_checkpoints: 1
+            keep_last_n_models: 100
+            publish_metrics_every_n_steps: 1
+            publish_metrics_every_n_data_epochs: null
+        metrics:
+            recorders:
+                wandb:
+                enabled: true
+                project: better_prompts
+                run: unit_test_0
+        assets:
+            extra_path: null
+            checkpoint_dir: null
+        seed: 2
+        criterion:
+            name: simpo
+            config:
+                beta: 2
+                nll_scale: 0.0
+
+    Then, to run the preference finetuning recipe with SimPO unit:
+
+    .. code-block:: bash
+    
+        fairseq2 lm preference_finetune $OUTPUT_DIR --config-file \
+            /path/to/simpo.yaml \
+            --config \
+            del:criterion.config.reference_model \
+            del:criterion.config.reference_dtype \
+            del:criterion.config.length_normalization \
+            add:criterion.config.gamma=2
+
+    Note that since DPO is the default train unit (``criterion.name``), we will need to remove the irrelavant fields and add missing fields.
+    The ``gamma`` is a specific config field for the SimPO train unit.
+    Do not include it in the config yaml file, but rather ``add:`` it directly through the CLI.
+
+
+Iterative Training
+^^^^^^^^^^^^^^^^^^
+
+Sometimes you may want to continue fine-tuning from a previously trained checkpoint, either to:
+
+- Resume interrupted training
+- Fine-tune on additional data
+- Perform iterative fine-tuning with different hyperparameters
+
+fairseq2 provides a clean way to handle this through the checkpoint system (learn more about :ref:`basics-ckpt-management`):
+
+.. code-block:: bash
+
+    fairseq2 lm preference_finetune $OUTPUT_DIR --config \
+        assets.checkpoint_dir=/path/to/checkpoint \
+        model.name=last_checkpoint \  # this will pick up the last checkpoint
+        dataset.path=/path/to/data
+
+.. dropdown:: To pick up a specific checkpoint
+    :icon: code
+    :animate: fade-in
+
+    .. code-block:: bash
+
+        CKPT_PATH="/checkpoint/user/experiments/run_0/checkpoints/step_1000"  # this is the path to the checkpoint
+        CKPT_DIR=$(dirname "$CKPT_PATH")  # e.g., /checkpoint/user/experiments/run_0/checkpoints
+        CKPT="checkpoint_$(basename "$CKPT_PATH")"  # e.g., checkpoint_step_1000
+
+        fairseq2 lm preference_finetune $OUTPUT_DIR --config \
+            assets.checkpoint_dir=$CKPT_DIR \
+            model.name=$CKPT \  # Must match the checkpoint step
+            dataset.path=/path/to/new/data \
+            dataset.max_num_tokens=4096 \
+            trainer.dtype=float16
+
+    .. note::
+
+        If you want to pick a specific checkpoint instead of the last checkpoint, the ``model`` parameter must be set to ``checkpoint_step_X`` where X matches the step number of the checkpoint you want to load.
+
+Multi-Node
+^^^^^^^^^^
+
+To help accelerate the training, fairseq2 is able to automatically detect multi-node setup.
+
+- `Option 1`: Slurm
+
+    .. code-block:: bash
+
+        srun --nodes=2 --ntasks-per-node=8 \
+            fairseq2 lm preference_finetune $OUTPUT_DIR \
+            ...
+
+- `Option 2`: Torchrun
+
+    .. code-block:: bash
+
+        torchrun --standalone --nproc-per-node 8 --no-python \
+            fairseq2 lm preference_finetune $OUTPUT_DIR \
+            ...
+
+Generate
+--------
+
+Once we have finished the training, we can find in the ``$OUTPUT_DIR`` the model checkpoints in ``$OUTPUT_DIR/checkpoints``.
+With that, we can now generate over the test dataset!
+
+You can either use fairseq2 native generation recipe:
+
+.. code-block:: bash
+
+    CKPT_PATH="/checkpoint/$USER/experiments/$EXPERIMENT_NAME/checkpoints/step_1000"
+    CKPT_DIR=$(dirname "$CKPT_PATH")
+    CKPT="checkpoint_$(basename "$CKPT_PATH")"  # e.g., checkpoint_step_1000
+    SAVE_DIR="$CKPT_DIR/generation"
+    DATASET="/datasets/facebook/fairseq2-lm-gsm8k/test/test.jsonl"
+
+    fairseq2 lm generate $SAVE_DIR --no-sweep-dir --config \
+        assets.checkpoint_dir=$CKPT_DIR \
+        model.name=$CKPT \
+        seq_generator.config.temperature=0.1 \
+        dataset.path=$DATASET
+
+Or accelerate with VLLM:
+
+.. code-block:: python
+
+    from vllm import LLM
+
+    llm = LLM(
+        model=<path_to_fs2_checkpoint>,  # path of your model
+        tokenizer=<name_or_path_of_hf_tokenizer>,  # path of your tokenizer files
+    )
+    output = llm.generate("Hello, my name is")
+    print(output)
+
+For the simplicity of our documentation, please refer to :ref:`tutorial-end-to-end-fine-tuning` for more details.
+
+See Also
+--------
+
+- :doc:`Design Philosophy </basics/design_philosophy>`
+- :doc:`Recipe </basics/recipe>`
+- :doc:`CLI </basics/cli>`
+- :doc:`Assets </basics/assets>`
+- :ref:`tutorial-end-to-end-fine-tuning`
+
+
+.. _LLaMA3.1 8B instruction finetuned model: https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct/tree/main
+.. _gsm8k data: https://huggingface.co/datasets/facebook/fairseq2-lm-gsm8k
+.. _HuggingFace Models Tutorial: https://huggingface.co/docs/hub/en/models-downloading
+.. _HuggingFace Datasets Tutorial: https://huggingface.co/docs/hub/en/datasets-downloading
+.. _HF script: https://github.com/huggingface/transformers/blob/main/src/transformers/models/llama/convert_llama_weights_to_hf.py
+.. _VLLM documentation: https://vllm.readthedocs.io/en/latest/

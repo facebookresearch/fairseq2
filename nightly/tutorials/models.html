@@ -3,7 +3,7 @@
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link href="../_static/img/logo.png" sizes="1132x1126" rel="icon" type="image/png"><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Contributing to fairseq2" href="../faq/contributing.html" /><link rel="prev" title="Debugging with PuDB" href="pudb.html" />
+    <link href="../_static/img/logo.svg" rel="icon" type="image/svg+xml"><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="✎ Data Pipeline" href="../notebooks/datapipeline.html" /><link rel="prev" title="Debugging with PuDB" href="pudb.html" />
 
     <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
         <title>Add Your Own Model - fairseq2 Documentation</title>
@@ -193,7 +193,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
   <div class="sidebar-logo-container">
-    <img class="sidebar-logo" src="../_static/logo.png" alt="Logo"/>
+    <img class="sidebar-logo" src="../_static/logo.svg" alt="Logo"/>
   </div>
   
   <span class="sidebar-brand-text">fairseq2 Documentation</span>
@@ -208,6 +208,7 @@
 <ul>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../getting_started/installation/index.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-download" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M7.47 10.78a.75.75 0 001.06 0l3.75-3.75a.75.75 0 00-1.06-1.06L8.75 8.44V1.75a.75.75 0 00-1.5 0v6.69L4.78 5.97a.75.75 0 00-1.06 1.06l3.75 3.75zM3.75 13a.75.75 0 000 1.5h8.5a.75.75 0 000-1.5h-8.5z" fill-rule="evenodd"></path></svg> Installation</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><div class="visually-hidden">Toggle navigation of  Installation</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="../getting_started/installation/installation_from_source.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-file-binary" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M4 1.75C4 .784 4.784 0 5.75 0h5.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v8.586A1.75 1.75 0 0114.25 15h-9a.75.75 0 010-1.5h9a.25.25 0 00.25-.25V6h-2.75A1.75 1.75 0 0110 4.25V1.5H5.75a.25.25 0 00-.25.25v2a.75.75 0 01-1.5 0v-2zm7.5-.188V4.25c0 .138.112.25.25.25h2.688a.252.252 0 00-.011-.013l-2.914-2.914a.272.272 0 00-.013-.011zM0 7.75C0 6.784.784 6 1.75 6h1.5C4.216 6 5 6.784 5 7.75v2.5A1.75 1.75 0 013.25 12h-1.5A1.75 1.75 0 010 10.25v-2.5zm1.75-.25a.25.25 0 00-.25.25v2.5c0 .138.112.25.25.25h1.5a.25.25 0 00.25-.25v-2.5a.25.25 0 00-.25-.25h-1.5zm5-1.5a.75.75 0 000 1.5h.75v3h-.75a.75.75 0 000 1.5h3a.75.75 0 000-1.5H9V6.75A.75.75 0 008.25 6h-1.5z" fill-rule="evenodd"></path></svg> Installing from Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../getting_started/installation/setup_with_uv.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-lock" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M4 4v2h-.25A1.75 1.75 0 002 7.75v5.5c0 .966.784 1.75 1.75 1.75h8.5A1.75 1.75 0 0014 13.25v-5.5A1.75 1.75 0 0012.25 6H12V4a4 4 0 10-8 0zm6.5 2V4a2.5 2.5 0 00-5 0v2h5zM12 7.5h.25a.25.25 0 01.25.25v5.5a.25.25 0 01-.25.25h-8.5a.25.25 0 01-.25-.25v-5.5a.25.25 0 01.25-.25H12z" fill-rule="evenodd"></path></svg> UV Setup</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../getting_started/quick_start.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-rocket" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M14.064 0a8.75 8.75 0 00-6.187 2.563l-.459.458c-.314.314-.616.641-.904.979H3.31a1.75 1.75 0 00-1.49.833L.11 7.607a.75.75 0 00.418 1.11l3.102.954c.037.051.079.1.124.145l2.429 2.428c.046.046.094.088.145.125l.954 3.102a.75.75 0 001.11.418l2.774-1.707a1.75 1.75 0 00.833-1.49V9.485c.338-.288.665-.59.979-.904l.458-.459A8.75 8.75 0 0016 1.936V1.75A1.75 1.75 0 0014.25 0h-.186zM10.5 10.625c-.088.06-.177.118-.266.175l-2.35 1.521.548 1.783 1.949-1.2a.25.25 0 00.119-.213v-2.066zM3.678 8.116L5.2 5.766c.058-.09.117-.178.176-.266H3.309a.25.25 0 00-.213.119l-1.2 1.95 1.782.547zm5.26-4.493A7.25 7.25 0 0114.063 1.5h.186a.25.25 0 01.25.25v.186a7.25 7.25 0 01-2.123 5.127l-.459.458a15.21 15.21 0 01-2.499 2.02l-2.317 1.5-2.143-2.143 1.5-2.317a15.25 15.25 0 012.02-2.5l.458-.458h.002zM12 5a1 1 0 11-2 0 1 1 0 012 0zm-8.44 9.56a1.5 1.5 0 10-2.12-2.12c-.734.73-1.047 2.332-1.15 3.003a.23.23 0 00.265.265c.671-.103 2.273-.416 3.005-1.148z" fill-rule="evenodd"></path></svg> Quick Start</a></li>
@@ -228,11 +229,17 @@
 <p class="caption" role="heading"><span class="caption-text">Tutorials</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="end_to_end_fine_tuning.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-comment-discussion" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M1.5 2.75a.25.25 0 01.25-.25h8.5a.25.25 0 01.25.25v5.5a.25.25 0 01-.25.25h-3.5a.75.75 0 00-.53.22L3.5 11.44V9.25a.75.75 0 00-.75-.75h-1a.25.25 0 01-.25-.25v-5.5zM1.75 1A1.75 1.75 0 000 2.75v5.5C0 9.216.784 10 1.75 10H2v1.543a1.457 1.457 0 002.487 1.03L7.061 10h3.189A1.75 1.75 0 0012 8.25v-5.5A1.75 1.75 0 0010.25 1h-8.5zM14.5 4.75a.25.25 0 00-.25-.25h-.5a.75.75 0 110-1.5h.5c.966 0 1.75.784 1.75 1.75v5.5A1.75 1.75 0 0114.25 12H14v1.543a1.457 1.457 0 01-2.487 1.03L9.22 12.28a.75.75 0 111.06-1.06l2.22 2.22v-2.19a.75.75 0 01.75-.75h1a.25.25 0 00.25-.25v-5.5z" fill-rule="evenodd"></path></svg> End-to-End Fine-Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="preference_optimization.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-law" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M8.75.75a.75.75 0 00-1.5 0V2h-.984c-.305 0-.604.08-.869.23l-1.288.737A.25.25 0 013.984 3H1.75a.75.75 0 000 1.5h.428L.066 9.192a.75.75 0 00.154.838l.53-.53-.53.53v.001l.002.002.002.002.006.006.016.015.045.04a3.514 3.514 0 00.686.45A4.492 4.492 0 003 11c.88 0 1.556-.22 2.023-.454a3.515 3.515 0 00.686-.45l.045-.04.016-.015.006-.006.002-.002.001-.002L5.25 9.5l.53.53a.75.75 0 00.154-.838L3.822 4.5h.162c.305 0 .604-.08.869-.23l1.289-.737a.25.25 0 01.124-.033h.984V13h-2.5a.75.75 0 000 1.5h6.5a.75.75 0 000-1.5h-2.5V3.5h.984a.25.25 0 01.124.033l1.29.736c.264.152.563.231.868.231h.162l-2.112 4.692a.75.75 0 00.154.838l.53-.53-.53.53v.001l.002.002.002.002.006.006.016.015.045.04a3.517 3.517 0 00.686.45A4.492 4.492 0 0013 11c.88 0 1.556-.22 2.023-.454a3.512 3.512 0 00.686-.45l.045-.04.01-.01.006-.005.006-.006.002-.002.001-.002-.529-.531.53.53a.75.75 0 00.154-.838L13.823 4.5h.427a.75.75 0 000-1.5h-2.234a.25.25 0 01-.124-.033l-1.29-.736A1.75 1.75 0 009.735 2H8.75V.75zM1.695 9.227c.285.135.718.273 1.305.273s1.02-.138 1.305-.273L3 6.327l-1.305 2.9zm10 0c.285.135.718.273 1.305.273s1.02-.138 1.305-.273L13 6.327l-1.305 2.9z" fill-rule="evenodd"></path></svg> Preference Optimization</a></li>
 <li class="toctree-l1"><a class="reference internal" href="monitor_your_experiments.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-codescan-checkmark" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M10.28 6.28a.75.75 0 10-1.06-1.06L6.25 8.19l-.97-.97a.75.75 0 00-1.06 1.06l1.5 1.5a.75.75 0 001.06 0l3.5-3.5z"></path><path d="M7.5 15a7.469 7.469 0 004.746-1.693l2.474 2.473a.75.75 0 101.06-1.06l-2.473-2.474A7.5 7.5 0 107.5 15zm0-13.5a6 6 0 104.094 10.386.75.75 0 01.293-.292A6 6 0 007.5 1.5z" fill-rule="evenodd"></path></svg> Monitor Your Experiments</a></li>
 <li class="toctree-l1"><a class="reference internal" href="presets.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-gear" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M7.429 1.525a6.593 6.593 0 011.142 0c.036.003.108.036.137.146l.289 1.105c.147.56.55.967.997 1.189.174.086.341.183.501.29.417.278.97.423 1.53.27l1.102-.303c.11-.03.175.016.195.046.219.31.41.641.573.989.014.031.022.11-.059.19l-.815.806c-.411.406-.562.957-.53 1.456a4.588 4.588 0 010 .582c-.032.499.119 1.05.53 1.456l.815.806c.08.08.073.159.059.19a6.494 6.494 0 01-.573.99c-.02.029-.086.074-.195.045l-1.103-.303c-.559-.153-1.112-.008-1.529.27-.16.107-.327.204-.5.29-.449.222-.851.628-.998 1.189l-.289 1.105c-.029.11-.101.143-.137.146a6.613 6.613 0 01-1.142 0c-.036-.003-.108-.037-.137-.146l-.289-1.105c-.147-.56-.55-.967-.997-1.189a4.502 4.502 0 01-.501-.29c-.417-.278-.97-.423-1.53-.27l-1.102.303c-.11.03-.175-.016-.195-.046a6.492 6.492 0 01-.573-.989c-.014-.031-.022-.11.059-.19l.815-.806c.411-.406.562-.957.53-1.456a4.587 4.587 0 010-.582c.032-.499-.119-1.05-.53-1.456l-.815-.806c-.08-.08-.073-.159-.059-.19a6.44 6.44 0 01.573-.99c.02-.029.086-.075.195-.045l1.103.303c.559.153 1.112.008 1.529-.27.16-.107.327-.204.5-.29.449-.222.851-.628.998-1.189l.289-1.105c.029-.11.101-.143.137-.146zM8 0c-.236 0-.47.01-.701.03-.743.065-1.29.615-1.458 1.261l-.29 1.106c-.017.066-.078.158-.211.224a5.994 5.994 0 00-.668.386c-.123.082-.233.09-.3.071L3.27 2.776c-.644-.177-1.392.02-1.82.63a7.977 7.977 0 00-.704 1.217c-.315.675-.111 1.422.363 1.891l.815.806c.05.048.098.147.088.294a6.084 6.084 0 000 .772c.01.147-.038.246-.088.294l-.815.806c-.474.469-.678 1.216-.363 1.891.2.428.436.835.704 1.218.428.609 1.176.806 1.82.63l1.103-.303c.066-.019.176-.011.299.071.213.143.436.272.668.386.133.066.194.158.212.224l.289 1.106c.169.646.715 1.196 1.458 1.26a8.094 8.094 0 001.402 0c.743-.064 1.29-.614 1.458-1.26l.29-1.106c.017-.066.078-.158.211-.224a5.98 5.98 0 00.668-.386c.123-.082.233-.09.3-.071l1.102.302c.644.177 1.392-.02 1.82-.63.268-.382.505-.789.704-1.217.315-.675.111-1.422-.364-1.891l-.814-.806c-.05-.048-.098-.147-.088-.294a6.1 6.1 0 000-.772c-.01-.147.039-.246.088-.294l.814-.806c.475-.469.679-1.216.364-1.891a7.992 7.992 0 00-.704-1.218c-.428-.609-1.176-.806-1.82-.63l-1.103.303c-.066.019-.176.011-.299-.071a5.991 5.991 0 00-.668-.386c-.133-.066-.194-.158-.212-.224L10.16 1.29C9.99.645 9.444.095 8.701.031A8.094 8.094 0 008 0zm1.5 8a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM11 8a3 3 0 11-6 0 3 3 0 016 0z" fill-rule="evenodd"></path></svg> Working with Presets</a></li>
 <li class="toctree-l1"><a class="reference internal" href="benchmarking.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-clock" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M1.5 8a6.5 6.5 0 1113 0 6.5 6.5 0 01-13 0zM8 0a8 8 0 100 16A8 8 0 008 0zm.5 4.75a.75.75 0 00-1.5 0v3.5a.75.75 0 00.471.696l2.5 1a.75.75 0 00.557-1.392L8.5 7.742V4.75z" fill-rule="evenodd"></path></svg> Efficient Benchmarking</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pudb.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-bug" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M4.72.22a.75.75 0 011.06 0l1 .999a3.492 3.492 0 012.441 0l.999-1a.75.75 0 111.06 1.061l-.775.776c.616.63.995 1.493.995 2.444v.327c0 .1-.009.197-.025.292.408.14.764.392 1.029.722l1.968-.787a.75.75 0 01.556 1.392L13 7.258V9h2.25a.75.75 0 010 1.5H13v.5c0 .409-.049.806-.141 1.186l2.17.868a.75.75 0 01-.557 1.392l-2.184-.873A4.997 4.997 0 018 16a4.997 4.997 0 01-4.288-2.427l-2.183.873a.75.75 0 01-.558-1.392l2.17-.868A5.013 5.013 0 013 11v-.5H.75a.75.75 0 010-1.5H3V7.258L.971 6.446a.75.75 0 01.558-1.392l1.967.787c.265-.33.62-.583 1.03-.722a1.684 1.684 0 01-.026-.292V4.5c0-.951.38-1.814.995-2.444L4.72 1.28a.75.75 0 010-1.06zM6.173 5h3.654A.173.173 0 0010 4.827V4.5a2 2 0 10-4 0v.327c0 .096.077.173.173.173zM5.25 6.5a.75.75 0 00-.75.75V11a3.5 3.5 0 107 0V7.25a.75.75 0 00-.75-.75h-5.5z" fill-rule="evenodd"></path></svg> Debugging with PuDB</a></li>
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#"><svg aria-hidden="true" class="sd-octicon sd-octicon-ruby" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M3.637 2.291A.75.75 0 014.23 2h7.54a.75.75 0 01.593.291l3.48 4.5a.75.75 0 01-.072.999l-7.25 7a.75.75 0 01-1.042 0l-7.25-7a.75.75 0 01-.072-.999l3.48-4.5zM4.598 3.5L1.754 7.177 8 13.207l6.246-6.03L11.402 3.5H4.598z" fill-rule="evenodd"></path></svg> Add Your Own Model</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Notebooks</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../notebooks/datapipeline.html">✎ Data Pipeline</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../notebooks/dataset_gsm8k_sft.html">✎ Datasets</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">FAQ</span></p>
 <ul>
@@ -243,8 +250,12 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="../reference/api/index.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-file-code" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M4 1.75C4 .784 4.784 0 5.75 0h5.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v8.586A1.75 1.75 0 0114.25 15h-9a.75.75 0 010-1.5h9a.25.25 0 00.25-.25V6h-2.75A1.75 1.75 0 0110 4.25V1.5H5.75a.25.25 0 00-.25.25v2.5a.75.75 0 01-1.5 0v-2.5zm7.5-.188V4.25c0 .138.112.25.25.25h2.688a.252.252 0 00-.011-.013l-2.914-2.914a.272.272 0 00-.013-.011zM5.72 6.72a.75.75 0 000 1.06l1.47 1.47-1.47 1.47a.75.75 0 101.06 1.06l2-2a.75.75 0 000-1.06l-2-2a.75.75 0 00-1.06 0zM3.28 7.78a.75.75 0 00-1.06-1.06l-2 2a.75.75 0 000 1.06l2 2a.75.75 0 001.06-1.06L1.81 9.25l1.47-1.47z" fill-rule="evenodd"></path></svg> API Reference</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><div class="visually-hidden">Toggle navigation of  API Reference</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="../reference/api/fairseq2.html">fairseq2</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../reference/api/gang.html">fairseq2.gang</a></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../reference/api/fairseq2.data/index.html">fairseq2.data</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><div class="visually-hidden">Toggle navigation of fairseq2.data</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
-<li class="toctree-l3 has-children"><a class="reference internal" href="../reference/api/fairseq2.data/text/index.html">fairseq2.data.text</a><input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" role="switch" type="checkbox"/><label for="toctree-checkbox-4"><div class="visually-hidden">Toggle navigation of fairseq2.data.text</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../reference/api/fairseq2.cli/index.html">fairseq2.cli</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><div class="visually-hidden">Toggle navigation of fairseq2.cli</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../reference/api/fairseq2.cli/llama/index.html">Convert Checkpoints</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../reference/api/fairseq2.data/index.html">fairseq2.data</a><input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" role="switch" type="checkbox"/><label for="toctree-checkbox-4"><div class="visually-hidden">Toggle navigation of fairseq2.data</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../reference/api/fairseq2.data/text/index.html">fairseq2.data.text</a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" role="switch" type="checkbox"/><label for="toctree-checkbox-5"><div class="visually-hidden">Toggle navigation of fairseq2.data.text</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
 <li class="toctree-l4"><a class="reference internal" href="../reference/api/fairseq2.data/text/text_tokenizers.html">Text Tokenizers</a></li>
 </ul>
 </li>
@@ -252,24 +263,13 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../reference/api/fairseq2.datasets/index.html">fairseq2.datasets</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../reference/api/fairseq2.datasets/index.html#dataset-loaders">Dataset Loaders</a></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../reference/api/fairseq2.nn/index.html">fairseq2.nn</a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" role="switch" type="checkbox"/><label for="toctree-checkbox-5"><div class="visually-hidden">Toggle navigation of fairseq2.nn</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../reference/api/fairseq2.nn/index.html">fairseq2.nn</a><input class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" role="switch" type="checkbox"/><label for="toctree-checkbox-6"><div class="visually-hidden">Toggle navigation of fairseq2.nn</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="../reference/api/fairseq2.nn/position_encoders.html">Position Encoders</a></li>
 </ul>
 </li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../reference/api/fairseq2.recipes/index.html">fairseq2.recipes</a><input class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" role="switch" type="checkbox"/><label for="toctree-checkbox-6"><div class="visually-hidden">Toggle navigation of fairseq2.recipes</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
-<li class="toctree-l3 has-children"><a class="reference internal" href="../reference/api/fairseq2.recipes/lm/index.html">fairseq2.recipes.lm</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" role="switch" type="checkbox"/><label for="toctree-checkbox-7"><div class="visually-hidden">Toggle navigation of fairseq2.recipes.lm</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/api/fairseq2.recipes/lm/instruction_finetune.html">fairseq2.recipes.lm.instruction_finetune</a></li>
-</ul>
-</li>
-<li class="toctree-l3 has-children"><a class="reference internal" href="../reference/api/fairseq2.recipes/llama/index.html">fairseq2.recipes.llama</a><input class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" role="switch" type="checkbox"/><label for="toctree-checkbox-8"><div class="visually-hidden">Toggle navigation of fairseq2.recipes.llama</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/api/fairseq2.recipes/llama/convert_checkpoint.html">Convert Checkpoints</a></li>
-</ul>
-</li>
-<li class="toctree-l3 has-children"><a class="reference internal" href="../reference/api/fairseq2.recipes/wav2vec2/index.html">fairseq2.recipes.wav2vec2</a><input class="toctree-checkbox" id="toctree-checkbox-9" name="toctree-checkbox-9" role="switch" type="checkbox"/><label for="toctree-checkbox-9"><div class="visually-hidden">Toggle navigation of fairseq2.recipes.wav2vec2</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/api/fairseq2.recipes/wav2vec2/train.html">fairseq2.recipes.wav2vec2.train</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/api/fairseq2.recipes/cli.html">fairseq2.recipes.cli</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../reference/api/fairseq2.recipes/index.html">fairseq2.recipes</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" role="switch" type="checkbox"/><label for="toctree-checkbox-7"><div class="visually-hidden">Toggle navigation of fairseq2.recipes</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../reference/api/fairseq2.recipes/lm/index.html">fairseq2.recipes.lm</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/api/fairseq2.recipes/wav2vec2/index.html">fairseq2.recipes.wav2vec2</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../reference/api/fairseq2.recipes/trainer.html">fairseq2.recipes.trainer</a></li>
 </ul>
 </li>
@@ -328,9 +328,9 @@
 </summary><div class="sd-summary-content sd-card-body docutils">
 <ul class="simple">
 <li><p class="sd-card-text">How to configure a model</p></li>
-<li><p class="sd-card-text">How to register a model architecture</p></li>
-<li><p class="sd-card-text">How to use model factories to create models</p></li>
-<li><p class="sd-card-text">How to use model loaders to load models</p></li>
+<li><p class="sd-card-text">How to implement a model class</p></li>
+<li><p class="sd-card-text">How to create a model factory and handler</p></li>
+<li><p class="sd-card-text">How to register your model with fairseq2</p></li>
 </ul>
 </div>
 </details><details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
@@ -343,24 +343,25 @@
 <ul class="simple">
 <li><p class="sd-card-text">Get familiar with fairseq2 basics (<a class="reference internal" href="../basics/overview.html#basics-overview"><span class="std std-ref"> Overview</span></a>)</p></li>
 <li><p class="sd-card-text">Ensure you have fairseq2 installed (<a class="reference internal" href="../getting_started/installation/index.html#installation"><span class="std std-ref"> Installation</span></a>)</p></li>
-<li><p class="sd-card-text">Get familiar with presets (<a class="reference internal" href="presets.html#tutorial-presets"><span class="std std-ref"> Working with Presets</span></a>)</p></li>
 </ul>
 </div>
 </details><section id="overview">
 <h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">¶</a></h2>
-<p>The model configuration and loading system in fairseq2 consists of several key components:</p>
+<p>The model system in fairseq2 consists of several key components:</p>
 <ol class="arabic">
 <li><p><strong>Model Config</strong></p>
 <blockquote>
 <div><ul class="simple">
-<li><p>Defines the architecture and hyperparameters of a model (<cite>e.g. number of layers, hidden size, learning rate, etc.</cite>)</p></li>
+<li><p>Defines the architecture and hyperparameters</p></li>
+<li><p>Supports different model variants through config presets</p></li>
 </ul>
 </div></blockquote>
 </li>
-<li><p><strong>Architecture Registry</strong></p>
+<li><p><strong>Model Class</strong></p>
 <blockquote>
 <div><ul class="simple">
-<li><p>Stores predefined model architectures (<cite>e.g. base, large, small, etc.</cite>)</p></li>
+<li><p>Implements the actual model architecture</p></li>
+<li><p>Inherits from appropriate base classes</p></li>
 </ul>
 </div></blockquote>
 </li>
@@ -368,13 +369,15 @@
 <blockquote>
 <div><ul class="simple">
 <li><p>Creates model instances from configs</p></li>
+<li><p>The most important is to have a <code class="docutils literal notranslate"><span class="pre">create_model</span></code> method</p></li>
 </ul>
 </div></blockquote>
 </li>
-<li><p><strong>Model Loader</strong></p>
+<li><p><strong>Model Handler</strong></p>
 <blockquote>
 <div><ul class="simple">
-<li><p>Handles model instantiation, checkpoint loading and format conversion (<cite>e.g. loading from fairseq2 checkpoint, converting from HF checkpoint, etc.</cite>)</p></li>
+<li><p>Manages model creation and checkpoint loading</p></li>
+<li><p>Converts between different checkpoint formats</p></li>
 </ul>
 </div></blockquote>
 </li>
@@ -382,445 +385,259 @@
 </section>
 <section id="directory-layout">
 <h2>Directory Layout<a class="headerlink" href="#directory-layout" title="Link to this heading">¶</a></h2>
-<p>The directory structure for a typical fairseq2 model looks like this:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>fairseq2/models/
-├──<span class="w"> </span>your_model/
-│<span class="w">   </span>├──<span class="w"> </span>__init__.py
-│<span class="w">   </span>├──<span class="w"> </span>archs.py<span class="w">        </span><span class="c1"># Defines model architectures</span>
-│<span class="w">   </span>├──<span class="w"> </span>factory.py<span class="w">      </span><span class="c1"># Contains model factory and config classes</span>
-│<span class="w">   </span>├──<span class="w"> </span>loader.py<span class="w">       </span><span class="c1"># Handles model loading and checkpoint conversion</span>
-│<span class="w">   </span>└──<span class="w"> </span>model.py<span class="w">        </span><span class="c1"># Actual model implementation</span>
+<p>The directory structure for a fairseq2 model typically looks like this:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>src/fairseq2/models/your_model/
+├──<span class="w"> </span>__init__.py
+├──<span class="w"> </span>config.py<span class="w">      </span><span class="c1"># Model configuration and presets</span>
+├──<span class="w"> </span>factory.py<span class="w">     </span><span class="c1"># Model factory</span>
+├──<span class="w"> </span>handler.py<span class="w">     </span><span class="c1"># Model handler for creation and loading</span>
+└──<span class="w"> </span>model.py<span class="w">       </span><span class="c1"># Model implementation</span>
 </pre></div>
-</div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The actual layout might vary depending on your implementation.</p>
 </div>
 </section>
 <section id="step-by-step-guide">
 <h2>Step-by-Step Guide<a class="headerlink" href="#step-by-step-guide" title="Link to this heading">¶</a></h2>
 <section id="define-model-configuration">
 <h3>1. Define Model Configuration<a class="headerlink" href="#define-model-configuration" title="Link to this heading">¶</a></h3>
-<p>First, create a configuration class in <code class="docutils literal notranslate"><span class="pre">factory.py</span></code>:</p>
+<p>First, create a configuration class in <code class="docutils literal notranslate"><span class="pre">config.py</span></code>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataType</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Final</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">RuntimeContext</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">VocabularyInfo</span>
 
 <span class="nd">@dataclass</span><span class="p">(</span><span class="n">kw_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">YourModelConfig</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Configuration for YourModel.&quot;&quot;&quot;</span>
-    <span class="c1"># Basic model parameters</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Holds the configuration of your model.&quot;&quot;&quot;</span>
+
     <span class="n">model_dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">512</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;The dimensionality of the model.&quot;&quot;&quot;</span>
 
-    <span class="n">num_layers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">6</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;The number of layers in the model.&quot;&quot;&quot;</span>
+    <span class="n">max_seq_len</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The maximum sequence length.&quot;&quot;&quot;</span>
 
-    <span class="n">num_heads</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;The number of attention heads in the model.&quot;&quot;&quot;</span>
+    <span class="n">vocab_info</span><span class="p">:</span> <span class="n">VocabularyInfo</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The vocabulary information.&quot;&quot;&quot;</span>
 
-    <span class="o">...</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">register_your_model_configs</span><span class="p">(</span><span class="n">context</span><span class="p">:</span> <span class="n">RuntimeContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Register model architecture presets.&quot;&quot;&quot;</span>
+    <span class="n">registry</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">get_config_registry</span><span class="p">(</span><span class="n">YourModelConfig</span><span class="p">)</span>
+
+    <span class="n">arch</span> <span class="o">=</span> <span class="n">registry</span><span class="o">.</span><span class="n">decorator</span>
+
+    <span class="nd">@arch</span><span class="p">(</span><span class="s2">&quot;base&quot;</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">your_model_base</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">YourModelConfig</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">YourModelConfig</span><span class="p">(</span>
+            <span class="n">vocab_info</span><span class="o">=</span><span class="n">VocabularyInfo</span><span class="p">(</span>
+                <span class="n">size</span><span class="o">=</span><span class="mi">32000</span><span class="p">,</span>
+                <span class="n">unk_idx</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                <span class="n">bos_idx</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                <span class="n">eos_idx</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                <span class="n">pad_idx</span><span class="o">=</span><span class="kc">None</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
 </pre></div>
 </div>
-<p>In the same file, create a registry for the model config:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">your_model_config_registry</span> <span class="o">=</span> <span class="n">ConfigRegistry</span><span class="p">[</span><span class="n">YourModelConfig</span><span class="p">]()</span>
-
-<span class="n">your_model_arch</span> <span class="o">=</span> <span class="n">your_model_config_registry</span><span class="o">.</span><span class="n">decorator</span>
-</pre></div>
-</div>
-<p>This <code class="docutils literal notranslate"><span class="pre">your_model_arch</span></code> is a decorator that can be later used to register model architectures.</p>
 </section>
-<section id="register-model-architectures">
-<h3>2. Register Model Architectures<a class="headerlink" href="#register-model-architectures" title="Link to this heading">¶</a></h3>
-<p>Create an architecture registry and define standard architectures in <code class="docutils literal notranslate"><span class="pre">archs.py</span></code>:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.your_model.factory</span><span class="w"> </span><span class="kn">import</span> <span class="n">your_model_arch</span>
+<section id="create-model-class">
+<h3>2. Create Model Class<a class="headerlink" href="#create-model-class" title="Link to this heading">¶</a></h3>
+<p>Implement your model in <code class="docutils literal notranslate"><span class="pre">model.py</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">final</span>
 
-<span class="nd">@your_model_arch</span><span class="p">(</span><span class="s2">&quot;base&quot;</span><span class="p">)</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">_base</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">YourModelConfig</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Base architecture.&quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="n">YourModelConfig</span><span class="p">()</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tensor</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">override</span>
 
-<span class="nd">@your_model_arch</span><span class="p">(</span><span class="s2">&quot;large&quot;</span><span class="p">)</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">_large</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">YourModelConfig</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Large architecture.&quot;&quot;&quot;</span>
-    <span class="n">config</span> <span class="o">=</span> <span class="n">YourModelConfig</span><span class="p">()</span>
-    <span class="n">config</span><span class="o">.</span><span class="n">model_dim</span> <span class="o">=</span> <span class="mi">1024</span>
-    <span class="n">config</span><span class="o">.</span><span class="n">num_layers</span> <span class="o">=</span> <span class="mi">12</span>
-    <span class="n">config</span><span class="o">.</span><span class="n">num_heads</span> <span class="o">=</span> <span class="mi">16</span>
-    <span class="k">return</span> <span class="n">config</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.decoder</span><span class="w"> </span><span class="kn">import</span> <span class="n">DecoderModel</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">IncrementalStateBag</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.nn.padding</span><span class="w"> </span><span class="kn">import</span> <span class="n">PaddingMask</span>
+
+<span class="nd">@final</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">YourModel</span><span class="p">(</span><span class="n">DecoderModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Your model implementation.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">model_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">max_seq_len</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">vocab_info</span><span class="p">:</span> <span class="n">VocabularyInfo</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">model_dim</span><span class="p">,</span> <span class="n">max_seq_len</span><span class="p">,</span> <span class="n">vocab_info</span><span class="p">)</span>
+
+        <span class="c1"># Initialize your model components here</span>
+
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">decode</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">seqs</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">padding_mask</span><span class="p">:</span> <span class="n">PaddingMask</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">state_bag</span><span class="p">:</span> <span class="n">IncrementalStateBag</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">PaddingMask</span><span class="p">]:</span>
+        <span class="c1"># Implement your decoding logic</span>
+        <span class="k">pass</span>
 </pre></div>
 </div>
+</section>
+<section id="implement-model-factory">
+<h3>3. Implement Model Factory<a class="headerlink" href="#implement-model-factory" title="Link to this heading">¶</a></h3>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Keep the architecture names descriptive and simple. Document differences between architectures.</p>
+<p>This factory pattern is a convention and not strictly required.
+It is helpful to subclass and change specific parts of the model construction logic if needed.
+The most important is to have a <code class="docutils literal notranslate"><span class="pre">create_model(config:</span> <span class="pre">YourModelConfig)</span> <span class="pre">-&gt;</span> <span class="pre">YourModel</span></code> method to integrate with fairseq2.</p>
 </div>
-<details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
-<summary class="sd-summary-title sd-card-header">
-<span class="sd-summary-icon"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-code" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M4.72 3.22a.75.75 0 011.06 1.06L2.06 8l3.72 3.72a.75.75 0 11-1.06 1.06L.47 8.53a.75.75 0 010-1.06l4.25-4.25zm6.56 0a.75.75 0 10-1.06 1.06L13.94 8l-3.72 3.72a.75.75 0 101.06 1.06l4.25-4.25a.75.75 0 000-1.06l-4.25-4.25z"></path></svg></span>Some real-world examples<div class="sd-summary-down docutils">
-<svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-down" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M5.22 8.72a.75.75 0 000 1.06l6.25 6.25a.75.75 0 001.06 0l6.25-6.25a.75.75 0 00-1.06-1.06L12 14.44 6.28 8.72a.75.75 0 00-1.06 0z"></path></svg></div>
-<div class="sd-summary-up docutils">
-<svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-up" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M18.78 15.28a.75.75 0 000-1.06l-6.25-6.25a.75.75 0 00-1.06 0l-6.25 6.25a.75.75 0 101.06 1.06L12 9.56l5.72 5.72a.75.75 0 001.06 0z"></path></svg></div>
-</summary><div class="sd-summary-content sd-card-body docutils">
-<ul class="simple">
-<li><p class="sd-card-text"><strong>Base Transformer Architecture</strong></p></li>
-</ul>
-<p class="sd-card-text">The base Transformer model provides a foundation that other models can build upon:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># In transformer/archs.py</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.transformer.factory</span><span class="w"> </span><span class="kn">import</span> <span class="n">TransformerConfig</span><span class="p">,</span> <span class="n">transformer_arch</span>
+<p>Create a factory in <code class="docutils literal notranslate"><span class="pre">factory.py</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.your_model._config</span><span class="w"> </span><span class="kn">import</span> <span class="n">YourModelConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.your_model._model</span><span class="w"> </span><span class="kn">import</span> <span class="n">YourModel</span>
 
-<span class="nd">@transformer_arch</span><span class="p">(</span><span class="s2">&quot;base&quot;</span><span class="p">)</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">_base</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">TransformerConfig</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Base architecture with default parameters.&quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="n">TransformerConfig</span><span class="p">()</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">YourModelFactory</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Creates model instances.&quot;&quot;&quot;</span>
 
-<span class="nd">@transformer_arch</span><span class="p">(</span><span class="s2">&quot;big&quot;</span><span class="p">)</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">_big</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">TransformerConfig</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Larger architecture with modified parameters.&quot;&quot;&quot;</span>
-    <span class="n">config</span> <span class="o">=</span> <span class="n">TransformerConfig</span><span class="p">()</span>
-    <span class="n">config</span><span class="o">.</span><span class="n">model_dim</span> <span class="o">=</span> <span class="mi">1024</span>
-    <span class="n">config</span><span class="o">.</span><span class="n">num_encoder_attn_heads</span> <span class="o">=</span> <span class="mi">16</span>
-    <span class="n">config</span><span class="o">.</span><span class="n">num_decoder_attn_heads</span> <span class="o">=</span> <span class="mi">16</span>
-    <span class="n">config</span><span class="o">.</span><span class="n">ffn_inner_dim</span> <span class="o">=</span> <span class="mi">4096</span>
-    <span class="n">config</span><span class="o">.</span><span class="n">dropout_p</span> <span class="o">=</span> <span class="mf">0.3</span>
-    <span class="k">return</span> <span class="n">config</span>
+    <span class="n">_config</span><span class="p">:</span> <span class="n">YourModelConfig</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">YourModelConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_config</span> <span class="o">=</span> <span class="n">config</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_model</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">YourModel</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Creates a model instance.&quot;&quot;&quot;</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span>
+
+        <span class="k">return</span> <span class="n">YourModel</span><span class="p">(</span>
+            <span class="n">model_dim</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">model_dim</span><span class="p">,</span>
+            <span class="n">max_seq_len</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">max_seq_len</span><span class="p">,</span>
+            <span class="n">vocab_info</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">vocab_info</span><span class="p">,</span>
+        <span class="p">)</span>
 </pre></div>
 </div>
-<ul class="simple">
-<li><p class="sd-card-text"><strong>NLLB (No Language Left Behind)</strong></p></li>
-</ul>
-<p class="sd-card-text">NLLB extends the base Transformer architecture with specific configurations for multilingual translation:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># In nllb/archs.py</span>
-<span class="nd">@transformer_arch</span><span class="p">(</span><span class="s2">&quot;nllb_dense_600m&quot;</span><span class="p">)</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">_dense_600m</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">TransformerConfig</span><span class="p">:</span>
-    <span class="n">config</span> <span class="o">=</span> <span class="n">_dense_1b</span><span class="p">()</span>  <span class="c1"># Inherits from larger architecture</span>
+</section>
+<section id="create-model-handler">
+<h3>4. Create Model Handler<a class="headerlink" href="#create-model-handler" title="Link to this heading">¶</a></h3>
+<p>Implement a handler in <code class="docutils literal notranslate"><span class="pre">handler.py</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">cast</span>
 
-    <span class="c1"># Modify for smaller model</span>
-    <span class="n">config</span><span class="o">.</span><span class="n">num_encoder_layers</span> <span class="o">=</span> <span class="mi">12</span>
-    <span class="n">config</span><span class="o">.</span><span class="n">num_decoder_layers</span> <span class="o">=</span> <span class="mi">12</span>
-    <span class="n">config</span><span class="o">.</span><span class="n">ffn_inner_dim</span> <span class="o">=</span> <span class="mi">1024</span> <span class="o">*</span> <span class="mi">4</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">Module</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">override</span>
 
-    <span class="k">return</span> <span class="n">config</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbstractModelHandler</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.your_model._config</span><span class="w"> </span><span class="kn">import</span> <span class="n">YourModelConfig</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.your_model._factory</span><span class="w"> </span><span class="kn">import</span> <span class="n">YourModelFactory</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.your_model._model</span><span class="w"> </span><span class="kn">import</span> <span class="n">YourModel</span>
 
-<span class="nd">@transformer_arch</span><span class="p">(</span><span class="s2">&quot;nllb_dense_1b&quot;</span><span class="p">)</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">_dense_1b</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">TransformerConfig</span><span class="p">:</span>
-    <span class="n">config</span> <span class="o">=</span> <span class="n">transformer_archs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;base&quot;</span><span class="p">)</span>  <span class="c1"># Start from base transformer</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">YourModelHandler</span><span class="p">(</span><span class="n">AbstractModelHandler</span><span class="p">):</span>
+    <span class="c1"># A &#39;family&#39; represents a group of related models sharing a common</span>
+    <span class="c1"># architecture. For instance, `llama` is the model family of</span>
+    <span class="c1"># `llama_3_2_8b_instruct`.</span>
+    <span class="nd">@override</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">family</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;my_model_family&quot;</span>
 
-    <span class="c1"># Customize for NLLB</span>
-    <span class="n">config</span><span class="o">.</span><span class="n">model_dim</span> <span class="o">=</span> <span class="mi">1024</span>
-    <span class="n">config</span><span class="o">.</span><span class="n">vocab_info</span> <span class="o">=</span> <span class="n">VocabularyInfo</span><span class="p">(</span>
-        <span class="n">size</span><span class="o">=</span><span class="mi">256206</span><span class="p">,</span> <span class="n">unk_idx</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">bos_idx</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">eos_idx</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">pad_idx</span><span class="o">=</span><span class="mi">0</span>
-    <span class="p">)</span>
-    <span class="n">config</span><span class="o">.</span><span class="n">num_encoder_layers</span> <span class="o">=</span> <span class="mi">24</span>
-    <span class="n">config</span><span class="o">.</span><span class="n">num_decoder_layers</span> <span class="o">=</span> <span class="mi">24</span>
-    <span class="n">config</span><span class="o">.</span><span class="n">num_encoder_attn_heads</span> <span class="o">=</span> <span class="mi">16</span>
-    <span class="n">config</span><span class="o">.</span><span class="n">num_decoder_attn_heads</span> <span class="o">=</span> <span class="mi">16</span>
-    <span class="n">config</span><span class="o">.</span><span class="n">ffn_inner_dim</span> <span class="o">=</span> <span class="mi">1024</span> <span class="o">*</span> <span class="mi">8</span>
-    <span class="n">config</span><span class="o">.</span><span class="n">norm_order</span> <span class="o">=</span> <span class="n">TransformerNormOrder</span><span class="o">.</span><span class="n">PRE</span>
+    <span class="nd">@override</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">kls</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">type</span><span class="p">[</span><span class="n">Module</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">YourModel</span>
 
-<span class="k">return</span> <span class="n">config</span>
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_create_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Module</span><span class="p">:</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">YourModelConfig</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">YourModelFactory</span><span class="p">(</span><span class="n">config</span><span class="p">)</span><span class="o">.</span><span class="n">create_model</span><span class="p">()</span>
 </pre></div>
 </div>
-<ul class="simple">
-<li><p class="sd-card-text"><strong>LLaMA Architecture</strong></p></li>
-</ul>
-<p class="sd-card-text">LLaMA introduces its own configuration class with specific parameters for large language models:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># In llama/archs.py</span>
-<span class="nd">@llama_arch</span><span class="p">(</span><span class="s2">&quot;7b&quot;</span><span class="p">)</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">_7b</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">LLaMAConfig</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;7B parameter model.&quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="n">LLaMAConfig</span><span class="p">()</span>  <span class="c1"># Uses default parameters</span>
+</section>
+<section id="register-the-model">
+<h3>5. Register the Model<a class="headerlink" href="#register-the-model" title="Link to this heading">¶</a></h3>
+<p>Add to your <code class="docutils literal notranslate"><span class="pre">setup_fairseq2_extension</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">setup_fairseq2_extension</span><span class="p">(</span><span class="n">context</span><span class="p">:</span> <span class="n">RuntimeContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="c1"># fairseq2&#39;s global model registry.</span>
+    <span class="n">model_registry</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">get_registry</span><span class="p">(</span><span class="n">ModelHandler</span><span class="p">)</span>
 
-<span class="nd">@llama_arch</span><span class="p">(</span><span class="s2">&quot;13b&quot;</span><span class="p">)</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">_13b</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">LLaMAConfig</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;13B parameter model.&quot;&quot;&quot;</span>
-    <span class="n">config</span> <span class="o">=</span> <span class="n">_7b</span><span class="p">()</span>
-    <span class="n">config</span><span class="o">.</span><span class="n">model_dim</span> <span class="o">=</span> <span class="mi">5120</span>
-    <span class="n">config</span><span class="o">.</span><span class="n">num_attn_heads</span> <span class="o">=</span> <span class="mi">40</span>
-    <span class="n">config</span><span class="o">.</span><span class="n">num_key_value_heads</span> <span class="o">=</span> <span class="mi">40</span>
-    <span class="n">config</span><span class="o">.</span><span class="n">ffn_inner_dim</span> <span class="o">=</span> <span class="mi">5120</span> <span class="o">*</span> <span class="mi">4</span>
-    <span class="k">return</span> <span class="n">config</span>
+    <span class="c1"># Registry my model.</span>
+    <span class="n">configs</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">get_config_registry</span><span class="p">(</span><span class="n">YourModelConfig</span><span class="p">)</span>
 
-<span class="nd">@llama_arch</span><span class="p">(</span><span class="s2">&quot;llama2_70b&quot;</span><span class="p">)</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">_llama2_70b</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">LLaMAConfig</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;LLaMA 2 70B parameter model.&quot;&quot;&quot;</span>
-    <span class="n">config</span> <span class="o">=</span> <span class="n">_65b</span><span class="p">()</span>
-    <span class="n">config</span><span class="o">.</span><span class="n">max_seq_len</span> <span class="o">=</span> <span class="mi">4096</span>
-    <span class="n">config</span><span class="o">.</span><span class="n">num_key_value_heads</span> <span class="o">=</span> <span class="mi">8</span>
-    <span class="n">config</span><span class="o">.</span><span class="n">ffn_inner_dim</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mi">8192</span> <span class="o">*</span> <span class="mi">4</span> <span class="o">*</span> <span class="mf">1.3</span><span class="p">)</span>  <span class="c1"># See A.2.1 in LLaMA 2</span>
-    <span class="n">config</span><span class="o">.</span><span class="n">ffn_inner_dim_to_multiple</span> <span class="o">=</span> <span class="mi">4096</span>
-    <span class="k">return</span> <span class="n">config</span>
-</pre></div>
-</div>
-</div>
-</details></section>
-<section id="create-model-factory">
-<h3>3. Create Model Factory<a class="headerlink" href="#create-model-factory" title="Link to this heading">¶</a></h3>
-<p>Implement a factory function in <code class="docutils literal notranslate"><span class="pre">factory.py</span></code> that creates model instances:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">create_your_model</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">YourModelConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">YourModel</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a model instance from config.&quot;&quot;&quot;</span>
-    <span class="n">model</span> <span class="o">=</span> <span class="n">YourModel</span><span class="p">(</span>
-        <span class="n">model_dim</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">model_dim</span><span class="p">,</span>
-        <span class="n">num_layers</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">num_layers</span><span class="p">,</span>
-        <span class="n">num_heads</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">num_heads</span><span class="p">,</span>
-        <span class="n">dropout_p</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">dropout_p</span><span class="p">,</span>
-        <span class="n">vocab_info</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">vocab_info</span><span class="p">,</span>
+    <span class="n">default_arch</span> <span class="o">=</span> <span class="s2">&quot;base&quot;</span>
+
+    <span class="n">handler</span> <span class="o">=</span> <span class="n">YourModelHandler</span><span class="p">(</span>
+        <span class="n">configs</span><span class="p">,</span> <span class="n">default_arch</span><span class="p">,</span> <span class="n">asset_download_manager</span><span class="p">,</span> <span class="n">tensor_loader</span>
     <span class="p">)</span>
 
-    <span class="c1"># Convert to specified dtype</span>
-    <span class="n">model</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">model_registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">handler</span><span class="o">.</span><span class="n">family</span><span class="p">,</span> <span class="n">handler</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">model</span>
+    <span class="c1"># Register my model architecture configurations.</span>
+    <span class="n">register_your_model_configs</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
 </pre></div>
 </div>
-<details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
-<summary class="sd-summary-title sd-card-header">
-<span class="sd-summary-icon"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-code" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M4.72 3.22a.75.75 0 011.06 1.06L2.06 8l3.72 3.72a.75.75 0 11-1.06 1.06L.47 8.53a.75.75 0 010-1.06l4.25-4.25zm6.56 0a.75.75 0 10-1.06 1.06L13.94 8l-3.72 3.72a.75.75 0 101.06 1.06l4.25-4.25a.75.75 0 000-1.06l-4.25-4.25z"></path></svg></span>Some real-world examples<div class="sd-summary-down docutils">
-<svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-down" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M5.22 8.72a.75.75 0 000 1.06l6.25 6.25a.75.75 0 001.06 0l6.25-6.25a.75.75 0 00-1.06-1.06L12 14.44 6.28 8.72a.75.75 0 00-1.06 0z"></path></svg></div>
-<div class="sd-summary-up docutils">
-<svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-up" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M18.78 15.28a.75.75 0 000-1.06l-6.25-6.25a.75.75 0 00-1.06 0l-6.25 6.25a.75.75 0 101.06 1.06L12 9.56l5.72 5.72a.75.75 0 001.06 0z"></path></svg></div>
-</summary><div class="sd-summary-content sd-card-body docutils">
-<ul class="simple">
-<li><p class="sd-card-text"><strong>LLaMA Model Factory</strong></p></li>
-</ul>
-<p class="sd-card-text">We will use the <code class="docutils literal notranslate"><span class="pre">fairseq2.models.llama.factory.create_llama_model</span></code> function as an example.</p>
-<p class="sd-card-text">The <code class="docutils literal notranslate"><span class="pre">create_llama_model</span></code> function serves as a factory method for instantiating a LLaMA model.
-It encapsulates the process of building a model with the <code class="docutils literal notranslate"><span class="pre">LLaMABuilder</span></code> class, which constructs various components of the model based on the provided configuration.
-This design pattern allows for a clean separation of model creation logic, making it easier for users to customize and extend the model architecture.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># In llama/factory.py</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">LLaMABuilder</span><span class="p">:</span>
-<span class="o">...</span>
-
-<span class="k">def</span><span class="w"> </span><span class="nf">build_model</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TransformerDecoderModel</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build a model.&quot;&quot;&quot;</span>
-    <span class="n">decoder_frontend</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">build_decoder_frontend</span><span class="p">()</span>
-
-    <span class="n">decoder</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">build_decoder</span><span class="p">()</span>
-
-    <span class="n">final_proj</span> <span class="o">=</span> <span class="n">Linear</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
-
-    <span class="n">model</span> <span class="o">=</span> <span class="n">TransformerDecoderModel</span><span class="p">(</span>
-        <span class="n">decoder_frontend</span><span class="p">,</span>
-        <span class="n">decoder</span><span class="p">,</span>
-        <span class="n">final_proj</span><span class="p">,</span>
-        <span class="o">...</span>
-    <span class="p">)</span>
-
-    <span class="n">model</span><span class="o">.</span><span class="n">set_family</span><span class="p">(</span><span class="n">LLAMA_FAMILY</span><span class="p">)</span>
-
-    <span class="k">return</span> <span class="n">model</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">create_llama_model</span><span class="p">(</span>
-    <span class="n">config</span><span class="p">:</span> <span class="n">LLaMAConfig</span><span class="p">,</span>
-    <span class="o">*</span><span class="p">,</span>
-    <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">dtype</span><span class="p">:</span> <span class="n">DataType</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TransformerDecoderModel</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a LLaMA model.&quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="n">LLaMABuilder</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span><span class="o">.</span><span class="n">build_model</span><span class="p">()</span>
-
-
-<span class="n">model_factories</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">LLAMA_FAMILY</span><span class="p">,</span> <span class="n">create_llama_model</span><span class="p">,</span> <span class="n">LLaMAConfig</span><span class="p">,</span> <span class="n">llama_archs</span><span class="p">)</span>
-</pre></div>
-</div>
-<p class="sd-card-text"><cite>create_llama_model</cite> instantiates your builder class and call the <cite>build_model</cite> method that actually creates the model as a <cite>TransformerDecoderModel</cite>.
-Don’t forget to register your model with the fairseq2 model factories so that it can be easily instantiated later.</p>
-</div>
-</details></section>
-<section id="set-up-model-loader">
-<h3>4. Set Up Model Loader<a class="headerlink" href="#set-up-model-loader" title="Link to this heading">¶</a></h3>
-<p>Create a loader in <code class="docutils literal notranslate"><span class="pre">loader.py</span></code> that handles model instantiation and checkpoint loading:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.config_loader</span><span class="w"> </span><span class="kn">import</span> <span class="n">StandardModelConfigLoader</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.loader</span><span class="w"> </span><span class="kn">import</span> <span class="n">StandardModelLoader</span><span class="p">,</span> <span class="n">load_model</span>
-
-<span class="c1"># Create config loader</span>
-<span class="n">load_your_model_config</span> <span class="o">=</span> <span class="n">StandardModelConfigLoader</span><span class="p">(</span>
-    <span class="n">YOUR_MODEL_FAMILY</span><span class="p">,</span>
-    <span class="n">YourModelConfig</span><span class="p">,</span>
-    <span class="n">your_model_archs</span>
-<span class="p">)</span>
-
-<span class="k">def</span><span class="w"> </span><span class="nf">convert_your_model_checkpoint</span><span class="p">(</span>
-    <span class="n">checkpoint</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">config</span><span class="p">:</span> <span class="n">YourModelConfig</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert external checkpoints to fairseq2 format.&quot;&quot;&quot;</span>
-    <span class="c1"># Add checkpoint conversion logic here</span>
-    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="n">checkpoint</span><span class="p">}</span>
-
-<span class="c1"># Create model loader</span>
-<span class="n">load_your_model</span> <span class="o">=</span> <span class="n">StandardModelLoader</span><span class="p">(</span>
-    <span class="n">config_loader</span><span class="o">=</span><span class="n">load_your_model_config</span><span class="p">,</span>
-    <span class="n">factory</span><span class="o">=</span><span class="n">create_your_model</span><span class="p">,</span>
-    <span class="n">checkpoint_converter</span><span class="o">=</span><span class="n">convert_your_model_checkpoint</span><span class="p">,</span>
-<span class="p">)</span>
-
-<span class="c1"># Register loader with global registry</span>
-<span class="n">load_model</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">YOUR_MODEL_FAMILY</span><span class="p">,</span> <span class="n">load_your_model</span><span class="p">)</span>
-</pre></div>
-</div>
-<details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
-<summary class="sd-summary-title sd-card-header">
-<span class="sd-summary-icon"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-code" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M4.72 3.22a.75.75 0 011.06 1.06L2.06 8l3.72 3.72a.75.75 0 11-1.06 1.06L.47 8.53a.75.75 0 010-1.06l4.25-4.25zm6.56 0a.75.75 0 10-1.06 1.06L13.94 8l-3.72 3.72a.75.75 0 101.06 1.06l4.25-4.25a.75.75 0 000-1.06l-4.25-4.25z"></path></svg></span>Some real-world examples on ckpt conversion<div class="sd-summary-down docutils">
-<svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-down" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M5.22 8.72a.75.75 0 000 1.06l6.25 6.25a.75.75 0 001.06 0l6.25-6.25a.75.75 0 00-1.06-1.06L12 14.44 6.28 8.72a.75.75 0 00-1.06 0z"></path></svg></div>
-<div class="sd-summary-up docutils">
-<svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-up" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M18.78 15.28a.75.75 0 000-1.06l-6.25-6.25a.75.75 0 00-1.06 0l-6.25 6.25a.75.75 0 101.06 1.06L12 9.56l5.72 5.72a.75.75 0 001.06 0z"></path></svg></div>
-</summary><div class="sd-summary-content sd-card-body docutils">
-<p class="sd-card-text">The <cite>convert_your_model_checkpoint</cite> function is a checkpoint converter that converts external checkpoints to fairseq2 format.
-For example, in Mistral, the checkpoint format is different from fairseq2’s.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># In mistral/loader.py</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">convert_mistral_checkpoint</span><span class="p">(</span>
-    <span class="n">checkpoint</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">config</span><span class="p">:</span> <span class="n">MistralConfig</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert Mistral checkpoint to fairseq2 format.&quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="s2">&quot;model&quot;</span> <span class="ow">in</span> <span class="n">checkpoint</span><span class="p">:</span>  <span class="c1"># Already in fairseq2 format</span>
-        <span class="k">return</span> <span class="n">checkpoint</span>
-
-    <span class="c1"># Map parameter names from Mistral to fairseq2 format</span>
-    <span class="n">key_map</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="sa">r</span><span class="s2">&quot;^layers\.([0-9]+)\.attention\.wq\.&quot;</span><span class="p">:</span>    <span class="sa">r</span><span class="s2">&quot;decoder.layers.\1.self_attn.q_proj.&quot;</span><span class="p">,</span>
-        <span class="sa">r</span><span class="s2">&quot;^layers\.([0-9]+)\.attention\.wk\.&quot;</span><span class="p">:</span>    <span class="sa">r</span><span class="s2">&quot;decoder.layers.\1.self_attn.k_proj.&quot;</span><span class="p">,</span>
-        <span class="sa">r</span><span class="s2">&quot;^layers\.([0-9]+)\.attention\.wv\.&quot;</span><span class="p">:</span>    <span class="sa">r</span><span class="s2">&quot;decoder.layers.\1.self_attn.v_proj.&quot;</span><span class="p">,</span>
-        <span class="c1"># ... more mappings</span>
-    <span class="p">}</span>
-
-    <span class="n">checkpoint</span> <span class="o">=</span> <span class="n">convert_model_state_dict</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">,</span> <span class="n">key_map</span><span class="p">)</span>
-    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="n">checkpoint</span><span class="p">}</span>
-</pre></div>
-</div>
-<p class="sd-card-text">Overall, to support loading from different checkpoint formats:</p>
-<ol class="arabic simple">
-<li><p class="sd-card-text">Modify the checkpoint converter function</p></li>
-<li><p class="sd-card-text">Add mapping logic for different parameter names</p></li>
-<li><p class="sd-card-text">Handle any necessary tensor transformations</p></li>
-</ol>
-</div>
-</details><details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
-<summary class="sd-summary-title sd-card-header">
-<span class="sd-summary-icon"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-code" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M4.72 3.22a.75.75 0 011.06 1.06L2.06 8l3.72 3.72a.75.75 0 11-1.06 1.06L.47 8.53a.75.75 0 010-1.06l4.25-4.25zm6.56 0a.75.75 0 10-1.06 1.06L13.94 8l-3.72 3.72a.75.75 0 101.06 1.06l4.25-4.25a.75.75 0 000-1.06l-4.25-4.25z"></path></svg></span>Advanced topic: Sharding<div class="sd-summary-down docutils">
-<svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-down" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M5.22 8.72a.75.75 0 000 1.06l6.25 6.25a.75.75 0 001.06 0l6.25-6.25a.75.75 0 00-1.06-1.06L12 14.44 6.28 8.72a.75.75 0 00-1.06 0z"></path></svg></div>
-<div class="sd-summary-up docutils">
-<svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-up" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M18.78 15.28a.75.75 0 000-1.06l-6.25-6.25a.75.75 0 00-1.06 0l-6.25 6.25a.75.75 0 101.06 1.06L12 9.56l5.72 5.72a.75.75 0 001.06 0z"></path></svg></div>
-</summary><div class="sd-summary-content sd-card-body docutils">
-<p class="sd-card-text">The <code class="docutils literal notranslate"><span class="pre">sharder</span></code> argument in <code class="docutils literal notranslate"><span class="pre">StandardModelLoader</span></code> is a function that shards the model, which is useful for distributed training.
-This is natively supported by fairseq2, so you don’t need to implement it yourself.
-For example, in LLaMA, the <code class="docutils literal notranslate"><span class="pre">shard_llama_model</span></code> function shards the model across multiple devices:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># In llama/loader.py</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.transformer</span><span class="w"> </span><span class="kn">import</span> <span class="n">shard_transformer_decoder_model</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.loader</span><span class="w"> </span><span class="kn">import</span> <span class="n">StandardModelLoader</span>
-
-<span class="k">def</span><span class="w"> </span><span class="nf">shard_llama_model</span><span class="p">(</span>
-    <span class="n">model</span><span class="p">:</span> <span class="n">TransformerDecoderModel</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">LLaMAConfig</span><span class="p">,</span> <span class="n">gangs</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Gang</span><span class="p">]</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-    <span class="n">gang</span> <span class="o">=</span> <span class="n">gangs</span><span class="p">[</span><span class="s2">&quot;tp&quot;</span><span class="p">]</span>  <span class="c1"># tensor parallel</span>
-
-    <span class="n">shard_embed_dim</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">max_seq_len</span> <span class="o">&lt;</span> <span class="mi">8192</span>  <span class="c1"># LLaMA 1 or 2</span>
-
-    <span class="n">shard_transformer_decoder_model</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">gang</span><span class="p">,</span> <span class="n">shard_embed_dim</span><span class="o">=</span><span class="n">shard_embed_dim</span><span class="p">)</span>
-
-
-<span class="n">load_llama_model</span> <span class="o">=</span> <span class="n">StandardModelLoader</span><span class="p">(</span>
-    <span class="o">...</span>
-    <span class="n">sharder</span><span class="o">=</span><span class="n">shard_llama_model</span><span class="p">,</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-</div>
-</details></section>
-<section id="using-with-trainer">
-<h3>5. Using with Trainer<a class="headerlink" href="#using-with-trainer" title="Link to this heading">¶</a></h3>
-<p>The model can be used with the fairseq2 trainer:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.loader</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_model</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.trainer</span><span class="w"> </span><span class="kn">import</span> <span class="n">Trainer</span><span class="p">,</span> <span class="n">TrainUnit</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.utils.asset</span><span class="w"> </span><span class="kn">import</span> <span class="n">retrieve_asset_card</span>
-
-<span class="n">model_card</span> <span class="o">=</span> <span class="n">retrieve_asset_card</span><span class="p">(</span><span class="s2">&quot;llama3_2_1b&quot;</span><span class="p">)</span>
-
-<span class="c1"># Load model</span>
-<span class="n">model</span> <span class="o">=</span> <span class="n">load_model</span><span class="p">(</span>
-    <span class="n">model_card</span><span class="p">,</span>
-    <span class="n">device</span><span class="o">=</span><span class="n">Device</span><span class="p">(</span><span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
-<span class="p">)</span>
-
-<span class="c1"># Create training unit</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">YourTrainUnit</span><span class="p">(</span><span class="n">AbstractTrainUnit</span><span class="p">[</span><span class="n">SequenceBatch</span><span class="p">]):</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">YourModel</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
-    <span class="bp">self</span><span class="o">.</span><span class="n">_metric_bag</span> <span class="o">=</span> <span class="n">MetricBag</span><span class="p">()</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">YourBatchType</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
-        <span class="n">loss</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="p">(</span><span class="o">**</span><span class="n">batch</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">loss</span><span class="p">,</span> <span class="n">batch</span><span class="o">.</span><span class="n">num_targets</span>
-
-<span class="c1"># Set up trainer</span>
-<span class="n">trainer</span> <span class="o">=</span> <span class="n">Trainer</span><span class="p">(</span>
-    <span class="n">unit</span><span class="o">=</span><span class="n">YourTrainUnit</span><span class="p">(</span><span class="n">model</span><span class="p">),</span>
-    <span class="n">data_reader</span><span class="o">=</span><span class="n">your_data_reader</span><span class="p">,</span>
-    <span class="n">optimizer</span><span class="o">=</span><span class="n">your_optimizer</span><span class="p">,</span>
-    <span class="c1"># ... other trainer parameters</span>
-<span class="p">)</span>
-
-<span class="c1"># Run training</span>
-<span class="n">trainer</span><span class="p">()</span>
-</pre></div>
-</div>
-<p>For a real-world example, see the <a class="reference internal" href="../reference/api/fairseq2.recipes/lm/index.html#module-fairseq2.recipes.lm" title="fairseq2.recipes.lm"><code class="xref py py-mod docutils literal notranslate"><span class="pre">fairseq2.recipes.lm</span></code></a> recipe.</p>
 </section>
 </section>
 <section id="best-practices">
 <h2>Best Practices<a class="headerlink" href="#best-practices" title="Link to this heading">¶</a></h2>
 <ol class="arabic simple">
-<li><p><strong>Configuration</strong>:</p>
-<ul class="simple">
-<li><p>Provide sensible defaults for all parameters</p></li>
-<li><p>Document each config parameter</p></li>
+<li><dl class="simple">
+<dt><strong>Configuration</strong>:</dt><dd><ul class="simple">
+<li><p>Make all parameters type-safe and well-documented</p></li>
+<li><p>Use sensible defaults</p></li>
+<li><p>Register different architectures as config presets</p></li>
 </ul>
+</dd>
+</dl>
 </li>
-<li><p><strong>Architecture Registry</strong>:</p>
-<ul class="simple">
-<li><p>Use descriptive names for architectures</p></li>
-<li><p>Keep base architectures simple</p></li>
-<li><p>Document differences between architectures</p></li>
+<li><dl class="simple">
+<dt><strong>Model Implementation</strong>:</dt><dd><ul class="simple">
+<li><p>Inherit from appropriate base classes</p></li>
+<li><p>Use type hints and proper documentation</p></li>
+<li><p>Implement all required abstract methods</p></li>
 </ul>
+</dd>
+</dl>
 </li>
-<li><p><strong>Model Loading</strong>:</p>
-<ul class="simple">
-<li><p>Handle checkpoint format differences gracefully</p></li>
-<li><p>Validate config parameters before model creation</p></li>
-<li><p>Provide clear error messages for invalid configs</p></li>
+<li><dl class="simple">
+<dt><strong>Checkpoint Loading</strong>:</dt><dd><ul class="simple">
+<li><p>Handle different checkpoint formats gracefully</p></li>
+<li><p>Use <code class="docutils literal notranslate"><span class="pre">convert_model_state_dict</span></code> for key mapping</p></li>
+<li><p>Validate checkpoint contents</p></li>
 </ul>
+</dd>
+</dl>
 </li>
-<li><p><strong>Training Integration</strong>:</p>
-<ul class="simple">
-<li><p>Create a dedicated training unit for your model</p></li>
-<li><p>Implement proper metric tracking</p></li>
-<li><p>Handle device placement and dtype conversion</p></li>
+<li><dl class="simple">
+<dt><strong>Testing</strong>:</dt><dd><ul class="simple">
+<li><p>Add unit tests for model components</p></li>
+<li><p>Test checkpoint loading</p></li>
+<li><p>Verify model outputs</p></li>
 </ul>
+</dd>
+</dl>
 </li>
 </ol>
 </section>
 <section id="common-pitfalls">
 <h2>Common Pitfalls<a class="headerlink" href="#common-pitfalls" title="Link to this heading">¶</a></h2>
 <ol class="arabic simple">
-<li><p><strong>Checkpoint Compatibility</strong>:</p>
-<ul class="simple">
-<li><p>Ensure checkpoint conversion handles all parameter mappings</p></li>
-<li><p>Verify tensor shapes and dtypes match</p></li>
-<li><p>Handle missing or extra parameters gracefully</p></li>
+<li><dl class="simple">
+<dt><strong>Type Safety</strong>:</dt><dd><ul class="simple">
+<li><p>Always use type hints</p></li>
+<li><p>Validate config parameters</p></li>
 </ul>
+</dd>
+</dl>
 </li>
-<li><p><strong>Configuration Issues</strong>:</p>
-<ul class="simple">
-<li><p>Validate all config parameters before use</p></li>
-<li><p>Handle interdependent parameters correctly</p></li>
-<li><p>Document any parameter constraints</p></li>
+<li><dl class="simple">
+<dt><strong>Checkpoint Compatibility</strong>:</dt><dd><ul class="simple">
+<li><p>Handle missing or extra parameters</p></li>
+<li><p>Verify tensor shapes and dtypes</p></li>
+<li><p>Document supported checkpoint formats</p></li>
 </ul>
+</dd>
+</dl>
 </li>
-<li><p><strong>Training Problems</strong>:</p>
-<ul class="simple">
-<li><p>Ensure proper device placement</p></li>
-<li><p>Handle batch processing efficiently</p></li>
-<li><p>Implement correct loss computation</p></li>
+<li><dl class="simple">
+<dt><strong>Model Registration</strong>:</dt><dd><ul class="simple">
+<li><p>Register configs before using them</p></li>
+<li><p>Set appropriate default architecture</p></li>
+<li><p>Handle dependencies correctly</p></li>
 </ul>
+</dd>
+</dl>
 </li>
 </ol>
 </section>
@@ -831,12 +648,12 @@ For example, in LLaMA, the <code class="docutils literal notranslate"><span clas
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="../faq/contributing.html">
+          <a class="next-page" href="../notebooks/datapipeline.html">
               <div class="page-info">
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-heart" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M4.25 2.5c-1.336 0-2.75 1.164-2.75 3 0 2.15 1.58 4.144 3.365 5.682A20.565 20.565 0 008 13.393a20.561 20.561 0 003.135-2.211C12.92 9.644 14.5 7.65 14.5 5.5c0-1.836-1.414-3-2.75-3-1.373 0-2.609.986-3.029 2.456a.75.75 0 01-1.442 0C6.859 3.486 5.623 2.5 4.25 2.5zM8 14.25l-.345.666-.002-.001-.006-.003-.018-.01a7.643 7.643 0 01-.31-.17 22.075 22.075 0 01-3.434-2.414C2.045 10.731 0 8.35 0 5.5 0 2.836 2.086 1 4.25 1 5.797 1 7.153 1.802 8 3.02 8.847 1.802 10.203 1 11.75 1 13.914 1 16 2.836 16 5.5c0 2.85-2.045 5.231-3.885 6.818a22.08 22.08 0 01-3.744 2.584l-.018.01-.006.003h-.002L8 14.25zm0 0l.345.666a.752.752 0 01-.69 0L8 14.25z"></path></svg> Contributing to fairseq2</div>
+                <div class="title">✎ Data Pipeline</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
@@ -890,10 +707,10 @@ For example, in LLaMA, the <code class="docutils literal notranslate"><span clas
 <li><a class="reference internal" href="#directory-layout">Directory Layout</a></li>
 <li><a class="reference internal" href="#step-by-step-guide">Step-by-Step Guide</a><ul>
 <li><a class="reference internal" href="#define-model-configuration">1. Define Model Configuration</a></li>
-<li><a class="reference internal" href="#register-model-architectures">2. Register Model Architectures</a></li>
-<li><a class="reference internal" href="#create-model-factory">3. Create Model Factory</a></li>
-<li><a class="reference internal" href="#set-up-model-loader">4. Set Up Model Loader</a></li>
-<li><a class="reference internal" href="#using-with-trainer">5. Using with Trainer</a></li>
+<li><a class="reference internal" href="#create-model-class">2. Create Model Class</a></li>
+<li><a class="reference internal" href="#implement-model-factory">3. Implement Model Factory</a></li>
+<li><a class="reference internal" href="#create-model-handler">4. Create Model Handler</a></li>
+<li><a class="reference internal" href="#register-the-model">5. Register the Model</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#best-practices">Best Practices</a></li>
@@ -909,10 +726,11 @@ For example, in LLaMA, the <code class="docutils literal notranslate"><span clas
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=9f2fe177"></script>
+</div><script src="../_static/documentation_options.js?v=3fbe44c6"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/furo.js?v=5fa4622c"></script>
     <script src="../_static/design-tabs.js?v=36754332"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
     </body>
 </html>

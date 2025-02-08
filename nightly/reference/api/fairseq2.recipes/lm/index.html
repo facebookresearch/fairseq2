@@ -3,7 +3,7 @@
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link href="../../../../_static/img/logo.png" sizes="1132x1126" rel="icon" type="image/png"><link rel="index" title="Index" href="../../../../genindex.html" /><link rel="search" title="Search" href="../../../../search.html" /><link rel="next" title="fairseq2.recipes.lm.instruction_finetune" href="instruction_finetune.html" /><link rel="prev" title="fairseq2.recipes" href="../index.html" />
+    <link href="../../../../_static/img/logo.svg" rel="icon" type="image/svg+xml"><link rel="index" title="Index" href="../../../../genindex.html" /><link rel="search" title="Search" href="../../../../search.html" /><link rel="next" title="fairseq2.recipes.wav2vec2" href="../wav2vec2/index.html" /><link rel="prev" title="fairseq2.recipes" href="../index.html" />
 
     <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
         <title>fairseq2.recipes.lm - fairseq2 Documentation</title>
@@ -193,7 +193,7 @@
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../../../../index.html">
   
   <div class="sidebar-logo-container">
-    <img class="sidebar-logo" src="../../../../_static/logo.png" alt="Logo"/>
+    <img class="sidebar-logo" src="../../../../_static/logo.svg" alt="Logo"/>
   </div>
   
   <span class="sidebar-brand-text">fairseq2 Documentation</span>
@@ -208,6 +208,7 @@
 <ul>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../../getting_started/installation/index.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-download" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M7.47 10.78a.75.75 0 001.06 0l3.75-3.75a.75.75 0 00-1.06-1.06L8.75 8.44V1.75a.75.75 0 00-1.5 0v6.69L4.78 5.97a.75.75 0 00-1.06 1.06l3.75 3.75zM3.75 13a.75.75 0 000 1.5h8.5a.75.75 0 000-1.5h-8.5z" fill-rule="evenodd"></path></svg> Installation</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><div class="visually-hidden">Toggle navigation of  Installation</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../../../getting_started/installation/installation_from_source.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-file-binary" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M4 1.75C4 .784 4.784 0 5.75 0h5.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v8.586A1.75 1.75 0 0114.25 15h-9a.75.75 0 010-1.5h9a.25.25 0 00.25-.25V6h-2.75A1.75 1.75 0 0110 4.25V1.5H5.75a.25.25 0 00-.25.25v2a.75.75 0 01-1.5 0v-2zm7.5-.188V4.25c0 .138.112.25.25.25h2.688a.252.252 0 00-.011-.013l-2.914-2.914a.272.272 0 00-.013-.011zM0 7.75C0 6.784.784 6 1.75 6h1.5C4.216 6 5 6.784 5 7.75v2.5A1.75 1.75 0 013.25 12h-1.5A1.75 1.75 0 010 10.25v-2.5zm1.75-.25a.25.25 0 00-.25.25v2.5c0 .138.112.25.25.25h1.5a.25.25 0 00.25-.25v-2.5a.25.25 0 00-.25-.25h-1.5zm5-1.5a.75.75 0 000 1.5h.75v3h-.75a.75.75 0 000 1.5h3a.75.75 0 000-1.5H9V6.75A.75.75 0 008.25 6h-1.5z" fill-rule="evenodd"></path></svg> Installing from Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../getting_started/installation/setup_with_uv.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-lock" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M4 4v2h-.25A1.75 1.75 0 002 7.75v5.5c0 .966.784 1.75 1.75 1.75h8.5A1.75 1.75 0 0014 13.25v-5.5A1.75 1.75 0 0012.25 6H12V4a4 4 0 10-8 0zm6.5 2V4a2.5 2.5 0 00-5 0v2h5zM12 7.5h.25a.25.25 0 01.25.25v5.5a.25.25 0 01-.25.25h-8.5a.25.25 0 01-.25-.25v-5.5a.25.25 0 01.25-.25H12z" fill-rule="evenodd"></path></svg> UV Setup</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../getting_started/quick_start.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-rocket" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M14.064 0a8.75 8.75 0 00-6.187 2.563l-.459.458c-.314.314-.616.641-.904.979H3.31a1.75 1.75 0 00-1.49.833L.11 7.607a.75.75 0 00.418 1.11l3.102.954c.037.051.079.1.124.145l2.429 2.428c.046.046.094.088.145.125l.954 3.102a.75.75 0 001.11.418l2.774-1.707a1.75 1.75 0 00.833-1.49V9.485c.338-.288.665-.59.979-.904l.458-.459A8.75 8.75 0 0016 1.936V1.75A1.75 1.75 0 0014.25 0h-.186zM10.5 10.625c-.088.06-.177.118-.266.175l-2.35 1.521.548 1.783 1.949-1.2a.25.25 0 00.119-.213v-2.066zM3.678 8.116L5.2 5.766c.058-.09.117-.178.176-.266H3.309a.25.25 0 00-.213.119l-1.2 1.95 1.782.547zm5.26-4.493A7.25 7.25 0 0114.063 1.5h.186a.25.25 0 01.25.25v.186a7.25 7.25 0 01-2.123 5.127l-.459.458a15.21 15.21 0 01-2.499 2.02l-2.317 1.5-2.143-2.143 1.5-2.317a15.25 15.25 0 012.02-2.5l.458-.458h.002zM12 5a1 1 0 11-2 0 1 1 0 012 0zm-8.44 9.56a1.5 1.5 0 10-2.12-2.12c-.734.73-1.047 2.332-1.15 3.003a.23.23 0 00.265.265c.671-.103 2.273-.416 3.005-1.148z" fill-rule="evenodd"></path></svg> Quick Start</a></li>
@@ -228,11 +229,17 @@
 <p class="caption" role="heading"><span class="caption-text">Tutorials</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/end_to_end_fine_tuning.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-comment-discussion" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M1.5 2.75a.25.25 0 01.25-.25h8.5a.25.25 0 01.25.25v5.5a.25.25 0 01-.25.25h-3.5a.75.75 0 00-.53.22L3.5 11.44V9.25a.75.75 0 00-.75-.75h-1a.25.25 0 01-.25-.25v-5.5zM1.75 1A1.75 1.75 0 000 2.75v5.5C0 9.216.784 10 1.75 10H2v1.543a1.457 1.457 0 002.487 1.03L7.061 10h3.189A1.75 1.75 0 0012 8.25v-5.5A1.75 1.75 0 0010.25 1h-8.5zM14.5 4.75a.25.25 0 00-.25-.25h-.5a.75.75 0 110-1.5h.5c.966 0 1.75.784 1.75 1.75v5.5A1.75 1.75 0 0114.25 12H14v1.543a1.457 1.457 0 01-2.487 1.03L9.22 12.28a.75.75 0 111.06-1.06l2.22 2.22v-2.19a.75.75 0 01.75-.75h1a.25.25 0 00.25-.25v-5.5z" fill-rule="evenodd"></path></svg> End-to-End Fine-Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/preference_optimization.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-law" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M8.75.75a.75.75 0 00-1.5 0V2h-.984c-.305 0-.604.08-.869.23l-1.288.737A.25.25 0 013.984 3H1.75a.75.75 0 000 1.5h.428L.066 9.192a.75.75 0 00.154.838l.53-.53-.53.53v.001l.002.002.002.002.006.006.016.015.045.04a3.514 3.514 0 00.686.45A4.492 4.492 0 003 11c.88 0 1.556-.22 2.023-.454a3.515 3.515 0 00.686-.45l.045-.04.016-.015.006-.006.002-.002.001-.002L5.25 9.5l.53.53a.75.75 0 00.154-.838L3.822 4.5h.162c.305 0 .604-.08.869-.23l1.289-.737a.25.25 0 01.124-.033h.984V13h-2.5a.75.75 0 000 1.5h6.5a.75.75 0 000-1.5h-2.5V3.5h.984a.25.25 0 01.124.033l1.29.736c.264.152.563.231.868.231h.162l-2.112 4.692a.75.75 0 00.154.838l.53-.53-.53.53v.001l.002.002.002.002.006.006.016.015.045.04a3.517 3.517 0 00.686.45A4.492 4.492 0 0013 11c.88 0 1.556-.22 2.023-.454a3.512 3.512 0 00.686-.45l.045-.04.01-.01.006-.005.006-.006.002-.002.001-.002-.529-.531.53.53a.75.75 0 00.154-.838L13.823 4.5h.427a.75.75 0 000-1.5h-2.234a.25.25 0 01-.124-.033l-1.29-.736A1.75 1.75 0 009.735 2H8.75V.75zM1.695 9.227c.285.135.718.273 1.305.273s1.02-.138 1.305-.273L3 6.327l-1.305 2.9zm10 0c.285.135.718.273 1.305.273s1.02-.138 1.305-.273L13 6.327l-1.305 2.9z" fill-rule="evenodd"></path></svg> Preference Optimization</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/monitor_your_experiments.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-codescan-checkmark" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M10.28 6.28a.75.75 0 10-1.06-1.06L6.25 8.19l-.97-.97a.75.75 0 00-1.06 1.06l1.5 1.5a.75.75 0 001.06 0l3.5-3.5z"></path><path d="M7.5 15a7.469 7.469 0 004.746-1.693l2.474 2.473a.75.75 0 101.06-1.06l-2.473-2.474A7.5 7.5 0 107.5 15zm0-13.5a6 6 0 104.094 10.386.75.75 0 01.293-.292A6 6 0 007.5 1.5z" fill-rule="evenodd"></path></svg> Monitor Your Experiments</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/presets.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-gear" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M7.429 1.525a6.593 6.593 0 011.142 0c.036.003.108.036.137.146l.289 1.105c.147.56.55.967.997 1.189.174.086.341.183.501.29.417.278.97.423 1.53.27l1.102-.303c.11-.03.175.016.195.046.219.31.41.641.573.989.014.031.022.11-.059.19l-.815.806c-.411.406-.562.957-.53 1.456a4.588 4.588 0 010 .582c-.032.499.119 1.05.53 1.456l.815.806c.08.08.073.159.059.19a6.494 6.494 0 01-.573.99c-.02.029-.086.074-.195.045l-1.103-.303c-.559-.153-1.112-.008-1.529.27-.16.107-.327.204-.5.29-.449.222-.851.628-.998 1.189l-.289 1.105c-.029.11-.101.143-.137.146a6.613 6.613 0 01-1.142 0c-.036-.003-.108-.037-.137-.146l-.289-1.105c-.147-.56-.55-.967-.997-1.189a4.502 4.502 0 01-.501-.29c-.417-.278-.97-.423-1.53-.27l-1.102.303c-.11.03-.175-.016-.195-.046a6.492 6.492 0 01-.573-.989c-.014-.031-.022-.11.059-.19l.815-.806c.411-.406.562-.957.53-1.456a4.587 4.587 0 010-.582c.032-.499-.119-1.05-.53-1.456l-.815-.806c-.08-.08-.073-.159-.059-.19a6.44 6.44 0 01.573-.99c.02-.029.086-.075.195-.045l1.103.303c.559.153 1.112.008 1.529-.27.16-.107.327-.204.5-.29.449-.222.851-.628.998-1.189l.289-1.105c.029-.11.101-.143.137-.146zM8 0c-.236 0-.47.01-.701.03-.743.065-1.29.615-1.458 1.261l-.29 1.106c-.017.066-.078.158-.211.224a5.994 5.994 0 00-.668.386c-.123.082-.233.09-.3.071L3.27 2.776c-.644-.177-1.392.02-1.82.63a7.977 7.977 0 00-.704 1.217c-.315.675-.111 1.422.363 1.891l.815.806c.05.048.098.147.088.294a6.084 6.084 0 000 .772c.01.147-.038.246-.088.294l-.815.806c-.474.469-.678 1.216-.363 1.891.2.428.436.835.704 1.218.428.609 1.176.806 1.82.63l1.103-.303c.066-.019.176-.011.299.071.213.143.436.272.668.386.133.066.194.158.212.224l.289 1.106c.169.646.715 1.196 1.458 1.26a8.094 8.094 0 001.402 0c.743-.064 1.29-.614 1.458-1.26l.29-1.106c.017-.066.078-.158.211-.224a5.98 5.98 0 00.668-.386c.123-.082.233-.09.3-.071l1.102.302c.644.177 1.392-.02 1.82-.63.268-.382.505-.789.704-1.217.315-.675.111-1.422-.364-1.891l-.814-.806c-.05-.048-.098-.147-.088-.294a6.1 6.1 0 000-.772c-.01-.147.039-.246.088-.294l.814-.806c.475-.469.679-1.216.364-1.891a7.992 7.992 0 00-.704-1.218c-.428-.609-1.176-.806-1.82-.63l-1.103.303c-.066.019-.176.011-.299-.071a5.991 5.991 0 00-.668-.386c-.133-.066-.194-.158-.212-.224L10.16 1.29C9.99.645 9.444.095 8.701.031A8.094 8.094 0 008 0zm1.5 8a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM11 8a3 3 0 11-6 0 3 3 0 016 0z" fill-rule="evenodd"></path></svg> Working with Presets</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/benchmarking.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-clock" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M1.5 8a6.5 6.5 0 1113 0 6.5 6.5 0 01-13 0zM8 0a8 8 0 100 16A8 8 0 008 0zm.5 4.75a.75.75 0 00-1.5 0v3.5a.75.75 0 00.471.696l2.5 1a.75.75 0 00.557-1.392L8.5 7.742V4.75z" fill-rule="evenodd"></path></svg> Efficient Benchmarking</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/pudb.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-bug" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M4.72.22a.75.75 0 011.06 0l1 .999a3.492 3.492 0 012.441 0l.999-1a.75.75 0 111.06 1.061l-.775.776c.616.63.995 1.493.995 2.444v.327c0 .1-.009.197-.025.292.408.14.764.392 1.029.722l1.968-.787a.75.75 0 01.556 1.392L13 7.258V9h2.25a.75.75 0 010 1.5H13v.5c0 .409-.049.806-.141 1.186l2.17.868a.75.75 0 01-.557 1.392l-2.184-.873A4.997 4.997 0 018 16a4.997 4.997 0 01-4.288-2.427l-2.183.873a.75.75 0 01-.558-1.392l2.17-.868A5.013 5.013 0 013 11v-.5H.75a.75.75 0 010-1.5H3V7.258L.971 6.446a.75.75 0 01.558-1.392l1.967.787c.265-.33.62-.583 1.03-.722a1.684 1.684 0 01-.026-.292V4.5c0-.951.38-1.814.995-2.444L4.72 1.28a.75.75 0 010-1.06zM6.173 5h3.654A.173.173 0 0010 4.827V4.5a2 2 0 10-4 0v.327c0 .096.077.173.173.173zM5.25 6.5a.75.75 0 00-.75.75V11a3.5 3.5 0 107 0V7.25a.75.75 0 00-.75-.75h-5.5z" fill-rule="evenodd"></path></svg> Debugging with PuDB</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/models.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-ruby" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M3.637 2.291A.75.75 0 014.23 2h7.54a.75.75 0 01.593.291l3.48 4.5a.75.75 0 01-.072.999l-7.25 7a.75.75 0 01-1.042 0l-7.25-7a.75.75 0 01-.072-.999l3.48-4.5zM4.598 3.5L1.754 7.177 8 13.207l6.246-6.03L11.402 3.5H4.598z" fill-rule="evenodd"></path></svg> Add Your Own Model</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Notebooks</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../notebooks/datapipeline.html">✎ Data Pipeline</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../notebooks/dataset_gsm8k_sft.html">✎ Datasets</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">FAQ</span></p>
 <ul>
@@ -243,8 +250,12 @@
 <li class="toctree-l1 current has-children"><a class="reference internal" href="../../index.html"><svg aria-hidden="true" class="sd-octicon sd-octicon-file-code" height="1.0em" version="1.1" viewbox="0 0 16 16" width="1.0em"><path d="M4 1.75C4 .784 4.784 0 5.75 0h5.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v8.586A1.75 1.75 0 0114.25 15h-9a.75.75 0 010-1.5h9a.25.25 0 00.25-.25V6h-2.75A1.75 1.75 0 0110 4.25V1.5H5.75a.25.25 0 00-.25.25v2.5a.75.75 0 01-1.5 0v-2.5zm7.5-.188V4.25c0 .138.112.25.25.25h2.688a.252.252 0 00-.011-.013l-2.914-2.914a.272.272 0 00-.013-.011zM5.72 6.72a.75.75 0 000 1.06l1.47 1.47-1.47 1.47a.75.75 0 101.06 1.06l2-2a.75.75 0 000-1.06l-2-2a.75.75 0 00-1.06 0zM3.28 7.78a.75.75 0 00-1.06-1.06l-2 2a.75.75 0 000 1.06l2 2a.75.75 0 001.06-1.06L1.81 9.25l1.47-1.47z" fill-rule="evenodd"></path></svg> API Reference</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><div class="visually-hidden">Toggle navigation of  API Reference</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="../../fairseq2.html">fairseq2</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../gang.html">fairseq2.gang</a></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../../fairseq2.data/index.html">fairseq2.data</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><div class="visually-hidden">Toggle navigation of fairseq2.data</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
-<li class="toctree-l3 has-children"><a class="reference internal" href="../../fairseq2.data/text/index.html">fairseq2.data.text</a><input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" role="switch" type="checkbox"/><label for="toctree-checkbox-4"><div class="visually-hidden">Toggle navigation of fairseq2.data.text</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../fairseq2.cli/index.html">fairseq2.cli</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><div class="visually-hidden">Toggle navigation of fairseq2.cli</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../fairseq2.cli/llama/index.html">Convert Checkpoints</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../fairseq2.data/index.html">fairseq2.data</a><input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" role="switch" type="checkbox"/><label for="toctree-checkbox-4"><div class="visually-hidden">Toggle navigation of fairseq2.data</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../../fairseq2.data/text/index.html">fairseq2.data.text</a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" role="switch" type="checkbox"/><label for="toctree-checkbox-5"><div class="visually-hidden">Toggle navigation of fairseq2.data.text</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
 <li class="toctree-l4"><a class="reference internal" href="../../fairseq2.data/text/text_tokenizers.html">Text Tokenizers</a></li>
 </ul>
 </li>
@@ -252,24 +263,13 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../fairseq2.datasets/index.html">fairseq2.datasets</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../fairseq2.datasets/index.html#dataset-loaders">Dataset Loaders</a></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../../fairseq2.nn/index.html">fairseq2.nn</a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" role="switch" type="checkbox"/><label for="toctree-checkbox-5"><div class="visually-hidden">Toggle navigation of fairseq2.nn</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../fairseq2.nn/index.html">fairseq2.nn</a><input class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" role="switch" type="checkbox"/><label for="toctree-checkbox-6"><div class="visually-hidden">Toggle navigation of fairseq2.nn</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../fairseq2.nn/position_encoders.html">Position Encoders</a></li>
 </ul>
 </li>
-<li class="toctree-l2 current has-children"><a class="reference internal" href="../index.html">fairseq2.recipes</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" role="switch" type="checkbox"/><label for="toctree-checkbox-6"><div class="visually-hidden">Toggle navigation of fairseq2.recipes</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul class="current">
-<li class="toctree-l3 current has-children current-page"><a class="current reference internal" href="#">fairseq2.recipes.lm</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" role="switch" type="checkbox"/><label for="toctree-checkbox-7"><div class="visually-hidden">Toggle navigation of fairseq2.recipes.lm</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
-<li class="toctree-l4"><a class="reference internal" href="instruction_finetune.html">fairseq2.recipes.lm.instruction_finetune</a></li>
-</ul>
-</li>
-<li class="toctree-l3 has-children"><a class="reference internal" href="../llama/index.html">fairseq2.recipes.llama</a><input class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" role="switch" type="checkbox"/><label for="toctree-checkbox-8"><div class="visually-hidden">Toggle navigation of fairseq2.recipes.llama</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
-<li class="toctree-l4"><a class="reference internal" href="../llama/convert_checkpoint.html">Convert Checkpoints</a></li>
-</ul>
-</li>
-<li class="toctree-l3 has-children"><a class="reference internal" href="../wav2vec2/index.html">fairseq2.recipes.wav2vec2</a><input class="toctree-checkbox" id="toctree-checkbox-9" name="toctree-checkbox-9" role="switch" type="checkbox"/><label for="toctree-checkbox-9"><div class="visually-hidden">Toggle navigation of fairseq2.recipes.wav2vec2</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
-<li class="toctree-l4"><a class="reference internal" href="../wav2vec2/train.html">fairseq2.recipes.wav2vec2.train</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../cli.html">fairseq2.recipes.cli</a></li>
+<li class="toctree-l2 current has-children"><a class="reference internal" href="../index.html">fairseq2.recipes</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" role="switch" type="checkbox"/><label for="toctree-checkbox-7"><div class="visually-hidden">Toggle navigation of fairseq2.recipes</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul class="current">
+<li class="toctree-l3 current current-page"><a class="current reference internal" href="#">fairseq2.recipes.lm</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../wav2vec2/index.html">fairseq2.recipes.wav2vec2</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../trainer.html">fairseq2.recipes.trainer</a></li>
 </ul>
 </li>
@@ -333,14 +333,693 @@ This includes tools for both pre-training and instruction tuning of language mod
 <li><p>Common training recipes and configurations</p></li>
 </ul>
 </section>
-<section id="submodules">
-<h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading">¶</a></h2>
-<div class="toctree-wrapper compound">
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="instruction_finetune.html">fairseq2.recipes.lm.instruction_finetune</a></li>
+<section id="instruction-fine-tuning">
+<h2>Instruction Fine-Tuning<a class="headerlink" href="#instruction-fine-tuning" title="Link to this heading">¶</a></h2>
+<section id="classes">
+<h3>Classes<a class="headerlink" href="#classes" title="Link to this heading">¶</a></h3>
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.InstructionFinetuneConfig">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">InstructionFinetuneConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model:</span> <span class="pre">'ModelSection'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dataset:</span> <span class="pre">'InstructionFinetuneDatasetSection'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gang:</span> <span class="pre">'GangSection'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">trainer:</span> <span class="pre">'TrainerSection'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">optimizer:</span> <span class="pre">'OptimizerSection'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lr_scheduler:</span> <span class="pre">'LRSchedulerSection'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">regime:</span> <span class="pre">'RegimeSection'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">common:</span> <span class="pre">'CommonSection'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_instruction_finetune.html#InstructionFinetuneConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.InstructionFinetuneConfig" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<dl class="field-list simple">
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.InstructionFinetuneCriterion">
+<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">InstructionFinetuneCriterion</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_instruction_finetune.html#InstructionFinetuneCriterion"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.InstructionFinetuneCriterion" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<dl class="field-list simple">
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.InstructionFinetuneDatasetSection">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">InstructionFinetuneDatasetSection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name:</span> <span class="pre">'str'</span> <span class="pre">=</span> <span class="pre">'foo'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path:</span> <span class="pre">'Path</span> <span class="pre">|</span> <span class="pre">None'</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">family:</span> <span class="pre">'str'</span> <span class="pre">=</span> <span class="pre">'generic_instruction'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">train_split:</span> <span class="pre">'str'</span> <span class="pre">=</span> <span class="pre">'default'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">valid_split:</span> <span class="pre">'str</span> <span class="pre">|</span> <span class="pre">None'</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_encode_mode:</span> <span class="pre">'str'</span> <span class="pre">=</span> <span class="pre">'prompt'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_encode_mode:</span> <span class="pre">'str'</span> <span class="pre">=</span> <span class="pre">'prompt_response'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_seq_len:</span> <span class="pre">'int'</span> <span class="pre">=</span> <span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_seq_len:</span> <span class="pre">'int'</span> <span class="pre">=</span> <span class="pre">8192</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_num_tokens:</span> <span class="pre">'int'</span> <span class="pre">=</span> <span class="pre">16384</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size:</span> <span class="pre">'int</span> <span class="pre">|</span> <span class="pre">None'</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_num_valid_tokens:</span> <span class="pre">'int</span> <span class="pre">|</span> <span class="pre">None'</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">example_shuffle_window:</span> <span class="pre">'int'</span> <span class="pre">=</span> <span class="pre">10000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_shuffle_window:</span> <span class="pre">'int'</span> <span class="pre">=</span> <span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_prefetch:</span> <span class="pre">'int'</span> <span class="pre">=</span> <span class="pre">4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extras:</span> <span class="pre">'dict[str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">object]'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_instruction_finetune.html#InstructionFinetuneDatasetSection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.InstructionFinetuneDatasetSection" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">DatasetSection</span></code></p>
+<dl class="field-list simple">
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.InstructionFinetuneDatasetSection.source_encode_mode">
+<span class="sig-name descname"><span class="pre">source_encode_mode</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'prompt'</span></em><a class="headerlink" href="#fairseq2.recipes.lm.InstructionFinetuneDatasetSection.source_encode_mode" title="Link to this definition">¶</a></dt>
+<dd><p>The encode mode for the prompt, determines what special tokens to add.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.InstructionFinetuneDatasetSection.target_encode_mode">
+<span class="sig-name descname"><span class="pre">target_encode_mode</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'prompt_response'</span></em><a class="headerlink" href="#fairseq2.recipes.lm.InstructionFinetuneDatasetSection.target_encode_mode" title="Link to this definition">¶</a></dt>
+<dd><p>The encode mode for the target, determines what special tokens to add.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.InstructionFinetuneDatasetSection.min_seq_len">
+<span class="sig-name descname"><span class="pre">min_seq_len</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#fairseq2.recipes.lm.InstructionFinetuneDatasetSection.min_seq_len" title="Link to this definition">¶</a></dt>
+<dd><p>The minimum sequence length.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.InstructionFinetuneDatasetSection.max_seq_len">
+<span class="sig-name descname"><span class="pre">max_seq_len</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">8192</span></em><a class="headerlink" href="#fairseq2.recipes.lm.InstructionFinetuneDatasetSection.max_seq_len" title="Link to this definition">¶</a></dt>
+<dd><p>The maximum sequence length.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.InstructionFinetuneDatasetSection.max_num_tokens">
+<span class="sig-name descname"><span class="pre">max_num_tokens</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">16384</span></em><a class="headerlink" href="#fairseq2.recipes.lm.InstructionFinetuneDatasetSection.max_num_tokens" title="Link to this definition">¶</a></dt>
+<dd><p>The maximum number of tokens per batch.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.InstructionFinetuneDatasetSection.batch_size">
+<span class="sig-name descname"><span class="pre">batch_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#fairseq2.recipes.lm.InstructionFinetuneDatasetSection.batch_size" title="Link to this definition">¶</a></dt>
+<dd><p>If not <code class="docutils literal notranslate"><span class="pre">None</span></code>, ignores <code class="docutils literal notranslate"><span class="pre">max_num_tokens</span></code> and each batch will have
+<code class="docutils literal notranslate"><span class="pre">batch_size</span></code> examples.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.InstructionFinetuneDatasetSection.max_num_valid_tokens">
+<span class="sig-name descname"><span class="pre">max_num_valid_tokens</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#fairseq2.recipes.lm.InstructionFinetuneDatasetSection.max_num_valid_tokens" title="Link to this definition">¶</a></dt>
+<dd><p>The maximum number of tokens per validation batch.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.InstructionFinetuneDatasetSection.example_shuffle_window">
+<span class="sig-name descname"><span class="pre">example_shuffle_window</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">10000</span></em><a class="headerlink" href="#fairseq2.recipes.lm.InstructionFinetuneDatasetSection.example_shuffle_window" title="Link to this definition">¶</a></dt>
+<dd><p>The size of the sliding window for shuffling examples.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.InstructionFinetuneDatasetSection.batch_shuffle_window">
+<span class="sig-name descname"><span class="pre">batch_shuffle_window</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1000</span></em><a class="headerlink" href="#fairseq2.recipes.lm.InstructionFinetuneDatasetSection.batch_shuffle_window" title="Link to this definition">¶</a></dt>
+<dd><p>The size of the sliding window for shuffling batches.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.InstructionFinetuneDatasetSection.num_prefetch">
+<span class="sig-name descname"><span class="pre">num_prefetch</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">4</span></em><a class="headerlink" href="#fairseq2.recipes.lm.InstructionFinetuneDatasetSection.num_prefetch" title="Link to this definition">¶</a></dt>
+<dd><p>The number of batches to prefetch in background.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.InstructionFinetuneDatasetSection.extras">
+<span class="sig-name descname"><span class="pre">extras</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><span class="pre">object</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#fairseq2.recipes.lm.InstructionFinetuneDatasetSection.extras" title="Link to this definition">¶</a></dt>
+<dd><p>The dataset-specific extra options.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.InstructionFinetuneUnit">
+<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">InstructionFinetuneUnit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">criterion</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gangs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_instruction_finetune.html#InstructionFinetuneUnit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.InstructionFinetuneUnit" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractTrainUnit</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">SequenceBatch</span></code>]</p>
+<dl class="field-list simple">
+</dl>
+<dl class="py property">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.InstructionFinetuneUnit.metric_bag">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">metric_bag</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">SequenceMetricBag</span></em><a class="headerlink" href="#fairseq2.recipes.lm.InstructionFinetuneUnit.metric_bag" title="Link to this definition">¶</a></dt>
+<dd><p>The training-related metrics.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.InstructionLossEvalUnit">
+<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">InstructionLossEvalUnit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">criterion</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gangs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_instruction_finetune.html#InstructionLossEvalUnit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.InstructionLossEvalUnit" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractEvalUnit</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">SequenceBatch</span></code>]</p>
+<dl class="field-list simple">
+</dl>
+<dl class="py property">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.InstructionLossEvalUnit.metric_bag">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">metric_bag</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">SequenceMetricBag</span></em><a class="headerlink" href="#fairseq2.recipes.lm.InstructionLossEvalUnit.metric_bag" title="Link to this definition">¶</a></dt>
+<dd><p>The evaluation-related metrics.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="functions">
+<h3>Functions<a class="headerlink" href="#functions" title="Link to this heading">¶</a></h3>
+<dl class="py function">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.load_instruction_finetuner">
+<span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">load_instruction_finetuner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">context</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_instruction_finetune.html#load_instruction_finetuner"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.load_instruction_finetuner" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="../trainer.html#fairseq2.recipes.trainer.Trainer" title="fairseq2.recipes.trainer.Trainer"><em>Trainer</em></a>[<em>SequenceBatch</em>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+<section id="preference-fine-tuning">
+<h2>Preference Fine-Tuning<a class="headerlink" href="#preference-fine-tuning" title="Link to this heading">¶</a></h2>
+<section id="classes-po">
+<h3>Classes (PO)<a class="headerlink" href="#classes-po" title="Link to this heading">¶</a></h3>
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.POFinetuneConfig">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">POFinetuneConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model:</span> <span class="pre">'ModelSection'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dataset:</span> <span class="pre">'POFinetuneDatasetSection'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gang:</span> <span class="pre">'GangSection'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">trainer:</span> <span class="pre">'TrainerSection'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">criterion:</span> <span class="pre">'POCriterionSection'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">optimizer:</span> <span class="pre">'OptimizerSection'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lr_scheduler:</span> <span class="pre">'LRSchedulerSection'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">regime:</span> <span class="pre">'RegimeSection'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">common:</span> <span class="pre">'CommonSection'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_recipe.html#POFinetuneConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.POFinetuneConfig" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<dl class="field-list simple">
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.POFinetuneMetricBag">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">POFinetuneMetricBag</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gang</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_common.html#POFinetuneMetricBag"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.POFinetuneMetricBag" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">SequenceMetricBag</span></code></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>train</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, indicates that this bag is used in a training task.</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.POFinetuneMetricBag.update_logps">
+<span class="sig-name descname"><span class="pre">update_logps</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chosen_logps</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rejected_logps</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_common.html#POFinetuneMetricBag.update_logps"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.POFinetuneMetricBag.update_logps" title="Link to this definition">¶</a></dt>
+<dd><p>Update the Chosen Sequence Log Probabilities and Rejected Sequence Log Probabilities metrics.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>batch</strong> (<em>PreferenceBatch</em>) – The batch processed by the model.</p></li>
+<li><p><strong>chosen_logps</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.6)"><em>Tensor</em></a>) – The log probabilities for each sequence in <code class="docutils literal notranslate"><span class="pre">batch.chosen</span></code>.</p></li>
+<li><p><strong>rejected_logps</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.6)"><em>Tensor</em></a>) – The log probabilities for each sequence in <code class="docutils literal notranslate"><span class="pre">batch.rejected</span></code>.</p></li>
 </ul>
-</div>
-<p>The <code class="docutils literal notranslate"><span class="pre">instruction_finetune</span></code> module provides specialized utilities for instruction-based fine-tuning of language models.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.POFinetuneMetricBag.update_sequence_lengths">
+<span class="sig-name descname"><span class="pre">update_sequence_lengths</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_common.html#POFinetuneMetricBag.update_sequence_lengths"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.POFinetuneMetricBag.update_sequence_lengths" title="Link to this definition">¶</a></dt>
+<dd><p>Update the Chosen Sequence Length and Rejected Sequence Length metrics.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>batch</strong> (<em>PreferenceBatch</em>) – The batch processed by the model.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.POCriterionSection">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">POCriterionSection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'str'</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'object'</span></span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_common.html#POCriterionSection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.POCriterionSection" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<dl class="field-list simple">
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.POFinetuneDatasetSection">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">POFinetuneDatasetSection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name:</span> <span class="pre">'str'</span> <span class="pre">=</span> <span class="pre">'gsm8k_dpo'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path:</span> <span class="pre">'Path</span> <span class="pre">|</span> <span class="pre">None'</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">family:</span> <span class="pre">'str'</span> <span class="pre">=</span> <span class="pre">'generic_preference'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source_encode_mode:</span> <span class="pre">'str'</span> <span class="pre">=</span> <span class="pre">'prompt'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_encode_mode:</span> <span class="pre">'str'</span> <span class="pre">=</span> <span class="pre">'prompt_response'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask_source_tokens:</span> <span class="pre">'bool'</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_seq_len:</span> <span class="pre">'int'</span> <span class="pre">=</span> <span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_seq_len:</span> <span class="pre">'int'</span> <span class="pre">=</span> <span class="pre">8192</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_num_tokens:</span> <span class="pre">'int'</span> <span class="pre">=</span> <span class="pre">16384</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size:</span> <span class="pre">'int</span> <span class="pre">|</span> <span class="pre">None'</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">example_shuffle_window:</span> <span class="pre">'int'</span> <span class="pre">=</span> <span class="pre">10000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_shuffle_window:</span> <span class="pre">'int'</span> <span class="pre">=</span> <span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_prefetch:</span> <span class="pre">'int'</span> <span class="pre">=</span> <span class="pre">4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extras:</span> <span class="pre">'dict[str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">object]'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_recipe.html#POFinetuneDatasetSection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.POFinetuneDatasetSection" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">DatasetSection</span></code></p>
+<dl class="field-list simple">
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.POFinetuneDatasetSection.source_encode_mode">
+<span class="sig-name descname"><span class="pre">source_encode_mode</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'prompt'</span></em><a class="headerlink" href="#fairseq2.recipes.lm.POFinetuneDatasetSection.source_encode_mode" title="Link to this definition">¶</a></dt>
+<dd><p>The encode mode for the prompt, determines what special tokens to add.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.POFinetuneDatasetSection.target_encode_mode">
+<span class="sig-name descname"><span class="pre">target_encode_mode</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'prompt_response'</span></em><a class="headerlink" href="#fairseq2.recipes.lm.POFinetuneDatasetSection.target_encode_mode" title="Link to this definition">¶</a></dt>
+<dd><p>The encode mode for the target, determines what special tokens to add.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.POFinetuneDatasetSection.mask_source_tokens">
+<span class="sig-name descname"><span class="pre">mask_source_tokens</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#fairseq2.recipes.lm.POFinetuneDatasetSection.mask_source_tokens" title="Link to this definition">¶</a></dt>
+<dd><p>If <code class="docutils literal notranslate"><span class="pre">False</span></code>, calculates loss on the <cite>src</cite> tokens as well as the <cite>tgt</cite> tokens.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.POFinetuneDatasetSection.min_seq_len">
+<span class="sig-name descname"><span class="pre">min_seq_len</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#fairseq2.recipes.lm.POFinetuneDatasetSection.min_seq_len" title="Link to this definition">¶</a></dt>
+<dd><p>The minimum sum of <code class="docutils literal notranslate"><span class="pre">src</span> <span class="pre">+</span> <span class="pre">tgt_chosen</span></code> and <code class="docutils literal notranslate"><span class="pre">src</span> <span class="pre">+</span> <span class="pre">tgt_rejected</span></code>.
+Shorter sequences will be dropped.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.POFinetuneDatasetSection.max_seq_len">
+<span class="sig-name descname"><span class="pre">max_seq_len</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">8192</span></em><a class="headerlink" href="#fairseq2.recipes.lm.POFinetuneDatasetSection.max_seq_len" title="Link to this definition">¶</a></dt>
+<dd><p>The maximum sum of <code class="docutils literal notranslate"><span class="pre">src</span> <span class="pre">+</span> <span class="pre">tgt_chosen</span></code> and <code class="docutils literal notranslate"><span class="pre">src</span> <span class="pre">+</span> <span class="pre">tgt_rejected</span></code>.
+Longer sequences will be dropped.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.POFinetuneDatasetSection.max_num_tokens">
+<span class="sig-name descname"><span class="pre">max_num_tokens</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">16384</span></em><a class="headerlink" href="#fairseq2.recipes.lm.POFinetuneDatasetSection.max_num_tokens" title="Link to this definition">¶</a></dt>
+<dd><p>The maximum number of total <cite>src</cite>, <cite>tgt_chosen</cite>, and <cite>tgt_rejected</cite> tokens per batch.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.POFinetuneDatasetSection.batch_size">
+<span class="sig-name descname"><span class="pre">batch_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#fairseq2.recipes.lm.POFinetuneDatasetSection.batch_size" title="Link to this definition">¶</a></dt>
+<dd><p>If not <code class="docutils literal notranslate"><span class="pre">None</span></code>, ignores <cite>max_num_tokens</cite> and each batch will have <cite>batch_size</cite> examples.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.POFinetuneDatasetSection.example_shuffle_window">
+<span class="sig-name descname"><span class="pre">example_shuffle_window</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">10000</span></em><a class="headerlink" href="#fairseq2.recipes.lm.POFinetuneDatasetSection.example_shuffle_window" title="Link to this definition">¶</a></dt>
+<dd><p>The size of the sliding window for shuffling examples.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.POFinetuneDatasetSection.batch_shuffle_window">
+<span class="sig-name descname"><span class="pre">batch_shuffle_window</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1000</span></em><a class="headerlink" href="#fairseq2.recipes.lm.POFinetuneDatasetSection.batch_shuffle_window" title="Link to this definition">¶</a></dt>
+<dd><p>The size of the sliding window for shuffling batches.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.POFinetuneDatasetSection.num_prefetch">
+<span class="sig-name descname"><span class="pre">num_prefetch</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">4</span></em><a class="headerlink" href="#fairseq2.recipes.lm.POFinetuneDatasetSection.num_prefetch" title="Link to this definition">¶</a></dt>
+<dd><p>The number of batches to prefetch in background.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.POFinetuneDatasetSection.extras">
+<span class="sig-name descname"><span class="pre">extras</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><span class="pre">object</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#fairseq2.recipes.lm.POFinetuneDatasetSection.extras" title="Link to this definition">¶</a></dt>
+<dd><p>The dataset-specific extra options.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.CpoFinetuneConfig">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">CpoFinetuneConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'float'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nll_scale</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'float'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_cpo.html#CpoFinetuneConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.CpoFinetuneConfig" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<dl class="field-list simple">
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.CpoFinetuneConfig.beta">
+<span class="sig-name descname"><span class="pre">beta</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.0</span></em><a class="headerlink" href="#fairseq2.recipes.lm.CpoFinetuneConfig.beta" title="Link to this definition">¶</a></dt>
+<dd><p>The coefficient applied to the difference between preferred and dispreferred sequences.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.CpoFinetuneConfig.nll_scale">
+<span class="sig-name descname"><span class="pre">nll_scale</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.0</span></em><a class="headerlink" href="#fairseq2.recipes.lm.CpoFinetuneConfig.nll_scale" title="Link to this definition">¶</a></dt>
+<dd><p>The coefficient of NLL loss added to the CPO loss.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.CpoFinetuneUnit">
+<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">CpoFinetuneUnit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gangs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nll_scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_cpo.html#CpoFinetuneUnit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.CpoFinetuneUnit" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractTrainUnit</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">PreferenceBatch</span></code>]</p>
+<p>Represents the language model CPO-finetuning unit. Paper: <a class="reference external" href="https://arxiv.org/abs/2401.08417">https://arxiv.org/abs/2401.08417</a>.</p>
+<dl class="field-list simple">
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.CpoFinetuneUnit.set_step_nr">
+<span class="sig-name descname"><span class="pre">set_step_nr</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">step_nr</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_cpo.html#CpoFinetuneUnit.set_step_nr"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.CpoFinetuneUnit.set_step_nr" title="Link to this definition">¶</a></dt>
+<dd><p>Set the current training step number.</p>
+<dl class="field-list simple">
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.CpoFinetuneUnit.metric_bag">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">metric_bag</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#fairseq2.recipes.lm.CpoFinetuneMetricBag" title="fairseq2.recipes.lm._preference_finetune._cpo.CpoFinetuneMetricBag"><span class="pre">CpoFinetuneMetricBag</span></a></em><a class="headerlink" href="#fairseq2.recipes.lm.CpoFinetuneUnit.metric_bag" title="Link to this definition">¶</a></dt>
+<dd><p>The training-related metrics.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.CpoFinetuneUnitHandler">
+<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">CpoFinetuneUnitHandler</span></span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_cpo.html#CpoFinetuneUnitHandler"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.CpoFinetuneUnitHandler" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">POFinetuneUnitHandler</span></code></p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.CpoFinetuneMetricBag">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">CpoFinetuneMetricBag</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gang</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_cpo.html#CpoFinetuneMetricBag"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.CpoFinetuneMetricBag" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#fairseq2.recipes.lm.POFinetuneMetricBag" title="fairseq2.recipes.lm._preference_finetune._common.POFinetuneMetricBag"><code class="xref py py-class docutils literal notranslate"><span class="pre">POFinetuneMetricBag</span></code></a></p>
+<p>Holds the metrics of a CPO preference finetuning task.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>train</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, indicates that this bag is used in a training task.</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.CpoFinetuneMetricBag.update_cpo_loss">
+<span class="sig-name descname"><span class="pre">update_cpo_loss</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loss</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_cpo.html#CpoFinetuneMetricBag.update_cpo_loss"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.CpoFinetuneMetricBag.update_cpo_loss" title="Link to this definition">¶</a></dt>
+<dd><p>Update the CPO loss metric.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>batch</strong> (<em>PreferenceBatch</em>) – The batch processed by the model.</p></li>
+<li><p><strong>loss</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.6)"><em>Tensor</em></a>) – The CPO loss of <code class="docutils literal notranslate"><span class="pre">batch</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.DpoFinetuneConfig">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">DpoFinetuneConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference_model:</span> <span class="pre">'ReferenceModelSection'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference_dtype:</span> <span class="pre">'DataType'</span> <span class="pre">=</span> <span class="pre">torch.bfloat16</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta:</span> <span class="pre">'float'</span> <span class="pre">=</span> <span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nll_scale:</span> <span class="pre">'float'</span> <span class="pre">=</span> <span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">length_normalization:</span> <span class="pre">'bool'</span> <span class="pre">=</span> <span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_dpo.html#DpoFinetuneConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.DpoFinetuneConfig" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<dl class="field-list simple">
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.DpoFinetuneConfig.reference_model">
+<span class="sig-name descname"><span class="pre">reference_model</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ReferenceModelSection</span></em><a class="headerlink" href="#fairseq2.recipes.lm.DpoFinetuneConfig.reference_model" title="Link to this definition">¶</a></dt>
+<dd><p>The reference model. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, the recipe expects to get reference
+log-probabilities for chosen and rejected targets as float values in the
+data example (fields <cite>reference_score_rejected</cite> and  <cite>reference_score_chosen</cite>).</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.DpoFinetuneConfig.reference_dtype">
+<span class="sig-name descname"><span class="pre">reference_dtype</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://pytorch.org/docs/stable/tensor_attributes.html#torch.dtype" title="(in PyTorch v2.6)"><span class="pre">dtype</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">torch.bfloat16</span></em><a class="headerlink" href="#fairseq2.recipes.lm.DpoFinetuneConfig.reference_dtype" title="Link to this definition">¶</a></dt>
+<dd><p>The data type of the reference model.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.DpoFinetuneConfig.beta">
+<span class="sig-name descname"><span class="pre">beta</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.1</span></em><a class="headerlink" href="#fairseq2.recipes.lm.DpoFinetuneConfig.beta" title="Link to this definition">¶</a></dt>
+<dd><p>The coefficient of regularization towards the reference model.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.DpoFinetuneConfig.nll_scale">
+<span class="sig-name descname"><span class="pre">nll_scale</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0</span></em><a class="headerlink" href="#fairseq2.recipes.lm.DpoFinetuneConfig.nll_scale" title="Link to this definition">¶</a></dt>
+<dd><p>The coefficient of NLL loss added to the DPO loss.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.DpoFinetuneConfig.length_normalization">
+<span class="sig-name descname"><span class="pre">length_normalization</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#fairseq2.recipes.lm.DpoFinetuneConfig.length_normalization" title="Link to this definition">¶</a></dt>
+<dd><p>Use length normalized DPO, which uses the average log probability of a sequence as the implicit reward.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.DpoFinetuneUnit">
+<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">DpoFinetuneUnit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gangs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nll_scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">length_normalization</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_dpo.html#DpoFinetuneUnit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.DpoFinetuneUnit" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractTrainUnit</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">PreferenceBatch</span></code>]</p>
+<p>Represents the language model DPO-finetuning unit. Paper: <a class="reference external" href="https://arxiv.org/abs/2305.18290">https://arxiv.org/abs/2305.18290</a>.</p>
+<dl class="field-list simple">
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.DpoFinetuneUnit.set_step_nr">
+<span class="sig-name descname"><span class="pre">set_step_nr</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">step_nr</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_dpo.html#DpoFinetuneUnit.set_step_nr"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.DpoFinetuneUnit.set_step_nr" title="Link to this definition">¶</a></dt>
+<dd><p>Set the current training step number.</p>
+<dl class="field-list simple">
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.DpoFinetuneUnit.metric_bag">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">metric_bag</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#fairseq2.recipes.lm.DpoFinetuneMetricBag" title="fairseq2.recipes.lm._preference_finetune._dpo.DpoFinetuneMetricBag"><span class="pre">DpoFinetuneMetricBag</span></a></em><a class="headerlink" href="#fairseq2.recipes.lm.DpoFinetuneUnit.metric_bag" title="Link to this definition">¶</a></dt>
+<dd><p>The training-related metrics.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.DpoFinetuneUnitHandler">
+<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">DpoFinetuneUnitHandler</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">context</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_dpo.html#DpoFinetuneUnitHandler"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.DpoFinetuneUnitHandler" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">POFinetuneUnitHandler</span></code></p>
+<dl class="field-list simple">
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.DpoFinetuneMetricBag">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">DpoFinetuneMetricBag</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gang</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_dpo.html#DpoFinetuneMetricBag"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.DpoFinetuneMetricBag" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#fairseq2.recipes.lm.POFinetuneMetricBag" title="fairseq2.recipes.lm._preference_finetune._common.POFinetuneMetricBag"><code class="xref py py-class docutils literal notranslate"><span class="pre">POFinetuneMetricBag</span></code></a></p>
+<p>Holds the metrics of a DPO preference finetuning task.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>train</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, indicates that this bag is used in a training task.</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.DpoFinetuneMetricBag.update_dpo_loss">
+<span class="sig-name descname"><span class="pre">update_dpo_loss</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loss</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_dpo.html#DpoFinetuneMetricBag.update_dpo_loss"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.DpoFinetuneMetricBag.update_dpo_loss" title="Link to this definition">¶</a></dt>
+<dd><p>Update the DPO loss metric.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>batch</strong> (<em>PreferenceBatch</em>) – The batch processed by the model.</p></li>
+<li><p><strong>loss</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.6)"><em>Tensor</em></a>) – The DPO loss of <code class="docutils literal notranslate"><span class="pre">batch</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.OrpoFinetuneConfig">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">OrpoFinetuneConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">orpo_lambda</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'float'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nll_scale</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'float'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_orpo.html#OrpoFinetuneConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.OrpoFinetuneConfig" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<dl class="field-list simple">
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.OrpoFinetuneConfig.orpo_lambda">
+<span class="sig-name descname"><span class="pre">orpo_lambda</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.0</span></em><a class="headerlink" href="#fairseq2.recipes.lm.OrpoFinetuneConfig.orpo_lambda" title="Link to this definition">¶</a></dt>
+<dd><p>The coefficient of the odds-ratio component of ORPO loss</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.OrpoFinetuneConfig.nll_scale">
+<span class="sig-name descname"><span class="pre">nll_scale</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.0</span></em><a class="headerlink" href="#fairseq2.recipes.lm.OrpoFinetuneConfig.nll_scale" title="Link to this definition">¶</a></dt>
+<dd><p>The coefficient of the NLL component of ORPO loss.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.OrpoFinetuneUnit">
+<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">OrpoFinetuneUnit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gangs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">orpo_lambda</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nll_scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_orpo.html#OrpoFinetuneUnit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.OrpoFinetuneUnit" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractTrainUnit</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">PreferenceBatch</span></code>]</p>
+<p>Represents the language model ORPO-finetuning unit. Paper: <a class="reference external" href="https://arxiv.org/abs/2403.07691">https://arxiv.org/abs/2403.07691</a>.</p>
+<dl class="field-list simple">
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.OrpoFinetuneUnit.set_step_nr">
+<span class="sig-name descname"><span class="pre">set_step_nr</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">step_nr</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_orpo.html#OrpoFinetuneUnit.set_step_nr"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.OrpoFinetuneUnit.set_step_nr" title="Link to this definition">¶</a></dt>
+<dd><p>Set the current training step number.</p>
+<dl class="field-list simple">
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.OrpoFinetuneUnit.metric_bag">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">metric_bag</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#fairseq2.recipes.lm.OrpoFinetuneMetricBag" title="fairseq2.recipes.lm._preference_finetune._orpo.OrpoFinetuneMetricBag"><span class="pre">OrpoFinetuneMetricBag</span></a></em><a class="headerlink" href="#fairseq2.recipes.lm.OrpoFinetuneUnit.metric_bag" title="Link to this definition">¶</a></dt>
+<dd><p>The training-related metrics.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.OrpoFinetuneUnitHandler">
+<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">OrpoFinetuneUnitHandler</span></span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_orpo.html#OrpoFinetuneUnitHandler"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.OrpoFinetuneUnitHandler" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">POFinetuneUnitHandler</span></code></p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.OrpoFinetuneMetricBag">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">OrpoFinetuneMetricBag</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gang</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_orpo.html#OrpoFinetuneMetricBag"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.OrpoFinetuneMetricBag" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#fairseq2.recipes.lm.POFinetuneMetricBag" title="fairseq2.recipes.lm._preference_finetune._common.POFinetuneMetricBag"><code class="xref py py-class docutils literal notranslate"><span class="pre">POFinetuneMetricBag</span></code></a></p>
+<p>Holds the metrics of a ORPO preference finetuning task.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>train</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, indicates that this bag is used in a training task.</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.OrpoFinetuneMetricBag.update_orpo_loss">
+<span class="sig-name descname"><span class="pre">update_orpo_loss</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loss</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_orpo.html#OrpoFinetuneMetricBag.update_orpo_loss"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.OrpoFinetuneMetricBag.update_orpo_loss" title="Link to this definition">¶</a></dt>
+<dd><p>Update the ORPO loss metric.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>batch</strong> (<em>PreferenceBatch</em>) – The batch processed by the model.</p></li>
+<li><p><strong>loss</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.6)"><em>Tensor</em></a>) – The ORPO loss of <code class="docutils literal notranslate"><span class="pre">batch</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.SimPOFinetuneConfig">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">SimPOFinetuneConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'float'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gamma</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'float'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nll_scale</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="s"><span class="pre">'float'</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_simpo.html#SimPOFinetuneConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.SimPOFinetuneConfig" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<dl class="field-list simple">
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.SimPOFinetuneConfig.beta">
+<span class="sig-name descname"><span class="pre">beta</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#fairseq2.recipes.lm.SimPOFinetuneConfig.beta" title="Link to this definition">¶</a></dt>
+<dd><p>The coefficient of KL-divergence regularization.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.SimPOFinetuneConfig.gamma">
+<span class="sig-name descname"><span class="pre">gamma</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.5</span></em><a class="headerlink" href="#fairseq2.recipes.lm.SimPOFinetuneConfig.gamma" title="Link to this definition">¶</a></dt>
+<dd><p>The target reward margin between positive and negative completions.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.SimPOFinetuneConfig.nll_scale">
+<span class="sig-name descname"><span class="pre">nll_scale</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0</span></em><a class="headerlink" href="#fairseq2.recipes.lm.SimPOFinetuneConfig.nll_scale" title="Link to this definition">¶</a></dt>
+<dd><p>The coefficient of NLL loss added to the SimPO loss.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.SimPOFinetuneUnit">
+<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">SimPOFinetuneUnit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gangs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gamma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nll_scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_simpo.html#SimPOFinetuneUnit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.SimPOFinetuneUnit" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractTrainUnit</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">PreferenceBatch</span></code>]</p>
+<p>Represents the language model SimPO-finetuning unit. Paper: <a class="reference external" href="https://arxiv.org/abs/2405.14734">https://arxiv.org/abs/2405.14734</a>.</p>
+<dl class="field-list simple">
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.SimPOFinetuneUnit.set_step_nr">
+<span class="sig-name descname"><span class="pre">set_step_nr</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">step_nr</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_simpo.html#SimPOFinetuneUnit.set_step_nr"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.SimPOFinetuneUnit.set_step_nr" title="Link to this definition">¶</a></dt>
+<dd><p>Set the current training step number.</p>
+<dl class="field-list simple">
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.SimPOFinetuneUnit.metric_bag">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">metric_bag</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#fairseq2.recipes.lm.SimPOFinetuneMetricBag" title="fairseq2.recipes.lm._preference_finetune._simpo.SimPOFinetuneMetricBag"><span class="pre">SimPOFinetuneMetricBag</span></a></em><a class="headerlink" href="#fairseq2.recipes.lm.SimPOFinetuneUnit.metric_bag" title="Link to this definition">¶</a></dt>
+<dd><p>The training-related metrics.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.SimPOFinetuneUnitHandler">
+<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">SimPOFinetuneUnitHandler</span></span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_simpo.html#SimPOFinetuneUnitHandler"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.SimPOFinetuneUnitHandler" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">POFinetuneUnitHandler</span></code></p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.SimPOFinetuneMetricBag">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">SimPOFinetuneMetricBag</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gang</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_simpo.html#SimPOFinetuneMetricBag"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.SimPOFinetuneMetricBag" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#fairseq2.recipes.lm.POFinetuneMetricBag" title="fairseq2.recipes.lm._preference_finetune._common.POFinetuneMetricBag"><code class="xref py py-class docutils literal notranslate"><span class="pre">POFinetuneMetricBag</span></code></a></p>
+<p>Holds the metrics of a SimPO preference finetuning task.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>train</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, indicates that this bag is used in a training task.</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.SimPOFinetuneMetricBag.update_simpo_loss">
+<span class="sig-name descname"><span class="pre">update_simpo_loss</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loss</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_simpo.html#SimPOFinetuneMetricBag.update_simpo_loss"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.SimPOFinetuneMetricBag.update_simpo_loss" title="Link to this definition">¶</a></dt>
+<dd><p>Update the SimPO loss metric.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>batch</strong> (<em>PreferenceBatch</em>) – The batch processed by the model.</p></li>
+<li><p><strong>loss</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.6)"><em>Tensor</em></a>) – The SimPO loss of <code class="docutils literal notranslate"><span class="pre">batch</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="functions-po">
+<h3>Functions (PO)<a class="headerlink" href="#functions-po" title="Link to this heading">¶</a></h3>
+<dl class="py function">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.load_po_finetuner">
+<span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">load_po_finetuner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">context</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_recipe.html#load_po_finetuner"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.load_po_finetuner" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="../trainer.html#fairseq2.recipes.trainer.Trainer" title="fairseq2.recipes.trainer.Trainer"><em>Trainer</em></a>[<em>PreferenceBatch</em>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+<section id="text-generation">
+<h2>Text Generation<a class="headerlink" href="#text-generation" title="Link to this heading">¶</a></h2>
+<section id="classes-text-generation">
+<h3>Classes (Text Generation)<a class="headerlink" href="#classes-text-generation" title="Link to this heading">¶</a></h3>
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.TextGenerateConfig">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">TextGenerateConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model:</span> <span class="pre">'ReferenceModelSection'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dataset:</span> <span class="pre">'TextGenerateDatasetSection'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gang:</span> <span class="pre">'GangSection'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">generator:</span> <span class="pre">'GeneratorSection'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seq_generator:</span> <span class="pre">'SequenceGeneratorSection'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">common:</span> <span class="pre">'CommonSection'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_text_generate.html#TextGenerateConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.TextGenerateConfig" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<dl class="field-list simple">
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.TextGenerateDatasetSection">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">TextGenerateDatasetSection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name:</span> <span class="pre">'str'</span> <span class="pre">=</span> <span class="pre">'foo'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path:</span> <span class="pre">'Path</span> <span class="pre">|</span> <span class="pre">None'</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">family:</span> <span class="pre">'str'</span> <span class="pre">=</span> <span class="pre">'generic_instruction'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">split:</span> <span class="pre">'str'</span> <span class="pre">=</span> <span class="pre">'default'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_seq_len:</span> <span class="pre">'int'</span> <span class="pre">=</span> <span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_seq_len:</span> <span class="pre">'int'</span> <span class="pre">=</span> <span class="pre">8192</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_prefetch:</span> <span class="pre">'int'</span> <span class="pre">=</span> <span class="pre">4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extras:</span> <span class="pre">'dict[str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">object]'</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_text_generate.html#TextGenerateDatasetSection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.TextGenerateDatasetSection" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">DatasetSection</span></code></p>
+<dl class="field-list simple">
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.TextGenerateDatasetSection.min_seq_len">
+<span class="sig-name descname"><span class="pre">min_seq_len</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#fairseq2.recipes.lm.TextGenerateDatasetSection.min_seq_len" title="Link to this definition">¶</a></dt>
+<dd><p>The minimum sequence length.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.TextGenerateDatasetSection.max_seq_len">
+<span class="sig-name descname"><span class="pre">max_seq_len</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">8192</span></em><a class="headerlink" href="#fairseq2.recipes.lm.TextGenerateDatasetSection.max_seq_len" title="Link to this definition">¶</a></dt>
+<dd><p>The maximum sequence length.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.TextGenerateDatasetSection.num_prefetch">
+<span class="sig-name descname"><span class="pre">num_prefetch</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">4</span></em><a class="headerlink" href="#fairseq2.recipes.lm.TextGenerateDatasetSection.num_prefetch" title="Link to this definition">¶</a></dt>
+<dd><p>The number of batches to prefetch in background.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.TextGenerateDatasetSection.extras">
+<span class="sig-name descname"><span class="pre">extras</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><span class="pre">object</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#fairseq2.recipes.lm.TextGenerateDatasetSection.extras" title="Link to this definition">¶</a></dt>
+<dd><p>The dataset-specific extra options.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.TextGenerateUnit">
+<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">TextGenerateUnit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">generator</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tokenizer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gangs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">text_output_stream</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">json_output_stream</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_text_generate.html#TextGenerateUnit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.TextGenerateUnit" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractGeneratorUnit</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">SequenceBatch</span></code>]</p>
+<p>Represents a text generation unit.</p>
+<dl class="field-list simple">
+</dl>
+<dl class="py property">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.TextGenerateUnit.metric_bag">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">metric_bag</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">SequenceGenerationMetricBag</span></em><a class="headerlink" href="#fairseq2.recipes.lm.TextGenerateUnit.metric_bag" title="Link to this definition">¶</a></dt>
+<dd><p>The generation-related metrics.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="functions-text-generation">
+<h3>Functions (Text Generation)<a class="headerlink" href="#functions-text-generation" title="Link to this heading">¶</a></h3>
+<dl class="py function">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.load_text_generator">
+<span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">load_text_generator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">context</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_text_generate.html#load_text_generator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.load_text_generator" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>Generator</em>[<em>SequenceBatch</em>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
 </section>
 <section id="usage-examples">
 <h2>Usage Examples<a class="headerlink" href="#usage-examples" title="Link to this heading">¶</a></h2>
@@ -355,12 +1034,12 @@ This includes tools for both pre-training and instruction tuning of language mod
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="instruction_finetune.html">
+          <a class="next-page" href="../wav2vec2/index.html">
               <div class="page-info">
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title">fairseq2.recipes.lm.instruction_finetune</div>
+                <div class="title">fairseq2.recipes.wav2vec2</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
@@ -412,7 +1091,157 @@ This includes tools for both pre-training and instruction tuning of language mod
 <li><a class="reference internal" href="#">fairseq2.recipes.lm</a><ul>
 <li><a class="reference internal" href="#overview">Overview</a></li>
 <li><a class="reference internal" href="#key-features">Key Features</a></li>
-<li><a class="reference internal" href="#submodules">Submodules</a></li>
+<li><a class="reference internal" href="#instruction-fine-tuning">Instruction Fine-Tuning</a><ul>
+<li><a class="reference internal" href="#classes">Classes</a><ul>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.InstructionFinetuneConfig"><code class="docutils literal notranslate"><span class="pre">InstructionFinetuneConfig</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.InstructionFinetuneCriterion"><code class="docutils literal notranslate"><span class="pre">InstructionFinetuneCriterion</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.InstructionFinetuneDatasetSection"><code class="docutils literal notranslate"><span class="pre">InstructionFinetuneDatasetSection</span></code></a><ul>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.InstructionFinetuneDatasetSection.source_encode_mode"><code class="docutils literal notranslate"><span class="pre">InstructionFinetuneDatasetSection.source_encode_mode</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.InstructionFinetuneDatasetSection.target_encode_mode"><code class="docutils literal notranslate"><span class="pre">InstructionFinetuneDatasetSection.target_encode_mode</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.InstructionFinetuneDatasetSection.min_seq_len"><code class="docutils literal notranslate"><span class="pre">InstructionFinetuneDatasetSection.min_seq_len</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.InstructionFinetuneDatasetSection.max_seq_len"><code class="docutils literal notranslate"><span class="pre">InstructionFinetuneDatasetSection.max_seq_len</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.InstructionFinetuneDatasetSection.max_num_tokens"><code class="docutils literal notranslate"><span class="pre">InstructionFinetuneDatasetSection.max_num_tokens</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.InstructionFinetuneDatasetSection.batch_size"><code class="docutils literal notranslate"><span class="pre">InstructionFinetuneDatasetSection.batch_size</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.InstructionFinetuneDatasetSection.max_num_valid_tokens"><code class="docutils literal notranslate"><span class="pre">InstructionFinetuneDatasetSection.max_num_valid_tokens</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.InstructionFinetuneDatasetSection.example_shuffle_window"><code class="docutils literal notranslate"><span class="pre">InstructionFinetuneDatasetSection.example_shuffle_window</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.InstructionFinetuneDatasetSection.batch_shuffle_window"><code class="docutils literal notranslate"><span class="pre">InstructionFinetuneDatasetSection.batch_shuffle_window</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.InstructionFinetuneDatasetSection.num_prefetch"><code class="docutils literal notranslate"><span class="pre">InstructionFinetuneDatasetSection.num_prefetch</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.InstructionFinetuneDatasetSection.extras"><code class="docutils literal notranslate"><span class="pre">InstructionFinetuneDatasetSection.extras</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.InstructionFinetuneUnit"><code class="docutils literal notranslate"><span class="pre">InstructionFinetuneUnit</span></code></a><ul>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.InstructionFinetuneUnit.metric_bag"><code class="docutils literal notranslate"><span class="pre">InstructionFinetuneUnit.metric_bag</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.InstructionLossEvalUnit"><code class="docutils literal notranslate"><span class="pre">InstructionLossEvalUnit</span></code></a><ul>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.InstructionLossEvalUnit.metric_bag"><code class="docutils literal notranslate"><span class="pre">InstructionLossEvalUnit.metric_bag</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#functions">Functions</a><ul>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.load_instruction_finetuner"><code class="docutils literal notranslate"><span class="pre">load_instruction_finetuner()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#preference-fine-tuning">Preference Fine-Tuning</a><ul>
+<li><a class="reference internal" href="#classes-po">Classes (PO)</a><ul>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.POFinetuneConfig"><code class="docutils literal notranslate"><span class="pre">POFinetuneConfig</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.POFinetuneMetricBag"><code class="docutils literal notranslate"><span class="pre">POFinetuneMetricBag</span></code></a><ul>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.POFinetuneMetricBag.update_logps"><code class="docutils literal notranslate"><span class="pre">POFinetuneMetricBag.update_logps()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.POFinetuneMetricBag.update_sequence_lengths"><code class="docutils literal notranslate"><span class="pre">POFinetuneMetricBag.update_sequence_lengths()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.POCriterionSection"><code class="docutils literal notranslate"><span class="pre">POCriterionSection</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.POFinetuneDatasetSection"><code class="docutils literal notranslate"><span class="pre">POFinetuneDatasetSection</span></code></a><ul>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.POFinetuneDatasetSection.source_encode_mode"><code class="docutils literal notranslate"><span class="pre">POFinetuneDatasetSection.source_encode_mode</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.POFinetuneDatasetSection.target_encode_mode"><code class="docutils literal notranslate"><span class="pre">POFinetuneDatasetSection.target_encode_mode</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.POFinetuneDatasetSection.mask_source_tokens"><code class="docutils literal notranslate"><span class="pre">POFinetuneDatasetSection.mask_source_tokens</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.POFinetuneDatasetSection.min_seq_len"><code class="docutils literal notranslate"><span class="pre">POFinetuneDatasetSection.min_seq_len</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.POFinetuneDatasetSection.max_seq_len"><code class="docutils literal notranslate"><span class="pre">POFinetuneDatasetSection.max_seq_len</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.POFinetuneDatasetSection.max_num_tokens"><code class="docutils literal notranslate"><span class="pre">POFinetuneDatasetSection.max_num_tokens</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.POFinetuneDatasetSection.batch_size"><code class="docutils literal notranslate"><span class="pre">POFinetuneDatasetSection.batch_size</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.POFinetuneDatasetSection.example_shuffle_window"><code class="docutils literal notranslate"><span class="pre">POFinetuneDatasetSection.example_shuffle_window</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.POFinetuneDatasetSection.batch_shuffle_window"><code class="docutils literal notranslate"><span class="pre">POFinetuneDatasetSection.batch_shuffle_window</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.POFinetuneDatasetSection.num_prefetch"><code class="docutils literal notranslate"><span class="pre">POFinetuneDatasetSection.num_prefetch</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.POFinetuneDatasetSection.extras"><code class="docutils literal notranslate"><span class="pre">POFinetuneDatasetSection.extras</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.CpoFinetuneConfig"><code class="docutils literal notranslate"><span class="pre">CpoFinetuneConfig</span></code></a><ul>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.CpoFinetuneConfig.beta"><code class="docutils literal notranslate"><span class="pre">CpoFinetuneConfig.beta</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.CpoFinetuneConfig.nll_scale"><code class="docutils literal notranslate"><span class="pre">CpoFinetuneConfig.nll_scale</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.CpoFinetuneUnit"><code class="docutils literal notranslate"><span class="pre">CpoFinetuneUnit</span></code></a><ul>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.CpoFinetuneUnit.set_step_nr"><code class="docutils literal notranslate"><span class="pre">CpoFinetuneUnit.set_step_nr()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.CpoFinetuneUnit.metric_bag"><code class="docutils literal notranslate"><span class="pre">CpoFinetuneUnit.metric_bag</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.CpoFinetuneUnitHandler"><code class="docutils literal notranslate"><span class="pre">CpoFinetuneUnitHandler</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.CpoFinetuneMetricBag"><code class="docutils literal notranslate"><span class="pre">CpoFinetuneMetricBag</span></code></a><ul>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.CpoFinetuneMetricBag.update_cpo_loss"><code class="docutils literal notranslate"><span class="pre">CpoFinetuneMetricBag.update_cpo_loss()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.DpoFinetuneConfig"><code class="docutils literal notranslate"><span class="pre">DpoFinetuneConfig</span></code></a><ul>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.DpoFinetuneConfig.reference_model"><code class="docutils literal notranslate"><span class="pre">DpoFinetuneConfig.reference_model</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.DpoFinetuneConfig.reference_dtype"><code class="docutils literal notranslate"><span class="pre">DpoFinetuneConfig.reference_dtype</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.DpoFinetuneConfig.beta"><code class="docutils literal notranslate"><span class="pre">DpoFinetuneConfig.beta</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.DpoFinetuneConfig.nll_scale"><code class="docutils literal notranslate"><span class="pre">DpoFinetuneConfig.nll_scale</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.DpoFinetuneConfig.length_normalization"><code class="docutils literal notranslate"><span class="pre">DpoFinetuneConfig.length_normalization</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.DpoFinetuneUnit"><code class="docutils literal notranslate"><span class="pre">DpoFinetuneUnit</span></code></a><ul>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.DpoFinetuneUnit.set_step_nr"><code class="docutils literal notranslate"><span class="pre">DpoFinetuneUnit.set_step_nr()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.DpoFinetuneUnit.metric_bag"><code class="docutils literal notranslate"><span class="pre">DpoFinetuneUnit.metric_bag</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.DpoFinetuneUnitHandler"><code class="docutils literal notranslate"><span class="pre">DpoFinetuneUnitHandler</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.DpoFinetuneMetricBag"><code class="docutils literal notranslate"><span class="pre">DpoFinetuneMetricBag</span></code></a><ul>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.DpoFinetuneMetricBag.update_dpo_loss"><code class="docutils literal notranslate"><span class="pre">DpoFinetuneMetricBag.update_dpo_loss()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.OrpoFinetuneConfig"><code class="docutils literal notranslate"><span class="pre">OrpoFinetuneConfig</span></code></a><ul>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.OrpoFinetuneConfig.orpo_lambda"><code class="docutils literal notranslate"><span class="pre">OrpoFinetuneConfig.orpo_lambda</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.OrpoFinetuneConfig.nll_scale"><code class="docutils literal notranslate"><span class="pre">OrpoFinetuneConfig.nll_scale</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.OrpoFinetuneUnit"><code class="docutils literal notranslate"><span class="pre">OrpoFinetuneUnit</span></code></a><ul>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.OrpoFinetuneUnit.set_step_nr"><code class="docutils literal notranslate"><span class="pre">OrpoFinetuneUnit.set_step_nr()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.OrpoFinetuneUnit.metric_bag"><code class="docutils literal notranslate"><span class="pre">OrpoFinetuneUnit.metric_bag</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.OrpoFinetuneUnitHandler"><code class="docutils literal notranslate"><span class="pre">OrpoFinetuneUnitHandler</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.OrpoFinetuneMetricBag"><code class="docutils literal notranslate"><span class="pre">OrpoFinetuneMetricBag</span></code></a><ul>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.OrpoFinetuneMetricBag.update_orpo_loss"><code class="docutils literal notranslate"><span class="pre">OrpoFinetuneMetricBag.update_orpo_loss()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.SimPOFinetuneConfig"><code class="docutils literal notranslate"><span class="pre">SimPOFinetuneConfig</span></code></a><ul>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.SimPOFinetuneConfig.beta"><code class="docutils literal notranslate"><span class="pre">SimPOFinetuneConfig.beta</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.SimPOFinetuneConfig.gamma"><code class="docutils literal notranslate"><span class="pre">SimPOFinetuneConfig.gamma</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.SimPOFinetuneConfig.nll_scale"><code class="docutils literal notranslate"><span class="pre">SimPOFinetuneConfig.nll_scale</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.SimPOFinetuneUnit"><code class="docutils literal notranslate"><span class="pre">SimPOFinetuneUnit</span></code></a><ul>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.SimPOFinetuneUnit.set_step_nr"><code class="docutils literal notranslate"><span class="pre">SimPOFinetuneUnit.set_step_nr()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.SimPOFinetuneUnit.metric_bag"><code class="docutils literal notranslate"><span class="pre">SimPOFinetuneUnit.metric_bag</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.SimPOFinetuneUnitHandler"><code class="docutils literal notranslate"><span class="pre">SimPOFinetuneUnitHandler</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.SimPOFinetuneMetricBag"><code class="docutils literal notranslate"><span class="pre">SimPOFinetuneMetricBag</span></code></a><ul>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.SimPOFinetuneMetricBag.update_simpo_loss"><code class="docutils literal notranslate"><span class="pre">SimPOFinetuneMetricBag.update_simpo_loss()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#functions-po">Functions (PO)</a><ul>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.load_po_finetuner"><code class="docutils literal notranslate"><span class="pre">load_po_finetuner()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#text-generation">Text Generation</a><ul>
+<li><a class="reference internal" href="#classes-text-generation">Classes (Text Generation)</a><ul>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.TextGenerateConfig"><code class="docutils literal notranslate"><span class="pre">TextGenerateConfig</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.TextGenerateDatasetSection"><code class="docutils literal notranslate"><span class="pre">TextGenerateDatasetSection</span></code></a><ul>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.TextGenerateDatasetSection.min_seq_len"><code class="docutils literal notranslate"><span class="pre">TextGenerateDatasetSection.min_seq_len</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.TextGenerateDatasetSection.max_seq_len"><code class="docutils literal notranslate"><span class="pre">TextGenerateDatasetSection.max_seq_len</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.TextGenerateDatasetSection.num_prefetch"><code class="docutils literal notranslate"><span class="pre">TextGenerateDatasetSection.num_prefetch</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.TextGenerateDatasetSection.extras"><code class="docutils literal notranslate"><span class="pre">TextGenerateDatasetSection.extras</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.TextGenerateUnit"><code class="docutils literal notranslate"><span class="pre">TextGenerateUnit</span></code></a><ul>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.TextGenerateUnit.metric_bag"><code class="docutils literal notranslate"><span class="pre">TextGenerateUnit.metric_bag</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#functions-text-generation">Functions (Text Generation)</a><ul>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.load_text_generator"><code class="docutils literal notranslate"><span class="pre">load_text_generator()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li><a class="reference internal" href="#usage-examples">Usage Examples</a></li>
 </ul>
 </li>
@@ -425,10 +1254,11 @@ This includes tools for both pre-training and instruction tuning of language mod
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=9f2fe177"></script>
+</div><script src="../../../../_static/documentation_options.js?v=3fbe44c6"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>
     <script src="../../../../_static/design-tabs.js?v=36754332"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
     </body>
 </html>
