@@ -804,7 +804,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         self, batch_nr: int, num_batches: int
     ) -> AbstractContextManager[None]:
         if batch_nr < num_batches - 1 and self._gangs.dp.size > 1:
-            return self._model.no_sync()  # type: ignore[no-any-return]
+            return self._model.no_sync()  # type: ignore[no-any-return, operator]
 
         return nullcontext()
 

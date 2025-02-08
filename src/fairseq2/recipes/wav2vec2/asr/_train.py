@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import final
+from typing import cast, final
 
 import torch
 from torch import Tensor
@@ -399,7 +399,7 @@ class Wav2Vec2AsrTrainUnit(AbstractTrainUnit[Seq2SeqBatch]):
         if isinstance(self._model, Wav2Vec2AsrModel):
             model = self._model
         else:
-            model = self._model.module  # DDP or FSDP
+            model = cast(Wav2Vec2AsrModel, self._model.module)  # DDP or FSDP
 
         if step_nr <= self._freeze_encoder_for_n_steps:
             if step_nr == 1:
