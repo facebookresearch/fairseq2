@@ -19,6 +19,7 @@ from fairseq2.data.parquet.transform import (
     apply_filter,
     build_uniform_list_column,
     concat_table,
+    correct_paragraph_length,
     filter_list_by_range,
     filter_rows_by_consistent_list_length,
     filter_strings_by_length,

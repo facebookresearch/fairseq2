@@ -117,6 +117,30 @@ def replace_table_column(
     return table.set_column(col_idx, col_name, new_array)
 
 
+def correct_paragraph_length(
+    table: pa.Table,
+    page_lens_column: str,
+    len_break: int,
+    len_prefix: int,
+    len_suffix: int,
+) -> pa.Table:
+    def _correct(x):
+        x = x + len_break
+        x[0] += len_prefix
+        x[-1] += len_suffix - len_break
+        return x
+
+    page_lengths = table[page_lens_column].to_pandas().to_list()
+
+    corrected_lens = pa.array(
+        [_correct(x) for x in page_lengths], type=pa.list_(pa.int32())
+    )
+
+    return table.drop([page_lens_column]).append_column(
+        page_lens_column, corrected_lens
+    )
+
+
 def prefix_and_suffix_one_list_column(
     table: pa.Table,
     column: str,
