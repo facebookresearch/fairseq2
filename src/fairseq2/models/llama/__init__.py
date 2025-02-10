@@ -15,6 +15,9 @@ from fairseq2.models.llama._config import (
     register_llama_configs as register_llama_configs,
 )
 from fairseq2.models.llama._factory import LLaMAFactory as LLaMAFactory
+from fairseq2.models.llama._factory import (
+    init_llama_scaled_freqs as init_llama_scaled_freqs,
+)
 from fairseq2.models.llama._handler import LLaMAModelHandler as LLaMAModelHandler
 from fairseq2.models.llama._handler import (
     convert_llama_checkpoint as convert_llama_checkpoint,
