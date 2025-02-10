@@ -6,15 +6,10 @@
 
 from __future__ import annotations
 
-import os
 from datetime import timedelta
 
 from fairseq2.context import RuntimeContext
-from fairseq2.device import (
-    DefaultDeviceAccessor,
-    DeviceDetectionError,
-    TorchCudaContext,
-)
+from fairseq2.device import DeviceDetectionError, determine_default_device
 from fairseq2.error import ProgramError
 from fairseq2.gang import GangError, Gangs, setup_parallel_gangs, setup_root_gang
 from fairseq2.logging import log
@@ -23,12 +18,8 @@ from fairseq2.recipes.utils.log import log_environment_info
 
 
 def setup_gangs(context: RuntimeContext, recipe_config: object) -> Gangs:
-    cuda_context = TorchCudaContext()
-
-    device_accessor = DefaultDeviceAccessor(os.environ, cuda_context)
-
     try:
-        device = device_accessor.get()
+        device = determine_default_device()
     except DeviceDetectionError as ex:
         raise ProgramError(
             "The device of the process cannot be determined. See the nested exception for details."
