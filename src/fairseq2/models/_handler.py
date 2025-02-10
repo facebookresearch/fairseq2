@@ -22,14 +22,11 @@ from fairseq2.assets import (
     AssetDownloadManager,
 )
 from fairseq2.config_registry import ConfigNotFoundError, ConfigProvider
-from fairseq2.error import ContractError
+from fairseq2.error import ContractError, NotSupportedError
 from fairseq2.gang import Gangs
 from fairseq2.models._error import (
-    MetaDeviceNotSupportedError,
-    ModelCheckpointNotFoundError,
     ModelConfigLoadError,
     ModelLoadError,
-    ModelParallelismNotSupportedError,
     ShardedModelLoadError,
     UnknownModelArchitectureError,
     model_asset_card_error,
@@ -112,12 +109,19 @@ class AbstractModelHandler(ModelHandler):
     @override
     def get_config(self, arch: str | None) -> object:
         if arch is None:
-            arch = self._default_arch
+            effective_arch = self._default_arch
+        else:
+            effective_arch = arch
 
         try:
-            return self._configs.get(arch)
+            return self._configs.get(effective_arch)
         except ConfigNotFoundError:
-            raise UnknownModelArchitectureError(self.family, arch) from None
+            if arch is None:
+                raise ContractError(
+                    f"The '{self.family}' model family does not have a configuration for the default '{self._default_arch}' architecture."
+                )
+
+            raise
 
     @final
     @override
@@ -135,8 +139,13 @@ class AbstractModelHandler(ModelHandler):
 
         try:
             config = self.get_config(arch)
-        except UnknownModelArchitectureError:
-            raise UnknownModelArchitectureError(self.family, model_name) from None
+        except ConfigNotFoundError:
+            if arch is not None:
+                raise UnknownModelArchitectureError(
+                    arch, self.family, model_name
+                ) from None
+
+            raise
 
         # Override the default architecture configuration if the asset card or
         # its bases have a 'model_config' field.
@@ -183,7 +192,9 @@ class AbstractModelHandler(ModelHandler):
     ) -> Module:
         if meta:
             if not self.supports_meta:
-                raise MetaDeviceNotSupportedError(self.family)
+                raise NotSupportedError(
+                    f"The '{self.family}' model family does not support meta device initialization."
+                )
 
             device = META
         elif gangs.root.size != gangs.dp.size:
@@ -224,7 +235,9 @@ class AbstractModelHandler(ModelHandler):
     def _create_model(self, config: object) -> Module: ...
 
     def _shard(self, model: Module, config: object, gangs: Gangs) -> None:
-        raise ModelParallelismNotSupportedError(self.family)
+        raise NotSupportedError(
+            f"The '{self.family}' model family does not support non-data parallelism."
+        )
 
     @final
     @override
@@ -273,6 +286,10 @@ class AbstractModelHandler(ModelHandler):
 
         try:
             return self.load_from_path(path, model_name, config, gangs, dtype)
+        except FileNotFoundError:
+            raise ModelLoadError(
+                model_name, f"The '{model_name}' model cannot be found at the '{path}' path."  # fmt: skip
+            ) from None
         except ValueError as ex:
             if has_custom_config:
                 raise
@@ -293,8 +310,6 @@ class AbstractModelHandler(ModelHandler):
 
         try:
             checkpoint = self._tensor_loader.load(path, map_location=CPU)
-        except FileNotFoundError:
-            raise ModelCheckpointNotFoundError(model_name, path) from None
         except TensorLoadError as ex:
             raise ModelLoadError(
                 model_name, f"The checkpoint of the '{model_name}' model cannot be loaded. See the nested exception for details."  # fmt: skip
@@ -308,12 +323,7 @@ class AbstractModelHandler(ModelHandler):
             ) from ex
 
         # Create the model.
-        try:
-            model = self.create(config, gangs, dtype, meta=self.supports_meta)
-        except MetaDeviceNotSupportedError:
-            raise MetaDeviceNotSupportedError(self.family, model_name) from None
-        except ModelParallelismNotSupportedError:
-            raise ModelParallelismNotSupportedError(self.family, model_name) from None
+        model = self.create(config, gangs, dtype, meta=self.supports_meta)
 
         if self.supports_meta:
             # Move the model to the actual device without initializing. Its

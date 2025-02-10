@@ -15,9 +15,6 @@ from fairseq2.checkpoint._manager import (
 )
 from fairseq2.checkpoint._manager import CheckpointSaveError as CheckpointSaveError
 from fairseq2.checkpoint._manager import FileCheckpointManager as FileCheckpointManager
-from fairseq2.checkpoint._manager import (
-    NoCheckpointFoundError as NoCheckpointFoundError,
-)
 from fairseq2.checkpoint._metadata_provider import (
     CheckpointMetadataSaver as CheckpointMetadataSaver,
 )

@@ -47,12 +47,15 @@ def _register_assets(context: RuntimeContext) -> None:
 
         try:
             provider = metadata_loader.load()
+        except FileNotFoundError:
+            provider = None
         except AssetMetadataLoadError as ex:
             raise SetupError(
                 f"The asset metadata at the '{config_dir}' path cannot be loaded. See the nested exception for details."
             ) from ex
 
-        context.asset_store.metadata_providers.append(provider)
+        if provider is not None:
+            context.asset_store.metadata_providers.append(provider)
 
     # ~/.config/fairseq2/assets
     try:
@@ -69,12 +72,15 @@ def _register_assets(context: RuntimeContext) -> None:
 
         try:
             provider = metadata_loader.load()
+        except FileNotFoundError:
+            provider = None
         except AssetMetadataLoadError as ex:
             raise SetupError(
                 f"The asset metadata at the '{config_dir}' path cannot be loaded. See the nested exception for details."
             ) from ex
 
-        context.asset_store.user_metadata_providers.append(provider)
+        if provider is not None:
+            context.asset_store.user_metadata_providers.append(provider)
 
 
 def register_package_metadata_provider(

@@ -47,22 +47,20 @@ class CheckpointManager(ABC):
 
     @abstractmethod
     def save_state(
-        self,
-        state: Mapping[str, object],
-        *,
-        model_key: str = "model",
-        replicated_keys: Set[str] | None = None,
+        self, state: Mapping[str, object], *, replicated_keys: Set[str] | None = None
     ) -> None:
         """Save the training state.
 
         :param state:
             The state to save.
-        :param model_key:
-            The key of the model in ``state``.
         :param replicated_keys:
             The keys in ``state`` whose values are replicated across all
             processes in the gang.
         """
+
+    @abstractmethod
+    def save_model(self, model: Module) -> None:
+        """Save ``model``."""
 
     @abstractmethod
     def save_metadata(self, metadata: Mapping[str, object]) -> None:
@@ -75,10 +73,6 @@ class CheckpointManager(ABC):
     @abstractmethod
     def save_score(self, score: float | None, lower_better: bool = False) -> None:
         """Save the score of the checkpoint."""
-
-    @abstractmethod
-    def save_consolidated_fsdp_model(self, model: Module) -> None:
-        """Save ``model`` with a ``state_dict`` consolidated from all processes."""
 
     @abstractmethod
     def commit_checkpoint(self) -> None:
@@ -96,6 +90,12 @@ class CheckpointManager(ABC):
             - The number of the training step.
             - The checkpoint.
         """
+
+    @abstractmethod
+    def get_model_path(self, step_nr: int) -> Path: ...
+
+    @abstractmethod
+    def get_last_model_path(self) -> tuple[int, Path]: ...
 
     @abstractmethod
     def load_metadata(self, step_nr: int) -> dict[str, object] | None:
@@ -213,11 +213,7 @@ class FileCheckpointManager(CheckpointManager):
 
     @override
     def save_state(
-        self,
-        state: Mapping[str, object],
-        *,
-        model_key: str = "model",
-        replicated_keys: Set[str] | None = None,
+        self, state: Mapping[str, object], *, replicated_keys: Set[str] | None = None
     ) -> None:
         gangs = self._gangs
 
@@ -227,37 +223,6 @@ class FileCheckpointManager(CheckpointManager):
 
         # Copy `state`. In case we fail, it should stay intact.
         rank_part = dict(state)
-
-        rank_part["model_key"] = model_key
-
-        def model_replicated() -> bool:
-            if gangs.dp.size == 1:
-                return True
-
-            if not replicated_keys:
-                return False
-
-            return model_key in replicated_keys or "*" in replicated_keys
-
-        # Save the model into its own file if it is replicated.
-        if model_replicated():
-            state_dict = rank_part.pop(model_key, None)
-            if state_dict is not None:
-                del rank_part["model_key"]
-
-                if gangs.dp.rank == 0:
-                    model_file = tmp_step_dir.joinpath(f"model{self._shard_suffix}.pt")
-
-                    try:
-                        self._tensor_dumper.dump(
-                            {model_key: state_dict, "model_key": model_key}, model_file
-                        )
-                    except TensorDumpError as ex:
-                        raise CheckpointSaveError(
-                            step_nr, f"The replicated model state of training step {step_nr} cannot be saved to the '{model_file}' file. See the nested exception for details."  # fmt: skip
-                        ) from ex
-
-                gangs.root.barrier()
 
         # Save the replicated state.
         if replicated_keys:
@@ -321,21 +286,59 @@ class FileCheckpointManager(CheckpointManager):
             cc_dir = self._checkpoint_dir.joinpath("cc")
 
             try:
-                cc_exists = self._file_system.exists(cc_dir)
-            except OSError as ex:
+                self._file_system.copy_directory(cc_dir, tmp_step_dir)
+            except FileNotFoundError:
+                pass
+            except (OSError, Error) as ex:
                 raise CheckpointSaveError(
-                    step_nr, "The checkpoint carbon copy directory cannot be accessed. See the nested exception for details."  # fmt: skip
+                    step_nr, f"The checkpoint carbon copy directory cannot be copied to the '{tmp_step_dir}' directory. See the nested exception for details."  # fmt: skip
                 ) from ex
 
-            if cc_exists:
-                try:
-                    self._file_system.copy_directory(cc_dir, tmp_step_dir)
-                except (OSError, Error) as ex:
-                    raise CheckpointSaveError(
-                        step_nr, f"The checkpoint carbon copy directory cannot be copied to the '{tmp_step_dir}' directory. See the nested exception for details."  # fmt: skip
-                    ) from ex
-
         gangs.root.barrier()
+
+    @override
+    def save_model(self, model: Module) -> None:
+        if isinstance(model, FSDP):
+            log.info("Extracting the consolidated FSDP model state on rank 0.")
+
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    action="ignore", message=r".*FSDP\.state_dict_type\(\) and FSDP\.set_state_dict_type\(\) are being deprecated.*"  # fmt: skip
+                )
+
+                state_dict_config = FullStateDictConfig(
+                    offload_to_cpu=True, rank0_only=True
+                )
+
+                with FSDP.state_dict_type(
+                    model, StateDictType.FULL_STATE_DICT, state_dict_config
+                ):
+                    state_dict = model.state_dict()
+
+            log.info("Model state extracted.")
+        else:
+            if self._gangs.dp.rank == 0:
+                state_dict = model.state_dict()
+            else:
+                state_dict = {}
+
+        self._gangs.root.barrier()
+
+        step_nr = self._get_checkpoint_step_nr()
+
+        if self._gangs.dp.rank == 0:
+            model_file = self._checkpoint_dir.joinpath(
+                f"step_{step_nr}.tmp/model{self._shard_suffix}.pt"
+            )
+
+            try:
+                self._tensor_dumper.dump({"model": state_dict}, model_file)
+            except TensorDumpError as ex:
+                raise CheckpointSaveError(
+                    step_nr, f"The model of training step {step_nr} cannot be saved to the '{model_file}' file. See the nested exception for details."  # fmt: skip
+                ) from ex
+
+        self._gangs.root.barrier()
 
     @override
     def save_metadata(self, metadata: Mapping[str, object]) -> None:
@@ -387,46 +390,6 @@ class FileCheckpointManager(CheckpointManager):
         self._gangs.root.barrier()
 
     @override
-    def save_consolidated_fsdp_model(self, model: Module) -> None:
-        step_nr = self._get_checkpoint_step_nr()
-
-        log.info("Extracting consolidated model state.")
-
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                action="ignore", message=r".*FSDP\.state_dict_type\(\) and FSDP\.set_state_dict_type\(\) are being deprecated.*"  # fmt: skip
-            )
-
-            with FSDP.state_dict_type(
-                model,
-                StateDictType.FULL_STATE_DICT,
-                state_dict_config=FullStateDictConfig(
-                    offload_to_cpu=True, rank0_only=True
-                ),
-            ):
-                state_dict = model.state_dict()
-
-        self._gangs.root.barrier()
-
-        log.info("Model state extracted. Saving to file on data parallel rank 0 (per shard).")  # fmt: skip
-
-        if self._gangs.dp.rank == 0:
-            model_file = self._checkpoint_dir.joinpath(
-                f"step_{step_nr}.tmp/model{self._shard_suffix}.pt"
-            )
-
-            try:
-                self._tensor_dumper.dump(
-                    {"model": state_dict, "model_key": "model"}, model_file
-                )
-            except TensorDumpError as ex:
-                raise CheckpointSaveError(
-                    step_nr, f"The consolidated FSDP model of training step {step_nr} cannot be saved to the '{model_file}' file. See the nested exception for details."  # fmt: skip
-                ) from ex
-
-        self._gangs.root.barrier()
-
-    @override
     def commit_checkpoint(self) -> None:
         step_nr = self._get_checkpoint_step_nr()
 
@@ -465,7 +428,7 @@ class FileCheckpointManager(CheckpointManager):
 
         step_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}")
 
-        def load_part(filename: str) -> dict[str, object]:
+        def maybe_load_part(filename: str) -> dict[str, object]:
             with maybe_with_dp_process_group():  # Required for `ShardedTensor`.
                 file = step_dir.joinpath(filename)
 
@@ -487,24 +450,10 @@ class FileCheckpointManager(CheckpointManager):
         suffix = self._shard_suffix
 
         for f in [f"rank_{self._gangs.dp.rank}{suffix}.pt", f"replicated{suffix}.pt"]:
-            part = load_part(f)
+            part = maybe_load_part(f)
 
             # Consolidate the checkpoint parts.
             checkpoint.update(part)
-
-        model_key = checkpoint.get("model_key")
-
-        # If we don't have the model state in the checkpoint so far, it means it
-        # was replicated.
-        if model_key not in checkpoint:
-            part = load_part(f"model{self._shard_suffix}.pt")
-
-            checkpoint.update(part)
-
-        try:
-            del checkpoint["model_key"]
-        except KeyError:
-            pass
 
         if not checkpoint:
             raise CheckpointNotFoundError(step_nr)
@@ -515,13 +464,43 @@ class FileCheckpointManager(CheckpointManager):
     def load_last_checkpoint(self) -> tuple[int, dict[str, object]]:
         step_numbers = self.get_step_numbers()
         if not step_numbers:
-            raise NoCheckpointFoundError()
+            raise CheckpointNotFoundError()
 
         last_step_nr = step_numbers[-1]
 
         checkpoint = self.load_checkpoint(last_step_nr)
 
         return last_step_nr, checkpoint
+
+    @override
+    def get_model_path(self, step_nr: int) -> Path:
+        model_file = self._checkpoint_dir.joinpath(
+            f"step_{step_nr}/model{self._shard_suffix}.pt"
+        )
+
+        try:
+            model_file_exists = self._file_system.exists(model_file)
+        except OSError as ex:
+            raise CheckpointError(
+                f"The '{model_file}' path cannot be accessed. See the nested exception for details."
+            ) from ex
+
+        if not model_file_exists:
+            raise CheckpointNotFoundError(step_nr)
+
+        return model_file
+
+    @override
+    def get_last_model_path(self) -> tuple[int, Path]:
+        step_numbers = self.get_step_numbers()
+        if not step_numbers:
+            raise CheckpointNotFoundError()
+
+        last_step_nr = step_numbers[-1]
+
+        path = self.get_model_path(last_step_nr)
+
+        return last_step_nr, path
 
     @override
     def load_metadata(self, step_nr: int) -> dict[str, object] | None:
@@ -565,11 +544,11 @@ class FileCheckpointManager(CheckpointManager):
                 raise delete_error() from ex
 
             try:
-                step_exists = self._file_system.exists(step_dir)
+                step_dir_exists = self._file_system.exists(step_dir)
             except OSError as ex:
                 raise delete_error() from ex
 
-            if not step_exists:
+            if not step_dir_exists:
                 if not missing_ok:
                     raise CheckpointDeleteError(
                         step_nr, f"The '{step_dir}' checkpoint directory of training step {step_nr} is not found."  # fmt: skip
@@ -727,16 +706,16 @@ class FileCheckpointManager(CheckpointManager):
             ) from ex
 
 
-class NoCheckpointFoundError(Exception):
-    def __init__(self) -> None:
-        super().__init__("No checkpoint found.")
-
-
 class CheckpointNotFoundError(Exception):
-    step_nr: int
+    step_nr: int | None
 
-    def __init__(self, step_nr: int) -> None:
-        super().__init__(f"No checkpoint found for training step {step_nr}.")
+    def __init__(self, step_nr: int | None = None) -> None:
+        if step_nr is None:
+            message = "No checkpoint found."
+        else:
+            message = f"No checkpoint found for training step {step_nr}."
+
+        super().__init__(message)
 
         self.step_nr = step_nr
 
