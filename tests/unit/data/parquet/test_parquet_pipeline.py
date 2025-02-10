@@ -4,12 +4,12 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 
+import tempfile
 from unittest.mock import MagicMock, patch
 
 import pyarrow as pa
-import pytest
-import tempfile
 import pyarrow.parquet as pq
+import pytest
 
 from fairseq2.data.parquet.pipeline import SafeFragment, init_parquet_dataset
 from fairseq2.data.parquet.utils import get_dataset_fragments
