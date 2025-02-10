@@ -551,9 +551,6 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         if progress_reporter is not None:
             self._progress_reporter = progress_reporter
 
-        # Set the per-rank seed for training.
-        self._rng_bag.manual_seed(self._seed + self._gangs.root.rank)
-
         try:
             self._maybe_restore_state()
         except KeyboardInterrupt:
@@ -602,6 +599,10 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         log.info("Training restored, resuming.")
 
     def _do_run(self) -> None:
+        self._rng_bag.manual_seed(self._seed + self._gangs.root.rank)
+
+        self._model.train()
+
         with self._progress_reporter, self._profiler:
             self._train_task = self._progress_reporter.create_task(
                 "train", total=self._max_num_steps, completed=self._step_nr
