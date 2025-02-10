@@ -23,6 +23,7 @@ from fairseq2.datasets.parallel_text import (
 )
 from fairseq2.gang import Gangs
 from fairseq2.generation import BeamSearchConfig
+from fairseq2.metrics.text import DEFAULT_BLEU_TOKENIZER
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
@@ -163,6 +164,9 @@ class MTTrainDatasetSection(DatasetSection):
 class MTValidationSection:
     compute_bleu_chrf: bool = True
     """If ``True``, computes BLEU and chrF++ during validation."""
+
+    bleu_tokenizer = DEFAULT_BLEU_TOKENIZER
+    """The tokenizer to compute the BLEU metric."""
 
     seq2seq_generator: Seq2SeqGeneratorSection = field(
         default_factory=lambda: Seq2SeqGeneratorSection(
@@ -315,7 +319,11 @@ def load_mt_trainer(
             assert seq2seq_generator is not None
 
             valid_score_unit = MTBleuChrfEvalUnit(
-                direction, seq2seq_generator, tokenizer, gangs
+                direction,
+                seq2seq_generator,
+                tokenizer,
+                gangs,
+                bleu_tokenizer=config.validation.bleu_tokenizer,
             )
 
             valid_units.append(valid_score_unit)

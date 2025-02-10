@@ -26,6 +26,7 @@ from fairseq2.generation import (
 )
 from fairseq2.metrics import UnknownMetricDescriptorError
 from fairseq2.metrics.recorders import UnknownMetricRecorderError
+from fairseq2.metrics.text import UnknownBleuTokenizerError
 from fairseq2.models import (
     InvalidModelTypeError,
     ModelCheckpointNotFoundError,
@@ -57,6 +58,7 @@ def _register_user_error_types(cli: Cli) -> None:
     cli.register_user_error_type(NotSupportedDistributedFeature)
     cli.register_user_error_type(ShardedModelLoadError)
     cli.register_user_error_type(UnknownBeamSearchAlgorithmError)
+    cli.register_user_error_type(UnknownBleuTokenizerError)
     cli.register_user_error_type(UnknownChatbotError)
     cli.register_user_error_type(UnknownDatasetError)
     cli.register_user_error_type(UnknownDatasetFamilyError)

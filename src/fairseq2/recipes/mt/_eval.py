@@ -26,7 +26,7 @@ from fairseq2.error import ProgramError
 from fairseq2.gang import Gangs
 from fairseq2.generation import BeamSearchConfig, Seq2SeqGenerator
 from fairseq2.generation.text import SequenceToTextConverter
-from fairseq2.metrics.text import BleuMetric, ChrfMetric
+from fairseq2.metrics.text import DEFAULT_BLEU_TOKENIZER, BleuMetric, ChrfMetric
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.recipes.common import (
@@ -76,6 +76,8 @@ class MTEvalConfig:
     )
 
     loss: MTLossSection = field(default_factory=lambda: MTLossSection())
+
+    bleu_tokenizer: str = DEFAULT_BLEU_TOKENIZER
 
     seq2seq_generator: Seq2SeqGeneratorSection = field(
         default_factory=lambda: Seq2SeqGeneratorSection(
@@ -201,17 +203,17 @@ def load_mt_evaluator(
 
             rank = gangs.dp.rank
 
-            try:
-                src_file = output_dir.joinpath(
-                    f"translations/{direction}/rank_{rank}.src.txt"
-                )
-                ref_file = output_dir.joinpath(
-                    f"translations/{direction}/rank_{rank}.ref.txt"
-                )
-                hyp_file = output_dir.joinpath(
-                    f"translations/{direction}/rank_{rank}.hyp.txt"
-                )
+            src_file = output_dir.joinpath(
+                f"translations/{direction}/rank_{rank}.src.txt"
+            )
+            ref_file = output_dir.joinpath(
+                f"translations/{direction}/rank_{rank}.ref.txt"
+            )
+            hyp_file = output_dir.joinpath(
+                f"translations/{direction}/rank_{rank}.hyp.txt"
+            )
 
+            try:
                 try:
                     file_system.make_directory(src_file.parent)
                 except OSError as ex:
@@ -256,6 +258,7 @@ def load_mt_evaluator(
             src_output_stream=src_fp,
             ref_output_stream=ref_fp,
             hyp_output_stream=hyp_fp,
+            bleu_tokenizer=config.bleu_tokenizer,
         )
 
         units.append(score_unit)
@@ -333,22 +336,17 @@ class MTBleuChrfEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
         src_output_stream: TextIO | None = None,
         ref_output_stream: TextIO | None = None,
         hyp_output_stream: TextIO | None = None,
+        bleu_tokenizer: str = DEFAULT_BLEU_TOKENIZER,
     ) -> None:
         """
-        :param direction:
-            The language direction to evaluate.
-        :param generator:
-            The sequence generator.
-        :param tokenizer:
-            The tokenizer to encode target text.
-        :param gang:
-            The gang for distributed evaluation.
-        :param src_output_stream:
-            The output stream to dump sentences in the source language.
-        :param ref_output_stream:
-            The output stream to dump references.
-        :param hyp_output_stream:
-            The output stream to dump hypotheses.
+        :param direction: The language direction to evaluate.
+        :param generator: The sequence generator.
+        :param tokenizer: The tokenizer to encode target text.
+        :param gang: The gang for distributed evaluation.
+        :param src_output_stream: The output stream to dump sentences in the
+            source language.
+        :param ref_output_stream: The output stream to dump references.
+        :param hyp_output_stream: The output stream to dump hypotheses.
         """
         super().__init__(generator.model, display_name=f"score/{direction}")
 
@@ -364,13 +362,11 @@ class MTBleuChrfEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
 
         device = gangs.root.device
 
-        self._metric_bag.register_metric(
-            "bleu", BleuMetric(device=device), persistent=False
-        )
+        bleu_metric = BleuMetric(device=device, tokenizer=bleu_tokenizer)
+        chrf_metric = ChrfMetric(device=device)
 
-        self._metric_bag.register_metric(
-            "chrf", ChrfMetric(device=device), persistent=False
-        )
+        self._metric_bag.register_metric("bleu", bleu_metric, persistent=False)
+        self._metric_bag.register_metric("chrf", chrf_metric, persistent=False)
 
     @override
     def __call__(self, batch: Seq2SeqBatch) -> None:

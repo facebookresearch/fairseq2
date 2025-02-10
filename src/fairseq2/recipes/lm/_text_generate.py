@@ -196,10 +196,10 @@ def load_text_generator(
 
         rank = gangs.dp.rank
 
-        try:
-            text_file = output_dir.joinpath(f"output/rank_{rank}.txt")
-            json_file = output_dir.joinpath(f"output/rank_{rank}.jsonl")
+        text_file = output_dir.joinpath(f"output/rank_{rank}.txt")
+        json_file = output_dir.joinpath(f"output/rank_{rank}.jsonl")
 
+        try:
             try:
                 file_system.make_directory(text_file.parent)
             except OSError as ex:

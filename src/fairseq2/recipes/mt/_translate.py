@@ -164,14 +164,14 @@ def load_text_translator(
         src_lang = config.source_lang
         tgt_lang = config.target_lang
 
-        try:
-            src_file = output_dir.joinpath(
-                f"translations/{src_lang}-{tgt_lang}/rank_{rank}.src.txt"
-            )
-            hyp_file = output_dir.joinpath(
-                f"translations/{src_lang}-{tgt_lang}/rank_{rank}.hyp.txt"
-            )
+        src_file = output_dir.joinpath(
+            f"translations/{src_lang}-{tgt_lang}/rank_{rank}.src.txt"
+        )
+        hyp_file = output_dir.joinpath(
+            f"translations/{src_lang}-{tgt_lang}/rank_{rank}.hyp.txt"
+        )
 
+        try:
             try:
                 file_system.make_directory(src_file.parent)
             except OSError as ex:

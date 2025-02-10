@@ -143,10 +143,10 @@ def load_asr_evaluator(
 
         rank = gangs.dp.rank
 
-        try:
-            ref_file = output_dir.joinpath(f"transcriptions/rank_{rank}.ref.txt")
-            hyp_file = output_dir.joinpath(f"transcriptions/rank_{rank}.hyp.txt")
+        ref_file = output_dir.joinpath(f"transcriptions/rank_{rank}.ref.txt")
+        hyp_file = output_dir.joinpath(f"transcriptions/rank_{rank}.hyp.txt")
 
+        try:
             try:
                 file_system.make_directory(ref_file.parent)
             except OSError as ex:
