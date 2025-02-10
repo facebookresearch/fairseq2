@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import os
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from typing import final
@@ -114,6 +115,14 @@ class DefaultDeviceAccessor:
 
 class DeviceDetectionError(Exception):
     pass
+
+
+def determine_default_device() -> Device:
+    cuda_context = TorchCudaContext()
+
+    device_accessor = DefaultDeviceAccessor(os.environ, cuda_context)
+
+    return device_accessor.get()
 
 
 class CudaContext(ABC):
