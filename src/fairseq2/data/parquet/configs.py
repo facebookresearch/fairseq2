@@ -433,9 +433,32 @@ class FragmentStreamingConfig:
         pass
 
 
+from abc import ABCMeta
+from dataclasses import dataclass, field
+
+
+class StringOnlyMeta(ABCMeta):
+    def __call__(cls, *args, **kwargs):
+        instance = super().__call__(*args, **kwargs)
+        instance._check_string_fields()
+        return instance
+
+
 @dataclass
-class NamedColumns:
-    ...
+class NamedColumns(metaclass=StringOnlyMeta):
+    def _check_string_fields(self):
+        for field_name, field_value in self.__dict__.items():
+            if field_name in ["columns"] and (
+                not isinstance(field_value, list)
+                or not all(isinstance(col, str) for col in field_value)
+            ):
+                raise TypeError(
+                    f"Field '{field_name}' must be a list of strings, got {type(field_value).__name__} instead."
+                )
+            elif not isinstance(field_value, str):
+                raise TypeError(
+                    f"Field '{field_name}' must be of type str, got {type(field_value).__name__} instead."
+                )
 
 
 @dataclass
@@ -447,6 +470,19 @@ class FragmentLoadingConfig:
     columns: Optional[NamedColumns] = None
     """The list of columns to load.
     Note that if `columns` is None, all columns will be loaded.
+
+    Example:
+
+    @dataclass
+    class AudioColumns(NamedColumns):
+        audio: str = "audio_wav"
+        sr: str = "sample_rate"
+        columns: List[str] = field(default_factory=lambda: ["quality", "artist"])
+
+    Using this class as parameter will mean:
+    - the columns ["audio_wav", "sample_rate", "quality", "artist"] will be loaded from the dataset
+    - after loading the renaming ("audio_wav" -> "audio", "sample_rate" -> "sr") will be applied
+    This is useful to get uniform data schema when working from different datasets.
     """
 
     add_fragment_traces: bool = True
@@ -478,6 +514,25 @@ class FragmentLoadingConfig:
     This operation does not present any performance or memory overhead, it creates a slice view on loaded data (pa.Table).
     Setting it to smaller values will result in more uniform on the fly processing.
     If None, the whole fragment Table will be yielded as a single batch.
+    """
+
+    target_fragment_number: Optional[int] = None
+    """
+    Load fragments at least `target_fragment_number` fragments which
+    will be next concatenated together to form a single batch.
+    """
+
+    target_batch_size: Optional[int] = None
+    """
+    Continue to load fragments until the target batch size is reached.
+    Multiple loaded fragment tables will be concatenated together to form a single batch.
+    """
+
+    target_memory_size: Optional[int] = None
+    """
+    Target table memory expressed in `Mb`.
+    Continue to load fragments until the target memory size is reached.
+    Multiple loaded fragment tables will be concatenated together to form a single batch.
     """
 
     use_threads: bool = False
