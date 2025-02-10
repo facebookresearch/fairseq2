@@ -4,6 +4,7 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 
+import os
 import shutil
 import tempfile
 from pathlib import Path
@@ -13,7 +14,6 @@ import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
-import os
 
 
 def get_random_table(size: int, seed: int = 123) -> pa.Table:
