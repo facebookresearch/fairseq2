@@ -107,7 +107,7 @@ class LLaMAFactory:
 
         if config.use_scaled_rope:
             freqs_init_fn = partial(
-                _init_scaled_freqs, rope_scaling=config.rope_scaling
+                init_llama_scaled_freqs, rope_scaling=config.rope_scaling
             )
         else:
             freqs_init_fn = None
@@ -179,7 +179,7 @@ class LLaMAFactory:
         return RMSNorm(model_dim, bias=False, device=device, dtype=dtype)
 
 
-def _init_scaled_freqs(
+def init_llama_scaled_freqs(
     pos_encoder: RotaryEncoder, rope_scaling: LLaMARopeScalingConfig
 ) -> Tensor:
     device = pos_encoder.freqs.device
