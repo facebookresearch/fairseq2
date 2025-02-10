@@ -33,8 +33,6 @@ from fairseq2.data.parquet.utils import (
     BatchOutputType,
     NestedDict,
     NestedDictValue,
-    _TableWrapper,
-    _to_real_object,
     add_partitioning_values,
     compute_length_splits,
     compute_rows_length,
@@ -46,7 +44,6 @@ from fairseq2.data.parquet.utils import (
     pyarrow_table_to_torch_dict,
     pyarrow_to_torch_tensor,
     split_fragment_in_row_groups,
-    table_func_wrap,
     torch_random_seed,
 )
 
@@ -59,8 +56,6 @@ __all__ = [
     "ParquetBatchFormat",
     "ParquetBasicDataloaderConfig",
     # --- utils --- #
-    "_TableWrapper",
-    "_to_real_object",
     "BatchOutputType",
     "NestedDict",
     "NestedDictValue",
@@ -75,7 +70,6 @@ __all__ = [
     "pyarrow_to_torch_tensor",
     "pyarrow_column_to_array",
     "split_fragment_in_row_groups",
-    "table_func_wrap",
     "torch_random_seed",
     # --- transform --- #
     "apply_filter",

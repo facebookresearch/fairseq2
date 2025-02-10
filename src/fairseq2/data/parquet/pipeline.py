@@ -15,7 +15,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from retrying import retry
 
-from fairseq2.data.data_pipeline import DataPipeline, DataPipelineBuilder, read_sequence
+from fairseq2.data import DataPipeline, DataPipelineBuilder, read_sequence
 from fairseq2.data.parquet.configs import (
     ParquetBasicDataloaderConfig,
     ParquetBatchFormat,

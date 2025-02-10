@@ -6,9 +6,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Dict, Generator, List, Optional, Union, no_type_check
+from typing import Generator, List, Optional, Union, no_type_check
 
 import numpy as np
 import pandas as pd
@@ -18,36 +17,11 @@ import pyarrow.parquet as pq
 import torch
 from numpy.typing import NDArray
 from pyarrow.dataset import get_partition_keys  # requires pyarrow >= 13
-from tqdm.auto import tqdm
 
-from fairseq2.data import DataPipeline, DataPipelineBuilder, read_sequence
-from fairseq2.data.parquet.arrow import pyarrow_column_to_array
-from fairseq2.logging import get_log_writer
+from fairseq2.logging import get_log_writer, log
 
 logger = get_log_writer(__name__)
 
-
-@contextmanager
-def pyarrow_cpu(nb_cpu: int) -> Generator[None, None, None]:
-    nb_cpu_old = pa.cpu_count()
-    nb_io_cpu_old = pa.io_thread_count()
-    pa.set_cpu_count(nb_cpu)
-    pa.set_io_thread_count(nb_cpu)
-    try:
-        yield
-    finally:
-        pa.set_cpu_count(nb_cpu_old)
-        pa.set_io_thread_count(nb_io_cpu_old)
-
-
-@contextmanager
-def torch_random_seed(seed: int | None = None) -> Generator[None, None, None]:
-    if seed is not None:
-        torch.manual_seed(seed)
-    yield
-
-
-from fairseq2.logging import log
 
 NestedDict = dict[str, "NestedDictValue"]
 NestedDictValue = torch.Tensor | list[str] | pd.Series | NestedDict
@@ -81,7 +55,7 @@ def _fix_list_offset(arr: pa.Array) -> pa.Array:
     )
 
 
-def pyarrow_column_to_array(arg: Union[pa.ChunkedArray, pa.Array]) -> pa.Array:
+def pyarrow_column_to_array(arg: tp.Union[pa.ChunkedArray, pa.Array]) -> pa.Array:
     # see https://github.com/apache/arrow/issues/37318
     if isinstance(arg, pa.Array):
         return _fix_list_offset(arg)
