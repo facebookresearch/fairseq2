@@ -245,7 +245,6 @@ class GenericPreferenceDataset(PreferenceDataset):
                 "target_mask_chosen": target_mask_chosen,
                 "target_mask_rejected": target_mask_rejected,
                 "total_tokens": total_tokens,
-                # options.extras can contain arbitrary options that do not require explicit definition
                 "keep_jsonl_keys": jsonl_content,
             }
 
