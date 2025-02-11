@@ -156,8 +156,20 @@ fairseq2 supports four different preference optimization methods:
                 name: llama3_1_8b_instruct
         dataset:
             _set_:
-                path: /checkpoint/seamless/data/gsm8k_data/dpo
-                batch_size: 1
+                name: gsm8k_dpo
+                path: null
+                family: generic_preference
+                source_encode_mode: prompt
+                target_encode_mode: prompt_response
+                mask_source_tokens: true
+                min_seq_len: 1
+                max_seq_len: 8192
+                max_num_tokens: 16384
+                batch_size: null
+                example_shuffle_window: 10000
+                batch_shuffle_window: 1000
+                num_prefetch: 4
+                extras: {}
         criterion:
             _set_:
                 name: dpo
@@ -168,6 +180,116 @@ fairseq2 supports four different preference optimization methods:
                     beta: 0.1
                     nll_scale: 0.0
                     length_normalization: false
+        gang:
+            _set_:
+                tensor_parallel_size: 1
+                timeout: 15
+                high_priority: true
+                monitored: false
+        trainer:
+            _set_:
+                dtype: bfloat16
+                data_parallelism: fsdp
+                mixed_precision: static
+                gradient_accumulation: 1
+                activation_checkpointing: true
+                max_gradient_norm: null
+                fp16_loss_scale:
+                - 128.0
+                - 0.0001
+                torch_compile: false
+                profile: null
+                gradient_check: false
+                anomaly_detection: false
+            fsdp:
+                _set_:
+                    version: v1
+                    granularity: layer
+                    hsdp: false
+                    reshard_after_forward: true
+                    fp32_reduce: true
+        optimizer:
+            _set_:
+                name: adamw
+            config:
+                _set_:
+                    lr: 5.5e-06
+                    betas:
+                    - 0.9
+                    - 0.95
+                    eps: 1.0e-08
+                    weight_decay: 0.1
+                    amsgrad: false
+                    maximize: false
+                    capturable: false
+                    differentiable: false
+                    impl: auto
+                    use_fp32: false
+        lr_scheduler:
+            _set_:
+                name: cosine_annealing
+            config:
+                _set_:
+                    cycle_len: null
+                    num_warmup_steps: 0
+                    cycle_mul: 1.0
+                    lr_mul: 1.0
+                    start_lr: 0.0
+                    final_lr: null
+                    final_lr_scale: 0.2
+        regime:
+            _set_:
+                num_steps: 5000
+                num_data_epochs: null
+                score_metric: null
+                lower_score_better: false
+                validate_after_n_steps: 0
+                validate_every_n_steps: null
+                validate_after_n_data_epochs: 0
+                validate_every_n_data_epochs: null
+                checkpoint_after_n_steps: 0
+                checkpoint_every_n_steps: 1000
+                checkpoint_after_n_data_epochs: 0
+                checkpoint_every_n_data_epochs: null
+                keep_last_n_checkpoints: 1
+                keep_best_n_checkpoints: null
+                keep_last_n_models: null
+                keep_best_n_models: null
+                publish_metrics_after_n_steps: 0
+                publish_metrics_every_n_steps: 10
+                publish_metrics_after_n_data_epochs: 0
+                publish_metrics_every_n_data_epochs: null
+        common:
+            _set_:
+                seed: 2
+            metric_recorders:
+                log:
+                    _set_:
+                        enabled: true
+                jsonl:
+                    _set_:
+                        enabled: true
+                tensorboard:
+                    _set_:
+                        enabled: true
+                wandb:
+                    _set_:
+                        enabled: false
+                        project: null
+                        run: null
+            profilers:
+                torch:
+                    _set_:
+                        enabled: false
+                        skip_n_steps: 4
+                        wait_n_steps: 0
+                        num_warmup_steps: 1
+                        num_active_steps: 4
+                        repeat: 1
+            assets:
+                _set_:
+                    extra_path: null
+                    checkpoint_dir: null
 
     .. code-block:: bash
 
