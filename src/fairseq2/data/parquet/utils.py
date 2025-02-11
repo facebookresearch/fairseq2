@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from typing import Generator, List, Optional, Union, no_type_check
+from typing import Any, Generator, List, Optional, Union, no_type_check
 
 import numpy as np
 import pandas as pd
@@ -15,6 +15,7 @@ import pyarrow as pa  # type: ignore
 import pyarrow.compute as pc  # type: ignore
 import pyarrow.parquet as pq
 import torch
+import xxhash
 from numpy.typing import NDArray
 from pyarrow.dataset import get_partition_keys  # requires pyarrow >= 13
 
@@ -26,6 +27,32 @@ logger = get_log_writer(__name__)
 NestedDict = dict[str, "NestedDictValue"]
 NestedDictValue = torch.Tensor | list[str] | pd.Series | NestedDict
 BatchOutputType = pa.Table | pd.DataFrame | NestedDict
+
+
+def return_none_on_failure(func):
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            log.warning(f"An error occurred: {e}")
+            return None
+
+    return wrapper
+
+
+def circular_shift_left(lst: List[Any], k: int) -> List[Any]:
+    if len(lst) <= 1:
+        return lst
+
+    k = k % len(lst)  # To handle shifts larger than the list length
+    return lst[k:] + lst[:k]
+
+
+def fragment_stable_hash(
+    fragment: pa.dataset.Fragment, seed: Optional[int] = None
+) -> int:
+    serialized_info = f"{fragment.path}-{[rr.id for rr in fragment.row_groups]}-{seed}"
+    return xxhash.xxh32_intdigest(serialized_info)
 
 
 def is_list_like(arr: Union[pa.ChunkedArray, pa.Array]) -> bool:
@@ -232,10 +259,6 @@ def torch_random_seed(seed: Optional[int] = None) -> Generator[None, None, None]
 def get_dataset_fragments(
     dataset: pq.ParquetDataset, filters: pa.dataset.Expression
 ) -> list[pa.dataset.Fragment]:
-    """
-    This could be simplified once `split_row_groups=True` is implemented at `pq.ParquetDataset`.
-    We could also return a generator instead of list (when getting full infos from S3 may be slow)
-    """
     return list(dataset._dataset.get_fragments(filters))
 
 

@@ -433,89 +433,16 @@ class FragmentStreamingConfig:
         pass
 
 
-from abc import ABCMeta
-from dataclasses import dataclass, field
-
-
-class StringOnlyMeta(ABCMeta):
-    def __call__(cls, *args, **kwargs):
-        instance = super().__call__(*args, **kwargs)
-        instance._check_string_fields()
-        return instance
-
-
 @dataclass
-class NamedColumns(metaclass=StringOnlyMeta):
-    def _check_string_fields(self):
-        for field_name, field_value in self.__dict__.items():
-            if field_name in ["columns"] and (
-                not isinstance(field_value, list)
-                or not all(isinstance(col, str) for col in field_value)
-            ):
-                raise TypeError(
-                    f"Field '{field_name}' must be a list of strings, got {type(field_value).__name__} instead."
-                )
-            elif not isinstance(field_value, str):
-                raise TypeError(
-                    f"Field '{field_name}' must be of type str, got {type(field_value).__name__} instead."
-                )
-
-
-@dataclass
-class FragmentLoadingConfig:
+class TableBucketingConfig:
     """
-    This config describes the loading of fragments from the a parquet dataset.
+    This config describes the bucketing of the pa.Table elements (aka loaded fragments) into batches
+    It consists of two parts:
+    - first concat together several Table into a single big batch
+    - then split the big batch into smaller batches with different strategies
     """
 
-    columns: Optional[NamedColumns] = None
-    """The list of columns to load.
-    Note that if `columns` is None, all columns will be loaded.
-
-    Example:
-
-    @dataclass
-    class AudioColumns(NamedColumns):
-        audio: str = "audio_wav"
-        sr: str = "sample_rate"
-        columns: List[str] = field(default_factory=lambda: ["quality", "artist"])
-
-    Using this class as parameter will mean:
-    - the columns ["audio_wav", "sample_rate", "quality", "artist"] will be loaded from the dataset
-    - after loading the renaming ("audio_wav" -> "audio", "sample_rate" -> "sr") will be applied
-    This is useful to get uniform data schema when working from different datasets.
-    """
-
-    add_fragment_traces: bool = True
-
-    add_partition_columns: bool = True
-
-    # basic filtering
-
-    drop_null: bool = True
-    """If ``True``, drops rows containing any null value."""
-
-    min_batch_size: int = 1
-    """Drops batches whose length is less than ``min_batch_size``"""
-
-    filters: Optional[str] = None
-    """
-    Python string representing `pyarrow.dataset.Expression` that will be used to filter the loaded data in memory.
-    To get real filter object, `eval(filters)` will be applied first.
-    Note that `pa` and `pc` are available in the scope of `eval` call meaning `pyarrow` and `pyarrow.compute` respectively.
-
-    The filters are applied before any column renaming or transormation.
-    """
-
-    # performance related params
-    fragment_batch_size: Optional[int] = None
-    """
-    Load fragment will be split into batches of max size = `fragment_batch_size` (keeping a potential smaller remainder)
-    before being yielded.
-    This operation does not present any performance or memory overhead, it creates a slice view on loaded data (pa.Table).
-    Setting it to smaller values will result in more uniform on the fly processing.
-    If None, the whole fragment Table will be yielded as a single batch.
-    """
-
+    # Table concat strategies
     target_fragment_number: Optional[int] = None
     """
     Load fragments at least `target_fragment_number` fragments which
@@ -535,36 +462,48 @@ class FragmentLoadingConfig:
     Multiple loaded fragment tables will be concatenated together to form a single batch.
     """
 
-    use_threads: bool = False
-    """Whether pyarrow should use its internal threads to read the Parquet file.
-    Since we rely on the external parallelism, this param is tuned off by
-    default."""
+    combine_chunks: bool = True
 
-    nb_prefetch: float = 0.0
-    """The number loaded fragments to prefetch."""
+    # batch splitting strategies
 
-    num_parallel_fragments: float = 1
-    """The number of fragments to load in parallel.
-    Typical, memory vs speed tradeoff.
+    batch_size: Optional[int] = None
+    """
+    Load fragment will be split into batches of max size = `batch_size` (keeping a potential smaller remainder)
+    before being yielded.
+
+    If `order_by_length` is False, then this operation does not present any performance or memory overhead,
+    it generates a slice view on concatenated data (pa.Table).
+    Otherwise, it will use `table.take(indexes)` which is more expensive.
     """
 
-    cache_dir: Optional[str] = None
+    order_by_length: Optional[bool] = False
     """
-    Experimental feature! Use with caution !
-    The directory to cache the loaded fragments.
-    If provided, loaded pa.Table will be memory mapped into under random name into `cache_dir`.
-    All references to pa.Table are released, corresponding files will be deleted.
-    Allows to reduce the memory footprint with a small performance penalty.
-
-    If None, the fragments will not be cached.
+    Whether to create the batches with homogeneous tokens length
+    for more efficient padding.
     """
 
+    max_total_length: Optional[int] = None
+    """Used with the ``order_by_length`` option to control the total length
+     of sequences return in each batch (including padding).
 
-def build_parquet_fragment_iterator_pipeline(
-    config: ParquetBasicDataloaderConfig, rank: int = 0, world_size: int = 1
-) -> Pipeline:
+    Row whose length is greater than `max_total_length` will be dropped.
     """
-    Build a pipeline for streaming fragments from a parquet dataset.
-    Raises an exception if the dataset is empty.
+
+    length_columns: Optional[List[str]] = None
     """
+    List of columns to use for ordering by length.
+    It should be provided if and only if `order_by_length` is True.
+    """
+
+    shuffle: bool = True
+
+    seed: Optional[int] = 123
+
+
+@dataclass
+class SequenceWrappingConfig:
+    """
+    This config describes the wrapping of the batch elements into sequences.
+    """
+
     pass

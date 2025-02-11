@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from functools import partial
+from functools import lru_cache, partial
 from pickle import dumps, loads
 from typing import Generator, List, Optional
 
@@ -32,6 +32,7 @@ from fairseq2.data.parquet.utils import (
     add_partitioning_values,
     compute_length_splits,
     compute_rows_length,
+    fragment_stable_hash,
     get_dataset_fragments,
     load_one_fragment,
     pyarrow_cpu,
@@ -51,9 +52,11 @@ loading_retry = retry(
 )
 
 
+@lru_cache(maxsize=100)
 def init_parquet_dataset(
     parquet_path: str,
-    filters: Optional[pa.dataset.Expression] = None,
+    partition_filters: Optional[pa.dataset.Expression] = None,
+    filesystem=None,
 ) -> pq.ParquetDataset:
     """
     Initialize a Parquet dataset.
@@ -61,12 +64,15 @@ def init_parquet_dataset(
 
     Args:
         parquet_path (str): The path to the Parquet dataset.
-        filters (Optional[pa.dataset.Expression]): Filters to apply to the dataset.
+        filters (Optional[pa.dataset.Expression]): Partition level filters to apply to the dataset.
+        filesystem : The filesystem to use. If None, the filesystem will be detected.
 
     Returns:
         pq.ParquetDataset: The initialized Parquet dataset.
     """
-    return pq.ParquetDataset(parquet_path, filters=filters, filesystem=None)
+    return pq.ParquetDataset(
+        parquet_path, filters=partition_filters, filesystem=filesystem
+    )
 
 
 class SafeFragment:
@@ -88,9 +94,16 @@ class SafeFragment:
         out += f"physical_schema = \n {self.fragment.physical_schema} \n"
         return out
 
+    def stable_hash(self, seed=None) -> int:
+        return fragment_stable_hash(self.fragment, seed)
+
     @loading_retry
     def load(
-        self, columns: Optional[List[str]] = None, use_threads: bool = False
+        self,
+        columns: Optional[List[str]] = None,
+        use_threads: bool = False,
+        add_fragment_traces: bool = True,
+        add_partitioning_columns: bool = True,
     ) -> pa.Table:
         if columns is not None:
             fragment_columns = [
@@ -118,8 +131,12 @@ class SafeFragment:
                 columns=fragment_columns, use_threads=use_threads
             )
 
-        fragment_table = add_partitioning_values(fragment_table, self.fragment, columns)
-        fragment_table = add_fragments_trace(fragment_table, self.fragment)
+        if add_partitioning_columns:
+            fragment_table = add_partitioning_values(
+                fragment_table, self.fragment, columns
+            )
+        if add_fragment_traces:
+            fragment_table = add_fragments_trace(fragment_table, self.fragment)
         return fragment_table
 
 

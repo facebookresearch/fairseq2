@@ -140,3 +140,33 @@ def prefix_array() -> pa.Array:
 @pytest.fixture
 def suffix_array() -> pa.Array:
     return pa.array([999], type=pa.int32())
+
+
+@pytest.fixture()
+def controled_row_groups_pq_dataset(
+    row_groups_size_distribution: List[int] = [2, 1, 3], row_group_size: int = 10
+) -> Generator[Path, None, None]:
+    total_size = sum(row_groups_size_distribution) * row_group_size
+
+    data = {
+        "cat": [
+            f"cat_{j}"
+            for j, size in enumerate(row_groups_size_distribution)
+            for _ in range(size * 10)
+        ],
+        "id": [f"id_{i}" for i in range(total_size)],
+    }
+    table = pa.Table.from_pydict(data)
+
+    tmp_dir = Path(tempfile.gettempdir()) / "parquet_dataset_test"
+    tmp_parquet_ds_path = tmp_dir / "test2"
+
+    pq.write_to_dataset(
+        table,
+        tmp_parquet_ds_path,
+        partition_cols=["cat"],
+        **{"row_group_size": row_group_size},
+    )
+
+    yield tmp_parquet_ds_path
+    shutil.rmtree(str(tmp_dir))
