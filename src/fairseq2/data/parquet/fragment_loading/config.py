@@ -46,13 +46,13 @@ class NamedColumns(metaclass=StringOnlyMeta):
 
     def _check_string_fields(self):
         for field_name, field_value in self.__dict__.items():
-            if field_name in ["extra_columns"] and (
-                not isinstance(field_value, list)
-                or not all(isinstance(col, str) for col in field_value)
-            ):
-                raise TypeError(
-                    f"Field '{field_name}' must be a list of strings, got {type(field_value).__name__} instead."
-                )
+            if field_name in ["extra_columns"]:
+                if not isinstance(field_value, list) or not all(
+                    isinstance(col, str) for col in field_value
+                ):
+                    raise TypeError(
+                        f"Field '{field_name}' must be a list of strings, got {type(field_value).__name__} instead."
+                    )
             elif field_value is not None and not isinstance(field_value, str):
                 raise TypeError(
                     f"Field '{field_name}' must be of type str, got {type(field_value).__name__} instead."
@@ -136,14 +136,20 @@ class FragmentLoadingConfig:
     """The number of fragments to load in parallel.
     Typical, memory vs speed tradeoff.
     """
+    cache: bool = False
+    """
+    Experimental feature! Use with caution !
+
+    If `cache` is True, loaded pa.Table will be memory mapped into under random name into `cache_dir`.
+    All references to pa.Table are released, corresponding files will be deleted.
+    Allows to reduce the memory footprint with a small performance penalty,
+    This can a be a good tradeoff for large remote datasets.
+
+    If False, the loaded table will not be cached.
+    """
 
     cache_dir: Optional[str] = None
     """
-    Experimental feature! Use with caution !
     The directory to cache the loaded fragments.
-    If provided, loaded pa.Table will be memory mapped into under random name into `cache_dir`.
-    All references to pa.Table are released, corresponding files will be deleted.
-    Allows to reduce the memory footprint with a small performance penalty.
-
-    If None, the fragments will not be cached.
+    if None, a tmp dir will be created.
     """

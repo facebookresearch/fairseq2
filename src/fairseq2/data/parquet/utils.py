@@ -19,6 +19,7 @@ import pyarrow as pa  # type: ignore
 import pyarrow.compute as pc  # type: ignore
 import pyarrow.parquet as pq
 import torch
+import xxhash
 from numpy.typing import NDArray
 from pyarrow.dataset import get_partition_keys  # requires pyarrow >= 13
 
@@ -435,6 +436,7 @@ def read_mmap_table_with_finalizer(file_name):
     with pa.memory_map(file_name, "rb") as source:
         table = pa.ipc.open_stream(source).read_all()
     weakref.finalize(table, remove_file, file_name)
+    # XXX: this reference capture will not work properly in multiprocessing context
     return table
 
 

@@ -11,7 +11,6 @@ import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
-from fsspec import config
 
 from fairseq2.data.parquet.fragment_streaming.basic_pipeline import (
     list_parquet_fragments,
