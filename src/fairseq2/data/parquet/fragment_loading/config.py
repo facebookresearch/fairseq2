@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABCMeta
 from dataclasses import dataclass
-from typing import Optional
+from typing import Dict, List, Optional
 
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -58,6 +58,30 @@ class NamedColumns(metaclass=StringOnlyMeta):
                     f"Field '{field_name}' must be of type str, got {type(field_value).__name__} instead."
                 )
 
+    def get_flatten_columns(self) -> List[str]:
+        """
+        Returns a list of all columns to load from the dataset.
+        """
+        cols = [
+            col
+            for col in self.__dict__.values()
+            if col is not None and isinstance(col, str)
+        ]
+        extra_cols = getattr(self, "extra_columns", None)
+        if extra_cols:
+            cols.extend([col for col in extra_cols if col is not None])
+        return cols
+
+    def get_renaming_mapper(self) -> Dict[str, str]:
+        """
+        Returns a dictionary mapping the original column names to the renamed ones.
+        """
+        return {
+            origianl_col: renamed_col
+            for renamed_col, origianl_col in self.__dict__.items()
+            if origianl_col is not None and isinstance(origianl_col, str)
+        }
+
 
 @dataclass
 class FragmentLoadingConfig:
@@ -67,11 +91,13 @@ class FragmentLoadingConfig:
 
     columns: Optional[NamedColumns] = None
     """The list of columns to load.
-    This should be used to indicate which columns to load and how to rename them.
+    This should be used to indicate which columns to load and how to rename them (if `rename_columns` is True).
     Renaming is useful to get uniform data schema when working from different datasets.
 
     Note that if `columns` is None, all columns will be loaded.
     """
+
+    rename_columns: bool = True
 
     add_fragment_traces: bool = True
     """
@@ -103,12 +129,10 @@ class FragmentLoadingConfig:
     Since we rely on the external parallelism, this param is tuned off by
     default."""
 
-    pyarrow_cpu_count: Optional[int] = 20
-
-    nb_prefetch: float = 0.0
+    nb_prefetch: int = 0
     """The number loaded fragments to prefetch."""
 
-    num_parallel_fragments: float = 1
+    num_parallel_fragments: int = 1
     """The number of fragments to load in parallel.
     Typical, memory vs speed tradeoff.
     """

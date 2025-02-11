@@ -6,7 +6,11 @@
 
 from __future__ import annotations
 
+import os
+import uuid
+import weakref
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Any, Generator, List, Optional, Union, no_type_check
 
 import numpy as np
@@ -15,14 +19,10 @@ import pyarrow as pa  # type: ignore
 import pyarrow.compute as pc  # type: ignore
 import pyarrow.parquet as pq
 import torch
-import xxhash
 from numpy.typing import NDArray
 from pyarrow.dataset import get_partition_keys  # requires pyarrow >= 13
 
-from fairseq2.logging import get_log_writer, log
-
-logger = get_log_writer(__name__)
-
+from fairseq2.logging import log
 
 NestedDict = dict[str, "NestedDictValue"]
 NestedDictValue = torch.Tensor | list[str] | pd.Series | NestedDict
@@ -417,3 +417,37 @@ def compute_rows_length(
     length_col = length_col.copy()
     length_col[np.isnan(length_col)] = 0
     return np.asarray(length_col, dtype=np.int32)
+
+
+def rename_table_columns(table: pa.Table, mapper: dict) -> pa.Table:
+    output = table.rename_columns([mapper.get(key, key) for key in table.column_names])
+    return output
+
+
+def remove_file(file_name):
+    try:
+        os.remove(file_name)
+    except FileNotFoundError:
+        pass
+
+
+def read_mmap_table_with_finalizer(file_name):
+    with pa.memory_map(file_name, "rb") as source:
+        table = pa.ipc.open_stream(source).read_all()
+    weakref.finalize(table, remove_file, file_name)
+    return table
+
+
+def write_table_to_arrow(table, cache_dir: str):
+    current_name = f"table_{str(uuid.uuid4())[:15]}.arrow"
+    file_path = str(Path(cache_dir).joinpath(current_name))
+    with pa.OSFile(file_path, "wb") as current_sink:
+        with pa.ipc.new_stream(current_sink, table.schema) as writer:
+            writer.write_table(table, max_chunksize=None)
+
+    return file_path
+
+
+def table_to_mmap_table(table, cache_dir: str):
+    file_name = write_table_to_arrow(table, cache_dir)
+    return read_mmap_table_with_finalizer(file_name)

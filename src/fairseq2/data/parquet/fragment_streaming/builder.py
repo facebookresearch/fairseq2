@@ -68,7 +68,7 @@ class ParquetFragmentStreamer:
     def full_schema(self) -> pa.Schema:
         return self.dataset.schema
 
-    def build_fragments_pipeline(
+    def build_pipeline(
         self, rank: int = 0, world_size: int = 1, even_sharding: bool = False
     ) -> DataPipelineBuilder:
         """
