@@ -155,7 +155,7 @@ Once you are familiar with presets, you can go beyond and easily run hyperparame
                 echo "Running preset::$preset | batch_size::$batch_size"
                 srun fairseq2 <your_recipe> train $output_dir/$preset/batch_size_$batch_size \
                     --preset $preset \
-                    --config batch_size=$batch_size
+                    --config dataset.batch_size=$batch_size
             done
         done
 
