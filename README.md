@@ -10,19 +10,34 @@
 
 **Documentation: [Stable](https://facebookresearch.github.io/fairseq2/stable), [Nightly](https://facebookresearch.github.io/fairseq2/nightly)** | **Install: [Linux](#installing-on-linux), [macOS](#installing-on-macos), [Windows](#installing-on-windows), [From Source](INSTALL_FROM_SOURCE.md)** | **Contribute: [Guidelines](CONTRIBUTING.md)**
 
-fairseq2 is a sequence modeling toolkit that allows researchers and developers
-to train custom models for translation, summarization, language modeling, and
-other content generation tasks. It is also the successor of
-[fairseq](https://github.com/facebookresearch/fairseq).
+fairseq2 is a sequence modeling toolkit that allows researchers to train custom models for content generation tasks.
+
+### Who uses it?
+Many FAIR teams utilize fairseq2 for a diverse set of projects, ranging from language model preference optimization to pretraining video diffusion models.
+
+### How is fairseq2 different from the original fairseq?
+fairseq2 is a start-from-scratch project that can be considered a reboot of the original [fairseq](https://github.com/facebookresearch/fairseq) to provide a clean, modular API. Notably, it differs from its predecessor in its design philosophy, moving from a monolithic framework to an extensible, much less intrusive architecture allowing researchers to independently own their project code base.
+
+> As fairseq2 is a complete new project rather than an incremental update to the original fairseq, we intentionally avoided labeling it as fairseq version 2, reflecting its distinct and separate identity.
+
+## What's New?
+* February 2025: [Instruction finetuning](https://facebookresearch.github.io/fairseq2/stable/tutorials/end_to_end_fine_tuning.html) and [preference optimization](https://facebookresearch.github.io/fairseq2/stable/tutorials/preference_optimization.html) recipes with support for DPO, CPO, SimPO, and ORPO. Supports tensor parallelism and 70B+ scales.
+
+## Features
+* First-party recipes for language model [instruction finetuning](https://facebookresearch.github.io/fairseq2/stable/tutorials/end_to_end_fine_tuning.html) and [preference optimization](https://facebookresearch.github.io/fairseq2/stable/tutorials/preference_optimization.html)
+* Multi-GPU, multi-node [training](https://facebookresearch.github.io/fairseq2/stable/basics/trainer.html) using DDP, FSDP, and tensor parallelism. Supports 70B+ models.
+* Native support for vLLM along with built-in sampling and beam search sequence generators
+* Extensible with setuptools [extension mechanism](https://facebookresearch.github.io/fairseq2/stable/basics/runtime_extensions.html). Easily register new models, optimizers, lr schedulers, trainer units without forking/branching the library.
+* Modern PyTorch tooling. Uses composability (i.e. torch.compile), PyTorch FSDP, and other relevant features
+* Streaming-based, high throughput [data pipeline API](https://facebookresearch.github.io/fairseq2/stable/basics/data_pipeline.html) written in C++ with support for speech and (soon) video decoding
+* Programmatic [asset cards](https://facebookresearch.github.io/fairseq2/stable/basics/assets.html) for version controlled access to models, datasets, and tokenizers
+* Flexible, but deterministic configuration based on the built-in *structured* API
 
 ## Getting Started
-Visit our [documentation website](https://facebookresearch.github.io/fairseq2/stable/).
-
-For recent changes, you can check out our [changelog](CHANGELOG.md).
-
+Visit our [documentation website](https://facebookresearch.github.io/fairseq2/stable/) to learn more about fairseq2.
 
 ## Models
-As of today, the following models are available in fairseq2:
+As of today, the following models are available in fairseq2 for use in training and evaluation recipes:
 
  * [LLaMA 1 to 3.3](src/fairseq2/models/llama)
  * [Mistral 7B](src/fairseq2/mistral)
@@ -263,7 +278,7 @@ following BibTeX entry.
 
 ```
 @software{balioglu2023fairseq2,
-  author = {Can Balioglu},
+  author = {Can Balioglu and Martin Gleize and Artyom Kozhevnikov and Ilia Kulikov and Tuan Tran and Julien Yao},
   title = {fairseq2},
   url = {http://github.com/facebookresearch/fairseq2},
   year = {2023},
