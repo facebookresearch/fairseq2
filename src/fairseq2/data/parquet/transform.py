@@ -168,33 +168,14 @@ def prefix_and_suffix_one_list_column(
 
 
 def add_fragments_trace(table: pa.Table, fragment: pa.dataset.Fragment) -> pa.Table:
-    """
-    Adds a trace of the row groups and fragment ids to the table.
-
-    Args:
-        table: The input pyarrow Table.
-        fragment: The fragment to trace.
-
-    Returns:
-        A new pyarrow Table with the trace added.
-    """
-    # Build a list-of-lists for row group IDs, one list per row.
-    # Example: if table has 4 rows and fragment has row group IDs [0,1],
-    # we'll end up with [[0,1], [0,1], [0,1], [0,1]] (length == 4).
-    row_group_ids = [
-        [int(rg.id) for rg in fragment.row_groups] for _ in range(len(table))
-    ]
-
-    # Explicitly specify that this is a list of int32, which also handles the case
-    # where row_group_ids might be empty (e.g., zero row groups or zero rows in table).
-    row_group_ids_array = pa.array(row_group_ids, type=pa.list_(pa.int32()))
-
-    # Create a 1D int32 array for the index within the fragment
-    fragment_index_array = pa.array(np.arange(len(table), dtype=np.int32))
-
-    # Append both new columns
-    table = table.append_column("__row_groups_ids", row_group_ids_array)
-    table = table.append_column("__index_in_fragement", fragment_index_array)
+    table = table.append_column(
+        "__row_groups_ids",
+        len(table)
+        * [np.array([int(rg.id) for rg in fragment.row_groups], dtype=np.int32)],
+    )
+    table = table.append_column(
+        "__index_in_fragement", pa.array(np.arange(len(table), dtype=np.int32))
+    )
     return table
 
 

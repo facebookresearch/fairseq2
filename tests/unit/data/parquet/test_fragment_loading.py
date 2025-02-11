@@ -11,6 +11,7 @@ from typing import List
 
 import numpy as np
 import pyarrow as pa
+import pyarrow.compute as pc
 import pytest
 
 from fairseq2.data.parquet.fragment_loading import (
@@ -31,8 +32,6 @@ class CustomColumns(NamedColumns):
     extra_columns: List[str]
 
 
-# @pytest.mark.parametrize("nb_epochs", [1, 2, 10])
-# @pytest.mark.parametrize("shuffling_window", [-1, 0, 2, 4, 10])
 def test_basic_fragment_loading(controled_row_groups_pq_dataset):
     fragment_config = FragmentStreamingConfig(
         parquet_path=controled_row_groups_pq_dataset,
@@ -45,8 +44,11 @@ def test_basic_fragment_loading(controled_row_groups_pq_dataset):
     PFS = ParquetFragmentStreamer(config=fragment_config)
 
     loading_config = FragmentLoadingConfig(
-        columns=CustomColumns(category="cat", uid="uid", extra_columns=["seq"])
+        columns=CustomColumns(category="cat", uid="id", extra_columns=["seq"]),
+        cache=True,
+        filters="pc.less_equal(pc.list_value_length(pc.field('seq')), 2)",
     )
+
     PFL = ParquetFragmentLoader(config=loading_config)
 
     fragment_pipeline = PFS.build_pipeline(0, 1)
@@ -56,3 +58,18 @@ def test_basic_fragment_loading(controled_row_groups_pq_dataset):
 
     total_number_of_row_groups = 6
     assert len(result) == 3 * total_number_of_row_groups
+    assert all(isinstance(x, pa.Table) for x in result)
+    assert all(len(x) >= 1 for x in result)
+    expected_columns = [
+        "uid",
+        "seq",
+        "__batch_index",
+        "__fragment_index",
+        "__filename",
+        "category",
+        "__row_groups_ids",
+        "__index_in_fragement",
+    ]
+    assert all(sorted(x.column_names) == sorted(expected_columns) for x in result)
+
+    assert min(pc.list_value_length(x["seq"]).to_numpy().min() for x in result) == 2
