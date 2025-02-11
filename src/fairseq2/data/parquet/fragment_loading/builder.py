@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 
+import tempfile
 from copy import deepcopy
 from functools import partial
 from pathlib import Path
@@ -81,14 +82,22 @@ class ParquetFragmentLoader:
 
         if self.config.columns is not None and self.config.rename_columns:
             loading_pipeline = loading_pipeline.map(
-                partial(rename_table_columns, self.config.columns.get_renaming_mapper())
+                partial(
+                    rename_table_columns,
+                    mapper=self.config.columns.get_renaming_mapper(),
+                )
             )
 
-        if self.config.cache_dir is not None:
+        if self.config.cache:
+            if self.config.cache_dir is not None:
+                cache_dir = self.config.cache_dir
+            else:
+                cache_dir = tempfile.mkdtemp()
+
             # experiment !
-            Path(self.config.cache_dir).mkdir(parents=True, exist_ok=True)
+            Path(cache_dir).mkdir(parents=True, exist_ok=True)
             loading_pipeline = loading_pipeline.map(
-                partial(table_to_mmap_table, cache_dir=self.config.cache_dir)
+                partial(table_to_mmap_table, cache_dir=cache_dir)
             )
 
         loading_pipeline = loading_pipeline.prefetch(self.config.nb_prefetch)

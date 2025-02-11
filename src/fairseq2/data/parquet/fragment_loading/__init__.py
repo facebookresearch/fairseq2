@@ -10,3 +10,4 @@ from fairseq2.data.parquet.fragment_loading.builder import (
 from fairseq2.data.parquet.fragment_loading.config import (
     FragmentLoadingConfig as FragmentLoadingConfig,
 )
+from fairseq2.data.parquet.fragment_loading.config import NamedColumns as NamedColumns
