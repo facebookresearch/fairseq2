@@ -237,21 +237,9 @@ def test_fragment_input_conifg(
     # with files_circular_shift > 0, shards will be perfectly speparated
 
     PFS = ParquetFragmentStreamer(config=config)
-    pi01 = (
-        PFS.build_fragments_pipeline(0, 1)
-        .map(lambda frag: frag.stable_hash())
-        .and_return()
-    )
-    pi02 = (
-        PFS.build_fragments_pipeline(0, 2)
-        .map(lambda frag: frag.stable_hash())
-        .and_return()
-    )
-    pi12 = (
-        PFS.build_fragments_pipeline(1, 2)
-        .map(lambda frag: frag.stable_hash())
-        .and_return()
-    )
+    pi01 = PFS.build_pipeline(0, 1).map(lambda frag: frag.stable_hash()).and_return()
+    pi02 = PFS.build_pipeline(0, 2).map(lambda frag: frag.stable_hash()).and_return()
+    pi12 = PFS.build_pipeline(1, 2).map(lambda frag: frag.stable_hash()).and_return()
 
     result_01 = list(iter(pi01))
     result_02 = list(iter(pi02))
