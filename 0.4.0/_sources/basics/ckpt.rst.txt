@@ -54,7 +54,6 @@ The :class:`fairseq2.checkpoint.manager.CheckpointManager` provides a transactio
             "step_nr": 1000,
             "epoch": 5
         },
-        model_key="model",  # Key for model state in the state dict
         replicated_keys={"epoch"}  # Keys that are same across all processes
     )
 

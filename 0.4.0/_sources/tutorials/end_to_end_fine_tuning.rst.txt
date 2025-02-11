@@ -62,7 +62,7 @@ Model
 
 Follow the `HuggingFace Models Tutorial`_ to download the `LLaMA3.2 1B model`_, which can be run on volta32gb GPUs.
 Once you have the model in your local path, (`e.g.`` ``/models/Llama-3.2-1B/original/consolidated.00.pth``), 
-you need to register the model in a YAML card so that fairseq2 will know from where to pull the model 
+you need to put the model in a YAML card so that fairseq2 will know from where to pull the model 
 (read more about :ref:`basics-assets`). To do that:
 
 * Create a YAML file (e.g. ``my_llama3_2_1b.yaml``) with the following content:
@@ -96,6 +96,8 @@ you need to register the model in a YAML card so that fairseq2 will know from wh
 
         * ``mv my_llama3_2_1b.yaml /path/to/custom/asset/directory/``
 
+You can check out the predefined fairseq2 LLaMA model cards `here`_.
+
 Dataset
 ^^^^^^^
 
@@ -116,6 +118,7 @@ Running the Supervised Fine-Tuning (SFT) recipe is as simple as:
     fairseq2 lm instruction_finetune $OUTPUT_DIR --config \
         dataset.path=/datasets/facebook/fairseq2-lm-gsm8k/sft \
         model.name=llama3_2_1b \
+        dataset.max_seq_len=4096 \
         dataset.max_num_tokens=4096 \
         trainer.dtype=float16 \
         regime.num_steps=1000 \
@@ -139,20 +142,25 @@ Read more about this recipe in :ref:`tutorial-preference-optimization`.
 
         # /configs/example.yaml
         dataset:
-            path: /datasets/facebook/fairseq2-lm-gsm8k/sft
-            max_num_tokens: 4096
-            max_seq_len: 4096
+            _set_:
+                path: /datasets/facebook/fairseq2-lm-gsm8k/sft
+                max_seq_len: 4096
+                max_num_tokens: 4096
+                max_seq_len: 4096
         model:
-            name: llama3_2_1b
+            _set_:
+                name: llama3_2_1b
         trainer:
-            dtype: float16  # volta32gb gpus do not support bfloat16
+            _set_:
+                dtype: float16  # volta32gb gpus do not support bfloat16
         regime:
-            num_steps: 1000
-            num_data_epochs: 20
-            checkpoint_every_n_steps: 1000
-            keep_last_n_checkpoints: 1
-            keep_last_n_models: 1
-            publish_metrics_every_n_steps: 5
+            _set_:
+                num_steps: 1000
+                num_data_epochs: 20
+                checkpoint_every_n_steps: 1000
+                keep_last_n_checkpoints: 1
+                keep_last_n_models: 1
+                publish_metrics_every_n_steps: 5
 
     Then run:
 
@@ -163,13 +171,14 @@ Read more about this recipe in :ref:`tutorial-preference-optimization`.
 
     For more details about the recipe configuration, please refer to :ref:`basics-recipe`.
 
+Dumping Configuration
+^^^^^^^^^^^^^^^^^^^^^
 
-.. important::
+For a quick overview of all the sections and fields, you can use the ``--dump-config`` command:
 
-    Before running the fine-tuning recipe, ensure the model's vocabulary configuration (``vocab_info``) matches your use case. 
-    For example, LLaMA 3 Instruct model uses a different end-of-sequence (EOS) token indices for chat (128009) vs base models (128001). 
-    Incorrect vocabulary configuration can significantly impact model performance. You can verify the configuration in your 
-    model's YAML card or the model architecture definition.
+.. code-block:: bash
+
+    fairseq2 lm instruction_finetune --dump-config
 
 
 Iterative Training
@@ -197,13 +206,12 @@ fairseq2 provides a clean way to handle this through the checkpoint system (lear
 
     .. code-block:: bash
 
-        CKPT_PATH="/checkpoint/user/experiments/run_0/checkpoints/step_1000"  # this is the path to the checkpoint
-        CKPT_DIR=$(dirname "$CKPT_PATH")  # e.g., /checkpoint/user/experiments/run_0/checkpoints
-        CKPT="checkpoint_$(basename "$CKPT_PATH")"  # e.g., checkpoint_step_1000
+        CKPT_DIR="/checkpoint/user/experiments/run_0/checkpoints"
+        CKPT="checkpoint_step_1000"  # e.g. checkpoint of step 1000
 
         fairseq2 lm instruction_finetune $OUTPUT_DIR --config \
             assets.checkpoint_dir=$CKPT_DIR \
-            model.name=$CKPT \  # Must match the checkpoint step
+            model.name=$CKPT \
             dataset.path=/path/to/new/data \
             dataset.max_num_tokens=4096 \
             trainer.dtype=float16
@@ -224,15 +232,20 @@ fairseq2 provides a clean way to handle this through the checkpoint system (lear
         # config.yaml
         # First stage - train on dataset A
         dataset:
-            path: /path/to/dataset_A
+            _set_:
+                path: /path/to/dataset_A
         model:
-            name: llama3_2_1b
+            _set_:
+                name: llama3_2_1b
         regime:
-            num_steps: 1000
+            _set_:
+                num_steps: 1000
         optimizer:
-            name: adamw
+            _set_:
+                name: adamw
             config:
-                lr: 1e-5
+                _set_:
+                    lr: 1e-5
         # ... other config
 
     Then run the following commands in bash:
@@ -253,7 +266,7 @@ fairseq2 provides a clean way to handle this through the checkpoint system (lear
     .. tip::
 
         When doing iterative fine-tuning:
-        
+
         - Generally use a lower learning rate in later stages
         - Consider reducing the number of steps for later stages
         - You may want to adjust the validation frequency
@@ -283,7 +296,7 @@ To help accelerate the training, fairseq2 is able to automatically detect multi-
 Generate
 --------
 
-Once we have finished the training, we can find in the ``$OUTPUT_DIR`` the model checkpoints in ``$OUTPUT_DIR/checkpoints``. With that, we can now generate over the test dataset!
+Once you have finished the training, you can find in the ``$OUTPUT_DIR`` the model checkpoints in ``$OUTPUT_DIR/checkpoints``. With that, we can now generate over the test dataset!
 
 
 Native Support
@@ -293,10 +306,9 @@ fairseq2 natively supports inference:
 
 .. code-block:: bash
 
-    CKPT_PATH="/checkpoint/$USER/experiments/$EXPERIMENT_NAME/checkpoints/step_1000"
-    CKPT_DIR=$(dirname "$CKPT_PATH")
-    CKPT="checkpoint_$(basename "$CKPT_PATH")"  # e.g., checkpoint_step_1000
-    SAVE_DIR="$CKPT_DIR/generation"
+    CKPT_DIR="/checkpoint/$USER/my_experiment/checkpoints"
+    CKPT="last_checkpoint"
+    SAVE_DIR="/checkpoint/$USER/my_experiment/generations"
     DATASET="/datasets/facebook/fairseq2-lm-gsm8k/test/test.jsonl"
 
     fairseq2 lm generate $SAVE_DIR --no-sweep-dir --config \
@@ -310,8 +322,9 @@ vLLM Support
 ^^^^^^^^^^^^
 
 
-To accelerate the inference process, we can deploy fairseq2 LLaMA checkpoints with VLLM.
-This is done by pointing vLLM to both the fairseq2 checkpoint directory and the Hugging Face tokenizer:
+vLLM natively supports fairseq2 LLaMA checkpoint files. To accelerate the inference
+process, we can deploy fairseq2 LLaMA checkpoints with VLLM. This is done by
+pointing vLLM to both the fairseq2 checkpoint directory and the Hugging Face tokenizer:
 
 .. code-block:: python
 
@@ -427,6 +440,7 @@ See Also
 
 .. _LLaMA3.2 1B model: https://huggingface.co/meta-llama/Llama-3.2-1B/tree/main
 .. _gsm8k data: https://huggingface.co/datasets/facebook/fairseq2-lm-gsm8k
+.. _here: https://github.com/facebookresearch/fairseq2/blob/main/src/fairseq2/assets/cards/models/llama.yaml
 .. _HuggingFace Models Tutorial: https://huggingface.co/docs/hub/en/models-downloading
 .. _HuggingFace Datasets Tutorial: https://huggingface.co/docs/hub/en/datasets-downloading
 .. _HF script: https://github.com/huggingface/transformers/blob/main/src/transformers/models/llama/convert_llama_weights_to_hf.py
