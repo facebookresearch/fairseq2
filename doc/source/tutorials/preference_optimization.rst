@@ -121,6 +121,10 @@ The use of other methods (CPO/ORPO/SimPO) is documented below.
 The configuration fields are detailed in the page :ref:`basics-recipe`.
 The fields follows a nested structure, where each field is a key-value pair.
 In the example above, we have made changes to config sections including ``dataset``, ``model``, ``trainer``, ``regime``.
+
+Dumping Configuration
+^^^^^^^^^^^^^^^^^^^^^
+
 For a quick overview of all the sections and fields, you can use the ``--dump-config`` command:
 
 .. code-block:: bash

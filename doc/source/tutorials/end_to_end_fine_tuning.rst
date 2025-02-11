@@ -171,6 +171,15 @@ Read more about this recipe in :ref:`tutorial-preference-optimization`.
 
     For more details about the recipe configuration, please refer to :ref:`basics-recipe`.
 
+Dumping Configuration
+^^^^^^^^^^^^^^^^^^^^^
+
+For a quick overview of all the sections and fields, you can use the ``--dump-config`` command:
+
+.. code-block:: bash
+
+    fairseq2 lm instruction_finetune --dump-config
+
 
 Iterative Training
 ^^^^^^^^^^^^^^^^^^
