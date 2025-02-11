@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final, List, cast, final
+from typing import Any, Final, cast, final
 
 import torch
 from typing_extensions import override
