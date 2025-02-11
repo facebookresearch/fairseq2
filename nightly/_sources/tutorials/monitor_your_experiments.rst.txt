@@ -70,7 +70,7 @@ What you need to do is simply add the following line in your config YAML file:
         metric_recorders:
             wandb:
                 _set_:
-                    enabled: rtue
+                    enabled: true
                     project: <YOUR_PROJECT_NAME>
                     run: <YOUR_JOB_RUN_NAME>
 

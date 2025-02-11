@@ -37,8 +37,11 @@ Insert the following code where you want to set the breakpoint:
 
 .. code-block:: python
 
-    from fairseq2.gang import get_rank
-    if get_rank() == 0:
+    import os
+
+    from fairseq2.utils.env import get_rank
+
+    if get_rank(os.environ) == 0:
         from pudb.remote import set_trace
 
     set_trace(host="meta-fairseq2", port=6899, term_size=(80*3, 24*3), reverse=True)

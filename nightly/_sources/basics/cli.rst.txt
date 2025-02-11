@@ -23,7 +23,7 @@ Here are some basic examples of using the CLI:
     fairseq2 lm instruction_finetune -h
 
     # List available configuration presets for a recipe (e.g. recipe lm::instruction_finetune)
-    fairseq2 lm instruction_finetune --list-presets
+    fairseq2 lm instruction_finetune --list-preset-configs
 
     # Dump the default configuration for a recipe (e.g. recipe lm::instruction_finetune)
     fairseq2 lm instruction_finetune --dump-config
