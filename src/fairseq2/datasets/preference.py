@@ -216,6 +216,23 @@ class GenericPreferenceDataset(PreferenceDataset):
                 + len(target_indices_rejected)
             )
 
+            def is_list_of_strings(var):
+                return isinstance(var, list) and all(
+                    isinstance(item, str) for item in var
+                )
+
+            # below is an example of using extras field of data reader options
+            if "keep_jsonl_keys" in options.extras:
+                if not is_list_of_strings(options.extras["keep_jsonl_keys"]):
+                    raise RuntimeError(
+                        f"keep_jsonl_keys in extra options must be List[str]"
+                    )
+                jsonl_content = {
+                    k: example.get(k, None) for k in options.extras["keep_jsonl_keys"]
+                }
+            else:
+                jsonl_content = None
+
             return {
                 "id": id_,
                 "indices_prompt": source_indices,
@@ -228,6 +245,8 @@ class GenericPreferenceDataset(PreferenceDataset):
                 "target_mask_chosen": target_mask_chosen,
                 "target_mask_rejected": target_mask_rejected,
                 "total_tokens": total_tokens,
+                # options.extras can contain arbitrary options that do not require explicit definition
+                "keep_jsonl_keys": jsonl_content,
             }
 
         builder.map(cat_source_and_target, num_parallel_calls=npc)
