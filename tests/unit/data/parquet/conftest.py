@@ -155,6 +155,7 @@ def controled_row_groups_pq_dataset(
             for _ in range(size * 10)
         ],
         "id": [f"id_{i}" for i in range(total_size)],
+        "seq": [np.arange(i % 10 + 2) for i in range(total_size)],
     }
     table = pa.Table.from_pydict(data)
 
