@@ -126,17 +126,20 @@ Customizing Configurations
 
 You can customize configurations in several ways:
 
-1. Using a YAML file:
+1. Using a YAML file with the configuration override syntax. Note the ``_set_``
+   directive:
 
 .. code-block:: yaml
 
     # config.yaml
     dataset:
-      path: /data/my_dataset
-      max_num_tokens: 4096
+        _set_:
+            path: /data/my_dataset
+            max_num_tokens: 4096
     optimizer:
-      config:
-        lr: 5e-7
+        config:
+            _set_:
+                lr: 5e-7
 
 2. Using command line overrides:
 
