@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final, cast, final
+from typing import Any, Final, List, cast, final
 
 import torch
 from typing_extensions import override
@@ -216,20 +216,13 @@ class GenericPreferenceDataset(PreferenceDataset):
                 + len(target_indices_rejected)
             )
 
-            def is_list_of_strings(var):
-                return isinstance(var, list) and all(
-                    isinstance(item, str) for item in var
-                )
-
             # below is an example of using extras field of data reader options
             if "keep_jsonl_keys" in options.extras:
-                if not is_list_of_strings(options.extras["keep_jsonl_keys"]):
-                    raise RuntimeError(
-                        f"keep_jsonl_keys in extra options must be List[str]"
-                    )
-                jsonl_content = {
-                    k: example.get(k, None) for k in options.extras["keep_jsonl_keys"]
-                }
+                jsonl_keys = options.extras["keep_jsonl_keys"]
+                assert isinstance(jsonl_keys, list) and all(
+                    isinstance(i, str) for i in jsonl_keys
+                ), f"{jsonl_keys} must be a list of strings"
+                jsonl_content = {k: example.get(k, None) for k in jsonl_keys}
             else:
                 jsonl_content = None
 
