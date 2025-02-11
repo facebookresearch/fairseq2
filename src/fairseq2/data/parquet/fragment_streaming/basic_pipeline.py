@@ -1,0 +1,444 @@
+# Coeyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+
+from dataclasses import dataclass
+from typing import Any, Iterator, List, Optional
+
+import numpy as np
+import pyarrow as pa
+import pyarrow.parquet as pq
+import torch
+from joblib import Parallel, delayed
+
+from fairseq2.data import (
+    DataPipelineBuilder,
+    read_iterator,
+    read_sequence,
+)
+from fairseq2.data.parquet.fragment_streaming.config import ParquetDatasetLimitOptions
+from fairseq2.data.parquet.pipeline import SafeFragment
+from fairseq2.data.parquet.utils import (
+    circular_shift_left,
+    get_dataset_fragments,
+    split_fragment_in_row_groups,
+)
+from fairseq2.logging import log
+
+try:
+    from itertools import batched  # type: ignore
+except ImportError:
+    from itertools import islice
+
+    def batched(iterable, n):
+        # batched('ABCDEFG', 3) --> ABC DEF G
+        if n < 1:
+            raise ValueError("n must be at least one")
+        it = iter(iterable)
+        while batch := tuple(islice(it, n)):
+            yield batch
+
+
+def _parquet_fragments_to_pipeline_builder(
+    file_ds_fragments: List[pa.dataset.Fragment],
+    nb_epochs: Optional[int] = 1,
+    shuffle: bool = True,
+    seed: Optional[int] = None,
+) -> DataPipelineBuilder:
+    if nb_epochs is None:
+        # schedule all fragments in 100 epochs and next repeat them
+        # just to avoid frequent reset pipeline
+        _nb_epochs = 100
+    else:
+        _nb_epochs = nb_epochs
+
+    if shuffle:
+        if seed is None:
+            seed = int(torch.randint(0, 2**31, ()).item())
+
+        rsg = np.random.RandomState(seed)
+        ds_fragments_ = np.asarray(file_ds_fragments, dtype="O")
+        ds_fragments = np.concatenate(
+            [rsg.permutation(ds_fragments_) for _ in range(_nb_epochs)]
+        ).tolist()
+    else:
+        ds_fragments = file_ds_fragments * _nb_epochs
+
+    pipeline_builder = read_sequence(ds_fragments)
+
+    if nb_epochs is None:
+        pipeline_builder = pipeline_builder.repeat(None)
+
+    pipeline_builder = pipeline_builder.map(SafeFragment)
+    return pipeline_builder
+
+
+def list_parquet_fragments(
+    parquet_ds: pq.ParquetDataset,
+    nb_epochs: Optional[int] = 1,
+    split_to_row_groups: bool = True,
+    shuffle: bool = True,
+    seed: Optional[int] = None,
+    limit_options: Optional[ParquetDatasetLimitOptions] = None,
+    nb_jobs: int = 10,
+) -> DataPipelineBuilder:
+
+    if limit_options is None:
+        limit_options = ParquetDatasetLimitOptions()
+
+    file_ds_fragments = get_dataset_fragments(parquet_ds, parquet_ds._filter_expression)
+    proxy_ds_path = "/".join(parquet_ds.files[0].split("=")[0].split("/")[:-1])
+
+    log.info(f"{proxy_ds_path} : full number of files {len(file_ds_fragments)}")
+    if limit_options.fraction_of_files is not None:
+        file_ds_fragments = file_ds_fragments[
+            : max(
+                int(round(limit_options.fraction_of_files * len(file_ds_fragments))), 1
+            )
+        ]
+        log.info(
+            f"{proxy_ds_path} : reducing number of files to {len(file_ds_fragments)} because of fraction_of_files={limit_options.fraction_of_files}"
+        )
+    if limit_options.nb_files is not None and limit_options.nb_files < len(
+        file_ds_fragments
+    ):
+        file_ds_fragments = file_ds_fragments[: limit_options.nb_files]
+        log.info(
+            f"{proxy_ds_path} : reducing number of files to {len(file_ds_fragments)} because of nb_files={limit_options.nb_files}"
+        )
+
+    output_fragments = []
+    total_nb_rows: int = 0
+    if split_to_row_groups:
+        log.info(f"{proxy_ds_path} : starting split in row groups")
+
+        with Parallel(backend="threading", n_jobs=nb_jobs) as parallel:
+            total_nb_fragments = 0
+            early_stop = False
+
+            for batch_of_files in batched(file_ds_fragments, 20 * nb_jobs):
+                row_groups = parallel(
+                    delayed(split_fragment_in_row_groups)(ff) for ff in batch_of_files
+                )
+                new_file_fragments = [x for y in row_groups for x in y]
+
+                new_file_fragments_stats: List[int]
+                if limit_options.nb_rows is not None:
+                    new_file_fragments_stats = parallel(
+                        delayed(lambda frag: int(frag.row_groups[0].num_rows))(ff)
+                        for ff in new_file_fragments
+                    )
+                else:
+                    new_file_fragments_stats = [0] * len(new_file_fragments)
+
+                for nb_row, frag in zip(new_file_fragments_stats, new_file_fragments):
+                    output_fragments.append(frag)
+                    total_nb_rows += nb_row
+                    total_nb_fragments += 1
+                    if (
+                        limit_options.nb_fragments is not None
+                        and total_nb_fragments >= limit_options.nb_fragments
+                    ):
+                        early_stop = True
+                        if limit_options.nb_rows is not None:
+                            log.info(
+                                f"{proxy_ds_path} : nb_fragments limit {limit_options.nb_fragments} was reached with around {total_nb_rows} rows"
+                            )
+                        else:
+                            log.info(
+                                f"{proxy_ds_path} : nb_fragments limit {limit_options.nb_fragments} was reached"
+                            )
+                        break
+                    if (
+                        limit_options.nb_rows is not None
+                        and total_nb_rows >= limit_options.nb_rows
+                    ):
+                        early_stop = True
+                        log.info(
+                            f"{proxy_ds_path} : nb_rows limit {limit_options.nb_rows} was reached with around {total_nb_fragments} fragments"
+                        )
+                        break
+                if early_stop:
+                    break
+    else:
+        for frag in file_ds_fragments[: limit_options.nb_fragments]:
+            output_fragments.append(frag)
+            if limit_options.nb_rows is not None:
+                total_nb_rows += frag.count_rows()
+                if total_nb_rows >= limit_options.nb_rows:
+                    break
+
+    log.info(f"{proxy_ds_path} : finding fragments {len(output_fragments)}")
+
+    return _parquet_fragments_to_pipeline_builder(
+        output_fragments,
+        nb_epochs=nb_epochs,
+        shuffle=shuffle,
+        seed=seed,
+    )
+
+
+@dataclass
+class PFSState:
+    nb_fully_read_files: int = 0
+    nb_current_file_read_fragements: int = 0
+
+
+class ParquetFragmentStreamer:
+    def __init__(
+        self,
+        parquet_ds: pq.ParquetDataset,
+        split_to_row_groups: bool = True,
+        limit_options: Optional[ParquetDatasetLimitOptions] = None,
+        shuffle: bool = False,
+        seed: Optional[int] = None,
+        relative_files_circular_shift: float = 0.0,
+        read_state: Optional[PFSState] = None,
+    ):
+        self.parquet_ds = parquet_ds
+        self.split_to_row_groups = split_to_row_groups
+        self.limit_options = limit_options or ParquetDatasetLimitOptions()
+        self.shuffle = shuffle
+        self.seed = seed
+        self.relative_files_circular_shift = relative_files_circular_shift
+
+        assert 0 <= self.relative_files_circular_shift <= 1.0
+
+        if read_state is not None:
+            self.state = read_state
+        else:
+            self.reset_state()
+
+    def reset_state(self, seed: Optional[int] = None):
+        self.state = PFSState()
+        if seed is not None:
+            self.seed = seed
+
+    def __reduce__(self):
+        return (
+            self.__class__,
+            (
+                self.parquet_ds,
+                self.split_to_row_groups,
+                self.limit_options,
+                self.shuffle,
+                self.seed,
+                self.relative_files_circular_shift,
+                self.state,
+            ),
+        )
+
+    def truncate_files(
+        self,
+        parquet_ds: pq.ParquetDataset,
+        fraction_of_files: Optional[float],
+        nb_files: Optional[int],
+    ) -> List[pa.dataset.Fragment]:
+        file_ds_fragments = get_dataset_fragments(
+            parquet_ds, parquet_ds._filter_expression
+        )
+        self.proxy_ds_path = "/".join(parquet_ds.files[0].split("=")[0].split("/")[:-1])
+        log.info(
+            f"{self.proxy_ds_path} : full number of files {len(file_ds_fragments)}"
+        )
+
+        if fraction_of_files is not None:
+            file_ds_fragments = file_ds_fragments[
+                : max(
+                    int(round(fraction_of_files * len(file_ds_fragments))),
+                    1,
+                )
+            ]
+            log.info(
+                f"{self.proxy_ds_path} : reducing number of files to {len(file_ds_fragments)} because of fraction_of_files={fraction_of_files}"
+            )
+        if nb_files is not None and nb_files < len(file_ds_fragments):
+            file_ds_fragments = file_ds_fragments[:nb_files]
+            log.info(
+                f"{self.proxy_ds_path} : reducing number of files to {len(file_ds_fragments)} because of nb_files={nb_files}"
+            )
+        return file_ds_fragments
+
+    def __iter__(self):
+        limit_options = self.limit_options
+
+        file_ds_fragments = self.truncate_files(
+            self.parquet_ds,
+            limit_options.fraction_of_files,
+            limit_options.nb_files,
+        )
+        if self.shuffle:
+            random_state = np.random.RandomState(self.seed)
+            np_file_ds_fragments = np.array(file_ds_fragments, dtype="O")
+            random_state.shuffle(np_file_ds_fragments)
+            file_ds_fragments = np_file_ds_fragments.tolist()
+
+        # circular shift files by a give ratio
+        if (
+            self.relative_files_circular_shift > 0.0
+            and self.relative_files_circular_shift < 1.0
+        ):
+            file_ds_fragments = circular_shift_left(
+                file_ds_fragments,
+                int(self.relative_files_circular_shift * len(file_ds_fragments)),
+            )
+
+        if limit_options.nb_fragments is not None or limit_options.nb_rows is not None:
+            raise NotImplementedError(
+                "`nb_fragments` and `nb_rows` are not supported for StreamingParquetDataset"
+                "use `list_parquet_fragments` instead"
+            )
+        # TODO: shuffle file_ds_fragments differently for each rank/world size
+
+        if not self.split_to_row_groups:
+            for frag in file_ds_fragments[self.state.nb_fully_read_files :]:
+                self.state.nb_fully_read_files += 1
+                yield frag
+        else:
+            log.info(f"{self.proxy_ds_path} : starting split in row groups")
+
+            for new_file in file_ds_fragments[self.state.nb_fully_read_files :]:
+                new_file_fragments = split_fragment_in_row_groups(new_file)
+                new_file_fragments = new_file_fragments[
+                    self.state.nb_current_file_read_fragements :
+                ]
+
+                for frag in new_file_fragments:
+                    # increate before yield
+                    self.state.nb_current_file_read_fragements += 1
+                    yield frag
+
+                # only when full file is read we increament this
+                self.state.nb_fully_read_files += 1
+                self.state.nb_current_file_read_fragements = 0
+
+
+@dataclass
+class ShuffledIteratorState:
+    epoch_count: int
+    current_window: List[Any]
+    index: int
+    random_state: np.random.RandomState
+
+
+class ShuffledIterator(Iterator[Any]):
+    def __init__(
+        self,
+        base_iterator,
+        window_size: int,
+        nb_epoch: Optional[int],
+        seed: Optional[int],
+        state: Optional[ShuffledIteratorState] = None,
+    ):
+        self.base_iterator = base_iterator
+        self.window_size = window_size
+        self.seed = seed
+        self.nb_epoch = nb_epoch
+
+        if state is None:
+            state = ShuffledIteratorState(
+                random_state=np.random.RandomState(self.seed),
+                epoch_count=0,
+                current_window=[],
+                index=0,
+            )
+        self.state = state
+        self.window_iterator = None
+
+    def reset_state(self):
+        self.state.random_state = np.random.RandomState(self.seed)
+        self.state.epoch_count = 0
+        self._reset_inner(self.seed)
+
+    def __reduce__(self):
+        return (
+            self.__class__,
+            (
+                self.base_iterator,
+                self.window_size,
+                self.nb_epoch,
+                self.seed,
+                self.state,
+            ),
+        )
+
+    def _reset_inner(self, seed: Optional[int]):
+        self.base_iterator.reset_state(seed)
+        self.state.index = 0
+        self.state.current_window = []
+        self.window_iterator = None
+
+    def __iter__(self):
+        return self
+
+    def repeat_iterator(self):
+        while (self.nb_epoch is None) or (self.state.epoch_count < self.nb_epoch):
+            for element in self.base_iterator:
+                yield element
+
+            self.state.epoch_count += 1
+
+            if self.seed is not None:
+                seed = self.seed + self.state.epoch_count
+            else:
+                seed = None
+            self._reset_inner(seed)
+
+    def __next__(self) -> Any:
+        if self.window_iterator is None:
+            self.window_iterator = batched(self.repeat_iterator(), self.window_size)  # type: ignore
+
+        assert self.window_iterator is not None
+
+        if self.state.index >= len(self.state.current_window):
+            window = next(self.window_iterator)
+            window = np.array(window, dtype="O")
+            self.state.random_state.shuffle(window)
+            self.state.current_window = window
+            self.state.index = 0
+
+        # Return the next element from the current window
+        result = self.state.current_window[self.state.index]
+        self.state.index += 1
+        return result
+
+
+def stream_parquet_fragments(
+    parquet_ds: pq.ParquetDataset,
+    nb_epochs: Optional[int],
+    split_to_row_groups: bool = True,
+    shuffle: bool = True,
+    seed: Optional[int] = None,
+    limit_options: Optional[ParquetDatasetLimitOptions] = None,
+    shuffling_window: int = 200,
+    files_circular_shift: float = 0.0,
+) -> DataPipelineBuilder:
+
+    fragments_iterator = ParquetFragmentStreamer(
+        parquet_ds=parquet_ds,
+        split_to_row_groups=split_to_row_groups,
+        limit_options=limit_options,
+        shuffle=shuffle,
+        seed=seed,
+        relative_files_circular_shift=files_circular_shift,
+    )
+
+    def reset_fn(iterator):
+        iterator.reset_state()
+        return iterator
+
+    pipeline = read_iterator(
+        ShuffledIterator(
+            fragments_iterator,
+            window_size=shuffling_window if shuffle else 1,
+            nb_epoch=nb_epochs,
+            seed=seed,
+        ),
+        reset_fn,
+        infinite=False,
+    )
+
+    return pipeline.map(SafeFragment)
