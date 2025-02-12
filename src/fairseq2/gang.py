@@ -385,7 +385,7 @@ class ProcessGroupGang(AbstractGang):
         if num_threads is not None:
             torch.set_num_threads(num_threads)
 
-            log.info("Setting the number of threads used for intraop parallelism to {}.", num_threads)  # fmt: skip
+            log.info("Setting the number of threads used for intra-op parallelism to {}.", num_threads)  # fmt: skip
 
         if device.type == "cuda":
             # See https://github.com/pytorch/pytorch/issues/46874.

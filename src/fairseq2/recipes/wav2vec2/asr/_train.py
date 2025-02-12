@@ -270,9 +270,7 @@ def load_wav2vec2_asr_trainer(
 
     static_graph = config.trainer.freeze_encoder_for_n_steps == 0
 
-    model = setup_data_parallel_model(
-        context, config, base_model, gangs, checkpoint_manager, static_graph
-    )
+    model = setup_data_parallel_model(context, config, base_model, gangs, static_graph)
 
     log_model(log, model, gangs)
 

@@ -24,7 +24,7 @@ from torch.profiler import record_function
 from torcheval.metrics import Mean
 from typing_extensions import override
 
-from fairseq2.checkpoint import CheckpointManager, NoCheckpointFoundError
+from fairseq2.checkpoint import CheckpointManager, CheckpointNotFoundError
 from fairseq2.datasets import DataReader
 from fairseq2.error import ContractError, InternalError, InvalidOperationError
 from fairseq2.gang import Gangs, broadcast_flag
@@ -292,7 +292,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         device = gangs.root.device
 
-        self._model = unit.model
+        self.register_non_stateful("_model", unit.model)
 
         self._unit = unit
 
@@ -583,12 +583,12 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         try:
             step_nr, state = self._checkpoint_manager.load_last_checkpoint()
-        except NoCheckpointFoundError:
+        except CheckpointNotFoundError:
             log.info("No checkpoint found. Starting training.")
 
             return
 
-        log.info("Checkpoint loaded, restoring training from step {}.", step_nr)
+        log.info("Checkpoint loaded. Restoring training from step {}.", step_nr)
 
         self._step_nr = step_nr
 
@@ -596,7 +596,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._gangs.root.barrier()
 
-        log.info("Training restored, resuming.")
+        log.info("Training restored. Resuming.")
 
     def _do_run(self) -> None:
         self._rng_bag.manual_seed(self._seed + self._gangs.root.rank)
@@ -1064,40 +1064,33 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         log.info("Saving checkpoint after step {}.", step_nr)
 
-        log.info("Extracting trainer state.")
-
         state = self.state_dict()
-
-        log.info("Trainer state extracted.")
 
         self._checkpoint_manager.begin_checkpoint(step_nr)
 
-        log.info("Saving trainer state.")
+        log.info("Saving the trainer state.")
 
         if self._gangs.dp.size > 1 and isinstance(self._model, DDP):
-            replicated_keys = {"_model", "_optimizer"}
+            replicated_keys = {"_optimizer"}
         else:
             replicated_keys = None
 
-        self._checkpoint_manager.save_state(
-            state, model_key="_model", replicated_keys=replicated_keys
-        )
+        self._checkpoint_manager.save_state(state, replicated_keys=replicated_keys)
 
         log.info("Trainer state saved.")
 
+        log.info("Saving the model.")
+
+        self._checkpoint_manager.save_model(self._model)
+
+        log.info("Model saved.")
+
         if self._score_metric_descriptor is not None:
-            log.info("Saving checkpoint score.")
+            log.info("Saving the checkpoint score.")
 
             self._checkpoint_manager.save_score(self._valid_score, self._lower_better)
 
             log.info("Checkpoint score saved.")
-
-        if isinstance(self._model, FSDP):
-            log.info("Saving consolidated FSDP model.")
-
-            self._checkpoint_manager.save_consolidated_fsdp_model(self._model)
-
-            log.info("Consolidated FSDP model saved.")
 
         self._checkpoint_manager.commit_checkpoint()
 

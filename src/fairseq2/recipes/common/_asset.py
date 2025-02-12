@@ -81,23 +81,23 @@ class ExtraPathRegistrar:
 
         try:
             extra_path = self._file_system.resolve(extra_path)
-
-            extra_path_exists = self._file_system.exists(extra_path)
         except OSError as ex:
             raise AssetMetadataLoadError(
                 f"The '{extra_path}' extra asset card path cannot be read. See the nested exception for details."
             ) from ex
 
-        if extra_path_exists:
-            file_metadata_loader = FileAssetMetadataLoader(
-                extra_path, self._file_system, self._asset_metadata_file_loader
-            )
+        file_metadata_loader = FileAssetMetadataLoader(
+            extra_path, self._file_system, self._asset_metadata_file_loader
+        )
 
+        try:
             provider = file_metadata_loader.load()
-
-            self._asset_store.user_metadata_providers.append(provider)
-        else:
+        except FileNotFoundError:
             log.warning("The '{}' path pointed to by `common.assets.extra_path` does not exist.", extra_path)  # fmt: skip
+
+            return
+
+        self._asset_store.user_metadata_providers.append(provider)
 
 
 @final
@@ -125,22 +125,20 @@ class CheckpointDirectoryRegistrar:
 
         try:
             checkpoint_dir = self._file_system.resolve(checkpoint_dir)
-
-            model_metadata_file_exists = self._file_system.exists(
-                checkpoint_dir.joinpath("model.yaml")
-            )
         except OSError as ex:
             raise AssetMetadataLoadError(
-                f"The '{checkpoint_dir}' checkpoint directory cannot be read. See the nested exception for details."
+                f"The '{checkpoint_dir}' checkpoint directory cannot be accessed. See the nested exception for details."
             ) from ex
 
-        if model_metadata_file_exists:
-            checkpoint_metadata_loader = FileCheckpointMetadataLoader(
-                checkpoint_dir, self._file_system, self._asset_metadata_file_loader
-            )
+        checkpoint_metadata_loader = FileCheckpointMetadataLoader(
+            checkpoint_dir, self._file_system, self._asset_metadata_file_loader
+        )
 
+        try:
             provider = checkpoint_metadata_loader.load()
-
-            self._asset_store.user_metadata_providers.append(provider)
-        else:
+        except FileNotFoundError:
             log.warning("The checkpoint metadata file (model.yaml) is not found under the '{}' directory. Make sure that `common.assets.checkpoint_dir` points to the base checkpoint directory used during training.", checkpoint_dir)  # fmt: skip
+
+            return
+
+        self._asset_store.user_metadata_providers.append(provider)

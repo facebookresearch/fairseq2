@@ -36,6 +36,10 @@ from fairseq2.recipes.common._metrics import (
 from fairseq2.recipes.common._model import (
     InvalidCheckpointPathError as InvalidCheckpointPathError,
 )
+from fairseq2.recipes.common._model import ModelNotFoundError as ModelNotFoundError
+from fairseq2.recipes.common._model import (
+    ModelParallelismNotSupportedError as ModelParallelismNotSupportedError,
+)
 from fairseq2.recipes.common._model import load_base_model as load_base_model
 from fairseq2.recipes.common._model import prepare_model as prepare_model
 from fairseq2.recipes.common._model import setup_model as setup_model

@@ -12,7 +12,6 @@ from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn import Module
 from torch.nn.parallel import DistributedDataParallel as DDP
 
-from fairseq2.checkpoint import CheckpointManager
 from fairseq2.context import RuntimeContext
 from fairseq2.error import NotSupportedError, ProgramError
 from fairseq2.gang import GangError, Gangs
@@ -30,7 +29,6 @@ def setup_data_parallel_model(
     recipe_config: object,
     base_model: Module,
     gangs: Gangs,
-    checkpoint_manager: CheckpointManager,
     static_graph: bool = True,
 ) -> Module:
     trainer_section = get_config_section(recipe_config, "trainer", TrainerSection)
@@ -58,12 +56,7 @@ def setup_data_parallel_model(
 
         if data_parallelism == "fsdp":
             return wrap_fsdp(
-                trainer_section,
-                base_model,
-                gangs,
-                checkpoint_manager,
-                static_graph,
-                local_world_size,
+                trainer_section, base_model, gangs, static_graph, local_world_size
             )
     except DistributedSetupError as ex:
         raise ProgramError(
@@ -99,7 +92,6 @@ def wrap_fsdp(
     trainer_section: TrainerSection,
     base_model: Module,
     gangs: Gangs,
-    checkpoint_manager: CheckpointManager,
     static_graph: bool,
     local_world_size: int | None,
 ) -> Module:
@@ -122,12 +114,7 @@ def wrap_fsdp(
 
         return base_model
 
-    has_checkpoint = checkpoint_manager.has_checkpoint()
-
-    if has_checkpoint:
-        log.info("Wrapping the model with FSDP.")
-    else:
-        log.info("Wrapping the model with FSDP and broadcasting to all processes.")  # fmt: skip
+    log.info("Wrapping the model with FSDP and broadcasting to all processes.")  # fmt: skip
 
     if trainer_section.mixed_precision == "static":
         mp_dtype = trainer_section.dtype
@@ -143,17 +130,14 @@ def wrap_fsdp(
         gangs.dp,
         wrap_policy,
         ignored_modules=ignored_modules,
-        broadcast_state=not has_checkpoint,
+        broadcast_state=True,
         reshard_after_forward=trainer_section.fsdp.reshard_after_forward,
         local_world_size=local_world_size,
         mixed_precision_dtype=mp_dtype,
         fp32_reduce=trainer_section.fsdp.fp32_reduce,
     )
 
-    if has_checkpoint:
-        log.info("Model wrapped with FSDP.")
-    else:
-        log.info("Model wrapped with FSDP and broadcasted.")
+    log.info("Model wrapped with FSDP and broadcasted.")
 
     return dp_model
 

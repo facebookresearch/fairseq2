@@ -29,8 +29,6 @@ from fairseq2.metrics.recorders import UnknownMetricRecorderError
 from fairseq2.metrics.text import UnknownBleuTokenizerError
 from fairseq2.models import (
     InvalidModelTypeError,
-    ModelCheckpointNotFoundError,
-    ModelParallelismNotSupportedError,
     ShardedModelLoadError,
     UnknownModelArchitectureError,
     UnknownModelError,
@@ -44,6 +42,8 @@ from fairseq2.optim.lr_scheduler import (
 from fairseq2.profilers import UnknownProfilerError
 from fairseq2.recipes.common import (
     InvalidCheckpointPathError,
+    ModelNotFoundError,
+    ModelParallelismNotSupportedError,
     NotSupportedDistributedFeature,
 )
 from fairseq2.utils.validation import ValidationError
@@ -53,7 +53,7 @@ def _register_user_error_types(cli: Cli) -> None:
     cli.register_user_error_type(InvalidCheckpointPathError)
     cli.register_user_error_type(InvalidDatasetTypeError)
     cli.register_user_error_type(InvalidModelTypeError)
-    cli.register_user_error_type(ModelCheckpointNotFoundError)
+    cli.register_user_error_type(ModelNotFoundError)
     cli.register_user_error_type(ModelParallelismNotSupportedError)
     cli.register_user_error_type(NotSupportedDistributedFeature)
     cli.register_user_error_type(ShardedModelLoadError)
