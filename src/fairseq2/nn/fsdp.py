@@ -11,7 +11,6 @@ from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Final, Protocol, final
-from warnings import catch_warnings
 
 import torch
 from torch import Tensor
@@ -167,8 +166,10 @@ def to_fsdp(
             "FSDP cannot be initialized. See the nested exception for details."
         ) from ex
 
-    with catch_warnings():
-        warnings.simplefilter("ignore")  # Suppress noisy FSDP warnings.
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            action="ignore", message=r".*FSDP\.state_dict_type\(\) and FSDP\.set_state_dict_type\(\) are being deprecated.*"  # fmt: skip
+        )
 
         FSDP.set_state_dict_type(
             fsdp,

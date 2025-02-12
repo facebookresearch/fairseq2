@@ -13,7 +13,6 @@ from contextlib import AbstractContextManager, nullcontext
 from pathlib import Path
 from shutil import Error
 from typing import final
-from warnings import catch_warnings
 
 from torch.distributed._shard import load_with_process_group
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
@@ -393,8 +392,10 @@ class FileCheckpointManager(CheckpointManager):
 
         log.info("Extracting consolidated model state.")
 
-        with catch_warnings():
-            warnings.simplefilter("ignore")  # Suppress noisy FSDP warnings.
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                action="ignore", message=r".*FSDP\.state_dict_type\(\) and FSDP\.set_state_dict_type\(\) are being deprecated.*"  # fmt: skip
+            )
 
             with FSDP.state_dict_type(
                 model,

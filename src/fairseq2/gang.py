@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import os
+import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -410,9 +411,14 @@ class ProcessGroupGang(AbstractGang):
             pg_options = None
 
         try:
-            dist.init_process_group(
-                backend, timeout=timeout, pg_options=pg_options, **kwargs
-            )
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    action="ignore", message=".*options._timeout was specified.*"
+                )
+
+                dist.init_process_group(
+                    backend, timeout=timeout, pg_options=pg_options, **kwargs
+                )
         except (RuntimeError, ValueError) as ex:
             raise GangError(
                 "The underlying process group has failed to initialize. See the nested exception for details."
