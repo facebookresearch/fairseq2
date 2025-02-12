@@ -15,7 +15,6 @@ from pathlib import Path
 from pickle import PickleError
 from shutil import copytree, rmtree
 from typing import BinaryIO, TextIO, TypeAlias, cast, final
-from warnings import catch_warnings
 
 import torch
 from torch import Tensor
@@ -216,8 +215,10 @@ class TorchTensorLoader(TensorLoader):
     def load(
         self, path: Path, *, map_location: MapLocation = None
     ) -> dict[str, object]:
-        with catch_warnings():
-            warnings.simplefilter("ignore")  # Suppress noisy FSDP warnings.
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                action="ignore", message=r".*You are using `torch\.load` with `weights_only=False`.*"  # fmt: skip
+            )
 
             def load_error() -> TensorLoadError:
                 return TensorLoadError(
@@ -252,8 +253,10 @@ class TorchTensorDumper(TensorDumper):
 
     @override
     def dump(self, data: Mapping[str, object], path: Path) -> None:
-        with catch_warnings():
-            warnings.simplefilter("ignore")  # Suppress noisy FSDP warnings.
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                action="ignore", message=r".*Please use DTensor instead.*"
+            )
 
             def dump_error() -> TensorDumpError:
                 return TensorDumpError(
