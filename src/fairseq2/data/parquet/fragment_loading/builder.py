@@ -94,7 +94,9 @@ class ParquetFragmentLoader:
             else:
                 cache_dir = tempfile.mkdtemp()
 
-            log.info(f"Using cache dir {cache_dir} to mmap the pa.Table after loading!")
+            log.info(
+                f"Using cache dir = {cache_dir} to mmap the pa.Table after loading!"
+            )
             # experiment !
             Path(cache_dir).mkdir(parents=True, exist_ok=True)
             loading_pipeline = loading_pipeline.map(
