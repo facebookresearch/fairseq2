@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from functools import lru_cache, partial
+from functools import partial
 from pickle import dumps, loads
 from typing import Generator, List, Optional
 
@@ -52,7 +52,6 @@ loading_retry = retry(
 )
 
 
-@lru_cache(maxsize=100)
 def init_parquet_dataset(
     parquet_path: str,
     partition_filters: Optional[pa.dataset.Expression] = None,
@@ -110,13 +109,14 @@ class SafeFragment:
                 col for col in columns if col in self.fragment.physical_schema.names
             ]
         else:
-            fragment_columns = self.fragment.physical_schema.names
+            fragment_columns = list(self.fragment.physical_schema.names)
         # adding technical columns for tracking
-        fragment_columns = list(fragment_columns) + [
-            "__batch_index",
-            "__fragment_index",
-            "__filename",
-        ]
+        if add_fragment_traces:
+            fragment_columns = list(fragment_columns) + [
+                "__batch_index",
+                "__fragment_index",
+                "__filename",
+            ]
         try:
             fragment_table = self.fragment.to_table(
                 columns=fragment_columns, use_threads=use_threads
