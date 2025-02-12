@@ -9,8 +9,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Optional
 
-from pandas.io.pytables import dropna_doc
-
 
 @dataclass
 class TableBucketingConfig:

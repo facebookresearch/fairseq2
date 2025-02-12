@@ -13,10 +13,7 @@ from fairseq2.data.parquet.configs import (
     ValidationDataLoadingConfig,
 )
 from fairseq2.data.parquet.pipeline import (
-    build_iterator_over_one_table,
     init_parquet_dataset,
-    list_parquet_fragments,
-    parquet_iterator,
 )
 from fairseq2.data.parquet.transform import (
     affix_list_column,
@@ -33,9 +30,6 @@ from fairseq2.data.parquet.utils import (
     BatchOutputType,
     NestedDict,
     NestedDictValue,
-    add_partitioning_values,
-    compute_length_splits,
-    compute_rows_length,
     get_dataset_fragments,
     hstack_pyarray_list,
     load_one_fragment,
@@ -59,9 +53,6 @@ __all__ = [
     "BatchOutputType",
     "NestedDict",
     "NestedDictValue",
-    "add_partitioning_values",
-    "compute_length_splits",
-    "compute_rows_length",
     "get_dataset_fragments",
     "hstack_pyarray_list",
     "load_one_fragment",
@@ -83,7 +74,4 @@ __all__ = [
     "maybe_cast",
     # --- pipeline --- #
     "init_parquet_dataset",
-    "list_parquet_fragments",
-    "build_iterator_over_one_table",
-    "parquet_iterator",
 ]
