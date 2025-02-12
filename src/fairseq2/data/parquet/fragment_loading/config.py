@@ -140,9 +140,9 @@ class FragmentLoadingConfig:
     """
     Experimental feature! Use with caution !
 
-    If `cache` is True, loaded pa.Table will be memory mapped into under random name into `cache_dir`.
-    All references to pa.Table are released, corresponding files will be deleted.
-    Allows to reduce the memory footprint with a small performance penalty,
+    If `cache` is True, loaded pa.Table will be memory mapped into `cache_dir` under a random name.
+    After all references to pa.Table are released, the corresponding file will be deleted.
+    Allows to reduce the memory footprint with a small performance penalty.
     This can a be a good tradeoff for large remote datasets.
 
     If False, the loaded table will not be cached.
