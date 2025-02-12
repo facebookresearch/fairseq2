@@ -21,11 +21,13 @@ import pytest
 import torch
 from pyarrow.dataset import Fragment
 
+from fairseq2.data.parquet.table_bucketing.basic_pipeline import (
+    compute_length_splits,
+    compute_rows_length,
+)
 from fairseq2.data.parquet.utils import (
     _fix_list_offset,
     add_partitioning_values,
-    compute_length_splits,
-    compute_rows_length,
     get_dataset_fragments,
     hstack_pyarray_list,
     is_list_like,

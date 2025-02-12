@@ -6,8 +6,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 import pyarrow as pa
 import pytest
 
@@ -34,7 +32,7 @@ def test_parquet_dataset_limit_options_default() -> None:
     assert limit_options.token_columns is None
 
 
-@pytest.skip("TODO: check if this is still correct")
+@pytest.mark.skip("TODO: check if this is still correct")
 def test_parquet_dataset_config_valid() -> None:
     """Check successful init when all required args are valid."""
     cfg = ParquetDatasetConfig(parquet_path="s3://bucket/dataset.parquet")

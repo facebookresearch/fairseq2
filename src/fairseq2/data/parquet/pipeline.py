@@ -13,7 +13,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from retrying import retry
 
-from fairseq2.data.parquet.transform import (
+from fairseq2.data.parquet.arrow_transform.transform import (
     add_fragments_trace,
 )
 from fairseq2.data.parquet.utils import (
@@ -21,9 +21,6 @@ from fairseq2.data.parquet.utils import (
     fragment_stable_hash,
 )
 from fairseq2.logging import log
-
-# --- tested above --- #
-
 
 loading_retry = retry(
     retry_on_exception=lambda exception: isinstance(exception, OSError),
@@ -119,18 +116,3 @@ class SafeFragment:
         if add_fragment_traces:
             fragment_table = add_fragments_trace(fragment_table, self.fragment)
         return fragment_table
-
-
-# def parquet_iterator(
-#     dataset_config: ParquetDatasetConfig,
-#     dataloader_config: ParquetBasicDataloaderConfig,
-# ) -> Generator[BatchOutputType, None, None]:
-#     """
-#     Iterator over parquet data with given configurations.
-#     """
-#     with pyarrow_cpu(dataloader_config.num_parallel_calls):
-#         yield from iter(
-#             build_parquet_iterator_pipeline(dataset_config, dataloader_config)
-#             .prefetch(dataloader_config.num_parallel_calls)
-#             .and_return(max_num_warnings=4)
-#         )
