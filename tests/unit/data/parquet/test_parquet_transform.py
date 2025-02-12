@@ -13,7 +13,7 @@ import pyarrow as pa
 import pyarrow.dataset as ds
 import pytest
 
-from fairseq2.data.parquet.transform import (
+from fairseq2.data.parquet.arrow_transform.transform import (
     add_fragments_trace,
     affix_list_column,
     apply_filter,
@@ -165,7 +165,7 @@ def test_prefix_suffix_list_column(
     assert result.equals(expected)
 
 
-@pytest.skip("TODO: check if this is still correct")
+@pytest.mark.skip("TODO: check if this is still correct")
 def test_correct_paragraph_length_basic(sample_table: pa.Table) -> None:
     # Create test data with shorter lines
     table = sample_table.append_column(
