@@ -15,9 +15,9 @@ import pyarrow.compute as pc  # noqa: F401
 import pyarrow.parquet as pq
 
 from fairseq2.data import DataPipelineBuilder
+from fairseq2.data.parquet.arrow_transform.transform import apply_filter
 from fairseq2.data.parquet.fragment_loading.config import FragmentLoadingConfig
 from fairseq2.data.parquet.pipeline import SafeFragment
-from fairseq2.data.parquet.transform import apply_filter
 from fairseq2.data.parquet.utils import rename_table_columns, table_to_mmap_table
 from fairseq2.logging import log
 

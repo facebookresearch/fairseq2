@@ -4,6 +4,17 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 
+from fairseq2.data.parquet.arrow_transform.transform import (
+    affix_list_column,
+    apply_filter,
+    build_uniform_list_column,
+    concat_table,
+    filter_list_by_range,
+    filter_rows_by_consistent_list_length,
+    filter_strings_by_length,
+    maybe_cast,
+    replace_table_column,
+)
 from fairseq2.data.parquet.configs import (
     DataLoadingConfig,
     EvaluationDataLoadingConfig,
@@ -14,17 +25,6 @@ from fairseq2.data.parquet.configs import (
 )
 from fairseq2.data.parquet.pipeline import (
     init_parquet_dataset,
-)
-from fairseq2.data.parquet.transform import (
-    affix_list_column,
-    apply_filter,
-    build_uniform_list_column,
-    concat_table,
-    filter_list_by_range,
-    filter_rows_by_consistent_list_length,
-    filter_strings_by_length,
-    maybe_cast,
-    replace_table_column,
 )
 from fairseq2.data.parquet.utils import (
     BatchOutputType,
