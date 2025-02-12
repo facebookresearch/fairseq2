@@ -11,7 +11,7 @@ from functools import partial
 from pathlib import Path
 
 import pyarrow as pa
-import pyarrow.compute as pc  # keep it for `eval(filters)`
+import pyarrow.compute as pc  # noqa: F401
 import pyarrow.parquet as pq
 
 from fairseq2.data import DataPipelineBuilder
