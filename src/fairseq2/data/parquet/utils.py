@@ -20,7 +20,6 @@ import pyarrow.compute as pc  # type: ignore
 import pyarrow.parquet as pq
 import torch
 import xxhash
-from numpy.typing import NDArray
 from pyarrow.dataset import get_partition_keys  # requires pyarrow >= 13
 
 from fairseq2.logging import log
@@ -83,7 +82,7 @@ def _fix_list_offset(arr: pa.Array) -> pa.Array:
     )
 
 
-def pyarrow_column_to_array(arg: tp.Union[pa.ChunkedArray, pa.Array]) -> pa.Array:
+def pyarrow_column_to_array(arg: pa.ChunkedArray | pa.Array) -> pa.Array:
     # see https://github.com/apache/arrow/issues/37318
     if isinstance(arg, pa.Array):
         return _fix_list_offset(arg)

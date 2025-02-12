@@ -34,7 +34,7 @@ class TableBucketer:
             self.config.target_table_size,
         ].count(None)
 
-        if none_bucketing_params in [2, 3]:
+        if none_bucketing_params not in [2, 3]:
             raise ValueError(
                 "Only one of `target_table_memory`, `target_total_length`, `target_table_size` can be set"
             )
@@ -125,14 +125,11 @@ class TableBucketer:
             or self.config.batch_size is not None
         ):
 
-            length_columns = self.config.length_columns
-            assert length_columns is not None
-
             def mini_batch_iterator(table: pa.Table) -> DataPipeline:
                 return build_batching_loop_over_one_table(
                     table=table,
                     order_by_length=self.config.order_by_length,
-                    length_column=length_columns,
+                    length_columns=self.config.length_columns,
                     batch_size=self.config.batch_size,
                     max_tokens=self.config.total_batch_length,
                     shuffle=self.config.shuffle,

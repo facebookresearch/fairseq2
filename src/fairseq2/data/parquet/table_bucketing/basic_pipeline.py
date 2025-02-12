@@ -76,7 +76,7 @@ def compute_length_splits(
 
 
 def compute_rows_length(
-    pa_array: Union[pa.Array, pa.ChunkedArray]
+    pa_array: Union[pa.Array, pa.ChunkedArray],
 ) -> NDArray[np.int32]:
     """
     Compute the length of each row in a PyArrow array.
@@ -110,7 +110,7 @@ def compute_rows_length(
 def build_batching_loop_over_one_table(
     table: pa.Table,
     order_by_length: bool = False,
-    length_column: List[Optional[str]] = None,
+    length_columns: Optional[List[Optional[str]]] = None,
     batch_size: Optional[int] = None,
     max_tokens: Optional[int] = None,
     drop_long_sample: bool = True,
@@ -123,7 +123,7 @@ def build_batching_loop_over_one_table(
         raise ValueError("Need to provide either max_tokens or batch_size")
 
     if (max_tokens is not None) or order_by_length:
-        assert length_column is not None, "Need to provide length columns"
+        assert length_columns is not None, "Need to provide length columns"
 
     if batch_size is not None and not order_by_length and not shuffle:
         # early exit if we don't need to shuffle, (.slice instead of .take)
@@ -136,9 +136,9 @@ def build_batching_loop_over_one_table(
 
     random_state = np.random.RandomState(seed)
 
-    if length_column is not None and len(length_column) > 0:
+    if length_columns is not None and len(length_columns) > 0:
         length_col = reduce(
-            np.add, (compute_rows_length(table[lc]) for lc in length_column)
+            np.add, (compute_rows_length(table[lc]) for lc in length_columns)
         )
     else:
         if shuffle:

@@ -294,16 +294,16 @@ class ParquetFragmentStreamer:
         # TODO: shuffle file_ds_fragments differently for each rank/world size
 
         if not self.split_to_row_groups:
-            for frag in file_ds_fragments[self.state.nb_fully_read_files :]:
+            for frag in file_ds_fragments[self.state.nb_fully_read_files:]:
                 self.state.nb_fully_read_files += 1
                 yield frag
         else:
             log.info(f"{self.proxy_ds_path} : starting split in row groups")
 
-            for new_file in file_ds_fragments[self.state.nb_fully_read_files :]:
+            for new_file in file_ds_fragments[self.state.nb_fully_read_files:]:
                 new_file_fragments = split_fragment_in_row_groups(new_file)
                 new_file_fragments = new_file_fragments[
-                    self.state.nb_current_file_read_fragements :
+                    self.state.nb_current_file_read_fragements:
                 ]
 
                 for frag in new_file_fragments:
