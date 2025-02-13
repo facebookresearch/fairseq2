@@ -72,7 +72,7 @@ class DatasetHub(Generic[DatasetT]):
             raise UnknownDatasetFamilyError(dataset_family, dataset_name) from None
 
         if not issubclass(handler.kls, self._kls):
-            raise InvalidDatasetTypeError(handler.kls, self._kls, dataset_name)
+            raise InvalidDatasetTypeError(dataset_name, handler.kls, self._kls)
 
         dataset = handler.load(card)
 

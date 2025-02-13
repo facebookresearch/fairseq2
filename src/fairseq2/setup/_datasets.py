@@ -26,6 +26,8 @@ from fairseq2.datasets.text import GENERIC_TEXT_DATASET_FAMILY, GenericTextDatas
 
 
 def _register_datasets(context: RuntimeContext) -> None:
+    file_system = context.file_system
+
     asset_download_manager = context.asset_download_manager
 
     registry = context.get_registry(DatasetHandler)
@@ -37,6 +39,7 @@ def _register_datasets(context: RuntimeContext) -> None:
         GENERIC_ASR_DATASET_FAMILY,
         GenericAsrDataset,
         GenericAsrDataset.from_path,
+        file_system,
         asset_download_manager,
     )
 
@@ -47,6 +50,7 @@ def _register_datasets(context: RuntimeContext) -> None:
         GENERIC_INSTRUCTION_DATASET_FAMILY,
         GenericInstructionDataset,
         GenericInstructionDataset.from_path,
+        file_system,
         asset_download_manager,
     )
 
@@ -57,6 +61,7 @@ def _register_datasets(context: RuntimeContext) -> None:
         GENERIC_PARALLEL_TEXT_DATASET_FAMILY,
         GenericParallelTextDataset,
         GenericParallelTextDataset.from_path,
+        file_system,
         asset_download_manager,
     )
 
@@ -67,6 +72,7 @@ def _register_datasets(context: RuntimeContext) -> None:
         GENERIC_PREFERENCE_DATASET_FAMILY,
         GenericPreferenceDataset,
         GenericPreferenceDataset.from_path,
+        file_system,
         asset_download_manager,
     )
 
@@ -77,6 +83,7 @@ def _register_datasets(context: RuntimeContext) -> None:
         GENERIC_SPEECH_DATASET_FAMILY,
         GenericSpeechDataset,
         GenericSpeechDataset.from_path,
+        file_system,
         asset_download_manager,
     )
 
@@ -87,6 +94,7 @@ def _register_datasets(context: RuntimeContext) -> None:
         GENERIC_TEXT_DATASET_FAMILY,
         GenericTextDataset,
         GenericTextDataset.from_path,
+        file_system,
         asset_download_manager,
     )
 

@@ -18,15 +18,12 @@ class UnknownTextTokenizerError(Exception):
 
 class UnknownTextTokenizerFamilyError(Exception):
     family: str
-    tokenizer_name: str | None
+    tokenizer_name: str
 
-    def __init__(self, family: str, tokenizer_name: str | None = None) -> None:
-        if tokenizer_name is None:
-            message = f"'{family}' is not a known text tokenizer family."
-        else:
-            message = f"The '{tokenizer_name}' text tokenizer has an unknown family '{family}'"
-
-        super().__init__(message)
+    def __init__(self, family: str, tokenizer_name: str) -> None:
+        super().__init__(
+            f"The '{tokenizer_name}' text tokenizer has an unknown family '{family}'"
+        )
 
         self.family = family
         self.tokenizer_name = tokenizer_name

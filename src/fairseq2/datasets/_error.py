@@ -20,15 +20,12 @@ class UnknownDatasetError(Exception):
 
 class UnknownDatasetFamilyError(Exception):
     family: str
-    dataset_name: str | None
+    dataset_name: str
 
-    def __init__(self, family: str, dataset_name: str | None = None) -> None:
-        if dataset_name is None:
-            message = f"'{family}' is not a known dataset family."
-        else:
-            message = f"The '{dataset_name}' dataset has an unknown family '{family}'"
-
-        super().__init__(message)
+    def __init__(self, family: str, dataset_name: str) -> None:
+        super().__init__(
+            f"The '{dataset_name}' dataset has an unknown family '{family}'"
+        )
 
         self.family = family
         self.dataset_name = dataset_name
@@ -50,26 +47,20 @@ def dataset_asset_card_error(dataset_name: str) -> DatasetLoadError:
 
 
 class InvalidDatasetTypeError(Exception):
+    dataset_name: str
     kls: type[object]
     expected_kls: type[object]
-    dataset_name: str | None
 
     def __init__(
-        self,
-        kls: type[object],
-        expected_kls: type[object],
-        dataset_name: str | None = None,
+        self, dataset_name: str, kls: type[object], expected_kls: type[object]
     ) -> None:
-        if dataset_name is None:
-            message = f"The dataset is expected to be of type `{expected_kls}`, but is of type `{kls}` instead."
-        else:
-            message = f"The '{dataset_name}' dataset is expected to be of type `{expected_kls}`, but is of type `{kls}` instead."
+        super().__init__(
+            f"The '{dataset_name}' dataset is expected to be of type `{expected_kls}`, but is of type `{kls}` instead."
+        )
 
-        super().__init__(message)
-
+        self.dataset_name = dataset_name
         self.kls = kls
         self.expected_kls = expected_kls
-        self.dataset_name = dataset_name
 
 
 class UnknownSplitError(ValueError):

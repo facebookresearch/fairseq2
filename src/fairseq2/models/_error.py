@@ -107,10 +107,7 @@ class InvalidModelConfigTypeError(Exception):
     expected_kls: type[object]
 
     def __init__(
-        self,
-        model_name: str,
-        kls: type[object],
-        expected_kls: type[object],
+        self, model_name: str, kls: type[object], expected_kls: type[object]
     ) -> None:
         super().__init__(
             f"The '{model_name}' model configuration is expected to be of type `{expected_kls}`, but is of type `{kls}` instead."

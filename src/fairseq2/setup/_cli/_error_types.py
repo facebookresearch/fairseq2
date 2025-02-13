@@ -41,6 +41,7 @@ from fairseq2.optim.lr_scheduler import (
 )
 from fairseq2.profilers import UnknownProfilerError
 from fairseq2.recipes.common import (
+    DatasetNotFoundError,
     InvalidCheckpointPathError,
     ModelNotFoundError,
     ModelParallelismNotSupportedError,
@@ -50,6 +51,7 @@ from fairseq2.utils.validation import ValidationError
 
 
 def _register_user_error_types(cli: Cli) -> None:
+    cli.register_user_error_type(DatasetNotFoundError)
     cli.register_user_error_type(InvalidCheckpointPathError)
     cli.register_user_error_type(InvalidDatasetTypeError)
     cli.register_user_error_type(InvalidModelTypeError)
