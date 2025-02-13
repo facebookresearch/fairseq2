@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import warnings
 from typing import cast, final
-from warnings import catch_warnings
 
 import torch.nn as nn
 from torch import Tensor
@@ -125,8 +124,10 @@ class Wav2Vec2PositionalConv1d(Conv1d):
         )
 
         if not getattr(self, "no_parametrization", False):
-            with catch_warnings():
-                warnings.simplefilter("ignore")  # Suppress the deprecation warning.
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    action="ignore", message=r".*deprecated in favor of `torch.nn.utils.parametrizations.weight_norm`.*"  # fmt: skip
+                )
 
                 weight_norm(self, dim=2)
 

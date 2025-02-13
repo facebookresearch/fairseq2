@@ -10,17 +10,8 @@ from fairseq2.models._error import (
     InvalidModelConfigTypeError as InvalidModelConfigTypeError,
 )
 from fairseq2.models._error import InvalidModelTypeError as InvalidModelTypeError
-from fairseq2.models._error import (
-    MetaDeviceNotSupportedError as MetaDeviceNotSupportedError,
-)
-from fairseq2.models._error import (
-    ModelCheckpointNotFoundError as ModelCheckpointNotFoundError,
-)
 from fairseq2.models._error import ModelConfigLoadError as ModelConfigLoadError
 from fairseq2.models._error import ModelLoadError as ModelLoadError
-from fairseq2.models._error import (
-    ModelParallelismNotSupportedError as ModelParallelismNotSupportedError,
-)
 from fairseq2.models._error import ShardedModelLoadError as ShardedModelLoadError
 from fairseq2.models._error import (
     UnknownModelArchitectureError as UnknownModelArchitectureError,

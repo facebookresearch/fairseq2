@@ -11,7 +11,6 @@ import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from typing import Any, Generic, Protocol, TypeVar, final, runtime_checkable
-from warnings import catch_warnings
 
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn import Module
@@ -136,8 +135,13 @@ class StatefulObjectBag:
     @staticmethod
     def _state_dict(obj: Stateful) -> dict[str, object]:
         if isinstance(obj, FSDP):
-            with catch_warnings():
-                warnings.simplefilter("ignore")  # Suppress noisy FSDP warnings.
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    action="ignore", message=r".*Please use DTensor instead.*"
+                )
+                warnings.filterwarnings(
+                    action="ignore", message=r".*`_get_pg_default_device` will be deprecated.*"  # fmt: skip
+                )
 
                 return obj.state_dict()
 
@@ -224,8 +228,10 @@ class StatefulObjectBag:
     @staticmethod
     def _load_state_dict(obj: Stateful, state: Mapping[str, object]) -> None:
         if isinstance(obj, FSDP):
-            with catch_warnings():
-                warnings.simplefilter("ignore")  # Suppress noisy FSDP warnings.
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    action="ignore", message=r".*Please use DTensor instead.*"
+                )
 
                 load_state_dict(obj, state)
 
@@ -282,8 +288,13 @@ class FSDPOptimizerStateHandler(StateHandler[Optimizer]):
 
     @override
     def get_state(self, stateful: Optimizer) -> object:
-        with catch_warnings():
-            warnings.simplefilter("ignore")  # Suppress noisy FSDP warnings.
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                action="ignore", message=r".*`_get_pg_default_device` will be deprecated.*"  # fmt: skip
+            )
+            warnings.filterwarnings(
+                action="ignore", message=r".*You are using `torch\.load` with `weights_only=False`.*"  # fmt: skip
+            )
 
             try:
                 # FSDP uses warning level to dump a lot of noisy internal trace
@@ -305,8 +316,10 @@ class FSDPOptimizerStateHandler(StateHandler[Optimizer]):
                 f"`state` must be of type `dict`, but is of type `{type(state)}` instead."
             )
 
-        with catch_warnings():
-            warnings.simplefilter("ignore")  # Suppress noisy FSDP warnings.
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                action="ignore", message=r".*Please use DTensor instead.*"
+            )
 
             try:
                 # FSDP uses warning level to dump a lot of noisy internal trace

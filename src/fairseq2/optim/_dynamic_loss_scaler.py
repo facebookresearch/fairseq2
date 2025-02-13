@@ -11,7 +11,6 @@ import warnings
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import cast, final
-from warnings import catch_warnings
 
 import torch
 from torch import Tensor
@@ -99,8 +98,10 @@ class DynamicLossScaler:
                 scale_window = 1
 
         if not enabled or not sharded or gang.size == 1:
-            with catch_warnings():
-                warnings.simplefilter("ignore")  # Suppress deprecation warning.
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    action="ignore", message=r".*`torch\.cuda\.amp\.GradScaler\(args\.\.\.\)` is deprecated.*"  # fmt: skip
+                )
 
                 self._grad_scaler = _InternalGradScaler(
                     init_scale=init_scale,

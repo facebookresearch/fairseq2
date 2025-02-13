@@ -89,7 +89,17 @@ class FileAssetMetadataLoader:
         cache = {}
 
         def cache_file(file: Path, source: str) -> None:
-            for name, metadata in self._metadata_file_loader.load(file):
+            try:
+                all_metadata = self._metadata_file_loader.load(file)
+            except FileNotFoundError:
+                if file == path:
+                    raise
+
+                raise AssetMetadataLoadError(
+                    f"The '{file}' file is not found."
+                ) from None
+
+            for name, metadata in all_metadata:
                 if name in cache:
                     if file == path:
                         raise AssetMetadataLoadError(
@@ -166,7 +176,14 @@ class PackageAssetMetadataLoader:
             if file.suffix != ".yaml" and file.suffix != ".yml":
                 continue
 
-            for name, metadata in self._metadata_file_loader.load(file):
+            try:
+                all_metadata = self._metadata_file_loader.load(file)
+            except FileNotFoundError:
+                raise AssetMetadataLoadError(
+                    f"The '{self._package_name}' package does not have a file named '{file}'."
+                ) from None
+
+            for name, metadata in all_metadata:
                 if name in cache:
                     raise AssetMetadataLoadError(
                         f"Two assets in the '{self._package_name}' package have the same name '{name}'."
@@ -198,6 +215,8 @@ class StandardAssetMetadataFileLoader(AssetMetadataFileLoader):
 
         try:
             all_metadata = self._yaml_loader.load(file)
+        except FileNotFoundError:
+            raise
         except (OSError, YamlError) as ex:
             raise AssetMetadataLoadError(
                 f"The '{file}' asset metadata file cannot be loaded as YAML. See the nested exception for details."

@@ -224,16 +224,13 @@ class FileCheckpointMetadataLoader:
                 )
 
             try:
-                score_exists = self._file_system.exists(score_file)
+                fp = self._file_system.open_text(score_file)
+            except FileNotFoundError:
+                fp = None
             except OSError as ex:
                 raise load_error() from ex
 
-            if score_exists:
-                try:
-                    fp = self._file_system.open_text(score_file)
-                except OSError as ex:
-                    raise load_error() from ex
-
+            if fp is not None:
                 try:
                     line = fp.readline()
                 except OSError as ex:

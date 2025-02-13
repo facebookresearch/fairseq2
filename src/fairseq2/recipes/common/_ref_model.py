@@ -26,7 +26,6 @@ from fairseq2.models import (
     ModelConfigLoadError,
     ModelHandler,
     ModelLoadError,
-    ModelParallelismNotSupportedError,
     ShardedModelLoadError,
     UnknownModelError,
     UnknownModelFamilyError,
@@ -35,6 +34,7 @@ from fairseq2.models import (
 from fairseq2.models.compile import compile_model
 from fairseq2.nn.utils.module import remove_parametrizations
 from fairseq2.recipes.common._distributed import broadcast_model
+from fairseq2.recipes.common._model import ModelParallelismNotSupportedError
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.registry import Provider
 from fairseq2.typing import DataType
@@ -76,17 +76,11 @@ def load_reference_model(
 
     try:
         return loader.load(model_name, gangs, dtype, mp)
-    except ModelParallelismNotSupportedError:
-        raise
-    except NotSupportedError as ex:
-        raise ProgramError(
-            f"The '{model_name}' model cannot be constructed due to an unsupported operation. See the nested exception for details."
-        ) from ex
     except ShardedModelLoadError:
         raise
     except ModelLoadError as ex:
         raise ProgramError(
-            f"The '{model_name}' model cannot be loaded. See the nested exception for details."
+            f"The '{ex.model_name}' model cannot be loaded. See the nested exception for details."
         ) from ex
 
 
@@ -127,7 +121,10 @@ class ReferenceModelLoader(Generic[ModelT]):
             raise UnknownModelFamilyError(model_family, model_name) from None
 
         if not issubclass(handler.kls, self._kls):
-            raise InvalidModelTypeError(handler.kls, self._kls, model_name) from None
+            raise InvalidModelTypeError(model_name, handler.kls, self._kls) from None
+
+        if not handler.supports_sharding and gangs.root.size != gangs.dp.size:
+            raise ModelParallelismNotSupportedError(model_family, model_name)
 
         try:
             model_config = handler.load_config(card)
@@ -137,15 +134,22 @@ class ReferenceModelLoader(Generic[ModelT]):
             ) from ex
 
         # Load the model.
-        log.info("Loading '{}' model on data parallel rank 0 (per shard).", model_name)
+        log.info("Loading '{}' model on data parallel rank 0.", model_name)
 
         if mp:
             dtype = torch.float32
 
-        if gangs.dp.rank == 0:
-            model = handler.load(card, gangs, dtype, model_config)
-        else:
-            model = handler.create(model_config, gangs, dtype, handler.supports_meta)
+        try:
+            if gangs.dp.rank == 0:
+                model = handler.load(card, gangs, dtype, model_config)
+            else:
+                model = handler.create(
+                    model_config, gangs, dtype, handler.supports_meta
+                )
+        except NotSupportedError as ex:
+            raise ModelLoadError(
+                model_name, f"The '{model_name}' model cannot be constructed due to an unsupported operation. See the nested exception for details."  # fmt: skip
+            ) from ex
 
         try:
             gangs.root.barrier()

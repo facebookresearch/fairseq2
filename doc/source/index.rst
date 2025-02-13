@@ -62,7 +62,6 @@ Documentation
    tutorials/preference_optimization
    tutorials/monitor_your_experiments
    tutorials/presets
-   tutorials/benchmarking
    tutorials/pudb
    tutorials/models
 

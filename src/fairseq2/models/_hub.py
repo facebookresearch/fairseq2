@@ -90,7 +90,7 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
 
         if not issubclass(handler.config_kls, self._config_kls):
             raise InvalidModelConfigTypeError(
-                handler.config_kls, self._config_kls, model_name
+                model_name, handler.config_kls, self._config_kls
             )
 
         config = handler.load_config(card)
@@ -151,7 +151,7 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
             raise UnknownModelFamilyError(model_family, model_name) from None
 
         if not issubclass(handler.kls, self._kls):
-            raise InvalidModelTypeError(handler.kls, self._kls, model_name)
+            raise InvalidModelTypeError(model_name, handler.kls, self._kls)
 
         if dtype is None:
             dtype = torch.get_default_dtype()

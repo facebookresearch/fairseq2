@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import warnings
 from functools import partial
 
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
@@ -16,6 +17,7 @@ from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
 from torch.nn import Module
 
 from fairseq2.nn.transformer import TransformerDecoderLayer, TransformerEncoderLayer
+from fairseq2.utils.version import torch_greater_or_equal
 
 
 def use_layerwise_activation_checkpointing(
@@ -30,6 +32,11 @@ def use_layerwise_activation_checkpointing(
         for the CPU and the device of ``module`` during the original forward
         pass and restores them during the recomputation.
     """
+    if not torch_greater_or_equal(2, 6):
+        warnings.filterwarnings(
+            action="ignore", message=r".*`torch\.cpu\.amp\.autocast\(args\.\.\.\)` is deprecated.*"  # fmt: skip
+        )
+
     wrap = partial(
         checkpoint_wrapper,
         checkpoint_impl=CheckpointImpl.NO_REENTRANT,
