@@ -41,14 +41,14 @@ def load_text_tokenizer(
 ) -> TextTokenizer:
     tokenizer_handlers = context.get_registry(TextTokenizerHandler)
 
+    loader = TextTokenizerLoader(context.asset_store, tokenizer_handlers)
+
     try:
-        loader = TextTokenizerLoader(context.asset_store, tokenizer_handlers)
+        return loader.load(recipe_config)
     except TextTokenizerLoadError as ex:
         raise ProgramError(
             f"The '{ex.tokenizer_name}' tokenizer cannot be loaded. See the nested exception for details."
         ) from ex
-
-    return loader.load(recipe_config)
 
 
 @final

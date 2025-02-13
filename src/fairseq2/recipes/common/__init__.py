@@ -12,6 +12,9 @@ from fairseq2.recipes.common._asset import (
 from fairseq2.recipes.common._checkpoint import (
     create_checkpoint_manager as create_checkpoint_manager,
 )
+from fairseq2.recipes.common._dataset import (
+    DatasetNotFoundError as DatasetNotFoundError,
+)
 from fairseq2.recipes.common._dataset import load_dataset as load_dataset
 from fairseq2.recipes.common._distributed import (
     NotSupportedDistributedFeature as NotSupportedDistributedFeature,

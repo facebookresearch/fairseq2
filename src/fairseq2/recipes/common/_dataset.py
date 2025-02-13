@@ -6,7 +6,11 @@
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import TypeVar, cast, final
+
+from typing_extensions import override
 
 from fairseq2.assets import (
     AssetCardError,
@@ -37,37 +41,37 @@ def load_dataset(
 ) -> DatasetT:
     dataset_handlers = context.get_registry(DatasetHandler)
 
+    dataset_loader: DatasetLoader
+
     dataset_section = get_config_section(recipe_config, "dataset", DatasetSection)
     if dataset_section.path is not None:
-        path_loader = PathBasedDatasetLoader(kls, dataset_handlers)
-
-        dataset_name = "recipe"
-
-        try:
-            dataset = path_loader.load(recipe_config, dataset_name, gangs)
-        except DatasetLoadError as ex:
-            raise ProgramError(
-                f"The '{dataset_name}' dataset cannot be loaded. See the nested exception for details."
-            ) from ex
+        dataset_loader = PathBasedDatasetLoader(kls, dataset_handlers)
     elif dataset_section.name is not None:
-        card_loader = CardBasedDatasetLoader(kls, context.asset_store, dataset_handlers)
-
-        try:
-            dataset = card_loader.load(recipe_config, gangs)
-        except DatasetLoadError as ex:
-            raise ProgramError(
-                f"The '{dataset_section.name}' dataset cannot be loaded. See the nested exception for details."
-            ) from ex
+        dataset_loader = CardBasedDatasetLoader(
+            kls, context.asset_store, dataset_handlers
+        )
     else:
         raise ValueError(
             "Either `config.dataset.name` or `config.dataset.path` must be specified."
         )
 
+    try:
+        dataset = dataset_loader.load(recipe_config, gangs)
+    except DatasetLoadError as ex:
+        raise ProgramError(
+            f"The '{ex.dataset_name}' dataset cannot be loaded. See the nested exception for details."
+        ) from ex
+
     return cast(DatasetT, dataset)
 
 
+class DatasetLoader(ABC):
+    @abstractmethod
+    def load(self, recipe_config: object, gangs: Gangs) -> object: ...
+
+
 @final
-class CardBasedDatasetLoader:
+class CardBasedDatasetLoader(DatasetLoader):
     _kls: type[object]
     _asset_store: AssetStore
     _dataset_handlers: Provider[DatasetHandler]
@@ -82,6 +86,7 @@ class CardBasedDatasetLoader:
         self._asset_store = asset_store
         self._dataset_handlers = dataset_handlers
 
+    @override
     def load(self, recipe_config: object, gangs: Gangs) -> object:
         dataset_section = get_config_section(recipe_config, "dataset", DatasetSection)
 
@@ -109,7 +114,7 @@ class CardBasedDatasetLoader:
             raise UnknownDatasetFamilyError(dataset_family, dataset_name) from None
 
         if not issubclass(handler.kls, self._kls):
-            raise InvalidDatasetTypeError(handler.kls, self._kls, dataset_name)
+            raise InvalidDatasetTypeError(dataset_name, handler.kls, self._kls)
 
         log.info("Loading '{}' dataset.", dataset_name)
 
@@ -128,7 +133,7 @@ class CardBasedDatasetLoader:
 
 
 @final
-class PathBasedDatasetLoader:
+class PathBasedDatasetLoader(DatasetLoader):
     _kls: type[object]
     _dataset_handlers: Provider[DatasetHandler]
 
@@ -138,26 +143,32 @@ class PathBasedDatasetLoader:
         self._kls = kls
         self._dataset_handlers = dataset_handlers
 
-    def load(self, recipe_config: object, dataset_name: str, gangs: Gangs) -> object:
+    @override
+    def load(self, recipe_config: object, gangs: Gangs) -> object:
         dataset_section = get_config_section(recipe_config, "dataset", DatasetSection)
+
+        dataset_family = dataset_section.family
 
         data_path = dataset_section.path
         if data_path is None:
             raise ValueError("`recipe.dataset.path` must be specified.")
 
-        dataset_family = dataset_section.family
+        dataset_name = "custom"
 
         try:
             handler = self._dataset_handlers.get(dataset_family)
         except LookupError:
-            raise UnknownDatasetFamilyError(dataset_family) from None
+            raise UnknownDatasetFamilyError(dataset_family, dataset_name) from None
 
         if not issubclass(handler.kls, self._kls):
-            raise InvalidDatasetTypeError(handler.kls, self._kls)
+            raise InvalidDatasetTypeError(dataset_name, handler.kls, self._kls)
 
         log.info("Loading the dataset.")
 
-        dataset = handler.load_from_path(data_path, dataset_name=dataset_name)
+        try:
+            dataset = handler.load_from_path(data_path, dataset_name)
+        except FileNotFoundError:
+            raise DatasetNotFoundError(dataset_name, data_path) from None
 
         try:
             gangs.root.barrier()
@@ -169,3 +180,16 @@ class PathBasedDatasetLoader:
         log.info("Dataset loaded.")
 
         return dataset
+
+
+class DatasetNotFoundError(Exception):
+    dataset_name: str
+    path: Path
+
+    def __init__(self, dataset_name: str, path: Path) -> None:
+        super().__init__(
+            f"The '{dataset_name}' dataset cannot be found at the '{path}' path."
+        )
+
+        self.dataset_name = dataset_name
+        self.path = path
