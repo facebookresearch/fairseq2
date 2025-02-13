@@ -16,6 +16,9 @@ from fairseq2.recipes.common._dataset import (
     DatasetNotFoundError as DatasetNotFoundError,
 )
 from fairseq2.recipes.common._dataset import load_dataset as load_dataset
+from fairseq2.recipes.common._device import (
+    create_device_stat_tracker as create_device_stat_tracker,
+)
 from fairseq2.recipes.common._distributed import (
     NotSupportedDistributedFeature as NotSupportedDistributedFeature,
 )

@@ -80,6 +80,23 @@ def format_as_float(value: object, *, postfix: str | None = None) -> str:
     return s
 
 
+def format_as_percentage(value: object) -> str:
+    """Format metric ``value`` as percentage."""
+    if isinstance(value, float):
+        f = value
+    elif isinstance(value, (str, Tensor, int)):
+        try:
+            f = float(value)
+        except ValueError:
+            return f"{value}"
+    else:
+        return f"{value}"
+
+    i = math.ceil(f * 100)
+
+    return f"{i}%"
+
+
 _UNITS: Final = ["B", "KiB", "MiB", "GiB", "TiB", "PiB"]
 
 

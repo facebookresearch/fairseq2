@@ -18,6 +18,7 @@ from torch.profiler import record_function
 from typing_extensions import override
 
 from fairseq2.datasets import DataReader
+from fairseq2.device import DeviceStatTracker
 from fairseq2.error import InternalError, InvalidOperationError
 from fairseq2.gang import Gangs
 from fairseq2.logging import log
@@ -102,6 +103,7 @@ class Evaluator(Generic[BatchT]):
     _step_nr: int
     _metric_recorder: MetricRecorder
     _profiler: Profiler
+    _device_stat_tracker: DeviceStatTracker
     _seed: int
     _wall_watch: Stopwatch
     _run: bool
@@ -113,12 +115,13 @@ class Evaluator(Generic[BatchT]):
         units: Sequence[EvalUnit[BatchT]],
         data_readers: Sequence[DataReader[BatchT]],
         gangs: Gangs,
+        dtype: DataType,
+        amp: bool,
         metric_recorder: MetricRecorder,
         profiler: Profiler,
+        device_stat_tracker: DeviceStatTracker,
+        seed: int,
         wall_watch: Stopwatch,
-        dtype: DataType = torch.float32,
-        amp: bool = False,
-        seed: int = 2,
     ) -> None:
         """
         :param units: The evaluation units.
@@ -154,6 +157,8 @@ class Evaluator(Generic[BatchT]):
         self._metric_recorder = metric_recorder
 
         self._profiler = profiler
+
+        self._device_stat_tracker = device_stat_tracker
 
         self._seed = seed
 
@@ -211,12 +216,14 @@ class Evaluator(Generic[BatchT]):
 
         task = self._progress_reporter.create_task("eval", total=None)
 
-        for eval_step_nr in count(start=1):
+        self._device_stat_tracker.reset()
+
+        for step_nr in count(start=1):
             self._step_nr += 1
 
             task.step(1)
 
-            log.debug("Running step {}.", eval_step_nr)
+            log.debug("Running step {}.", step_nr)
 
             # Collect the batches.
             with record_function(f"step_{self._step_nr}_data_load"):
@@ -259,23 +266,25 @@ class Evaluator(Generic[BatchT]):
 
         unit.metric_bag.reset_metrics()
 
-        if self._gangs.root.rank != 0:
-            return
+        if self._gangs.root.rank == 0:
+            if values is None:
+                raise InternalError("`values` is `None`.")
 
-        if values is None:
-            raise InternalError(
-                "The synchronized metric values are `None`. Please file a bug report."
-            )
+            extend_batch_metrics(values, num_batches, elapsed_time)
 
-        extend_batch_metrics(values, num_batches, elapsed_time)
+            device_stats = self._device_stat_tracker.get_stats()
 
-        values["elapsed_time"] = elapsed_time
+            values.update(device_stats)
 
-        values["wall_time"] = self._wall_watch.get_elapsed_time()
+            values["elapsed_time"] = elapsed_time
 
-        if unit.display_name:
-            run_name = "eval/" + unit.display_name
-        else:
-            run_name = "eval"
+            values["wall_time"] = self._wall_watch.get_elapsed_time()
 
-        self._metric_recorder.record_metrics(run_name, values)
+            if unit.display_name:
+                run_name = "eval/" + unit.display_name
+            else:
+                run_name = "eval"
+
+            self._metric_recorder.record_metrics(run_name, values)
+
+        self._gangs.root.barrier()

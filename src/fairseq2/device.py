@@ -149,3 +149,56 @@ class TorchCudaContext(CudaContext):
     @override
     def set_default_device(self, device: Device) -> None:
         torch.cuda.set_device(device)
+
+
+class DeviceStatTracker(ABC):
+    @abstractmethod
+    def get_stats(self) -> dict[str, object]: ...
+
+    @abstractmethod
+    def reset(self) -> None: ...
+
+
+@final
+class NoopDeviceStatTracker(DeviceStatTracker):
+    @override
+    def get_stats(self) -> dict[str, object]:
+        return {}
+
+    @override
+    def reset(self) -> None:
+        pass
+
+
+@final
+class CudaDeviceStatTracker(DeviceStatTracker):
+    _device: Device
+    _total_memory: int
+
+    def __init__(self, device: Device) -> None:
+        self._device = device
+
+        props = torch.cuda.get_device_properties(device)
+
+        self._total_memory = props.total_memory
+
+    @override
+    def get_stats(self) -> dict[str, object]:
+        stats = torch.cuda.memory_stats(self._device)
+
+        peak_active_mem = stats["active_bytes.all.peak"]
+        peak_active_mem_ratio = peak_active_mem / self._total_memory
+
+        peak_reserved_mem = stats["reserved_bytes.all.peak"]
+        peak_reserved_mem_ratio = peak_reserved_mem / self._total_memory
+
+        return {
+            "peak_active_mem": peak_active_mem,
+            "peak_active_mem_ratio": peak_active_mem_ratio,
+            "peak_reserved_mem": peak_reserved_mem,
+            "peak_reserved_mem_ratio": peak_reserved_mem_ratio,
+        }
+
+    @override
+    def reset(self) -> None:
+        torch.cuda.reset_peak_memory_stats()
