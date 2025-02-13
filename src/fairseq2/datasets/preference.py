@@ -219,9 +219,11 @@ class GenericPreferenceDataset(PreferenceDataset):
             # below is an example of using extras field of data reader options
             if "keep_jsonl_keys" in options.extras:
                 jsonl_keys = options.extras["keep_jsonl_keys"]
-                assert isinstance(jsonl_keys, list) and all(
-                    isinstance(i, str) for i in jsonl_keys
-                ), f"{jsonl_keys} must be a list of strings"
+                if not (
+                    isinstance(jsonl_keys, list)
+                    and all(isinstance(i, str) for i in jsonl_keys)
+                ):
+                    raise ValueError(f"{jsonl_keys} must be a list of strings")
                 jsonl_content = {k: example.get(k, None) for k in jsonl_keys}
             else:
                 jsonl_content = None
