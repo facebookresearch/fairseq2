@@ -18,6 +18,7 @@ from fairseq2.datasets import DataReader
 from fairseq2.gang import Gangs
 from fairseq2.metrics import MetricDescriptor, UnknownMetricDescriptorError
 from fairseq2.optim.lr_scheduler import LRScheduler
+from fairseq2.recipes.common._device import create_device_stat_tracker
 from fairseq2.recipes.common._metrics import create_metric_recorder
 from fairseq2.recipes.common._profilers import create_profiler
 from fairseq2.recipes.config import RegimeSection, TrainerSection, get_config_section
@@ -51,6 +52,8 @@ def create_trainer(
     metric_recorder = create_metric_recorder(context, recipe_config, output_dir)
 
     profiler = create_profiler(context, recipe_config, gangs, output_dir)
+
+    device_stat_tracker = create_device_stat_tracker(gangs)
 
     trainer_section = get_config_section(recipe_config, "trainer", TrainerSection)
 
@@ -98,6 +101,7 @@ def create_trainer(
         publish_metrics_after_n_data_epochs=regime_section.publish_metrics_after_n_data_epochs,
         publish_metrics_every_n_data_epochs=regime_section.publish_metrics_every_n_data_epochs,
         profiler=profiler,
+        device_stat_tracker=device_stat_tracker,
         gradient_check=trainer_section.gradient_check,
         anomaly_detection=trainer_section.anomaly_detection,
         wall_watch=context.wall_watch,

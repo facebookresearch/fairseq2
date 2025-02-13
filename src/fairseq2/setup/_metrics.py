@@ -13,6 +13,7 @@ from fairseq2.metrics import (
     format_as_byte_size,
     format_as_float,
     format_as_int,
+    format_as_percentage,
     format_as_seconds,
 )
 from fairseq2.metrics.recorders import (
@@ -113,4 +114,10 @@ def _register_metric_descriptors(context: RuntimeContext) -> None:
     register(MetricDescriptor("rejected_logps",   "Rejected Sequence Log Probabilities", 50, format_as_float))
     register(MetricDescriptor("chosen_lengths",   "Chosen Sequence Length",              70, format_as_float))
     register(MetricDescriptor("rejected_lengths", "Rejected Sequence Length",            70, format_as_float))
+
+    # Memory
+    register(MetricDescriptor("peak_active_mem",         "Peak Active Device Memory",       920, format_as_byte_size))
+    register(MetricDescriptor("peak_active_mem_ratio",   "Peak Active Device Memory (%)",   920, format_as_percentage))
+    register(MetricDescriptor("peak_reserved_mem",       "Peak Reserved Device Memory",     925, format_as_byte_size))
+    register(MetricDescriptor("peak_reserved_mem_ratio", "Peak Reserved Device Memory (%)", 925, format_as_percentage))
     # fmt, on

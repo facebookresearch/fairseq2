@@ -13,6 +13,7 @@ from typing import TypeVar
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import DataReader
 from fairseq2.gang import Gangs
+from fairseq2.recipes.common._device import create_device_stat_tracker
 from fairseq2.recipes.common._metrics import create_metric_recorder
 from fairseq2.recipes.common._profilers import create_profiler
 from fairseq2.recipes.config import EvaluatorSection, get_config_section
@@ -34,6 +35,8 @@ def create_evaluator(
 
     profiler = create_profiler(context, recipe_config, gangs, output_dir)
 
+    device_stat_tracker = create_device_stat_tracker(gangs)
+
     evaluator_section = get_config_section(recipe_config, "evaluator", EvaluatorSection)
 
     return Evaluator[BatchT](
@@ -44,6 +47,7 @@ def create_evaluator(
         amp=evaluator_section.amp,
         metric_recorder=metric_recorder,
         profiler=profiler,
+        device_stat_tracker=device_stat_tracker,
         wall_watch=context.wall_watch,
         seed=seed,
     )

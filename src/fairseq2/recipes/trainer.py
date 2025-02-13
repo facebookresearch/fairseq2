@@ -26,6 +26,7 @@ from typing_extensions import override
 
 from fairseq2.checkpoint import CheckpointManager, CheckpointNotFoundError
 from fairseq2.datasets import DataReader
+from fairseq2.device import DeviceStatTracker
 from fairseq2.error import ContractError, InternalError, InvalidOperationError
 from fairseq2.gang import Gangs, broadcast_flag
 from fairseq2.logging import log
@@ -112,11 +113,11 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     _data_reader: DataReader[BatchT]
     _gangs: Gangs
     _dtype: DataType
+    _amp: bool
     _optimizer: Optimizer
     _lr_scheduler: LRScheduler
     _loss_scaler: DynamicLossScaler
     _max_gradient_norm: float | None
-    _amp: bool
     _step_nr: int
     _max_num_steps: int | None
     _data_epoch_nr: int
@@ -154,6 +155,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     _publish_metrics_after_n_data_epochs: int
     _publish_metrics_every_n_data_epochs: int | None
     _profiler: Profiler
+    _device_stat_tracker: DeviceStatTracker
     _gradient_check: bool
     _anomaly_detection: bool
     _seed: int
@@ -170,16 +172,18 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         unit: TrainUnit[BatchT],
         data_reader: DataReader[BatchT],
         gangs: Gangs,
+        dtype: DataType,
+        amp: bool,
         optimizer: Optimizer,
         lr_scheduler: LRScheduler,
         checkpoint_manager: CheckpointManager,
         metric_recorder: MetricRecorder,
         profiler: Profiler,
+        device_stat_tracker: DeviceStatTracker,
+        seed: int,
         wall_watch: Stopwatch,
-        dtype: DataType = torch.float32,
         fp16_loss_scale: tuple[float, float] = (128.0, 0.0001),
         max_gradient_norm: float | None = None,
-        amp: bool = False,
         max_num_steps: int | None = None,
         max_num_data_epochs: int | None = None,
         score_metric_descriptor: MetricDescriptor | None = None,
@@ -205,7 +209,6 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         publish_metrics_every_n_data_epochs: int | None = None,
         gradient_check: bool = False,
         anomaly_detection: bool = False,
-        seed: int = 2,
     ) -> None:
         """
         :param unit:
@@ -308,6 +311,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._dtype = dtype
 
+        self._amp = amp
+
         uses_fsdp = isinstance(self._model, FSDP)
         if uses_fsdp:
             self.register_stateful(
@@ -331,8 +336,6 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         )
 
         self._max_gradient_norm = max_gradient_norm
-
-        self._amp = amp
 
         self.register_stateful("_step_nr", 0)
 
@@ -518,6 +521,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._profiler = profiler
 
+        self._device_stat_tracker = device_stat_tracker
+
         self._gradient_check = gradient_check
 
         self._anomaly_detection = anomaly_detection
@@ -609,6 +614,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             self._train_task = self._progress_reporter.create_task(
                 "train", total=self._max_num_steps, completed=self._step_nr
             )
+
+            self._device_stat_tracker.reset()
 
             first_iter = True
 
@@ -847,6 +854,10 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
                 values, self._num_effective_batches, self._total_step_time
             )
 
+            device_stats = self._device_stat_tracker.get_stats()
+
+            values.update(device_stats)
+
             values["lr"] = get_effective_lr(self._lr_scheduler)
 
             values["data_epoch"] = self._data_epoch_nr
@@ -860,6 +871,10 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         self._num_effective_batches = 0
 
         self._total_step_time = 0.0
+
+        self._device_stat_tracker.reset()
+
+        self._gangs.root.barrier()
 
     def _should_validate(self) -> bool:
         if not self._valid_units:
@@ -944,26 +959,26 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         unit.metric_bag.reset_metrics()
 
-        if self._gangs.root.rank != 0:
-            return None
+        if self._gangs.root.rank == 0:
+            if values is None:
+                raise InternalError("`values` is `None`.")
 
-        if values is None:
-            raise InternalError("`values` is `None`.")
+            extend_batch_metrics(values, num_batches, elapsed_time)
 
-        extend_batch_metrics(values, num_batches, elapsed_time)
+            values["data_epoch"] = self._data_epoch_nr
 
-        values["data_epoch"] = self._data_epoch_nr
+            values["elapsed_time"] = elapsed_time
 
-        values["elapsed_time"] = elapsed_time
+            values["wall_time"] = self._wall_watch.get_elapsed_time()
 
-        values["wall_time"] = self._wall_watch.get_elapsed_time()
+            if unit.display_name:
+                run_name = "valid/" + unit.display_name
+            else:
+                run_name = "valid"
 
-        if unit.display_name:
-            run_name = "valid/" + unit.display_name
-        else:
-            run_name = "valid"
+            self._metric_recorder.record_metrics(run_name, values, self._step_nr)
 
-        self._metric_recorder.record_metrics(run_name, values, self._step_nr)
+        self._gangs.root.barrier()
 
         return values
 

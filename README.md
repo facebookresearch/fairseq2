@@ -216,7 +216,7 @@ the supported combinations.
   </thead>
   <tbody>
     <tr>
-      <td><code>0.4.0</code></td>
+      <td><code>0.4</code></td>
       <td><code>2.6.0</code></td>
       <td><code>&gt;=3.10</code>, <code>&lt;=3.12</code></td>
       <td><code>arm64</code></td>
