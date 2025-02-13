@@ -6,10 +6,8 @@
 
 from __future__ import annotations
 
-from collections.abc import MutableMapping
 from typing import cast
 
-from torch import Tensor
 from torch.nn import Module
 from typing_extensions import override
 
@@ -50,15 +48,6 @@ class S2TTransformerModelHandler(AbstractModelHandler):
 def convert_s2t_transformer_checkpoint(
     checkpoint: dict[str, object],
 ) -> dict[str, object]:
-    try:
-        state_dict = cast(MutableMapping[str, Tensor], checkpoint["model"])
-    except KeyError:
-        return checkpoint
-
-    # Check if we have a fairseq2 checkpoint.
-    if "decoder.output_projection.weight" not in state_dict:
-        return checkpoint
-
     key_map = {
         # fmt: off
         r"^encoder\.subsample\.conv_layers\.([0-9]+)\.":                   r"encoder_frontend.feature_extractor.layers.\1.conv.",

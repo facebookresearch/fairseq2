@@ -315,12 +315,13 @@ class AbstractModelHandler(ModelHandler):
                 model_name, f"The checkpoint of the '{model_name}' model cannot be loaded. See the nested exception for details."  # fmt: skip
             ) from ex
 
-        try:
-            checkpoint = self._convert_checkpoint(checkpoint, config)
-        except (KeyError, ValueError) as ex:
-            raise ModelLoadError(
-                model_name, f"The checkpoint of the '{model_name}' model cannot be converted to a fairseq2 compatible format. See the nested exception for details."  # fmt: skip
-            ) from ex
+        if "fs2" not in checkpoint and "model_key" not in checkpoint:
+            try:
+                checkpoint = self._convert_checkpoint(checkpoint, config)
+            except (KeyError, ValueError) as ex:
+                raise ModelLoadError(
+                    model_name, f"The checkpoint of the '{model_name}' model cannot be converted to a fairseq2 compatible format. See the nested exception for details."  # fmt: skip
+                ) from ex
 
         # Create the model.
         model = self.create(config, gangs, dtype, meta=self.supports_meta)

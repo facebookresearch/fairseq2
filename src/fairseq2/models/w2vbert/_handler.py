@@ -47,15 +47,7 @@ class W2VBertModelHandler(AbstractModelHandler):
 
 
 def convert_w2vbert_checkpoint(checkpoint: dict[str, object]) -> dict[str, object]:
-    # Check if we have a fairseq2 checkpoint.
-    try:
-        state_dict = cast(MutableMapping[str, Tensor], checkpoint["model"])
-    except KeyError:
-        return checkpoint
-
-    # Check if we have a fairseq2 checkpoint.
-    if "mlm_proj.weight" not in state_dict:
-        return checkpoint
+    state_dict = cast(MutableMapping[str, Tensor], checkpoint["model"])
 
     state_dict["w2v2_model.quantizer.num_updates"] = torch.zeros((), device=CPU)
 
