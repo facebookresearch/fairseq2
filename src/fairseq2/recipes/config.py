@@ -140,14 +140,31 @@ class TrainerSection:
 
     torch_compile: bool = False
 
+    gc_every_n_steps: int | None = None
+    """If specified, calls CPython's ``gc.collect()`` every N steps."""
+
     profile: tuple[int, int] | None = None
     """The number of steps that the PyTorch profiler should skip and then record."""
 
     gradient_check: bool = False
-    """if ``True``, ensures that gradients are in sync across processes."""
+    """If ``True``, ensures that gradients are in sync across processes."""
 
     anomaly_detection: bool = False
     """If ``True``, turns on anomaly detection feature in ``torch.autograd``."""
+
+    def validate(self) -> None:
+        result = ValidationResult()
+
+        if self.gc_every_n_steps is not None:
+            if self.gc_every_n_steps == 0:
+                result.add_error(
+                    "`gc_every_n_steps must be greater than or equal to 1."
+                )
+
+        if result.has_error:
+            raise ValidationError(
+                "The trainer configuration section has one or more validation errors:", result  # fmt: skip
+            )
 
 
 FsdpGranularity: TypeAlias = Literal["layer", "stack", "model"]
@@ -187,7 +204,7 @@ class LRSchedulerSection:
 @dataclass(kw_only=True)
 class RegimeSection:
     num_steps: int | None = None
-    """The maximum number of steps to train for. Note that num_steps is used as CosineLRScheduler argument!"""
+    """The maximum number of steps to train for."""
 
     num_data_epochs: int | None = None
     """The maximum number of data epochs to train for."""

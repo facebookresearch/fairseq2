@@ -50,6 +50,7 @@ from fairseq2.recipes.utils.progress import (
     ProgressTask,
 )
 from fairseq2.typing import CPU, DataType
+from fairseq2.utils.gc import GarbageCollector
 from fairseq2.utils.rng import RngBag
 from fairseq2.utils.state import FSDPOptimizerStateHandler, StatefulObjectBag
 from fairseq2.utils.stopwatch import Stopwatch
@@ -154,6 +155,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     _publish_metrics_every_n_steps: int | None
     _publish_metrics_after_n_data_epochs: int
     _publish_metrics_every_n_data_epochs: int | None
+    _garbage_collector: GarbageCollector
     _profiler: Profiler
     _device_stat_tracker: DeviceStatTracker
     _gradient_check: bool
@@ -178,6 +180,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         lr_scheduler: LRScheduler,
         checkpoint_manager: CheckpointManager,
         metric_recorder: MetricRecorder,
+        garbage_collector: GarbageCollector,
         profiler: Profiler,
         device_stat_tracker: DeviceStatTracker,
         seed: int,
@@ -519,6 +522,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         self._publish_metrics_after_n_data_epochs = publish_metrics_after_n_data_epochs
         self._publish_metrics_every_n_data_epochs = publish_metrics_every_n_data_epochs
 
+        self._garbage_collector = garbage_collector
+
         self._profiler = profiler
 
         self._device_stat_tracker = device_stat_tracker
@@ -572,6 +577,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
             raise
         finally:
+            self._garbage_collector.enable(False)
+
             self._gangs.close()
 
         if self._should_stop:
@@ -610,6 +617,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._model.train()
 
+        self._garbage_collector.enable()
+
         with self._progress_reporter, self._profiler:
             self._train_task = self._progress_reporter.create_task(
                 "train", total=self._max_num_steps, completed=self._step_nr
@@ -646,6 +655,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
                     self._checkpoint()
 
                 self._profiler.step()
+
+                self._garbage_collector.step()
 
                 self._valid_score = None
 
@@ -767,7 +778,6 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
             self._num_effective_batches += 1
 
-        # Reset.
         self._optimizer.zero_grad(set_to_none=True)
 
         self._total_step_time += watch.get_elapsed_time()
