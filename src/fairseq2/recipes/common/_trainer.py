@@ -25,6 +25,11 @@ from fairseq2.recipes.config import RegimeSection, TrainerSection, get_config_se
 from fairseq2.recipes.evaluator import EvalUnit
 from fairseq2.recipes.trainer import Trainer, TrainUnit
 from fairseq2.registry import Provider
+from fairseq2.utils.gc import (
+    CPythonGarbageCollector,
+    GarbageCollector,
+    NoopGarbageCollector,
+)
 
 BatchT = TypeVar("BatchT")
 
@@ -53,9 +58,16 @@ def create_trainer(
 
     profiler = create_profiler(context, recipe_config, gangs, output_dir)
 
-    device_stat_tracker = create_device_stat_tracker(gangs)
-
     trainer_section = get_config_section(recipe_config, "trainer", TrainerSection)
+
+    garbage_collector: GarbageCollector
+
+    if trainer_section.gc_every_n_steps is None:
+        garbage_collector = NoopGarbageCollector()
+    else:
+        garbage_collector = CPythonGarbageCollector(trainer_section.gc_every_n_steps)
+
+    device_stat_tracker = create_device_stat_tracker(gangs)
 
     # TODO: Fix once we support static mixed precision on single device.
     if trainer_section.mixed_precision == "static":
@@ -100,6 +112,7 @@ def create_trainer(
         publish_metrics_every_n_steps=regime_section.publish_metrics_every_n_steps,
         publish_metrics_after_n_data_epochs=regime_section.publish_metrics_after_n_data_epochs,
         publish_metrics_every_n_data_epochs=regime_section.publish_metrics_every_n_data_epochs,
+        garbage_collector=garbage_collector,
         profiler=profiler,
         device_stat_tracker=device_stat_tracker,
         gradient_check=trainer_section.gradient_check,
