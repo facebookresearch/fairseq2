@@ -209,26 +209,6 @@ def register_instruction_finetune_configs(context: RuntimeContext) -> None:
 
         return config
 
-    @preset("llama2_7b_chat")
-    def llama2_7b_chat() -> InstructionFinetuneConfig:
-        config = llama3_1_instruct()
-
-        config.model.name = "llama2_7b_chat"
-        config.dataset.max_seq_len = 4096
-        config.dataset.max_num_tokens = 4096 * 2
-        config.dataset.max_num_valid_tokens = 4096 * 2
-
-        return config
-
-    @preset("llama2_70b_chat")
-    def llama2_70b_chat() -> InstructionFinetuneConfig:
-        config = llama2_7b_chat()
-
-        config.model.name = "llama2_70b_chat"
-        config.gang.tensor_parallel_size = 8
-
-        return config
-
 
 def load_instruction_finetuner(
     context: RuntimeContext, config: object, output_dir: Path

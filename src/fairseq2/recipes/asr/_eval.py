@@ -98,8 +98,8 @@ def register_asr_eval_configs(context: RuntimeContext) -> None:
 
     preset = registry.decorator
 
-    @preset("wav2vec2_base_10h")
-    def base_10h() -> AsrEvalConfig:
+    @preset("wav2vec2")
+    def wav2vec2() -> AsrEvalConfig:
         return AsrEvalConfig()
 
 

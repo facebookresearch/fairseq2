@@ -83,7 +83,7 @@ def _register_asr_cli(cli: Cli) -> None:
     eval_handler = RecipeCommandHandler(
         loader=load_asr_evaluator,
         config_kls=AsrEvalConfig,
-        default_preset="wav2vec2_base_10h",
+        default_preset="wav2vec2",
         extra_sweep_keys=extra_sweep_keys,
     )
 
@@ -184,7 +184,7 @@ def _register_lm_cli(cli: Cli) -> None:
     text_generate_handler = RecipeCommandHandler(
         loader=load_text_generator,
         config_kls=TextGenerateConfig,
-        default_preset="llama3_1_8b_instruct",
+        default_preset="llama3_1_instruct",
     )
 
     group.add_command(
@@ -203,7 +203,7 @@ def _register_mt_cli(cli: Cli) -> None:
     eval_handler = RecipeCommandHandler(
         loader=load_mt_evaluator,
         config_kls=MTEvalConfig,
-        default_preset="nllb_dense_600m",
+        default_preset="nllb_dense",
         extra_sweep_keys=extra_sweep_keys,
     )
 
@@ -217,7 +217,7 @@ def _register_mt_cli(cli: Cli) -> None:
     train_handler = RecipeCommandHandler(
         loader=load_mt_trainer,
         config_kls=MTTrainConfig,
-        default_preset="nllb_dense_600m",
+        default_preset="nllb_dense",
         extra_sweep_keys=extra_sweep_keys,
     )
 
@@ -231,7 +231,7 @@ def _register_mt_cli(cli: Cli) -> None:
     text_translate_handler = RecipeCommandHandler(
         loader=load_text_translator,
         config_kls=TextTranslateConfig,
-        default_preset="nllb_dense_600m",
+        default_preset="nllb_dense",
         extra_sweep_keys=extra_sweep_keys,
     )
 

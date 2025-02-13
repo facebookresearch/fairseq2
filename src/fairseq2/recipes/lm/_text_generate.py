@@ -107,39 +107,22 @@ def register_text_generate_configs(context: RuntimeContext) -> None:
 
     preset = registry.decorator
 
-    @preset("llama2_7b_chat")
-    def llama2_7b_chat() -> TextGenerateConfig:
-        config = llama3_8b_instruct()
-
-        config.model.name = "llama2_7b_chat"
-
-        return config
-
-    @preset("llama2_70b_chat")
-    def llama2_70b_chat() -> TextGenerateConfig:
-        config = llama2_7b_chat()
-
-        config.model.name = "llama2_70b_chat"
-        config.gang.tensor_parallel_size = 8
-
-        return config
-
-    @preset("llama3_8b_instruct")
-    def llama3_8b_instruct() -> TextGenerateConfig:
+    @preset("llama3_instruct")
+    def llama3_instruct() -> TextGenerateConfig:
         return TextGenerateConfig()
 
     @preset("llama3_70b_instruct")
     def llama3_70b_instruct() -> TextGenerateConfig:
-        config = llama3_8b_instruct()
+        config = llama3_instruct()
 
         config.model.name = "llama3_70b_instruct"
         config.gang.tensor_parallel_size = 8
 
         return config
 
-    @preset("llama3_1_8b_instruct")
-    def llama3_1_8b_instruct() -> TextGenerateConfig:
-        config = llama3_8b_instruct()
+    @preset("llama3_1_instruct")
+    def llama3_1_instruct() -> TextGenerateConfig:
+        config = llama3_instruct()
 
         config.model.name = "llama3_1_8b_instruct"
 
