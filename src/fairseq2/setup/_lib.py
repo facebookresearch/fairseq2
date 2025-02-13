@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import os
+from enum import Enum
 
 from fairseq2.assets import (
     AssetDirectories,
@@ -36,7 +37,14 @@ from fairseq2.setup._recipes import _register_recipes
 from fairseq2.setup._text_tokenizers import _register_text_tokenizers
 from fairseq2.utils.file import LocalFileSystem
 
-_setup_called: bool = False
+
+class _SetupState(Enum):
+    NOT_CALLED = 0
+    IN_CALL = 1
+    CALLED = 2
+
+
+_setup_state: _SetupState = _SetupState.NOT_CALLED
 
 
 def setup_fairseq2() -> None:
@@ -53,16 +61,26 @@ def setup_fairseq2() -> None:
 
     .. __: https://setuptools.pypa.io/en/latest/userguide/entry_point.html
     """
-    global _setup_called
+    global _setup_state
 
-    if _setup_called:
+    if _setup_state == _SetupState.CALLED:
         return
 
-    _setup_called = True  # Mark early to avoid recursive calls.
+    if _setup_state == _SetupState.IN_CALL:
+        raise RuntimeError("`setup_fairseq2()` cannot be called recursively.")
 
-    context = setup_library()
+    _setup_state = _SetupState.IN_CALL
+
+    try:
+        context = setup_library()
+    except Exception:
+        _setup_state = _SetupState.NOT_CALLED
+
+        raise
 
     set_runtime_context(context)
+
+    _setup_state = _SetupState.CALLED
 
 
 def setup_library() -> RuntimeContext:

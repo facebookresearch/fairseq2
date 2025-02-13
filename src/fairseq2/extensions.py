@@ -22,7 +22,12 @@ def run_extensions(extension_name: str, *args: Any, **kwargs: Any) -> None:
             extension = entry_point.load()
 
             extension(*args, **kwargs)
-        except TypeError:
+        except TypeError as ex:
+            # Not ideal, but there is no other way to find out whether the error
+            # was raised due to a wrong extension signature.
+            if not str(ex).startswith(f"{entry_point.attr}()"):
+                raise
+
             if should_trace:
                 raise ExtensionError(
                     entry_point.value, f"The '{entry_point.value}' entry point is not a valid extension function."  # fmt: skip
