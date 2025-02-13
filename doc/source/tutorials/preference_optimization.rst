@@ -424,7 +424,7 @@ fairseq2 provides a clean way to handle this through the checkpoint system (lear
 .. code-block:: bash
 
     fairseq2 lm preference_finetune $OUTPUT_DIR --config \
-        assets.checkpoint_dir=/path/to/checkpoint \
+        common.assets.checkpoint_dir=/path/to/checkpoint \
         model.name=last_checkpoint \  # this will pick up the last checkpoint
         dataset.path=/path/to/data
 
@@ -438,7 +438,7 @@ fairseq2 provides a clean way to handle this through the checkpoint system (lear
         CKPT="checkpoint_step_1000"  # e.g. checkpoint of step 1000
 
         fairseq2 lm preference_finetune $OUTPUT_DIR --config \
-            assets.checkpoint_dir=$CKPT_DIR \
+            common.assets.checkpoint_dir=$CKPT_DIR \
             model.name=$CKPT \
             dataset.path=/path/to/new/data \
             dataset.max_num_tokens=4096 \
@@ -485,7 +485,7 @@ You can either use fairseq2 native generation recipe:
     DATASET="/datasets/facebook/fairseq2-lm-gsm8k/test/test.jsonl"
 
     fairseq2 lm generate $SAVE_DIR --no-sweep-dir --config \
-        assets.checkpoint_dir=$CKPT_DIR \
+        common.assets.checkpoint_dir=$CKPT_DIR \
         model.name=$CKPT \
         seq_generator.config.temperature=0.1 \
         dataset.path=$DATASET
