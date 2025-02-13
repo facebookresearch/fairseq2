@@ -52,10 +52,7 @@ class Wav2Vec2ModelHandler(AbstractModelHandler):
 def convert_wav2vec2_checkpoint(
     checkpoint: dict[str, object], config: Wav2Vec2Config
 ) -> dict[str, object]:
-    try:
-        state_dict = cast(MutableMapping[str, Tensor], checkpoint["model"])
-    except KeyError:
-        return checkpoint
+    state_dict = cast(MutableMapping[str, Tensor], checkpoint["model"])
 
     # Check if we have a fairseq2 checkpoint.
     if "project_q.weight" not in state_dict:

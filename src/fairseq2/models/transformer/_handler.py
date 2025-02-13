@@ -49,15 +49,6 @@ class TransformerModelHandler(AbstractModelHandler):
 
 
 def convert_transformer_checkpoint(checkpoint: dict[str, object]) -> dict[str, object]:
-    try:
-        state_dict = cast(MutableMapping[str, Tensor], checkpoint["model"])
-    except KeyError:
-        return checkpoint
-
-    # Check if we have a fairseq2 checkpoint.
-    if "decoder.output_projection.weight" not in state_dict:
-        return checkpoint
-
     key_map = {
         # fmt: off
         r"^encoder\.embed_tokens\.":                              r"encoder_frontend.embed.",

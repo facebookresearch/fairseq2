@@ -331,8 +331,10 @@ class FileCheckpointManager(CheckpointManager):
                 f"step_{step_nr}.tmp/model{self._shard_suffix}.pt"
             )
 
+            checkpoint = {"model": state_dict, "fs2": True}
+
             try:
-                self._tensor_dumper.dump({"model": state_dict}, model_file)
+                self._tensor_dumper.dump(checkpoint, model_file)
             except TensorDumpError as ex:
                 raise CheckpointSaveError(
                     step_nr, f"The model of training step {step_nr} cannot be saved to the '{model_file}' file. See the nested exception for details."  # fmt: skip
