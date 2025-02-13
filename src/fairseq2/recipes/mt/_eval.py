@@ -120,8 +120,8 @@ def register_mt_eval_configs(context: RuntimeContext) -> None:
 
     preset = registry.decorator
 
-    @preset("nllb_dense_600m")
-    def nllb_dense_600m() -> MTEvalConfig:
+    @preset("nllb_dense")
+    def nllb_dense() -> MTEvalConfig:
         return MTEvalConfig()
 
 

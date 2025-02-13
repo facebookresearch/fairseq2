@@ -114,8 +114,8 @@ def register_text_translate_configs(context: RuntimeContext) -> None:
 
     preset = registry.decorator
 
-    @preset("nllb_dense_600m")
-    def nllb_dense_600m() -> TextTranslateConfig:
+    @preset("nllb_dense")
+    def nllb_dense() -> TextTranslateConfig:
         return TextTranslateConfig()
 
 

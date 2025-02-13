@@ -93,7 +93,7 @@ class ExtraPathRegistrar:
         try:
             provider = file_metadata_loader.load()
         except FileNotFoundError:
-            log.warning("The '{}' path pointed to by `common.assets.extra_path` does not exist.", extra_path)  # fmt: skip
+            log.warning("'{}' path pointed to by `common.assets.extra_path` does not exist.", extra_path)  # fmt: skip
 
             return
 
@@ -137,7 +137,7 @@ class CheckpointDirectoryRegistrar:
         try:
             provider = checkpoint_metadata_loader.load()
         except FileNotFoundError:
-            log.warning("The checkpoint metadata file (model.yaml) is not found under the '{}' directory. Make sure that `common.assets.checkpoint_dir` points to the base checkpoint directory used during training.", checkpoint_dir)  # fmt: skip
+            log.warning("The checkpoint metadata file (model.yaml) is not found under '{}'. Make sure that `common.assets.checkpoint_dir` points to the base checkpoint directory used during training.", checkpoint_dir)  # fmt: skip
 
             return
 

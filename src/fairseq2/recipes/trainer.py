@@ -582,7 +582,9 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         log.info("Attempting to load the last checkpoint.")
 
         try:
-            step_nr, state = self._checkpoint_manager.load_last_checkpoint()
+            step_nr, state = self._checkpoint_manager.load_last_checkpoint(
+                load_model=False
+            )
         except CheckpointNotFoundError:
             log.info("No checkpoint found. Starting training.")
 

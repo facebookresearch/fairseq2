@@ -183,7 +183,7 @@ def register_mt_train_configs(context: RuntimeContext) -> None:
 
     @preset("nllb_dense_300m")
     def nllb_dense_300m() -> MTTrainConfig:
-        config = nllb_dense_600m()
+        config = nllb_dense()
 
         assert isinstance(config.lr_scheduler.config, MyleLRConfig)
 
@@ -196,8 +196,8 @@ def register_mt_train_configs(context: RuntimeContext) -> None:
 
         return config
 
-    @preset("nllb_dense_600m")
-    def nllb_dense_600m() -> MTTrainConfig:
+    @preset("nllb_dense")
+    def nllb_dense() -> MTTrainConfig:
         return MTTrainConfig()
 
 
