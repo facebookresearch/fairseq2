@@ -14,6 +14,7 @@ import pyarrow.parquet as pq
 from fairseq2.data import DataPipelineBuilder
 from fairseq2.data.parquet.fragment_streaming.basic_pipeline import (
     list_parquet_fragments,
+    process_filter,
     stream_parquet_fragments,
 )
 from fairseq2.data.parquet.fragment_streaming.config import FragmentStreamingConfig
@@ -43,21 +44,14 @@ class ParquetFragmentStreamer:
         return self._pq_ds
 
     def _get_dataset(self) -> pq.ParquetDataset:
-
-        if isinstance(self.config.partition_filters, str):
-            self.partition_filters = pq.filters_to_expression(
-                eval(self.config.partition_filters)
-            )
-        else:
-            self.partition_filters = self.config.partition_filters
-
+        self.partition_filters = process_filter(self.config.partition_filters)
         if isinstance(self.config.filesystem, str):
             self.filesystem = eval(self.config.filesystem)
         else:
             self.filesystem = self.config.filesystem
 
         pq_ds = init_parquet_dataset(
-            str(self.config.parquet_path),
+            self.config.parquet_path,
             partition_filters=self.partition_filters,
             filesystem=self.filesystem,
         )

@@ -31,7 +31,7 @@ loading_retry = retry(
 
 
 def init_parquet_dataset(
-    parquet_path: str,
+    parquet_path: str | List[str],
     partition_filters: Optional[pa.dataset.Expression] = None,
     filesystem=None,
 ) -> pq.ParquetDataset:
