@@ -6,6 +6,7 @@
 
 
 from dataclasses import dataclass
+from functools import reduce
 from typing import Any, Iterator, List, Optional
 
 import numpy as np
@@ -40,6 +41,22 @@ except ImportError:
         it = iter(iterable)
         while batch := tuple(islice(it, n)):
             yield batch
+
+
+def process_filter(
+    filters: Optional[str | list[str] | pa.compute.Expression],
+) -> Optional[pa.compute.Expression]:
+    if filters is None or isinstance(filters, pa.compute.Expression):
+        return filters
+
+    if isinstance(filters, str):
+        return pq.filters_to_expression(eval(filters))
+
+    if isinstance(filters, list):
+        list_of_filter = [process_filter(f) for f in filters]
+        return reduce(lambda x, y: x & y, list_of_filter)
+
+    raise ValueError(f"Unknown type of filters: {type(filters)}")
 
 
 def _parquet_fragments_to_pipeline_builder(
@@ -92,7 +109,6 @@ def list_parquet_fragments(
     file_ds_fragments = get_dataset_fragments(parquet_ds, parquet_ds._filter_expression)
     proxy_ds_path = "/".join(parquet_ds.files[0].split("=")[0].split("/")[:-1])
 
-    log.info(f"{proxy_ds_path} : full number of files {len(file_ds_fragments)}")
     if limit_options.fraction_of_files is not None:
         file_ds_fragments = file_ds_fragments[
             : max(
@@ -113,8 +129,6 @@ def list_parquet_fragments(
     output_fragments = []
     total_nb_rows: int = 0
     if split_to_row_groups:
-        log.info(f"{proxy_ds_path} : starting split in row groups")
-
         with Parallel(backend="threading", n_jobs=nb_jobs) as parallel:
             total_nb_fragments = 0
             early_stop = False
@@ -170,8 +184,6 @@ def list_parquet_fragments(
                 total_nb_rows += frag.count_rows()
                 if total_nb_rows >= limit_options.nb_rows:
                     break
-
-    log.info(f"{proxy_ds_path} : finding fragments {len(output_fragments)}")
 
     return _parquet_fragments_to_pipeline_builder(
         output_fragments,
@@ -298,7 +310,6 @@ class ParquetFragmentStreamer:
                 self.state.nb_fully_read_files += 1
                 yield frag
         else:
-            log.info(f"{self.proxy_ds_path} : starting split in row groups")
 
             for new_file in file_ds_fragments[self.state.nb_fully_read_files :]:
                 new_file_fragments = split_fragment_in_row_groups(new_file)
