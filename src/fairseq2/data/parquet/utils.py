@@ -11,7 +11,7 @@ import uuid
 import weakref
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Generator, List, Optional, Union, no_type_check
+from typing import Any, Callable, Generator, List, Optional, Union, no_type_check
 
 import numpy as np
 import pandas as pd
@@ -359,3 +359,95 @@ def write_table_to_arrow(table, cache_dir: str):
 def table_to_mmap_table(table, cache_dir: str):
     file_name = write_table_to_arrow(table, cache_dir)
     return read_mmap_table_with_finalizer(file_name)
+
+
+def apply_on_nested_array(
+    fn: Callable[[pa.Array], pa.Array], *inps: pa.ChunkedArray | pa.Array
+) -> pa.ChunkedArray | pa.Array:
+
+    if len(inps) > 0 and is_list_like(inps[0]):
+        assert all(is_list_like(arr) for arr in inps)
+
+        arrs = [pyarrow_column_to_array(arr) for arr in inps]
+        assert all(arr.offset == 0 for arr in arrs)
+
+        offsets = arrs[0].offsets
+        cls = (
+            pa.LargeListArray if pa.types.is_large_list(arrs[0].type) else pa.ListArray
+        )
+
+        assert all(pc.all(pc.equal(arr.offsets, offsets)).as_py() for arr in arrs)
+
+        res = apply_on_nested_array(fn, *(pc.list_flatten(arr) for arr in arrs))
+        output = cls.from_arrays(offsets=offsets, values=res)
+        for arr in arrs:
+            if arr.null_count > 0:
+                output = pc.if_else(pc.is_null(arr), None, output)
+        return output
+
+    return fn(*inps)
+
+
+def apply_over_groups(
+    table: pa.Table,
+    grp_columns: Optional[List[Optional[str]]],
+    table_mapper: Callable[[pa.Table], pa.Table],
+) -> pa.Table:
+    """
+    Apply a mapping function to each group of a PyArrow table.
+
+    Parameters:
+    - table: The input PyArrow table to be grouped and mapped.
+    - grp_columns: A list of column names to group the table by.
+        if `grp_columns=[None]` or `grp_columns=[]` or `grp_columns=None`,
+        `table_mapper` is applied on the full table.
+        Note also that None values in `grp_columns` will be filtered,
+        so one can you use grp_columns=[col1, col2] where each of col1 and col2 can be None.
+    - table_mapper: A callable function that takes a PyArrow table as input and returns a new PyArrow table.
+
+    Returns:
+    - A new PyArrow table resulting from applying the `table_mapper` function to each group of the input table.
+
+    Notes:
+    - The function adds a temporary column "__uuu_index" to the input table to facilitate grouping and sorting.
+    - The `table_mapper` function is applied to each group of the table, and the resulting tables are concatenated,
+        Therefore, the resulting sub-tables should have the same schema
+    - The function adds a temporary column "__uuu_index" to keep track of the original order of the rows.
+        So, it should be kept inchanged by `table_mapper`.
+        This column is removed in the final result.
+    """
+
+    # shortcut for no group case
+    if grp_columns is None:
+        return table_mapper(table)
+
+    grp_columns = [x for x in grp_columns if x is not None]
+    if len(grp_columns) == 0:
+        return table_mapper(table)
+
+    table = table.append_column(
+        "__uuu_index", pa.array(np.arange(len(table), dtype=np.int32))
+    )
+    split_grps = (
+        table.select(grp_columns + ["__uuu_index"])
+        .group_by(grp_columns)
+        .aggregate([("__uuu_index", "list")])
+    )
+    # shortcut for single group case
+    if len(split_grps) == 1:
+        return table_mapper(table.drop("__uuu_index"))
+
+    # to iterate per rows we convert to pandas
+    # TODO : this could be called in parallel
+    results = [
+        table_mapper(table.take(pa.array(ind)))
+        for ind in split_grps["__uuu_index_list"].to_pandas()
+    ]
+
+    result = pa.concat_tables(results, promote_options="permissive")
+    del results
+
+    if "__uuu_index" in result.column_names:
+        return result.sort_by("__uuu_index").drop("__uuu_index")
+
+    return result.combine_chunks()

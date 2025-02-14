@@ -46,7 +46,7 @@ class NamedColumns(metaclass=StringOnlyMeta):
 
     def _check_string_fields(self):
         for field_name, field_value in self.__dict__.items():
-            if field_name in ["extra_columns"]:
+            if field_name in ["extra_columns"] and field_value is not None:
                 if not isinstance(field_value, list) or not all(
                     isinstance(col, str) for col in field_value
                 ):
@@ -114,13 +114,15 @@ class FragmentLoadingConfig:
     min_batch_size: int = 1
     """Drops tables whose length `<=min_batch_size`. Applied after `drop_null` and `filters`."""
 
-    filters: Optional[str] = None
+    filters: Optional[str | List[str]] = None
     """
     Python string representing `pyarrow.dataset.Expression` that will be used to filter the loaded data in memory.
     To get real filter object, `eval(filters)` will be applied first.
     Note that `pa` and `pc` are available in the scope of `eval` call meaning `pyarrow` and `pyarrow.compute` respectively.
 
-    The filters are applied before any column renaming or transormation.
+    If multiple filters are provided, they will be combined with `AND` operator.
+
+    The filters are applied before any column renaming or transformation.
     """
 
     # performance related params

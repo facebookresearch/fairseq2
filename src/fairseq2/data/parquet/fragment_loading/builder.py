@@ -17,8 +17,13 @@ import pyarrow.parquet as pq
 from fairseq2.data import DataPipelineBuilder
 from fairseq2.data.parquet.arrow_transform.transform import apply_filter
 from fairseq2.data.parquet.fragment_loading.config import FragmentLoadingConfig
+from fairseq2.data.parquet.fragment_streaming.basic_pipeline import process_filter
 from fairseq2.data.parquet.pipeline import SafeFragment
-from fairseq2.data.parquet.utils import rename_table_columns, table_to_mmap_table
+from fairseq2.data.parquet.utils import (
+    pyarrow_cpu,
+    rename_table_columns,
+    table_to_mmap_table,
+)
 from fairseq2.logging import log
 
 
@@ -31,10 +36,8 @@ class ParquetFragmentLoader:
 
     def __init__(self, config: FragmentLoadingConfig) -> None:
         self.config: FragmentLoadingConfig = deepcopy(config)
-        if isinstance(self.config.filters, str):
-            self.filters = pq.filters_to_expression(eval(self.config.filters))
-        else:
-            self.filters = self.config.filters
+
+        self.filters = process_filter(self.config.filters)
 
         if self.config.columns is not None:
             self.columns = self.config.columns.get_flatten_columns()
@@ -45,18 +48,19 @@ class ParquetFragmentLoader:
         self, fragment_pipeline: DataPipelineBuilder
     ) -> DataPipelineBuilder:
         def load_fn(safe_frag: SafeFragment) -> pa.Table | None:
-            try:
-                return safe_frag.load(
-                    columns=self.columns,
-                    add_fragment_traces=self.config.add_fragment_traces,
-                    use_threads=self.config.use_threads,
-                    add_partitioning_columns=True,
-                )
-            except Exception as e:
-                log.error(
-                    f"Error {e} occured while loading fragment {safe_frag} \n, skipping it"
-                )
-                return None
+            with pyarrow_cpu(20):
+                try:
+                    return safe_frag.load(
+                        columns=self.columns,
+                        add_fragment_traces=self.config.add_fragment_traces,
+                        use_threads=self.config.use_threads,
+                        add_partitioning_columns=True,
+                    )
+                except Exception as e:
+                    log.error(
+                        f"Error {e} occured while loading fragment {safe_frag} \n, skipping it"
+                    )
+                    return None
 
         # TODO: we want to do async loading of the fragments
         loading_pipeline = fragment_pipeline.map(

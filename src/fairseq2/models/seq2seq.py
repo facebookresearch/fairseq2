@@ -93,6 +93,30 @@ class Seq2SeqBatch:
 
         return int(self.target_padding_mask.seq_lens.sum())
 
+    def to_device(self, device: Device) -> Seq2SeqBatch:
+        """Move the batch to the given device.
+
+        :param device:
+            The device to which to move the batch.
+        :returns:
+            The batch moved to the given device.
+        """
+        return Seq2SeqBatch(
+            self.source_seqs.to(device),
+            (
+                self.source_padding_mask.to(device)
+                if self.source_padding_mask is not None
+                else None
+            ),
+            self.target_seqs.to(device),
+            (
+                self.target_padding_mask.to(device)
+                if self.target_padding_mask is not None
+                else None
+            ),
+            self.example,
+        )
+
 
 def as_auto_regressive_input(batch: Seq2SeqBatch) -> tuple[Seq2SeqBatch, SequenceBatch]:
     """Use ``batch`` to train an auto-regressive model.

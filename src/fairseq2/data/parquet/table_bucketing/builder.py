@@ -103,7 +103,7 @@ class TableBucketer:
             and self.config.shuffle
         ):
             # merely shuffle big concat table
-            pipeline = pipeline.map(partial(shuffle_table, random_state))
+            pipeline = pipeline.map(partial(shuffle_table, random_state=random_state))
 
         if self.config.cache:  # we cache big concat table !
             if self.config.cache_dir is not None:
@@ -121,7 +121,7 @@ class TableBucketer:
         pipeline = pipeline.prefetch(self.config.nb_prefetch)
         # do some mini-batch dispatch
         if (
-            self.config.target_total_length is not None
+            self.config.total_batch_length is not None
             or self.config.batch_size is not None
         ):
 

@@ -6,8 +6,9 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 
 @dataclass
@@ -43,7 +44,7 @@ class FragmentStreamingConfig:
     This config describes the streaming of fragments from the a parquet dataset.
     """
 
-    parquet_path: str = str()
+    parquet_path: str | List[str] = str()
     """The path to parquet dataset file.
         if `parquet_path` is remote (like stats with "s3://..."),
         the filesystem will be automatically detected and `filesystem_expr` should remain None
@@ -63,10 +64,12 @@ class FragmentStreamingConfig:
     Indicates relative weight of dataset that can be used for sampling from different datasets.
     """
 
-    partition_filters: Optional[str] = None
+    partition_filters: Optional[str | List[str]] = None
     """
     Filters that should be applied only on partition columns for fast partition prunning.
-    Filters are passed as an str expression that will be transformed through `eval(...)`
+    Filters are passed as an str expression that will be transformed through `eval(...)`.
+
+    If several filters are provided, they will be combined with `AND` operator.
 
     For concrete syntax of filtering expression, see
     https://arrow.apache.org/docs/python/generated/pyarrow.dataset.Expression.html#pyarrow.dataset.Expression
@@ -150,3 +153,31 @@ class FragmentStreamingConfig:
     def __post_init__(self) -> None:
         # TODO: check parameters validity
         pass
+
+    def add_partition_filter(
+        self, filters: List[str] | List[pa.dataset.Expression]
+    ) -> "FragmentStreamingConfig":
+        """
+        Add an extra partition filter to the dataset.
+        """
+        from fairseq2.data.parquet.fragment_streaming.basic_pipeline import (
+            process_filter,
+        )
+
+        config = deepcopy(self)
+
+        if config.partition_filters is None:
+            config.partition_filters = filters
+        elif isinstance(config.partition_filters, str):
+            config.partition_filters = process_filter(
+                [config.partition_filters] + filters
+            )
+        elif isinstance(config.partition_filters, list):
+            config.partition_filters = process_filter(
+                config.partition_filters + filters
+            )
+        else:
+            raise ValueError(
+                f"Invalid partition_filters type {type(config.partition_filters)}"
+            )
+        return config

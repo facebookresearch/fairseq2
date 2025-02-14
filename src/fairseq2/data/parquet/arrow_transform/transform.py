@@ -414,3 +414,24 @@ def filter_rows_by_consistent_list_length(
             ref_lengths = ref_lengths.filter(same_lens)
 
     return table
+
+
+def filter_list_with_min_max_length(
+    table: pa.Table,
+    columns: List[str],
+    min_length: int,
+    max_length: int,
+) -> pa.Table:
+
+    def _length_filter(column):
+        filter_min = pc.greater_equal(pc.list_value_length(table[column]), min_length)
+        filter_max = pc.less_equal(pc.list_value_length(table[column]), max_length)
+        filter_ = pc.and_kleene(filter_min, filter_max)
+
+        if pc.all(filter_).as_py():
+            return table
+        return table.filter(filter_)
+
+    for column in columns:
+        table = _length_filter(column)
+    return table
