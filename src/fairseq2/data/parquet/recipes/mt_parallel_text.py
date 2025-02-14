@@ -68,6 +68,7 @@ class ParquetParallelTextDatasetConfig:
     columns: BiTextColumns
     partition_filters: Optional[str] = None
     filesystem: Optional[str] = None
+    nb_epochs: Optional[int] = None  # infinite if None
     cache: bool = False
     fragment_shuffle_window: int = -1  # do global shuffle for each direction
     direction_batch_size: int = 5
@@ -217,6 +218,7 @@ class ParquetParallelTextDataset:
             filesystem=self._config.filesystem,
             fragment_shuffle_window=self._config.fragment_shuffle_window,
             seed=self._config.seed,
+            nb_epochs=self._config.nb_epochs,
         )
 
         if split is not None:
