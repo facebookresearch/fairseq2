@@ -48,19 +48,18 @@ class ParquetFragmentLoader:
         self, fragment_pipeline: DataPipelineBuilder
     ) -> DataPipelineBuilder:
         def load_fn(safe_frag: SafeFragment) -> pa.Table | None:
-            with pyarrow_cpu(20):
-                try:
-                    return safe_frag.load(
-                        columns=self.columns,
-                        add_fragment_traces=self.config.add_fragment_traces,
-                        use_threads=self.config.use_threads,
-                        add_partitioning_columns=True,
-                    )
-                except Exception as e:
-                    log.error(
-                        f"Error {e} occured while loading fragment {safe_frag} \n, skipping it"
-                    )
-                    return None
+            try:
+                return safe_frag.load(
+                    columns=self.columns,
+                    add_fragment_traces=self.config.add_fragment_traces,
+                    use_threads=self.config.use_threads,
+                    add_partitioning_columns=True,
+                )
+            except Exception as e:
+                log.error(
+                    f"Error {e} occured while loading fragment {safe_frag} \n, skipping it"
+                )
+                return None
 
         # TODO: we want to do async loading of the fragments
         loading_pipeline = fragment_pipeline.map(

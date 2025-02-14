@@ -253,9 +253,6 @@ class ParquetFragmentStreamer:
             parquet_ds, parquet_ds._filter_expression
         )
         self.proxy_ds_path = "/".join(parquet_ds.files[0].split("=")[0].split("/")[:-1])
-        log.info(
-            f"{self.proxy_ds_path} : full number of files {len(file_ds_fragments)}"
-        )
 
         if fraction_of_files is not None:
             file_ds_fragments = file_ds_fragments[
