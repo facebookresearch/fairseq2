@@ -66,12 +66,13 @@ class BiTextColumns(NamedColumns):
 class ParquetParallelTextDatasetConfig:
     parquet_path: str
     columns: BiTextColumns
-    partition_filters: Optional[str] = None
     filesystem: Optional[str] = None
+    partition_filters: Optional[str] = None
+    #
     nb_epochs: Optional[int] = None  # infinite if None
     cache: bool = False
     fragment_shuffle_window: int = -1  # do global shuffle for each direction
-    direction_batch_size: int = 5
+    direction_batch_size: int = 2
 
     sample_shuffle_window: int = 40_000
     max_tokens: int = 4_000
@@ -212,7 +213,7 @@ class ParquetParallelTextDataset:
         options: ParallelTextReadOptions = ParallelTextReadOptions(),
     ) -> DataReader[Seq2SeqBatch]:
 
-        base_dataset_conifg = FragmentStreamingConfig(
+        base_dataset_config = FragmentStreamingConfig(
             parquet_path=self._config.parquet_path,
             partition_filters=self._config.partition_filters,
             filesystem=self._config.filesystem,
@@ -223,24 +224,24 @@ class ParquetParallelTextDataset:
 
         if split is not None:
             split_filters = [pc.equal(pc.field(f"{self.columns.split}"), split)]
-            base_dataset_conifg = base_dataset_conifg.add_partition_filter(
+            base_dataset_config = base_dataset_config.add_partition_filter(
                 [split_filters]
             )
 
-        directions = self.get_all_direction(base_dataset_conifg)
+        directions = self.get_all_direction(base_dataset_config)
 
         weights = self.get_direction_weights(list(directions.keys()))
         dir_files = list(directions.values())
 
         if len(dir_files) == 1:  # short circuit for single direction
             builder = self.reading_one_direction_pipeline(
-                dir_files[0], base_dataset_conifg, gang.rank, gang.size
+                dir_files[0], base_dataset_config, gang.rank, gang.size
             )
         else:
             reading_pipelines = []
             for files in dir_files:
                 pipeline = self.reading_one_direction_pipeline(
-                    files, base_dataset_conifg, gang.rank, gang.size
+                    files, base_dataset_config, gang.rank, gang.size
                 )
                 reading_pipelines.append(pipeline.and_return())
 
@@ -262,7 +263,8 @@ class ParquetParallelTextDataset:
                 columns=["source_indices", "target_indices"],
                 min_length=self._config.min_seq_len,
                 max_length=self._config.max_seq_len,
-            )
+            ),
+            num_parallel_calls=self._config.num_parallel_calls,
         )
 
         # this is maybe not needed (thanks to the bucketing)
