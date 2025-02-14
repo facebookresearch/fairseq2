@@ -40,7 +40,7 @@ def init_parquet_dataset(
     Leaving `filesystem` to None will trigger the detection of the filesystem.
 
     Args:
-        parquet_path (str): The path to the Parquet dataset.
+        parquet_path (str or List[str]): The path to the Parquet dataset.
         filters (Optional[pa.dataset.Expression]): Partition level filters to apply to the dataset.
         filesystem : The filesystem to use. If None, the filesystem will be detected.
 
