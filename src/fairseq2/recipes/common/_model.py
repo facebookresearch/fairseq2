@@ -242,7 +242,9 @@ class CardBasedModelLoader(ModelLoader):
         if saved_model_path is not None:
             model_name = f"checkpoint_step_{step_nr}"
 
-        log.info("Checkpoint found. Loading '{}' model on data parallel rank 0.", model_name)  # fmt: skip
+            log.info("Checkpoint found. Loading '{}' model on data parallel rank 0.", model_name)  # fmt: skip
+        else:
+            log.info("Loading '{}' model on data parallel rank 0.", model_name)
 
         try:
             if gangs.dp.rank == 0:
@@ -361,7 +363,9 @@ class PathBasedModelLoader(ModelLoader):
         if saved_model_path is not None:
             model_name = f"checkpoint_step_{step_nr}"
 
-        log.info("Checkpoint found. Loading '{}' model on data parallel rank 0.", model_name)  # fmt: skip
+            log.info("Checkpoint found. Loading '{}' model on data parallel rank 0.", model_name)  # fmt: skip
+        else:
+            log.info("Loading '{}' model on data parallel rank 0.", model_name)
 
         try:
             if gangs.dp.rank == 0:
@@ -510,7 +514,6 @@ class ModelCreator(ModelLoader):
         if saved_model_path is not None:
             model_name = f"checkpoint_step_{step_nr}"
 
-        if saved_model_path is not None:
             log.info("Checkpoint found. Loading '{}' model on data parallel rank 0.", model_name)  # fmt: skip
 
         try:
