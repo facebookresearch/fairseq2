@@ -665,6 +665,10 @@ def prepare_model(
         use_layerwise_activation_checkpointing(model)
 
     if trainer_section.torch_compile:
+        log.info("Compiling model.")
+
         model = compile_model(model, gangs)
+
+        log.info("Model compiled.")
 
     return model

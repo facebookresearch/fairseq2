@@ -55,7 +55,7 @@ def setup_reference_model(
 
     broadcast_model(model_name, model, gangs)
 
-    model = prepare_reference_model(context, model, gangs, torch_compile)
+    model = prepare_reference_model(context, model_name, model, gangs, torch_compile)
 
     log_model(log, model, gangs)
 
@@ -166,11 +166,19 @@ class ReferenceModelLoader(Generic[ModelT]):
 
 
 def prepare_reference_model(
-    context: RuntimeContext, model: ModelT, gangs: Gangs, torch_compile: bool
+    context: RuntimeContext,
+    model_name: str,
+    model: ModelT,
+    gangs: Gangs,
+    torch_compile: bool,
 ) -> ModelT:
     remove_parametrizations(model)
 
     if torch_compile:
+        log.info("Compiling '{}' model.", model_name)
+
         model = cast(ModelT, compile_model(model, gangs))
+
+        log.info("Model compiled.")
 
     return model

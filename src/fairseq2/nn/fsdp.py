@@ -10,7 +10,7 @@ import warnings
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Final, Protocol, final
+from typing import Final, Protocol, final
 
 import torch
 from torch import Tensor
@@ -27,6 +27,7 @@ from torch.distributed.fsdp.api import (
 )
 from torch.nn import Module, Parameter
 
+from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang, GangError, setup_hsdp_gangs
 from fairseq2.nn.ddp import DistributedSetupError
 from fairseq2.nn.utils.module import (
@@ -80,6 +81,7 @@ def to_fsdp(
     """
     process_group: ProcessGroup | tuple[ProcessGroup, ProcessGroup]
 
+    # Sharding Strategy
     if local_world_size is not None and local_world_size != dp_gang.size:
         sharding_strategy = ShardingStrategy.HYBRID_SHARD
 
@@ -92,23 +94,29 @@ def to_fsdp(
                 "The inter-node and intra-node gangs for HSDP cannot be setup. See the nested exception for details."
             ) from ex
 
-        process_group = (
-            intra_node_gang.as_process_group(),
-            intra_node_gang.as_process_group(),
-        )
+        try:
+            process_group = (
+                intra_node_gang.as_process_group(),
+                inter_node_gang.as_process_group(),
+            )
+        except NotSupportedError:
+            raise DistributedSetupError(
+                "The specified data parallel gang does not support conversion to a process group."
+            ) from None
     else:
         if reshard_after_forward:
             sharding_strategy = ShardingStrategy.FULL_SHARD
         else:
             sharding_strategy = ShardingStrategy.SHARD_GRAD_OP
 
-        process_group = dp_gang.as_process_group()
+        try:
+            process_group = dp_gang.as_process_group()
+        except NotSupportedError:
+            raise DistributedSetupError(
+                "The specified data parallel gang does not support conversion to a process group."
+            ) from None
 
-    if memory_policy is None:
-        memory_policy = FSDP_STANDARD_MEMORY_POLICY
-
-    param_init_fn = None
-
+    # Parameter Initialization
     try:
         module_device = infer_device(module)
     except ValueError as ex:
@@ -116,14 +124,22 @@ def to_fsdp(
             "The device of `module` is not valid. See the nested exception for details."
         ) from ex
 
-    if module_device.type == "meta":
-        if dp_gang.rank == 0:
-            skip_init = not broadcast_state
-        else:
+    if module_device.type != "meta":
+        param_initializer = None
+    else:
+        if broadcast_state:
+            if dp_gang.rank == 0:
+                raise DistributedSetupError(
+                    "`broadcast_state` is set, but the coordinator process (i.e. rank 0) is on a meta device."
+                )
+
             skip_init = True
+        else:
+            skip_init = False
 
-        param_init_fn = FSDPParameterInitializer(dp_gang.device, skip_init)
+        param_initializer = FSDPParameterInitializer(dp_gang.device, skip_init)
 
+    # Mixed Precision
     if mixed_precision_dtype is None:
         mp = None
     elif mixed_precision_dtype == torch.float32:
@@ -131,35 +147,35 @@ def to_fsdp(
     else:
         reduce_dtype = torch.float32 if fp32_reduce else mixed_precision_dtype
 
-        mp = MixedPrecision(
-            param_dtype=mixed_precision_dtype,
-            reduce_dtype=reduce_dtype,
-            buffer_dtype=None,
-        )
+        mp = MixedPrecision(mixed_precision_dtype, reduce_dtype, buffer_dtype=None)
 
-    kwargs: dict[str, Any] = {}
+    # Memory Policy
+    if memory_policy is None:
+        memory_policy = FSDP_STANDARD_MEMORY_POLICY
 
-    # As of PyTorch 2.0, FSDP initialization fails in certain settings when an
-    # empty `ignored_states` is specified (e.g. `sync_module_states` is set).
-    if ignored_modules:
-        kwargs["ignored_states"] = ignored_modules
+    if not memory_policy.cpu_offload:
+        cpu_offload = None
+    else:
+        cpu_offload = CPUOffload()
 
     try:
         fsdp = FSDP(
             module,
             process_group=process_group,
             sharding_strategy=sharding_strategy,
-            cpu_offload=CPUOffload() if memory_policy.cpu_offload else None,
+            cpu_offload=cpu_offload,
             auto_wrap_policy=wrap_policy,
             backward_prefetch=memory_policy.backward_prefetch,
             mixed_precision=mp,
-            param_init_fn=param_init_fn,
+            param_init_fn=param_initializer,
             device_id=dp_gang.device,
             sync_module_states=broadcast_state,
             forward_prefetch=False,
             limit_all_gathers=memory_policy.limit_all_gathers,
             use_orig_params=True,
-            **kwargs,
+            # As of PyTorch 2.0, FSDP initialization fails in certain settings
+            # when an empty `ignored_states` is specified. Pass `None` instead.
+            ignored_states=ignored_modules if ignored_modules else None,
         )
     except (RuntimeError, ValueError) as ex:
         raise DistributedSetupError(

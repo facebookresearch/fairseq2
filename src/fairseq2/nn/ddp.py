@@ -66,8 +66,8 @@ def to_ddp(
         process_group = dp_gang.as_process_group()
     except NotSupportedError:
         raise DistributedSetupError(
-            "The specified distributed gang does not support conversion to a process group."
-        )
+            "The specified data parallel gang does not support conversion to a process group."
+        ) from None
 
     try:
         ddp = DDP(

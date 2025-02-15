@@ -791,9 +791,7 @@ def setup_hsdp_gangs(dp_gang: Gang, local_world_size: int) -> tuple[Gang, Gang]:
 
     inter_node_gang: Gang | None = None
 
-    log.info(
-        "Initializing inter-node data parallel gang with a size of {}.", inter_node_size
-    )
+    log.info("Initializing inter-node data parallel gang with a size of {}.", inter_node_size)  # fmt: skip
 
     # Build the gangs for inter-node data parallelism.
     match inter_node_size:
@@ -812,9 +810,7 @@ def setup_hsdp_gangs(dp_gang: Gang, local_world_size: int) -> tuple[Gang, Gang]:
 
     intra_node_gang: Gang | None = None
 
-    log.info(
-        "Initializing intra-node data parallel gang with a size of {}.", intra_node_size
-    )
+    log.info("Initializing intra-node data parallel gang with a size of {}.", intra_node_size)  # fmt: skip
 
     # Build the gangs for intra-node data parallelism.
     match intra_node_size:
