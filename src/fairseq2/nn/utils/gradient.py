@@ -18,6 +18,7 @@ from torch.nn.utils import clip_grad_norm_  # type: ignore[attr-defined]
 
 from fairseq2.gang import Gang, all_sum
 from fairseq2.logging import log
+from fairseq2.utils.version import torch_greater_or_equal
 
 
 def normalize_gradients(module: Module, gang: Gang, num_targets: int) -> None:
@@ -95,15 +96,25 @@ def clip_gradient_norm(
     if max_norm is None:
         max_norm = torch.inf
 
-    if isinstance(module, FSDP):  # FSDP2 natively supports `clip_grad_norm_`.
+    if isinstance(module, FSDP):
         if not module.check_is_root():
             raise ValueError("`module` must be the root FSDP module.")
 
         return module.clip_grad_norm_(max_norm, norm_type)
 
-    return clip_grad_norm_(  # type: ignore[no-any-return]
+    grad_norm = clip_grad_norm_(
         module.parameters(), max_norm, norm_type, error_if_nonfinite=False
     )
+
+    if torch_greater_or_equal(2, 6):
+        from torch.distributed.tensor import DTensor
+
+        # When the parameters are of type `DTensor`, `clip_grad_norm_` returns
+        # the local grad norm only.
+        if isinstance(grad_norm, DTensor):
+            grad_norm = grad_norm.full_tensor()
+
+    return grad_norm  # type: ignore[no-any-return]
 
 
 def check_gradient_norms(local_norm: Tensor, gang: Gang, step_nr: int) -> bool:
