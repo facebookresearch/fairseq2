@@ -261,7 +261,7 @@ class CardBasedModelLoader(ModelLoader):
                     model = handler.load(card, gangs, dtype, model_config)
             else:
                 model = handler.create(
-                    model_config, gangs, dtype, handler.supports_meta
+                    model_config, gangs, dtype, meta=handler.supports_meta
                 )
         except NotSupportedError as ex:
             raise ModelLoadError(
@@ -385,7 +385,7 @@ class PathBasedModelLoader(ModelLoader):
                     ) from None
             else:
                 model = handler.create(
-                    model_config, gangs, dtype, handler.supports_meta
+                    model_config, gangs, dtype, meta=handler.supports_meta
                 )
         except NotSupportedError as ex:
             raise ModelLoadError(
@@ -528,7 +528,7 @@ class ModelCreator(ModelLoader):
                     ) from None
             else:
                 model = handler.create(
-                    model_config, gangs, dtype, handler.supports_meta
+                    model_config, gangs, dtype, meta=handler.supports_meta
                 )
         except NotSupportedError as ex:
             raise ModelLoadError(
