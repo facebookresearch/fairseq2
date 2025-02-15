@@ -76,12 +76,10 @@ def wrap_ddp(base_model: Module, gangs: Gangs, static_graph: bool) -> Module:
 
     log.info("Wrapping the model with DDP and broadcasting to all processes.")
 
-    dp_model = to_ddp(
-        base_model,
-        gangs.dp,
-        find_unused_parameters=not static_graph,
-        static_graph=static_graph,
-    )
+    # We do not set DDP's `static_graph` parameter. Unfortunately, support for
+    # that feature is finicky in DDP. `find_unused_parameters` is still useful
+    # though and can have measurable impact on perfomance.
+    dp_model = to_ddp(base_model, gangs.dp, find_unused_parameters=not static_graph)
 
     log.info("Model wrapped with DDP and broadcasted.")
 
