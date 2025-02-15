@@ -376,7 +376,7 @@ def broadcast_module(
     gang: Gang,
     *,
     source_rank: int = 0,
-    broadcast_buffers: bool = True,
+    non_persistent_buffers: bool = False,
     skip_modules: set[Module] | None = None,
 ) -> None:
     """Broadcasts ``module`` to all processes in ``gang``.
@@ -384,8 +384,8 @@ def broadcast_module(
     :param module: The module to broadcast.
     :param gang The gang over which to broadcast ``module``.
     :param source_rank: The rank of the source process from which to broadcast.
-    :param broadcast_buffers: If ``True``, broadcasts not only the parameters,
-        but the buffers as well.
+    :param non_persistent_buffers: If ``True``, broadcasts the non-persistent
+        buffers as well.
     :param skip_modules: The set of modules that won't be broadcasted.
     """
     to_device(module, gang.device)
@@ -424,14 +424,20 @@ def broadcast_module(
 
                 warned = True
 
-        if broadcast_buffers:
-            for buffer in m.buffers(recurse=False):
-                if buffer in memo:
+        for buffer_name, buffer in m.named_buffers(recurse=False):
+            if buffer in memo:
+                continue
+
+            memo.add(buffer)
+
+            if not non_persistent_buffers:
+                # TODO(balioglu): Surprisingly, PyTorch still does not offer a
+                # public API to check the type of a module buffer. This should
+                # be updated in the future.
+                if buffer_name in m._non_persistent_buffers_set:
                     continue
 
-                memo.add(buffer)
-
-                tensors.append(buffer.detach())
+            tensors.append(buffer.detach())
 
     collect_tensors(module)
 

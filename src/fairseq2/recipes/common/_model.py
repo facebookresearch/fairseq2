@@ -517,15 +517,18 @@ class ModelCreator(ModelLoader):
             log.info("Checkpoint found. Loading '{}' model on data parallel rank 0.", model_name)  # fmt: skip
 
         try:
-            if gangs.dp.rank == 0 and saved_model_path is not None:
-                try:
-                    model = handler.load_from_path(
-                        saved_model_path, model_name, model_config, gangs, dtype
-                    )
-                except FileNotFoundError:
-                    raise ModelLoadError(
-                        model_name, f"The '{model_name}' model cannot be found at the '{saved_model_path}' path."  # fmt: skip
-                    ) from None
+            if gangs.dp.rank == 0:
+                if saved_model_path is not None:
+                    try:
+                        model = handler.load_from_path(
+                            saved_model_path, model_name, model_config, gangs, dtype
+                        )
+                    except FileNotFoundError:
+                        raise ModelLoadError(
+                            model_name, f"The '{model_name}' model cannot be found at the '{saved_model_path}' path."  # fmt: skip
+                        ) from None
+                else:
+                    model = handler.create(model_config, gangs, dtype, meta=False)
             else:
                 model = handler.create(
                     model_config, gangs, dtype, meta=handler.supports_meta
