@@ -372,23 +372,29 @@ def infer_device(module: Module, *, recurse: bool = True) -> Device:
 
 
 def broadcast_module(
-    module: Module, gang: Gang, *, source_rank: int = 0, broadcast_buffers: bool = True
+    module: Module,
+    gang: Gang,
+    *,
+    source_rank: int = 0,
+    broadcast_buffers: bool = True,
+    skip_modules: set[Module] | None = None,
 ) -> None:
-    """Broadcast ``module`` to all processes in ``gang``.
+    """Broadcasts ``module`` to all processes in ``gang``.
 
-    :param module:
-        The module to broadcast.
-    :param gang
-        The gang over which to broadcast ``module``.
-    :param source_rank:
-        The rank of the source process from which to broadcast.
-    :param broadcast_buffers:
-        If ``True``, broadcasts not only the parameters, but the buffers as well.
+    :param module: The module to broadcast.
+    :param gang The gang over which to broadcast ``module``.
+    :param source_rank: The rank of the source process from which to broadcast.
+    :param broadcast_buffers: If ``True``, broadcasts not only the parameters,
+        but the buffers as well.
+    :param skip_modules: The set of modules that won't be broadcasted.
     """
     to_device(module, gang.device)
 
     if gang.size == 1:
         return
+
+    if skip_modules is None:
+        skip_modules = set()
 
     warned = False
 
@@ -396,27 +402,38 @@ def broadcast_module(
 
     tensors = []
 
-    for param in module.parameters():
-        if param in memo:
-            continue
+    def collect_tensors(m: Module) -> None:
+        nonlocal warned
 
-        memo.add(param)
+        if m in skip_modules:
+            return
 
-        tensors.append(param.detach())
+        for child in m.children():
+            collect_tensors(child)
 
-        if not warned and param.grad is not None:
-            log.warning("`broadcast_module()` does not support syncing gradients, but one or more parameters of `module` have their `grads` defined.")  # fmt: skip
-
-            warned = True
-
-    if broadcast_buffers:
-        for buffer in module.buffers():
-            if buffer in memo:
+        for param in m.parameters(recurse=False):
+            if param in memo:
                 continue
 
-            memo.add(buffer)
+            memo.add(param)
 
-            tensors.append(buffer.detach())
+            tensors.append(param.detach())
+
+            if not warned and param.grad is not None:
+                log.warning("`broadcast_module()` does not support syncing gradients, but one or more parameters of `module` have their `grads` defined.")  # fmt: skip
+
+                warned = True
+
+        if broadcast_buffers:
+            for buffer in m.buffers(recurse=False):
+                if buffer in memo:
+                    continue
+
+                memo.add(buffer)
+
+                tensors.append(buffer.detach())
+
+    collect_tensors(module)
 
     if not tensors:
         return
