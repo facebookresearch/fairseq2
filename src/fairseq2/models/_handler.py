@@ -315,7 +315,7 @@ class AbstractModelHandler(ModelHandler):
                 model_name, f"The checkpoint of the '{model_name}' model cannot be loaded. See the nested exception for details."  # fmt: skip
             ) from ex
 
-        if "fs2" not in checkpoint and "model_key" not in checkpoint:
+        if "fs2" not in checkpoint:
             try:
                 checkpoint = self._convert_checkpoint(checkpoint, config)
             except (KeyError, ValueError) as ex:

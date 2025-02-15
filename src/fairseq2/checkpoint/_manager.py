@@ -10,6 +10,7 @@ import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Iterator, Mapping, Set
 from contextlib import AbstractContextManager, nullcontext
+from os import scandir
 from pathlib import Path
 from shutil import Error
 from typing import final
@@ -177,7 +178,12 @@ class FileCheckpointManager(CheckpointManager):
         tensor_loader: TensorLoader,
         tensor_dumper: TensorDumper,
     ) -> None:
-        self._checkpoint_dir = checkpoint_dir.expanduser().resolve()
+        try:
+            self._checkpoint_dir = file_system.resolve(checkpoint_dir)
+        except OSError as ex:
+            raise CheckpointError(
+                f"'{checkpoint_dir}' cannot be accessed. See the nested exception for details."
+            ) from ex
 
         self._gangs = gangs
 
@@ -205,9 +211,9 @@ class FileCheckpointManager(CheckpointManager):
                 step_nr, f"The previous checkpoint of training step {step_nr} cannot be deleted. See the nested exception for details."  # fmt: skip
             ) from ex
 
-        if self._gangs.root.rank == 0:
-            tmp_step_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}.tmp")
+        tmp_step_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}.tmp")
 
+        if self._gangs.root.rank == 0:
             try:
                 self._file_system.make_directory(tmp_step_dir)
             except OSError as ex:
@@ -215,7 +221,13 @@ class FileCheckpointManager(CheckpointManager):
                     step_nr, f"The temporary '{tmp_step_dir}' checkpoint directory of training step {step_nr} cannot be created. See the nested exception for details."  # fmt: skip
                 ) from ex
 
+            self._flush_nfs_lookup_cache()
+
         self._gangs.root.barrier()
+
+        # Ensure that `tmp_step_dir` is visible to all processes.
+        if self._gangs.root.rank != 0:
+            self._flush_nfs_lookup_cache()
 
         self._checkpoint_step_nr = step_nr
 
@@ -228,6 +240,8 @@ class FileCheckpointManager(CheckpointManager):
         step_nr = self._get_checkpoint_step_nr()
 
         tmp_step_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}.tmp")
+
+        suffix = self._shard_suffix
 
         # Copy `state`. In case we fail, it should stay intact.
         rank_part = dict(state)
@@ -243,12 +257,14 @@ class FileCheckpointManager(CheckpointManager):
 
         # Save the model into its own file if it is replicated.
         if model_replicated():
-            state_dict = rank_part.pop("model", None)
-            if state_dict is not None:
+            model_state = rank_part.pop("model", None)
+            if model_state is not None:
                 if gangs.dp.rank == 0:
-                    model_file = tmp_step_dir.joinpath(f"model{self._shard_suffix}.pt")
+                    model_file = tmp_step_dir.joinpath(f"model{suffix}.pt")
 
-                    model_checkpoint = {"model": state_dict, "fs2": True}
+                    model_checkpoint = {
+                        "model": model_state, "model_key": "model", "fs2": True  # fmt: skip
+                    }
 
                     try:
                         self._tensor_dumper.dump(model_checkpoint, model_file)
@@ -274,9 +290,7 @@ class FileCheckpointManager(CheckpointManager):
                             pass
 
                 if replicated_part:
-                    replicated_file = tmp_step_dir.joinpath(
-                        f"replicated{self._shard_suffix}.pt"
-                    )
+                    replicated_file = tmp_step_dir.joinpath(f"replicated{suffix}.pt")
 
                     try:
                         self._tensor_dumper.dump(replicated_part, replicated_file)
@@ -303,9 +317,7 @@ class FileCheckpointManager(CheckpointManager):
 
         # Save the per-rank state.
         if not skip_rank:
-            rank_file = tmp_step_dir.joinpath(
-                f"rank_{gangs.dp.rank}{self._shard_suffix}.pt"
-            )
+            rank_file = tmp_step_dir.joinpath(f"rank_{gangs.dp.rank}{suffix}.pt")
 
             try:
                 self._tensor_dumper.dump(rank_part, rank_file)
@@ -350,14 +362,14 @@ class FileCheckpointManager(CheckpointManager):
                 with FSDP.state_dict_type(
                     model, StateDictType.FULL_STATE_DICT, state_dict_config
                 ):
-                    state_dict = model.state_dict()
+                    model_state = model.state_dict()
 
             log.info("Model state extracted.")
         else:
             if gangs.dp.rank == 0:
-                state_dict = model.state_dict()
+                model_state = model.state_dict()
             else:
-                state_dict = {}
+                model_state = {}
 
         gangs.root.barrier()
 
@@ -368,7 +380,7 @@ class FileCheckpointManager(CheckpointManager):
                 f"step_{step_nr}.tmp/model{self._shard_suffix}.pt"
             )
 
-            model_checkpoint = {"model": state_dict, "fs2": True}
+            model_checkpoint = {"model": model_state, "model_key": "model", "fs2": True}
 
             try:
                 self._tensor_dumper.dump(model_checkpoint, model_file)
@@ -768,6 +780,33 @@ class FileCheckpointManager(CheckpointManager):
             raise CheckpointError(
                 f"The base '{self._checkpoint_dir}' checkpoint directory cannot be traversed. See the nested exception for details."
             ) from ex
+
+    def _flush_nfs_lookup_cache(self) -> None:
+        if not self._file_system.is_local:
+            return
+
+        path = self._checkpoint_dir
+
+        # Use the `opendir`/`readdir`/`closedir` trick to drop all cached NFS
+        # LOOKUP results.
+        while path != path.parent:
+            try:
+                it = scandir(path)
+            except FileNotFoundError:
+                path = path.parent
+
+                continue
+            except OSError:
+                break
+
+            try:
+                next(it)
+            except StopIteration:
+                pass
+            finally:
+                it.close()
+
+            break
 
 
 class CheckpointNotFoundError(Exception):
