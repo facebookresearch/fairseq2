@@ -583,7 +583,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         finally:
             self._garbage_collector.enable(False)
 
-            self._gangs.close()
+        self._gangs.close()
 
         if self._should_stop:
             log.info("Training stopped at step {}!", self._step_nr)

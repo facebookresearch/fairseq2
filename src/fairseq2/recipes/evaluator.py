@@ -186,8 +186,8 @@ class Evaluator(Generic[BatchT]):
             log.info("Evaluation terminated!")
 
             raise
-        finally:
-            self._gangs.close()
+
+        self._gangs.close()
 
         elapsed_time = self._wall_watch.get_elapsed_time()
 
