@@ -144,7 +144,7 @@ class ReferenceModelLoader(Generic[ModelT]):
                 model = handler.load(card, gangs, dtype, model_config)
             else:
                 model = handler.create(
-                    model_config, gangs, dtype, handler.supports_meta
+                    model_config, gangs, dtype, meta=handler.supports_meta
                 )
         except NotSupportedError as ex:
             raise ModelLoadError(
