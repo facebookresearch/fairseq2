@@ -154,8 +154,8 @@ class Generator(Generic[BatchT]):
             log.info("Generation terminated!")
 
             raise
-        finally:
-            self._gangs.close()
+
+        self._gangs.close()
 
         elapsed_time = self._wall_watch.get_elapsed_time()
 
