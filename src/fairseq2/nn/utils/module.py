@@ -563,26 +563,31 @@ def get_module_size(module: Module) -> ModuleSizeInfo:
     info = ModuleSizeInfo()
 
     for param in module.parameters():
-        if param is not None:
-            size = param.numel()
-            size_bytes = size * param.element_size()
+        if param is None:
+            continue
 
-            info.param_size += size
-            info.param_size_bytes += size_bytes
-
-            if param.requires_grad:
-                info.trainable_param_size += size
-                info.trainable_param_size_bytes += size_bytes
-
-            info.total_size += size
-            info.total_size_bytes += size_bytes
-
-    for buffer in module.buffers():
-        size = buffer.numel()
+        size = param.numel()
         size_bytes = size * param.element_size()
 
+        info.param_size += size
+        info.param_size_bytes += size_bytes
+
+        if param.requires_grad:
+            info.trainable_param_size += size
+            info.trainable_param_size_bytes += size_bytes
+
+        info.total_size += size
+        info.total_size_bytes += size_bytes
+
+    for buffer in module.buffers():
+        if buffer is None:
+            continue
+
+        size = buffer.numel()
+        size_bytes = size * buffer.element_size()
+
         info.buffer_size += size
-        info.buffer_size_bytes += size * size_bytes
+        info.buffer_size_bytes += size_bytes
 
         info.total_size += size
         info.total_size_bytes += size_bytes
