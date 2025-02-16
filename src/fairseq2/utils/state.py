@@ -17,8 +17,6 @@ from torch.nn import Module
 from torch.optim import Optimizer
 from typing_extensions import override
 
-from fairseq2.nn.utils.module import load_state_dict
-
 
 @runtime_checkable
 class Stateful(Protocol):
@@ -118,34 +116,19 @@ class StatefulObjectBag:
             if is_explicit:
                 if state_handler is None:
                     if isinstance(obj, Stateful):
-                        state = self._state_dict(obj)
+                        state = obj.state_dict()
                     else:
                         state = obj
                 else:
                     state = state_handler.get_state(obj)
             elif isinstance(obj, Stateful) and not self._is_dunder(name):
-                state = self._state_dict(obj)
+                state = obj.state_dict()
             else:
                 continue
 
             state_dict[name] = state
 
         return state_dict
-
-    @staticmethod
-    def _state_dict(obj: Stateful) -> dict[str, object]:
-        if isinstance(obj, FSDP):
-            with warnings.catch_warnings():
-                warnings.filterwarnings(
-                    action="ignore", message=r".*Please use DTensor instead.*"
-                )
-                warnings.filterwarnings(
-                    action="ignore", message=r".*`_get_pg_default_device` will be deprecated.*"  # fmt: skip
-                )
-
-                return obj.state_dict()
-
-        return obj.state_dict()
 
     @final
     def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
@@ -183,7 +166,7 @@ class StatefulObjectBag:
                             raise state_type_error(name, state)
 
                         try:
-                            self._load_state_dict(obj, state)
+                            obj.load_state_dict(state)
                         except (ValueError, TypeError) as ex:
                             raise state_error(name, obj) from ex
                     else:
@@ -205,7 +188,7 @@ class StatefulObjectBag:
                     raise state_type_error(name, state)
 
                 try:
-                    self._load_state_dict(obj, state)
+                    obj.load_state_dict(state)
                 except (ValueError, TypeError) as ex:
                     raise state_error(name, obj) from ex
 
@@ -224,25 +207,6 @@ class StatefulObjectBag:
             raise ValueError(
                 f"`state_dict` must contain only the states of the attributes of this object, but it contains the following unexpected keys: {s}"
             )
-
-    @staticmethod
-    def _load_state_dict(obj: Stateful, state: Mapping[str, object]) -> None:
-        if isinstance(obj, FSDP):
-            with warnings.catch_warnings():
-                warnings.filterwarnings(
-                    action="ignore", message=r".*Please use DTensor instead.*"
-                )
-
-                load_state_dict(obj, state)
-
-            return
-
-        if isinstance(obj, Module):
-            load_state_dict(obj, state)
-
-            return
-
-        return obj.load_state_dict(state)
 
     def _is_explicit(self, name: str) -> tuple[bool, StateHandler[Any] | None]:
         try:
