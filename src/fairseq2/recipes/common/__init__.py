@@ -17,7 +17,6 @@ from fairseq2.recipes.common._device import (
     create_device_stat_tracker as create_device_stat_tracker,
 )
 from fairseq2.recipes.common._distributed import broadcast_model as broadcast_model
-from fairseq2.recipes.common._distributed import check_model_type as check_model_type
 from fairseq2.recipes.common._distributed import (
     setup_data_parallel_model as setup_data_parallel_model,
 )

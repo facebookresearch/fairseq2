@@ -11,7 +11,6 @@ from typing import Any, TextIO, final
 
 import torch
 from torch import Tensor
-from torch.nn import Module
 from typing_extensions import override
 
 from fairseq2.data.text.tokenizers import TextTokenDecoder, TextTokenizer
@@ -21,18 +20,21 @@ from fairseq2.metrics.text import WerMetric
 from fairseq2.models.asr import AsrModel, AsrModelOutput
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
-from fairseq2.recipes.common import check_model_type
 from fairseq2.recipes.error import UnitError
 from fairseq2.recipes.metrics import BaseMetricBag
+from fairseq2.recipes.model import Model
 
 
 @final
 class AsrCriterion:
-    _model: Module
+    _model: Model
     _scorer: AsrScorer | None
 
-    def __init__(self, model: Module, scorer: AsrScorer | None = None) -> None:
-        check_model_type(model, AsrModel)
+    def __init__(self, model: Model, scorer: AsrScorer | None = None) -> None:
+        if not isinstance(model.base_module, AsrModel):
+            raise TypeError(
+                f"`model.base_module` must be of type `{AsrModel}`, but is of type `{type(model.base_module)}` instead."
+            )
 
         self._model = model
 
@@ -57,10 +59,10 @@ class AsrCriterion:
         return loss, batch.batch_size
 
     def _forward(self, batch: SequenceBatch) -> AsrModelOutput:
-        return self._model(batch)  # type: ignore[no-any-return]
+        return self._model.module(batch)  # type: ignore[no-any-return]
 
     @property
-    def model(self) -> Module:
+    def model(self) -> Model:
         return self._model
 
 

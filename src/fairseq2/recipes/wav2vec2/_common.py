@@ -12,7 +12,6 @@ from typing import final
 
 import torch
 from torch import Tensor
-from torch.nn import Module
 from torcheval.metrics import MulticlassAccuracy
 
 from fairseq2.gang import Gang
@@ -25,8 +24,8 @@ from fairseq2.models.wav2vec2 import (
     Wav2Vec2Model,
     Wav2Vec2Output,
 )
-from fairseq2.recipes.common import check_model_type
 from fairseq2.recipes.metrics import BaseMetricBag
+from fairseq2.recipes.model import Model
 
 
 @dataclass(kw_only=True)
@@ -40,14 +39,17 @@ class Wav2Vec2LossSection:
 
 @final
 class Wav2Vec2Criterion:
-    _model: Module
+    _model: Model
     _diversity_loss_weight: float
     _feature_penalty_weight: float
 
     def __init__(
-        self, model: Module, diversity_loss_weight: float, feature_penalty_weight: float
+        self, model: Model, diversity_loss_weight: float, feature_penalty_weight: float
     ) -> None:
-        check_model_type(model, Wav2Vec2Model)
+        if not isinstance(model.base_module, Wav2Vec2Model):
+            raise TypeError(
+                f"`model.base_module` must be of type `{Wav2Vec2Model}`, but is of type `{type(model.base_module)}` instead."
+            )
 
         self._model = model
 
@@ -78,10 +80,10 @@ class Wav2Vec2Criterion:
         return loss.total, num_targets
 
     def _forward(self, batch: SequenceBatch) -> Wav2Vec2Output:
-        return self._model(batch)  # type: ignore[no-any-return]
+        return self._model.module(batch)  # type: ignore[no-any-return]
 
     @property
-    def model(self) -> Module:
+    def model(self) -> Model:
         return self._model
 
 

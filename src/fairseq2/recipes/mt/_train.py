@@ -319,6 +319,7 @@ def load_mt_trainer(
             assert seq2seq_generator is not None
 
             valid_score_unit = MTBleuChrfEvalUnit(
+                model,
                 direction,
                 seq2seq_generator,
                 tokenizer,

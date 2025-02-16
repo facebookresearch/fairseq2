@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace
-from typing import final
+from typing import cast, final
 
 import torch
 from rich.console import Console
@@ -151,12 +151,14 @@ class RunChatbotHandler(CliCommandHandler):
             torch_compile=False,
         )
 
+        module = cast(DecoderModel, model)
+
         tokenizer = load_text_tokenizer(context, args)
 
         sampler = TopPSampler(p=args.top_p)
 
         generator = SamplingSequenceGenerator(
-            model, sampler, temperature=args.temperature, max_gen_len=args.max_gen_len
+            module, sampler, temperature=args.temperature, max_gen_len=args.max_gen_len
         )
 
         card = context.asset_store.retrieve_card(args.model_name)

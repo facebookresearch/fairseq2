@@ -44,6 +44,7 @@ from fairseq2.recipes.error import (
     DatasetPathNotFoundError,
     HybridShardingNotSupportedError,
     InvalidCheckpointPathError,
+    ModelCompilationNotSupportedError,
     ModelParallelismNotSupportedError,
     ModelPathNotFoundError,
     StaticGraphNotSupportedError,
@@ -57,6 +58,7 @@ def _register_user_error_types(cli: Cli) -> None:
     cli.register_user_error_type(InvalidCheckpointPathError)
     cli.register_user_error_type(InvalidDatasetTypeError)
     cli.register_user_error_type(InvalidModelTypeError)
+    cli.register_user_error_type(ModelCompilationNotSupportedError)
     cli.register_user_error_type(ModelParallelismNotSupportedError)
     cli.register_user_error_type(ModelPathNotFoundError)
     cli.register_user_error_type(ShardedModelLoadError)

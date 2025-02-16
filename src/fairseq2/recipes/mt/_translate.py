@@ -47,6 +47,7 @@ from fairseq2.recipes.config import (
 from fairseq2.recipes.error import UnitError
 from fairseq2.recipes.generator import AbstractGeneratorUnit, Generator
 from fairseq2.recipes.metrics import Seq2SeqGenerationMetricBag
+from fairseq2.recipes.model import Model
 from fairseq2.typing import CPU
 from fairseq2.utils.file import FileMode
 from fairseq2.utils.rng import manual_seed
@@ -201,7 +202,7 @@ def load_text_translator(
         hyp_fp = None
 
     unit = TextTranslationUnit(
-        seq2seq_generator, tokenizer, config.target_lang, gangs, src_fp, hyp_fp
+        model, seq2seq_generator, tokenizer, config.target_lang, gangs, src_fp, hyp_fp
     )
 
     text_encoder = tokenizer.create_encoder(
@@ -241,6 +242,7 @@ class TextTranslationUnit(AbstractGeneratorUnit[SequenceBatch]):
 
     def __init__(
         self,
+        model: Model,
         generator: Seq2SeqGenerator,
         tokenizer: TextTokenizer,
         target_lang: str,
@@ -262,7 +264,7 @@ class TextTranslationUnit(AbstractGeneratorUnit[SequenceBatch]):
         :param hyp_output_stream:
             The output stream to dump hypotheses.
         """
-        super().__init__(generator.model)
+        super().__init__(model)
 
         self._converter = SequenceToTextConverter(
             generator, tokenizer, task="translation", target_lang=target_lang

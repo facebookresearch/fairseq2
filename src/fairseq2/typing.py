@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from collections.abc import MutableMapping
+from contextlib import AbstractContextManager
 from dataclasses import Field, is_dataclass
 from typing import Any, ClassVar, Final, Protocol, TypeAlias, TypeGuard
 
@@ -42,6 +43,9 @@ EMPTY = _EmptyType()
 def is_dataclass_instance(obj: object) -> TypeGuard[DataClass]:
     """Return ``True`` if ``obj`` is of type :class:`DataClass`."""
     return is_dataclass(obj) and not isinstance(obj, type)
+
+
+ContextManager: TypeAlias = AbstractContextManager[None]
 
 
 Device: TypeAlias = device

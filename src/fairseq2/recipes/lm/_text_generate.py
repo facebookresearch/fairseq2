@@ -47,6 +47,7 @@ from fairseq2.recipes.config import (
 from fairseq2.recipes.error import UnitError
 from fairseq2.recipes.generator import AbstractGeneratorUnit, Generator
 from fairseq2.recipes.metrics import SequenceGenerationMetricBag
+from fairseq2.recipes.model import Model
 from fairseq2.typing import CPU
 from fairseq2.utils.file import FileMode
 from fairseq2.utils.rng import manual_seed
@@ -212,6 +213,7 @@ def load_text_generator(
         json_fp = None
 
     unit = TextGenerateUnit(
+        model,
         seq_generator,
         tokenizer,
         gangs,
@@ -255,13 +257,14 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
 
     def __init__(
         self,
+        model: Model,
         generator: SequenceGenerator,
         tokenizer: TextTokenizer,
         gangs: Gangs,
         text_output_stream: TextIO | None,
         json_output_stream: TextIO | None,
     ) -> None:
-        super().__init__(generator.model)
+        super().__init__(model)
 
         self._generator = generator
 

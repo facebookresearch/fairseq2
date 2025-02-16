@@ -12,7 +12,6 @@ from typing import Final, cast, final
 import torch
 import torch.distributed
 from torch import Tensor
-from torch.nn import Module
 from typing_extensions import override
 
 from fairseq2.datasets.preference import PreferenceBatch
@@ -26,6 +25,7 @@ from fairseq2.recipes.lm._preference_finetune._common import (
     _gather_lprobs_avg,
 )
 from fairseq2.recipes.lm._preference_finetune._handler import POFinetuneUnitHandler
+from fairseq2.recipes.model import Model
 from fairseq2.recipes.trainer import AbstractTrainUnit, TrainUnit
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
@@ -42,7 +42,7 @@ class SimPOFinetuneUnit(AbstractTrainUnit[PreferenceBatch]):
 
     def __init__(
         self,
-        model: Module,
+        model: Model,
         gangs: Gangs,
         beta: float = 0.1,
         gamma: float = 0.5,
@@ -65,8 +65,12 @@ class SimPOFinetuneUnit(AbstractTrainUnit[PreferenceBatch]):
             rejected_batch
         )
 
-        chosen_output = cast(SequenceModelOutput, self._model(chosen_input_batch))
-        rejected_output = cast(SequenceModelOutput, self._model(rejected_input_batch))
+        chosen_output = cast(
+            SequenceModelOutput, self._model.module(chosen_input_batch)
+        )
+        rejected_output = cast(
+            SequenceModelOutput, self._model.module(rejected_input_batch)
+        )
 
         chosen_logps, average_chosen_logps = _gather_lprobs_avg(
             chosen_output, chosen_target_batch
@@ -164,7 +168,7 @@ class SimPOFinetuneConfig:
 class SimPOFinetuneUnitHandler(POFinetuneUnitHandler):
     @override
     def create(
-        self, model: Module, gangs: Gangs, recipe_config: object
+        self, model: Model, gangs: Gangs, recipe_config: object
     ) -> TrainUnit[PreferenceBatch]:
         criterion_section = get_config_section(
             recipe_config, "criterion", POCriterionSection
