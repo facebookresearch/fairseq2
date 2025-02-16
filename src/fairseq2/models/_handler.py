@@ -66,6 +66,9 @@ class ModelHandler(ABC):
         self, path: Path, model_name: str, config: object, gangs: Gangs, dtype: DataType
     ) -> Module: ...
 
+    @abstractmethod
+    def compile(self, model: Module, config: object) -> Module: ...
+
     @property
     @abstractmethod
     def family(self) -> str: ...
@@ -85,6 +88,10 @@ class ModelHandler(ABC):
     @property
     @abstractmethod
     def supports_sharding(self) -> bool: ...
+
+    @property
+    @abstractmethod
+    def supports_torch_compile(self) -> bool: ...
 
 
 class AbstractModelHandler(ModelHandler):
@@ -374,6 +381,25 @@ class AbstractModelHandler(ModelHandler):
         return checkpoint
 
     @final
+    def compile(self, model: Module, config: object) -> Module:
+        if not isinstance(model, self.kls):
+            raise TypeError(
+                f"`model` must be of type `{self.kls}`, but is of type `{type(model)}` instead."
+            )
+
+        if not isinstance(config, self.config_kls):
+            raise TypeError(
+                f"`config` must be of type `{self.config_kls}`, but is of type `{type(config)}` instead."
+            )
+
+        return self._compile_model(model, config)
+
+    def _compile_model(self, model: Module, config: object) -> Module:
+        raise NotSupportedError(
+            f"The '{self.family}' model family does not support `torch.compile()`."
+        )
+
+    @final
     @property
     @override
     def config_kls(self) -> type[object]:
@@ -387,4 +413,9 @@ class AbstractModelHandler(ModelHandler):
     @property
     @override
     def supports_sharding(self) -> bool:
+        return False
+
+    @property
+    @override
+    def supports_torch_compile(self) -> bool:
         return False
