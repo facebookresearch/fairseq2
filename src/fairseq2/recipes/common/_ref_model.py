@@ -34,7 +34,7 @@ from fairseq2.models import (
 from fairseq2.models.compile import compile_model
 from fairseq2.nn.utils.module import remove_parametrizations
 from fairseq2.recipes.common._distributed import broadcast_model
-from fairseq2.recipes.common._model import ModelParallelismNotSupportedError
+from fairseq2.recipes.error import ModelParallelismNotSupportedError
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.registry import Provider
 from fairseq2.typing import DataType

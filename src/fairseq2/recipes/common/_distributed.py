@@ -21,6 +21,10 @@ from fairseq2.nn.ddp import DistributedSetupError, to_ddp
 from fairseq2.nn.fsdp import to_fsdp
 from fairseq2.nn.utils.module import broadcast_module, to_device
 from fairseq2.recipes.config import TrainerSection, get_config_section
+from fairseq2.recipes.error import (
+    HybridShardingNotSupportedError,
+    StaticGraphNotSupportedError,
+)
 from fairseq2.utils.env import InvalidEnvironmentVariableError, get_local_world_size
 
 
@@ -94,18 +98,14 @@ def wrap_fsdp(
     local_world_size: int | None,
 ) -> Module:
     if trainer_section.fsdp.version == "v2":
-        raise NotSupportedDistributedFeature("FSDP2 is not supported yet.")
+        raise NotSupportedError("FSDP2 is not supported yet.")
 
     if not static_graph:
-        raise NotSupportedDistributedFeature(
-            "FSDP does not support non-static model graphs."
-        )
+        raise StaticGraphNotSupportedError("FSDP")
 
     if local_world_size is not None:
         if gangs.root.size != gangs.dp.size:
-            raise NotSupportedDistributedFeature(
-                "HSDP cannot be used with non-data parallelism."
-            )
+            raise HybridShardingNotSupportedError("FSDP")
 
     if gangs.dp.size == 1:
         to_device(base_model, gangs.root.device)
@@ -138,10 +138,6 @@ def wrap_fsdp(
     log.info("Model wrapped with FSDP and broadcasted.")
 
     return dp_model
-
-
-class NotSupportedDistributedFeature(NotSupportedError):
-    pass
 
 
 def broadcast_model(name: str, model: Module, gangs: Gangs) -> None:

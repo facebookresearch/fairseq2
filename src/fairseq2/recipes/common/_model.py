@@ -60,6 +60,11 @@ from fairseq2.recipes.config import (
     TrainerSection,
     get_config_section,
 )
+from fairseq2.recipes.error import (
+    InvalidCheckpointPathError,
+    ModelParallelismNotSupportedError,
+    ModelPathNotFoundError,
+)
 from fairseq2.recipes.utils.log import log_config, log_model
 from fairseq2.registry import Provider
 from fairseq2.typing import DataClass, is_dataclass_instance
@@ -378,7 +383,7 @@ class PathBasedModelLoader(ModelLoader):
                     )
                 except FileNotFoundError:
                     if saved_model_path is None:
-                        raise ModelNotFoundError(model_name, model_path) from None
+                        raise ModelPathNotFoundError(model_name, model_path) from None
 
                     raise ModelLoadError(
                         model_name, f"The '{model_name}' model cannot be found at the '{saved_model_path}' path."  # fmt: skip
@@ -415,28 +420,6 @@ class PathBasedModelLoader(ModelLoader):
             return Path(model_pathname)
         except ValueError:
             raise InvalidCheckpointPathError(model_pathname) from None
-
-
-class InvalidCheckpointPathError(Exception):
-    pathname: str
-
-    def __init__(self, pathname: str) -> None:
-        super().__init__(f"'{pathname}' does not represent a valid file system path.")
-
-        self.pathname = pathname
-
-
-class ModelNotFoundError(Exception):
-    model_name: str
-    path: Path
-
-    def __init__(self, model_name: str, path: Path) -> None:
-        super().__init__(
-            f"The '{model_name}' model cannot be found at the '{path}' path."
-        )
-
-        self.model_name = model_name
-        self.path = path
 
 
 @final
@@ -573,19 +556,6 @@ def apply_model_config_overrides(model_config: object, overrides: object) -> obj
         raise ContractError(
             "`overrides` cannot be merged with `config`. See the nested exception for details."
         ) from ex
-
-
-class ModelParallelismNotSupportedError(NotSupportedError):
-    family: str
-    model_name: str
-
-    def __init__(self, family: str, model_name: str) -> None:
-        super().__init__(
-            f"The '{family}' family of the '{model_name}' model does not support non-data parallelism."
-        )
-
-        self.family = family
-        self.model_name = model_name
 
 
 class ModelCardSaver(ABC):
