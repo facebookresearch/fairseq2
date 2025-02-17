@@ -781,7 +781,7 @@ In the example above, we have made changes to config sections including <code cl
 </ul>
 <p>fairseq2 provides a clean way to handle this through the checkpoint system (learn more about <a class="reference internal" href="../basics/ckpt.html#basics-ckpt-management"><span class="std std-ref"> Checkpoint Management</span></a>):</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>fairseq2<span class="w"> </span>lm<span class="w"> </span>preference_finetune<span class="w"> </span><span class="nv">$OUTPUT_DIR</span><span class="w"> </span>--config<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>assets.checkpoint_dir<span class="o">=</span>/path/to/checkpoint<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>common.assets.checkpoint_dir<span class="o">=</span>/path/to/checkpoint<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>model.name<span class="o">=</span>last_checkpoint<span class="w"> </span><span class="se">\ </span><span class="w"> </span><span class="c1"># this will pick up the last checkpoint</span>
 <span class="w">    </span>dataset.path<span class="o">=</span>/path/to/data
 </pre></div>
@@ -797,7 +797,7 @@ In the example above, we have made changes to config sections including <code cl
 <span class="nv">CKPT</span><span class="o">=</span><span class="s2">&quot;checkpoint_step_1000&quot;</span><span class="w">  </span><span class="c1"># e.g. checkpoint of step 1000</span>
 
 fairseq2<span class="w"> </span>lm<span class="w"> </span>preference_finetune<span class="w"> </span><span class="nv">$OUTPUT_DIR</span><span class="w"> </span>--config<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>assets.checkpoint_dir<span class="o">=</span><span class="nv">$CKPT_DIR</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>common.assets.checkpoint_dir<span class="o">=</span><span class="nv">$CKPT_DIR</span><span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>model.name<span class="o">=</span><span class="nv">$CKPT</span><span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>dataset.path<span class="o">=</span>/path/to/new/data<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>dataset.max_num_tokens<span class="o">=</span><span class="m">4096</span><span class="w"> </span><span class="se">\</span>
@@ -846,7 +846,7 @@ With that, we can now generate over the test dataset!</p>
 <span class="nv">DATASET</span><span class="o">=</span><span class="s2">&quot;/datasets/facebook/fairseq2-lm-gsm8k/test/test.jsonl&quot;</span>
 
 fairseq2<span class="w"> </span>lm<span class="w"> </span>generate<span class="w"> </span><span class="nv">$SAVE_DIR</span><span class="w"> </span>--no-sweep-dir<span class="w"> </span>--config<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>assets.checkpoint_dir<span class="o">=</span><span class="nv">$CKPT_DIR</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>common.assets.checkpoint_dir<span class="o">=</span><span class="nv">$CKPT_DIR</span><span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>model.name<span class="o">=</span><span class="nv">$CKPT</span><span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>seq_generator.config.temperature<span class="o">=</span><span class="m">0</span>.1<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>dataset.path<span class="o">=</span><span class="nv">$DATASET</span>
@@ -964,7 +964,7 @@ fairseq2<span class="w"> </span>lm<span class="w"> </span>generate<span class="w
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=ef635095"></script>
+</div><script src="../_static/documentation_options.js?v=fc0fef3b"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/furo.js?v=5fa4622c"></script>

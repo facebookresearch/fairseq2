@@ -410,7 +410,17 @@
         <span class="n">cache</span> <span class="o">=</span> <span class="p">{}</span>
 
         <span class="k">def</span><span class="w"> </span><span class="nf">cache_file</span><span class="p">(</span><span class="n">file</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">source</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">metadata</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metadata_file_loader</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">file</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">all_metadata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metadata_file_loader</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">file</span> <span class="o">==</span> <span class="n">path</span><span class="p">:</span>
+                    <span class="k">raise</span>
+
+                <span class="k">raise</span> <span class="n">AssetMetadataLoadError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;The &#39;</span><span class="si">{</span><span class="n">file</span><span class="si">}</span><span class="s2">&#39; file is not found.&quot;</span>
+                <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">metadata</span> <span class="ow">in</span> <span class="n">all_metadata</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">cache</span><span class="p">:</span>
                     <span class="k">if</span> <span class="n">file</span> <span class="o">==</span> <span class="n">path</span><span class="p">:</span>
                         <span class="k">raise</span> <span class="n">AssetMetadataLoadError</span><span class="p">(</span>
@@ -487,7 +497,14 @@
             <span class="k">if</span> <span class="n">file</span><span class="o">.</span><span class="n">suffix</span> <span class="o">!=</span> <span class="s2">&quot;.yaml&quot;</span> <span class="ow">and</span> <span class="n">file</span><span class="o">.</span><span class="n">suffix</span> <span class="o">!=</span> <span class="s2">&quot;.yml&quot;</span><span class="p">:</span>
                 <span class="k">continue</span>
 
-            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">metadata</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metadata_file_loader</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">file</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">all_metadata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metadata_file_loader</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">AssetMetadataLoadError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;The &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_package_name</span><span class="si">}</span><span class="s2">&#39; package does not have a file named &#39;</span><span class="si">{</span><span class="n">file</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
+                <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">metadata</span> <span class="ow">in</span> <span class="n">all_metadata</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">cache</span><span class="p">:</span>
                     <span class="k">raise</span> <span class="n">AssetMetadataLoadError</span><span class="p">(</span>
                         <span class="sa">f</span><span class="s2">&quot;Two assets in the &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_package_name</span><span class="si">}</span><span class="s2">&#39; package have the same name &#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
@@ -519,6 +536,8 @@
 
         <span class="k">try</span><span class="p">:</span>
             <span class="n">all_metadata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_yaml_loader</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+            <span class="k">raise</span>
         <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="n">YamlError</span><span class="p">)</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">AssetMetadataLoadError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;The &#39;</span><span class="si">{</span><span class="n">file</span><span class="si">}</span><span class="s2">&#39; asset metadata file cannot be loaded as YAML. See the nested exception for details.&quot;</span>
@@ -704,7 +723,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=ef635095"></script>
+</div><script src="../../../_static/documentation_options.js?v=fc0fef3b"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>

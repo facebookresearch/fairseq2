@@ -319,6 +319,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enum</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.assets</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">AssetDirectories</span><span class="p">,</span>
@@ -348,7 +349,14 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._text_tokenizers</span><span class="w"> </span><span class="kn">import</span> <span class="n">_register_text_tokenizers</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.file</span><span class="w"> </span><span class="kn">import</span> <span class="n">LocalFileSystem</span>
 
-<span class="n">_setup_called</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">_SetupState</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="n">NOT_CALLED</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">IN_CALL</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">CALLED</span> <span class="o">=</span> <span class="mi">2</span>
+
+
+<span class="n">_setup_state</span><span class="p">:</span> <span class="n">_SetupState</span> <span class="o">=</span> <span class="n">_SetupState</span><span class="o">.</span><span class="n">NOT_CALLED</span>
 
 
 <div class="viewcode-block" id="setup_fairseq2">
@@ -367,16 +375,26 @@
 
 <span class="sd">    .. __: https://setuptools.pypa.io/en/latest/userguide/entry_point.html</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">global</span> <span class="n">_setup_called</span>
+    <span class="k">global</span> <span class="n">_setup_state</span>
 
-    <span class="k">if</span> <span class="n">_setup_called</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">_setup_state</span> <span class="o">==</span> <span class="n">_SetupState</span><span class="o">.</span><span class="n">CALLED</span><span class="p">:</span>
         <span class="k">return</span>
 
-    <span class="n">_setup_called</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># Mark early to avoid recursive calls.</span>
+    <span class="k">if</span> <span class="n">_setup_state</span> <span class="o">==</span> <span class="n">_SetupState</span><span class="o">.</span><span class="n">IN_CALL</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;`setup_fairseq2()` cannot be called recursively.&quot;</span><span class="p">)</span>
 
-    <span class="n">context</span> <span class="o">=</span> <span class="n">setup_library</span><span class="p">()</span>
+    <span class="n">_setup_state</span> <span class="o">=</span> <span class="n">_SetupState</span><span class="o">.</span><span class="n">IN_CALL</span>
 
-    <span class="n">set_runtime_context</span><span class="p">(</span><span class="n">context</span><span class="p">)</span></div>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">context</span> <span class="o">=</span> <span class="n">setup_library</span><span class="p">()</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+        <span class="n">_setup_state</span> <span class="o">=</span> <span class="n">_SetupState</span><span class="o">.</span><span class="n">NOT_CALLED</span>
+
+        <span class="k">raise</span>
+
+    <span class="n">set_runtime_context</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+
+    <span class="n">_setup_state</span> <span class="o">=</span> <span class="n">_SetupState</span><span class="o">.</span><span class="n">CALLED</span></div>
 
 
 
@@ -449,7 +467,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=ef635095"></script>
+</div><script src="../../../_static/documentation_options.js?v=fc0fef3b"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>

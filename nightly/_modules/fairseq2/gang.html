@@ -319,6 +319,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sequence</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
@@ -769,7 +770,7 @@
         <span class="k">if</span> <span class="n">num_threads</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">torch</span><span class="o">.</span><span class="n">set_num_threads</span><span class="p">(</span><span class="n">num_threads</span><span class="p">)</span>
 
-            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Setting the number of threads used for intraop parallelism to </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">num_threads</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Setting the number of threads used for intra-op parallelism to </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">num_threads</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
 
         <span class="k">if</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span><span class="p">:</span>
             <span class="c1"># See https://github.com/pytorch/pytorch/issues/46874.</span>
@@ -795,9 +796,14 @@
             <span class="n">pg_options</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">dist</span><span class="o">.</span><span class="n">init_process_group</span><span class="p">(</span>
-                <span class="n">backend</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">,</span> <span class="n">pg_options</span><span class="o">=</span><span class="n">pg_options</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
-            <span class="p">)</span>
+            <span class="k">with</span> <span class="n">warnings</span><span class="o">.</span><span class="n">catch_warnings</span><span class="p">():</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">filterwarnings</span><span class="p">(</span>
+                    <span class="n">action</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">message</span><span class="o">=</span><span class="s2">&quot;.*options._timeout was specified.*&quot;</span>
+                <span class="p">)</span>
+
+                <span class="n">dist</span><span class="o">.</span><span class="n">init_process_group</span><span class="p">(</span>
+                    <span class="n">backend</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">,</span> <span class="n">pg_options</span><span class="o">=</span><span class="n">pg_options</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
+                <span class="p">)</span>
         <span class="k">except</span> <span class="p">(</span><span class="ne">RuntimeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">GangError</span><span class="p">(</span>
                 <span class="s2">&quot;The underlying process group has failed to initialize. See the nested exception for details.&quot;</span>
@@ -1205,9 +1211,7 @@
 
     <span class="n">inter_node_gang</span><span class="p">:</span> <span class="n">Gang</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 
-    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-        <span class="s2">&quot;Initializing inter-node data parallel gang with a size of </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">inter_node_size</span>
-    <span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Initializing inter-node data parallel gang with a size of </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">inter_node_size</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
 
     <span class="c1"># Build the gangs for inter-node data parallelism.</span>
     <span class="k">match</span> <span class="n">inter_node_size</span><span class="p">:</span>
@@ -1226,9 +1230,7 @@
 
     <span class="n">intra_node_gang</span><span class="p">:</span> <span class="n">Gang</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 
-    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-        <span class="s2">&quot;Initializing intra-node data parallel gang with a size of </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">intra_node_size</span>
-    <span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Initializing intra-node data parallel gang with a size of </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">intra_node_size</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
 
     <span class="c1"># Build the gangs for intra-node data parallelism.</span>
     <span class="k">match</span> <span class="n">intra_node_size</span><span class="p">:</span>
@@ -1309,7 +1311,7 @@
       
     </aside>
   </div>
-</div><script src="../../_static/documentation_options.js?v=ef635095"></script>
+</div><script src="../../_static/documentation_options.js?v=fc0fef3b"></script>
     <script src="../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/scripts/furo.js?v=5fa4622c"></script>

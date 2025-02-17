@@ -196,7 +196,7 @@ fairseq2 provides a clean way to handle this through the checkpoint system (lear
 .. code-block:: bash
 
     fairseq2 lm instruction_finetune $OUTPUT_DIR --config \
-        assets.checkpoint_dir=/path/to/checkpoint \
+        common.assets.checkpoint_dir=/path/to/checkpoint \
         model.name=last_checkpoint \  # this will pick up the last checkpoint
         dataset.path=/path/to/data
 
@@ -210,7 +210,7 @@ fairseq2 provides a clean way to handle this through the checkpoint system (lear
         CKPT="checkpoint_step_1000"  # e.g. checkpoint of step 1000
 
         fairseq2 lm instruction_finetune $OUTPUT_DIR --config \
-            assets.checkpoint_dir=$CKPT_DIR \
+            common.assets.checkpoint_dir=$CKPT_DIR \
             model.name=$CKPT \
             dataset.path=/path/to/new/data \
             dataset.max_num_tokens=4096 \
@@ -257,7 +257,7 @@ fairseq2 provides a clean way to handle this through the checkpoint system (lear
 
         # Second stage - continue from first stage checkpoint
         fairseq2 lm instruction_finetune run2_output --config \
-            assets.checkpoint_dir=run1_output/checkpoints \
+            common.assets.checkpoint_dir=run1_output/checkpoints \
             model.name=checkpoint_step_1000 \
             dataset.path=/path/to/dataset_B \
             optimizer.config.lr=5e-6  # Lower learning rate for second stage
@@ -312,7 +312,7 @@ fairseq2 natively supports inference:
     DATASET="/datasets/facebook/fairseq2-lm-gsm8k/test/test.jsonl"
 
     fairseq2 lm generate $SAVE_DIR --no-sweep-dir --config \
-        assets.checkpoint_dir=$CKPT_DIR \
+        common.assets.checkpoint_dir=$CKPT_DIR \
         model.name=$CKPT \
         seq_generator.config.temperature=0.1 \
         dataset.path=$DATASET

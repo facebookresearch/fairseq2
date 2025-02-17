@@ -50,7 +50,7 @@ After fine-tuning a language model, you can generate text with the following com
     DATASET="/datasets/facebook/fairseq2-lm-gsm8k/test/test.jsonl"
 
     fairseq2 lm generate $SAVE_DIR --no-sweep-dir --config \
-        assets.checkpoint_dir=$CKPT_DIR \
+        common.assets.checkpoint_dir=$CKPT_DIR \
         model.name="last_checkpoint" \
         seq_generator.config.temperature=0.1 \
         dataset.path=$DATASET

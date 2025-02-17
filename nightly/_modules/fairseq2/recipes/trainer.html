@@ -336,8 +336,9 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">torcheval.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mean</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">override</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.checkpoint</span><span class="w"> </span><span class="kn">import</span> <span class="n">CheckpointManager</span><span class="p">,</span> <span class="n">NoCheckpointFoundError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.checkpoint</span><span class="w"> </span><span class="kn">import</span> <span class="n">CheckpointManager</span><span class="p">,</span> <span class="n">CheckpointNotFoundError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataReader</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeviceStatTracker</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.error</span><span class="w"> </span><span class="kn">import</span> <span class="n">ContractError</span><span class="p">,</span> <span class="n">InternalError</span><span class="p">,</span> <span class="n">InvalidOperationError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gangs</span><span class="p">,</span> <span class="n">broadcast_flag</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">log</span>
@@ -361,11 +362,10 @@
     <span class="n">ProgressTask</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">CPU</span><span class="p">,</span> <span class="n">DataType</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.gc</span><span class="w"> </span><span class="kn">import</span> <span class="n">GarbageCollector</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.rng</span><span class="w"> </span><span class="kn">import</span> <span class="n">RngBag</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.state</span><span class="w"> </span><span class="kn">import</span> <span class="n">FSDPOptimizerStateHandler</span><span class="p">,</span> <span class="n">StatefulObjectBag</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.stopwatch</span><span class="w"> </span><span class="kn">import</span> <span class="n">Stopwatch</span>
-
-<span class="n">BatchT</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;BatchT&quot;</span><span class="p">)</span>
 
 <span class="n">BatchT_contra</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;BatchT_contra&quot;</span><span class="p">,</span> <span class="n">contravariant</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
@@ -398,6 +398,9 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;The training-related metrics.&quot;&quot;&quot;</span>
 
 
+<span class="n">BatchT</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;BatchT&quot;</span><span class="p">)</span>
+
+
 <span class="k">class</span><span class="w"> </span><span class="nc">AbstractTrainUnit</span><span class="p">(</span><span class="n">TrainUnit</span><span class="p">[</span><span class="n">BatchT</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Provides a skeletal implementation of :class:`TrainUnit`.&quot;&quot;&quot;</span>
 
@@ -426,17 +429,17 @@
     <span class="n">_data_reader</span><span class="p">:</span> <span class="n">DataReader</span><span class="p">[</span><span class="n">BatchT</span><span class="p">]</span>
     <span class="n">_gangs</span><span class="p">:</span> <span class="n">Gangs</span>
     <span class="n">_dtype</span><span class="p">:</span> <span class="n">DataType</span>
+    <span class="n">_amp</span><span class="p">:</span> <span class="nb">bool</span>
     <span class="n">_optimizer</span><span class="p">:</span> <span class="n">Optimizer</span>
     <span class="n">_lr_scheduler</span><span class="p">:</span> <span class="n">LRScheduler</span>
     <span class="n">_loss_scaler</span><span class="p">:</span> <span class="n">DynamicLossScaler</span>
     <span class="n">_max_gradient_norm</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span>
-    <span class="n">_amp</span><span class="p">:</span> <span class="nb">bool</span>
     <span class="n">_step_nr</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">_max_num_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span>
     <span class="n">_data_epoch_nr</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">_max_num_data_epochs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span>
     <span class="n">_repeat_step</span><span class="p">:</span> <span class="nb">bool</span>
-    <span class="n">_read_data</span><span class="p">:</span> <span class="nb">bool</span>
+    <span class="n">_has_read_any_data</span><span class="p">:</span> <span class="nb">bool</span>
     <span class="n">_num_effective_batches</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">_end_of_data_epoch</span><span class="p">:</span> <span class="nb">bool</span>
     <span class="n">_end_of_data</span><span class="p">:</span> <span class="nb">bool</span>
@@ -467,16 +470,19 @@
     <span class="n">_publish_metrics_every_n_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span>
     <span class="n">_publish_metrics_after_n_data_epochs</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">_publish_metrics_every_n_data_epochs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="n">_garbage_collector</span><span class="p">:</span> <span class="n">GarbageCollector</span>
     <span class="n">_profiler</span><span class="p">:</span> <span class="n">Profiler</span>
+    <span class="n">_device_stat_tracker</span><span class="p">:</span> <span class="n">DeviceStatTracker</span>
     <span class="n">_gradient_check</span><span class="p">:</span> <span class="nb">bool</span>
     <span class="n">_anomaly_detection</span><span class="p">:</span> <span class="nb">bool</span>
     <span class="n">_seed</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">_rng_bag</span><span class="p">:</span> <span class="n">RngBag</span>
     <span class="n">_wall_watch</span><span class="p">:</span> <span class="n">Stopwatch</span>
-    <span class="n">_total_step_time</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">_data_read_time</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">_elapsed_time</span><span class="p">:</span> <span class="nb">float</span>
     <span class="n">_run</span><span class="p">:</span> <span class="nb">bool</span>
     <span class="n">_progress_reporter</span><span class="p">:</span> <span class="n">ProgressReporter</span>
-    <span class="n">_train_task</span><span class="p">:</span> <span class="n">ProgressTask</span> <span class="o">|</span> <span class="kc">None</span>
+    <span class="n">_progress_task</span><span class="p">:</span> <span class="n">ProgressTask</span> <span class="o">|</span> <span class="kc">None</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -484,16 +490,19 @@
         <span class="n">unit</span><span class="p">:</span> <span class="n">TrainUnit</span><span class="p">[</span><span class="n">BatchT</span><span class="p">],</span>
         <span class="n">data_reader</span><span class="p">:</span> <span class="n">DataReader</span><span class="p">[</span><span class="n">BatchT</span><span class="p">],</span>
         <span class="n">gangs</span><span class="p">:</span> <span class="n">Gangs</span><span class="p">,</span>
+        <span class="n">dtype</span><span class="p">:</span> <span class="n">DataType</span><span class="p">,</span>
+        <span class="n">amp</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
         <span class="n">optimizer</span><span class="p">:</span> <span class="n">Optimizer</span><span class="p">,</span>
         <span class="n">lr_scheduler</span><span class="p">:</span> <span class="n">LRScheduler</span><span class="p">,</span>
         <span class="n">checkpoint_manager</span><span class="p">:</span> <span class="n">CheckpointManager</span><span class="p">,</span>
         <span class="n">metric_recorder</span><span class="p">:</span> <span class="n">MetricRecorder</span><span class="p">,</span>
+        <span class="n">garbage_collector</span><span class="p">:</span> <span class="n">GarbageCollector</span><span class="p">,</span>
         <span class="n">profiler</span><span class="p">:</span> <span class="n">Profiler</span><span class="p">,</span>
+        <span class="n">device_stat_tracker</span><span class="p">:</span> <span class="n">DeviceStatTracker</span><span class="p">,</span>
+        <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
         <span class="n">wall_watch</span><span class="p">:</span> <span class="n">Stopwatch</span><span class="p">,</span>
-        <span class="n">dtype</span><span class="p">:</span> <span class="n">DataType</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
         <span class="n">fp16_loss_scale</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mf">128.0</span><span class="p">,</span> <span class="mf">0.0001</span><span class="p">),</span>
         <span class="n">max_gradient_norm</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">amp</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">max_num_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">max_num_data_epochs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">score_metric_descriptor</span><span class="p">:</span> <span class="n">MetricDescriptor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -519,7 +528,6 @@
         <span class="n">publish_metrics_every_n_data_epochs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">gradient_check</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">anomaly_detection</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-        <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        :param unit:</span>
@@ -606,7 +614,7 @@
 
         <span class="n">device</span> <span class="o">=</span> <span class="n">gangs</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">device</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_model</span> <span class="o">=</span> <span class="n">unit</span><span class="o">.</span><span class="n">model</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_non_stateful</span><span class="p">(</span><span class="s2">&quot;_model&quot;</span><span class="p">,</span> <span class="n">unit</span><span class="o">.</span><span class="n">model</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_unit</span> <span class="o">=</span> <span class="n">unit</span>
 
@@ -621,6 +629,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_gangs</span> <span class="o">=</span> <span class="n">gangs</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_dtype</span> <span class="o">=</span> <span class="n">dtype</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_amp</span> <span class="o">=</span> <span class="n">amp</span>
 
         <span class="n">uses_fsdp</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="p">,</span> <span class="n">FSDP</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">uses_fsdp</span><span class="p">:</span>
@@ -646,8 +656,6 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_max_gradient_norm</span> <span class="o">=</span> <span class="n">max_gradient_norm</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_amp</span> <span class="o">=</span> <span class="n">amp</span>
-
         <span class="bp">self</span><span class="o">.</span><span class="n">register_stateful</span><span class="p">(</span><span class="s2">&quot;_step_nr&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">max_num_steps</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -666,7 +674,7 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_repeat_step</span> <span class="o">=</span> <span class="kc">False</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_read_data</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># Indicates whether we have read any data.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_has_read_any_data</span> <span class="o">=</span> <span class="kc">False</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_num_effective_batches</span> <span class="o">=</span> <span class="mi">0</span>
 
@@ -830,7 +838,11 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_publish_metrics_after_n_data_epochs</span> <span class="o">=</span> <span class="n">publish_metrics_after_n_data_epochs</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_publish_metrics_every_n_data_epochs</span> <span class="o">=</span> <span class="n">publish_metrics_every_n_data_epochs</span>
 
+        <span class="bp">self</span><span class="o">.</span><span class="n">_garbage_collector</span> <span class="o">=</span> <span class="n">garbage_collector</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">_profiler</span> <span class="o">=</span> <span class="n">profiler</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_device_stat_tracker</span> <span class="o">=</span> <span class="n">device_stat_tracker</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_gradient_check</span> <span class="o">=</span> <span class="n">gradient_check</span>
 
@@ -842,13 +854,15 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_wall_watch</span> <span class="o">=</span> <span class="n">wall_watch</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_total_step_time</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_data_read_time</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_elapsed_time</span> <span class="o">=</span> <span class="mf">0.0</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_run</span> <span class="o">=</span> <span class="kc">False</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_progress_reporter</span> <span class="o">=</span> <span class="n">NoopProgressReporter</span><span class="p">()</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_train_task</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_progress_task</span> <span class="o">=</span> <span class="kc">None</span>
 
 <div class="viewcode-block" id="Trainer.request_stop">
 <a class="viewcode-back" href="../../../reference/api/fairseq2.recipes/trainer.html#fairseq2.recipes.trainer.Trainer.request_stop">[docs]</a>
@@ -884,7 +898,9 @@
 
             <span class="k">raise</span>
         <span class="k">finally</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_gangs</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_garbage_collector</span><span class="o">.</span><span class="n">enable</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_gangs</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_should_stop</span><span class="p">:</span>
             <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Training stopped at step </span><span class="si">{}</span><span class="s2">!&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_step_nr</span><span class="p">)</span>
@@ -899,13 +915,15 @@
         <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Attempting to load the last checkpoint.&quot;</span><span class="p">)</span>
 
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">step_nr</span><span class="p">,</span> <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_manager</span><span class="o">.</span><span class="n">load_last_checkpoint</span><span class="p">()</span>
-        <span class="k">except</span> <span class="n">NoCheckpointFoundError</span><span class="p">:</span>
+            <span class="n">step_nr</span><span class="p">,</span> <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_manager</span><span class="o">.</span><span class="n">load_last_checkpoint</span><span class="p">(</span>
+                <span class="n">load_model</span><span class="o">=</span><span class="kc">False</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="n">CheckpointNotFoundError</span><span class="p">:</span>
             <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;No checkpoint found. Starting training.&quot;</span><span class="p">)</span>
 
             <span class="k">return</span>
 
-        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Checkpoint loaded, restoring training from step </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">step_nr</span><span class="p">)</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Checkpoint loaded. Restoring training from step </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">step_nr</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_step_nr</span> <span class="o">=</span> <span class="n">step_nr</span>
 
@@ -913,17 +931,21 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_gangs</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">barrier</span><span class="p">()</span>
 
-        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Training restored, resuming.&quot;</span><span class="p">)</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Training restored. Resuming.&quot;</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_do_run</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_rng_bag</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_seed</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gangs</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">rank</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
 
+        <span class="bp">self</span><span class="o">.</span><span class="n">_garbage_collector</span><span class="o">.</span><span class="n">enable</span><span class="p">()</span>
+
         <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_progress_reporter</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_profiler</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_train_task</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_progress_reporter</span><span class="o">.</span><span class="n">create_task</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_progress_task</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_progress_reporter</span><span class="o">.</span><span class="n">create_task</span><span class="p">(</span>
                 <span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_max_num_steps</span><span class="p">,</span> <span class="n">completed</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_step_nr</span>
             <span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">_device_stat_tracker</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
 
             <span class="n">first_iter</span> <span class="o">=</span> <span class="kc">True</span>
 
@@ -932,7 +954,7 @@
 
                 <span class="bp">self</span><span class="o">.</span><span class="n">_step_nr</span> <span class="o">+=</span> <span class="mi">1</span>
 
-                <span class="bp">self</span><span class="o">.</span><span class="n">_train_task</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_progress_task</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
 
                 <span class="n">detect_anomaly</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">set_detect_anomaly</span><span class="p">(</span>  <span class="c1"># type: ignore[attr-defined]</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_anomaly_detection</span><span class="p">,</span> <span class="n">check_nan</span><span class="o">=</span><span class="kc">True</span>
@@ -955,6 +977,8 @@
 
                 <span class="bp">self</span><span class="o">.</span><span class="n">_profiler</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
 
+                <span class="bp">self</span><span class="o">.</span><span class="n">_garbage_collector</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+
                 <span class="bp">self</span><span class="o">.</span><span class="n">_valid_score</span> <span class="o">=</span> <span class="kc">None</span>
 
                 <span class="k">if</span> <span class="n">first_iter</span><span class="p">:</span>
@@ -975,12 +999,10 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_step_nr</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_max_num_steps</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_maybe_advance_data_epoch</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_end_of_data_epoch</span><span class="p">:</span>
-            <span class="k">return</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_end_of_data_epoch</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_data_epoch_nr</span> <span class="o">+=</span> <span class="mi">1</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_data_epoch_nr</span> <span class="o">+=</span> <span class="mi">1</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_end_of_data_epoch</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_end_of_data_epoch</span> <span class="o">=</span> <span class="kc">False</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_run_step</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">step_nr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_step_nr</span>
@@ -1046,7 +1068,9 @@
         <span class="k">with</span> <span class="n">record_function</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;step_</span><span class="si">{</span><span class="n">step_nr</span><span class="si">}</span><span class="s2">_optimizer&quot;</span><span class="p">):</span>
             <span class="n">_</span><span class="p">,</span> <span class="n">scale_result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loss_scaler</span><span class="o">.</span><span class="n">run_optimizer_step</span><span class="p">(</span><span class="n">step_nr</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">scale_result</span><span class="o">.</span><span class="n">overflow</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_repeat_step</span> <span class="o">=</span> <span class="n">scale_result</span><span class="o">.</span><span class="n">overflow</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_repeat_step</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_metric_bag</span><span class="o">.</span><span class="n">rollback_updates</span><span class="p">()</span>
 
             <span class="k">if</span> <span class="n">scale_result</span><span class="o">.</span><span class="n">min_reached</span><span class="p">:</span>
@@ -1054,15 +1078,12 @@
                     <span class="sa">f</span><span class="s2">&quot;The gradients are scaled down to minimum at step </span><span class="si">{</span><span class="n">step_nr</span><span class="si">}</span><span class="s2">. Training cannot continue.&quot;</span>
                 <span class="p">)</span>
 
-            <span class="c1"># Repeat the step with the next batch.</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_step_nr</span> <span class="o">-=</span> <span class="mi">1</span>
 
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_train_task</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span><span class="s2">&quot;`_train_task` is `None`.&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_progress_task</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span><span class="s2">&quot;`_progress_task` is `None`.&quot;</span><span class="p">)</span>
 
-            <span class="bp">self</span><span class="o">.</span><span class="n">_train_task</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
-
-            <span class="bp">self</span><span class="o">.</span><span class="n">_repeat_step</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_progress_task</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_lr_scheduler</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
 
@@ -1071,23 +1092,25 @@
 
             <span class="bp">self</span><span class="o">.</span><span class="n">_metric_bag</span><span class="o">.</span><span class="n">gradient_norm</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">grad_norm</span><span class="p">)</span>
 
-            <span class="bp">self</span><span class="o">.</span><span class="n">_repeat_step</span> <span class="o">=</span> <span class="kc">False</span>
-
             <span class="bp">self</span><span class="o">.</span><span class="n">_num_effective_batches</span> <span class="o">+=</span> <span class="mi">1</span>
 
-        <span class="c1"># Reset.</span>
+        <span class="c1"># Reset the grads.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">(</span><span class="n">set_to_none</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_total_step_time</span> <span class="o">+=</span> <span class="n">watch</span><span class="o">.</span><span class="n">get_elapsed_time</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_elapsed_time</span> <span class="o">+=</span> <span class="n">watch</span><span class="o">.</span><span class="n">get_elapsed_time</span><span class="p">()</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_next_batches</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">BatchT</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">watch</span> <span class="o">=</span> <span class="n">Stopwatch</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
         <span class="k">try</span><span class="p">:</span>
             <span class="n">batches</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_data_reader</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">StopIteration</span><span class="p">:</span>
             <span class="n">batches</span> <span class="o">=</span> <span class="kc">None</span>
 
+        <span class="bp">self</span><span class="o">.</span><span class="n">_data_read_time</span> <span class="o">+=</span> <span class="n">watch</span><span class="o">.</span><span class="n">get_elapsed_time</span><span class="p">()</span>
+
         <span class="k">if</span> <span class="n">batches</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_read_data</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_has_read_any_data</span> <span class="o">=</span> <span class="kc">True</span>
 
             <span class="k">return</span> <span class="n">batches</span>
 
@@ -1097,7 +1120,7 @@
 
         <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;End of epoch </span><span class="si">{}</span><span class="s2"> reached at training step </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_epoch_nr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_step_nr</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_read_data</span><span class="p">:</span>  <span class="c1"># The dataset is empty.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_has_read_any_data</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_end_of_data</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_max_num_data_epochs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_epoch_nr</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_max_num_data_epochs</span><span class="p">:</span>
@@ -1105,16 +1128,15 @@
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_end_of_data</span><span class="p">:</span>
             <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;End of data reached.&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_step_nr</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_repeat_step</span> <span class="o">=</span> <span class="kc">True</span>
 
-        <span class="c1"># Repeat the step with the first batch of the next epoch.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_step_nr</span> <span class="o">-=</span> <span class="mi">1</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_train_task</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span><span class="s2">&quot;`_train_task` is `None`.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_progress_task</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span><span class="s2">&quot;`_progress_task` is `None`.&quot;</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_train_task</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_repeat_step</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_progress_task</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="kc">None</span>
 
@@ -1159,14 +1181,20 @@
                 <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span><span class="s2">&quot;`values` is `None`.&quot;</span><span class="p">)</span>
 
             <span class="n">extend_batch_metrics</span><span class="p">(</span>
-                <span class="n">values</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_effective_batches</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_total_step_time</span>
+                <span class="n">values</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_effective_batches</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_elapsed_time</span>
             <span class="p">)</span>
+
+            <span class="n">device_stats</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_device_stat_tracker</span><span class="o">.</span><span class="n">get_stats</span><span class="p">()</span>
+
+            <span class="n">values</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">device_stats</span><span class="p">)</span>
 
             <span class="n">values</span><span class="p">[</span><span class="s2">&quot;lr&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">get_effective_lr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_lr_scheduler</span><span class="p">)</span>
 
             <span class="n">values</span><span class="p">[</span><span class="s2">&quot;data_epoch&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_epoch_nr</span>
 
-            <span class="n">values</span><span class="p">[</span><span class="s2">&quot;elapsed_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_total_step_time</span>
+            <span class="n">values</span><span class="p">[</span><span class="s2">&quot;data_read_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_read_time</span>
+
+            <span class="n">values</span><span class="p">[</span><span class="s2">&quot;elapsed_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_elapsed_time</span>
 
             <span class="n">values</span><span class="p">[</span><span class="s2">&quot;wall_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wall_watch</span><span class="o">.</span><span class="n">get_elapsed_time</span><span class="p">()</span>
 
@@ -1174,7 +1202,13 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_num_effective_batches</span> <span class="o">=</span> <span class="mi">0</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_total_step_time</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_data_read_time</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_elapsed_time</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_device_stat_tracker</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_gangs</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">barrier</span><span class="p">()</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_should_validate</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_valid_units</span><span class="p">:</span>
@@ -1217,12 +1251,12 @@
 
         <span class="n">unit</span><span class="o">.</span><span class="n">set_step_nr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_step_nr</span><span class="p">)</span>
 
-        <span class="n">valid_task</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_progress_reporter</span><span class="o">.</span><span class="n">create_task</span><span class="p">(</span><span class="s2">&quot;valid&quot;</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+        <span class="n">task</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_progress_reporter</span><span class="o">.</span><span class="n">create_task</span><span class="p">(</span><span class="s2">&quot;valid&quot;</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 
         <span class="n">num_effective_batches</span> <span class="o">=</span> <span class="mi">0</span>
 
         <span class="k">for</span> <span class="n">step_nr</span> <span class="ow">in</span> <span class="n">count</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
-            <span class="n">valid_task</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">task</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
 
             <span class="n">log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Running validation step </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">step_nr</span><span class="p">)</span>
 
@@ -1237,7 +1271,7 @@
 
             <span class="n">num_effective_batches</span> <span class="o">+=</span> <span class="mi">1</span>
 
-        <span class="n">valid_task</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="n">task</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 
         <span class="n">data_reader</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
 
@@ -1259,26 +1293,26 @@
 
         <span class="n">unit</span><span class="o">.</span><span class="n">metric_bag</span><span class="o">.</span><span class="n">reset_metrics</span><span class="p">()</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gangs</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">rank</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gangs</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">values</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span><span class="s2">&quot;`values` is `None`.&quot;</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">values</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span><span class="s2">&quot;`values` is `None`.&quot;</span><span class="p">)</span>
+            <span class="n">extend_batch_metrics</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">num_batches</span><span class="p">,</span> <span class="n">elapsed_time</span><span class="p">)</span>
 
-        <span class="n">extend_batch_metrics</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">num_batches</span><span class="p">,</span> <span class="n">elapsed_time</span><span class="p">)</span>
+            <span class="n">values</span><span class="p">[</span><span class="s2">&quot;data_epoch&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_epoch_nr</span>
 
-        <span class="n">values</span><span class="p">[</span><span class="s2">&quot;data_epoch&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_epoch_nr</span>
+            <span class="n">values</span><span class="p">[</span><span class="s2">&quot;elapsed_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">elapsed_time</span>
 
-        <span class="n">values</span><span class="p">[</span><span class="s2">&quot;elapsed_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">elapsed_time</span>
+            <span class="n">values</span><span class="p">[</span><span class="s2">&quot;wall_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wall_watch</span><span class="o">.</span><span class="n">get_elapsed_time</span><span class="p">()</span>
 
-        <span class="n">values</span><span class="p">[</span><span class="s2">&quot;wall_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wall_watch</span><span class="o">.</span><span class="n">get_elapsed_time</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">unit</span><span class="o">.</span><span class="n">display_name</span><span class="p">:</span>
+                <span class="n">run_name</span> <span class="o">=</span> <span class="s2">&quot;valid/&quot;</span> <span class="o">+</span> <span class="n">unit</span><span class="o">.</span><span class="n">display_name</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">run_name</span> <span class="o">=</span> <span class="s2">&quot;valid&quot;</span>
 
-        <span class="k">if</span> <span class="n">unit</span><span class="o">.</span><span class="n">display_name</span><span class="p">:</span>
-            <span class="n">run_name</span> <span class="o">=</span> <span class="s2">&quot;valid/&quot;</span> <span class="o">+</span> <span class="n">unit</span><span class="o">.</span><span class="n">display_name</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">run_name</span> <span class="o">=</span> <span class="s2">&quot;valid&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_metric_recorder</span><span class="o">.</span><span class="n">record_metrics</span><span class="p">(</span><span class="n">run_name</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_step_nr</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_metric_recorder</span><span class="o">.</span><span class="n">record_metrics</span><span class="p">(</span><span class="n">run_name</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_step_nr</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_gangs</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">barrier</span><span class="p">()</span>
 
         <span class="k">return</span> <span class="n">values</span>
 
@@ -1314,19 +1348,18 @@
 
         <span class="n">last_score</span> <span class="o">=</span> <span class="n">mean</span><span class="p">(</span><span class="n">unit_scores</span><span class="p">)</span>
 
-        <span class="k">def</span><span class="w"> </span><span class="nf">is_better_score</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">is_last_score_better</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_best_step_and_score</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">return</span> <span class="kc">True</span>
 
             <span class="n">best_score</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_best_step_and_score</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
 
-            <span class="k">return</span> <span class="p">(</span>
-                <span class="n">best_score</span> <span class="o">&gt;</span> <span class="n">last_score</span>
-                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lower_better</span>
-                <span class="k">else</span> <span class="n">best_score</span> <span class="o">&lt;</span> <span class="n">last_score</span>
-            <span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lower_better</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">best_score</span> <span class="o">&gt;</span> <span class="n">last_score</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">last_score</span> <span class="o">&gt;</span> <span class="n">best_score</span>
 
-        <span class="k">if</span> <span class="n">is_better_score</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">is_last_score_better</span><span class="p">():</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_best_step_and_score</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_step_nr</span><span class="p">,</span> <span class="n">last_score</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">log</span><span class="o">.</span><span class="n">is_enabled_for_info</span><span class="p">():</span>
@@ -1381,40 +1414,33 @@
 
         <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Saving checkpoint after step </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">step_nr</span><span class="p">)</span>
 
-        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Extracting trainer state.&quot;</span><span class="p">)</span>
-
         <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
-
-        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Trainer state extracted.&quot;</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_manager</span><span class="o">.</span><span class="n">begin_checkpoint</span><span class="p">(</span><span class="n">step_nr</span><span class="p">)</span>
 
-        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Saving trainer state.&quot;</span><span class="p">)</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Saving the trainer state.&quot;</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gangs</span><span class="o">.</span><span class="n">dp</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="p">,</span> <span class="n">DDP</span><span class="p">):</span>
-            <span class="n">replicated_keys</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;_model&quot;</span><span class="p">,</span> <span class="s2">&quot;_optimizer&quot;</span><span class="p">}</span>
+            <span class="n">replicated_keys</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;_optimizer&quot;</span><span class="p">}</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">replicated_keys</span> <span class="o">=</span> <span class="kc">None</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_manager</span><span class="o">.</span><span class="n">save_state</span><span class="p">(</span>
-            <span class="n">state</span><span class="p">,</span> <span class="n">model_key</span><span class="o">=</span><span class="s2">&quot;_model&quot;</span><span class="p">,</span> <span class="n">replicated_keys</span><span class="o">=</span><span class="n">replicated_keys</span>
-        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_manager</span><span class="o">.</span><span class="n">save_state</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">replicated_keys</span><span class="o">=</span><span class="n">replicated_keys</span><span class="p">)</span>
 
         <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Trainer state saved.&quot;</span><span class="p">)</span>
 
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Saving the model.&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_manager</span><span class="o">.</span><span class="n">save_model</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="p">)</span>
+
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Model saved.&quot;</span><span class="p">)</span>
+
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_score_metric_descriptor</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Saving checkpoint score.&quot;</span><span class="p">)</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Saving the checkpoint score.&quot;</span><span class="p">)</span>
 
             <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_manager</span><span class="o">.</span><span class="n">save_score</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_valid_score</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lower_better</span><span class="p">)</span>
 
             <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Checkpoint score saved.&quot;</span><span class="p">)</span>
-
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="p">,</span> <span class="n">FSDP</span><span class="p">):</span>
-            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Saving consolidated FSDP model.&quot;</span><span class="p">)</span>
-
-            <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_manager</span><span class="o">.</span><span class="n">save_consolidated_fsdp_model</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="p">)</span>
-
-            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Consolidated FSDP model saved.&quot;</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_manager</span><span class="o">.</span><span class="n">commit_checkpoint</span><span class="p">()</span>
 
@@ -1455,7 +1481,7 @@
         <span class="n">should_do_at_step</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_should_do_at_step</span><span class="p">(</span><span class="n">after_n_steps</span><span class="p">,</span> <span class="n">every_n_steps</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_end_of_data</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_should_stop</span><span class="p">:</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_read_data</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_has_read_any_data</span><span class="p">:</span>
                 <span class="k">return</span> <span class="kc">False</span>
 
             <span class="k">return</span> <span class="ow">not</span> <span class="n">should_do_at_step</span>
@@ -1517,7 +1543,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=ef635095"></script>
+</div><script src="../../../_static/documentation_options.js?v=fc0fef3b"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>
