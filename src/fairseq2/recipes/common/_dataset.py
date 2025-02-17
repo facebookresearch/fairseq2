@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from pathlib import Path
 from typing import TypeVar, cast, final
 
 from typing_extensions import override
@@ -31,6 +30,7 @@ from fairseq2.error import ProgramError
 from fairseq2.gang import GangError, Gangs
 from fairseq2.logging import log
 from fairseq2.recipes.config import DatasetSection, get_config_section
+from fairseq2.recipes.error import DatasetPathNotFoundError
 from fairseq2.registry import Provider
 
 DatasetT = TypeVar("DatasetT")
@@ -168,7 +168,7 @@ class PathBasedDatasetLoader(DatasetLoader):
         try:
             dataset = handler.load_from_path(data_path, dataset_name)
         except FileNotFoundError:
-            raise DatasetNotFoundError(dataset_name, data_path) from None
+            raise DatasetPathNotFoundError(dataset_name, data_path) from None
 
         try:
             gangs.root.barrier()
@@ -180,16 +180,3 @@ class PathBasedDatasetLoader(DatasetLoader):
         log.info("Dataset loaded.")
 
         return dataset
-
-
-class DatasetNotFoundError(Exception):
-    dataset_name: str
-    path: Path
-
-    def __init__(self, dataset_name: str, path: Path) -> None:
-        super().__init__(
-            f"The '{dataset_name}' dataset cannot be found at the '{path}' path."
-        )
-
-        self.dataset_name = dataset_name
-        self.path = path

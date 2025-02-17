@@ -40,25 +40,27 @@ from fairseq2.optim.lr_scheduler import (
     UnspecifiedNumberOfStepsError,
 )
 from fairseq2.profilers import UnknownProfilerError
-from fairseq2.recipes.common import (
-    DatasetNotFoundError,
+from fairseq2.recipes.error import (
+    DatasetPathNotFoundError,
+    HybridShardingNotSupportedError,
     InvalidCheckpointPathError,
-    ModelNotFoundError,
     ModelParallelismNotSupportedError,
-    NotSupportedDistributedFeature,
+    ModelPathNotFoundError,
+    StaticGraphNotSupportedError,
 )
 from fairseq2.utils.validation import ValidationError
 
 
 def _register_user_error_types(cli: Cli) -> None:
-    cli.register_user_error_type(DatasetNotFoundError)
+    cli.register_user_error_type(DatasetPathNotFoundError)
+    cli.register_user_error_type(HybridShardingNotSupportedError)
     cli.register_user_error_type(InvalidCheckpointPathError)
     cli.register_user_error_type(InvalidDatasetTypeError)
     cli.register_user_error_type(InvalidModelTypeError)
-    cli.register_user_error_type(ModelNotFoundError)
     cli.register_user_error_type(ModelParallelismNotSupportedError)
-    cli.register_user_error_type(NotSupportedDistributedFeature)
+    cli.register_user_error_type(ModelPathNotFoundError)
     cli.register_user_error_type(ShardedModelLoadError)
+    cli.register_user_error_type(StaticGraphNotSupportedError)
     cli.register_user_error_type(UnknownBeamSearchAlgorithmError)
     cli.register_user_error_type(UnknownBleuTokenizerError)
     cli.register_user_error_type(UnknownChatbotError)
