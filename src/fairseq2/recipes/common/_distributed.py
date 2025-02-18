@@ -6,8 +6,6 @@
 
 from __future__ import annotations
 
-import os
-
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn import Module
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -25,7 +23,6 @@ from fairseq2.recipes.error import (
     HybridShardingNotSupportedError,
     StaticGraphNotSupportedError,
 )
-from fairseq2.utils.env import InvalidEnvironmentVariableError, get_local_world_size
 
 
 def setup_data_parallel_model(
@@ -39,29 +36,18 @@ def setup_data_parallel_model(
 
     data_parallelism = trainer_section.data_parallelism
 
+    if data_parallelism == "fsdp":
+        if gangs.rdp.size > 1 and gangs.sdp.size == 1:
+            log.warning("Hybrid sharded data parallelism not enabled. Falling back to DDP.")  # fmt: skip
+
+            data_parallelism = "ddp"
+
     try:
-        if trainer_section.fsdp.hsdp:
-            try:
-                local_world_size = get_local_world_size(os.environ)
-            except InvalidEnvironmentVariableError as ex:
-                raise DistributedSetupError(
-                    "The local world size for HSDP cannot be determined. See the nested exception for details."
-                ) from ex
-
-            if local_world_size == 1:
-                data_parallelism = "ddp"
-
-                log.warning("`trainer.fsdp.hsdp` is set, but the local world size is 1. Falling back to DDP.")  # fmt: skip
-        else:
-            local_world_size = None
-
         if data_parallelism == "ddp":
             return wrap_ddp(base_model, gangs, static_graph)
 
         if data_parallelism == "fsdp":
-            return wrap_fsdp(
-                trainer_section, base_model, gangs, static_graph, local_world_size
-            )
+            return wrap_fsdp(recipe_config, base_model, gangs, static_graph)
     except DistributedSetupError as ex:
         raise ProgramError(
             "The data parallelism cannot be setup. See the nested exception for details."
@@ -83,7 +69,7 @@ def wrap_ddp(base_model: Module, gangs: Gangs, static_graph: bool) -> Module:
     # We do not set DDP's `static_graph` parameter. Unfortunately, support for
     # that feature is finicky in DDP. `find_unused_parameters` is still useful
     # though and can have measurable impact on perfomance.
-    dp_model = to_ddp(base_model, gangs.dp, find_unused_parameters=not static_graph)
+    dp_model = to_ddp(base_model, gangs, find_unused_parameters=not static_graph)
 
     log.info("Model wrapped with DDP and broadcasted.")
 
@@ -91,26 +77,24 @@ def wrap_ddp(base_model: Module, gangs: Gangs, static_graph: bool) -> Module:
 
 
 def wrap_fsdp(
-    trainer_section: TrainerSection,
-    base_model: Module,
-    gangs: Gangs,
-    static_graph: bool,
-    local_world_size: int | None,
+    recipe_config: object, base_model: Module, gangs: Gangs, static_graph: bool
 ) -> Module:
+    trainer_section = get_config_section(recipe_config, "trainer", TrainerSection)
+
     if trainer_section.fsdp.version == "v2":
         raise NotSupportedError("FSDP2 is not supported yet.")
 
     if not static_graph:
         raise StaticGraphNotSupportedError("FSDP")
 
-    if local_world_size is not None:
-        if gangs.root.size != gangs.dp.size:
-            raise HybridShardingNotSupportedError("FSDP")
-
     if gangs.dp.size == 1:
         to_device(base_model, gangs.root.device)
 
         return base_model
+
+    if gangs.rdp.size > 1:
+        if gangs.root.size != gangs.dp.size:  # means we have model parallelism.
+            raise HybridShardingNotSupportedError("FSDP")
 
     log.info("Wrapping the model with FSDP and broadcasting to all processes.")  # fmt: skip
 
@@ -125,12 +109,11 @@ def wrap_fsdp(
 
     dp_model = to_fsdp(
         base_model,
-        gangs.dp,
+        gangs,
         wrap_policy,
         ignored_modules=ignored_modules,
         broadcast_state=True,
         reshard_after_forward=trainer_section.fsdp.reshard_after_forward,
-        local_world_size=local_world_size,
         mixed_precision_dtype=mp_dtype,
         fp32_reduce=trainer_section.fsdp.fp32_reduce,
     )

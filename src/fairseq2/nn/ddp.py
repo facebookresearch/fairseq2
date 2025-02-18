@@ -14,7 +14,7 @@ from torch.nn import Module, SyncBatchNorm
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from fairseq2.error import NotSupportedError
-from fairseq2.gang import Gang
+from fairseq2.gang import Gang, Gangs
 from fairseq2.nn.utils.module import (
     infer_device,
     reset_non_persistent_buffers,
@@ -25,7 +25,7 @@ from fairseq2.nn.utils.module import (
 
 def to_ddp(
     module: Module,
-    dp_gang: Gang,
+    gangs: Gangs,
     *,
     find_unused_parameters: bool = False,
     static_graph: bool = False,
@@ -34,18 +34,25 @@ def to_ddp(
     """Wrap ``module`` with DDP.
 
     :param module: The module to be wrapped with DDP.
-    :param dp_gang: The data parallel gang over which to replicate the module.
+    :param gangs: The gangs over which to replicate the module.
     :param find_unused_parameters: See the corresponding DDP documentation.
     :param static_graph: See the corresponding DDP documentation.
     :param normalize_gradients: If ``True``, normalizes gradients by the world
         size of the underlying process group.
     """
+    if gangs.sdp.size > 1:
+        raise NotSupportedError(
+            "DDP does not support sharded data parallelism. Please use FSDP or FSDP2 instead."
+        )
+
     try:
         module_device = infer_device(module)
     except ValueError as ex:
         raise DistributedSetupError(
             "The device of `module` is not valid. See the nested exception for details."
         ) from ex
+
+    dp_gang = gangs.rdp  # replicated
 
     # DDP has no explicit support for meta initialization.
     if module_device.type == "meta":
