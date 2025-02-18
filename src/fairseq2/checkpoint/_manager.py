@@ -64,10 +64,6 @@ class CheckpointManager(ABC):
         """Save ``model``."""
 
     @abstractmethod
-    def save_consolidated_fsdp_model(self, model: FSDP) -> None:
-        """Save ``model``."""
-
-    @abstractmethod
     def save_metadata(self, metadata: Mapping[str, object]) -> None:
         """Save ``metadata`` associated with the checkpoint.
 
@@ -84,15 +80,11 @@ class CheckpointManager(ABC):
         """Commit the checkpoint after which it will be considered saved."""
 
     @abstractmethod
-    def load_checkpoint(
-        self, step_nr: int, *, load_model: bool = True
-    ) -> dict[str, object]:
+    def load_checkpoint(self, step_nr: int) -> dict[str, object]:
         """Load the checkpoint of the specified training step."""
 
     @abstractmethod
-    def load_last_checkpoint(
-        self, *, load_model: bool = True
-    ) -> tuple[int, dict[str, object]]:
+    def load_last_checkpoint(self) -> tuple[int, dict[str, object]]:
         """Load the last checkpoint in the training.
 
         :returns:
@@ -246,35 +238,6 @@ class FileCheckpointManager(CheckpointManager):
         # Copy `state`. In case we fail, it should stay intact.
         rank_part = dict(state)
 
-        def model_replicated() -> bool:
-            if gangs.dp.size == 1:
-                return True
-
-            if not replicated_keys:
-                return False
-
-            return "model" in replicated_keys or "*" in replicated_keys
-
-        # Save the model into its own file if it is replicated.
-        if model_replicated():
-            model_state = rank_part.pop("model", None)
-            if model_state is not None:
-                if gangs.dp.rank == 0:
-                    model_file = tmp_step_dir.joinpath(f"model{suffix}.pt")
-
-                    model_checkpoint = {
-                        "model": model_state, "model_key": "model", "fs2": True  # fmt: skip
-                    }
-
-                    try:
-                        self._tensor_dumper.dump(model_checkpoint, model_file)
-                    except TensorDumpError as ex:
-                        raise CheckpointSaveError(
-                            step_nr, f"The model of training step {step_nr} cannot be saved to the '{model_file}' file. See the nested exception for details."  # fmt: skip
-                        ) from ex
-
-                gangs.root.barrier()
-
         # Save the replicated state.
         if replicated_keys:
             if gangs.dp.rank == 0:
@@ -392,10 +355,6 @@ class FileCheckpointManager(CheckpointManager):
         gangs.root.barrier()
 
     @override
-    def save_consolidated_fsdp_model(self, model: FSDP) -> None:
-        self.save_model(model)
-
-    @override
     def save_metadata(self, metadata: Mapping[str, object]) -> None:
         step_nr = self._get_checkpoint_step_nr()
 
@@ -472,9 +431,7 @@ class FileCheckpointManager(CheckpointManager):
         return step_nr
 
     @override
-    def load_checkpoint(
-        self, step_nr: int, *, load_model: bool = True
-    ) -> dict[str, object]:
+    def load_checkpoint(self, step_nr: int) -> dict[str, object]:
         gangs = self._gangs
 
         def maybe_with_dp_process_group() -> AbstractContextManager[None]:
@@ -514,35 +471,20 @@ class FileCheckpointManager(CheckpointManager):
             # Consolidate the checkpoint parts.
             checkpoint.update(part)
 
-        if load_model:
-            # If we don't have the model state in the checkpoint so far, it
-            # means it was replicated (e.g. DDP).
-            if "model" not in checkpoint:
-                part = maybe_load_part(f"model{suffix}.pt")
-
-                checkpoint.update(part)
-        else:
-            try:
-                del checkpoint["model"]
-            except KeyError:
-                pass
-
         if not checkpoint:
             raise CheckpointNotFoundError(step_nr)
 
         return checkpoint
 
     @override
-    def load_last_checkpoint(
-        self, *, load_model: bool = True
-    ) -> tuple[int, dict[str, object]]:
+    def load_last_checkpoint(self) -> tuple[int, dict[str, object]]:
         step_numbers = self.get_step_numbers()
         if not step_numbers:
             raise CheckpointNotFoundError()
 
         last_step_nr = step_numbers[-1]
 
-        checkpoint = self.load_checkpoint(last_step_nr, load_model=load_model)
+        checkpoint = self.load_checkpoint(last_step_nr)
 
         return last_step_nr, checkpoint
 
