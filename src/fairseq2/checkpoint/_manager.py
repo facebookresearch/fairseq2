@@ -17,7 +17,7 @@ from typing_extensions import override
 
 from fairseq2.error import InvalidOperationError
 from fairseq2.gang import Gangs
-from fairseq2.nn.fsdp import load_with_sdp_gang
+from fairseq2.nn.data_parallel import load_with_sdp_gang
 from fairseq2.typing import CPU
 from fairseq2.utils.file import (
     FileMode,

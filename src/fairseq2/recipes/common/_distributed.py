@@ -23,12 +23,13 @@ from fairseq2.gang import GangError, Gangs
 from fairseq2.logging import log
 from fairseq2.models import ModelHandler
 from fairseq2.models.fsdp import get_fsdp_wrap_policy
-from fairseq2.nn.ddp import DistributedSetupError, to_ddp
-from fairseq2.nn.fsdp import (
+from fairseq2.nn.data_parallel import (
+    DistributedSetupError,
     get_fsdp_full_state_dict,
     get_fsdp_optim_state_dict,
     load_fsdp_optim_state_dict,
     summon_fsdp,
+    to_ddp,
     to_fsdp,
 )
 from fairseq2.nn.utils.gradient import clip_gradient_norm
