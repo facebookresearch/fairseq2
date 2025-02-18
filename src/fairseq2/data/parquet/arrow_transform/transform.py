@@ -168,13 +168,26 @@ def prefix_and_suffix_one_list_column(
 
 
 def add_fragments_trace(table: pa.Table, fragment: pa.dataset.Fragment) -> pa.Table:
-    row_group_ids = np.array([int(rg.id) for rg in fragment.row_groups], dtype=np.int32)
+    # we assume that the table will be loaded in the same order as the row groups
+    row_group_ids = np.repeat(
+        np.array([rr.id for rr in fragment.row_groups]),
+        np.array([rr.num_rows for rr in fragment.row_groups]),
+    )
+    row_group_ids = row_group_ids.astype(np.int32)
+    assert len(row_group_ids) == len(table)
+
+    index_in_fragment = np.concatenate(
+        [np.arange(rr.num_rows, dtype=np.int32) for rr in fragment.row_groups]
+    )
+
     table = table.append_column(
-        "__row_groups_ids", pa.array(len(table) * [row_group_ids])
+        "__row_groups_ids",
+        pa.array(row_group_ids, type=pa.int32()),
     )
     table = table.append_column(
-        "__index_in_fragement", pa.array(np.arange(len(table), dtype=np.int32))
+        "__index_in_fragement", pa.array(index_in_fragment, type=pa.int32())
     )
+
     return table
 
 
