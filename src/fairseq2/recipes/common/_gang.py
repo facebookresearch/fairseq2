@@ -6,15 +6,28 @@
 
 from __future__ import annotations
 
+import os
 from datetime import timedelta
 
 from fairseq2.context import RuntimeContext
 from fairseq2.device import DeviceDetectionError, determine_default_device
 from fairseq2.error import ProgramError
-from fairseq2.gang import GangError, Gangs, setup_parallel_gangs, setup_root_gang
+from fairseq2.gang import (
+    GangError,
+    Gangs,
+    setup_fsdp_gangs,
+    setup_parallel_gangs,
+    setup_root_gang,
+)
 from fairseq2.logging import log
-from fairseq2.recipes.config import GangSection, get_config_section
+from fairseq2.recipes.config import (
+    ConfigSectionNotFoundError,
+    GangSection,
+    TrainerSection,
+    get_config_section,
+)
 from fairseq2.recipes.utils.log import log_environment_info
+from fairseq2.utils.env import InvalidEnvironmentVariableError, get_local_world_size
 
 
 def setup_gangs(context: RuntimeContext, recipe_config: object) -> Gangs:
@@ -72,4 +85,41 @@ def setup_gangs(context: RuntimeContext, recipe_config: object) -> Gangs:
 
     log.info("Parallel gangs initialized.")
 
-    return gangs
+    try:
+        return _maybe_setup_fsdp_gangs(recipe_config, gangs)
+    except GangError as ex:
+        raise ProgramError(
+            "The hybrid sharded data parallel gangs cannot set up. See the nested exception for details."
+        ) from ex
+
+
+def _maybe_setup_fsdp_gangs(recipe_config: object, gangs: Gangs) -> Gangs:
+    try:
+        trainer_section = get_config_section(recipe_config, "trainer", TrainerSection)
+    except ConfigSectionNotFoundError:
+        return gangs
+
+    if trainer_section.data_parallelism != "fsdp":
+        return gangs
+
+    if trainer_section.fsdp.hsdp:
+        try:
+            local_world_size = get_local_world_size(os.environ)
+        except InvalidEnvironmentVariableError as ex:
+            raise GangError(
+                "The local world size for hybrid sharded data parallelism cannot be determined. See the nested exception for details."
+            ) from ex
+
+        if local_world_size == 1:
+            log.warning("`trainer.fsdp.hsdp` is set, but the local world size is 1. Skipping the setup of hybrid sharded data parallel gangs.")  # fmt: skip
+
+            return gangs
+
+        if gangs.dp.size % local_world_size != 0:
+            raise GangError(
+                f"The number of processes in the data parallel gang is expected to be a multiple of the local world size ({local_world_size}) when `trainer.fsdp.hsdp` is set, but is {gangs.dp.size} instead."
+            )
+    else:
+        local_world_size = None
+
+    return setup_fsdp_gangs(gangs, local_world_size)

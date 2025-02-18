@@ -28,7 +28,7 @@ from torch.distributed.fsdp.api import (
 from torch.nn import Module, Parameter
 
 from fairseq2.error import NotSupportedError
-from fairseq2.gang import Gang, GangError, setup_hsdp_gangs
+from fairseq2.gang import Gangs
 from fairseq2.nn.ddp import DistributedSetupError
 from fairseq2.nn.utils.module import (
     apply_to_parameters,
@@ -42,21 +42,20 @@ from fairseq2.typing import DataType, Device
 
 def to_fsdp(
     module: Module,
-    dp_gang: Gang,
+    gangs: Gangs,
     wrap_policy: FSDPWrapPolicy | None,
     *,
     ignored_modules: Sequence[Module] | None = None,
     broadcast_state: bool = False,
     memory_policy: FSDPMemoryPolicy | None = None,
     reshard_after_forward: bool = True,
-    local_world_size: int | None = None,
     mixed_precision_dtype: DataType | None = None,
     fp32_reduce: bool = False,
 ) -> FSDP:
     """Wrap ``module`` with FSDP.
 
     :param module: The module to wrap.
-    :param dp_gang: The data parallel gang over which to shard ``module``.
+    :param gangs: The gangs over which to shard ``module``.
     :param wrap_policy: The FSDP wrap policy to apply to ``module``. If ``None``,
         wraps only ``module`` itself.
     :param ignored_param_names: The ignored parameter names. Can contain regular
@@ -68,10 +67,6 @@ def to_fsdp(
         memory.
     :param reshard_after_forward: If ``True``, unshards the parameters before
         the forward pass and only reshards them after the backward pass.
-    :param local_world_size: If not ``None``, enables hybrid sharding. ``gang``
-        will be split into sub-gangs each containing ``local_world_size`` number
-        of consecutive processes. The model will be fully sharded within each
-        sub-gang and will be replicated across sub-gangs.
     :param mixed_precision_dtype: If not ``None``, parameters, buffers, and
         gradients will use this data type during forward and backward passes.
         Outside forward and backward passes, the model will be kept in full
@@ -79,26 +74,19 @@ def to_fsdp(
     :param fp32_reduce: If ``True``, the gradients will be reduced in full
         precision. Only relevant if ``mixed_precision_dtype`` is not ``None``.
     """
+    if gangs.sdp.size == 1:
+        raise NotSupportedError(
+            "FSDP does not support non-sharded data parallelism. Please use DDP instead."
+        )
+
     process_group: ProcessGroup | tuple[ProcessGroup, ProcessGroup]
 
-    # Sharding Strategy
-    if local_world_size is not None and local_world_size != dp_gang.size:
+    # Determine the sharding strategy.
+    if gangs.rdp.size > 1:
         sharding_strategy = ShardingStrategy.HYBRID_SHARD
 
         try:
-            intra_node_gang, inter_node_gang = setup_hsdp_gangs(
-                dp_gang, local_world_size
-            )
-        except GangError as ex:
-            raise DistributedSetupError(
-                "The inter-node and intra-node gangs for HSDP cannot be setup. See the nested exception for details."
-            ) from ex
-
-        try:
-            process_group = (
-                intra_node_gang.as_process_group(),
-                inter_node_gang.as_process_group(),
-            )
+            process_group = (gangs.sdp.as_process_group(), gangs.rdp.as_process_group())
         except NotSupportedError:
             raise DistributedSetupError(
                 "The specified data parallel gang does not support conversion to a process group."
@@ -110,13 +98,13 @@ def to_fsdp(
             sharding_strategy = ShardingStrategy.SHARD_GRAD_OP
 
         try:
-            process_group = dp_gang.as_process_group()
+            process_group = gangs.sdp.as_process_group()
         except NotSupportedError:
             raise DistributedSetupError(
                 "The specified data parallel gang does not support conversion to a process group."
             ) from None
 
-    # Parameter Initialization
+    # Set up parameter initialization.
     try:
         module_device = infer_device(module)
     except ValueError as ex:
@@ -128,7 +116,7 @@ def to_fsdp(
         param_initializer = None
     else:
         if broadcast_state:
-            if dp_gang.rank == 0:
+            if gangs.dp.rank == 0:
                 raise DistributedSetupError(
                     "`broadcast_state` is set, but the coordinator process (i.e. rank 0) is on a meta device."
                 )
@@ -137,9 +125,9 @@ def to_fsdp(
         else:
             skip_init = False
 
-        param_initializer = FSDPParameterInitializer(dp_gang.device, skip_init)
+        param_initializer = FSDPParameterInitializer(gangs.dp.device, skip_init)
 
-    # Mixed Precision
+    # Set up the data types for mixed precision training.
     if mixed_precision_dtype is None:
         mp = None
     elif mixed_precision_dtype == torch.float32:
@@ -149,7 +137,6 @@ def to_fsdp(
 
         mp = MixedPrecision(mixed_precision_dtype, reduce_dtype, buffer_dtype=None)
 
-    # Memory Policy
     if memory_policy is None:
         memory_policy = FSDP_STANDARD_MEMORY_POLICY
 
@@ -168,7 +155,7 @@ def to_fsdp(
             backward_prefetch=memory_policy.backward_prefetch,
             mixed_precision=mp,
             param_init_fn=param_initializer,
-            device_id=dp_gang.device,
+            device_id=gangs.dp.device,
             sync_module_states=broadcast_state,
             forward_prefetch=False,
             limit_all_gathers=memory_policy.limit_all_gathers,
