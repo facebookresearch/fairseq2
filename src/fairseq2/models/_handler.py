@@ -31,7 +31,7 @@ from fairseq2.models._error import (
     UnknownModelArchitectureError,
     model_asset_card_error,
 )
-from fairseq2.nn.fsdp import load_with_sdp_gang
+from fairseq2.nn.data_parallel import load_with_sdp_gang
 from fairseq2.nn.utils.module import (
     load_state_dict,
     reset_non_persistent_buffers,

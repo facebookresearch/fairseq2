@@ -15,7 +15,7 @@ from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
 from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 from torch.nn import Module
 
-from fairseq2.nn.fsdp import FSDPWrapPolicy
+from fairseq2.nn.data_parallel import FSDPWrapPolicy
 from fairseq2.nn.transformer import (
     TransformerDecoder,
     TransformerDecoderLayer,

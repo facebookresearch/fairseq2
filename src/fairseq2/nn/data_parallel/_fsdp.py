@@ -9,14 +9,13 @@ from __future__ import annotations
 import logging
 import warnings
 from collections.abc import Iterator, Mapping, Sequence
-from contextlib import contextmanager, nullcontext
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Final, Protocol, final
 
 import torch
 from torch import Tensor
 from torch.distributed import ProcessGroup
-from torch.distributed._shard import load_with_process_group
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.api import (
     BackwardPrefetch,
@@ -33,7 +32,7 @@ from torch.optim import Optimizer
 
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gangs
-from fairseq2.nn.ddp import DistributedSetupError
+from fairseq2.nn.data_parallel._error import DistributedSetupError
 from fairseq2.nn.utils.module import (
     apply_to_parameters,
     infer_device,
@@ -41,7 +40,7 @@ from fairseq2.nn.utils.module import (
     reset_parameters,
     to_empty,
 )
-from fairseq2.typing import ContextManager, DataType, Device
+from fairseq2.typing import DataType, Device
 
 
 def to_fsdp(
@@ -305,9 +304,6 @@ class FSDPParameterInitializer:
         self._module_memo.add(module)
 
 
-# mypy: disable-error-code="method-assign"
-
-
 @contextmanager
 def summon_fsdp(module: FSDP) -> Iterator[None]:
     """Unshard the parameters of ``module`` and use the non-FSDP forward method."""
@@ -321,12 +317,12 @@ def summon_fsdp(module: FSDP) -> Iterator[None]:
             if isinstance(m, FSDP):
                 m._fs2_backup_forward = m.forward  # type: ignore[assignment]
 
-                m.forward = m.module.forward
+                m.forward = m.module.forward  # type: ignore[method-assign]
 
     def enable_fsdp_forward(module_: Module) -> None:
         for m in module_.modules():
             if isinstance(m, FSDP):
-                m.forward = m._fs2_backup_forward
+                m.forward = m._fs2_backup_forward  # type: ignore[method-assign]
 
                 del m._fs2_backup_forward
 
@@ -407,12 +403,3 @@ def load_fsdp_optim_state_dict(
             logging.disable(logging.NOTSET)
 
         optim.load_state_dict(state_dict)
-
-
-def load_with_sdp_gang(gangs: Gangs) -> ContextManager:
-    try:
-        pg = gangs.sdp.as_process_group()
-    except NotSupportedError:
-        return nullcontext()
-
-    return load_with_process_group(pg)

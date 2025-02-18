@@ -15,6 +15,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang, Gangs
+from fairseq2.nn.data_parallel._error import DistributedSetupError
 from fairseq2.nn.utils.module import (
     infer_device,
     reset_non_persistent_buffers,
@@ -114,7 +115,3 @@ def _allreduce_hook(gang: Gang, bucket: GradBucket) -> Future[Tensor]:
         return output[0]
 
     return ft.then(return_reduced_bucket)  # type: ignore[no-any-return]
-
-
-class DistributedSetupError(Exception):
-    pass
