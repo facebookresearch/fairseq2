@@ -12,7 +12,6 @@ from typing import Final, cast, final
 import torch
 import torch.distributed
 from torch import Tensor
-from torch.nn import Module
 from typing_extensions import override
 
 from fairseq2.datasets.preference import PreferenceBatch
@@ -26,6 +25,7 @@ from fairseq2.recipes.lm._preference_finetune._common import (
     _gather_lprobs,
 )
 from fairseq2.recipes.lm._preference_finetune._handler import POFinetuneUnitHandler
+from fairseq2.recipes.model import Model
 from fairseq2.recipes.trainer import AbstractTrainUnit, TrainUnit
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
@@ -41,7 +41,7 @@ class OrpoFinetuneUnit(AbstractTrainUnit[PreferenceBatch]):
 
     def __init__(
         self,
-        model: Module,
+        model: Model,
         gangs: Gangs,
         orpo_lambda: float = 1.0,
         nll_scale: float = 1.0,
@@ -62,8 +62,12 @@ class OrpoFinetuneUnit(AbstractTrainUnit[PreferenceBatch]):
             rejected_batch
         )
 
-        chosen_output = cast(SequenceModelOutput, self._model(chosen_input_batch))
-        rejected_output = cast(SequenceModelOutput, self._model(rejected_input_batch))
+        chosen_output = cast(
+            SequenceModelOutput, self._model.module(chosen_input_batch)
+        )
+        rejected_output = cast(
+            SequenceModelOutput, self._model.module(rejected_input_batch)
+        )
 
         chosen_logps = _gather_lprobs(chosen_output, chosen_target_batch)
         rejected_logps = _gather_lprobs(rejected_output, rejected_target_batch)
@@ -158,7 +162,7 @@ class OrpoFinetuneConfig:
 class OrpoFinetuneUnitHandler(POFinetuneUnitHandler):
     @override
     def create(
-        self, model: Module, gangs: Gangs, recipe_config: object
+        self, model: Model, gangs: Gangs, recipe_config: object
     ) -> TrainUnit[PreferenceBatch]:
         criterion_section = get_config_section(
             recipe_config, "criterion", POCriterionSection

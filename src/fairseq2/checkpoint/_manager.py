@@ -6,24 +6,18 @@
 
 from __future__ import annotations
 
-import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Iterator, Mapping, Set
-from contextlib import AbstractContextManager, nullcontext
 from os import scandir
 from pathlib import Path
 from shutil import Error
 from typing import final
 
-from torch.distributed._shard import load_with_process_group
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.distributed.fsdp.api import FullStateDictConfig, StateDictType
-from torch.nn import Module
 from typing_extensions import override
 
-from fairseq2.error import InvalidOperationError, NotSupportedError
+from fairseq2.error import InvalidOperationError
 from fairseq2.gang import Gangs
-from fairseq2.logging import log
+from fairseq2.nn.fsdp import load_with_sdp_gang
 from fairseq2.typing import CPU
 from fairseq2.utils.file import (
     FileMode,
@@ -60,8 +54,8 @@ class CheckpointManager(ABC):
         """
 
     @abstractmethod
-    def save_model(self, model: Module) -> None:
-        """Save ``model``."""
+    def save_model_state_dict(self, state_dict: Mapping[str, object]) -> None:
+        """Save model ``state_dict``."""
 
     @abstractmethod
     def save_metadata(self, metadata: Mapping[str, object]) -> None:
@@ -307,43 +301,15 @@ class FileCheckpointManager(CheckpointManager):
         gangs.root.barrier()
 
     @override
-    def save_model(self, model: Module) -> None:
-        gangs = self._gangs
-
-        if isinstance(model, FSDP):
-            log.info("Extracting the consolidated FSDP model state on rank 0.")
-
-            with warnings.catch_warnings():
-                warnings.filterwarnings(
-                    action="ignore", message=r".*FSDP\.state_dict_type\(\) and FSDP\.set_state_dict_type\(\) are being deprecated.*"  # fmt: skip
-                )
-
-                state_dict_config = FullStateDictConfig(
-                    offload_to_cpu=True, rank0_only=True
-                )
-
-                with FSDP.state_dict_type(
-                    model, StateDictType.FULL_STATE_DICT, state_dict_config
-                ):
-                    model_state = model.state_dict()
-
-            log.info("Model state extracted.")
-        else:
-            if gangs.dp.rank == 0:
-                model_state = model.state_dict()
-            else:
-                model_state = {}
-
-        gangs.root.barrier()
-
+    def save_model_state_dict(self, state_dict: Mapping[str, object]) -> None:
         step_nr = self._get_checkpoint_step_nr()
 
-        if gangs.dp.rank == 0:
+        if self._gangs.dp.rank == 0:
             model_file = self._checkpoint_dir.joinpath(
                 f"step_{step_nr}.tmp/model{self._shard_suffix}.pt"
             )
 
-            model_checkpoint = {"model": model_state, "model_key": "model", "fs2": True}
+            model_checkpoint = {"model": state_dict, "model_key": "model", "fs2": True}
 
             try:
                 self._tensor_dumper.dump(model_checkpoint, model_file)
@@ -352,7 +318,7 @@ class FileCheckpointManager(CheckpointManager):
                     step_nr, f"The model of training step {step_nr} cannot be saved to the '{model_file}' file. See the nested exception for details."  # fmt: skip
                 ) from ex
 
-        gangs.root.barrier()
+        self._gangs.root.barrier()
 
     @override
     def save_metadata(self, metadata: Mapping[str, object]) -> None:
@@ -434,18 +400,10 @@ class FileCheckpointManager(CheckpointManager):
     def load_checkpoint(self, step_nr: int) -> dict[str, object]:
         gangs = self._gangs
 
-        def maybe_with_dp_process_group() -> AbstractContextManager[None]:
-            try:
-                pg = gangs.dp.as_process_group()
-            except NotSupportedError:
-                return nullcontext()
-
-            return load_with_process_group(pg)
-
         step_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}")
 
         def maybe_load_part(filename: str) -> dict[str, object]:
-            with maybe_with_dp_process_group():  # Required for `ShardedTensor`.
+            with load_with_sdp_gang(gangs):  # Required for ShardedTensor.
                 file = step_dir.joinpath(filename)
 
                 try:

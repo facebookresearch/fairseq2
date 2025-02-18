@@ -13,7 +13,6 @@ from typing import final
 import torch
 import torch.distributed
 from torch import Tensor
-from torch.nn import Module
 from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
@@ -34,7 +33,6 @@ from fairseq2.nn.transformer import enable_memory_efficient_torch_sdpa
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.optim.lr_scheduler import COSINE_ANNEALING_LR, CosineAnnealingLRConfig
 from fairseq2.recipes.common import (
-    check_model_type,
     create_checkpoint_manager,
     create_lr_scheduler,
     create_optimizer,
@@ -58,6 +56,7 @@ from fairseq2.recipes.config import (
 )
 from fairseq2.recipes.evaluator import AbstractEvalUnit
 from fairseq2.recipes.metrics import SequenceMetricBag
+from fairseq2.recipes.model import Model
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
@@ -238,7 +237,7 @@ def load_instruction_finetuner(
     # TODO(balioglu): investigate!
     # The memory efficient SDPA implementation in PyTorch is not stable when
     # used with padded inputs.
-    enable_memory_efficient_torch_sdpa(model, False)
+    enable_memory_efficient_torch_sdpa(model.module, False)
 
     optimizer = create_optimizer(context, config, model)
 
@@ -384,10 +383,13 @@ class InstructionLossEvalUnit(AbstractEvalUnit[SequenceBatch]):
 
 @final
 class InstructionFinetuneCriterion:
-    _model: Module
+    _model: Model
 
-    def __init__(self, model: Module) -> None:
-        check_model_type(model, DecoderModel)
+    def __init__(self, model: Model) -> None:
+        if not isinstance(model.base_module, DecoderModel):
+            raise TypeError(
+                f"`model.base_module` must be of type `{DecoderModel}`, but is of type `{type(model.base_module)}` instead."
+            )
 
         self._model = model
 
@@ -409,8 +411,8 @@ class InstructionFinetuneCriterion:
         return loss, target_batch.num_target_elements()
 
     def _forward(self, batch: SequenceBatch) -> SequenceModelOutput:
-        return self._model(batch)  # type: ignore[no-any-return]
+        return self._model.module(batch)  # type: ignore[no-any-return]
 
     @property
-    def model(self) -> Module:
+    def model(self) -> Model:
         return self._model

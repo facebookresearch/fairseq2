@@ -6,19 +6,22 @@
 
 from __future__ import annotations
 
+import logging
 import warnings
-from collections.abc import Iterator, Sequence
-from contextlib import contextmanager
+from collections.abc import Iterator, Mapping, Sequence
+from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
 from typing import Final, Protocol, final
 
 import torch
 from torch import Tensor
 from torch.distributed import ProcessGroup
+from torch.distributed._shard import load_with_process_group
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.api import (
     BackwardPrefetch,
     CPUOffload,
+    FullStateDictConfig,
     MixedPrecision,
     ShardedOptimStateDictConfig,
     ShardedStateDictConfig,
@@ -26,6 +29,7 @@ from torch.distributed.fsdp.api import (
     StateDictType,
 )
 from torch.nn import Module, Parameter
+from torch.optim import Optimizer
 
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gangs
@@ -37,7 +41,7 @@ from fairseq2.nn.utils.module import (
     reset_parameters,
     to_empty,
 )
-from fairseq2.typing import DataType, Device
+from fairseq2.typing import ContextManager, DataType, Device
 
 
 def to_fsdp(
@@ -305,44 +309,110 @@ class FSDPParameterInitializer:
 
 
 @contextmanager
-def summon_fsdp_for_validation(module: Module) -> Iterator[None]:
+def summon_fsdp(module: FSDP) -> Iterator[None]:
     """Unshard the parameters of ``module`` and use the non-FSDP forward method."""
-    if not isinstance(module, FSDP):
-        yield
-    else:
-        mp = module.mixed_precision or MixedPrecision()
+    mp = module.mixed_precision or MixedPrecision()
 
-        # This is ugly, but our only option. We monkey-patch FSDP modules to
-        # replace their `forward` methods with the wrapped `forward` methods.
-        # Otherwise, FSDP fails to shard parameters at the end of the call.
-        def disable_fsdp_forward(module_: Module) -> None:
-            for m in module_.modules():
-                if isinstance(m, FSDP):
-                    m._fs2_backup_forward = m.forward  # type: ignore[assignment]
+    # This is ugly, but our only option. We monkey-patch FSDP modules to
+    # replace their `forward` methods with the wrapped `forward` methods.
+    # Otherwise, FSDP fails to shard parameters at the end of the call.
+    def disable_fsdp_forward(module_: Module) -> None:
+        for m in module_.modules():
+            if isinstance(m, FSDP):
+                m._fs2_backup_forward = m.forward  # type: ignore[assignment]
 
-                    m.forward = m.module.forward
+                m.forward = m.module.forward
 
-        def enable_fsdp_forward(module_: Module) -> None:
-            for m in module_.modules():
-                if isinstance(m, FSDP):
-                    m.forward = m._fs2_backup_forward
+    def enable_fsdp_forward(module_: Module) -> None:
+        for m in module_.modules():
+            if isinstance(m, FSDP):
+                m.forward = m._fs2_backup_forward
 
-                    del m._fs2_backup_forward
+                del m._fs2_backup_forward
 
-        def maybe_cast_dtype(t: Tensor) -> Tensor:
-            dtype = mp.param_dtype if isinstance(t, Parameter) else mp.buffer_dtype
+    def maybe_cast_dtype(t: Tensor) -> Tensor:
+        dtype = mp.param_dtype if isinstance(t, Parameter) else mp.buffer_dtype
 
-            if dtype is None:
-                return t
+        if dtype is None:
+            return t
 
-            return t.to(dtype)
+        return t.to(dtype)
 
-        with FSDP.summon_full_params(module, writeback=False):
-            disable_fsdp_forward(module)
+    with FSDP.summon_full_params(module, writeback=False):
+        disable_fsdp_forward(module)
 
-            apply_to_parameters(module, maybe_cast_dtype)
+        apply_to_parameters(module, maybe_cast_dtype)
 
-            try:
-                yield
-            finally:
-                enable_fsdp_forward(module)
+        try:
+            yield
+        finally:
+            enable_fsdp_forward(module)
+
+
+def get_fsdp_full_state_dict(module: FSDP) -> dict[str, object]:
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            action="ignore", message=r".*FSDP\.state_dict_type\(\) and FSDP\.set_state_dict_type\(\) are being deprecated.*"  # fmt: skip
+        )
+
+        state_dict_config = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
+
+        with FSDP.state_dict_type(
+            module, StateDictType.FULL_STATE_DICT, state_dict_config
+        ):
+            return module.state_dict()
+
+
+def get_fsdp_optim_state_dict(module: FSDP, optim: Optimizer) -> dict[str, object]:
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            action="ignore", message=r".*`_get_pg_default_device` will be deprecated.*"  # fmt: skip
+        )
+        warnings.filterwarnings(
+            action="ignore", message=r".*You are using `torch\.load` with `weights_only=False`.*"  # fmt: skip
+        )
+
+        try:
+            # FSDP uses warning level to dump a lot of noisy internal trace
+            # information.
+            logging.disable(logging.WARNING)
+
+            return FSDP.optim_state_dict(module, optim)
+        except UnicodeDecodeError as ex:
+            raise RuntimeError(
+                "FSDP has failed to gather the optimizer state with a pickling error. This might indicate a disk space issue. Make sure you have enough space on your file system. See the nested exception for details."
+            ) from ex
+        finally:
+            logging.disable(logging.NOTSET)
+
+
+def load_fsdp_optim_state_dict(
+    module: FSDP, optim: Optimizer, state_dict: Mapping[str, object]
+) -> None:
+    if not isinstance(state_dict, dict):
+        state_dict = dict(state_dict)
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            action="ignore", message=r".*Please use DTensor instead.*"
+        )
+
+        try:
+            # FSDP uses warning level to dump a lot of noisy internal trace
+            # information.
+            logging.disable(logging.WARNING)
+
+            state_dict = FSDP.optim_state_dict_to_load(module, optim, state_dict)
+        finally:
+            logging.disable(logging.NOTSET)
+
+        optim.load_state_dict(state_dict)
+
+
+def load_with_sdp_gang(gangs: Gangs) -> ContextManager:
+    try:
+        pg = gangs.sdp.as_process_group()
+    except NotSupportedError:
+        return nullcontext()
+
+    return load_with_process_group(pg)

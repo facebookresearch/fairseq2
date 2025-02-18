@@ -12,7 +12,6 @@ from typing import Final, cast, final
 import torch
 import torch.distributed
 from torch import Tensor
-from torch.nn import Module
 from torcheval.metrics import Mean
 from typing_extensions import override
 
@@ -39,6 +38,7 @@ from fairseq2.recipes.lm._preference_finetune._common import (
     _gather_lprobs_avg,
 )
 from fairseq2.recipes.lm._preference_finetune._handler import POFinetuneUnitHandler
+from fairseq2.recipes.model import Model
 from fairseq2.recipes.trainer import AbstractTrainUnit, TrainUnit
 from fairseq2.typing import DataType
 from fairseq2.utils.structured import structure
@@ -49,7 +49,7 @@ from fairseq2.utils.validation import validate
 class DpoFinetuneUnit(AbstractTrainUnit[PreferenceBatch]):
     """Represents the language model DPO-finetuning unit. Paper: https://arxiv.org/abs/2305.18290."""
 
-    _reference_model: Module | None
+    _reference_model: Model | None
     _beta: float
     _nll_scale: float
     _metric_bag: DpoFinetuneMetricBag
@@ -57,8 +57,8 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceBatch]):
 
     def __init__(
         self,
-        model: Module,
-        reference_model: Module | None,
+        model: Model,
+        reference_model: Model | None,
         gangs: Gangs,
         beta: float = 0.1,
         nll_scale: float = 1.0,
@@ -87,8 +87,12 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceBatch]):
         ):
             raise RuntimeError("target_mask attributes must exist for DPO loss")
 
-        chosen_output = cast(SequenceModelOutput, self._model(chosen_input_batch))
-        rejected_output = cast(SequenceModelOutput, self._model(rejected_input_batch))
+        chosen_output = cast(
+            SequenceModelOutput, self._model.module(chosen_input_batch)
+        )
+        rejected_output = cast(
+            SequenceModelOutput, self._model.module(rejected_input_batch)
+        )
 
         chosen_logps, average_chosen_logps = _gather_lprobs_avg(
             chosen_output, chosen_target_batch
@@ -100,10 +104,10 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceBatch]):
         if self._reference_model is not None:
             with torch.no_grad():
                 ref_chosen_output = cast(
-                    SequenceModelOutput, self._reference_model(chosen_batch)
+                    SequenceModelOutput, self._reference_model.module(chosen_batch)
                 )
                 ref_rejected_output = cast(
-                    SequenceModelOutput, self._reference_model(rejected_batch)
+                    SequenceModelOutput, self._reference_model.module(rejected_batch)
                 )
                 ref_chosen_logps, ref_average_chosen_logps = _gather_lprobs_avg(
                     ref_chosen_output, chosen_target_batch
@@ -264,7 +268,7 @@ class DpoFinetuneUnitHandler(POFinetuneUnitHandler):
 
     @override
     def create(
-        self, model: Module, gangs: Gangs, recipe_config: object
+        self, model: Model, gangs: Gangs, recipe_config: object
     ) -> TrainUnit[PreferenceBatch]:
         criterion_section = get_config_section(
             recipe_config, "criterion", POCriterionSection
@@ -291,7 +295,7 @@ class DpoFinetuneUnitHandler(POFinetuneUnitHandler):
                 torch_compile=trainer_section.torch_compile,
             )
 
-            freeze_parameters(reference_model)
+            freeze_parameters(reference_model.module)
 
             log.info("DPO setup complete.")
         else:

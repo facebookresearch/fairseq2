@@ -49,6 +49,7 @@ from fairseq2.recipes.config import (
 from fairseq2.recipes.error import UnitError
 from fairseq2.recipes.evaluator import AbstractEvalUnit, Evaluator, EvalUnit
 from fairseq2.recipes.metrics import Seq2SeqGenerationMetricBag, Seq2SeqMetricBag
+from fairseq2.recipes.model import Model
 from fairseq2.recipes.mt._common import MTCriterion, MTLossSection
 from fairseq2.typing import CPU
 from fairseq2.utils.file import FileMode
@@ -251,6 +252,7 @@ def load_mt_evaluator(
             hyp_fp = None
 
         score_unit = MTBleuChrfEvalUnit(
+            model,
             direction,
             seq2seq_generator,
             tokenizer,
@@ -328,6 +330,7 @@ class MTBleuChrfEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
 
     def __init__(
         self,
+        model: Model,
         direction: Direction,
         generator: Seq2SeqGenerator,
         tokenizer: TextTokenizer,
@@ -348,7 +351,7 @@ class MTBleuChrfEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
         :param ref_output_stream: The output stream to dump references.
         :param hyp_output_stream: The output stream to dump hypotheses.
         """
-        super().__init__(generator.model, display_name=f"score/{direction}")
+        super().__init__(model, display_name=f"score/{direction}")
 
         self._converter = SequenceToTextConverter(
             generator, tokenizer, "translation", direction.target_lang

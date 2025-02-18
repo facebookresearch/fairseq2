@@ -10,13 +10,12 @@ from dataclasses import dataclass
 from typing import final
 
 from torch import Tensor
-from torch.nn import Module
 
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.seq2seq import Seq2SeqBatch, as_auto_regressive_input
 from fairseq2.models.sequence import SequenceModelOutput
-from fairseq2.recipes.common import check_model_type
 from fairseq2.recipes.metrics import Seq2SeqMetricBag
+from fairseq2.recipes.model import Model
 
 
 @dataclass(kw_only=True)
@@ -27,11 +26,14 @@ class MTLossSection:
 
 @final
 class MTCriterion:
-    _model: Module
+    _model: Model
     _label_smoothing: float
 
-    def __init__(self, model: Module, *, label_smoothing: float = 0.0) -> None:
-        check_model_type(model, EncoderDecoderModel)
+    def __init__(self, model: Model, *, label_smoothing: float = 0.0) -> None:
+        if not isinstance(model.base_module, EncoderDecoderModel):
+            raise TypeError(
+                f"`model.base_module` must be of type `{EncoderDecoderModel}`, but is of type `{type(model.base_module)}` instead."
+            )
 
         self._model = model
 
@@ -55,8 +57,8 @@ class MTCriterion:
         return loss, batch.num_target_elements()
 
     def _forward(self, batch: Seq2SeqBatch) -> SequenceModelOutput:
-        return self._model(batch)  # type: ignore[no-any-return]
+        return self._model.module(batch)  # type: ignore[no-any-return]
 
     @property
-    def model(self) -> Module:
+    def model(self) -> Model:
         return self._model

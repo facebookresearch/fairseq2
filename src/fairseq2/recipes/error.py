@@ -47,15 +47,24 @@ class InvalidCheckpointPathError(Exception):
 
 
 class ModelParallelismNotSupportedError(NotSupportedError):
-    family: str
     model_name: str
 
-    def __init__(self, family: str, model_name: str) -> None:
+    def __init__(self, model_name: str) -> None:
         super().__init__(
-            f"The '{family}' family of the '{model_name}' model does not support non-data parallelism."
+            f"The '{model_name}' model does not support non-data parallelism."
         )
 
-        self.family = family
+        self.model_name = model_name
+
+
+class ModelCompilationNotSupportedError(NotSupportedError):
+    model_name: str
+
+    def __init__(self, model_name: str) -> None:
+        super().__init__(
+            f"The '{model_name}' model does not support `torch.compile()`."
+        )
+
         self.model_name = model_name
 
 

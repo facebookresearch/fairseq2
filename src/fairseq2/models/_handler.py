@@ -31,6 +31,7 @@ from fairseq2.models._error import (
     UnknownModelArchitectureError,
     model_asset_card_error,
 )
+from fairseq2.nn.fsdp import load_with_sdp_gang
 from fairseq2.nn.utils.module import (
     load_state_dict,
     reset_non_persistent_buffers,
@@ -91,7 +92,7 @@ class ModelHandler(ABC):
 
     @property
     @abstractmethod
-    def supports_torch_compile(self) -> bool: ...
+    def supports_compilation(self) -> bool: ...
 
 
 class AbstractModelHandler(ModelHandler):
@@ -315,12 +316,13 @@ class AbstractModelHandler(ModelHandler):
                 "`gangs` must be on a real device, but is on the meta device instead."
             )
 
-        try:
-            checkpoint = self._tensor_loader.load(path, map_location=CPU)
-        except TensorLoadError as ex:
-            raise ModelLoadError(
-                model_name, f"The checkpoint of the '{model_name}' model cannot be loaded. See the nested exception for details."  # fmt: skip
-            ) from ex
+        with load_with_sdp_gang(gangs):  # Required for ShardedTensor
+            try:
+                checkpoint = self._tensor_loader.load(path, map_location=CPU)
+            except TensorLoadError as ex:
+                raise ModelLoadError(
+                    model_name, f"The checkpoint of the '{model_name}' model cannot be loaded. See the nested exception for details."  # fmt: skip
+                ) from ex
 
         if "fs2" not in checkpoint:
             try:
@@ -417,5 +419,5 @@ class AbstractModelHandler(ModelHandler):
 
     @property
     @override
-    def supports_torch_compile(self) -> bool:
+    def supports_compilation(self) -> bool:
         return False

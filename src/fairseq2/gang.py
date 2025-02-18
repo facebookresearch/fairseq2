@@ -649,7 +649,7 @@ def setup_root_gang(
     )
 
 
-@dataclass(kw_only=True)
+@dataclass(kw_only=True, frozen=True)
 class Gangs:
     root: Gang
     """The root gang."""
@@ -665,6 +665,13 @@ class Gangs:
 
     tp: Gang
     """The tensor parallel gang."""
+
+    def __post_init__(self) -> None:
+        if self.root.rank == 0:
+            if self.dp.rank != 0 or self.tp.rank != 0:
+                raise GangError(
+                    "The coordinator process of the root gang (i.e. rank 0) must be rank 0 in all parallel gangs."
+                )
 
     def close(self) -> None:
         self.root.close()
@@ -727,7 +734,7 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
 
     dp_gang: Gang | None = None
 
-    log.info("Initializing data parallel gang with a size of {}.", dp_size)
+    log.info("Initializing data parallel gang with {} process(es).", dp_size)
 
     # Build the gangs for data parallelism.
     match dp_size:
@@ -746,7 +753,7 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
 
     tp_gang: Gang | None = None
 
-    log.info("Initializing tensor parallel gang with a size of {}.", tp_size)
+    log.info("Initializing tensor parallel gang with {} process(es).", tp_size)
 
     # Build the gangs for tensor parallelism.
     match tp_size:
@@ -811,7 +818,7 @@ def setup_fsdp_gangs(gangs: Gangs, intra_node_size: int | None = None) -> Gangs:
 
     inter_gang: Gang | None = None
 
-    log.info("Initializing inter-node data parallel gang with a size of {}.", inter_node_size)  # fmt: skip
+    log.info("Initializing inter-node data parallel gang with {} process(es).", inter_node_size)  # fmt: skip
 
     # Build the gangs for inter-node data parallelism.
     match inter_node_size:
@@ -830,7 +837,7 @@ def setup_fsdp_gangs(gangs: Gangs, intra_node_size: int | None = None) -> Gangs:
 
     intra_gang: Gang | None = None
 
-    log.info("Initializing intra-node data parallel gang with a size of {}.", intra_node_size)  # fmt: skip
+    log.info("Initializing intra-node data parallel gang with {} process(es).", intra_node_size)  # fmt: skip
 
     # Build the gangs for intra-node data parallelism.
     match intra_node_size:

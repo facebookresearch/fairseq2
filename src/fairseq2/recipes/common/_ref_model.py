@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Generic, TypeVar, cast, final
+from typing import final
 
 import torch
 from torch.nn import Module
@@ -31,45 +31,47 @@ from fairseq2.models import (
     UnknownModelFamilyError,
     model_asset_card_error,
 )
-from fairseq2.models.compile import compile_model
 from fairseq2.nn.utils.module import remove_parametrizations
 from fairseq2.recipes.common._distributed import broadcast_model
-from fairseq2.recipes.error import ModelParallelismNotSupportedError
+from fairseq2.recipes.common._model import LocalModel
+from fairseq2.recipes.error import (
+    ModelCompilationNotSupportedError,
+    ModelParallelismNotSupportedError,
+)
+from fairseq2.recipes.model import Model
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.registry import Provider
 from fairseq2.typing import DataType
 
-ModelT = TypeVar("ModelT", bound=Module)
-
 
 def setup_reference_model(
-    kls: type[ModelT],
+    kls: type[Module],
     context: RuntimeContext,
     model_name: str,
     gangs: Gangs,
     dtype: DataType,
     mp: bool,
     torch_compile: bool,
-) -> ModelT:
+) -> Model:
     model = load_reference_model(kls, context, model_name, gangs, dtype, mp)
 
-    broadcast_model(model_name, model, gangs)
+    broadcast_model(model, gangs)
 
-    model = prepare_reference_model(context, model_name, model, gangs, torch_compile)
+    model = prepare_reference_model(context, model, gangs, torch_compile)
 
-    log_model(log, model, gangs)
+    log_model(log, model.module, gangs)
 
     return model
 
 
 def load_reference_model(
-    kls: type[ModelT],
+    kls: type[Module],
     context: RuntimeContext,
     model_name: str,
     gangs: Gangs,
     dtype: DataType,
     mp: bool,
-) -> ModelT:
+) -> Model:
     model_handlers = context.get_registry(ModelHandler)
 
     loader = ReferenceModelLoader(kls, context.asset_store, model_handlers)
@@ -85,14 +87,14 @@ def load_reference_model(
 
 
 @final
-class ReferenceModelLoader(Generic[ModelT]):
-    _kls: type[ModelT]
+class ReferenceModelLoader:
+    _kls: type[Module]
     _asset_store: AssetStore
     _model_handlers: Provider[ModelHandler]
 
     def __init__(
         self,
-        kls: type[ModelT],
+        kls: type[Module],
         asset_store: AssetStore,
         model_handlers: Provider[ModelHandler],
     ) -> None:
@@ -100,7 +102,7 @@ class ReferenceModelLoader(Generic[ModelT]):
         self._asset_store = asset_store
         self._model_handlers = model_handlers
 
-    def load(self, model_name: str, gangs: Gangs, dtype: DataType, mp: bool) -> ModelT:
+    def load(self, model_name: str, gangs: Gangs, dtype: DataType, mp: bool) -> Model:
         try:
             card = self._asset_store.retrieve_card(model_name)
         except AssetCardNotFoundError:
@@ -123,8 +125,9 @@ class ReferenceModelLoader(Generic[ModelT]):
         if not issubclass(handler.kls, self._kls):
             raise InvalidModelTypeError(model_name, handler.kls, self._kls) from None
 
-        if not handler.supports_sharding and gangs.root.size != gangs.dp.size:
-            raise ModelParallelismNotSupportedError(model_family, model_name)
+        if gangs.root.size != gangs.dp.size:
+            if not handler.supports_sharding:
+                raise ModelParallelismNotSupportedError(model_name)
 
         try:
             model_config = handler.load_config(card)
@@ -141,9 +144,9 @@ class ReferenceModelLoader(Generic[ModelT]):
 
         try:
             if gangs.dp.rank == 0:
-                model = handler.load(card, gangs, dtype, model_config)
+                module = handler.load(card, gangs, dtype, model_config)
             else:
-                model = handler.create(
+                module = handler.create(
                     model_config, gangs, dtype, meta=handler.supports_meta
                 )
         except NotSupportedError as ex:
@@ -158,26 +161,25 @@ class ReferenceModelLoader(Generic[ModelT]):
                 model_name, f"The collective barrier after the load of the '{model_name}' model has failed. See the nested exception for details."  # fmt: skip
             ) from ex
 
-        model.eval()
+        module.eval()
 
         log.info("Model loaded on data parallel rank 0.")
 
-        return cast(ModelT, model)
+        return LocalModel(model_name, module, model_config, handler)
 
 
 def prepare_reference_model(
-    context: RuntimeContext,
-    model_name: str,
-    model: ModelT,
-    gangs: Gangs,
-    torch_compile: bool,
-) -> ModelT:
-    remove_parametrizations(model)
+    context: RuntimeContext, model: Model, gangs: Gangs, torch_compile: bool
+) -> Model:
+    remove_parametrizations(model.module)
 
     if torch_compile:
-        log.info("Compiling '{}' model.", model_name)
+        if not model.handler.supports_compilation:
+            raise ModelCompilationNotSupportedError(model.name)
 
-        model = cast(ModelT, compile_model(model, gangs))
+        log.info("Compiling '{}' model.", model.name)
+
+        model.handler.compile(model.module, model.config)
 
         log.info("Model compiled.")
 

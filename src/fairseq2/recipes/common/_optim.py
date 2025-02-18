@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from typing import final
 
-from torch.nn import Module
 from torch.optim import Optimizer
 
 from fairseq2.context import RuntimeContext
@@ -25,12 +24,13 @@ from fairseq2.recipes.config import (
     RegimeSection,
     get_config_section,
 )
+from fairseq2.recipes.model import Model
 from fairseq2.registry import Provider
 from fairseq2.utils.structured import StructureError
 
 
 def create_optimizer(
-    context: RuntimeContext, recipe_config: object, model: Module
+    context: RuntimeContext, recipe_config: object, model: Model
 ) -> Optimizer:
     optimizer_handlers = context.get_registry(OptimizerHandler)
 
@@ -46,7 +46,7 @@ class OptimizerCreator:
     def __init__(self, optimizer_handlers: Provider[OptimizerHandler]) -> None:
         self._optimizer_handlers = optimizer_handlers
 
-    def create(self, recipe_config: object, model: Module) -> Optimizer:
+    def create(self, recipe_config: object, model: Model) -> Optimizer:
         optimizer_section = get_config_section(
             recipe_config, "optimizer", OptimizerSection
         )
@@ -56,8 +56,10 @@ class OptimizerCreator:
         except LookupError:
             raise UnknownOptimizerError(optimizer_section.name) from None
 
+        params = model.module.parameters()
+
         try:
-            return handler.create(model.parameters(), optimizer_section.config)
+            return handler.create(params, optimizer_section.config)
         except StructureError as ex:
             raise StructureError(
                 "`optimizer.config` cannot be structured. See the nested exception for details."

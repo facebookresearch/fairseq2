@@ -62,7 +62,7 @@ def setup_gangs(context: RuntimeContext, recipe_config: object) -> Gangs:
 
     log.info("Root gang initialized.")
 
-    log.info("Initializing the parallel gangs.")
+    log.info("Initializing parallel gangs.")
 
     try:
         tp_size = gang_section.tensor_parallel_size
@@ -103,6 +103,8 @@ def _maybe_setup_fsdp_gangs(recipe_config: object, gangs: Gangs) -> Gangs:
         return gangs
 
     if trainer_section.fsdp.hsdp:
+        log.info("Initializing hybrid sharded data parallel gangs.")
+
         try:
             local_world_size = get_local_world_size(os.environ)
         except InvalidEnvironmentVariableError as ex:
@@ -119,7 +121,11 @@ def _maybe_setup_fsdp_gangs(recipe_config: object, gangs: Gangs) -> Gangs:
             raise GangError(
                 f"The number of processes in the data parallel gang is expected to be a multiple of the local world size ({local_world_size}) when `trainer.fsdp.hsdp` is set, but is {gangs.dp.size} instead."
             )
-    else:
-        local_world_size = None
 
-    return setup_fsdp_gangs(gangs, local_world_size)
+        gangs = setup_fsdp_gangs(gangs, local_world_size)
+
+        log.info("Hybrid sharded data parallel gangs initialized.")
+    else:
+        gangs = setup_fsdp_gangs(gangs)
+
+    return gangs

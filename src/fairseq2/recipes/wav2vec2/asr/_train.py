@@ -231,14 +231,15 @@ def load_wav2vec2_asr_trainer(
 
     seed += 1
 
-    base_model = load_base_model(
+    model = load_base_model(
         Wav2Vec2AsrModel, context, config, output_dir, gangs, checkpoint_manager
     )
 
+    module = cast(Wav2Vec2AsrModel, model.module)
+
     # If we start the training with an empty ASR model, use the weights of a
     # pretrained wav2vec 2.0 model.
-    empty = config.model.name is None and config.model.checkpoint is None
-    if empty and not checkpoint_manager.has_checkpoint():
+    if model.is_empty_init:
         pt_model = load_reference_model(
             Wav2Vec2Model,
             context,
@@ -248,31 +249,33 @@ def load_wav2vec2_asr_trainer(
             mp=config.trainer.mixed_precision is not None,
         )
 
-        share_parameters(pt_model.encoder_frontend, base_model.encoder_frontend)
-        share_parameters(pt_model.encoder, base_model.encoder)
+        pt_module = cast(Wav2Vec2Model, pt_model.module)
 
-        if base_model.masker is not None:
-            share_parameters(pt_model.masker, base_model.masker)
+        share_parameters(pt_module.encoder_frontend, module.encoder_frontend)
+        share_parameters(pt_module.encoder, module.encoder)
+
+        if module.masker is not None:
+            share_parameters(pt_module.masker, module.masker)
 
         del pt_model
 
         # Make sure that the final projection layer is instantiated along with
         # the pretrained parameters if it was on the meta device.
         if gangs.dp.rank == 0:
-            to_device(base_model, gangs.root.device)
+            to_device(module, gangs.root.device)
 
         gangs.root.barrier()
 
     # We never train the feature extractor.
-    freeze_parameters(base_model.encoder_frontend.feature_extractor)
+    freeze_parameters(module.encoder_frontend.feature_extractor)
 
-    prepare_model(context, config, base_model, gangs)
+    prepare_model(context, config, model, gangs)
 
     static_graph = config.trainer.freeze_encoder_for_n_steps == 0
 
-    model = setup_data_parallel_model(context, config, base_model, gangs, static_graph)
+    model = setup_data_parallel_model(context, config, model, gangs, static_graph)
 
-    log_model(log, model, gangs)
+    log_model(log, model.module, gangs)
 
     optimizer = create_optimizer(context, config, model)
 
@@ -369,6 +372,7 @@ def load_wav2vec2_asr_trainer(
 
 @final
 class Wav2Vec2AsrTrainUnit(AbstractTrainUnit[Seq2SeqBatch]):
+    _module: Wav2Vec2AsrModel
     _criterion: AsrCriterion
     _freeze_encoder_for_n_steps: int
     _metric_bag: AsrMetricBag
@@ -380,7 +384,16 @@ class Wav2Vec2AsrTrainUnit(AbstractTrainUnit[Seq2SeqBatch]):
         :param freeze_encoder_for_n_steps: The encoder will be frozen for this
             number of steps.
         """
+        module = criterion.model.base_module
+
+        if not isinstance(module, Wav2Vec2AsrModel):
+            raise TypeError(
+                f"`criterion.model.base_module` must be of type `{Wav2Vec2AsrModel}`, but is of type `{type(module)}` instead."
+            )
+
         super().__init__(criterion.model)
+
+        self._module = module
 
         self._criterion = criterion
 
@@ -394,28 +407,25 @@ class Wav2Vec2AsrTrainUnit(AbstractTrainUnit[Seq2SeqBatch]):
 
     @override
     def set_step_nr(self, step_nr: int) -> None:
-        if isinstance(self._model, Wav2Vec2AsrModel):
-            model = self._model
-        else:
-            model = cast(Wav2Vec2AsrModel, self._model.module)  # DDP or FSDP
+        module = self._module
 
         if step_nr <= self._freeze_encoder_for_n_steps:
             if step_nr == 1:
                 log.info("Freezing the encoder for the first {} steps.", self._freeze_encoder_for_n_steps)  # fmt: skip
 
-            freeze_parameters(model.encoder_frontend)
-            freeze_parameters(model.encoder)
+            freeze_parameters(module.encoder_frontend)
+            freeze_parameters(module.encoder)
 
-            if model.masker is not None:
-                freeze_parameters(model.masker)
+            if module.masker is not None:
+                freeze_parameters(module.masker)
         else:
             if step_nr == self._freeze_encoder_for_n_steps + 1:
                 log.info("Unfreezing the encoder after step {}.", step_nr - 1)
 
-            freeze_parameters(model, False)
+            freeze_parameters(module, False)
 
             # We never train the feature extractor.
-            freeze_parameters(model.encoder_frontend.feature_extractor)
+            freeze_parameters(module.encoder_frontend.feature_extractor)
 
     @property
     @override

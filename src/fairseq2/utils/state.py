@@ -6,16 +6,9 @@
 
 from __future__ import annotations
 
-import logging
-import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from typing import Any, Generic, Protocol, TypeVar, final, runtime_checkable
-
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.nn import Module
-from torch.optim import Optimizer
-from typing_extensions import override
 
 
 @runtime_checkable
@@ -234,66 +227,3 @@ class StateHandler(ABC, Generic[StatefulT]):
     @abstractmethod
     def set_state(self, stateful: StatefulT, state: object) -> None:
         """Set the state of ``stateful`` to ``state``."""
-
-
-@final
-class FSDPOptimizerStateHandler(StateHandler[Optimizer]):
-    """Gets and sets the state of an :class:`Optimizer` managed by FSDP."""
-
-    _module: Module
-
-    def __init__(self, module: Module) -> None:
-        """
-        :param module:
-            The module that is of type :class:`FSDP` or contains a module that
-            is of type :class:`FSDP`.
-        """
-        self._module = module
-
-    @override
-    def get_state(self, stateful: Optimizer) -> object:
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                action="ignore", message=r".*`_get_pg_default_device` will be deprecated.*"  # fmt: skip
-            )
-            warnings.filterwarnings(
-                action="ignore", message=r".*You are using `torch\.load` with `weights_only=False`.*"  # fmt: skip
-            )
-
-            try:
-                # FSDP uses warning level to dump a lot of noisy internal trace
-                # information.
-                logging.disable(logging.WARNING)
-
-                return FSDP.optim_state_dict(self._module, stateful)
-            except UnicodeDecodeError as ex:
-                raise RuntimeError(
-                    "FSDP has failed to gather the optimizer state with a pickling error. This might indicate a disk space issue. Make sure you have enough space on your file system. See the nested exception for details."
-                ) from ex
-            finally:
-                logging.disable(logging.NOTSET)
-
-    @override
-    def set_state(self, stateful: Optimizer, state: object) -> None:
-        if not isinstance(state, dict):
-            raise TypeError(
-                f"`state` must be of type `dict`, but is of type `{type(state)}` instead."
-            )
-
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                action="ignore", message=r".*Please use DTensor instead.*"
-            )
-
-            try:
-                # FSDP uses warning level to dump a lot of noisy internal trace
-                # information.
-                logging.disable(logging.WARNING)
-
-                state_dict = FSDP.optim_state_dict_to_load(
-                    self._module, stateful, state
-                )
-            finally:
-                logging.disable(logging.NOTSET)
-
-            stateful.load_state_dict(state_dict)

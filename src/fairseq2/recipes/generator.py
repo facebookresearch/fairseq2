@@ -7,12 +7,11 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from contextlib import AbstractContextManager, nullcontext
+from contextlib import nullcontext
 from itertools import count
 from typing import Generic, TypeVar, final
 
 import torch
-from torch.nn import Module
 from torch.profiler import record_function
 from typing_extensions import override
 
@@ -25,8 +24,9 @@ from fairseq2.metrics import MetricBag
 from fairseq2.metrics.recorders import MetricRecorder
 from fairseq2.profilers import Profiler
 from fairseq2.recipes.metrics import extend_batch_metrics
+from fairseq2.recipes.model import Model
 from fairseq2.recipes.utils.progress import NoopProgressReporter, ProgressReporter
-from fairseq2.typing import CPU, DataType
+from fairseq2.typing import CPU, ContextManager, DataType
 from fairseq2.utils.rng import RngBag
 from fairseq2.utils.stopwatch import Stopwatch
 
@@ -42,7 +42,7 @@ class GeneratorUnit(ABC, Generic[BatchT_contra]):
 
     @property
     @abstractmethod
-    def model(self) -> Module:
+    def model(self) -> Model:
         """The underlying model."""
 
     @property
@@ -57,13 +57,15 @@ BatchT = TypeVar("BatchT")
 class AbstractGeneratorUnit(GeneratorUnit[BatchT]):
     """Provides a skeletal implementation of :class:`GeneratorUnit`."""
 
-    def __init__(self, model: Module) -> None:
+    _model: Model
+
+    def __init__(self, model: Model) -> None:
         self._model = model
 
     @final
     @property
     @override
-    def model(self) -> Module:
+    def model(self) -> Model:
         return self._model
 
 
@@ -110,12 +112,6 @@ class Generator(Generic[BatchT]):
 
         self._data_reader = data_reader
 
-        if gangs.root.rank == 0:
-            if gangs.dp.rank != 0 or gangs.tp.rank != 0:
-                raise ValueError(
-                    "The coordinator process of the root gang (i.e. rank 0) must be rank 0 in all parallel gangs."
-                )
-
         self._gangs = gangs
 
         self._dtype = dtype
@@ -146,6 +142,10 @@ class Generator(Generic[BatchT]):
         if progress_reporter is not None:
             self._progress_reporter = progress_reporter
 
+        rng_bag = RngBag.from_device_defaults(CPU, self._gangs.root.device)
+
+        rng_bag.manual_seed(self._seed)
+
         log.info("Running generation on {} device(s).", self._gangs.root.size)
 
         try:
@@ -162,13 +162,9 @@ class Generator(Generic[BatchT]):
         log.info("Generation complete in {:,} seconds!", int(elapsed_time))
 
     def _do_run(self) -> None:
-        rng_bag = RngBag.from_device_defaults(CPU, self._gangs.root.device)
-
-        rng_bag.manual_seed(self._seed)
-
         watch = Stopwatch(start=True, device=self._gangs.root.device)
 
-        self._unit.model.eval()
+        self._unit.model.module.eval()
 
         num_effective_batches = 0
 
@@ -204,7 +200,7 @@ class Generator(Generic[BatchT]):
 
         self._publish_metrics(num_effective_batches, watch.get_elapsed_time())
 
-    def _maybe_autocast(self) -> AbstractContextManager[None]:
+    def _maybe_autocast(self) -> ContextManager:
         if self._dtype == torch.float32 or not self._amp:
             return nullcontext()
 
