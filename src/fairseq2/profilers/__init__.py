@@ -12,7 +12,3 @@ from fairseq2.profilers._handler import ProfilerHandler as ProfilerHandler
 from fairseq2.profilers._profiler import AbstractProfiler as AbstractProfiler
 from fairseq2.profilers._profiler import NoopProfiler as NoopProfiler
 from fairseq2.profilers._profiler import Profiler as Profiler
-from fairseq2.profilers._torch import TORCH_PROFILER as TORCH_PROFILER
-from fairseq2.profilers._torch import TorchProfiler as TorchProfiler
-from fairseq2.profilers._torch import TorchProfilerConfig as TorchProfilerConfig
-from fairseq2.profilers._torch import TorchProfilerHandler as TorchProfilerHandler

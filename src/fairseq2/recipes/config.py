@@ -29,7 +29,7 @@ from fairseq2.metrics.recorders import (
     WandbRecorderConfig,
 )
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
-from fairseq2.profilers import TORCH_PROFILER, TorchProfilerConfig
+from fairseq2.profilers.torch import TORCH_PROFILER, TorchProfilerConfig
 from fairseq2.typing import DataType
 from fairseq2.utils.validation import ValidationError, ValidationResult
 

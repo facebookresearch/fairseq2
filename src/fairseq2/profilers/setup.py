@@ -7,10 +7,8 @@
 from __future__ import annotations
 
 from fairseq2.context import RuntimeContext
-from fairseq2.profilers import TORCH_PROFILER, ProfilerHandler, TorchProfilerHandler
+from fairseq2.profilers.torch import register_torch_profiler
 
 
-def _register_profilers(context: RuntimeContext) -> None:
-    registry = context.get_registry(ProfilerHandler)
-
-    registry.register(TORCH_PROFILER, TorchProfilerHandler())
+def register_profilers(context: RuntimeContext) -> None:
+    register_torch_profiler(context)
