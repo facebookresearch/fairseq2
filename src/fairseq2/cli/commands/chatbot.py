@@ -151,7 +151,7 @@ class RunChatbotHandler(CliCommandHandler):
             torch_compile=False,
         )
 
-        module = cast(DecoderModel, model)
+        module = cast(DecoderModel, model.module)
 
         tokenizer = load_text_tokenizer(context, args)
 
@@ -272,7 +272,7 @@ class ChatbotProgram:
         hook = _PrintHook(self._view, text_decoder)
 
         with self._generator.register_step_hook(hook):
-            response, _ = self._chatbot(self._dialog)
+            response, _ = self._chatbot.response(self._dialog)
 
         self._view.print_reply_piece("\n")
 
@@ -306,7 +306,7 @@ class ChatbotProgram:
             if message.role == "system":
                 continue
 
-            response, _ = self._chatbot(self._dialog)
+            response, _ = self._chatbot.response(self._dialog)
 
             self._dialog.append(response)
 

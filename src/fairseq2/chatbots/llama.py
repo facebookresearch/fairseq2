@@ -13,35 +13,29 @@ from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.chatbots import (
-    AbstractChatbot,
     Chatbot,
     ChatbotHandler,
     ChatDialog,
+    ChatDialogEncoder,
     ChatMessage,
+    StandardChatbot,
 )
+from fairseq2.context import RuntimeContext
 from fairseq2.data.text.tokenizers import TextTokenEncoder, TextTokenizer
 from fairseq2.data.text.tokenizers.llama import LLaMA3Tokenizer
 from fairseq2.generation import SequenceGenerator
+from fairseq2.models.decoder import DecoderModel
+from fairseq2.models.llama import LLAMA_MODEL_FAMILY
 from fairseq2.nn.utils.module import infer_device
 
 
 @final
-class LLaMAChatbot(AbstractChatbot):
-    """Represents a LLaMA chatbot."""
-
+class LLaMA1DialogEncoder(ChatDialogEncoder):
     _bos_idx: Tensor
     _eos_idx: Tensor
     _text_encoder: TextTokenEncoder
 
-    def __init__(self, generator: SequenceGenerator, tokenizer: TextTokenizer) -> None:
-        """
-        :param generator:
-            The sequence generator.
-        :param tokenizer:
-            The text tokenizer.
-        """
-        super().__init__(generator, tokenizer)
-
+    def __init__(self, model: DecoderModel, tokenizer: TextTokenizer) -> None:
         bos_idx = tokenizer.vocab_info.bos_idx
         eos_idx = tokenizer.vocab_info.eos_idx
 
@@ -49,7 +43,7 @@ class LLaMAChatbot(AbstractChatbot):
             raise ValueError("`tokenizer` must have BOS and EOS symbols defined.")
 
         try:
-            device = infer_device(generator.model)
+            device = infer_device(model)
         except ValueError as ex:
             raise ValueError(
                 "The device of `generator.model` is not valid. See the nested exception for details."
@@ -61,16 +55,14 @@ class LLaMAChatbot(AbstractChatbot):
         self._text_encoder = tokenizer.create_raw_encoder(device=device)
 
     @override
-    def _encode_dialog(self, dialog: ChatDialog, param_name: str) -> Tensor:
+    def encode(self, dialog: ChatDialog) -> Tensor:
         if len(dialog) == 0:
             raise ValueError(
-                f"`{param_name}` must have at least one message with the 'user' role."
+                "`dialog` must have at least one message with the 'user' role."
             )
 
         if dialog[-1].role != "user":
-            raise ValueError(
-                f"The last message of `{param_name}` must have the 'user' role."
-            )
+            raise ValueError("The last message of `dialog` must have the 'user' role.")
 
         # Merge the system message, if any, with the first user message.
         if dialog[0].role == "system":
@@ -85,7 +77,7 @@ class LLaMAChatbot(AbstractChatbot):
         for user, bot in zip(dialog[::2], dialog[1::2]):
             if user.role != "user" or bot.role != "bot":
                 raise ValueError(
-                    f"The messages of `{param_name}` might optionally start with the 'system' role, and then must alternate between the 'user' and 'bot' roles."
+                    "The messages of `dialog` might optionally start with the 'system' role, and then must alternate between the 'user' and 'bot' roles."
                 )
 
             user_bot_seq = self._text_encoder(
@@ -100,16 +92,9 @@ class LLaMAChatbot(AbstractChatbot):
 
         return torch.cat(dialog_contents, dim=0)
 
-    @property
-    @override
-    def supports_system_prompt(self) -> bool:
-        return True
-
 
 @final
-class LLaMA3Chatbot(AbstractChatbot):
-    """Represents a LLaMA 3 chatbot."""
-
+class LLaMA3DialogEncoder(ChatDialogEncoder):
     _bos_idx: Tensor
     _eos_idx: Tensor
     _boh_idx: Tensor
@@ -117,15 +102,7 @@ class LLaMA3Chatbot(AbstractChatbot):
     _text_encoder: TextTokenEncoder
     _break: Tensor
 
-    def __init__(self, generator: SequenceGenerator, tokenizer: TextTokenizer) -> None:
-        """
-        :param generator:
-            The sequence generator.
-        :param tokenizer:
-            The text tokenizer.
-        """
-        super().__init__(generator, tokenizer)
-
+    def __init__(self, model: DecoderModel, tokenizer: TextTokenizer) -> None:
         bos_idx = tokenizer.vocab_info.bos_idx
         eos_idx = tokenizer.vocab_info.eos_idx
         boh_idx = tokenizer.vocab_info.boh_idx
@@ -137,7 +114,7 @@ class LLaMA3Chatbot(AbstractChatbot):
             )
 
         try:
-            device = infer_device(generator.model)
+            device = infer_device(model)
         except ValueError as ex:
             raise ValueError(
                 "The device of `generator.model` is not valid. See the nested exception for details."
@@ -153,16 +130,14 @@ class LLaMA3Chatbot(AbstractChatbot):
         self._break = self._text_encoder("\n\n")
 
     @override
-    def _encode_dialog(self, dialog: ChatDialog, param_name: str) -> Tensor:
+    def encode(self, dialog: ChatDialog) -> Tensor:
         if len(dialog) == 0:
             raise ValueError(
-                f"`{param_name}` must have at least one message with the 'user' role."
+                "`dialog` must have at least one message with the 'user' role."
             )
 
         if dialog[-1].role != "user":
-            raise ValueError(
-                f"The last message of `{param_name}` must have the 'user' role."
-            )
+            raise ValueError("The last message of `dialog` must have the 'user' role.")
 
         dialog_contents: list[Tensor] = [self._bos_idx]
 
@@ -186,7 +161,7 @@ class LLaMA3Chatbot(AbstractChatbot):
         for user, bot in zip(dialog[::2], dialog[1::2]):
             if user.role != "user" or bot.role != "bot":
                 raise ValueError(
-                    f"The messages of `{param_name}` might optionally start with the 'system' role, and then must alternate between the 'user' and 'bot' roles."
+                    "The messages of `dialog` might optionally start with the 'system' role, and then must alternate between the 'user' and 'bot' roles."
                 )
 
             encode_role("user")
@@ -205,17 +180,28 @@ class LLaMA3Chatbot(AbstractChatbot):
 
         return torch.cat(dialog_contents, dim=0)
 
-    @property
-    @override
-    def supports_system_prompt(self) -> bool:
-        return True
-
 
 @final
 class LLaMAChatbotHandler(ChatbotHandler):
     @override
     def create(self, generator: SequenceGenerator, tokenizer: TextTokenizer) -> Chatbot:
-        if isinstance(tokenizer, LLaMA3Tokenizer):
-            return LLaMA3Chatbot(generator, tokenizer)
+        model = generator.model
 
-        return LLaMAChatbot(generator, tokenizer)
+        dialog_encoder: ChatDialogEncoder
+
+        if isinstance(tokenizer, LLaMA3Tokenizer):
+            dialog_encoder = LLaMA3DialogEncoder(model, tokenizer)
+        else:
+            dialog_encoder = LLaMA1DialogEncoder(model, tokenizer)
+
+        text_decoder = tokenizer.create_decoder()
+
+        return StandardChatbot(
+            generator, dialog_encoder, text_decoder, supports_system_prompt=True
+        )
+
+
+def register_llama_chatbot(context: RuntimeContext) -> None:
+    registry = context.get_registry(ChatbotHandler)
+
+    registry.register(LLAMA_MODEL_FAMILY, LLaMAChatbotHandler())
