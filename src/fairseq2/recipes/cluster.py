@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 from abc import ABC, abstractmethod
 from collections.abc import Collection, Mapping, MutableMapping
@@ -14,6 +15,7 @@ from typing import final
 
 from typing_extensions import override
 
+from fairseq2.context import RuntimeContext
 from fairseq2.registry import Provider
 
 
@@ -168,3 +170,9 @@ class _NoneClusterHandler(ClusterHandler):
     @override
     def supports_current_cluster(self) -> bool:
         return True
+
+
+def register_clusters(context: RuntimeContext) -> None:
+    registry = context.get_registry(ClusterHandler)
+
+    registry.register("slurm", SlurmClusterHandler(os.environ))
