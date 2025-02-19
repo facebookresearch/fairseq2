@@ -18,9 +18,9 @@ from torch.profiler import (
 )
 from typing_extensions import override
 
+from fairseq2.context import RuntimeContext
 from fairseq2.gang import Gangs
-from fairseq2.profilers._handler import ProfilerHandler
-from fairseq2.profilers._profiler import AbstractProfiler, NoopProfiler, Profiler
+from fairseq2.profilers import AbstractProfiler, NoopProfiler, Profiler, ProfilerHandler
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
 
@@ -126,3 +126,9 @@ class TorchProfilerHandler(ProfilerHandler):
     @override
     def config_kls(self) -> type[object]:
         return TorchProfilerConfig
+
+
+def register_torch_profiler(context: RuntimeContext) -> None:
+    registry = context.get_registry(ProfilerHandler)
+
+    registry.register(TORCH_PROFILER, TorchProfilerHandler())

@@ -29,3 +29,7 @@ class NotSupportedError(Exception):
 
 class ProgramError(Exception):
     pass
+
+
+class SetupError(Exception):
+    pass
