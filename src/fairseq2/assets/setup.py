@@ -21,7 +21,7 @@ from fairseq2.setup._error import SetupError
 from fairseq2.utils.yaml import StandardYamlLoader
 
 
-def _register_assets(context: RuntimeContext) -> None:
+def register_assets(context: RuntimeContext) -> None:
     register_package_metadata_provider(context, "fairseq2.assets.cards")
 
     file_system = context.file_system
