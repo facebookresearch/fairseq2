@@ -16,6 +16,7 @@ from torch import Tensor
 from torch.nn.functional import layer_norm
 from typing_extensions import override
 
+from fairseq2.context import RuntimeContext
 from fairseq2.data import (
     CollateOptionsOverride,
     Collater,
@@ -39,6 +40,7 @@ from fairseq2.datasets import (
     LengthBatching,
     StaticBatching,
     UnknownSplitError,
+    register_dataset,
 )
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
@@ -342,6 +344,15 @@ class GenericAsrDataset(AsrDataset):
     @override
     def splits(self) -> set[str]:
         return self._splits
+
+
+def register_generic_asr_dataset(context: RuntimeContext) -> None:
+    register_dataset(
+        context,
+        GENERIC_ASR_DATASET_FAMILY,
+        GenericAsrDataset,
+        GenericAsrDataset.from_path,
+    )
 
 
 get_asr_dataset_hub = DatasetHubAccessor(AsrDataset)

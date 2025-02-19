@@ -15,11 +15,11 @@ from fairseq2.assets import (
     StandardAssetStore,
 )
 from fairseq2.context import RuntimeContext, set_runtime_context
+from fairseq2.datasets.setup import register_datasets
 from fairseq2.extensions import run_extensions
 from fairseq2.setup._assets import _register_assets
 from fairseq2.setup._chatbots import _register_chatbots
 from fairseq2.setup._clusters import _register_clusters
-from fairseq2.setup._datasets import _register_datasets
 from fairseq2.setup._generation import (
     _register_beam_search_algorithms,
     _register_samplers,
@@ -100,7 +100,7 @@ def setup_library() -> RuntimeContext:
     _register_beam_search_algorithms(context)
     _register_chatbots(context)
     _register_clusters(context)
-    _register_datasets(context)
+    register_datasets(context)
     _register_lr_schedulers(context)
     _register_metric_descriptors(context)
     _register_metric_recorders(context)
