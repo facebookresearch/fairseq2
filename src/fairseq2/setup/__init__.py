@@ -6,6 +6,5 @@
 
 from __future__ import annotations
 
-from fairseq2.setup._cli import setup_cli as setup_cli
 from fairseq2.setup._lib import setup_fairseq2 as setup_fairseq2
 from fairseq2.setup._lib import setup_library as setup_library

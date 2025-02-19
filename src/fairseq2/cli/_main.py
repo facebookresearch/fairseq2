@@ -13,6 +13,7 @@ import torch
 from torch.cuda import OutOfMemoryError
 
 from fairseq2.cli._logging import setup_logging
+from fairseq2.cli._setup import setup_cli
 from fairseq2.context import get_runtime_context
 from fairseq2.error import ContractError, InternalError, SetupError
 from fairseq2.extensions import ExtensionError
@@ -46,7 +47,7 @@ def main() -> None:
 
 
 def _run() -> int:
-    from fairseq2.setup import setup_cli, setup_fairseq2
+    from fairseq2.setup import setup_fairseq2
 
     try:
         setup_logging()
