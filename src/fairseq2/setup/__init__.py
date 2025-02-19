@@ -6,9 +6,6 @@
 
 from __future__ import annotations
 
-from fairseq2.setup._assets import (
-    register_package_metadata_provider as register_package_metadata_provider,
-)
 from fairseq2.setup._cli import setup_cli as setup_cli
 from fairseq2.setup._error import SetupError as SetupError
 from fairseq2.setup._lib import setup_fairseq2 as setup_fairseq2
