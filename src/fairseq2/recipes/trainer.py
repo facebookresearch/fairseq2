@@ -349,7 +349,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._repeat_step = False
 
-        self._has_read_any_data = False
+        self.register_stateful("_has_read_any_data", False)
 
         self._num_effective_batches = 0
 
@@ -1110,11 +1110,11 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         log.info("Model saved.")
 
         if self._score_metric_descriptor is not None:
-            log.info("Saving the checkpoint score.")
+            log.info("Saving the score.")
 
             self._checkpoint_manager.save_score(self._valid_score, self._lower_better)
 
-            log.info("Checkpoint score saved.")
+            log.info("Score saved.")
 
         self._checkpoint_manager.commit_checkpoint()
 
