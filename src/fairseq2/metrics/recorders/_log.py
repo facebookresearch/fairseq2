@@ -14,7 +14,8 @@ from typing import Final, final
 
 from typing_extensions import override
 
-from fairseq2.logging import LogWriter
+from fairseq2.context import RuntimeContext
+from fairseq2.logging import LogWriter, log
 from fairseq2.metrics import MetricDescriptor
 from fairseq2.metrics.recorders._handler import MetricRecorderHandler
 from fairseq2.metrics.recorders._recorder import MetricRecorder, NoopMetricRecorder
@@ -124,3 +125,13 @@ class LogMetricRecorderHandler(MetricRecorderHandler):
     @override
     def config_kls(self) -> type[object]:
         return LogMetricRecorderConfig
+
+
+def register_log_metric_recorder(context: RuntimeContext) -> None:
+    metric_descriptors = context.get_registry(MetricDescriptor)
+
+    handler = LogMetricRecorderHandler(log, metric_descriptors)
+
+    registry = context.get_registry(MetricRecorderHandler)
+
+    registry.register(LOG_METRIC_RECORDER, handler)
