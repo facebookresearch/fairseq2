@@ -14,11 +14,13 @@ from typing import Final, final
 import torch
 from typing_extensions import override
 
+from fairseq2.context import RuntimeContext
 from fairseq2.datasets import (
     DataPipelineReader,
     DataReader,
     DataReadOptions,
     DatasetHubAccessor,
+    register_dataset,
 )
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
@@ -93,6 +95,15 @@ class GenericSpeechDataset(SpeechDataset):
     @override
     def splits(self) -> set[str]:
         return set()
+
+
+def register_generic_speech_dataset(context: RuntimeContext) -> None:
+    register_dataset(
+        context,
+        GENERIC_SPEECH_DATASET_FAMILY,
+        GenericSpeechDataset,
+        GenericSpeechDataset.from_path,
+    )
 
 
 get_speech_dataset_hub = DatasetHubAccessor(SpeechDataset)

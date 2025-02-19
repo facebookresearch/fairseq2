@@ -15,6 +15,7 @@ from typing import Any, Final, cast, final
 
 from typing_extensions import override
 
+from fairseq2.context import RuntimeContext
 from fairseq2.data import (
     Collater,
     DataPipeline,
@@ -32,6 +33,7 @@ from fairseq2.datasets import (
     DatasetLoadError,
     LengthBatching,
     StaticBatching,
+    register_dataset,
 )
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
@@ -225,6 +227,15 @@ class GenericTextDataset(TextDataset):
         seqs, padding_mask = get_seqs_and_padding_mask(data, device)
 
         return SequenceBatch(seqs, padding_mask, example=example)
+
+
+def register_generic_text_dataset(context: RuntimeContext) -> None:
+    register_dataset(
+        context,
+        GENERIC_TEXT_DATASET_FAMILY,
+        GenericTextDataset,
+        GenericTextDataset.from_path,
+    )
 
 
 get_text_dataset_hub = DatasetHubAccessor(TextDataset)

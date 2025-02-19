@@ -14,6 +14,7 @@ from typing import Any, Final, cast, final
 
 from typing_extensions import override
 
+from fairseq2.context import RuntimeContext
 from fairseq2.data import (
     Collater,
     DataPipeline,
@@ -33,6 +34,7 @@ from fairseq2.datasets import (
     LengthBatching,
     StaticBatching,
     UnknownSplitError,
+    register_dataset,
 )
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
@@ -474,6 +476,15 @@ class GenericParallelTextDataset(ParallelTextDataset):
             raise UnknownSplitError(self._name, split, self._splits.keys())
 
         return directions_weights[0]
+
+
+def register_generic_parallel_text_dataset(context: RuntimeContext) -> None:
+    register_dataset(
+        context,
+        GENERIC_PARALLEL_TEXT_DATASET_FAMILY,
+        GenericParallelTextDataset,
+        GenericParallelTextDataset.from_path,
+    )
 
 
 get_parallel_text_dataset_hub = DatasetHubAccessor(ParallelTextDataset)

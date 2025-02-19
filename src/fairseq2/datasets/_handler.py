@@ -15,6 +15,7 @@ from typing import Protocol, final
 from typing_extensions import override
 
 from fairseq2.assets import AssetCard, AssetCardError, AssetDownloadManager
+from fairseq2.context import RuntimeContext
 from fairseq2.datasets._error import DatasetLoadError, dataset_asset_card_error
 from fairseq2.utils.file import FileSystem
 
@@ -102,3 +103,19 @@ class StandardDatasetHandler(DatasetHandler):
     @override
     def kls(self) -> type[object]:
         return self._kls
+
+
+def register_dataset(
+    context: RuntimeContext, family: str, kls: type[object], loader: DatasetLoader
+) -> None:
+    handler = StandardDatasetHandler(
+        family,
+        kls,
+        loader,
+        context.file_system,
+        context.asset_download_manager,
+    )
+
+    registry = context.get_registry(DatasetHandler)
+
+    registry.register(family, handler)
