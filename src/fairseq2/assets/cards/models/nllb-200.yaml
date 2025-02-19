@@ -219,6 +219,7 @@ name: nllb-200_dense_1b
 base: nllb-200
 model_arch: nllb_dense_1b
 checkpoint: "https://tinyurl.com/nllb200dense1bcheckpoint"
+restrict: false
 
 ---
 
@@ -226,6 +227,7 @@ name: nllb-200_dense_3b
 base: nllb-200
 model_arch: nllb_dense_3b
 checkpoint: "https://tinyurl.com/nllb200dense3bcheckpoint"
+restrict: false
 
 ---
 
@@ -233,6 +235,7 @@ name: nllb-200_dense_distill_1b
 base: nllb-200
 model_arch: nllb_dense_1b
 checkpoint: "https://tinyurl.com/nllb200densedst1bcheckpoint"
+restrict: false
 
 ---
 
@@ -240,3 +243,4 @@ name: nllb-200_dense_distill_600m
 base: nllb-200
 model_arch: nllb_dense_600m
 checkpoint: "https://tinyurl.com/nllb200densedst600mcheckpoint"
+restrict: false

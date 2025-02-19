@@ -64,7 +64,14 @@ class ModelHandler(ABC):
 
     @abstractmethod
     def load_from_path(
-        self, path: Path, model_name: str, config: object, gangs: Gangs, dtype: DataType
+        self,
+        path: Path,
+        model_name: str,
+        config: object,
+        gangs: Gangs,
+        dtype: DataType,
+        *,
+        restrict: bool = True,
     ) -> Module: ...
 
     @abstractmethod
@@ -100,6 +107,7 @@ class AbstractModelHandler(ModelHandler):
     _default_arch: str
     _asset_download_manager: AssetDownloadManager
     _tensor_loader: TensorLoader
+    _restrict: bool
 
     def __init__(
         self,
@@ -107,11 +115,14 @@ class AbstractModelHandler(ModelHandler):
         default_arch: str,
         asset_download_manager: AssetDownloadManager,
         tensor_loader: TensorLoader,
+        *,
+        restrict: bool = True,
     ) -> None:
         self._configs = configs
         self._default_arch = default_arch
         self._asset_download_manager = asset_download_manager
         self._tensor_loader = tensor_loader
+        self._restrict = restrict
 
     @final
     @override
@@ -268,18 +279,6 @@ class AbstractModelHandler(ModelHandler):
         if gangs.tp.size != num_shards:
             raise ShardedModelLoadError(model_name, num_shards, gangs.tp.size)
 
-        if config is None:
-            try:
-                config = self.load_config(card)
-            except ModelConfigLoadError as ex:
-                raise ModelLoadError(
-                    model_name, f"The '{model_name}' model configuration cannot be loaded. See the nested exception for details."  # fmt: skip
-                ) from ex
-
-            has_custom_config = False
-        else:
-            has_custom_config = True
-
         # Load the checkpoint.
         try:
             checkpoint_uri = card.field("checkpoint").as_uri()
@@ -292,8 +291,30 @@ class AbstractModelHandler(ModelHandler):
             checkpoint_uri, model_name, shard_idx=shard_idx
         )
 
+        # Load the configuration.
+        if config is None:
+            try:
+                config = self.load_config(card)
+            except ModelConfigLoadError as ex:
+                raise ModelLoadError(
+                    model_name, f"The '{model_name}' model configuration cannot be loaded. See the nested exception for details."  # fmt: skip
+                ) from ex
+
+            has_custom_config = False
+        else:
+            has_custom_config = True
+
         try:
-            return self.load_from_path(path, model_name, config, gangs, dtype)
+            restrict = card.field("restrict").as_(bool)
+        except AssetCardFieldNotFoundError:
+            restrict = None
+        except AssetCardError as ex:
+            raise model_asset_card_error(model_name) from ex
+
+        try:
+            return self.load_from_path(
+                path, model_name, config, gangs, dtype, restrict=restrict
+            )
         except FileNotFoundError:
             raise ModelLoadError(
                 model_name, f"The '{model_name}' model cannot be found at the '{path}' path."  # fmt: skip
@@ -309,16 +330,28 @@ class AbstractModelHandler(ModelHandler):
     @final
     @override
     def load_from_path(
-        self, path: Path, model_name: str, config: object, gangs: Gangs, dtype: DataType
+        self,
+        path: Path,
+        model_name: str,
+        config: object,
+        gangs: Gangs,
+        dtype: DataType,
+        *,
+        restrict: bool | None = None,
     ) -> Module:
         if gangs.root.device.type == "meta":
             raise ValueError(
                 "`gangs` must be on a real device, but is on the meta device instead."
             )
 
+        if restrict is None:
+            restrict = self._restrict
+
         with load_with_sdp_gang(gangs):  # Required for ShardedTensor
             try:
-                checkpoint = self._tensor_loader.load(path, map_location=CPU)
+                checkpoint = self._tensor_loader.load(
+                    path, map_location=CPU, restrict=restrict
+                )
             except TensorLoadError as ex:
                 raise ModelLoadError(
                     model_name, f"The checkpoint of the '{model_name}' model cannot be loaded. See the nested exception for details."  # fmt: skip
