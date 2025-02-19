@@ -21,7 +21,7 @@ def create_checkpoint_manager(
 
     file_system = context.file_system
 
-    tensor_loader = TorchTensorLoader(file_system, restrict=False)
+    tensor_loader = TorchTensorLoader(file_system)
     tensor_dumper = TorchTensorDumper(file_system)
 
     return FileCheckpointManager(

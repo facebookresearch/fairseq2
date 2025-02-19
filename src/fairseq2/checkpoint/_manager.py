@@ -407,7 +407,9 @@ class FileCheckpointManager(CheckpointManager):
                 file = step_dir.joinpath(filename)
 
                 try:
-                    part = self._tensor_loader.load(file, map_location=CPU)
+                    part = self._tensor_loader.load(
+                        file, map_location=CPU, restrict=False
+                    )
                 except FileNotFoundError:
                     part = {}
                 except TensorLoadError as ex:
@@ -483,7 +485,9 @@ class FileCheckpointManager(CheckpointManager):
         )
 
         try:
-            metadata = self._tensor_loader.load(metadata_file, map_location=CPU)
+            metadata = self._tensor_loader.load(
+                metadata_file, map_location=CPU, restrict=False
+            )
         except FileNotFoundError:
             metadata = None
         except TensorLoadError as ex:

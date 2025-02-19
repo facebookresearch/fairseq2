@@ -179,7 +179,7 @@ class TensorLoader(ABC):
 
     @abstractmethod
     def load(
-        self, path: Path, *, map_location: MapLocation = None
+        self, path: Path, *, map_location: MapLocation = None, restrict: bool = True
     ) -> dict[str, object]:
         """
         :param path:
@@ -205,15 +205,13 @@ class TensorDumper(ABC):
 @final
 class TorchTensorLoader(TensorLoader):
     _file_system: FileSystem
-    _restrict: bool
 
-    def __init__(self, file_system: FileSystem, restrict: bool = True) -> None:
+    def __init__(self, file_system: FileSystem) -> None:
         self._file_system = file_system
-        self._restrict = restrict
 
     @override
     def load(
-        self, path: Path, *, map_location: MapLocation = None
+        self, path: Path, *, map_location: MapLocation = None, restrict: bool = True
     ) -> dict[str, object]:
         with warnings.catch_warnings():
             warnings.filterwarnings(
@@ -234,7 +232,7 @@ class TorchTensorLoader(TensorLoader):
 
             try:
                 data: dict[str, object] = torch.load(
-                    fp, map_location, weights_only=self._restrict  # type: ignore[arg-type]
+                    fp, map_location, weights_only=restrict  # type: ignore[arg-type]
                 )
             except (RuntimeError, OSError, PickleError) as ex:
                 raise load_error() from ex
@@ -290,7 +288,7 @@ class SafetensorLoader(TensorLoader):
 
     @override
     def load(
-        self, path: Path, *, map_location: MapLocation = None
+        self, path: Path, *, map_location: MapLocation = None, restrict: bool = True
     ) -> dict[str, object]:
         try:
             from safetensors import safe_open  # type: ignore[import-not-found]
@@ -361,9 +359,9 @@ class StandardTensorLoader(TensorLoader):
 
     @override
     def load(
-        self, path: Path, *, map_location: MapLocation = None
+        self, path: Path, *, map_location: MapLocation = None, restrict: bool = True
     ) -> dict[str, object]:
-        def has_files(extension: str) -> bool:
+        def has_file(extension: str) -> bool:
             try:
                 next(iter(self._file_system.glob(path, f"*{extension}")))
             except OSError as ex:
@@ -385,7 +383,7 @@ class StandardTensorLoader(TensorLoader):
             ) from ex
 
         if is_dir:
-            if not has_files(".safetensors"):
+            if has_file(".safetensors"):
                 raise TensorLoadError(
                     path, f"The '{path}' directory does not contain any supported tensor files."  # fmt: skip
                 )
@@ -396,7 +394,7 @@ class StandardTensorLoader(TensorLoader):
         else:
             loader = self._default_tensor_loader
 
-        return loader.load(path, map_location=map_location)
+        return loader.load(path, map_location=map_location, restrict=restrict)
 
 
 class TensorLoadError(Exception):
