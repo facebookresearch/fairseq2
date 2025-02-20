@@ -13,7 +13,6 @@ from typing import Final, final
 
 from typing_extensions import override
 
-from fairseq2.context import RuntimeContext
 from fairseq2.logging import log
 from fairseq2.metrics import MetricDescriptor
 from fairseq2.metrics.recorders._handler import MetricRecorderHandler
@@ -141,15 +140,10 @@ class TensorBoardRecorderHandler(MetricRecorderHandler):
 
     @property
     @override
+    def name(self) -> str:
+        return TENSORBOARD_RECORDER
+
+    @property
+    @override
     def config_kls(self) -> type[object]:
         return TensorBoardRecorderConfig
-
-
-def register_tensorboard_recorder(context: RuntimeContext) -> None:
-    metric_descriptors = context.get_registry(MetricDescriptor)
-
-    handler = TensorBoardRecorderHandler(metric_descriptors)
-
-    registry = context.get_registry(MetricRecorderHandler)
-
-    registry.register(TENSORBOARD_RECORDER, handler)

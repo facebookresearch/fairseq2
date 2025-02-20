@@ -39,6 +39,10 @@ from fairseq2.nn.transformer import (
 )
 
 
+def create_transformer_model(config: TransformerConfig) -> TransformerModel:
+    return TransformerFactory(config).create_model()
+
+
 class TransformerFactory:
     _config: TransformerConfig
 

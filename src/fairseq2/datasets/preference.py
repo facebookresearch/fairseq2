@@ -16,7 +16,6 @@ from typing import Any, Final, cast, final
 import torch
 from typing_extensions import override
 
-from fairseq2.context import RuntimeContext
 from fairseq2.data import (
     CollateOptionsOverride,
     Collater,
@@ -33,7 +32,6 @@ from fairseq2.datasets import (
     DatasetHubAccessor,
     LengthBatching,
     StaticBatching,
-    register_dataset_family,
 )
 from fairseq2.datasets._utils import _load_files_and_weights
 from fairseq2.error import NotSupportedError
@@ -367,15 +365,6 @@ class GenericPreferenceDataset(PreferenceDataset):
                 lines.append(line)
 
         return read_sequence(lines).map(json.loads, num_parallel_calls=npc)
-
-
-def register_preference_dataset_family(context: RuntimeContext) -> None:
-    register_dataset_family(
-        context,
-        GENERIC_PREFERENCE_DATASET_FAMILY,
-        GenericPreferenceDataset,
-        GenericPreferenceDataset.from_path,
-    )
 
 
 get_preference_dataset_hub = DatasetHubAccessor(PreferenceDataset)

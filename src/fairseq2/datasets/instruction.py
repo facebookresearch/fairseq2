@@ -16,7 +16,6 @@ from typing import Any, Final, cast, final
 import torch
 from typing_extensions import override
 
-from fairseq2.context import RuntimeContext
 from fairseq2.data import (
     CollateOptionsOverride,
     Collater,
@@ -36,7 +35,6 @@ from fairseq2.datasets import (
     LengthBatching,
     StaticBatching,
     UnknownSplitError,
-    register_dataset_family,
 )
 from fairseq2.datasets._utils import _load_files_and_weights
 from fairseq2.error import NotSupportedError
@@ -425,15 +423,6 @@ class GenericInstructionDataset(InstructionDataset):
     @override
     def splits(self) -> set[str]:
         return set(self._splits.keys())
-
-
-def register_instruction_dataset_family(context: RuntimeContext) -> None:
-    register_dataset_family(
-        context,
-        GENERIC_INSTRUCTION_DATASET_FAMILY,
-        GenericInstructionDataset,
-        GenericInstructionDataset.from_path,
-    )
 
 
 get_instruction_dataset_hub = DatasetHubAccessor(InstructionDataset)

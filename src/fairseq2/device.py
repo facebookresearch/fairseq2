@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import os
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from typing import final
@@ -14,6 +13,7 @@ from typing import final
 import torch
 from typing_extensions import override
 
+from fairseq2.context import RuntimeContext
 from fairseq2.error import InternalError
 from fairseq2.typing import CPU, Device
 from fairseq2.utils.env import (
@@ -117,10 +117,10 @@ class DeviceDetectionError(Exception):
     pass
 
 
-def determine_default_device() -> Device:
+def determine_default_device(context: RuntimeContext) -> Device:
     cuda_context = TorchCudaContext()
 
-    device_accessor = DefaultDeviceAccessor(os.environ, cuda_context)
+    device_accessor = DefaultDeviceAccessor(context.env, cuda_context)
 
     return device_accessor.get()
 

@@ -313,11 +313,10 @@ class DpoFinetuneUnitHandler(POFinetuneUnitHandler):
 
     @property
     @override
+    def name(self) -> str:
+        return DPO_FINETUNE_UNIT
+
+    @property
+    @override
     def config_kls(self) -> type[object]:
         return DpoFinetuneConfig
-
-
-def register_dpo_finetune_unit(context: RuntimeContext) -> None:
-    registry = context.get_registry(POFinetuneUnitHandler)
-
-    registry.register(DPO_FINETUNE_UNIT, DpoFinetuneUnitHandler(context))

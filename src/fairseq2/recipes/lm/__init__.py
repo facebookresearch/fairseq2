@@ -58,9 +58,6 @@ from fairseq2.recipes.lm._preference_finetune._cpo import (
 from fairseq2.recipes.lm._preference_finetune._cpo import (
     CpoFinetuneUnitHandler as CpoFinetuneUnitHandler,
 )
-from fairseq2.recipes.lm._preference_finetune._cpo import (
-    register_cpo_finetune_unit as register_cpo_finetune_unit,
-)
 from fairseq2.recipes.lm._preference_finetune._dpo import (
     DPO_FINETUNE_UNIT as DPO_FINETUNE_UNIT,
 )
@@ -75,9 +72,6 @@ from fairseq2.recipes.lm._preference_finetune._dpo import (
 )
 from fairseq2.recipes.lm._preference_finetune._dpo import (
     DpoFinetuneUnitHandler as DpoFinetuneUnitHandler,
-)
-from fairseq2.recipes.lm._preference_finetune._dpo import (
-    register_dpo_finetune_unit as register_dpo_finetune_unit,
 )
 from fairseq2.recipes.lm._preference_finetune._handler import (
     POFinetuneUnitHandler as POFinetuneUnitHandler,
@@ -100,9 +94,6 @@ from fairseq2.recipes.lm._preference_finetune._orpo import (
 from fairseq2.recipes.lm._preference_finetune._orpo import (
     OrpoFinetuneUnitHandler as OrpoFinetuneUnitHandler,
 )
-from fairseq2.recipes.lm._preference_finetune._orpo import (
-    register_orpo_finetune_unit as register_orpo_finetune_unit,
-)
 from fairseq2.recipes.lm._preference_finetune._recipe import (
     POFinetuneConfig as POFinetuneConfig,
 )
@@ -114,9 +105,6 @@ from fairseq2.recipes.lm._preference_finetune._recipe import (
 )
 from fairseq2.recipes.lm._preference_finetune._recipe import (
     register_po_finetune_configs as register_po_finetune_configs,
-)
-from fairseq2.recipes.lm._preference_finetune._setup import (
-    register_po_finetune_units as register_po_finetune_units,
 )
 from fairseq2.recipes.lm._preference_finetune._simpo import (
     SIMPO_FINETUNE_UNIT as SIMPO_FINETUNE_UNIT,
@@ -132,9 +120,6 @@ from fairseq2.recipes.lm._preference_finetune._simpo import (
 )
 from fairseq2.recipes.lm._preference_finetune._simpo import (
     SimPOFinetuneUnitHandler as SimPOFinetuneUnitHandler,
-)
-from fairseq2.recipes.lm._preference_finetune._simpo import (
-    register_simpo_finetune_unit as register_simpo_finetune_unit,
 )
 from fairseq2.recipes.lm._text_generate import TextGenerateConfig as TextGenerateConfig
 from fairseq2.recipes.lm._text_generate import (

@@ -19,7 +19,6 @@ from fairseq2.chatbots import (
     ChatDialogEncoder,
     StandardChatbot,
 )
-from fairseq2.context import RuntimeContext
 from fairseq2.data.text.tokenizers import TextTokenEncoder, TextTokenizer
 from fairseq2.generation import SequenceGenerator
 from fairseq2.models.decoder import DecoderModel
@@ -95,8 +94,7 @@ class MistralChatbotHandler(ChatbotHandler):
             generator, dialog_encoder, text_decoder, supports_system_prompt=False
         )
 
-
-def register_mistral_chatbot(context: RuntimeContext) -> None:
-    registry = context.get_registry(ChatbotHandler)
-
-    registry.register(MISTRAL_MODEL_FAMILY, MistralChatbotHandler())
+    @property
+    @override
+    def family(self) -> str:
+        return MISTRAL_MODEL_FAMILY

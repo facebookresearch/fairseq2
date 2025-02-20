@@ -25,9 +25,6 @@ from fairseq2.generation._beam_search._algo import (
 from fairseq2.generation._beam_search._algo import (
     UnknownBeamSearchAlgorithmError as UnknownBeamSearchAlgorithmError,
 )
-from fairseq2.generation._beam_search._algo import (
-    register_beam_search_algorithms as register_beam_search_algorithms,
-)
 from fairseq2.generation._beam_search._generator import (
     BeamSearchSeq2SeqGenerator as BeamSearchSeq2SeqGenerator,
 )
@@ -48,9 +45,6 @@ from fairseq2.generation._beam_search._handler import (
 )
 from fairseq2.generation._beam_search._handler import (
     BeamSearchSequenceGeneratorHandler as BeamSearchSequenceGeneratorHandler,
-)
-from fairseq2.generation._beam_search._handler import (
-    register_beam_search_seq_generators as register_beam_search_seq_generators,
 )
 from fairseq2.generation._error import (
     UnknownSeq2SeqGeneratorError as UnknownSeq2SeqGeneratorError,
@@ -95,9 +89,6 @@ from fairseq2.generation._sampling._handler import (
 from fairseq2.generation._sampling._handler import (
     SamplingSequenceGeneratorHandler as SamplingSequenceGeneratorHandler,
 )
-from fairseq2.generation._sampling._handler import (
-    register_sampling_seq_generators as register_sampling_seq_generators,
-)
 from fairseq2.generation._sampling._sampler import TOP_K_SAMPLER as TOP_K_SAMPLER
 from fairseq2.generation._sampling._sampler import TOP_P_SAMPLER as TOP_P_SAMPLER
 from fairseq2.generation._sampling._sampler import Sampler as Sampler
@@ -118,9 +109,6 @@ from fairseq2.generation._sampling._sampler import (
 )
 from fairseq2.generation._sampling._sampler import (
     UnknownSamplerError as UnknownSamplerError,
-)
-from fairseq2.generation._sampling._sampler import (
-    register_samplers as register_samplers,
 )
 from fairseq2.generation._step_processor import (
     BannedSequenceProcessor as BannedSequenceProcessor,

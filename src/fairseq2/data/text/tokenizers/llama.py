@@ -12,12 +12,10 @@ from typing import Final, final
 from typing_extensions import override
 
 from fairseq2.assets import AssetCard, AssetCardError, AssetCardFieldNotFoundError
-from fairseq2.context import RuntimeContext
 from fairseq2.data import VocabularyInfo
 from fairseq2.data.text.tokenizers import (
     TextTokenizer,
     TextTokenizerLoadError,
-    register_text_tokenizer_family,
     text_tokenizer_asset_card_error,
 )
 from fairseq2.data.text.tokenizers.sentencepiece import BasicSentencePieceTokenizer
@@ -177,9 +175,3 @@ def load_llama_tokenizer(path: Path, card: AssetCard) -> TextTokenizer:
             raise TextTokenizerLoadError(
                 card.name, f"The '{card.name}' text tokenizer cannot be loaded. See the nested exception for details."  # fmt: skip
             ) from ex
-
-
-def register_llama_tokenizer_family(context: RuntimeContext) -> None:
-    register_text_tokenizer_family(
-        context, LLAMA_TOKENIZER_FAMILY, load_llama_tokenizer
-    )

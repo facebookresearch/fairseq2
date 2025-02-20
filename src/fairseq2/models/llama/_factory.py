@@ -44,6 +44,10 @@ from fairseq2.nn.transformer import (
 from fairseq2.typing import DataType, Device
 
 
+def create_llama_model(config: LLaMAConfig) -> TransformerDecoderModel:
+    return LLaMAFactory(config).create_model()
+
+
 class LLaMAFactory:
     _config: LLaMAConfig
 

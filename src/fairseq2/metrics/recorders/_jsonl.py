@@ -17,7 +17,6 @@ from typing import Final, TextIO, final
 from torch import Tensor
 from typing_extensions import override
 
-from fairseq2.context import RuntimeContext
 from fairseq2.metrics import MetricDescriptor, format_as_int
 from fairseq2.metrics.recorders._handler import MetricRecorderHandler
 from fairseq2.metrics.recorders._recorder import (
@@ -198,15 +197,10 @@ class JsonlMetricRecorderHandler(MetricRecorderHandler):
 
     @property
     @override
+    def name(self) -> str:
+        return JSONL_METRIC_RECORDER
+
+    @property
+    @override
     def config_kls(self) -> type[object]:
         return JsonlMetricRecorderConfig
-
-
-def register_jsonl_metric_recorder(context: RuntimeContext) -> None:
-    metric_descriptors = context.get_registry(MetricDescriptor)
-
-    handler = JsonlMetricRecorderHandler(context.file_system, metric_descriptors)
-
-    registry = context.get_registry(MetricRecorderHandler)
-
-    registry.register(JSONL_METRIC_RECORDER, handler)

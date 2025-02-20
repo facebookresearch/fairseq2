@@ -47,6 +47,10 @@ from fairseq2.nn.transformer import (
 from fairseq2.typing import DataType, Device
 
 
+def create_jepa_model(config: JepaConfig) -> JepaModel:
+    return JepaFactory(config).create_model()
+
+
 # TODO(balioglu): work in progress. Supports only vision encoder.
 class JepaFactory:
     _config: JepaConfig

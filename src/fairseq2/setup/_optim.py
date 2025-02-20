@@ -6,11 +6,14 @@
 
 from __future__ import annotations
 
-from fairseq2.chatbots.llama import register_llama_chatbot
-from fairseq2.chatbots.mistral import register_mistral_chatbot
 from fairseq2.context import RuntimeContext
+from fairseq2.optim import AdamWHandler, OptimizerHandler
 
 
-def register_chatbots(context: RuntimeContext) -> None:
-    register_llama_chatbot(context)
-    register_mistral_chatbot(context)
+def register_optimizers(context: RuntimeContext) -> None:
+    registry = context.get_registry(OptimizerHandler)
+
+    # AdamW
+    handler = AdamWHandler()
+
+    registry.register(handler.name, handler)

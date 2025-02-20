@@ -14,7 +14,6 @@ import torch.distributed
 from torch import Tensor
 from typing_extensions import override
 
-from fairseq2.context import RuntimeContext
 from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.gang import Gang, Gangs
 from fairseq2.metrics import Mean
@@ -186,11 +185,10 @@ class SimPOFinetuneUnitHandler(POFinetuneUnitHandler):
 
     @property
     @override
+    def name(self) -> str:
+        return SIMPO_FINETUNE_UNIT
+
+    @property
+    @override
     def config_kls(self) -> type[object]:
         return SimPOFinetuneConfig
-
-
-def register_simpo_finetune_unit(context: RuntimeContext) -> None:
-    registry = context.get_registry(POFinetuneUnitHandler)
-
-    registry.register(SIMPO_FINETUNE_UNIT, SimPOFinetuneUnitHandler())

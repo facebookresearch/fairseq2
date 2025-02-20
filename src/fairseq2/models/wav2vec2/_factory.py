@@ -44,6 +44,10 @@ from fairseq2.nn.transformer import (
 from fairseq2.utils.lazy import Lazy
 
 
+def create_wav2vec2_model(config: Wav2Vec2Config) -> Wav2Vec2Model:
+    return Wav2Vec2Factory(config).create_model()
+
+
 class Wav2Vec2Factory:
     _config: Wav2Vec2Config
 

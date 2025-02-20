@@ -12,37 +12,9 @@ from typing import cast
 import torch
 from torch import Tensor
 
-from fairseq2.context import RuntimeContext
-from fairseq2.models import register_model_family
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
-from fairseq2.models.w2vbert._config import (
-    W2VBERT_MODEL_FAMILY,
-    W2VBertConfig,
-    register_w2vbert_configs,
-)
-from fairseq2.models.w2vbert._factory import W2VBertFactory
-from fairseq2.models.w2vbert._model import W2VBertModel
+from fairseq2.models.w2vbert._config import W2VBertConfig
 from fairseq2.typing import CPU
-
-
-def register_w2vbert_family(context: RuntimeContext) -> None:
-    default_arch = "300m"
-
-    register_model_family(
-        context,
-        W2VBERT_MODEL_FAMILY,
-        W2VBertModel,
-        W2VBertConfig,
-        default_arch,
-        create_w2vbert_model,
-        checkpoint_converter=convert_w2vbert_checkpoint,
-    )
-
-    register_w2vbert_configs(context)
-
-
-def create_w2vbert_model(config: W2VBertConfig) -> W2VBertModel:
-    return W2VBertFactory(config).create_model()
 
 
 def convert_w2vbert_checkpoint(

@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import os
 from datetime import timedelta
 
 from fairseq2.context import RuntimeContext
@@ -32,7 +31,7 @@ from fairseq2.utils.env import InvalidEnvironmentVariableError, get_local_world_
 
 def setup_gangs(context: RuntimeContext, recipe_config: object) -> Gangs:
     try:
-        device = determine_default_device()
+        device = determine_default_device(context)
     except DeviceDetectionError as ex:
         raise ProgramError(
             "The device of the process cannot be determined. See the nested exception for details."
@@ -86,14 +85,16 @@ def setup_gangs(context: RuntimeContext, recipe_config: object) -> Gangs:
     log.info("Parallel gangs initialized.")
 
     try:
-        return _maybe_setup_fsdp_gangs(recipe_config, gangs)
+        return _maybe_setup_fsdp_gangs(context, recipe_config, gangs)
     except GangError as ex:
         raise ProgramError(
             "The hybrid sharded data parallel gangs cannot set up. See the nested exception for details."
         ) from ex
 
 
-def _maybe_setup_fsdp_gangs(recipe_config: object, gangs: Gangs) -> Gangs:
+def _maybe_setup_fsdp_gangs(
+    context: RuntimeContext, recipe_config: object, gangs: Gangs
+) -> Gangs:
     try:
         trainer_section = get_config_section(recipe_config, "trainer", TrainerSection)
     except ConfigSectionNotFoundError:
@@ -106,7 +107,7 @@ def _maybe_setup_fsdp_gangs(recipe_config: object, gangs: Gangs) -> Gangs:
         log.info("Initializing hybrid sharded data parallel gangs.")
 
         try:
-            local_world_size = get_local_world_size(os.environ)
+            local_world_size = get_local_world_size(context.env)
         except InvalidEnvironmentVariableError as ex:
             raise GangError(
                 "The local world size for hybrid sharded data parallelism cannot be determined. See the nested exception for details."

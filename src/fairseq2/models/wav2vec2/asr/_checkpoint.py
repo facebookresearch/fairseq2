@@ -11,37 +11,9 @@ from typing import cast
 
 from torch import Tensor
 
-from fairseq2.context import RuntimeContext
-from fairseq2.models import register_model_family
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
-from fairseq2.models.wav2vec2.asr._config import (
-    WAV2VEC2_ASR_MODEL_FAMILY,
-    Wav2Vec2AsrConfig,
-    register_wav2vec2_asr_configs,
-)
-from fairseq2.models.wav2vec2.asr._factory import Wav2Vec2AsrFactory
-from fairseq2.models.wav2vec2.asr._model import Wav2Vec2AsrModel
+from fairseq2.models.wav2vec2.asr._config import Wav2Vec2AsrConfig
 from fairseq2.nn.transformer import TransformerNormOrder
-
-
-def register_wav2vec2_asr_family(context: RuntimeContext) -> None:
-    default_arch = "base_10h"
-
-    register_model_family(
-        context,
-        WAV2VEC2_ASR_MODEL_FAMILY,
-        Wav2Vec2AsrModel,
-        Wav2Vec2AsrConfig,
-        default_arch,
-        create_wav2vec2_asr_model,
-        checkpoint_converter=convert_wav2vec2_asr_checkpoint,
-    )
-
-    register_wav2vec2_asr_configs(context)
-
-
-def create_wav2vec2_asr_model(config: Wav2Vec2AsrConfig) -> Wav2Vec2AsrModel:
-    return Wav2Vec2AsrFactory(config).create_model()
 
 
 def convert_wav2vec2_asr_checkpoint(

@@ -27,8 +27,5 @@ from fairseq2.datasets._error import (
 from fairseq2.datasets._handler import DatasetHandler as DatasetHandler
 from fairseq2.datasets._handler import DatasetLoader as DatasetLoader
 from fairseq2.datasets._handler import StandardDatasetHandler as StandardDatasetHandler
-from fairseq2.datasets._handler import (
-    register_dataset_family as register_dataset_family,
-)
 from fairseq2.datasets._hub import DatasetHub as DatasetHub
 from fairseq2.datasets._hub import DatasetHubAccessor as DatasetHubAccessor

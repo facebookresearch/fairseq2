@@ -6,36 +6,8 @@
 
 from __future__ import annotations
 
-from fairseq2.context import RuntimeContext
-from fairseq2.models import register_model_family
-from fairseq2.models.s2t_transformer._config import (
-    S2T_TRANSFORMER_MODEL_FAMILY,
-    S2TTransformerConfig,
-    register_s2t_transformer_configs,
-)
-from fairseq2.models.s2t_transformer._factory import S2TTransformerFactory
-from fairseq2.models.transformer import TransformerModel
+from fairseq2.models.s2t_transformer._config import S2TTransformerConfig
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
-
-
-def register_s2t_transformer_family(context: RuntimeContext) -> None:
-    default_arch = "medium"
-
-    register_model_family(
-        context,
-        S2T_TRANSFORMER_MODEL_FAMILY,
-        TransformerModel,
-        S2TTransformerConfig,
-        default_arch,
-        create_s2t_transformer_model,
-        checkpoint_converter=convert_s2t_transformer_checkpoint,
-    )
-
-    register_s2t_transformer_configs(context)
-
-
-def create_s2t_transformer_model(config: S2TTransformerConfig) -> TransformerModel:
-    return S2TTransformerFactory(config).create_model()
 
 
 def convert_s2t_transformer_checkpoint(

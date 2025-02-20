@@ -173,8 +173,8 @@ class ModelHubAccessor(Generic[ModelT, ModelConfigT]):
     def __call__(self) -> ModelHub[ModelT, ModelConfigT]:
         context = get_runtime_context()
 
+        asset_store = context.asset_store
+
         model_handlers = context.get_registry(ModelHandler)
 
-        return ModelHub(
-            self._kls, self._config_kls, context.asset_store, model_handlers
-        )
+        return ModelHub(self._kls, self._config_kls, asset_store, model_handlers)

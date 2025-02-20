@@ -20,7 +20,6 @@ from fairseq2.chatbots import (
     ChatMessage,
     StandardChatbot,
 )
-from fairseq2.context import RuntimeContext
 from fairseq2.data.text.tokenizers import TextTokenEncoder, TextTokenizer
 from fairseq2.data.text.tokenizers.llama import LLaMA3Tokenizer
 from fairseq2.generation import SequenceGenerator
@@ -200,8 +199,7 @@ class LLaMAChatbotHandler(ChatbotHandler):
             generator, dialog_encoder, text_decoder, supports_system_prompt=True
         )
 
-
-def register_llama_chatbot(context: RuntimeContext) -> None:
-    registry = context.get_registry(ChatbotHandler)
-
-    registry.register(LLAMA_MODEL_FAMILY, LLaMAChatbotHandler())
+    @property
+    @override
+    def family(self) -> str:
+        return LLAMA_MODEL_FAMILY

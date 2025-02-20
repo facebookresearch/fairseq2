@@ -6,6 +6,9 @@
 
 from __future__ import annotations
 
+from fairseq2.models.wav2vec2._checkpoint import (
+    convert_wav2vec2_checkpoint as convert_wav2vec2_checkpoint,
+)
 from fairseq2.models.wav2vec2._config import (
     WAV2VEC2_MODEL_FAMILY as WAV2VEC2_MODEL_FAMILY,
 )
@@ -20,6 +23,9 @@ from fairseq2.models.wav2vec2._factory import (
     Wav2Vec2EncoderFactory as Wav2Vec2EncoderFactory,
 )
 from fairseq2.models.wav2vec2._factory import Wav2Vec2Factory as Wav2Vec2Factory
+from fairseq2.models.wav2vec2._factory import (
+    create_wav2vec2_model as create_wav2vec2_model,
+)
 from fairseq2.models.wav2vec2._feature_extractor import (
     Wav2Vec2FbankFeatureExtractor as Wav2Vec2FbankFeatureExtractor,
 )
@@ -43,15 +49,6 @@ from fairseq2.models.wav2vec2._position_encoder import (
 )
 from fairseq2.models.wav2vec2._position_encoder import (
     Wav2Vec2StackedPositionEncoder as Wav2Vec2StackedPositionEncoder,
-)
-from fairseq2.models.wav2vec2._setup import (
-    convert_wav2vec2_checkpoint as convert_wav2vec2_checkpoint,
-)
-from fairseq2.models.wav2vec2._setup import (
-    create_wav2vec2_model as create_wav2vec2_model,
-)
-from fairseq2.models.wav2vec2._setup import (
-    register_wav2vec2_family as register_wav2vec2_family,
 )
 from fairseq2.models.wav2vec2._vector_quantizer import (
     GumbelVectorQuantizer as GumbelVectorQuantizer,

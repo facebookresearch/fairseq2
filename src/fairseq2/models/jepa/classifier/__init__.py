@@ -18,18 +18,15 @@ from fairseq2.models.jepa.classifier._config import (
 from fairseq2.models.jepa.classifier._factory import (
     JepaClassifierFactory as JepaClassifierFactory,
 )
+from fairseq2.models.jepa.classifier._factory import (
+    create_jepa_classifier_model as create_jepa_classifier_model,
+)
 from fairseq2.models.jepa.classifier._model import AttentivePooler as AttentivePooler
 from fairseq2.models.jepa.classifier._model import (
     CrossAttentionDecoderLayer as CrossAttentionDecoderLayer,
 )
 from fairseq2.models.jepa.classifier._model import (
     JepaClassifierModel as JepaClassifierModel,
-)
-from fairseq2.models.jepa.classifier._setup import (
-    create_jepa_classifier_model as create_jepa_classifier_model,
-)
-from fairseq2.models.jepa.classifier._setup import (
-    register_jepa_classifier_family as register_jepa_classifier_family,
 )
 
 # isort: split

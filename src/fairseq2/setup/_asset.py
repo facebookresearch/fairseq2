@@ -6,8 +6,6 @@
 
 from __future__ import annotations
 
-import os
-
 from fairseq2.assets import (
     AssetDirectories,
     AssetMetadataLoadError,
@@ -24,13 +22,15 @@ from fairseq2.utils.yaml import StandardYamlLoader
 def register_assets(context: RuntimeContext) -> None:
     register_package_metadata_provider(context, "fairseq2.assets.cards")
 
+    asset_store = context.asset_store
+
     file_system = context.file_system
 
     yaml_loader = StandardYamlLoader(file_system)
 
     asset_metadata_file_loader = StandardAssetMetadataFileLoader(yaml_loader)
 
-    asset_dirs = AssetDirectories(os.environ, file_system)
+    asset_dirs = AssetDirectories(context.env, file_system)
 
     # /etc/fairseq2/assets
     try:
@@ -55,7 +55,7 @@ def register_assets(context: RuntimeContext) -> None:
             ) from ex
 
         if metadata_provider is not None:
-            context.asset_store.metadata_providers.append(metadata_provider)
+            asset_store.metadata_providers.append(metadata_provider)
 
     # ~/.config/fairseq2/assets
     try:
@@ -80,15 +80,17 @@ def register_assets(context: RuntimeContext) -> None:
             ) from ex
 
         if metadata_provider is not None:
-            context.asset_store.user_metadata_providers.append(metadata_provider)
+            asset_store.user_metadata_providers.append(metadata_provider)
 
 
 def register_package_metadata_provider(
     context: RuntimeContext, package_name: str
 ) -> None:
+    file_system = context.file_system
+
     file_lister = WheelPackageFileLister()
 
-    yaml_loader = StandardYamlLoader(context.file_system)
+    yaml_loader = StandardYamlLoader(file_system)
 
     asset_metadata_file_loader = StandardAssetMetadataFileLoader(yaml_loader)
 

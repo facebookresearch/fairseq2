@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from collections.abc import MutableMapping
 from typing import Any, TypeVar, final
 
 from fairseq2.assets import AssetDownloadManager, StandardAssetStore
@@ -19,6 +20,7 @@ T = TypeVar("T")
 
 @final
 class RuntimeContext:
+    _env: MutableMapping[str, str]
     _asset_store: StandardAssetStore
     _asset_download_manager: AssetDownloadManager
     _file_system: FileSystem
@@ -28,18 +30,23 @@ class RuntimeContext:
 
     def __init__(
         self,
+        env: MutableMapping[str, str],
         asset_store: StandardAssetStore,
         asset_download_manager: AssetDownloadManager,
         file_system: FileSystem,
     ) -> None:
+        self._env = env
         self._asset_store = asset_store
         self._asset_download_manager = asset_download_manager
         self._file_system = file_system
-
         self._registries = {}
         self._config_registries = {}
 
         self._wall_watch = Stopwatch(start=True)
+
+    @property
+    def env(self) -> MutableMapping[str, str]:
+        return self._env
 
     @property
     def asset_store(self) -> StandardAssetStore:

@@ -80,6 +80,8 @@ class TextTokenizerHub:
 def get_text_tokenizer_hub() -> TextTokenizerHub:
     context = get_runtime_context()
 
+    asset_store = context.asset_store
+
     tokenizer_handlers = context.get_registry(TextTokenizerHandler)
 
-    return TextTokenizerHub(context.asset_store, tokenizer_handlers)
+    return TextTokenizerHub(asset_store, tokenizer_handlers)

@@ -11,9 +11,7 @@ from fairseq2.profilers._error import UnknownProfilerError as UnknownProfilerErr
 from fairseq2.profilers._handler import ProfilerHandler as ProfilerHandler
 from fairseq2.profilers._profiler import NoopProfiler as NoopProfiler
 from fairseq2.profilers._profiler import Profiler as Profiler
-from fairseq2.profilers._setup import register_profilers as register_profilers
 from fairseq2.profilers._torch import TORCH_PROFILER as TORCH_PROFILER
 from fairseq2.profilers._torch import TorchProfiler as TorchProfiler
 from fairseq2.profilers._torch import TorchProfilerConfig as TorchProfilerConfig
 from fairseq2.profilers._torch import TorchProfilerHandler as TorchProfilerHandler
-from fairseq2.profilers._torch import register_torch_profiler as register_torch_profiler
