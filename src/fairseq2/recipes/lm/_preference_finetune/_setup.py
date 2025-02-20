@@ -8,30 +8,21 @@ from __future__ import annotations
 
 from fairseq2.context import RuntimeContext
 from fairseq2.recipes.lm._preference_finetune._cpo import (
-    CPO_FINETUNE_UNIT,
-    CpoFinetuneUnitHandler,
+    register_cpo_finetune_unit,
 )
 from fairseq2.recipes.lm._preference_finetune._dpo import (
-    DPO_FINETUNE_UNIT,
-    DpoFinetuneUnitHandler,
-)
-from fairseq2.recipes.lm._preference_finetune._handler import (
-    POFinetuneUnitHandler,
+    register_dpo_finetune_unit,
 )
 from fairseq2.recipes.lm._preference_finetune._orpo import (
-    ORPO_FINETUNE_UNIT,
-    OrpoFinetuneUnitHandler,
+    register_orpo_finetune_unit,
 )
 from fairseq2.recipes.lm._preference_finetune._simpo import (
-    SIMPO_FINETUNE_UNIT,
-    SimPOFinetuneUnitHandler,
+    register_simpo_finetune_unit,
 )
 
 
 def register_po_finetune_units(context: RuntimeContext) -> None:
-    registry = context.get_registry(POFinetuneUnitHandler)
-
-    registry.register(CPO_FINETUNE_UNIT, CpoFinetuneUnitHandler())
-    registry.register(DPO_FINETUNE_UNIT, DpoFinetuneUnitHandler(context))
-    registry.register(ORPO_FINETUNE_UNIT, OrpoFinetuneUnitHandler())
-    registry.register(SIMPO_FINETUNE_UNIT, SimPOFinetuneUnitHandler())
+    register_cpo_finetune_unit(context)
+    register_dpo_finetune_unit(context)
+    register_orpo_finetune_unit(context)
+    register_simpo_finetune_unit(context)
