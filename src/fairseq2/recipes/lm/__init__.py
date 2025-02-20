@@ -106,6 +106,9 @@ from fairseq2.recipes.lm._preference_finetune._recipe import (
 from fairseq2.recipes.lm._preference_finetune._recipe import (
     register_po_finetune_configs as register_po_finetune_configs,
 )
+from fairseq2.recipes.lm._preference_finetune._setup import (
+    register_po_finetune_units as register_po_finetune_units,
+)
 from fairseq2.recipes.lm._preference_finetune._simpo import (
     SIMPO_FINETUNE_UNIT as SIMPO_FINETUNE_UNIT,
 )

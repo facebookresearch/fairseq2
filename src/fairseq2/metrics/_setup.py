@@ -7,8 +7,7 @@
 from __future__ import annotations
 
 from fairseq2.context import RuntimeContext
-from fairseq2.logging import log
-from fairseq2.metrics import (
+from fairseq2.metrics._descriptor import (
     MetricDescriptor,
     format_as_byte_size,
     format_as_float,
@@ -16,48 +15,9 @@ from fairseq2.metrics import (
     format_as_percentage,
     format_as_seconds,
 )
-from fairseq2.metrics.recorders import (
-    JSONL_METRIC_RECORDER,
-    LOG_METRIC_RECORDER,
-    TENSORBOARD_RECORDER,
-    WANDB_RECORDER,
-    JsonlMetricRecorderHandler,
-    LogMetricRecorderHandler,
-    MetricRecorderHandler,
-    TensorBoardRecorderHandler,
-    WandbRecorderHandler,
-)
 
 
-def _register_metric_recorders(context: RuntimeContext) -> None:
-    registry = context.get_registry(MetricRecorderHandler)
-
-    handler: MetricRecorderHandler
-
-    metric_descriptors = context.get_registry(MetricDescriptor)
-
-    # Log
-    handler = LogMetricRecorderHandler(log, metric_descriptors)
-
-    registry.register(LOG_METRIC_RECORDER, handler)
-
-    # JSONL
-    handler = JsonlMetricRecorderHandler(context.file_system, metric_descriptors)
-
-    registry.register(JSONL_METRIC_RECORDER, handler)
-
-    # TensorBoard
-    handler = TensorBoardRecorderHandler(metric_descriptors)
-
-    registry.register(TENSORBOARD_RECORDER, handler)
-
-    # Weights & Biases
-    handler = WandbRecorderHandler(metric_descriptors)
-
-    registry.register(WANDB_RECORDER, handler)
-
-
-def _register_metric_descriptors(context: RuntimeContext) -> None:
+def register_metric_descriptors(context: RuntimeContext) -> None:
     registry = context.get_registry(MetricDescriptor)
 
     def register(descriptor: MetricDescriptor) -> None:

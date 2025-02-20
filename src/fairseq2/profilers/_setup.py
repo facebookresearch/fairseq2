@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from fairseq2.context import RuntimeContext
-from fairseq2.profilers.torch import register_torch_profiler
+from fairseq2.profilers._torch import register_torch_profiler
 
 
 def register_profilers(context: RuntimeContext) -> None:
