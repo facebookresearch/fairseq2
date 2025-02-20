@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import final
+from typing import Protocol, final
 
 from typing_extensions import override
 
@@ -26,13 +26,26 @@ class TextTokenizerHandler(ABC):
     def family(self) -> str: ...
 
 
-class AbstractTextTokenizerHandler(TextTokenizerHandler):
+class TextTokenizerLoader(Protocol):
+    def __call__(self, path: Path, card: AssetCard) -> TextTokenizer: ...
+
+
+@final
+class StandardTextTokenizerHandler(TextTokenizerHandler):
+    _family: str
+    _loader: TextTokenizerLoader
     _asset_download_manager: AssetDownloadManager
 
-    def __init__(self, asset_download_manager: AssetDownloadManager) -> None:
+    def __init__(
+        self,
+        family: str,
+        loader: TextTokenizerLoader,
+        asset_download_manager: AssetDownloadManager,
+    ) -> None:
+        self._family = family
+        self._loader = loader
         self._asset_download_manager = asset_download_manager
 
-    @final
     @override
     def load(self, card: AssetCard) -> TextTokenizer:
         tokenizer_name = card.name
@@ -46,7 +59,9 @@ class AbstractTextTokenizerHandler(TextTokenizerHandler):
             tokenizer_uri, tokenizer_name
         )
 
-        return self._load_tokenizer(path, card)
+        return self._loader(path, card)
 
-    @abstractmethod
-    def _load_tokenizer(self, path: Path, card: AssetCard) -> TextTokenizer: ...
+    @property
+    @override
+    def family(self) -> str:
+        return self._family

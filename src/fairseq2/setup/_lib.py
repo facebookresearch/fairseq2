@@ -18,6 +18,7 @@ from fairseq2.assets.setup import register_assets
 from fairseq2.chatbots.setup import register_chatbots
 from fairseq2.cluster import register_clusters
 from fairseq2.context import RuntimeContext, set_runtime_context
+from fairseq2.data.text.tokenizers.setup import register_text_tokenizers
 from fairseq2.datasets.setup import register_datasets
 from fairseq2.extensions import run_extensions
 from fairseq2.metrics import register_metric_descriptors
@@ -33,7 +34,6 @@ from fairseq2.setup._generation import (
     _register_seq_generators,
 )
 from fairseq2.setup._models import _register_models
-from fairseq2.setup._text_tokenizers import _register_text_tokenizers
 from fairseq2.utils.file import LocalFileSystem
 
 
@@ -110,7 +110,7 @@ def setup_library() -> RuntimeContext:
     _register_samplers(context)
     _register_seq2seq_generators(context)
     _register_seq_generators(context)
-    _register_text_tokenizers(context)
+    register_text_tokenizers(context)
 
     run_extensions("fairseq2.extension", context)
 

@@ -6,20 +6,29 @@
 
 from __future__ import annotations
 
-from typing import Final, final
+from typing import Final
 
-from typing_extensions import override
-
+from fairseq2.context import RuntimeContext
+from fairseq2.data.text.tokenizers import (
+    StandardTextTokenizerHandler,
+    TextTokenizerHandler,
+)
 from fairseq2.data.text.tokenizers.sentencepiece import (
-    BasicSentencePieceTokenizerHandler,
+    load_basic_sentencepiece_tokenizer,
 )
 
 MISTRAL_TOKENIZER_FAMILY: Final = "mistral"
 
 
-@final
-class MistralTokenizerHandler(BasicSentencePieceTokenizerHandler):
-    @property
-    @override
-    def family(self) -> str:
-        return MISTRAL_TOKENIZER_FAMILY
+def register_mistral_tokenizer(context: RuntimeContext) -> None:
+    asset_download_manager = context.asset_download_manager
+
+    handler = StandardTextTokenizerHandler(
+        MISTRAL_TOKENIZER_FAMILY,
+        load_basic_sentencepiece_tokenizer,
+        asset_download_manager,
+    )
+
+    registry = context.get_registry(TextTokenizerHandler)
+
+    registry.register(handler.family, handler)

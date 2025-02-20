@@ -6,18 +6,25 @@
 
 from __future__ import annotations
 
-from typing import Final, final
+from typing import Final
 
-from typing_extensions import override
-
-from fairseq2.data.text.tokenizers.sentencepiece import RawSentencePieceTokenizerHandler
+from fairseq2.context import RuntimeContext
+from fairseq2.data.text.tokenizers import (
+    StandardTextTokenizerHandler,
+    TextTokenizerHandler,
+)
+from fairseq2.data.text.tokenizers.sentencepiece import load_raw_sentencepiece_tokenizer
 
 CHAR_TOKENIZER_FAMILY: Final = "char_tokenizer"
 
 
-@final
-class CharTokenizerHandler(RawSentencePieceTokenizerHandler):
-    @property
-    @override
-    def family(self) -> str:
-        return CHAR_TOKENIZER_FAMILY
+def register_char_tokenizer(context: RuntimeContext) -> None:
+    asset_download_manager = context.asset_download_manager
+
+    handler = StandardTextTokenizerHandler(
+        CHAR_TOKENIZER_FAMILY, load_raw_sentencepiece_tokenizer, asset_download_manager
+    )
+
+    registry = context.get_registry(TextTokenizerHandler)
+
+    registry.register(handler.family, handler)
