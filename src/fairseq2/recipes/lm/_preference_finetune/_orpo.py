@@ -14,6 +14,7 @@ import torch.distributed
 from torch import Tensor
 from typing_extensions import override
 
+from fairseq2.context import RuntimeContext
 from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.gang import Gang, Gangs
 from fairseq2.metrics import Mean
@@ -178,3 +179,9 @@ class OrpoFinetuneUnitHandler(POFinetuneUnitHandler):
     @override
     def config_kls(self) -> type[object]:
         return OrpoFinetuneConfig
+
+
+def register_orpo_finetune_unit(context: RuntimeContext) -> None:
+    registry = context.get_registry(POFinetuneUnitHandler)
+
+    registry.register(ORPO_FINETUNE_UNIT, OrpoFinetuneUnitHandler())
