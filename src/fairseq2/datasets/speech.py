@@ -20,7 +20,7 @@ from fairseq2.datasets import (
     DataReader,
     DataReadOptions,
     DatasetHubAccessor,
-    register_dataset,
+    register_dataset_family,
 )
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
@@ -97,8 +97,8 @@ class GenericSpeechDataset(SpeechDataset):
         return set()
 
 
-def register_generic_speech_dataset(context: RuntimeContext) -> None:
-    register_dataset(
+def register_speech_dataset_family(context: RuntimeContext) -> None:
+    register_dataset_family(
         context,
         GENERIC_SPEECH_DATASET_FAMILY,
         GenericSpeechDataset,

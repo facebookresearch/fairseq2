@@ -11,44 +11,42 @@ from typing import cast
 
 import torch
 from torch import Tensor
-from torch.nn import Module
-from typing_extensions import override
 
-from fairseq2.models import AbstractModelHandler
+from fairseq2.context import RuntimeContext
+from fairseq2.models import register_model_family
 from fairseq2.models.transformer._config import (
     TRANSFORMER_MODEL_FAMILY,
     TransformerConfig,
+    register_transformer_configs,
 )
 from fairseq2.models.transformer._factory import TransformerFactory
 from fairseq2.models.transformer._model import TransformerModel
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
 
 
-class TransformerModelHandler(AbstractModelHandler):
-    @property
-    @override
-    def family(self) -> str:
-        return TRANSFORMER_MODEL_FAMILY
+def register_transformer_family(context: RuntimeContext) -> None:
+    default_arch = "base"
 
-    @property
-    @override
-    def kls(self) -> type[Module]:
-        return TransformerModel
+    register_model_family(
+        context,
+        TRANSFORMER_MODEL_FAMILY,
+        TransformerModel,
+        TransformerConfig,
+        default_arch,
+        create_transformer_model,
+        checkpoint_converter=convert_transformer_checkpoint,
+    )
 
-    @override
-    def _create_model(self, config: object) -> Module:
-        config = cast(TransformerConfig, config)
-
-        return TransformerFactory(config).create_model()
-
-    @override
-    def _convert_checkpoint(
-        self, checkpoint: dict[str, object], config: object
-    ) -> dict[str, object]:
-        return convert_transformer_checkpoint(checkpoint)
+    register_transformer_configs(context)
 
 
-def convert_transformer_checkpoint(checkpoint: dict[str, object]) -> dict[str, object]:
+def create_transformer_model(config: TransformerConfig) -> TransformerModel:
+    return TransformerFactory(config).create_model()
+
+
+def convert_transformer_checkpoint(
+    checkpoint: dict[str, object], config: TransformerConfig
+) -> dict[str, object]:
     key_map = {
         # fmt: off
         r"^encoder\.embed_tokens\.":                              r"encoder_frontend.embed.",

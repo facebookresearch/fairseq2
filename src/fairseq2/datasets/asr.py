@@ -40,7 +40,7 @@ from fairseq2.datasets import (
     LengthBatching,
     StaticBatching,
     UnknownSplitError,
-    register_dataset,
+    register_dataset_family,
 )
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
@@ -346,8 +346,8 @@ class GenericAsrDataset(AsrDataset):
         return self._splits
 
 
-def register_generic_asr_dataset(context: RuntimeContext) -> None:
-    register_dataset(
+def register_asr_dataset_family(context: RuntimeContext) -> None:
+    register_dataset_family(
         context,
         GENERIC_ASR_DATASET_FAMILY,
         GenericAsrDataset,

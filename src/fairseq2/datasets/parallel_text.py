@@ -34,7 +34,7 @@ from fairseq2.datasets import (
     LengthBatching,
     StaticBatching,
     UnknownSplitError,
-    register_dataset,
+    register_dataset_family,
 )
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
@@ -478,8 +478,8 @@ class GenericParallelTextDataset(ParallelTextDataset):
         return directions_weights[0]
 
 
-def register_generic_parallel_text_dataset(context: RuntimeContext) -> None:
-    register_dataset(
+def register_parallel_text_dataset_family(context: RuntimeContext) -> None:
+    register_dataset_family(
         context,
         GENERIC_PARALLEL_TEXT_DATASET_FAMILY,
         GenericParallelTextDataset,

@@ -16,13 +16,16 @@ from fairseq2.models.wav2vec2.asr._config import (
 from fairseq2.models.wav2vec2.asr._factory import (
     Wav2Vec2AsrFactory as Wav2Vec2AsrFactory,
 )
-from fairseq2.models.wav2vec2.asr._handler import (
-    Wav2Vec2AsrModelHandler as Wav2Vec2AsrModelHandler,
-)
-from fairseq2.models.wav2vec2.asr._handler import (
+from fairseq2.models.wav2vec2.asr._model import Wav2Vec2AsrModel as Wav2Vec2AsrModel
+from fairseq2.models.wav2vec2.asr._setup import (
     convert_wav2vec2_asr_checkpoint as convert_wav2vec2_asr_checkpoint,
 )
-from fairseq2.models.wav2vec2.asr._model import Wav2Vec2AsrModel as Wav2Vec2AsrModel
+from fairseq2.models.wav2vec2.asr._setup import (
+    create_wav2vec2_asr_model as create_wav2vec2_asr_model,
+)
+from fairseq2.models.wav2vec2.asr._setup import (
+    register_wav2vec2_asr_family as register_wav2vec2_asr_family,
+)
 
 # isort: split
 

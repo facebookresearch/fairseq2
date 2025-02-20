@@ -27,12 +27,6 @@ from fairseq2.models.wav2vec2._feature_extractor import (
     Wav2Vec2FeatureExtractor as Wav2Vec2FeatureExtractor,
 )
 from fairseq2.models.wav2vec2._frontend import Wav2Vec2Frontend as Wav2Vec2Frontend
-from fairseq2.models.wav2vec2._handler import (
-    Wav2Vec2ModelHandler as Wav2Vec2ModelHandler,
-)
-from fairseq2.models.wav2vec2._handler import (
-    convert_wav2vec2_checkpoint as convert_wav2vec2_checkpoint,
-)
 from fairseq2.models.wav2vec2._masker import (
     StandardWav2Vec2Masker as StandardWav2Vec2Masker,
 )
@@ -49,6 +43,15 @@ from fairseq2.models.wav2vec2._position_encoder import (
 )
 from fairseq2.models.wav2vec2._position_encoder import (
     Wav2Vec2StackedPositionEncoder as Wav2Vec2StackedPositionEncoder,
+)
+from fairseq2.models.wav2vec2._setup import (
+    convert_wav2vec2_checkpoint as convert_wav2vec2_checkpoint,
+)
+from fairseq2.models.wav2vec2._setup import (
+    create_wav2vec2_model as create_wav2vec2_model,
+)
+from fairseq2.models.wav2vec2._setup import (
+    register_wav2vec2_family as register_wav2vec2_family,
 )
 from fairseq2.models.wav2vec2._vector_quantizer import (
     GumbelVectorQuantizer as GumbelVectorQuantizer,

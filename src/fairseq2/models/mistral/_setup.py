@@ -6,43 +6,41 @@
 
 from __future__ import annotations
 
-from typing import cast
-
-from torch.nn import Module
-from typing_extensions import override
-
-from fairseq2.models import AbstractModelHandler
-from fairseq2.models.mistral._config import MISTRAL_MODEL_FAMILY, MistralConfig
+from fairseq2.context import RuntimeContext
+from fairseq2.models import register_model_family
+from fairseq2.models.mistral._config import (
+    MISTRAL_MODEL_FAMILY,
+    MistralConfig,
+    register_mistral_configs,
+)
 from fairseq2.models.mistral._factory import MistralFactory
 from fairseq2.models.transformer_decoder import TransformerDecoderModel
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
 
 
-class MistralModelHandler(AbstractModelHandler):
-    @property
-    @override
-    def family(self) -> str:
-        return MISTRAL_MODEL_FAMILY
+def register_mistral_family(context: RuntimeContext) -> None:
+    default_arch = "7b"
 
-    @property
-    @override
-    def kls(self) -> type[Module]:
-        return TransformerDecoderModel
+    register_model_family(
+        context,
+        MISTRAL_MODEL_FAMILY,
+        TransformerDecoderModel,
+        MistralConfig,
+        default_arch,
+        create_mistral_model,
+        checkpoint_converter=convert_mistral_checkpoint,
+    )
 
-    @override
-    def _create_model(self, config: object) -> Module:
-        config = cast(MistralConfig, config)
-
-        return MistralFactory(config).create_model()
-
-    @override
-    def _convert_checkpoint(
-        self, checkpoint: dict[str, object], config: object
-    ) -> dict[str, object]:
-        return convert_mistral_checkpoint(checkpoint)
+    register_mistral_configs(context)
 
 
-def convert_mistral_checkpoint(checkpoint: dict[str, object]) -> dict[str, object]:
+def create_mistral_model(config: MistralConfig) -> TransformerDecoderModel:
+    return MistralFactory(config).create_model()
+
+
+def convert_mistral_checkpoint(
+    checkpoint: dict[str, object], config: MistralConfig
+) -> dict[str, object]:
     key_map = {
         # fmt: off
         r"^layers\.([0-9]+)\.attention\.wq\.":    r"decoder.layers.\1.self_attn.q_proj.",

@@ -33,7 +33,7 @@ from fairseq2.datasets import (
     DatasetHubAccessor,
     LengthBatching,
     StaticBatching,
-    register_dataset,
+    register_dataset_family,
 )
 from fairseq2.datasets._utils import _load_files_and_weights
 from fairseq2.error import NotSupportedError
@@ -369,8 +369,8 @@ class GenericPreferenceDataset(PreferenceDataset):
         return read_sequence(lines).map(json.loads, num_parallel_calls=npc)
 
 
-def register_generic_preference_dataset(context: RuntimeContext) -> None:
-    register_dataset(
+def register_preference_dataset_family(context: RuntimeContext) -> None:
+    register_dataset_family(
         context,
         GENERIC_PREFERENCE_DATASET_FAMILY,
         GenericPreferenceDataset,

@@ -18,10 +18,12 @@ from fairseq2.models.llama._factory import LLaMAFactory as LLaMAFactory
 from fairseq2.models.llama._factory import (
     init_llama_scaled_freqs as init_llama_scaled_freqs,
 )
-from fairseq2.models.llama._handler import LLaMAModelHandler as LLaMAModelHandler
-from fairseq2.models.llama._handler import (
+from fairseq2.models.llama._setup import (
     convert_llama_checkpoint as convert_llama_checkpoint,
 )
+from fairseq2.models.llama._setup import create_llama_model as create_llama_model
+from fairseq2.models.llama._setup import register_llama_family as register_llama_family
+from fairseq2.models.llama._setup import shard_llama_model as shard_llama_model
 
 # isort: split
 

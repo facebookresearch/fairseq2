@@ -15,10 +15,9 @@ from fairseq2.assets import AssetCard, AssetCardError, AssetCardFieldNotFoundErr
 from fairseq2.context import RuntimeContext
 from fairseq2.data import VocabularyInfo
 from fairseq2.data.text.tokenizers import (
-    StandardTextTokenizerHandler,
     TextTokenizer,
-    TextTokenizerHandler,
     TextTokenizerLoadError,
+    register_text_tokenizer_family,
     text_tokenizer_asset_card_error,
 )
 from fairseq2.data.text.tokenizers.sentencepiece import BasicSentencePieceTokenizer
@@ -180,13 +179,7 @@ def load_llama_tokenizer(path: Path, card: AssetCard) -> TextTokenizer:
             ) from ex
 
 
-def register_llama_tokenizer(context: RuntimeContext) -> None:
-    asset_download_manager = context.asset_download_manager
-
-    handler = StandardTextTokenizerHandler(
-        LLAMA_TOKENIZER_FAMILY, load_llama_tokenizer, asset_download_manager
+def register_llama_tokenizer_family(context: RuntimeContext) -> None:
+    register_text_tokenizer_family(
+        context, LLAMA_TOKENIZER_FAMILY, load_llama_tokenizer
     )
-
-    registry = context.get_registry(TextTokenizerHandler)
-
-    registry.register(handler.family, handler)

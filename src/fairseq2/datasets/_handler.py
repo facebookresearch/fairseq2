@@ -105,7 +105,7 @@ class StandardDatasetHandler(DatasetHandler):
         return self._kls
 
 
-def register_dataset(
+def register_dataset_family(
     context: RuntimeContext, family: str, kls: type[object], loader: DatasetLoader
 ) -> None:
     handler = StandardDatasetHandler(

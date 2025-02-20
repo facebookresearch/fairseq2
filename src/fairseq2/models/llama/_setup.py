@@ -9,12 +9,15 @@ from __future__ import annotations
 from typing import cast
 
 from torch import Tensor
-from torch.nn import Module
-from typing_extensions import override
 
+from fairseq2.context import RuntimeContext
 from fairseq2.gang import Gangs
-from fairseq2.models import AbstractModelHandler
-from fairseq2.models.llama._config import LLAMA_MODEL_FAMILY, LLaMAConfig
+from fairseq2.models import register_model_family
+from fairseq2.models.llama._config import (
+    LLAMA_MODEL_FAMILY,
+    LLaMAConfig,
+    register_llama_configs,
+)
 from fairseq2.models.llama._factory import LLaMAFactory
 from fairseq2.models.transformer_decoder import (
     TransformerDecoderModel,
@@ -23,45 +26,25 @@ from fairseq2.models.transformer_decoder import (
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
 
 
-class LLaMAModelHandler(AbstractModelHandler):
-    @property
-    @override
-    def family(self) -> str:
-        return LLAMA_MODEL_FAMILY
+def register_llama_family(context: RuntimeContext) -> None:
+    default_arch = "llama3_1_8b"
 
-    @property
-    @override
-    def kls(self) -> type[Module]:
-        return TransformerDecoderModel
+    register_model_family(
+        context,
+        LLAMA_MODEL_FAMILY,
+        TransformerDecoderModel,
+        LLaMAConfig,
+        default_arch,
+        create_llama_model,
+        checkpoint_converter=convert_llama_checkpoint,
+        sharder=shard_llama_model,
+    )
 
-    @property
-    @override
-    def supports_sharding(self) -> bool:
-        return True
+    register_llama_configs(context)
 
-    @override
-    def _create_model(self, config: object) -> Module:
-        config = cast(LLaMAConfig, config)
 
-        return LLaMAFactory(config).create_model()
-
-    @override
-    def _shard(self, model: Module, config: object, gangs: Gangs) -> None:
-        config = cast(LLaMAConfig, config)
-
-        shard_embed_dim = config.max_seq_len < 8192  # LLaMA 1 or 2
-
-        model = cast(TransformerDecoderModel, model)
-
-        shard_transformer_decoder_model(model, gangs, shard_embed_dim)
-
-    @override
-    def _convert_checkpoint(
-        self, checkpoint: dict[str, object], config: object
-    ) -> dict[str, object]:
-        config = cast(LLaMAConfig, config)
-
-        return convert_llama_checkpoint(checkpoint, config)
+def create_llama_model(config: LLaMAConfig) -> TransformerDecoderModel:
+    return LLaMAFactory(config).create_model()
 
 
 def convert_llama_checkpoint(
@@ -134,3 +117,11 @@ def convert_llama_checkpoint(
     checkpoint = convert_model_state_dict(checkpoint, key_map)
 
     return {"model": checkpoint}
+
+
+def shard_llama_model(
+    model: TransformerDecoderModel, config: LLaMAConfig, gangs: Gangs
+) -> None:
+    shard_embed_dim = config.max_seq_len < 8192  # LLaMA 1 or 2
+
+    shard_transformer_decoder_model(model, gangs, shard_embed_dim)
