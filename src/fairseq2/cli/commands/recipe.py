@@ -23,11 +23,11 @@ from fairseq2.cli import CliArgumentError, CliCommandHandler, setup_logging
 from fairseq2.cli.utils.argparse import ConfigAction
 from fairseq2.cli.utils.cluster import set_torch_distributed_variables
 from fairseq2.cli.utils.rich import create_rich_progress_reporter, get_console
+from fairseq2.cluster import ClusterError, UnknownClusterError
 from fairseq2.config_registry import ConfigNotFoundError, ConfigProvider
 from fairseq2.context import RuntimeContext
 from fairseq2.error import ContractError, ProgramError
 from fairseq2.logging import LoggingSetupError, log
-from fairseq2.recipes.cluster import ClusterError, UnknownClusterError
 from fairseq2.recipes.logging import DistributedLoggingInitializer
 from fairseq2.recipes.utils.log import log_config
 from fairseq2.recipes.utils.progress import ProgressReporter

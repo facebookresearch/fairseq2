@@ -20,6 +20,7 @@ from fairseq2.cli import CliArgumentError, CliCommandHandler
 from fairseq2.cli.utils.argparse import parse_dtype
 from fairseq2.cli.utils.cluster import set_torch_distributed_variables
 from fairseq2.cli.utils.rich import get_console
+from fairseq2.cluster import ClusterError, UnknownClusterError
 from fairseq2.context import RuntimeContext
 from fairseq2.data.text.tokenizers import TextTokenDecoder, TextTokenizer
 from fairseq2.error import InternalError, ProgramError
@@ -31,7 +32,6 @@ from fairseq2.generation import (
 )
 from fairseq2.logging import log
 from fairseq2.models.decoder import DecoderModel
-from fairseq2.recipes.cluster import ClusterError, UnknownClusterError
 from fairseq2.recipes.common import (
     load_text_tokenizer,
     setup_gangs,
