@@ -14,6 +14,7 @@ import torch
 from torch import Tensor
 from typing_extensions import override
 
+from fairseq2.context import RuntimeContext
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
 
@@ -176,3 +177,10 @@ class TopKSamplerHandler(SamplerHandler):
     @override
     def config_kls(self) -> type[object]:
         return TopKSamplerConfig
+
+
+def register_samplers(context: RuntimeContext) -> None:
+    registry = context.get_registry(SamplerHandler)
+
+    registry.register(TOP_P_SAMPLER, TopPSamplerHandler())
+    registry.register(TOP_K_SAMPLER, TopKSamplerHandler())

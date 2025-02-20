@@ -11,6 +11,7 @@ from typing import Final, final
 
 from typing_extensions import override
 
+from fairseq2.context import RuntimeContext
 from fairseq2.generation._generator import Seq2SeqGenerator, SequenceGenerator
 from fairseq2.generation._handler import (
     Seq2SeqGeneratorHandler,
@@ -190,3 +191,21 @@ class SamplingSeq2SeqGeneratorHandler(Seq2SeqGeneratorHandler):
     @override
     def config_kls(self) -> type[object]:
         return SamplingConfig
+
+
+def register_sampling_seq_generators(context: RuntimeContext) -> None:
+    sampler_handlers = context.get_registry(SamplerHandler)
+
+    # Sequence
+    seq_handler = SamplingSequenceGeneratorHandler(sampler_handlers)
+
+    seq_registry = context.get_registry(SequenceGeneratorHandler)
+
+    seq_registry.register(SAMPLING_GENERATOR, seq_handler)
+
+    # Sequence-to-Sequence
+    seq2seq_handler = SamplingSeq2SeqGeneratorHandler(sampler_handlers)
+
+    seq2seq_registry = context.get_registry(Seq2SeqGeneratorHandler)
+
+    seq2seq_registry.register(SAMPLING_GENERATOR, seq2seq_handler)
