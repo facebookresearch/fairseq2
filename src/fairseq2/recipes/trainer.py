@@ -68,9 +68,9 @@ class TrainUnit(ABC, Generic[BatchT_contra]):
               model gradients won't be normalized.
         """
 
-    @abstractmethod
     def set_step_nr(self, step_nr: int) -> None:
         """Set the current training step number."""
+        pass
 
     @property
     @abstractmethod
@@ -84,25 +84,6 @@ class TrainUnit(ABC, Generic[BatchT_contra]):
 
 
 BatchT = TypeVar("BatchT")
-
-
-class AbstractTrainUnit(TrainUnit[BatchT]):
-    """Provides a skeletal implementation of :class:`TrainUnit`."""
-
-    _model: Model
-
-    def __init__(self, model: Model) -> None:
-        self._model = model
-
-    @override
-    def set_step_nr(self, step_nr: int) -> None:
-        pass
-
-    @final
-    @property
-    @override
-    def model(self) -> Model:
-        return self._model
 
 
 @final

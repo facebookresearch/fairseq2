@@ -37,7 +37,8 @@ from fairseq2.recipes.config import (
     ReferenceModelSection,
 )
 from fairseq2.recipes.error import UnitError
-from fairseq2.recipes.evaluator import AbstractEvalUnit, Evaluator
+from fairseq2.recipes.evaluator import Evaluator, EvalUnit
+from fairseq2.recipes.model import Model
 from fairseq2.typing import CPU
 from fairseq2.utils.file import FileMode
 from fairseq2.utils.rng import manual_seed
@@ -210,13 +211,11 @@ def load_asr_evaluator(
 
 
 @final
-class AsrEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
+class AsrEvalUnit(EvalUnit[Seq2SeqBatch]):
     _criterion: AsrCriterion
     _metric_bag: AsrMetricBag
 
     def __init__(self, criterion: AsrCriterion, gangs: Gangs) -> None:
-        super().__init__(criterion.model)
-
         self._criterion = criterion
 
         self._metric_bag = AsrMetricBag(gangs.dp, train=False)
@@ -224,6 +223,11 @@ class AsrEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
     @override
     def __call__(self, batch: Seq2SeqBatch) -> None:
         self._criterion(batch, self._metric_bag)
+
+    @property
+    @override
+    def model(self) -> Model:
+        return self._criterion.model
 
     @property
     @override

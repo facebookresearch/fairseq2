@@ -19,13 +19,13 @@ from typing_extensions import override
 from fairseq2.context import RuntimeContext
 from fairseq2.error import NotSupportedError
 from fairseq2.optim._handler import OptimizerHandler
-from fairseq2.optim._optimizer import AbstractOptimizer, ParameterCollection
+from fairseq2.optim._optimizer import OptimizerBase, ParameterCollection
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
 
 
 @final
-class AdamW(AbstractOptimizer):
+class AdamW(OptimizerBase):
     """Represents an AdamW optimizer.
 
     This class internally calls the same functional AdamW implementation as

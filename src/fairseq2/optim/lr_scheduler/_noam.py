@@ -14,13 +14,13 @@ from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
 from fairseq2.optim.lr_scheduler._handler import LRSchedulerHandler
-from fairseq2.optim.lr_scheduler._lr_scheduler import AbstractLRScheduler, LRScheduler
+from fairseq2.optim.lr_scheduler._lr_scheduler import LRScheduler, LRSchedulerBase
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
 
 
 @final
-class NoamLR(AbstractLRScheduler):
+class NoamLR(LRSchedulerBase):
     """Represents the learning rate schedule described in Section 5.3 of
     :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`.
 

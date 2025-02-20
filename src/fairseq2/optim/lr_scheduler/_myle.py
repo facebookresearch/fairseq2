@@ -16,8 +16,8 @@ from typing_extensions import override
 from fairseq2.context import RuntimeContext
 from fairseq2.optim.lr_scheduler._handler import LRSchedulerHandler
 from fairseq2.optim.lr_scheduler._lr_scheduler import (
-    AbstractLRScheduler,
     LRScheduler,
+    LRSchedulerBase,
     get_per_param_group,
 )
 from fairseq2.utils.structured import structure
@@ -25,7 +25,7 @@ from fairseq2.utils.validation import ValidationError, ValidationResult, validat
 
 
 @final
-class MyleLR(AbstractLRScheduler):
+class MyleLR(LRSchedulerBase):
     """Represents a scaled version of :class:`NoamLR` that preserves the base
     learning rate of the associated optimizer.
 

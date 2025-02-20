@@ -13,7 +13,6 @@ from typing import Generic, TypeVar, final
 
 import torch
 from torch.profiler import record_function
-from typing_extensions import override
 
 from fairseq2.datasets import DataReader
 from fairseq2.device import DeviceStatTracker
@@ -52,21 +51,6 @@ class GeneratorUnit(ABC, Generic[BatchT_contra]):
 
 
 BatchT = TypeVar("BatchT")
-
-
-class AbstractGeneratorUnit(GeneratorUnit[BatchT]):
-    """Provides a skeletal implementation of :class:`GeneratorUnit`."""
-
-    _model: Model
-
-    def __init__(self, model: Model) -> None:
-        self._model = model
-
-    @final
-    @property
-    @override
-    def model(self) -> Model:
-        return self._model
 
 
 @final

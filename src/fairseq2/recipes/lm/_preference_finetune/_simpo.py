@@ -27,15 +27,16 @@ from fairseq2.recipes.lm._preference_finetune._common import (
 )
 from fairseq2.recipes.lm._preference_finetune._handler import POFinetuneUnitHandler
 from fairseq2.recipes.model import Model
-from fairseq2.recipes.trainer import AbstractTrainUnit, TrainUnit
+from fairseq2.recipes.trainer import TrainUnit
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
 
 
 @final
-class SimPOFinetuneUnit(AbstractTrainUnit[PreferenceBatch]):
+class SimPOFinetuneUnit(TrainUnit[PreferenceBatch]):
     """Represents the language model SimPO-finetuning unit. Paper: https://arxiv.org/abs/2405.14734."""
 
+    _model: Model
     _beta: float
     _gamma: float
     _nll_scale: float
@@ -49,8 +50,7 @@ class SimPOFinetuneUnit(AbstractTrainUnit[PreferenceBatch]):
         gamma: float = 0.5,
         nll_scale: float = 1.0,
     ) -> None:
-        super().__init__(model)
-
+        self._model = model
         self._beta = beta
         self._gamma = gamma
         self._nll_scale = nll_scale
@@ -116,9 +116,10 @@ class SimPOFinetuneUnit(AbstractTrainUnit[PreferenceBatch]):
         )
         return simpo_loss.sum()
 
+    @property
     @override
-    def set_step_nr(self, step_nr: int) -> None:
-        self._step_nr = step_nr
+    def model(self) -> Model:
+        return self._model
 
     @property
     @override

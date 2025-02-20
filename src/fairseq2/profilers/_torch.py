@@ -20,13 +20,13 @@ from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
 from fairseq2.gang import Gangs
-from fairseq2.profilers import AbstractProfiler, NoopProfiler, Profiler, ProfilerHandler
+from fairseq2.profilers import NoopProfiler, Profiler, ProfilerHandler
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
 
 
 @final
-class TorchProfiler(AbstractProfiler):
+class TorchProfiler(Profiler):
     """Represents a convenience wrapper for :class:`profile`."""
 
     _profile: profile

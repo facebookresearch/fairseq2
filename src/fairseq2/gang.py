@@ -23,7 +23,7 @@ from typing_extensions import override
 
 from fairseq2.error import InternalError, InvalidOperationError, NotSupportedError
 from fairseq2.logging import log
-from fairseq2.typing import CPU, Device
+from fairseq2.typing import Device
 from fairseq2.utils.env import (
     InvalidEnvironmentVariableError,
     get_local_world_size,
@@ -49,8 +49,25 @@ class Gang(ABC):
     def close(self) -> None:
         """Close and destroy the gang."""
 
-    @abstractmethod
     def create_gang(self, ranks: Sequence[int]) -> Gang | None:
+        """Make a new gang.
+
+        :param ranks:
+            The ranks of processes that will be part of the new gang.
+        """
+        if len(set(ranks)) != len(ranks):
+            raise ValueError("The ranks in ``ranks`` must be all unique.")
+
+        for idx, rank in enumerate(ranks):
+            if rank < 0 or rank > self.size:
+                raise ValueError(
+                    f"The rank at index {idx} in ``ranks`` must be greater than or equal to 0 and less than the size of the gang ({self.size}), but is {rank} instead."
+                )
+
+        return self._do_create_gang(ranks)
+
+    @abstractmethod
+    def _do_create_gang(self, ranks: Sequence[int]) -> Gang | None:
         """Make a new gang.
 
         :param ranks:
@@ -138,21 +155,19 @@ class GangError(Exception):
     pass
 
 
-class AbstractGang(Gang):
-    """Provides a skeletal implementation of :class:`Gang`."""
+@final
+class FakeGang(Gang):
+    """Represents a non-distributed gang for local use."""
 
     _rank: int
     _size: int
     _device: Device
 
-    def __init__(self, rank: int, size: int, device: Device) -> None:
+    def __init__(self, device: Device, *, rank: int = 0, size: int = 1) -> None:
         """
-        :param rank:
-            The rank of this process in the gang.
-        :param size:
-            The number of processes that are part of the gang.
-        :param device:
-            The associated device.
+        :param device: If ``None``, CPU will be used.
+        :param rank: The emulated rank of this process in the gang.
+        :param size: The emulated number of processes that are part of the gang.
         """
         if size == 0:
             raise ValueError("`size` must be greater than zero.")
@@ -169,61 +184,6 @@ class AbstractGang(Gang):
         self._size = size
 
         self._device = device
-
-    @final
-    @override
-    def create_gang(self, ranks: Sequence[int]) -> Gang | None:
-        if len(set(ranks)) != len(ranks):
-            raise ValueError("The ranks in ``ranks`` must be all unique.")
-
-        for idx, rank in enumerate(ranks):
-            if rank < 0 or rank > self._size:
-                raise ValueError(
-                    f"The rank at index {idx} in ``ranks`` must be greater than or equal to 0 and less than the size of the gang ({self._size}), but is {rank} instead."
-                )
-
-        return self._do_create_gang(ranks)
-
-    @abstractmethod
-    def _do_create_gang(self, ranks: Sequence[int]) -> Gang | None:
-        """Make a new gang.
-
-        :param ranks:
-            The ranks of processes that will be part of the new gang.
-        """
-
-    @final
-    @property
-    @override
-    def rank(self) -> int:
-        return self._rank
-
-    @final
-    @property
-    @override
-    def size(self) -> int:
-        return self._size
-
-    @final
-    @property
-    @override
-    def device(self) -> Device:
-        return self._device
-
-
-@final
-class FakeGang(AbstractGang):
-    """Represents a non-distributed gang for local use."""
-
-    def __init__(
-        self, device: Device | None = None, *, rank: int = 0, size: int = 1
-    ) -> None:
-        """
-        :param device: If ``None``, CPU will be used.
-        :param rank: The emulated rank of this process in the gang.
-        :param size: The emulated number of processes that are part of the gang.
-        """
-        super().__init__(rank=rank, size=size, device=device or CPU)
 
     @override
     def close(self) -> None:
@@ -243,6 +203,21 @@ class FakeGang(AbstractGang):
         raise NotSupportedError(
             "`FakeGang` does not support conversion to a process group."
         )
+
+    @property
+    @override
+    def rank(self) -> int:
+        return self._rank
+
+    @property
+    @override
+    def size(self) -> int:
+        return self._size
+
+    @property
+    @override
+    def device(self) -> Device:
+        return self._device
 
     @override
     def barrier(self) -> None:
@@ -306,9 +281,12 @@ class FakeGang(AbstractGang):
 
 
 @final
-class ProcessGroupGang(AbstractGang):
+class ProcessGroupGang(Gang):
     """Represents a gang that wraps a process group."""
 
+    _rank: int
+    _size: int
+    _device: Device
     _pg: ProcessGroup
     _monitor_pg: ProcessGroup | None
 
@@ -319,8 +297,13 @@ class ProcessGroupGang(AbstractGang):
         *,
         monitor_pg: ProcessGroup | None = None,
     ) -> None:
-        super().__init__(dist.get_rank(pg), dist.get_world_size(pg), device)
+        if device.type == "meta":
+            raise ValueError("`device` must be a real device.")
 
+        self._rank = dist.get_rank(pg)
+        self._size = dist.get_world_size(pg)
+
+        self._device = device
         self._pg = pg
         self._monitor_pg = monitor_pg
 
@@ -494,6 +477,21 @@ class ProcessGroupGang(AbstractGang):
     @override
     def as_process_group(self) -> ProcessGroup:
         return self._pg
+
+    @property
+    @override
+    def rank(self) -> int:
+        return self._rank
+
+    @property
+    @override
+    def size(self) -> int:
+        return self._size
+
+    @property
+    @override
+    def device(self) -> Device:
+        return self._device
 
     @override
     def barrier(self) -> None:

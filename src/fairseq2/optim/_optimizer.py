@@ -17,7 +17,7 @@ from torch.optim import Optimizer
 ParameterCollection: TypeAlias = Iterable[Tensor] | Iterable[dict[str, object]]
 
 
-class AbstractOptimizer(ABC, Optimizer):
+class OptimizerBase(ABC, Optimizer):
     """Provides a skeletal implementation of :class:`Optimizer`."""
 
     @final

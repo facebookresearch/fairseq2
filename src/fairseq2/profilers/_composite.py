@@ -10,11 +10,11 @@ from typing import Sequence, final
 
 from typing_extensions import override
 
-from fairseq2.profilers._profiler import AbstractProfiler, Profiler
+from fairseq2.profilers._profiler import Profiler
 
 
 @final
-class CompositeProfiler(AbstractProfiler):
+class CompositeProfiler(Profiler):
     _inner_profilers: Sequence[Profiler]
 
     def __init__(self, profilers: Sequence[Profiler]) -> None:

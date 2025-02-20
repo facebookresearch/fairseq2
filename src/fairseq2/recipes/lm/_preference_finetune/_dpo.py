@@ -39,16 +39,17 @@ from fairseq2.recipes.lm._preference_finetune._common import (
 )
 from fairseq2.recipes.lm._preference_finetune._handler import POFinetuneUnitHandler
 from fairseq2.recipes.model import Model
-from fairseq2.recipes.trainer import AbstractTrainUnit, TrainUnit
+from fairseq2.recipes.trainer import TrainUnit
 from fairseq2.typing import DataType
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
 
 
 @final
-class DpoFinetuneUnit(AbstractTrainUnit[PreferenceBatch]):
+class DpoFinetuneUnit(TrainUnit[PreferenceBatch]):
     """Represents the language model DPO-finetuning unit. Paper: https://arxiv.org/abs/2305.18290."""
 
+    _model: Model
     _reference_model: Model | None
     _beta: float
     _nll_scale: float
@@ -64,8 +65,7 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceBatch]):
         nll_scale: float = 1.0,
         length_normalization: bool = False,
     ) -> None:
-        super().__init__(model)
-
+        self._model = model
         self._reference_model = reference_model
         self._beta = beta
         self._nll_scale = nll_scale
@@ -197,9 +197,10 @@ class DpoFinetuneUnit(AbstractTrainUnit[PreferenceBatch]):
         )
         return logp_ratio_chosen, logp_ratio_rejected, dpo_loss.sum()
 
+    @property
     @override
-    def set_step_nr(self, step_nr: int) -> None:
-        self._step_nr = step_nr
+    def model(self) -> Model:
+        return self._model
 
     @property
     @override

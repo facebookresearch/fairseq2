@@ -14,7 +14,6 @@ from typing import Generic, TypeVar, final
 
 import torch
 from torch.profiler import record_function
-from typing_extensions import override
 
 from fairseq2.datasets import DataReader
 from fairseq2.device import DeviceStatTracker
@@ -41,9 +40,9 @@ class EvalUnit(ABC, Generic[BatchT_contra]):
     def __call__(self, batch: BatchT_contra) -> None:
         """Process ``batch``."""
 
-    @abstractmethod
     def set_step_nr(self, step_nr: int) -> None:
         """Set the current training step number."""
+        pass
 
     @property
     @abstractmethod
@@ -51,9 +50,9 @@ class EvalUnit(ABC, Generic[BatchT_contra]):
         """The underlying model."""
 
     @property
-    @abstractmethod
     def display_name(self) -> str | None:
         """The display name of the unit for reporting purposes."""
+        return None
 
     @property
     @abstractmethod
@@ -62,33 +61,6 @@ class EvalUnit(ABC, Generic[BatchT_contra]):
 
 
 BatchT = TypeVar("BatchT")
-
-
-class AbstractEvalUnit(EvalUnit[BatchT]):
-    """Provides a skeletal implementation of :class:`EvalUnit`."""
-
-    _model: Model
-    _display_name: str | None
-
-    def __init__(self, model: Model, *, display_name: str | None = None) -> None:
-        self._model = model
-        self._display_name = display_name
-
-    @override
-    def set_step_nr(self, step_nr: int) -> None:
-        pass
-
-    @final
-    @property
-    @override
-    def model(self) -> Model:
-        return self._model
-
-    @final
-    @property
-    @override
-    def display_name(self) -> str | None:
-        return self._display_name
 
 
 @final
