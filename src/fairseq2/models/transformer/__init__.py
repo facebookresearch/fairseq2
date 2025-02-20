@@ -22,15 +22,18 @@ from fairseq2.models.transformer._frontend import (
 from fairseq2.models.transformer._frontend import (
     TransformerFrontend as TransformerFrontend,
 )
-from fairseq2.models.transformer._handler import (
-    TransformerModelHandler as TransformerModelHandler,
-)
-from fairseq2.models.transformer._handler import (
-    convert_transformer_checkpoint as convert_transformer_checkpoint,
-)
 from fairseq2.models.transformer._model import TransformerModel as TransformerModel
 from fairseq2.models.transformer._model import (
     init_final_projection as init_final_projection,
+)
+from fairseq2.models.transformer._setup import (
+    convert_transformer_checkpoint as convert_transformer_checkpoint,
+)
+from fairseq2.models.transformer._setup import (
+    create_transformer_model as create_transformer_model,
+)
+from fairseq2.models.transformer._setup import (
+    register_transformer_family as register_transformer_family,
 )
 
 # isort: split

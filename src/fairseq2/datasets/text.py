@@ -33,7 +33,7 @@ from fairseq2.datasets import (
     DatasetLoadError,
     LengthBatching,
     StaticBatching,
-    register_dataset,
+    register_dataset_family,
 )
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
@@ -229,8 +229,8 @@ class GenericTextDataset(TextDataset):
         return SequenceBatch(seqs, padding_mask, example=example)
 
 
-def register_generic_text_dataset(context: RuntimeContext) -> None:
-    register_dataset(
+def register_text_dataset_family(context: RuntimeContext) -> None:
+    register_dataset_family(
         context,
         GENERIC_TEXT_DATASET_FAMILY,
         GenericTextDataset,

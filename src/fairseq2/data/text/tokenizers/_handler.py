@@ -13,6 +13,7 @@ from typing import Protocol, final
 from typing_extensions import override
 
 from fairseq2.assets import AssetCard, AssetCardError, AssetDownloadManager
+from fairseq2.context import RuntimeContext
 from fairseq2.data.text.tokenizers._error import text_tokenizer_asset_card_error
 from fairseq2.data.text.tokenizers._tokenizer import TextTokenizer
 
@@ -65,3 +66,15 @@ class StandardTextTokenizerHandler(TextTokenizerHandler):
     @override
     def family(self) -> str:
         return self._family
+
+
+def register_text_tokenizer_family(
+    context: RuntimeContext, family: str, loader: TextTokenizerLoader
+) -> None:
+    handler = StandardTextTokenizerHandler(
+        family, loader, context.asset_download_manager
+    )
+
+    registry = context.get_registry(TextTokenizerHandler)
+
+    registry.register(handler.family, handler)

@@ -18,8 +18,8 @@ from fairseq2.assets.setup import register_assets
 from fairseq2.chatbots.setup import register_chatbots
 from fairseq2.cluster import register_clusters
 from fairseq2.context import RuntimeContext, set_runtime_context
-from fairseq2.data.text.tokenizers.setup import register_text_tokenizers
-from fairseq2.datasets.setup import register_datasets
+from fairseq2.data.text.tokenizers.setup import register_text_tokenizer_families
+from fairseq2.datasets.setup import register_dataset_families
 from fairseq2.extensions import run_extensions
 from fairseq2.generation import (
     register_beam_search_algorithms,
@@ -29,11 +29,11 @@ from fairseq2.generation import (
 )
 from fairseq2.metrics import register_metric_descriptors
 from fairseq2.metrics.recorders import register_metric_recorders
+from fairseq2.models.setup import register_model_families
 from fairseq2.optim import register_optimizers
 from fairseq2.optim.lr_scheduler import register_lr_schedulers
 from fairseq2.profilers import register_profilers
 from fairseq2.recipes.setup import register_recipes
-from fairseq2.setup._models import _register_models
 from fairseq2.utils.file import LocalFileSystem
 
 
@@ -95,22 +95,22 @@ def setup_library() -> RuntimeContext:
 
     context = RuntimeContext(asset_store, asset_download_manager, file_system)
 
-    _register_models(context)
     register_assets(context)
     register_beam_search_algorithms(context)
     register_beam_search_seq_generators(context)
     register_chatbots(context)
     register_clusters(context)
-    register_datasets(context)
+    register_dataset_families(context)
     register_lr_schedulers(context)
     register_metric_descriptors(context)
     register_metric_recorders(context)
+    register_model_families(context)
     register_optimizers(context)
     register_profilers(context)
     register_recipes(context)
     register_samplers(context)
     register_sampling_seq_generators(context)
-    register_text_tokenizers(context)
+    register_text_tokenizer_families(context)
 
     run_extensions("fairseq2.extension", context)
 

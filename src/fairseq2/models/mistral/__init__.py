@@ -12,9 +12,12 @@ from fairseq2.models.mistral._config import (
     register_mistral_configs as register_mistral_configs,
 )
 from fairseq2.models.mistral._factory import MistralFactory as MistralFactory
-from fairseq2.models.mistral._handler import MistralModelHandler as MistralModelHandler
-from fairseq2.models.mistral._handler import (
+from fairseq2.models.mistral._setup import (
     convert_mistral_checkpoint as convert_mistral_checkpoint,
+)
+from fairseq2.models.mistral._setup import create_mistral_model as create_mistral_model
+from fairseq2.models.mistral._setup import (
+    register_mistral_family as register_mistral_family,
 )
 
 # isort: split

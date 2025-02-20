@@ -11,42 +11,39 @@ from typing import cast
 
 import torch
 from torch import Tensor
-from torch.nn import Module
-from typing_extensions import override
 
-from fairseq2.models import AbstractModelHandler
+from fairseq2.context import RuntimeContext
+from fairseq2.models import register_model_family
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
-from fairseq2.models.wav2vec2._config import WAV2VEC2_MODEL_FAMILY, Wav2Vec2Config
+from fairseq2.models.wav2vec2._config import (
+    WAV2VEC2_MODEL_FAMILY,
+    Wav2Vec2Config,
+    register_wav2vec2_configs,
+)
 from fairseq2.models.wav2vec2._factory import Wav2Vec2Factory
 from fairseq2.models.wav2vec2._model import Wav2Vec2Model
 from fairseq2.nn.transformer import TransformerNormOrder
 from fairseq2.typing import CPU
 
 
-class Wav2Vec2ModelHandler(AbstractModelHandler):
-    @property
-    @override
-    def family(self) -> str:
-        return WAV2VEC2_MODEL_FAMILY
+def register_wav2vec2_family(context: RuntimeContext) -> None:
+    default_arch = "base"
 
-    @property
-    @override
-    def kls(self) -> type[Module]:
-        return Wav2Vec2Model
+    register_model_family(
+        context,
+        WAV2VEC2_MODEL_FAMILY,
+        Wav2Vec2Model,
+        Wav2Vec2Config,
+        default_arch,
+        create_wav2vec2_model,
+        checkpoint_converter=convert_wav2vec2_checkpoint,
+    )
 
-    @override
-    def _create_model(self, config: object) -> Module:
-        config = cast(Wav2Vec2Config, config)
+    register_wav2vec2_configs(context)
 
-        return Wav2Vec2Factory(config).create_model()
 
-    @override
-    def _convert_checkpoint(
-        self, checkpoint: dict[str, object], config: object
-    ) -> dict[str, object]:
-        config = cast(Wav2Vec2Config, config)
-
-        return convert_wav2vec2_checkpoint(checkpoint, config)
+def create_wav2vec2_model(config: Wav2Vec2Config) -> Wav2Vec2Model:
+    return Wav2Vec2Factory(config).create_model()
 
 
 def convert_wav2vec2_checkpoint(

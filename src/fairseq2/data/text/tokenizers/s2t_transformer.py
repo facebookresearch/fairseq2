@@ -15,10 +15,9 @@ from fairseq2.assets import AssetCard, AssetCardError
 from fairseq2.context import RuntimeContext
 from fairseq2.data import VocabularyInfo
 from fairseq2.data.text.tokenizers import (
-    StandardTextTokenizerHandler,
     TextTokenizer,
-    TextTokenizerHandler,
     TextTokenizerLoadError,
+    register_text_tokenizer_family,
     text_tokenizer_asset_card_error,
 )
 from fairseq2.data.text.tokenizers.sentencepiece import (
@@ -164,15 +163,7 @@ def load_s2t_transformer_tokenizer(path: Path, card: AssetCard) -> TextTokenizer
         ) from ex
 
 
-def register_s2t_transformer_tokenizer(context: RuntimeContext) -> None:
-    asset_download_manager = context.asset_download_manager
-
-    handler = StandardTextTokenizerHandler(
-        S2T_TRANSFORMER_TOKENIZER_FAMILY,
-        load_s2t_transformer_tokenizer,
-        asset_download_manager,
+def register_s2t_transformer_tokenizer_family(context: RuntimeContext) -> None:
+    register_text_tokenizer_family(
+        context, S2T_TRANSFORMER_TOKENIZER_FAMILY, load_s2t_transformer_tokenizer
     )
-
-    registry = context.get_registry(TextTokenizerHandler)
-
-    registry.register(handler.family, handler)

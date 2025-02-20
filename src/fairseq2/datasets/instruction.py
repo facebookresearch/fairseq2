@@ -36,7 +36,7 @@ from fairseq2.datasets import (
     LengthBatching,
     StaticBatching,
     UnknownSplitError,
-    register_dataset,
+    register_dataset_family,
 )
 from fairseq2.datasets._utils import _load_files_and_weights
 from fairseq2.error import NotSupportedError
@@ -427,8 +427,8 @@ class GenericInstructionDataset(InstructionDataset):
         return set(self._splits.keys())
 
 
-def register_generic_instruction_dataset(context: RuntimeContext) -> None:
-    register_dataset(
+def register_instruction_dataset_family(context: RuntimeContext) -> None:
+    register_dataset_family(
         context,
         GENERIC_INSTRUCTION_DATASET_FAMILY,
         GenericInstructionDataset,

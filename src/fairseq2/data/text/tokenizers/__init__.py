@@ -24,6 +24,9 @@ from fairseq2.data.text.tokenizers._handler import (
 from fairseq2.data.text.tokenizers._handler import (
     TextTokenizerHandler as TextTokenizerHandler,
 )
+from fairseq2.data.text.tokenizers._handler import (
+    register_text_tokenizer_family as register_text_tokenizer_family,
+)
 from fairseq2.data.text.tokenizers._hub import TextTokenizerHub as TextTokenizerHub
 from fairseq2.data.text.tokenizers._hub import (
     get_text_tokenizer_hub as get_text_tokenizer_hub,

@@ -6,47 +6,40 @@
 
 from __future__ import annotations
 
-from typing import cast
-
-from torch.nn import Module
-from typing_extensions import override
-
-from fairseq2.models import AbstractModelHandler
+from fairseq2.context import RuntimeContext
+from fairseq2.models import register_model_family
 from fairseq2.models.s2t_transformer._config import (
     S2T_TRANSFORMER_MODEL_FAMILY,
     S2TTransformerConfig,
+    register_s2t_transformer_configs,
 )
 from fairseq2.models.s2t_transformer._factory import S2TTransformerFactory
 from fairseq2.models.transformer import TransformerModel
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
 
 
-class S2TTransformerModelHandler(AbstractModelHandler):
-    @property
-    @override
-    def family(self) -> str:
-        return S2T_TRANSFORMER_MODEL_FAMILY
+def register_s2t_transformer_family(context: RuntimeContext) -> None:
+    default_arch = "medium"
 
-    @property
-    @override
-    def kls(self) -> type[Module]:
-        return TransformerModel
+    register_model_family(
+        context,
+        S2T_TRANSFORMER_MODEL_FAMILY,
+        TransformerModel,
+        S2TTransformerConfig,
+        default_arch,
+        create_s2t_transformer_model,
+        checkpoint_converter=convert_s2t_transformer_checkpoint,
+    )
 
-    @override
-    def _create_model(self, config: object) -> Module:
-        config = cast(S2TTransformerConfig, config)
+    register_s2t_transformer_configs(context)
 
-        return S2TTransformerFactory(config).create_model()
 
-    @override
-    def _convert_checkpoint(
-        self, checkpoint: dict[str, object], config: object
-    ) -> dict[str, object]:
-        return convert_s2t_transformer_checkpoint(checkpoint)
+def create_s2t_transformer_model(config: S2TTransformerConfig) -> TransformerModel:
+    return S2TTransformerFactory(config).create_model()
 
 
 def convert_s2t_transformer_checkpoint(
-    checkpoint: dict[str, object],
+    checkpoint: dict[str, object], config: S2TTransformerConfig
 ) -> dict[str, object]:
     key_map = {
         # fmt: off

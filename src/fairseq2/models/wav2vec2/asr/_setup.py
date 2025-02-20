@@ -10,44 +10,38 @@ from collections.abc import MutableMapping
 from typing import cast
 
 from torch import Tensor
-from torch.nn import Module
-from typing_extensions import override
 
-from fairseq2.models import AbstractModelHandler
+from fairseq2.context import RuntimeContext
+from fairseq2.models import register_model_family
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
 from fairseq2.models.wav2vec2.asr._config import (
     WAV2VEC2_ASR_MODEL_FAMILY,
     Wav2Vec2AsrConfig,
+    register_wav2vec2_asr_configs,
 )
 from fairseq2.models.wav2vec2.asr._factory import Wav2Vec2AsrFactory
 from fairseq2.models.wav2vec2.asr._model import Wav2Vec2AsrModel
 from fairseq2.nn.transformer import TransformerNormOrder
 
 
-class Wav2Vec2AsrModelHandler(AbstractModelHandler):
-    @property
-    @override
-    def family(self) -> str:
-        return WAV2VEC2_ASR_MODEL_FAMILY
+def register_wav2vec2_asr_family(context: RuntimeContext) -> None:
+    default_arch = "base_10h"
 
-    @property
-    @override
-    def kls(self) -> type[Module]:
-        return Wav2Vec2AsrModel
+    register_model_family(
+        context,
+        WAV2VEC2_ASR_MODEL_FAMILY,
+        Wav2Vec2AsrModel,
+        Wav2Vec2AsrConfig,
+        default_arch,
+        create_wav2vec2_asr_model,
+        checkpoint_converter=convert_wav2vec2_asr_checkpoint,
+    )
 
-    @override
-    def _create_model(self, config: object) -> Module:
-        config = cast(Wav2Vec2AsrConfig, config)
+    register_wav2vec2_asr_configs(context)
 
-        return Wav2Vec2AsrFactory(config).create_model()
 
-    @override
-    def _convert_checkpoint(
-        self, checkpoint: dict[str, object], config: object
-    ) -> dict[str, object]:
-        config = cast(Wav2Vec2AsrConfig, config)
-
-        return convert_wav2vec2_asr_checkpoint(checkpoint, config)
+def create_wav2vec2_asr_model(config: Wav2Vec2AsrConfig) -> Wav2Vec2AsrModel:
+    return Wav2Vec2AsrFactory(config).create_model()
 
 
 def convert_wav2vec2_asr_checkpoint(

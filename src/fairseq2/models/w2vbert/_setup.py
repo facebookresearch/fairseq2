@@ -11,42 +11,43 @@ from typing import cast
 
 import torch
 from torch import Tensor
-from torch.nn import Module
-from typing_extensions import override
 
-from fairseq2.models import AbstractModelHandler
+from fairseq2.context import RuntimeContext
+from fairseq2.models import register_model_family
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
-from fairseq2.models.w2vbert._config import W2VBERT_MODEL_FAMILY, W2VBertConfig
+from fairseq2.models.w2vbert._config import (
+    W2VBERT_MODEL_FAMILY,
+    W2VBertConfig,
+    register_w2vbert_configs,
+)
 from fairseq2.models.w2vbert._factory import W2VBertFactory
 from fairseq2.models.w2vbert._model import W2VBertModel
 from fairseq2.typing import CPU
 
 
-class W2VBertModelHandler(AbstractModelHandler):
-    @property
-    @override
-    def family(self) -> str:
-        return W2VBERT_MODEL_FAMILY
+def register_w2vbert_family(context: RuntimeContext) -> None:
+    default_arch = "300m"
 
-    @property
-    @override
-    def kls(self) -> type[Module]:
-        return W2VBertModel
+    register_model_family(
+        context,
+        W2VBERT_MODEL_FAMILY,
+        W2VBertModel,
+        W2VBertConfig,
+        default_arch,
+        create_w2vbert_model,
+        checkpoint_converter=convert_w2vbert_checkpoint,
+    )
 
-    @override
-    def _create_model(self, config: object) -> Module:
-        config = cast(W2VBertConfig, config)
-
-        return W2VBertFactory(config).create_model()
-
-    @override
-    def _convert_checkpoint(
-        self, checkpoint: dict[str, object], config: object
-    ) -> dict[str, object]:
-        return convert_w2vbert_checkpoint(checkpoint)
+    register_w2vbert_configs(context)
 
 
-def convert_w2vbert_checkpoint(checkpoint: dict[str, object]) -> dict[str, object]:
+def create_w2vbert_model(config: W2VBertConfig) -> W2VBertModel:
+    return W2VBertFactory(config).create_model()
+
+
+def convert_w2vbert_checkpoint(
+    checkpoint: dict[str, object], config: W2VBertConfig
+) -> dict[str, object]:
     state_dict = cast(MutableMapping[str, Tensor], checkpoint["model"])
 
     state_dict["w2v2_model.quantizer.num_updates"] = torch.zeros((), device=CPU)

@@ -6,45 +6,44 @@
 
 from __future__ import annotations
 
-from typing import cast
-
 import torch
 from torch import Tensor
-from torch.nn import Module
-from typing_extensions import override
 
-from fairseq2.models import AbstractModelHandler
-from fairseq2.models.jepa._config import JEPA_MODEL_FAMILY, JepaConfig
+from fairseq2.context import RuntimeContext
+from fairseq2.models import register_model_family
+from fairseq2.models.jepa._config import (
+    JEPA_MODEL_FAMILY,
+    JepaConfig,
+    register_jepa_configs,
+)
 from fairseq2.models.jepa._factory import JepaFactory
 from fairseq2.models.jepa._model import JepaModel
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
 
 
-class JepaModelHandler(AbstractModelHandler):
-    @property
-    @override
-    def family(self) -> str:
-        return JEPA_MODEL_FAMILY
+def register_jepa_family(context: RuntimeContext) -> None:
+    default_arch = "base"
 
-    @property
-    @override
-    def kls(self) -> type[Module]:
-        return JepaModel
+    register_model_family(
+        context,
+        JEPA_MODEL_FAMILY,
+        JepaModel,
+        JepaConfig,
+        default_arch,
+        create_jepa_model,
+        checkpoint_converter=convert_jepa_checkpoint,
+    )
 
-    @override
-    def _create_model(self, config: object) -> Module:
-        config = cast(JepaConfig, config)
-
-        return JepaFactory(config).create_model()
-
-    @override
-    def _convert_checkpoint(
-        self, checkpoint: dict[str, object], config: object
-    ) -> dict[str, object]:
-        return convert_jepa_checkpoint(checkpoint)
+    register_jepa_configs(context)
 
 
-def convert_jepa_checkpoint(checkpoint: dict[str, object]) -> dict[str, object]:
+def create_jepa_model(config: JepaConfig) -> JepaModel:
+    return JepaFactory(config).create_model()
+
+
+def convert_jepa_checkpoint(
+    checkpoint: dict[str, object], config: JepaConfig
+) -> dict[str, object]:
     encoder_checkpoint = checkpoint.get("target_encoder")
     if encoder_checkpoint is None:
         encoder_checkpoint = checkpoint.get("encoder")

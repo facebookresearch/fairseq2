@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import final
+from typing import Any, Protocol, TypeVar, final
 
 import torch
 from torch.nn import Module
@@ -22,6 +22,7 @@ from fairseq2.assets import (
     AssetDownloadManager,
 )
 from fairseq2.config_registry import ConfigNotFoundError, ConfigProvider
+from fairseq2.context import RuntimeContext
 from fairseq2.error import ContractError, NotSupportedError
 from fairseq2.gang import Gangs
 from fairseq2.models._error import (
@@ -39,7 +40,7 @@ from fairseq2.nn.utils.module import (
     to_empty,
 )
 from fairseq2.typing import CPU, META, DataType
-from fairseq2.utils.file import TensorLoader, TensorLoadError
+from fairseq2.utils.file import StandardTensorLoader, TensorLoader, TensorLoadError
 from fairseq2.utils.merge import MergeError, merge_object
 from fairseq2.utils.structured import StructureError, structure, unstructure
 from fairseq2.utils.validation import validate
@@ -102,29 +103,83 @@ class ModelHandler(ABC):
     def supports_compilation(self) -> bool: ...
 
 
-class AbstractModelHandler(ModelHandler):
+ModelT_co = TypeVar("ModelT_co", bound=Module, covariant=True)
+
+ConfigT_contra = TypeVar("ConfigT_contra", contravariant=True)
+
+
+class ModelFactory(Protocol[ConfigT_contra, ModelT_co]):
+    def __call__(self, config: ConfigT_contra) -> ModelT_co: ...
+
+
+class CheckpointConverter(Protocol[ConfigT_contra]):
+    def __call__(
+        self, checkpoint: dict[str, object], config: ConfigT_contra
+    ) -> dict[str, object]: ...
+
+
+ModelT_contra = TypeVar("ModelT_contra", bound=Module, contravariant=True)
+
+
+class ModelSharder(Protocol[ModelT_contra, ConfigT_contra]):
+    def __call__(
+        self, model: ModelT_contra, config: ConfigT_contra, gangs: Gangs
+    ) -> None: ...
+
+
+class ModelTorchCompiler(Protocol[ModelT_contra, ConfigT_contra]):
+    def __call__(self, model: ModelT_contra, config: ConfigT_contra) -> Module: ...
+
+
+ModelT = TypeVar("ModelT", bound=Module)
+
+ConfigT = TypeVar("ConfigT")
+
+
+@final
+class StandardModelHandler(ModelHandler):
+    _family: str
+    _kls: type[Module]
     _configs: ConfigProvider[object]
     _default_arch: str
+    _factory: ModelFactory[Any, Module]
     _asset_download_manager: AssetDownloadManager
     _tensor_loader: TensorLoader
+    _supports_meta: bool
     _restrict: bool
+    _checkpoint_converter: CheckpointConverter[Any] | None
+    _sharder: ModelSharder[Any, Any] | None
+    _torch_compiler: ModelTorchCompiler[Any, Any] | None
 
     def __init__(
         self,
-        configs: ConfigProvider[object],
+        family: str,
+        kls: type[ModelT],
+        configs: ConfigProvider[ConfigT],
         default_arch: str,
+        factory: ModelFactory[ConfigT, ModelT],
         asset_download_manager: AssetDownloadManager,
         tensor_loader: TensorLoader,
         *,
+        supports_meta: bool = True,
         restrict: bool = True,
+        checkpoint_converter: CheckpointConverter[ConfigT] | None = None,
+        sharder: ModelSharder[ModelT, ConfigT] | None = None,
+        torch_compiler: ModelTorchCompiler[ModelT, ConfigT] | None = None,
     ) -> None:
+        self._family = family
+        self._kls = kls
         self._configs = configs
         self._default_arch = default_arch
+        self._factory = factory
         self._asset_download_manager = asset_download_manager
         self._tensor_loader = tensor_loader
+        self._supports_meta = supports_meta
         self._restrict = restrict
+        self._checkpoint_converter = checkpoint_converter
+        self._sharder = sharder
+        self._torch_compiler = torch_compiler
 
-    @final
     @override
     def get_config(self, arch: str | None) -> object:
         if arch is None:
@@ -137,12 +192,11 @@ class AbstractModelHandler(ModelHandler):
         except ConfigNotFoundError:
             if arch is None:
                 raise ContractError(
-                    f"The '{self.family}' model family does not have a configuration for the default '{self._default_arch}' architecture."
+                    f"The '{self._family}' model family does not have a configuration for the default '{self._default_arch}' architecture."
                 )
 
             raise
 
-    @final
     @override
     def load_config(self, card: AssetCard) -> object:
         model_name = card.name
@@ -161,7 +215,7 @@ class AbstractModelHandler(ModelHandler):
         except ConfigNotFoundError:
             if arch is not None:
                 raise UnknownModelArchitectureError(
-                    arch, self.family, model_name
+                    arch, self._family, model_name
                 ) from None
 
             raise
@@ -187,7 +241,7 @@ class AbstractModelHandler(ModelHandler):
                 unstructured_config = unstructure(config)
             except StructureError as ex:
                 raise ContractError(
-                    f"The configuration class of the '{self.family}' model family cannot be unstructured. See the nested exception for details."
+                    f"The configuration class of the '{self._family}' model family cannot be unstructured. See the nested exception for details."
                 ) from ex
 
             try:
@@ -204,7 +258,6 @@ class AbstractModelHandler(ModelHandler):
 
         return config
 
-    @final
     @override
     def create(
         self, config: object, gangs: Gangs, dtype: DataType, meta: bool
@@ -212,7 +265,7 @@ class AbstractModelHandler(ModelHandler):
         if meta:
             if not self.supports_meta:
                 raise NotSupportedError(
-                    f"The '{self.family}' model family does not support meta device initialization."
+                    f"The '{self._family}' model family does not support meta device initialization."
                 )
 
             device = META
@@ -231,7 +284,7 @@ class AbstractModelHandler(ModelHandler):
             torch.set_default_dtype(dtype)
 
             with device:
-                model = self._create_model(config)
+                model = self._factory(config)
         except NotImplementedError as ex:
             if "'Meta' backend" not in str(ex):
                 raise
@@ -243,22 +296,18 @@ class AbstractModelHandler(ModelHandler):
             torch.set_default_dtype(original_dtype)
 
         if gangs.root.size != gangs.dp.size:
-            self._shard(model, config, gangs)
+            if self._sharder is None:
+                raise NotSupportedError(
+                    f"The '{self._family}' model family does not support non-data parallelism."
+                )
+
+            self._sharder(model, config, gangs)
 
             if not meta and device != gangs.root.device:
                 to_device(model, gangs.root.device)
 
         return model
 
-    @abstractmethod
-    def _create_model(self, config: object) -> Module: ...
-
-    def _shard(self, model: Module, config: object, gangs: Gangs) -> None:
-        raise NotSupportedError(
-            f"The '{self.family}' model family does not support non-data parallelism."
-        )
-
-    @final
     @override
     def load(
         self, card: AssetCard, gangs: Gangs, dtype: DataType, config: object
@@ -324,10 +373,9 @@ class AbstractModelHandler(ModelHandler):
                 raise
 
             raise ModelLoadError(
-                model_name, f"The '{model_name}' asset card does not contain a valid model configuration of the '{self.family}' family. See the nested exception for details."  # fmt: skip
+                model_name, f"The '{model_name}' asset card does not contain a valid model configuration of the '{self._family}' family. See the nested exception for details."  # fmt: skip
             ) from ex
 
-    @final
     @override
     def load_from_path(
         self,
@@ -358,8 +406,13 @@ class AbstractModelHandler(ModelHandler):
                 ) from ex
 
         if "fs2" not in checkpoint:
+            if self._checkpoint_converter is None:
+                raise ModelLoadError(
+                    model_name, f"The checkpoint of the '{model_name}' model is not fairseq2 compatible."  # fmt: skip
+                )
+
             try:
-                checkpoint = self._convert_checkpoint(checkpoint, config)
+                checkpoint = self._checkpoint_converter(checkpoint, config)
             except (KeyError, ValueError) as ex:
                 raise ModelLoadError(
                     model_name, f"The checkpoint of the '{model_name}' model cannot be converted to a fairseq2 compatible format. See the nested exception for details."  # fmt: skip
@@ -410,16 +463,15 @@ class AbstractModelHandler(ModelHandler):
 
         return model
 
-    def _convert_checkpoint(
-        self, checkpoint: dict[str, object], config: object
-    ) -> dict[str, object]:
-        return checkpoint
-
-    @final
     def compile(self, model: Module, config: object) -> Module:
-        if not isinstance(model, self.kls):
+        if self._torch_compiler is None:
+            raise NotSupportedError(
+                f"The '{self._family}' model family does not support `torch.compile()`."
+            )
+
+        if not isinstance(model, self._kls):
             raise TypeError(
-                f"`model` must be of type `{self.kls}`, but is of type `{type(model)}` instead."
+                f"`model` must be of type `{self._kls}`, but is of type `{type(model)}` instead."
             )
 
         if not isinstance(config, self.config_kls):
@@ -427,14 +479,18 @@ class AbstractModelHandler(ModelHandler):
                 f"`config` must be of type `{self.config_kls}`, but is of type `{type(config)}` instead."
             )
 
-        return self._compile_model(model, config)
+        return self._torch_compiler(model, config)
 
-    def _compile_model(self, model: Module, config: object) -> Module:
-        raise NotSupportedError(
-            f"The '{self.family}' model family does not support `torch.compile()`."
-        )
+    @property
+    @override
+    def family(self) -> str:
+        return self._family
 
-    @final
+    @property
+    @override
+    def kls(self) -> type[Module]:
+        return self._kls
+
     @property
     @override
     def config_kls(self) -> type[object]:
@@ -443,14 +499,54 @@ class AbstractModelHandler(ModelHandler):
     @property
     @override
     def supports_meta(self) -> bool:
-        return True
+        return self._supports_meta
 
     @property
     @override
     def supports_sharding(self) -> bool:
-        return False
+        return self._sharder is not None
 
     @property
     @override
     def supports_compilation(self) -> bool:
-        return False
+        return self._torch_compiler is not None
+
+
+def register_model_family(
+    context: RuntimeContext,
+    family: str,
+    kls: type[ModelT],
+    config_kls: type[ConfigT],
+    default_arch: str,
+    factory: ModelFactory[ConfigT, ModelT],
+    *,
+    supports_meta: bool = True,
+    restrict: bool = True,
+    checkpoint_converter: CheckpointConverter[ConfigT] | None = None,
+    sharder: ModelSharder[ModelT, ConfigT] | None = None,
+    torch_compiler: ModelTorchCompiler[ModelT, ConfigT] | None = None,
+) -> None:
+    asset_download_manager = context.asset_download_manager
+
+    tensor_loader = StandardTensorLoader(context.file_system)
+
+    configs = context.get_config_registry(config_kls)
+
+    handler = StandardModelHandler(
+        family,
+        kls,
+        configs,
+        default_arch,
+        factory,
+        asset_download_manager,
+        tensor_loader,
+        supports_meta=supports_meta,
+        restrict=restrict,
+        checkpoint_converter=checkpoint_converter,
+        sharder=sharder,
+        torch_compiler=torch_compiler,
+    )
+
+    registry = context.get_registry(ModelHandler)
+
+    registry.register(handler.family, handler)
