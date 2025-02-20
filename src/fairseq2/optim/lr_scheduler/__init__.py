@@ -18,6 +18,9 @@ from fairseq2.optim.lr_scheduler._cosine_annealing import (
 from fairseq2.optim.lr_scheduler._cosine_annealing import (
     CosineAnnealingLRHandler as CosineAnnealingLRHandler,
 )
+from fairseq2.optim.lr_scheduler._cosine_annealing import (
+    register_cosine_annealing_lr as register_cosine_annealing_lr,
+)
 from fairseq2.optim.lr_scheduler._error import (
     UnknownLRSchedulerError as UnknownLRSchedulerError,
 )
@@ -39,10 +42,12 @@ from fairseq2.optim.lr_scheduler._myle import MYLE_LR as MYLE_LR
 from fairseq2.optim.lr_scheduler._myle import MyleLR as MyleLR
 from fairseq2.optim.lr_scheduler._myle import MyleLRConfig as MyleLRConfig
 from fairseq2.optim.lr_scheduler._myle import MyleLRHandler as MyleLRHandler
+from fairseq2.optim.lr_scheduler._myle import register_myle_lr as register_myle_lr
 from fairseq2.optim.lr_scheduler._noam import NOAM_LR as NOAM_LR
 from fairseq2.optim.lr_scheduler._noam import NoamLR as NoamLR
 from fairseq2.optim.lr_scheduler._noam import NoamLRConfig as NoamLRConfig
 from fairseq2.optim.lr_scheduler._noam import NoamLRHandler as NoamLRHandler
+from fairseq2.optim.lr_scheduler._noam import register_noam_lr as register_noam_lr
 from fairseq2.optim.lr_scheduler._polynomial_decay import (
     POLYNOMIAL_DECAY_LR as POLYNOMIAL_DECAY_LR,
 )
@@ -55,9 +60,18 @@ from fairseq2.optim.lr_scheduler._polynomial_decay import (
 from fairseq2.optim.lr_scheduler._polynomial_decay import (
     PolynomialDecayLRHandler as PolynomialDecayLRHandler,
 )
+from fairseq2.optim.lr_scheduler._polynomial_decay import (
+    register_polynomial_decay_lr as register_polynomial_decay_lr,
+)
+from fairseq2.optim.lr_scheduler._setup import (
+    register_lr_schedulers as register_lr_schedulers,
+)
 from fairseq2.optim.lr_scheduler._tri_stage import TRI_STAGE_LR as TRI_STAGE_LR
 from fairseq2.optim.lr_scheduler._tri_stage import TriStageLR as TriStageLR
 from fairseq2.optim.lr_scheduler._tri_stage import TriStageLRConfig as TriStageLRConfig
 from fairseq2.optim.lr_scheduler._tri_stage import (
     TriStageLRHandler as TriStageLRHandler,
+)
+from fairseq2.optim.lr_scheduler._tri_stage import (
+    register_tri_stage_lr as register_tri_stage_lr,
 )

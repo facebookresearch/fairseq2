@@ -22,6 +22,8 @@ from fairseq2.datasets.setup import register_datasets
 from fairseq2.extensions import run_extensions
 from fairseq2.metrics import register_metric_descriptors
 from fairseq2.metrics.recorders import register_metric_recorders
+from fairseq2.optim import register_optimizers
+from fairseq2.optim.lr_scheduler import register_lr_schedulers
 from fairseq2.profilers import register_profilers
 from fairseq2.recipes.setup import register_recipes
 from fairseq2.setup._generation import (
@@ -31,7 +33,6 @@ from fairseq2.setup._generation import (
     _register_seq_generators,
 )
 from fairseq2.setup._models import _register_models
-from fairseq2.setup._optim import _register_lr_schedulers, _register_optimizers
 from fairseq2.setup._text_tokenizers import _register_text_tokenizers
 from fairseq2.utils.file import LocalFileSystem
 
@@ -99,11 +100,11 @@ def setup_library() -> RuntimeContext:
     register_chatbots(context)
     register_clusters(context)
     register_datasets(context)
-    _register_lr_schedulers(context)
+    register_lr_schedulers(context)
     register_metric_descriptors(context)
     register_metric_recorders(context)
     _register_models(context)
-    _register_optimizers(context)
+    register_optimizers(context)
     register_profilers(context)
     register_recipes(context)
     _register_samplers(context)

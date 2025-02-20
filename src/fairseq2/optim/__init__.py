@@ -10,9 +10,11 @@ from fairseq2.optim._adamw import ADAMW_OPTIMIZER as ADAMW_OPTIMIZER
 from fairseq2.optim._adamw import AdamW as AdamW
 from fairseq2.optim._adamw import AdamWConfig as AdamWConfig
 from fairseq2.optim._adamw import AdamWHandler as AdamWHandler
+from fairseq2.optim._adamw import register_adamw as register_adamw
 from fairseq2.optim._dynamic_loss_scaler import DynamicLossScaler as DynamicLossScaler
 from fairseq2.optim._dynamic_loss_scaler import LossScaleResult as LossScaleResult
 from fairseq2.optim._error import UnknownOptimizerError as UnknownOptimizerError
 from fairseq2.optim._handler import OptimizerHandler as OptimizerHandler
 from fairseq2.optim._optimizer import AbstractOptimizer as AbstractOptimizer
 from fairseq2.optim._optimizer import ParameterCollection as ParameterCollection
+from fairseq2.optim._setup import register_optimizers as register_optimizers
