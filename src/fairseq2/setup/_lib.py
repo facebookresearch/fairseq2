@@ -21,18 +21,18 @@ from fairseq2.context import RuntimeContext, set_runtime_context
 from fairseq2.data.text.tokenizers.setup import register_text_tokenizers
 from fairseq2.datasets.setup import register_datasets
 from fairseq2.extensions import run_extensions
+from fairseq2.generation import (
+    register_beam_search_algorithms,
+    register_beam_search_seq_generators,
+    register_samplers,
+    register_sampling_seq_generators,
+)
 from fairseq2.metrics import register_metric_descriptors
 from fairseq2.metrics.recorders import register_metric_recorders
 from fairseq2.optim import register_optimizers
 from fairseq2.optim.lr_scheduler import register_lr_schedulers
 from fairseq2.profilers import register_profilers
 from fairseq2.recipes.setup import register_recipes
-from fairseq2.setup._generation import (
-    _register_beam_search_algorithms,
-    _register_samplers,
-    _register_seq2seq_generators,
-    _register_seq_generators,
-)
 from fairseq2.setup._models import _register_models
 from fairseq2.utils.file import LocalFileSystem
 
@@ -95,21 +95,21 @@ def setup_library() -> RuntimeContext:
 
     context = RuntimeContext(asset_store, asset_download_manager, file_system)
 
+    _register_models(context)
     register_assets(context)
-    _register_beam_search_algorithms(context)
+    register_beam_search_algorithms(context)
+    register_beam_search_seq_generators(context)
     register_chatbots(context)
     register_clusters(context)
     register_datasets(context)
     register_lr_schedulers(context)
     register_metric_descriptors(context)
     register_metric_recorders(context)
-    _register_models(context)
     register_optimizers(context)
     register_profilers(context)
     register_recipes(context)
-    _register_samplers(context)
-    _register_seq2seq_generators(context)
-    _register_seq_generators(context)
+    register_samplers(context)
+    register_sampling_seq_generators(context)
     register_text_tokenizers(context)
 
     run_extensions("fairseq2.extension", context)

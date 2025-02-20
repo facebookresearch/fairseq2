@@ -11,6 +11,7 @@ from typing import Final, final
 
 from typing_extensions import override
 
+from fairseq2.context import RuntimeContext
 from fairseq2.generation._beam_search._algo import (
     STANDARD_BEAM_SEARCH_ALGO,
     BeamSearchAlgorithmHandler,
@@ -185,3 +186,21 @@ class BeamSearchSeq2SeqGeneratorHandler(Seq2SeqGeneratorHandler):
     @override
     def config_kls(self) -> type[object]:
         return BeamSearchConfig
+
+
+def register_beam_search_seq_generators(context: RuntimeContext) -> None:
+    algorithm_handlers = context.get_registry(BeamSearchAlgorithmHandler)
+
+    # Sequence
+    seq_handler = BeamSearchSequenceGeneratorHandler(algorithm_handlers)
+
+    seq_registry = context.get_registry(SequenceGeneratorHandler)
+
+    seq_registry.register(BEAM_SEARCH_GENERATOR, seq_handler)
+
+    # Sequence-to-Sequence
+    seq2seq_handler = BeamSearchSeq2SeqGeneratorHandler(algorithm_handlers)
+
+    seq2seq_registry = context.get_registry(Seq2SeqGeneratorHandler)
+
+    seq2seq_registry.register(BEAM_SEARCH_GENERATOR, seq2seq_handler)

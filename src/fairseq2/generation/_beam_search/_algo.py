@@ -16,6 +16,8 @@ import torch
 from torch import Tensor
 from typing_extensions import override
 
+from fairseq2.context import RuntimeContext
+
 
 class BeamSearchAlgorithm(ABC):
     """Represents a beam search algorithm."""
@@ -144,3 +146,9 @@ class StandardBeamSearchAlgorithmHandler(BeamSearchAlgorithmHandler):
     @override
     def config_kls(self) -> type[object]:
         return NoneType
+
+
+def register_beam_search_algorithms(context: RuntimeContext) -> None:
+    registry = context.get_registry(BeamSearchAlgorithmHandler)
+
+    registry.register(STANDARD_BEAM_SEARCH_ALGO, StandardBeamSearchAlgorithmHandler())
