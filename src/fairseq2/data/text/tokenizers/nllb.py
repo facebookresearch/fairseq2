@@ -13,25 +13,32 @@ from typing import Final, final
 from typing_extensions import override
 
 from fairseq2.assets import AssetCard, AssetCardError
+from fairseq2.context import RuntimeContext
+from fairseq2.data import VocabularyInfo
 from fairseq2.data.text.tokenizers import (
-    AbstractTextTokenizerHandler,
+    StandardTextTokenizerHandler,
     TextTokenizer,
+    TextTokenizerHandler,
     TextTokenizerLoadError,
     text_tokenizer_asset_card_error,
 )
 from fairseq2.data.text.tokenizers.sentencepiece import (
+    SentencePieceDecoder,
     SentencePieceEncoder,
-    SentencePieceTokenizer,
+    SentencePieceModel,
+    vocab_info_from_sentencepiece,
 )
 from fairseq2.typing import Device
 
 
 @final
-class NllbTokenizer(SentencePieceTokenizer):
+class NllbTokenizer(TextTokenizer):
     """Represents an NLLB tokenizer."""
 
+    _model: SentencePieceModel
     _langs: set[str]
     _default_lang: str
+    _vocab_info: VocabularyInfo
 
     def __init__(self, path: Path, langs: Sequence[str], default_lang: str) -> None:
         """
@@ -53,11 +60,13 @@ class NllbTokenizer(SentencePieceTokenizer):
         # it to the model at index 0.
         control_symbols.append("<pad>@0")
 
-        super().__init__(path, control_symbols)
+        self._model = SentencePieceModel(path, control_symbols)
 
         self._langs = set(langs)
 
         self._default_lang = default_lang
+
+        self._vocab_info = vocab_info_from_sentencepiece(self._model)
 
     @override
     def create_encoder(
@@ -129,36 +138,55 @@ class NllbTokenizer(SentencePieceTokenizer):
             pin_memory=pin_memory,
         )
 
+    @override
+    def create_raw_encoder(
+        self, *, device: Device | None = None, pin_memory: bool = False
+    ) -> SentencePieceEncoder:
+        return SentencePieceEncoder(self._model, device=device, pin_memory=pin_memory)
+
+    @override
+    def create_decoder(self) -> SentencePieceDecoder:
+        return SentencePieceDecoder(self._model)
+
+    @property
+    @override
+    def vocab_info(self) -> VocabularyInfo:
+        return self._vocab_info
+
 
 NLLB_TOKENIZER_FAMILY: Final = "nllb"
 
 
-@final
-class NllbTokenizerHandler(AbstractTextTokenizerHandler):
-    @property
-    @override
-    def family(self) -> str:
-        return NLLB_TOKENIZER_FAMILY
+def load_nllb_tokenizer(path: Path, card: AssetCard) -> TextTokenizer:
+    try:
+        langs = card.field("langs").as_(list[str])
+    except AssetCardError as ex:
+        raise text_tokenizer_asset_card_error(card.name) from ex
 
-    @override
-    def _load_tokenizer(self, path: Path, card: AssetCard) -> TextTokenizer:
-        try:
-            langs = card.field("langs").as_(list[str])
-        except AssetCardError as ex:
-            raise text_tokenizer_asset_card_error(card.name) from ex
+    try:
+        default_lang = card.field("default_lang").as_(str)
+    except AssetCardError as ex:
+        raise text_tokenizer_asset_card_error(card.name) from ex
 
-        try:
-            default_lang = card.field("default_lang").as_(str)
-        except AssetCardError as ex:
-            raise text_tokenizer_asset_card_error(card.name) from ex
+    try:
+        return NllbTokenizer(path, langs, default_lang)
+    except ValueError as ex:
+        raise TextTokenizerLoadError(
+            card.name, f"The '{card.name}' asset card does not contain a valid text tokenizer configuration of the '{NLLB_TOKENIZER_FAMILY}' family. See the nested exception for details."  # fmt: skip
+        ) from ex
+    except RuntimeError as ex:
+        raise TextTokenizerLoadError(
+            card.name, f"The '{card.name}' text tokenizer cannot be loaded. See the nested exception for details."  # fmt: skip
+        ) from ex
 
-        try:
-            return NllbTokenizer(path, langs, default_lang)
-        except ValueError as ex:
-            raise TextTokenizerLoadError(
-                card.name, f"The '{card.name}' asset card does not contain a valid text tokenizer configuration of the '{self.family}' family. See the nested exception for details."  # fmt: skip
-            ) from ex
-        except RuntimeError as ex:
-            raise TextTokenizerLoadError(
-                card.name, f"The '{card.name}' text tokenizer cannot be loaded. See the nested exception for details."  # fmt: skip
-            ) from ex
+
+def register_nllb_tokenizer(context: RuntimeContext) -> None:
+    asset_download_manager = context.asset_download_manager
+
+    handler = StandardTextTokenizerHandler(
+        NLLB_TOKENIZER_FAMILY, load_nllb_tokenizer, asset_download_manager
+    )
+
+    registry = context.get_registry(TextTokenizerHandler)
+
+    registry.register(handler.family, handler)

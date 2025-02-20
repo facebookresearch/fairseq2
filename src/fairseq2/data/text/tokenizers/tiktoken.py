@@ -18,18 +18,17 @@ from typing_extensions import override
 
 from fairseq2.data import VocabularyInfo
 from fairseq2.data.text.tokenizers import (
-    AbstractTextTokenizer,
     TextTokenDecoder,
     TextTokenEncoder,
 )
 from fairseq2.typing import Device
 
 
-class TiktokenTokenizer(AbstractTextTokenizer):
-    """Represents a tiktoken tokenizer."""
-
+@final
+class TiktokenModel:
     _encoding: Encoding
     _num_bpe_tokens: int
+    _vocab_info: VocabularyInfo
 
     def __init__(
         self,
@@ -83,7 +82,7 @@ class TiktokenTokenizer(AbstractTextTokenizer):
 
             return None
 
-        vocab_info = VocabularyInfo(
+        self._vocab_info = VocabularyInfo(
             self._encoding.n_vocab,
             unk_idx=maybe_index(unk_token),
             bos_idx=maybe_index(bos_token),
@@ -93,23 +92,25 @@ class TiktokenTokenizer(AbstractTextTokenizer):
             eoh_idx=maybe_index(eoh_token),
         )
 
-        super().__init__(vocab_info)
+    @property
+    def encoding(self) -> Encoding:
+        return self._encoding
 
-    @override
-    def create_raw_encoder(
-        self, *, device: Device | None = None, pin_memory: bool = False
-    ) -> TiktokenEncoder:
-        return TiktokenEncoder(self._encoding, device=device, pin_memory=pin_memory)
+    @property
+    def num_bpe_tokens(self) -> int:
+        """The number of byte-pair encoding tokens, excluding special tokens."""
+        return self._num_bpe_tokens
 
-    @override
-    def create_decoder(self) -> TiktokenDecoder:
-        return TiktokenDecoder(self._encoding, self._num_bpe_tokens)
+    @property
+    def vocab_info(self) -> VocabularyInfo:
+        return self._vocab_info
 
 
 @final
 class TiktokenEncoder(TextTokenEncoder):
     """Represents a tiktoken decoder."""
 
+    _encoding: Encoding
     _prefix_indices: list[int]
     _suffix_indices: list[int]
     _prefix_index_tensor: Tensor | None
@@ -119,7 +120,7 @@ class TiktokenEncoder(TextTokenEncoder):
 
     def __init__(
         self,
-        encoding: Encoding,
+        model: TiktokenModel,
         *,
         prefix_tokens: Sequence[str] | None = None,
         suffix_tokens: Sequence[str] | None = None,
@@ -138,12 +139,12 @@ class TiktokenEncoder(TextTokenEncoder):
         :param pin_memory:
             If ``True``, uses pinned memory while constructing tensors.
         """
-        self._encoding = encoding
+        self._encoding = model.encoding
 
         # Prefix
         if prefix_tokens:
             self._prefix_indices = [
-                encoding.encode_single_token(t) for t in prefix_tokens
+                self._encoding.encode_single_token(t) for t in prefix_tokens
             ]
 
             self._prefix_index_tensor = torch.tensor(
@@ -157,7 +158,7 @@ class TiktokenEncoder(TextTokenEncoder):
         # Suffix
         if suffix_tokens:
             self._suffix_indices = [
-                encoding.encode_single_token(t) for t in suffix_tokens
+                self._encoding.encode_single_token(t) for t in suffix_tokens
             ]
 
             self._suffix_index_tensor = torch.tensor(
@@ -211,15 +212,9 @@ class TiktokenDecoder(TextTokenDecoder):
     _encoding: Encoding
     _num_bpe_tokens: int
 
-    def __init__(self, encoding: Encoding, num_bpe_tokens: int) -> None:
-        """
-        :param encoding:
-            The tiktoken :class:`Encoding` object.
-        param num_bpe_tokens:
-            The number of byte-pair encoding tokens, excluding special tokens.
-        """
-        self._encoding = encoding
-        self._num_bpe_tokens = num_bpe_tokens
+    def __init__(self, model: TiktokenModel) -> None:
+        self._encoding = model.encoding
+        self._num_bpe_tokens = model.num_bpe_tokens
 
     @override
     def __call__(self, token_indices: Tensor) -> str:
