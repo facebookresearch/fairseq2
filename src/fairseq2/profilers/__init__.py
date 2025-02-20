@@ -9,7 +9,6 @@ from __future__ import annotations
 from fairseq2.profilers._composite import CompositeProfiler as CompositeProfiler
 from fairseq2.profilers._error import UnknownProfilerError as UnknownProfilerError
 from fairseq2.profilers._handler import ProfilerHandler as ProfilerHandler
-from fairseq2.profilers._profiler import AbstractProfiler as AbstractProfiler
 from fairseq2.profilers._profiler import NoopProfiler as NoopProfiler
 from fairseq2.profilers._profiler import Profiler as Profiler
 from fairseq2.profilers._setup import register_profilers as register_profilers

@@ -22,29 +22,17 @@ class Profiler(ABC):
     @abstractmethod
     def step(self) -> None: ...
 
-    @abstractmethod
-    def __enter__(self) -> Self: ...
-
-    @abstractmethod
-    def __exit__(self, *ex: Any) -> None: ...
-
-
-class AbstractProfiler(Profiler):
-    @final
-    @override
     def __enter__(self) -> Self:
         self.start()
 
         return self
 
-    @final
-    @override
     def __exit__(self, *ex: Any) -> None:
         self.stop()
 
 
 @final
-class NoopProfiler(AbstractProfiler):
+class NoopProfiler(Profiler):
     @override
     def start(self) -> None:
         pass

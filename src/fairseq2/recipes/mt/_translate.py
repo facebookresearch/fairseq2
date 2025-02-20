@@ -45,7 +45,7 @@ from fairseq2.recipes.config import (
     Seq2SeqGeneratorSection,
 )
 from fairseq2.recipes.error import UnitError
-from fairseq2.recipes.generator import AbstractGeneratorUnit, Generator
+from fairseq2.recipes.generator import Generator, GeneratorUnit
 from fairseq2.recipes.metrics import Seq2SeqGenerationMetricBag
 from fairseq2.recipes.model import Model
 from fairseq2.typing import CPU
@@ -234,7 +234,8 @@ def load_text_translator(
 
 
 @final
-class TextTranslationUnit(AbstractGeneratorUnit[SequenceBatch]):
+class TextTranslationUnit(GeneratorUnit[SequenceBatch]):
+    _model: Model
     _converter: SequenceToTextConverter
     _src_output_stream: TextIO | None
     _hyp_output_stream: TextIO | None
@@ -264,7 +265,7 @@ class TextTranslationUnit(AbstractGeneratorUnit[SequenceBatch]):
         :param hyp_output_stream:
             The output stream to dump hypotheses.
         """
-        super().__init__(model)
+        self._model = model
 
         self._converter = SequenceToTextConverter(
             generator, tokenizer, task="translation", target_lang=target_lang
@@ -321,6 +322,11 @@ class TextTranslationUnit(AbstractGeneratorUnit[SequenceBatch]):
             raise UnitError(
                 "The generator output cannot be written to the stream. See the nested exception for details."
             ) from ex
+
+    @property
+    @override
+    def model(self) -> Model:
+        return self._model
 
     @property
     @override

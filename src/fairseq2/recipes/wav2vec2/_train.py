@@ -46,7 +46,8 @@ from fairseq2.recipes.config import (
     RegimeSection,
     TrainerSection,
 )
-from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
+from fairseq2.recipes.model import Model
+from fairseq2.recipes.trainer import Trainer, TrainUnit
 from fairseq2.recipes.wav2vec2._common import (
     Wav2Vec2Criterion,
     Wav2Vec2LossSection,
@@ -292,13 +293,11 @@ def load_wav2vec2_trainer(
 
 
 @final
-class Wav2Vec2TrainUnit(AbstractTrainUnit[SequenceBatch]):
+class Wav2Vec2TrainUnit(TrainUnit[SequenceBatch]):
     _criterion: Wav2Vec2Criterion
     _metric_bag: Wav2Vec2MetricBag
 
     def __init__(self, criterion: Wav2Vec2Criterion, gangs: Gangs) -> None:
-        super().__init__(criterion.model)
-
         self._criterion = criterion
 
         self._metric_bag = Wav2Vec2MetricBag(gangs.dp)
@@ -306,6 +305,11 @@ class Wav2Vec2TrainUnit(AbstractTrainUnit[SequenceBatch]):
     @override
     def __call__(self, batch: SequenceBatch) -> tuple[Tensor, int]:
         return self._criterion(batch, self._metric_bag)
+
+    @property
+    @override
+    def model(self) -> Model:
+        return self._criterion.model
 
     @property
     @override

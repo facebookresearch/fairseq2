@@ -54,10 +54,10 @@ from fairseq2.recipes.config import (
     RegimeSection,
     TrainerSection,
 )
-from fairseq2.recipes.evaluator import AbstractEvalUnit
+from fairseq2.recipes.evaluator import EvalUnit
 from fairseq2.recipes.metrics import SequenceMetricBag
 from fairseq2.recipes.model import Model
-from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
+from fairseq2.recipes.trainer import Trainer, TrainUnit
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
@@ -338,13 +338,11 @@ def load_instruction_finetuner(
 
 
 @final
-class InstructionFinetuneUnit(AbstractTrainUnit[SequenceBatch]):
+class InstructionFinetuneUnit(TrainUnit[SequenceBatch]):
     _criterion: InstructionFinetuneCriterion
     _metric_bag: SequenceMetricBag
 
     def __init__(self, criterion: InstructionFinetuneCriterion, gangs: Gangs) -> None:
-        super().__init__(criterion.model)
-
         self._criterion = criterion
 
         self._metric_bag = SequenceMetricBag(gangs.dp)
@@ -355,18 +353,21 @@ class InstructionFinetuneUnit(AbstractTrainUnit[SequenceBatch]):
 
     @property
     @override
+    def model(self) -> Model:
+        return self._criterion.model
+
+    @property
+    @override
     def metric_bag(self) -> SequenceMetricBag:
         return self._metric_bag
 
 
 @final
-class InstructionLossEvalUnit(AbstractEvalUnit[SequenceBatch]):
+class InstructionLossEvalUnit(EvalUnit[SequenceBatch]):
     _criterion: InstructionFinetuneCriterion
     _metric_bag: SequenceMetricBag
 
     def __init__(self, criterion: InstructionFinetuneCriterion, gangs: Gangs) -> None:
-        super().__init__(criterion.model)
-
         self._criterion = criterion
 
         self._metric_bag = SequenceMetricBag(gangs.dp)
@@ -374,6 +375,11 @@ class InstructionLossEvalUnit(AbstractEvalUnit[SequenceBatch]):
     @override
     def __call__(self, batch: SequenceBatch) -> None:
         self._criterion(batch, self._metric_bag)
+
+    @property
+    @override
+    def model(self) -> Model:
+        return self._criterion.model
 
     @property
     @override

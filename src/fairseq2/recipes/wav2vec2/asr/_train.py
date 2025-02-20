@@ -52,7 +52,8 @@ from fairseq2.recipes.config import (
     TextTokenizerSection,
     TrainerSection,
 )
-from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
+from fairseq2.recipes.model import Model
+from fairseq2.recipes.trainer import Trainer, TrainUnit
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
@@ -371,7 +372,7 @@ def load_wav2vec2_asr_trainer(
 
 
 @final
-class Wav2Vec2AsrTrainUnit(AbstractTrainUnit[Seq2SeqBatch]):
+class Wav2Vec2AsrTrainUnit(TrainUnit[Seq2SeqBatch]):
     _module: Wav2Vec2AsrModel
     _criterion: AsrCriterion
     _freeze_encoder_for_n_steps: int
@@ -391,12 +392,8 @@ class Wav2Vec2AsrTrainUnit(AbstractTrainUnit[Seq2SeqBatch]):
                 f"`criterion.model.base_module` must be of type `{Wav2Vec2AsrModel}`, but is of type `{type(module)}` instead."
             )
 
-        super().__init__(criterion.model)
-
         self._module = module
-
         self._criterion = criterion
-
         self._freeze_encoder_for_n_steps = freeze_encoder_for_n_steps
 
         self._metric_bag = AsrMetricBag(gang)
@@ -426,6 +423,11 @@ class Wav2Vec2AsrTrainUnit(AbstractTrainUnit[Seq2SeqBatch]):
 
             # We never train the feature extractor.
             freeze_parameters(module.encoder_frontend.feature_extractor)
+
+    @property
+    @override
+    def model(self) -> Model:
+        return self._criterion.model
 
     @property
     @override

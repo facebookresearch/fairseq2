@@ -27,15 +27,16 @@ from fairseq2.recipes.lm._preference_finetune._common import (
 )
 from fairseq2.recipes.lm._preference_finetune._handler import POFinetuneUnitHandler
 from fairseq2.recipes.model import Model
-from fairseq2.recipes.trainer import AbstractTrainUnit, TrainUnit
+from fairseq2.recipes.trainer import TrainUnit
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
 
 
 @final
-class OrpoFinetuneUnit(AbstractTrainUnit[PreferenceBatch]):
+class OrpoFinetuneUnit(TrainUnit[PreferenceBatch]):
     """Represents the language model ORPO-finetuning unit. Paper: https://arxiv.org/abs/2403.07691."""
 
+    _model: Model
     _lambda: float
     _nll_scale: float
     _metric_bag: OrpoFinetuneMetricBag
@@ -47,8 +48,7 @@ class OrpoFinetuneUnit(AbstractTrainUnit[PreferenceBatch]):
         orpo_lambda: float = 1.0,
         nll_scale: float = 1.0,
     ) -> None:
-        super().__init__(model)
-
+        self._model = model
         self._lambda = orpo_lambda
         self._nll_scale = nll_scale
 
@@ -112,10 +112,10 @@ class OrpoFinetuneUnit(AbstractTrainUnit[PreferenceBatch]):
         orpo_loss = -torch.nn.functional.logsigmoid(log_odds)
         return orpo_loss.sum()
 
+    @property
     @override
-    def set_step_nr(self, step_nr: int) -> None:
-        """Set the current training step number."""
-        self._step_nr = step_nr
+    def model(self) -> Model:
+        return self._model
 
     @property
     @override

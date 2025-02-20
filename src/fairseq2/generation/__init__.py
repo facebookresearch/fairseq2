@@ -52,12 +52,6 @@ from fairseq2.generation._error import (
 from fairseq2.generation._error import (
     UnknownSequenceGeneratorError as UnknownSequenceGeneratorError,
 )
-from fairseq2.generation._generator import (
-    AbstractSeq2SeqGenerator as AbstractSeq2SeqGenerator,
-)
-from fairseq2.generation._generator import (
-    AbstractSequenceGenerator as AbstractSequenceGenerator,
-)
 from fairseq2.generation._generator import GenerationCounters as GenerationCounters
 from fairseq2.generation._generator import Hypothesis as Hypothesis
 from fairseq2.generation._generator import Seq2SeqGenerator as Seq2SeqGenerator

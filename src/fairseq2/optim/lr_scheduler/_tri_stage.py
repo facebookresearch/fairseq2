@@ -18,8 +18,8 @@ from fairseq2.context import RuntimeContext
 from fairseq2.optim.lr_scheduler._error import UnspecifiedNumberOfStepsError
 from fairseq2.optim.lr_scheduler._handler import LRSchedulerHandler
 from fairseq2.optim.lr_scheduler._lr_scheduler import (
-    AbstractLRScheduler,
     LRScheduler,
+    LRSchedulerBase,
     get_per_param_group,
 )
 from fairseq2.utils.structured import structure
@@ -27,7 +27,7 @@ from fairseq2.utils.validation import ValidationError, ValidationResult, validat
 
 
 @final
-class TriStageLR(AbstractLRScheduler):
+class TriStageLR(LRSchedulerBase):
     """Represents the tri-stage learning rate schedule as described in Section
     3.2 of :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`.
 
