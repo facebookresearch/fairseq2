@@ -14,6 +14,7 @@ from typing import Final, final
 from torch.optim import Optimizer
 from typing_extensions import override
 
+from fairseq2.context import RuntimeContext
 from fairseq2.logging import log
 from fairseq2.optim.lr_scheduler._handler import LRSchedulerHandler
 from fairseq2.optim.lr_scheduler._lr_scheduler import (
@@ -275,3 +276,9 @@ class CosineAnnealingLRHandler(LRSchedulerHandler):
     @override
     def config_kls(self) -> type[object]:
         return CosineAnnealingLRConfig
+
+
+def register_cosine_annealing_lr(context: RuntimeContext) -> None:
+    registry = context.get_registry(LRSchedulerHandler)
+
+    registry.register(COSINE_ANNEALING_LR, CosineAnnealingLRHandler())
