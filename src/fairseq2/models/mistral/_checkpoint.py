@@ -6,36 +6,8 @@
 
 from __future__ import annotations
 
-from fairseq2.context import RuntimeContext
-from fairseq2.models import register_model_family
-from fairseq2.models.mistral._config import (
-    MISTRAL_MODEL_FAMILY,
-    MistralConfig,
-    register_mistral_configs,
-)
-from fairseq2.models.mistral._factory import MistralFactory
-from fairseq2.models.transformer_decoder import TransformerDecoderModel
+from fairseq2.models.mistral._config import MistralConfig
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
-
-
-def register_mistral_family(context: RuntimeContext) -> None:
-    default_arch = "7b"
-
-    register_model_family(
-        context,
-        MISTRAL_MODEL_FAMILY,
-        TransformerDecoderModel,
-        MistralConfig,
-        default_arch,
-        create_mistral_model,
-        checkpoint_converter=convert_mistral_checkpoint,
-    )
-
-    register_mistral_configs(context)
-
-
-def create_mistral_model(config: MistralConfig) -> TransformerDecoderModel:
-    return MistralFactory(config).create_model()
 
 
 def convert_mistral_checkpoint(

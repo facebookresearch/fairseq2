@@ -12,7 +12,6 @@ from typing import Final, final
 from torch.optim import Optimizer
 from typing_extensions import override
 
-from fairseq2.context import RuntimeContext
 from fairseq2.optim.lr_scheduler._handler import LRSchedulerHandler
 from fairseq2.optim.lr_scheduler._lr_scheduler import LRScheduler, LRSchedulerBase
 from fairseq2.utils.structured import structure
@@ -102,16 +101,15 @@ class NoamLRHandler(LRSchedulerHandler):
 
     @property
     @override
-    def requires_num_steps(self) -> bool:
-        return False
+    def name(self) -> str:
+        return NOAM_LR
 
     @property
     @override
     def config_kls(self) -> type[object]:
         return NoamLRConfig
 
-
-def register_noam_lr(context: RuntimeContext) -> None:
-    registry = context.get_registry(LRSchedulerHandler)
-
-    registry.register(NOAM_LR, NoamLRHandler())
+    @property
+    @override
+    def requires_num_steps(self) -> bool:
+        return False

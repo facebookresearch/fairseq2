@@ -22,7 +22,6 @@ from fairseq2.assets import (
     AssetDownloadManager,
 )
 from fairseq2.config_registry import ConfigNotFoundError, ConfigProvider
-from fairseq2.context import RuntimeContext
 from fairseq2.error import ContractError, NotSupportedError
 from fairseq2.gang import Gangs
 from fairseq2.models._error import (
@@ -40,7 +39,10 @@ from fairseq2.nn.utils.module import (
     to_empty,
 )
 from fairseq2.typing import CPU, META, DataType
-from fairseq2.utils.file import StandardTensorLoader, TensorLoader, TensorLoadError
+from fairseq2.utils.file import (
+    TensorLoader,
+    TensorLoadError,
+)
 from fairseq2.utils.merge import MergeError, merge_object
 from fairseq2.utils.structured import StructureError, structure, unstructure
 from fairseq2.utils.validation import validate
@@ -105,35 +107,35 @@ class ModelHandler(ABC):
 
 ModelT_co = TypeVar("ModelT_co", bound=Module, covariant=True)
 
-ConfigT_contra = TypeVar("ConfigT_contra", contravariant=True)
+ModelConfigT_contra = TypeVar("ModelConfigT_contra", contravariant=True)
 
 
-class ModelFactory(Protocol[ConfigT_contra, ModelT_co]):
-    def __call__(self, config: ConfigT_contra) -> ModelT_co: ...
+class ModelFactory(Protocol[ModelConfigT_contra, ModelT_co]):
+    def __call__(self, config: ModelConfigT_contra) -> ModelT_co: ...
 
 
-class CheckpointConverter(Protocol[ConfigT_contra]):
+class CheckpointConverter(Protocol[ModelConfigT_contra]):
     def __call__(
-        self, checkpoint: dict[str, object], config: ConfigT_contra
+        self, checkpoint: dict[str, object], config: ModelConfigT_contra
     ) -> dict[str, object]: ...
 
 
 ModelT_contra = TypeVar("ModelT_contra", bound=Module, contravariant=True)
 
 
-class ModelSharder(Protocol[ModelT_contra, ConfigT_contra]):
+class ModelSharder(Protocol[ModelT_contra, ModelConfigT_contra]):
     def __call__(
-        self, model: ModelT_contra, config: ConfigT_contra, gangs: Gangs
+        self, model: ModelT_contra, config: ModelConfigT_contra, gangs: Gangs
     ) -> None: ...
 
 
-class ModelTorchCompiler(Protocol[ModelT_contra, ConfigT_contra]):
-    def __call__(self, model: ModelT_contra, config: ConfigT_contra) -> Module: ...
+class ModelTorchCompiler(Protocol[ModelT_contra, ModelConfigT_contra]):
+    def __call__(self, model: ModelT_contra, config: ModelConfigT_contra) -> Module: ...
 
 
 ModelT = TypeVar("ModelT", bound=Module)
 
-ConfigT = TypeVar("ConfigT")
+ModelConfigT = TypeVar("ModelConfigT")
 
 
 @final
@@ -155,17 +157,17 @@ class StandardModelHandler(ModelHandler):
         self,
         family: str,
         kls: type[ModelT],
-        configs: ConfigProvider[ConfigT],
+        configs: ConfigProvider[ModelConfigT],
         default_arch: str,
-        factory: ModelFactory[ConfigT, ModelT],
+        factory: ModelFactory[ModelConfigT, ModelT],
         asset_download_manager: AssetDownloadManager,
         tensor_loader: TensorLoader,
         *,
         supports_meta: bool = True,
         restrict: bool = True,
-        checkpoint_converter: CheckpointConverter[ConfigT] | None = None,
-        sharder: ModelSharder[ModelT, ConfigT] | None = None,
-        torch_compiler: ModelTorchCompiler[ModelT, ConfigT] | None = None,
+        checkpoint_converter: CheckpointConverter[ModelConfigT] | None = None,
+        sharder: ModelSharder[ModelT, ModelConfigT] | None = None,
+        torch_compiler: ModelTorchCompiler[ModelT, ModelConfigT] | None = None,
     ) -> None:
         self._family = family
         self._kls = kls
@@ -510,43 +512,3 @@ class StandardModelHandler(ModelHandler):
     @override
     def supports_compilation(self) -> bool:
         return self._torch_compiler is not None
-
-
-def register_model_family(
-    context: RuntimeContext,
-    family: str,
-    kls: type[ModelT],
-    config_kls: type[ConfigT],
-    default_arch: str,
-    factory: ModelFactory[ConfigT, ModelT],
-    *,
-    supports_meta: bool = True,
-    restrict: bool = True,
-    checkpoint_converter: CheckpointConverter[ConfigT] | None = None,
-    sharder: ModelSharder[ModelT, ConfigT] | None = None,
-    torch_compiler: ModelTorchCompiler[ModelT, ConfigT] | None = None,
-) -> None:
-    asset_download_manager = context.asset_download_manager
-
-    tensor_loader = StandardTensorLoader(context.file_system)
-
-    configs = context.get_config_registry(config_kls)
-
-    handler = StandardModelHandler(
-        family,
-        kls,
-        configs,
-        default_arch,
-        factory,
-        asset_download_manager,
-        tensor_loader,
-        supports_meta=supports_meta,
-        restrict=restrict,
-        checkpoint_converter=checkpoint_converter,
-        sharder=sharder,
-        torch_compiler=torch_compiler,
-    )
-
-    registry = context.get_registry(ModelHandler)
-
-    registry.register(handler.family, handler)

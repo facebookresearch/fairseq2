@@ -24,6 +24,3 @@ from fairseq2.metrics._descriptor import format_as_float as format_as_float
 from fairseq2.metrics._descriptor import format_as_int as format_as_int
 from fairseq2.metrics._descriptor import format_as_percentage as format_as_percentage
 from fairseq2.metrics._descriptor import format_as_seconds as format_as_seconds
-from fairseq2.metrics._setup import (
-    register_metric_descriptors as register_metric_descriptors,
-)

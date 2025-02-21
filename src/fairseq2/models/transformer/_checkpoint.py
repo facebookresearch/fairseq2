@@ -12,36 +12,8 @@ from typing import cast
 import torch
 from torch import Tensor
 
-from fairseq2.context import RuntimeContext
-from fairseq2.models import register_model_family
-from fairseq2.models.transformer._config import (
-    TRANSFORMER_MODEL_FAMILY,
-    TransformerConfig,
-    register_transformer_configs,
-)
-from fairseq2.models.transformer._factory import TransformerFactory
-from fairseq2.models.transformer._model import TransformerModel
+from fairseq2.models.transformer._config import TransformerConfig
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
-
-
-def register_transformer_family(context: RuntimeContext) -> None:
-    default_arch = "base"
-
-    register_model_family(
-        context,
-        TRANSFORMER_MODEL_FAMILY,
-        TransformerModel,
-        TransformerConfig,
-        default_arch,
-        create_transformer_model,
-        checkpoint_converter=convert_transformer_checkpoint,
-    )
-
-    register_transformer_configs(context)
-
-
-def create_transformer_model(config: TransformerConfig) -> TransformerModel:
-    return TransformerFactory(config).create_model()
 
 
 def convert_transformer_checkpoint(

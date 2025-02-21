@@ -8,33 +8,36 @@ from __future__ import annotations
 
 import os
 from enum import Enum
+from typing import Mapping
 
 from fairseq2.assets import (
     AssetDirectories,
+    AssetDownloadManager,
     InProcAssetDownloadManager,
     StandardAssetStore,
 )
-from fairseq2.assets.setup import register_assets
-from fairseq2.chatbots.setup import register_chatbots
-from fairseq2.cluster import register_clusters
 from fairseq2.context import RuntimeContext, set_runtime_context
-from fairseq2.data.text.tokenizers.setup import register_text_tokenizer_families
-from fairseq2.datasets.setup import register_dataset_families
 from fairseq2.extensions import run_extensions
-from fairseq2.generation import (
+from fairseq2.setup._asset import register_assets
+from fairseq2.setup._chatbots import register_chatbots
+from fairseq2.setup._cluster import register_clusters
+from fairseq2.setup._datasets import register_dataset_families
+from fairseq2.setup._generation import (
     register_beam_search_algorithms,
-    register_beam_search_seq_generators,
     register_samplers,
-    register_sampling_seq_generators,
+    register_seq2seq_generators,
+    register_seq_generators,
 )
-from fairseq2.metrics import register_metric_descriptors
-from fairseq2.metrics.recorders import register_metric_recorders
-from fairseq2.models.setup import register_model_families
-from fairseq2.optim import register_optimizers
-from fairseq2.optim.lr_scheduler import register_lr_schedulers
-from fairseq2.profilers import register_profilers
-from fairseq2.recipes.setup import register_recipes
-from fairseq2.utils.file import LocalFileSystem
+from fairseq2.setup._lr_schedulers import register_lr_schedulers
+from fairseq2.setup._metric_recorders import register_metric_recorders
+from fairseq2.setup._metrics import register_metric_descriptors
+from fairseq2.setup._models import register_model_families
+from fairseq2.setup._optim import register_optimizers
+from fairseq2.setup._po_finetune_units import register_po_finetune_units
+from fairseq2.setup._profilers import register_profilers
+from fairseq2.setup._recipes import register_recipes
+from fairseq2.setup._text_tokenizers import register_text_tokenizer_families
+from fairseq2.utils.file import FileSystem, LocalFileSystem
 
 
 class _SetupState(Enum):
@@ -83,21 +86,18 @@ def setup_fairseq2() -> None:
 
 
 def setup_library() -> RuntimeContext:
-    asset_store = StandardAssetStore()
+    env = os.environ
 
     file_system = LocalFileSystem()
 
-    asset_dirs = AssetDirectories(os.environ, file_system)
+    asset_store = StandardAssetStore()
 
-    asset_cache_dir = asset_dirs.get_cache_dir()
+    asset_download_manager = _create_asset_download_manager(env, file_system)
 
-    asset_download_manager = InProcAssetDownloadManager(asset_cache_dir)
-
-    context = RuntimeContext(asset_store, asset_download_manager, file_system)
+    context = RuntimeContext(env, asset_store, asset_download_manager, file_system)
 
     register_assets(context)
     register_beam_search_algorithms(context)
-    register_beam_search_seq_generators(context)
     register_chatbots(context)
     register_clusters(context)
     register_dataset_families(context)
@@ -106,12 +106,24 @@ def setup_library() -> RuntimeContext:
     register_metric_recorders(context)
     register_model_families(context)
     register_optimizers(context)
+    register_po_finetune_units(context)
     register_profilers(context)
     register_recipes(context)
     register_samplers(context)
-    register_sampling_seq_generators(context)
+    register_seq2seq_generators(context)
+    register_seq_generators(context)
     register_text_tokenizer_families(context)
 
     run_extensions("fairseq2.extension", context)
 
     return context
+
+
+def _create_asset_download_manager(
+    env: Mapping[str, str], file_system: FileSystem
+) -> AssetDownloadManager:
+    asset_dirs = AssetDirectories(env, file_system)
+
+    asset_cache_dir = asset_dirs.get_cache_dir()
+
+    return InProcAssetDownloadManager(asset_cache_dir)

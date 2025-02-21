@@ -12,12 +12,10 @@ from typing import Final, final
 from typing_extensions import override
 
 from fairseq2.assets import AssetCard, AssetCardError
-from fairseq2.context import RuntimeContext
 from fairseq2.data import VocabularyInfo
 from fairseq2.data.text.tokenizers import (
     TextTokenizer,
     TextTokenizerLoadError,
-    register_text_tokenizer_family,
     text_tokenizer_asset_card_error,
 )
 from fairseq2.data.text.tokenizers.sentencepiece import (
@@ -161,9 +159,3 @@ def load_s2t_transformer_tokenizer(path: Path, card: AssetCard) -> TextTokenizer
         raise TextTokenizerLoadError(
             card.name, f"The '{card.name}' text tokenizer cannot be loaded. See the nested exception for details."  # fmt: skip
         ) from ex
-
-
-def register_s2t_transformer_tokenizer_family(context: RuntimeContext) -> None:
-    register_text_tokenizer_family(
-        context, S2T_TRANSFORMER_TOKENIZER_FAMILY, load_s2t_transformer_tokenizer
-    )

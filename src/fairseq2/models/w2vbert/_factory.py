@@ -11,6 +11,10 @@ from fairseq2.models.w2vbert._model import W2VBertModel
 from fairseq2.models.wav2vec2 import Wav2Vec2Factory, Wav2Vec2Model
 
 
+def create_w2vbert_model(config: W2VBertConfig) -> W2VBertModel:
+    return W2VBertFactory(config).create_model()
+
+
 class W2VBertFactory:
     _config: W2VBertConfig
 

@@ -13,7 +13,6 @@ from typing import Final, final
 
 from typing_extensions import override
 
-from fairseq2.context import RuntimeContext
 from fairseq2.logging import log
 from fairseq2.metrics import MetricDescriptor
 from fairseq2.metrics.recorders._handler import MetricRecorderHandler
@@ -157,15 +156,10 @@ class WandbRecorderHandler(MetricRecorderHandler):
 
     @property
     @override
+    def name(self) -> str:
+        return WANDB_RECORDER
+
+    @property
+    @override
     def config_kls(self) -> type[object]:
         return WandbRecorderConfig
-
-
-def register_wandb_recorder(context: RuntimeContext) -> None:
-    metric_descriptors = context.get_registry(MetricDescriptor)
-
-    handler = WandbRecorderHandler(metric_descriptors)
-
-    registry = context.get_registry(MetricRecorderHandler)
-
-    registry.register(WANDB_RECORDER, handler)

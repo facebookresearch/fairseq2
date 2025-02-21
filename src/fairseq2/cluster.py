@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import os
 import subprocess
 from abc import ABC, abstractmethod
 from collections.abc import Collection, Mapping, MutableMapping
@@ -15,7 +14,6 @@ from typing import final
 
 from typing_extensions import override
 
-from fairseq2.context import RuntimeContext
 from fairseq2.registry import Provider
 
 
@@ -69,6 +67,10 @@ class ClusterHandler(ABC):
     @abstractmethod
     def supports_current_cluster(self) -> bool:
         """Return ``True`` if this instance supports the current cluster."""
+
+    @property
+    @abstractmethod
+    def supported_cluster(self) -> str: ...
 
 
 class ClusterError(Exception):
@@ -160,6 +162,11 @@ class SlurmClusterHandler(ClusterHandler):
     def supports_current_cluster(self) -> bool:
         return "SLURM_JOB_ID" in self._env
 
+    @property
+    @override
+    def supported_cluster(self) -> str:
+        return "slurm"
+
 
 @final
 class _NoneClusterHandler(ClusterHandler):
@@ -171,8 +178,7 @@ class _NoneClusterHandler(ClusterHandler):
     def supports_current_cluster(self) -> bool:
         return True
 
-
-def register_clusters(context: RuntimeContext) -> None:
-    registry = context.get_registry(ClusterHandler)
-
-    registry.register("slurm", SlurmClusterHandler(os.environ))
+    @property
+    @override
+    def supported_cluster(self) -> str:
+        return "none"

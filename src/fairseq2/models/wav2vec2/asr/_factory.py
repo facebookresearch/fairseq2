@@ -17,6 +17,10 @@ from fairseq2.models.wav2vec2.asr._model import Wav2Vec2AsrModel
 from fairseq2.nn.transformer import TransformerEncoder
 
 
+def create_wav2vec2_asr_model(config: Wav2Vec2AsrConfig) -> Wav2Vec2AsrModel:
+    return Wav2Vec2AsrFactory(config).create_model()
+
+
 class Wav2Vec2AsrFactory:
     _config: Wav2Vec2AsrConfig
 

@@ -89,6 +89,8 @@ class DatasetHubAccessor(Generic[DatasetT]):
     def __call__(self) -> DatasetHub[DatasetT]:
         context = get_runtime_context()
 
+        asset_store = context.asset_store
+
         dataset_handlers = context.get_registry(DatasetHandler)
 
-        return DatasetHub(self._kls, context.asset_store, dataset_handlers)
+        return DatasetHub(self._kls, asset_store, dataset_handlers)

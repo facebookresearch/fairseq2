@@ -23,6 +23,10 @@ from fairseq2.nn.transformer import (
 )
 
 
+def create_jepa_classifier_model(config: JepaClassifierConfig) -> JepaClassifierModel:
+    return JepaClassifierFactory(config).create_model()
+
+
 class JepaClassifierFactory:
     _config: JepaClassifierConfig
 

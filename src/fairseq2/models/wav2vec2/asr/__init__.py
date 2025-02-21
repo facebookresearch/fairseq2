@@ -6,6 +6,9 @@
 
 from __future__ import annotations
 
+from fairseq2.models.wav2vec2.asr._checkpoint import (
+    convert_wav2vec2_asr_checkpoint as convert_wav2vec2_asr_checkpoint,
+)
 from fairseq2.models.wav2vec2.asr._config import (
     WAV2VEC2_ASR_MODEL_FAMILY as WAV2VEC2_ASR_MODEL_FAMILY,
 )
@@ -16,16 +19,10 @@ from fairseq2.models.wav2vec2.asr._config import (
 from fairseq2.models.wav2vec2.asr._factory import (
     Wav2Vec2AsrFactory as Wav2Vec2AsrFactory,
 )
-from fairseq2.models.wav2vec2.asr._model import Wav2Vec2AsrModel as Wav2Vec2AsrModel
-from fairseq2.models.wav2vec2.asr._setup import (
-    convert_wav2vec2_asr_checkpoint as convert_wav2vec2_asr_checkpoint,
-)
-from fairseq2.models.wav2vec2.asr._setup import (
+from fairseq2.models.wav2vec2.asr._factory import (
     create_wav2vec2_asr_model as create_wav2vec2_asr_model,
 )
-from fairseq2.models.wav2vec2.asr._setup import (
-    register_wav2vec2_asr_family as register_wav2vec2_asr_family,
-)
+from fairseq2.models.wav2vec2.asr._model import Wav2Vec2AsrModel as Wav2Vec2AsrModel
 
 # isort: split
 

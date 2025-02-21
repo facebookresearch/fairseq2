@@ -16,7 +16,6 @@ from torch.optim import Optimizer
 from torch.optim.adamw import adamw  # type: ignore[attr-defined]
 from typing_extensions import override
 
-from fairseq2.context import RuntimeContext
 from fairseq2.error import NotSupportedError
 from fairseq2.optim._handler import OptimizerHandler
 from fairseq2.optim._optimizer import OptimizerBase, ParameterCollection
@@ -346,11 +345,10 @@ class AdamWHandler(OptimizerHandler):
 
     @property
     @override
+    def name(self) -> str:
+        return ADAMW_OPTIMIZER
+
+    @property
+    @override
     def config_kls(self) -> type[object]:
         return AdamWConfig
-
-
-def register_adamw(context: RuntimeContext) -> None:
-    registry = context.get_registry(OptimizerHandler)
-
-    registry.register(ADAMW_OPTIMIZER, AdamWHandler())

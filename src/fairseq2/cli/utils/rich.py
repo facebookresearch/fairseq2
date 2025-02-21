@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any, final
 
 from rich import get_console as get_rich_console
@@ -24,6 +23,7 @@ from rich.progress import (
 from rich.text import Text
 from typing_extensions import Self, override
 
+from fairseq2.context import RuntimeContext
 from fairseq2.recipes.utils.progress import ProgressReporter, ProgressTask
 from fairseq2.utils.env import get_rank
 
@@ -126,9 +126,9 @@ class BasicMofNCompleteColumn(ProgressColumn):
         return Text(s, style="progress.download")
 
 
-def create_rich_progress_reporter() -> ProgressReporter:
+def create_rich_progress_reporter(context: RuntimeContext) -> ProgressReporter:
     console = get_error_console()
 
-    rank = get_rank(os.environ)
+    rank = get_rank(context.env)
 
     return RichProgressReporter(console, rank)

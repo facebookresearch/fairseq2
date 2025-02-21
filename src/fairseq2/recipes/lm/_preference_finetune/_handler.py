@@ -22,6 +22,10 @@ class POFinetuneUnitHandler(ABC):
 
     @property
     @abstractmethod
+    def name(self) -> str: ...
+
+    @property
+    @abstractmethod
     def config_kls(self) -> type[object]: ...
 
 

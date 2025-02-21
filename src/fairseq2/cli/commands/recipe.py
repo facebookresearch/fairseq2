@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import os
 import sys
 from argparse import OPTIONAL, ArgumentParser, BooleanOptionalAction, Namespace
 from collections.abc import Callable, Hashable, Iterable, Mapping, Set
@@ -258,7 +257,7 @@ class RecipeCommandHandler(CliCommandHandler):
 
             signal(SIGUSR1, request_stop)
 
-        progress_reporter = create_rich_progress_reporter()
+        progress_reporter = create_rich_progress_reporter(context)
 
         recipe(progress_reporter)
 
@@ -307,7 +306,7 @@ class RecipeCommandHandler(CliCommandHandler):
             return None
 
         try:
-            world_size = get_world_size(os.environ)
+            world_size = get_world_size(context.env)
         except InvalidEnvironmentVariableError as ex:
             raise SweepTagError(
                 "The world size cannot be determined. See the nested exception for details."
@@ -340,7 +339,7 @@ class RecipeCommandHandler(CliCommandHandler):
         logger = getLogger()
 
         initializer = DistributedLoggingInitializer(
-            logger, os.environ, context.file_system
+            logger, context.env, context.file_system
         )
 
         try:
@@ -356,7 +355,7 @@ class RecipeCommandHandler(CliCommandHandler):
     def _dump_config(context: RuntimeContext, config: object, output_dir: Path) -> None:
         yaml_dumper = StandardYamlDumper(context.file_system)
 
-        dumper = ConfigDumper(os.environ, yaml_dumper)
+        dumper = ConfigDumper(context.env, yaml_dumper)
 
         try:
             dumper.dump(config, output_dir)

@@ -8,8 +8,6 @@ from __future__ import annotations
 
 from typing import Final
 
-from fairseq2.context import RuntimeContext
-from fairseq2.data.text.tokenizers import register_text_tokenizer_family
 from fairseq2.data.text.tokenizers.sentencepiece import (
     load_basic_sentencepiece_tokenizer,
 )
@@ -17,7 +15,4 @@ from fairseq2.data.text.tokenizers.sentencepiece import (
 MISTRAL_TOKENIZER_FAMILY: Final = "mistral"
 
 
-def register_mistral_tokenizer_family(context: RuntimeContext) -> None:
-    register_text_tokenizer_family(
-        context, MISTRAL_TOKENIZER_FAMILY, load_basic_sentencepiece_tokenizer
-    )
+load_mistral_tokenizer = load_basic_sentencepiece_tokenizer

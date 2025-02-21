@@ -9,36 +9,8 @@ from __future__ import annotations
 import torch
 from torch import Tensor
 
-from fairseq2.context import RuntimeContext
-from fairseq2.models import register_model_family
-from fairseq2.models.jepa._config import (
-    JEPA_MODEL_FAMILY,
-    JepaConfig,
-    register_jepa_configs,
-)
-from fairseq2.models.jepa._factory import JepaFactory
-from fairseq2.models.jepa._model import JepaModel
+from fairseq2.models.jepa._config import JepaConfig
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
-
-
-def register_jepa_family(context: RuntimeContext) -> None:
-    default_arch = "base"
-
-    register_model_family(
-        context,
-        JEPA_MODEL_FAMILY,
-        JepaModel,
-        JepaConfig,
-        default_arch,
-        create_jepa_model,
-        checkpoint_converter=convert_jepa_checkpoint,
-    )
-
-    register_jepa_configs(context)
-
-
-def create_jepa_model(config: JepaConfig) -> JepaModel:
-    return JepaFactory(config).create_model()
 
 
 def convert_jepa_checkpoint(

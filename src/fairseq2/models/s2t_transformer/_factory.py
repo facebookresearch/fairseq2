@@ -48,6 +48,10 @@ from fairseq2.nn.transformer import (
 from fairseq2.utils.lazy import Lazy
 
 
+def create_s2t_transformer_model(config: S2TTransformerConfig) -> TransformerModel:
+    return S2TTransformerFactory(config).create_model()
+
+
 class S2TTransformerFactory:
     _config: S2TTransformerConfig
 

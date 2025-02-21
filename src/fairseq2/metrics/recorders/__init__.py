@@ -25,9 +25,6 @@ from fairseq2.metrics.recorders._jsonl import (
 from fairseq2.metrics.recorders._jsonl import (
     JsonlMetricRecorderHandler as JsonlMetricRecorderHandler,
 )
-from fairseq2.metrics.recorders._jsonl import (
-    register_jsonl_metric_recorder as register_jsonl_metric_recorder,
-)
 from fairseq2.metrics.recorders._log import LOG_METRIC_RECORDER as LOG_METRIC_RECORDER
 from fairseq2.metrics.recorders._log import LogMetricRecorder as LogMetricRecorder
 from fairseq2.metrics.recorders._log import (
@@ -36,18 +33,12 @@ from fairseq2.metrics.recorders._log import (
 from fairseq2.metrics.recorders._log import (
     LogMetricRecorderHandler as LogMetricRecorderHandler,
 )
-from fairseq2.metrics.recorders._log import (
-    register_log_metric_recorder as register_log_metric_recorder,
-)
 from fairseq2.metrics.recorders._recorder import MetricRecorder as MetricRecorder
 from fairseq2.metrics.recorders._recorder import MetricRecordError as MetricRecordError
 from fairseq2.metrics.recorders._recorder import (
     NoopMetricRecorder as NoopMetricRecorder,
 )
 from fairseq2.metrics.recorders._recorder import record_metrics as record_metrics
-from fairseq2.metrics.recorders._setup import (
-    register_metric_recorders as register_metric_recorders,
-)
 from fairseq2.metrics.recorders._tensorboard import (
     TENSORBOARD_RECORDER as TENSORBOARD_RECORDER,
 )
@@ -60,15 +51,9 @@ from fairseq2.metrics.recorders._tensorboard import (
 from fairseq2.metrics.recorders._tensorboard import (
     TensorBoardRecorderHandler as TensorBoardRecorderHandler,
 )
-from fairseq2.metrics.recorders._tensorboard import (
-    register_tensorboard_recorder as register_tensorboard_recorder,
-)
 from fairseq2.metrics.recorders._wandb import WANDB_RECORDER as WANDB_RECORDER
 from fairseq2.metrics.recorders._wandb import WandbRecorder as WandbRecorder
 from fairseq2.metrics.recorders._wandb import WandbRecorderConfig as WandbRecorderConfig
 from fairseq2.metrics.recorders._wandb import (
     WandbRecorderHandler as WandbRecorderHandler,
-)
-from fairseq2.metrics.recorders._wandb import (
-    register_wandb_recorder as register_wandb_recorder,
 )
