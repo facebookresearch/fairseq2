@@ -21,11 +21,13 @@ from fairseq2.recipes.lm import (
     InstructionFinetuneConfig,
     LMLossEvalConfig,
     POFinetuneConfig,
+    OnlineFinetuneConfig,
     TextGenerateConfig,
     load_instruction_finetuner,
     load_lm_loss_evaluator,
     load_po_finetuner,
     load_text_generator,
+    load_online_finetuner,
 )
 from fairseq2.recipes.mt import (
     MTEvalConfig,
@@ -191,6 +193,19 @@ def _register_lm_cli(cli: Cli) -> None:
         name="generate",
         handler=text_generate_handler,
         help="generate text",
+    )
+
+    # Online Finetune
+    online_finetune_handler = RecipeCommandHandler(
+        loader=load_online_finetuner,
+        config_kls=OnlineFinetuneConfig,
+        default_preset="llama3_1_instruct",
+    )
+
+    group.add_command(
+        name="online_finetune",
+        handler=online_finetune_handler,
+        help="online-finetune a language model.",
     )
 
 

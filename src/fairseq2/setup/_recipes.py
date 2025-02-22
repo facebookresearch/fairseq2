@@ -18,9 +18,12 @@ from fairseq2.recipes.lm import (
     OrpoFinetuneUnitHandler,
     POFinetuneUnitHandler,
     SimPOFinetuneUnitHandler,
+    OnlineFinetuneUnitHandler,
+    OnlineDpoFinetuneUnitHandler,
     register_instruction_finetune_configs,
     register_lm_loss_eval_configs,
     register_po_finetune_configs,
+    register_online_finetune_configs,
     register_text_generate_configs,
 )
 from fairseq2.recipes.mt import (
@@ -47,8 +50,10 @@ def _register_recipes(context: RuntimeContext) -> None:
     register_wav2vec2_asr_train_configs(context)
     register_wav2vec2_eval_configs(context)
     register_wav2vec2_train_configs(context)
+    register_online_finetune_configs(context)
 
     _register_po_finetune_units(context)
+    _register_online_finetune_units(context)
 
 
 def _register_po_finetune_units(context: RuntimeContext) -> None:
@@ -58,3 +63,9 @@ def _register_po_finetune_units(context: RuntimeContext) -> None:
     registry.register(DPO_FINETUNE_UNIT, DpoFinetuneUnitHandler(context))
     registry.register(ORPO_FINETUNE_UNIT, OrpoFinetuneUnitHandler())
     registry.register(SIMPO_FINETUNE_UNIT, SimPOFinetuneUnitHandler())
+
+
+def _register_online_finetune_units(context: RuntimeContext) -> None:
+    registry = context.get_registry(OnlineFinetuneUnitHandler)
+
+    registry.register("online_dpo", OnlineDpoFinetuneUnitHandler(context))
