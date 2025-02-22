@@ -13,6 +13,7 @@ from typing import final
 from torch import Tensor
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn import Module
+from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.optim import Optimizer
 from typing_extensions import override
@@ -113,7 +114,11 @@ class DDPModel(Model):
 
     @override
     def state_dict(self) -> dict[str, object]:
-        return self._ddp.state_dict()
+        state_dict = self._ddp.state_dict()
+
+        consume_prefix_in_state_dict_if_present(state_dict, prefix="module.")
+
+        return state_dict
 
     @override
     def optim_state_dict(self, optim: Optimizer) -> dict[str, object]:

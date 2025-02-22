@@ -169,9 +169,7 @@ class ValueConverter:
             )
 
         if isinstance(obj, kls):
-            values = {f.name: getattr(obj, f.name) for f in fields(kls)}
-
-            return self._create_dataclass(kls, values, set_empty)
+            return obj
 
         if isinstance(obj, Mapping):
             values = self.structure(obj, dict[str, object])

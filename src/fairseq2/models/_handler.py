@@ -12,7 +12,6 @@ from typing import Any, Protocol, TypeVar, final
 
 import torch
 from torch.nn import Module
-from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
 from typing_extensions import override
 
 from fairseq2.assets import (
@@ -264,51 +263,11 @@ class StandardModelHandler(ModelHandler):
     def create(
         self, config: object, gangs: Gangs, dtype: DataType, meta: bool
     ) -> Module:
-        if meta:
-            if not self.supports_meta:
-                raise NotSupportedError(
-                    f"The '{self._family}' model family does not support meta device initialization."
-                )
-
-            device = META
-        elif gangs.root.size != gangs.dp.size:
-            device = CPU  # Avoid OOM for sharded models.
-        else:
-            device = gangs.root.device
-
         config = structure(config, self._configs.config_kls)
 
         validate(config)
 
-        original_dtype = torch.get_default_dtype()
-
-        try:
-            torch.set_default_dtype(dtype)
-
-            with device:
-                model = self._factory(config)
-        except NotImplementedError as ex:
-            if "'Meta' backend" not in str(ex):
-                raise
-
-            raise ContractError(
-                "One or more operators in the model constructor have failed to initialize on the meta device. See the nested exception for details."
-            ) from ex
-        finally:
-            torch.set_default_dtype(original_dtype)
-
-        if gangs.root.size != gangs.dp.size:
-            if self._sharder is None:
-                raise NotSupportedError(
-                    f"The '{self._family}' model family does not support non-data parallelism."
-                )
-
-            self._sharder(model, config, gangs)
-
-            if not meta and device != gangs.root.device:
-                to_device(model, gangs.root.device)
-
-        return model
+        return self._do_create(config, gangs, dtype, meta)
 
     @override
     def load(
@@ -336,10 +295,8 @@ class StandardModelHandler(ModelHandler):
         except AssetCardError as ex:
             raise model_asset_card_error(model_name) from ex
 
-        shard_idx = gangs.tp.rank if num_shards > 1 else None
-
         path = self._asset_download_manager.download_checkpoint(
-            checkpoint_uri, model_name, shard_idx=shard_idx
+            checkpoint_uri, model_name, shard_idx=gangs.tp.rank
         )
 
         # Load the configuration.
@@ -394,6 +351,10 @@ class StandardModelHandler(ModelHandler):
                 "`gangs` must be on a real device, but is on the meta device instead."
             )
 
+        config = structure(config, self._configs.config_kls)
+
+        validate(config)
+
         if restrict is None:
             restrict = self._restrict
 
@@ -421,7 +382,7 @@ class StandardModelHandler(ModelHandler):
                 ) from ex
 
         # Create the model.
-        model = self.create(config, gangs, dtype, meta=self.supports_meta)
+        model = self._do_create(config, gangs, dtype, meta=self.supports_meta)
 
         if self.supports_meta:
             # Move the model to the actual device without initializing. Its
@@ -448,9 +409,6 @@ class StandardModelHandler(ModelHandler):
                 model_name, f"The model state dictionary in the '{model_name}' checkpoint is expected to be of type `dict`, but is of type `{type(state_dict)}` instead."  # fmt: skip
             )
 
-        # Remove DDP 'module' prefix.
-        consume_prefix_in_state_dict_if_present(state_dict, prefix="module.")
-
         try:
             load_state_dict(model, state_dict)
         except (KeyError, ValueError) as ex:
@@ -462,6 +420,51 @@ class StandardModelHandler(ModelHandler):
             # Non-persistent buffers are not included in the checkpoint, so we
             # have to explicitly initialize them.
             reset_non_persistent_buffers(model)
+
+        return model
+
+    def _do_create(
+        self, config: object, gangs: Gangs, dtype: DataType, meta: bool
+    ) -> Module:
+        if meta:
+            if not self.supports_meta:
+                raise NotSupportedError(
+                    f"The '{self._family}' model family does not support meta device initialization."
+                )
+
+            device = META
+        elif gangs.root.size != gangs.dp.size:
+            device = CPU  # Avoid OOM for sharded models.
+        else:
+            device = gangs.root.device
+
+        original_dtype = torch.get_default_dtype()
+
+        try:
+            torch.set_default_dtype(dtype)
+
+            with device:
+                model = self._factory(config)
+        except NotImplementedError as ex:
+            if "'Meta' backend" not in str(ex):
+                raise
+
+            raise ContractError(
+                "One or more operators in the model constructor have failed to initialize on the meta device. See the nested exception for details."
+            ) from ex
+        finally:
+            torch.set_default_dtype(original_dtype)
+
+        if gangs.root.size != gangs.dp.size:
+            if self._sharder is None:
+                raise NotSupportedError(
+                    f"The '{self._family}' model family does not support non-data parallelism."
+                )
+
+            self._sharder(model, config, gangs)
+
+            if not meta and device != gangs.root.device:
+                to_device(model, gangs.root.device)
 
         return model
 
