@@ -178,7 +178,7 @@ class FsdpSection:
     granularity: FsdpGranularity = "layer"
     """The granularity at which to wrap the model."""
 
-    hsdp: bool = False
+    hybrid: bool = False
     """If ``True``, uses hybrid sharded data parallelism."""
 
     reshard_after_forward: bool = True
