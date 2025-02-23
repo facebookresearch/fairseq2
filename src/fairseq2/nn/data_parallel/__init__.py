@@ -24,7 +24,9 @@ from fairseq2.nn.data_parallel._fsdp import (
     FSDPParameterInitializer as FSDPParameterInitializer,
 )
 from fairseq2.nn.data_parallel._fsdp import FSDPWrapPolicy as FSDPWrapPolicy
-from fairseq2.nn.data_parallel._fsdp import fsdp_full_state_dict as fsdp_full_state_dict
+from fairseq2.nn.data_parallel._fsdp import (
+    fsdp_local_state_dict as fsdp_local_state_dict,
+)
 from fairseq2.nn.data_parallel._fsdp import (
     fsdp_summon_full_parameters as fsdp_summon_full_parameters,
 )

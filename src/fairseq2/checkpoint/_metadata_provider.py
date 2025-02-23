@@ -180,14 +180,15 @@ class FileCheckpointMetadataLoader:
             )
 
         if num_shards == 1:
-            filename = "model.pt"
+            pathname = "model.pt"
         else:
-            filename = "model.{shard_idx}.pt"
+            # TODO: Fix once DownloadManager refactoring complete!
+            pathname = "model.0{shard_idx}.pt"
 
         def add_checkpoint_metadata(name: str, step_nr: int) -> None:
-            model_file = self._checkpoint_dir.joinpath(f"step_{step_nr}/{filename}")
+            path = self._checkpoint_dir.joinpath(f"step_{step_nr}/{pathname}")
 
-            cache[name] = {"base": "checkpoint", "checkpoint": str(model_file)}
+            cache[name] = {"base": "checkpoint", "checkpoint": str(path)}
 
         max_step_nr = -1
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from contextlib import nullcontext
 from pathlib import Path
-from typing import cast, final
+from typing import Mapping, cast, final
 
 import torch
 from torch import Tensor
@@ -616,6 +616,10 @@ class LocalModel(Model):
     @override
     def state_dict(self) -> dict[str, object]:
         return self._module.state_dict()
+
+    @override
+    def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
+        self._module.load_state_dict(state_dict)
 
     @override
     def no_sync(self) -> ContextManager:
