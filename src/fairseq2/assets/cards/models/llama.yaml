@@ -78,7 +78,8 @@ base: llama3
 model_config:
   vocab_info:
     _set_:
-      eos_idx: 128009  # end-of-turn
+      eos_idx: 128009  # EOT (end-of-turn)
+use_eot: true  # instruct tokenizer to use EOT instead of EOS
 
 ---
 
