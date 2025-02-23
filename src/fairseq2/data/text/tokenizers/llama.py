@@ -36,14 +36,14 @@ class LLaMA3Tokenizer(TextTokenizer):
     _model: TiktokenModel
     _eos_token: str
 
-    def __init__(self, path: Path, instruct: bool = False) -> None:
+    def __init__(self, path: Path, use_eot: bool = False) -> None:
         """
         :param path:
             The path to the tiktoken BPE file.
-        :param instruct:
+        :param use_eot:
             If ``True``, uses EOT (end-of-turn) token in-place of EOS token.
         """
-        self._eos_token = "<|eot_id|>" if instruct else "<|end_of_text|>"
+        self._eos_token = "<|eot_id|>" if use_eot else "<|end_of_text|>"
 
         special_tokens = [
             "<|begin_of_text|>",
@@ -153,19 +153,15 @@ def load_llama_tokenizer(path: Path, card: AssetCard) -> TextTokenizer:
         set_trace(host="submit-0", port=6899, term_size=(80*2, 24*2), reverse=True)
 
     if use_v2:
-        field = card.field("model_config").field("vocab_info").field("eos_idx")
-
         try:
-            eos_idx = field.as_(int)
+            use_eot = card.field("use_eot").as_(bool)
         except AssetCardFieldNotFoundError:
-            eos_idx = 0
+            use_eot = False
         except AssetCardError as ex:
             raise text_tokenizer_asset_card_error(card.name) from ex
 
-        eot_idx = 128_009  # end-of-turn
-
         try:
-            return LLaMA3Tokenizer(path, instruct=eos_idx == eot_idx)
+            return LLaMA3Tokenizer(path, use_eot=use_eot)
         except ValueError as ex:
             raise TextTokenizerLoadError(
                 card.name, f"The '{card.name}' asset card does not contain a valid text tokenizer configuration of the '{LLAMA_TOKENIZER_FAMILY}' family. See the nested exception for details."  # fmt: skip

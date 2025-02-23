@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Iterator, Mapping, Set
+from collections.abc import Iterable, Mapping, Set
 from os import scandir
 from pathlib import Path
 from shutil import Error
@@ -78,23 +78,11 @@ class CheckpointManager(ABC):
         """Load the checkpoint of the specified training step."""
 
     @abstractmethod
-    def load_last_checkpoint(self) -> tuple[int, dict[str, object]]:
-        """Load the last checkpoint in the training.
-
-        :returns:
-            - The number of the training step.
-            - The checkpoint.
-        """
+    def load_metadata(self, step_nr: int) -> dict[str, object] | None:
+        """Load the checkpoint metadata of the specified training step."""
 
     @abstractmethod
     def get_model_path(self, step_nr: int) -> Path: ...
-
-    @abstractmethod
-    def get_last_model_path(self) -> tuple[int, Path]: ...
-
-    @abstractmethod
-    def load_metadata(self, step_nr: int) -> dict[str, object] | None:
-        """Load the checkpoint metadata of the specified training step."""
 
     @abstractmethod
     def delete_checkpoint(
@@ -131,17 +119,11 @@ class CheckpointManager(ABC):
         """
 
     @abstractmethod
-    def has_checkpoint(self, step_nr: int | None = None) -> bool:
-        """Return ``True`` if the manager holds a checkpoint.
-
-        :param step_nr:
-            The number of the training step. If ``None``, returns ``True`` if
-            the manager holds at least one checkpoint.
-        """
-
-    @abstractmethod
     def get_step_numbers(self) -> list[int]:
         """Return the numbers of the training steps that have a checkpoint."""
+
+    @abstractmethod
+    def get_last_step_number(self) -> int | None: ...
 
 
 @final
@@ -327,9 +309,9 @@ class FileCheckpointManager(CheckpointManager):
         if metadata is None:
             return
 
-        if self._gangs.dp.rank == 0:
+        if self._gangs.root.rank == 0:
             metadata_file = self._checkpoint_dir.joinpath(
-                f"step_{step_nr}.tmp/metadata{self._shard_suffix}.pt"
+                f"step_{step_nr}.tmp/metadata.pt"
             )
 
             try:
@@ -437,48 +419,6 @@ class FileCheckpointManager(CheckpointManager):
         return checkpoint
 
     @override
-    def load_last_checkpoint(self) -> tuple[int, dict[str, object]]:
-        step_numbers = self.get_step_numbers()
-        if not step_numbers:
-            raise CheckpointNotFoundError()
-
-        last_step_nr = step_numbers[-1]
-
-        checkpoint = self.load_checkpoint(last_step_nr)
-
-        return last_step_nr, checkpoint
-
-    @override
-    def get_model_path(self, step_nr: int) -> Path:
-        model_file = self._checkpoint_dir.joinpath(
-            f"step_{step_nr}/model{self._shard_suffix}.pt"
-        )
-
-        try:
-            model_file_exists = self._file_system.exists(model_file)
-        except OSError as ex:
-            raise CheckpointError(
-                f"The '{model_file}' path cannot be accessed. See the nested exception for details."
-            ) from ex
-
-        if not model_file_exists:
-            raise CheckpointNotFoundError(step_nr)
-
-        return model_file
-
-    @override
-    def get_last_model_path(self) -> tuple[int, Path]:
-        step_numbers = self.get_step_numbers()
-        if not step_numbers:
-            raise CheckpointNotFoundError()
-
-        last_step_nr = step_numbers[-1]
-
-        path = self.get_model_path(last_step_nr)
-
-        return last_step_nr, path
-
-    @override
     def load_metadata(self, step_nr: int) -> dict[str, object] | None:
         metadata_file = self._checkpoint_dir.joinpath(
             f"step_{step_nr}/metadata{self._shard_suffix}.pt"
@@ -498,6 +438,24 @@ class FileCheckpointManager(CheckpointManager):
         self._gangs.root.barrier()
 
         return metadata
+
+    @override
+    def get_model_path(self, step_nr: int) -> Path:
+        model_file = self._checkpoint_dir.joinpath(
+            f"step_{step_nr}/model{self._shard_suffix}.pt"
+        )
+
+        try:
+            model_file_exists = self._file_system.exists(model_file)
+        except OSError as ex:
+            raise CheckpointError(
+                f"The '{model_file}' path cannot be accessed. See the nested exception for details."
+            ) from ex
+
+        if not model_file_exists:
+            raise CheckpointNotFoundError(step_nr)
+
+        return model_file
 
     @override
     def delete_checkpoint(
@@ -652,23 +610,9 @@ class FileCheckpointManager(CheckpointManager):
         return scores
 
     @override
-    def has_checkpoint(self, step_nr: int | None = None) -> bool:
-        it = self._iter_step_numbers()
-
-        if step_nr is None:
-            return next(it, None) is not None
-
-        return step_nr in it
-
-    @override
     def get_step_numbers(self) -> list[int]:
-        step_numbers = list(self._iter_step_numbers())
+        step_numbers = []
 
-        step_numbers.sort()
-
-        return step_numbers
-
-    def _iter_step_numbers(self) -> Iterator[int]:
         try:
             for step_dir in self._file_system.glob(self._checkpoint_dir, "step_*"):
                 if not self._file_system.is_dir(step_dir):
@@ -679,11 +623,23 @@ class FileCheckpointManager(CheckpointManager):
                 except ValueError:
                     continue
 
-                yield step_nr
+                step_numbers.append(step_nr)
         except OSError as ex:
             raise CheckpointError(
                 f"The base '{self._checkpoint_dir}' checkpoint directory cannot be traversed. See the nested exception for details."
             ) from ex
+
+        step_numbers.sort()
+
+        return step_numbers
+
+    @override
+    def get_last_step_number(self) -> int | None:
+        step_numbers = self.get_step_numbers()
+        if step_numbers:
+            return step_numbers[-1]
+
+        return None
 
     def _flush_nfs_lookup_cache(self) -> None:
         if not self._file_system.is_local:
@@ -714,15 +670,10 @@ class FileCheckpointManager(CheckpointManager):
 
 
 class CheckpointNotFoundError(Exception):
-    step_nr: int | None
+    step_nr: int
 
-    def __init__(self, step_nr: int | None = None) -> None:
-        if step_nr is None:
-            message = "No checkpoint found."
-        else:
-            message = f"No checkpoint found for training step {step_nr}."
-
-        super().__init__(message)
+    def __init__(self, step_nr: int) -> None:
+        super().__init__(f"No checkpoint found for training step {step_nr}.")
 
         self.step_nr = step_nr
 

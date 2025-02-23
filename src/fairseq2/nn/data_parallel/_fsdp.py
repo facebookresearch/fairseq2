@@ -6,9 +6,8 @@
 
 from __future__ import annotations
 
-import logging
 import warnings
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Final, Protocol, final
@@ -28,7 +27,6 @@ from torch.distributed.fsdp.api import (
     StateDictType,
 )
 from torch.nn import Module, Parameter
-from torch.optim import Optimizer
 
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gangs
@@ -304,8 +302,22 @@ class FSDPParameterInitializer:
         self._module_memo.add(module)
 
 
+def fsdp_full_state_dict(module: FSDP) -> dict[str, object]:
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            action="ignore", message=r".*FSDP\.state_dict_type\(\) and FSDP\.set_state_dict_type\(\) are being deprecated.*"  # fmt: skip
+        )
+
+        state_dict_config = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
+
+        with FSDP.state_dict_type(
+            module, StateDictType.FULL_STATE_DICT, state_dict_config
+        ):
+            return module.state_dict()
+
+
 @contextmanager
-def summon_fsdp(module: FSDP) -> Iterator[None]:
+def fsdp_summon_full_parameters(module: FSDP) -> Iterator[None]:
     """Unshard the parameters of ``module`` and use the non-FSDP forward method."""
     mp = module.mixed_precision or MixedPrecision()
 
@@ -343,63 +355,3 @@ def summon_fsdp(module: FSDP) -> Iterator[None]:
             yield
         finally:
             enable_fsdp_forward(module)
-
-
-def get_fsdp_full_state_dict(module: FSDP) -> dict[str, object]:
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            action="ignore", message=r".*FSDP\.state_dict_type\(\) and FSDP\.set_state_dict_type\(\) are being deprecated.*"  # fmt: skip
-        )
-
-        state_dict_config = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
-
-        with FSDP.state_dict_type(
-            module, StateDictType.FULL_STATE_DICT, state_dict_config
-        ):
-            return module.state_dict()
-
-
-def get_fsdp_optim_state_dict(module: FSDP, optim: Optimizer) -> dict[str, object]:
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            action="ignore", message=r".*`_get_pg_default_device` will be deprecated.*"  # fmt: skip
-        )
-        warnings.filterwarnings(
-            action="ignore", message=r".*You are using `torch\.load` with `weights_only=False`.*"  # fmt: skip
-        )
-
-        try:
-            # FSDP uses warning level to dump a lot of noisy internal trace
-            # information.
-            logging.disable(logging.WARNING)
-
-            return FSDP.optim_state_dict(module, optim)
-        except UnicodeDecodeError as ex:
-            raise RuntimeError(
-                "FSDP has failed to gather the optimizer state with a pickling error. This might indicate a disk space issue. Make sure you have enough space on your file system. See the nested exception for details."
-            ) from ex
-        finally:
-            logging.disable(logging.NOTSET)
-
-
-def load_fsdp_optim_state_dict(
-    module: FSDP, optim: Optimizer, state_dict: Mapping[str, object]
-) -> None:
-    if not isinstance(state_dict, dict):
-        state_dict = dict(state_dict)
-
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            action="ignore", message=r".*Please use DTensor instead.*"
-        )
-
-        try:
-            # FSDP uses warning level to dump a lot of noisy internal trace
-            # information.
-            logging.disable(logging.WARNING)
-
-            state_dict = FSDP.optim_state_dict_to_load(module, optim, state_dict)
-        finally:
-            logging.disable(logging.NOTSET)
-
-        optim.load_state_dict(state_dict)

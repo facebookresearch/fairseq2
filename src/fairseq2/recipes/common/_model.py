@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
 from contextlib import nullcontext
 from pathlib import Path
 from typing import cast, final
@@ -15,7 +14,6 @@ from typing import cast, final
 import torch
 from torch import Tensor
 from torch.nn import Module
-from torch.optim import Optimizer
 from typing_extensions import override
 
 from fairseq2.assets import (
@@ -29,7 +27,6 @@ from fairseq2.checkpoint import (
     CheckpointError,
     CheckpointManager,
     CheckpointMetadataSaver,
-    CheckpointNotFoundError,
     FileCheckpointMetadataSaver,
 )
 from fairseq2.config_registry import ConfigNotFoundError
@@ -239,31 +236,36 @@ class CardBasedModelLoader(ModelLoader):
             dtype = torch.float32
 
         try:
-            step_nr, saved_model_path = self._checkpoint_manager.get_last_model_path()
-        except CheckpointNotFoundError:
-            step_nr, saved_model_path = 0, None
+            step_nr = self._checkpoint_manager.get_last_step_number()
         except CheckpointError:
             raise ModelLoadError(
-                model_name, "The path of the last checkpoint cannot be retrieved. See the nested exception for details."  # fmt: skip
+                model_name, "The last training checkpoint cannot be retrieved. See the nested exception for details."  # fmt: skip
             )
 
-        if saved_model_path is not None:
+        if step_nr is not None:
             model_name = f"checkpoint_step_{step_nr}"
 
-            log.info("Checkpoint found. Loading '{}' model on data parallel rank 0.", model_name)  # fmt: skip
+            log.info("Last checkpoint found at step {}. Loading '{}' model on data parallel rank 0.", step_nr, model_name)  # fmt: skip
         else:
             log.info("Loading '{}' model on data parallel rank 0.", model_name)
 
         try:
             if gangs.dp.rank == 0:
-                if saved_model_path is not None:
+                if step_nr is not None:
+                    try:
+                        model_path = self._checkpoint_manager.get_model_path(step_nr)
+                    except CheckpointError:
+                        raise ModelLoadError(
+                            model_name, f"The path of the '{model_name}' model cannot be retrieved. See the nested exception for details."  # fmt: skip
+                        )
+
                     try:
                         module = handler.load_from_path(
-                            saved_model_path, model_name, model_config, gangs, dtype
+                            model_path, model_name, model_config, gangs, dtype
                         )
                     except FileNotFoundError:
                         raise ModelLoadError(
-                            model_name, f"The '{model_name}' model cannot be found at the '{saved_model_path}' path."  # fmt: skip
+                            model_name, f"The '{model_name}' model cannot be found at the '{model_path}' path."  # fmt: skip
                         ) from None
                 else:
                     module = handler.load(card, gangs, dtype, model_config)
@@ -363,31 +365,36 @@ class PathBasedModelLoader(ModelLoader):
             dtype = torch.float32
 
         try:
-            step_nr, saved_model_path = self._checkpoint_manager.get_last_model_path()
-        except CheckpointNotFoundError:
-            step_nr, saved_model_path = 0, None
+            step_nr = self._checkpoint_manager.get_last_step_number()
         except CheckpointError:
             raise ModelLoadError(
-                model_name, "The path of the last checkpoint cannot be retrieved. See the nested exception for details."  # fmt: skip
+                model_name, "The last training checkpoint cannot be retrieved. See the nested exception for details."  # fmt: skip
             )
 
-        if saved_model_path is not None:
+        if step_nr is not None:
             model_name = f"checkpoint_step_{step_nr}"
 
-            log.info("Checkpoint found. Loading '{}' model on data parallel rank 0.", model_name)  # fmt: skip
+            log.info("Last checkpoint found at step {}. Loading '{}' model on data parallel rank 0.", step_nr, model_name)  # fmt: skip
         else:
             log.info("Loading '{}' model on data parallel rank 0.", model_name)
 
         try:
             if gangs.dp.rank == 0:
-                if saved_model_path is not None:
+                if step_nr is not None:
+                    try:
+                        model_path = self._checkpoint_manager.get_model_path(step_nr)
+                    except CheckpointError:
+                        raise ModelLoadError(
+                            model_name, f"The path of the '{model_name}' model cannot be retrieved. See the nested exception for details."  # fmt: skip
+                        )
+
                     try:
                         module = handler.load_from_path(
-                            saved_model_path, model_name, model_config, gangs, dtype
+                            model_path, model_name, model_config, gangs, dtype
                         )
                     except FileNotFoundError:
                         raise ModelLoadError(
-                            model_name, f"The '{model_name}' model cannot be found at the '{saved_model_path}' path."  # fmt: skip
+                            model_name, f"The '{model_name}' model cannot be found at the '{model_path}' path."  # fmt: skip
                         ) from None
                 else:
                     try:
@@ -497,29 +504,34 @@ class ModelCreator(ModelLoader):
             dtype = torch.float32
 
         try:
-            step_nr, saved_model_path = self._checkpoint_manager.get_last_model_path()
-        except CheckpointNotFoundError:
-            step_nr, saved_model_path = 0, None
+            step_nr = self._checkpoint_manager.get_last_step_number()
         except CheckpointError:
             raise ModelLoadError(
-                model_name, "The path of the last checkpoint cannot be retrieved. See the nested exception for details."  # fmt: skip
+                model_name, "The last training checkpoint cannot be retrieved. See the nested exception for details."  # fmt: skip
             )
 
-        if saved_model_path is not None:
+        if step_nr is not None:
             model_name = f"checkpoint_step_{step_nr}"
 
-            log.info("Checkpoint found. Loading '{}' model on data parallel rank 0.", model_name)  # fmt: skip
+            log.info("Last checkpoint found at step {}. Loading '{}' model on data parallel rank 0.", step_nr, model_name)  # fmt: skip
 
         try:
             if gangs.dp.rank == 0:
-                if saved_model_path is not None:
+                if step_nr is not None:
+                    try:
+                        model_path = self._checkpoint_manager.get_model_path(step_nr)
+                    except CheckpointError:
+                        raise ModelLoadError(
+                            model_name, f"The path of the '{model_name}' model cannot be retrieved. See the nested exception for details."  # fmt: skip
+                        )
+
                     try:
                         module = handler.load_from_path(
-                            saved_model_path, model_name, model_config, gangs, dtype
+                            model_path, model_name, model_config, gangs, dtype
                         )
                     except FileNotFoundError:
                         raise ModelLoadError(
-                            model_name, f"The '{model_name}' model cannot be found at the '{saved_model_path}' path."  # fmt: skip
+                            model_name, f"The '{model_name}' model cannot be found at the '{model_path}' path."  # fmt: skip
                         ) from None
                 else:
                     module = handler.create(model_config, gangs, dtype, meta=False)
@@ -539,7 +551,7 @@ class ModelCreator(ModelLoader):
                 model_name, f"The collective barrier after the load of the '{model_name}' model has failed. See the nested exception for details."  # fmt: skip
             ) from ex
 
-        if saved_model_path is not None:
+        if step_nr is not None:
             log.info("Model loaded on data parallel rank 0.")
 
         model = LocalModel(
@@ -547,7 +559,7 @@ class ModelCreator(ModelLoader):
             module,
             model_config,
             handler,
-            is_empty_init=saved_model_path is None,
+            is_empty_initialized=step_nr is None,
         )
 
         self._card_saver.save(recipe_config, model)
@@ -585,7 +597,7 @@ class LocalModel(Model):
     _module: Module
     _config: object
     _handler: ModelHandler
-    _is_empty_init: bool
+    _is_empty_initialized: bool
 
     def __init__(
         self,
@@ -593,13 +605,17 @@ class LocalModel(Model):
         module: Module,
         config: object,
         handler: ModelHandler,
-        is_empty_init: bool = False,
+        is_empty_initialized: bool = False,
     ) -> None:
         self._name = name
         self._module = module
         self._config = config
         self._handler = handler
-        self._is_empty_init = is_empty_init
+        self._is_empty_initialized = is_empty_initialized
+
+    @override
+    def state_dict(self) -> dict[str, object]:
+        return self._module.state_dict()
 
     @override
     def no_sync(self) -> ContextManager:
@@ -610,21 +626,7 @@ class LocalModel(Model):
         return clip_gradient_norm(self._module, max_norm)
 
     @override
-    def state_dict(self) -> dict[str, object]:
-        return self._module.state_dict()
-
-    @override
-    def optim_state_dict(self, optim: Optimizer) -> dict[str, object]:
-        return optim.state_dict()  # type: ignore[no-any-return]
-
-    @override
-    def load_optim_state_dict(
-        self, optim: Optimizer, state_dict: Mapping[str, object]
-    ) -> None:
-        optim.load_state_dict(state_dict)
-
-    @override
-    def summon_parameters(self) -> ContextManager:
+    def summon_full_parameters(self) -> ContextManager:
         return nullcontext()
 
     @property
@@ -654,8 +656,8 @@ class LocalModel(Model):
 
     @property
     @override
-    def is_empty_init(self) -> bool:
-        return self._is_empty_init
+    def is_empty_initialized(self) -> bool:
+        return self._is_empty_initialized
 
 
 class ModelCardSaver(ABC):
