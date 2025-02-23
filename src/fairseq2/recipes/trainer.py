@@ -21,7 +21,7 @@ from torch.optim import Optimizer
 from torch.profiler import record_function
 from torcheval.metrics import Mean
 
-from fairseq2.checkpoint import CheckpointManager, CheckpointNotFoundError
+from fairseq2.checkpoint import CheckpointManager
 from fairseq2.datasets import DataReader
 from fairseq2.device import DeviceStatTracker
 from fairseq2.error import ContractError, InternalError, InvalidOperationError
@@ -564,20 +564,17 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         log.info("Training complete in {:,} seconds after {} step(s)!", int(elapsed_time), self._step_nr)  # fmt: skip
 
     def _maybe_restore_state(self) -> None:
-        log.info("Attempting to load the last checkpoint.")
-
-        try:
-            step_nr, state = self._checkpoint_manager.load_last_checkpoint()
-        except CheckpointNotFoundError:
-            log.info("No checkpoint found. Starting training.")
-
+        step_nr = self._checkpoint_manager.get_last_step_number()
+        if step_nr is None:
             return
-
-        log.info("Checkpoint loaded. Restoring training from step {}.", step_nr)
 
         self._step_nr = step_nr
 
-        self.load_state_dict(state)
+        log.info("Restoring training from the last checkpoint at step {}.", step_nr)  # fmt: skip
+
+        state_dict = self._checkpoint_manager.load_checkpoint(step_nr)
+
+        self.load_state_dict(state_dict)
 
         self._gangs.root.barrier()
 
