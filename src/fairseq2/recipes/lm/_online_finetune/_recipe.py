@@ -215,7 +215,7 @@ def load_online_finetuner(
     # TODO(balioglu): investigate!
     # The memory efficient SDPA implementation in PyTorch is not stable when
     # used with padded inputs.
-    enable_memory_efficient_torch_sdpa(model, False)
+    enable_memory_efficient_torch_sdpa(model.module, False)
 
     optimizer = create_optimizer(context, config, model)
 

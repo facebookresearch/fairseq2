@@ -39,3 +39,4 @@ def register_recipes(context: RuntimeContext) -> None:
     register_wav2vec2_asr_train_configs(context)
     register_wav2vec2_eval_configs(context)
     register_wav2vec2_train_configs(context)
+    register_online_finetune_configs(context)

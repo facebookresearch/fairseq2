@@ -13,6 +13,8 @@ from fairseq2.recipes.lm import (
     OrpoFinetuneUnitHandler,
     POFinetuneUnitHandler,
     SimPOFinetuneUnitHandler,
+    OnlineDpoFinetuneUnitHandler,
+    OnlineFinetuneUnitHandler
 )
 
 
@@ -38,5 +40,12 @@ def register_po_finetune_units(context: RuntimeContext) -> None:
 
     # SimPO
     handler = SimPOFinetuneUnitHandler()
+
+    registry.register(handler.name, handler)
+
+    registry = context.get_registry(OnlineFinetuneUnitHandler)
+
+    # Online DPO
+    handler = OnlineDpoFinetuneUnitHandler(context)
 
     registry.register(handler.name, handler)

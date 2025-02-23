@@ -15,6 +15,7 @@ from torch import Tensor
 from torch.nn import Module
 from torcheval.metrics import Mean
 from typing_extensions import override
+from fairseq2.recipes.model import Model
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets.preference import PreferenceBatch
@@ -31,7 +32,7 @@ from fairseq2.data import (
     Collater,
 )
 from fairseq2.nn.utils.module import freeze_parameters
-from fairseq2.nn.fsdp import summon_fsdp_for_validation
+from fairseq2.nn.data_parallel._fsdp import summon_fsdp as summon_fsdp
 from fairseq2.recipes.common import setup_reference_model
 from fairseq2.recipes.config import (
     ReferenceModelSection,
@@ -45,7 +46,7 @@ from fairseq2.recipes.lm._preference_finetune._common import (
 )
 from fairseq2.recipes.lm._online_finetune._common import setup_vllm, OnlineCriterionSection, stateless_init_process_group
 from fairseq2.recipes.lm._preference_finetune._handler import POFinetuneUnitHandler
-from fairseq2.recipes.trainer import AbstractTrainUnit, TrainUnit
+from fairseq2.recipes.trainer import TrainUnit
 from fairseq2.typing import DataType
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
@@ -60,7 +61,7 @@ import ray
 
 
 @final
-class OnlineDpoFinetuneUnit(AbstractTrainUnit[SequenceBatch]):
+class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
     """Represents the language model DPO-finetuning unit with online generations. Paper: https://arxiv.org/abs/2305.18290."""
 
     _reference_model: Module | None
@@ -81,7 +82,7 @@ class OnlineDpoFinetuneUnit(AbstractTrainUnit[SequenceBatch]):
         nll_scale: float = 1.0,
         length_normalization: bool = False,
     ) -> None:
-        super().__init__(model)
+        super().__init__()
 
         self._reference_model = reference_model
         self._beta = beta
@@ -139,7 +140,7 @@ class OnlineDpoFinetuneUnit(AbstractTrainUnit[SequenceBatch]):
 
         # self._gangs.root.barrier()
 
-        with summon_fsdp_for_validation(self._model):
+        with summon_fsdp(self._model):
             if self._gangs.root.rank == 0:
                 print(f'starting weight sync')
                 self.sync_weights()
@@ -284,6 +285,11 @@ class OnlineDpoFinetuneUnit(AbstractTrainUnit[SequenceBatch]):
 
     @property
     @override
+    def model(self) -> Model:
+        return self._model
+
+    @property
+    @override
     def metric_bag(self) -> OnlineDpoFinetuneMetricBag:
         return self._metric_bag
 
@@ -341,7 +347,7 @@ class OnlineDpoFinetuneConfig:
 
     ray_cluster_ip_address: str = None
 
-    vllm_init_checkpoint_dir: str = "/checkpoint/ram/kulikov/diversity_alignment/random_persona_generation/fs2_runs/offline_divpo_prob_onlyjsoncode_fewersteps/checkpoints/step_100"
+    vllm_init_checkpoint_dir: str = "/checkpoint/ram/kulikov/gsm8k_8b_sft/checkpoints/step_20"
 
     vllm_init_tokenizer: str = "/datasets/pretrained-llms/Llama-3.1-8B-Instruct/"
 
@@ -391,7 +397,7 @@ class OnlineDpoFinetuneUnitHandler(POFinetuneUnitHandler):
                 torch_compile=trainer_section.torch_compile,
             )
 
-            freeze_parameters(reference_model)
+            freeze_parameters(reference_model.module)
 
             log.info("DPO setup complete.")
         else:
@@ -435,6 +441,11 @@ class OnlineDpoFinetuneUnitHandler(POFinetuneUnitHandler):
             config.nll_scale,
             config.length_normalization,
         )
+    
+    @property
+    @override
+    def name(self) -> str:
+        return ONLINE_DPO_FINETUNE_UNIT
 
     @property
     @override
