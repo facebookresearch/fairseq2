@@ -141,7 +141,7 @@ class OnlineFinetuneDatasetSection(DatasetSection):
     # max_num_tokens: int = 8192 * 2
     # """The maximum number of total `src`, `tgt_chosen`, and `tgt_rejected` tokens per batch."""
 
-    batch_size: int | None = 8
+    batch_size: int | None = 1
     """If not ``None``, ignores `max_num_tokens` and each batch will have `batch_size` examples."""
 
     example_shuffle_window: int = 10_000

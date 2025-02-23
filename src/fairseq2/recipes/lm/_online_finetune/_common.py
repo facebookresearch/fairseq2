@@ -99,6 +99,7 @@ class MyWorker(Worker):
                                  rank_offset, world_size):
         from vllm.distributed.parallel_state import get_world_group
         rank = get_world_group().rank + rank_offset
+        print(f"vllm own rank: {rank}")
         self.model_update_group = stateless_init_process_group(
             master_address,
             master_port,
@@ -123,7 +124,7 @@ class MyWorker(Worker):
 
         del weight
 
-def setup_vllm(actor_name, vllm_init_checkpoint_dir, vllm_init_tokenizer, tensor_parallel_size):
+def setup_vllm(actor_name, vllm_init_checkpoint_dir, vllm_init_tokenizer, tensor_parallel_size, dp_device):
 
     pg_inference = placement_group([{"GPU": 1, "CPU": 0}] * tensor_parallel_size)
 
@@ -153,7 +154,23 @@ def setup_vllm(actor_name, vllm_init_checkpoint_dir, vllm_init_tokenizer, tensor
     # we block here until the engine is initialized
     ray.get(llm.is_ready.remote())
 
-    return llm
+    # setting up process groups
+
+    master_port = get_open_port()
+    master_address = get_ip()
+
+    print(f"{master_port} {master_address}")
+
+    print("init pg on vllm host")
+    handle = llm.collective_rpc.remote("init_weight_update_group",
+                                    args=(master_address, master_port, 1, tensor_parallel_size+1))
+
+    print("init pg on train host")
+    model_update_group = stateless_init_process_group(master_address, master_port,
+                                                    0, tensor_parallel_size+1, dp_device)
+    ray.get(handle)
+
+    return llm, model_update_group
 
 def cat_source_and_target(example: dict[str, Any], mask_source_tokens=True) -> dict[str, Any]:
     id_ = example.get("id", None)

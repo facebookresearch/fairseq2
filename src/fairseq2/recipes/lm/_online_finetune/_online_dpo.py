@@ -133,11 +133,11 @@ class OnlineDpoFinetuneUnit(AbstractTrainUnit[SequenceBatch]):
 
         self._gangs.root.barrier()
 
-        if self._gangs.root.rank == 0:
-            from pudb.remote import set_trace
-            set_trace(host="submit-0", port=6899, term_size=(80*2, 24*2), reverse=True)
+        # if self._gangs.root.rank == 0:
+        #     from pudb.remote import set_trace
+        #     set_trace(host="submit-0", port=6899, term_size=(80*2, 24*2), reverse=True)
 
-        self._gangs.root.barrier()
+        # self._gangs.root.barrier()
 
         with summon_fsdp_for_validation(self._model):
             if self._gangs.root.rank == 0:
@@ -345,11 +345,11 @@ class OnlineDpoFinetuneConfig:
 
     vllm_init_tokenizer: str = "/datasets/pretrained-llms/Llama-3.1-8B-Instruct/"
 
-    vllm_tensor_parallel_size: int = 1
+    vllm_tensor_parallel_size: int = 4
 
 def test_generation(llm, number):
     prompt = [f"<|start_header_id|>assistant<|end_header_id|> repeat this number: {number}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"]
-    sampling_params = SamplingParams(temperature=1.0)
+    sampling_params = SamplingParams(n=8, temperature=1.0)
     outputs = ray.get(llm.generate.remote(prompt, sampling_params))
     output = outputs[0].outputs[0].text
     return output
@@ -402,35 +402,20 @@ class OnlineDpoFinetuneUnitHandler(POFinetuneUnitHandler):
         actor_name = "vllm_model"
 
         if gangs.dp.rank == 0:
-            vllm_model = setup_vllm(actor_name, config.vllm_init_checkpoint_dir, config.vllm_init_tokenizer, config.vllm_tensor_parallel_size)
+            vllm_model, model_update_group = setup_vllm(actor_name, config.vllm_init_checkpoint_dir, config.vllm_init_tokenizer, config.vllm_tensor_parallel_size, gangs.dp.device)
     
         gangs.root.barrier()
 
         if gangs.dp.rank != 0:
             vllm_model = ray.get_actor(actor_name)
 
+            model_update_group = None
+
         test_out = test_generation(vllm_model, gangs.dp.rank)
 
         print(f"rank:{gangs.dp.rank}, out: {test_out}")
 
         # initialize model sync process group on first dp rank
-        if gangs.dp.rank == 0:
-
-            master_port = get_open_port()
-            master_address = get_ip()
-
-            print(f"{master_port} {master_address}")
-
-            print("init pg on vllm host")
-            handle = vllm_model.collective_rpc.remote("init_weight_update_group",
-                                            args=(master_address, master_port, 1, 2))
-
-            print("init pg on train host")
-            model_update_group = stateless_init_process_group(master_address, master_port,
-                                                            0, 2, gangs.dp.device)
-            ray.get(handle)
-        else:
-            model_update_group = None
 
         gangs.root.barrier()
 
