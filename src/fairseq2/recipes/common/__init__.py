@@ -12,18 +12,11 @@ from fairseq2.recipes.common._asset import (
 from fairseq2.recipes.common._checkpoint import (
     create_checkpoint_manager as create_checkpoint_manager,
 )
-from fairseq2.recipes.common._dataset import (
-    DatasetNotFoundError as DatasetNotFoundError,
-)
 from fairseq2.recipes.common._dataset import load_dataset as load_dataset
 from fairseq2.recipes.common._device import (
     create_device_stat_tracker as create_device_stat_tracker,
 )
-from fairseq2.recipes.common._distributed import (
-    NotSupportedDistributedFeature as NotSupportedDistributedFeature,
-)
 from fairseq2.recipes.common._distributed import broadcast_model as broadcast_model
-from fairseq2.recipes.common._distributed import check_model_type as check_model_type
 from fairseq2.recipes.common._distributed import (
     setup_data_parallel_model as setup_data_parallel_model,
 )
@@ -38,13 +31,6 @@ from fairseq2.recipes.common._generation import (
 from fairseq2.recipes.common._generator import create_generator as create_generator
 from fairseq2.recipes.common._metrics import (
     create_metric_recorder as create_metric_recorder,
-)
-from fairseq2.recipes.common._model import (
-    InvalidCheckpointPathError as InvalidCheckpointPathError,
-)
-from fairseq2.recipes.common._model import ModelNotFoundError as ModelNotFoundError
-from fairseq2.recipes.common._model import (
-    ModelParallelismNotSupportedError as ModelParallelismNotSupportedError,
 )
 from fairseq2.recipes.common._model import load_base_model as load_base_model
 from fairseq2.recipes.common._model import prepare_model as prepare_model

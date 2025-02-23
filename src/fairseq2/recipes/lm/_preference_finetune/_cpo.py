@@ -12,7 +12,6 @@ from typing import Final, cast, final
 import torch
 import torch.distributed
 from torch import Tensor
-from torch.nn import Module
 from typing_extensions import override
 
 from fairseq2.datasets.preference import PreferenceBatch
@@ -26,28 +25,29 @@ from fairseq2.recipes.lm._preference_finetune._common import (
     _gather_lprobs,
 )
 from fairseq2.recipes.lm._preference_finetune._handler import POFinetuneUnitHandler
-from fairseq2.recipes.trainer import AbstractTrainUnit, TrainUnit
+from fairseq2.recipes.model import Model
+from fairseq2.recipes.trainer import TrainUnit
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
 
 
 @final
-class CpoFinetuneUnit(AbstractTrainUnit[PreferenceBatch]):
+class CpoFinetuneUnit(TrainUnit[PreferenceBatch]):
     """Represents the language model CPO-finetuning unit. Paper: https://arxiv.org/abs/2401.08417."""
 
+    _model: Model
     _beta: float
     _nll_scale: float
     _metric_bag: CpoFinetuneMetricBag
 
     def __init__(
         self,
-        model: Module,
+        model: Model,
         gangs: Gangs,
         beta: float = 1.0,
         nll_scale: float = 1.0,
     ) -> None:
-        super().__init__(model)
-
+        self._model = model
         self._beta = beta
         self._nll_scale = nll_scale
 
@@ -62,8 +62,12 @@ class CpoFinetuneUnit(AbstractTrainUnit[PreferenceBatch]):
             rejected_batch
         )
 
-        chosen_output = cast(SequenceModelOutput, self._model(chosen_input_batch))
-        rejected_output = cast(SequenceModelOutput, self._model(rejected_input_batch))
+        chosen_output = cast(
+            SequenceModelOutput, self._model.module(chosen_input_batch)
+        )
+        rejected_output = cast(
+            SequenceModelOutput, self._model.module(rejected_input_batch)
+        )
 
         chosen_logps = _gather_lprobs(chosen_output, chosen_target_batch)
         rejected_logps = _gather_lprobs(rejected_output, rejected_target_batch)
@@ -104,10 +108,10 @@ class CpoFinetuneUnit(AbstractTrainUnit[PreferenceBatch]):
         )
         return cpo_loss.sum()
 
+    @property
     @override
-    def set_step_nr(self, step_nr: int) -> None:
-        """Set the current training step number."""
-        self._step_nr = step_nr
+    def model(self) -> Model:
+        return self._model
 
     @property
     @override
@@ -155,7 +159,7 @@ class CpoFinetuneConfig:
 class CpoFinetuneUnitHandler(POFinetuneUnitHandler):
     @override
     def create(
-        self, model: Module, gangs: Gangs, recipe_config: object
+        self, model: Model, gangs: Gangs, recipe_config: object
     ) -> TrainUnit[PreferenceBatch]:
         criterion_section = get_config_section(
             recipe_config, "criterion", POCriterionSection
@@ -166,6 +170,11 @@ class CpoFinetuneUnitHandler(POFinetuneUnitHandler):
         validate(config)
 
         return CpoFinetuneUnit(model, gangs, config.beta, config.nll_scale)
+
+    @property
+    @override
+    def name(self) -> str:
+        return CPO_FINETUNE_UNIT
 
     @property
     @override

@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import os
 import sys
 from argparse import OPTIONAL, ArgumentParser, BooleanOptionalAction, Namespace
 from collections.abc import Callable, Hashable, Iterable, Mapping, Set
@@ -23,11 +22,11 @@ from fairseq2.cli import CliArgumentError, CliCommandHandler, setup_logging
 from fairseq2.cli.utils.argparse import ConfigAction
 from fairseq2.cli.utils.cluster import set_torch_distributed_variables
 from fairseq2.cli.utils.rich import create_rich_progress_reporter, get_console
+from fairseq2.cluster import ClusterError, UnknownClusterError
 from fairseq2.config_registry import ConfigNotFoundError, ConfigProvider
 from fairseq2.context import RuntimeContext
 from fairseq2.error import ContractError, ProgramError
 from fairseq2.logging import LoggingSetupError, log
-from fairseq2.recipes.cluster import ClusterError, UnknownClusterError
 from fairseq2.recipes.logging import DistributedLoggingInitializer
 from fairseq2.recipes.utils.log import log_config
 from fairseq2.recipes.utils.progress import ProgressReporter
@@ -258,7 +257,7 @@ class RecipeCommandHandler(CliCommandHandler):
 
             signal(SIGUSR1, request_stop)
 
-        progress_reporter = create_rich_progress_reporter()
+        progress_reporter = create_rich_progress_reporter(context)
 
         recipe(progress_reporter)
 
@@ -307,7 +306,7 @@ class RecipeCommandHandler(CliCommandHandler):
             return None
 
         try:
-            world_size = get_world_size(os.environ)
+            world_size = get_world_size(context.env)
         except InvalidEnvironmentVariableError as ex:
             raise SweepTagError(
                 "The world size cannot be determined. See the nested exception for details."
@@ -340,7 +339,7 @@ class RecipeCommandHandler(CliCommandHandler):
         logger = getLogger()
 
         initializer = DistributedLoggingInitializer(
-            logger, os.environ, context.file_system
+            logger, context.env, context.file_system
         )
 
         try:
@@ -356,7 +355,7 @@ class RecipeCommandHandler(CliCommandHandler):
     def _dump_config(context: RuntimeContext, config: object, output_dir: Path) -> None:
         yaml_dumper = StandardYamlDumper(context.file_system)
 
-        dumper = ConfigDumper(os.environ, yaml_dumper)
+        dumper = ConfigDumper(context.env, yaml_dumper)
 
         try:
             dumper.dump(config, output_dir)

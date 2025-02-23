@@ -68,6 +68,10 @@ class ClusterHandler(ABC):
     def supports_current_cluster(self) -> bool:
         """Return ``True`` if this instance supports the current cluster."""
 
+    @property
+    @abstractmethod
+    def supported_cluster(self) -> str: ...
+
 
 class ClusterError(Exception):
     cluster: str
@@ -158,6 +162,11 @@ class SlurmClusterHandler(ClusterHandler):
     def supports_current_cluster(self) -> bool:
         return "SLURM_JOB_ID" in self._env
 
+    @property
+    @override
+    def supported_cluster(self) -> str:
+        return "slurm"
+
 
 @final
 class _NoneClusterHandler(ClusterHandler):
@@ -168,3 +177,8 @@ class _NoneClusterHandler(ClusterHandler):
     @override
     def supports_current_cluster(self) -> bool:
         return True
+
+    @property
+    @override
+    def supported_cluster(self) -> str:
+        return "none"

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from contextlib import AbstractContextManager, nullcontext
+from contextlib import nullcontext
 from itertools import count
 from statistics import mean
 from typing import Generic, TypeVar, final
@@ -16,8 +16,6 @@ from typing import Generic, TypeVar, final
 import torch
 import torch.distributed
 from torch import Tensor
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.nn import Module
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.optim import Optimizer
 from torch.profiler import record_function
@@ -32,10 +30,8 @@ from fairseq2.gang import Gangs, broadcast_flag
 from fairseq2.logging import log
 from fairseq2.metrics import MetricBag, MetricDescriptor
 from fairseq2.metrics.recorders import MetricRecorder
-from fairseq2.nn.fsdp import summon_fsdp_for_validation
 from fairseq2.nn.utils.gradient import (
     check_gradient_norms,
-    clip_gradient_norm,
     normalize_gradients,
 )
 from fairseq2.optim import DynamicLossScaler
@@ -44,15 +40,16 @@ from fairseq2.profilers import Profiler
 from fairseq2.recipes.early_stopper import EarlyStopper, NoopEarlyStopper
 from fairseq2.recipes.evaluator import EvalUnit
 from fairseq2.recipes.metrics import extend_batch_metrics
+from fairseq2.recipes.model import Model
 from fairseq2.recipes.utils.progress import (
     NoopProgressReporter,
     ProgressReporter,
     ProgressTask,
 )
-from fairseq2.typing import CPU, DataType
+from fairseq2.typing import CPU, ContextManager, DataType
 from fairseq2.utils.gc import GarbageCollector
 from fairseq2.utils.rng import RngBag
-from fairseq2.utils.state import FSDPOptimizerStateHandler, StatefulObjectBag
+from fairseq2.utils.state import StatefulObjectBag, StateHandler
 from fairseq2.utils.stopwatch import Stopwatch
 
 BatchT_contra = TypeVar("BatchT_contra", contravariant=True)
@@ -71,13 +68,13 @@ class TrainUnit(ABC, Generic[BatchT_contra]):
               model gradients won't be normalized.
         """
 
-    @abstractmethod
     def set_step_nr(self, step_nr: int) -> None:
         """Set the current training step number."""
+        pass
 
     @property
     @abstractmethod
-    def model(self) -> Module:
+    def model(self) -> Model:
         """The underlying model."""
 
     @property
@@ -89,28 +86,11 @@ class TrainUnit(ABC, Generic[BatchT_contra]):
 BatchT = TypeVar("BatchT")
 
 
-class AbstractTrainUnit(TrainUnit[BatchT]):
-    """Provides a skeletal implementation of :class:`TrainUnit`."""
-
-    def __init__(self, model: Module) -> None:
-        self._model = model
-
-    @override
-    def set_step_nr(self, step_nr: int) -> None:
-        pass
-
-    @final
-    @property
-    @override
-    def model(self) -> Module:
-        return self._model
-
-
 @final
 class Trainer(StatefulObjectBag, Generic[BatchT]):
     """Trains a machine learning model."""
 
-    _model: Module
+    _model: Model
     _unit: TrainUnit[BatchT]
     _data_reader: DataReader[BatchT]
     _gangs: Gangs
@@ -306,25 +286,15 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._data_reader = data_reader
 
-        if gangs.root.rank == 0:
-            if gangs.dp.rank != 0 or gangs.tp.rank != 0:
-                raise ValueError(
-                    f"The coordinator process of the root gang (i.e. rank 0) must be rank 0 in data and tensor parallel gangs but is {self._gangs.dp.rank} and {self._gangs.tp.rank} instead."
-                )
-
         self._gangs = gangs
 
         self._dtype = dtype
 
         self._amp = amp
 
-        uses_fsdp = isinstance(self._model, FSDP)
-        if uses_fsdp:
-            self.register_stateful(
-                "_optimizer", optimizer, FSDPOptimizerStateHandler(self._model)
-            )
-        else:
-            self._optimizer = optimizer
+        self.register_stateful(
+            "_optimizer", optimizer, OptimizerStateHandler(self._model)
+        )
 
         self._lr_scheduler = lr_scheduler
 
@@ -333,11 +303,11 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         self._loss_scaler = DynamicLossScaler(
             optimizer,
             gangs.root,
-            sharded=uses_fsdp or self._gangs.tp.size > 1,
+            sharded=gangs.root.size != gangs.rdp.size,
             init_scale=fp16_init_scale,
             min_scale=fp16_min_scale,
-            gradient_accumulation=self._data_reader.num_accumulate,
-            enabled=self._dtype == torch.float16,
+            gradient_accumulation=data_reader.num_accumulate,
+            enabled=dtype == torch.float16,
         )
 
         self._max_gradient_norm = max_gradient_norm
@@ -360,7 +330,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._repeat_step = False
 
-        self._has_read_any_data = False
+        self.register_stateful("_has_read_any_data", False)
 
         self._num_effective_batches = 0
 
@@ -379,10 +349,10 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
                     "`score_metric_descriptor` must be specified when `early_stopper` is specified."
                 )
 
-            if gangs.root.rank != 0:
-                early_stopper = NoopEarlyStopper()
-
-            self._early_stopper = early_stopper
+            if gangs.root.rank == 0:
+                self._early_stopper = early_stopper
+            else:
+                self._early_stopper = NoopEarlyStopper()
         else:
             self._early_stopper = None
 
@@ -565,6 +535,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         if progress_reporter is not None:
             self._progress_reporter = progress_reporter
 
+        self._rng_bag.manual_seed(self._seed + self._gangs.root.rank)
+
         try:
             self._maybe_restore_state()
         except KeyboardInterrupt:
@@ -583,7 +555,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         finally:
             self._garbage_collector.enable(False)
 
-            self._gangs.close()
+        self._gangs.close()
 
         if self._should_stop:
             log.info("Training stopped at step {}!", self._step_nr)
@@ -598,9 +570,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         log.info("Attempting to load the last checkpoint.")
 
         try:
-            step_nr, state = self._checkpoint_manager.load_last_checkpoint(
-                load_model=False
-            )
+            step_nr, state = self._checkpoint_manager.load_last_checkpoint()
         except CheckpointNotFoundError:
             log.info("No checkpoint found. Starting training.")
 
@@ -617,9 +587,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         log.info("Training restored. Resuming.")
 
     def _do_run(self) -> None:
-        self._rng_bag.manual_seed(self._seed + self._gangs.root.rank)
-
-        self._model.train()
+        self._model.module.train()
 
         self._garbage_collector.enable()
 
@@ -729,16 +697,16 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         # Normalize.
         if num_targets > 0:
-            normalize_gradients(self._model, self._gangs.dp, num_targets=num_targets)
+            normalize_gradients(
+                self._model.module, self._gangs.dp, num_targets=num_targets
+            )
 
         # Clip.
         with record_function(f"step_{step_nr}_grad_norm"):
             self._loss_scaler.unscale_gradients_()
 
             # TODO(balioglu): Support tensor parallelism!
-            grad_norm = clip_gradient_norm(
-                self._model, max_norm=self._max_gradient_norm
-            )
+            grad_norm = self._model.clip_gradient_norm(self._max_gradient_norm)
 
             if self._gradient_check:
                 # Sanity check.
@@ -823,11 +791,9 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         return None
 
-    def _maybe_no_sync(
-        self, batch_nr: int, num_batches: int
-    ) -> AbstractContextManager[None]:
-        if batch_nr < num_batches - 1 and self._gangs.dp.size > 1:
-            return self._model.no_sync()  # type: ignore[no-any-return, operator]
+    def _maybe_no_sync(self, batch_nr: int, num_batches: int) -> ContextManager:
+        if batch_nr < num_batches - 1:
+            return self._model.no_sync()
 
         return nullcontext()
 
@@ -835,7 +801,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         with self._maybe_autocast():
             return self._unit(batch)
 
-    def _maybe_autocast(self) -> AbstractContextManager[None]:
+    def _maybe_autocast(self) -> ContextManager:
         if self._dtype == torch.float32 or not self._amp:
             return nullcontext()
 
@@ -907,9 +873,9 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     def _validate(self) -> None:
         log.info("Starting validation after step {}.", self._step_nr)
 
-        self._model.eval()
+        self._model.module.eval()
 
-        with summon_fsdp_for_validation(self._model):
+        with self._model.summon_parameters():
             unit_scores = []
 
             for unit, data_reader in zip(self._valid_units, self._valid_data_readers):
@@ -922,7 +888,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
             self._valid_score = self._compute_valid_score(unit_scores)
 
-        self._model.train()
+        self._model.module.train()
 
         log.info("Validation complete.")
 
@@ -1103,7 +1069,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         log.info("Saving the trainer state.")
 
-        if self._gangs.dp.size > 1 and isinstance(self._model, DDP):
+        if self._gangs.dp.size > 1 and isinstance(self._model.module, DDP):
             replicated_keys = {"_optimizer"}
         else:
             replicated_keys = None
@@ -1112,18 +1078,24 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         log.info("Trainer state saved.")
 
+        log.info("Extracting the model state on rank 0.")
+
+        model_state = self._model.state_dict()
+
+        log.info("Model state extracted.")
+
         log.info("Saving the model.")
 
-        self._checkpoint_manager.save_model(self._model)
+        self._checkpoint_manager.save_model_state_dict(model_state)
 
         log.info("Model saved.")
 
         if self._score_metric_descriptor is not None:
-            log.info("Saving the checkpoint score.")
+            log.info("Saving the score.")
 
             self._checkpoint_manager.save_score(self._valid_score, self._lower_better)
 
-            log.info("Checkpoint score saved.")
+            log.info("Score saved.")
 
         self._checkpoint_manager.commit_checkpoint()
 
@@ -1189,3 +1161,23 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
                 return self._step_nr % every_n_steps == 0
 
         return False
+
+
+class OptimizerStateHandler(StateHandler[Optimizer]):
+    _model: Model
+
+    def __init__(self, model: Model) -> None:
+        self._model = model
+
+    @override
+    def get_state(self, stateful: Optimizer) -> object:
+        return self._model.optim_state_dict(stateful)
+
+    @override
+    def set_state(self, stateful: Optimizer, state: object) -> None:
+        if not isinstance(state, dict):
+            raise TypeError(
+                f"`state` must be of type `dict`, but is of type `{type(state)}` instead."
+            )
+
+        self._model.load_optim_state_dict(stateful, state)

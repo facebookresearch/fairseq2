@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace
-from typing import final
+from typing import cast, final
 
 import torch
 from rich.console import Console
@@ -20,6 +20,7 @@ from fairseq2.cli import CliArgumentError, CliCommandHandler
 from fairseq2.cli.utils.argparse import parse_dtype
 from fairseq2.cli.utils.cluster import set_torch_distributed_variables
 from fairseq2.cli.utils.rich import get_console
+from fairseq2.cluster import ClusterError, UnknownClusterError
 from fairseq2.context import RuntimeContext
 from fairseq2.data.text.tokenizers import TextTokenDecoder, TextTokenizer
 from fairseq2.error import InternalError, ProgramError
@@ -31,7 +32,6 @@ from fairseq2.generation import (
 )
 from fairseq2.logging import log
 from fairseq2.models.decoder import DecoderModel
-from fairseq2.recipes.cluster import ClusterError, UnknownClusterError
 from fairseq2.recipes.common import (
     load_text_tokenizer,
     setup_gangs,
@@ -151,12 +151,14 @@ class RunChatbotHandler(CliCommandHandler):
             torch_compile=False,
         )
 
+        module = cast(DecoderModel, model.module)
+
         tokenizer = load_text_tokenizer(context, args)
 
         sampler = TopPSampler(p=args.top_p)
 
         generator = SamplingSequenceGenerator(
-            model, sampler, temperature=args.temperature, max_gen_len=args.max_gen_len
+            module, sampler, temperature=args.temperature, max_gen_len=args.max_gen_len
         )
 
         card = context.asset_store.retrieve_card(args.model_name)
@@ -270,7 +272,7 @@ class ChatbotProgram:
         hook = _PrintHook(self._view, text_decoder)
 
         with self._generator.register_step_hook(hook):
-            response, _ = self._chatbot(self._dialog)
+            response, _ = self._chatbot.response(self._dialog)
 
         self._view.print_reply_piece("\n")
 
@@ -304,7 +306,7 @@ class ChatbotProgram:
             if message.role == "system":
                 continue
 
-            response, _ = self._chatbot(self._dialog)
+            response, _ = self._chatbot.response(self._dialog)
 
             self._dialog.append(response)
 

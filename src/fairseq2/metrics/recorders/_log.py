@@ -122,5 +122,10 @@ class LogMetricRecorderHandler(MetricRecorderHandler):
 
     @property
     @override
+    def name(self) -> str:
+        return LOG_METRIC_RECORDER
+
+    @property
+    @override
     def config_kls(self) -> type[object]:
         return LogMetricRecorderConfig

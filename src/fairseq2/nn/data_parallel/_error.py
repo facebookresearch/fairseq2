@@ -6,4 +6,6 @@
 
 from __future__ import annotations
 
-from fairseq2.setup._cli._commands import setup_cli as setup_cli
+
+class DistributedSetupError(Exception):
+    pass

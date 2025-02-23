@@ -11,42 +11,15 @@ from typing import cast
 
 import torch
 from torch import Tensor
-from torch.nn import Module
-from typing_extensions import override
 
-from fairseq2.models import AbstractModelHandler
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
-from fairseq2.models.w2vbert._config import W2VBERT_MODEL_FAMILY, W2VBertConfig
-from fairseq2.models.w2vbert._factory import W2VBertFactory
-from fairseq2.models.w2vbert._model import W2VBertModel
+from fairseq2.models.w2vbert._config import W2VBertConfig
 from fairseq2.typing import CPU
 
 
-class W2VBertModelHandler(AbstractModelHandler):
-    @property
-    @override
-    def family(self) -> str:
-        return W2VBERT_MODEL_FAMILY
-
-    @property
-    @override
-    def kls(self) -> type[Module]:
-        return W2VBertModel
-
-    @override
-    def _create_model(self, config: object) -> Module:
-        config = cast(W2VBertConfig, config)
-
-        return W2VBertFactory(config).create_model()
-
-    @override
-    def _convert_checkpoint(
-        self, checkpoint: dict[str, object], config: object
-    ) -> dict[str, object]:
-        return convert_w2vbert_checkpoint(checkpoint)
-
-
-def convert_w2vbert_checkpoint(checkpoint: dict[str, object]) -> dict[str, object]:
+def convert_w2vbert_checkpoint(
+    checkpoint: dict[str, object], config: W2VBertConfig
+) -> dict[str, object]:
     state_dict = cast(MutableMapping[str, Tensor], checkpoint["model"])
 
     state_dict["w2v2_model.quantizer.num_updates"] = torch.zeros((), device=CPU)

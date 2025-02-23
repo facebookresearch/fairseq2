@@ -18,9 +18,7 @@ from typing_extensions import override
 LRScheduler: TypeAlias = _LRScheduler
 
 
-class AbstractLRScheduler(ABC, LRScheduler):
-    """Provides a skeletal implementation of :class:`LRScheduler`."""
-
+class LRSchedulerBase(ABC, LRScheduler):
     @final
     @override
     def get_lr(self) -> list[float]:  # type: ignore[override]
@@ -37,7 +35,7 @@ class AbstractLRScheduler(ABC, LRScheduler):
 
 
 @final
-class NoopLR(AbstractLRScheduler):
+class NoopLR(LRSchedulerBase):
     """Represents a no-op learning rate schedule."""
 
     def __init__(self, optimizer: Optimizer, *, last_epoch: int = -1) -> None:

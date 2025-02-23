@@ -19,14 +19,13 @@ from torch.profiler import (
 from typing_extensions import override
 
 from fairseq2.gang import Gangs
-from fairseq2.profilers._handler import ProfilerHandler
-from fairseq2.profilers._profiler import AbstractProfiler, NoopProfiler, Profiler
+from fairseq2.profilers import NoopProfiler, Profiler, ProfilerHandler
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
 
 
 @final
-class TorchProfiler(AbstractProfiler):
+class TorchProfiler(Profiler):
     """Represents a convenience wrapper for :class:`profile`."""
 
     _profile: profile
@@ -121,6 +120,11 @@ class TorchProfilerHandler(ProfilerHandler):
             log_dir,
             gangs,
         )
+
+    @property
+    @override
+    def name(self) -> str:
+        return TORCH_PROFILER
 
     @property
     @override

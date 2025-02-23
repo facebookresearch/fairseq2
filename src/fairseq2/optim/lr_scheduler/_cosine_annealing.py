@@ -17,8 +17,8 @@ from typing_extensions import override
 from fairseq2.logging import log
 from fairseq2.optim.lr_scheduler._handler import LRSchedulerHandler
 from fairseq2.optim.lr_scheduler._lr_scheduler import (
-    AbstractLRScheduler,
     LRScheduler,
+    LRSchedulerBase,
     get_per_param_group,
 )
 from fairseq2.utils.structured import structure
@@ -26,7 +26,7 @@ from fairseq2.utils.validation import ValidationError, ValidationResult, validat
 
 
 @final
-class CosineAnnealingLR(AbstractLRScheduler):
+class CosineAnnealingLR(LRSchedulerBase):
     """Represents the learning rate schedule described in
     :cite:t:`https://doi.org/10.48550/arxiv.1608.03983`.
 
@@ -268,10 +268,15 @@ class CosineAnnealingLRHandler(LRSchedulerHandler):
 
     @property
     @override
-    def requires_num_steps(self) -> bool:
-        return False
+    def name(self) -> str:
+        return COSINE_ANNEALING_LR
 
     @property
     @override
     def config_kls(self) -> type[object]:
         return CosineAnnealingLRConfig
+
+    @property
+    @override
+    def requires_num_steps(self) -> bool:
+        return False

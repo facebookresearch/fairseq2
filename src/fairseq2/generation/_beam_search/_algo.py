@@ -114,6 +114,10 @@ class BeamSearchAlgorithmHandler(ABC):
 
     @property
     @abstractmethod
+    def name(self) -> str: ...
+
+    @property
+    @abstractmethod
     def config_kls(self) -> type[object]: ...
 
 
@@ -139,6 +143,11 @@ class StandardBeamSearchAlgorithmHandler(BeamSearchAlgorithmHandler):
             )
 
         return StandardBeamSearchAlgorithm()
+
+    @property
+    @override
+    def name(self) -> str:
+        return STANDARD_BEAM_SEARCH_ALGO
 
     @property
     @override

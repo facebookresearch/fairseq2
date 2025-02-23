@@ -6,11 +6,12 @@
 
 from __future__ import annotations
 
+import logging
 import warnings
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Final, Protocol, final
+from typing import Final, Protocol, final
 
 import torch
 from torch import Tensor
@@ -19,6 +20,7 @@ from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.api import (
     BackwardPrefetch,
     CPUOffload,
+    FullStateDictConfig,
     MixedPrecision,
     ShardedOptimStateDictConfig,
     ShardedStateDictConfig,
@@ -26,9 +28,11 @@ from torch.distributed.fsdp.api import (
     StateDictType,
 )
 from torch.nn import Module, Parameter
+from torch.optim import Optimizer
 
-from fairseq2.gang import Gang, GangError, setup_hsdp_gangs
-from fairseq2.nn.ddp import DistributedSetupError
+from fairseq2.error import NotSupportedError
+from fairseq2.gang import Gangs
+from fairseq2.nn.data_parallel._error import DistributedSetupError
 from fairseq2.nn.utils.module import (
     apply_to_parameters,
     infer_device,
@@ -41,21 +45,20 @@ from fairseq2.typing import DataType, Device
 
 def to_fsdp(
     module: Module,
-    dp_gang: Gang,
+    gangs: Gangs,
     wrap_policy: FSDPWrapPolicy | None,
     *,
     ignored_modules: Sequence[Module] | None = None,
     broadcast_state: bool = False,
     memory_policy: FSDPMemoryPolicy | None = None,
     reshard_after_forward: bool = True,
-    local_world_size: int | None = None,
     mixed_precision_dtype: DataType | None = None,
     fp32_reduce: bool = False,
 ) -> FSDP:
     """Wrap ``module`` with FSDP.
 
     :param module: The module to wrap.
-    :param dp_gang: The data parallel gang over which to shard ``module``.
+    :param gangs: The gangs over which to shard ``module``.
     :param wrap_policy: The FSDP wrap policy to apply to ``module``. If ``None``,
         wraps only ``module`` itself.
     :param ignored_param_names: The ignored parameter names. Can contain regular
@@ -67,10 +70,6 @@ def to_fsdp(
         memory.
     :param reshard_after_forward: If ``True``, unshards the parameters before
         the forward pass and only reshards them after the backward pass.
-    :param local_world_size: If not ``None``, enables hybrid sharding. ``gang``
-        will be split into sub-gangs each containing ``local_world_size`` number
-        of consecutive processes. The model will be fully sharded within each
-        sub-gang and will be replicated across sub-gangs.
     :param mixed_precision_dtype: If not ``None``, parameters, buffers, and
         gradients will use this data type during forward and backward passes.
         Outside forward and backward passes, the model will be kept in full
@@ -78,37 +77,37 @@ def to_fsdp(
     :param fp32_reduce: If ``True``, the gradients will be reduced in full
         precision. Only relevant if ``mixed_precision_dtype`` is not ``None``.
     """
+    if gangs.sdp.size == 1:
+        raise NotSupportedError(
+            "FSDP does not support non-sharded data parallelism. Please use DDP instead."
+        )
+
     process_group: ProcessGroup | tuple[ProcessGroup, ProcessGroup]
 
-    if local_world_size is not None and local_world_size != dp_gang.size:
+    # Determine the sharding strategy.
+    if gangs.rdp.size > 1:
         sharding_strategy = ShardingStrategy.HYBRID_SHARD
 
         try:
-            intra_node_gang, inter_node_gang = setup_hsdp_gangs(
-                dp_gang, local_world_size
-            )
-        except GangError as ex:
+            process_group = (gangs.sdp.as_process_group(), gangs.rdp.as_process_group())
+        except NotSupportedError:
             raise DistributedSetupError(
-                "The inter-node and intra-node gangs for HSDP cannot be setup. See the nested exception for details."
-            ) from ex
-
-        process_group = (
-            intra_node_gang.as_process_group(),
-            intra_node_gang.as_process_group(),
-        )
+                "The specified data parallel gang does not support conversion to a process group."
+            ) from None
     else:
         if reshard_after_forward:
             sharding_strategy = ShardingStrategy.FULL_SHARD
         else:
             sharding_strategy = ShardingStrategy.SHARD_GRAD_OP
 
-        process_group = dp_gang.as_process_group()
+        try:
+            process_group = gangs.sdp.as_process_group()
+        except NotSupportedError:
+            raise DistributedSetupError(
+                "The specified data parallel gang does not support conversion to a process group."
+            ) from None
 
-    if memory_policy is None:
-        memory_policy = FSDP_STANDARD_MEMORY_POLICY
-
-    param_init_fn = None
-
+    # Set up parameter initialization.
     try:
         module_device = infer_device(module)
     except ValueError as ex:
@@ -116,14 +115,22 @@ def to_fsdp(
             "The device of `module` is not valid. See the nested exception for details."
         ) from ex
 
-    if module_device.type == "meta":
-        if dp_gang.rank == 0:
-            skip_init = not broadcast_state
-        else:
+    if module_device.type != "meta":
+        param_initializer = None
+    else:
+        if broadcast_state:
+            if gangs.dp.rank == 0:
+                raise DistributedSetupError(
+                    "`broadcast_state` is set, but the coordinator process (i.e. rank 0) is on a meta device."
+                )
+
             skip_init = True
+        else:
+            skip_init = False
 
-        param_init_fn = FSDPParameterInitializer(dp_gang.device, skip_init)
+        param_initializer = FSDPParameterInitializer(gangs.dp.device, skip_init)
 
+    # Set up the data types for mixed precision training.
     if mixed_precision_dtype is None:
         mp = None
     elif mixed_precision_dtype == torch.float32:
@@ -131,35 +138,34 @@ def to_fsdp(
     else:
         reduce_dtype = torch.float32 if fp32_reduce else mixed_precision_dtype
 
-        mp = MixedPrecision(
-            param_dtype=mixed_precision_dtype,
-            reduce_dtype=reduce_dtype,
-            buffer_dtype=None,
-        )
+        mp = MixedPrecision(mixed_precision_dtype, reduce_dtype, buffer_dtype=None)
 
-    kwargs: dict[str, Any] = {}
+    if memory_policy is None:
+        memory_policy = FSDP_STANDARD_MEMORY_POLICY
 
-    # As of PyTorch 2.0, FSDP initialization fails in certain settings when an
-    # empty `ignored_states` is specified (e.g. `sync_module_states` is set).
-    if ignored_modules:
-        kwargs["ignored_states"] = ignored_modules
+    if not memory_policy.cpu_offload:
+        cpu_offload = None
+    else:
+        cpu_offload = CPUOffload()
 
     try:
         fsdp = FSDP(
             module,
             process_group=process_group,
             sharding_strategy=sharding_strategy,
-            cpu_offload=CPUOffload() if memory_policy.cpu_offload else None,
+            cpu_offload=cpu_offload,
             auto_wrap_policy=wrap_policy,
             backward_prefetch=memory_policy.backward_prefetch,
             mixed_precision=mp,
-            param_init_fn=param_init_fn,
-            device_id=dp_gang.device,
+            param_init_fn=param_initializer,
+            device_id=gangs.dp.device,
             sync_module_states=broadcast_state,
             forward_prefetch=False,
             limit_all_gathers=memory_policy.limit_all_gathers,
             use_orig_params=True,
-            **kwargs,
+            # As of PyTorch 2.0, FSDP initialization fails in certain settings
+            # when an empty `ignored_states` is specified. Pass `None` instead.
+            ignored_states=ignored_modules if ignored_modules else None,
         )
     except (RuntimeError, ValueError) as ex:
         raise DistributedSetupError(
@@ -298,48 +304,102 @@ class FSDPParameterInitializer:
         self._module_memo.add(module)
 
 
-# mypy: disable-error-code="method-assign"
-
-
 @contextmanager
-def summon_fsdp_for_validation(module: Module) -> Iterator[None]:
+def summon_fsdp(module: FSDP) -> Iterator[None]:
     """Unshard the parameters of ``module`` and use the non-FSDP forward method."""
-    if not isinstance(module, FSDP):
-        yield
-    else:
-        mp = module.mixed_precision or MixedPrecision()
+    mp = module.mixed_precision or MixedPrecision()
 
-        # This is ugly, but our only option. We monkey-patch FSDP modules to
-        # replace their `forward` methods with the wrapped `forward` methods.
-        # Otherwise, FSDP fails to shard parameters at the end of the call.
-        def disable_fsdp_forward(module_: Module) -> None:
-            for m in module_.modules():
-                if isinstance(m, FSDP):
-                    m._fs2_backup_forward = m.forward  # type: ignore[assignment]
+    # This is ugly, but our only option. We monkey-patch FSDP modules to
+    # replace their `forward` methods with the wrapped `forward` methods.
+    # Otherwise, FSDP fails to shard parameters at the end of the call.
+    def disable_fsdp_forward(module_: Module) -> None:
+        for m in module_.modules():
+            if isinstance(m, FSDP):
+                m._fs2_backup_forward = m.forward  # type: ignore[assignment]
 
-                    m.forward = m.module.forward
+                m.forward = m.module.forward  # type: ignore[method-assign]
 
-        def enable_fsdp_forward(module_: Module) -> None:
-            for m in module_.modules():
-                if isinstance(m, FSDP):
-                    m.forward = m._fs2_backup_forward
+    def enable_fsdp_forward(module_: Module) -> None:
+        for m in module_.modules():
+            if isinstance(m, FSDP):
+                m.forward = m._fs2_backup_forward  # type: ignore[method-assign]
 
-                    del m._fs2_backup_forward
+                del m._fs2_backup_forward
 
-        def maybe_cast_dtype(t: Tensor) -> Tensor:
-            dtype = mp.param_dtype if isinstance(t, Parameter) else mp.buffer_dtype
+    def maybe_cast_dtype(t: Tensor) -> Tensor:
+        dtype = mp.param_dtype if isinstance(t, Parameter) else mp.buffer_dtype
 
-            if dtype is None:
-                return t
+        if dtype is None:
+            return t
 
-            return t.to(dtype)
+        return t.to(dtype)
 
-        with FSDP.summon_full_params(module, writeback=False):
-            disable_fsdp_forward(module)
+    with FSDP.summon_full_params(module, writeback=False):
+        disable_fsdp_forward(module)
 
-            apply_to_parameters(module, maybe_cast_dtype)
+        apply_to_parameters(module, maybe_cast_dtype)
 
-            try:
-                yield
-            finally:
-                enable_fsdp_forward(module)
+        try:
+            yield
+        finally:
+            enable_fsdp_forward(module)
+
+
+def get_fsdp_full_state_dict(module: FSDP) -> dict[str, object]:
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            action="ignore", message=r".*FSDP\.state_dict_type\(\) and FSDP\.set_state_dict_type\(\) are being deprecated.*"  # fmt: skip
+        )
+
+        state_dict_config = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
+
+        with FSDP.state_dict_type(
+            module, StateDictType.FULL_STATE_DICT, state_dict_config
+        ):
+            return module.state_dict()
+
+
+def get_fsdp_optim_state_dict(module: FSDP, optim: Optimizer) -> dict[str, object]:
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            action="ignore", message=r".*`_get_pg_default_device` will be deprecated.*"  # fmt: skip
+        )
+        warnings.filterwarnings(
+            action="ignore", message=r".*You are using `torch\.load` with `weights_only=False`.*"  # fmt: skip
+        )
+
+        try:
+            # FSDP uses warning level to dump a lot of noisy internal trace
+            # information.
+            logging.disable(logging.WARNING)
+
+            return FSDP.optim_state_dict(module, optim)
+        except UnicodeDecodeError as ex:
+            raise RuntimeError(
+                "FSDP has failed to gather the optimizer state with a pickling error. This might indicate a disk space issue. Make sure you have enough space on your file system. See the nested exception for details."
+            ) from ex
+        finally:
+            logging.disable(logging.NOTSET)
+
+
+def load_fsdp_optim_state_dict(
+    module: FSDP, optim: Optimizer, state_dict: Mapping[str, object]
+) -> None:
+    if not isinstance(state_dict, dict):
+        state_dict = dict(state_dict)
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            action="ignore", message=r".*Please use DTensor instead.*"
+        )
+
+        try:
+            # FSDP uses warning level to dump a lot of noisy internal trace
+            # information.
+            logging.disable(logging.WARNING)
+
+            state_dict = FSDP.optim_state_dict_to_load(module, optim, state_dict)
+        finally:
+            logging.disable(logging.NOTSET)
+
+        optim.load_state_dict(state_dict)

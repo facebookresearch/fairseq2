@@ -45,8 +45,9 @@ from fairseq2.recipes.config import (
     SequenceGeneratorSection,
 )
 from fairseq2.recipes.error import UnitError
-from fairseq2.recipes.generator import AbstractGeneratorUnit, Generator
+from fairseq2.recipes.generator import Generator, GeneratorUnit
 from fairseq2.recipes.metrics import SequenceGenerationMetricBag
+from fairseq2.recipes.model import Model
 from fairseq2.typing import CPU
 from fairseq2.utils.file import FileMode
 from fairseq2.utils.rng import manual_seed
@@ -212,6 +213,7 @@ def load_text_generator(
         json_fp = None
 
     unit = TextGenerateUnit(
+        model,
         seq_generator,
         tokenizer,
         gangs,
@@ -244,9 +246,10 @@ def load_text_generator(
 
 
 @final
-class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
+class TextGenerateUnit(GeneratorUnit[SequenceBatch]):
     """Represents a text generation unit."""
 
+    _model: Model
     _generator: SequenceGenerator
     _text_decoder: TextTokenDecoder
     _text_output_stream: TextIO | None
@@ -255,14 +258,14 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
 
     def __init__(
         self,
+        model: Model,
         generator: SequenceGenerator,
         tokenizer: TextTokenizer,
         gangs: Gangs,
         text_output_stream: TextIO | None,
         json_output_stream: TextIO | None,
     ) -> None:
-        super().__init__(generator.model)
-
+        self._model = model
         self._generator = generator
 
         self._text_decoder = tokenizer.create_decoder()
@@ -391,6 +394,11 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
             raise UnitError(
                 "The generator output cannot be written to the stream. See the nested exception for details."
             ) from ex
+
+    @property
+    @override
+    def model(self) -> Model:
+        return self._model
 
     @property
     @override

@@ -8,18 +8,21 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from torch.nn import Module
-
 from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.gang import Gangs
+from fairseq2.recipes.model import Model
 from fairseq2.recipes.trainer import TrainUnit
 
 
 class POFinetuneUnitHandler(ABC):
     @abstractmethod
     def create(
-        self, model: Module, gangs: Gangs, recipe_config: object
+        self, model: Model, gangs: Gangs, recipe_config: object
     ) -> TrainUnit[PreferenceBatch]: ...
+
+    @property
+    @abstractmethod
+    def name(self) -> str: ...
 
     @property
     @abstractmethod

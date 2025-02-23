@@ -12,23 +12,28 @@ from typing import Final, final
 from typing_extensions import override
 
 from fairseq2.assets import AssetCard, AssetCardError, AssetCardFieldNotFoundError
+from fairseq2.data import VocabularyInfo
 from fairseq2.data.text.tokenizers import (
-    AbstractTextTokenizerHandler,
     TextTokenizer,
     TextTokenizerLoadError,
     text_tokenizer_asset_card_error,
 )
 from fairseq2.data.text.tokenizers.sentencepiece import BasicSentencePieceTokenizer
-from fairseq2.data.text.tokenizers.tiktoken import TiktokenEncoder, TiktokenTokenizer
+from fairseq2.data.text.tokenizers.tiktoken import (
+    TiktokenDecoder,
+    TiktokenEncoder,
+    TiktokenModel,
+)
 from fairseq2.typing import Device
 
 
 @final
-class LLaMA3Tokenizer(TiktokenTokenizer):
+class LLaMA3Tokenizer(TextTokenizer):
     """Represents a LLaMA 3 tokenizer."""
 
     _SPLIT_REGEX: Final = r"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+"  # fmt: skip
 
+    _model: TiktokenModel
     _eos_token: str
 
     def __init__(self, path: Path, instruct: bool = False) -> None:
@@ -59,7 +64,7 @@ class LLaMA3Tokenizer(TiktokenTokenizer):
         for i in range(num_reserved_special_tokens - len(special_tokens)):
             special_tokens.append(f"<|reserved_special_token_{2 + i}|>")
 
-        super().__init__(
+        self._model = TiktokenModel(
             path,
             split_regex=self._SPLIT_REGEX,
             unk_token=None,
@@ -107,59 +112,66 @@ class LLaMA3Tokenizer(TiktokenTokenizer):
                 )
 
         return TiktokenEncoder(
-            self._encoding,
+            self._model,
             prefix_tokens=prefix_tokens,
             suffix_tokens=suffix_tokens,
             device=device,
             pin_memory=pin_memory,
         )
 
+    @override
+    def create_raw_encoder(
+        self, *, device: Device | None = None, pin_memory: bool = False
+    ) -> TiktokenEncoder:
+        return TiktokenEncoder(self._model, device=device, pin_memory=pin_memory)
+
+    @override
+    def create_decoder(self) -> TiktokenDecoder:
+        return TiktokenDecoder(self._model)
+
+    @property
+    @override
+    def vocab_info(self) -> VocabularyInfo:
+        return self._model.vocab_info
+
 
 LLAMA_TOKENIZER_FAMILY: Final = "llama"
 
 
-@final
-class LLaMATokenizerHandler(AbstractTextTokenizerHandler):
-    @property
-    @override
-    def family(self) -> str:
-        return LLAMA_TOKENIZER_FAMILY
+def load_llama_tokenizer(path: Path, card: AssetCard) -> TextTokenizer:
+    try:
+        use_v2 = card.field("use_v2_tokenizer").as_(bool)
+    except AssetCardFieldNotFoundError:
+        use_v2 = False
+    except AssetCardError as ex:
+        raise text_tokenizer_asset_card_error(card.name) from ex
 
-    @override
-    def _load_tokenizer(self, path: Path, card: AssetCard) -> TextTokenizer:
+    if use_v2:
+        field = card.field("model_config").field("vocab_info").field("eos_idx")
+
         try:
-            use_v2 = card.field("use_v2_tokenizer").as_(bool)
+            eos_idx = field.as_(int)
         except AssetCardFieldNotFoundError:
-            use_v2 = False
+            eos_idx = 0
         except AssetCardError as ex:
             raise text_tokenizer_asset_card_error(card.name) from ex
 
-        if use_v2:
-            field = card.field("model_config").field("vocab_info").field("eos_idx")
+        eot_idx = 128_009  # end-of-turn
 
-            try:
-                eos_idx = field.as_(int)
-            except AssetCardFieldNotFoundError:
-                eos_idx = 0
-            except AssetCardError as ex:
-                raise text_tokenizer_asset_card_error(card.name) from ex
-
-            eot_idx = 128_009  # end-of-turn
-
-            try:
-                return LLaMA3Tokenizer(path, instruct=eos_idx == eot_idx)
-            except ValueError as ex:
-                raise TextTokenizerLoadError(
-                    card.name, f"The '{card.name}' asset card does not contain a valid text tokenizer configuration of the '{self.family}' family. See the nested exception for details."  # fmt: skip
-                ) from ex
-            except RuntimeError as ex:
-                raise TextTokenizerLoadError(
-                    card.name, f"The '{card.name}' text tokenizer cannot be loaded. See the nested exception for details."  # fmt: skip
-                ) from ex
-        else:
-            try:
-                return BasicSentencePieceTokenizer(path)
-            except RuntimeError as ex:
-                raise TextTokenizerLoadError(
-                    card.name, f"The '{card.name}' text tokenizer cannot be loaded. See the nested exception for details."  # fmt: skip
-                ) from ex
+        try:
+            return LLaMA3Tokenizer(path, instruct=eos_idx == eot_idx)
+        except ValueError as ex:
+            raise TextTokenizerLoadError(
+                card.name, f"The '{card.name}' asset card does not contain a valid text tokenizer configuration of the '{LLAMA_TOKENIZER_FAMILY}' family. See the nested exception for details."  # fmt: skip
+            ) from ex
+        except RuntimeError as ex:
+            raise TextTokenizerLoadError(
+                card.name, f"The '{card.name}' text tokenizer cannot be loaded. See the nested exception for details."  # fmt: skip
+            ) from ex
+    else:
+        try:
+            return BasicSentencePieceTokenizer(path)
+        except RuntimeError as ex:
+            raise TextTokenizerLoadError(
+                card.name, f"The '{card.name}' text tokenizer cannot be loaded. See the nested exception for details."  # fmt: skip
+            ) from ex

@@ -17,8 +17,6 @@ from typing_extensions import override
 from fairseq2.assets import AssetCard
 from fairseq2.data import VocabularyInfo
 from fairseq2.data.text.tokenizers import (
-    AbstractTextTokenizer,
-    AbstractTextTokenizerHandler,
     TextTokenDecoder,
     TextTokenEncoder,
     TextTokenizer,
@@ -117,52 +115,17 @@ else:
     _set_module_name()
 
 
-class SentencePieceTokenizer(AbstractTextTokenizer):
-    """Represents a SentencePiece tokenizer."""
-
-    _model: SentencePieceModel
-
-    def __init__(
-        self, path: Path, control_symbols: Sequence[str] | None = None
-    ) -> None:
-        """
-        :param path:
-            The path to the SentencePiece model file.
-        :param control_symbols:
-            The list of control symbols to add to the SentencePiece model.
-        """
-        self._model = SentencePieceModel(path, control_symbols)
-
-        vocab_info = vocab_info_from_sentencepiece(self._model)
-
-        super().__init__(vocab_info)
-
-    @override
-    def create_raw_encoder(
-        self, *, device: Device | None = None, pin_memory: bool = False
-    ) -> SentencePieceEncoder:
-        return SentencePieceEncoder(self._model, device=device, pin_memory=pin_memory)
-
-    @override
-    def create_decoder(self) -> SentencePieceDecoder:
-        return SentencePieceDecoder(self._model)
-
-    @final
-    @property
-    def model(self) -> SentencePieceModel:
-        return self._model
-
-
 @final
-class BasicSentencePieceTokenizer(SentencePieceTokenizer):
+class BasicSentencePieceTokenizer(TextTokenizer):
     """Represents a SentencePiece tokenizer that encodes text with BOS and EOS."""
 
+    _model: SentencePieceModel
+    _vocab_info: VocabularyInfo
+
     def __init__(self, path: Path) -> None:
-        """
-        :param path:
-            The path to the SentencePiece model file.
-        """
-        super().__init__(path)
+        self._model = SentencePieceModel(path)
+
+        self._vocab_info = vocab_info_from_sentencepiece(self._model)
 
     @override
     def create_encoder(
@@ -218,28 +181,42 @@ class BasicSentencePieceTokenizer(SentencePieceTokenizer):
             pin_memory=pin_memory,
         )
 
-
-class BasicSentencePieceTokenizerHandler(AbstractTextTokenizerHandler):
     @override
-    def _load_tokenizer(self, path: Path, card: AssetCard) -> TextTokenizer:
-        try:
-            return BasicSentencePieceTokenizer(path)
-        except RuntimeError as ex:
-            raise TextTokenizerLoadError(
-                card.name, f"The '{card.name}' text tokenizer cannot be loaded. See the nested exception for details."  # fmt: skip
-            ) from ex
+    def create_raw_encoder(
+        self, *, device: Device | None = None, pin_memory: bool = False
+    ) -> SentencePieceEncoder:
+        return SentencePieceEncoder(self._model, device=device, pin_memory=pin_memory)
+
+    @override
+    def create_decoder(self) -> SentencePieceDecoder:
+        return SentencePieceDecoder(self._model)
+
+    @property
+    @override
+    def vocab_info(self) -> VocabularyInfo:
+        return self._vocab_info
+
+
+def load_basic_sentencepiece_tokenizer(path: Path, card: AssetCard) -> TextTokenizer:
+    try:
+        return BasicSentencePieceTokenizer(path)
+    except RuntimeError as ex:
+        raise TextTokenizerLoadError(
+            card.name, f"The '{card.name}' text tokenizer cannot be loaded. See the nested exception for details."  # fmt: skip
+        ) from ex
 
 
 @final
-class RawSentencePieceTokenizer(SentencePieceTokenizer):
+class RawSentencePieceTokenizer(TextTokenizer):
     """Represents a SentencePiece tokenizer that encodes text with no control symbols."""
 
+    _model: SentencePieceModel
+    _vocab_info: VocabularyInfo
+
     def __init__(self, path: Path) -> None:
-        """
-        :param path:
-            The path to the SentencePiece model file.
-        """
-        super().__init__(path)
+        self._model = SentencePieceModel(path)
+
+        self._vocab_info = vocab_info_from_sentencepiece(self._model)
 
     @override
     def create_encoder(
@@ -275,16 +252,29 @@ class RawSentencePieceTokenizer(SentencePieceTokenizer):
 
         return self.create_raw_encoder(device=device, pin_memory=pin_memory)
 
-
-class RawSentencePieceTokenizerHandler(AbstractTextTokenizerHandler):
     @override
-    def _load_tokenizer(self, path: Path, card: AssetCard) -> TextTokenizer:
-        try:
-            return RawSentencePieceTokenizer(path)
-        except RuntimeError as ex:
-            raise TextTokenizerLoadError(
-                card.name, f"The '{card.name}' text tokenizer cannot be loaded. See the nested exception for details."  # fmt: skip
-            ) from ex
+    def create_raw_encoder(
+        self, *, device: Device | None = None, pin_memory: bool = False
+    ) -> SentencePieceEncoder:
+        return SentencePieceEncoder(self._model, device=device, pin_memory=pin_memory)
+
+    @override
+    def create_decoder(self) -> SentencePieceDecoder:
+        return SentencePieceDecoder(self._model)
+
+    @property
+    @override
+    def vocab_info(self) -> VocabularyInfo:
+        return self._vocab_info
+
+
+def load_raw_sentencepiece_tokenizer(path: Path, card: AssetCard) -> TextTokenizer:
+    try:
+        return RawSentencePieceTokenizer(path)
+    except RuntimeError as ex:
+        raise TextTokenizerLoadError(
+            card.name, f"The '{card.name}' text tokenizer cannot be loaded. See the nested exception for details."  # fmt: skip
+        ) from ex
 
 
 def vocab_info_from_sentencepiece(model: SentencePieceModel) -> VocabularyInfo:

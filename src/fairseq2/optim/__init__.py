@@ -14,5 +14,5 @@ from fairseq2.optim._dynamic_loss_scaler import DynamicLossScaler as DynamicLoss
 from fairseq2.optim._dynamic_loss_scaler import LossScaleResult as LossScaleResult
 from fairseq2.optim._error import UnknownOptimizerError as UnknownOptimizerError
 from fairseq2.optim._handler import OptimizerHandler as OptimizerHandler
-from fairseq2.optim._optimizer import AbstractOptimizer as AbstractOptimizer
+from fairseq2.optim._optimizer import OptimizerBase as OptimizerBase
 from fairseq2.optim._optimizer import ParameterCollection as ParameterCollection

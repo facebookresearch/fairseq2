@@ -11,44 +11,14 @@ from typing import cast
 
 import torch
 from torch import Tensor
-from torch.nn import Module
-from typing_extensions import override
 
-from fairseq2.models import AbstractModelHandler
-from fairseq2.models.transformer._config import (
-    TRANSFORMER_MODEL_FAMILY,
-    TransformerConfig,
-)
-from fairseq2.models.transformer._factory import TransformerFactory
-from fairseq2.models.transformer._model import TransformerModel
+from fairseq2.models.transformer._config import TransformerConfig
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
 
 
-class TransformerModelHandler(AbstractModelHandler):
-    @property
-    @override
-    def family(self) -> str:
-        return TRANSFORMER_MODEL_FAMILY
-
-    @property
-    @override
-    def kls(self) -> type[Module]:
-        return TransformerModel
-
-    @override
-    def _create_model(self, config: object) -> Module:
-        config = cast(TransformerConfig, config)
-
-        return TransformerFactory(config).create_model()
-
-    @override
-    def _convert_checkpoint(
-        self, checkpoint: dict[str, object], config: object
-    ) -> dict[str, object]:
-        return convert_transformer_checkpoint(checkpoint)
-
-
-def convert_transformer_checkpoint(checkpoint: dict[str, object]) -> dict[str, object]:
+def convert_transformer_checkpoint(
+    checkpoint: dict[str, object], config: TransformerConfig
+) -> dict[str, object]:
     key_map = {
         # fmt: off
         r"^encoder\.embed_tokens\.":                              r"encoder_frontend.embed.",

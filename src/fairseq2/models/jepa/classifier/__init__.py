@@ -18,8 +18,8 @@ from fairseq2.models.jepa.classifier._config import (
 from fairseq2.models.jepa.classifier._factory import (
     JepaClassifierFactory as JepaClassifierFactory,
 )
-from fairseq2.models.jepa.classifier._handler import (
-    JepaClassifierModelHandler as JepaClassifierModelHandler,
+from fairseq2.models.jepa.classifier._factory import (
+    create_jepa_classifier_model as create_jepa_classifier_model,
 )
 from fairseq2.models.jepa.classifier._model import AttentivePooler as AttentivePooler
 from fairseq2.models.jepa.classifier._model import (

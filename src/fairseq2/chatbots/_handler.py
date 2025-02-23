@@ -18,3 +18,7 @@ class ChatbotHandler(ABC):
     def create(
         self, generator: SequenceGenerator, tokenizer: TextTokenizer
     ) -> Chatbot: ...
+
+    @property
+    @abstractmethod
+    def family(self) -> str: ...

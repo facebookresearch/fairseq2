@@ -16,8 +16,8 @@ from typing_extensions import override
 from fairseq2.optim.lr_scheduler._error import UnspecifiedNumberOfStepsError
 from fairseq2.optim.lr_scheduler._handler import LRSchedulerHandler
 from fairseq2.optim.lr_scheduler._lr_scheduler import (
-    AbstractLRScheduler,
     LRScheduler,
+    LRSchedulerBase,
     get_per_param_group,
 )
 from fairseq2.utils.structured import structure
@@ -25,7 +25,7 @@ from fairseq2.utils.validation import validate
 
 
 @final
-class PolynomialDecayLR(AbstractLRScheduler):
+class PolynomialDecayLR(LRSchedulerBase):
     """Represents the polynomial decay learning rate schedule.
 
     **During warmup:**
@@ -162,10 +162,15 @@ class PolynomialDecayLRHandler(LRSchedulerHandler):
 
     @property
     @override
-    def requires_num_steps(self) -> bool:
-        return True
+    def name(self) -> str:
+        return POLYNOMIAL_DECAY_LR
 
     @property
     @override
     def config_kls(self) -> type[object]:
         return PolynomialDecayLRConfig
+
+    @property
+    @override
+    def requires_num_steps(self) -> bool:
+        return True

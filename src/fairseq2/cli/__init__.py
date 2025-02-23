@@ -13,3 +13,4 @@ from fairseq2.cli._cli import CliCommandHandler as CliCommandHandler
 from fairseq2.cli._cli import CliGroup as CliGroup
 from fairseq2.cli._logging import setup_logging as setup_logging
 from fairseq2.cli._main import main as main
+from fairseq2.cli._setup import setup_cli as setup_cli

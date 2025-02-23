@@ -19,6 +19,10 @@ class SequenceGeneratorHandler(ABC):
 
     @property
     @abstractmethod
+    def name(self) -> str: ...
+
+    @property
+    @abstractmethod
     def config_kls(self) -> type[object]: ...
 
 
@@ -27,6 +31,10 @@ class Seq2SeqGeneratorHandler(ABC):
     def create(
         self, model: EncoderDecoderModel, config: object
     ) -> Seq2SeqGenerator: ...
+
+    @property
+    @abstractmethod
+    def name(self) -> str: ...
 
     @property
     @abstractmethod

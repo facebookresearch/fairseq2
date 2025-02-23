@@ -6,16 +6,14 @@
 
 from __future__ import annotations
 
-import os
-
+from fairseq2.cluster import ClusterHandler, ClusterResolver
 from fairseq2.context import RuntimeContext
-from fairseq2.recipes.cluster import ClusterHandler, ClusterResolver
 
 
 def set_torch_distributed_variables(context: RuntimeContext, cluster: str) -> None:
     cluster_handlers = context.get_registry(ClusterHandler)
 
-    cluster_resolver = ClusterResolver(cluster_handlers, os.environ)
+    cluster_resolver = ClusterResolver(cluster_handlers, context.env)
 
     handler = cluster_resolver.get(cluster)
 

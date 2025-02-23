@@ -156,5 +156,10 @@ class WandbRecorderHandler(MetricRecorderHandler):
 
     @property
     @override
+    def name(self) -> str:
+        return WANDB_RECORDER
+
+    @property
+    @override
     def config_kls(self) -> type[object]:
         return WandbRecorderConfig

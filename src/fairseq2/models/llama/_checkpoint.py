@@ -9,59 +9,9 @@ from __future__ import annotations
 from typing import cast
 
 from torch import Tensor
-from torch.nn import Module
-from typing_extensions import override
 
-from fairseq2.gang import Gangs
-from fairseq2.models import AbstractModelHandler
-from fairseq2.models.llama._config import LLAMA_MODEL_FAMILY, LLaMAConfig
-from fairseq2.models.llama._factory import LLaMAFactory
-from fairseq2.models.transformer_decoder import (
-    TransformerDecoderModel,
-    shard_transformer_decoder_model,
-)
+from fairseq2.models.llama._config import LLaMAConfig
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
-
-
-class LLaMAModelHandler(AbstractModelHandler):
-    @property
-    @override
-    def family(self) -> str:
-        return LLAMA_MODEL_FAMILY
-
-    @property
-    @override
-    def kls(self) -> type[Module]:
-        return TransformerDecoderModel
-
-    @property
-    @override
-    def supports_sharding(self) -> bool:
-        return True
-
-    @override
-    def _create_model(self, config: object) -> Module:
-        config = cast(LLaMAConfig, config)
-
-        return LLaMAFactory(config).create_model()
-
-    @override
-    def _shard(self, model: Module, config: object, gangs: Gangs) -> None:
-        config = cast(LLaMAConfig, config)
-
-        shard_embed_dim = config.max_seq_len < 8192  # LLaMA 1 or 2
-
-        model = cast(TransformerDecoderModel, model)
-
-        shard_transformer_decoder_model(model, gangs, shard_embed_dim)
-
-    @override
-    def _convert_checkpoint(
-        self, checkpoint: dict[str, object], config: object
-    ) -> dict[str, object]:
-        config = cast(LLaMAConfig, config)
-
-        return convert_llama_checkpoint(checkpoint, config)
 
 
 def convert_llama_checkpoint(

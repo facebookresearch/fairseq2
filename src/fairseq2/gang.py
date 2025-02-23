@@ -23,7 +23,7 @@ from typing_extensions import override
 
 from fairseq2.error import InternalError, InvalidOperationError, NotSupportedError
 from fairseq2.logging import log
-from fairseq2.typing import CPU, Device
+from fairseq2.typing import Device
 from fairseq2.utils.env import (
     InvalidEnvironmentVariableError,
     get_local_world_size,
@@ -49,8 +49,25 @@ class Gang(ABC):
     def close(self) -> None:
         """Close and destroy the gang."""
 
-    @abstractmethod
     def create_gang(self, ranks: Sequence[int]) -> Gang | None:
+        """Make a new gang.
+
+        :param ranks:
+            The ranks of processes that will be part of the new gang.
+        """
+        if len(set(ranks)) != len(ranks):
+            raise ValueError("The ranks in ``ranks`` must be all unique.")
+
+        for idx, rank in enumerate(ranks):
+            if rank < 0 or rank > self.size:
+                raise ValueError(
+                    f"The rank at index {idx} in ``ranks`` must be greater than or equal to 0 and less than the size of the gang ({self.size}), but is {rank} instead."
+                )
+
+        return self._do_create_gang(ranks)
+
+    @abstractmethod
+    def _do_create_gang(self, ranks: Sequence[int]) -> Gang | None:
         """Make a new gang.
 
         :param ranks:
@@ -138,21 +155,19 @@ class GangError(Exception):
     pass
 
 
-class AbstractGang(Gang):
-    """Provides a skeletal implementation of :class:`Gang`."""
+@final
+class FakeGang(Gang):
+    """Represents a non-distributed gang for local use."""
 
     _rank: int
     _size: int
     _device: Device
 
-    def __init__(self, rank: int, size: int, device: Device) -> None:
+    def __init__(self, device: Device, *, rank: int = 0, size: int = 1) -> None:
         """
-        :param rank:
-            The rank of this process in the gang.
-        :param size:
-            The number of processes that are part of the gang.
-        :param device:
-            The associated device.
+        :param device: If ``None``, CPU will be used.
+        :param rank: The emulated rank of this process in the gang.
+        :param size: The emulated number of processes that are part of the gang.
         """
         if size == 0:
             raise ValueError("`size` must be greater than zero.")
@@ -169,61 +184,6 @@ class AbstractGang(Gang):
         self._size = size
 
         self._device = device
-
-    @final
-    @override
-    def create_gang(self, ranks: Sequence[int]) -> Gang | None:
-        if len(set(ranks)) != len(ranks):
-            raise ValueError("The ranks in ``ranks`` must be all unique.")
-
-        for idx, rank in enumerate(ranks):
-            if rank < 0 or rank > self._size:
-                raise ValueError(
-                    f"The rank at index {idx} in ``ranks`` must be greater than or equal to 0 and less than the size of the gang ({self._size}), but is {rank} instead."
-                )
-
-        return self._do_create_gang(ranks)
-
-    @abstractmethod
-    def _do_create_gang(self, ranks: Sequence[int]) -> Gang | None:
-        """Make a new gang.
-
-        :param ranks:
-            The ranks of processes that will be part of the new gang.
-        """
-
-    @final
-    @property
-    @override
-    def rank(self) -> int:
-        return self._rank
-
-    @final
-    @property
-    @override
-    def size(self) -> int:
-        return self._size
-
-    @final
-    @property
-    @override
-    def device(self) -> Device:
-        return self._device
-
-
-@final
-class FakeGang(AbstractGang):
-    """Represents a non-distributed gang for local use."""
-
-    def __init__(
-        self, device: Device | None = None, *, rank: int = 0, size: int = 1
-    ) -> None:
-        """
-        :param device: If ``None``, CPU will be used.
-        :param rank: The emulated rank of this process in the gang.
-        :param size: The emulated number of processes that are part of the gang.
-        """
-        super().__init__(rank=rank, size=size, device=device or CPU)
 
     @override
     def close(self) -> None:
@@ -243,6 +203,21 @@ class FakeGang(AbstractGang):
         raise NotSupportedError(
             "`FakeGang` does not support conversion to a process group."
         )
+
+    @property
+    @override
+    def rank(self) -> int:
+        return self._rank
+
+    @property
+    @override
+    def size(self) -> int:
+        return self._size
+
+    @property
+    @override
+    def device(self) -> Device:
+        return self._device
 
     @override
     def barrier(self) -> None:
@@ -306,9 +281,12 @@ class FakeGang(AbstractGang):
 
 
 @final
-class ProcessGroupGang(AbstractGang):
+class ProcessGroupGang(Gang):
     """Represents a gang that wraps a process group."""
 
+    _rank: int
+    _size: int
+    _device: Device
     _pg: ProcessGroup
     _monitor_pg: ProcessGroup | None
 
@@ -319,8 +297,13 @@ class ProcessGroupGang(AbstractGang):
         *,
         monitor_pg: ProcessGroup | None = None,
     ) -> None:
-        super().__init__(dist.get_rank(pg), dist.get_world_size(pg), device)
+        if device.type == "meta":
+            raise ValueError("`device` must be a real device.")
 
+        self._rank = dist.get_rank(pg)
+        self._size = dist.get_world_size(pg)
+
+        self._device = device
         self._pg = pg
         self._monitor_pg = monitor_pg
 
@@ -495,6 +478,21 @@ class ProcessGroupGang(AbstractGang):
     def as_process_group(self) -> ProcessGroup:
         return self._pg
 
+    @property
+    @override
+    def rank(self) -> int:
+        return self._rank
+
+    @property
+    @override
+    def size(self) -> int:
+        return self._size
+
+    @property
+    @override
+    def device(self) -> Device:
+        return self._device
+
     @override
     def barrier(self) -> None:
         if self._monitor_pg is None:
@@ -649,26 +647,46 @@ def setup_root_gang(
     )
 
 
-@dataclass
+@dataclass(kw_only=True, frozen=True)
 class Gangs:
     root: Gang
+    """The root gang."""
+
     dp: Gang
+    """The data parallel gang."""
+
+    rdp: Gang
+    """The inter-node data parallel gang (i.e. replicated)."""
+
+    sdp: Gang
+    """The intra-node data parallel gang (i.e. sharded)."""
+
     tp: Gang
+    """The tensor parallel gang."""
+
+    def __post_init__(self) -> None:
+        if self.root.rank == 0:
+            if self.dp.rank != 0 or self.tp.rank != 0:
+                raise GangError(
+                    "The coordinator process of the root gang (i.e. rank 0) must be rank 0 in all parallel gangs."
+                )
 
     def close(self) -> None:
         self.root.close()
 
 
 def fake_gangs(device: Device) -> Gangs:
-    gang = FakeGang(device=device)
+    fake_gang = FakeGang(device=device)
 
-    return Gangs(gang, gang, gang)
+    return Gangs(
+        root=fake_gang, dp=fake_gang, rdp=fake_gang, sdp=fake_gang, tp=fake_gang
+    )
 
 
 def to_gangs(gang: Gang) -> Gangs:
     fake_gang = FakeGang(device=gang.device)
 
-    return Gangs(gang, gang, fake_gang)
+    return Gangs(root=gang, dp=gang, rdp=gang, sdp=fake_gang, tp=fake_gang)
 
 
 def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
@@ -703,6 +721,8 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
             f"`root_gang.size` is expected to be a multiple of `tp_size` ({tp_size}), but is {root_gang.size} instead."
         )
 
+    fake_gang = FakeGang(device=root_gang.device)
+
     dp_size = root_gang.size // tp_size
 
     mesh = torch.arange(root_gang.size).view(dp_size, tp_size)
@@ -712,12 +732,12 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
 
     dp_gang: Gang | None = None
 
-    log.info("Initializing data parallel gang with a size of {}.", dp_size)
+    log.info("Initializing data parallel gang with {} process(es).", dp_size)
 
     # Build the gangs for data parallelism.
     match dp_size:
         case 1:
-            dp_gang = FakeGang(device=root_gang.device)
+            dp_gang = fake_gang
         case root_gang.size:
             dp_gang = root_gang
         case _:
@@ -731,12 +751,12 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
 
     tp_gang: Gang | None = None
 
-    log.info("Initializing tensor parallel gang with a size of {}.", tp_size)
+    log.info("Initializing tensor parallel gang with {} process(es).", tp_size)
 
     # Build the gangs for tensor parallelism.
     match tp_size:
         case 1:
-            tp_gang = FakeGang(device=root_gang.device)
+            tp_gang = fake_gang
         case root_gang.size:
             tp_gang = root_gang
         case _:
@@ -748,14 +768,14 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
     if tp_gang is None:
         raise InternalError("`tp_gang` is `None`.")
 
-    return Gangs(root_gang, dp_gang, tp_gang)
+    return Gangs(root=root_gang, dp=dp_gang, rdp=dp_gang, sdp=fake_gang, tp=tp_gang)
 
 
-def setup_hsdp_gangs(dp_gang: Gang, local_world_size: int) -> tuple[Gang, Gang]:
+def setup_fsdp_gangs(gangs: Gangs, intra_node_size: int | None = None) -> Gangs:
     """
-    Sets up gangs to be used for hybrid sharded data parallelism.
+    Sets up gangs to be used for sharded data parallelism.
 
-    For instance; if we have 8 devices denoted by g0 to g7 and ``local_world_size``
+    For instance; if we have 8 devices denoted by g0 to g7 and ``intra_node_size``
     is 4, this function will make 2 intra-node gangs and 4 inter-node gangs:
 
         2 intra-node gangs of size 4:
@@ -765,73 +785,76 @@ def setup_hsdp_gangs(dp_gang: Gang, local_world_size: int) -> tuple[Gang, Gang]:
 
     For efficiency, the caller should make sure adjacent ranks are on the same
     host.
-
-    :returs:
-        A tuple of intra-node gang for sharding and inter-node gang for
-        replication.
     """
-    if local_world_size <= 1:
-        raise ValueError(
-            f"`local_world_size` must be greater than 1, but is {local_world_size} instead."
+    if intra_node_size is None:
+        fake_gang = FakeGang(gangs.root.device)
+
+        return Gangs(
+            root=gangs.root, dp=gangs.dp, rdp=fake_gang, sdp=gangs.dp, tp=gangs.tp
         )
 
-    if dp_gang.size % local_world_size != 0:
+    if intra_node_size <= 1:
         raise ValueError(
-            f"`dp_gang.size` is expected to be a multiple of `local_world_size` ({local_world_size}), but is {dp_gang.size} instead."
+            f"`intra_node_size` must be greater than 1, but is {intra_node_size} instead."
         )
 
-    intra_node_size = local_world_size
+    dp_gang = gangs.dp
 
-    inter_node_size = dp_gang.size // local_world_size
+    if dp_gang.size % intra_node_size != 0:
+        raise ValueError(
+            f"`gangs.dp.size` is expected to be a multiple of `intra_node_size` ({intra_node_size}), but is {dp_gang.size} instead."
+        )
+
+    fake_gang = FakeGang(device=dp_gang.device)
+
+    inter_node_size = dp_gang.size // intra_node_size
 
     mesh = torch.arange(dp_gang.size).view(inter_node_size, intra_node_size)
 
     # Get the coordinate of this process in the mesh.
     rank_coords = [x.item() for x in torch.where(mesh == dp_gang.rank)]
 
-    inter_node_gang: Gang | None = None
+    inter_gang: Gang | None = None
 
-    log.info(
-        "Initializing inter-node data parallel gang with a size of {}.", inter_node_size
-    )
+    log.info("Initializing inter-node data parallel gang with {} process(es).", inter_node_size)  # fmt: skip
 
     # Build the gangs for inter-node data parallelism.
     match inter_node_size:
         case 1:
-            inter_node_gang = FakeGang(device=dp_gang.device)
+            inter_gang = fake_gang
         case dp_gang.size:
-            inter_node_gang = dp_gang
+            inter_gang = dp_gang
         case _:
             for i in range(intra_node_size):
                 sub_gang = dp_gang.create_gang(mesh[:, i].tolist())
                 if i == rank_coords[1]:
-                    inter_node_gang = sub_gang
+                    inter_gang = sub_gang
 
-    if inter_node_gang is None:
-        raise InternalError("`inter_node_gang` is `None`.")
+    if inter_gang is None:
+        raise InternalError("`inter_gang` is `None`.")
 
-    intra_node_gang: Gang | None = None
+    intra_gang: Gang | None = None
 
-    log.info(
-        "Initializing intra-node data parallel gang with a size of {}.", intra_node_size
-    )
+    log.info("Initializing intra-node data parallel gang with {} process(es).", intra_node_size)  # fmt: skip
 
     # Build the gangs for intra-node data parallelism.
     match intra_node_size:
         case 1:
-            intra_node_gang = FakeGang(device=dp_gang.device)
+            intra_gang = fake_gang
         case dp_gang.size:
-            intra_node_gang = dp_gang
+            intra_gang = dp_gang
         case _:
             for i in range(inter_node_size):
                 sub_gang = dp_gang.create_gang(mesh[i, :].tolist())
                 if i == rank_coords[0]:
-                    intra_node_gang = sub_gang
+                    intra_gang = sub_gang
 
-    if intra_node_gang is None:
-        raise InternalError("`intra_node_gang` is `None`.")
+    if intra_gang is None:
+        raise InternalError("`intra_gang` is `None`.")
 
-    return intra_node_gang, inter_node_gang
+    return Gangs(
+        root=gangs.root, dp=dp_gang, rdp=inter_gang, sdp=intra_gang, tp=gangs.tp
+    )
 
 
 def broadcast_flag(gang: Gang, flag: bool, source_rank: int = 0) -> bool:

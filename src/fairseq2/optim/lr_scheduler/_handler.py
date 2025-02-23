@@ -21,8 +21,12 @@ class LRSchedulerHandler(ABC):
 
     @property
     @abstractmethod
-    def requires_num_steps(self) -> bool: ...
+    def name(self) -> str: ...
 
     @property
     @abstractmethod
     def config_kls(self) -> type[object]: ...
+
+    @property
+    @abstractmethod
+    def requires_num_steps(self) -> bool: ...

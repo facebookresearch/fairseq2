@@ -55,9 +55,10 @@ from fairseq2.recipes.config import (
 )
 from fairseq2.recipes.evaluator import EvalUnit
 from fairseq2.recipes.metrics import Seq2SeqMetricBag
+from fairseq2.recipes.model import Model
 from fairseq2.recipes.mt._common import MTCriterion, MTLossSection
 from fairseq2.recipes.mt._eval import MTBleuChrfEvalUnit, MTLossEvalUnit
-from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
+from fairseq2.recipes.trainer import Trainer, TrainUnit
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
@@ -319,6 +320,7 @@ def load_mt_trainer(
             assert seq2seq_generator is not None
 
             valid_score_unit = MTBleuChrfEvalUnit(
+                model,
                 direction,
                 seq2seq_generator,
                 tokenizer,
@@ -369,13 +371,11 @@ def load_mt_trainer(
 
 
 @final
-class MTTrainUnit(AbstractTrainUnit[Seq2SeqBatch]):
+class MTTrainUnit(TrainUnit[Seq2SeqBatch]):
     _criterion: MTCriterion
     _metric_bag: Seq2SeqMetricBag
 
     def __init__(self, criterion: MTCriterion, gangs: Gangs) -> None:
-        super().__init__(criterion.model)
-
         self._criterion = criterion
 
         self._metric_bag = Seq2SeqMetricBag(gangs.dp)
@@ -383,6 +383,11 @@ class MTTrainUnit(AbstractTrainUnit[Seq2SeqBatch]):
     @override
     def __call__(self, batch: Seq2SeqBatch) -> tuple[Tensor, int]:
         return self._criterion(batch, self._metric_bag)
+
+    @property
+    @override
+    def model(self) -> Model:
+        return self._criterion.model
 
     @property
     @override

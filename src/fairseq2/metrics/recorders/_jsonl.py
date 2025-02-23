@@ -197,5 +197,10 @@ class JsonlMetricRecorderHandler(MetricRecorderHandler):
 
     @property
     @override
+    def name(self) -> str:
+        return JSONL_METRIC_RECORDER
+
+    @property
+    @override
     def config_kls(self) -> type[object]:
         return JsonlMetricRecorderConfig

@@ -140,5 +140,10 @@ class TensorBoardRecorderHandler(MetricRecorderHandler):
 
     @property
     @override
+    def name(self) -> str:
+        return TENSORBOARD_RECORDER
+
+    @property
+    @override
     def config_kls(self) -> type[object]:
         return TensorBoardRecorderConfig

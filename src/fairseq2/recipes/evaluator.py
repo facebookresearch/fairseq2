@@ -8,14 +8,12 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from contextlib import AbstractContextManager, nullcontext
+from contextlib import nullcontext
 from itertools import count
 from typing import Generic, TypeVar, final
 
 import torch
-from torch.nn import Module
 from torch.profiler import record_function
-from typing_extensions import override
 
 from fairseq2.datasets import DataReader
 from fairseq2.device import DeviceStatTracker
@@ -26,8 +24,9 @@ from fairseq2.metrics import MetricBag
 from fairseq2.metrics.recorders import MetricRecorder
 from fairseq2.profilers import Profiler
 from fairseq2.recipes.metrics import extend_batch_metrics
+from fairseq2.recipes.model import Model
 from fairseq2.recipes.utils.progress import NoopProgressReporter, ProgressReporter
-from fairseq2.typing import CPU, DataType
+from fairseq2.typing import CPU, ContextManager, DataType
 from fairseq2.utils.rng import RngBag
 from fairseq2.utils.stopwatch import Stopwatch
 
@@ -41,19 +40,19 @@ class EvalUnit(ABC, Generic[BatchT_contra]):
     def __call__(self, batch: BatchT_contra) -> None:
         """Process ``batch``."""
 
-    @abstractmethod
     def set_step_nr(self, step_nr: int) -> None:
         """Set the current training step number."""
+        pass
 
     @property
     @abstractmethod
-    def model(self) -> Module:
+    def model(self) -> Model:
         """The underlying model."""
 
     @property
-    @abstractmethod
     def display_name(self) -> str | None:
         """The display name of the unit for reporting purposes."""
+        return None
 
     @property
     @abstractmethod
@@ -62,33 +61,6 @@ class EvalUnit(ABC, Generic[BatchT_contra]):
 
 
 BatchT = TypeVar("BatchT")
-
-
-class AbstractEvalUnit(EvalUnit[BatchT]):
-    """Provides a skeletal implementation of :class:`EvalUnit`."""
-
-    _model: Module
-    _display_name: str | None
-
-    def __init__(self, model: Module, *, display_name: str | None = None) -> None:
-        self._model = model
-        self._display_name = display_name
-
-    @override
-    def set_step_nr(self, step_nr: int) -> None:
-        pass
-
-    @final
-    @property
-    @override
-    def model(self) -> Module:
-        return self._model
-
-    @final
-    @property
-    @override
-    def display_name(self) -> str | None:
-        return self._display_name
 
 
 @final
@@ -140,12 +112,6 @@ class Evaluator(Generic[BatchT]):
 
         self._data_readers = data_readers
 
-        if gangs.root.rank == 0:
-            if gangs.dp.rank != 0 or gangs.tp.rank != 0:
-                raise ValueError(
-                    "The coordinator process of the root gang (i.e. rank 0) must be rank 0 in all parallel gangs."
-                )
-
         self._gangs = gangs
 
         self._dtype = dtype
@@ -178,6 +144,10 @@ class Evaluator(Generic[BatchT]):
         if progress_reporter is not None:
             self._progress_reporter = progress_reporter
 
+        rng_bag = RngBag.from_device_defaults(CPU, self._gangs.root.device)
+
+        rng_bag.manual_seed(self._seed)
+
         log.info("Running evaluation on {} device(s).", self._gangs.root.size)
 
         try:
@@ -186,18 +156,14 @@ class Evaluator(Generic[BatchT]):
             log.info("Evaluation terminated!")
 
             raise
-        finally:
-            self._gangs.close()
+
+        self._gangs.close()
 
         elapsed_time = self._wall_watch.get_elapsed_time()
 
         log.info("Evaluation complete in {:,} seconds!", int(elapsed_time))
 
     def _do_run(self) -> None:
-        rng_bag = RngBag.from_device_defaults(CPU, self._gangs.root.device)
-
-        rng_bag.manual_seed(self._seed)
-
         with self._progress_reporter, self._profiler:
             for unit, data_reader in zip(self._units, self._data_readers):
                 if unit.display_name:
@@ -210,7 +176,7 @@ class Evaluator(Generic[BatchT]):
     ) -> None:
         watch = Stopwatch(start=True, device=self._gangs.root.device)
 
-        unit.model.eval()
+        unit.model.module.eval()
 
         num_effective_batches = 0
 
@@ -246,7 +212,7 @@ class Evaluator(Generic[BatchT]):
 
         self._publish_metrics(unit, num_effective_batches, watch.get_elapsed_time())
 
-    def _maybe_autocast(self) -> AbstractContextManager[None]:
+    def _maybe_autocast(self) -> ContextManager:
         if self._dtype == torch.float32 or not self._amp:
             return nullcontext()
 

@@ -132,6 +132,11 @@ class BeamSearchSequenceGeneratorHandler(SequenceGeneratorHandler):
 
     @property
     @override
+    def name(self) -> str:
+        return BEAM_SEARCH_GENERATOR
+
+    @property
+    @override
     def config_kls(self) -> type[object]:
         return BeamSearchConfig
 
@@ -180,6 +185,11 @@ class BeamSearchSeq2SeqGeneratorHandler(Seq2SeqGeneratorHandler):
             prefill_chunk_size=config.prefill_chunk_size,
             decode_capacity_increment=config.decode_capacity_increment,
         )
+
+    @property
+    @override
+    def name(self) -> str:
+        return BEAM_SEARCH_GENERATOR
 
     @property
     @override

@@ -118,6 +118,10 @@ class SamplerHandler(ABC):
 
     @property
     @abstractmethod
+    def name(self) -> str: ...
+
+    @property
+    @abstractmethod
     def config_kls(self) -> type[object]: ...
 
 
@@ -150,6 +154,11 @@ class TopPSamplerHandler(SamplerHandler):
 
     @property
     @override
+    def name(self) -> str:
+        return TOP_P_SAMPLER
+
+    @property
+    @override
     def config_kls(self) -> type[object]:
         return TopPSamplerConfig
 
@@ -171,6 +180,11 @@ class TopKSamplerHandler(SamplerHandler):
         validate(config)
 
         return TopKSampler(k=config.k)
+
+    @property
+    @override
+    def name(self) -> str:
+        return TOP_K_SAMPLER
 
     @property
     @override

@@ -19,6 +19,7 @@ from torch.nn import Module
 import fairseq2
 from fairseq2.gang import Gangs
 from fairseq2.logging import LogWriter
+from fairseq2.metrics import format_as_byte_size
 from fairseq2.nn.utils.module import get_module_size
 from fairseq2.typing import Device
 
@@ -128,7 +129,7 @@ def log_system_info(log: LogWriter, device: Device) -> None:
     s = (
         f"{s} | "
         f"Number of CPUs: {cpu_info} | "
-        f"Memory: {memory.total // (1024 * 1024 * 1024):,} GiB"
+        f"Memory: {format_as_byte_size(memory.total)}"
     )
 
     log.info("Host - {}", s)
@@ -141,7 +142,7 @@ def log_system_info(log: LogWriter, device: Device) -> None:
         s = (
             f"ID: {device} | "
             f"Name: {props.name} | "
-            f"Memory: {props.total_memory // (1024 * 1024):,} MiB | "
+            f"Memory: {format_as_byte_size(props.total_memory)} | "
             f"Number of SMs: {props.multi_processor_count} | "
             f"Compute Capability: {props.major}.{props.minor}"
         )
@@ -208,13 +209,13 @@ def log_model(log: LogWriter, model: Module, gangs: Gangs) -> None:
 
     s = (
         f"Parameter Size: {si.param_size:,} | "
-        f"Parameter Size (bytes): {si.param_size_bytes:,} | "
+        f"Parameter Size (bytes): {format_as_byte_size(si.param_size_bytes)} | "
         f"Trainable Parameter Size: {si.trainable_param_size:,} | "
-        f"Trainable Parameter Size (bytes): {si.trainable_param_size_bytes:,} | "
+        f"Trainable Parameter Size (bytes): {format_as_byte_size(si.trainable_param_size_bytes)} | "
         f"Buffer Size: {si.buffer_size:,} | "
-        f"Buffer Size (bytes): {si.buffer_size_bytes:,} | "
+        f"Buffer Size (bytes): {format_as_byte_size(si.buffer_size_bytes)} | "
         f"Total Size: {si.total_size:,} | "
-        f"Total Size (bytes): {si.total_size_bytes:,}"
+        f"Total Size (bytes): {format_as_byte_size(si.total_size_bytes)}"
     )
 
     log.info("Model (rank {}) - {} | Layout:\n{}", gangs.root.rank, s, model)

@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from fairseq2.chatbots import UnknownChatbotError
 from fairseq2.cli import Cli
 from fairseq2.cli.commands.assets import ListAssetsHandler, ShowAssetHandler
 from fairseq2.cli.commands.chatbot import RunChatbotHandler
@@ -15,8 +16,49 @@ from fairseq2.cli.commands.llama import (
 )
 from fairseq2.cli.commands.recipe import RecipeCommandHandler
 from fairseq2.context import RuntimeContext
+from fairseq2.data.text.tokenizers import (
+    UnknownTextTokenizerError,
+    UnknownTextTokenizerFamilyError,
+)
+from fairseq2.datasets import (
+    InvalidDatasetTypeError,
+    UnknownDatasetError,
+    UnknownDatasetFamilyError,
+    UnknownSplitError,
+)
 from fairseq2.extensions import run_extensions
+from fairseq2.generation import (
+    UnknownBeamSearchAlgorithmError,
+    UnknownSamplerError,
+    UnknownSeq2SeqGeneratorError,
+    UnknownSequenceGeneratorError,
+)
+from fairseq2.metrics import UnknownMetricDescriptorError
+from fairseq2.metrics.recorders import UnknownMetricRecorderError
+from fairseq2.metrics.text import UnknownBleuTokenizerError
+from fairseq2.models import (
+    InvalidModelTypeError,
+    ShardedModelLoadError,
+    UnknownModelArchitectureError,
+    UnknownModelError,
+    UnknownModelFamilyError,
+)
+from fairseq2.optim import UnknownOptimizerError
+from fairseq2.optim.lr_scheduler import (
+    UnknownLRSchedulerError,
+    UnspecifiedNumberOfStepsError,
+)
+from fairseq2.profilers import UnknownProfilerError
 from fairseq2.recipes.asr import AsrEvalConfig, load_asr_evaluator
+from fairseq2.recipes.error import (
+    DatasetPathNotFoundError,
+    HybridShardingNotSupportedError,
+    InvalidCheckpointPathError,
+    ModelCompilationNotSupportedError,
+    ModelParallelismNotSupportedError,
+    ModelPathNotFoundError,
+    StaticGraphNotSupportedError,
+)
 from fairseq2.recipes.lm import (
     InstructionFinetuneConfig,
     LMLossEvalConfig,
@@ -47,7 +89,7 @@ from fairseq2.recipes.wav2vec2.asr import (
     Wav2Vec2AsrTrainConfig,
     load_wav2vec2_asr_trainer,
 )
-from fairseq2.setup._cli._error_types import _register_user_error_types
+from fairseq2.utils.validation import ValidationError
 
 
 def setup_cli(context: RuntimeContext) -> Cli:
@@ -314,3 +356,37 @@ def _register_wav2vec2_asr_cli(cli: Cli) -> None:
         handler=train_handler,
         help="train a wav2vec 2.0 ASR model",
     )
+
+
+def _register_user_error_types(cli: Cli) -> None:
+    cli.register_user_error_type(DatasetPathNotFoundError)
+    cli.register_user_error_type(HybridShardingNotSupportedError)
+    cli.register_user_error_type(InvalidCheckpointPathError)
+    cli.register_user_error_type(InvalidDatasetTypeError)
+    cli.register_user_error_type(InvalidModelTypeError)
+    cli.register_user_error_type(ModelCompilationNotSupportedError)
+    cli.register_user_error_type(ModelParallelismNotSupportedError)
+    cli.register_user_error_type(ModelPathNotFoundError)
+    cli.register_user_error_type(ShardedModelLoadError)
+    cli.register_user_error_type(StaticGraphNotSupportedError)
+    cli.register_user_error_type(UnknownBeamSearchAlgorithmError)
+    cli.register_user_error_type(UnknownBleuTokenizerError)
+    cli.register_user_error_type(UnknownChatbotError)
+    cli.register_user_error_type(UnknownDatasetError)
+    cli.register_user_error_type(UnknownDatasetFamilyError)
+    cli.register_user_error_type(UnknownLRSchedulerError)
+    cli.register_user_error_type(UnknownMetricDescriptorError)
+    cli.register_user_error_type(UnknownMetricRecorderError)
+    cli.register_user_error_type(UnknownModelArchitectureError)
+    cli.register_user_error_type(UnknownModelError)
+    cli.register_user_error_type(UnknownModelFamilyError)
+    cli.register_user_error_type(UnknownOptimizerError)
+    cli.register_user_error_type(UnknownProfilerError)
+    cli.register_user_error_type(UnknownSamplerError)
+    cli.register_user_error_type(UnknownSeq2SeqGeneratorError)
+    cli.register_user_error_type(UnknownSequenceGeneratorError)
+    cli.register_user_error_type(UnknownSplitError)
+    cli.register_user_error_type(UnknownTextTokenizerError)
+    cli.register_user_error_type(UnknownTextTokenizerFamilyError)
+    cli.register_user_error_type(UnspecifiedNumberOfStepsError)
+    cli.register_user_error_type(ValidationError)

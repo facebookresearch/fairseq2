@@ -7,12 +7,14 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections import OrderedDict
 from collections.abc import Sequence
 from typing import final
 
 import torch
 from torch import Tensor
 from torch.nn.functional import log_softmax
+from torch.utils.hooks import RemovableHandle
 from typing_extensions import override
 
 from fairseq2.data import VocabularyInfo
@@ -23,12 +25,12 @@ from fairseq2.generation._beam_search._algo import (
     StandardBeamSearchAlgorithm,
 )
 from fairseq2.generation._generator import (
-    AbstractSeq2SeqGenerator,
-    AbstractSequenceGenerator,
     GenerationCounters,
     Hypothesis,
+    Seq2SeqGenerator,
     Seq2SeqGeneratorOutput,
     SequenceGenerationError,
+    SequenceGenerator,
     SequenceGeneratorOutput,
     StepHook,
 )
@@ -42,9 +44,10 @@ from fairseq2.utils.stopwatch import Stopwatch
 
 
 @final
-class BeamSearchSequenceGenerator(AbstractSequenceGenerator):
+class BeamSearchSequenceGenerator(SequenceGenerator):
     """Represents a sequence generator based on beam search."""
 
+    _model: DecoderModel
     _algorithm: BeamSearchAlgorithm
     _beam_size: int
     _min_gen_len: int
@@ -58,6 +61,7 @@ class BeamSearchSequenceGenerator(AbstractSequenceGenerator):
     _prefill_chunk_size: int | None
     _decode_capacity_increment: int | None
     _step_processors: Sequence[StepProcessor]
+    _step_hooks: dict[int, StepHook]
 
     def __init__(
         self,
@@ -113,7 +117,14 @@ class BeamSearchSequenceGenerator(AbstractSequenceGenerator):
         :param step_processors:
             The processors to call at each generation step.
         """
-        super().__init__(model)
+        if model.vocab_info.eos_idx is None:
+            raise ValueError(
+                "`model.vocab_info` must have `eos_idx` set for sequence generation."
+            )
+
+        model.eval()
+
+        self._model = model
 
         if min_gen_len < 1:
             raise ValueError(
@@ -163,6 +174,8 @@ class BeamSearchSequenceGenerator(AbstractSequenceGenerator):
         else:
             self._step_processors = []
 
+        self._step_hooks = OrderedDict()
+
     @torch.inference_mode()
     @override
     def __call__(
@@ -192,11 +205,25 @@ class BeamSearchSequenceGenerator(AbstractSequenceGenerator):
 
         return SequenceGeneratorOutput(hypotheses, counters)
 
+    @override
+    def register_step_hook(self, hook: StepHook) -> RemovableHandle:
+        handle = RemovableHandle(self._step_hooks)
+
+        self._step_hooks[handle.id] = hook
+
+        return handle
+
+    @property
+    @override
+    def model(self) -> DecoderModel:
+        return self._model
+
 
 @final
-class BeamSearchSeq2SeqGenerator(AbstractSeq2SeqGenerator):
+class BeamSearchSeq2SeqGenerator(Seq2SeqGenerator):
     """Represents a sequence-to-sequence generator based on beam search."""
 
+    _model: EncoderDecoderModel
     _algorithm: BeamSearchAlgorithm
     _beam_size: int
     _min_gen_len: int
@@ -210,6 +237,7 @@ class BeamSearchSeq2SeqGenerator(AbstractSeq2SeqGenerator):
     _prefill_chunk_size: int | None
     _decode_capacity_increment: int | None
     _step_processors: Sequence[StepProcessor]
+    _step_hooks: dict[int, StepHook]
 
     def __init__(
         self,
@@ -266,7 +294,14 @@ class BeamSearchSeq2SeqGenerator(AbstractSeq2SeqGenerator):
         :param step_processors:
             The processors to call at each generation step.
         """
-        super().__init__(model)
+        if model.target_vocab_info.eos_idx is None:
+            raise ValueError(
+                "`model.vocab_info` must have `eos_idx` set for sequence generation."
+            )
+
+        model.eval()
+
+        self._model = model
 
         if min_gen_len < 1:
             raise ValueError(
@@ -305,6 +340,8 @@ class BeamSearchSeq2SeqGenerator(AbstractSeq2SeqGenerator):
             self._step_processors = step_processors
         else:
             self._step_processors = []
+
+        self._step_hooks = OrderedDict()
 
     @torch.inference_mode()
     @override
@@ -368,6 +405,19 @@ class BeamSearchSeq2SeqGenerator(AbstractSeq2SeqGenerator):
         return Seq2SeqGeneratorOutput(
             hypotheses, encoder_output, encoder_padding_mask, counters
         )
+
+    @override
+    def register_step_hook(self, hook: StepHook) -> RemovableHandle:
+        handle = RemovableHandle(self._step_hooks)
+
+        self._step_hooks[handle.id] = hook
+
+        return handle
+
+    @property
+    @override
+    def model(self) -> EncoderDecoderModel:
+        return self._model
 
 
 class _AbstractBeamSearchSequenceGeneratorOp(ABC):

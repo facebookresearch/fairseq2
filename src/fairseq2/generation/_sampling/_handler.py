@@ -134,6 +134,11 @@ class SamplingSequenceGeneratorHandler(SequenceGeneratorHandler):
 
     @property
     @override
+    def name(self) -> str:
+        return SAMPLING_GENERATOR
+
+    @property
+    @override
     def config_kls(self) -> type[object]:
         return SamplingConfig
 
@@ -185,6 +190,11 @@ class SamplingSeq2SeqGeneratorHandler(Seq2SeqGeneratorHandler):
             prefill_chunk_size=config.prefill_chunk_size,
             decode_capacity_increment=config.decode_capacity_increment,
         )
+
+    @property
+    @override
+    def name(self) -> str:
+        return SAMPLING_GENERATOR
 
     @property
     @override

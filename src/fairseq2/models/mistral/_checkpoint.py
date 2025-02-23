@@ -6,43 +6,13 @@
 
 from __future__ import annotations
 
-from typing import cast
-
-from torch.nn import Module
-from typing_extensions import override
-
-from fairseq2.models import AbstractModelHandler
-from fairseq2.models.mistral._config import MISTRAL_MODEL_FAMILY, MistralConfig
-from fairseq2.models.mistral._factory import MistralFactory
-from fairseq2.models.transformer_decoder import TransformerDecoderModel
+from fairseq2.models.mistral._config import MistralConfig
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
 
 
-class MistralModelHandler(AbstractModelHandler):
-    @property
-    @override
-    def family(self) -> str:
-        return MISTRAL_MODEL_FAMILY
-
-    @property
-    @override
-    def kls(self) -> type[Module]:
-        return TransformerDecoderModel
-
-    @override
-    def _create_model(self, config: object) -> Module:
-        config = cast(MistralConfig, config)
-
-        return MistralFactory(config).create_model()
-
-    @override
-    def _convert_checkpoint(
-        self, checkpoint: dict[str, object], config: object
-    ) -> dict[str, object]:
-        return convert_mistral_checkpoint(checkpoint)
-
-
-def convert_mistral_checkpoint(checkpoint: dict[str, object]) -> dict[str, object]:
+def convert_mistral_checkpoint(
+    checkpoint: dict[str, object], config: MistralConfig
+) -> dict[str, object]:
     key_map = {
         # fmt: off
         r"^layers\.([0-9]+)\.attention\.wq\.":    r"decoder.layers.\1.self_attn.q_proj.",

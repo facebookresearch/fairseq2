@@ -6,47 +6,12 @@
 
 from __future__ import annotations
 
-from typing import cast
-
-from torch.nn import Module
-from typing_extensions import override
-
-from fairseq2.models import AbstractModelHandler
-from fairseq2.models.s2t_transformer._config import (
-    S2T_TRANSFORMER_MODEL_FAMILY,
-    S2TTransformerConfig,
-)
-from fairseq2.models.s2t_transformer._factory import S2TTransformerFactory
-from fairseq2.models.transformer import TransformerModel
+from fairseq2.models.s2t_transformer._config import S2TTransformerConfig
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
 
 
-class S2TTransformerModelHandler(AbstractModelHandler):
-    @property
-    @override
-    def family(self) -> str:
-        return S2T_TRANSFORMER_MODEL_FAMILY
-
-    @property
-    @override
-    def kls(self) -> type[Module]:
-        return TransformerModel
-
-    @override
-    def _create_model(self, config: object) -> Module:
-        config = cast(S2TTransformerConfig, config)
-
-        return S2TTransformerFactory(config).create_model()
-
-    @override
-    def _convert_checkpoint(
-        self, checkpoint: dict[str, object], config: object
-    ) -> dict[str, object]:
-        return convert_s2t_transformer_checkpoint(checkpoint)
-
-
 def convert_s2t_transformer_checkpoint(
-    checkpoint: dict[str, object],
+    checkpoint: dict[str, object], config: S2TTransformerConfig
 ) -> dict[str, object]:
     key_map = {
         # fmt: off

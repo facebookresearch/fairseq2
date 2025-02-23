@@ -7,11 +7,15 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
+from contextlib import nullcontext
 from pathlib import Path
-from typing import TypeVar, cast, final
+from typing import cast, final
 
 import torch
+from torch import Tensor
 from torch.nn import Module
+from torch.optim import Optimizer
 from typing_extensions import override
 
 from fairseq2.assets import (
@@ -50,8 +54,8 @@ from fairseq2.models import (
     UnknownModelFamilyError,
     model_asset_card_error,
 )
-from fairseq2.models.compile import compile_model
 from fairseq2.nn.checkpointing import use_layerwise_activation_checkpointing
+from fairseq2.nn.utils.gradient import clip_gradient_norm
 from fairseq2.recipes.common._distributed import setup_data_parallel_model
 from fairseq2.recipes.config import (
     ConfigSectionNotFoundError,
@@ -60,14 +64,19 @@ from fairseq2.recipes.config import (
     TrainerSection,
     get_config_section,
 )
+from fairseq2.recipes.error import (
+    InvalidCheckpointPathError,
+    ModelCompilationNotSupportedError,
+    ModelParallelismNotSupportedError,
+    ModelPathNotFoundError,
+)
+from fairseq2.recipes.model import Model
 from fairseq2.recipes.utils.log import log_config, log_model
 from fairseq2.registry import Provider
-from fairseq2.typing import DataClass, is_dataclass_instance
+from fairseq2.typing import ContextManager, DataClass, is_dataclass_instance
 from fairseq2.utils.merge import MergeError, merge_dataclass
 from fairseq2.utils.structured import StructureError, structure
 from fairseq2.utils.yaml import StandardYamlDumper
-
-ModelT = TypeVar("ModelT", bound=Module)
 
 
 def setup_model(
@@ -78,7 +87,7 @@ def setup_model(
     gangs: Gangs,
     checkpoint_manager: CheckpointManager,
     static_graph: bool = True,
-) -> Module:
+) -> Model:
     model = load_base_model(
         kls, context, recipe_config, output_dir, gangs, checkpoint_manager
     )
@@ -89,19 +98,19 @@ def setup_model(
         context, recipe_config, model, gangs, static_graph
     )
 
-    log_model(log, model, gangs)
+    log_model(log, model.module, gangs)
 
     return model
 
 
 def load_base_model(
-    kls: type[ModelT],
+    kls: type[Module],
     context: RuntimeContext,
     recipe_config: object,
     output_dir: Path,
     gangs: Gangs,
     checkpoint_manager: CheckpointManager,
-) -> ModelT:
+) -> Model:
     asset_store = context.asset_store
 
     file_system = context.file_system
@@ -137,7 +146,7 @@ def load_base_model(
         )
 
     try:
-        model = model_loader.load(recipe_config, gangs)
+        return model_loader.load(recipe_config, gangs)
     except ShardedModelLoadError:
         raise
     except ModelLoadError as ex:
@@ -149,12 +158,10 @@ def load_base_model(
             "The model card cannot be saved to the checkpoint directory. See the nested exception for details."
         ) from ex
 
-    return cast(ModelT, model)
-
 
 class ModelLoader(ABC):
     @abstractmethod
-    def load(self, recipe_config: object, gangs: Gangs) -> Module: ...
+    def load(self, recipe_config: object, gangs: Gangs) -> Model: ...
 
 
 @final
@@ -180,7 +187,7 @@ class CardBasedModelLoader(ModelLoader):
         self._checkpoint_manager = checkpoint_manager
 
     @override
-    def load(self, recipe_config: object, gangs: Gangs) -> Module:
+    def load(self, recipe_config: object, gangs: Gangs) -> Model:
         model_section = get_config_section(recipe_config, "model", ModelSection)
 
         model_name = model_section.name
@@ -209,8 +216,9 @@ class CardBasedModelLoader(ModelLoader):
         if not issubclass(handler.kls, self._kls):
             raise InvalidModelTypeError(model_name, handler.kls, self._kls)
 
-        if not handler.supports_sharding and gangs.root.size != gangs.dp.size:
-            raise ModelParallelismNotSupportedError(model_family, model_name)
+        if gangs.root.size != gangs.dp.size:
+            if not handler.supports_sharding:
+                raise ModelParallelismNotSupportedError(model_name)
 
         try:
             model_config = handler.load_config(card)
@@ -242,13 +250,15 @@ class CardBasedModelLoader(ModelLoader):
         if saved_model_path is not None:
             model_name = f"checkpoint_step_{step_nr}"
 
-        log.info("Checkpoint found. Loading '{}' model on data parallel rank 0.", model_name)  # fmt: skip
+            log.info("Checkpoint found. Loading '{}' model on data parallel rank 0.", model_name)  # fmt: skip
+        else:
+            log.info("Loading '{}' model on data parallel rank 0.", model_name)
 
         try:
             if gangs.dp.rank == 0:
                 if saved_model_path is not None:
                     try:
-                        model = handler.load_from_path(
+                        module = handler.load_from_path(
                             saved_model_path, model_name, model_config, gangs, dtype
                         )
                     except FileNotFoundError:
@@ -256,10 +266,10 @@ class CardBasedModelLoader(ModelLoader):
                             model_name, f"The '{model_name}' model cannot be found at the '{saved_model_path}' path."  # fmt: skip
                         ) from None
                 else:
-                    model = handler.load(card, gangs, dtype, model_config)
+                    module = handler.load(card, gangs, dtype, model_config)
             else:
-                model = handler.create(
-                    model_config, gangs, dtype, handler.supports_meta
+                module = handler.create(
+                    model_config, gangs, dtype, meta=handler.supports_meta
                 )
         except NotSupportedError as ex:
             raise ModelLoadError(
@@ -275,7 +285,9 @@ class CardBasedModelLoader(ModelLoader):
 
         log.info("Model loaded on data parallel rank 0.")
 
-        self._card_saver.save(recipe_config, model_family, model_config)
+        model = LocalModel(model_name, module, model_config, handler)
+
+        self._card_saver.save(recipe_config, model)
 
         return model
 
@@ -300,7 +312,7 @@ class PathBasedModelLoader(ModelLoader):
         self._checkpoint_manager = checkpoint_manager
 
     @override
-    def load(self, recipe_config: object, gangs: Gangs) -> Module:
+    def load(self, recipe_config: object, gangs: Gangs) -> Model:
         model_section = get_config_section(recipe_config, "model", ModelSection)
 
         model_family = model_section.family
@@ -323,8 +335,9 @@ class PathBasedModelLoader(ModelLoader):
         if not issubclass(handler.kls, self._kls):
             raise InvalidModelTypeError(model_name, handler.kls, self._kls)
 
-        if not handler.supports_sharding and gangs.root.size != gangs.dp.size:
-            raise ModelParallelismNotSupportedError(model_family, model_name)
+        if gangs.root.size != gangs.dp.size:
+            if not handler.supports_sharding:
+                raise ModelParallelismNotSupportedError(model_name)
 
         model_arch = model_section.arch
 
@@ -361,27 +374,31 @@ class PathBasedModelLoader(ModelLoader):
         if saved_model_path is not None:
             model_name = f"checkpoint_step_{step_nr}"
 
-        log.info("Checkpoint found. Loading '{}' model on data parallel rank 0.", model_name)  # fmt: skip
+            log.info("Checkpoint found. Loading '{}' model on data parallel rank 0.", model_name)  # fmt: skip
+        else:
+            log.info("Loading '{}' model on data parallel rank 0.", model_name)
 
         try:
             if gangs.dp.rank == 0:
                 if saved_model_path is not None:
-                    model_path = saved_model_path
-
-                try:
-                    model = handler.load_from_path(
-                        model_path, model_name, model_config, gangs, dtype
-                    )
-                except FileNotFoundError:
-                    if saved_model_path is None:
-                        raise ModelNotFoundError(model_name, model_path) from None
-
-                    raise ModelLoadError(
-                        model_name, f"The '{model_name}' model cannot be found at the '{saved_model_path}' path."  # fmt: skip
-                    ) from None
+                    try:
+                        module = handler.load_from_path(
+                            saved_model_path, model_name, model_config, gangs, dtype
+                        )
+                    except FileNotFoundError:
+                        raise ModelLoadError(
+                            model_name, f"The '{model_name}' model cannot be found at the '{saved_model_path}' path."  # fmt: skip
+                        ) from None
+                else:
+                    try:
+                        module = handler.load_from_path(
+                            model_path, model_name, model_config, gangs, dtype
+                        )
+                    except FileNotFoundError:
+                        raise ModelPathNotFoundError(model_name, model_path) from None
             else:
-                model = handler.create(
-                    model_config, gangs, dtype, handler.supports_meta
+                module = handler.create(
+                    model_config, gangs, dtype, meta=handler.supports_meta
                 )
         except NotSupportedError as ex:
             raise ModelLoadError(
@@ -397,7 +414,9 @@ class PathBasedModelLoader(ModelLoader):
 
         log.info("Model loaded on data parallel rank 0.")
 
-        self._card_saver.save(recipe_config, model_family, model_config)
+        model = LocalModel(model_name, module, model_config, handler)
+
+        self._card_saver.save(recipe_config, model)
 
         return model
 
@@ -411,28 +430,6 @@ class PathBasedModelLoader(ModelLoader):
             return Path(model_pathname)
         except ValueError:
             raise InvalidCheckpointPathError(model_pathname) from None
-
-
-class InvalidCheckpointPathError(Exception):
-    pathname: str
-
-    def __init__(self, pathname: str) -> None:
-        super().__init__(f"'{pathname}' does not represent a valid file system path.")
-
-        self.pathname = pathname
-
-
-class ModelNotFoundError(Exception):
-    model_name: str
-    path: Path
-
-    def __init__(self, model_name: str, path: Path) -> None:
-        super().__init__(
-            f"The '{model_name}' model cannot be found at the '{path}' path."
-        )
-
-        self.model_name = model_name
-        self.path = path
 
 
 @final
@@ -455,7 +452,7 @@ class ModelCreator(ModelLoader):
         self._checkpoint_manager = checkpoint_manager
 
     @override
-    def load(self, recipe_config: object, gangs: Gangs) -> Module:
+    def load(self, recipe_config: object, gangs: Gangs) -> Model:
         model_section = get_config_section(recipe_config, "model", ModelSection)
 
         model_family = model_section.family
@@ -472,8 +469,9 @@ class ModelCreator(ModelLoader):
         if not issubclass(handler.kls, self._kls):
             raise InvalidModelTypeError(model_name, handler.kls, self._kls)
 
-        if not handler.supports_sharding and gangs.root.size != gangs.dp.size:
-            raise ModelParallelismNotSupportedError(model_family, model_name)
+        if gangs.root.size != gangs.dp.size:
+            if not handler.supports_sharding:
+                raise ModelParallelismNotSupportedError(model_name)
 
         model_arch = model_section.arch
 
@@ -510,22 +508,24 @@ class ModelCreator(ModelLoader):
         if saved_model_path is not None:
             model_name = f"checkpoint_step_{step_nr}"
 
-        if saved_model_path is not None:
             log.info("Checkpoint found. Loading '{}' model on data parallel rank 0.", model_name)  # fmt: skip
 
         try:
-            if gangs.dp.rank == 0 and saved_model_path is not None:
-                try:
-                    model = handler.load_from_path(
-                        saved_model_path, model_name, model_config, gangs, dtype
-                    )
-                except FileNotFoundError:
-                    raise ModelLoadError(
-                        model_name, f"The '{model_name}' model cannot be found at the '{saved_model_path}' path."  # fmt: skip
-                    ) from None
+            if gangs.dp.rank == 0:
+                if saved_model_path is not None:
+                    try:
+                        module = handler.load_from_path(
+                            saved_model_path, model_name, model_config, gangs, dtype
+                        )
+                    except FileNotFoundError:
+                        raise ModelLoadError(
+                            model_name, f"The '{model_name}' model cannot be found at the '{saved_model_path}' path."  # fmt: skip
+                        ) from None
+                else:
+                    module = handler.create(model_config, gangs, dtype, meta=False)
             else:
-                model = handler.create(
-                    model_config, gangs, dtype, handler.supports_meta
+                module = handler.create(
+                    model_config, gangs, dtype, meta=handler.supports_meta
                 )
         except NotSupportedError as ex:
             raise ModelLoadError(
@@ -542,7 +542,15 @@ class ModelCreator(ModelLoader):
         if saved_model_path is not None:
             log.info("Model loaded on data parallel rank 0.")
 
-        self._card_saver.save(recipe_config, model_family, model_config)
+        model = LocalModel(
+            model_name,
+            module,
+            model_config,
+            handler,
+            is_empty_init=saved_model_path is None,
+        )
+
+        self._card_saver.save(recipe_config, model)
 
         return model
 
@@ -552,41 +560,107 @@ def apply_model_config_overrides(model_config: object, overrides: object) -> obj
         return model_config
 
     try:
-        structured_overrides = structure(overrides, type(model_config), set_empty=True)
+        overrides = structure(overrides, type(model_config), set_empty=True)
     except StructureError as ex:
         raise StructureError(
             "`model.config` cannot be structured. See the nested exception for details."
         ) from ex
 
     if not is_dataclass_instance(model_config):
-        return structured_overrides
+        return overrides
+
+    overrides = cast(DataClass, overrides)
 
     try:
-        return merge_dataclass(model_config, cast(DataClass, structured_overrides))
+        return merge_dataclass(model_config, overrides)
     except MergeError as ex:
         raise ContractError(
             "`overrides` cannot be merged with `config`. See the nested exception for details."
         ) from ex
 
 
-class ModelParallelismNotSupportedError(NotSupportedError):
-    family: str
-    model_name: str
+@final
+class LocalModel(Model):
+    _name: str
+    _module: Module
+    _config: object
+    _handler: ModelHandler
+    _is_empty_init: bool
 
-    def __init__(self, family: str, model_name: str) -> None:
-        super().__init__(
-            f"The '{family}' family of the '{model_name}' model does not support non-data parallelism."
-        )
+    def __init__(
+        self,
+        name: str,
+        module: Module,
+        config: object,
+        handler: ModelHandler,
+        is_empty_init: bool = False,
+    ) -> None:
+        self._name = name
+        self._module = module
+        self._config = config
+        self._handler = handler
+        self._is_empty_init = is_empty_init
 
-        self.family = family
-        self.model_name = model_name
+    @override
+    def no_sync(self) -> ContextManager:
+        return nullcontext()
+
+    @override
+    def clip_gradient_norm(self, max_norm: float | None) -> Tensor:
+        return clip_gradient_norm(self._module, max_norm)
+
+    @override
+    def state_dict(self) -> dict[str, object]:
+        return self._module.state_dict()
+
+    @override
+    def optim_state_dict(self, optim: Optimizer) -> dict[str, object]:
+        return optim.state_dict()  # type: ignore[no-any-return]
+
+    @override
+    def load_optim_state_dict(
+        self, optim: Optimizer, state_dict: Mapping[str, object]
+    ) -> None:
+        optim.load_state_dict(state_dict)
+
+    @override
+    def summon_parameters(self) -> ContextManager:
+        return nullcontext()
+
+    @property
+    @override
+    def module(self) -> Module:
+        return self._module
+
+    @property
+    @override
+    def base_module(self) -> Module:
+        return self._module
+
+    @property
+    @override
+    def name(self) -> str:
+        return self._name
+
+    @property
+    @override
+    def config(self) -> object:
+        return self._config
+
+    @property
+    @override
+    def handler(self) -> ModelHandler:
+        return self._handler
+
+    @property
+    @override
+    def is_empty_init(self) -> bool:
+        return self._is_empty_init
 
 
 class ModelCardSaver(ABC):
     @abstractmethod
-    def save(
-        self, recipe_config: object, model_family: str, model_config: object
-    ) -> None: ...
+    def save(self, recipe_config: object, mode: Model) -> None: ...
 
 
 @final
@@ -603,9 +677,7 @@ class StandardModelCardSaver(ModelCardSaver):
         self._checkpoint_metadata_saver = checkpoint_metadata_saver
 
     @override
-    def save(
-        self, recipe_config: object, model_family: str, model_config: object
-    ) -> None:
+    def save(self, recipe_config: object, model: Model) -> None:
         try:
             tokenizer_name = self._get_text_tokenizer_name(recipe_config)
         except TextTokenizerLoadError as ex:
@@ -613,7 +685,9 @@ class StandardModelCardSaver(ModelCardSaver):
                 "The asset card of the model text tokenizer cannot be loaded. See the nested exception for details."
             ) from ex
 
-        self._checkpoint_metadata_saver.save(model_family, model_config, tokenizer_name)
+        self._checkpoint_metadata_saver.save(
+            model.handler.family, model.config, tokenizer_name
+        )
 
     def _get_text_tokenizer_name(self, recipe_config: object) -> str | None:
         try:
@@ -651,14 +725,21 @@ class StandardModelCardSaver(ModelCardSaver):
 
 
 def prepare_model(
-    context: RuntimeContext, recipe_config: object, model: Module, gangs: Gangs
-) -> Module:
+    context: RuntimeContext, recipe_config: object, model: Model, gangs: Gangs
+) -> Model:
     trainer_section = get_config_section(recipe_config, "trainer", TrainerSection)
 
     if trainer_section.activation_checkpointing:
-        use_layerwise_activation_checkpointing(model)
+        use_layerwise_activation_checkpointing(model.module)
 
     if trainer_section.torch_compile:
-        model = compile_model(model, gangs)
+        if not model.handler.supports_compilation:
+            raise ModelCompilationNotSupportedError(model.name)
+
+        log.info("Compiling '{}' model.", model.name)
+
+        model.handler.compile(model.module, model.config)
+
+        log.info("Model compiled.")
 
     return model

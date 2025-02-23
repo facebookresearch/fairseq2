@@ -8,11 +8,6 @@ from __future__ import annotations
 
 from fairseq2.context import RuntimeContext
 from fairseq2.generation import (
-    BEAM_SEARCH_GENERATOR,
-    SAMPLING_GENERATOR,
-    STANDARD_BEAM_SEARCH_ALGO,
-    TOP_K_SAMPLER,
-    TOP_P_SAMPLER,
     BeamSearchAlgorithmHandler,
     BeamSearchSeq2SeqGeneratorHandler,
     BeamSearchSequenceGeneratorHandler,
@@ -27,7 +22,7 @@ from fairseq2.generation import (
 )
 
 
-def _register_seq_generators(context: RuntimeContext) -> None:
+def register_seq_generators(context: RuntimeContext) -> None:
     registry = context.get_registry(SequenceGeneratorHandler)
 
     handler: SequenceGeneratorHandler
@@ -37,17 +32,17 @@ def _register_seq_generators(context: RuntimeContext) -> None:
 
     handler = SamplingSequenceGeneratorHandler(sampler_handlers)
 
-    registry.register(SAMPLING_GENERATOR, handler)
+    registry.register(handler.name, handler)
 
     # Beam Search
     algorithm_handlers = context.get_registry(BeamSearchAlgorithmHandler)
 
     handler = BeamSearchSequenceGeneratorHandler(algorithm_handlers)
 
-    registry.register(BEAM_SEARCH_GENERATOR, handler)
+    registry.register(handler.name, handler)
 
 
-def _register_seq2seq_generators(context: RuntimeContext) -> None:
+def register_seq2seq_generators(context: RuntimeContext) -> None:
     registry = context.get_registry(Seq2SeqGeneratorHandler)
 
     handler: Seq2SeqGeneratorHandler
@@ -57,24 +52,36 @@ def _register_seq2seq_generators(context: RuntimeContext) -> None:
 
     handler = SamplingSeq2SeqGeneratorHandler(sampler_handlers)
 
-    registry.register(SAMPLING_GENERATOR, handler)
+    registry.register(handler.name, handler)
 
     # Beam Search
     algorithm_handlers = context.get_registry(BeamSearchAlgorithmHandler)
 
     handler = BeamSearchSeq2SeqGeneratorHandler(algorithm_handlers)
 
-    registry.register(BEAM_SEARCH_GENERATOR, handler)
+    registry.register(handler.name, handler)
 
 
-def _register_samplers(context: RuntimeContext) -> None:
+def register_samplers(context: RuntimeContext) -> None:
     registry = context.get_registry(SamplerHandler)
 
-    registry.register(TOP_P_SAMPLER, TopPSamplerHandler())
-    registry.register(TOP_K_SAMPLER, TopKSamplerHandler())
+    handler: SamplerHandler
+
+    # Top-P
+    handler = TopPSamplerHandler()
+
+    registry.register(handler.name, handler)
+
+    # Top-K
+    handler = TopKSamplerHandler()
+
+    registry.register(handler.name, handler)
 
 
-def _register_beam_search_algorithms(context: RuntimeContext) -> None:
+def register_beam_search_algorithms(context: RuntimeContext) -> None:
     registry = context.get_registry(BeamSearchAlgorithmHandler)
 
-    registry.register(STANDARD_BEAM_SEARCH_ALGO, StandardBeamSearchAlgorithmHandler())
+    # Standard
+    handler = StandardBeamSearchAlgorithmHandler()
+
+    registry.register(handler.name, handler)

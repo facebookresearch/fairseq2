@@ -27,10 +27,8 @@ from fairseq2.optim.lr_scheduler._error import (
 from fairseq2.optim.lr_scheduler._handler import (
     LRSchedulerHandler as LRSchedulerHandler,
 )
-from fairseq2.optim.lr_scheduler._lr_scheduler import (
-    AbstractLRScheduler as AbstractLRScheduler,
-)
 from fairseq2.optim.lr_scheduler._lr_scheduler import LRScheduler as LRScheduler
+from fairseq2.optim.lr_scheduler._lr_scheduler import LRSchedulerBase as LRSchedulerBase
 from fairseq2.optim.lr_scheduler._lr_scheduler import NoopLR as NoopLR
 from fairseq2.optim.lr_scheduler._lr_scheduler import (
     get_effective_lr as get_effective_lr,

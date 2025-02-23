@@ -8,10 +8,6 @@ from __future__ import annotations
 
 from typing import final
 
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.nn import Module
-from torch.nn.parallel import DistributedDataParallel as DDP
-
 from fairseq2.context import RuntimeContext
 from fairseq2.generation import (
     Seq2SeqGenerator,
@@ -28,12 +24,13 @@ from fairseq2.recipes.config import (
     SequenceGeneratorSection,
     get_config_section,
 )
+from fairseq2.recipes.model import Model
 from fairseq2.registry import Provider
 from fairseq2.utils.structured import StructureError
 
 
 def create_seq_generator(
-    context: RuntimeContext, recipe_config: object, model: Module
+    context: RuntimeContext, recipe_config: object, model: Model
 ) -> SequenceGenerator:
     seq_generator_handlers = context.get_registry(SequenceGeneratorHandler)
 
@@ -51,11 +48,8 @@ class SequenceGeneratorCreator:
     ) -> None:
         self._seq_generator_handlers = seq_generator_handlers
 
-    def create(self, recipe_config: object, model: Module) -> SequenceGenerator:
-        if isinstance(model, (DDP, FSDP)):
-            model = model.module
-
-        if not isinstance(model, DecoderModel):
+    def create(self, recipe_config: object, model: Model) -> SequenceGenerator:
+        if not isinstance(model.base_module, DecoderModel):
             raise TypeError(
                 f"`model` must be of type `{DecoderModel}`, but is of type `{type(model)}` instead."
             )
@@ -70,7 +64,7 @@ class SequenceGeneratorCreator:
             raise UnknownSequenceGeneratorError(seq_generator_section.name) from None
 
         try:
-            return handler.create(model, seq_generator_section.config)
+            return handler.create(model.base_module, seq_generator_section.config)
         except StructureError as ex:
             raise StructureError(
                 "`seq_generator.config` cannot be structured. See the nested exception for details."
@@ -78,7 +72,7 @@ class SequenceGeneratorCreator:
 
 
 def create_seq2seq_generator(
-    context: RuntimeContext, recipe_config: object, model: Module
+    context: RuntimeContext, recipe_config: object, model: Model
 ) -> Seq2SeqGenerator:
     seq2seq_generator_handlers = context.get_registry(Seq2SeqGeneratorHandler)
 
@@ -96,11 +90,8 @@ class Seq2SeqGeneratorCreator:
     ) -> None:
         self._seq2seq_generator_handlers = seq2seq_generator_handlers
 
-    def create(self, recipe_config: object, model: Module) -> Seq2SeqGenerator:
-        if isinstance(model, (DDP, FSDP)):
-            model = model.module
-
-        if not isinstance(model, EncoderDecoderModel):
+    def create(self, recipe_config: object, model: Model) -> Seq2SeqGenerator:
+        if not isinstance(model.base_module, EncoderDecoderModel):
             raise TypeError(
                 f"`model` must be of type `{EncoderDecoderModel}`, but is of type `{type(model)}` instead."
             )
@@ -117,7 +108,7 @@ class Seq2SeqGeneratorCreator:
             raise UnknownSeq2SeqGeneratorError(seq2seq_generator_section.name) from None
 
         try:
-            return handler.create(model, seq2seq_generator_section.config)
+            return handler.create(model.base_module, seq2seq_generator_section.config)
         except StructureError as ex:
             raise StructureError(
                 "`seq2seq_generator.config` cannot be structured. See the nested exception for details."

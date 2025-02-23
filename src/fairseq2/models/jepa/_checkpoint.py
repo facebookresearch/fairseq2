@@ -6,45 +6,16 @@
 
 from __future__ import annotations
 
-from typing import cast
-
 import torch
 from torch import Tensor
-from torch.nn import Module
-from typing_extensions import override
 
-from fairseq2.models import AbstractModelHandler
-from fairseq2.models.jepa._config import JEPA_MODEL_FAMILY, JepaConfig
-from fairseq2.models.jepa._factory import JepaFactory
-from fairseq2.models.jepa._model import JepaModel
+from fairseq2.models.jepa._config import JepaConfig
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
 
 
-class JepaModelHandler(AbstractModelHandler):
-    @property
-    @override
-    def family(self) -> str:
-        return JEPA_MODEL_FAMILY
-
-    @property
-    @override
-    def kls(self) -> type[Module]:
-        return JepaModel
-
-    @override
-    def _create_model(self, config: object) -> Module:
-        config = cast(JepaConfig, config)
-
-        return JepaFactory(config).create_model()
-
-    @override
-    def _convert_checkpoint(
-        self, checkpoint: dict[str, object], config: object
-    ) -> dict[str, object]:
-        return convert_jepa_checkpoint(checkpoint)
-
-
-def convert_jepa_checkpoint(checkpoint: dict[str, object]) -> dict[str, object]:
+def convert_jepa_checkpoint(
+    checkpoint: dict[str, object], config: JepaConfig
+) -> dict[str, object]:
     encoder_checkpoint = checkpoint.get("target_encoder")
     if encoder_checkpoint is None:
         encoder_checkpoint = checkpoint.get("encoder")

@@ -14,11 +14,6 @@ Classes
    :undoc-members:
    :show-inheritance:
 
-.. autoclass:: AbstractGang
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 .. autoclass:: FakeGang
    :members:
    :undoc-members:
