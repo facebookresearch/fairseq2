@@ -20,7 +20,6 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.optim import Optimizer
 from torch.profiler import record_function
 from torcheval.metrics import Mean
-from typing_extensions import override
 
 from fairseq2.checkpoint import CheckpointManager, CheckpointNotFoundError
 from fairseq2.datasets import DataReader
@@ -49,7 +48,7 @@ from fairseq2.recipes.utils.progress import (
 from fairseq2.typing import CPU, ContextManager, DataType
 from fairseq2.utils.gc import GarbageCollector
 from fairseq2.utils.rng import RngBag
-from fairseq2.utils.state import StatefulObjectBag, StateHandler
+from fairseq2.utils.state import StatefulObjectBag
 from fairseq2.utils.stopwatch import Stopwatch
 
 BatchT_contra = TypeVar("BatchT_contra", contravariant=True)
@@ -292,9 +291,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._amp = amp
 
-        self.register_stateful(
-            "_optimizer", optimizer, OptimizerStateHandler(self._model)
-        )
+        self._optimizer = optimizer
 
         self._lr_scheduler = lr_scheduler
 
@@ -875,7 +872,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._model.module.eval()
 
-        with self._model.summon_parameters():
+        with self._model.summon_full_parameters():
             unit_scores = []
 
             for unit, data_reader in zip(self._valid_units, self._valid_data_readers):
@@ -1161,23 +1158,3 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
                 return self._step_nr % every_n_steps == 0
 
         return False
-
-
-class OptimizerStateHandler(StateHandler[Optimizer]):
-    _model: Model
-
-    def __init__(self, model: Model) -> None:
-        self._model = model
-
-    @override
-    def get_state(self, stateful: Optimizer) -> object:
-        return self._model.optim_state_dict(stateful)
-
-    @override
-    def set_state(self, stateful: Optimizer, state: object) -> None:
-        if not isinstance(state, dict):
-            raise TypeError(
-                f"`state` must be of type `dict`, but is of type `{type(state)}` instead."
-            )
-
-        self._model.load_optim_state_dict(stateful, state)

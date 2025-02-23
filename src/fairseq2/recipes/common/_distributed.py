@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from contextlib import nullcontext
 from typing import final
 
@@ -15,7 +14,6 @@ from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn import Module
 from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
 from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.optim import Optimizer
 from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
@@ -26,10 +24,8 @@ from fairseq2.models import ModelHandler
 from fairseq2.models.fsdp import get_fsdp_wrap_policy
 from fairseq2.nn.data_parallel import (
     DistributedSetupError,
-    get_fsdp_full_state_dict,
-    get_fsdp_optim_state_dict,
-    load_fsdp_optim_state_dict,
-    summon_fsdp,
+    fsdp_full_state_dict,
+    fsdp_summon_full_parameters,
     to_ddp,
     to_fsdp,
 )
@@ -105,14 +101,6 @@ class DDPModel(Model):
         self._wrapped_model = wrapped_model
 
     @override
-    def no_sync(self) -> ContextManager:
-        return self._ddp.no_sync()
-
-    @override
-    def clip_gradient_norm(self, max_norm: float | None) -> Tensor:
-        return clip_gradient_norm(self._ddp, max_norm)
-
-    @override
     def state_dict(self) -> dict[str, object]:
         state_dict = self._ddp.state_dict()
 
@@ -121,17 +109,15 @@ class DDPModel(Model):
         return state_dict
 
     @override
-    def optim_state_dict(self, optim: Optimizer) -> dict[str, object]:
-        return optim.state_dict()  # type: ignore[no-any-return]
+    def no_sync(self) -> ContextManager:
+        return self._ddp.no_sync()
 
     @override
-    def load_optim_state_dict(
-        self, optim: Optimizer, state_dict: Mapping[str, object]
-    ) -> None:
-        optim.load_state_dict(state_dict)
+    def clip_gradient_norm(self, max_norm: float | None) -> Tensor:
+        return clip_gradient_norm(self._ddp, max_norm)
 
     @override
-    def summon_parameters(self) -> ContextManager:
+    def summon_full_parameters(self) -> ContextManager:
         return nullcontext()
 
     @property
@@ -161,8 +147,8 @@ class DDPModel(Model):
 
     @property
     @override
-    def is_empty_init(self) -> bool:
-        return self._wrapped_model.is_empty_init
+    def is_empty_initialized(self) -> bool:
+        return self._wrapped_model.is_empty_initialized
 
 
 def wrap_fsdp(
@@ -222,6 +208,10 @@ class FSDPModel(Model):
         self._wrapped_model = wrapped_model
 
     @override
+    def state_dict(self) -> dict[str, object]:
+        return fsdp_full_state_dict(self._fsdp)
+
+    @override
     def no_sync(self) -> ContextManager:
         return self._fsdp.no_sync()
 
@@ -230,22 +220,8 @@ class FSDPModel(Model):
         return clip_gradient_norm(self._fsdp, max_norm)
 
     @override
-    def state_dict(self) -> dict[str, object]:
-        return get_fsdp_full_state_dict(self._fsdp)
-
-    @override
-    def optim_state_dict(self, optim: Optimizer) -> dict[str, object]:
-        return get_fsdp_optim_state_dict(self._fsdp, optim)
-
-    @override
-    def load_optim_state_dict(
-        self, optim: Optimizer, state_dict: Mapping[str, object]
-    ) -> None:
-        load_fsdp_optim_state_dict(self._fsdp, optim, state_dict)
-
-    @override
-    def summon_parameters(self) -> ContextManager:
-        return summon_fsdp(self._fsdp)
+    def summon_full_parameters(self) -> ContextManager:
+        return fsdp_summon_full_parameters(self._fsdp)
 
     @property
     @override
@@ -274,8 +250,8 @@ class FSDPModel(Model):
 
     @property
     @override
-    def is_empty_init(self) -> bool:
-        return self._wrapped_model.is_empty_init
+    def is_empty_initialized(self) -> bool:
+        return self._wrapped_model.is_empty_initialized
 
 
 def broadcast_model(model: Model, gangs: Gangs) -> None:

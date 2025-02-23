@@ -103,7 +103,7 @@ def _maybe_setup_fsdp_gangs(
     if trainer_section.data_parallelism != "fsdp":
         return gangs
 
-    if trainer_section.fsdp.hsdp:
+    if trainer_section.fsdp.hybrid:
         log.info("Initializing hybrid sharded data parallel gangs.")
 
         try:

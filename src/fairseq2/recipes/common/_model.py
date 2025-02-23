@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
 from contextlib import nullcontext
 from pathlib import Path
 from typing import cast, final
@@ -15,7 +14,6 @@ from typing import cast, final
 import torch
 from torch import Tensor
 from torch.nn import Module
-from torch.optim import Optimizer
 from typing_extensions import override
 
 from fairseq2.assets import (
@@ -547,7 +545,7 @@ class ModelCreator(ModelLoader):
             module,
             model_config,
             handler,
-            is_empty_init=saved_model_path is None,
+            is_empty_initialized=saved_model_path is None,
         )
 
         self._card_saver.save(recipe_config, model)
@@ -585,7 +583,7 @@ class LocalModel(Model):
     _module: Module
     _config: object
     _handler: ModelHandler
-    _is_empty_init: bool
+    _is_empty_initialized: bool
 
     def __init__(
         self,
@@ -593,13 +591,17 @@ class LocalModel(Model):
         module: Module,
         config: object,
         handler: ModelHandler,
-        is_empty_init: bool = False,
+        is_empty_initialized: bool = False,
     ) -> None:
         self._name = name
         self._module = module
         self._config = config
         self._handler = handler
-        self._is_empty_init = is_empty_init
+        self._is_empty_initialized = is_empty_initialized
+
+    @override
+    def state_dict(self) -> dict[str, object]:
+        return self._module.state_dict()
 
     @override
     def no_sync(self) -> ContextManager:
@@ -610,21 +612,7 @@ class LocalModel(Model):
         return clip_gradient_norm(self._module, max_norm)
 
     @override
-    def state_dict(self) -> dict[str, object]:
-        return self._module.state_dict()
-
-    @override
-    def optim_state_dict(self, optim: Optimizer) -> dict[str, object]:
-        return optim.state_dict()  # type: ignore[no-any-return]
-
-    @override
-    def load_optim_state_dict(
-        self, optim: Optimizer, state_dict: Mapping[str, object]
-    ) -> None:
-        optim.load_state_dict(state_dict)
-
-    @override
-    def summon_parameters(self) -> ContextManager:
+    def summon_full_parameters(self) -> ContextManager:
         return nullcontext()
 
     @property
@@ -654,8 +642,8 @@ class LocalModel(Model):
 
     @property
     @override
-    def is_empty_init(self) -> bool:
-        return self._is_empty_init
+    def is_empty_initialized(self) -> bool:
+        return self._is_empty_initialized
 
 
 class ModelCardSaver(ABC):

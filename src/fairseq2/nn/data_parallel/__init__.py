@@ -24,15 +24,9 @@ from fairseq2.nn.data_parallel._fsdp import (
     FSDPParameterInitializer as FSDPParameterInitializer,
 )
 from fairseq2.nn.data_parallel._fsdp import FSDPWrapPolicy as FSDPWrapPolicy
+from fairseq2.nn.data_parallel._fsdp import fsdp_full_state_dict as fsdp_full_state_dict
 from fairseq2.nn.data_parallel._fsdp import (
-    get_fsdp_full_state_dict as get_fsdp_full_state_dict,
+    fsdp_summon_full_parameters as fsdp_summon_full_parameters,
 )
-from fairseq2.nn.data_parallel._fsdp import (
-    get_fsdp_optim_state_dict as get_fsdp_optim_state_dict,
-)
-from fairseq2.nn.data_parallel._fsdp import (
-    load_fsdp_optim_state_dict as load_fsdp_optim_state_dict,
-)
-from fairseq2.nn.data_parallel._fsdp import summon_fsdp as summon_fsdp
 from fairseq2.nn.data_parallel._fsdp import to_fsdp as to_fsdp
 from fairseq2.nn.data_parallel._sharded import load_with_sdp_gang as load_with_sdp_gang

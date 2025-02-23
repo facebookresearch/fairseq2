@@ -7,11 +7,9 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
 
 from torch import Tensor
 from torch.nn import Module
-from torch.optim import Optimizer
 
 from fairseq2.models import ModelHandler
 from fairseq2.typing import ContextManager
@@ -19,24 +17,16 @@ from fairseq2.typing import ContextManager
 
 class Model(ABC):
     @abstractmethod
+    def state_dict(self) -> dict[str, object]: ...
+
+    @abstractmethod
     def no_sync(self) -> ContextManager: ...
 
     @abstractmethod
     def clip_gradient_norm(self, max_norm: float | None) -> Tensor: ...
 
     @abstractmethod
-    def state_dict(self) -> dict[str, object]: ...
-
-    @abstractmethod
-    def optim_state_dict(self, optim: Optimizer) -> dict[str, object]: ...
-
-    @abstractmethod
-    def load_optim_state_dict(
-        self, optim: Optimizer, state_dict: Mapping[str, object]
-    ) -> None: ...
-
-    @abstractmethod
-    def summon_parameters(self) -> ContextManager: ...
+    def summon_full_parameters(self) -> ContextManager: ...
 
     @property
     @abstractmethod
@@ -60,4 +50,4 @@ class Model(ABC):
 
     @property
     @abstractmethod
-    def is_empty_init(self) -> bool: ...
+    def is_empty_initialized(self) -> bool: ...
