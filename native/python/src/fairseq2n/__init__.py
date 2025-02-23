@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-__version__ = "0.4.3"
+__version__ = "0.4.4"
 
 import platform
 import site
