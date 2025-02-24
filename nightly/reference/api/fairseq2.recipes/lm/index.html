@@ -430,9 +430,15 @@ This includes tools for both pre-training and instruction tuning of language mod
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.recipes.lm.InstructionFinetuneUnit">
 <em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">InstructionFinetuneUnit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">criterion</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gangs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_instruction_finetune.html#InstructionFinetuneUnit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.InstructionFinetuneUnit" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractTrainUnit</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">SequenceBatch</span></code>]</p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">TrainUnit</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">SequenceBatch</span></code>]</p>
 <dl class="field-list simple">
 </dl>
+<dl class="py property">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.InstructionFinetuneUnit.model">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">model</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Model</span></em><a class="headerlink" href="#fairseq2.recipes.lm.InstructionFinetuneUnit.model" title="Link to this definition">¶</a></dt>
+<dd><p>The underlying model.</p>
+</dd></dl>
+
 <dl class="py property">
 <dt class="sig sig-object py" id="fairseq2.recipes.lm.InstructionFinetuneUnit.metric_bag">
 <em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">metric_bag</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">SequenceMetricBag</span></em><a class="headerlink" href="#fairseq2.recipes.lm.InstructionFinetuneUnit.metric_bag" title="Link to this definition">¶</a></dt>
@@ -444,9 +450,15 @@ This includes tools for both pre-training and instruction tuning of language mod
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.recipes.lm.InstructionLossEvalUnit">
 <em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">InstructionLossEvalUnit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">criterion</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gangs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_instruction_finetune.html#InstructionLossEvalUnit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.InstructionLossEvalUnit" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractEvalUnit</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">SequenceBatch</span></code>]</p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">EvalUnit</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">SequenceBatch</span></code>]</p>
 <dl class="field-list simple">
 </dl>
+<dl class="py property">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.InstructionLossEvalUnit.model">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">model</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Model</span></em><a class="headerlink" href="#fairseq2.recipes.lm.InstructionLossEvalUnit.model" title="Link to this definition">¶</a></dt>
+<dd><p>The underlying model.</p>
+</dd></dl>
+
 <dl class="py property">
 <dt class="sig sig-object py" id="fairseq2.recipes.lm.InstructionLossEvalUnit.metric_bag">
 <em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">metric_bag</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">SequenceMetricBag</span></em><a class="headerlink" href="#fairseq2.recipes.lm.InstructionLossEvalUnit.metric_bag" title="Link to this definition">¶</a></dt>
@@ -626,16 +638,14 @@ Longer sequences will be dropped.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.recipes.lm.CpoFinetuneUnit">
 <em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">CpoFinetuneUnit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gangs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nll_scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_cpo.html#CpoFinetuneUnit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.CpoFinetuneUnit" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractTrainUnit</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">PreferenceBatch</span></code>]</p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">TrainUnit</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">PreferenceBatch</span></code>]</p>
 <p>Represents the language model CPO-finetuning unit. Paper: <a class="reference external" href="https://arxiv.org/abs/2401.08417">https://arxiv.org/abs/2401.08417</a>.</p>
 <dl class="field-list simple">
 </dl>
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.recipes.lm.CpoFinetuneUnit.set_step_nr">
-<span class="sig-name descname"><span class="pre">set_step_nr</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">step_nr</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_cpo.html#CpoFinetuneUnit.set_step_nr"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.CpoFinetuneUnit.set_step_nr" title="Link to this definition">¶</a></dt>
-<dd><p>Set the current training step number.</p>
-<dl class="field-list simple">
-</dl>
+<dl class="py property">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.CpoFinetuneUnit.model">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">model</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Model</span></em><a class="headerlink" href="#fairseq2.recipes.lm.CpoFinetuneUnit.model" title="Link to this definition">¶</a></dt>
+<dd><p>The underlying model.</p>
 </dd></dl>
 
 <dl class="py property">
@@ -721,16 +731,14 @@ data example (fields <cite>reference_score_rejected</cite> and  <cite>reference_
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.recipes.lm.DpoFinetuneUnit">
 <em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">DpoFinetuneUnit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference_model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gangs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nll_scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">length_normalization</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_dpo.html#DpoFinetuneUnit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.DpoFinetuneUnit" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractTrainUnit</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">PreferenceBatch</span></code>]</p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">TrainUnit</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">PreferenceBatch</span></code>]</p>
 <p>Represents the language model DPO-finetuning unit. Paper: <a class="reference external" href="https://arxiv.org/abs/2305.18290">https://arxiv.org/abs/2305.18290</a>.</p>
 <dl class="field-list simple">
 </dl>
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.recipes.lm.DpoFinetuneUnit.set_step_nr">
-<span class="sig-name descname"><span class="pre">set_step_nr</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">step_nr</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_dpo.html#DpoFinetuneUnit.set_step_nr"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.DpoFinetuneUnit.set_step_nr" title="Link to this definition">¶</a></dt>
-<dd><p>Set the current training step number.</p>
-<dl class="field-list simple">
-</dl>
+<dl class="py property">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.DpoFinetuneUnit.model">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">model</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Model</span></em><a class="headerlink" href="#fairseq2.recipes.lm.DpoFinetuneUnit.model" title="Link to this definition">¶</a></dt>
+<dd><p>The underlying model.</p>
 </dd></dl>
 
 <dl class="py property">
@@ -798,16 +806,14 @@ data example (fields <cite>reference_score_rejected</cite> and  <cite>reference_
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.recipes.lm.OrpoFinetuneUnit">
 <em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">OrpoFinetuneUnit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gangs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">orpo_lambda</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nll_scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_orpo.html#OrpoFinetuneUnit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.OrpoFinetuneUnit" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractTrainUnit</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">PreferenceBatch</span></code>]</p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">TrainUnit</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">PreferenceBatch</span></code>]</p>
 <p>Represents the language model ORPO-finetuning unit. Paper: <a class="reference external" href="https://arxiv.org/abs/2403.07691">https://arxiv.org/abs/2403.07691</a>.</p>
 <dl class="field-list simple">
 </dl>
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.recipes.lm.OrpoFinetuneUnit.set_step_nr">
-<span class="sig-name descname"><span class="pre">set_step_nr</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">step_nr</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_orpo.html#OrpoFinetuneUnit.set_step_nr"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.OrpoFinetuneUnit.set_step_nr" title="Link to this definition">¶</a></dt>
-<dd><p>Set the current training step number.</p>
-<dl class="field-list simple">
-</dl>
+<dl class="py property">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.OrpoFinetuneUnit.model">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">model</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Model</span></em><a class="headerlink" href="#fairseq2.recipes.lm.OrpoFinetuneUnit.model" title="Link to this definition">¶</a></dt>
+<dd><p>The underlying model.</p>
 </dd></dl>
 
 <dl class="py property">
@@ -879,16 +885,14 @@ data example (fields <cite>reference_score_rejected</cite> and  <cite>reference_
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.recipes.lm.SimPOFinetuneUnit">
 <em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">SimPOFinetuneUnit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gangs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gamma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nll_scale</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_simpo.html#SimPOFinetuneUnit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.SimPOFinetuneUnit" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractTrainUnit</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">PreferenceBatch</span></code>]</p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">TrainUnit</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">PreferenceBatch</span></code>]</p>
 <p>Represents the language model SimPO-finetuning unit. Paper: <a class="reference external" href="https://arxiv.org/abs/2405.14734">https://arxiv.org/abs/2405.14734</a>.</p>
 <dl class="field-list simple">
 </dl>
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.recipes.lm.SimPOFinetuneUnit.set_step_nr">
-<span class="sig-name descname"><span class="pre">set_step_nr</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">step_nr</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_simpo.html#SimPOFinetuneUnit.set_step_nr"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.SimPOFinetuneUnit.set_step_nr" title="Link to this definition">¶</a></dt>
-<dd><p>Set the current training step number.</p>
-<dl class="field-list simple">
-</dl>
+<dl class="py property">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.SimPOFinetuneUnit.model">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">model</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Model</span></em><a class="headerlink" href="#fairseq2.recipes.lm.SimPOFinetuneUnit.model" title="Link to this definition">¶</a></dt>
+<dd><p>The underlying model.</p>
 </dd></dl>
 
 <dl class="py property">
@@ -992,11 +996,17 @@ data example (fields <cite>reference_score_rejected</cite> and  <cite>reference_
 
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.recipes.lm.TextGenerateUnit">
-<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">TextGenerateUnit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">generator</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tokenizer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gangs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">text_output_stream</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">json_output_stream</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_text_generate.html#TextGenerateUnit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.TextGenerateUnit" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractGeneratorUnit</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">SequenceBatch</span></code>]</p>
+<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.lm.</span></span><span class="sig-name descname"><span class="pre">TextGenerateUnit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">generator</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tokenizer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gangs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">text_output_stream</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">json_output_stream</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_text_generate.html#TextGenerateUnit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.TextGenerateUnit" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">GeneratorUnit</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">SequenceBatch</span></code>]</p>
 <p>Represents a text generation unit.</p>
 <dl class="field-list simple">
 </dl>
+<dl class="py property">
+<dt class="sig sig-object py" id="fairseq2.recipes.lm.TextGenerateUnit.model">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">model</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Model</span></em><a class="headerlink" href="#fairseq2.recipes.lm.TextGenerateUnit.model" title="Link to this definition">¶</a></dt>
+<dd><p>The underlying model.</p>
+</dd></dl>
+
 <dl class="py property">
 <dt class="sig sig-object py" id="fairseq2.recipes.lm.TextGenerateUnit.metric_bag">
 <em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">metric_bag</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">SequenceGenerationMetricBag</span></em><a class="headerlink" href="#fairseq2.recipes.lm.TextGenerateUnit.metric_bag" title="Link to this definition">¶</a></dt>
@@ -1109,10 +1119,12 @@ data example (fields <cite>reference_score_rejected</cite> and  <cite>reference_
 </ul>
 </li>
 <li><a class="reference internal" href="#fairseq2.recipes.lm.InstructionFinetuneUnit"><code class="docutils literal notranslate"><span class="pre">InstructionFinetuneUnit</span></code></a><ul>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.InstructionFinetuneUnit.model"><code class="docutils literal notranslate"><span class="pre">InstructionFinetuneUnit.model</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.recipes.lm.InstructionFinetuneUnit.metric_bag"><code class="docutils literal notranslate"><span class="pre">InstructionFinetuneUnit.metric_bag</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#fairseq2.recipes.lm.InstructionLossEvalUnit"><code class="docutils literal notranslate"><span class="pre">InstructionLossEvalUnit</span></code></a><ul>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.InstructionLossEvalUnit.model"><code class="docutils literal notranslate"><span class="pre">InstructionLossEvalUnit.model</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.recipes.lm.InstructionLossEvalUnit.metric_bag"><code class="docutils literal notranslate"><span class="pre">InstructionLossEvalUnit.metric_bag</span></code></a></li>
 </ul>
 </li>
@@ -1153,7 +1165,7 @@ data example (fields <cite>reference_score_rejected</cite> and  <cite>reference_
 </ul>
 </li>
 <li><a class="reference internal" href="#fairseq2.recipes.lm.CpoFinetuneUnit"><code class="docutils literal notranslate"><span class="pre">CpoFinetuneUnit</span></code></a><ul>
-<li><a class="reference internal" href="#fairseq2.recipes.lm.CpoFinetuneUnit.set_step_nr"><code class="docutils literal notranslate"><span class="pre">CpoFinetuneUnit.set_step_nr()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.CpoFinetuneUnit.model"><code class="docutils literal notranslate"><span class="pre">CpoFinetuneUnit.model</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.recipes.lm.CpoFinetuneUnit.metric_bag"><code class="docutils literal notranslate"><span class="pre">CpoFinetuneUnit.metric_bag</span></code></a></li>
 </ul>
 </li>
@@ -1171,7 +1183,7 @@ data example (fields <cite>reference_score_rejected</cite> and  <cite>reference_
 </ul>
 </li>
 <li><a class="reference internal" href="#fairseq2.recipes.lm.DpoFinetuneUnit"><code class="docutils literal notranslate"><span class="pre">DpoFinetuneUnit</span></code></a><ul>
-<li><a class="reference internal" href="#fairseq2.recipes.lm.DpoFinetuneUnit.set_step_nr"><code class="docutils literal notranslate"><span class="pre">DpoFinetuneUnit.set_step_nr()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.DpoFinetuneUnit.model"><code class="docutils literal notranslate"><span class="pre">DpoFinetuneUnit.model</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.recipes.lm.DpoFinetuneUnit.metric_bag"><code class="docutils literal notranslate"><span class="pre">DpoFinetuneUnit.metric_bag</span></code></a></li>
 </ul>
 </li>
@@ -1186,7 +1198,7 @@ data example (fields <cite>reference_score_rejected</cite> and  <cite>reference_
 </ul>
 </li>
 <li><a class="reference internal" href="#fairseq2.recipes.lm.OrpoFinetuneUnit"><code class="docutils literal notranslate"><span class="pre">OrpoFinetuneUnit</span></code></a><ul>
-<li><a class="reference internal" href="#fairseq2.recipes.lm.OrpoFinetuneUnit.set_step_nr"><code class="docutils literal notranslate"><span class="pre">OrpoFinetuneUnit.set_step_nr()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.OrpoFinetuneUnit.model"><code class="docutils literal notranslate"><span class="pre">OrpoFinetuneUnit.model</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.recipes.lm.OrpoFinetuneUnit.metric_bag"><code class="docutils literal notranslate"><span class="pre">OrpoFinetuneUnit.metric_bag</span></code></a></li>
 </ul>
 </li>
@@ -1202,7 +1214,7 @@ data example (fields <cite>reference_score_rejected</cite> and  <cite>reference_
 </ul>
 </li>
 <li><a class="reference internal" href="#fairseq2.recipes.lm.SimPOFinetuneUnit"><code class="docutils literal notranslate"><span class="pre">SimPOFinetuneUnit</span></code></a><ul>
-<li><a class="reference internal" href="#fairseq2.recipes.lm.SimPOFinetuneUnit.set_step_nr"><code class="docutils literal notranslate"><span class="pre">SimPOFinetuneUnit.set_step_nr()</span></code></a></li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.SimPOFinetuneUnit.model"><code class="docutils literal notranslate"><span class="pre">SimPOFinetuneUnit.model</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.recipes.lm.SimPOFinetuneUnit.metric_bag"><code class="docutils literal notranslate"><span class="pre">SimPOFinetuneUnit.metric_bag</span></code></a></li>
 </ul>
 </li>
@@ -1230,6 +1242,7 @@ data example (fields <cite>reference_score_rejected</cite> and  <cite>reference_
 </ul>
 </li>
 <li><a class="reference internal" href="#fairseq2.recipes.lm.TextGenerateUnit"><code class="docutils literal notranslate"><span class="pre">TextGenerateUnit</span></code></a><ul>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.TextGenerateUnit.model"><code class="docutils literal notranslate"><span class="pre">TextGenerateUnit.model</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.recipes.lm.TextGenerateUnit.metric_bag"><code class="docutils literal notranslate"><span class="pre">TextGenerateUnit.metric_bag</span></code></a></li>
 </ul>
 </li>
@@ -1253,7 +1266,7 @@ data example (fields <cite>reference_score_rejected</cite> and  <cite>reference_
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=fc0fef3b"></script>
+</div><script src="../../../../_static/documentation_options.js?v=261bd731"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>

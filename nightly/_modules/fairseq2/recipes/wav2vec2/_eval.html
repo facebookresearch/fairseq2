@@ -349,7 +349,8 @@
     <span class="n">GangSection</span><span class="p">,</span>
     <span class="n">ReferenceModelSection</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.evaluator</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbstractEvalUnit</span><span class="p">,</span> <span class="n">Evaluator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.evaluator</span><span class="w"> </span><span class="kn">import</span> <span class="n">Evaluator</span><span class="p">,</span> <span class="n">EvalUnit</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.model</span><span class="w"> </span><span class="kn">import</span> <span class="n">Model</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.wav2vec2._common</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">Wav2Vec2Criterion</span><span class="p">,</span>
     <span class="n">Wav2Vec2LossSection</span><span class="p">,</span>
@@ -494,13 +495,11 @@
 
 
 <span class="nd">@final</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">Wav2Vec2EvalUnit</span><span class="p">(</span><span class="n">AbstractEvalUnit</span><span class="p">[</span><span class="n">SequenceBatch</span><span class="p">]):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Wav2Vec2EvalUnit</span><span class="p">(</span><span class="n">EvalUnit</span><span class="p">[</span><span class="n">SequenceBatch</span><span class="p">]):</span>
     <span class="n">_criterion</span><span class="p">:</span> <span class="n">Wav2Vec2Criterion</span>
     <span class="n">_metric_bag</span><span class="p">:</span> <span class="n">Wav2Vec2MetricBag</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">criterion</span><span class="p">:</span> <span class="n">Wav2Vec2Criterion</span><span class="p">,</span> <span class="n">gangs</span><span class="p">:</span> <span class="n">Gangs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">criterion</span><span class="o">.</span><span class="n">model</span><span class="p">)</span>
-
         <span class="bp">self</span><span class="o">.</span><span class="n">_criterion</span> <span class="o">=</span> <span class="n">criterion</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_metric_bag</span> <span class="o">=</span> <span class="n">Wav2Vec2MetricBag</span><span class="p">(</span><span class="n">gangs</span><span class="o">.</span><span class="n">dp</span><span class="p">,</span> <span class="n">train</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
@@ -508,6 +507,11 @@
     <span class="nd">@override</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">SequenceBatch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_criterion</span><span class="p">(</span><span class="n">batch</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_bag</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">model</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Model</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_criterion</span><span class="o">.</span><span class="n">model</span>
 
     <span class="nd">@property</span>
     <span class="nd">@override</span>
@@ -549,7 +553,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=fc0fef3b"></script>
+</div><script src="../../../../_static/documentation_options.js?v=261bd731"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>

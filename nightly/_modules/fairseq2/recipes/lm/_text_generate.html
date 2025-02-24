@@ -357,8 +357,9 @@
     <span class="n">SequenceGeneratorSection</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.error</span><span class="w"> </span><span class="kn">import</span> <span class="n">UnitError</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.generator</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbstractGeneratorUnit</span><span class="p">,</span> <span class="n">Generator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.generator</span><span class="w"> </span><span class="kn">import</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">GeneratorUnit</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">SequenceGenerationMetricBag</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.model</span><span class="w"> </span><span class="kn">import</span> <span class="n">Model</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">CPU</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.file</span><span class="w"> </span><span class="kn">import</span> <span class="n">FileMode</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.rng</span><span class="w"> </span><span class="kn">import</span> <span class="n">manual_seed</span>
@@ -532,6 +533,7 @@
         <span class="n">json_fp</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="n">unit</span> <span class="o">=</span> <span class="n">TextGenerateUnit</span><span class="p">(</span>
+        <span class="n">model</span><span class="p">,</span>
         <span class="n">seq_generator</span><span class="p">,</span>
         <span class="n">tokenizer</span><span class="p">,</span>
         <span class="n">gangs</span><span class="p">,</span>
@@ -567,9 +569,10 @@
 <div class="viewcode-block" id="TextGenerateUnit">
 <a class="viewcode-back" href="../../../../reference/api/fairseq2.recipes/lm/index.html#fairseq2.recipes.lm.TextGenerateUnit">[docs]</a>
 <span class="nd">@final</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">TextGenerateUnit</span><span class="p">(</span><span class="n">AbstractGeneratorUnit</span><span class="p">[</span><span class="n">SequenceBatch</span><span class="p">]):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">TextGenerateUnit</span><span class="p">(</span><span class="n">GeneratorUnit</span><span class="p">[</span><span class="n">SequenceBatch</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a text generation unit.&quot;&quot;&quot;</span>
 
+    <span class="n">_model</span><span class="p">:</span> <span class="n">Model</span>
     <span class="n">_generator</span><span class="p">:</span> <span class="n">SequenceGenerator</span>
     <span class="n">_text_decoder</span><span class="p">:</span> <span class="n">TextTokenDecoder</span>
     <span class="n">_text_output_stream</span><span class="p">:</span> <span class="n">TextIO</span> <span class="o">|</span> <span class="kc">None</span>
@@ -578,14 +581,14 @@
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="n">Model</span><span class="p">,</span>
         <span class="n">generator</span><span class="p">:</span> <span class="n">SequenceGenerator</span><span class="p">,</span>
         <span class="n">tokenizer</span><span class="p">:</span> <span class="n">TextTokenizer</span><span class="p">,</span>
         <span class="n">gangs</span><span class="p">:</span> <span class="n">Gangs</span><span class="p">,</span>
         <span class="n">text_output_stream</span><span class="p">:</span> <span class="n">TextIO</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">json_output_stream</span><span class="p">:</span> <span class="n">TextIO</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">generator</span><span class="o">.</span><span class="n">model</span><span class="p">)</span>
-
+        <span class="bp">self</span><span class="o">.</span><span class="n">_model</span> <span class="o">=</span> <span class="n">model</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_generator</span> <span class="o">=</span> <span class="n">generator</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_text_decoder</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">create_decoder</span><span class="p">()</span>
@@ -717,6 +720,11 @@
 
     <span class="nd">@property</span>
     <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">model</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Model</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span>
+
+    <span class="nd">@property</span>
+    <span class="nd">@override</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">metric_bag</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SequenceGenerationMetricBag</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_bag</span></div>
 
@@ -756,7 +764,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=fc0fef3b"></script>
+</div><script src="../../../../_static/documentation_options.js?v=261bd731"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>

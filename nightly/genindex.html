@@ -343,8 +343,6 @@
   <h2>A</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
     <td style="width: 33%; vertical-align: top;"><ul>
-        <li><a href="reference/api/gang.html#fairseq2.gang.AbstractGang">AbstractGang (class in fairseq2.gang)</a>
-</li>
         <li><a href="reference/api/fairseq2.cli/index.html#fairseq2.cli.CliGroup.add_command">add_command() (fairseq2.cli.CliGroup method)</a>
 </li>
         <li><a href="reference/api/fairseq2.cli/index.html#fairseq2.cli.Cli.add_group">add_group() (fairseq2.cli.Cli method)</a>
@@ -369,8 +367,6 @@
           <li><a href="reference/api/gang.html#fairseq2.gang.ProcessGroupGang.all_gather_to_list">(fairseq2.gang.ProcessGroupGang method)</a>
 </li>
         </ul></li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/api/gang.html#fairseq2.gang.FakeGang.all_reduce">all_reduce() (fairseq2.gang.FakeGang method)</a>
 
         <ul>
@@ -379,6 +375,8 @@
           <li><a href="reference/api/gang.html#fairseq2.gang.ProcessGroupGang.all_reduce">(fairseq2.gang.ProcessGroupGang method)</a>
 </li>
         </ul></li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/api/gang.html#fairseq2.gang.all_sum">all_sum() (in module fairseq2.gang)</a>
 </li>
         <li><a href="reference/api/fairseq2.data/index.html#fairseq2.data.DataPipelineBuilder.and_return">and_return() (fairseq2.data.DataPipelineBuilder method)</a>
@@ -511,12 +509,8 @@
 </li>
         <li><a href="reference/api/fairseq2.data/index.html#fairseq2.data.create_bucket_sizes">create_bucket_sizes() (in module fairseq2.data)</a>
 </li>
-        <li><a href="reference/api/gang.html#fairseq2.gang.AbstractGang.create_gang">create_gang() (fairseq2.gang.AbstractGang method)</a>
-
-        <ul>
-          <li><a href="reference/api/gang.html#fairseq2.gang.Gang.create_gang">(fairseq2.gang.Gang method)</a>
+        <li><a href="reference/api/gang.html#fairseq2.gang.Gang.create_gang">create_gang() (fairseq2.gang.Gang method)</a>
 </li>
-        </ul></li>
     </ul></td>
   </tr></table>
 </section>
@@ -533,10 +527,12 @@
 </li>
         <li><a href="reference/api/fairseq2.cli/index.html#fairseq2.cli.Cli.description">description (fairseq2.cli.Cli property)</a>
 </li>
-        <li><a href="reference/api/gang.html#fairseq2.gang.AbstractGang.device">device (fairseq2.gang.AbstractGang property)</a>
+        <li><a href="reference/api/gang.html#fairseq2.gang.FakeGang.device">device (fairseq2.gang.FakeGang property)</a>
 
         <ul>
           <li><a href="reference/api/gang.html#fairseq2.gang.Gang.device">(fairseq2.gang.Gang property)</a>
+</li>
+          <li><a href="reference/api/gang.html#fairseq2.gang.ProcessGroupGang.device">(fairseq2.gang.ProcessGroupGang property)</a>
 </li>
         </ul></li>
     </ul></td>
@@ -840,8 +836,6 @@
           <li><a href="reference/api/fairseq2.recipes/wav2vec2/index.html#fairseq2.recipes.wav2vec2.Wav2Vec2TrainUnit.metric_bag">(fairseq2.recipes.wav2vec2.Wav2Vec2TrainUnit property)</a>
 </li>
         </ul></li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/api/gang.html#fairseq2.gang.ReduceOperation.MIN">MIN (fairseq2.gang.ReduceOperation attribute)</a>
 </li>
         <li><a href="reference/api/fairseq2.recipes/lm/index.html#fairseq2.recipes.lm.InstructionFinetuneDatasetSection.min_seq_len">min_seq_len (fairseq2.recipes.lm.InstructionFinetuneDatasetSection attribute)</a>
@@ -850,6 +844,26 @@
           <li><a href="reference/api/fairseq2.recipes/lm/index.html#fairseq2.recipes.lm.POFinetuneDatasetSection.min_seq_len">(fairseq2.recipes.lm.POFinetuneDatasetSection attribute)</a>
 </li>
           <li><a href="reference/api/fairseq2.recipes/lm/index.html#fairseq2.recipes.lm.TextGenerateDatasetSection.min_seq_len">(fairseq2.recipes.lm.TextGenerateDatasetSection attribute)</a>
+</li>
+        </ul></li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="reference/api/fairseq2.recipes/lm/index.html#fairseq2.recipes.lm.CpoFinetuneUnit.model">model (fairseq2.recipes.lm.CpoFinetuneUnit property)</a>
+
+        <ul>
+          <li><a href="reference/api/fairseq2.recipes/lm/index.html#fairseq2.recipes.lm.DpoFinetuneUnit.model">(fairseq2.recipes.lm.DpoFinetuneUnit property)</a>
+</li>
+          <li><a href="reference/api/fairseq2.recipes/lm/index.html#fairseq2.recipes.lm.InstructionFinetuneUnit.model">(fairseq2.recipes.lm.InstructionFinetuneUnit property)</a>
+</li>
+          <li><a href="reference/api/fairseq2.recipes/lm/index.html#fairseq2.recipes.lm.InstructionLossEvalUnit.model">(fairseq2.recipes.lm.InstructionLossEvalUnit property)</a>
+</li>
+          <li><a href="reference/api/fairseq2.recipes/lm/index.html#fairseq2.recipes.lm.OrpoFinetuneUnit.model">(fairseq2.recipes.lm.OrpoFinetuneUnit property)</a>
+</li>
+          <li><a href="reference/api/fairseq2.recipes/lm/index.html#fairseq2.recipes.lm.SimPOFinetuneUnit.model">(fairseq2.recipes.lm.SimPOFinetuneUnit property)</a>
+</li>
+          <li><a href="reference/api/fairseq2.recipes/lm/index.html#fairseq2.recipes.lm.TextGenerateUnit.model">(fairseq2.recipes.lm.TextGenerateUnit property)</a>
+</li>
+          <li><a href="reference/api/fairseq2.recipes/wav2vec2/index.html#fairseq2.recipes.wav2vec2.Wav2Vec2TrainUnit.model">(fairseq2.recipes.wav2vec2.Wav2Vec2TrainUnit property)</a>
 </li>
         </ul></li>
         <li>
@@ -979,10 +993,12 @@
   <h2>R</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
     <td style="width: 33%; vertical-align: top;"><ul>
-        <li><a href="reference/api/gang.html#fairseq2.gang.AbstractGang.rank">rank (fairseq2.gang.AbstractGang property)</a>
+        <li><a href="reference/api/gang.html#fairseq2.gang.FakeGang.rank">rank (fairseq2.gang.FakeGang property)</a>
 
         <ul>
           <li><a href="reference/api/gang.html#fairseq2.gang.Gang.rank">(fairseq2.gang.Gang property)</a>
+</li>
+          <li><a href="reference/api/gang.html#fairseq2.gang.ProcessGroupGang.rank">(fairseq2.gang.ProcessGroupGang property)</a>
 </li>
         </ul></li>
         <li><a href="reference/api/fairseq2.data/index.html#fairseq2.data.read_iterator">read_iterator() (in module fairseq2.data)</a>
@@ -1007,14 +1023,14 @@
 </li>
         <li><a href="reference/api/fairseq2.data/index.html#fairseq2.data.DataPipeline.reset">reset() (fairseq2.data.DataPipeline method)</a>
 </li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/api/fairseq2.nn/position_encoders.html#fairseq2.nn.RotaryEncoder.reset_non_persistent_buffers">reset_non_persistent_buffers() (fairseq2.nn.RotaryEncoder method)</a>
 
         <ul>
           <li><a href="reference/api/fairseq2.nn/position_encoders.html#fairseq2.nn.SinusoidalPositionEncoder.reset_non_persistent_buffers">(fairseq2.nn.SinusoidalPositionEncoder method)</a>
 </li>
         </ul></li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/api/fairseq2.nn/position_encoders.html#fairseq2.nn.LearnedPositionEncoder.reset_parameters">reset_parameters() (fairseq2.nn.LearnedPositionEncoder method)</a>
 
         <ul>
@@ -1057,16 +1073,6 @@
 </li>
         <li><a href="reference/api/fairseq2.data/index.html#fairseq2.data.SequenceData">SequenceData (class in fairseq2.data)</a>
 </li>
-        <li><a href="reference/api/fairseq2.recipes/lm/index.html#fairseq2.recipes.lm.CpoFinetuneUnit.set_step_nr">set_step_nr() (fairseq2.recipes.lm.CpoFinetuneUnit method)</a>
-
-        <ul>
-          <li><a href="reference/api/fairseq2.recipes/lm/index.html#fairseq2.recipes.lm.DpoFinetuneUnit.set_step_nr">(fairseq2.recipes.lm.DpoFinetuneUnit method)</a>
-</li>
-          <li><a href="reference/api/fairseq2.recipes/lm/index.html#fairseq2.recipes.lm.OrpoFinetuneUnit.set_step_nr">(fairseq2.recipes.lm.OrpoFinetuneUnit method)</a>
-</li>
-          <li><a href="reference/api/fairseq2.recipes/lm/index.html#fairseq2.recipes.lm.SimPOFinetuneUnit.set_step_nr">(fairseq2.recipes.lm.SimPOFinetuneUnit method)</a>
-</li>
-        </ul></li>
         <li><a href="reference/api/fairseq2.html#fairseq2.setup_fairseq2">setup_fairseq2() (in module fairseq2)</a>
 </li>
         <li><a href="reference/api/gang.html#fairseq2.gang.setup_parallel_gangs">setup_parallel_gangs() (in module fairseq2.gang)</a>
@@ -1077,22 +1083,24 @@
 </li>
         <li><a href="reference/api/fairseq2.data/index.html#fairseq2.data.DataPipelineBuilder.shuffle">shuffle() (fairseq2.data.DataPipelineBuilder method)</a>
 </li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/api/fairseq2.recipes/lm/index.html#fairseq2.recipes.lm.SimPOFinetuneConfig">SimPOFinetuneConfig (class in fairseq2.recipes.lm)</a>
 </li>
         <li><a href="reference/api/fairseq2.recipes/lm/index.html#fairseq2.recipes.lm.SimPOFinetuneMetricBag">SimPOFinetuneMetricBag (class in fairseq2.recipes.lm)</a>
 </li>
         <li><a href="reference/api/fairseq2.recipes/lm/index.html#fairseq2.recipes.lm.SimPOFinetuneUnit">SimPOFinetuneUnit (class in fairseq2.recipes.lm)</a>
 </li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/api/fairseq2.recipes/lm/index.html#fairseq2.recipes.lm.SimPOFinetuneUnitHandler">SimPOFinetuneUnitHandler (class in fairseq2.recipes.lm)</a>
 </li>
         <li><a href="reference/api/fairseq2.nn/position_encoders.html#fairseq2.nn.SinusoidalPositionEncoder">SinusoidalPositionEncoder (class in fairseq2.nn)</a>
 </li>
-        <li><a href="reference/api/gang.html#fairseq2.gang.AbstractGang.size">size (fairseq2.gang.AbstractGang property)</a>
+        <li><a href="reference/api/gang.html#fairseq2.gang.FakeGang.size">size (fairseq2.gang.FakeGang property)</a>
 
         <ul>
           <li><a href="reference/api/gang.html#fairseq2.gang.Gang.size">(fairseq2.gang.Gang property)</a>
+</li>
+          <li><a href="reference/api/gang.html#fairseq2.gang.ProcessGroupGang.size">(fairseq2.gang.ProcessGroupGang property)</a>
 </li>
         </ul></li>
         <li><a href="reference/api/fairseq2.data/index.html#fairseq2.data.DataPipelineBuilder.skip">skip() (fairseq2.data.DataPipelineBuilder method)</a>
@@ -1249,7 +1257,7 @@
       
     </aside>
   </div>
-</div><script src="_static/documentation_options.js?v=fc0fef3b"></script>
+</div><script src="_static/documentation_options.js?v=261bd731"></script>
     <script src="_static/doctools.js?v=9a2dae69"></script>
     <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/scripts/furo.js?v=5fa4622c"></script>

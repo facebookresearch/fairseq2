@@ -324,7 +324,6 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch.distributed</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tensor</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">Module</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">override</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.datasets.preference</span><span class="w"> </span><span class="kn">import</span> <span class="n">PreferenceBatch</span>
@@ -338,7 +337,8 @@
     <span class="n">_gather_lprobs</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.lm._preference_finetune._handler</span><span class="w"> </span><span class="kn">import</span> <span class="n">POFinetuneUnitHandler</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.trainer</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbstractTrainUnit</span><span class="p">,</span> <span class="n">TrainUnit</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.model</span><span class="w"> </span><span class="kn">import</span> <span class="n">Model</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.trainer</span><span class="w"> </span><span class="kn">import</span> <span class="n">TrainUnit</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.structured</span><span class="w"> </span><span class="kn">import</span> <span class="n">structure</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.validation</span><span class="w"> </span><span class="kn">import</span> <span class="n">validate</span>
 
@@ -346,22 +346,22 @@
 <div class="viewcode-block" id="CpoFinetuneUnit">
 <a class="viewcode-back" href="../../../../../reference/api/fairseq2.recipes/lm/index.html#fairseq2.recipes.lm.CpoFinetuneUnit">[docs]</a>
 <span class="nd">@final</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">CpoFinetuneUnit</span><span class="p">(</span><span class="n">AbstractTrainUnit</span><span class="p">[</span><span class="n">PreferenceBatch</span><span class="p">]):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">CpoFinetuneUnit</span><span class="p">(</span><span class="n">TrainUnit</span><span class="p">[</span><span class="n">PreferenceBatch</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents the language model CPO-finetuning unit. Paper: https://arxiv.org/abs/2401.08417.&quot;&quot;&quot;</span>
 
+    <span class="n">_model</span><span class="p">:</span> <span class="n">Model</span>
     <span class="n">_beta</span><span class="p">:</span> <span class="nb">float</span>
     <span class="n">_nll_scale</span><span class="p">:</span> <span class="nb">float</span>
     <span class="n">_metric_bag</span><span class="p">:</span> <span class="n">CpoFinetuneMetricBag</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">model</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="n">Model</span><span class="p">,</span>
         <span class="n">gangs</span><span class="p">:</span> <span class="n">Gangs</span><span class="p">,</span>
         <span class="n">beta</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
         <span class="n">nll_scale</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
-
+        <span class="bp">self</span><span class="o">.</span><span class="n">_model</span> <span class="o">=</span> <span class="n">model</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_beta</span> <span class="o">=</span> <span class="n">beta</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_nll_scale</span> <span class="o">=</span> <span class="n">nll_scale</span>
 
@@ -376,8 +376,12 @@
             <span class="n">rejected_batch</span>
         <span class="p">)</span>
 
-        <span class="n">chosen_output</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">SequenceModelOutput</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="p">(</span><span class="n">chosen_input_batch</span><span class="p">))</span>
-        <span class="n">rejected_output</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">SequenceModelOutput</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="p">(</span><span class="n">rejected_input_batch</span><span class="p">))</span>
+        <span class="n">chosen_output</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span>
+            <span class="n">SequenceModelOutput</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="o">.</span><span class="n">module</span><span class="p">(</span><span class="n">chosen_input_batch</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">rejected_output</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span>
+            <span class="n">SequenceModelOutput</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="o">.</span><span class="n">module</span><span class="p">(</span><span class="n">rejected_input_batch</span><span class="p">)</span>
+        <span class="p">)</span>
 
         <span class="n">chosen_logps</span> <span class="o">=</span> <span class="n">_gather_lprobs</span><span class="p">(</span><span class="n">chosen_output</span><span class="p">,</span> <span class="n">chosen_target_batch</span><span class="p">)</span>
         <span class="n">rejected_logps</span> <span class="o">=</span> <span class="n">_gather_lprobs</span><span class="p">(</span><span class="n">rejected_output</span><span class="p">,</span> <span class="n">rejected_target_batch</span><span class="p">)</span>
@@ -418,13 +422,10 @@
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">cpo_loss</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
 
-<div class="viewcode-block" id="CpoFinetuneUnit.set_step_nr">
-<a class="viewcode-back" href="../../../../../reference/api/fairseq2.recipes/lm/index.html#fairseq2.recipes.lm.CpoFinetuneUnit.set_step_nr">[docs]</a>
+    <span class="nd">@property</span>
     <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">set_step_nr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">step_nr</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the current training step number.&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_step_nr</span> <span class="o">=</span> <span class="n">step_nr</span></div>
-
+    <span class="k">def</span><span class="w"> </span><span class="nf">model</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Model</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span>
 
     <span class="nd">@property</span>
     <span class="nd">@override</span>
@@ -484,7 +485,7 @@
 <span class="k">class</span><span class="w"> </span><span class="nc">CpoFinetuneUnitHandler</span><span class="p">(</span><span class="n">POFinetuneUnitHandler</span><span class="p">):</span>
     <span class="nd">@override</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">create</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span> <span class="n">gangs</span><span class="p">:</span> <span class="n">Gangs</span><span class="p">,</span> <span class="n">recipe_config</span><span class="p">:</span> <span class="nb">object</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Model</span><span class="p">,</span> <span class="n">gangs</span><span class="p">:</span> <span class="n">Gangs</span><span class="p">,</span> <span class="n">recipe_config</span><span class="p">:</span> <span class="nb">object</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TrainUnit</span><span class="p">[</span><span class="n">PreferenceBatch</span><span class="p">]:</span>
         <span class="n">criterion_section</span> <span class="o">=</span> <span class="n">get_config_section</span><span class="p">(</span>
             <span class="n">recipe_config</span><span class="p">,</span> <span class="s2">&quot;criterion&quot;</span><span class="p">,</span> <span class="n">POCriterionSection</span>
@@ -495,6 +496,11 @@
         <span class="n">validate</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">CpoFinetuneUnit</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">gangs</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">beta</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">nll_scale</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">CPO_FINETUNE_UNIT</span>
 
     <span class="nd">@property</span>
     <span class="nd">@override</span>
@@ -537,7 +543,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../../_static/documentation_options.js?v=fc0fef3b"></script>
+</div><script src="../../../../../_static/documentation_options.js?v=261bd731"></script>
     <script src="../../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../../_static/scripts/furo.js?v=5fa4622c"></script>

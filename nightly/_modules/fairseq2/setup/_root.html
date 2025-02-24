@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../genindex.html" /><link rel="search" title="Search" href="../../../search.html" />
 
     <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
-        <title>fairseq2.setup._lib - fairseq2 Documentation</title>
+        <title>fairseq2.setup._root - fairseq2 Documentation</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo.css?v=354aac6f" />
     <link rel="stylesheet" type="text/css" href="../../../_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css?v=0a3b3ea7" />
@@ -309,7 +309,7 @@
           </label>
         </div>
         <article role="main" id="furo-main-content">
-          <h1>Source code for fairseq2.setup._lib</h1><div class="highlight"><pre>
+          <h1>Source code for fairseq2.setup._root</h1><div class="highlight"><pre>
 <span></span><span class="c1"># Copyright (c) Meta Platforms, Inc. and affiliates.</span>
 <span class="c1"># All rights reserved.</span>
 <span class="c1">#</span>
@@ -320,34 +320,36 @@
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enum</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mapping</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.assets</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">AssetDirectories</span><span class="p">,</span>
+    <span class="n">AssetDownloadManager</span><span class="p">,</span>
     <span class="n">InProcAssetDownloadManager</span><span class="p">,</span>
     <span class="n">StandardAssetStore</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">RuntimeContext</span><span class="p">,</span> <span class="n">set_runtime_context</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_extensions</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._assets</span><span class="w"> </span><span class="kn">import</span> <span class="n">_register_assets</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._chatbots</span><span class="w"> </span><span class="kn">import</span> <span class="n">_register_chatbots</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._clusters</span><span class="w"> </span><span class="kn">import</span> <span class="n">_register_clusters</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">_register_datasets</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._asset</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_assets</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._chatbots</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_chatbots</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._cluster</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_clusters</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_dataset_families</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._generation</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">_register_beam_search_algorithms</span><span class="p">,</span>
-    <span class="n">_register_samplers</span><span class="p">,</span>
-    <span class="n">_register_seq2seq_generators</span><span class="p">,</span>
-    <span class="n">_register_seq_generators</span><span class="p">,</span>
+    <span class="n">register_beam_search_algorithms</span><span class="p">,</span>
+    <span class="n">register_samplers</span><span class="p">,</span>
+    <span class="n">register_seq2seq_generators</span><span class="p">,</span>
+    <span class="n">register_seq_generators</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._metrics</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">_register_metric_descriptors</span><span class="p">,</span>
-    <span class="n">_register_metric_recorders</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._models</span><span class="w"> </span><span class="kn">import</span> <span class="n">_register_models</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._optim</span><span class="w"> </span><span class="kn">import</span> <span class="n">_register_lr_schedulers</span><span class="p">,</span> <span class="n">_register_optimizers</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._profilers</span><span class="w"> </span><span class="kn">import</span> <span class="n">_register_profilers</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._recipes</span><span class="w"> </span><span class="kn">import</span> <span class="n">_register_recipes</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._text_tokenizers</span><span class="w"> </span><span class="kn">import</span> <span class="n">_register_text_tokenizers</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.file</span><span class="w"> </span><span class="kn">import</span> <span class="n">LocalFileSystem</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._lr_schedulers</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_lr_schedulers</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._metric_recorders</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_metric_recorders</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_metric_descriptors</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._models</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_model_families</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._optim</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_optimizers</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._po_finetune_units</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_po_finetune_units</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._profilers</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_profilers</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._recipes</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_recipes</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._text_tokenizers</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_text_tokenizer_families</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.file</span><span class="w"> </span><span class="kn">import</span> <span class="n">FileSystem</span><span class="p">,</span> <span class="n">LocalFileSystem</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">_SetupState</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
@@ -399,38 +401,47 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">setup_library</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">RuntimeContext</span><span class="p">:</span>
-    <span class="n">asset_store</span> <span class="o">=</span> <span class="n">StandardAssetStore</span><span class="p">()</span>
+    <span class="n">env</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span>
 
     <span class="n">file_system</span> <span class="o">=</span> <span class="n">LocalFileSystem</span><span class="p">()</span>
 
-    <span class="n">asset_dirs</span> <span class="o">=</span> <span class="n">AssetDirectories</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">,</span> <span class="n">file_system</span><span class="p">)</span>
+    <span class="n">asset_store</span> <span class="o">=</span> <span class="n">StandardAssetStore</span><span class="p">()</span>
 
-    <span class="n">asset_cache_dir</span> <span class="o">=</span> <span class="n">asset_dirs</span><span class="o">.</span><span class="n">get_cache_dir</span><span class="p">()</span>
+    <span class="n">asset_download_manager</span> <span class="o">=</span> <span class="n">_create_asset_download_manager</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">file_system</span><span class="p">)</span>
 
-    <span class="n">asset_download_manager</span> <span class="o">=</span> <span class="n">InProcAssetDownloadManager</span><span class="p">(</span><span class="n">asset_cache_dir</span><span class="p">)</span>
+    <span class="n">context</span> <span class="o">=</span> <span class="n">RuntimeContext</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">asset_store</span><span class="p">,</span> <span class="n">asset_download_manager</span><span class="p">,</span> <span class="n">file_system</span><span class="p">)</span>
 
-    <span class="n">context</span> <span class="o">=</span> <span class="n">RuntimeContext</span><span class="p">(</span><span class="n">asset_store</span><span class="p">,</span> <span class="n">asset_download_manager</span><span class="p">,</span> <span class="n">file_system</span><span class="p">)</span>
-
-    <span class="n">_register_assets</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
-    <span class="n">_register_beam_search_algorithms</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
-    <span class="n">_register_chatbots</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
-    <span class="n">_register_clusters</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
-    <span class="n">_register_datasets</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
-    <span class="n">_register_lr_schedulers</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
-    <span class="n">_register_metric_descriptors</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
-    <span class="n">_register_metric_recorders</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
-    <span class="n">_register_models</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
-    <span class="n">_register_optimizers</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
-    <span class="n">_register_profilers</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
-    <span class="n">_register_recipes</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
-    <span class="n">_register_samplers</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
-    <span class="n">_register_seq2seq_generators</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
-    <span class="n">_register_seq_generators</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
-    <span class="n">_register_text_tokenizers</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+    <span class="n">register_assets</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+    <span class="n">register_beam_search_algorithms</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+    <span class="n">register_chatbots</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+    <span class="n">register_clusters</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+    <span class="n">register_dataset_families</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+    <span class="n">register_lr_schedulers</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+    <span class="n">register_metric_descriptors</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+    <span class="n">register_metric_recorders</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+    <span class="n">register_model_families</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+    <span class="n">register_optimizers</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+    <span class="n">register_po_finetune_units</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+    <span class="n">register_profilers</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+    <span class="n">register_recipes</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+    <span class="n">register_samplers</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+    <span class="n">register_seq2seq_generators</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+    <span class="n">register_seq_generators</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+    <span class="n">register_text_tokenizer_families</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
 
     <span class="n">run_extensions</span><span class="p">(</span><span class="s2">&quot;fairseq2.extension&quot;</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">context</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_create_asset_download_manager</span><span class="p">(</span>
+    <span class="n">env</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">file_system</span><span class="p">:</span> <span class="n">FileSystem</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AssetDownloadManager</span><span class="p">:</span>
+    <span class="n">asset_dirs</span> <span class="o">=</span> <span class="n">AssetDirectories</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">file_system</span><span class="p">)</span>
+
+    <span class="n">asset_cache_dir</span> <span class="o">=</span> <span class="n">asset_dirs</span><span class="o">.</span><span class="n">get_cache_dir</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">InProcAssetDownloadManager</span><span class="p">(</span><span class="n">asset_cache_dir</span><span class="p">)</span>
 </pre></div>
         </article>
       </div>
@@ -467,7 +478,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=fc0fef3b"></script>
+</div><script src="../../../_static/documentation_options.js?v=261bd731"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>

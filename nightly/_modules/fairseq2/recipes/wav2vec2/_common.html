@@ -324,7 +324,6 @@
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tensor</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">Module</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">torcheval.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">MulticlassAccuracy</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gang</span>
@@ -337,8 +336,8 @@
     <span class="n">Wav2Vec2Model</span><span class="p">,</span>
     <span class="n">Wav2Vec2Output</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.common</span><span class="w"> </span><span class="kn">import</span> <span class="n">check_model_type</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseMetricBag</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.model</span><span class="w"> </span><span class="kn">import</span> <span class="n">Model</span>
 
 
 <span class="nd">@dataclass</span><span class="p">(</span><span class="n">kw_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -354,14 +353,17 @@
 <a class="viewcode-back" href="../../../../reference/api/fairseq2.recipes/wav2vec2/index.html#fairseq2.recipes.wav2vec2.Wav2Vec2Criterion">[docs]</a>
 <span class="nd">@final</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">Wav2Vec2Criterion</span><span class="p">:</span>
-    <span class="n">_model</span><span class="p">:</span> <span class="n">Module</span>
+    <span class="n">_model</span><span class="p">:</span> <span class="n">Model</span>
     <span class="n">_diversity_loss_weight</span><span class="p">:</span> <span class="nb">float</span>
     <span class="n">_feature_penalty_weight</span><span class="p">:</span> <span class="nb">float</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span> <span class="n">diversity_loss_weight</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">feature_penalty_weight</span><span class="p">:</span> <span class="nb">float</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Model</span><span class="p">,</span> <span class="n">diversity_loss_weight</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">feature_penalty_weight</span><span class="p">:</span> <span class="nb">float</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">check_model_type</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">Wav2Vec2Model</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">base_module</span><span class="p">,</span> <span class="n">Wav2Vec2Model</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;`model.base_module` must be of type `</span><span class="si">{</span><span class="n">Wav2Vec2Model</span><span class="si">}</span><span class="s2">`, but is of type `</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">base_module</span><span class="p">)</span><span class="si">}</span><span class="s2">` instead.&quot;</span>
+            <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_model</span> <span class="o">=</span> <span class="n">model</span>
 
@@ -392,10 +394,10 @@
         <span class="k">return</span> <span class="n">loss</span><span class="o">.</span><span class="n">total</span><span class="p">,</span> <span class="n">num_targets</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">SequenceBatch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Wav2Vec2Output</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>  <span class="c1"># type: ignore[no-any-return]</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="o">.</span><span class="n">module</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>  <span class="c1"># type: ignore[no-any-return]</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">model</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Module</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">model</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Model</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span></div>
 
 
@@ -523,7 +525,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=fc0fef3b"></script>
+</div><script src="../../../../_static/documentation_options.js?v=261bd731"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>

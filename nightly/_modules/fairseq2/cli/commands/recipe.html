@@ -318,7 +318,6 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">argparse</span><span class="w"> </span><span class="kn">import</span> <span class="n">OPTIONAL</span><span class="p">,</span> <span class="n">ArgumentParser</span><span class="p">,</span> <span class="n">BooleanOptionalAction</span><span class="p">,</span> <span class="n">Namespace</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Hashable</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Set</span>
@@ -335,11 +334,11 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.cli.utils.argparse</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfigAction</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.cli.utils.cluster</span><span class="w"> </span><span class="kn">import</span> <span class="n">set_torch_distributed_variables</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.cli.utils.rich</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_rich_progress_reporter</span><span class="p">,</span> <span class="n">get_console</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.cluster</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClusterError</span><span class="p">,</span> <span class="n">UnknownClusterError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.config_registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfigNotFoundError</span><span class="p">,</span> <span class="n">ConfigProvider</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">RuntimeContext</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.error</span><span class="w"> </span><span class="kn">import</span> <span class="n">ContractError</span><span class="p">,</span> <span class="n">ProgramError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">LoggingSetupError</span><span class="p">,</span> <span class="n">log</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.cluster</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClusterError</span><span class="p">,</span> <span class="n">UnknownClusterError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">DistributedLoggingInitializer</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.utils.log</span><span class="w"> </span><span class="kn">import</span> <span class="n">log_config</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.utils.progress</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProgressReporter</span>
@@ -577,7 +576,7 @@
 
             <span class="n">signal</span><span class="p">(</span><span class="n">SIGUSR1</span><span class="p">,</span> <span class="n">request_stop</span><span class="p">)</span>
 
-        <span class="n">progress_reporter</span> <span class="o">=</span> <span class="n">create_rich_progress_reporter</span><span class="p">()</span>
+        <span class="n">progress_reporter</span> <span class="o">=</span> <span class="n">create_rich_progress_reporter</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
 
         <span class="n">recipe</span><span class="p">(</span><span class="n">progress_reporter</span><span class="p">)</span>
 
@@ -627,7 +626,7 @@
             <span class="k">return</span> <span class="kc">None</span>
 
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">world_size</span> <span class="o">=</span> <span class="n">get_world_size</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">)</span>
+            <span class="n">world_size</span> <span class="o">=</span> <span class="n">get_world_size</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">env</span><span class="p">)</span>
         <span class="k">except</span> <span class="n">InvalidEnvironmentVariableError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">SweepTagError</span><span class="p">(</span>
                 <span class="s2">&quot;The world size cannot be determined. See the nested exception for details.&quot;</span>
@@ -660,7 +659,7 @@
         <span class="n">logger</span> <span class="o">=</span> <span class="n">getLogger</span><span class="p">()</span>
 
         <span class="n">initializer</span> <span class="o">=</span> <span class="n">DistributedLoggingInitializer</span><span class="p">(</span>
-            <span class="n">logger</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">,</span> <span class="n">context</span><span class="o">.</span><span class="n">file_system</span>
+            <span class="n">logger</span><span class="p">,</span> <span class="n">context</span><span class="o">.</span><span class="n">env</span><span class="p">,</span> <span class="n">context</span><span class="o">.</span><span class="n">file_system</span>
         <span class="p">)</span>
 
         <span class="k">try</span><span class="p">:</span>
@@ -676,7 +675,7 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">_dump_config</span><span class="p">(</span><span class="n">context</span><span class="p">:</span> <span class="n">RuntimeContext</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">yaml_dumper</span> <span class="o">=</span> <span class="n">StandardYamlDumper</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">file_system</span><span class="p">)</span>
 
-        <span class="n">dumper</span> <span class="o">=</span> <span class="n">ConfigDumper</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">,</span> <span class="n">yaml_dumper</span><span class="p">)</span>
+        <span class="n">dumper</span> <span class="o">=</span> <span class="n">ConfigDumper</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">env</span><span class="p">,</span> <span class="n">yaml_dumper</span><span class="p">)</span>
 
         <span class="k">try</span><span class="p">:</span>
             <span class="n">dumper</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">)</span>
@@ -893,7 +892,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=fc0fef3b"></script>
+</div><script src="../../../../_static/documentation_options.js?v=261bd731"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>

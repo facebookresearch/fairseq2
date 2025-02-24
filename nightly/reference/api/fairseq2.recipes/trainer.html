@@ -318,7 +318,7 @@
         <article role="main" id="furo-main-content">
           <section id="module-fairseq2.recipes.trainer">
 <span id="fairseq2-recipes-trainer"></span><h1>fairseq2.recipes.trainer<a class="headerlink" href="#module-fairseq2.recipes.trainer" title="Link to this heading">¶</a></h1>
-<pre data-zoom-id="id-11a45673-3d2e-46e4-8dc0-81e085d623b1" class="mermaid">
+<pre data-zoom-id="id-040971f9-4a8d-447a-81c3-1249ea79f2eb" class="mermaid">
         classDiagram
   ABC &lt;|-- AbstractAsyncContextManager
   ABC &lt;|-- AbstractContextManager
@@ -331,10 +331,10 @@
   ABC &lt;|-- Joinable
   ABC &lt;|-- Metric
   ABC &lt;|-- MetricRecorder
+  ABC &lt;|-- Model
   ABC &lt;|-- Profiler
   ABC &lt;|-- ProgressReporter
   ABC &lt;|-- ProgressTask
-  ABC &lt;|-- StateHandler
   ABC &lt;|-- TrainUnit
   AbstractAsyncContextManager &lt;|-- nullcontext
   AbstractContextManager &lt;|-- nullcontext
@@ -343,13 +343,11 @@
   Container &lt;|-- Collection
   ContextDecorator &lt;|-- record_function
   EarlyStopper &lt;|-- NoopEarlyStopper
-  Exception &lt;|-- CheckpointNotFoundError
   Exception &lt;|-- ContractError
   Exception &lt;|-- InternalError
   Exception &lt;|-- InvalidOperationError
   Generic &lt;|-- EvalUnit
   Generic &lt;|-- Metric
-  Generic &lt;|-- StateHandler
   Generic &lt;|-- TrainUnit
   Generic &lt;|-- Trainer
   Iterable &lt;|-- Collection
@@ -360,16 +358,11 @@
   LRScheduler &lt;|-- _LRScheduler
   Metric &lt;|-- Mean
   Module &lt;|-- DistributedDataParallel
-  Module &lt;|-- FullyShardedDataParallel
   ProgressReporter &lt;|-- NoopProgressReporter
   Reversible &lt;|-- Sequence
   Sized &lt;|-- Collection
-  StateHandler &lt;|-- FSDPOptimizerStateHandler
   StatefulObjectBag &lt;|-- Trainer
   TensorBase &lt;|-- Tensor
-  TrainUnit &lt;|-- AbstractTrainUnit
-  _FSDPState &lt;|-- FullyShardedDataParallel
-  _State &lt;|-- _FSDPState
     </pre><section id="classes">
 <h2>Classes<a class="headerlink" href="#classes" title="Link to this heading">¶</a></h2>
 <dl class="py class">
@@ -516,7 +509,7 @@ validation score. Must be greater than or equal to
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=fc0fef3b"></script>
+</div><script src="../../../_static/documentation_options.js?v=261bd731"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>
@@ -534,7 +527,7 @@ const load = async () => {
     const mermaids_to_add_zoom = 1 === -1 ? all_mermaids.length : 1;
     const mermaids_processed = document.querySelectorAll(".mermaid[data-processed='true']");
     if(mermaids_to_add_zoom > 0) {
-        var svgs = d3.selectAll(".mermaid[data-zoom-id=id-11a45673-3d2e-46e4-8dc0-81e085d623b1] svg");
+        var svgs = d3.selectAll(".mermaid[data-zoom-id=id-040971f9-4a8d-447a-81c3-1249ea79f2eb] svg");
         if(all_mermaids.length !== mermaids_processed.length) {
             // try again in a sec, wait for mermaids to load
             setTimeout(load, 200);

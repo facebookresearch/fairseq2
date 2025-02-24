@@ -335,7 +335,7 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.error</span><span class="w"> </span><span class="kn">import</span> <span class="n">InternalError</span><span class="p">,</span> <span class="n">InvalidOperationError</span><span class="p">,</span> <span class="n">NotSupportedError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">log</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">CPU</span><span class="p">,</span> <span class="n">Device</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Device</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.env</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">InvalidEnvironmentVariableError</span><span class="p">,</span>
     <span class="n">get_local_world_size</span><span class="p">,</span>
@@ -371,14 +371,31 @@
 
 <div class="viewcode-block" id="Gang.create_gang">
 <a class="viewcode-back" href="../../reference/api/gang.html#fairseq2.gang.Gang.create_gang">[docs]</a>
-    <span class="nd">@abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">create_gang</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ranks</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Gang</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Make a new gang.</span>
 
 <span class="sd">        :param ranks:</span>
 <span class="sd">            The ranks of processes that will be part of the new gang.</span>
-<span class="sd">        &quot;&quot;&quot;</span></div>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">ranks</span><span class="p">))</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ranks</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The ranks in ``ranks`` must be all unique.&quot;</span><span class="p">)</span>
 
+        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">rank</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">ranks</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">rank</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">rank</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;The rank at index </span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s2"> in ``ranks`` must be greater than or equal to 0 and less than the size of the gang (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">rank</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+                <span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_do_create_gang</span><span class="p">(</span><span class="n">ranks</span><span class="p">)</span></div>
+
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_do_create_gang</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ranks</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Gang</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Make a new gang.</span>
+
+<span class="sd">        :param ranks:</span>
+<span class="sd">            The ranks of processes that will be part of the new gang.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
 
 <div class="viewcode-block" id="Gang.as_process_group">
 <a class="viewcode-back" href="../../reference/api/gang.html#fairseq2.gang.Gang.as_process_group">[docs]</a>
@@ -486,23 +503,21 @@
 
 
 
-<div class="viewcode-block" id="AbstractGang">
-<a class="viewcode-back" href="../../reference/api/gang.html#fairseq2.gang.AbstractGang">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">AbstractGang</span><span class="p">(</span><span class="n">Gang</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Provides a skeletal implementation of :class:`Gang`.&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="FakeGang">
+<a class="viewcode-back" href="../../reference/api/gang.html#fairseq2.gang.FakeGang">[docs]</a>
+<span class="nd">@final</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">FakeGang</span><span class="p">(</span><span class="n">Gang</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a non-distributed gang for local use.&quot;&quot;&quot;</span>
 
     <span class="n">_rank</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">_size</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">_device</span><span class="p">:</span> <span class="n">Device</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        :param rank:</span>
-<span class="sd">            The rank of this process in the gang.</span>
-<span class="sd">        :param size:</span>
-<span class="sd">            The number of processes that are part of the gang.</span>
-<span class="sd">        :param device:</span>
-<span class="sd">            The associated device.</span>
+<span class="sd">        :param device: If ``None``, CPU will be used.</span>
+<span class="sd">        :param rank: The emulated rank of this process in the gang.</span>
+<span class="sd">        :param size: The emulated number of processes that are part of the gang.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`size` must be greater than zero.&quot;</span><span class="p">)</span>
@@ -519,67 +534,6 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_size</span> <span class="o">=</span> <span class="n">size</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_device</span> <span class="o">=</span> <span class="n">device</span>
-
-<div class="viewcode-block" id="AbstractGang.create_gang">
-<a class="viewcode-back" href="../../reference/api/gang.html#fairseq2.gang.AbstractGang.create_gang">[docs]</a>
-    <span class="nd">@final</span>
-    <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">create_gang</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ranks</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Gang</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">ranks</span><span class="p">))</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ranks</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The ranks in ``ranks`` must be all unique.&quot;</span><span class="p">)</span>
-
-        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">rank</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">ranks</span><span class="p">):</span>
-            <span class="k">if</span> <span class="n">rank</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">rank</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_size</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;The rank at index </span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s2"> in ``ranks`` must be greater than or equal to 0 and less than the size of the gang (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_size</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">rank</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
-                <span class="p">)</span>
-
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_do_create_gang</span><span class="p">(</span><span class="n">ranks</span><span class="p">)</span></div>
-
-
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_do_create_gang</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ranks</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Gang</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Make a new gang.</span>
-
-<span class="sd">        :param ranks:</span>
-<span class="sd">            The ranks of processes that will be part of the new gang.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-
-    <span class="nd">@final</span>
-    <span class="nd">@property</span>
-    <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">rank</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rank</span>
-
-    <span class="nd">@final</span>
-    <span class="nd">@property</span>
-    <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_size</span>
-
-    <span class="nd">@final</span>
-    <span class="nd">@property</span>
-    <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">device</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Device</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_device</span></div>
-
-
-
-<div class="viewcode-block" id="FakeGang">
-<a class="viewcode-back" href="../../reference/api/gang.html#fairseq2.gang.FakeGang">[docs]</a>
-<span class="nd">@final</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">FakeGang</span><span class="p">(</span><span class="n">AbstractGang</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a non-distributed gang for local use.&quot;&quot;&quot;</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        :param device: If ``None``, CPU will be used.</span>
-<span class="sd">        :param rank: The emulated rank of this process in the gang.</span>
-<span class="sd">        :param size: The emulated number of processes that are part of the gang.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">rank</span><span class="o">=</span><span class="n">rank</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">size</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span> <span class="ow">or</span> <span class="n">CPU</span><span class="p">)</span>
 
 <div class="viewcode-block" id="FakeGang.close">
 <a class="viewcode-back" href="../../reference/api/gang.html#fairseq2.gang.FakeGang.close">[docs]</a>
@@ -605,6 +559,21 @@
             <span class="s2">&quot;`FakeGang` does not support conversion to a process group.&quot;</span>
         <span class="p">)</span></div>
 
+
+    <span class="nd">@property</span>
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">rank</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rank</span>
+
+    <span class="nd">@property</span>
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_size</span>
+
+    <span class="nd">@property</span>
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">device</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Device</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_device</span>
 
 <div class="viewcode-block" id="FakeGang.barrier">
 <a class="viewcode-back" href="../../reference/api/gang.html#fairseq2.gang.FakeGang.barrier">[docs]</a>
@@ -689,9 +658,12 @@
 <div class="viewcode-block" id="ProcessGroupGang">
 <a class="viewcode-back" href="../../reference/api/gang.html#fairseq2.gang.ProcessGroupGang">[docs]</a>
 <span class="nd">@final</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">ProcessGroupGang</span><span class="p">(</span><span class="n">AbstractGang</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ProcessGroupGang</span><span class="p">(</span><span class="n">Gang</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a gang that wraps a process group.&quot;&quot;&quot;</span>
 
+    <span class="n">_rank</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">_size</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">_device</span><span class="p">:</span> <span class="n">Device</span>
     <span class="n">_pg</span><span class="p">:</span> <span class="n">ProcessGroup</span>
     <span class="n">_monitor_pg</span><span class="p">:</span> <span class="n">ProcessGroup</span> <span class="o">|</span> <span class="kc">None</span>
 
@@ -702,8 +674,13 @@
         <span class="o">*</span><span class="p">,</span>
         <span class="n">monitor_pg</span><span class="p">:</span> <span class="n">ProcessGroup</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">dist</span><span class="o">.</span><span class="n">get_rank</span><span class="p">(</span><span class="n">pg</span><span class="p">),</span> <span class="n">dist</span><span class="o">.</span><span class="n">get_world_size</span><span class="p">(</span><span class="n">pg</span><span class="p">),</span> <span class="n">device</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;meta&quot;</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`device` must be a real device.&quot;</span><span class="p">)</span>
 
+        <span class="bp">self</span><span class="o">.</span><span class="n">_rank</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">get_rank</span><span class="p">(</span><span class="n">pg</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_size</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">get_world_size</span><span class="p">(</span><span class="n">pg</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_device</span> <span class="o">=</span> <span class="n">device</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_pg</span> <span class="o">=</span> <span class="n">pg</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_monitor_pg</span> <span class="o">=</span> <span class="n">monitor_pg</span>
 
@@ -887,6 +864,21 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pg</span></div>
 
 
+    <span class="nd">@property</span>
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">rank</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rank</span>
+
+    <span class="nd">@property</span>
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_size</span>
+
+    <span class="nd">@property</span>
+    <span class="nd">@override</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">device</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Device</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_device</span>
+
 <div class="viewcode-block" id="ProcessGroupGang.barrier">
 <a class="viewcode-back" href="../../reference/api/gang.html#fairseq2.gang.ProcessGroupGang.barrier">[docs]</a>
     <span class="nd">@override</span>
@@ -1063,11 +1055,29 @@
 
 
 
-<span class="nd">@dataclass</span>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">kw_only</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">Gangs</span><span class="p">:</span>
     <span class="n">root</span><span class="p">:</span> <span class="n">Gang</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The root gang.&quot;&quot;&quot;</span>
+
     <span class="n">dp</span><span class="p">:</span> <span class="n">Gang</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The data parallel gang.&quot;&quot;&quot;</span>
+
+    <span class="n">rdp</span><span class="p">:</span> <span class="n">Gang</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The inter-node data parallel gang (i.e. replicated).&quot;&quot;&quot;</span>
+
+    <span class="n">sdp</span><span class="p">:</span> <span class="n">Gang</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The intra-node data parallel gang (i.e. sharded).&quot;&quot;&quot;</span>
+
     <span class="n">tp</span><span class="p">:</span> <span class="n">Gang</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The tensor parallel gang.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dp</span><span class="o">.</span><span class="n">rank</span> <span class="o">!=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">tp</span><span class="o">.</span><span class="n">rank</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">GangError</span><span class="p">(</span>
+                    <span class="s2">&quot;The coordinator process of the root gang (i.e. rank 0) must be rank 0 in all parallel gangs.&quot;</span>
+                <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
@@ -1076,16 +1086,18 @@
 <div class="viewcode-block" id="fake_gangs">
 <a class="viewcode-back" href="../../reference/api/gang.html#fairseq2.gang.fake_gangs">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">fake_gangs</span><span class="p">(</span><span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Gangs</span><span class="p">:</span>
-    <span class="n">gang</span> <span class="o">=</span> <span class="n">FakeGang</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">fake_gang</span> <span class="o">=</span> <span class="n">FakeGang</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">Gangs</span><span class="p">(</span><span class="n">gang</span><span class="p">,</span> <span class="n">gang</span><span class="p">,</span> <span class="n">gang</span><span class="p">)</span></div>
+    <span class="k">return</span> <span class="n">Gangs</span><span class="p">(</span>
+        <span class="n">root</span><span class="o">=</span><span class="n">fake_gang</span><span class="p">,</span> <span class="n">dp</span><span class="o">=</span><span class="n">fake_gang</span><span class="p">,</span> <span class="n">rdp</span><span class="o">=</span><span class="n">fake_gang</span><span class="p">,</span> <span class="n">sdp</span><span class="o">=</span><span class="n">fake_gang</span><span class="p">,</span> <span class="n">tp</span><span class="o">=</span><span class="n">fake_gang</span>
+    <span class="p">)</span></div>
 
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">to_gangs</span><span class="p">(</span><span class="n">gang</span><span class="p">:</span> <span class="n">Gang</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Gangs</span><span class="p">:</span>
     <span class="n">fake_gang</span> <span class="o">=</span> <span class="n">FakeGang</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">gang</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">Gangs</span><span class="p">(</span><span class="n">gang</span><span class="p">,</span> <span class="n">gang</span><span class="p">,</span> <span class="n">fake_gang</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Gangs</span><span class="p">(</span><span class="n">root</span><span class="o">=</span><span class="n">gang</span><span class="p">,</span> <span class="n">dp</span><span class="o">=</span><span class="n">gang</span><span class="p">,</span> <span class="n">rdp</span><span class="o">=</span><span class="n">gang</span><span class="p">,</span> <span class="n">sdp</span><span class="o">=</span><span class="n">fake_gang</span><span class="p">,</span> <span class="n">tp</span><span class="o">=</span><span class="n">fake_gang</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="setup_parallel_gangs">
@@ -1122,6 +1134,8 @@
             <span class="sa">f</span><span class="s2">&quot;`root_gang.size` is expected to be a multiple of `tp_size` (</span><span class="si">{</span><span class="n">tp_size</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">root_gang</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
         <span class="p">)</span>
 
+    <span class="n">fake_gang</span> <span class="o">=</span> <span class="n">FakeGang</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">root_gang</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
     <span class="n">dp_size</span> <span class="o">=</span> <span class="n">root_gang</span><span class="o">.</span><span class="n">size</span> <span class="o">//</span> <span class="n">tp_size</span>
 
     <span class="n">mesh</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">root_gang</span><span class="o">.</span><span class="n">size</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">dp_size</span><span class="p">,</span> <span class="n">tp_size</span><span class="p">)</span>
@@ -1131,12 +1145,12 @@
 
     <span class="n">dp_gang</span><span class="p">:</span> <span class="n">Gang</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 
-    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Initializing data parallel gang with a size of </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">dp_size</span><span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Initializing data parallel gang with </span><span class="si">{}</span><span class="s2"> process(es).&quot;</span><span class="p">,</span> <span class="n">dp_size</span><span class="p">)</span>
 
     <span class="c1"># Build the gangs for data parallelism.</span>
     <span class="k">match</span> <span class="n">dp_size</span><span class="p">:</span>
         <span class="k">case</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="n">dp_gang</span> <span class="o">=</span> <span class="n">FakeGang</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">root_gang</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+            <span class="n">dp_gang</span> <span class="o">=</span> <span class="n">fake_gang</span>
         <span class="k">case</span> <span class="n">root_gang</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
             <span class="n">dp_gang</span> <span class="o">=</span> <span class="n">root_gang</span>
         <span class="k">case</span><span class="w"> </span><span class="k">_</span><span class="p">:</span>
@@ -1150,12 +1164,12 @@
 
     <span class="n">tp_gang</span><span class="p">:</span> <span class="n">Gang</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 
-    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Initializing tensor parallel gang with a size of </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">tp_size</span><span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Initializing tensor parallel gang with </span><span class="si">{}</span><span class="s2"> process(es).&quot;</span><span class="p">,</span> <span class="n">tp_size</span><span class="p">)</span>
 
     <span class="c1"># Build the gangs for tensor parallelism.</span>
     <span class="k">match</span> <span class="n">tp_size</span><span class="p">:</span>
         <span class="k">case</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="n">tp_gang</span> <span class="o">=</span> <span class="n">FakeGang</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">root_gang</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+            <span class="n">tp_gang</span> <span class="o">=</span> <span class="n">fake_gang</span>
         <span class="k">case</span> <span class="n">root_gang</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
             <span class="n">tp_gang</span> <span class="o">=</span> <span class="n">root_gang</span>
         <span class="k">case</span><span class="w"> </span><span class="k">_</span><span class="p">:</span>
@@ -1167,15 +1181,15 @@
     <span class="k">if</span> <span class="n">tp_gang</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span><span class="s2">&quot;`tp_gang` is `None`.&quot;</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">Gangs</span><span class="p">(</span><span class="n">root_gang</span><span class="p">,</span> <span class="n">dp_gang</span><span class="p">,</span> <span class="n">tp_gang</span><span class="p">)</span></div>
+    <span class="k">return</span> <span class="n">Gangs</span><span class="p">(</span><span class="n">root</span><span class="o">=</span><span class="n">root_gang</span><span class="p">,</span> <span class="n">dp</span><span class="o">=</span><span class="n">dp_gang</span><span class="p">,</span> <span class="n">rdp</span><span class="o">=</span><span class="n">dp_gang</span><span class="p">,</span> <span class="n">sdp</span><span class="o">=</span><span class="n">fake_gang</span><span class="p">,</span> <span class="n">tp</span><span class="o">=</span><span class="n">tp_gang</span><span class="p">)</span></div>
 
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">setup_hsdp_gangs</span><span class="p">(</span><span class="n">dp_gang</span><span class="p">:</span> <span class="n">Gang</span><span class="p">,</span> <span class="n">local_world_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Gang</span><span class="p">,</span> <span class="n">Gang</span><span class="p">]:</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">setup_fsdp_gangs</span><span class="p">(</span><span class="n">gangs</span><span class="p">:</span> <span class="n">Gangs</span><span class="p">,</span> <span class="n">intra_node_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Gangs</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Sets up gangs to be used for hybrid sharded data parallelism.</span>
+<span class="sd">    Sets up gangs to be used for sharded data parallelism.</span>
 
-<span class="sd">    For instance; if we have 8 devices denoted by g0 to g7 and ``local_world_size``</span>
+<span class="sd">    For instance; if we have 8 devices denoted by g0 to g7 and ``intra_node_size``</span>
 <span class="sd">    is 4, this function will make 2 intra-node gangs and 4 inter-node gangs:</span>
 
 <span class="sd">        2 intra-node gangs of size 4:</span>
@@ -1185,69 +1199,76 @@
 
 <span class="sd">    For efficiency, the caller should make sure adjacent ranks are on the same</span>
 <span class="sd">    host.</span>
-
-<span class="sd">    :returs:</span>
-<span class="sd">        A tuple of intra-node gang for sharding and inter-node gang for</span>
-<span class="sd">        replication.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">local_world_size</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;`local_world_size` must be greater than 1, but is </span><span class="si">{</span><span class="n">local_world_size</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+    <span class="k">if</span> <span class="n">intra_node_size</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">fake_gang</span> <span class="o">=</span> <span class="n">FakeGang</span><span class="p">(</span><span class="n">gangs</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">Gangs</span><span class="p">(</span>
+            <span class="n">root</span><span class="o">=</span><span class="n">gangs</span><span class="o">.</span><span class="n">root</span><span class="p">,</span> <span class="n">dp</span><span class="o">=</span><span class="n">gangs</span><span class="o">.</span><span class="n">dp</span><span class="p">,</span> <span class="n">rdp</span><span class="o">=</span><span class="n">fake_gang</span><span class="p">,</span> <span class="n">sdp</span><span class="o">=</span><span class="n">gangs</span><span class="o">.</span><span class="n">dp</span><span class="p">,</span> <span class="n">tp</span><span class="o">=</span><span class="n">gangs</span><span class="o">.</span><span class="n">tp</span>
         <span class="p">)</span>
 
-    <span class="k">if</span> <span class="n">dp_gang</span><span class="o">.</span><span class="n">size</span> <span class="o">%</span> <span class="n">local_world_size</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">intra_node_size</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;`dp_gang.size` is expected to be a multiple of `local_world_size` (</span><span class="si">{</span><span class="n">local_world_size</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">dp_gang</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;`intra_node_size` must be greater than 1, but is </span><span class="si">{</span><span class="n">intra_node_size</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
         <span class="p">)</span>
 
-    <span class="n">intra_node_size</span> <span class="o">=</span> <span class="n">local_world_size</span>
+    <span class="n">dp_gang</span> <span class="o">=</span> <span class="n">gangs</span><span class="o">.</span><span class="n">dp</span>
 
-    <span class="n">inter_node_size</span> <span class="o">=</span> <span class="n">dp_gang</span><span class="o">.</span><span class="n">size</span> <span class="o">//</span> <span class="n">local_world_size</span>
+    <span class="k">if</span> <span class="n">dp_gang</span><span class="o">.</span><span class="n">size</span> <span class="o">%</span> <span class="n">intra_node_size</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;`gangs.dp.size` is expected to be a multiple of `intra_node_size` (</span><span class="si">{</span><span class="n">intra_node_size</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">dp_gang</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="n">fake_gang</span> <span class="o">=</span> <span class="n">FakeGang</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">dp_gang</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+
+    <span class="n">inter_node_size</span> <span class="o">=</span> <span class="n">dp_gang</span><span class="o">.</span><span class="n">size</span> <span class="o">//</span> <span class="n">intra_node_size</span>
 
     <span class="n">mesh</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">dp_gang</span><span class="o">.</span><span class="n">size</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">inter_node_size</span><span class="p">,</span> <span class="n">intra_node_size</span><span class="p">)</span>
 
     <span class="c1"># Get the coordinate of this process in the mesh.</span>
     <span class="n">rank_coords</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">item</span><span class="p">()</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mesh</span> <span class="o">==</span> <span class="n">dp_gang</span><span class="o">.</span><span class="n">rank</span><span class="p">)]</span>
 
-    <span class="n">inter_node_gang</span><span class="p">:</span> <span class="n">Gang</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">inter_gang</span><span class="p">:</span> <span class="n">Gang</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 
-    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Initializing inter-node data parallel gang with a size of </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">inter_node_size</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Initializing inter-node data parallel gang with </span><span class="si">{}</span><span class="s2"> process(es).&quot;</span><span class="p">,</span> <span class="n">inter_node_size</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
 
     <span class="c1"># Build the gangs for inter-node data parallelism.</span>
     <span class="k">match</span> <span class="n">inter_node_size</span><span class="p">:</span>
         <span class="k">case</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="n">inter_node_gang</span> <span class="o">=</span> <span class="n">FakeGang</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">dp_gang</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+            <span class="n">inter_gang</span> <span class="o">=</span> <span class="n">fake_gang</span>
         <span class="k">case</span> <span class="n">dp_gang</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
-            <span class="n">inter_node_gang</span> <span class="o">=</span> <span class="n">dp_gang</span>
+            <span class="n">inter_gang</span> <span class="o">=</span> <span class="n">dp_gang</span>
         <span class="k">case</span><span class="w"> </span><span class="k">_</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">intra_node_size</span><span class="p">):</span>
                 <span class="n">sub_gang</span> <span class="o">=</span> <span class="n">dp_gang</span><span class="o">.</span><span class="n">create_gang</span><span class="p">(</span><span class="n">mesh</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
                 <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">rank_coords</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
-                    <span class="n">inter_node_gang</span> <span class="o">=</span> <span class="n">sub_gang</span>
+                    <span class="n">inter_gang</span> <span class="o">=</span> <span class="n">sub_gang</span>
 
-    <span class="k">if</span> <span class="n">inter_node_gang</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span><span class="s2">&quot;`inter_node_gang` is `None`.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">inter_gang</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span><span class="s2">&quot;`inter_gang` is `None`.&quot;</span><span class="p">)</span>
 
-    <span class="n">intra_node_gang</span><span class="p">:</span> <span class="n">Gang</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">intra_gang</span><span class="p">:</span> <span class="n">Gang</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 
-    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Initializing intra-node data parallel gang with a size of </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">intra_node_size</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Initializing intra-node data parallel gang with </span><span class="si">{}</span><span class="s2"> process(es).&quot;</span><span class="p">,</span> <span class="n">intra_node_size</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
 
     <span class="c1"># Build the gangs for intra-node data parallelism.</span>
     <span class="k">match</span> <span class="n">intra_node_size</span><span class="p">:</span>
         <span class="k">case</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="n">intra_node_gang</span> <span class="o">=</span> <span class="n">FakeGang</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">dp_gang</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+            <span class="n">intra_gang</span> <span class="o">=</span> <span class="n">fake_gang</span>
         <span class="k">case</span> <span class="n">dp_gang</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
-            <span class="n">intra_node_gang</span> <span class="o">=</span> <span class="n">dp_gang</span>
+            <span class="n">intra_gang</span> <span class="o">=</span> <span class="n">dp_gang</span>
         <span class="k">case</span><span class="w"> </span><span class="k">_</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">inter_node_size</span><span class="p">):</span>
                 <span class="n">sub_gang</span> <span class="o">=</span> <span class="n">dp_gang</span><span class="o">.</span><span class="n">create_gang</span><span class="p">(</span><span class="n">mesh</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
                 <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">rank_coords</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
-                    <span class="n">intra_node_gang</span> <span class="o">=</span> <span class="n">sub_gang</span>
+                    <span class="n">intra_gang</span> <span class="o">=</span> <span class="n">sub_gang</span>
 
-    <span class="k">if</span> <span class="n">intra_node_gang</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span><span class="s2">&quot;`intra_node_gang` is `None`.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">intra_gang</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span><span class="s2">&quot;`intra_gang` is `None`.&quot;</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">intra_node_gang</span><span class="p">,</span> <span class="n">inter_node_gang</span>
+    <span class="k">return</span> <span class="n">Gangs</span><span class="p">(</span>
+        <span class="n">root</span><span class="o">=</span><span class="n">gangs</span><span class="o">.</span><span class="n">root</span><span class="p">,</span> <span class="n">dp</span><span class="o">=</span><span class="n">dp_gang</span><span class="p">,</span> <span class="n">rdp</span><span class="o">=</span><span class="n">inter_gang</span><span class="p">,</span> <span class="n">sdp</span><span class="o">=</span><span class="n">intra_gang</span><span class="p">,</span> <span class="n">tp</span><span class="o">=</span><span class="n">gangs</span><span class="o">.</span><span class="n">tp</span>
+    <span class="p">)</span>
 
 
 <div class="viewcode-block" id="broadcast_flag">
@@ -1311,7 +1332,7 @@
       
     </aside>
   </div>
-</div><script src="../../_static/documentation_options.js?v=fc0fef3b"></script>
+</div><script src="../../_static/documentation_options.js?v=261bd731"></script>
     <script src="../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/scripts/furo.js?v=5fa4622c"></script>
