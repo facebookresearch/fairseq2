@@ -16,7 +16,6 @@ from typing import Generic, TypeVar, final
 import torch
 import torch.distributed
 from torch import Tensor
-from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.optim import Optimizer
 from torch.profiler import record_function
 from torcheval.metrics import Mean
@@ -110,7 +109,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     _end_of_data: bool
     _should_stop: bool
     _score_metric_descriptor: MetricDescriptor | None
-    _lower_better: bool
+    _lower_score_better: bool
     _early_stopper: EarlyStopper | None
     _best_step_and_score: tuple[int, float] | None
     _valid_score: float | None
@@ -171,7 +170,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         max_num_steps: int | None = None,
         max_num_data_epochs: int | None = None,
         score_metric_descriptor: MetricDescriptor | None = None,
-        lower_better: bool = False,
+        lower_score_better: bool = False,
         early_stopper: EarlyStopper | None = None,
         valid_units: Sequence[EvalUnit[BatchT]] | None = None,
         valid_data_readers: Sequence[DataReader[BatchT]] | None = None,
@@ -223,7 +222,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             The maximum number of data epochs to train for.
         :param score_metric_descriptor:
             The descriptor of the metric to use for score calculation.
-        :param lower_better:
+        :param lower_score_better:
             If ``True``, lower scores are considered better.
         :param early_stopper:
             The early-stopper callable.
@@ -283,7 +282,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._unit = unit
 
-        self._data_reader = data_reader
+        self.register_non_stateful("_data_reader", data_reader)
 
         self._gangs = gangs
 
@@ -291,7 +290,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._amp = amp
 
-        self._optimizer = optimizer
+        self.register_non_stateful("_optimizer", optimizer)
 
         self._lr_scheduler = lr_scheduler
 
@@ -338,7 +337,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._score_metric_descriptor = score_metric_descriptor
 
-        self._lower_better = lower_better
+        self._lower_score_better = lower_score_better
 
         if early_stopper is not None:
             if score_metric_descriptor is None:
@@ -572,9 +571,23 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         log.info("Restoring training from the last checkpoint at step {}.", step_nr)  # fmt: skip
 
-        state_dict = self._checkpoint_manager.load_checkpoint(step_nr)
+        log.info("Restoring the trainer state.")
 
-        self.load_state_dict(state_dict)
+        self._checkpoint_manager.load_trainer_state(step_nr, self)
+
+        log.info("Trainer state restored.")
+
+        log.info("Restoring the optimizer state.")
+
+        self._checkpoint_manager.load_optimizer_state(step_nr, self._optimizer)
+
+        log.info("Optimizer state restored.")
+
+        log.info("Restoring the data reader state.")
+
+        self._checkpoint_manager.load_data_reader_state(step_nr, self._data_reader)
+
+        log.info("Data reader state restored.")
 
         self._gangs.root.barrier()
 
@@ -948,10 +961,10 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
             values["wall_time"] = self._wall_watch.get_elapsed_time()
 
+            run_name = "valid"
+
             if unit.display_name:
-                run_name = "valid/" + unit.display_name
-            else:
-                run_name = "valid"
+                run_name = f"{run_name}/{unit.display_name}"
 
             self._metric_recorder.record_metrics(run_name, values, self._step_nr)
 
@@ -997,7 +1010,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
             best_score = self._best_step_and_score[1]
 
-            if self._lower_better:
+            if self._lower_score_better:
                 return best_score > last_score
             else:
                 return last_score > best_score
@@ -1057,41 +1070,15 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         log.info("Saving checkpoint after step {}.", step_nr)
 
-        state = self.state_dict()
-
-        self._checkpoint_manager.begin_checkpoint(step_nr)
-
-        log.info("Saving the trainer state.")
-
-        if self._gangs.dp.size > 1 and isinstance(self._model.module, DDP):
-            replicated_keys = {"_optimizer"}
-        else:
-            replicated_keys = None
-
-        self._checkpoint_manager.save_state(state, replicated_keys=replicated_keys)
-
-        log.info("Trainer state saved.")
-
-        log.info("Extracting the model state on rank 0.")
-
-        model_state = self._model.state_dict()
-
-        log.info("Model state extracted.")
-
-        log.info("Saving the model.")
-
-        self._checkpoint_manager.save_model_state_dict(model_state)
-
-        log.info("Model saved.")
-
-        if self._score_metric_descriptor is not None:
-            log.info("Saving the score.")
-
-            self._checkpoint_manager.save_score(self._valid_score, self._lower_better)
-
-            log.info("Score saved.")
-
-        self._checkpoint_manager.commit_checkpoint()
+        self._checkpoint_manager.save_checkpoint(
+            step_nr,
+            self,
+            self._model,
+            self._optimizer,
+            self._data_reader,
+            score=self._valid_score,
+            lower_score_better=self._lower_score_better,
+        )
 
         log.info("Checkpoint complete.")
 

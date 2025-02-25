@@ -91,7 +91,7 @@ def create_trainer(
         max_num_steps=regime_section.num_steps,
         max_num_data_epochs=regime_section.num_data_epochs,
         score_metric_descriptor=score_metric_descriptor,
-        lower_better=regime_section.lower_score_better,
+        lower_score_better=regime_section.lower_score_better,
         valid_units=valid_units,
         valid_data_readers=valid_data_readers,
         validate_after_n_steps=regime_section.validate_after_n_steps,

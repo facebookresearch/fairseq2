@@ -7,12 +7,11 @@
 from __future__ import annotations
 
 from contextlib import nullcontext
-from typing import final
+from typing import Mapping, final
 
 from torch import Tensor
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn import Module
-from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
 from torch.nn.parallel import DistributedDataParallel as DDP
 from typing_extensions import override
 
@@ -24,7 +23,7 @@ from fairseq2.models import ModelHandler
 from fairseq2.models.fsdp import get_fsdp_wrap_policy
 from fairseq2.nn.data_parallel import (
     DistributedSetupError,
-    fsdp_full_state_dict,
+    fsdp_local_state_dict,
     fsdp_summon_full_parameters,
     to_ddp,
     to_fsdp,
@@ -102,11 +101,11 @@ class DDPModel(Model):
 
     @override
     def state_dict(self) -> dict[str, object]:
-        state_dict = self._ddp.state_dict()
+        return self._ddp.module.state_dict()  # type: ignore[no-any-return]
 
-        consume_prefix_in_state_dict_if_present(state_dict, prefix="module.")
-
-        return state_dict
+    @override
+    def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
+        self._ddp.module.load_state_dict(state_dict)
 
     @override
     def no_sync(self) -> ContextManager:
@@ -209,7 +208,13 @@ class FSDPModel(Model):
 
     @override
     def state_dict(self) -> dict[str, object]:
-        return fsdp_full_state_dict(self._fsdp)
+        return fsdp_local_state_dict(self._fsdp)
+
+    @override
+    def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
+        raise NotSupportedError(
+            "The state of an FSDP wrapped model cannot be restored via `load_state_dict()`."
+        )
 
     @override
     def no_sync(self) -> ContextManager:

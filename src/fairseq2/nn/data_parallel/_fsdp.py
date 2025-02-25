@@ -13,13 +13,14 @@ from dataclasses import dataclass
 from typing import Final, Protocol, final
 
 import torch
+import torch.distributed as dist
 from torch import Tensor
 from torch.distributed import ProcessGroup
+from torch.distributed._shard.sharded_tensor import ShardedTensor
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.api import (
     BackwardPrefetch,
     CPUOffload,
-    FullStateDictConfig,
     MixedPrecision,
     ShardedOptimStateDictConfig,
     ShardedStateDictConfig,
@@ -302,18 +303,32 @@ class FSDPParameterInitializer:
         self._module_memo.add(module)
 
 
-def fsdp_full_state_dict(module: FSDP) -> dict[str, object]:
+def fsdp_local_state_dict(module: FSDP) -> dict[str, object]:
+    state_dict: dict[str, object] = {}
+
     with warnings.catch_warnings():
         warnings.filterwarnings(
-            action="ignore", message=r".*FSDP\.state_dict_type\(\) and FSDP\.set_state_dict_type\(\) are being deprecated.*"  # fmt: skip
+            action="ignore", message=r".*`_get_pg_default_device` will be deprecated.*"  # fmt: skip
+        )
+        warnings.filterwarnings(
+            action="ignore", message=r".*Please use DTensor instead.*"
         )
 
-        state_dict_config = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
+        sdp_rank = dist.get_rank(module.process_group)  # sharded
 
-        with FSDP.state_dict_type(
-            module, StateDictType.FULL_STATE_DICT, state_dict_config
-        ):
-            return module.state_dict()
+        for name, item in module.state_dict().items():
+            if isinstance(item, ShardedTensor):
+                local_shards = item.local_shards()
+                if not local_shards:
+                    continue  # means the tensor is sharded unevenly.
+
+                state_dict[name] = item.local_tensor()
+            # Save replicated items only on the first intra-node (i.e. sharded)
+            # gang.
+            elif sdp_rank == 0:
+                state_dict[name] = item
+
+    return state_dict
 
 
 @contextmanager

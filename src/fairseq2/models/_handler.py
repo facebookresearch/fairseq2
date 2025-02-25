@@ -390,18 +390,11 @@ class StandardModelHandler(ModelHandler):
             to_empty(model, device=gangs.root.device)
 
         # Load the model state.
-        model_key = checkpoint.get("model_key", "model")
-
-        if not isinstance(model_key, str):
-            raise ModelLoadError(
-                model_name, f"The 'model_key' in the '{model_name}' checkpoint is expected to be of type `str`, but is of type `{type(model_key)}` instead."  # fmt: skip
-            )
-
         try:
-            state_dict = checkpoint[model_key]
+            state_dict = checkpoint["model"]
         except KeyError:
             raise ModelLoadError(
-                model_name, f"The '{model_name}' checkpoint does not contain a '{model_key}' key."  # fmt: skip
+                model_name, f"The '{model_name}' checkpoint does not contain a 'model' key."  # fmt: skip
             ) from None
 
         if not isinstance(state_dict, dict):

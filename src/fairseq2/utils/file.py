@@ -11,6 +11,7 @@ import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from enum import Enum
+from itertools import count
 from pathlib import Path
 from pickle import PickleError
 from shutil import copytree, rmtree
@@ -348,6 +349,146 @@ class SafetensorLoader(TensorLoader):
 
 
 @final
+class ShardedTensorLoader(TensorLoader):
+    _inner_loader: TensorLoader
+    _file_system: FileSystem
+    _dim: int
+
+    def __init__(
+        self, inner_loader: TensorLoader, file_system: FileSystem, *, dim: int = 0
+    ) -> None:
+        self._inner_loader = inner_loader
+        self._file_system = file_system
+        self._dim = dim
+
+    @override
+    def load(
+        self, path: Path, *, map_location: MapLocation = None, restrict: bool = True
+    ) -> dict[str, object]:
+        try:
+            is_dir = self._file_system.is_dir(path)
+        except OSError as ex:
+            raise TensorLoadError(
+                path, f"The '{path}' path cannot be accessed. See the nested exception for details."  # fmt: skip
+            ) from ex
+
+        if not is_dir:
+            return self._inner_loader.load(
+                path, map_location=map_location, restrict=restrict
+            )
+
+        # Determine the list of shard files.
+        shard_files = []
+
+        for shard_idx in count():
+            shard_file = path.joinpath(f"shard.{shard_idx:02d}.pt")
+
+            try:
+                shard_file_exists = self._file_system.exists(shard_file)
+            except OSError as ex:
+                raise TensorLoadError(
+                    path, f"The '{path}' path cannot be accessed. See the nested exception for details."  # fmt: skip
+                ) from ex
+
+            if not shard_file_exists:
+                break
+
+            shard_files.append(shard_file)
+
+        if not shard_files:
+            raise TensorLoadError(
+                path, f"The '{path}' directory does not contain any sharded tensor files."  # fmt: skip
+            )
+
+        # Load the shards.
+        shards: list[object] = []
+
+        for idx, shard_file in enumerate(shard_files):
+            shard = self._inner_loader.load(
+                shard_file, map_location=map_location, restrict=restrict
+            )
+
+            shards.append(shard)
+
+        output = self._unshard(path, shards, [])
+
+        return cast(dict[str, object], output)
+
+    def _unshard(
+        self, path: Path, shards: list[object], item_path: list[str]
+    ) -> object:
+        first_shard = shards[0]
+
+        if len(shards) == 1:
+            return first_shard
+
+        kls = type(first_shard)
+
+        other_shards = shards[1:]
+
+        idx = 1
+
+        for other_shard in other_shards:
+            if not isinstance(other_shard, kls):
+                path = path.joinpath(f"shard_{idx:02d}.pt")
+
+                item_pathname = ".".join(item_path)
+
+                raise TensorLoadError(
+                    path, f"The '{item_pathname}' item in the '{path}' file is expected to be of type `{kls}`, but is of type `{type(other_shard)}` instead."  # fmt: skip
+                )
+
+            idx += 1
+
+        if issubclass(kls, dict):
+            output = {}
+
+            first_shard = cast(dict[str, object], first_shard)
+
+            keys = list(first_shard.keys())
+
+            for key in keys:
+                item_path.append(key)
+
+                item = first_shard.pop(key)
+
+                inputs = [item]
+
+                for other_shard in other_shards:
+                    other_shard = cast(dict[str, object], other_shard)
+
+                    try:
+                        other_item = other_shard.pop(key)
+                    except KeyError:
+                        break
+
+                    inputs.append(other_item)
+
+                merged_item = self._unshard(path, inputs, item_path)
+
+                item_path.pop()
+
+                output[key] = merged_item
+
+            return output
+
+        if issubclass(kls, Tensor):
+            tensors = cast(list[Tensor], shards)
+
+            try:
+                return torch.cat(tensors, dim=self._dim)
+            except RuntimeError as ex:
+                item_pathname = ".".join(item_path)
+
+                raise TensorLoadError(
+                    path, f"The shards of the '{item_pathname}' item under the '{path}' directory cannot be merged. See the nested exception for details."  # fmt: skip
+                ) from ex
+
+        # Everything except tensors are considered replicated.
+        return first_shard
+
+
+@final
 class StandardTensorLoader(TensorLoader):
     _file_system: FileSystem
     _default_tensor_loader: TensorLoader
@@ -384,11 +525,11 @@ class StandardTensorLoader(TensorLoader):
 
         if is_dir:
             if has_file(".safetensors"):
-                raise TensorLoadError(
-                    path, f"The '{path}' directory does not contain any supported tensor files."  # fmt: skip
+                loader = SafetensorLoader(self._file_system)
+            else:
+                loader = ShardedTensorLoader(
+                    self._default_tensor_loader, self._file_system, dim=0
                 )
-
-            loader = SafetensorLoader(self._file_system)
         elif path.suffix == ".safetensors":
             loader = SafetensorLoader(self._file_system)
         else:

@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Mapping, Set
+from collections.abc import Mapping
 from os import scandir
 from pathlib import Path
 from shutil import Error
@@ -15,8 +15,7 @@ from typing import final
 
 from typing_extensions import override
 
-from fairseq2.error import InvalidOperationError
-from fairseq2.gang import Gangs
+from fairseq2.gang import Gang, Gangs
 from fairseq2.nn.data_parallel import load_with_sdp_gang
 from fairseq2.typing import CPU
 from fairseq2.utils.file import (
@@ -27,100 +26,76 @@ from fairseq2.utils.file import (
     TensorLoader,
     TensorLoadError,
 )
+from fairseq2.utils.state import Stateful
 
 
 class CheckpointManager(ABC):
     """Saves and loads training checkpoints."""
 
     @abstractmethod
-    def begin_checkpoint(self, step_nr: int) -> None:
-        """Begin a transactional checkpoint operation.
-
-        :param step_nr:
-            The number of the training step.
-        """
-
-    @abstractmethod
-    def save_state(
-        self, state: Mapping[str, object], *, replicated_keys: Set[str] | None = None
-    ) -> None:
-        """Save the training state.
-
-        :param state:
-            The state to save.
-        :param replicated_keys:
-            The keys in ``state`` whose values are replicated across all
-            processes in the gang.
-        """
+    def save_checkpoint(
+        self,
+        step_nr: int,
+        trainer: Stateful,
+        model: Stateful,
+        optimizer: Stateful,
+        data_reader: Stateful,
+        *,
+        metadata: Mapping[str, object] | None = None,
+        score: float | None = None,
+        lower_score_better: bool = False,
+    ) -> None: ...
 
     @abstractmethod
-    def save_model_state_dict(self, state_dict: Mapping[str, object]) -> None:
-        """Save model ``state_dict``."""
+    def load_trainer_state(self, step_nr: int, trainer: Stateful) -> None: ...
 
     @abstractmethod
-    def save_metadata(self, metadata: Mapping[str, object]) -> None:
-        """Save ``metadata`` associated with the checkpoint.
-
-        :param metadata:
-            The metadata to save. Must be pickeable.
-        """
+    def load_model_state(self, step_nr: int, model: Stateful) -> None: ...
 
     @abstractmethod
-    def save_score(self, score: float | None, lower_better: bool = False) -> None:
-        """Save the score of the checkpoint."""
+    def load_optimizer_state(self, step_nr: int, optimizer: Stateful) -> None: ...
 
     @abstractmethod
-    def commit_checkpoint(self) -> None:
-        """Commit the checkpoint after which it will be considered saved."""
+    def load_data_reader_state(self, step_nr: int, data_reader: Stateful) -> None: ...
 
     @abstractmethod
-    def load_checkpoint(self, step_nr: int) -> dict[str, object]:
-        """Load the checkpoint of the specified training step."""
-
-    @abstractmethod
-    def load_metadata(self, step_nr: int) -> dict[str, object] | None:
-        """Load the checkpoint metadata of the specified training step."""
+    def load_metadata(self, step_nr: int) -> dict[str, object] | None: ...
 
     @abstractmethod
     def get_model_path(self, step_nr: int) -> Path: ...
 
     @abstractmethod
-    def delete_checkpoint(
-        self, step_nr: int, *, missing_ok: bool = False, preserve_model: bool = False
-    ) -> None:
-        """Delete the checkpoint of the specified training step.
+    def delete_checkpoint(self, step_nr: int, *, preserve_model: bool = False) -> None:
+        """
+        Deletes the checkpoint of the specified training step.
 
-        :param step_nr:
-            The number of the training step.
-        :param missing_ok:
-            If ``True``, does not raise error if the checkpoint does not exists.
-        :param preserve_model:
-            If ``True``, model won't be deleted.
+        :param step_nr: The number of the training step.
+        :param preserve_model: If ``True``, model won't be deleted.
         """
 
     @abstractmethod
     def keep_last_n_checkpoints(self, n: int, *, preserve_model: bool = False) -> None:
-        """Delete all but the last ``n`` checkpoints.
+        """
+        Deletes all but the last ``n`` checkpoints.
 
-        :param n:
-            The number of checkpoints to preserve.
-        :param preserve_model:
-            If ``True``, models in old checkpoints won't be deleted.
+        :param n: The number of checkpoints to preserve.
+        :param preserve_model: If ``True``, models of old checkpoints won't be
+            deleted.
         """
 
     @abstractmethod
     def keep_best_n_checkpoints(self, n: int, *, preserve_model: bool = False) -> None:
-        """Delete all but the best ``n`` checkpoints based on their score.
+        """
+        Deletes all but the best ``n`` checkpoints based on their score.
 
-        :param n:
-            The number of checkpoints to preserve.
-        :param preserve_model:
-            If ``True``, models in old checkpoints won't be deleted.
+        :param n: The number of checkpoints to preserve.
+        :param preserve_model: If ``True``, models of old checkpoints won't be
+            deleted.
         """
 
     @abstractmethod
     def get_step_numbers(self) -> list[int]:
-        """Return the numbers of the training steps that have a checkpoint."""
+        """Returns the numbers of the training steps that have a checkpoint."""
 
     @abstractmethod
     def get_last_step_number(self) -> int | None: ...
@@ -135,8 +110,6 @@ class FileCheckpointManager(CheckpointManager):
     _file_system: FileSystem
     _tensor_loader: TensorLoader
     _tensor_dumper: TensorDumper
-    _shard_suffix: str
-    _checkpoint_step_nr: int | None
 
     def __init__(
         self,
@@ -160,156 +133,233 @@ class FileCheckpointManager(CheckpointManager):
         self._tensor_loader = tensor_loader
         self._tensor_dumper = tensor_dumper
 
-        if gangs.tp.size > 1:
-            self._shard_suffix = f".{gangs.tp.rank}"
-        else:
-            self._shard_suffix = ""
-
-        self._checkpoint_step_nr = None
-
     @override
-    def begin_checkpoint(self, step_nr: int) -> None:
-        if self._checkpoint_step_nr is not None:
-            raise InvalidOperationError("`begin_checkpoint()` has already been called.")
+    def save_checkpoint(
+        self,
+        step_nr: int,
+        trainer: Stateful,
+        model: Stateful,
+        optimizer: Stateful,
+        data_reader: Stateful,
+        *,
+        metadata: Mapping[str, object] | None = None,
+        score: float | None = None,
+        lower_score_better: bool = False,
+    ) -> None:
+        self._begin_checkpoint(step_nr)
 
+        self._save_trainer_state(step_nr, trainer)
+
+        self._save_model_state(step_nr, model)
+
+        self._save_optimizer_state(step_nr, optimizer)
+
+        self._save_data_reader_state(step_nr, data_reader)
+
+        self._save_metadata(step_nr, metadata)
+
+        self._save_score(step_nr, score, lower_score_better)
+
+        self._copy_cc(step_nr)
+
+        self._commit_checkpoint(step_nr)
+
+    def _begin_checkpoint(self, step_nr: int) -> None:
         try:
-            self.delete_checkpoint(step_nr, missing_ok=True)
+            self.delete_checkpoint(step_nr)
         except CheckpointError as ex:
             raise CheckpointSaveError(
-                step_nr, f"The previous checkpoint of training step {step_nr} cannot be deleted. See the nested exception for details."  # fmt: skip
+                step_nr, f"The previous checkpoint of step {step_nr} cannot be deleted. See the nested exception for details."  # fmt: skip
             ) from ex
+
+        gangs = self._gangs
 
         tmp_step_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}.tmp")
 
-        if self._gangs.root.rank == 0:
+        if gangs.root.rank == 0:
             try:
                 self._file_system.make_directory(tmp_step_dir)
             except OSError as ex:
                 raise CheckpointSaveError(
-                    step_nr, f"The temporary '{tmp_step_dir}' checkpoint directory of training step {step_nr} cannot be created. See the nested exception for details."  # fmt: skip
+                    step_nr, f"The temporary '{tmp_step_dir}' checkpoint directory of step {step_nr} cannot be created. See the nested exception for details."  # fmt: skip
                 ) from ex
 
             self._flush_nfs_lookup_cache()
 
-        self._gangs.root.barrier()
+        gangs.root.barrier()
 
-        # Ensure that `tmp_step_dir` is visible to all processes.
-        if self._gangs.root.rank != 0:
+        if gangs.root.rank != 0:
             self._flush_nfs_lookup_cache()
 
         self._checkpoint_step_nr = step_nr
 
-    @override
-    def save_state(
-        self, state: Mapping[str, object], *, replicated_keys: Set[str] | None = None
-    ) -> None:
+    def _save_trainer_state(self, step_nr: int, trainer: Stateful) -> None:
         gangs = self._gangs
 
-        step_nr = self._get_checkpoint_step_nr()
+        trainer_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}.tmp/trainer")
 
-        tmp_step_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}.tmp")
-
-        suffix = self._shard_suffix
-
-        # Copy `state`. In case we fail, it should stay intact.
-        rank_part = dict(state)
-
-        # Save the replicated state.
-        if replicated_keys:
-            if gangs.dp.rank == 0:
-                replicated_part = {}
-
-                if "*" in replicated_keys:
-                    replicated_part, rank_part = rank_part, replicated_part
-                else:
-                    for key in replicated_keys:
-                        try:
-                            replicated_part[key] = rank_part.pop(key)
-                        except KeyError:
-                            pass
-
-                if replicated_part:
-                    replicated_file = tmp_step_dir.joinpath(f"replicated{suffix}.pt")
-
-                    try:
-                        self._tensor_dumper.dump(replicated_part, replicated_file)
-                    except TensorDumpError as ex:
-                        raise CheckpointSaveError(
-                            step_nr, f"The replicated checkpoint state of training step {step_nr} cannot be saved to the '{replicated_file}' file. See the nested exception for details."  # fmt: skip
-                        ) from ex
-            else:
-                if "*" in replicated_keys:
-                    rank_part.clear()
-                else:
-                    for key in replicated_keys:
-                        try:
-                            del rank_part[key]
-                        except KeyError:
-                            pass
-
-            gangs.root.barrier()
-
-            # Check if anything is left to save for the rank.
-            skip_rank = len(rank_part) == 0
-        else:
-            skip_rank = False
-
-        # Save the per-rank state.
-        if not skip_rank:
-            rank_file = tmp_step_dir.joinpath(f"rank_{gangs.dp.rank}{suffix}.pt")
-
+        if gangs.root.rank == 0:
             try:
-                self._tensor_dumper.dump(rank_part, rank_file)
-            except TensorDumpError as ex:
+                self._file_system.make_directory(trainer_dir)
+            except OSError as ex:
                 raise CheckpointSaveError(
-                    step_nr, f"The checkpoint state of training step {step_nr} cannot be saved to the '{rank_file}' file. See the nested exception for details."  # fmt: skip
+                    step_nr, f"The '{trainer_dir}' trainer directory of step {step_nr} cannot be created. See the nested exception for details."  # fmt: skip
                 ) from ex
 
-            gangs.root.barrier()
+            self._flush_nfs_lookup_cache()
 
-        # Copy carbon-copy files to the checkpoint directory.
-        if gangs.root.rank == 0:
-            cc_dir = self._checkpoint_dir.joinpath("cc")
+        gangs.root.barrier()
+
+        if gangs.root.rank != 0:
+            self._flush_nfs_lookup_cache()
+
+        rank = self._rank_to_str(gangs.root)
+
+        trainer_file = trainer_dir.joinpath(f"state_{rank}.pt")
+
+        state_dict = trainer.state_dict()
+
+        try:
+            self._tensor_dumper.dump(state_dict, trainer_file)
+        except TensorDumpError as ex:
+            raise CheckpointSaveError(
+                step_nr, f"The trainer state of step {step_nr} cannot be saved to the '{ex.path}' file. See the nested exception for details."  # fmt: skip
+            ) from ex
+
+        gangs.root.barrier()
+
+    def _save_model_state(self, step_nr: int, model: Stateful) -> None:
+        gangs = self._gangs
+
+        if gangs.rdp.rank == 0:
+            if gangs.tp.size == 1:
+                pathname = f"step_{step_nr}.tmp/model.pt"
+            else:
+                pathname = f"step_{step_nr}.tmp/model.{gangs.tp.rank:02d}.pt"
+
+            model_path = self._checkpoint_dir.joinpath(pathname)
+
+            if gangs.sdp.size == 1:
+                model_file = model_path
+            else:
+                if gangs.sdp.rank == 0:
+                    try:
+                        self._file_system.make_directory(model_path)
+                    except OSError as ex:
+                        raise CheckpointSaveError(
+                            step_nr, f"The '{model_path} model directory of step {step_nr} cannot be created. See the nested exception for details."  # fmt: skip
+                        ) from ex
+
+                    self._flush_nfs_lookup_cache()
+
+                gangs.sdp.barrier()
+
+                if gangs.sdp.rank != 0:
+                    self._flush_nfs_lookup_cache()
+
+                model_file = model_path.joinpath(f"shard.{gangs.sdp.rank:02d}.pt")
+
+            state_dict = model.state_dict()
+
+            checkpoint = {"model": state_dict, "model_key": "model", "fs2": True}
 
             try:
-                self._file_system.copy_directory(cc_dir, tmp_step_dir)
-            except FileNotFoundError:
-                pass
-            except (OSError, Error) as ex:
+                self._tensor_dumper.dump(checkpoint, model_file)
+            except TensorDumpError as ex:
                 raise CheckpointSaveError(
-                    step_nr, f"The checkpoint carbon copy directory cannot be copied to the '{tmp_step_dir}' directory. See the nested exception for details."  # fmt: skip
+                    step_nr, f"The model state of step {step_nr} cannot be saved to the '{ex.path}' file. See the nested exception for details."  # fmt: skip
                 ) from ex
 
         gangs.root.barrier()
 
-    @override
-    def save_model_state_dict(self, state_dict: Mapping[str, object]) -> None:
-        step_nr = self._get_checkpoint_step_nr()
+    def _save_optimizer_state(self, step_nr: int, optimizer: Stateful) -> None:
+        gangs = self._gangs
 
-        if self._gangs.dp.rank == 0:
-            model_file = self._checkpoint_dir.joinpath(
-                f"step_{step_nr}.tmp/model{self._shard_suffix}.pt"
-            )
+        if gangs.rdp.rank == 0:
+            if gangs.tp.size == 1:
+                pathname = f"step_{step_nr}.tmp/optimizer.pt"
+            else:
+                pathname = f"step_{step_nr}.tmp/optimizer.{gangs.tp.rank:02d}.pt"
 
-            model_checkpoint = {"model": state_dict, "model_key": "model", "fs2": True}
+            optimizer_path = self._checkpoint_dir.joinpath(pathname)
+
+            if gangs.sdp.size == 1:
+                optimizer_file = optimizer_path
+            else:
+                if gangs.sdp.rank == 0:
+                    try:
+                        self._file_system.make_directory(optimizer_path)
+                    except OSError as ex:
+                        raise CheckpointSaveError(
+                            step_nr, f"The '{optimizer_path} optimizer directory of step {step_nr} cannot be created. See the nested exception for details."  # fmt: skip
+                        ) from ex
+
+                    self._flush_nfs_lookup_cache()
+
+                gangs.sdp.barrier()
+
+                if gangs.sdp.rank != 0:
+                    self._flush_nfs_lookup_cache()
+
+                optimizer_file = optimizer_path.joinpath(
+                    f"shard.{gangs.sdp.rank:02d}.pt"
+                )
+
+            state_dict = optimizer.state_dict()
 
             try:
-                self._tensor_dumper.dump(model_checkpoint, model_file)
+                self._tensor_dumper.dump(state_dict, optimizer_file)
             except TensorDumpError as ex:
                 raise CheckpointSaveError(
-                    step_nr, f"The model of training step {step_nr} cannot be saved to the '{model_file}' file. See the nested exception for details."  # fmt: skip
+                    step_nr, f"The optimizer state of step {step_nr} cannot be saved to the '{ex.path}' file. See the nested exception for details."  # fmt: skip
                 ) from ex
 
-        self._gangs.root.barrier()
+        gangs.root.barrier()
 
-    @override
-    def save_metadata(self, metadata: Mapping[str, object]) -> None:
-        step_nr = self._get_checkpoint_step_nr()
+    def _save_data_reader_state(self, step_nr: int, data_reader: Stateful) -> None:
+        gangs = self._gangs
 
-        if metadata is None:
-            return
+        if gangs.tp.rank == 0:
+            data_reader_dir = self._checkpoint_dir.joinpath(
+                f"step_{step_nr}.tmp/data_reader"
+            )
 
-        if self._gangs.root.rank == 0:
+            if gangs.dp.rank == 0:
+                try:
+                    self._file_system.make_directory(data_reader_dir)
+                except OSError as ex:
+                    raise CheckpointSaveError(
+                        step_nr, f"The '{data_reader_dir}' data reader directory of step {step_nr} cannot be created. See the nested exception for details."  # fmt: skip
+                    ) from ex
+
+                self._flush_nfs_lookup_cache()
+
+            gangs.dp.barrier()
+
+            if gangs.dp.rank != 0:
+                self._flush_nfs_lookup_cache()
+
+            rank = self._rank_to_str(gangs.dp)
+
+            data_reader_file = data_reader_dir.joinpath(f"state_{rank}.pt")
+
+            state_dict = data_reader.state_dict()
+
+            try:
+                self._tensor_dumper.dump(state_dict, data_reader_file)
+            except TensorDumpError as ex:
+                raise CheckpointSaveError(
+                    step_nr, f"The data reader state of step {step_nr} cannot be saved to the '{ex.path}' file. See the nested exception for details."  # fmt: skip
+                ) from ex
+
+        gangs.root.barrier()
+
+    def _save_metadata(
+        self, step_nr: int, metadata: Mapping[str, object] | None
+    ) -> None:
+        gangs = self._gangs
+
+        if gangs.root.rank == 0 and metadata is not None:
             metadata_file = self._checkpoint_dir.joinpath(
                 f"step_{step_nr}.tmp/metadata.pt"
             )
@@ -318,44 +368,60 @@ class FileCheckpointManager(CheckpointManager):
                 self._tensor_dumper.dump(metadata, metadata_file)
             except TensorDumpError as ex:
                 raise CheckpointSaveError(
-                    step_nr, f"The checkpoint metadata of training step {step_nr} cannot be saved to the '{metadata_file}' file. See the nested exception for details."  # fmt: skip
+                    step_nr, f"The metadata of step {step_nr} cannot be saved to the '{ex.path}' file. See the nested exception for details."  # fmt: skip
                 ) from ex
 
-        self._gangs.root.barrier()
+        gangs.root.barrier()
 
-    @override
-    def save_score(self, score: float | None, lower_better: bool = False) -> None:
-        step_nr = self._get_checkpoint_step_nr()
+    def _save_score(
+        self, step_nr: int, score: float | None, lower_better: bool
+    ) -> None:
+        gangs = self._gangs
 
-        if self._gangs.root.rank == 0 and score is not None:
+        if gangs.root.rank == 0 and score is not None:
             score_file = self._checkpoint_dir.joinpath(f"step_{step_nr}.tmp/score.txt")
-
-            def save_error() -> CheckpointError:
-                return CheckpointSaveError(
-                    step_nr, f"The checkpoint score of training step {step_nr} cannot be saved to the '{score_file}' file. See the nested exception for details."  # fmt: skip
-                )
 
             try:
                 fp = self._file_system.open_text(score_file, mode=FileMode.WRITE)
             except OSError as ex:
-                raise save_error() from ex
-
-            direction = "-" if lower_better else ""
+                raise CheckpointSaveError(
+                    step_nr, f"The score of step {step_nr} cannot be saved to the '{score_file}' file. See the nested exception for details."  # fmt: skip
+                ) from ex
 
             try:
-                fp.write(f"{direction}{score}\n")
+                fp.write(f"{'-' if lower_better else ''}{score}\n")
             except OSError as ex:
-                raise save_error() from ex
+                raise CheckpointSaveError(
+                    step_nr, f"The score of step {step_nr} cannot be saved to the '{score_file}' file. See the nested exception for details."  # fmt: skip
+                ) from ex
             finally:
                 fp.close()
 
         self._gangs.root.barrier()
 
-    @override
-    def commit_checkpoint(self) -> None:
-        step_nr = self._get_checkpoint_step_nr()
+    def _copy_cc(self, step_nr: int) -> None:
+        gangs = self._gangs
 
-        if self._gangs.root.rank == 0:
+        if gangs.root.rank == 0:
+            tmp_step_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}.tmp")
+
+            cc_dir = self._checkpoint_dir.joinpath("cc")
+
+            try:
+                self._file_system.copy_directory(cc_dir, tmp_step_dir)
+            except FileNotFoundError:
+                pass
+            except (OSError, Error) as ex:
+                raise CheckpointSaveError(
+                    step_nr, f"The carbon copy directory cannot be copied to the '{tmp_step_dir}' directory of step {step_nr}. See the nested exception for details."  # fmt: skip
+                ) from ex
+
+        gangs.root.barrier()
+
+    def _commit_checkpoint(self, step_nr: int) -> None:
+        gangs = self._gangs
+
+        if gangs.root.rank == 0:
             tmp_step_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}.tmp")
 
             step_dir = tmp_step_dir.with_suffix("")
@@ -364,176 +430,233 @@ class FileCheckpointManager(CheckpointManager):
                 self._file_system.move(tmp_step_dir, step_dir)
             except OSError as ex:
                 raise CheckpointSaveError(
-                    step_nr, f"The temporary '{tmp_step_dir}' checkpoint directory of training step {step_nr} cannot be committed. See the nested exception for details."  # fmt: skip
+                    step_nr, f"The temporary '{tmp_step_dir}' checkpoint directory of step {step_nr} cannot be committed. See the nested exception for details."  # fmt: skip
                 ) from ex
 
-        self._gangs.root.barrier()
-
-        self._checkpoint_step_nr = None
-
-    def _get_checkpoint_step_nr(self) -> int:
-        step_nr = self._checkpoint_step_nr
-        if step_nr is None:
-            raise InvalidOperationError("`begin_checkpoint()` must be called first.")
-
-        return step_nr
+        gangs.root.barrier()
 
     @override
-    def load_checkpoint(self, step_nr: int) -> dict[str, object]:
+    def load_trainer_state(self, step_nr: int, trainer: Stateful) -> None:
         gangs = self._gangs
 
-        step_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}")
+        rank = self._rank_to_str(gangs.root)
 
-        def maybe_load_part(filename: str) -> dict[str, object]:
-            with load_with_sdp_gang(gangs):  # Required for ShardedTensor.
-                file = step_dir.joinpath(filename)
+        try:
+            state_dict = self._load_state_dict(
+                step_nr, pathname=f"trainer/state_{rank}.pt"
+            )
+        except TensorLoadError as ex:
+            raise CheckpointLoadError(
+                step_nr, f"The trainer state of step {step_nr} cannot be loaded from the '{ex.path}' file. See the nested exception for details."  # fmt: skip
+            ) from ex
 
-                try:
-                    part = self._tensor_loader.load(
-                        file, map_location=CPU, restrict=False
-                    )
-                except FileNotFoundError:
-                    part = {}
-                except TensorLoadError as ex:
-                    raise CheckpointLoadError(
-                        step_nr, f"The '{file}' checkpoint file of training step {step_nr} cannot be loaded. See the nested exception for details."  # fmt: skip
-                    ) from ex
+        try:
+            trainer.load_state_dict(state_dict)
+        except (ValueError, TypeError, RuntimeError) as ex:
+            raise CheckpointLoadError(
+                step_nr, f"The trainer state of step {step_nr} cannot be loaded. See the nested exception for details."  # fmt: skip
+            ) from ex
 
-                gangs.root.barrier()
+    @override
+    def load_model_state(self, step_nr: int, model: Stateful) -> None:
+        gangs = self._gangs
 
-                return part
+        if gangs.tp.size == 1:
+            pathname = "model.pt"
+        else:
+            pathname = f"model.{gangs.tp.rank:02d}.pt"
 
-        checkpoint = {}
+        if gangs.sdp.size > 1:
+            pathname = f"{pathname}/shard.{gangs.sdp.rank:02d}.pt"
 
-        suffix = self._shard_suffix
+        try:
+            checkpoint = self._load_state_dict(step_nr, pathname)
+        except TensorLoadError as ex:
+            raise CheckpointLoadError(
+                step_nr, f"The model state of step {step_nr} cannot be loaded from the '{ex.path}' file. See the nested exception for details."  # fmt: skip
+            ) from ex
 
-        for file in [f"rank_{gangs.dp.rank}{suffix}.pt", f"replicated{suffix}.pt"]:
-            part = maybe_load_part(file)
+        try:
+            state_dict = checkpoint["model"]
+        except KeyError:
+            raise CheckpointLoadError(
+                step_nr, f"The model state of step {step_nr} is not valid."  # fmt: skip
+            ) from None
 
-            # Consolidate the checkpoint parts.
-            checkpoint.update(part)
+        if not isinstance(state_dict, Mapping):
+            raise CheckpointLoadError(
+                step_nr, f"The model state of step {step_nr} is not valid."  # fmt: skip
+            )
 
-        if not checkpoint:
-            raise CheckpointNotFoundError(step_nr)
+        try:
+            model.load_state_dict(state_dict)
+        except (ValueError, TypeError, RuntimeError) as ex:
+            raise CheckpointLoadError(
+                step_nr, f"The model state of step {step_nr} cannot be loaded. See the nested exception for details."  # fmt: skip
+            ) from ex
 
-        return checkpoint
+    @override
+    def load_optimizer_state(self, step_nr: int, optimizer: Stateful) -> None:
+        gangs = self._gangs
+
+        if gangs.tp.size == 1:
+            pathname = "optimizer.pt"
+        else:
+            pathname = f"optimizer.{gangs.tp.rank:02d}.pt"
+
+        if gangs.sdp.size > 1:
+            pathname = f"{pathname}/shard.{gangs.sdp.rank:02d}.pt"
+
+        try:
+            state_dict = self._load_state_dict(step_nr, pathname)
+        except TensorLoadError as ex:
+            raise CheckpointLoadError(
+                step_nr, f"The optimizer state of step {step_nr} cannot be loaded from the '{ex.path}' file. See the nested exception for details."  # fmt: skip
+            ) from ex
+
+        try:
+            optimizer.load_state_dict(state_dict)
+        except (ValueError, TypeError, RuntimeError) as ex:
+            raise CheckpointLoadError(
+                step_nr, f"The optimizer state of step {step_nr} cannot be loaded. See the nested exception for details."  # fmt: skip
+            ) from ex
+
+    @override
+    def load_data_reader_state(self, step_nr: int, data_reader: Stateful) -> None:
+        gangs = self._gangs
+
+        rank = self._rank_to_str(gangs.dp)
+
+        try:
+            state_dict = self._load_state_dict(
+                step_nr, pathname=f"data_reader/state_{rank}.pt"
+            )
+        except TensorLoadError as ex:
+            raise CheckpointLoadError(
+                step_nr, f"The data reader state of step {step_nr} cannot be loaded from the '{ex.path}' file. See the nested exception for details."  # fmt: skip
+            ) from ex
+
+        try:
+            data_reader.load_state_dict(state_dict)
+        except (ValueError, TypeError, RuntimeError) as ex:
+            raise CheckpointLoadError(
+                step_nr, f"The data reader state of step {step_nr} cannot be loaded. See the nested exception for details."  # fmt: skip
+            ) from ex
 
     @override
     def load_metadata(self, step_nr: int) -> dict[str, object] | None:
-        metadata_file = self._checkpoint_dir.joinpath(
-            f"step_{step_nr}/metadata{self._shard_suffix}.pt"
-        )
-
         try:
-            metadata = self._tensor_loader.load(
-                metadata_file, map_location=CPU, restrict=False
-            )
-        except FileNotFoundError:
-            metadata = None
+            return self._load_state_dict(step_nr, pathname="metadata.pt")
         except TensorLoadError as ex:
             raise CheckpointLoadError(
-                step_nr, f"The checkpoint metadata of training step {step_nr} cannot be loaded from the '{metadata_file}' file. See the nested exception for details."  # fmt: skip
+                step_nr, f"The metadata of step {step_nr} cannot be loaded from the '{ex.path}' file. See the nested exception for details."  # fmt: skip
             ) from ex
+        except CheckpointNotFoundError:
+            return None
 
-        self._gangs.root.barrier()
+    def _load_state_dict(self, step_nr: int, pathname: str) -> dict[str, object]:
+        gangs = self._gangs
 
-        return metadata
+        with load_with_sdp_gang(gangs):  # Required for ShardedTensor.
+            file = self._checkpoint_dir.joinpath(f"step_{step_nr}/{pathname}")
+
+            try:
+                state_dict = self._tensor_loader.load(
+                    file, map_location=CPU, restrict=False
+                )
+            except FileNotFoundError:
+                raise CheckpointNotFoundError(step_nr) from None
+
+        gangs.root.barrier()
+
+        return state_dict
+
+    @staticmethod
+    def _rank_to_str(gang: Gang) -> str:
+        if gang.size < 10:
+            return f"{gang.rank}"
+
+        if gang.size < 100:
+            return f"{gang.rank:02d}"
+        else:
+            return f"{gang.rank:03d}"
 
     @override
     def get_model_path(self, step_nr: int) -> Path:
-        model_file = self._checkpoint_dir.joinpath(
-            f"step_{step_nr}/model{self._shard_suffix}.pt"
-        )
+        gangs = self._gangs
+
+        if gangs.tp.size == 1:
+            pathname = f"step_{step_nr}/model.pt"
+        else:
+            pathname = f"step_{step_nr}/model.{gangs.tp.rank:02d}.pt"
+
+        model_path = self._checkpoint_dir.joinpath(pathname)
 
         try:
-            model_file_exists = self._file_system.exists(model_file)
+            model_path_exists = self._file_system.exists(model_path)
         except OSError as ex:
             raise CheckpointError(
-                f"The '{model_file}' path cannot be accessed. See the nested exception for details."
+                f"The '{model_path}' path cannot be accessed. See the nested exception for details."
             ) from ex
 
-        if not model_file_exists:
+        if not model_path_exists:
             raise CheckpointNotFoundError(step_nr)
 
-        return model_file
+        return model_path
 
     @override
-    def delete_checkpoint(
-        self, step_nr: int, *, missing_ok: bool = False, preserve_model: bool = False
-    ) -> None:
+    def delete_checkpoint(self, step_nr: int, *, preserve_model: bool = False) -> None:
         gangs = self._gangs
 
         if gangs.root.rank == 0:
             step_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}")
 
-            # Delete the temporary checkpoint directory if it exists.
             tmp_step_dir = step_dir.with_suffix(".tmp")
-
-            def delete_error() -> CheckpointError:
-                return CheckpointDeleteError(
-                    step_nr, f"The temporary '{tmp_step_dir}' checkpoint directory of training step {step_nr} cannot be deleted. See the nested exception for details."  # fmt: skip
-                )
 
             try:
                 self._file_system.remove_directory(tmp_step_dir)
             except FileNotFoundError:
                 pass
             except OSError as ex:
-                raise delete_error() from ex
+                raise CheckpointDeleteError(
+                    step_nr, f"The temporary '{tmp_step_dir}' checkpoint directory of step {step_nr} cannot be deleted. See the nested exception for details."  # fmt: skip
+                ) from ex
 
             try:
                 step_dir_exists = self._file_system.exists(step_dir)
             except OSError as ex:
-                raise delete_error() from ex
+                raise CheckpointDeleteError(
+                    step_nr, f"The '{step_dir}' checkpoint directory of step {step_nr} cannot be accessed. See the nested exception for details."  # fmt: skip
+                ) from ex
 
             if not step_dir_exists:
-                if not missing_ok:
-                    raise CheckpointDeleteError(
-                        step_nr, f"The '{step_dir}' checkpoint directory of training step {step_nr} is not found."  # fmt: skip
-                    )
-
                 gangs.root.barrier()
 
                 return
 
             if preserve_model:
-
-                def iter_torch_files() -> Iterable[Path]:
-                    try:
-                        for pt_file in self._file_system.glob(step_dir, "*.pt"):
-                            if self._file_system.is_dir(pt_file):
-                                continue
-
-                            yield pt_file
-                    except OSError as ex:
-                        raise CheckpointDeleteError(
-                            step_nr, f"The '{step_dir}' checkpoint directory of training step {step_nr} cannot be traversed. See the nested exception for details."  # fmt: skip
-                        ) from ex
-
-                # Delete all PyTorch tensor files except 'model.X.pt' files that
-                # represent a (consolidated) model.
-                for pt_file in iter_torch_files():
-                    if pt_file.stem.startswith("model"):
-                        continue
+                for pathname in ["trainer", "optimizer.pt", "data_reader", "score.txt"]:
+                    path = step_dir.joinpath(pathname)
 
                     try:
-                        self._file_system.remove(pt_file)
-                    except FileNotFoundError:
-                        pass
+                        if self._file_system.is_dir(path):
+                            self._file_system.remove_directory(path)
+                        else:
+                            try:
+                                self._file_system.remove(path)
+                            except FileNotFoundError:
+                                pass
                     except OSError as ex:
                         raise CheckpointDeleteError(
-                            step_nr, f"The '{pt_file}' checkpoint file of training step {step_nr} cannot be deleted. See the nested exception for details."  # fmt: skip
+                            step_nr, f"The '{path}' path of step {step_nr} cannot be deleted. See the nested exception for details."  # fmt: skip
                         ) from ex
             else:
                 try:
                     self._file_system.remove_directory(step_dir)
-                except FileNotFoundError:
-                    pass
                 except OSError as ex:
-                    if not missing_ok:
-                        raise CheckpointDeleteError(
-                            step_nr, f"The '{step_dir}' checkpoint directory of training step {step_nr} cannot be deleted. See the nested exception for details."  # fmt: skip
-                        ) from ex
+                    raise CheckpointDeleteError(
+                        step_nr, f"The '{step_dir}' checkpoint directory of step {step_nr} cannot be deleted. See the nested exception for details."  # fmt: skip
+                    ) from ex
 
         gangs.root.barrier()
 
@@ -553,8 +676,8 @@ class FileCheckpointManager(CheckpointManager):
 
     @override
     def keep_best_n_checkpoints(self, n: int, *, preserve_model: bool = False) -> None:
-        if n == 0:
-            raise ValueError("`n` must be greater than zero.")
+        if n < 1:
+            raise ValueError("`n` must be greater than or equal to 1.")
 
         step_numbers = self.get_step_numbers()
         if not step_numbers:
@@ -581,7 +704,7 @@ class FileCheckpointManager(CheckpointManager):
 
             def load_error() -> CheckpointError:
                 return CheckpointError(
-                    f"The score of training step {step_nr} cannot be loaded from the '{score_file}' file. See the nested exception for details."
+                    f"The score of step {step_nr} cannot be loaded from the '{score_file}' file. See the nested exception for details."
                 )
 
             try:
@@ -600,7 +723,7 @@ class FileCheckpointManager(CheckpointManager):
                 score = float(line)
             except ValueError:
                 raise CheckpointError(
-                    f"The score of training step {step_nr} cannot be parsed as a floating-point number."
+                    f"The score of step {step_nr} cannot be parsed as a floating-point number."
                 ) from None
 
             scores.append((score, step_nr))
@@ -626,7 +749,7 @@ class FileCheckpointManager(CheckpointManager):
                 step_numbers.append(step_nr)
         except OSError as ex:
             raise CheckpointError(
-                f"The base '{self._checkpoint_dir}' checkpoint directory cannot be traversed. See the nested exception for details."
+                f"The '{self._checkpoint_dir}' checkpoint directory cannot be traversed. See the nested exception for details."
             ) from ex
 
         step_numbers.sort()
@@ -673,7 +796,7 @@ class CheckpointNotFoundError(Exception):
     step_nr: int
 
     def __init__(self, step_nr: int) -> None:
-        super().__init__(f"No checkpoint found for training step {step_nr}.")
+        super().__init__(f"No checkpoint found for step {step_nr}.")
 
         self.step_nr = step_nr
 
