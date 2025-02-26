@@ -31,10 +31,7 @@ from fairseq2.nn.data_parallel import (
 from fairseq2.nn.utils.gradient import clip_gradient_norm
 from fairseq2.nn.utils.module import broadcast_module, to_device
 from fairseq2.recipes.config import TrainerSection, get_config_section
-from fairseq2.recipes.error import (
-    HybridShardingNotSupportedError,
-    StaticGraphNotSupportedError,
-)
+from fairseq2.recipes.error import StaticGraphNotSupportedError
 from fairseq2.recipes.model import Model
 from fairseq2.typing import ContextManager
 
@@ -165,10 +162,6 @@ def wrap_fsdp(
         to_device(model.module, gangs.root.device)
 
         return model
-
-    if gangs.rdp.size > 1:
-        if gangs.root.size != gangs.dp.size:  # means we have model parallelism.
-            raise HybridShardingNotSupportedError("FSDP")
 
     log.info("Wrapping the model with FSDP and broadcasting to all processes.")  # fmt: skip
 

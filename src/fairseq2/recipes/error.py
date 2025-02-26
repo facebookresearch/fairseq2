@@ -51,7 +51,7 @@ class ModelParallelismNotSupportedError(NotSupportedError):
 
     def __init__(self, model_name: str) -> None:
         super().__init__(
-            f"The '{model_name}' model does not support non-data parallelism."
+            f"The '{model_name}' model does not support model parallelism."
         )
 
         self.model_name = model_name
@@ -80,14 +80,11 @@ class StaticGraphNotSupportedError(NotSupportedError):
 
 
 class HybridShardingNotSupportedError(NotSupportedError):
-    data_parallelism: str
 
-    def __init__(self, data_parallelism: str) -> None:
+    def __init__(self) -> None:
         super().__init__(
-            f"{data_parallelism} with hybrid sharding does not support non-data parallelism."
+            "Hybrid sharded data parallelism cannot be used with model parallelism."
         )
-
-        self.data_parallelism = data_parallelism
 
 
 class UnitError(Exception):

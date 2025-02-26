@@ -25,6 +25,7 @@ from fairseq2.recipes.config import (
     TrainerSection,
     get_config_section,
 )
+from fairseq2.recipes.error import HybridShardingNotSupportedError
 from fairseq2.recipes.utils.log import log_environment_info
 from fairseq2.utils.env import InvalidEnvironmentVariableError, get_local_world_size
 
@@ -104,6 +105,9 @@ def _maybe_setup_fsdp_gangs(
         return gangs
 
     if trainer_section.fsdp.hybrid:
+        if gangs.root.size != gangs.dp.size:  # means we have model parallelism.
+            raise HybridShardingNotSupportedError()
+
         log.info("Initializing hybrid sharded data parallel gangs.")
 
         try:
@@ -114,13 +118,13 @@ def _maybe_setup_fsdp_gangs(
             ) from ex
 
         if local_world_size == 1:
-            log.warning("`trainer.fsdp.hsdp` is set, but the local world size is 1. Skipping the setup of hybrid sharded data parallel gangs.")  # fmt: skip
+            log.warning("`trainer.fsdp.hybrid` is set, but the local world size is 1. Skipping the setup of hybrid sharded data parallel gangs.")  # fmt: skip
 
             return gangs
 
         if gangs.dp.size % local_world_size != 0:
             raise GangError(
-                f"The number of processes in the data parallel gang is expected to be a multiple of the local world size ({local_world_size}) when `trainer.fsdp.hsdp` is set, but is {gangs.dp.size} instead."
+                f"The number of processes in the data parallel gang is expected to be a multiple of the local world size ({local_world_size}) when `trainer.fsdp.hybrid` is set, but is {gangs.dp.size} instead."
             )
 
         gangs = setup_fsdp_gangs(gangs, local_world_size)

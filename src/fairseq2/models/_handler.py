@@ -451,7 +451,7 @@ class StandardModelHandler(ModelHandler):
         if gangs.root.size != gangs.dp.size:
             if self._sharder is None:
                 raise NotSupportedError(
-                    f"The '{self._family}' model family does not support non-data parallelism."
+                    f"The '{self._family}' model family does not support model parallelism."
                 )
 
             self._sharder(model, config, gangs)
