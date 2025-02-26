@@ -58,6 +58,18 @@ def _xlsr_base() -> Wav2Vec2Config:
     return config
 
 
+@wav2vec2_arch("base_conformer")
+def _base_conformer() -> Wav2Vec2Config:
+    config = _xlsr_base()
+
+    config.encoder_config.use_conformer = True
+    config.encoder_config.norm_order = TransformerNormOrder.POST
+    config.encoder_config.depthwise_conv_kernel_size = 31
+    # pos_encoder_type
+
+    return config
+
+
 @wav2vec2_arch("1b")
 def _1b() -> Wav2Vec2Config:
     config = _xlsr_base()
@@ -143,7 +155,21 @@ def _7b() -> Wav2Vec2Config:
     config.encoder_config.model_dim = 3072
     config.encoder_config.ffn_inner_dim = 11520
     config.encoder_config.num_encoder_attn_heads = 48
-    config.quantized_dim = 1536
+    config.quantized_dim = 1536     # Not sure if increasing this is useful at all
+    config.final_dim = 1536
+
+    return config
+
+
+@wav2vec2_arch("7b_llama")
+def _7b_llama() -> Wav2Vec2Config:
+    config = _7b()
+
+    config.encoder_config.num_encoder_layers = 32
+    config.encoder_config.model_dim = 4096
+    config.encoder_config.ffn_inner_dim = 11008
+    config.encoder_config.num_encoder_attn_heads = 32
+    config.quantized_dim = 1536     # Not sure if increasing this is useful at all
     config.final_dim = 1536
 
     return config
