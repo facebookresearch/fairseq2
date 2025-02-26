@@ -169,13 +169,13 @@ class GumbelWav2Vec2VectorQuantizer(Wav2Vec2VectorQuantizer):
         )
         hard_probs = torch.mean(hard_x.float(), dim=0) # TODO:cirquit - added FP32 cast here due to it being present on main and recipe, but not on main_w2v2
 
-        @torch.compile(fullgraph=True)
+        # @torch.compile(fullgraph=True)
         def calculate_perplexity(probs: torch.Tensor) -> torch.Tensor:
             return torch.exp(-torch.sum(probs * torch.log(probs + 1e-7), dim=-1)).sum()
 
         code_perplexity = calculate_perplexity(hard_probs)
 
-        @torch.compile(fullgraph=True)
+        # @torch.compile(fullgraph=True)
         def compute_softmax(x: torch.Tensor) -> torch.Tensor:
             return torch.softmax(
                 x.view(bsz * tsz, self.num_codebooks, -1), dim=-1
@@ -194,7 +194,7 @@ class GumbelWav2Vec2VectorQuantizer(Wav2Vec2VectorQuantizer):
 
         cb = x
 
-        @torch.compile(fullgraph=True)
+        # @torch.compile(fullgraph=True)
         def compute_sum(x: torch.Tensor) -> torch.Tensor:
             return torch.sum(
                 x.view(bsz * tsz, self.num_codebooks, self.num_codebook_entries, 1)
