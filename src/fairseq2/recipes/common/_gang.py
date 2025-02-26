@@ -86,11 +86,22 @@ def setup_gangs(context: RuntimeContext, recipe_config: object) -> Gangs:
     log.info("Parallel gangs initialized.")
 
     try:
-        return _maybe_setup_fsdp_gangs(context, recipe_config, gangs)
+        gangs = _maybe_setup_fsdp_gangs(context, recipe_config, gangs)
     except GangError as ex:
         raise ProgramError(
             "The hybrid sharded data parallel gangs cannot set up. See the nested exception for details."
         ) from ex
+
+    s = (
+        f"Data: {gangs.dp.rank} | "
+        f"Data/Replicated: {gangs.rdp.rank} | "
+        f"Data/Sharded: {gangs.sdp.rank} | "
+        f"Tensor: {gangs.tp.rank}"
+    )
+
+    log.info("Process Ranks - {}", s)
+
+    return gangs
 
 
 def _maybe_setup_fsdp_gangs(
