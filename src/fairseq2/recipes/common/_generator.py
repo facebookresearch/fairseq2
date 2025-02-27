@@ -30,7 +30,7 @@ def create_generator(
     gangs: Gangs,
     seed: int,
 ) -> Generator[BatchT]:
-    metric_recorder = create_metric_recorder(context, recipe_config, output_dir)
+    metric_recorder = create_metric_recorder(context, recipe_config, gangs, output_dir)
 
     profiler = create_profiler(context, recipe_config, gangs, output_dir)
 
