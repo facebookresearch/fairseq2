@@ -379,19 +379,20 @@ class ProcessGroupGang(Gang):
 
         kwargs: dict[str, Any] = {}
 
-        if torch_greater_or_equal(2, 3):
+        pg_options = None
+
+        if device.type == "cuda":
             # Forces NCCL to initialize immediately which enables deterministic
             # behavior.
-            kwargs = {"device_id": device}
+            if torch_greater_or_equal(2, 3):
+                kwargs = {"device_id": device}
 
-        # If enabled, uses high priority CUDA streams for NCCL.
-        if device.type == "cuda" and high_priority:
-            # Not available unless PyTorch is built with NCCL.
-            from torch.distributed import ProcessGroupNCCL
+            # If enabled, uses high priority CUDA streams for NCCL.
+            if high_priority:
+                # Not available unless PyTorch is built with NCCL.
+                from torch.distributed import ProcessGroupNCCL
 
-            pg_options = ProcessGroupNCCL.Options(is_high_priority_stream=True)
-        else:
-            pg_options = None
+                pg_options = ProcessGroupNCCL.Options(is_high_priority_stream=True)
 
         try:
             with warnings.catch_warnings():
@@ -496,8 +497,13 @@ class ProcessGroupGang(Gang):
     @override
     def barrier(self) -> None:
         if self._monitor_pg is None:
+            if self._device.type == "cpu":
+                device_ids = None
+            else:
+                device_ids = [self._device.index]
+
             try:
-                dist.barrier(group=self._pg, device_ids=[self._device.index])
+                dist.barrier(group=self._pg, device_ids=device_ids)
             except RuntimeError as ex:
                 raise GangError(
                     "The `barrier` collective operation has failed. See the nested exception for details."
