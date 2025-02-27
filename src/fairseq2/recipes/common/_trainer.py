@@ -16,6 +16,7 @@ from fairseq2.checkpoint import CheckpointManager
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import DataReader
 from fairseq2.gang import Gangs
+from fairseq2.logging import log
 from fairseq2.metrics import MetricDescriptor, UnknownMetricDescriptorError
 from fairseq2.optim.lr_scheduler import LRScheduler
 from fairseq2.recipes.common._device import create_device_stat_tracker
@@ -76,6 +77,9 @@ def create_trainer(
         amp = trainer_section.mixed_precision == "dynamic"
 
     regime_section = get_config_section(recipe_config, "regime", RegimeSection)
+
+    if gangs.root.device.type == "cpu":
+        log.warning("Based on your environment setup the training will be run on CPU. If this was not intended, check your job options (e.g. pass `--gpus-per-node` on Slurm).")  # fmt: skip
 
     # fmt: off
     return Trainer[BatchT](
