@@ -87,7 +87,7 @@ class DynamicLossScaler:
                 # The same formula as in fairseq.
                 scale_window = max(int(2**14 / gang.size / gradient_accumulation), 1)
 
-                log.info("fp16 loss scale window set to {}.", scale_window)
+                log.info("float16 loss scale window set to {}.", scale_window)
             else:
                 scale_window = 1
 

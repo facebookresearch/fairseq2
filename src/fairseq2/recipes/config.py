@@ -28,6 +28,7 @@ from fairseq2.metrics.recorders import (
     TensorBoardRecorderConfig,
     WandbRecorderConfig,
 )
+from fairseq2.nn.data_parallel import FsdpGranularity
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.profilers import TORCH_PROFILER, TorchProfilerConfig
 from fairseq2.typing import DataType
@@ -165,9 +166,6 @@ class TrainerSection:
             raise ValidationError(
                 "The trainer configuration section has one or more validation errors:", result  # fmt: skip
             )
-
-
-FsdpGranularity: TypeAlias = Literal["layer", "stack", "model"]
 
 
 @dataclass(kw_only=True)
