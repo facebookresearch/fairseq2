@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import final
 
 from fairseq2.context import RuntimeContext
+from fairseq2.gang import Gangs
 from fairseq2.metrics.recorders import (
     CompositeMetricRecorder,
     MetricRecorder,
@@ -22,13 +23,13 @@ from fairseq2.utils.structured import StructureError
 
 
 def create_metric_recorder(
-    context: RuntimeContext, recipe_config: object, output_dir: Path
+    context: RuntimeContext, recipe_config: object, gangs: Gangs, output_dir: Path
 ) -> MetricRecorder:
     recorder_handlers = context.get_registry(MetricRecorderHandler)
 
     creator = MetricRecorderCreator(recorder_handlers)
 
-    return creator.create(recipe_config, output_dir)
+    return creator.create(recipe_config, gangs, output_dir)
 
 
 @final
@@ -40,7 +41,9 @@ class MetricRecorderCreator:
     ) -> None:
         self._metric_recorder_handlers = metric_recorder_handlers
 
-    def create(self, recipe_config: object, output_dir: Path) -> MetricRecorder:
+    def create(
+        self, recipe_config: object, gangs: Gangs, output_dir: Path
+    ) -> MetricRecorder:
         common_section = get_config_section(recipe_config, "common", CommonSection)
 
         recorders = []
@@ -50,6 +53,9 @@ class MetricRecorderCreator:
                 handler = self._metric_recorder_handlers.get(recorder_name)
             except LookupError:
                 raise UnknownMetricRecorderError(recorder_name) from None
+
+            if gangs.root.rank != 0:
+                continue
 
             try:
                 recorder = handler.create(output_dir, recorder_config)

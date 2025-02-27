@@ -55,7 +55,7 @@ def create_trainer(
         recipe_config, metric_descriptors
     )
 
-    metric_recorder = create_metric_recorder(context, recipe_config, output_dir)
+    metric_recorder = create_metric_recorder(context, recipe_config, gangs, output_dir)
 
     profiler = create_profiler(context, recipe_config, gangs, output_dir)
 
