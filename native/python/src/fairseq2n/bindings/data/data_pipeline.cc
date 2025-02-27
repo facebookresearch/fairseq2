@@ -520,7 +520,8 @@ def_data_pipeline(py::module_ &data_module)
                 data_pipeline_builder &self,
                 std::variant<map_fn, std::vector<map_fn>> fn,
                 std::optional<std::string> maybe_selector,
-                std::size_t num_parallel_calls) -> data_pipeline_builder &
+                std::size_t num_parallel_calls,
+                bool deterministic) -> data_pipeline_builder &
             {
                 map_fn f{};
 
@@ -539,13 +540,14 @@ def_data_pipeline(py::module_ &data_module)
 
                 element_mapper mapper{std::move(f), std::move(maybe_selector)};
 
-                self = std::move(self).map(mapper, num_parallel_calls);
+                self = std::move(self).map(mapper, num_parallel_calls, deterministic);
 
                 return self;
             },
             py::arg("fn"),
             py::arg("selector") = std::nullopt,
-            py::arg("num_parallel_calls") = 1)
+            py::arg("num_parallel_calls") = 1,
+            py::arg("deterministic") = true)
         .def(
             "prefetch",
             [](data_pipeline_builder &self, std::size_t num_examples) -> data_pipeline_builder &
