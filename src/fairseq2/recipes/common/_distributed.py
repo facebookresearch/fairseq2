@@ -20,9 +20,10 @@ from fairseq2.error import NotSupportedError, ProgramError
 from fairseq2.gang import GangError, Gangs
 from fairseq2.logging import log
 from fairseq2.models import ModelHandler
-from fairseq2.models.fsdp import get_fsdp_wrap_policy
 from fairseq2.nn.data_parallel import (
     DistributedSetupError,
+    FsdpGranularity,
+    FsdpWrapper,
     fsdp_local_state_dict,
     fsdp_summon_full_parameters,
     to_ddp,
@@ -84,11 +85,11 @@ def wrap_ddp(model: Model, gangs: Gangs, static_graph: bool) -> Model:
 
     log.info("Model wrapped with DDP and broadcasted.")
 
-    return DDPModel(dp_module, model)
+    return DdpModel(dp_module, model)
 
 
 @final
-class DDPModel(Model):
+class DdpModel(Model):
     _ddp: DDP
     _wrapped_model: Model
 
@@ -170,15 +171,15 @@ def wrap_fsdp(
     else:
         mp_dtype = None
 
-    wrap_policy, ignored_modules = get_fsdp_wrap_policy(
-        model.module, wrap_granularity=trainer_section.fsdp.granularity
-    )
+    def apply_fsdp(
+        module: Module, granularity: FsdpGranularity, wrapper: FsdpWrapper
+    ) -> Module:
+        return model.handler.apply_fsdp(module, granularity, wrapper)
 
     dp_module = to_fsdp(
         model.module,
         gangs,
-        wrap_policy,
-        ignored_modules=ignored_modules,
+        apply_fsdp,
         broadcast_state=True,
         reshard_after_forward=trainer_section.fsdp.reshard_after_forward,
         mixed_precision_dtype=mp_dtype,
@@ -187,11 +188,11 @@ def wrap_fsdp(
 
     log.info("Model wrapped with FSDP and broadcasted.")
 
-    return FSDPModel(dp_module, model)
+    return FsdpModel(dp_module, model)
 
 
 @final
-class FSDPModel(Model):
+class FsdpModel(Model):
     _fsdp: FSDP
     _wrapped_model: Model
 

@@ -669,16 +669,16 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         watch = Stopwatch(start=True, device=self._gangs.root.device)
 
+        # Prepare the unit.
+        if not self._repeat_step:
+            with record_function(f"step_{step_nr}_unit_setup"):
+                self._unit.set_step_nr(step_nr)
+
         # Collect the batches.
         with record_function(f"step_{step_nr}_data_load"):
             batches = self._next_batches()
             if batches is None:
                 return
-
-        # Prepare the unit.
-        if not self._repeat_step:
-            with record_function(f"step_{step_nr}_unit_setup"):
-                self._unit.set_step_nr(step_nr)
 
         num_targets = 0
 

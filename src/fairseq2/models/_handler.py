@@ -30,7 +30,8 @@ from fairseq2.models._error import (
     UnknownModelArchitectureError,
     model_asset_card_error,
 )
-from fairseq2.nn.data_parallel import load_with_sdp_gang
+from fairseq2.models.fsdp import apply_default_fsdp
+from fairseq2.nn.data_parallel import FsdpGranularity, FsdpWrapper, load_with_sdp_gang
 from fairseq2.nn.utils.module import (
     load_state_dict,
     reset_non_persistent_buffers,
@@ -78,6 +79,11 @@ class ModelHandler(ABC):
 
     @abstractmethod
     def compile(self, model: Module, config: object) -> Module: ...
+
+    @abstractmethod
+    def apply_fsdp(
+        self, model: Module, granularity: FsdpGranularity, wrapper: FsdpWrapper
+    ) -> Module: ...
 
     @property
     @abstractmethod
@@ -461,6 +467,7 @@ class StandardModelHandler(ModelHandler):
 
         return model
 
+    @override
     def compile(self, model: Module, config: object) -> Module:
         if self._torch_compiler is None:
             raise NotSupportedError(
@@ -478,6 +485,12 @@ class StandardModelHandler(ModelHandler):
             )
 
         return self._torch_compiler(model, config)
+
+    @override
+    def apply_fsdp(
+        self, model: Module, granularity: FsdpGranularity, wrapper: FsdpWrapper
+    ) -> Module:
+        return apply_default_fsdp(model, granularity, wrapper)
 
     @property
     @override
