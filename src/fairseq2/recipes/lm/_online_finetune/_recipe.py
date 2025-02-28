@@ -18,6 +18,12 @@ from fairseq2.datasets.preference import (
     GENERIC_PREFERENCE_DATASET_FAMILY,
     PreferenceBatch,
 )
+from fairseq2.datasets.prompt import (
+    GENERIC_PROMPT_DATASET_FAMILY,
+    GenericPromptDataset,
+    PromptDataset,
+    PromptReadOptions
+)
 from fairseq2.datasets.instruction import InstructionDataset, InstructionPromptReadOptions, GENERIC_INSTRUCTION_DATASET_FAMILY
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.nn.transformer import enable_memory_efficient_torch_sdpa
@@ -104,9 +110,9 @@ class OnlineFinetuneConfig:
     regime: RegimeSection = field(
         default_factory=lambda: RegimeSection(
             num_steps=5_000,
-            checkpoint_every_n_steps=1_000,
+            checkpoint_every_n_steps=50,
             keep_last_n_checkpoints=1,
-            publish_metrics_every_n_steps=10,
+            publish_metrics_every_n_steps=1,
         )
     )
 
@@ -117,9 +123,9 @@ class OnlineFinetuneConfig:
 class OnlineFinetuneDatasetSection(DatasetSection):
     name: str = "foo"
 
-    family: str = GENERIC_INSTRUCTION_DATASET_FAMILY
+    family: str = GENERIC_PROMPT_DATASET_FAMILY
 
-    path: Path | None = "/opt/hpcaas/.mounts/fs-08557fb804ac7e131/kulikov/llm_rl/data_example.jsonl"
+    path: Path | None = "/opt/hpcaas/.mounts/fs-08557fb804ac7e131/kulikov/llm_rl/data_wanswers.jsonl"
 
     source_encode_mode: str = "prompt"
     """The encode mode for the prompt, determines what special tokens to add."""
@@ -141,7 +147,7 @@ class OnlineFinetuneDatasetSection(DatasetSection):
     # max_num_tokens: int = 8192 * 2
     # """The maximum number of total `src`, `tgt_chosen`, and `tgt_rejected` tokens per batch."""
 
-    batch_size: int | None = 1
+    batch_size: int | None = 4
     """If not ``None``, ignores `max_num_tokens` and each batch will have `batch_size` examples."""
 
     example_shuffle_window: int = 10_000
@@ -221,7 +227,7 @@ def load_online_finetuner(
 
     lr_scheduler = create_lr_scheduler(context, config, optimizer)
 
-    dataset = load_dataset(InstructionDataset, context, config, gangs)
+    dataset = load_dataset(PromptDataset, context, config, gangs)
 
     tokenizer = load_text_tokenizer(context, config)
 
@@ -243,19 +249,19 @@ def load_online_finetuner(
         raise ValueError
         batching = LengthBatching(config.dataset.max_num_tokens)
 
-    read_options = InstructionPromptReadOptions(
+    read_options = PromptReadOptions(
         batching=batching,
         example_shuffle_window=config.dataset.example_shuffle_window,
         batch_shuffle_window=config.dataset.batch_shuffle_window,
         num_accumulate=config.trainer.gradient_accumulation,
         num_prefetch=config.dataset.num_prefetch,
         source_encode_mode=config.dataset.source_encode_mode,
+        max_num_batches=32,  ## TODO
         seed=seed,
         extras=config.dataset.extras,
     )
 
-    data_reader = dataset.create_prompt_reader(
-        "default",
+    data_reader = dataset.create_reader(
         tokenizer,
         gangs.dp,
         config.dataset.min_seq_len,

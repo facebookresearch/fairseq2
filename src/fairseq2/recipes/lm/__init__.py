@@ -132,5 +132,6 @@ from fairseq2.recipes.lm._text_generate import (
 from fairseq2.recipes.lm._text_generate import (
     register_text_generate_configs as register_text_generate_configs,
 )
-from fairseq2.recipes.lm._online_finetune._recipe import register_online_finetune_configs, OnlineFinetuneUnitHandler, load_online_finetuner, OnlineFinetuneConfig
+from fairseq2.recipes.lm._online_finetune._recipe import register_online_finetune_configs, OnlineFinetuneUnitHandler, load_online_finetuner, OnlineFinetuneConfig 
+from fairseq2.recipes.lm._online_finetune._recipe import OnlineFinetuneDatasetSection as OnlineFinetuneDatasetSection
 from fairseq2.recipes.lm._online_finetune._online_dpo import OnlineDpoFinetuneUnitHandler

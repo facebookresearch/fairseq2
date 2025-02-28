@@ -103,6 +103,14 @@ class Gang(ABC):
         """
 
     @abstractmethod
+    def gather_object(self, object, object_gather_list, dst) -> None:
+        """tbd docstring"""
+
+    @abstractmethod
+    def scatter_object_list(self, scatter_object_output_list, scatter_object_input_list, source_rank=None):
+        """tbd docstring"""
+
+    @abstractmethod
     def all_gather_to_list(
         self, output_tensors: list[Tensor], input_tensor: Tensor
     ) -> None:
@@ -278,6 +286,15 @@ class FakeGang(Gang):
             raise ValueError(
                 f"`source_rank` must be {self._rank}, but is {source_rank} instead."
             )
+    
+    @override
+    def scatter_object_list(self, scatter_object_output_list, scatter_object_input_list, source_rank=None):
+        pass
+
+    @override
+    def gather_object(self, object, object_gather_list, dst) -> None:
+        pass
+    
 
 
 @final
@@ -568,6 +585,26 @@ class ProcessGroupGang(Gang):
             raise GangError(
                 "The `broadcast_object_list` collective operation has failed. See the nested exception for details."
             ) from ex
+        
+    @override
+    def scatter_object_list(self, scatter_object_output_list, scatter_object_input_list, source_rank=None):
+        self._maybe_monitored_barrier()
+
+        try:
+            dist.scatter_object_list(scatter_object_output_list, scatter_object_input_list, group=self._pg, src=source_rank)
+        except RuntimeError as ex:
+            raise GangError(
+                "The `scatter_object_list` collective operation has failed. See the nested exception for details."
+            ) from ex
+
+    @override
+    def gather_object(self, object, object_gather_list, dst) -> None:
+        self._maybe_monitored_barrier()
+
+        try:
+            dist.gather_object(object, object_gather_list, group=self._pg, dst=dst)
+        except RuntimeError as ex:
+            raise GangError("The `gather_object` collective operation has failed. See the nested exception for details.") from ex
 
     def _maybe_monitored_barrier(self) -> None:
         if self._monitor_pg is None:

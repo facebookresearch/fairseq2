@@ -145,12 +145,6 @@ def load_llama_tokenizer(path: Path, card: AssetCard) -> TextTokenizer:
         use_v2 = False
     except AssetCardError as ex:
         raise text_tokenizer_asset_card_error(card.name) from ex
-            
-    import os
-    from fairseq2.utils.env import get_rank
-    if get_rank(os.environ) == 0:
-        from pudb.remote import set_trace
-        set_trace(host="submit-0", port=6899, term_size=(80*2, 24*2), reverse=True)
 
     if use_v2:
         try:
