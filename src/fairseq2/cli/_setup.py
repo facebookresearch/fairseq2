@@ -57,7 +57,6 @@ from fairseq2.recipes.error import (
     ModelCompilationNotSupportedError,
     ModelParallelismNotSupportedError,
     ModelPathNotFoundError,
-    StaticGraphNotSupportedError,
 )
 from fairseq2.recipes.lm import (
     InstructionFinetuneConfig,
@@ -353,7 +352,6 @@ def _register_user_error_types(cli: Cli) -> None:
     cli.register_user_error_type(ModelParallelismNotSupportedError)
     cli.register_user_error_type(ModelPathNotFoundError)
     cli.register_user_error_type(ShardedModelLoadError)
-    cli.register_user_error_type(StaticGraphNotSupportedError)
     cli.register_user_error_type(UnknownBeamSearchAlgorithmError)
     cli.register_user_error_type(UnknownBleuTokenizerError)
     cli.register_user_error_type(UnknownChatbotError)
