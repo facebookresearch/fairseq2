@@ -125,7 +125,7 @@ class OnlineFinetuneDatasetSection(DatasetSection):
 
     family: str = GENERIC_PROMPT_DATASET_FAMILY
 
-    path: Path | None = "/opt/hpcaas/.mounts/fs-08557fb804ac7e131/kulikov/llm_rl/data_wanswers.jsonl"
+    path: Path | None = "/opt/hpcaas/.mounts/fs-08557fb804ac7e131/kulikov/llm_rl/data_wanswers_64.jsonl"
 
     source_encode_mode: str = "prompt"
     """The encode mode for the prompt, determines what special tokens to add."""
@@ -256,7 +256,7 @@ def load_online_finetuner(
         num_accumulate=config.trainer.gradient_accumulation,
         num_prefetch=config.dataset.num_prefetch,
         source_encode_mode=config.dataset.source_encode_mode,
-        max_num_batches=32,  ## TODO
+        # max_num_batches=4,  ## TODO
         seed=seed,
         extras=config.dataset.extras,
     )

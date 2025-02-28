@@ -198,7 +198,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
     def rollout_from_model(self, prompt_list, sampling_params=None):
         if sampling_params is None:
-            sampling_params = SamplingParams(n=16, temperature=1.0, max_tokens=1024)
+            sampling_params = SamplingParams(n=16, temperature=1.0, max_tokens=1024, seed=1)
 
         outputs = ray.get(self.vllm_model.generate.remote(prompt_token_ids=prompt_list, sampling_params=sampling_params, use_tqdm=False))
         return outputs
@@ -251,9 +251,9 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         # self._gangs.root.barrier()
 
-        if len(rollouts_per_rank[0]) != len(prompt_batch.meta_info["answer"]):
-            from pudb.remote import set_trace
-            set_trace(host="submit-0", port=6899, term_size=(80*2, 24*2), reverse=True)
+        # if len(rollouts_per_rank[0]) != len(prompt_batch.meta_info["answer"]):
+        #     from pudb.remote import set_trace
+        #     set_trace(host="submit-0", port=6899, term_size=(80*2, 24*2), reverse=True)
 
         verifications = gsm8k_correctness_verifier(rollouts_per_rank[0], prompt_batch.meta_info["answer"])
 
@@ -287,16 +287,26 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
             prompt_lens.append(len(prompt_tokens))
 
+        filter_batch = lambda batch: [item for index, item in enumerate(batch) if index not in dummy_batch_ids]
+
         if len(dummy_batch_ids) == len(verifications["tokens"]):
             # entire batch does not have a valid preference pair
             # we use it as dummy batch and zero the loss in the end 
             loss_zeroer = 0.0
         else:
             # removing dummy pairs from the batch
-            filter_batch = lambda batch: [item for index, item in enumerate(batch) if index not in dummy_batch_ids]
             chosen_batch = filter_batch(chosen_batch)
             rejected_batch = filter_batch(rejected_batch)
             prompt_lens = filter_batch(prompt_lens)
+
+        # TEST BELOW
+        # import random
+        # chosen_batch = prompt_batch.prompts
+        # rejected_batch = chosen_batch[:]
+        # random.shuffle(rejected_batch)
+        # prompt_lens = [1 for p in prompt_batch.prompts]
+
+        # TEST END
 
         prompt_lens = torch.tensor(prompt_lens)
 
@@ -353,6 +363,12 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 "Reference model is not initialized and data batch does not provide reference score, but at least one must exist."
             )
 
+        # if self._gangs.root.rank == 0:
+        #     from pudb.remote import set_trace
+        #     set_trace(host="submit-0", port=6899, term_size=(80*2, 24*2), reverse=True)
+
+        # self._gangs.root.barrier()
+
         if self._length_normalization:
             _, _, dpo_loss = self._compute_dpo_loss(
                 average_chosen_logps,
@@ -394,6 +410,8 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         )  # normalization applied locally per-rank
 
         loss = loss * loss_zeroer  # zero loss if entire batch was dummy batch
+
+        # loss = nll_loss
 
         # if self._gangs.root.rank == 0:
         #     from pudb.remote import set_trace
