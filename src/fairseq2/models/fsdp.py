@@ -16,7 +16,7 @@ def apply_default_fsdp(
     model: Module, granularity: FsdpGranularity, wrapper: FsdpWrapper
 ) -> Module:
     if granularity == "model":
-        return wrapper(model)
+        return wrapper(model, reshard_after_forward=False)
 
     children = list(model.named_children())
 
@@ -39,4 +39,4 @@ def apply_default_fsdp(
                         layer_name, wrapper(layer, reshard_after_forward)
                     )
 
-    return model
+    return wrapper(model, reshard_after_forward=False)

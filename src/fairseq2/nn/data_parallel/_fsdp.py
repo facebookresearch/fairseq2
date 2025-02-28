@@ -195,7 +195,7 @@ def to_fsdp(
     module = applier(module, granularity, wrap)
 
     if not isinstance(module, FSDP):
-        module = wrap(module, reshard_after_forward)
+        module = wrap(module, reshard_after_forward=False)
 
     with warnings.catch_warnings():
         warnings.filterwarnings(
@@ -249,10 +249,6 @@ class FsdpParameterInitializer:
         self._skip_init = skip_init
 
     def __call__(self, module: Module) -> None:
-        """
-        :param module:
-            An FSDP module or submodule.
-        """
         if module in self._module_memo:
             return
 
@@ -287,10 +283,13 @@ def fsdp_local_state_dict(module: FSDP) -> dict[str, object]:
                 if not local_shards:
                     continue  # means the tensor is sharded unevenly.
 
-                state_dict[name] = item.local_tensor()
+                state_dict[name] = item.local_tensor().detach()
             # Save replicated items only on the first intra-node (i.e. sharded)
             # gang.
             elif sdp_rank == 0:
+                if isinstance(item, Tensor):
+                    item = item.detach()
+
                 state_dict[name] = item
 
     return state_dict

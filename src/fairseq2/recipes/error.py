@@ -68,17 +68,6 @@ class ModelCompilationNotSupportedError(NotSupportedError):
         self.model_name = model_name
 
 
-class StaticGraphNotSupportedError(NotSupportedError):
-    data_parallelism: str
-
-    def __init__(self, data_parallelism: str) -> None:
-        super().__init__(
-            f"{data_parallelism} does not support non-static model graphs."
-        )
-
-        self.data_parallelism = data_parallelism
-
-
 class HybridShardingNotSupportedError(NotSupportedError):
 
     def __init__(self) -> None:

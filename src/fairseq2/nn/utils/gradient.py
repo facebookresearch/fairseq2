@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import logging
+import warnings
 from typing import Any
 
 import torch
@@ -100,7 +101,16 @@ def clip_gradient_norm(
         if not module.check_is_root():
             raise ValueError("`module` must be the root FSDP module.")
 
-        return module.clip_grad_norm_(max_norm, norm_type)
+        # When a large portion of a model's parameters are frozen, some ranks
+        # will likely won't get any gradient shards. No need to get a warning
+        # for such use cases as we already have `check_gradient_norms()` as a
+        # safety check.
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                action="ignore", message=r".*with no gradients -- returning the total norm.*"  # fmt: skip
+            )
+
+            return module.clip_grad_norm_(max_norm, norm_type)
 
     grad_norm = clip_grad_norm_(
         module.parameters(), max_norm, norm_type, error_if_nonfinite=False

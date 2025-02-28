@@ -32,7 +32,6 @@ from fairseq2.nn.data_parallel import (
 from fairseq2.nn.utils.gradient import clip_gradient_norm
 from fairseq2.nn.utils.module import broadcast_module, to_device
 from fairseq2.recipes.config import TrainerSection, get_config_section
-from fairseq2.recipes.error import StaticGraphNotSupportedError
 from fairseq2.recipes.model import Model
 from fairseq2.typing import ContextManager
 
@@ -81,11 +80,11 @@ def wrap_ddp(model: Model, gangs: Gangs, static_graph: bool) -> Model:
     # We do not set DDP's `static_graph` parameter. Unfortunately, support for
     # that feature is finicky in DDP. `find_unused_parameters` is still useful
     # though and can have measurable impact on performance.
-    dp_module = to_ddp(model.module, gangs, find_unused_parameters=not static_graph)
+    ddp_module = to_ddp(model.module, gangs, find_unused_parameters=not static_graph)
 
     log.info("Model wrapped with DDP and broadcasted.")
 
-    return DdpModel(dp_module, model)
+    return DdpModel(ddp_module, model)
 
 
 @final
@@ -153,18 +152,10 @@ def wrap_fsdp(
 ) -> Model:
     trainer_section = get_config_section(recipe_config, "trainer", TrainerSection)
 
-    if trainer_section.fsdp.version == "v2":
-        raise NotSupportedError("FSDP2 is not supported yet.")
-
-    if not static_graph:
-        raise StaticGraphNotSupportedError("FSDP")
-
     if gangs.dp.size == 1:
         to_device(model.module, gangs.root.device)
 
         return model
-
-    log.info("Wrapping the model with FSDP and broadcasting to all processes.")  # fmt: skip
 
     if trainer_section.mixed_precision == "static":
         mp_dtype = trainer_section.dtype
@@ -176,23 +167,28 @@ def wrap_fsdp(
     ) -> Module:
         return model.handler.apply_fsdp(module, granularity, wrapper)
 
-    dp_module = to_fsdp(
-        model.module,
-        gangs,
-        apply_fsdp,
-        broadcast_state=True,
-        reshard_after_forward=trainer_section.fsdp.reshard_after_forward,
-        mixed_precision_dtype=mp_dtype,
-        fp32_reduce=trainer_section.fsdp.fp32_reduce,
-    )
+    if trainer_section.fsdp.version == "v1":
+        log.info("Wrapping the model with FSDP1 and broadcasting to all processes.")  # fmt: skip
 
-    log.info("Model wrapped with FSDP and broadcasted.")
+        fsdp1_module = to_fsdp(
+            model.module,
+            gangs,
+            apply_fsdp,
+            broadcast_state=True,
+            reshard_after_forward=trainer_section.fsdp.reshard_after_forward,
+            mixed_precision_dtype=mp_dtype,
+            fp32_reduce=trainer_section.fsdp.fp32_reduce,
+        )
 
-    return FsdpModel(dp_module, model)
+        log.info("Model wrapped with FSDP1 and broadcasted.")
+
+        return Fsdp1Model(fsdp1_module, model)
+    else:
+        raise NotSupportedError("FSDP2 is not supported yet.")
 
 
 @final
-class FsdpModel(Model):
+class Fsdp1Model(Model):
     _fsdp: FSDP
     _wrapped_model: Model
 
@@ -207,7 +203,7 @@ class FsdpModel(Model):
     @override
     def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
         raise NotSupportedError(
-            "The state of an FSDP wrapped model cannot be restored via `load_state_dict()`."
+            "The state of an FSDP1 wrapped model cannot be restored via `load_state_dict()`."
         )
 
     @override
