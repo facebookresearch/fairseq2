@@ -67,7 +67,7 @@ class Generator(Generic[BatchT]):
     _device_stat_tracker: DeviceStatTracker
     _seed: int
     _wall_watch: Stopwatch
-    _run: bool
+    _has_run: bool
     _progress_reporter: ProgressReporter
 
     def __init__(
@@ -112,16 +112,16 @@ class Generator(Generic[BatchT]):
 
         self._wall_watch = wall_watch
 
-        self._run = False
+        self._has_run = False
 
         self._progress_reporter = NoopProgressReporter()
 
     @torch.inference_mode()
     def __call__(self, progress_reporter: ProgressReporter | None = None) -> None:
-        if self._run:
+        if self._has_run:
             raise InvalidOperationError("The generator can only be run once.")
 
-        self._run = True
+        self._has_run = True
 
         if progress_reporter is not None:
             self._progress_reporter = progress_reporter
@@ -216,6 +216,6 @@ class Generator(Generic[BatchT]):
 
             values["wall_time"] = self._wall_watch.get_elapsed_time()
 
-            self._metric_recorder.record_metrics("generate", values)
+            self._metric_recorder.record_metrics("generation", values)
 
         self._gangs.root.barrier()

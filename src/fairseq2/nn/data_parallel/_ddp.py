@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from typing import TypeAlias
+
 import torch.distributed as dist
 from torch import Tensor
 from torch.distributed import GradBucket
@@ -23,6 +25,8 @@ from fairseq2.nn.utils.module import (
     to_empty,
 )
 
+DdpModule: TypeAlias = DDP
+
 
 def to_ddp(
     module: Module,
@@ -31,7 +35,7 @@ def to_ddp(
     find_unused_parameters: bool = False,
     static_graph: bool = False,
     normalize_gradients: bool = True,
-) -> DDP:
+) -> DdpModule:
     """Wrap ``module`` with DDP.
 
     :param module: The module to be wrapped with DDP.
@@ -78,7 +82,7 @@ def to_ddp(
         ) from None
 
     try:
-        ddp = DDP(
+        ddp = DdpModule(
             module,
             broadcast_buffers=False,
             process_group=process_group,

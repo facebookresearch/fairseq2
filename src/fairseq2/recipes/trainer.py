@@ -144,7 +144,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     _wall_watch: Stopwatch
     _data_read_time: float
     _elapsed_time: float
-    _run: bool
+    _has_run: bool
     _progress_reporter: ProgressReporter
     _progress_task: ProgressTask | None
 
@@ -510,7 +510,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._elapsed_time = 0.0
 
-        self._run = False
+        self._has_run = False
 
         self._progress_reporter = NoopProgressReporter()
 
@@ -523,10 +523,10 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         self._should_stop = True
 
     def __call__(self, progress_reporter: ProgressReporter | None = None) -> None:
-        if self._run:
+        if self._has_run:
             raise InvalidOperationError("The trainer can only be run once.")
 
-        self._run = True
+        self._has_run = True
 
         if progress_reporter is not None:
             self._progress_reporter = progress_reporter
@@ -886,8 +886,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             unit_scores = []
 
             for unit, data_reader in zip(self._valid_units, self._valid_data_readers):
-                if unit.display_name:
-                    log.info("Validating {}.", unit.display_name)
+                if unit.name:
+                    log.info("Validating {}.", unit.name)
 
                 unit_score = self._validate_unit(unit, data_reader)
                 if unit_score is not None:
@@ -961,12 +961,12 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
             values["wall_time"] = self._wall_watch.get_elapsed_time()
 
-            run_name = "valid"
+            run = "valid"
 
-            if unit.display_name:
-                run_name = f"{run_name}/{unit.display_name}"
+            if unit.name:
+                run = f"{run}/{unit.name}"
 
-            self._metric_recorder.record_metrics(run_name, values, self._step_nr)
+            self._metric_recorder.record_metrics(run, values, self._step_nr)
 
         self._gangs.root.barrier()
 
