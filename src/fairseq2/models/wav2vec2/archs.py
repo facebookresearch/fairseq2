@@ -184,7 +184,15 @@ def _7b_llama_rope() -> Wav2Vec2Config:
     return config
 
 
-# TODO: haven't tested yet
+@wav2vec2_arch("7b_llama_l40")
+def _7b_llama_l40() -> Wav2Vec2Config:
+    config = _7b_llama()
+
+    config.encoder_config.num_encoder_layers = 40
+
+    return config
+
+
 @wav2vec2_arch("8b_llama")
 def _8b_llama() -> Wav2Vec2Config:
     config = _7b()
@@ -224,6 +232,20 @@ def _3b_llama() -> Wav2Vec2Config:
     config.encoder_config.ffn_inner_dim = int(2560 * 4 * 1.0)
     config.quantized_dim = 2048
     config.final_dim = 2048
+
+    return config
+
+
+@wav2vec2_arch("5b")
+def _5b() -> Wav2Vec2Config:
+    config = _3b()
+
+    config.encoder_config.num_encoder_layers = 96
+    config.encoder_config.model_dim = 2048
+    config.encoder_config.ffn_inner_dim = 8192
+    config.encoder_config.num_encoder_attn_heads = 16
+    config.quantized_dim = 1024
+    config.final_dim = 1024
 
     return config
 
