@@ -328,7 +328,6 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">torch.distributed</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tensor</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn.parallel</span><span class="w"> </span><span class="kn">import</span> <span class="n">DistributedDataParallel</span> <span class="k">as</span> <span class="n">DDP</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch.optim</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optimizer</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch.profiler</span><span class="w"> </span><span class="kn">import</span> <span class="n">record_function</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">torcheval.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mean</span>
@@ -424,7 +423,7 @@
     <span class="n">_end_of_data</span><span class="p">:</span> <span class="nb">bool</span>
     <span class="n">_should_stop</span><span class="p">:</span> <span class="nb">bool</span>
     <span class="n">_score_metric_descriptor</span><span class="p">:</span> <span class="n">MetricDescriptor</span> <span class="o">|</span> <span class="kc">None</span>
-    <span class="n">_lower_better</span><span class="p">:</span> <span class="nb">bool</span>
+    <span class="n">_lower_score_better</span><span class="p">:</span> <span class="nb">bool</span>
     <span class="n">_early_stopper</span><span class="p">:</span> <span class="n">EarlyStopper</span> <span class="o">|</span> <span class="kc">None</span>
     <span class="n">_best_step_and_score</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span>
     <span class="n">_valid_score</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span>
@@ -485,7 +484,7 @@
         <span class="n">max_num_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">max_num_data_epochs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">score_metric_descriptor</span><span class="p">:</span> <span class="n">MetricDescriptor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">lower_better</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">lower_score_better</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">early_stopper</span><span class="p">:</span> <span class="n">EarlyStopper</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">valid_units</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">EvalUnit</span><span class="p">[</span><span class="n">BatchT</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">valid_data_readers</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">DataReader</span><span class="p">[</span><span class="n">BatchT</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -537,7 +536,7 @@
 <span class="sd">            The maximum number of data epochs to train for.</span>
 <span class="sd">        :param score_metric_descriptor:</span>
 <span class="sd">            The descriptor of the metric to use for score calculation.</span>
-<span class="sd">        :param lower_better:</span>
+<span class="sd">        :param lower_score_better:</span>
 <span class="sd">            If ``True``, lower scores are considered better.</span>
 <span class="sd">        :param early_stopper:</span>
 <span class="sd">            The early-stopper callable.</span>
@@ -597,7 +596,7 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_unit</span> <span class="o">=</span> <span class="n">unit</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_data_reader</span> <span class="o">=</span> <span class="n">data_reader</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_non_stateful</span><span class="p">(</span><span class="s2">&quot;_data_reader&quot;</span><span class="p">,</span> <span class="n">data_reader</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_gangs</span> <span class="o">=</span> <span class="n">gangs</span>
 
@@ -605,7 +604,7 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_amp</span> <span class="o">=</span> <span class="n">amp</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span> <span class="o">=</span> <span class="n">optimizer</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_non_stateful</span><span class="p">(</span><span class="s2">&quot;_optimizer&quot;</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_lr_scheduler</span> <span class="o">=</span> <span class="n">lr_scheduler</span>
 
@@ -652,7 +651,7 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_score_metric_descriptor</span> <span class="o">=</span> <span class="n">score_metric_descriptor</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_lower_better</span> <span class="o">=</span> <span class="n">lower_better</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lower_score_better</span> <span class="o">=</span> <span class="n">lower_score_better</span>
 
         <span class="k">if</span> <span class="n">early_stopper</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">score_metric_descriptor</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -889,9 +888,23 @@
 
         <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Restoring training from the last checkpoint at step </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">step_nr</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
 
-        <span class="n">state_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_manager</span><span class="o">.</span><span class="n">load_checkpoint</span><span class="p">(</span><span class="n">step_nr</span><span class="p">)</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Restoring the trainer state.&quot;</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">state_dict</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_manager</span><span class="o">.</span><span class="n">load_trainer_state</span><span class="p">(</span><span class="n">step_nr</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
+
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Trainer state restored.&quot;</span><span class="p">)</span>
+
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Restoring the optimizer state.&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_manager</span><span class="o">.</span><span class="n">load_optimizer_state</span><span class="p">(</span><span class="n">step_nr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="p">)</span>
+
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Optimizer state restored.&quot;</span><span class="p">)</span>
+
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Restoring the data reader state.&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_manager</span><span class="o">.</span><span class="n">load_data_reader_state</span><span class="p">(</span><span class="n">step_nr</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_reader</span><span class="p">)</span>
+
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Data reader state restored.&quot;</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_gangs</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">barrier</span><span class="p">()</span>
 
@@ -973,16 +986,16 @@
 
         <span class="n">watch</span> <span class="o">=</span> <span class="n">Stopwatch</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_gangs</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
 
+        <span class="c1"># Prepare the unit.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_repeat_step</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">record_function</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;step_</span><span class="si">{</span><span class="n">step_nr</span><span class="si">}</span><span class="s2">_unit_setup&quot;</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_unit</span><span class="o">.</span><span class="n">set_step_nr</span><span class="p">(</span><span class="n">step_nr</span><span class="p">)</span>
+
         <span class="c1"># Collect the batches.</span>
         <span class="k">with</span> <span class="n">record_function</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;step_</span><span class="si">{</span><span class="n">step_nr</span><span class="si">}</span><span class="s2">_data_load&quot;</span><span class="p">):</span>
             <span class="n">batches</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_next_batches</span><span class="p">()</span>
             <span class="k">if</span> <span class="n">batches</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">return</span>
-
-        <span class="c1"># Prepare the unit.</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_repeat_step</span><span class="p">:</span>
-            <span class="k">with</span> <span class="n">record_function</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;step_</span><span class="si">{</span><span class="n">step_nr</span><span class="si">}</span><span class="s2">_unit_setup&quot;</span><span class="p">):</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_unit</span><span class="o">.</span><span class="n">set_step_nr</span><span class="p">(</span><span class="n">step_nr</span><span class="p">)</span>
 
         <span class="n">num_targets</span> <span class="o">=</span> <span class="mi">0</span>
 
@@ -1265,10 +1278,10 @@
 
             <span class="n">values</span><span class="p">[</span><span class="s2">&quot;wall_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wall_watch</span><span class="o">.</span><span class="n">get_elapsed_time</span><span class="p">()</span>
 
+            <span class="n">run_name</span> <span class="o">=</span> <span class="s2">&quot;valid&quot;</span>
+
             <span class="k">if</span> <span class="n">unit</span><span class="o">.</span><span class="n">display_name</span><span class="p">:</span>
-                <span class="n">run_name</span> <span class="o">=</span> <span class="s2">&quot;valid/&quot;</span> <span class="o">+</span> <span class="n">unit</span><span class="o">.</span><span class="n">display_name</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">run_name</span> <span class="o">=</span> <span class="s2">&quot;valid&quot;</span>
+                <span class="n">run_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">run_name</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">unit</span><span class="o">.</span><span class="n">display_name</span><span class="si">}</span><span class="s2">&quot;</span>
 
             <span class="bp">self</span><span class="o">.</span><span class="n">_metric_recorder</span><span class="o">.</span><span class="n">record_metrics</span><span class="p">(</span><span class="n">run_name</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_step_nr</span><span class="p">)</span>
 
@@ -1314,7 +1327,7 @@
 
             <span class="n">best_score</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_best_step_and_score</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
 
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lower_better</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lower_score_better</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">best_score</span> <span class="o">&gt;</span> <span class="n">last_score</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">last_score</span> <span class="o">&gt;</span> <span class="n">best_score</span>
@@ -1374,41 +1387,15 @@
 
         <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Saving checkpoint after step </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">step_nr</span><span class="p">)</span>
 
-        <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_manager</span><span class="o">.</span><span class="n">begin_checkpoint</span><span class="p">(</span><span class="n">step_nr</span><span class="p">)</span>
-
-        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Saving the trainer state.&quot;</span><span class="p">)</span>
-
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gangs</span><span class="o">.</span><span class="n">dp</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="o">.</span><span class="n">module</span><span class="p">,</span> <span class="n">DDP</span><span class="p">):</span>
-            <span class="n">replicated_keys</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;_optimizer&quot;</span><span class="p">}</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">replicated_keys</span> <span class="o">=</span> <span class="kc">None</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_manager</span><span class="o">.</span><span class="n">save_state</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">replicated_keys</span><span class="o">=</span><span class="n">replicated_keys</span><span class="p">)</span>
-
-        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Trainer state saved.&quot;</span><span class="p">)</span>
-
-        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Extracting the model state on rank 0.&quot;</span><span class="p">)</span>
-
-        <span class="n">model_state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
-
-        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Model state extracted.&quot;</span><span class="p">)</span>
-
-        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Saving the model.&quot;</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_manager</span><span class="o">.</span><span class="n">save_model_state_dict</span><span class="p">(</span><span class="n">model_state</span><span class="p">)</span>
-
-        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Model saved.&quot;</span><span class="p">)</span>
-
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_score_metric_descriptor</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Saving the score.&quot;</span><span class="p">)</span>
-
-            <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_manager</span><span class="o">.</span><span class="n">save_score</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_valid_score</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lower_better</span><span class="p">)</span>
-
-            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Score saved.&quot;</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_manager</span><span class="o">.</span><span class="n">commit_checkpoint</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_checkpoint_manager</span><span class="o">.</span><span class="n">save_checkpoint</span><span class="p">(</span>
+            <span class="n">step_nr</span><span class="p">,</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_optimizer</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_data_reader</span><span class="p">,</span>
+            <span class="n">score</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_valid_score</span><span class="p">,</span>
+            <span class="n">lower_score_better</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_lower_score_better</span><span class="p">,</span>
+        <span class="p">)</span>
 
         <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Checkpoint complete.&quot;</span><span class="p">)</span>
 
@@ -1509,7 +1496,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=261bd731"></script>
+</div><script src="../../../_static/documentation_options.js?v=dfc04fbb"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>

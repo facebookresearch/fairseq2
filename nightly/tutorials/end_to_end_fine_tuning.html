@@ -600,7 +600,7 @@ fairseq2<span class="w"> </span>lm<span class="w"> </span>instruction_finetune<s
 <ul>
 <li><p><cite>Option 1</cite>: Slurm</p>
 <blockquote>
-<div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>srun<span class="w"> </span>--pty<span class="w"> </span>--nodes<span class="o">=</span><span class="m">2</span><span class="w"> </span>--ntasks-per-node<span class="o">=</span><span class="m">8</span><span class="w"> </span><span class="se">\</span>
+<div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>srun<span class="w"> </span>--pty<span class="w"> </span>--nodes<span class="o">=</span><span class="m">2</span><span class="w"> </span>--ntasks-per-node<span class="o">=</span><span class="m">8</span><span class="w"> </span>--gpus-per-node<span class="o">=</span><span class="m">8</span><span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>fairseq2<span class="w"> </span>lm<span class="w"> </span>instruction_finetune<span class="w"> </span><span class="nv">$OUTPUT_DIR</span><span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>...
 </pre></div>
@@ -837,7 +837,7 @@ pointing vLLM to both the fairseq2 checkpoint directory and the Hugging Face tok
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=261bd731"></script>
+</div><script src="../_static/documentation_options.js?v=dfc04fbb"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/furo.js?v=5fa4622c"></script>
