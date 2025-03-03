@@ -184,7 +184,15 @@ def _7b_llama_rope() -> Wav2Vec2Config:
     return config
 
 
-# TODO: haven't tested yet
+@wav2vec2_arch("7b_llama_l40")
+def _7b_llama_l40() -> Wav2Vec2Config:
+    config = _7b_llama()
+
+    config.encoder_config.num_encoder_layers = 40
+
+    return config
+
+
 @wav2vec2_arch("8b_llama")
 def _8b_llama() -> Wav2Vec2Config:
     config = _7b()
