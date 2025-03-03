@@ -45,14 +45,14 @@ class EvalUnit(ABC, Generic[BatchT_contra]):
         pass
 
     @property
+    def name(self) -> str | None:
+        """The name of the unit for reporting purposes."""
+        return None
+
+    @property
     @abstractmethod
     def model(self) -> Model:
         """The underlying model."""
-
-    @property
-    def display_name(self) -> str | None:
-        """The display name of the unit for reporting purposes."""
-        return None
 
     @property
     @abstractmethod
@@ -78,7 +78,7 @@ class Evaluator(Generic[BatchT]):
     _device_stat_tracker: DeviceStatTracker
     _seed: int
     _wall_watch: Stopwatch
-    _run: bool
+    _has_run: bool
     _progress_reporter: ProgressReporter
 
     def __init__(
@@ -130,16 +130,16 @@ class Evaluator(Generic[BatchT]):
 
         self._wall_watch = wall_watch
 
-        self._run = False
+        self._has_run = False
 
         self._progress_reporter = NoopProgressReporter()
 
     @torch.inference_mode()
     def __call__(self, progress_reporter: ProgressReporter | None = None) -> None:
-        if self._run:
+        if self._has_run:
             raise InvalidOperationError("The evaluator can only be run once.")
 
-        self._run = True
+        self._has_run = True
 
         if progress_reporter is not None:
             self._progress_reporter = progress_reporter
@@ -166,8 +166,8 @@ class Evaluator(Generic[BatchT]):
     def _do_run(self) -> None:
         with self._progress_reporter, self._profiler:
             for unit, data_reader in zip(self._units, self._data_readers):
-                if unit.display_name:
-                    log.info("Evaluating {}.", unit.display_name)
+                if unit.name:
+                    log.info("Evaluating {}.", unit.name)
 
                 self._evaluate_unit(unit, data_reader)
 
@@ -246,8 +246,8 @@ class Evaluator(Generic[BatchT]):
 
             values["wall_time"] = self._wall_watch.get_elapsed_time()
 
-            if unit.display_name:
-                run_name = "eval/" + unit.display_name
+            if unit.name:
+                run_name = "eval/" + unit.name
             else:
                 run_name = "eval"
 

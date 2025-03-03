@@ -270,7 +270,7 @@ def load_mt_trainer(
 
     # Initialize the validation units.
     if config.validation.compute_bleu_chrf:
-        seq2seq_generator = create_seq2seq_generator(context, config, model)
+        seq2seq_generator = create_seq2seq_generator(context, config.validation, model)
     else:
         seq2seq_generator = None
 
