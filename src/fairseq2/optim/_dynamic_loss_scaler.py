@@ -97,7 +97,7 @@ class DynamicLossScaler:
                     action="ignore", message=r".*torch\.cuda\.amp\.GradScaler is enabled.*"  # fmt: skip
                 )
 
-                self._grad_scaler = _InternalGradScaler(
+                self._grad_scaler = InternalGradScaler(
                     init_scale=init_scale,
                     growth_factor=scale_factor,
                     backoff_factor=1 / scale_factor,
@@ -248,7 +248,7 @@ def supports_manual_gradient_scaling(optimizer: Optimizer) -> bool:
     return not getattr(optimizer, "_step_supports_amp_scaling", False)
 
 
-class _InternalGradScaler(GradScaler):
+class InternalGradScaler(GradScaler):
     @override
     def _unscale_grads_(
         self,

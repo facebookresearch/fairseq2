@@ -26,11 +26,14 @@ StatefulT = TypeVar("StatefulT")
 class StatefulObjectBag:
     """Holds a collection of stateful objects."""
 
+    _explicit_only: bool
     _non_stateful_attrs: set[str]
     _explicit_stateful_attrs: dict[str, StateHandler[Any] | None]
 
-    def __init__(self) -> None:
+    def __init__(self, explicit_only: bool = False) -> None:
         super().__init__()  # play nicely as a mixin.
+
+        self._explicit_only = explicit_only
 
         self._non_stateful_attrs = set()
 
@@ -114,6 +117,8 @@ class StatefulObjectBag:
                         state = obj
                 else:
                     state = state_handler.get_state(obj)
+            elif self._explicit_only:
+                continue
             elif isinstance(obj, Stateful) and not self._is_dunder(name):
                 state = obj.state_dict()
             else:
@@ -169,6 +174,8 @@ class StatefulObjectBag:
                         state_handler.set_state(obj, state)
                     except (ValueError, TypeError) as ex:
                         raise state_error(name, obj) from ex
+            elif self._explicit_only:
+                continue
             elif isinstance(obj, Stateful) and not self._is_dunder(name):
                 try:
                     state = state_dict_.pop(name)

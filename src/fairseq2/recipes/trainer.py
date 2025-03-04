@@ -9,6 +9,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from contextlib import nullcontext
+from enum import Enum
 from itertools import count
 from statistics import mean
 from typing import Generic, TypeVar, final
@@ -81,6 +82,13 @@ class TrainUnit(ABC, Generic[BatchT_contra]):
         """The training-related metrics."""
 
 
+class _TrainerState(Enum):
+    NOT_STARTED = 0
+    RUNNING = 1
+    FINISHING = 2
+    FINISHED = 3
+
+
 BatchT = TypeVar("BatchT")
 
 
@@ -88,6 +96,7 @@ BatchT = TypeVar("BatchT")
 class Trainer(StatefulObjectBag, Generic[BatchT]):
     """Trains a machine learning model."""
 
+    _state: _TrainerState
     _model: Model
     _unit: TrainUnit[BatchT]
     _data_reader: DataReader[BatchT]
@@ -105,9 +114,6 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     _repeat_step: bool
     _has_read_any_data: bool
     _num_effective_batches: int
-    _end_of_data_epoch: bool
-    _end_of_data: bool
-    _should_stop: bool
     _score_metric_descriptor: MetricDescriptor | None
     _lower_score_better: bool
     _early_stopper: EarlyStopper | None
@@ -144,7 +150,6 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     _wall_watch: Stopwatch
     _data_read_time: float
     _elapsed_time: float
-    _has_run: bool
     _progress_reporter: ProgressReporter
     _progress_task: ProgressTask | None
 
@@ -274,15 +279,17 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         :param seed:
             The random number generator seed.
         """
-        super().__init__()
+        super().__init__(explicit_only=True)
+
+        self._state = _TrainerState.NOT_STARTED
 
         device = gangs.root.device
 
-        self.register_non_stateful("_model", unit.model)
+        self._model = unit.model
 
         self._unit = unit
 
-        self.register_non_stateful("_data_reader", data_reader)
+        self._data_reader = data_reader
 
         self._gangs = gangs
 
@@ -290,13 +297,13 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._amp = amp
 
-        self.register_non_stateful("_optimizer", optimizer)
+        self._optimizer = optimizer
 
-        self._lr_scheduler = lr_scheduler
+        self.register_stateful("_lr_scheduler", lr_scheduler)
 
         fp16_init_scale, fp16_min_scale = fp16_loss_scale
 
-        self._loss_scaler = DynamicLossScaler(
+        loss_scaler = DynamicLossScaler(
             optimizer,
             gangs.root,
             sharded=gangs.root.size != gangs.rdp.size,
@@ -305,6 +312,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             gradient_accumulation=data_reader.num_accumulate,
             enabled=dtype == torch.float16,
         )
+
+        self.register_stateful("_loss_scaler", loss_scaler)
 
         self._max_gradient_norm = max_gradient_norm
 
@@ -329,11 +338,6 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         self.register_stateful("_has_read_any_data", False)
 
         self._num_effective_batches = 0
-
-        self._end_of_data_epoch = False
-        self._end_of_data = False
-
-        self._should_stop = False
 
         self._score_metric_descriptor = score_metric_descriptor
 
@@ -470,7 +474,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             "gradient_norm", Mean(device=device), persistent=False
         )
 
-        self._metric_bag = unit.metric_bag
+        self.register_stateful("_metric_bag", unit.metric_bag)
 
         self._metric_recorder = metric_recorder
 
@@ -502,7 +506,9 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._seed = seed
 
-        self._rng_bag = RngBag.from_device_defaults(CPU, device)
+        rng_bag = RngBag.from_device_defaults(CPU, device)
+
+        self.register_stateful("_rng_bag", rng_bag)
 
         self._wall_watch = wall_watch
 
@@ -510,23 +516,24 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._elapsed_time = 0.0
 
-        self._has_run = False
-
         self._progress_reporter = NoopProgressReporter()
 
         self._progress_task = None
 
     def request_stop(self) -> None:
         """Request a graceful stop of the training."""
-        log.info("Stopping training after a final validation and saving checkpoint.")
+        if self._state != _TrainerState.RUNNING:
+            return
 
-        self._should_stop = True
+        log.info("Stop requested. Training will be finished.")
+
+        self._state = _TrainerState.FINISHING
 
     def __call__(self, progress_reporter: ProgressReporter | None = None) -> None:
-        if self._has_run:
+        if self._state != _TrainerState.NOT_STARTED:
             raise InvalidOperationError("The trainer can only be run once.")
 
-        self._has_run = True
+        self._state = _TrainerState.RUNNING
 
         if progress_reporter is not None:
             self._progress_reporter = progress_reporter
@@ -553,14 +560,14 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._gangs.close()
 
-        if self._should_stop:
-            log.info("Training stopped at step {}!", self._step_nr)
-
-            return
+        if self._state != _TrainerState.FINISHED:
+            raise InternalError(
+                f"`_state` must be `FINISHED`, but is `{self._state}` instead."
+            )
 
         elapsed_time = self._wall_watch.get_elapsed_time()
 
-        log.info("Training complete in {:,} seconds after {} step(s)!", int(elapsed_time), self._step_nr)  # fmt: skip
+        log.info("Training finished in {:,} seconds after {} step(s)!", int(elapsed_time), self._step_nr)  # fmt: skip
 
     def _maybe_restore_state(self) -> None:
         step_nr = self._checkpoint_manager.get_last_step_number()
@@ -593,6 +600,10 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         log.info("Training restored. Resuming.")
 
+        if self._max_num_steps is not None:
+            if self._step_nr >= self._max_num_steps:
+                self._state = _TrainerState.FINISHING
+
     def _do_run(self) -> None:
         self._model.module.train()
 
@@ -607,9 +618,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
             first_iter = True
 
-            while self._should_run_step():
-                self._maybe_advance_data_epoch()
-
+            while self._state == _TrainerState.RUNNING:
                 self._step_nr += 1
 
                 self._progress_task.step(1)
@@ -621,6 +630,16 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
                 with detect_anomaly:
                     with record_function(f"step_{self._step_nr}"):
                         self._run_step()
+
+                self._checkpoint_manager.maybe_complete_async_checkpoint()
+
+                if self._repeat_step:
+                    self._step_nr -= 1
+
+                    self._progress_task.step(-1)
+                elif self._max_num_steps is not None:
+                    if self._step_nr >= self._max_num_steps:
+                        self._state = _TrainerState.FINISHING
 
                 if self._should_publish_metrics():
                     self._publish_metrics()
@@ -647,20 +666,12 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
                     first_iter = False
 
-    def _should_run_step(self) -> bool:
-        if self._end_of_data or self._should_stop:
-            return False
+        if self._state != _TrainerState.FINISHING:
+            raise InternalError(
+                f"`_state` must be `FINISHING`, but is `{self._state}` instead."
+            )
 
-        if self._max_num_steps is None:
-            return True
-
-        return self._step_nr < self._max_num_steps
-
-    def _maybe_advance_data_epoch(self) -> None:
-        if self._end_of_data_epoch:
-            self._data_epoch_nr += 1
-
-            self._end_of_data_epoch = False
+        self._state = _TrainerState.FINISHED
 
     def _run_step(self) -> None:
         step_nr = self._step_nr
@@ -729,19 +740,12 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         self._repeat_step = scale_result.overflow
 
         if self._repeat_step:
-            self._metric_bag.rollback_updates()
-
             if scale_result.min_reached:
                 raise FloatingPointError(
                     f"The gradients are scaled down to minimum at step {step_nr}. Training cannot continue."
                 )
 
-            self._step_nr -= 1
-
-            if self._progress_task is None:
-                raise InternalError("`_progress_task` is `None`.")
-
-            self._progress_task.step(-1)
+            self._metric_bag.rollback_updates()
         else:
             self._lr_scheduler.step()
 
@@ -758,6 +762,11 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         self._elapsed_time += watch.get_elapsed_time()
 
     def _next_batches(self) -> list[BatchT] | None:
+        if self._state != _TrainerState.RUNNING:
+            raise InternalError(
+                f"`_state` must be `RUNNING`, but is `{self._state}` instead."
+            )
+
         watch = Stopwatch(start=True)
 
         try:
@@ -774,27 +783,20 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._data_reader.reset()
 
-        self._end_of_data_epoch = True
-
         log.info("End of epoch {} reached at training step {}.", self._data_epoch_nr, self._step_nr)  # fmt: skip
 
         if not self._has_read_any_data:
-            self._end_of_data = True
+            self._state = _TrainerState.FINISHING
         elif self._max_num_data_epochs is not None:
             if self._data_epoch_nr >= self._max_num_data_epochs:
-                self._end_of_data = True
+                self._state = _TrainerState.FINISHING
 
-        if self._end_of_data:
+        if self._state == _TrainerState.FINISHING:
             log.info("End of data reached.", self._step_nr)
         else:
+            self._data_epoch_nr += 1
+
             self._repeat_step = True
-
-        self._step_nr -= 1
-
-        if self._progress_task is None:
-            raise InternalError("`_progress_task` is `None`.")
-
-        self._progress_task.step(-1)
 
         return None
 
@@ -883,17 +885,18 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         self._model.module.eval()
 
         with self._model.summon_full_parameters():
-            unit_scores = []
-
-            for unit, data_reader in zip(self._valid_units, self._valid_data_readers):
-                if unit.name:
-                    log.info("Validating {}.", unit.name)
-
-                unit_score = self._validate_unit(unit, data_reader)
-                if unit_score is not None:
-                    unit_scores.append(unit_score)
-
-            self._valid_score = self._compute_valid_score(unit_scores)
+            pass
+#            unit_scores = []
+#
+#            for unit, data_reader in zip(self._valid_units, self._valid_data_readers):
+#                if unit.name:
+#                    log.info("Validating {}.", unit.name)
+#
+#                unit_score = self._validate_unit(unit, data_reader)
+#                if unit_score is not None:
+#                    unit_scores.append(unit_score)
+#
+#            self._valid_score = self._compute_valid_score(unit_scores)
 
         self._model.module.train()
 
@@ -1019,7 +1022,9 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             self._best_step_and_score = (self._step_nr, last_score)
 
         if log.is_enabled_for_info():
-            best_step_nr, best_score = self._best_step_and_score  # type: ignore[misc]
+            assert self._best_step_and_score is not None
+
+            best_step_nr, best_score = self._best_step_and_score
 
             if len(unit_scores) > 1:
                 m1 = "Mean "
@@ -1042,6 +1047,9 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         if self._early_stopper is None:
             return
 
+        if self._state != _TrainerState.RUNNING:
+            return
+
         if self._gangs.root.rank == 0:
             if self._valid_score is None:
                 raise InternalError("Early stopping, but `_valid_score` is `None`.")
@@ -1052,10 +1060,11 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         else:
             should_stop = False
 
-        self._should_stop = broadcast_flag(self._gangs.root, should_stop)
+        should_stop = broadcast_flag(self._gangs.root, should_stop)
+        if should_stop:
+            log.info("Early stop requested. Training will be finished.")
 
-        if self._should_stop:
-            log.info("Early stop requested. Training will be terminated after saving checkpoint.")  # fmt: skip
+            self._state = _TrainerState.FINISHING
 
     def _should_checkpoint(self) -> bool:
         return self._should_do(
@@ -1068,7 +1077,17 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     def _checkpoint(self) -> None:
         step_nr = self._step_nr
 
-        log.info("Saving checkpoint after step {}.", step_nr)
+        if self._checkpoint_manager.is_saving():
+            log.info("Waiting the current asynchronous checkpoint operation to complete before saving the checkpoint at step {}.", step_nr)  # fmt: skip
+
+            self._checkpoint_manager.maybe_complete_async_checkpoint(block=True)
+
+        block = self._state == _TrainerState.FINISHING
+
+        if block:
+            log.info("Saving the final checkpoint at step {}.", step_nr)
+        else:
+            log.info("Asynchronously saving the checkpoint at step {}.", step_nr)
 
         self._checkpoint_manager.save_checkpoint(
             step_nr,
@@ -1078,10 +1097,11 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             self._data_reader,
             score=self._valid_score,
             lower_score_better=self._lower_score_better,
+            callback=self._complete_checkpoint,
+            block=block,
         )
 
-        log.info("Checkpoint complete.")
-
+    def _complete_checkpoint(self, step_nr: int) -> None:
         # Clean up the checkpoints.
         nc = self._keep_last_n_checkpoints
         nm = self._keep_last_n_models
@@ -1107,6 +1127,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         elif nc is not None:
             self._checkpoint_manager.keep_best_n_checkpoints(nc)
 
+        log.info("Checkpoint at step {} saved.", step_nr)
+
     def _should_do(
         self,
         after_n_steps: int,
@@ -1114,31 +1136,21 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         after_n_data_epochs: int,
         every_n_data_epochs: int | None,
     ) -> bool:
-        should_do_at_step = self._should_do_at_step(after_n_steps, every_n_steps)
+        if self._state == _TrainerState.FINISHING:
+            return True
 
-        if self._end_of_data or self._should_stop:
-            if not self._has_read_any_data:
+        if self._state == _TrainerState.RUNNING:
+            if self._repeat_step:
                 return False
 
-            return not should_do_at_step
+            if every_n_steps is not None:
+                if self._step_nr >= after_n_steps:
+                    if self._step_nr % every_n_steps == 0:
+                        return True
 
-        if self._end_of_data_epoch and every_n_data_epochs is not None:
-            if self._data_epoch_nr >= after_n_data_epochs:
-                if self._data_epoch_nr % every_n_data_epochs == 0:
-                    return not should_do_at_step
-
-        if self._repeat_step:
-            return False
-
-        return should_do_at_step
-
-    def _should_do_at_step(self, after_n_steps: int, every_n_steps: int | None) -> bool:
-        if self._max_num_steps is not None:
-            if self._step_nr >= self._max_num_steps:
-                return True
-
-        if every_n_steps is not None:
-            if self._step_nr >= after_n_steps:
-                return self._step_nr % every_n_steps == 0
+            if every_n_data_epochs is not None:
+                if self._data_epoch_nr >= after_n_data_epochs:
+                    if self._data_epoch_nr % every_n_data_epochs == 0:
+                        return True
 
         return False

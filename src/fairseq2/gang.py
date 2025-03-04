@@ -26,9 +26,9 @@ from fairseq2.logging import log
 from fairseq2.typing import Device
 from fairseq2.utils.env import (
     InvalidEnvironmentVariableError,
-    get_local_world_size,
     get_world_size,
 )
+from fairseq2.utils.threading import ThreadingError, get_num_threads
 from fairseq2.utils.version import torch_greater_or_equal
 
 
@@ -352,18 +352,13 @@ class ProcessGroupGang(Gang):
                 f"`device` must be of type `cpu` and `cuda`, but is of type `{device.type}` instead."
             )
 
-        if num_threads is None:
+        if num_threads is None and "OMP_NUM_THREADS" not in os.environ:
             try:
-                num_procs = get_local_world_size(os.environ)
-            except InvalidEnvironmentVariableError as ex:
+                num_threads = get_num_threads(os.environ)
+            except ThreadingError as ex:
                 raise GangError(
-                    "The local world size cannot be determined from the environment variables. See the nested exception for details."
+                    "The number of threads to use for intra-op parallelism cannot be determined. See the nested exception for details."
                 ) from ex
-
-            if num_procs > 1 and "OMP_NUM_THREADS" not in os.environ:
-                # To prevent thread oversubscription, we distribute cores evenly
-                # across the workers.
-                num_threads = _get_num_cpus(num_procs)
 
         if num_threads is not None:
             torch.set_num_threads(num_threads)
@@ -604,20 +599,6 @@ class ProcessGroupGang(Gang):
         raise NotSupportedError(
             f"`{op}` operation is not supported by the underlying process group."
         )
-
-
-def _get_num_cpus(num_procs: int) -> int:
-    num_cpus = os.cpu_count()
-
-    affinity_mask = os.sched_getaffinity(0)
-
-    if num_cpus is None or affinity_mask is None:
-        log.warning("The number of CPU cores cannot be determined.")
-
-        return 1
-
-    # We should not exceed the number of cores available in the affinity mask.
-    return min(max(num_cpus // num_procs, 1), len(affinity_mask))
 
 
 def setup_root_gang(

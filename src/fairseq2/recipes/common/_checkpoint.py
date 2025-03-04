@@ -12,6 +12,7 @@ from fairseq2.checkpoint import CheckpointManager, FileCheckpointManager
 from fairseq2.context import RuntimeContext
 from fairseq2.gang import Gangs
 from fairseq2.utils.file import TorchTensorDumper, TorchTensorLoader
+from fairseq2.utils.threading import get_default_thread_pool
 
 
 def create_checkpoint_manager(
@@ -24,6 +25,8 @@ def create_checkpoint_manager(
     tensor_loader = TorchTensorLoader(file_system)
     tensor_dumper = TorchTensorDumper(file_system)
 
+    thread_pool = get_default_thread_pool()
+
     return FileCheckpointManager(
-        checkpoint_dir, gangs, file_system, tensor_loader, tensor_dumper
+        checkpoint_dir, gangs, file_system, tensor_loader, tensor_dumper, thread_pool
     )
