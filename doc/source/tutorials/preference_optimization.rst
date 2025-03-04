@@ -209,7 +209,7 @@ fairseq2 supports four different preference optimization methods:
                 _set_:
                     version: v1
                     granularity: layer
-                    hsdp: false
+                    hybrid: false
                     reshard_after_forward: true
                     fp32_reduce: true
         optimizer:
