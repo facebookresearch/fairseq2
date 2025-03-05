@@ -7,7 +7,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any, cast, List
+
+import torch.nn as nn
 
 import torch
 from torch import Tensor
@@ -23,7 +25,8 @@ from ray.util.placement_group import placement_group
 from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
 from transformers import AutoModelForCausalLM
 
-from vllm import LLM, SamplingParams
+from vllm import LLM, SamplingParams, RequestOutput, CompletionOutput
+import re
 from vllm.utils import get_ip, get_open_port
 from vllm.worker.worker import Worker
 import os
@@ -75,7 +78,6 @@ def stateless_init_process_group(master_address, master_port, rank, world_size,
 class NoEnvLLM(LLM):
 
     def __init__(self, *args, **kwargs):
-        # a hack to make the script work.
         # stop ray from manipulating CUDA_VISIBLE_DEVICES
         # at the top-level
         del os.environ["CUDA_VISIBLE_DEVICES"]
@@ -172,99 +174,132 @@ def setup_vllm(actor_name, vllm_init_checkpoint_dir, vllm_init_tokenizer, tensor
 
     return llm, model_update_group
 
-def cat_source_and_target(example: dict[str, Any], mask_source_tokens=True) -> dict[str, Any]:
-    id_ = example.get("id", None)
+def gsm8k_correctness_verifier(vllm_output: RequestOutput, reference_answer: List[str]):
+    # verifier to match predicted answer with gsm8k format with the reference
 
-    source_indices = example["src"]
-    target_indices_chosen = example["tgt_chosen"]
-    target_indices_rejected = example["tgt_rejected"]
+    # utils from gsm8k paper to extract a correct answer and match it to the prompt
+    ANS_RE = re.compile(r"#### (\-?[0-9\.\,]+)")
+    INVALID_ANS = "[invalid]"
 
-    indices_chosen = torch.cat([source_indices, target_indices_chosen])
-    indices_rejected = torch.cat([source_indices, target_indices_rejected])
+    def extract_answer(completion):
+        match = ANS_RE.search(completion)
+        if match:
+            match_str = match.group(1).strip()
+            match_str = match_str.replace(",", "")
+            return match_str
+        else:
+            return INVALID_ANS
 
-    if mask_source_tokens:
-        source_len = len(source_indices)
-        target_mask_chosen = torch.arange(len(indices_chosen)) >= source_len
-        target_mask_rejected = torch.arange(len(indices_rejected)) >= source_len
-    else:
-        target_mask_chosen = torch.full([len(indices_chosen)], True)
-        target_mask_rejected = torch.full([len(indices_rejected)], True)
+    batch_text = []
+    batch_tokens = []
+    batch_rewards = []
 
-    total_tokens = (
-        2 * len(source_indices)
-        + len(target_indices_chosen)
-        + len(target_indices_rejected)
-    )
-
-    # below is an example of using extras field of data reader options
-    # if "keep_jsonl_keys" in options.extras:
-    #     jsonl_keys = options.extras["keep_jsonl_keys"]
-    #     if not (
-    #         isinstance(jsonl_keys, list)
-    #         and all(isinstance(i, str) for i in jsonl_keys)
-    #     ):
-    #         raise ValueError(f"{jsonl_keys} must be a list of strings")
-    #     jsonl_content = {k: example.get(k, None) for k in jsonl_keys}
-    # else:
-    #     jsonl_content = None
+    for i, i_batch_request_output in enumerate(vllm_output):
+        rollouts_text = []
+        rollouts_tokens = []
+        i_reference_answer = reference_answer[i]
+        rollouts_rewards = []
+        for rollout_output in i_batch_request_output.outputs:
+            rollouts_text.append(rollout_output.text)
+            rollouts_tokens.append(rollout_output.token_ids)
+            predicted_answer = extract_answer(rollout_output.text)
+            predicted_reward = 1 if predicted_answer == i_reference_answer else 0
+            rollouts_rewards.append(predicted_reward)
+        batch_text.append(rollouts_text)
+        batch_tokens.append(rollouts_tokens)
+        batch_rewards.append(rollouts_rewards)
 
     return {
-        "id": id_,
-        "indices_prompt": source_indices,
-        "indices_chosen": indices_chosen,
-        "indices_rejected": indices_rejected,
-        "reference_score_chosen": example.get("reference_score_chosen", None),
-        "reference_score_rejected": example.get(
-            "reference_score_rejected", None
-        ),
-        "target_mask_chosen": target_mask_chosen,
-        "target_mask_rejected": target_mask_rejected,
-        "total_tokens": total_tokens,
-        # "keep_jsonl_keys": jsonl_content,
+        "text": batch_text,
+        "tokens": batch_tokens,
+        "rewards": batch_rewards
     }
 
-def to_preference_batch(example: dict[str, Any], device) -> PreferenceBatch:
-    indices_chosen = cast(SequenceData, example["indices_chosen"])
-    indices_rejected = cast(SequenceData, example["indices_rejected"])
+def collate_with_target_mask(list_of_tensors, prompt_lens, pad_value=0, device="cpu"):
+    # list_of_tensors contain prompt+rollout tokens, we use prompt_len to define the target loss mask here
+    to_collate = []
+    for seq, prompt_len in zip(list_of_tensors, prompt_lens):
+        target_loss_mask = torch.arange(len(seq)) >= prompt_len
+        to_collate.append({
+            "seqs": seq,
+            "target_loss_mask": target_loss_mask
+        })
 
-    seqs_chosen, padding_mask_chosen = get_seqs_and_padding_mask(
-        indices_chosen, device
-    )
-    seqs_rejected, padding_mask_rejected = get_seqs_and_padding_mask(
-        indices_rejected, device
-    )
+    target_mask_collate_opts = [
+            CollateOptionsOverride("target_loss_mask", pad_value=False),
+        ]
+    collater = Collater(pad_value=pad_value, pad_to_multiple=1, overrides=target_mask_collate_opts)
 
-    target_mask_chosen = example["target_mask_chosen"]["seqs"].to(device)
-    target_mask_rejected = example["target_mask_rejected"]["seqs"].to(device)  # fmt: skip
+    seq_data = cast(SequenceData, collater(to_collate))
 
-    batch_chosen = SequenceBatch(
-        seqs_chosen,
-        padding_mask_chosen,
-        target_mask_chosen,
-        example=example,
-    )
+    seqs, padding_mask = get_seqs_and_padding_mask(
+                seq_data["seqs"], device
+            )
 
-    batch_rejected = SequenceBatch(
-        seqs_rejected,
-        padding_mask_rejected,
-        target_mask_rejected,
-        example=example,
-    )
+    batch = SequenceBatch(seqs=seqs, padding_mask=padding_mask, target_mask=seq_data["target_loss_mask"]["seqs"].to(device))
 
-    batch_reference_scores_chosen = None
-    if all(example["reference_score_chosen"]):
-        batch_reference_scores_chosen = torch.Tensor(
-            example["reference_score_chosen"]
-        ).to(device)
-    batch_reference_scores_rejected = None
-    if all(example["reference_score_rejected"]):
-        batch_reference_scores_rejected = torch.Tensor(
-            example["reference_score_rejected"]
-        ).to(device)
+    return batch
 
-    return PreferenceBatch(
-        batch_chosen,
-        batch_rejected,
-        batch_reference_scores_chosen,
-        batch_reference_scores_rejected,
-    )
+def copy_state(src_module: nn.Module, tgt_module: nn.Module):
+    tgt_state = tgt_module.state_dict()  # assumed tgt is not sharded
+    for name, src_param in src_module.named_parameters():
+        name_edited = name.replace("_checkpoint_wrapped_module.", "")
+        if name_edited not in tgt_state.keys():
+            raise NameError(f"{name_edited} doesnt exist in tgt_module")
+        tgt_param = tgt_state[name_edited]
+        tgt_param.data.copy_(src_param.data.to(tgt_param.device))
+
+def sync_weights_with_vllm(train_model, vllm_model, trainer_process_group):
+    """
+    trainer_process_group must connect training process with vllm_model processes
+    """
+    for name, p in train_model.module.named_parameters():
+        name = name.replace("._checkpoint_wrapped_module", "")
+        # print(f'sync call {name}')
+        handle = vllm_model.collective_rpc.remote("update_weight",
+                                        args=(name, p.dtype, p.shape))
+        trainer_process_group.broadcast(p, src=0, stream=torch.cuda.current_stream())
+        ray.get(handle)
+
+def rollout_from_model(vllm_model, prompt_list, sampling_params=None):
+    if sampling_params is None:
+        sampling_params = SamplingParams(n=1, temperature=1.0, max_tokens=1024)
+
+    outputs = ray.get(vllm_model.generate.remote(prompt_token_ids=prompt_list, sampling_params=sampling_params, use_tqdm=False))
+    return outputs
+
+def find_first_value(lst, value):
+    return next((i for i, x in enumerate(lst) if x == value), None)
+
+def generate_rollouts(prompts: List[str], dp_gang: Gang, vllm_model, sampling_params):
+    prompts_to_generate = [None]*dp_gang.size
+    if dp_gang.rank == 0:
+        dp_gang.gather_object(prompts, prompts_to_generate, 0)
+    else:
+        dp_gang.gather_object(prompts, None, 0)
+
+    if dp_gang.rank == 0:
+        rank_batch_sizes = [len(l) for l in prompts_to_generate]
+        flat_request_list = []
+        for rank_prompts in prompts_to_generate:
+            flat_request_list.extend(rank_prompts)
+
+        from pudb.remote import set_trace
+        set_trace(host="submit-0", port=6899, term_size=(80*2, 24*2), reverse=True)
+        
+        rollouts = vllm_model.rollout_from_model(flat_request_list, sampling_params=sampling_params)
+
+        rollouts_to_scatter = []
+        rollouts_per_rank = [None]
+        for dp_rank, rank_batch_size in zip(range(dp_gang.size), rank_batch_sizes):
+            rank_start = sum(rank_batch_sizes[:dp_rank])
+            rank_end = rank_start + rank_batch_size
+            rollouts_to_scatter.append(rollouts[rank_start:rank_end])
+        dp_gang.scatter_object_list(rollouts_per_rank, rollouts_to_scatter, source_rank=0)
+    else:
+        rollouts_per_rank = [None]
+        dp_gang.scatter_object_list(rollouts_per_rank, None, source_rank=0)
+
+    dp_gang.barrier()
+
+    return rollouts_per_rank

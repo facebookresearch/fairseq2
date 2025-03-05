@@ -134,4 +134,7 @@ from fairseq2.recipes.lm._text_generate import (
 )
 from fairseq2.recipes.lm._online_finetune._recipe import register_online_finetune_configs, OnlineFinetuneUnitHandler, load_online_finetuner, OnlineFinetuneConfig 
 from fairseq2.recipes.lm._online_finetune._recipe import OnlineFinetuneDatasetSection as OnlineFinetuneDatasetSection
-from fairseq2.recipes.lm._online_finetune._online_dpo import OnlineDpoFinetuneUnitHandler
+from fairseq2.recipes.lm._online_finetune._online_dpo import OnlineDpoFinetuneUnitHandler as OnlineDpoFinetuneUnitHandler
+from fairseq2.recipes.lm._online_finetune._verifiers import VLLMOutputRewardHandler as VLLMOutputRewardHandler
+from fairseq2.recipes.lm._online_finetune._verifiers import GSM8kVerifier as GSM8kVerifier
+from fairseq2.recipes.lm._online_finetune._verifiers import GSM8kVerifierHandler as GSM8kVerifierHandler

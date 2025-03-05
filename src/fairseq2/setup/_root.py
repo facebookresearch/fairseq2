@@ -33,7 +33,7 @@ from fairseq2.setup._metric_recorders import register_metric_recorders
 from fairseq2.setup._metrics import register_metric_descriptors
 from fairseq2.setup._models import register_model_families
 from fairseq2.setup._optim import register_optimizers
-from fairseq2.setup._po_finetune_units import register_po_finetune_units
+from fairseq2.setup._po_finetune_units import register_po_finetune_units, register_online_finetune_units
 from fairseq2.setup._profilers import register_profilers
 from fairseq2.setup._recipes import register_recipes
 from fairseq2.setup._text_tokenizers import register_text_tokenizer_families
@@ -107,6 +107,7 @@ def setup_library() -> RuntimeContext:
     register_model_families(context)
     register_optimizers(context)
     register_po_finetune_units(context)
+    register_online_finetune_units(context)
     register_profilers(context)
     register_recipes(context)
     register_samplers(context)

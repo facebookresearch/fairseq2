@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Final, List, cast, final
 
+import torch.nn as nn
 import torch
 import torch.distributed
 from torch import Tensor
@@ -48,94 +49,22 @@ from fairseq2.recipes.lm._preference_finetune._common import (
     POFinetuneMetricBag,
     _gather_lprobs_avg,
 )
-from fairseq2.recipes.lm._online_finetune._common import setup_vllm, OnlineCriterionSection, stateless_init_process_group
-from fairseq2.recipes.lm._preference_finetune._handler import POFinetuneUnitHandler
+from fairseq2.recipes.lm._online_finetune._common import OnlineCriterionSection
+from fairseq2.recipes.lm._online_finetune._handler import OnlineFinetuneUnitHandler
 from fairseq2.recipes.trainer import TrainUnit
 from fairseq2.typing import DataType
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
+from fairseq2.recipes.common._distributed import broadcast_model
 
-from fairseq2.recipes.lm import DpoFinetuneUnit
-
-from vllm import SamplingParams, RequestOutput, CompletionOutput
+from vllm import SamplingParams
 from vllm.distributed.device_communicators.pynccl import PyNcclCommunicator
 
 import ray
-from fairseq2.nn.padding import pad_seqs, get_seqs_and_padding_mask
+from fairseq2.recipes.lm._online_finetune._verifiers import VLLMOutputRewardHandler, RewardSection, VLLMOutputReward
+from fairseq2.recipes.lm._online_finetune._remote_vllm import VllmConfig, RemoteVllmModelHandler, RemoteVllmModel
 
-from fairseq2.utils.env import get_rank
-import os
-import re
-
-def gsm8k_correctness_verifier(vllm_output: RequestOutput, reference_answer: List[str]):
-    # verifier to match predicted answer with gsm8k format with the reference
-
-    # utils from gsm8k paper to extract a correct answer and match it to the prompt
-    ANS_RE = re.compile(r"#### (\-?[0-9\.\,]+)")
-    INVALID_ANS = "[invalid]"
-
-    def extract_answer(completion):
-        match = ANS_RE.search(completion)
-        if match:
-            match_str = match.group(1).strip()
-            match_str = match_str.replace(",", "")
-            return match_str
-        else:
-            return INVALID_ANS
-
-    batch_text = []
-    batch_tokens = []
-    batch_rewards = []
-
-    for i, i_batch_request_output in enumerate(vllm_output):
-        rollouts_text = []
-        rollouts_tokens = []
-        i_reference_answer = reference_answer[i]
-        rollouts_rewards = []
-        for rollout_output in i_batch_request_output.outputs:
-            rollouts_text.append(rollout_output.text)
-            rollouts_tokens.append(rollout_output.token_ids)
-            predicted_answer = extract_answer(rollout_output.text)
-            predicted_reward = 1 if predicted_answer == i_reference_answer else 0
-            rollouts_rewards.append(predicted_reward)
-        batch_text.append(rollouts_text)
-        batch_tokens.append(rollouts_tokens)
-        batch_rewards.append(rollouts_rewards)
-
-    return {
-        "text": batch_text,
-        "tokens": batch_tokens,
-        "rewards": batch_rewards
-    }
-
-def collate_with_target_mask(list_of_tensors, prompt_lens, pad_value=0, device="cpu"):
-    # list_of_tensors contain prompt+rollout tokens, we use prompt_len to define the target loss mask here
-    to_collate = []
-    for seq, prompt_len in zip(list_of_tensors, prompt_lens):
-        target_loss_mask = torch.arange(len(seq)) >= prompt_len
-        to_collate.append({
-            "seqs": seq,
-            "target_loss_mask": target_loss_mask
-        })
-
-    # if len(to_collate) == 0:
-    #     from pudb.remote import set_trace
-    #     set_trace(host="submit-0", port=6899, term_size=(80*2, 24*2), reverse=True)
-
-    target_mask_collate_opts = [
-            CollateOptionsOverride("target_loss_mask", pad_value=False),
-        ]
-    collater = Collater(pad_value=pad_value, pad_to_multiple=1, overrides=target_mask_collate_opts)
-
-    seq_data = cast(SequenceData, collater(to_collate))
-
-    seqs, padding_mask = get_seqs_and_padding_mask(
-                seq_data["seqs"], device
-            )
-
-    batch = SequenceBatch(seqs=seqs, padding_mask=padding_mask, target_mask=seq_data["target_loss_mask"]["seqs"].to(device))
-
-    return batch
+from fairseq2.recipes.lm._online_finetune._common import collate_with_target_mask, copy_state, find_first_value, generate_rollouts
 
 @final
 class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
@@ -148,18 +77,23 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
     _length_normalization: bool
     _model_update_group: PyNcclCommunicator
     _sync_model_every_n_steps: int
+    _sync_ref_model_every_n_steps: int
+    _vllm_n_rollouts: int
+    _reward: VLLMOutputReward
 
     def __init__(
         self,
         model: Module,
         reference_model: Module | None,
-        vllm_model,
-        update_pg,
+        vllm_model: RemoteVllmModel,
+        reward,
         gangs: Gangs,
         beta: float = 0.1,
         nll_scale: float = 1.0,
         length_normalization: bool = False,
         sync_model_every_n_steps: int = 1,
+        sync_ref_model_every_n_step: int = -1,
+        vllm_n_rollouts: int = 1,
     ) -> None:
         super().__init__()
         self._model = model
@@ -167,83 +101,36 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         self._beta = beta
         self._nll_scale = nll_scale
         self._length_normalization = length_normalization
-        self.vllm_model = vllm_model
-        self.update_pg = update_pg
+        self._vllm_model = vllm_model
         self._gangs = gangs
         self._sync_model_every_n_steps = sync_model_every_n_steps
+        self._sync_ref_model_every_n_steps = sync_ref_model_every_n_step
+        self._vllm_n_rollouts = vllm_n_rollouts
+        self._reward = reward
 
         self._metric_bag = OnlineDpoFinetuneMetricBag(gangs.dp)
 
-    def generate_responses(self, prompts):
-        sampling_params = SamplingParams(temperature=1.0)
-        outputs = ray.get(self.vllm_model.generate.remote(prompts, sampling_params))
-        return outputs
+        self._sampling_params = SamplingParams(n=vllm_n_rollouts, temperature=1.0, max_tokens=1024)
 
-    def sync_weights(self):
-        for name, p in self._model.module.named_parameters():
-            name = name.replace("._checkpoint_wrapped_module", "")
-            # print(f'sync call {name}')
-            handle = self.vllm_model.collective_rpc.remote("update_weight",
-                                            args=(name, p.dtype, p.shape))
-            self.update_pg.broadcast(p, src=0, stream=torch.cuda.current_stream())
-            ray.get(handle)
+    def maybe_sync_models(self):
 
-    def debatch(self, prompt_batch: SequenceBatch):
-        seqs = prompt_batch.example['indices']['seqs'].tolist()
-        lens = prompt_batch.example['indices']['seq_lens']
-
-        prompt_list = [s[:l] for s,l in zip(seqs, lens)]
-
-        return prompt_list
-
-    def rollout_from_model(self, prompt_list, sampling_params=None):
-        if sampling_params is None:
-            sampling_params = SamplingParams(n=16, temperature=1.0, max_tokens=1024, seed=1)
-
-        outputs = ray.get(self.vllm_model.generate.remote(prompt_token_ids=prompt_list, sampling_params=sampling_params, use_tqdm=False))
-        return outputs
-
-    @override
-    def __call__(self, prompt_batch: PromptBatch) -> tuple[Tensor, int]:
-
-        # if self._gangs.root.rank == 0:
-        #     from pudb.remote import set_trace
-        #     set_trace(host="submit-0", port=6899, term_size=(80*2, 24*2), reverse=True)
-
-        # self._gangs.root.barrier()
-
-        if self._step_nr % self._sync_model_every_n_steps == 0:
+        if self._sync_model_every_n_steps > 0 and self._step_nr % self._sync_model_every_n_steps == 0:
             with self._model.summon_full_parameters():
                 if self._gangs.root.rank == 0:
-                    # print(f'starting weight sync')
-                    self.sync_weights()
-
+                    self._vllm_model.sync_weights_with_vllm(train_model=self._model)
                 self._gangs.root.barrier()
 
-        prompts_to_generate = [None]*self._gangs.dp.size
-        if self._gangs.dp.rank == 0:
-            self._gangs.dp.gather_object(prompt_batch.prompts, prompts_to_generate, 0)
-        else:
-            self._gangs.dp.gather_object(prompt_batch.prompts, None, 0)
+        if self._sync_ref_model_every_n_steps > 0 and self._step_nr % self._sync_ref_model_every_n_steps == 0:
+            with self._model.summon_full_parameters():
+                if self._gangs.root.rank == 0:
+                    # syncing with ref model
+                    copy_state(self._model.module, self._reference_model.module)
+                self._gangs.root.barrier()
+                broadcast_model(self._reference_model, self._gangs)
 
-        if self._gangs.dp.rank == 0:
-            rank_batch_sizes = [len(l) for l in prompts_to_generate]
-            flat_request_list = []
-            for rank_prompts in prompts_to_generate:
-                flat_request_list.extend(rank_prompts)
-            
-            rollouts = self.rollout_from_model(flat_request_list)
+    def prepare_preferences(self, prompt_batch: PromptBatch) -> PreferenceBatch:
 
-            rollouts_to_scatter = []
-            rollouts_per_rank = [None]
-            for dp_rank, rank_batch_size in zip(range(self._gangs.dp.size), rank_batch_sizes):
-                rank_start = sum(rank_batch_sizes[:dp_rank])
-                rank_end = rank_start + rank_batch_size
-                rollouts_to_scatter.append(rollouts[rank_start:rank_end])
-            self._gangs.dp.scatter_object_list(rollouts_per_rank, rollouts_to_scatter, source_rank=0)
-        else:
-            rollouts_per_rank = [None]
-            self._gangs.dp.scatter_object_list(rollouts_per_rank, None, source_rank=0)
+        rollouts = generate_rollouts(prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._vllm_model, sampling_params=self._sampling_params)
 
         # if self._gangs.root.rank == 0:
         #     from pudb.remote import set_trace
@@ -251,14 +138,9 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         # self._gangs.root.barrier()
 
-        # if len(rollouts_per_rank[0]) != len(prompt_batch.meta_info["answer"]):
-        #     from pudb.remote import set_trace
-        #     set_trace(host="submit-0", port=6899, term_size=(80*2, 24*2), reverse=True)
+        reward_output = self._reward(rollouts[0], prompt_batch.meta_info["answer"])
 
-        verifications = gsm8k_correctness_verifier(rollouts_per_rank[0], prompt_batch.meta_info["answer"])
-
-        def find_first_value(lst, value):
-            return next((i for i, x in enumerate(lst) if x == value), None)
+        # verifications = gsm8k_correctness_verifier(rollouts[0], prompt_batch.meta_info["answer"])
 
         chosen_batch = []
         rejected_batch = []
@@ -266,7 +148,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         dummy_batch_ids = []  # keep posiitons of dummy pairs here
         loss_zeroer = 1.0
         # choosing first rollouts with reward 1 as chosen and 0 as rejected (sort of random given that we sample rollouts randomly)
-        for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(zip(verifications["rewards"],verifications["tokens"])):
+        for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(zip(reward_output["rewards"],reward_output["tokens"])):
             chosen_rollout_position = find_first_value(i_batch_rewards, 1)
             rejected_rollout_position = find_first_value(i_batch_rewards, 0)
             if chosen_rollout_position is None or rejected_rollout_position is None:
@@ -289,7 +171,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         filter_batch = lambda batch: [item for index, item in enumerate(batch) if index not in dummy_batch_ids]
 
-        if len(dummy_batch_ids) == len(verifications["tokens"]):
+        if len(dummy_batch_ids) == len(reward_output["tokens"]):
             # entire batch does not have a valid preference pair
             # we use it as dummy batch and zero the loss in the end 
             loss_zeroer = 0.0
@@ -298,15 +180,6 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             chosen_batch = filter_batch(chosen_batch)
             rejected_batch = filter_batch(rejected_batch)
             prompt_lens = filter_batch(prompt_lens)
-
-        # TEST BELOW
-        # import random
-        # chosen_batch = prompt_batch.prompts
-        # rejected_batch = chosen_batch[:]
-        # random.shuffle(rejected_batch)
-        # prompt_lens = [1 for p in prompt_batch.prompts]
-
-        # TEST END
 
         prompt_lens = torch.tensor(prompt_lens)
 
@@ -317,6 +190,21 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         rejected_batch = collate_with_target_mask(rejected_batch, prompt_lens, device=self._gangs.dp.device)
 
         batch = PreferenceBatch(chosen=chosen_batch, rejected=rejected_batch, reference_score_chosen=None, reference_score_rejected=None)
+
+        return batch, loss_zeroer, reward_output
+
+    @override
+    def __call__(self, prompt_batch: PromptBatch) -> tuple[Tensor, int]:
+
+        # if self._gangs.root.rank == 0:
+        #     from pudb.remote import set_trace
+        #     set_trace(host="submit-0", port=6899, term_size=(80*2, 24*2), reverse=True)
+
+        # self._gangs.root.barrier()
+
+        self.maybe_sync_models()
+
+        batch, loss_zeroer, reward_output = self.prepare_preferences(prompt_batch=prompt_batch)  # loss_zeroer is used when entire batch has no valid prefrence pair
 
         chosen_input_batch, chosen_target_batch = as_auto_regressive_input(batch.chosen)
         rejected_input_batch, rejected_target_batch = as_auto_regressive_input(
@@ -347,10 +235,10 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         if self._reference_model is not None:
             with torch.no_grad():
                 ref_chosen_output = cast(
-                    SequenceModelOutput, self._reference_model.module(chosen_batch)
+                    SequenceModelOutput, self._reference_model.module(batch.chosen_batch)
                 )
                 ref_rejected_output = cast(
-                    SequenceModelOutput, self._reference_model.module(rejected_batch)
+                    SequenceModelOutput, self._reference_model.module(batch.rejected_batch)
                 )
                 ref_chosen_logps, ref_average_chosen_logps = _gather_lprobs_avg(
                     ref_chosen_output, chosen_target_batch
@@ -362,12 +250,6 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             raise RuntimeError(
                 "Reference model is not initialized and data batch does not provide reference score, but at least one must exist."
             )
-
-        # if self._gangs.root.rank == 0:
-        #     from pudb.remote import set_trace
-        #     set_trace(host="submit-0", port=6899, term_size=(80*2, 24*2), reverse=True)
-
-        # self._gangs.root.barrier()
 
         if self._length_normalization:
             _, _, dpo_loss = self._compute_dpo_loss(
@@ -387,19 +269,16 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         self._metric_bag.update_dpo_loss(batch, dpo_loss)
 
-        self._metric_bag.update_nll_loss(chosen_batch, nll_loss)
+        self._metric_bag.update_nll_loss(batch.chosen_batch, nll_loss)
 
         self._metric_bag.update_sequence_lengths(batch)
 
         self._metric_bag.update_logps(batch, chosen_logps, rejected_logps)
 
-        self._metric_bag.update_batch_metrics(chosen_batch)
+        self._metric_bag.update_batch_metrics(batch.chosen_batch)
 
-        self._metric_bag.update_num_dummy_batches(batch, torch.tensor(len(dummy_batch_ids)))
-
-        avg_reward = torch.tensor(verifications["rewards"]).float().mean()
-        self._metric_bag.update_avg_reward(avg_reward)
-        self._metric_bag.update_avg_zeroed_loss(torch.tensor(loss_zeroer))
+        # avg_reward = torch.tensor(verifications["rewards"]).float().mean()
+        # self._metric_bag.update_avg_reward(avg_reward)
 
         loss = (
             dpo_loss
@@ -532,15 +411,11 @@ class OnlineDpoFinetuneConfig:
     length_normalization: bool = False
     """Use length normalized DPO, which uses the average log probability of a sequence as the implicit reward."""
 
-    ray_cluster_ip_address: str = None
+    vllm_model: VllmConfig = field(default_factory=lambda: VllmConfig())
 
-    vllm_init_checkpoint_dir: str = "/checkpoint/ram/kulikov/gsm8k_8b_sft_debug/checkpoints/step_20"
+    reward: RewardSection = field(default_factory=lambda: RewardSection(name="gsm8k_verifier"))
 
-    vllm_init_tokenizer: str = "/datasets/pretrained-llms/Llama-3.1-8B-Instruct/"
-
-    vllm_tensor_parallel_size: int = 4
-
-    sync_model_every_n_steps: int = 5
+    sync_ref_model_every_n_steps: int = -1
 
 def test_generation(llm, number):
     prompt = [f"<|start_header_id|>assistant<|end_header_id|> repeat this number: {number}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"]
@@ -551,7 +426,7 @@ def test_generation(llm, number):
 
 
 @final
-class OnlineDpoFinetuneUnitHandler(POFinetuneUnitHandler):
+class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
     _context: RuntimeContext
 
     def __init__(self, context: RuntimeContext) -> None:
@@ -568,6 +443,10 @@ class OnlineDpoFinetuneUnitHandler(POFinetuneUnitHandler):
         config = structure(criterion_section.config, OnlineDpoFinetuneConfig)
 
         validate(config)
+
+        reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
+        reward_handler = reward_registry.get(config.reward.name)
+        reward = reward_handler.create(recipe_config=recipe_config)
 
         if config.reference_model is not None:
             log.info("Setting up DPO with reference model.")
@@ -592,27 +471,20 @@ class OnlineDpoFinetuneUnitHandler(POFinetuneUnitHandler):
         else:
             reference_model = None
 
-        ray.init(address=f"ray://{config.ray_cluster_ip_address}:10001", namespace="vllm_workers")
-
-        actor_name = "vllm_model"
-
-        if gangs.dp.rank == 0:
-            vllm_model, model_update_group = setup_vllm(actor_name, config.vllm_init_checkpoint_dir, config.vllm_init_tokenizer, config.vllm_tensor_parallel_size, gangs.dp.device)
+        # if gangs.dp.rank == 0:
+            # ray.init(address=f"ray://{config.ray_cluster_ip_address}:10001", namespace="vllm_workers")
+            # actor_name = "vllm_model"
+            # vllm_model, model_update_group = setup_vllm(actor_name, config.vllm_init_checkpoint_dir, config.vllm_init_tokenizer, config.vllm_tensor_parallel_size, gangs.dp.device)
+        vllm_model = RemoteVllmModelHandler().create(gangs=gangs, unit_config=config)
     
         gangs.root.barrier()
 
-        if gangs.dp.rank != 0:
-            vllm_model = ray.get_actor(actor_name)
+        # if gangs.dp.rank != 0:
+        #     # vllm_model = ray.get_actor(actor_name)
+        #     vllm_model = None
+        #     model_update_group = None
 
-            model_update_group = None
-
-        # test_out = test_generation(vllm_model, gangs.dp.rank)
-
-        # print(f"rank:{gangs.dp.rank}, out: {test_out}")
-
-        # initialize model sync process group on first dp rank
-
-        gangs.root.barrier()
+        # gangs.root.barrier()
 
         # if gangs.root.rank == 0:
         #     from pudb.remote import set_trace
@@ -624,12 +496,14 @@ class OnlineDpoFinetuneUnitHandler(POFinetuneUnitHandler):
             model,
             reference_model,
             vllm_model,
-            model_update_group,
+            reward,
             gangs,
             config.beta,
             config.nll_scale,
             config.length_normalization,
             config.sync_model_every_n_steps,
+            config.sync_ref_model_every_n_steps,
+            config.vllm_n_rollouts,
         )
     
     @property
