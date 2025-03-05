@@ -1,0 +1,11 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+name: gsm8k_sft
+dataset_family: generic_instruction
+
+name: gsm8k_dpo
+dataset_family: generic_instruction
