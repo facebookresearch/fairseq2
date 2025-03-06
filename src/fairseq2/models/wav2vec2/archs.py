@@ -464,6 +464,13 @@ def _7b_encoder() -> Wav2Vec2EncoderConfig:
     return config.encoder_config
 
 
+@wav2vec2_encoder_arch("7b_llama")
+def _7b_llama_encoder() -> Wav2Vec2EncoderConfig:
+    config = _7b_llama()
+
+    return config.encoder_config
+
+
 @wav2vec2_encoder_arch("3.25b")
 def _3b_higher_encoder() -> Wav2Vec2EncoderConfig:
     config = _3b_higher()
