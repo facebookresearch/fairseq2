@@ -269,30 +269,11 @@ def _5b_bib61() -> Wav2Vec2AsrConfig:
     return config
 
 
-@wav2vec2_asr_arch("7b_l120_bib61")
-def _7b_l120_bib61() -> Wav2Vec2AsrConfig:
+@wav2vec2_asr_arch("7b_bib61")
+def _7b_bib61() -> Wav2Vec2AsrConfig:
     config = _base_10h()
 
-    config.encoder_config = wav2vec2_encoder_archs.get("7b_l120")
-    config.encoder_config.feature_gradient_scale = 1.0
-    config.encoder_config.dropout_p = 0.0
-    config.encoder_config.attn_dropout_p = 0.0
-    config.encoder_config.ffn_inner_dropout_p = 0.1
-    config.encoder_config.layer_drop_p = 0.1
-
-    config.use_masking = False
-    config.max_temporal_mask_prob = 0.0
-    config.max_spatial_mask_prob = 0.0
-    config.vocab_info.size = 2475
-
-    return config
-
-
-@wav2vec2_asr_arch("7b_llama_bib61")
-def _7b_llama_bib61() -> Wav2Vec2AsrConfig:
-    config = _3b_bib61()
-
-    config.encoder_config = wav2vec2_encoder_archs.get("7b_llama")
+    config.encoder_config = wav2vec2_encoder_archs.get("7b")
     config.encoder_config.feature_gradient_scale = 1.0
     config.encoder_config.dropout_p = 0.0
     config.encoder_config.attn_dropout_p = 0.0
