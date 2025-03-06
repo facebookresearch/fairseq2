@@ -61,6 +61,9 @@ class CheckpointManager(ABC):
     def is_saving(self) -> bool: ...
 
     @abstractmethod
+    def save_score(self, step_nr: int, score: float, lower_better: bool) -> None:
+
+    @abstractmethod
     def load_trainer_state(self, step_nr: int, trainer: Stateful) -> None: ...
 
     @abstractmethod
@@ -194,9 +197,7 @@ class FileCheckpointManager(CheckpointManager):
             checkpoint_files = self._move_state_to_cpu(step_nr, checkpoint_files)
 
         def save() -> Callable[[], None]:
-            self._save_checkpoint_files(step_nr, checkpoint_files, threaded=not block)
-
-            self._save_score(step_nr, score, lower_score_better)
+            self._save_checkpoint_files(step_nr, checkpoint_files)
 
             self._copy_cc(step_nr)
 
@@ -439,54 +440,14 @@ class FileCheckpointManager(CheckpointManager):
 
             checkpoint_files.append((metadata_file, metadata))
 
-    def _save_checkpoint_files(
-        self, step_nr: int, files: _FileList, threaded: bool
-    ) -> None:
-#        threaded = False
-        def save_file(file: Path, state_dict: Mapping[str, object]) -> None:
+    def _save_checkpoint_files(self, step_nr: int, files: _FileList) -> None:
+        for file, state_dict in files:
             try:
                 self._tensor_dumper.dump(state_dict, file)
             except TensorDumpError as ex:
                 raise CheckpointSaveError(
                     step_nr, f"The state of step {step_nr} cannot be saved to the '{ex.path}' file. See the nested exception for details."  # fmt: skip
                 ) from ex
-
-        futures = []
-
-        for file, state_dict in files:
-            if not threaded:
-                save_file(file, state_dict)
-            else:
-                future = self._thread_pool.queue(save_file, file, state_dict)
-
-                futures.append(future)
-
-        if threaded:
-            wait(futures)
-
-    def _save_score(
-        self, step_nr: int, score: float | None, lower_better: bool
-    ) -> None:
-        gangs = self._gangs
-
-        if gangs.root.rank == 0 and score is not None:
-            score_file = self._checkpoint_dir.joinpath(f"step_{step_nr}.tmp/score.txt")
-
-            try:
-                fp = self._file_system.open_text(score_file, mode=FileMode.WRITE)
-            except OSError as ex:
-                raise CheckpointSaveError(
-                    step_nr, f"The score of step {step_nr} cannot be saved to the '{score_file}' file. See the nested exception for details."  # fmt: skip
-                ) from ex
-
-            try:
-                fp.write(f"{'-' if lower_better else ''}{score}\n")
-            except OSError as ex:
-                raise CheckpointSaveError(
-                    step_nr, f"The score of step {step_nr} cannot be saved to the '{score_file}' file. See the nested exception for details."  # fmt: skip
-                ) from ex
-            finally:
-                fp.close()
 
     def _copy_cc(self, step_nr: int) -> None:
         gangs = self._gangs
@@ -561,6 +522,31 @@ class FileCheckpointManager(CheckpointManager):
                 it.close()
 
             break
+
+    @override
+    def save_score(self, step_nr: int, score: float, lower_better: bool) -> None:
+        gangs = self._gangs
+
+        if gangs.root.rank == 0:
+            score_file = self._checkpoint_dir.joinpath(f"step_{step_nr}.tmp/score.txt")
+
+            try:
+                fp = self._file_system.open_text(score_file, mode=FileMode.WRITE)
+            except OSError as ex:
+                raise CheckpointSaveError(
+                    step_nr, f"The score of step {step_nr} cannot be saved to the '{score_file}' file. See the nested exception for details."  # fmt: skip
+                ) from ex
+
+            try:
+                fp.write(f"{'-' if lower_better else ''}{score}\n")
+            except OSError as ex:
+                raise CheckpointSaveError(
+                    step_nr, f"The score of step {step_nr} cannot be saved to the '{score_file}' file. See the nested exception for details."  # fmt: skip
+                ) from ex
+            finally:
+                fp.close()
+
+        gangs.root.barrier()
 
     @override
     def load_trainer_state(self, step_nr: int, trainer: Stateful) -> None:

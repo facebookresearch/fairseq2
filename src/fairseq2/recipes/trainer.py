@@ -115,10 +115,9 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     _has_read_any_data: bool
     _num_effective_batches: int
     _score_metric_descriptor: MetricDescriptor | None
-    _lower_score_better: bool
+    _lower_better: bool
     _early_stopper: EarlyStopper | None
     _best_step_and_score: tuple[int, float] | None
-    _valid_score: float | None
     _valid_units: Sequence[EvalUnit[BatchT]]
     _valid_data_readers: Sequence[DataReader[BatchT]]
     _validate_after_n_steps: int
@@ -175,7 +174,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         max_num_steps: int | None = None,
         max_num_data_epochs: int | None = None,
         score_metric_descriptor: MetricDescriptor | None = None,
-        lower_score_better: bool = False,
+        lower_better: bool = False,
         early_stopper: EarlyStopper | None = None,
         valid_units: Sequence[EvalUnit[BatchT]] | None = None,
         valid_data_readers: Sequence[DataReader[BatchT]] | None = None,
@@ -227,8 +226,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             The maximum number of data epochs to train for.
         :param score_metric_descriptor:
             The descriptor of the metric to use for score calculation.
-        :param lower_score_better:
-            If ``True``, lower scores are considered better.
+        :param lower_better:
+            If ``True``, a lower metric value is considered a better score.
         :param early_stopper:
             The early-stopper callable.
         :param valid_units:
@@ -341,7 +340,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._score_metric_descriptor = score_metric_descriptor
 
-        self._lower_score_better = lower_score_better
+        self._lower_better = lower_better
 
         if early_stopper is not None:
             if score_metric_descriptor is None:
@@ -356,9 +355,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         else:
             self._early_stopper = None
 
-        self.register_stateful("_best_step_and_score", None)
-
-        self._valid_score = None
+        self.register_stateful("_best_step_and_score", (-1, float("-inf"))
 
         if valid_units is None and valid_data_readers is None:
             self._valid_units = []
@@ -623,6 +620,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
                 self._progress_task.step(1)
 
+                self._checkpoint_manager.maybe_complete_async_checkpoint()
+
                 detect_anomaly = torch.autograd.set_detect_anomaly(  # type: ignore[attr-defined]
                     self._anomaly_detection, check_nan=True
                 )
@@ -630,8 +629,6 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
                 with detect_anomaly:
                     with record_function(f"step_{self._step_nr}"):
                         self._run_step()
-
-                self._checkpoint_manager.maybe_complete_async_checkpoint()
 
                 if self._repeat_step:
                     self._step_nr -= 1
@@ -644,19 +641,15 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
                 if self._should_publish_metrics():
                     self._publish_metrics()
 
-                if self._should_validate():
-                    self._validate()
-
-                    self._maybe_request_early_stop()
-
                 if self._should_checkpoint():
                     self._checkpoint()
+
+                if self._should_validate():
+                    self._validate()
 
                 self._profiler.step()
 
                 self._garbage_collector.step()
-
-                self._valid_score = None
 
                 if first_iter:
                     # Emptying the CUDA memory allocator cache after the first
@@ -885,18 +878,22 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         self._model.module.eval()
 
         with self._model.summon_full_parameters():
-            pass
-#            unit_scores = []
-#
-#            for unit, data_reader in zip(self._valid_units, self._valid_data_readers):
-#                if unit.name:
-#                    log.info("Validating {}.", unit.name)
-#
-#                unit_score = self._validate_unit(unit, data_reader)
-#                if unit_score is not None:
-#                    unit_scores.append(unit_score)
-#
-#            self._valid_score = self._compute_valid_score(unit_scores)
+            unit_scores = []
+
+            for unit, data_reader in zip(self._valid_units, self._valid_data_readers):
+                if unit.name:
+                    log.info("Validating {}.", unit.name)
+
+                unit_score = self._validate_unit(unit, data_reader)
+                if unit_score is not None:
+                    unit_scores.append(unit_score)
+
+        score = self._compute_score(unit_scores)
+
+        if self._should_checkpoint():
+            self._checkpoint_manager.save_score(self._step_nr, score)
+
+        self._maybe_request_early_stop(score)
 
         self._model.module.train()
 
@@ -943,16 +940,18 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     def _publish_validation_metrics(
         self, unit: EvalUnit[BatchT], num_batches: int, elapsed_time: float
     ) -> dict[str, object] | None:
+        gangs = self._gangs
+
         log.debug("Syncing validation metrics.")
 
-        if self._gangs.tp.rank == 0:
+        if gangs.tp.rank == 0:
             values = unit.metric_bag.sync_and_compute_metrics()
         else:
             values = None
 
         unit.metric_bag.reset_metrics()
 
-        if self._gangs.root.rank == 0:
+        if gangs.root.rank == 0:
             if values is None:
                 raise InternalError("`values` is `None`.")
 
@@ -971,7 +970,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
             self._metric_recorder.record_metrics(run, values, self._step_nr)
 
-        self._gangs.root.barrier()
+        gangs.root.barrier()
 
         return values
 
@@ -982,18 +981,23 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         if self._score_metric_descriptor is None:
             return None
 
-        score = metric_values.get(self._score_metric_descriptor.name)
-        if score is None:
+        metric_value = metric_values.get(self._score_metric_descriptor.name)
+        if metric_score is None:
             return None
 
-        if not isinstance(score, (int, float, Tensor)):
+        if not isinstance(metric_score, (int, float, Tensor)):
             log.warning("The score metric must be of type `int`, `float`, or `torch.Tensor`.")  # fmt: skip
 
             return None
 
-        return float(score)
+        score = float(metric_value)
 
-    def _compute_valid_score(self, unit_scores: list[float]) -> float | None:
+        if self._lower_better:
+            score = -score
+
+        return score
+
+    def _compute_score(self, unit_scores: list[float]) -> float | None:
         if self._score_metric_descriptor is None:
             return None
 
@@ -1005,25 +1009,12 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
             return None
 
-        last_score = mean(unit_scores)
+        score = mean(unit_scores)
 
-        def is_last_score_better() -> bool:
-            if self._best_step_and_score is None:
-                return True
-
-            best_score = self._best_step_and_score[1]
-
-            if self._lower_score_better:
-                return best_score > last_score
-            else:
-                return last_score > best_score
-
-        if is_last_score_better():
-            self._best_step_and_score = (self._step_nr, last_score)
+        if score > self._best_step_and_score[1]:
+            self._best_step_and_score = (self._step_nr, score)
 
         if log.is_enabled_for_info():
-            assert self._best_step_and_score is not None
-
             best_step_nr, best_score = self._best_step_and_score
 
             if len(unit_scores) > 1:
@@ -1033,7 +1024,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
                 m1 = ""
                 m2 = "Best "
 
-            v1 = self._score_metric_descriptor.formatter(last_score)
+            v1 = self._score_metric_descriptor.formatter(score)
             v2 = self._score_metric_descriptor.formatter(best_score)
 
             s1 = f"{self._score_metric_descriptor.display_name}: {v1}"
@@ -1043,7 +1034,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         return last_score
 
-    def _maybe_request_early_stop(self) -> None:
+    def _maybe_request_early_stop(self, score: float | None) -> None:
         if self._early_stopper is None:
             return
 
@@ -1051,12 +1042,10 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             return
 
         if self._gangs.root.rank == 0:
-            if self._valid_score is None:
-                raise InternalError("Early stopping, but `_valid_score` is `None`.")
+            if score is None:
+                raise InternalError("Early stopping, but `score` is `None`.")
 
-            should_stop = self._early_stopper.should_stop(
-                self._step_nr, self._valid_score
-            )
+            should_stop = self._early_stopper.should_stop(self._step_nr, score)
         else:
             should_stop = False
 
@@ -1075,6 +1064,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         )
 
     def _checkpoint(self) -> None:
+        watch = Stopwatch(start=True, device=self._gangs.root.device)
+
         step_nr = self._step_nr
 
         if self._checkpoint_manager.is_saving():
@@ -1095,11 +1086,11 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             self._model,
             self._optimizer,
             self._data_reader,
-            score=self._valid_score,
-            lower_score_better=self._lower_score_better,
             callback=self._complete_checkpoint,
             block=block,
         )
+
+        self._elapsed_time += watch.get_elapsed_time()
 
     def _complete_checkpoint(self, step_nr: int) -> None:
         # Clean up the checkpoints.
