@@ -194,7 +194,7 @@ def _5b() -> Wav2Vec2Config:
 def _7b() -> Wav2Vec2Config:
     config = _5b()
 
-    config.encoder_config.num_encoder_layers = 120
+    config.encoder_config.num_encoder_layers = 128
     config.encoder_config.model_dim = 2048
     config.encoder_config.ffn_inner_dim = 8192
     config.encoder_config.num_encoder_attn_heads = 16
