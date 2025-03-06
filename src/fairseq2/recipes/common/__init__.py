@@ -20,6 +20,24 @@ from fairseq2.recipes.common._distributed import broadcast_model as broadcast_mo
 from fairseq2.recipes.common._distributed import (
     setup_data_parallel_model as setup_data_parallel_model,
 )
+from fairseq2.recipes.common._error import (
+    DatasetPathNotFoundError as DatasetPathNotFoundError,
+)
+from fairseq2.recipes.common._error import (
+    HybridShardingNotSupportedError as HybridShardingNotSupportedError,
+)
+from fairseq2.recipes.common._error import (
+    InvalidCheckpointPathError as InvalidCheckpointPathError,
+)
+from fairseq2.recipes.common._error import (
+    ModelCompilationNotSupportedError as ModelCompilationNotSupportedError,
+)
+from fairseq2.recipes.common._error import (
+    ModelParallelismNotSupportedError as ModelParallelismNotSupportedError,
+)
+from fairseq2.recipes.common._error import (
+    ModelPathNotFoundError as ModelPathNotFoundError,
+)
 from fairseq2.recipes.common._evaluator import create_evaluator as create_evaluator
 from fairseq2.recipes.common._gang import setup_gangs as setup_gangs
 from fairseq2.recipes.common._generation import (

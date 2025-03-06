@@ -17,8 +17,8 @@ from fairseq2.assets import (
 )
 from fairseq2.checkpoint import FileCheckpointMetadataLoader
 from fairseq2.context import RuntimeContext
-from fairseq2.error import ProgramError
 from fairseq2.logging import log
+from fairseq2.recipes import RecipeError
 from fairseq2.recipes.config import CommonSection, get_config_section
 from fairseq2.utils.file import FileSystem
 from fairseq2.utils.yaml import StandardYamlLoader
@@ -40,7 +40,7 @@ def register_extra_asset_paths(context: RuntimeContext, recipe_config: object) -
     try:
         extra_path_registrar.register(recipe_config)
     except AssetMetadataLoadError as ex:
-        raise ProgramError(
+        raise RecipeError(
             "`common.assets.extra_path` cannot be registered as an asset card path. See the nested exception for details."
         ) from ex
 
@@ -51,7 +51,7 @@ def register_extra_asset_paths(context: RuntimeContext, recipe_config: object) -
     try:
         checkpoint_dir_registrar.register(recipe_config)
     except AssetMetadataLoadError as ex:
-        raise ProgramError(
+        raise RecipeError(
             "`common.assets.checkpoint_dir` cannot be registered as an asset card path. See the nested exception for details."
         ) from ex
 

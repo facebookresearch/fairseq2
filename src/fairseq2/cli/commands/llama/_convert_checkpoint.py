@@ -19,20 +19,20 @@ from fairseq2.assets import (
     AssetCardFieldNotFoundError,
     AssetCardNotFoundError,
 )
-from fairseq2.cli import CliArgumentError, CliCommandHandler
+from fairseq2.cli import CliArgumentError, CliCommandError, CliCommandHandler
 from fairseq2.cli.utils.rich import get_error_console
 from fairseq2.context import RuntimeContext
-from fairseq2.error import InternalError, ProgramError
+from fairseq2.error import InternalError
 from fairseq2.logging import log
 from fairseq2.models import ModelConfigLoadError, ModelHandler
 from fairseq2.models.llama import LLAMA_MODEL_FAMILY, LLaMAConfig
 from fairseq2.models.llama.integ import convert_to_reference_llama_checkpoint
 from fairseq2.utils.file import (
     FileMode,
+    StandardTensorLoader,
     TensorDumpError,
     TensorLoadError,
     TorchTensorDumper,
-    TorchTensorLoader,
 )
 
 
@@ -66,8 +66,8 @@ class ConvertLLaMACheckpointHandler(CliCommandHandler):
 
         input_dir: Path = args.input_dir
 
-        def read_error() -> ProgramError:
-            return ProgramError(
+        def read_error() -> CliCommandError:
+            return CliCommandError(
                 f"The '{input_dir}' directory cannot be read. See the nested exception for details."
             )
 
@@ -112,8 +112,8 @@ class ConvertLLaMACheckpointHandler(CliCommandHandler):
 
         output_dir: Path = args.output_dir
 
-        def write_error() -> ProgramError:
-            return ProgramError(
+        def write_error() -> CliCommandError:
+            return CliCommandError(
                 f"The '{output_dir}' directory cannot be created. See the nested exception for details."
             )
 
@@ -148,7 +148,7 @@ class ConvertLLaMACheckpointHandler(CliCommandHandler):
                 "model", f"'{args.model}' is not a known LLaMA model. Use `fairseq2 assets list` to see the available models."  # fmt: skip
             ) from None
         except AssetCardError as ex:
-            raise ProgramError(
+            raise CliCommandError(
                 f"The '{args.model}' asset card cannot be read. See the nested exception for details."
             ) from ex
 
@@ -159,7 +159,7 @@ class ConvertLLaMACheckpointHandler(CliCommandHandler):
                 "model", f"'{args.model}' is not a known LLaMA model. Use `fairseq2 assets list` to see the available models."  # fmt: skip
             ) from None
         except AssetCardError as ex:
-            raise ProgramError(
+            raise CliCommandError(
                 f"The '{args.model}' asset card cannot be read. See the nested exception for details."
             ) from ex
 
@@ -180,8 +180,8 @@ class ConvertLLaMACheckpointHandler(CliCommandHandler):
         try:
             model_config = model_handler.load_config(card)
         except ModelConfigLoadError as ex:
-            raise ProgramError(
-                f"The configuration of '{args.model}' cannot be loaded. See the nested exception for details."
+            raise CliCommandError(
+                f"The configuration of the '{args.model}' model cannot be loaded. See the nested exception for details."
             ) from ex
 
         if not isinstance(model_config, LLaMAConfig):
@@ -192,14 +192,14 @@ class ConvertLLaMACheckpointHandler(CliCommandHandler):
         # Begin conversion.
         console = get_error_console()
 
-        tensor_loader = TorchTensorLoader(file_system)
+        tensor_loader = StandardTensorLoader(file_system)
         tensor_dumper = TorchTensorDumper(file_system)
 
         with console.status("[bold green]Converting...") as status:
             for input_file, output_file in zip(input_files, output_files):
 
-                def file_write_error() -> ProgramError:
-                    return ProgramError(
+                def file_write_error() -> CliCommandError:
+                    return CliCommandError(
                         f"The '{input_file}' checkpoint file cannot be converted. See the nested exception for details."
                     )
 
@@ -245,8 +245,8 @@ class ConvertLLaMACheckpointHandler(CliCommandHandler):
 
         params_file = args.output_dir.joinpath("params.json")
 
-        def param_write_error() -> ProgramError:
-            return ProgramError(
+        def param_write_error() -> CliCommandError:
+            return CliCommandError(
                 "params.json file cannot be created. See the nested exception for details."
             )
 

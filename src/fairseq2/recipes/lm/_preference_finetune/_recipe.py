@@ -24,6 +24,7 @@ from fairseq2.models.decoder import DecoderModel
 from fairseq2.nn.transformer import enable_memory_efficient_torch_sdpa
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.optim.lr_scheduler import COSINE_ANNEALING_LR, CosineAnnealingLRConfig
+from fairseq2.recipes import Trainer
 from fairseq2.recipes.common import (
     create_checkpoint_manager,
     create_lr_scheduler,
@@ -55,7 +56,6 @@ from fairseq2.recipes.lm._preference_finetune._handler import (
     POFinetuneUnitHandler,
     UnknownPOFinetuneUnitError,
 )
-from fairseq2.recipes.trainer import Trainer
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure

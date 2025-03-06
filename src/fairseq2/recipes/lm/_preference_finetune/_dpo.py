@@ -26,6 +26,7 @@ from fairseq2.models.sequence import (
     as_auto_regressive_input,
 )
 from fairseq2.nn.utils.module import freeze_parameters
+from fairseq2.recipes import Model, TrainUnit
 from fairseq2.recipes.common import setup_reference_model
 from fairseq2.recipes.config import (
     ReferenceModelSection,
@@ -38,8 +39,6 @@ from fairseq2.recipes.lm._preference_finetune._common import (
     _gather_lprobs_avg,
 )
 from fairseq2.recipes.lm._preference_finetune._handler import POFinetuneUnitHandler
-from fairseq2.recipes.model import Model
-from fairseq2.recipes.trainer import TrainUnit
 from fairseq2.typing import DataType
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate

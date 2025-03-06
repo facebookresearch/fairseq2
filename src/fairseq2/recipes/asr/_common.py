@@ -20,9 +20,7 @@ from fairseq2.metrics.text import WerMetric
 from fairseq2.models.asr import AsrModel, AsrModelOutput
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
-from fairseq2.recipes.error import UnitError
-from fairseq2.recipes.metrics import BaseMetricBag
-from fairseq2.recipes.model import Model
+from fairseq2.recipes import BaseMetricBag, Model, UnitError
 
 
 @final
@@ -141,7 +139,7 @@ class AsrScorer:
                 stream.flush()
         except OSError as ex:
             raise UnitError(
-                "The generator output cannot be written to the stream. See the nested exception for details."
+                "The generator output cannot be written. See the nested exception for details."
             ) from ex
 
 

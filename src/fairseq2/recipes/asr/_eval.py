@@ -16,10 +16,10 @@ from typing_extensions import override
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import LengthBatching, SyncMode
 from fairseq2.datasets.asr import GENERIC_ASR_DATASET_FAMILY, AsrDataset, AsrReadOptions
-from fairseq2.error import ProgramError
 from fairseq2.gang import Gangs
 from fairseq2.models.asr import AsrModel
 from fairseq2.models.seq2seq import Seq2SeqBatch
+from fairseq2.recipes import Evaluator, EvalUnit, Model, RecipeError, UnitError
 from fairseq2.recipes.asr._common import AsrCriterion, AsrMetricBag, AsrScorer
 from fairseq2.recipes.common import (
     create_evaluator,
@@ -36,9 +36,6 @@ from fairseq2.recipes.config import (
     GangSection,
     ReferenceModelSection,
 )
-from fairseq2.recipes.error import UnitError
-from fairseq2.recipes.evaluator import Evaluator, EvalUnit
-from fairseq2.recipes.model import Model
 from fairseq2.typing import CPU
 from fairseq2.utils.file import FileMode
 from fairseq2.utils.rng import manual_seed
@@ -144,10 +141,10 @@ def load_asr_evaluator(
 
         rank = gangs.dp.rank
 
-        ref_file = output_dir.joinpath(f"transcriptions/rank_{rank}.ref.txt")
-        hyp_file = output_dir.joinpath(f"transcriptions/rank_{rank}.hyp.txt")
-
         try:
+            ref_file = output_dir.joinpath(f"transcriptions/rank_{rank}.ref.txt")
+            hyp_file = output_dir.joinpath(f"transcriptions/rank_{rank}.hyp.txt")
+
             try:
                 file_system.make_directory(ref_file.parent)
             except OSError as ex:
@@ -169,8 +166,8 @@ def load_asr_evaluator(
                     f"The '{hyp_file}' output file cannot be created. See the nested exception for details."
                 ) from ex
         except UnitError as ex:
-            raise ProgramError(
-                "The evaluation unit cannot be initialized. See the nested exception for details."
+            raise RecipeError(
+                "The evaluator unit cannot be initialized. See the nested exception for details."
             ) from ex
     else:
         ref_fp = None

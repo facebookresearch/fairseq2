@@ -19,12 +19,12 @@ from fairseq2.generation import (
 )
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
+from fairseq2.recipes import Model
 from fairseq2.recipes.config import (
     Seq2SeqGeneratorSection,
     SequenceGeneratorSection,
     get_config_section,
 )
-from fairseq2.recipes.model import Model
 from fairseq2.registry import Provider
 from fairseq2.utils.structured import StructureError
 

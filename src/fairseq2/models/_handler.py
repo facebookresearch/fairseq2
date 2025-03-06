@@ -361,6 +361,14 @@ class StandardModelHandler(ModelHandler):
 
         validate(config)
 
+        # Create the model.
+        model = self._do_create(config, gangs, dtype, meta=self.supports_meta)
+
+        if self.supports_meta:
+            # Move the model to the actual device without initializing. Its
+            # state will be overwritten by the checkpoint anyways.
+            to_empty(model, device=gangs.root.device)
+
         if restrict is None:
             restrict = self._restrict
 
@@ -387,20 +395,19 @@ class StandardModelHandler(ModelHandler):
                     model_name, f"The checkpoint of the '{model_name}' model cannot be converted to a fairseq2 compatible format. See the nested exception for details."  # fmt: skip
                 ) from ex
 
-        # Create the model.
-        model = self._do_create(config, gangs, dtype, meta=self.supports_meta)
-
-        if self.supports_meta:
-            # Move the model to the actual device without initializing. Its
-            # state will be overwritten by the checkpoint anyways.
-            to_empty(model, device=gangs.root.device)
-
         # Load the model state.
+        model_key = checkpoint.get("model_key", "model")
+
+        if not isinstance(model_key, str):
+            raise ModelLoadError(
+                model_name, f"The 'model_key' in the '{model_name}' checkpoint is expected to be of type `str`, but is of type `{type(model_key)}` instead."  # fmt: skip
+            )
+
         try:
-            state_dict = checkpoint["model"]
+            state_dict = checkpoint[model_key]
         except KeyError:
             raise ModelLoadError(
-                model_name, f"The '{model_name}' checkpoint does not contain a 'model' key."  # fmt: skip
+                model_name, f"The '{model_name}' checkpoint does not contain a '{model_key}' key."  # fmt: skip
             ) from None
 
         if not isinstance(state_dict, dict):

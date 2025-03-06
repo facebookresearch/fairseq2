@@ -18,7 +18,7 @@ from fairseq2.assets import (
     AssetMetadataSaveError,
     CachedAssetMetadataProvider,
 )
-from fairseq2.gang import Gangs
+from fairseq2.gang import GangError, Gangs
 from fairseq2.models.llama import LLAMA_MODEL_FAMILY, LLaMAConfig
 from fairseq2.models.llama.integ import convert_to_hg_llama_config
 from fairseq2.utils.file import FileMode, FileSystem
@@ -76,7 +76,7 @@ class FileCheckpointMetadataSaver(CheckpointMetadataSaver):
 
             def save_error() -> AssetMetadataSaveError:
                 return AssetMetadataSaveError(
-                    f"The model metadata cannot be saved to the '{metadata_file}' file. See the nested exception for details."
+                    f"The checkpoint metadata cannot be saved to the '{metadata_file}' file. See the nested exception for details."
                 )
 
             try:
@@ -91,7 +91,12 @@ class FileCheckpointMetadataSaver(CheckpointMetadataSaver):
 
             self._save_huggingface_config(model_family, model_config)
 
-        self._gangs.root.barrier()
+        try:
+            self._gangs.root.barrier()
+        except GangError as ex:
+            raise AssetMetadataSaveError(
+                "The collective barrier after the checkpoint metadata save operation has failed. See the nested exception for details."
+            ) from ex
 
     def _save_huggingface_config(self, model_family: str, model_config: object) -> None:
         if model_family != LLAMA_MODEL_FAMILY:
@@ -217,7 +222,7 @@ class FileCheckpointMetadataLoader:
             max_step_nr = max(max_step_nr, step_nr)
 
             # Load score.
-            score_file = step_dir.joinpath("score.txt")
+            score_file = self._checkpoint_dir.joinpath(f"scores/step_{step_nr}.txt")
 
             def load_error() -> AssetMetadataLoadError:
                 return AssetMetadataLoadError(
