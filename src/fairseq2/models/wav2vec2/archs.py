@@ -277,8 +277,8 @@ def _5b() -> Wav2Vec2Config:
     return config
 
 
-@wav2vec2_arch("7b")
-def _7b() -> Wav2Vec2Config:
+@wav2vec2_arch("7b_l120")
+def _7b_l120() -> Wav2Vec2Config:
     config = _5b()
 
     config.encoder_config.num_encoder_layers = 128
@@ -397,9 +397,9 @@ def _5b_encoder() -> Wav2Vec2EncoderConfig:
     return config.encoder_config
 
 
-@wav2vec2_encoder_arch("7b")
-def _7b_encoder() -> Wav2Vec2EncoderConfig:
-    config = _7b()
+@wav2vec2_encoder_arch("7b_l120")
+def _7b_l120_encoder() -> Wav2Vec2EncoderConfig:
+    config = _7b_l120()
 
     return config.encoder_config
 

@@ -269,11 +269,11 @@ def _5b_bib61() -> Wav2Vec2AsrConfig:
     return config
 
 
-@wav2vec2_asr_arch("7b_bib61")
-def _7b_bib61() -> Wav2Vec2AsrConfig:
+@wav2vec2_asr_arch("7b_l120_bib61")
+def _7b_l120_bib61() -> Wav2Vec2AsrConfig:
     config = _base_10h()
 
-    config.encoder_config = wav2vec2_encoder_archs.get("7b")
+    config.encoder_config = wav2vec2_encoder_archs.get("7b_l120")
     config.encoder_config.feature_gradient_scale = 1.0
     config.encoder_config.dropout_p = 0.0
     config.encoder_config.attn_dropout_p = 0.0
