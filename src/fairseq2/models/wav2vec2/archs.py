@@ -147,66 +147,6 @@ def _4b() -> Wav2Vec2Config:
     return config
 
 
-@wav2vec2_arch("7b")
-def _7b() -> Wav2Vec2Config:
-    config = _3b()
-
-    config.encoder_config.num_encoder_layers = 64
-    config.encoder_config.model_dim = 3072
-    config.encoder_config.ffn_inner_dim = 11520
-    config.encoder_config.num_encoder_attn_heads = 48
-    config.quantized_dim = 1536     # Not sure if increasing this is actually useful
-    config.final_dim = 1536
-
-    return config
-
-
-@wav2vec2_arch("7b_llama")
-def _7b_llama() -> Wav2Vec2Config:
-    config = _7b()
-
-    config.encoder_config.num_encoder_layers = 32
-    config.encoder_config.model_dim = 4096
-    config.encoder_config.ffn_inner_dim = 11008
-    config.encoder_config.num_encoder_attn_heads = 32
-    config.quantized_dim = 1536
-    config.final_dim = 1536
-
-    return config
-
-
-@wav2vec2_arch("7b_llama_rope")
-def _7b_llama_rope() -> Wav2Vec2Config:
-    config = _7b_llama()
-
-    config.encoder_config.pos_encoder_type = "rotary"
-
-    return config
-
-
-@wav2vec2_arch("7b_llama_l40")
-def _7b_llama_l40() -> Wav2Vec2Config:
-    config = _7b_llama()
-
-    config.encoder_config.num_encoder_layers = 40
-
-    return config
-
-
-@wav2vec2_arch("8b_llama")
-def _8b_llama() -> Wav2Vec2Config:
-    config = _7b()
-
-    config.encoder_config.num_encoder_layers = 32
-    config.encoder_config.model_dim = 4096
-    config.encoder_config.ffn_inner_dim = 14336
-    config.encoder_config.num_encoder_attn_heads = 32
-    config.quantized_dim = 1536
-    config.final_dim = 1536
-
-    return config
-
-
 @wav2vec2_arch("1b_llama")
 def _1b_llama() -> Wav2Vec2Config:
     config = _xlsr_base()
@@ -250,8 +190,8 @@ def _5b() -> Wav2Vec2Config:
     return config
 
 
-@wav2vec2_arch("7b_l120")
-def _7b_l120() -> Wav2Vec2Config:
+@wav2vec2_arch("7b")
+def _7b() -> Wav2Vec2Config:
     config = _5b()
 
     config.encoder_config.num_encoder_layers = 120
@@ -370,16 +310,9 @@ def _5b_encoder() -> Wav2Vec2EncoderConfig:
     return config.encoder_config
 
 
-@wav2vec2_encoder_arch("7b_l120")
-def _7b_l120_encoder() -> Wav2Vec2EncoderConfig:
-    config = _7b_l120()
-
-    return config.encoder_config
-
-
-@wav2vec2_encoder_arch("7b_llama")
-def _7b_llama_encoder() -> Wav2Vec2EncoderConfig:
-    config = _7b_llama()
+@wav2vec2_encoder_arch("7b")
+def _7b_encoder() -> Wav2Vec2EncoderConfig:
+    config = _7b()
 
     return config.encoder_config
 
