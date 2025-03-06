@@ -250,6 +250,20 @@ def _5b() -> Wav2Vec2Config:
     return config
 
 
+@wav2vec2_arch("7b")
+def _7b() -> Wav2Vec2Config:
+    config = _5b()
+
+    config.encoder_config.num_encoder_layers = 120
+    config.encoder_config.model_dim = 2048
+    config.encoder_config.ffn_inner_dim = 8192
+    config.encoder_config.num_encoder_attn_heads = 16
+    config.quantized_dim = 1024
+    config.final_dim = 1024
+
+    return config
+
+
 @wav2vec2_arch("pseudo_dinosr_base")
 def _pseudo_dinosr_base() -> Wav2Vec2Config:
     layer_descs = [(512, 10, 5)] + [(512, 3, 2)] * 4 + [(512, 2, 2)] * 3
@@ -352,6 +366,13 @@ def _3b_encoder() -> Wav2Vec2EncoderConfig:
 @wav2vec2_encoder_arch("5b")
 def _5b_encoder() -> Wav2Vec2EncoderConfig:
     config = _5b()
+
+    return config.encoder_config
+
+
+@wav2vec2_encoder_arch("7b")
+def _7b_encoder() -> Wav2Vec2EncoderConfig:
+    config = _7b()
 
     return config.encoder_config
 
