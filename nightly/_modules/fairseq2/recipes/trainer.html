@@ -458,7 +458,7 @@
     <span class="n">_wall_watch</span><span class="p">:</span> <span class="n">Stopwatch</span>
     <span class="n">_data_read_time</span><span class="p">:</span> <span class="nb">float</span>
     <span class="n">_elapsed_time</span><span class="p">:</span> <span class="nb">float</span>
-    <span class="n">_run</span><span class="p">:</span> <span class="nb">bool</span>
+    <span class="n">_has_run</span><span class="p">:</span> <span class="nb">bool</span>
     <span class="n">_progress_reporter</span><span class="p">:</span> <span class="n">ProgressReporter</span>
     <span class="n">_progress_task</span><span class="p">:</span> <span class="n">ProgressTask</span> <span class="o">|</span> <span class="kc">None</span>
 
@@ -824,7 +824,7 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_elapsed_time</span> <span class="o">=</span> <span class="mf">0.0</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_run</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_has_run</span> <span class="o">=</span> <span class="kc">False</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_progress_reporter</span> <span class="o">=</span> <span class="n">NoopProgressReporter</span><span class="p">()</span>
 
@@ -840,10 +840,10 @@
 
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">progress_reporter</span><span class="p">:</span> <span class="n">ProgressReporter</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_has_run</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">InvalidOperationError</span><span class="p">(</span><span class="s2">&quot;The trainer can only be run once.&quot;</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_run</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_has_run</span> <span class="o">=</span> <span class="kc">True</span>
 
         <span class="k">if</span> <span class="n">progress_reporter</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_progress_reporter</span> <span class="o">=</span> <span class="n">progress_reporter</span>
@@ -1203,8 +1203,8 @@
             <span class="n">unit_scores</span> <span class="o">=</span> <span class="p">[]</span>
 
             <span class="k">for</span> <span class="n">unit</span><span class="p">,</span> <span class="n">data_reader</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_valid_units</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_valid_data_readers</span><span class="p">):</span>
-                <span class="k">if</span> <span class="n">unit</span><span class="o">.</span><span class="n">display_name</span><span class="p">:</span>
-                    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Validating </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">unit</span><span class="o">.</span><span class="n">display_name</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">unit</span><span class="o">.</span><span class="n">name</span><span class="p">:</span>
+                    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Validating </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">unit</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
 
                 <span class="n">unit_score</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validate_unit</span><span class="p">(</span><span class="n">unit</span><span class="p">,</span> <span class="n">data_reader</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">unit_score</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -1278,12 +1278,12 @@
 
             <span class="n">values</span><span class="p">[</span><span class="s2">&quot;wall_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_wall_watch</span><span class="o">.</span><span class="n">get_elapsed_time</span><span class="p">()</span>
 
-            <span class="n">run_name</span> <span class="o">=</span> <span class="s2">&quot;valid&quot;</span>
+            <span class="n">run</span> <span class="o">=</span> <span class="s2">&quot;valid&quot;</span>
 
-            <span class="k">if</span> <span class="n">unit</span><span class="o">.</span><span class="n">display_name</span><span class="p">:</span>
-                <span class="n">run_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">run_name</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">unit</span><span class="o">.</span><span class="n">display_name</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">if</span> <span class="n">unit</span><span class="o">.</span><span class="n">name</span><span class="p">:</span>
+                <span class="n">run</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">run</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">unit</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span>
 
-            <span class="bp">self</span><span class="o">.</span><span class="n">_metric_recorder</span><span class="o">.</span><span class="n">record_metrics</span><span class="p">(</span><span class="n">run_name</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_step_nr</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_metric_recorder</span><span class="o">.</span><span class="n">record_metrics</span><span class="p">(</span><span class="n">run</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_step_nr</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_gangs</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">barrier</span><span class="p">()</span>
 
@@ -1496,7 +1496,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=dfc04fbb"></script>
+</div><script src="../../../_static/documentation_options.js?v=7c9e6513"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>
