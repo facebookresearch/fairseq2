@@ -42,7 +42,11 @@ from fairseq2.datasets import (
     DataPipelineReader,
     DataReader,
 )
-from fairseq2.datasets.parallel_text import Direction, ParallelTextReadOptions
+from fairseq2.datasets.parallel_text import (
+    Direction,
+    GenericParallelTextDataset,
+    ParallelTextReadOptions,
+)
 from fairseq2.gang import Gang
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.nn.padding import pad_seqs
@@ -199,11 +203,11 @@ class ParquetParallelTextDataset:
         weights = {}
         with Path(self._config.direction_weights_manifest_path).open("r") as f:
             for line in f:
-                # FIXME: get proper direction from the manifest
-                direction, weight = line.strip().split("\t")
+                fields, weight = line.rstrip().split("\t")
+                direction = GenericParallelTextDataset._parse_direction(fields)
                 weights[direction] = float(weight)
 
-        return [weights[direction] for direction in directions]
+        return [weights.get(direction, 0) for direction in directions]
 
     def create_reader(
         self,
