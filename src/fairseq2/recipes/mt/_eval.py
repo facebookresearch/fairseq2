@@ -296,16 +296,16 @@ def load_mt_evaluator(
 
 @final
 class MTLossEvalUnit(EvalUnit[Seq2SeqBatch]):
+    _name: str
     _criterion: MTCriterion
-    _display_name: str
     _metric_bag: Seq2SeqMetricBag
 
     def __init__(
         self, criterion: MTCriterion, direction: Direction, gangs: Gangs
     ) -> None:
-        self._criterion = criterion
+        self._name = f"loss/{direction}"
 
-        self._display_name = f"loss/{direction}"
+        self._criterion = criterion
 
         self._metric_bag = Seq2SeqMetricBag(gangs.dp, train=False)
 
@@ -315,13 +315,13 @@ class MTLossEvalUnit(EvalUnit[Seq2SeqBatch]):
 
     @property
     @override
-    def model(self) -> Model:
-        return self._criterion.model
+    def name(self) -> str | None:
+        return self._name
 
     @property
     @override
-    def display_name(self) -> str | None:
-        return self._display_name
+    def model(self) -> Model:
+        return self._criterion.model
 
     @property
     @override
@@ -333,8 +333,8 @@ class MTLossEvalUnit(EvalUnit[Seq2SeqBatch]):
 class MTBleuChrfEvalUnit(EvalUnit[Seq2SeqBatch]):
     """Represents a machine translation BLEU/chrF++ evaluation unit."""
 
+    _name: str
     _model: Model
-    _display_name: str
     _converter: SequenceToTextConverter
     _src_output_stream: TextIO | None
     _ref_output_stream: TextIO | None
@@ -364,9 +364,9 @@ class MTBleuChrfEvalUnit(EvalUnit[Seq2SeqBatch]):
         :param ref_output_stream: The output stream to dump references.
         :param hyp_output_stream: The output stream to dump hypotheses.
         """
-        self._model = model
+        self._name = f"score/{direction}"
 
-        self._display_name = f"score/{direction}"
+        self._model = model
 
         self._converter = SequenceToTextConverter(
             generator, tokenizer, "translation", direction.target_lang
@@ -463,13 +463,13 @@ class MTBleuChrfEvalUnit(EvalUnit[Seq2SeqBatch]):
 
     @property
     @override
-    def model(self) -> Model:
-        return self._model
+    def name(self) -> str | None:
+        return self._name
 
     @property
     @override
-    def display_name(self) -> str | None:
-        return self._display_name
+    def model(self) -> Model:
+        return self._model
 
     @property
     @override
