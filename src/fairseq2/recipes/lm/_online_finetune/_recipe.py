@@ -247,7 +247,6 @@ def load_online_finetuner(
         batching = StaticBatching(config.dataset.batch_size)
     else:
         raise ValueError
-        batching = LengthBatching(config.dataset.max_num_tokens)
 
     read_options = PromptReadOptions(
         batching=batching,

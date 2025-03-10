@@ -261,17 +261,10 @@ def sync_weights_with_vllm(train_model, vllm_model, trainer_process_group):
         trainer_process_group.broadcast(p, src=0, stream=torch.cuda.current_stream())
         ray.get(handle)
 
-def rollout_from_model(vllm_model, prompt_list, sampling_params=None):
-    if sampling_params is None:
-        sampling_params = SamplingParams(n=1, temperature=1.0, max_tokens=1024)
-
-    outputs = ray.get(vllm_model.generate.remote(prompt_token_ids=prompt_list, sampling_params=sampling_params, use_tqdm=False))
-    return outputs
-
 def find_first_value(lst, value):
     return next((i for i, x in enumerate(lst) if x == value), None)
 
-def generate_rollouts(prompts: List[str], dp_gang: Gang, vllm_model, sampling_params):
+def generate_rollouts(prompts: List[str], dp_gang: Gang, vllm_model, sampling_params=None):
     prompts_to_generate = [None]*dp_gang.size
     if dp_gang.rank == 0:
         dp_gang.gather_object(prompts, prompts_to_generate, 0)
@@ -283,9 +276,6 @@ def generate_rollouts(prompts: List[str], dp_gang: Gang, vllm_model, sampling_pa
         flat_request_list = []
         for rank_prompts in prompts_to_generate:
             flat_request_list.extend(rank_prompts)
-
-        from pudb.remote import set_trace
-        set_trace(host="submit-0", port=6899, term_size=(80*2, 24*2), reverse=True)
         
         rollouts = vllm_model.rollout_from_model(flat_request_list, sampling_params=sampling_params)
 

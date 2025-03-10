@@ -76,9 +76,8 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
     _metric_bag: OnlineDpoFinetuneMetricBag
     _length_normalization: bool
     _model_update_group: PyNcclCommunicator
-    _sync_model_every_n_steps: int
+    _sync_vllm_model_every_n_steps: int
     _sync_ref_model_every_n_steps: int
-    _vllm_n_rollouts: int
     _reward: VLLMOutputReward
 
     def __init__(
@@ -91,9 +90,8 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         beta: float = 0.1,
         nll_scale: float = 1.0,
         length_normalization: bool = False,
-        sync_model_every_n_steps: int = 1,
+        sync_vllm_model_every_n_steps: int = 1,
         sync_ref_model_every_n_step: int = -1,
-        vllm_n_rollouts: int = 1,
     ) -> None:
         super().__init__()
         self._model = model
@@ -103,18 +101,14 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         self._length_normalization = length_normalization
         self._vllm_model = vllm_model
         self._gangs = gangs
-        self._sync_model_every_n_steps = sync_model_every_n_steps
+        self._sync_vllm_model_every_n_steps = sync_vllm_model_every_n_steps
         self._sync_ref_model_every_n_steps = sync_ref_model_every_n_step
-        self._vllm_n_rollouts = vllm_n_rollouts
         self._reward = reward
-
         self._metric_bag = OnlineDpoFinetuneMetricBag(gangs.dp)
-
-        self._sampling_params = SamplingParams(n=vllm_n_rollouts, temperature=1.0, max_tokens=1024)
 
     def maybe_sync_models(self):
 
-        if self._sync_model_every_n_steps > 0 and self._step_nr % self._sync_model_every_n_steps == 0:
+        if self._sync_vllm_model_every_n_steps > 0 and self._step_nr % self._sync_vllm_model_every_n_steps == 0:
             with self._model.summon_full_parameters():
                 if self._gangs.root.rank == 0:
                     self._vllm_model.sync_weights_with_vllm(train_model=self._model)
@@ -130,7 +124,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
     def prepare_preferences(self, prompt_batch: PromptBatch) -> PreferenceBatch:
 
-        rollouts = generate_rollouts(prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._vllm_model, sampling_params=self._sampling_params)
+        rollouts = generate_rollouts(prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._vllm_model)
 
         # if self._gangs.root.rank == 0:
         #     from pudb.remote import set_trace
@@ -235,10 +229,10 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         if self._reference_model is not None:
             with torch.no_grad():
                 ref_chosen_output = cast(
-                    SequenceModelOutput, self._reference_model.module(batch.chosen_batch)
+                    SequenceModelOutput, self._reference_model.module(batch.chosen)
                 )
                 ref_rejected_output = cast(
-                    SequenceModelOutput, self._reference_model.module(batch.rejected_batch)
+                    SequenceModelOutput, self._reference_model.module(batch.rejected)
                 )
                 ref_chosen_logps, ref_average_chosen_logps = _gather_lprobs_avg(
                     ref_chosen_output, chosen_target_batch
@@ -269,16 +263,16 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         self._metric_bag.update_dpo_loss(batch, dpo_loss)
 
-        self._metric_bag.update_nll_loss(batch.chosen_batch, nll_loss)
+        self._metric_bag.update_nll_loss(batch.chosen, nll_loss)
 
         self._metric_bag.update_sequence_lengths(batch)
 
         self._metric_bag.update_logps(batch, chosen_logps, rejected_logps)
 
-        self._metric_bag.update_batch_metrics(batch.chosen_batch)
+        self._metric_bag.update_batch_metrics(batch.chosen)
 
-        # avg_reward = torch.tensor(verifications["rewards"]).float().mean()
-        # self._metric_bag.update_avg_reward(avg_reward)
+        avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
+        self._metric_bag.update_avg_reward(avg_reward)
 
         loss = (
             dpo_loss
@@ -289,8 +283,6 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         )  # normalization applied locally per-rank
 
         loss = loss * loss_zeroer  # zero loss if entire batch was dummy batch
-
-        # loss = nll_loss
 
         # if self._gangs.root.rank == 0:
         #     from pudb.remote import set_trace
@@ -416,6 +408,8 @@ class OnlineDpoFinetuneConfig:
     reward: RewardSection = field(default_factory=lambda: RewardSection(name="gsm8k_verifier"))
 
     sync_ref_model_every_n_steps: int = -1
+    sync_vllm_model_every_n_steps: int = -1
+
 
 def test_generation(llm, number):
     prompt = [f"<|start_header_id|>assistant<|end_header_id|> repeat this number: {number}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"]
@@ -501,9 +495,8 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
             config.beta,
             config.nll_scale,
             config.length_normalization,
-            config.sync_model_every_n_steps,
+            config.sync_vllm_model_every_n_steps,
             config.sync_ref_model_every_n_steps,
-            config.vllm_n_rollouts,
         )
     
     @property

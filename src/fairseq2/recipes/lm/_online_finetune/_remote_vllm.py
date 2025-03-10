@@ -60,7 +60,6 @@ class VllmConfig:
     ray_actor_name: str = "dummy"
     vllm_engine_args: VllmEngineArgs = field(default_factory=lambda: VllmEngineArgs())
     vllm_sampling_params: VllmSamplingParams = field(default_factory=lambda: VllmSamplingParams())
-    sync_model_every_n_steps: int = -1
 
 class RemoteVllmModelHandler(RemoteModelHandler):
     @override
@@ -70,7 +69,7 @@ class RemoteVllmModelHandler(RemoteModelHandler):
         if gangs.dp.rank == 0:
             # vllm worker is only created on the first DP rank (incuding all TP ranks)
             vllm_config = get_config_section(unit_config, "vllm_model", VllmConfig)
-            remote_vllm_model = RemoteVllmModel(vllm_config.ray_cluster_ip_address, vllm_config.ray_actor_name, vllm_config.vllm_engine_args, gangs)
+            remote_vllm_model = RemoteVllmModel(vllm_config.ray_cluster_ip_address, vllm_config.ray_actor_name, vllm_config.vllm_engine_args, vllm_config.vllm_sampling_params, gangs)
         else:
             remote_vllm_model = None
 
