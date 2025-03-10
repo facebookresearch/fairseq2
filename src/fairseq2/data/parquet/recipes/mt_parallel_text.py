@@ -205,6 +205,8 @@ class ParquetParallelTextDataset:
             for line in f:
                 fields, weight = line.rstrip().split("\t")
                 direction = GenericParallelTextDataset._parse_direction(fields)
+                #XXX: map empty origin to primary
+                direction.origin = direction.origin or "primary"
                 weights[direction] = float(weight)
 
         return [weights.get(direction, 0) for direction in directions]
@@ -235,7 +237,9 @@ class ParquetParallelTextDataset:
         directions = self.get_all_direction(base_dataset_config)
 
         weights = self.get_direction_weights(list(directions.keys()))
-        dir_files = list(directions.values())
+
+        # taking non-zero weights directions
+        weights, dir_files = zip(*[(w, files_) for w, (_, files_) in zip(weights, directions.items()) if w > 0])
 
         if len(dir_files) == 1:  # short circuit for single direction
             builder = self.reading_one_direction_pipeline(
