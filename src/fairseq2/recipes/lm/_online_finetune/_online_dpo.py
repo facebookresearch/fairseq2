@@ -346,7 +346,7 @@ class OnlineDpoFinetuneConfig:
     length_normalization: bool = False
     """Use length normalized DPO, which uses the average log probability of a sequence as the implicit reward."""
 
-    vllm_model: VllmConfig = field(default_factory=lambda: VllmConfig())
+    vllm_model: VllmConfig = field(default_factory=lambda: VllmConfig(init_update_process_group=True))
 
     reward: RewardSection = field(default_factory=lambda: RewardSection(name="gsm8k_verifier"))
 

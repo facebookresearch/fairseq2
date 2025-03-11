@@ -60,6 +60,7 @@ class VllmConfig:
     ray_actor_name: str = "dummy"
     vllm_engine_args: VllmEngineArgs = field(default_factory=lambda: VllmEngineArgs())
     vllm_sampling_params: VllmSamplingParams = field(default_factory=lambda: VllmSamplingParams())
+    init_update_process_group: bool = False
 
 class RemoteVllmModelHandler(RemoteModelHandler):
     @override
@@ -69,7 +70,7 @@ class RemoteVllmModelHandler(RemoteModelHandler):
         if gangs.dp.rank == 0:
             # vllm worker is only created on the first DP rank (incuding all TP ranks)
             vllm_config = get_config_section(unit_config, "vllm_model", VllmConfig)
-            remote_vllm_model = RemoteVllmModel(vllm_config.ray_cluster_ip_address, vllm_config.ray_actor_name, vllm_config.vllm_engine_args, vllm_config.vllm_sampling_params, gangs)
+            remote_vllm_model = RemoteVllmModel(vllm_config.ray_cluster_ip_address, vllm_config.ray_actor_name, vllm_config.vllm_engine_args, vllm_config.vllm_sampling_params, vllm_config.init_update_process_group, gangs)
         else:
             remote_vllm_model = None
 
@@ -87,7 +88,7 @@ class RemoteVllmModelHandler(RemoteModelHandler):
 
 
 class RemoteVllmModel:
-    def __init__(self, ray_cluster_ip_address: str, ray_actor_name: str, vllm_engine_args: VllmEngineArgs, sampling_params: VllmSamplingParams, gangs: Gangs):
+    def __init__(self, ray_cluster_ip_address: str, ray_actor_name: str, vllm_engine_args: VllmEngineArgs, sampling_params: VllmSamplingParams, init_update_process_group: bool, gangs: Gangs):
         if gangs.dp.rank != 0:
             raise ValueError("vllm worker should only be initialized on DP rank 0")
         
@@ -96,7 +97,10 @@ class RemoteVllmModel:
         self._gangs = gangs
         self.vllm_model = self.setup_vllm_worker(ray_actor_name, vllm_engine_args, gangs)
         self.sampling_params = SamplingParams(n=sampling_params.n, temperature=sampling_params.temperature, max_tokens=sampling_params.max_tokens)
-        self.update_process_group = self.setup_process_group_for_model_sync(vllm_engine_args.tensor_parallel_size)
+        if init_update_process_group:
+            self.update_process_group = self.setup_process_group_for_model_sync(vllm_engine_args.tensor_parallel_size)
+        else:
+            self.update_process_group = None
         self._vllm_engine_args = vllm_engine_args
 
 
