@@ -61,7 +61,7 @@ from vllm import SamplingParams
 from vllm.distributed.device_communicators.pynccl import PyNcclCommunicator
 
 import ray
-from fairseq2.recipes.lm._online_finetune._verifiers import VLLMOutputRewardHandler, RewardSection, VLLMOutputReward
+from fairseq2.recipes.lm._online_finetune._rewards import VLLMOutputRewardHandler, RewardSection, VLLMOutputReward
 from fairseq2.recipes.lm._online_finetune._remote_vllm import VllmConfig, RemoteVllmModelHandler, RemoteVllmModel
 
 from fairseq2.recipes.lm._online_finetune._common import collate_with_target_mask, copy_state, find_first_value, generate_rollouts
@@ -122,70 +122,6 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 self._gangs.root.barrier()
                 broadcast_model(self._reference_model, self._gangs)
 
-    def prepare_preferences(self, prompt_batch: PromptBatch) -> PreferenceBatch:
-
-        rollouts = generate_rollouts(prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._vllm_model)
-
-        # if self._gangs.root.rank == 0:
-        #     from pudb.remote import set_trace
-        #     set_trace(host="submit-0", port=6899, term_size=(80*2, 24*2), reverse=True)
-
-        # self._gangs.root.barrier()
-
-        reward_output = self._reward(rollouts[0], prompt_batch.meta_info["answer"])
-
-        # verifications = gsm8k_correctness_verifier(rollouts[0], prompt_batch.meta_info["answer"])
-
-        chosen_batch = []
-        rejected_batch = []
-        prompt_lens = []
-        dummy_batch_ids = []  # keep posiitons of dummy pairs here
-        loss_zeroer = 1.0
-        # choosing first rollouts with reward 1 as chosen and 0 as rejected (sort of random given that we sample rollouts randomly)
-        for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(zip(reward_output["rewards"],reward_output["tokens"])):
-            chosen_rollout_position = find_first_value(i_batch_rewards, 1)
-            rejected_rollout_position = find_first_value(i_batch_rewards, 0)
-            if chosen_rollout_position is None or rejected_rollout_position is None:
-                # cant form preference pair when we dont have such rollouts
-                # this will be dummy batch and we zero out loss
-                chosen_rollout_position = 0
-                rejected_rollout_position = 1
-                dummy_batch_ids.append(i_batch)
-            chosen_rollout_tokens = list(i_batch_tokens[chosen_rollout_position])
-            rejected_rollout_tokens = list(i_batch_tokens[rejected_rollout_position])
-            prompt_tokens = prompt_batch.prompts[i_batch]
-
-            chosen_tokens = prompt_tokens + chosen_rollout_tokens
-            chosen_batch.append(chosen_tokens)
-
-            rejected_tokens = prompt_tokens + rejected_rollout_tokens
-            rejected_batch.append(rejected_tokens)
-
-            prompt_lens.append(len(prompt_tokens))
-
-        filter_batch = lambda batch: [item for index, item in enumerate(batch) if index not in dummy_batch_ids]
-
-        if len(dummy_batch_ids) == len(reward_output["tokens"]):
-            # entire batch does not have a valid preference pair
-            # we use it as dummy batch and zero the loss in the end 
-            loss_zeroer = 0.0
-        else:
-            # removing dummy pairs from the batch
-            chosen_batch = filter_batch(chosen_batch)
-            rejected_batch = filter_batch(rejected_batch)
-            prompt_lens = filter_batch(prompt_lens)
-
-        prompt_lens = torch.tensor(prompt_lens)
-
-        chosen_batch = [torch.tensor(sequence, device=self._gangs.dp.device) for sequence in chosen_batch]
-        chosen_batch = collate_with_target_mask(chosen_batch, prompt_lens, device=self._gangs.dp.device)
-
-        rejected_batch = [torch.tensor(sequence, device=self._gangs.dp.device) for sequence in rejected_batch]
-        rejected_batch = collate_with_target_mask(rejected_batch, prompt_lens, device=self._gangs.dp.device)
-
-        batch = PreferenceBatch(chosen=chosen_batch, rejected=rejected_batch, reference_score_chosen=None, reference_score_rejected=None)
-
-        return batch, loss_zeroer, reward_output
 
     @override
     def __call__(self, prompt_batch: PromptBatch) -> tuple[Tensor, int]:
@@ -198,8 +134,15 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         self.maybe_sync_models()
 
-        batch, loss_zeroer, reward_output = self.prepare_preferences(prompt_batch=prompt_batch)  # loss_zeroer is used when entire batch has no valid prefrence pair
+        rollouts = generate_rollouts(prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._vllm_model)
 
+        batch, is_bad_batch, reward_output = self._reward.prepare_preference_batch(prompt_batch, rollouts)  # loss_zeroer is used when entire batch has no valid prefrence pair
+        if is_bad_batch:
+            loss_zeroer = 0.0
+        else:
+            loss_zeroer = 1.0
+
+        # below is the usual DPO code
         chosen_input_batch, chosen_target_batch = as_auto_regressive_input(batch.chosen)
         rejected_input_batch, rejected_target_batch = as_auto_regressive_input(
             batch.rejected
@@ -440,7 +383,7 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
 
         reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
         reward_handler = reward_registry.get(config.reward.name)
-        reward = reward_handler.create(recipe_config=recipe_config)
+        reward = reward_handler.create(recipe_config=recipe_config, gangs=gangs)
 
         if config.reference_model is not None:
             log.info("Setting up DPO with reference model.")

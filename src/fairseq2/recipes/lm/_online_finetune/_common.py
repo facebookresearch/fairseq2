@@ -292,4 +292,4 @@ def generate_rollouts(prompts: List[str], dp_gang: Gang, vllm_model, sampling_pa
 
     dp_gang.barrier()
 
-    return rollouts_per_rank
+    return rollouts_per_rank[0]
