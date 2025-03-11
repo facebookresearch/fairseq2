@@ -18,12 +18,11 @@ from fairseq2.gang import Gangs
 from fairseq2.recipes.model import Model
 from fairseq2.recipes.trainer import TrainUnit
 from vllm import LLM, SamplingParams, RequestOutput, CompletionOutput
-from fairseq2.recipes.lm._online_finetune._common import collate_with_target_mask, find_first_value
+from fairseq2.recipes.lm._online_finetune._common import collate_with_target_mask, find_first_value, GRPOBatch
 import re
 from fairseq2.recipes.config import (
     get_config_section,
 )
-
 
 @dataclass(kw_only=True)
 class RewardSection:
@@ -101,7 +100,7 @@ class GSM8kVerifier(VLLMOutputReward):
                 rollouts_text.append(rollout_output.text)
                 rollouts_tokens.append(rollout_output.token_ids)
                 predicted_answer = self.extract_answer(rollout_output.text)
-                predicted_reward = 1 if predicted_answer == i_reference_answer else 0
+                predicted_reward = 1 if predicted_answer == i_reference_answer else -1
                 rollouts_rewards.append(predicted_reward)
             batch_text.append(rollouts_text)
             batch_tokens.append(rollouts_tokens)
@@ -125,7 +124,7 @@ class GSM8kVerifier(VLLMOutputReward):
         # choosing first rollouts with reward 1 as chosen and 0 as rejected (sort of random given that we sample rollouts randomly)
         for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(zip(reward_output["rewards"],reward_output["tokens"])):
             chosen_rollout_position = find_first_value(i_batch_rewards, 1)
-            rejected_rollout_position = find_first_value(i_batch_rewards, 0)
+            rejected_rollout_position = find_first_value(i_batch_rewards, -1)
             if chosen_rollout_position is None or rejected_rollout_position is None:
                 # cant form preference pair when we dont have such rollouts
                 # this will be dummy batch and we zero out loss
@@ -170,4 +169,27 @@ class GSM8kVerifier(VLLMOutputReward):
         return batch, is_bad_batch, reward_output
 
     def prepare_grpo_batch(self, prompt_batch: PromptBatch, rollouts):
-        raise NotImplementedError()
+
+        grpo_batches = [] # each batch is one prompt and N rollouts
+
+        reward_output = self.process_rollouts(rollouts, prompt_batch.meta_info["answer"])
+        for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(zip(reward_output["rewards"],reward_output["tokens"])):
+            prompt = prompt_batch.prompts[i_batch]
+            rollout_tokens = [torch.tensor(prompt+list(c), device=self._gangs.dp.device) for c in i_batch_tokens]
+            prompt_lens = [len(prompt)]*len(rollout_tokens)
+            prompt_rollout_batch = collate_with_target_mask(rollout_tokens, prompt_lens, device=self._gangs.dp.device)
+            
+            rewards = torch.tensor(i_batch_rewards, device=self._gangs.dp.device).float()
+            rewards_normalized = (rewards - rewards.mean()) / (rewards.std() + 1e-6)  # small epsilon to compensate 0 std
+
+            grpo_batch = GRPOBatch(prompt_rollouts=prompt_rollout_batch, rewards=rewards_normalized)
+
+            grpo_batches.append(grpo_batch)
+
+        # if self._gangs.root.rank == 0:
+        #     from pudb.remote import set_trace
+        #     set_trace(host="submit-0", port=6899, term_size=(80*2, 24*2), reverse=True)
+
+        # self._gangs.root.barrier()
+
+        return grpo_batches, reward_output

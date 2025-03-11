@@ -42,6 +42,12 @@ from fairseq2.data import (
 )
 from fairseq2.nn.padding import get_seqs_and_padding_mask
 
+@dataclass
+class GRPOBatch:
+    """Represents a preference optimization dataset batch."""
+
+    prompt_rollouts: SequenceBatch
+    rewards: torch.Tensor
 
 @dataclass(kw_only=True)
 class OnlineCriterionSection:

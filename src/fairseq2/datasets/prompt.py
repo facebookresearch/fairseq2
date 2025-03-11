@@ -64,6 +64,11 @@ class PromptBatch:
     prompts: List[List[int]]
     meta_info: List[Any]
 
+    @property
+    def batch_size(self) -> int:
+        """The size of the batch dimension."""
+        return len(self.prompts)
+
 class PromptDataset(ABC):
     """Represents a preference optimization dataset."""
 

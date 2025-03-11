@@ -14,6 +14,7 @@ from fairseq2.recipes.lm import (
     POFinetuneUnitHandler,
     SimPOFinetuneUnitHandler,
     OnlineDpoFinetuneUnitHandler,
+    GrpoFinetuneUnitHandler,
     OnlineFinetuneUnitHandler,
     GSM8kVerifierHandler,
     VLLMOutputRewardHandler
@@ -49,12 +50,20 @@ def register_po_finetune_units(context: RuntimeContext) -> None:
 def register_online_finetune_units(context: RuntimeContext) -> None:
     registry = context.get_registry(OnlineFinetuneUnitHandler)
 
+    # finetune units
+
     handler: OnlineFinetuneUnitHandler
 
     # Online DPO
     handler = OnlineDpoFinetuneUnitHandler(context)
 
     registry.register(handler.name, handler)
+
+    handler = GrpoFinetuneUnitHandler(context)
+
+    registry.register(handler.name, handler)
+
+    # reward models
 
     registry = context.get_registry(VLLMOutputRewardHandler)
 
