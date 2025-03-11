@@ -228,3 +228,22 @@ def _3b_higher_bib61() -> Wav2Vec2AsrConfig:
     config.vocab_info.size = 2475
 
     return config
+
+
+@wav2vec2_asr_arch("5b_front51")
+def _5b_front51() -> Wav2Vec2AsrConfig:
+    config = _base_10h()
+
+    config.encoder_config = wav2vec2_encoder_archs.get("5b")
+    config.encoder_config.feature_gradient_scale = 1.0
+    config.encoder_config.dropout_p = 0.0
+    config.encoder_config.attn_dropout_p = 0.0
+    config.encoder_config.ffn_inner_dropout_p = 0.1
+    config.encoder_config.layer_drop_p = 0.1
+
+    config.use_masking = False
+    config.max_temporal_mask_prob = 0.0
+    config.max_spatial_mask_prob = 0.0
+    config.vocab_info.size = 222
+
+    return config
