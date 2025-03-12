@@ -36,6 +36,9 @@ class LLaMAConfig:
     )
     """The vocabulary information."""
 
+    tie_embeddings: bool = False
+    """If ``True``, ties the embedding table and the output projection layer."""
+
     num_layers: int = 32
     """The number of decoder layers."""
 
@@ -245,6 +248,7 @@ def register_llama_configs(context: RuntimeContext) -> None:
         config = llama3_1_8b()
 
         config.model_dim = 2048
+        config.tie_embeddings = True
         config.ffn_inner_dim = 2048 * 4
         config.ffn_inner_dim_multiplier = 1.5
         config.ffn_inner_dim_to_multiple = 256
