@@ -28,6 +28,7 @@ from fairseq2.nn import (
     RMSNorm,
     RotaryEncoder,
     StandardEmbedding,
+    TiedProjection,
 )
 from fairseq2.nn.transformer import (
     FeedForwardNetwork,
@@ -53,11 +54,13 @@ class LLaMAFactory:
     def create_model(self) -> TransformerDecoderModel:
         config = self._config
 
-        decoder_frontend = self.create_decoder_frontend()
+        embed = self.create_embedding()
+
+        decoder_frontend = self.create_decoder_frontend(embed)
 
         decoder = self.create_decoder()
 
-        final_proj = self.create_final_proj()
+        final_proj = self.create_final_proj(embed)
 
         return TransformerDecoderModel(
             decoder_frontend,
@@ -67,20 +70,18 @@ class LLaMAFactory:
             vocab_info=config.vocab_info,
         )
 
-    def create_decoder_frontend(self) -> TransformerFrontend:
-        config = self._config
-
-        embed = self.create_embedding()
-
-        return TransformerEmbeddingFrontend(
-            embed, pos_encoder=None, no_scale=True, dropout_p=config.dropout_p
-        )
-
     def create_embedding(self) -> Embedding:
         config = self._config
 
         return StandardEmbedding(
             num_embeddings=config.vocab_info.size, embedding_dim=config.model_dim
+        )
+
+    def create_decoder_frontend(self, embed: Embedding) -> TransformerFrontend:
+        config = self._config
+
+        return TransformerEmbeddingFrontend(
+            embed, pos_encoder=None, no_scale=True, dropout_p=config.dropout_p
         )
 
     def create_decoder(self) -> TransformerDecoder:
@@ -162,8 +163,16 @@ class LLaMAFactory:
             inner_dropout_p=config.dropout_p,
         )
 
-    def create_final_proj(self) -> Projection:
+    def create_final_proj(self, embed: Embedding) -> Projection:
         config = self._config
+
+        if config.tie_embeddings:
+            if not isinstance(embed, StandardEmbedding):
+                raise TypeError(
+                    f"`embed` must be of type `{StandardEmbedding}` when `config.tie_embeddings` is set, but is of type `{type(embed)}` instead."
+                )
+
+            return TiedProjection(embed.weight, bias=None)
 
         return Linear(
             config.model_dim,
