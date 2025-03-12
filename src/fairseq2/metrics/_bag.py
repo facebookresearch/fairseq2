@@ -195,7 +195,7 @@ class MetricBag:
 
             try:
                 metric.load_state_dict(metric_state_dict)
-            except (RuntimeError, ValueError) as ex:
+            except (RuntimeError, ValueError, TypeError) as ex:
                 raise ValueError(
                     f"`state_dict['{name}']` is not a valid `{type(metric)}` state. See the nested exception for details."
                 ) from ex
@@ -240,6 +240,10 @@ def sync_and_compute_metrics(bags: Sequence[MetricBag]) -> dict[str, object] | N
             values = {name: m.compute() for name, m in all_metrics.items()}
         else:
             values = sync_and_compute_collection(all_metrics, gang.as_process_group())
+    except RuntimeError as ex:
+        raise MetricBagError(
+            "The metric values cannot be synced. See the nested exception for details."
+        ) from ex
     finally:
         logging.disable(logging.NOTSET)
 
@@ -259,6 +263,10 @@ def sync_and_compute_metrics(bags: Sequence[MetricBag]) -> dict[str, object] | N
             bag.process_metric_values(values)
 
     return values
+
+
+class MetricBagError(Exception):
+    pass
 
 
 def merge_metric_states(

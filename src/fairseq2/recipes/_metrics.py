@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from collections.abc import MutableMapping
+
 import torch
 from torch import Tensor
 from torcheval.metrics import Throughput
@@ -282,7 +284,7 @@ class Seq2SeqGenerationMetricBag(BaseMetricBag):
 
 
 def extend_batch_metrics(
-    metric_values: dict[str, object], num_batches: int, elapsed_time: float
+    metric_values: MutableMapping[str, object], num_batches: int, elapsed_time: float
 ) -> None:
     def get_value(name: str) -> int | float | Tensor | None:
         try:

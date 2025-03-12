@@ -15,7 +15,7 @@ from torcheval.metrics import Mean
 from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.gang import Gang
 from fairseq2.models.sequence import SequenceBatch, SequenceModelOutput
-from fairseq2.recipes.metrics import SequenceMetricBag
+from fairseq2.recipes import SequenceMetricBag
 
 
 def _gather_lprobs(output: SequenceModelOutput, target: SequenceBatch) -> Tensor:

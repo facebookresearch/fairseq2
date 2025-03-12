@@ -17,6 +17,10 @@ from fairseq2.models.utils.checkpoint import convert_model_state_dict
 def convert_llama_checkpoint(
     checkpoint: dict[str, object], config: LLaMAConfig
 ) -> dict[str, object]:
+    # Check if we have a fairseq2 checkpoint.
+    if "model" in checkpoint:
+        return checkpoint
+
     # Check if we have a reference or Hugging Face checkpoint.
     if "lm_head.weight" in checkpoint:  # HG
         head_dim = config.model_dim // config.num_attn_heads

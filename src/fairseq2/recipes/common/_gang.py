@@ -10,7 +10,6 @@ from datetime import timedelta
 
 from fairseq2.context import RuntimeContext
 from fairseq2.device import DeviceDetectionError, determine_default_device
-from fairseq2.error import ProgramError
 from fairseq2.gang import (
     GangError,
     Gangs,
@@ -19,13 +18,14 @@ from fairseq2.gang import (
     setup_root_gang,
 )
 from fairseq2.logging import log
+from fairseq2.recipes import RecipeError
+from fairseq2.recipes.common import HybridShardingNotSupportedError
 from fairseq2.recipes.config import (
     ConfigSectionNotFoundError,
     GangSection,
     TrainerSection,
     get_config_section,
 )
-from fairseq2.recipes.error import HybridShardingNotSupportedError
 from fairseq2.recipes.utils.log import log_environment_info
 from fairseq2.utils.env import InvalidEnvironmentVariableError, get_local_world_size
 
@@ -34,7 +34,7 @@ def setup_gangs(context: RuntimeContext, recipe_config: object) -> Gangs:
     try:
         device = determine_default_device(context)
     except DeviceDetectionError as ex:
-        raise ProgramError(
+        raise RecipeError(
             "The device of the process cannot be determined. See the nested exception for details."
         ) from ex
 
@@ -56,7 +56,7 @@ def setup_gangs(context: RuntimeContext, recipe_config: object) -> Gangs:
             monitored=gang_section.monitored,
         )
     except GangError as ex:
-        raise ProgramError(
+        raise RecipeError(
             "The root gang of the process cannot be set up. See the nested exception for details."
         ) from ex
 
@@ -79,7 +79,7 @@ def setup_gangs(context: RuntimeContext, recipe_config: object) -> Gangs:
 
         gangs = setup_parallel_gangs(root_gang, tp_size=tp_size)
     except GangError as ex:
-        raise ProgramError(
+        raise RecipeError(
             "The parallel gangs of the process cannot be set up. See the nested exception for details."
         ) from ex
 
@@ -88,7 +88,7 @@ def setup_gangs(context: RuntimeContext, recipe_config: object) -> Gangs:
     try:
         gangs = _maybe_setup_fsdp_gangs(context, recipe_config, gangs)
     except GangError as ex:
-        raise ProgramError(
+        raise RecipeError(
             "The hybrid sharded data parallel gangs cannot set up. See the nested exception for details."
         ) from ex
 

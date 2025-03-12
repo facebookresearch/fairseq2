@@ -74,7 +74,3 @@ class HybridShardingNotSupportedError(NotSupportedError):
         super().__init__(
             "Hybrid sharded data parallelism cannot be used with model parallelism."
         )
-
-
-class UnitError(Exception):
-    pass

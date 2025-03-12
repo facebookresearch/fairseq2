@@ -18,13 +18,13 @@ from fairseq2.optim.lr_scheduler import (
     NoopLR,
     UnknownLRSchedulerError,
 )
+from fairseq2.recipes import Model
 from fairseq2.recipes.config import (
     LRSchedulerSection,
     OptimizerSection,
     RegimeSection,
     get_config_section,
 )
-from fairseq2.recipes.model import Model
 from fairseq2.registry import Provider
 from fairseq2.utils.structured import StructureError
 

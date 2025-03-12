@@ -120,14 +120,13 @@ class RngBag:
         try:
             states = state_dict["generators"]
         except KeyError:
-            raise ValueError("`state_dict` must contain a 'generators' key.") from None
-
-        if len(state_dict) != 1:
-            raise ValueError("`state_dict` must contain only a 'generators' key.")
+            raise ValueError(
+                "`state_dict` must contain a key named 'generators'."
+            ) from None
 
         if not isinstance(states, list):
             raise TypeError(
-                f"`state_dict['generators']` must be of type `{list}`, but is of type `{type(states)}` instead."
+                f"`state_dict['generators']` must be of type `list`, but is of type `{type(states)}` instead."
             )
 
         if len(states) != len(self._generators):
