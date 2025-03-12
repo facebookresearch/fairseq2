@@ -23,7 +23,7 @@ from torch.distributed.fsdp import (
     fully_shard,
 )
 from torch.distributed.tensor import DTensor
-from torch.nn import Module, Parameter
+from torch.nn import Module, Parameter, SyncBatchNorm
 
 from fairseq2.error import InvalidOperationError, NotSupportedError
 from fairseq2.gang import Gangs
@@ -102,6 +102,12 @@ def to_fsdp2(
             ) from None
 
         device_mesh = DeviceMesh.from_group(process_group, dp_gang.device.type)
+
+    # FSDP2 does not broadcast buffers during training, so ensure that batch
+    # normalization works.
+    dp_process_group = dp_gang.as_process_group()
+
+    SyncBatchNorm.convert_sync_batchnorm(module, dp_process_group)
 
     # Set up parameter initialization.
     try:

@@ -27,7 +27,7 @@ from torch.distributed.fsdp.api import (
     ShardingStrategy,
     StateDictType,
 )
-from torch.nn import Module, Parameter
+from torch.nn import Module, Parameter, SyncBatchNorm
 
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gangs
@@ -96,6 +96,12 @@ def to_fsdp1(
             raise DistributedSetupError(
                 "The specified data parallel gang does not support conversion to a process group."
             ) from None
+
+    # FSDP does not broadcast buffers during training, so ensure that batch
+    # normalization works.
+    dp_process_group = gangs.dp.as_process_group()
+
+    SyncBatchNorm.convert_sync_batchnorm(module, dp_process_group)
 
     # Set up parameter initialization.
     try:
