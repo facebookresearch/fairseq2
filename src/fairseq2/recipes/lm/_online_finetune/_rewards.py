@@ -100,7 +100,7 @@ class GSM8kVerifier(VLLMOutputReward):
                 rollouts_text.append(rollout_output.text)
                 rollouts_tokens.append(rollout_output.token_ids)
                 predicted_answer = self.extract_answer(rollout_output.text)
-                predicted_reward = 1 if predicted_answer == i_reference_answer else -1
+                predicted_reward = 1 if predicted_answer == i_reference_answer else 0
                 rollouts_rewards.append(predicted_reward)
             batch_text.append(rollouts_text)
             batch_tokens.append(rollouts_tokens)
@@ -124,7 +124,7 @@ class GSM8kVerifier(VLLMOutputReward):
         # choosing first rollouts with reward 1 as chosen and 0 as rejected (sort of random given that we sample rollouts randomly)
         for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(zip(reward_output["rewards"],reward_output["tokens"])):
             chosen_rollout_position = find_first_value(i_batch_rewards, 1)
-            rejected_rollout_position = find_first_value(i_batch_rewards, -1)
+            rejected_rollout_position = find_first_value(i_batch_rewards, 0)
             if chosen_rollout_position is None or rejected_rollout_position is None:
                 # cant form preference pair when we dont have such rollouts
                 # this will be dummy batch and we zero out loss
