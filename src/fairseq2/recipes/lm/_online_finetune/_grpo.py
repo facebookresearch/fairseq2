@@ -120,43 +120,34 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         rollouts = generate_rollouts(prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._vllm_model)
 
-        grpo_batches: List[GRPOBatch]
-        grpo_batches, reward_output = self._reward.prepare_grpo_batch(prompt_batch, rollouts)  # loss_zeroer is used when entire batch has no valid prefrence pair
+        grpo_batch: GRPOBatch
+        grpo_batch, reward_output = self._reward.prepare_grpo_batch(prompt_batch, rollouts)  # loss_zeroer is used when entire batch has no valid prefrence pair
 
-        grpo_objectives = []
-        for grpo_batch in grpo_batches:
+        grpo_input_batch, grpo_target_batch = as_auto_regressive_input(
+            grpo_batch.prompt_rollouts
+        )
 
-            grpo_input_batch, grpo_target_batch = as_auto_regressive_input(
-                grpo_batch.prompt_rollouts
+        grpo_model_output = cast(SequenceModelOutput, self._model.module(grpo_input_batch))
+
+        # if self._gangs.root.rank == 0:
+        #     from pudb.remote import set_trace
+        #     set_trace(host="submit-0", port=6899, term_size=(80*2, 24*2), reverse=True)
+
+        # self._gangs.root.barrier()
+
+        with torch.no_grad():
+            ref_grpo_model_output = cast(
+                SequenceModelOutput, self._reference_model.module(grpo_input_batch)
             )
+        
+        _grpo_objective = self._compute_grpo_objective(
+            grpo_model_output,
+            ref_grpo_model_output,
+            grpo_batch.rewards,
+            grpo_target_batch
+        )
 
-            grpo_model_output = cast(SequenceModelOutput, self._model.module(grpo_input_batch))
-
-            # if self._gangs.root.rank == 0:
-            #     from pudb.remote import set_trace
-            #     set_trace(host="submit-0", port=6899, term_size=(80*2, 24*2), reverse=True)
-
-            # self._gangs.root.barrier()
-
-            with torch.no_grad():
-                ref_grpo_model_output = cast(
-                    SequenceModelOutput, self._reference_model.module(grpo_input_batch)
-                )
-            
-            _grpo_objective = self._compute_grpo_objective(
-                grpo_model_output,
-                ref_grpo_model_output,
-                grpo_batch.rewards,
-                grpo_target_batch
-            )
-
-            grpo_objectives.append(_grpo_objective)
-
-            # nll_loss = grpo_model_output.compute_loss(
-            #     grpo_target_batch.seqs, loss_mask=grpo_target_batch.target_mask
-            # )
-
-        grpo_loss = - sum(grpo_objectives)  # sum per micro batch losses
+        grpo_loss = - _grpo_objective
 
         self._metric_bag.update_grpo_loss(prompt_batch, grpo_loss)
 
@@ -174,9 +165,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
         self._metric_bag.update_avg_reward(avg_reward)
 
-        loss = (
-            grpo_loss
-        )
+        loss = grpo_loss
 
         # if self._gangs.root.rank == 0:
         #     from pudb.remote import set_trace
@@ -208,14 +197,22 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         logps = self._gather_lprobs(grpo_model_output, target_batch)
         ref_logps = self._gather_lprobs(grpo_ref_model_output, target_batch)
 
+        batch_size = advantages.size(0)
+        num_rollouts = advantages.size(1)
+        logps = logps.view(batch_size, num_rollouts, -1)
+        ref_logps = ref_logps.view(batch_size, num_rollouts, -1)
+
         # kl penalty
         kl = (ref_logps - logps).exp() - (ref_logps - logps) - 1.0
 
-        per_token_scaled_advantage = (logps - logps.detach()).exp() * advantages[:,None]
+        per_token_scaled_advantage = (logps - logps.detach()).exp() * advantages[:,:,None]
 
         per_token_loss = per_token_scaled_advantage - self._beta * kl
 
-        per_seq_loss = (per_token_loss * target_batch.target_mask).sum(dim=-1) / target_batch.target_mask.sum(dim=-1)
+        target_mask = target_batch.target_mask.view(batch_size, num_rollouts, -1)
+
+        per_seq_loss = ((per_token_loss * target_mask).sum(dim=-1) / target_mask.sum(dim=-1)).mean(dim=1)
+
 
         # if self._gangs.root.rank == 0:
         #     from pudb.remote import set_trace
@@ -223,7 +220,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         # self._gangs.root.barrier()
 
-        return per_seq_loss.mean()
+        return per_seq_loss.sum()
 
     @override
     def set_step_nr(self, step_nr: int) -> None:
