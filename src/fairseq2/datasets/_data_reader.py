@@ -8,14 +8,14 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterator, Mapping
-from typing import TypeVar, final
-
-from typing_extensions import Self, override
+from typing import final, TypeVar
 
 from fairseq2.data import DataPipeline, DataPipelineError
 from fairseq2.datasets._config import DataReadOptions, SyncMode
 from fairseq2.datasets._utils import _min_num_batches, _sum_num_batches
 from fairseq2.gang import Gang, GangError
+
+from typing_extensions import override, Self
 
 BatchT_co = TypeVar("BatchT_co", covariant=True)
 
@@ -163,7 +163,7 @@ class DataPipelineReader(DataReader[BatchT]):
 
     @override
     def state_dict(self) -> dict[str, object]:
-        return self._pipeline.state_dict()
+        return self._pipeline.state_dict(strict=False)
 
     @override
     def load_state_dict(self, state_dict: Mapping[str, object]) -> None:

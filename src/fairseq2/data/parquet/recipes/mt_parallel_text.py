@@ -10,16 +10,12 @@ from copy import deepcopy
 from dataclasses import dataclass
 from functools import lru_cache, partial
 from pathlib import Path
-from typing import Dict, List, Optional, final
+from typing import Dict, final, List, Optional
 
 import pyarrow as pa
 import pyarrow.compute as pc
-from pyarrow.dataset import get_partition_keys
 
-from fairseq2.data import (
-    DataPipeline,
-    DataPipelineBuilder,
-)
+from fairseq2.data import DataPipeline, DataPipelineBuilder
 from fairseq2.data.parquet.arrow_transform.transform import (
     filter_list_with_min_max_length,
 )
@@ -32,16 +28,10 @@ from fairseq2.data.parquet.fragment_streaming import (
     FragmentStreamingConfig,
     ParquetFragmentStreamer,
 )
-from fairseq2.data.parquet.table_bucketing import (
-    TableBucketer,
-    TableBucketingConfig,
-)
+from fairseq2.data.parquet.table_bucketing import TableBucketer, TableBucketingConfig
 from fairseq2.data.parquet.utils import pyarrow_table_to_torch_dict
 from fairseq2.data.text.tokenizers import TextTokenizer
-from fairseq2.datasets import (
-    DataPipelineReader,
-    DataReader,
-)
+from fairseq2.datasets import DataPipelineReader, DataReader
 from fairseq2.datasets.parallel_text import (
     Direction,
     GenericParallelTextDataset,
@@ -51,6 +41,7 @@ from fairseq2.gang import Gang
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.nn.padding import pad_seqs
 from fairseq2.typing import Device
+from pyarrow.dataset import get_partition_keys
 
 
 @dataclass(kw_only=True)
@@ -82,6 +73,7 @@ class ParquetParallelTextDatasetConfig:
     max_tokens: int = 4_000
     min_seq_len: int = 0
     max_seq_len: int = 512
+    order_by_length: bool = True
 
     direction_sample: bool = True
     direction_weights_manifest_path: Optional[str] = None
@@ -99,11 +91,11 @@ class TokenizerMapper:
     @lru_cache(maxsize=10_000)
     def get_encoders(self, direction: Direction):
         source_mode = "source"
-        if direction.origin:
+        if direction.origin != "primary":
             source_mode = f"{source_mode}_{direction.origin}"
 
         source_encoder = self._tokenizer.create_encoder(
-            task="translation", lang=direction.source_lang, mode="source"
+            task="translation", lang=direction.source_lang, mode=source_mode
         )
 
         target_encoder = self._tokenizer.create_encoder(
@@ -125,13 +117,13 @@ class TokenizerMapper:
             table["source_text"]
             .to_pandas()
             .apply(lambda x: source_encoder(x).int().numpy()),
-            type=pa.list_(pa.int32()),
+            type=pa.list_(pa.int64()),
         )
         target_tokens = pa.array(
             table["target_text"]
             .to_pandas()
             .apply(lambda x: target_encoder(x).int().numpy()),
-            type=pa.list_(pa.int32()),
+            type=pa.list_(pa.int64()),
         )
         table = table.append_column("source_indices", source_tokens)
         table = table.append_column("target_indices", target_tokens)
@@ -236,6 +228,22 @@ class ParquetParallelTextDataset:
 
         directions = self.get_all_direction(base_dataset_config)
 
+        # Determine the directions to read.
+        direction = options.direction
+        if direction.origin is None:
+            direction.origin = "primary"
+
+        # import pdb
+
+        # pdb.set_trace()
+        if direction is not None:
+            if direction not in directions:
+                raise ValueError(
+                    f"`direction` must be a direction that exists in '{split}' split, but is '{direction}' instead. in {directions}"
+                )
+            direction_path = directions[direction]
+            directions = {direction: direction_path}
+
         weights = self.get_direction_weights(list(directions.keys()))
 
         # taking non-zero weights directions
@@ -289,7 +297,7 @@ class ParquetParallelTextDataset:
             target_table_size=self._config.sample_shuffle_window,
             shuffle=True,
             total_batch_length=self._config.max_tokens,
-            order_by_length=True,
+            order_by_length=self._config.order_by_length,
             seed=2 * self._config.seed + gang.rank,  # any non-trival dependency
             length_columns=["source_indices", "target_indices"],
             nb_prefetch=self._config.nb_prefetch,

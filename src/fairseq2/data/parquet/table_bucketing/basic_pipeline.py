@@ -4,14 +4,11 @@ from typing import List, Optional, Union
 import numpy as np
 import pyarrow as pa
 import pyarrow.compute as pc
-from numpy.typing import NDArray
 
-from fairseq2.data import (
-    DataPipeline,
-    read_sequence,
-)
+from fairseq2.data import DataPipeline, read_sequence
 from fairseq2.data.parquet.utils import is_list_like
 from fairseq2.logging import log
+from numpy.typing import NDArray
 
 
 def compute_length_splits(
@@ -138,7 +135,7 @@ def build_batching_loop_over_one_table(
 
     if length_columns is not None and len(length_columns) > 0:
         length_col = reduce(
-            np.add, (compute_rows_length(table[lc]) for lc in length_columns)
+            np.maximum, (compute_rows_length(table[lc]) for lc in length_columns)
         )
     else:
         if shuffle:
