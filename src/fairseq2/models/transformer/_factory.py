@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import torch.nn as nn
+
 from fairseq2.models.transformer._config import TransformerConfig
 from fairseq2.models.transformer._frontend import (
     TransformerEmbeddingFrontend,
@@ -174,3 +176,10 @@ class TransformerFactory:
             return TiedProjection(embed.weight, bias=None)
 
         return Linear(config.model_dim, config.vocab_info.size, bias=False)
+
+
+def init_final_projection(proj: Linear) -> None:
+    nn.init.normal_(proj.weight, std=proj.input_dim**-0.5)
+
+    if proj.bias is not None:
+        nn.init.zeros_(proj.bias)
