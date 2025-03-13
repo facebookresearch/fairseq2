@@ -22,6 +22,9 @@ from fairseq2.models.transformer._factory import (
 from fairseq2.models.transformer._factory import (
     create_transformer_model as create_transformer_model,
 )
+from fairseq2.models.transformer._factory import (
+    init_final_projection as init_final_projection,
+)
 from fairseq2.models.transformer._frontend import (
     TransformerEmbeddingFrontend as TransformerEmbeddingFrontend,
 )
@@ -29,9 +32,6 @@ from fairseq2.models.transformer._frontend import (
     TransformerFrontend as TransformerFrontend,
 )
 from fairseq2.models.transformer._model import TransformerModel as TransformerModel
-from fairseq2.models.transformer._model import (
-    init_final_projection as init_final_projection,
-)
 
 # isort: split
 

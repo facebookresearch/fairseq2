@@ -248,6 +248,7 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
         inner_dim_scale: float = 2 / 3,
         inner_dim_to_multiple: int = 1,
         inner_dropout_p: float = 0.0,
+        proj_init_fn: Callable[[Linear], None] | None = None,
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> None:
@@ -269,6 +270,8 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
             the nearest multiple of this value.
         :param inner_dropout_p:
             The dropout probability on outputs of the inner projection layer.
+        :param proj_init_fn:
+            The callable to initialize the inner, gate, and output projections.
         """
         super().__init__(model_dim)
 
@@ -284,14 +287,28 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
                 (inner_dim + inner_dim_to_multiple - 1) // inner_dim_to_multiple
             )
 
-        self.gate_proj = Linear(model_dim, inner_dim, bias, device=device, dtype=dtype)
+        self.gate_proj = Linear(
+            model_dim,
+            inner_dim,
+            bias,
+            init_fn=proj_init_fn,
+            device=device,
+            dtype=dtype,
+        )
 
         if gate_activation is None:
             self.gate_activation = SiLU()
         else:
             self.gate_activation = gate_activation
 
-        self.inner_proj = Linear(model_dim, inner_dim, bias, device=device, dtype=dtype)
+        self.inner_proj = Linear(
+            model_dim,
+            inner_dim,
+            bias,
+            init_fn=proj_init_fn,
+            device=device,
+            dtype=dtype,
+        )
 
         if inner_dropout_p > 0.0:
             self.inner_dropout = Dropout(inner_dropout_p)
@@ -299,7 +316,12 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
             self.register_module("inner_dropout", None)
 
         self.output_proj = Linear(
-            inner_dim, model_dim, bias, device=device, dtype=dtype
+            inner_dim,
+            model_dim,
+            bias,
+            init_fn=proj_init_fn,
+            device=device,
+            dtype=dtype,
         )
 
     @override

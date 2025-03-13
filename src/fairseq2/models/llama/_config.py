@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Final
+from typing import Final, Literal
 
 from fairseq2.context import RuntimeContext
 from fairseq2.data import VocabularyInfo
@@ -79,6 +79,20 @@ class LLaMAConfig:
     """
     If not ``None``, specifies scaling parameters for the Rotary position
     encoder, aiming to increase the context length.
+    """
+
+    init_std: float | None = None
+    """
+    If not ``None``, the standard deviation to initialize input embeddings and
+    projection weights; otherwise, ``model_dim ** -0.5`` will be used instead.
+    """
+
+    init_std_scale: Literal["none", "layer", "stack"] = "layer"
+    """
+    The method to use to scale ``init_std`` per layer. If 'none', no scaling
+    will be applied. If 'layer', ``init_std`` will be scaled by the depth of
+    the layer. If 'stack', ``init_std`` will be scaled by the total depth of
+    the decoder.
     """
 
     dropout_p: float = 0.1
