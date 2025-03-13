@@ -73,8 +73,11 @@ def register_metric_descriptors(context: RuntimeContext) -> None:
     register("dpo_loss",         "DPO Loss",                             0, format_as_float)
     register("orpo_loss",        "ORPO Loss",                            0, format_as_float)
     register("simpo_loss",       "SimPO Loss",                           0, format_as_float)
+    register("grpo_loss",        "GRPO Loss",                            0, format_as_float)
+    register("avg_reward",       "Reward",                               1, format_as_float)
     register("chosen_logps",     "Chosen Sequence Log Probabilities",   50, format_as_float)
     register("rejected_logps",   "Rejected Sequence Log Probabilities", 50, format_as_float)
+    register("rollout_lengths",  "Rollout Length",                      70, format_as_float)
     register("chosen_lengths",   "Chosen Sequence Length",              70, format_as_float)
     register("rejected_lengths", "Rejected Sequence Length",            70, format_as_float)
 
