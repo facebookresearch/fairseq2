@@ -10,10 +10,9 @@ from copy import deepcopy
 from dataclasses import dataclass
 from functools import lru_cache, partial
 from pathlib import Path
-from typing import Dict, List, Optional, final
+from typing import Dict, final, List, Optional
 
 import pyarrow as pa
-from pyarrow.dataset import get_partition_keys
 
 from fairseq2.data import DataPipeline, DataPipelineBuilder
 from fairseq2.data.parquet.arrow_transform.transform import (
@@ -41,6 +40,7 @@ from fairseq2.gang import Gang
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.nn.padding import pad_seqs
 from fairseq2.typing import Device
+from pyarrow.dataset import get_partition_keys
 
 
 @dataclass(kw_only=True)
