@@ -79,6 +79,13 @@ class TableBucketingConfig:
     for more efficient padding.
     """
 
+    length_reducer: str = "max"
+    """
+    The reducer to use to aggregate the length of multiple columns before bucketing.
+    Currently, it can be "max" and "sum".
+    Note that `max_tokens` reference the max length of the aggregated length.
+    """
+
     total_batch_length: Optional[int] = None
     """Used with the ``order_by_length`` option to control the total length
      of sequences return in each batch (including padding).

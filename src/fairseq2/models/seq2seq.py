@@ -15,6 +15,7 @@ from torch.nn import Module
 from fairseq2.data import VocabularyInfo
 from fairseq2.models.sequence import SequenceBatch, SequenceModelOutput
 from fairseq2.nn.padding import PaddingMask
+from fairseq2.typing import Device
 
 
 class Seq2SeqModel(Module, ABC):

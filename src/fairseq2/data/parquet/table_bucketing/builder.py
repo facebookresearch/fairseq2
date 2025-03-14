@@ -134,6 +134,7 @@ class TableBucketer:
                     max_tokens=self.config.total_batch_length,
                     shuffle=self.config.shuffle,
                     seed=random_state.randint(0, 2**32),
+                    len_reducer=self.config.length_reducer,
                     drop_long_sample=self.config.drop_long_seq,
                     num_parallel_calls=self.config.num_parallel_calls,
                 )

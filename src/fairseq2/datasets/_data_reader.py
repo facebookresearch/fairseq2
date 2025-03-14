@@ -8,14 +8,14 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterator, Mapping
-from typing import final, TypeVar
+from typing import TypeVar, final
+
+from typing_extensions import Self, override
 
 from fairseq2.data import DataPipeline, DataPipelineError
 from fairseq2.datasets._config import DataReadOptions, SyncMode
 from fairseq2.datasets._utils import _min_num_batches, _sum_num_batches
 from fairseq2.gang import Gang, GangError
-
-from typing_extensions import override, Self
 
 BatchT_co = TypeVar("BatchT_co", covariant=True)
 
@@ -85,12 +85,14 @@ class DataPipelineReader(DataReader[BatchT]):
         pipeline: DataPipeline,
         gang: Gang,
         options: DataReadOptions,
+        strict_state: bool = True,
     ) -> None:
         """
         :param name: The name of the dataset.
         :param pipeline: The data pipeline to iterate over.
         :param gang: The gang over which the underlying dataset is sharded.
         :param options: The read options.
+        :param strict_state: If ``True``, the state of the data pipeline is strict (taking state from all pipeline steps).
         """
         self._dataset_name = dataset_name
         self._split = split
@@ -99,6 +101,7 @@ class DataPipelineReader(DataReader[BatchT]):
         self._gang = gang
         self._options = options
         self._eod = False
+        self._strict_state = strict_state
 
     @override
     def __iter__(self) -> Self:
@@ -163,7 +166,7 @@ class DataPipelineReader(DataReader[BatchT]):
 
     @override
     def state_dict(self) -> dict[str, object]:
-        return self._pipeline.state_dict(strict=False)
+        return self._pipeline.state_dict(strict=self._strict_state)
 
     @override
     def load_state_dict(self, state_dict: Mapping[str, object]) -> None:

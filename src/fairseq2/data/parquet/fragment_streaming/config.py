@@ -10,6 +10,8 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, List, Optional
 
+import pyarrow as pa
+
 
 @dataclass
 class ParquetDatasetLimitOptions:

@@ -10,10 +10,10 @@ from copy import deepcopy
 from dataclasses import dataclass
 from functools import lru_cache, partial
 from pathlib import Path
-from typing import Dict, final, List, Optional
+from typing import Dict, List, Optional, final
 
 import pyarrow as pa
-import pyarrow.compute as pc
+from pyarrow.dataset import get_partition_keys
 
 from fairseq2.data import DataPipeline, DataPipelineBuilder
 from fairseq2.data.parquet.arrow_transform.transform import (
@@ -41,7 +41,6 @@ from fairseq2.gang import Gang
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.nn.padding import pad_seqs
 from fairseq2.typing import Device
-from pyarrow.dataset import get_partition_keys
 
 
 @dataclass(kw_only=True)
@@ -139,10 +138,24 @@ class ParquetParallelTextDataset:
         self.columns = self._config.columns
         self._name = name
 
+        self.base_dataset_config = FragmentStreamingConfig(
+            parquet_path=self._config.parquet_path,
+            partition_filters=self._config.partition_filters,
+            filesystem=self._config.filesystem,
+            fragment_shuffle_window=self._config.fragment_shuffle_window,
+            seed=self._config.seed,
+            nb_epochs=self._config.nb_epochs,
+        )
+
+        self._direction_paths = self.get_all_direction(self.base_dataset_config)
+        self._direction_weights = self.get_direction_weights(
+            self._config.direction_weights_manifest_path
+        )
+
     def reading_one_direction_pipeline(
-        self, files, base_dataset_conifg, rank, world_size
+        self, files, rank, world_size
     ) -> DataPipelineBuilder:
-        dir_fragment_config = deepcopy(base_dataset_conifg)
+        dir_fragment_config = deepcopy(self.base_dataset_conifg)
         dir_fragment_config.parquet_path = files
 
         loading_config = FragmentLoadingConfig(
@@ -172,28 +185,35 @@ class ParquetParallelTextDataset:
     def get_all_direction(self, base_dataset_conifg) -> Dict[Direction, list[str]]:
         dataset = ParquetFragmentStreamer(base_dataset_conifg).dataset
 
-        directions: Dict[Direction, list[str]] = dict()
+        directions: Dict[Dict[Optional[str], [Direction, list[str]]]] = dict()
         for fragment in dataset._dataset.get_fragments(
             filter=dataset._filter_expression
         ):
             dd = get_partition_keys(fragment.partition_expression)
+            split: str | None = dd.get(self.columns.split)
+            if not split in directions:
+                directions[split] = dict()
+
             source_lang = dd.get(self.columns.source_lang)
             target_lang = dd.get(self.columns.target_lang)
             origin = dd.get(self.columns.domain)
             direction = Direction(source_lang, target_lang, origin)
             if direction not in directions:
-                directions[direction] = [fragment.path]
+                directions[split][direction] = [fragment.path]
             else:
-                directions[direction].append(fragment.path)
+                directions[split][direction].append(fragment.path)
 
         return directions
 
-    def get_direction_weights(self, directions: List[Direction]) -> List[float]:
-        if self._config.direction_weights_manifest_path is None:
-            return [1.0] * len(directions)
+    @staticmethod
+    def get_direction_weights(
+        manifest_path: str | None,
+    ) -> Dict[Direction, float] | None:
+        if manifest_path is None:
+            return None
 
         weights = {}
-        with Path(self._config.direction_weights_manifest_path).open("r") as f:
+        with Path(manifest_path).open("r") as f:
             for line in f:
                 fields, weight = line.rstrip().split("\t")
                 direction = GenericParallelTextDataset._parse_direction(fields)
@@ -201,7 +221,7 @@ class ParquetParallelTextDataset:
                 direction.origin = direction.origin or "primary"
                 weights[direction] = float(weight)
 
-        return [weights.get(direction, 0) for direction in directions]
+        return weights
 
     def create_reader(
         self,
@@ -211,59 +231,43 @@ class ParquetParallelTextDataset:
         options: ParallelTextReadOptions = ParallelTextReadOptions(),
     ) -> DataReader[Seq2SeqBatch]:
 
-        base_dataset_config = FragmentStreamingConfig(
-            parquet_path=self._config.parquet_path,
-            partition_filters=self._config.partition_filters,
-            filesystem=self._config.filesystem,
-            fragment_shuffle_window=self._config.fragment_shuffle_window,
-            seed=self._config.seed,
-            nb_epochs=self._config.nb_epochs,
-        )
-
-        if split is not None:
-            split_filters = [pc.equal(pc.field(f"{self.columns.split}"), split)]
-            base_dataset_config = base_dataset_config.add_partition_filter(
-                [split_filters]
-            )
-
-        directions = self.get_all_direction(base_dataset_config)
+        all_split_directions = self._direction_paths[split]
 
         # Determine the directions to read.
         direction = options.direction
-        if direction.origin is None:
-            direction.origin = "primary"
-
-        # import pdb
-
-        # pdb.set_trace()
         if direction is not None:
-            if direction not in directions:
+            if direction.origin is None:
+                direction.origin = "primary"
+
+        if direction is not None:
+            if direction not in all_split_directions:
                 raise ValueError(
-                    f"`direction` must be a direction that exists in '{split}' split, but is '{direction}' instead. in {directions}"
+                    f"`direction` must be a direction that exists in '{split}' split, but is '{direction}' instead. in {all_split_directions}"
                 )
-            direction_path = directions[direction]
-            directions = {direction: direction_path}
+            all_split_directions = {direction: all_split_directions[direction]}
 
-        weights = self.get_direction_weights(list(directions.keys()))
-
-        # taking non-zero weights directions
-        weights, dir_files = zip(
-            *[
-                (w, files_)
-                for w, (_, files_) in zip(weights, directions.items())
-                if w > 0
-            ]
-        )
+        if self._direction_weights is not None:
+            weights, dir_files = zip(
+                *[
+                    (self._direction_weights[d], files_)
+                    for d, files_ in all_split_directions.items()
+                    if d in self._direction_weights
+                ]
+            )
+        else:
+            weights, dir_files = zip(
+                *[(1.0, files_) for files_ in all_split_directions.values()]
+            )
 
         if len(dir_files) == 1:  # short circuit for single direction
             builder = self.reading_one_direction_pipeline(
-                dir_files[0], base_dataset_config, gang.rank, gang.size
+                dir_files[0], gang.rank, gang.size
             )
         else:
             reading_pipelines = []
             for files in dir_files:
                 pipeline = self.reading_one_direction_pipeline(
-                    files, base_dataset_config, gang.rank, gang.size
+                    files, gang.rank, gang.size
                 )
                 reading_pipelines.append(pipeline.and_return())
 
@@ -301,6 +305,7 @@ class ParquetParallelTextDataset:
             seed=2 * self._config.seed + gang.rank,  # any non-trival dependency
             length_columns=["source_indices", "target_indices"],
             nb_prefetch=self._config.nb_prefetch,
+            length_reducer="max",
             cache=self._config.cache,
             num_parallel_calls=self._config.num_parallel_calls,
         )
@@ -319,7 +324,7 @@ class ParquetParallelTextDataset:
         final_pipeline = builder.map(to_final_batch).and_return()
 
         return DataPipelineReader[Seq2SeqBatch](
-            self._name, split, final_pipeline, gang, options=options
+            self._name, split, final_pipeline, gang, options=options, strict_state=False
         )
 
     @staticmethod
