@@ -138,7 +138,7 @@ class ParquetParallelTextDataset:
         self.columns = self._config.columns
         self._name = name
 
-        self.base_dataset_config = FragmentStreamingConfig(
+        self.base_dataset_conifg = FragmentStreamingConfig(
             parquet_path=self._config.parquet_path,
             partition_filters=self._config.partition_filters,
             filesystem=self._config.filesystem,
@@ -147,7 +147,7 @@ class ParquetParallelTextDataset:
             nb_epochs=self._config.nb_epochs,
         )
 
-        self._direction_paths = self.get_all_direction(self.base_dataset_config)
+        self._direction_paths = self.get_all_direction()
         self._direction_weights = self.get_direction_weights(
             self._config.direction_weights_manifest_path
         )
@@ -182,8 +182,8 @@ class ParquetParallelTextDataset:
 
         return bucket_pipeline
 
-    def get_all_direction(self, base_dataset_conifg) -> Dict[Direction, list[str]]:
-        dataset = ParquetFragmentStreamer(base_dataset_conifg).dataset
+    def get_all_direction(self) -> Dict[Direction, list[str]]:
+        dataset = ParquetFragmentStreamer(self.base_dataset_conifg).dataset
 
         directions: Dict[Dict[Optional[str], [Direction, list[str]]]] = dict()
         for fragment in dataset._dataset.get_fragments(
