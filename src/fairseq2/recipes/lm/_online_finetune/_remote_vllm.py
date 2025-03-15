@@ -16,7 +16,11 @@ from torch.nn import Module
 
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.gang import Gangs
-from fairseq2.recipes.lm._online_finetune._common import NoEnvLLM, MyWorker, stateless_init_process_group
+from fairseq2.recipes.lm._online_finetune._common import (
+    NoEnvLLM,
+    MyWorker,
+    stateless_init_process_group,
+)
 from fairseq2.recipes.config import (
     get_config_section,
 )
@@ -29,9 +33,7 @@ import ray
 
 class RemoteModelHandler(ABC):
     @abstractmethod
-    def create(
-        self, gangs: Gangs, unit_config: object
-    ) -> RemoteVllmModel: ...
+    def create(self, gangs: Gangs, unit_config: object) -> RemoteVllmModel: ...
 
     @property
     @abstractmethod
@@ -41,12 +43,15 @@ class RemoteModelHandler(ABC):
     @abstractmethod
     def config_kls(self) -> type[object]: ...
 
+
 @dataclass(kw_only=True)
 class VllmEngineArgs:
     model: str = "/checkpoint/ram/kulikov/gsm8k_8b_sft/checkpoints/step_20"
     tokenizer: str = "/datasets/pretrained-llms/Llama-3.1-8B-Instruct"
+    task: str = "generate"
     tensor_parallel_size: int = 4
     enforce_eager: bool = True
+
 
 @dataclass(kw_only=True)
 class VllmSamplingParams:
@@ -54,23 +59,34 @@ class VllmSamplingParams:
     temperature: float = 1.0
     max_tokens: int = 1024
 
+
 @dataclass(kw_only=True)
 class VllmConfig:
     ray_cluster_ip_address: str = "dummy"
     ray_actor_name: str = "dummy"
     vllm_engine_args: VllmEngineArgs = field(default_factory=lambda: VllmEngineArgs())
-    vllm_sampling_params: VllmSamplingParams = field(default_factory=lambda: VllmSamplingParams())
+    vllm_sampling_params: VllmSamplingParams = field(
+        default_factory=lambda: VllmSamplingParams()
+    )
     init_update_process_group: bool = False
+
 
 class RemoteVllmModelHandler(RemoteModelHandler):
     @override
     def create(
-        self, gangs: Gangs, unit_config: object
+        self, gangs: Gangs, unit_config: object, configs_name: str = "vllm_model"
     ) -> RemoteVllmModel:
         if gangs.dp.rank == 0:
             # vllm worker is only created on the first DP rank (incuding all TP ranks)
-            vllm_config = get_config_section(unit_config, "vllm_model", VllmConfig)
-            remote_vllm_model = RemoteVllmModel(vllm_config.ray_cluster_ip_address, vllm_config.ray_actor_name, vllm_config.vllm_engine_args, vllm_config.vllm_sampling_params, vllm_config.init_update_process_group, gangs)
+            vllm_config = get_config_section(unit_config, configs_name, VllmConfig)
+            remote_vllm_model = RemoteVllmModel(
+                vllm_config.ray_cluster_ip_address,
+                vllm_config.ray_actor_name,
+                vllm_config.vllm_engine_args,
+                vllm_config.vllm_sampling_params,
+                vllm_config.init_update_process_group,
+                gangs,
+            )
         else:
             remote_vllm_model = None
 
@@ -88,25 +104,46 @@ class RemoteVllmModelHandler(RemoteModelHandler):
 
 
 class RemoteVllmModel:
-    def __init__(self, ray_cluster_ip_address: str, ray_actor_name: str, vllm_engine_args: VllmEngineArgs, sampling_params: VllmSamplingParams, init_update_process_group: bool, gangs: Gangs):
+    def __init__(
+        self,
+        ray_cluster_ip_address: str,
+        ray_actor_name: str,
+        vllm_engine_args: VllmEngineArgs,
+        sampling_params: VllmSamplingParams,
+        init_update_process_group: bool,
+        gangs: Gangs,
+    ):
         if gangs.dp.rank != 0:
             raise ValueError("vllm worker should only be initialized on DP rank 0")
-        
-        ray.init(address=f"ray://{ray_cluster_ip_address}:10001", namespace="vllm_workers")
-        
+
+        ray.init(
+            address=f"ray://{ray_cluster_ip_address}:10001", namespace="vllm_workers"
+        )
+
         self._gangs = gangs
-        self.vllm_model = self.setup_vllm_worker(ray_actor_name, vllm_engine_args, gangs)
-        self.sampling_params = SamplingParams(n=sampling_params.n, temperature=sampling_params.temperature, max_tokens=sampling_params.max_tokens)
+        self.vllm_model = self.setup_vllm_worker(
+            ray_actor_name, vllm_engine_args, gangs
+        )
+        self.sampling_params = SamplingParams(
+            n=sampling_params.n,
+            temperature=sampling_params.temperature,
+            max_tokens=sampling_params.max_tokens,
+        )
         if init_update_process_group:
-            self.update_process_group = self.setup_process_group_for_model_sync(vllm_engine_args.tensor_parallel_size)
+            self.update_process_group = self.setup_process_group_for_model_sync(
+                vllm_engine_args.tensor_parallel_size
+            )
         else:
             self.update_process_group = None
         self._vllm_engine_args = vllm_engine_args
 
+    def setup_vllm_worker(
+        self, ray_actor_name, vllm_engine_args: VllmEngineArgs, gangs: Gangs
+    ):
 
-    def setup_vllm_worker(self, ray_actor_name, vllm_engine_args: VllmEngineArgs, gangs: Gangs):
-
-        pg_inference = placement_group([{"GPU": 1, "CPU": 0}] * vllm_engine_args.tensor_parallel_size)
+        pg_inference = placement_group(
+            [{"GPU": 1, "CPU": 0}] * vllm_engine_args.tensor_parallel_size
+        )
 
         ray.get(pg_inference.ready())
 
@@ -119,23 +156,27 @@ class RemoteVllmModel:
         """
         launch the vLLM inference engine.
         here we use `enforce_eager` to reduce the start time.
-        """ 
-        llm = NoEnvLLM.options(name=ray_actor_name,num_cpus=0,
+        """
+        llm = NoEnvLLM.options(
+            name=ray_actor_name,
+            num_cpus=0,
             num_gpus=0,
-            scheduling_strategy=scheduling_inference,get_if_exists=True).remote(
-                model=vllm_engine_args.model,
-                tokenizer=vllm_engine_args.tokenizer,
-                enforce_eager=vllm_engine_args.enforce_eager,
-                worker_cls=MyWorker,
-                tensor_parallel_size=vllm_engine_args.tensor_parallel_size,
-                distributed_executor_backend="ray",
-                )
-        
+            scheduling_strategy=scheduling_inference,
+            get_if_exists=True,
+        ).remote(
+            model=vllm_engine_args.model,
+            tokenizer=vllm_engine_args.tokenizer,
+            enforce_eager=vllm_engine_args.enforce_eager,
+            worker_cls=MyWorker,
+            tensor_parallel_size=vllm_engine_args.tensor_parallel_size,
+            distributed_executor_backend="ray",
+        )
+
         # we block here until the engine is initialized
         ray.get(llm.is_ready.remote())
 
         return llm
-    
+
     def setup_process_group_for_model_sync(self, vllm_tensor_parallel_size):
         master_port = get_open_port()
         master_address = get_ip()
@@ -143,12 +184,19 @@ class RemoteVllmModel:
         print(f"{master_port} {master_address}")
 
         print("init pg on vllm host")
-        handle = self.vllm_model.collective_rpc.remote("init_weight_update_group",
-                                        args=(master_address, master_port, 1, vllm_tensor_parallel_size+1))
+        handle = self.vllm_model.collective_rpc.remote(
+            "init_weight_update_group",
+            args=(master_address, master_port, 1, vllm_tensor_parallel_size + 1),
+        )
 
         print("init pg on train host")
-        model_update_group = stateless_init_process_group(master_address, master_port,
-                                                        0, vllm_tensor_parallel_size+1, self._gangs.dp.device)
+        model_update_group = stateless_init_process_group(
+            master_address,
+            master_port,
+            0,
+            vllm_tensor_parallel_size + 1,
+            self._gangs.dp.device,
+        )
         ray.get(handle)
 
         return model_update_group
@@ -160,14 +208,23 @@ class RemoteVllmModel:
         for name, p in train_model.module.named_parameters():
             name = name.replace("._checkpoint_wrapped_module", "")
             # print(f'sync call {name}')
-            handle = self.vllm_model.collective_rpc.remote("update_weight",
-                                            args=(name, p.dtype, p.shape))
-            self.update_process_group.broadcast(p, src=0, stream=torch.cuda.current_stream())
+            handle = self.vllm_model.collective_rpc.remote(
+                "update_weight", args=(name, p.dtype, p.shape)
+            )
+            self.update_process_group.broadcast(
+                p, src=0, stream=torch.cuda.current_stream()
+            )
             ray.get(handle)
 
     def rollout_from_model(self, prompt_list, sampling_params=None):
         if sampling_params is None:
             sampling_params = self.sampling_params
 
-        outputs = ray.get(self.vllm_model.generate.remote(prompt_token_ids=prompt_list, sampling_params=sampling_params, use_tqdm=False))
+        outputs = ray.get(
+            self.vllm_model.generate.remote(
+                prompt_token_ids=prompt_list,
+                sampling_params=sampling_params,
+                use_tqdm=False,
+            )
+        )
         return outputs
