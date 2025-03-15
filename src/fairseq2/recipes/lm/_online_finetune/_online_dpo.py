@@ -410,16 +410,16 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
             recipe_config, "criterion", OnlineCriterionSection
         )
 
+        config = structure(criterion_section.config, OnlineDpoFinetuneConfig)
+
+        validate(config)
+
         vllm_model = RemoteVllmModelHandler().create(
             gangs=gangs, unit_config=config, configs_name="vllm_model"
         )
         vllm_reward_model = RemoteVllmModelHandler().create(
             gangs=gangs, unit_config=config, configs_name="vllm_reward_model"
         )
-
-        config = structure(criterion_section.config, OnlineDpoFinetuneConfig)
-
-        validate(config)
 
         reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
         reward_handler = reward_registry.get(config.reward.name)
