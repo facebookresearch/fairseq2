@@ -8,7 +8,63 @@ from __future__ import annotations
 
 from typing import Literal
 
+import torch
 from torch import Tensor
+from torch.nn.functional import log_softmax
+from torch.nn.functional import nll_loss as _nll_loss
+
+
+def cross_entropy(
+    logits: Tensor,
+    targets: Tensor,
+    pad_idx: int | None,
+    *,
+    label_smoothing: float = 0.0,
+    reduction: Literal["sum", "mean", "none"] = "sum",
+) -> Tensor:
+    """Computes the cross entropy loss between ``logits`` and ``targets``.
+
+    This function differs from :func:`torch.nn.functional.cross_entropy` in
+    two ways:
+        - It uses a fused kernel based on ``log_sofmax()`` and ``nll_loss()``
+          which typically consumes less memory while having the same performance.
+        - Its label smoothing implementation is slightly different and has
+          parity with the original fairseq implementation.
+
+    :param logits: The logits. *Shape:* :math:`(S,T)`, where :math:`S` is the
+        sequence length and :math:`T` is the size of the vocabulary.
+    :param targets: The target indices. *Shape:* :math:`(S)`, where :math:`S` is
+        the sequence length.
+    :param pad_idx: The index of the PAD symbol in the target vocabulary.
+    :param label_smoothing: The amount of label smoothing to apply while
+        computing the loss.
+    :param reduction: The reduction to apply to the output.
+    """
+    # If we don't require label smoothing, use the fused cross entropy with
+    # the `nll_loss()` of PyTorch as it is faster than our implementation.
+    if label_smoothing == 0.0:
+        if pad_idx is None:
+            pad_idx = -100
+
+        return _fused_cross_entropy(logits, targets, pad_idx, reduction)
+
+    lprobs = log_softmax(logits, dim=-1, dtype=torch.float32)
+
+    # sum/mean: (), none: (S)
+    return nll_loss(
+        lprobs, targets, pad_idx, label_smoothing=label_smoothing, reduction=reduction
+    )
+
+
+@torch.compile(fullgraph=True)
+def _fused_cross_entropy(
+    logits: Tensor, targets: Tensor, pad_idx: int, reduction: str
+) -> Tensor:
+    # For numerical stability run in single precision.
+    # (S, T) -> (S, T)
+    lprobs = log_softmax(logits, dim=-1, dtype=torch.float32)
+
+    return _nll_loss(lprobs, targets, ignore_index=pad_idx, reduction=reduction)
 
 
 def nll_loss(
@@ -17,30 +73,23 @@ def nll_loss(
     pad_idx: int | None,
     *,
     label_smoothing: float = 0.0,
-    reduction: Literal["none", "sum"] = "sum",
+    reduction: Literal["sum", "mean", "none"] = "sum",
 ) -> Tensor:
-    """Compute the negative log-likelihood loss.
+    """Computes the negative log-likelihood loss.
 
-    In contrast to :func:`torch.nn.functional.nll_loss`, this function expects
-    ``lprobs`` to be of shape :math:`(N,S,T)`, where :math:`N` is the batch
-    size, :math:`S` is the sequence length, and :math:`T` is the size of the
-    target vocabulary. The loss is computed over the last dimension which avoids
-    strided access and improves runtime performance, in particular for large
-    vocabularies.
+    In addition to :func:`torch.nn.functional.nll_loss`, this function accepts
+    a loss smoothing parameter that is compatible with the original fairseq.
 
-    :param lprobs:
-        The log probabilities. *Shape:* See the function description.
-    :param targets:
-        The target indices. *Shape:* :math:`(N,S)`, where :math:`N` is the batch
-        size and :math:`S` is the sequence length.
-    :param pad_idx:
-        The index of the PAD symbol in the target vocabulary.
-    :param label_smoothing:
-        The amount of label smoothing to apply while computing the loss.
-    :param reduction:
-        The reduction to apply to the output.
+    :param lprobs: The log probabilities. *Shape:* :math:`(S,T)`, where :math:`S`
+        is the sequence length and :math:`T` is the size of the vocabulary.
+    :param targets: The target indices. *Shape:* :math:`(S)`, where :math:`S` is
+        the sequence length.
+    :param pad_idx: The index of the PAD symbol in the target vocabulary.
+    :param label_smoothing: The amount of label smoothing to apply while
+        computing the loss.
+    :param reduction: The reduction to apply to the output.
     """
-    # (N, S) -> (N, S, 1)
+    # (S) -> (S, 1)
     targets = targets.unsqueeze(-1)
 
     loss = -lprobs.gather(dim=-1, index=targets)
@@ -63,6 +112,11 @@ def nll_loss(
 
         if smooth_loss is not None:
             smooth_loss = smooth_loss.sum()
+    elif reduction == "mean":
+        loss = loss.mean()
+
+        if smooth_loss is not None:
+            smooth_loss = smooth_loss.mean()
 
     if smooth_loss is not None:
         # Our label smoothing implementation varies slightly from PyTorch's

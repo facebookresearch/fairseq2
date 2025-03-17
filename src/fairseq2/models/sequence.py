@@ -8,14 +8,13 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Literal
 
-import torch
 from torch import Tensor
 from torch.nn import Module
-from torch.nn.functional import log_softmax
 
 from fairseq2.data import VocabularyInfo
-from fairseq2.nn.functional import nll_loss
+from fairseq2.nn.functional import cross_entropy
 from fairseq2.nn.padding import PaddingMask
 
 
@@ -137,6 +136,7 @@ class SequenceModelOutput:
         targets: Tensor,
         *,
         loss_mask: Tensor | None = None,
+        reduction: Literal["sum", "mean"] = "sum",
         ignore_prefix_size: int = 0,
         label_smoothing: float = 0.0,
     ) -> Tensor:
@@ -166,17 +166,19 @@ class SequenceModelOutput:
         if ignore_prefix_size > 0:
             targets = targets[:, ignore_prefix_size:]
 
-        # For numerical stability run in single precision.
-        # (N, S, T)
-        lprobs = log_softmax(logits, dim=-1, dtype=torch.float32)
+        # (N, S, T) -> (N x S, T)
+        logits = logits.flatten(0, 1)
 
-        # sum: (), none: (N, S)
-        loss = nll_loss(
-            lprobs,
+        # (N, S) -> (N x S)
+        targets = targets.flatten(0, 1)
+
+        # sum/mean: (), none: (N x S)
+        loss = cross_entropy(
+            logits,
             targets,
-            self.pad_idx,
+            pad_idx=self.pad_idx,
             label_smoothing=label_smoothing,
-            reduction="sum" if loss_mask is None else "none",
+            reduction=reduction if loss_mask is None else "none",
         )
 
         if loss_mask is None:
@@ -185,5 +187,17 @@ class SequenceModelOutput:
         if ignore_prefix_size > 0:
             loss_mask = loss_mask[:, ignore_prefix_size:]
 
-        # ()
-        return (loss * loss_mask).sum()
+        # (N, S) -> (N x S)
+        loss_mask = loss_mask.flatten(0, 1)
+
+        loss = loss * loss_mask
+
+        if reduction == "sum":
+            return loss.sum()
+
+        if reduction == "mean":
+            return loss.mean()
+
+        raise ValueError(
+            f"`reduction` must be 'sum' or 'mean', but is '{reduction}' instead."
+        )
