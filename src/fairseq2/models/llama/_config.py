@@ -95,7 +95,7 @@ class LLaMAConfig:
     the decoder.
     """
 
-    dropout_p: float = 0.1
+    dropout_p: float = 0.0
     """The dropout probability on outputs of Transformer layers."""
 
 

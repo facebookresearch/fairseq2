@@ -92,7 +92,9 @@ class POFinetuneConfig:
     optimizer: OptimizerSection = field(
         default_factory=lambda: OptimizerSection(
             name=ADAMW_OPTIMIZER,
-            config=AdamWConfig(lr=5.5e-06, betas=(0.9, 0.95), weight_decay=0.1),
+            config=AdamWConfig(
+                lr=5.5e-06, betas=(0.9, 0.95), weight_decay=0.1, impl="fused"
+            ),
         )
     )
 
@@ -158,11 +160,6 @@ class POFinetuneDatasetSection(DatasetSection):
     """The dataset-specific extra options."""
 
 
-@dataclass(kw_only=True)
-class DropoutConfig:
-    dropout_p: float = 0.0
-
-
 def register_po_finetune_configs(context: RuntimeContext) -> None:
     registry = context.get_config_registry(POFinetuneConfig)
 
@@ -170,11 +167,7 @@ def register_po_finetune_configs(context: RuntimeContext) -> None:
 
     @preset("llama3_1_instruct")
     def llama3_1_instruct() -> POFinetuneConfig:
-        config = POFinetuneConfig()
-
-        config.model.config = DropoutConfig()
-
-        return config
+        return POFinetuneConfig()
 
     @preset("llama3_1_instruct_constant_lr")
     def llama3_1_instruct_constant_lr() -> POFinetuneConfig:
