@@ -77,11 +77,18 @@ class SequenceMetricBag(BaseMetricBag):
             self.total_num_target_elements = None
 
     @torch.inference_mode()
-    def update_nll_loss(self, batch: SequenceBatch, loss: Tensor) -> None:
+    def update_nll_loss(
+        self, batch: SequenceBatch, loss: Tensor, normalize: bool = True
+    ) -> None:
         """Update the NLL loss metric."""
-        n = batch.num_target_elements()
+        loss = loss.detach()
 
-        self.nll_loss.update(loss.detach() / n, weight=n)
+        if normalize:
+            n = batch.num_target_elements()
+        else:
+            n = 1
+
+        self.nll_loss.update(loss / n, weight=n)
 
     @torch.inference_mode()
     def update_batch_metrics(self, batch: SequenceBatch) -> None:
@@ -136,13 +143,18 @@ class Seq2SeqMetricBag(BaseMetricBag):
             self.total_num_target_elements = None
 
     @torch.inference_mode()
-    def update_nll_loss(self, batch: Seq2SeqBatch, loss: Tensor) -> None:
+    def update_nll_loss(
+        self, batch: Seq2SeqBatch, loss: Tensor, normalize: bool = True
+    ) -> None:
         """Update the NLL loss metric."""
-        num_target_elements = batch.num_target_elements()
+        loss = loss.detach()
 
-        self.nll_loss.update(
-            loss.detach() / num_target_elements, weight=num_target_elements
-        )
+        if normalize:
+            n = batch.num_target_elements()
+        else:
+            n = 1
+
+        self.nll_loss.update(loss / n, weight=n)
 
     @torch.inference_mode()
     def update_batch_metrics(self, batch: Seq2SeqBatch) -> None:

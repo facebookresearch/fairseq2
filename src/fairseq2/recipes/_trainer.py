@@ -27,7 +27,7 @@ from fairseq2.checkpoint import (
 )
 from fairseq2.datasets import DataReader, DataReadError
 from fairseq2.device import DeviceStatTracker
-from fairseq2.error import ContractError, InternalError, InvalidOperationError
+from fairseq2.error import InternalError, InvalidOperationError
 from fairseq2.gang import GangError, Gangs, broadcast_flag
 from fairseq2.logging import log
 from fairseq2.metrics import Mean, MetricBag, MetricBagError, MetricDescriptor
@@ -142,6 +142,7 @@ class Trainer(Recipe, Generic[BatchT]):
     _repeat_step: bool
     _has_read_any_data: bool
     _num_batches_read: int
+    _last_lr: float
 
     def __init__(
         self,
@@ -471,6 +472,8 @@ class Trainer(Recipe, Generic[BatchT]):
 
         self._num_batches_read = 0
 
+        self._last_lr = 0.0
+
     @override
     def run(self) -> None:
         if self._state != TrainerState.NOT_STARTED:
@@ -604,6 +607,8 @@ class Trainer(Recipe, Generic[BatchT]):
 
                     self._num_batches_read = 0
 
+                    self._device_stat_tracker.reset()
+
                 if self._should_validate():
                     self._lapse_watch.stop()
 
@@ -660,34 +665,38 @@ class Trainer(Recipe, Generic[BatchT]):
         if self._loss_scaler.is_enabled:
             self._metric_bag.begin_updates()
 
-        # Accumulate.
+        # Run the model.
         with self._compute_watch:
             for batch_nr, batch in enumerate(batches):
                 with self._maybe_no_sync(batch_nr, len(batches)):
                     with record_function(f"step_{step_nr}_{batch_nr}_forward"):
-                        batch_loss, num_batch_targets = self._compute_loss(batch)
+                        loss, num_batch_targets = self._compute_loss(batch)
 
-                    if num_batch_targets is not None:
-                        if num_batch_targets == 0:
-                            raise ContractError(
-                                "The train unit returned zero loss targets."
-                            )
-
+                    # If the unit does not return the number of logit targets
+                    # of this batch, we assume that the loss is the mean loss
+                    # and that each batch in this step has the same number of
+                    # logit targets. In this case, we don't need to normalize
+                    # the gradients at the end of the step, but we still have
+                    # to take gradient accumulation into account.
+                    if num_batch_targets is None:
+                        loss = loss / len(batches)
+                    else:
                         num_targets += num_batch_targets
 
                     with record_function(f"step_{step_nr}_{batch_nr}_backward"):
-                        self._loss_scaler.backward(batch_loss)
+                        self._loss_scaler.backward(loss)
 
-            # Normalize.
+            # This function gathers the total number of logit targets across all
+            # processes and divides the gradients by it. This is needed when the
+            # batches have varying sizes and we cannot normalize the loss before
+            # the backward pass.
             if num_targets > 0:
-                normalize_gradients(
-                    self._model.module, gangs.dp, num_targets=num_targets
-                )
+                normalize_gradients(self._model.module, gangs.dp, num_targets)
 
-            # Clip.
+            self._loss_scaler.unscale_gradients_()
+
+            # Clip the gradients.
             with record_function(f"step_{step_nr}_grad_norm"):
-                self._loss_scaler.unscale_gradients_()
-
                 # TODO(balioglu): Support tensor parallelism!
                 grad_norm = self._model.clip_gradient_norm(self._max_gradient_norm)
 
@@ -711,6 +720,8 @@ class Trainer(Recipe, Generic[BatchT]):
             self._metric_bag.rollback_updates()
 
             return
+
+        self._last_lr = get_effective_lr(self._lr_scheduler)
 
         self._lr_scheduler.step()
 
@@ -814,7 +825,7 @@ class Trainer(Recipe, Generic[BatchT]):
             if values is None:
                 raise InternalError("`values` is `None`.")
 
-            values["lr"] = get_effective_lr(self._lr_scheduler)
+            values["lr"] = self._last_lr
 
             values["data_epoch"] = self._data_epoch_nr
 
@@ -822,11 +833,15 @@ class Trainer(Recipe, Generic[BatchT]):
 
             values.update(device_stats)
 
+            data_time = self._data_watch.get_elapsed_time()
+
             compute_time = self._compute_watch.get_elapsed_time()
 
-            extend_batch_metrics(values, self._num_batches_read, compute_time)
+            extend_batch_metrics(
+                values, self._num_batches_read, data_time + compute_time
+            )
 
-            values["data_time"] = self._data_watch.get_elapsed_time()
+            values["data_time"] = data_time
 
             values["compute_time"] = compute_time
 

@@ -57,8 +57,6 @@ class Stopwatch:
         if self._is_running:
             raise InvalidOperationError("The stopwatch is already running.")
 
-        self._maybe_sync_device()
-
         self._start_time = perf_counter()
 
         self._is_running = True

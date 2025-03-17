@@ -303,11 +303,15 @@ class Evaluator(Recipe, Generic[BatchT]):
 
             values.update(device_stats)
 
+            data_time = self._data_watch.get_elapsed_time()
+
             compute_time = self._compute_watch.get_elapsed_time()
 
-            extend_batch_metrics(values, self._num_batches_read, compute_time)
+            extend_batch_metrics(
+                values, self._num_batches_read, data_time + compute_time
+            )
 
-            values["data_time"] = self._data_watch.get_elapsed_time()
+            values["data_time"] = data_time
 
             values["compute_time"] = compute_time
 
