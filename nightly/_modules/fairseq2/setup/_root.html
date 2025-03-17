@@ -268,7 +268,6 @@
 <li class="toctree-l2 has-children"><a class="reference internal" href="../../../reference/api/fairseq2.recipes/index.html">fairseq2.recipes</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" role="switch" type="checkbox"/><label for="toctree-checkbox-7"><div class="visually-hidden">Toggle navigation of fairseq2.recipes</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../reference/api/fairseq2.recipes/lm/index.html">fairseq2.recipes.lm</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../reference/api/fairseq2.recipes/wav2vec2/index.html">fairseq2.recipes.wav2vec2</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../reference/api/fairseq2.recipes/trainer.html">fairseq2.recipes.trainer</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../reference/api/fairseq2.assets/index.html">fairseq2.assets</a></li>
@@ -350,6 +349,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._recipes</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_recipes</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.setup._text_tokenizers</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_text_tokenizer_families</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.file</span><span class="w"> </span><span class="kn">import</span> <span class="n">FileSystem</span><span class="p">,</span> <span class="n">LocalFileSystem</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.progress</span><span class="w"> </span><span class="kn">import</span> <span class="n">NoopProgressReporter</span><span class="p">,</span> <span class="n">ProgressReporter</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">_SetupState</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
@@ -363,7 +363,7 @@
 
 <div class="viewcode-block" id="setup_fairseq2">
 <a class="viewcode-back" href="../../../reference/api/fairseq2.html#fairseq2.setup_fairseq2">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">setup_fairseq2</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">setup_fairseq2</span><span class="p">(</span><span class="n">progress_reporter</span><span class="p">:</span> <span class="n">ProgressReporter</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Sets up fairseq2.</span>
 
@@ -388,7 +388,7 @@
     <span class="n">_setup_state</span> <span class="o">=</span> <span class="n">_SetupState</span><span class="o">.</span><span class="n">IN_CALL</span>
 
     <span class="k">try</span><span class="p">:</span>
-        <span class="n">context</span> <span class="o">=</span> <span class="n">setup_library</span><span class="p">()</span>
+        <span class="n">context</span> <span class="o">=</span> <span class="n">setup_library</span><span class="p">(</span><span class="n">progress_reporter</span><span class="p">)</span>
     <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
         <span class="n">_setup_state</span> <span class="o">=</span> <span class="n">_SetupState</span><span class="o">.</span><span class="n">NOT_CALLED</span>
 
@@ -400,7 +400,7 @@
 
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">setup_library</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">RuntimeContext</span><span class="p">:</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">setup_library</span><span class="p">(</span><span class="n">progress_reporter</span><span class="p">:</span> <span class="n">ProgressReporter</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RuntimeContext</span><span class="p">:</span>
     <span class="n">env</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span>
 
     <span class="n">file_system</span> <span class="o">=</span> <span class="n">LocalFileSystem</span><span class="p">()</span>
@@ -409,7 +409,14 @@
 
     <span class="n">asset_download_manager</span> <span class="o">=</span> <span class="n">_create_asset_download_manager</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">file_system</span><span class="p">)</span>
 
-    <span class="n">context</span> <span class="o">=</span> <span class="n">RuntimeContext</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">asset_store</span><span class="p">,</span> <span class="n">asset_download_manager</span><span class="p">,</span> <span class="n">file_system</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">progress_reporter</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">progress_reporter</span> <span class="o">=</span> <span class="n">NoopProgressReporter</span><span class="p">()</span>
+
+    <span class="n">context</span> <span class="o">=</span> <span class="n">RuntimeContext</span><span class="p">(</span>
+        <span class="n">env</span><span class="p">,</span> <span class="n">asset_store</span><span class="p">,</span> <span class="n">asset_download_manager</span><span class="p">,</span> <span class="n">file_system</span><span class="p">,</span> <span class="n">progress_reporter</span>
+    <span class="p">)</span>
+
+    <span class="n">context</span><span class="o">.</span><span class="n">wall_watch</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
 
     <span class="n">register_assets</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
     <span class="n">register_beam_search_algorithms</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
@@ -429,7 +436,9 @@
     <span class="n">register_seq_generators</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
     <span class="n">register_text_tokenizer_families</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
 
-    <span class="n">run_extensions</span><span class="p">(</span><span class="s2">&quot;fairseq2.extension&quot;</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>
+    <span class="n">signature</span> <span class="o">=</span> <span class="s2">&quot;extension_function(context: RuntimeContext) -&gt; None&quot;</span>
+
+    <span class="n">run_extensions</span><span class="p">(</span><span class="s2">&quot;fairseq2.extension&quot;</span><span class="p">,</span> <span class="n">signature</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">context</span>
 
@@ -478,7 +487,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=7c9e6513"></script>
+</div><script src="../../../_static/documentation_options.js?v=509278ea"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>

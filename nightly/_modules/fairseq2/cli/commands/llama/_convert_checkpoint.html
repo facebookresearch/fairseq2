@@ -268,7 +268,6 @@
 <li class="toctree-l2 has-children"><a class="reference internal" href="../../../../../reference/api/fairseq2.recipes/index.html">fairseq2.recipes</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" role="switch" type="checkbox"/><label for="toctree-checkbox-7"><div class="visually-hidden">Toggle navigation of fairseq2.recipes</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../../../reference/api/fairseq2.recipes/lm/index.html">fairseq2.recipes.lm</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../../reference/api/fairseq2.recipes/wav2vec2/index.html">fairseq2.recipes.wav2vec2</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../../../reference/api/fairseq2.recipes/trainer.html">fairseq2.recipes.trainer</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../../reference/api/fairseq2.assets/index.html">fairseq2.assets</a></li>
@@ -331,20 +330,20 @@
     <span class="n">AssetCardFieldNotFoundError</span><span class="p">,</span>
     <span class="n">AssetCardNotFoundError</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.cli</span><span class="w"> </span><span class="kn">import</span> <span class="n">CliArgumentError</span><span class="p">,</span> <span class="n">CliCommandHandler</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.cli</span><span class="w"> </span><span class="kn">import</span> <span class="n">CliArgumentError</span><span class="p">,</span> <span class="n">CliCommandError</span><span class="p">,</span> <span class="n">CliCommandHandler</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.cli.utils.rich</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_error_console</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">RuntimeContext</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.error</span><span class="w"> </span><span class="kn">import</span> <span class="n">InternalError</span><span class="p">,</span> <span class="n">ProgramError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.error</span><span class="w"> </span><span class="kn">import</span> <span class="n">InternalError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">log</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelConfigLoadError</span><span class="p">,</span> <span class="n">ModelHandler</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.llama</span><span class="w"> </span><span class="kn">import</span> <span class="n">LLAMA_MODEL_FAMILY</span><span class="p">,</span> <span class="n">LLaMAConfig</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.llama.integ</span><span class="w"> </span><span class="kn">import</span> <span class="n">convert_to_reference_llama_checkpoint</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.file</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">FileMode</span><span class="p">,</span>
+    <span class="n">StandardTensorLoader</span><span class="p">,</span>
     <span class="n">TensorDumpError</span><span class="p">,</span>
     <span class="n">TensorLoadError</span><span class="p">,</span>
     <span class="n">TorchTensorDumper</span><span class="p">,</span>
-    <span class="n">TorchTensorLoader</span><span class="p">,</span>
 <span class="p">)</span>
 
 
@@ -385,8 +384,8 @@
 
         <span class="n">input_dir</span><span class="p">:</span> <span class="n">Path</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">input_dir</span>
 
-        <span class="k">def</span><span class="w"> </span><span class="nf">read_error</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">ProgramError</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">ProgramError</span><span class="p">(</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">read_error</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">CliCommandError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">CliCommandError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;The &#39;</span><span class="si">{</span><span class="n">input_dir</span><span class="si">}</span><span class="s2">&#39; directory cannot be read. See the nested exception for details.&quot;</span>
             <span class="p">)</span>
 
@@ -431,8 +430,8 @@
 
         <span class="n">output_dir</span><span class="p">:</span> <span class="n">Path</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">output_dir</span>
 
-        <span class="k">def</span><span class="w"> </span><span class="nf">write_error</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">ProgramError</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">ProgramError</span><span class="p">(</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">write_error</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">CliCommandError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">CliCommandError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;The &#39;</span><span class="si">{</span><span class="n">output_dir</span><span class="si">}</span><span class="s2">&#39; directory cannot be created. See the nested exception for details.&quot;</span>
             <span class="p">)</span>
 
@@ -467,7 +466,7 @@
                 <span class="s2">&quot;model&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;&#39;</span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">model</span><span class="si">}</span><span class="s2">&#39; is not a known LLaMA model. Use `fairseq2 assets list` to see the available models.&quot;</span>  <span class="c1"># fmt: skip</span>
             <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
         <span class="k">except</span> <span class="n">AssetCardError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">ProgramError</span><span class="p">(</span>
+            <span class="k">raise</span> <span class="n">CliCommandError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;The &#39;</span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">model</span><span class="si">}</span><span class="s2">&#39; asset card cannot be read. See the nested exception for details.&quot;</span>
             <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
 
@@ -478,7 +477,7 @@
                 <span class="s2">&quot;model&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;&#39;</span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">model</span><span class="si">}</span><span class="s2">&#39; is not a known LLaMA model. Use `fairseq2 assets list` to see the available models.&quot;</span>  <span class="c1"># fmt: skip</span>
             <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
         <span class="k">except</span> <span class="n">AssetCardError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">ProgramError</span><span class="p">(</span>
+            <span class="k">raise</span> <span class="n">CliCommandError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;The &#39;</span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">model</span><span class="si">}</span><span class="s2">&#39; asset card cannot be read. See the nested exception for details.&quot;</span>
             <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
 
@@ -499,8 +498,8 @@
         <span class="k">try</span><span class="p">:</span>
             <span class="n">model_config</span> <span class="o">=</span> <span class="n">model_handler</span><span class="o">.</span><span class="n">load_config</span><span class="p">(</span><span class="n">card</span><span class="p">)</span>
         <span class="k">except</span> <span class="n">ModelConfigLoadError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">ProgramError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;The configuration of &#39;</span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">model</span><span class="si">}</span><span class="s2">&#39; cannot be loaded. See the nested exception for details.&quot;</span>
+            <span class="k">raise</span> <span class="n">CliCommandError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;The configuration of the &#39;</span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">model</span><span class="si">}</span><span class="s2">&#39; model cannot be loaded. See the nested exception for details.&quot;</span>
             <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">model_config</span><span class="p">,</span> <span class="n">LLaMAConfig</span><span class="p">):</span>
@@ -511,14 +510,14 @@
         <span class="c1"># Begin conversion.</span>
         <span class="n">console</span> <span class="o">=</span> <span class="n">get_error_console</span><span class="p">()</span>
 
-        <span class="n">tensor_loader</span> <span class="o">=</span> <span class="n">TorchTensorLoader</span><span class="p">(</span><span class="n">file_system</span><span class="p">)</span>
+        <span class="n">tensor_loader</span> <span class="o">=</span> <span class="n">StandardTensorLoader</span><span class="p">(</span><span class="n">file_system</span><span class="p">)</span>
         <span class="n">tensor_dumper</span> <span class="o">=</span> <span class="n">TorchTensorDumper</span><span class="p">(</span><span class="n">file_system</span><span class="p">)</span>
 
         <span class="k">with</span> <span class="n">console</span><span class="o">.</span><span class="n">status</span><span class="p">(</span><span class="s2">&quot;[bold green]Converting...&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">status</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">input_file</span><span class="p">,</span> <span class="n">output_file</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">input_files</span><span class="p">,</span> <span class="n">output_files</span><span class="p">):</span>
 
-                <span class="k">def</span><span class="w"> </span><span class="nf">file_write_error</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">ProgramError</span><span class="p">:</span>
-                    <span class="k">return</span> <span class="n">ProgramError</span><span class="p">(</span>
+                <span class="k">def</span><span class="w"> </span><span class="nf">file_write_error</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">CliCommandError</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">CliCommandError</span><span class="p">(</span>
                         <span class="sa">f</span><span class="s2">&quot;The &#39;</span><span class="si">{</span><span class="n">input_file</span><span class="si">}</span><span class="s2">&#39; checkpoint file cannot be converted. See the nested exception for details.&quot;</span>
                     <span class="p">)</span>
 
@@ -564,8 +563,8 @@
 
         <span class="n">params_file</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">output_dir</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s2">&quot;params.json&quot;</span><span class="p">)</span>
 
-        <span class="k">def</span><span class="w"> </span><span class="nf">param_write_error</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">ProgramError</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">ProgramError</span><span class="p">(</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">param_write_error</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">CliCommandError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">CliCommandError</span><span class="p">(</span>
                 <span class="s2">&quot;params.json file cannot be created. See the nested exception for details.&quot;</span>
             <span class="p">)</span>
 
@@ -622,7 +621,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../../_static/documentation_options.js?v=7c9e6513"></script>
+</div><script src="../../../../../_static/documentation_options.js?v=509278ea"></script>
     <script src="../../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../../_static/scripts/furo.js?v=5fa4622c"></script>

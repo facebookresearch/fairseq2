@@ -268,7 +268,6 @@
 <li class="toctree-l2 has-children"><a class="reference internal" href="../../../../reference/api/fairseq2.recipes/index.html">fairseq2.recipes</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" role="switch" type="checkbox"/><label for="toctree-checkbox-7"><div class="visually-hidden">Toggle navigation of fairseq2.recipes</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../../reference/api/fairseq2.recipes/lm/index.html">fairseq2.recipes.lm</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../reference/api/fairseq2.recipes/wav2vec2/index.html">fairseq2.recipes.wav2vec2</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../../reference/api/fairseq2.recipes/trainer.html">fairseq2.recipes.trainer</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../reference/api/fairseq2.assets/index.html">fairseq2.assets</a></li>
@@ -320,28 +319,32 @@
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">argparse</span><span class="w"> </span><span class="kn">import</span> <span class="n">OPTIONAL</span><span class="p">,</span> <span class="n">ArgumentParser</span><span class="p">,</span> <span class="n">BooleanOptionalAction</span><span class="p">,</span> <span class="n">Namespace</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Hashable</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Set</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Hashable</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Set</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">itertools</span><span class="w"> </span><span class="kn">import</span> <span class="n">chain</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">getLogger</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">signal</span><span class="w"> </span><span class="kn">import</span> <span class="n">SIGUSR1</span><span class="p">,</span> <span class="n">signal</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">types</span><span class="w"> </span><span class="kn">import</span> <span class="n">FrameType</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Protocol</span><span class="p">,</span> <span class="n">TypeAlias</span><span class="p">,</span> <span class="n">final</span><span class="p">,</span> <span class="n">runtime_checkable</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Protocol</span><span class="p">,</span> <span class="n">final</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">override</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.cli</span><span class="w"> </span><span class="kn">import</span> <span class="n">CliArgumentError</span><span class="p">,</span> <span class="n">CliCommandHandler</span><span class="p">,</span> <span class="n">setup_logging</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.cli</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">CliArgumentError</span><span class="p">,</span>
+    <span class="n">CliCommandError</span><span class="p">,</span>
+    <span class="n">CliCommandHandler</span><span class="p">,</span>
+    <span class="n">setup_logging</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.cli.utils.argparse</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfigAction</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.cli.utils.cluster</span><span class="w"> </span><span class="kn">import</span> <span class="n">set_torch_distributed_variables</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.cli.utils.rich</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_rich_progress_reporter</span><span class="p">,</span> <span class="n">get_console</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.cluster</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClusterError</span><span class="p">,</span> <span class="n">UnknownClusterError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.cli.utils.rich</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_console</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.config_registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfigNotFoundError</span><span class="p">,</span> <span class="n">ConfigProvider</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">RuntimeContext</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.error</span><span class="w"> </span><span class="kn">import</span> <span class="n">ContractError</span><span class="p">,</span> <span class="n">ProgramError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.error</span><span class="w"> </span><span class="kn">import</span> <span class="n">ContractError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">LoggingSetupError</span><span class="p">,</span> <span class="n">log</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">DistributedLoggingInitializer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes</span><span class="w"> </span><span class="kn">import</span> <span class="n">Recipe</span><span class="p">,</span> <span class="n">RecipeError</span><span class="p">,</span> <span class="n">RecipeStopException</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.utils.log</span><span class="w"> </span><span class="kn">import</span> <span class="n">log_config</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.utils.progress</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProgressReporter</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.utils.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">DistributedLoggingInitializer</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.utils.sweep_tag</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">SweepFormatError</span><span class="p">,</span>
     <span class="n">SweepFormatPlaceholderError</span><span class="p">,</span>
@@ -470,35 +473,25 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">RuntimeContext</span><span class="p">,</span> <span class="n">parser</span><span class="p">:</span> <span class="n">ArgumentParser</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">Namespace</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_do_run</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="mi">0</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_do_run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">RuntimeContext</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">Namespace</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">list_preset_configs</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_print_preset_configs</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
 
-            <span class="k">return</span> <span class="mi">0</span>
-
-        <span class="n">setup_logging</span><span class="p">(</span><span class="n">debug</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">debug</span><span class="p">)</span>
+            <span class="k">return</span>
 
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_read_config</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
-        <span class="k">except</span> <span class="n">ConfigNotFoundError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">CliArgumentError</span><span class="p">(</span>
-                <span class="s2">&quot;preset&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;&#39;</span><span class="si">{</span><span class="n">ex</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; is not a known preset name. Use `--list-preset-configs` to see the available configurations.&quot;</span>  <span class="c1"># fmt: skip</span>
-            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
-        <span class="k">except</span> <span class="n">ConfigFileNotFoundError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">CliArgumentError</span><span class="p">(</span>
-                <span class="s2">&quot;--config-file&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">ex</span><span class="o">.</span><span class="n">config_file</span><span class="si">}</span><span class="s2"> does not point to a configuration file.&quot;</span>  <span class="c1"># fmt: skip</span>
-            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
-        <span class="k">except</span> <span class="n">InvalidConfigFileError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">CliArgumentError</span><span class="p">(</span>
-                <span class="s2">&quot;--config-file&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">ex</span><span class="o">.</span><span class="n">config_file</span><span class="si">}</span><span class="s2"> does not contain a valid configuration override. See logged stack trace for details.&quot;</span>  <span class="c1"># fmt: skip</span>
+            <span class="n">setup_logging</span><span class="p">(</span><span class="n">debug</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">debug</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">LoggingSetupError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CliCommandError</span><span class="p">(</span>
+                <span class="s2">&quot;The logging setup has failed. See the nested exception for details.&quot;</span>
             <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
-        <span class="k">except</span> <span class="n">InvalidConfigOverrideError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">CliArgumentError</span><span class="p">(</span>
-                <span class="s2">&quot;--config-file&quot;</span><span class="p">,</span> <span class="s2">&quot;key-value pair(s) cannot be applied over the preset configuration. See logged stack trace for details.&quot;</span>  <span class="c1"># fmt: skip</span>
-            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
-        <span class="k">except</span> <span class="n">ConfigReadError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">ProgramError</span><span class="p">(</span>
-                <span class="s2">&quot;The recipe configuration cannot be read. See the nested exception for details.&quot;</span>
-            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
+
+        <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_read_config</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">dump_config</span><span class="p">:</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">):</span>
@@ -509,51 +502,29 @@
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">yaml_dumper</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">)</span>
             <span class="k">except</span> <span class="n">YamlError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">ProgramError</span><span class="p">(</span>
+                <span class="k">raise</span> <span class="n">CliCommandError</span><span class="p">(</span>
                     <span class="s2">&quot;The recipe configuration cannot be dumped to stdout. See the nested exception for details.&quot;</span>
                 <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
 
-            <span class="k">return</span> <span class="mi">0</span>
+            <span class="k">return</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">args</span><span class="o">.</span><span class="n">output_dir</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">CliArgumentError</span><span class="p">(</span><span class="s2">&quot;output_dir&quot;</span><span class="p">,</span> <span class="s2">&quot;required&quot;</span><span class="p">)</span>
 
+        <span class="n">set_torch_distributed_variables</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">cluster</span><span class="p">)</span>
+
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">set_torch_distributed_variables</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">cluster</span><span class="p">)</span>
-        <span class="k">except</span> <span class="n">UnknownClusterError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-            <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">ex</span><span class="o">.</span><span class="n">supported_clusters</span><span class="p">)</span>
+            <span class="n">world_size</span> <span class="o">=</span> <span class="n">get_world_size</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">env</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">InvalidEnvironmentVariableError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CliCommandError</span><span class="p">(</span>
+                <span class="s2">&quot;The world size cannot be determined. See the nested exception for details.&quot;</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
 
-            <span class="k">raise</span> <span class="n">CliArgumentError</span><span class="p">(</span>
-                <span class="s2">&quot;cluster&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;&#39;</span><span class="si">{</span><span class="n">ex</span><span class="o">.</span><span class="n">cluster</span><span class="si">}</span><span class="s2">&#39; is not a known cluster. Must be one of: auto, none, </span><span class="si">{</span><span class="n">s</span><span class="si">}</span><span class="s2">&quot;</span>  <span class="c1"># fmt: skip</span>
-            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
-        <span class="k">except</span> <span class="n">ClusterError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">ex</span><span class="o">.</span><span class="n">cluster</span> <span class="o">==</span> <span class="s2">&quot;slurm&quot;</span><span class="p">:</span>
-                <span class="n">message</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&#39;</span><span class="si">{</span><span class="n">ex</span><span class="o">.</span><span class="n">cluster</span><span class="si">}</span><span class="s2">&#39; cluster environment cannot be set. See logged stack trace for details. If you are within an allocated Slurm job (i.e. `salloc`), make sure to run with `srun`. If you want to run without Slurm, use `--cluster none`.&quot;</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">message</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&#39;</span><span class="si">{</span><span class="n">ex</span><span class="o">.</span><span class="n">cluster</span><span class="si">}</span><span class="s2">&#39; cluster environment cannot be set. See logged stack trace for details.&quot;</span>
-
-            <span class="k">raise</span> <span class="n">ProgramError</span><span class="p">(</span><span class="n">message</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
+        <span class="n">tag</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_sweep_tag</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">world_size</span><span class="p">)</span>
 
         <span class="n">output_dir</span><span class="p">:</span> <span class="n">Path</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">output_dir</span>
 
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">sweep_tag</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_sweep_tag</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
-        <span class="k">except</span> <span class="n">SweepFormatPlaceholderError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-            <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">ex</span><span class="o">.</span><span class="n">unknown_keys</span><span class="p">)</span>
-
-            <span class="k">raise</span> <span class="n">CliArgumentError</span><span class="p">(</span>
-                <span class="s2">&quot;--sweep-format&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;must contain only placeholders that correspond to the configuration keys, but contains the following unexpected placeholder(s): </span><span class="si">{</span><span class="n">s</span><span class="si">}</span><span class="s2">&quot;</span>  <span class="c1"># fmt: skip</span>
-            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
-        <span class="k">except</span> <span class="n">SweepFormatError</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">CliArgumentError</span><span class="p">(</span>
-                <span class="s2">&quot;--sweep-format&quot;</span><span class="p">,</span> <span class="s2">&quot;must be a non-empty string with brace-enclosed placeholders.&quot;</span>  <span class="c1"># fmt: skip</span>
-            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
-        <span class="k">except</span> <span class="n">SweepTagError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">ProgramError</span><span class="p">(</span>
-                <span class="s2">&quot;The sweep tag cannot be generated. See the nested exception for details.&quot;</span>
-            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
-
-        <span class="n">output_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_output_directory</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">,</span> <span class="n">sweep_tag</span><span class="p">)</span>
+        <span class="n">output_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_output_directory</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">,</span> <span class="n">tag</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_setup_distributed_logging</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">)</span>
 
@@ -563,25 +534,52 @@
             <span class="n">recipe</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_loader</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">)</span>
         <span class="k">except</span> <span class="n">StructureError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">CliArgumentError</span><span class="p">(</span>
-                <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;The recipe configuration cannot be parsed. See logged stack trace for details.&quot;</span>  <span class="c1"># fmt: skip</span>
+                <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;The recipe configuration cannot be parsed. See the logged stack trace for details.&quot;</span>  <span class="c1"># fmt: skip</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
+        <span class="k">except</span> <span class="n">RecipeError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CliCommandError</span><span class="p">(</span>
+                <span class="s2">&quot;The recipe setup has failed. See the nested exception for details.&quot;</span>
             <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
 
-        <span class="c1"># If the recipe is stoppable, use SIGUSR1 as the stop signal.</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">recipe</span><span class="p">,</span> <span class="n">Stoppable</span><span class="p">):</span>
+        <span class="c1"># Use SIGUSR1 as the stop signal.</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">request_stop</span><span class="p">(</span><span class="n">signum</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">frame</span><span class="p">:</span> <span class="n">FrameType</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;SIGUSR1 received. Requesting recipe to stop.&quot;</span><span class="p">)</span>
 
-            <span class="k">def</span><span class="w"> </span><span class="nf">request_stop</span><span class="p">(</span><span class="n">signum</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">frame</span><span class="p">:</span> <span class="n">FrameType</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;SIGUSR1 received. Requesting recipe to stop.&quot;</span><span class="p">)</span>
+            <span class="n">recipe</span><span class="o">.</span><span class="n">request_stop</span><span class="p">()</span>
 
-                <span class="n">recipe</span><span class="o">.</span><span class="n">request_stop</span><span class="p">()</span>
+        <span class="n">signal</span><span class="p">(</span><span class="n">SIGUSR1</span><span class="p">,</span> <span class="n">request_stop</span><span class="p">)</span>
 
-            <span class="n">signal</span><span class="p">(</span><span class="n">SIGUSR1</span><span class="p">,</span> <span class="n">request_stop</span><span class="p">)</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Running on </span><span class="si">{}</span><span class="s2"> process(es).&quot;</span><span class="p">,</span> <span class="n">world_size</span><span class="p">)</span>
 
-        <span class="n">progress_reporter</span> <span class="o">=</span> <span class="n">create_rich_progress_reporter</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">recipe</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+        <span class="k">except</span> <span class="n">RecipeError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CliCommandError</span><span class="p">(</span>
+                <span class="s2">&quot;The recipe has failed. See the nested exception for details.&quot;</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
+        <span class="k">except</span> <span class="n">RecipeStopException</span><span class="p">:</span>
+            <span class="n">elapsed_time</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">wall_watch</span><span class="o">.</span><span class="n">get_elapsed_time</span><span class="p">())</span>
 
-        <span class="n">recipe</span><span class="p">(</span><span class="n">progress_reporter</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">recipe</span><span class="o">.</span><span class="n">step_nr</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Recipe stopped after </span><span class="si">{:,}</span><span class="s2"> second(s)!&quot;</span><span class="p">,</span> <span class="n">elapsed_time</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Recipe stopped after </span><span class="si">{:,}</span><span class="s2"> second(s) at step </span><span class="si">{}</span><span class="s2">!&quot;</span><span class="p">,</span> <span class="n">elapsed_time</span><span class="p">,</span> <span class="n">recipe</span><span class="o">.</span><span class="n">step_nr</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
+        <span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
+            <span class="n">elapsed_time</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">wall_watch</span><span class="o">.</span><span class="n">get_elapsed_time</span><span class="p">())</span>
 
-        <span class="k">return</span> <span class="mi">0</span></div>
+            <span class="k">if</span> <span class="n">recipe</span><span class="o">.</span><span class="n">step_nr</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Recipe terminated after </span><span class="si">{:,}</span><span class="s2"> second(s)!&quot;</span><span class="p">,</span> <span class="n">elapsed_time</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Recipe terminated after </span><span class="si">{:,}</span><span class="s2"> second(s) at step </span><span class="si">{}</span><span class="s2">!&quot;</span><span class="p">,</span> <span class="n">elapsed_time</span><span class="p">,</span> <span class="n">recipe</span><span class="o">.</span><span class="n">step_nr</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
 
+            <span class="k">raise</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">elapsed_time</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">wall_watch</span><span class="o">.</span><span class="n">get_elapsed_time</span><span class="p">())</span>
+
+            <span class="k">if</span> <span class="n">recipe</span><span class="o">.</span><span class="n">step_nr</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Recipe finished in </span><span class="si">{:,}</span><span class="s2"> second(s)!&quot;</span><span class="p">,</span> <span class="n">elapsed_time</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Recipe finished in </span><span class="si">{:,}</span><span class="s2"> second(s) after </span><span class="si">{}</span><span class="s2"> step(s)!&quot;</span><span class="p">,</span> <span class="n">elapsed_time</span><span class="p">,</span> <span class="n">recipe</span><span class="o">.</span><span class="n">step_nr</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_print_preset_configs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">RuntimeContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">console</span> <span class="o">=</span> <span class="n">get_console</span><span class="p">()</span>
@@ -615,28 +613,53 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="n">config_override_files</span> <span class="o">=</span> <span class="kc">None</span>
 
-        <span class="k">return</span> <span class="n">config_reader</span><span class="o">.</span><span class="n">read</span><span class="p">(</span>
-            <span class="n">args</span><span class="o">.</span><span class="n">preset</span><span class="p">,</span> <span class="n">config_override_files</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">config_overrides</span>
-        <span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">config_reader</span><span class="o">.</span><span class="n">read</span><span class="p">(</span>
+                <span class="n">args</span><span class="o">.</span><span class="n">preset</span><span class="p">,</span> <span class="n">config_override_files</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">config_overrides</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="n">ConfigNotFoundError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CliArgumentError</span><span class="p">(</span>
+                <span class="s2">&quot;preset&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;&#39;</span><span class="si">{</span><span class="n">ex</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; is not a known preset name. Use `--list-preset-configs` to see the available configurations.&quot;</span>  <span class="c1"># fmt: skip</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+        <span class="k">except</span> <span class="n">ConfigFileNotFoundError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CliArgumentError</span><span class="p">(</span>
+                <span class="s2">&quot;--config-file&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">ex</span><span class="o">.</span><span class="n">config_file</span><span class="si">}</span><span class="s2"> does not point to a configuration file.&quot;</span>  <span class="c1"># fmt: skip</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+        <span class="k">except</span> <span class="n">InvalidConfigFileError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CliArgumentError</span><span class="p">(</span>
+                <span class="s2">&quot;--config-file&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">ex</span><span class="o">.</span><span class="n">config_file</span><span class="si">}</span><span class="s2"> does not contain a valid configuration override. See the logged stack trace for details.&quot;</span>  <span class="c1"># fmt: skip</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
+        <span class="k">except</span> <span class="n">InvalidConfigOverrideError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CliArgumentError</span><span class="p">(</span>
+                <span class="s2">&quot;--config-file&quot;</span><span class="p">,</span> <span class="s2">&quot;key-value pair(s) cannot be applied over the preset configuration. See the logged stack trace for details.&quot;</span>  <span class="c1"># fmt: skip</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
+        <span class="k">except</span> <span class="n">ConfigReadError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CliCommandError</span><span class="p">(</span>
+                <span class="s2">&quot;The recipe configuration cannot be read. See the nested exception for details.&quot;</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_create_sweep_tag</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">RuntimeContext</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">Namespace</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">object</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">Namespace</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">world_size</span><span class="p">:</span> <span class="nb">int</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">no_sweep_dir</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
-
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">world_size</span> <span class="o">=</span> <span class="n">get_world_size</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">env</span><span class="p">)</span>
-        <span class="k">except</span> <span class="n">InvalidEnvironmentVariableError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">SweepTagError</span><span class="p">(</span>
-                <span class="s2">&quot;The world size cannot be determined. See the nested exception for details.&quot;</span>
-            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
 
         <span class="n">keys</span> <span class="o">=</span> <span class="n">get_sweep_keys</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_extra_sweep_keys</span><span class="p">)</span>
 
         <span class="n">tag_generator</span> <span class="o">=</span> <span class="n">SweepTagGenerator</span><span class="p">(</span><span class="n">world_size</span><span class="p">,</span> <span class="n">keys</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">sweep_format</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">tag_generator</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">preset</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">tag_generator</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">preset</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">SweepFormatPlaceholderError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">ex</span><span class="o">.</span><span class="n">unknown_keys</span><span class="p">)</span>
+
+            <span class="k">raise</span> <span class="n">CliArgumentError</span><span class="p">(</span>
+                <span class="s2">&quot;--sweep-format&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;must contain only placeholders that correspond to the configuration keys, but contains the following unexpected placeholder(s): </span><span class="si">{</span><span class="n">s</span><span class="si">}</span><span class="s2">&quot;</span>  <span class="c1"># fmt: skip</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+        <span class="k">except</span> <span class="n">SweepFormatError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">CliArgumentError</span><span class="p">(</span>
+                <span class="s2">&quot;--sweep-format&quot;</span><span class="p">,</span> <span class="s2">&quot;must be a non-empty string with brace-enclosed placeholders.&quot;</span>  <span class="c1"># fmt: skip</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_create_output_directory</span><span class="p">(</span>
@@ -648,7 +671,7 @@
         <span class="k">try</span><span class="p">:</span>
             <span class="n">context</span><span class="o">.</span><span class="n">file_system</span><span class="o">.</span><span class="n">make_directory</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">OSError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">ProgramError</span><span class="p">(</span>
+            <span class="k">raise</span> <span class="n">CliCommandError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;The &#39;</span><span class="si">{</span><span class="n">output_dir</span><span class="si">}</span><span class="s2">&#39; recipe directory cannot be created. See the nested exception for details.&quot;</span>
             <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
 
@@ -665,7 +688,7 @@
         <span class="k">try</span><span class="p">:</span>
             <span class="n">initializer</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span>
         <span class="k">except</span> <span class="n">LoggingSetupError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">ProgramError</span><span class="p">(</span>
+            <span class="k">raise</span> <span class="n">CliCommandError</span><span class="p">(</span>
                 <span class="s2">&quot;The distributed logging setup has failed. See the nested exception for details.&quot;</span>
             <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
 
@@ -680,30 +703,16 @@
         <span class="k">try</span><span class="p">:</span>
             <span class="n">dumper</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">)</span>
         <span class="k">except</span> <span class="n">ConfigDumpError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">ProgramError</span><span class="p">(</span>
+            <span class="k">raise</span> <span class="n">CliCommandError</span><span class="p">(</span>
                 <span class="s2">&quot;The recipe configuration cannot be saved. See the nested exception for details.&quot;</span>
             <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span></div>
 
-
-
-<span class="k">class</span><span class="w"> </span><span class="nc">SweepTagError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
-    <span class="k">pass</span>
-
-
-<span class="n">Recipe</span><span class="p">:</span> <span class="n">TypeAlias</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">ProgressReporter</span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">RecipeLoader</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">RuntimeContext</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">:</span> <span class="n">Path</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Recipe</span><span class="p">:</span> <span class="o">...</span>
-
-
-<span class="nd">@runtime_checkable</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">Stoppable</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a recipe that supports graceful stopping.&quot;&quot;&quot;</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">request_stop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
 
 
 <span class="nd">@final</span>
@@ -892,7 +901,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=7c9e6513"></script>
+</div><script src="../../../../_static/documentation_options.js?v=509278ea"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>

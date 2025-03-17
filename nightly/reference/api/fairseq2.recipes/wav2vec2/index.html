@@ -3,7 +3,7 @@
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link href="../../../../_static/img/logo.svg" rel="icon" type="image/svg+xml"><link rel="index" title="Index" href="../../../../genindex.html" /><link rel="search" title="Search" href="../../../../search.html" /><link rel="next" title="fairseq2.recipes.trainer" href="../trainer.html" /><link rel="prev" title="fairseq2.recipes.lm" href="../lm/index.html" />
+    <link href="../../../../_static/img/logo.svg" rel="icon" type="image/svg+xml"><link rel="index" title="Index" href="../../../../genindex.html" /><link rel="search" title="Search" href="../../../../search.html" /><link rel="next" title="fairseq2.assets" href="../../fairseq2.assets/index.html" /><link rel="prev" title="fairseq2.recipes.lm" href="../lm/index.html" />
 
     <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
         <title>fairseq2.recipes.wav2vec2 - fairseq2 Documentation</title>
@@ -269,7 +269,6 @@
 <li class="toctree-l2 current has-children"><a class="reference internal" href="../index.html">fairseq2.recipes</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" role="switch" type="checkbox"/><label for="toctree-checkbox-7"><div class="visually-hidden">Toggle navigation of fairseq2.recipes</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="../lm/index.html">fairseq2.recipes.lm</a></li>
 <li class="toctree-l3 current current-page"><a class="current reference internal" href="#">fairseq2.recipes.wav2vec2</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../trainer.html">fairseq2.recipes.trainer</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../fairseq2.assets/index.html">fairseq2.assets</a></li>
@@ -318,7 +317,7 @@
         <article role="main" id="furo-main-content">
           <section id="module-fairseq2.recipes.wav2vec2">
 <span id="fairseq2-recipes-wav2vec2"></span><h1>fairseq2.recipes.wav2vec2<a class="headerlink" href="#module-fairseq2.recipes.wav2vec2" title="Link to this heading">¶</a></h1>
-<pre data-zoom-id="id-6246c748-0f81-4bc6-8faa-167dba931cff" class="mermaid">
+<pre data-zoom-id="id-b21d1b05-b6fa-437f-9164-583840274f15" class="mermaid">
         classDiagram
   ABC &lt;|-- EvalUnit
   ABC &lt;|-- TrainUnit
@@ -348,18 +347,6 @@ in <span id="id1">Baevski <em>et al.</em> [<a class="reference internal" href=".
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">TrainUnit</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">SequenceBatch</span></code>]</p>
 <dl class="field-list simple">
 </dl>
-<dl class="py property">
-<dt class="sig sig-object py" id="fairseq2.recipes.wav2vec2.Wav2Vec2TrainUnit.model">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">model</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Model</span></em><a class="headerlink" href="#fairseq2.recipes.wav2vec2.Wav2Vec2TrainUnit.model" title="Link to this definition">¶</a></dt>
-<dd><p>The underlying model.</p>
-</dd></dl>
-
-<dl class="py property">
-<dt class="sig sig-object py" id="fairseq2.recipes.wav2vec2.Wav2Vec2TrainUnit.metric_bag">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">metric_bag</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#fairseq2.recipes.wav2vec2.Wav2Vec2MetricBag" title="fairseq2.recipes.wav2vec2._common.Wav2Vec2MetricBag"><span class="pre">Wav2Vec2MetricBag</span></a></em><a class="headerlink" href="#fairseq2.recipes.wav2vec2.Wav2Vec2TrainUnit.metric_bag" title="Link to this definition">¶</a></dt>
-<dd><p>The training-related metrics.</p>
-</dd></dl>
-
 </dd></dl>
 
 <dl class="py class">
@@ -405,7 +392,7 @@ in <span id="id1">Baevski <em>et al.</em> [<a class="reference internal" href=".
 <span class="sig-prename descclassname"><span class="pre">fairseq2.recipes.wav2vec2.</span></span><span class="sig-name descname"><span class="pre">load_wav2vec2_trainer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">context</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/wav2vec2/_train.html#load_wav2vec2_trainer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.wav2vec2.load_wav2vec2_trainer" title="Link to this definition">¶</a></dt>
 <dd><dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference internal" href="../trainer.html#fairseq2.recipes.trainer.Trainer" title="fairseq2.recipes.trainer.Trainer"><em>Trainer</em></a>[<em>SequenceBatch</em>]</p>
+<dd class="field-odd"><p><em>Trainer</em>[<em>SequenceBatch</em>]</p>
 </dd>
 </dl>
 </dd></dl>
@@ -428,12 +415,12 @@ in <span id="id1">Baevski <em>et al.</em> [<a class="reference internal" href=".
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="../trainer.html">
+          <a class="next-page" href="../../fairseq2.assets/index.html">
               <div class="page-info">
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title">fairseq2.recipes.trainer</div>
+                <div class="title">fairseq2.assets</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
@@ -485,11 +472,7 @@ in <span id="id1">Baevski <em>et al.</em> [<a class="reference internal" href=".
 <li><a class="reference internal" href="#">fairseq2.recipes.wav2vec2</a><ul>
 <li><a class="reference internal" href="#classes">Classes</a><ul>
 <li><a class="reference internal" href="#fairseq2.recipes.wav2vec2.Wav2Vec2TrainConfig"><code class="docutils literal notranslate"><span class="pre">Wav2Vec2TrainConfig</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.recipes.wav2vec2.Wav2Vec2TrainUnit"><code class="docutils literal notranslate"><span class="pre">Wav2Vec2TrainUnit</span></code></a><ul>
-<li><a class="reference internal" href="#fairseq2.recipes.wav2vec2.Wav2Vec2TrainUnit.model"><code class="docutils literal notranslate"><span class="pre">Wav2Vec2TrainUnit.model</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.recipes.wav2vec2.Wav2Vec2TrainUnit.metric_bag"><code class="docutils literal notranslate"><span class="pre">Wav2Vec2TrainUnit.metric_bag</span></code></a></li>
-</ul>
-</li>
+<li><a class="reference internal" href="#fairseq2.recipes.wav2vec2.Wav2Vec2TrainUnit"><code class="docutils literal notranslate"><span class="pre">Wav2Vec2TrainUnit</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.recipes.wav2vec2.Wav2Vec2EvalConfig"><code class="docutils literal notranslate"><span class="pre">Wav2Vec2EvalConfig</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.recipes.wav2vec2.Wav2Vec2MetricBag"><code class="docutils literal notranslate"><span class="pre">Wav2Vec2MetricBag</span></code></a><ul>
 <li><a class="reference internal" href="#fairseq2.recipes.wav2vec2.Wav2Vec2MetricBag.update_batch_metrics"><code class="docutils literal notranslate"><span class="pre">Wav2Vec2MetricBag.update_batch_metrics()</span></code></a></li>
@@ -514,7 +497,7 @@ in <span id="id1">Baevski <em>et al.</em> [<a class="reference internal" href=".
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=7c9e6513"></script>
+</div><script src="../../../../_static/documentation_options.js?v=509278ea"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>
@@ -532,7 +515,7 @@ const load = async () => {
     const mermaids_to_add_zoom = 1 === -1 ? all_mermaids.length : 1;
     const mermaids_processed = document.querySelectorAll(".mermaid[data-processed='true']");
     if(mermaids_to_add_zoom > 0) {
-        var svgs = d3.selectAll(".mermaid[data-zoom-id=id-6246c748-0f81-4bc6-8faa-167dba931cff] svg");
+        var svgs = d3.selectAll(".mermaid[data-zoom-id=id-b21d1b05-b6fa-437f-9164-583840274f15] svg");
         if(all_mermaids.length !== mermaids_processed.length) {
             // try again in a sec, wait for mermaids to load
             setTimeout(load, 200);

@@ -47,8 +47,9 @@ Here's a complete example:
 
     from fairseq2.cli import Cli, CliCommandHandler
     from fairseq2.cli.commands.recipe import RecipeCommandHandler
+    from fairseq2.context import RuntimeContext
     
-    def setup_custom_cli(cli: Cli) -> None:
+    def setup_custom_cli(context: RuntimeContext, cli: Cli) -> None:
         # Create a new command group
         group = cli.add_group(
             "custom",
@@ -102,13 +103,18 @@ Example implementation:
     from dataclasses import dataclass
     from pathlib import Path
     from typing import Callable
+
+    from fairseq2.context import RuntimeContext
+    from fairseq2.recipes import Recipe
     
     @dataclass
     class CustomConfig:
         param1: str
         param2: int
 
-    def load_custom_recipe(config: CustomConfig, output_dir: Path) -> Callable[[], None]:
+    def load_custom_recipe(
+        context: RuntimeContext, config: CustomConfig, output_dir: Path
+    ) -> Recipe:
         def run_recipe() -> None:
             # Recipe implementation
             pass

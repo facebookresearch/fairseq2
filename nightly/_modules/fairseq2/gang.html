@@ -268,7 +268,6 @@
 <li class="toctree-l2 has-children"><a class="reference internal" href="../../reference/api/fairseq2.recipes/index.html">fairseq2.recipes</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" role="switch" type="checkbox"/><label for="toctree-checkbox-7"><div class="visually-hidden">Toggle navigation of fairseq2.recipes</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/api/fairseq2.recipes/lm/index.html">fairseq2.recipes.lm</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/api/fairseq2.recipes/wav2vec2/index.html">fairseq2.recipes.wav2vec2</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../reference/api/fairseq2.recipes/trainer.html">fairseq2.recipes.trainer</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../reference/api/fairseq2.assets/index.html">fairseq2.assets</a></li>
@@ -338,9 +337,9 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Device</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.env</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">InvalidEnvironmentVariableError</span><span class="p">,</span>
-    <span class="n">get_local_world_size</span><span class="p">,</span>
     <span class="n">get_world_size</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.threading</span><span class="w"> </span><span class="kn">import</span> <span class="n">ThreadingError</span><span class="p">,</span> <span class="n">get_num_threads</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.version</span><span class="w"> </span><span class="kn">import</span> <span class="n">torch_greater_or_equal</span>
 
 
@@ -731,18 +730,13 @@
                 <span class="sa">f</span><span class="s2">&quot;`device` must be of type `cpu` and `cuda`, but is of type `</span><span class="si">{</span><span class="n">device</span><span class="o">.</span><span class="n">type</span><span class="si">}</span><span class="s2">` instead.&quot;</span>
             <span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">num_threads</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">num_threads</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="s2">&quot;OMP_NUM_THREADS&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="n">num_procs</span> <span class="o">=</span> <span class="n">get_local_world_size</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">)</span>
-            <span class="k">except</span> <span class="n">InvalidEnvironmentVariableError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+                <span class="n">num_threads</span> <span class="o">=</span> <span class="n">get_num_threads</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">ThreadingError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="n">GangError</span><span class="p">(</span>
-                    <span class="s2">&quot;The local world size cannot be determined from the environment variables. See the nested exception for details.&quot;</span>
+                    <span class="s2">&quot;The number of threads to use for intra-op parallelism cannot be determined. See the nested exception for details.&quot;</span>
                 <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
-
-            <span class="k">if</span> <span class="n">num_procs</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="s2">&quot;OMP_NUM_THREADS&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">:</span>
-                <span class="c1"># To prevent thread oversubscription, we distribute cores evenly</span>
-                <span class="c1"># across the workers.</span>
-                <span class="n">num_threads</span> <span class="o">=</span> <span class="n">_get_num_cpus</span><span class="p">(</span><span class="n">num_procs</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">num_threads</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">torch</span><span class="o">.</span><span class="n">set_num_threads</span><span class="p">(</span><span class="n">num_threads</span><span class="p">)</span>
@@ -1009,20 +1003,6 @@
             <span class="sa">f</span><span class="s2">&quot;`</span><span class="si">{</span><span class="n">op</span><span class="si">}</span><span class="s2">` operation is not supported by the underlying process group.&quot;</span>
         <span class="p">)</span></div>
 
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_get_num_cpus</span><span class="p">(</span><span class="n">num_procs</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-    <span class="n">num_cpus</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">cpu_count</span><span class="p">()</span>
-
-    <span class="n">affinity_mask</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">sched_getaffinity</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-
-    <span class="k">if</span> <span class="n">num_cpus</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">affinity_mask</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;The number of CPU cores cannot be determined.&quot;</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="mi">1</span>
-
-    <span class="c1"># We should not exceed the number of cores available in the affinity mask.</span>
-    <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">num_cpus</span> <span class="o">//</span> <span class="n">num_procs</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">affinity_mask</span><span class="p">))</span>
 
 
 <div class="viewcode-block" id="setup_root_gang">
@@ -1338,7 +1318,7 @@
       
     </aside>
   </div>
-</div><script src="../../_static/documentation_options.js?v=7c9e6513"></script>
+</div><script src="../../_static/documentation_options.js?v=509278ea"></script>
     <script src="../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/scripts/furo.js?v=5fa4622c"></script>

@@ -269,7 +269,6 @@
 <li class="toctree-l2 has-children"><a class="reference internal" href="../fairseq2.recipes/index.html">fairseq2.recipes</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" role="switch" type="checkbox"/><label for="toctree-checkbox-7"><div class="visually-hidden">Toggle navigation of fairseq2.recipes</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="../fairseq2.recipes/lm/index.html">fairseq2.recipes.lm</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../fairseq2.recipes/wav2vec2/index.html">fairseq2.recipes.wav2vec2</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../fairseq2.recipes/trainer.html">fairseq2.recipes.trainer</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../fairseq2.assets/index.html">fairseq2.assets</a></li>
@@ -319,7 +318,7 @@
           <section id="module-fairseq2.data">
 <span id="fairseq2-data"></span><h1>fairseq2.data<a class="headerlink" href="#module-fairseq2.data" title="Link to this heading">¶</a></h1>
 <p>The data pipeline module provides the core data processing functionality in fairseq2.</p>
-<pre data-zoom-id="id-7cbf6f77-b663-4512-b9aa-f27c14eec989" class="mermaid">
+<pre data-zoom-id="id-16889fba-d958-4840-88ad-dffc51316ce4" class="mermaid">
         classDiagram
   BaseException &lt;|-- Exception
   Exception &lt;|-- ByteStreamError
@@ -1282,7 +1281,7 @@ or want to avoid incurring the cost of pickling on creation), set
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=7c9e6513"></script>
+</div><script src="../../../_static/documentation_options.js?v=509278ea"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>
@@ -1300,7 +1299,7 @@ const load = async () => {
     const mermaids_to_add_zoom = 1 === -1 ? all_mermaids.length : 1;
     const mermaids_processed = document.querySelectorAll(".mermaid[data-processed='true']");
     if(mermaids_to_add_zoom > 0) {
-        var svgs = d3.selectAll(".mermaid[data-zoom-id=id-7cbf6f77-b663-4512-b9aa-f27c14eec989] svg");
+        var svgs = d3.selectAll(".mermaid[data-zoom-id=id-16889fba-d958-4840-88ad-dffc51316ce4] svg");
         if(all_mermaids.length !== mermaids_processed.length) {
             // try again in a sec, wait for mermaids to load
             setTimeout(load, 200);

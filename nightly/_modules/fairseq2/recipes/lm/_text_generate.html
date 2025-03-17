@@ -268,7 +268,6 @@
 <li class="toctree-l2 has-children"><a class="reference internal" href="../../../../reference/api/fairseq2.recipes/index.html">fairseq2.recipes</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" role="switch" type="checkbox"/><label for="toctree-checkbox-7"><div class="visually-hidden">Toggle navigation of fairseq2.recipes</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../../reference/api/fairseq2.recipes/lm/index.html">fairseq2.recipes.lm</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../reference/api/fairseq2.recipes/wav2vec2/index.html">fairseq2.recipes.wav2vec2</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../../reference/api/fairseq2.recipes/trainer.html">fairseq2.recipes.trainer</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../reference/api/fairseq2.assets/index.html">fairseq2.assets</a></li>
@@ -334,11 +333,19 @@
     <span class="n">InstructionDataset</span><span class="p">,</span>
     <span class="n">InstructionPromptReadOptions</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.error</span><span class="w"> </span><span class="kn">import</span> <span class="n">InternalError</span><span class="p">,</span> <span class="n">ProgramError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.error</span><span class="w"> </span><span class="kn">import</span> <span class="n">InternalError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gangs</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.generation</span><span class="w"> </span><span class="kn">import</span> <span class="n">SamplingConfig</span><span class="p">,</span> <span class="n">SequenceGenerator</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.decoder</span><span class="w"> </span><span class="kn">import</span> <span class="n">DecoderModel</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.sequence</span><span class="w"> </span><span class="kn">import</span> <span class="n">SequenceBatch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Generator</span><span class="p">,</span>
+    <span class="n">GeneratorUnit</span><span class="p">,</span>
+    <span class="n">Model</span><span class="p">,</span>
+    <span class="n">RecipeError</span><span class="p">,</span>
+    <span class="n">SequenceGenerationMetricBag</span><span class="p">,</span>
+    <span class="n">UnitError</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.common</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">create_generator</span><span class="p">,</span>
     <span class="n">create_seq_generator</span><span class="p">,</span>
@@ -356,10 +363,6 @@
     <span class="n">ReferenceModelSection</span><span class="p">,</span>
     <span class="n">SequenceGeneratorSection</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.error</span><span class="w"> </span><span class="kn">import</span> <span class="n">UnitError</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.generator</span><span class="w"> </span><span class="kn">import</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">GeneratorUnit</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">SequenceGenerationMetricBag</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.model</span><span class="w"> </span><span class="kn">import</span> <span class="n">Model</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">CPU</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.file</span><span class="w"> </span><span class="kn">import</span> <span class="n">FileMode</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.rng</span><span class="w"> </span><span class="kn">import</span> <span class="n">manual_seed</span>
@@ -500,10 +503,10 @@
 
         <span class="n">rank</span> <span class="o">=</span> <span class="n">gangs</span><span class="o">.</span><span class="n">dp</span><span class="o">.</span><span class="n">rank</span>
 
-        <span class="n">text_file</span> <span class="o">=</span> <span class="n">output_dir</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;output/rank_</span><span class="si">{</span><span class="n">rank</span><span class="si">}</span><span class="s2">.txt&quot;</span><span class="p">)</span>
-        <span class="n">json_file</span> <span class="o">=</span> <span class="n">output_dir</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;output/rank_</span><span class="si">{</span><span class="n">rank</span><span class="si">}</span><span class="s2">.jsonl&quot;</span><span class="p">)</span>
-
         <span class="k">try</span><span class="p">:</span>
+            <span class="n">text_file</span> <span class="o">=</span> <span class="n">output_dir</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;output/rank_</span><span class="si">{</span><span class="n">rank</span><span class="si">}</span><span class="s2">.txt&quot;</span><span class="p">)</span>
+            <span class="n">json_file</span> <span class="o">=</span> <span class="n">output_dir</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;output/rank_</span><span class="si">{</span><span class="n">rank</span><span class="si">}</span><span class="s2">.jsonl&quot;</span><span class="p">)</span>
+
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">file_system</span><span class="o">.</span><span class="n">make_directory</span><span class="p">(</span><span class="n">text_file</span><span class="o">.</span><span class="n">parent</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">OSError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
@@ -525,8 +528,8 @@
                     <span class="sa">f</span><span class="s2">&quot;The &#39;</span><span class="si">{</span><span class="n">json_file</span><span class="si">}</span><span class="s2">&#39; output file cannot be created. See the nested exception for details.&quot;</span>
                 <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
         <span class="k">except</span> <span class="n">UnitError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">ProgramError</span><span class="p">(</span>
-                <span class="s2">&quot;The generation unit cannot be initialized. See the nested exception for details.&quot;</span>
+            <span class="k">raise</span> <span class="n">RecipeError</span><span class="p">(</span>
+                <span class="s2">&quot;The generator unit cannot be initialized. See the nested exception for details.&quot;</span>
             <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">text_fp</span> <span class="o">=</span> <span class="kc">None</span>
@@ -715,7 +718,7 @@
                 <span class="n">stream</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
         <span class="k">except</span> <span class="ne">OSError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">UnitError</span><span class="p">(</span>
-                <span class="s2">&quot;The generator output cannot be written to the stream. See the nested exception for details.&quot;</span>
+                <span class="s2">&quot;The generator output cannot be written. See the nested exception for details.&quot;</span>
             <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
 
     <span class="nd">@property</span>
@@ -764,7 +767,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=7c9e6513"></script>
+</div><script src="../../../../_static/documentation_options.js?v=509278ea"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>

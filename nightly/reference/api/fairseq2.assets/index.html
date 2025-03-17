@@ -3,7 +3,7 @@
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link href="../../../_static/img/logo.svg" rel="icon" type="image/svg+xml"><link rel="index" title="Index" href="../../../genindex.html" /><link rel="search" title="Search" href="../../../search.html" /><link rel="next" title="Bibliography" href="../../bibliography.html" /><link rel="prev" title="fairseq2.recipes.trainer" href="../fairseq2.recipes/trainer.html" />
+    <link href="../../../_static/img/logo.svg" rel="icon" type="image/svg+xml"><link rel="index" title="Index" href="../../../genindex.html" /><link rel="search" title="Search" href="../../../search.html" /><link rel="next" title="Bibliography" href="../../bibliography.html" /><link rel="prev" title="fairseq2.recipes.wav2vec2" href="../fairseq2.recipes/wav2vec2/index.html" />
 
     <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
         <title>fairseq2.assets - fairseq2 Documentation</title>
@@ -269,7 +269,6 @@
 <li class="toctree-l2 has-children"><a class="reference internal" href="../fairseq2.recipes/index.html">fairseq2.recipes</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" role="switch" type="checkbox"/><label for="toctree-checkbox-7"><div class="visually-hidden">Toggle navigation of fairseq2.recipes</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="../fairseq2.recipes/lm/index.html">fairseq2.recipes.lm</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../fairseq2.recipes/wav2vec2/index.html">fairseq2.recipes.wav2vec2</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../fairseq2.recipes/trainer.html">fairseq2.recipes.trainer</a></li>
 </ul>
 </li>
 <li class="toctree-l2 current current-page"><a class="current reference internal" href="#">fairseq2.assets</a></li>
@@ -318,7 +317,7 @@
         <article role="main" id="furo-main-content">
           <section id="fairseq2-assets">
 <h1>fairseq2.assets<a class="headerlink" href="#fairseq2-assets" title="Link to this heading">¶</a></h1>
-<pre data-zoom-id="id-8a786825-91e5-4dd0-a702-40644b708fbc" class="mermaid">
+<pre data-zoom-id="id-b7231998-5da8-48c5-b226-a9399f49d9c5" class="mermaid">
         classDiagram
   ABC &lt;|-- AssetDownloadManager
   ABC &lt;|-- AssetMetadataFileLoader
@@ -485,14 +484,14 @@ checked recursively.</p>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
-          <a class="prev-page" href="../fairseq2.recipes/trainer.html">
+          <a class="prev-page" href="../fairseq2.recipes/wav2vec2/index.html">
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
               <div class="page-info">
                 <div class="context">
                   <span>Previous</span>
                 </div>
                 
-                <div class="title">fairseq2.recipes.trainer</div>
+                <div class="title">fairseq2.recipes.wav2vec2</div>
                 
               </div>
             </a>
@@ -562,7 +561,7 @@ checked recursively.</p>
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=7c9e6513"></script>
+</div><script src="../../../_static/documentation_options.js?v=509278ea"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>
@@ -580,7 +579,7 @@ const load = async () => {
     const mermaids_to_add_zoom = 1 === -1 ? all_mermaids.length : 1;
     const mermaids_processed = document.querySelectorAll(".mermaid[data-processed='true']");
     if(mermaids_to_add_zoom > 0) {
-        var svgs = d3.selectAll(".mermaid[data-zoom-id=id-8a786825-91e5-4dd0-a702-40644b708fbc] svg");
+        var svgs = d3.selectAll(".mermaid[data-zoom-id=id-b7231998-5da8-48c5-b226-a9399f49d9c5] svg");
         if(all_mermaids.length !== mermaids_processed.length) {
             // try again in a sec, wait for mermaids to load
             setTimeout(load, 200);
