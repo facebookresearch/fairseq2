@@ -162,6 +162,7 @@ class OnlineFinetuneDatasetSection(DatasetSection):
     extras: dict[str, object] = field(default_factory=dict)
     """The dataset-specific extra options."""
 
+    src_key: str = "src"
 
 @dataclass(kw_only=True)
 class DropoutConfig:
@@ -258,6 +259,7 @@ def load_online_finetuner(
         # max_num_batches=4,  ## TODO
         seed=seed,
         extras=config.dataset.extras,
+        src_key=config.dataset.src_key
     )
 
     data_reader = dataset.create_reader(

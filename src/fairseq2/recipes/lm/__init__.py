@@ -139,3 +139,5 @@ from fairseq2.recipes.lm._online_finetune._grpo import GrpoFinetuneUnitHandler a
 from fairseq2.recipes.lm._online_finetune._rewards import VLLMOutputRewardHandler as VLLMOutputRewardHandler
 from fairseq2.recipes.lm._online_finetune._rewards import GSM8kVerifier as GSM8kVerifier
 from fairseq2.recipes.lm._online_finetune._rewards import GSM8kVerifierHandler as GSM8kVerifierHandler
+from fairseq2.recipes.lm._online_finetune._rewards import NuminaMathVerifier as NuminaMathVerifier
+from fairseq2.recipes.lm._online_finetune._rewards import NuminaMathVerifierHandler as NuminaMathVerifierHandler

@@ -206,6 +206,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         kl = (ref_logps - logps).exp() - (ref_logps - logps) - 1.0
 
         per_token_scaled_advantage = (logps - logps.detach()).exp() * advantages[:,:,None]
+        # per_token_scaled_advantage = logps * advantages[:,:,None]
 
         per_token_loss = per_token_scaled_advantage - self._beta * kl
 
@@ -359,7 +360,7 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
 
         reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
         reward_handler = reward_registry.get(config.reward.name)
-        reward = reward_handler.create(recipe_config=recipe_config, gangs=gangs)
+        reward = reward_handler.create(reward_config=config.reward.config, gangs=gangs)
 
         if config.reference_model is not None:
             log.info("Setting up GRPO with reference model.")

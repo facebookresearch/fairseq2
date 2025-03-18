@@ -375,7 +375,7 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
 
         reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
         reward_handler = reward_registry.get(config.reward.name)
-        reward = reward_handler.create(recipe_config=recipe_config, gangs=gangs)
+        reward = reward_handler.create(reward_config=config.reward.config, gangs=gangs)
 
         if config.reference_model is not None:
             log.info("Setting up DPO with reference model.")

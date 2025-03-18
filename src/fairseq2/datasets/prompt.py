@@ -57,6 +57,8 @@ class PromptReadOptions(DataReadOptions):
     source_encode_mode: str = "prompt"
     """The tokenizer mode to encode the source text."""
 
+    src_key: str = "src"
+
 @dataclass
 class PromptBatch:
     """Represents a preference optimization dataset batch."""
@@ -99,7 +101,7 @@ class PromptDataset(ABC):
 
 
 # TODO: FIX, INFER
-npc = 1
+npc = 10
 
 
 GENERIC_PROMPT_DATASET_FAMILY: Final = "prompt_dataset"
@@ -151,6 +153,7 @@ class GenericPromptDataset(PromptDataset):
             options = PromptReadOptions()
 
         seed = options.seed
+        src_key = options.src_key
 
         if len(self._files) == 1:
             builder = self._read_jsonl(self._files[0], tokenizer)
@@ -185,12 +188,12 @@ class GenericPromptDataset(PromptDataset):
         # Encode source and target texts.
         source_encoder = tokenizer.create_encoder(mode=options.source_encode_mode)
 
-        builder.map(source_encoder, selector="src", num_parallel_calls=npc)
+        builder.map(source_encoder, selector=src_key, num_parallel_calls=npc)
 
         def process_examples(example: dict[str, Any]) -> dict[str, Any]:
             id_ = example.get("id", None)
 
-            source_indices = example["src"].tolist()
+            source_indices = example[src_key].tolist()
 
             total_tokens = len(source_indices)
 
@@ -222,7 +225,7 @@ class GenericPromptDataset(PromptDataset):
             def skip(example: dict[str, Any]) -> bool:
                 total_tokens = example["total_tokens"]
 
-                return total_tokens <= max_seq_len
+                return total_tokens <= max_seq_len and total_tokens >= min_seq_len
 
             builder.filter(skip)
 
@@ -230,8 +233,6 @@ class GenericPromptDataset(PromptDataset):
             builder.bucket(batching.batch_size, drop_remainder=options.drop_remainder)
         else:
             raise NotSupportedError(f"`{batching}` is not supported.")
-        
-        
 
         # Shuffle buckets.
         
@@ -239,10 +240,6 @@ class GenericPromptDataset(PromptDataset):
             builder.shuffle(options.batch_shuffle_window, seed=seed)
 
         seed += 1
-
-        # collater = Collater(pad_value=tokenizer.vocab_info.pad_idx)
-
-        # builder.map(collater, num_parallel_calls=npc)
 
         # Return only the first `max_num_batches`.
         if options.max_num_batches is not None:
