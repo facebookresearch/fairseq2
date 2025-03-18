@@ -293,6 +293,16 @@ class SkyworkVerifier(VLLMOutputReward):
         extracted_text = input_string[start_index:end_index].strip()
         return extracted_text
 
+    def wrap_text(self, prompt_text, rollout_text):
+        wrapped_text = [
+            {"role": "user", "content": prompt_text},
+            {"role": "assistant", "content": rollout_text},
+        ]
+        templated_text = self.tokenizer.apply_chat_template(wrapped_text, tokenize=True)
+        tokens_prompt = TokensPrompt(prompt_token_ids=templated_text)
+
+        return tokens_prompt
+
     @override
     def process_rollouts(
         self,
@@ -327,14 +337,8 @@ class SkyworkVerifier(VLLMOutputReward):
                     prompt_text
                 )  # FIXME need more universal method
                 rollout_text = rollout_output.text
-                wrapped_text = [
-                    {"role": "user", "content": prompt_text},
-                    {"role": "assistant", "content": rollout_text},
-                ]
-                vllm_input = self.tokenizer.apply_chat_template(
-                    wrapped_text, tokenize=True
-                )
-                vllm_input = TokensPrompt(prompt_token_ids=vllm_input)
+
+                vllm_input = self.wrap_text(prompt_text, rollout_text)
 
                 (output,) = ray.get(
                     self.vllm_model.vllm_model.encode.remote(vllm_input)
