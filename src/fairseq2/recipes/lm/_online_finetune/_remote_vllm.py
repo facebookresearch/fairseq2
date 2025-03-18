@@ -29,6 +29,7 @@ from ray.util.placement_group import placement_group
 from vllm.utils import get_ip, get_open_port
 from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
 import ray
+from vllm.engine.arg_utils import PoolerConfig
 
 
 class RemoteModelHandler(ABC):
@@ -51,6 +52,19 @@ class VllmEngineArgs:
     task: str = "generate"
     tensor_parallel_size: int = 4
     enforce_eager: bool = True
+    hf_overrides = None
+    override_pooler_config = None
+
+
+@dataclass(kw_only=True)
+class VllmRewardEngineArgs:
+    model: str = "Skywork/Skywork-Reward-Llama-3.1-8B-v0.2"
+    tokenizer: str = "/datasets/pretrained-llms/Llama-3.1-8B-Instruct"
+    task: str = "classify"
+    tensor_parallel_size: int = 4
+    enforce_eager: bool = True
+    hf_overrides = {"architectures": ["LlamaForSequenceClassification"]}
+    override_pooler_config = PoolerConfig(softmax=False)
 
 
 @dataclass(kw_only=True)
@@ -71,6 +85,19 @@ class VllmConfig:
     init_update_process_group: bool = False
 
 
+@dataclass(kw_only=True)
+class VllmRewardConfig:
+    ray_cluster_ip_address: str = "dummy"
+    ray_actor_name: str = "dummy"
+    vllm_engine_args: VllmRewardEngineArgs = field(
+        default_factory=lambda: VllmRewardEngineArgs()
+    )
+    vllm_sampling_params: VllmSamplingParams = field(
+        default_factory=lambda: VllmSamplingParams()
+    )
+    init_update_process_group: bool = False
+
+
 class RemoteVllmModelHandler(RemoteModelHandler):
     @override
     def create(
@@ -78,7 +105,16 @@ class RemoteVllmModelHandler(RemoteModelHandler):
     ) -> RemoteVllmModel:
         if gangs.dp.rank == 0:
             # vllm worker is only created on the first DP rank (incuding all TP ranks)
-            vllm_config = get_config_section(unit_config, configs_name, VllmConfig)
+            # if gangs.root.rank == 0:
+            #     breakpoint()
+
+            if configs_name == "vllm_model":
+                vllm_config = get_config_section(unit_config, configs_name, VllmConfig)
+            else:
+                vllm_config = get_config_section(
+                    unit_config, configs_name, VllmRewardConfig
+                )
+
             remote_vllm_model = RemoteVllmModel(
                 vllm_config.ray_cluster_ip_address,
                 vllm_config.ray_actor_name,
@@ -116,9 +152,17 @@ class RemoteVllmModel:
         if gangs.dp.rank != 0:
             raise ValueError("vllm worker should only be initialized on DP rank 0")
 
-        ray.init(
-            address=f"ray://{ray_cluster_ip_address}:10001", namespace="vllm_workers"
-        )
+        try:
+            ray.init(
+                address=f"ray://{ray_cluster_ip_address}:10001",
+                namespace="vllm_workers",
+            )
+        except RuntimeError as e:
+            if "Ray Client is already connected" in str(e):
+                print("Ray Client is already connected. Skipping ray.init().")
+            else:
+                # Other error
+                raise
 
         self._gangs = gangs
         self.vllm_model = self.setup_vllm_worker(
@@ -169,6 +213,9 @@ class RemoteVllmModel:
             enforce_eager=vllm_engine_args.enforce_eager,
             worker_cls=MyWorker,
             tensor_parallel_size=vllm_engine_args.tensor_parallel_size,
+            task=vllm_engine_args.task,
+            hf_overrides=vllm_engine_args.hf_overrides,
+            override_pooler_config=vllm_engine_args.override_pooler_config,
             distributed_executor_backend="ray",
         )
 

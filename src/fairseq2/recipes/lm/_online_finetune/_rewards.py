@@ -27,6 +27,10 @@ import re
 from fairseq2.recipes.config import (
     get_config_section,
 )
+from transformers import AutoTokenizer
+from vllm import TokensPrompt
+import ray
+import re
 
 
 @dataclass(kw_only=True)
@@ -94,7 +98,10 @@ class GSM8kVerifier(VLLMOutputReward):
 
     @override
     def process_rollouts(
-        self, vllm_outputs: List[RequestOutput], reference_answers: List[str]
+        self,
+        vllm_outputs: List[RequestOutput],
+        reference_answers: List[str],
+        prompt_batch: PromptBatch,
     ):
         batch_text = []
         batch_tokens = []
@@ -223,12 +230,6 @@ class GSM8kVerifier(VLLMOutputReward):
             prompt_rollouts, prompt_lens, device=self._gangs.dp.device
         )
 
-        # if self._gangs.root.rank == 0:
-        #     from pudb.remote import set_trace
-        #     set_trace(host="submit-0", port=6899, term_size=(80*2, 24*2), reverse=True)
-
-        # self._gangs.root.barrier()
-
         rewards = torch.tensor(
             rewards, device=self._gangs.dp.device
         ).float()  # [Batch, Rollouts]
@@ -249,7 +250,7 @@ class SkyworkVerifierHandler(VLLMOutputRewardHandler):
 
     @override
     def create(self, recipe_config, vllm_model, gangs):
-        return SkyworkVerifier(gangs)
+        return SkyworkVerifier(gangs, vllm_model)
 
     @property
     @override
@@ -270,6 +271,9 @@ class SkyworkVerifier(VLLMOutputReward):
         self.invalid_answer = "[invalid]"
         self._gangs = gangs
         self.vllm_model = vllm_model
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            "Skywork/Skywork-Reward-Llama-3.1-8B-v0.2"
+        )
 
     def extract_answer(self, completion: str):
         match = self.answer_re.search(completion)
@@ -280,37 +284,65 @@ class SkyworkVerifier(VLLMOutputReward):
         else:
             return self.invalid_answer
 
+    def extract_llama3_text(self, input_string):
+        start_pattern = r"<\|start_header_id\|>user<\|end_header_id\|>"
+        end_pattern = r"<\|eot_id\|><\|start_header_id\|>assistant<\|end_header_id\|>"
+        start_index = re.search(start_pattern, input_string).end()
+        end_index = re.search(end_pattern, input_string).start()
+        # Extract the text between the start and end indices
+        extracted_text = input_string[start_index:end_index].strip()
+        return extracted_text
+
     @override
     def process_rollouts(
-        self, vllm_outputs: List[RequestOutput], reference_answers: List[str]
+        self,
+        vllm_outputs: List[RequestOutput],
+        reference_answers: List[str],
+        prompts,
     ):
         batch_text = []
         batch_tokens = []
         batch_rewards = []
 
-        if self._gangs.root.rank == 0:
-            from pdb import set_trace
-
-            set_trace()
-            # from pudb.remote import set_trace
-
-            # set_trace(
-            #     host="submit-0", port=6899, term_size=(80 * 2, 24 * 2), reverse=True
-            # )
-
         self._gangs.root.barrier()
 
-        for i, i_batch_request_output in enumerate(vllm_outputs):
+        for i, (i_batch_request_output, prompt) in enumerate(
+            zip(vllm_outputs, prompts)
+        ):
             rollouts_text = []
             rollouts_tokens = []
-            i_reference_answer = reference_answers[i]
+
             rollouts_rewards = []
             for rollout_output in i_batch_request_output.outputs:
+
+                # prompt_text = self.tokenizer.decode(prompt)
+                # rollout_text = rollout_output.text
+                # vllm_input = prompt_text + rollout_text
+                # vllm_input = self.tokenizer.encode(vllm_input, add_special_tokens=False)
+                # vllm_input = TokensPrompt(prompt_token_ids=vllm_input)
+
+                prompt_text = self.tokenizer.decode(prompt)
+
+                # FIXME need more universal method
+                prompt_text = self.extract_llama3_text(prompt_text)
+                rollout_text = rollout_output.text
+                wrapped_text = [
+                    {"role": "user", "content": prompt_text},
+                    {"role": "assistant", "content": rollout_text},
+                ]
+                vllm_input = self.tokenizer.apply_chat_template(
+                    wrapped_text, tokenize=True
+                )
+                vllm_input = TokensPrompt(prompt_token_ids=vllm_input)
+
+                (output,) = ray.get(
+                    self.vllm_model.vllm_model.encode.remote(vllm_input)
+                )
+                score = output.outputs.data.item()
+
                 rollouts_text.append(rollout_output.text)
                 rollouts_tokens.append(rollout_output.token_ids)
-                predicted_answer = self.extract_answer(rollout_output.text)
-                predicted_reward = 1 if predicted_answer == i_reference_answer else 0
-                rollouts_rewards.append(predicted_reward)
+                rollouts_rewards.append(score)
             batch_text.append(rollouts_text)
             batch_tokens.append(rollouts_tokens)
             batch_rewards.append(rollouts_rewards)
@@ -322,7 +354,7 @@ class SkyworkVerifier(VLLMOutputReward):
     ) -> PreferenceBatch:
 
         reward_output = self.process_rollouts(
-            rollouts, prompt_batch.meta_info["answer"]
+            rollouts, prompt_batch.meta_info["answer"], prompt_batch.prompts
         )
 
         chosen_batch = []
@@ -334,14 +366,20 @@ class SkyworkVerifier(VLLMOutputReward):
         for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(
             zip(reward_output["rewards"], reward_output["tokens"])
         ):
-            chosen_rollout_position = find_first_value(i_batch_rewards, 1)
-            rejected_rollout_position = find_first_value(i_batch_rewards, 0)
-            if chosen_rollout_position is None or rejected_rollout_position is None:
+            # if self._gangs.root.rank == 0:
+            #     from pdb import set_trace
+
+            #     set_trace()
+            # chosen_rollout_position = find_first_value(i_batch_rewards, 1)
+            # rejected_rollout_position = find_first_value(i_batch_rewards, 0)
+            chosen_rollout_position = i_batch_rewards.index(max(i_batch_rewards))
+            rejected_rollout_position = i_batch_rewards.index(min(i_batch_rewards))
+
+            if chosen_rollout_position == rejected_rollout_position:
                 # cant form preference pair when we dont have such rollouts
                 # this will be dummy batch and we zero out loss
-                chosen_rollout_position = 0
-                rejected_rollout_position = 1
                 dummy_batch_ids.append(i_batch)
+
             chosen_rollout_tokens = list(i_batch_tokens[chosen_rollout_position])
             rejected_rollout_tokens = list(i_batch_tokens[rejected_rollout_position])
             prompt_tokens = prompt_batch.prompts[i_batch]
