@@ -101,7 +101,6 @@ class GSM8kVerifier(VLLMOutputReward):
         self,
         vllm_outputs: List[RequestOutput],
         reference_answers: List[str],
-        prompt_batch: PromptBatch,
     ):
         batch_text = []
         batch_tokens = []

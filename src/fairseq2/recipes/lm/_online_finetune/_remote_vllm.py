@@ -84,10 +84,7 @@ class RemoteVllmModelHandler(RemoteModelHandler):
             # if gangs.root.rank == 0:
             #     breakpoint()
 
-            if configs_name == "vllm_model":
-                vllm_config = get_config_section(unit_config, configs_name, VllmConfig)
-            else:
-                vllm_config = get_config_section(unit_config, configs_name, VllmConfig)
+            vllm_config = get_config_section(unit_config, configs_name, VllmConfig)
 
             remote_vllm_model = RemoteVllmModel(
                 vllm_config.ray_cluster_ip_address,
