@@ -64,7 +64,7 @@ from fairseq2.recipes.lm._online_finetune._rewards import (
 )
 from fairseq2.recipes.lm._online_finetune._remote_vllm import (
     VllmConfig,
-    VllmRewardConfig,
+    # VllmRewardConfig,
     RemoteVllmModelHandler,
     RemoteVllmModel,
 )
@@ -388,8 +388,11 @@ class OnlineDpoFinetuneConfig:
         default_factory=lambda: RewardSection(name="skywork_verifier")
     )
 
-    vllm_reward_model: VllmRewardConfig = field(
-        default_factory=lambda: VllmRewardConfig(init_update_process_group=False)
+    # vllm_reward_model: VllmRewardConfig = field(
+    #     default_factory=lambda: VllmRewardConfig(init_update_process_group=False)
+    # )
+    vllm_reward_model: VllmConfig = field(
+        default_factory=lambda: VllmConfig(init_update_process_group=False)
     )
 
     sync_ref_model_every_n_steps: int = -1
@@ -417,13 +420,10 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
         vllm_model = RemoteVllmModelHandler().create(
             gangs=gangs, unit_config=config, configs_name="vllm_model"
         )
+
         vllm_reward_model = RemoteVllmModelHandler().create(
             gangs=gangs, unit_config=config, configs_name="vllm_reward_model"
         )
-        # vllm_reward_model = RemoteVllmModelHandler().create(
-        #     gangs=gangs, unit_config=config, configs_name="vllm_model"
-        # )
-        # vllm_reward_model = vllm_model
 
         reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
         reward_handler = reward_registry.get(config.reward.name)

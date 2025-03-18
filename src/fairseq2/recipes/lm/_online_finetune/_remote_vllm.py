@@ -52,19 +52,8 @@ class VllmEngineArgs:
     task: str = "generate"
     tensor_parallel_size: int = 4
     enforce_eager: bool = True
-    hf_overrides = None
-    override_pooler_config = None
-
-
-@dataclass(kw_only=True)
-class VllmRewardEngineArgs:
-    model: str = "Skywork/Skywork-Reward-Llama-3.1-8B-v0.2"
-    tokenizer: str = "/datasets/pretrained-llms/Llama-3.1-8B-Instruct"
-    task: str = "classify"
-    tensor_parallel_size: int = 4
-    enforce_eager: bool = True
-    hf_overrides = {"architectures": ["LlamaForSequenceClassification"]}
-    override_pooler_config = PoolerConfig(softmax=False)
+    hf_overrides: object = None
+    override_pooler_config: PoolerConfig = field(default_factory=lambda: PoolerConfig())
 
 
 @dataclass(kw_only=True)
@@ -85,19 +74,6 @@ class VllmConfig:
     init_update_process_group: bool = False
 
 
-@dataclass(kw_only=True)
-class VllmRewardConfig:
-    ray_cluster_ip_address: str = "dummy"
-    ray_actor_name: str = "dummy"
-    vllm_engine_args: VllmRewardEngineArgs = field(
-        default_factory=lambda: VllmRewardEngineArgs()
-    )
-    vllm_sampling_params: VllmSamplingParams = field(
-        default_factory=lambda: VllmSamplingParams()
-    )
-    init_update_process_group: bool = False
-
-
 class RemoteVllmModelHandler(RemoteModelHandler):
     @override
     def create(
@@ -111,9 +87,7 @@ class RemoteVllmModelHandler(RemoteModelHandler):
             if configs_name == "vllm_model":
                 vllm_config = get_config_section(unit_config, configs_name, VllmConfig)
             else:
-                vllm_config = get_config_section(
-                    unit_config, configs_name, VllmRewardConfig
-                )
+                vllm_config = get_config_section(unit_config, configs_name, VllmConfig)
 
             remote_vllm_model = RemoteVllmModel(
                 vllm_config.ray_cluster_ip_address,

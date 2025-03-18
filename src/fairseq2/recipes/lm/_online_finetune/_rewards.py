@@ -284,7 +284,7 @@ class SkyworkVerifier(VLLMOutputReward):
         else:
             return self.invalid_answer
 
-    def extract_llama3_text(self, input_string):
+    def extract_text_from_llama3_wrapper(self, input_string):
         start_pattern = r"<\|start_header_id\|>user<\|end_header_id\|>"
         end_pattern = r"<\|eot_id\|><\|start_header_id\|>assistant<\|end_header_id\|>"
         start_index = re.search(start_pattern, input_string).end()
@@ -323,8 +323,9 @@ class SkyworkVerifier(VLLMOutputReward):
 
                 prompt_text = self.tokenizer.decode(prompt)
 
-                # FIXME need more universal method
-                prompt_text = self.extract_llama3_text(prompt_text)
+                prompt_text = self.extract_text_from_llama3_wrapper(
+                    prompt_text
+                )  # FIXME need more universal method
                 rollout_text = rollout_output.text
                 wrapped_text = [
                     {"role": "user", "content": prompt_text},
