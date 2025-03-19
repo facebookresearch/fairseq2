@@ -10,13 +10,13 @@ import math
 from functools import partial
 
 import torch
+import torch.nn as nn
 from torch import Tensor
 
 from fairseq2.models.llama._config import LLaMAConfig, LLaMARopeScalingConfig
 from fairseq2.models.transformer import (
     TransformerEmbeddingFrontend,
     TransformerFrontend,
-    init_final_projection,
 )
 from fairseq2.models.transformer_decoder import TransformerDecoderModel
 from fairseq2.nn import (
@@ -28,6 +28,7 @@ from fairseq2.nn import (
     RMSNorm,
     RotaryEncoder,
     StandardEmbedding,
+    TiedProjection,
 )
 from fairseq2.nn.transformer import (
     FeedForwardNetwork,
@@ -57,11 +58,13 @@ class LLaMAFactory:
     def create_model(self) -> TransformerDecoderModel:
         config = self._config
 
-        decoder_frontend = self.create_decoder_frontend()
+        embed = self.create_embedding()
+
+        decoder_frontend = self.create_decoder_frontend(embed)
 
         decoder = self.create_decoder()
 
-        final_proj = self.create_final_proj()
+        final_proj = self.create_final_proj(embed)
 
         return TransformerDecoderModel(
             decoder_frontend,
@@ -71,20 +74,29 @@ class LLaMAFactory:
             vocab_info=config.vocab_info,
         )
 
-    def create_decoder_frontend(self) -> TransformerFrontend:
-        config = self._config
-
-        embed = self.create_embedding()
-
-        return TransformerEmbeddingFrontend(
-            embed, pos_encoder=None, no_scale=True, dropout_p=config.dropout_p
-        )
-
     def create_embedding(self) -> Embedding:
         config = self._config
 
+        init_std = config.init_std
+
+        def init_embed(embed: StandardEmbedding) -> None:
+            embed_dim = embed.weight.shape[1]
+
+            std = init_std or (embed_dim**-0.5)
+
+            _init_truncated_normal(embed.weight, bias=None, std=std)
+
         return StandardEmbedding(
-            num_embeddings=config.vocab_info.size, embedding_dim=config.model_dim
+            num_embeddings=config.vocab_info.size,
+            embedding_dim=config.model_dim,
+            init_fn=init_embed,
+        )
+
+    def create_decoder_frontend(self, embed: Embedding) -> TransformerFrontend:
+        config = self._config
+
+        return TransformerEmbeddingFrontend(
+            embed, pos_encoder=None, no_scale=True, dropout_p=config.dropout_p
         )
 
     def create_decoder(self) -> TransformerDecoder:
@@ -94,8 +106,8 @@ class LLaMAFactory:
 
         layers = []
 
-        for _ in range(config.num_layers):
-            layer = self.create_decoder_layer(pos_encoder)
+        for idx in range(config.num_layers):
+            layer = self.create_decoder_layer(idx, pos_encoder)
 
             layers.append(layer)
 
@@ -124,11 +136,11 @@ class LLaMAFactory:
         )
 
     def create_decoder_layer(
-        self, pos_encoder: PositionEncoder
+        self, layer_idx: int, pos_encoder: PositionEncoder
     ) -> TransformerDecoderLayer:
-        self_attn = self.create_attention(pos_encoder)
+        self_attn = self.create_attention(layer_idx, pos_encoder)
 
-        ffn = self.create_ffn()
+        ffn = self.create_ffn(layer_idx)
 
         return StandardTransformerDecoderLayer(
             self_attn,
@@ -138,8 +150,21 @@ class LLaMAFactory:
             layer_norm_factory=self.create_layer_norm,
         )
 
-    def create_attention(self, pos_encoder: PositionEncoder) -> MultiheadAttention:
+    def create_attention(
+        self, layer_idx: int, pos_encoder: PositionEncoder
+    ) -> MultiheadAttention:
         config = self._config
+
+        init_std = config.init_std
+
+        std_scale_factor = self._get_std_scale_factor(layer_idx)
+
+        def init_projection(proj: Linear) -> None:
+            input_dim = proj.weight.shape[1]
+
+            std = init_std or (input_dim**-0.5)
+
+            _init_truncated_normal(proj.weight, proj.bias, std=std / std_scale_factor)
 
         sdpa = create_default_sdpa(attn_dropout_p=config.dropout_p)
 
@@ -147,13 +172,26 @@ class LLaMAFactory:
             config.model_dim,
             config.num_attn_heads,
             num_key_value_heads=config.num_key_value_heads,
+            qkv_proj_init_fn=init_projection,
             sdpa=sdpa,
             pos_encoder=pos_encoder,
+            output_proj_init_fn=init_projection,
             bias=False,
         )
 
-    def create_ffn(self) -> FeedForwardNetwork:
+    def create_ffn(self, layer_idx: int) -> FeedForwardNetwork:
         config = self._config
+
+        init_std = config.init_std
+
+        std_scale_factor = self._get_std_scale_factor(layer_idx)
+
+        def init_projection(proj: Linear) -> None:
+            input_dim = proj.weight.shape[1]
+
+            std = init_std or (input_dim**-0.5)
+
+            _init_truncated_normal(proj.weight, proj.bias, std=std / std_scale_factor)
 
         ffn_inner_dim = int(config.ffn_inner_dim * config.ffn_inner_dim_multiplier)
 
@@ -164,16 +202,51 @@ class LLaMAFactory:
             inner_dim_scale=config.ffn_inner_dim_scale,
             inner_dim_to_multiple=config.ffn_inner_dim_to_multiple,
             inner_dropout_p=config.dropout_p,
+            proj_init_fn=init_projection,
         )
 
-    def create_final_proj(self) -> Projection:
+    def _get_std_scale_factor(self, layer_idx: int) -> float:
         config = self._config
+
+        match config.init_std_scale:
+            case "layer":
+                n = layer_idx
+            case "stack":
+                n = config.num_layers
+            case "none":
+                return 1.0
+            case _:
+                raise ValueError(
+                    f"`config.init_std_scale` must be 'none', 'layer', or 'stack', but is '{config.init_std_scale}' instead."
+                )
+
+        return (2 * (n + 1)) ** 0.5  # type: ignore[no-any-return]
+
+    def create_final_proj(self, embed: Embedding) -> Projection:
+        config = self._config
+
+        if config.tie_embeddings:
+            if not isinstance(embed, StandardEmbedding):
+                raise TypeError(
+                    f"`embed` must be of type `{StandardEmbedding}` when `config.tie_embeddings` is set, but is of type `{type(embed)}` instead."
+                )
+
+            return TiedProjection(embed.weight, bias=None)
+
+        init_std = config.init_std
+
+        def init_projection(proj: Linear) -> None:
+            input_dim = proj.weight.shape[1]
+
+            std = init_std or (input_dim**-0.5)
+
+            _init_truncated_normal(proj.weight, proj.bias, std=std)
 
         return Linear(
             config.model_dim,
             config.vocab_info.size,
             bias=False,
-            init_fn=init_final_projection,
+            init_fn=init_projection,
         )
 
     @staticmethod
@@ -181,6 +254,15 @@ class LLaMAFactory:
         model_dim: int, *, device: Device | None = None, dtype: DataType | None = None
     ) -> LayerNorm:
         return RMSNorm(model_dim, bias=False, device=device, dtype=dtype)
+
+
+def _init_truncated_normal(
+    weight: Tensor, bias: Tensor | None, *, std: float = 1.0
+) -> None:
+    nn.init.trunc_normal_(weight, mean=0.0, std=std, a=-3 * std, b=3 * std)
+
+    if bias is not None:
+        nn.init.zeros_(bias)
 
 
 def init_llama_scaled_freqs(

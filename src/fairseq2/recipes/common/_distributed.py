@@ -7,36 +7,37 @@
 from __future__ import annotations
 
 from contextlib import nullcontext
-from typing import final
+from typing import Mapping, final
 
 from torch import Tensor
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn import Module
-from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
 from torch.nn.parallel import DistributedDataParallel as DDP
 from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
-from fairseq2.error import NotSupportedError, ProgramError
+from fairseq2.error import NotSupportedError
 from fairseq2.gang import GangError, Gangs
 from fairseq2.logging import log
 from fairseq2.models import ModelHandler
-from fairseq2.models.fsdp import get_fsdp_wrap_policy
 from fairseq2.nn.data_parallel import (
     DistributedSetupError,
-    fsdp_full_state_dict,
-    fsdp_summon_full_parameters,
+    Fsdp1Module,
+    Fsdp2Module,
+    FsdpGranularity,
+    FsdpWrapper,
+    fsdp1_local_state_dict,
+    fsdp1_summon_full_parameters,
+    fsdp2_local_state_dict,
+    fsdp2_no_sync,
+    fsdp2_summon_full_parameters,
     to_ddp,
-    to_fsdp,
+    to_fsdp1,
+    to_fsdp2,
 )
 from fairseq2.nn.utils.gradient import clip_gradient_norm
 from fairseq2.nn.utils.module import broadcast_module, to_device
+from fairseq2.recipes import Model, RecipeError
 from fairseq2.recipes.config import TrainerSection, get_config_section
-from fairseq2.recipes.error import (
-    HybridShardingNotSupportedError,
-    StaticGraphNotSupportedError,
-)
-from fairseq2.recipes.model import Model
 from fairseq2.typing import ContextManager
 
 
@@ -64,7 +65,7 @@ def setup_data_parallel_model(
         if data_parallelism == "fsdp":
             return wrap_fsdp(recipe_config, model, gangs, static_graph)
     except DistributedSetupError as ex:
-        raise ProgramError(
+        raise RecipeError(
             "The data parallelism cannot be setup. See the nested exception for details."
         ) from ex
 
@@ -84,15 +85,15 @@ def wrap_ddp(model: Model, gangs: Gangs, static_graph: bool) -> Model:
     # We do not set DDP's `static_graph` parameter. Unfortunately, support for
     # that feature is finicky in DDP. `find_unused_parameters` is still useful
     # though and can have measurable impact on performance.
-    dp_module = to_ddp(model.module, gangs, find_unused_parameters=not static_graph)
+    ddp_module = to_ddp(model.module, gangs, find_unused_parameters=not static_graph)
 
     log.info("Model wrapped with DDP and broadcasted.")
 
-    return DDPModel(dp_module, model)
+    return DdpModel(ddp_module, model)
 
 
 @final
-class DDPModel(Model):
+class DdpModel(Model):
     _ddp: DDP
     _wrapped_model: Model
 
@@ -102,11 +103,11 @@ class DDPModel(Model):
 
     @override
     def state_dict(self) -> dict[str, object]:
-        state_dict = self._ddp.state_dict()
+        return self._ddp.module.state_dict()  # type: ignore[no-any-return]
 
-        consume_prefix_in_state_dict_if_present(state_dict, prefix="module.")
-
-        return state_dict
+    @override
+    def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
+        self._ddp.module.load_state_dict(state_dict)
 
     @override
     def no_sync(self) -> ContextManager:
@@ -156,60 +157,73 @@ def wrap_fsdp(
 ) -> Model:
     trainer_section = get_config_section(recipe_config, "trainer", TrainerSection)
 
-    if trainer_section.fsdp.version == "v2":
-        raise NotSupportedError("FSDP2 is not supported yet.")
-
-    if not static_graph:
-        raise StaticGraphNotSupportedError("FSDP")
-
     if gangs.dp.size == 1:
         to_device(model.module, gangs.root.device)
 
         return model
-
-    if gangs.rdp.size > 1:
-        if gangs.root.size != gangs.dp.size:  # means we have model parallelism.
-            raise HybridShardingNotSupportedError("FSDP")
-
-    log.info("Wrapping the model with FSDP and broadcasting to all processes.")  # fmt: skip
 
     if trainer_section.mixed_precision == "static":
         mp_dtype = trainer_section.dtype
     else:
         mp_dtype = None
 
-    wrap_policy, ignored_modules = get_fsdp_wrap_policy(
-        model.module, wrap_granularity=trainer_section.fsdp.granularity
-    )
+    def apply_fsdp(
+        module: Module, granularity: FsdpGranularity, wrapper: FsdpWrapper
+    ) -> Module:
+        return model.handler.apply_fsdp(module, granularity, wrapper)
 
-    dp_module = to_fsdp(
-        model.module,
-        gangs,
-        wrap_policy,
-        ignored_modules=ignored_modules,
-        broadcast_state=True,
-        reshard_after_forward=trainer_section.fsdp.reshard_after_forward,
-        mixed_precision_dtype=mp_dtype,
-        fp32_reduce=trainer_section.fsdp.fp32_reduce,
-    )
+    if trainer_section.fsdp.version == "v1":
+        log.info("Wrapping the model with FSDP1 and broadcasting to all processes.")  # fmt: skip
 
-    log.info("Model wrapped with FSDP and broadcasted.")
+        fsdp1_module = to_fsdp1(
+            model.module,
+            gangs,
+            apply_fsdp,
+            mixed_precision_dtype=mp_dtype,
+            fp32_reduce=trainer_section.fsdp.fp32_reduce,
+            broadcast_state=True,
+            reshard_after_forward=trainer_section.fsdp.reshard_after_forward,
+        )
 
-    return FSDPModel(dp_module, model)
+        log.info("Model wrapped with FSDP1 and broadcasted.")
+
+        return Fsdp1Model(fsdp1_module, model)
+    else:
+        log.info("Wrapping the model with FSDP2 and broadcasting to all processes.")  # fmt: skip
+
+        fsdp2_module = to_fsdp2(
+            model.module,
+            gangs,
+            apply_fsdp,
+            mixed_precision_dtype=mp_dtype,
+            fp32_reduce=trainer_section.fsdp.fp32_reduce,
+            broadcast_state=True,
+            reshard_after_forward=trainer_section.fsdp.reshard_after_forward,
+        )
+
+        log.info("Model wrapped with FSDP2 and broadcasted.")
+
+        return Fsdp2Model(fsdp2_module, model)
 
 
 @final
-class FSDPModel(Model):
-    _fsdp: FSDP
+class Fsdp1Model(Model):
+    _fsdp: Fsdp1Module
     _wrapped_model: Model
 
-    def __init__(self, fsdp: FSDP, wrapped_model: Model) -> None:
+    def __init__(self, fsdp: Fsdp1Module, wrapped_model: Model) -> None:
         self._fsdp = fsdp
         self._wrapped_model = wrapped_model
 
     @override
     def state_dict(self) -> dict[str, object]:
-        return fsdp_full_state_dict(self._fsdp)
+        return fsdp1_local_state_dict(self._fsdp)
+
+    @override
+    def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
+        raise NotSupportedError(
+            "The state of an FSDP1 model cannot be restored via `load_state_dict()`."
+        )
 
     @override
     def no_sync(self) -> ContextManager:
@@ -221,7 +235,7 @@ class FSDPModel(Model):
 
     @override
     def summon_full_parameters(self) -> ContextManager:
-        return fsdp_summon_full_parameters(self._fsdp)
+        return fsdp1_summon_full_parameters(self._fsdp)
 
     @property
     @override
@@ -254,6 +268,68 @@ class FSDPModel(Model):
         return self._wrapped_model.is_empty_initialized
 
 
+@final
+class Fsdp2Model(Model):
+    _fsdp: Fsdp2Module
+    _wrapped_model: Model
+
+    def __init__(self, fsdp: Fsdp2Module, wrapped_model: Model) -> None:
+        self._fsdp = fsdp
+        self._wrapped_model = wrapped_model
+
+    @override
+    def state_dict(self) -> dict[str, object]:
+        return fsdp2_local_state_dict(self._fsdp)
+
+    @override
+    def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
+        raise NotSupportedError(
+            "The state of an FSDP2 model cannot be restored via `load_state_dict()`."
+        )
+
+    @override
+    def no_sync(self) -> ContextManager:
+        return fsdp2_no_sync(self._fsdp)
+
+    @override
+    def clip_gradient_norm(self, max_norm: float | None) -> Tensor:
+        return clip_gradient_norm(self._fsdp, max_norm)
+
+    @override
+    def summon_full_parameters(self) -> ContextManager:
+        return fsdp2_summon_full_parameters(self._fsdp)
+
+    @property
+    @override
+    def module(self) -> Module:
+        return self._fsdp
+
+    @property
+    @override
+    def base_module(self) -> Module:
+        return self._fsdp
+
+    @property
+    @override
+    def name(self) -> str:
+        return self._wrapped_model.name
+
+    @property
+    @override
+    def config(self) -> object:
+        return self._wrapped_model.config
+
+    @property
+    @override
+    def handler(self) -> ModelHandler:
+        return self._wrapped_model.handler
+
+    @property
+    @override
+    def is_empty_initialized(self) -> bool:
+        return self._wrapped_model.is_empty_initialized
+
+
 def broadcast_model(model: Model, gangs: Gangs) -> None:
     if gangs.dp.size == 1:
         return
@@ -263,7 +339,7 @@ def broadcast_model(model: Model, gangs: Gangs) -> None:
     try:
         broadcast_module(model.module, gangs.dp)
     except GangError as ex:
-        raise ProgramError(
+        raise RecipeError(
             f"The '{model.name}' model cannot be broadcasted from rank 0 to the rest of the gang. See the nested exception for details."
         ) from ex
 

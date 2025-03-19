@@ -30,7 +30,8 @@ from fairseq2.models._error import (
     UnknownModelArchitectureError,
     model_asset_card_error,
 )
-from fairseq2.nn.data_parallel import load_with_sdp_gang
+from fairseq2.models.fsdp import apply_default_fsdp
+from fairseq2.nn.data_parallel import FsdpGranularity, FsdpWrapper, load_with_sdp_gang
 from fairseq2.nn.utils.module import (
     load_state_dict,
     reset_non_persistent_buffers,
@@ -78,6 +79,11 @@ class ModelHandler(ABC):
 
     @abstractmethod
     def compile(self, model: Module, config: object) -> Module: ...
+
+    @abstractmethod
+    def apply_fsdp(
+        self, model: Module, granularity: FsdpGranularity, wrapper: FsdpWrapper
+    ) -> Module: ...
 
     @property
     @abstractmethod
@@ -355,6 +361,14 @@ class StandardModelHandler(ModelHandler):
 
         validate(config)
 
+        # Create the model.
+        model = self._do_create(config, gangs, dtype, meta=self.supports_meta)
+
+        if self.supports_meta:
+            # Move the model to the actual device without initializing. Its
+            # state will be overwritten by the checkpoint anyways.
+            to_empty(model, device=gangs.root.device)
+
         if restrict is None:
             restrict = self._restrict
 
@@ -380,14 +394,6 @@ class StandardModelHandler(ModelHandler):
                 raise ModelLoadError(
                     model_name, f"The checkpoint of the '{model_name}' model cannot be converted to a fairseq2 compatible format. See the nested exception for details."  # fmt: skip
                 ) from ex
-
-        # Create the model.
-        model = self._do_create(config, gangs, dtype, meta=self.supports_meta)
-
-        if self.supports_meta:
-            # Move the model to the actual device without initializing. Its
-            # state will be overwritten by the checkpoint anyways.
-            to_empty(model, device=gangs.root.device)
 
         # Load the model state.
         model_key = checkpoint.get("model_key", "model")
@@ -458,7 +464,7 @@ class StandardModelHandler(ModelHandler):
         if gangs.root.size != gangs.dp.size:
             if self._sharder is None:
                 raise NotSupportedError(
-                    f"The '{self._family}' model family does not support non-data parallelism."
+                    f"The '{self._family}' model family does not support model parallelism."
                 )
 
             self._sharder(model, config, gangs)
@@ -468,6 +474,7 @@ class StandardModelHandler(ModelHandler):
 
         return model
 
+    @override
     def compile(self, model: Module, config: object) -> Module:
         if self._torch_compiler is None:
             raise NotSupportedError(
@@ -485,6 +492,12 @@ class StandardModelHandler(ModelHandler):
             )
 
         return self._torch_compiler(model, config)
+
+    @override
+    def apply_fsdp(
+        self, model: Module, granularity: FsdpGranularity, wrapper: FsdpWrapper
+    ) -> Module:
+        return apply_default_fsdp(model, granularity, wrapper)
 
     @property
     @override

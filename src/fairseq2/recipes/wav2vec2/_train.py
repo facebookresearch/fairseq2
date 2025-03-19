@@ -26,6 +26,7 @@ from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2 import Wav2Vec2Model
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.optim.lr_scheduler import POLYNOMIAL_DECAY_LR, PolynomialDecayLRConfig
+from fairseq2.recipes import Model, Trainer, TrainUnit
 from fairseq2.recipes.common import (
     create_checkpoint_manager,
     create_lr_scheduler,
@@ -46,8 +47,6 @@ from fairseq2.recipes.config import (
     RegimeSection,
     TrainerSection,
 )
-from fairseq2.recipes.model import Model
-from fairseq2.recipes.trainer import Trainer, TrainUnit
 from fairseq2.recipes.wav2vec2._common import (
     Wav2Vec2Criterion,
     Wav2Vec2LossSection,

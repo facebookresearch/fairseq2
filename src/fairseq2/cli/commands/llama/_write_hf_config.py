@@ -18,9 +18,9 @@ from fairseq2.assets import (
     AssetCardFieldNotFoundError,
     AssetCardNotFoundError,
 )
-from fairseq2.cli import CliArgumentError, CliCommandHandler
+from fairseq2.cli import CliArgumentError, CliCommandError, CliCommandHandler
 from fairseq2.context import RuntimeContext
-from fairseq2.error import InternalError, ProgramError
+from fairseq2.error import InternalError
 from fairseq2.logging import log
 from fairseq2.models import ModelConfigLoadError, ModelHandler
 from fairseq2.models.llama import LLAMA_MODEL_FAMILY, LLaMAConfig
@@ -55,7 +55,7 @@ class WriteHFLLaMAConfigHandler(CliCommandHandler):
                 "model", f"'{args.model}' is not a known LLaMA model. Use `fairseq2 assets list` to see the available models."  # fmt: skip
             ) from None
         except AssetCardError as ex:
-            raise ProgramError(
+            raise CliCommandError(
                 f"The '{args.model}' asset card cannot be read. See the nested exception for details."
             ) from ex
 
@@ -66,7 +66,7 @@ class WriteHFLLaMAConfigHandler(CliCommandHandler):
                 "name", f"'{args.model}' is not a known LLaMA model. Use `fairseq2 assets list` to see the available models."  # fmt: skip
             ) from None
         except AssetCardError as ex:
-            raise ProgramError(
+            raise CliCommandError(
                 f"The '{args.model}' asset card cannot be read. See the nested exception for details."
             ) from ex
 
@@ -87,8 +87,8 @@ class WriteHFLLaMAConfigHandler(CliCommandHandler):
         try:
             model_config = model_handler.load_config(card)
         except ModelConfigLoadError as ex:
-            raise ProgramError(
-                f"The configuration of the '{args.model}' cannot be loaded. See the nested exception for details."
+            raise CliCommandError(
+                f"The configuration of the '{args.model}' model cannot be loaded. See the nested exception for details."
             ) from ex
 
         if not isinstance(model_config, LLaMAConfig):
@@ -100,9 +100,9 @@ class WriteHFLLaMAConfigHandler(CliCommandHandler):
 
         hg_config_file = args.output_dir.joinpath("config.json")
 
-        def config_write_error() -> ProgramError:
-            return ProgramError(
-                f"The configuration cannot be saved to the '{hg_config_file}' file. See the nested exception for details."
+        def config_write_error() -> CliCommandError:
+            return CliCommandError(
+                f"The model configuration cannot be saved to the '{hg_config_file}' file. See the nested exception for details."
             )
 
         try:

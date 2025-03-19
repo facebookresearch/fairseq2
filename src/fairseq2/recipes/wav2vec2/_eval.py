@@ -23,6 +23,7 @@ from fairseq2.datasets.speech import (
 from fairseq2.gang import Gangs
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2 import Wav2Vec2Model
+from fairseq2.recipes import Evaluator, EvalUnit, Model
 from fairseq2.recipes.common import (
     create_evaluator,
     load_dataset,
@@ -37,8 +38,6 @@ from fairseq2.recipes.config import (
     GangSection,
     ReferenceModelSection,
 )
-from fairseq2.recipes.evaluator import Evaluator, EvalUnit
-from fairseq2.recipes.model import Model
 from fairseq2.recipes.wav2vec2._common import (
     Wav2Vec2Criterion,
     Wav2Vec2LossSection,

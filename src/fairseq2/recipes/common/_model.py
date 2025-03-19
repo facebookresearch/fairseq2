@@ -9,7 +9,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from contextlib import nullcontext
 from pathlib import Path
-from typing import cast, final
+from typing import Mapping, cast, final
 
 import torch
 from torch import Tensor
@@ -37,7 +37,7 @@ from fairseq2.data.text.tokenizers import (
     resolve_text_tokenizer_reference,
     text_tokenizer_asset_card_error,
 )
-from fairseq2.error import ContractError, NotSupportedError, ProgramError
+from fairseq2.error import ContractError, NotSupportedError
 from fairseq2.gang import GangError, Gangs
 from fairseq2.logging import log
 from fairseq2.models import (
@@ -53,7 +53,14 @@ from fairseq2.models import (
 )
 from fairseq2.nn.checkpointing import use_layerwise_activation_checkpointing
 from fairseq2.nn.utils.gradient import clip_gradient_norm
+from fairseq2.recipes import Model, RecipeError
 from fairseq2.recipes.common._distributed import setup_data_parallel_model
+from fairseq2.recipes.common._error import (
+    InvalidCheckpointPathError,
+    ModelCompilationNotSupportedError,
+    ModelParallelismNotSupportedError,
+    ModelPathNotFoundError,
+)
 from fairseq2.recipes.config import (
     ConfigSectionNotFoundError,
     ModelSection,
@@ -61,13 +68,6 @@ from fairseq2.recipes.config import (
     TrainerSection,
     get_config_section,
 )
-from fairseq2.recipes.error import (
-    InvalidCheckpointPathError,
-    ModelCompilationNotSupportedError,
-    ModelParallelismNotSupportedError,
-    ModelPathNotFoundError,
-)
-from fairseq2.recipes.model import Model
 from fairseq2.recipes.utils.log import log_config, log_model
 from fairseq2.registry import Provider
 from fairseq2.typing import ContextManager, DataClass, is_dataclass_instance
@@ -147,11 +147,11 @@ def load_base_model(
     except ShardedModelLoadError:
         raise
     except ModelLoadError as ex:
-        raise ProgramError(
+        raise RecipeError(
             f"The '{ex.model_name}' model cannot be loaded. See the nested exception for details."
         ) from ex
     except AssetMetadataSaveError as ex:
-        raise ProgramError(
+        raise RecipeError(
             "The model card cannot be saved to the checkpoint directory. See the nested exception for details."
         ) from ex
 
@@ -236,7 +236,7 @@ class CardBasedModelLoader(ModelLoader):
             dtype = torch.float32
 
         try:
-            step_nr = self._checkpoint_manager.get_last_step_number()
+            step_nr = self._checkpoint_manager.maybe_get_last_step_number()
         except CheckpointError:
             raise ModelLoadError(
                 model_name, "The last training checkpoint cannot be retrieved. See the nested exception for details."  # fmt: skip
@@ -282,7 +282,7 @@ class CardBasedModelLoader(ModelLoader):
             gangs.root.barrier()
         except GangError as ex:
             raise ModelLoadError(
-                model_name, f"The collective barrier after the load of the '{model_name}' model has failed. See the nested exception for details."  # fmt: skip
+                model_name, f"The collective barrier after the '{model_name}' model load operation has failed. See the nested exception for details."  # fmt: skip
             ) from ex
 
         log.info("Model loaded on data parallel rank 0.")
@@ -365,7 +365,7 @@ class PathBasedModelLoader(ModelLoader):
             dtype = torch.float32
 
         try:
-            step_nr = self._checkpoint_manager.get_last_step_number()
+            step_nr = self._checkpoint_manager.maybe_get_last_step_number()
         except CheckpointError:
             raise ModelLoadError(
                 model_name, "The last training checkpoint cannot be retrieved. See the nested exception for details."  # fmt: skip
@@ -416,7 +416,7 @@ class PathBasedModelLoader(ModelLoader):
             gangs.root.barrier()
         except GangError as ex:
             raise ModelLoadError(
-                model_name, f"The collective barrier after the load of the '{model_name}' model has failed. See the nested exception for details."  # fmt: skip
+                model_name, f"The collective barrier after the '{model_name}' model load operation has failed. See the nested exception for details."  # fmt: skip
             ) from ex
 
         log.info("Model loaded on data parallel rank 0.")
@@ -504,7 +504,7 @@ class ModelCreator(ModelLoader):
             dtype = torch.float32
 
         try:
-            step_nr = self._checkpoint_manager.get_last_step_number()
+            step_nr = self._checkpoint_manager.maybe_get_last_step_number()
         except CheckpointError:
             raise ModelLoadError(
                 model_name, "The last training checkpoint cannot be retrieved. See the nested exception for details."  # fmt: skip
@@ -548,7 +548,7 @@ class ModelCreator(ModelLoader):
             gangs.root.barrier()
         except GangError as ex:
             raise ModelLoadError(
-                model_name, f"The collective barrier after the load of the '{model_name}' model has failed. See the nested exception for details."  # fmt: skip
+                model_name, f"The collective barrier after the '{model_name}' model load operation has failed. See the nested exception for details."  # fmt: skip
             ) from ex
 
         if step_nr is not None:
@@ -616,6 +616,10 @@ class LocalModel(Model):
     @override
     def state_dict(self) -> dict[str, object]:
         return self._module.state_dict()
+
+    @override
+    def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
+        self._module.load_state_dict(state_dict)
 
     @override
     def no_sync(self) -> ContextManager:

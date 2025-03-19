@@ -28,6 +28,7 @@ from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.optim.lr_scheduler import MYLE_LR, MyleLRConfig
+from fairseq2.recipes import EvalUnit, Model, Seq2SeqMetricBag, Trainer, TrainUnit
 from fairseq2.recipes.common import (
     create_checkpoint_manager,
     create_lr_scheduler,
@@ -53,12 +54,8 @@ from fairseq2.recipes.config import (
     TextTokenizerSection,
     TrainerSection,
 )
-from fairseq2.recipes.evaluator import EvalUnit
-from fairseq2.recipes.metrics import Seq2SeqMetricBag
-from fairseq2.recipes.model import Model
 from fairseq2.recipes.mt._common import MTCriterion, MTLossSection
 from fairseq2.recipes.mt._eval import MTBleuChrfEvalUnit, MTLossEvalUnit
-from fairseq2.recipes.trainer import Trainer, TrainUnit
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
@@ -270,7 +267,7 @@ def load_mt_trainer(
 
     # Initialize the validation units.
     if config.validation.compute_bleu_chrf:
-        seq2seq_generator = create_seq2seq_generator(context, config, model)
+        seq2seq_generator = create_seq2seq_generator(context, config.validation, model)
     else:
         seq2seq_generator = None
 

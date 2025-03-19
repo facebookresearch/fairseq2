@@ -456,6 +456,7 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
     _seqs: Tensor
     _step_scores: Tensor | None
     _output: list[list[Hypothesis]]
+    _watch: Stopwatch
     _counters: GenerationCounters
 
     def __init__(
@@ -574,18 +575,24 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
         # Holds the sequences that have reached EOS.
         self._output = [[] for _ in range(num_prompts)]
 
+        self._watch = Stopwatch(device=self._seqs.device)
+
         self._counters = GenerationCounters()
 
     def __call__(self) -> tuple[list[list[Hypothesis]], GenerationCounters]:
         self._prepare_state()
 
-        watch = Stopwatch(start=True, device=self._seqs.device)
+        self._watch.start()
 
         for self._step_nr in range(self._min_prompt_len, self._max_seq_len):
             if not self._step():
                 break
 
-        self._counters.generation_time = watch.get_elapsed_time()
+        self._watch.stop()
+
+        self._counters.generation_time = self._watch.get_elapsed_time()
+
+        self._watch.reset()
 
         self._counters.cache_size = self._state_bag.size_bytes()
         self._counters.cache_capacity = self._state_bag.capacity_bytes()

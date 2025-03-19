@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from typing import TypeAlias
+
 import torch.distributed as dist
 from torch import Tensor
 from torch.distributed import GradBucket
@@ -23,6 +25,8 @@ from fairseq2.nn.utils.module import (
     to_empty,
 )
 
+DdpModule: TypeAlias = DDP
+
 
 def to_ddp(
     module: Module,
@@ -31,7 +35,7 @@ def to_ddp(
     find_unused_parameters: bool = False,
     static_graph: bool = False,
     normalize_gradients: bool = True,
-) -> DDP:
+) -> DdpModule:
     """Wrap ``module`` with DDP.
 
     :param module: The module to be wrapped with DDP.
@@ -66,9 +70,13 @@ def to_ddp(
             # overwritten anyways.
             to_empty(module, dp_gang.device)
 
-            # Non-persistent buffers are never part of module's state, so we
+            # Non-persistent buffers are never part of a module's state, so we
             # have to initialize them.
-            reset_non_persistent_buffers(module, recurse=False)
+            reset_non_persistent_buffers(module)
+
+    # Ensure that persistent buffers are in sync across all processes at
+    # initialization.
+    _broadcast_buffers(module, dp_gang)
 
     try:
         process_group = dp_gang.as_process_group()
@@ -78,7 +86,7 @@ def to_ddp(
         ) from None
 
     try:
-        ddp = DDP(
+        module = DdpModule(
             module,
             broadcast_buffers=False,
             process_group=process_group,
@@ -90,17 +98,50 @@ def to_ddp(
             "DDP cannot be initialized. See the nested exception for details."
         ) from ex
 
-    # We do not broadcast buffers during training for performance reasons, so
+    # For performance reasons we do not broadcast buffers during training, so
     # ensure that batch normalization works.
-    SyncBatchNorm.convert_sync_batchnorm(ddp, process_group)
+    SyncBatchNorm.convert_sync_batchnorm(module, process_group)
 
     # DDP, by default, normalizes gradients by the world size of the underlying
     # process group. For sequence-based tasks this is typically not ideal since
     # batch sizes can vary. Here, we disable that behavior if requested.
     if not normalize_gradients:
-        ddp.register_comm_hook(state=dp_gang, hook=_allreduce_hook)
+        module.register_comm_hook(state=dp_gang, hook=_allreduce_hook)
 
-    return ddp
+    return module
+
+
+def _broadcast_buffers(module: Module, gang: Gang) -> None:
+    memo: set[Tensor] = set()
+
+    buffers = []
+
+    state_dict = module.state_dict()
+
+    for name, buffer in module.named_buffers():
+        if buffer in memo:
+            continue
+
+        # Make sure that we don't broadcast non-persistent buffers since they
+        # are static.
+        if name in state_dict:
+            buffers.append(buffer)
+
+        memo.add(buffer)
+
+    if not buffers:
+        return
+
+    pg = gang.as_process_group()
+
+    bucket_size = 250 * 1024 * 1024  # Same as DDP bucket size.
+
+    source_rank = 0
+
+    from torch.distributed import _broadcast_coalesced
+
+    # TODO(balioglu): Call c10d in fairseq2n instead.
+    _broadcast_coalesced(pg, buffers, bucket_size, source_rank)
 
 
 def _allreduce_hook(gang: Gang, bucket: GradBucket) -> Future[Tensor]:

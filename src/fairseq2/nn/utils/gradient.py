@@ -7,17 +7,18 @@
 from __future__ import annotations
 
 import logging
+import warnings
 from typing import Any
 
 import torch
 from torch import Tensor
 from torch.autograd import Function
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn import Module
 from torch.nn.utils import clip_grad_norm_  # type: ignore[attr-defined]
 
 from fairseq2.gang import Gang, all_sum
 from fairseq2.logging import log
+from fairseq2.nn.data_parallel import Fsdp1Module
 from fairseq2.utils.version import torch_greater_or_equal
 
 
@@ -96,11 +97,20 @@ def clip_gradient_norm(
     if max_norm is None:
         max_norm = torch.inf
 
-    if isinstance(module, FSDP):
+    if isinstance(module, Fsdp1Module):
         if not module.check_is_root():
             raise ValueError("`module` must be the root FSDP module.")
 
-        return module.clip_grad_norm_(max_norm, norm_type)
+        # When a large portion of a model's parameters are frozen, some ranks
+        # will likely won't get any gradient shards. No need to get a warning
+        # for such use cases as we already have `check_gradient_norms()` as a
+        # safety check.
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                action="ignore", message=r".*with no gradients -- returning the total norm.*"  # fmt: skip
+            )
+
+            return module.clip_grad_norm_(max_norm, norm_type)
 
     grad_norm = clip_grad_norm_(
         module.parameters(), max_norm, norm_type, error_if_nonfinite=False

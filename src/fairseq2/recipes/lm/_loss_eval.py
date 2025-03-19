@@ -20,6 +20,7 @@ from fairseq2.datasets.instruction import (
 )
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.sequence import SequenceBatch
+from fairseq2.recipes import Evaluator
 from fairseq2.recipes.common import (
     create_evaluator,
     load_dataset,
@@ -35,7 +36,6 @@ from fairseq2.recipes.config import (
     GangSection,
     ReferenceModelSection,
 )
-from fairseq2.recipes.evaluator import Evaluator
 from fairseq2.recipes.lm._instruction_finetune import (
     InstructionFinetuneCriterion,
     InstructionLossEvalUnit,

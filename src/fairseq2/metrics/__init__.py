@@ -11,6 +11,7 @@ from fairseq2.metrics._aggregation import Mean as Mean
 from fairseq2.metrics._aggregation import Min as Min
 from fairseq2.metrics._aggregation import Sum as Sum
 from fairseq2.metrics._bag import MetricBag as MetricBag
+from fairseq2.metrics._bag import MetricBagError as MetricBagError
 from fairseq2.metrics._bag import merge_metric_states as merge_metric_states
 from fairseq2.metrics._bag import reset_metrics as reset_metrics
 from fairseq2.metrics._bag import sync_and_compute_metrics as sync_and_compute_metrics

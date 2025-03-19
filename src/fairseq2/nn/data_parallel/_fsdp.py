@@ -6,352 +6,153 @@
 
 from __future__ import annotations
 
-import warnings
-from collections.abc import Iterator, Sequence
-from contextlib import contextmanager
-from dataclasses import dataclass
-from typing import Final, Protocol, final
+from typing import TYPE_CHECKING, Literal
 
-import torch
-from torch import Tensor
-from torch.distributed import ProcessGroup
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.distributed.fsdp.api import (
-    BackwardPrefetch,
-    CPUOffload,
-    FullStateDictConfig,
-    MixedPrecision,
-    ShardedOptimStateDictConfig,
-    ShardedStateDictConfig,
-    ShardingStrategy,
-    StateDictType,
-)
-from torch.nn import Module, Parameter
+from torch.nn import Module
 
-from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gangs
-from fairseq2.nn.data_parallel._error import DistributedSetupError
-from fairseq2.nn.utils.module import (
-    apply_to_parameters,
-    infer_device,
-    reset_non_persistent_buffers,
-    reset_parameters,
-    to_empty,
+from fairseq2.nn.data_parallel._common import FsdpApplier, FsdpGranularity
+from fairseq2.typing import ContextManager, DataType
+from fairseq2.utils.version import torch_greater_or_equal
+
+# isort: split
+
+from fairseq2.nn.data_parallel._fsdp1 import Fsdp1Module as Fsdp1Module
+from fairseq2.nn.data_parallel._fsdp1 import (
+    fsdp1_local_state_dict as fsdp1_local_state_dict,
 )
-from fairseq2.typing import DataType, Device
+from fairseq2.nn.data_parallel._fsdp1 import (
+    fsdp1_summon_full_parameters as fsdp1_summon_full_parameters,
+)
+from fairseq2.nn.data_parallel._fsdp1 import to_fsdp1 as to_fsdp1
+
+if not TYPE_CHECKING and torch_greater_or_equal(2, 6):
+    from fairseq2.nn.data_parallel._fsdp2 import Fsdp2Module as Fsdp2Module
+    from fairseq2.nn.data_parallel._fsdp2 import (
+        fsdp2_local_state_dict as fsdp2_local_state_dict,
+    )
+    from fairseq2.nn.data_parallel._fsdp2 import fsdp2_no_sync as fsdp2_no_sync
+    from fairseq2.nn.data_parallel._fsdp2 import (
+        fsdp2_summon_full_parameters as fsdp2_summon_full_parameters,
+    )
+    from fairseq2.nn.data_parallel._fsdp2 import to_fsdp2 as to_fsdp2
+else:
+    from fairseq2.nn.data_parallel._fsdp2_compat import Fsdp2Module as Fsdp2Module
+    from fairseq2.nn.data_parallel._fsdp2_compat import (
+        fsdp2_local_state_dict as fsdp2_local_state_dict,
+    )
+    from fairseq2.nn.data_parallel._fsdp2_compat import fsdp2_no_sync as fsdp2_no_sync
+    from fairseq2.nn.data_parallel._fsdp2_compat import (
+        fsdp2_summon_full_parameters as fsdp2_summon_full_parameters,
+    )
+    from fairseq2.nn.data_parallel._fsdp2_compat import to_fsdp2 as to_fsdp2
 
 
 def to_fsdp(
     module: Module,
     gangs: Gangs,
-    wrap_policy: FSDPWrapPolicy | None,
+    applier: FsdpApplier,
     *,
-    ignored_modules: Sequence[Module] | None = None,
-    broadcast_state: bool = False,
-    memory_policy: FSDPMemoryPolicy | None = None,
-    reshard_after_forward: bool = True,
+    version: Literal["v1", "v2"] = "v1",
+    granularity: FsdpGranularity = "layer",
     mixed_precision_dtype: DataType | None = None,
     fp32_reduce: bool = False,
-) -> FSDP:
-    """Wrap ``module`` with FSDP.
+    broadcast_state: bool = False,
+    reshard_after_forward: bool = True,
+    cpu_offload: bool = False,
+) -> Module:
+    """Wraps ``module`` with FSDP1 or FSDP2 depending on ``version``.
 
     :param module: The module to wrap.
     :param gangs: The gangs over which to shard ``module``.
-    :param wrap_policy: The FSDP wrap policy to apply to ``module``. If ``None``,
-        wraps only ``module`` itself.
-    :param ignored_param_names: The ignored parameter names. Can contain regular
-        expressions.
-    :param broadcast_state: If ``True``, each FSDP module will broadcast its
-        parameters and buffers from rank 0 to ensure that they are replicated
-        across all processes.
-    :param memory_policy: The policy to instruct FSDP when and how to allocate
-        memory.
-    :param reshard_after_forward: If ``True``, unshards the parameters before
-        the forward pass and only reshards them after the backward pass.
+    :param applier: The callable to apply FSDP to ``module``.
+    :param version: The version of FSDP to use.
     :param mixed_precision_dtype: If not ``None``, parameters, buffers, and
         gradients will use this data type during forward and backward passes.
         Outside forward and backward passes, the model will be kept in full
         precision.
     :param fp32_reduce: If ``True``, the gradients will be reduced in full
         precision. Only relevant if ``mixed_precision_dtype`` is not ``None``.
+    :param broadcast_state: If ``True``, each FSDP module will broadcast its
+        parameters and buffers from rank 0 to ensure that they are replicated
+        across all processes.
+    :param reshard_after_forward: If ``True``, unshards the parameters before
+        the forward pass and only reshards them after the backward pass.
+    :param cpu_offload: If ``True``, offloads parameters to CPU when unsharded.
     """
-    if gangs.sdp.size == 1:
-        raise NotSupportedError(
-            "FSDP does not support non-sharded data parallelism. Please use DDP instead."
-        )
-
-    process_group: ProcessGroup | tuple[ProcessGroup, ProcessGroup]
-
-    # Determine the sharding strategy.
-    if gangs.rdp.size > 1:
-        sharding_strategy = ShardingStrategy.HYBRID_SHARD
-
-        try:
-            process_group = (gangs.sdp.as_process_group(), gangs.rdp.as_process_group())
-        except NotSupportedError:
-            raise DistributedSetupError(
-                "The specified data parallel gang does not support conversion to a process group."
-            ) from None
-    else:
-        if reshard_after_forward:
-            sharding_strategy = ShardingStrategy.FULL_SHARD
-        else:
-            sharding_strategy = ShardingStrategy.SHARD_GRAD_OP
-
-        try:
-            process_group = gangs.sdp.as_process_group()
-        except NotSupportedError:
-            raise DistributedSetupError(
-                "The specified data parallel gang does not support conversion to a process group."
-            ) from None
-
-    # Set up parameter initialization.
-    try:
-        module_device = infer_device(module)
-    except ValueError as ex:
-        raise DistributedSetupError(
-            "The device of `module` is not valid. See the nested exception for details."
-        ) from ex
-
-    if module_device.type != "meta":
-        param_initializer = None
-    else:
-        if broadcast_state:
-            if gangs.dp.rank == 0:
-                raise DistributedSetupError(
-                    "`broadcast_state` is set, but the coordinator process (i.e. rank 0) is on a meta device."
-                )
-
-            skip_init = True
-        else:
-            skip_init = False
-
-        param_initializer = FSDPParameterInitializer(gangs.dp.device, skip_init)
-
-    # Set up the data types for mixed precision training.
-    if mixed_precision_dtype is None:
-        mp = None
-    elif mixed_precision_dtype == torch.float32:
-        mp = None
-    else:
-        reduce_dtype = torch.float32 if fp32_reduce else mixed_precision_dtype
-
-        mp = MixedPrecision(mixed_precision_dtype, reduce_dtype, buffer_dtype=None)
-
-    if memory_policy is None:
-        memory_policy = FSDP_STANDARD_MEMORY_POLICY
-
-    if not memory_policy.cpu_offload:
-        cpu_offload = None
-    else:
-        cpu_offload = CPUOffload()
-
-    try:
-        fsdp = FSDP(
+    if version == "v1":
+        return to_fsdp1(
             module,
-            process_group=process_group,
-            sharding_strategy=sharding_strategy,
+            gangs,
+            applier,
+            granularity=granularity,
+            mixed_precision_dtype=mixed_precision_dtype,
+            fp32_reduce=fp32_reduce,
+            broadcast_state=broadcast_state,
+            reshard_after_forward=reshard_after_forward,
             cpu_offload=cpu_offload,
-            auto_wrap_policy=wrap_policy,
-            backward_prefetch=memory_policy.backward_prefetch,
-            mixed_precision=mp,
-            param_init_fn=param_initializer,
-            device_id=gangs.dp.device,
-            sync_module_states=broadcast_state,
-            forward_prefetch=False,
-            limit_all_gathers=memory_policy.limit_all_gathers,
-            use_orig_params=True,
-            # As of PyTorch 2.0, FSDP initialization fails in certain settings
-            # when an empty `ignored_states` is specified. Pass `None` instead.
-            ignored_states=ignored_modules if ignored_modules else None,
-        )
-    except (RuntimeError, ValueError) as ex:
-        raise DistributedSetupError(
-            "FSDP cannot be initialized. See the nested exception for details."
-        ) from ex
-
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            action="ignore", message=r".*FSDP\.state_dict_type\(\) and FSDP\.set_state_dict_type\(\) are being deprecated.*"  # fmt: skip
         )
 
-        FSDP.set_state_dict_type(
-            fsdp,
-            StateDictType.SHARDED_STATE_DICT,
-            state_dict_config=ShardedStateDictConfig(offload_to_cpu=True),
-            optim_state_dict_config=ShardedOptimStateDictConfig(offload_to_cpu=True),
+    if version == "v2":
+        return to_fsdp2(
+            module,
+            gangs,
+            applier,
+            granularity=granularity,
+            mixed_precision_dtype=mixed_precision_dtype,
+            fp32_reduce=fp32_reduce,
+            broadcast_state=broadcast_state,
+            reshard_after_forward=reshard_after_forward,
+            cpu_offload=cpu_offload,
         )
 
-    return fsdp
+    raise ValueError("`version` must be 'v1' or 'v2'.")
 
 
-class FSDPWrapPolicy(Protocol):
-    """Represents an FSDP wrap policy."""
-
-    def __call__(self, module: Module, recurse: bool, non_wrapped_numel: int) -> bool:
-        """
-        :param module:
-            The module to apply the policy to.
-        :param recurse:
-            If ``False``, the return value specifies whether ``module`` should
-            have FSDP applied; if ``True``, the return value specifies whether
-            the traversal should continue into the module's subtree.
-        :param non_wrapped_numel:
-            The number of elements that have not yet been wrapped.
-
-        :returns:
-            See the description of the ``recurse`` parameter.
-        """
-
-
-@dataclass(frozen=True)
-class FSDPMemoryPolicy:
-    """Specifies the device memory usage policy of an FSDP module."""
-
-    backward_prefetch: BackwardPrefetch | None
-    """The backward prefetch mode for all-gathers. For more information, check
-    out the same named parameter of :class:`FSDP`."""
-
-    limit_all_gathers: bool
-    """If ``True``, FSDP explicitly synchronizes the CPU thread to ensure GPU
-    memory use from only two consecutive FSDP instances. For more information,
-    check out the same named parameter of :class:`FSDP`."""
-
-    cpu_offload: bool
-    """If ``True``, FSDP offloads parameters not involved in computation to CPU.
-    For more information, check out :class:`CPUOffload`."""
-
-
-FSDP_STANDARD_MEMORY_POLICY: Final = FSDPMemoryPolicy(
-    backward_prefetch=BackwardPrefetch.BACKWARD_PRE,
-    limit_all_gathers=True,
-    cpu_offload=False,
-)
-"""Enables backward prefetching."""
-
-
-FSDP_LOW_MEMORY_POLICY: Final = FSDPMemoryPolicy(
-    backward_prefetch=BackwardPrefetch.BACKWARD_POST,
-    limit_all_gathers=True,
-    cpu_offload=False,
-)
-"""Enables backward prefetching with low-memory pressure."""
-
-
-FSDP_VERY_LOW_MEMORY_POLICY: Final = FSDPMemoryPolicy(
-    backward_prefetch=None,
-    limit_all_gathers=True,
-    cpu_offload=True,
-)
-"""Disables communication and computation overlap and offloads parameters to CPU."""
-
-
-@final
-class FSDPParameterInitializer:
-    """Initializes the parameters and buffers of an FSDP module.
-
-    This is a convenience callable to pass to the ``param_init_fn`` parameter of
-    :class:`FSDP`. It moves the parameters and buffers residing on a meta device
-    onto ``device`` and initializes them.
-
-    Usage:
-
-    >>> model = MyModel(..., device=Device("meta"))
-    >>>
-    >>> fsdp_model = FullyShardedDataParallel(
-    ...     ..., param_init_fn=FSDPParameterInitializer(Device("cuda:0"))
-    ... )
+def fsdp_local_state_dict(module: Module) -> dict[str, object]:
     """
+    Returns the sharded parameters of ``module`` on this process using regular
+    tensors (i.e. ``Tensor``) instead of ``DTensor`` or ``ShardedTensor``.
 
-    _module_memo: set[Module]
-    _memo: dict[Tensor, Tensor]
-    _device: Device
-    _skip_init: bool
+    The returned state dictionary can be loaded in consolidated form using
+    :class:`fairseq2.utils.file.ShardedTensorLoader`.
+    """
+    if isinstance(module, Fsdp1Module):
+        return fsdp1_local_state_dict(module)
 
-    def __init__(self, device: Device, skip_init: bool = False) -> None:
-        """
-        :param device:
-            The device onto which to move the parameters and buffers.
-        :param skip_init:
-            If ``True``, skips initializing the parameters and buffers after
-            moving them onto ``device``. The non-persistent buffers are always
-            initialized regardless of ``skip_init``.
-        """
-        self._module_memo = set()
-        self._memo = {}
-        self._device = device
-        self._skip_init = skip_init
+    if isinstance(module, Fsdp2Module):
+        return fsdp2_local_state_dict(module)
 
-    def __call__(self, module: Module) -> None:
-        """
-        :param module:
-            An FSDP module or submodule.
-        """
-        if module in self._module_memo:
-            return
-
-        to_empty(module, self._device, recurse=False, memo=self._memo)
-
-        if not self._skip_init:
-            reset_parameters(module, recurse=False)
-        else:
-            # Non-persistent buffers are never part of module's state, so we
-            # have to initialize them even with `skip_init`.
-            reset_non_persistent_buffers(module, recurse=False)
-
-        self._module_memo.add(module)
+    raise _type_error(module)
 
 
-def fsdp_full_state_dict(module: FSDP) -> dict[str, object]:
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            action="ignore", message=r".*FSDP\.state_dict_type\(\) and FSDP\.set_state_dict_type\(\) are being deprecated.*"  # fmt: skip
-        )
+def fsdp_no_sync(module: Module, *, unsafe: bool = False) -> ContextManager:
+    if isinstance(module, Fsdp1Module):
+        return module.no_sync()
 
-        state_dict_config = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
+    if isinstance(module, Fsdp2Module):
+        return fsdp2_no_sync(module)
 
-        with FSDP.state_dict_type(
-            module, StateDictType.FULL_STATE_DICT, state_dict_config
-        ):
-            return module.state_dict()
+    raise _type_error(module)
 
 
-@contextmanager
-def fsdp_summon_full_parameters(module: FSDP) -> Iterator[None]:
-    """Unshard the parameters of ``module`` and use the non-FSDP forward method."""
-    mp = module.mixed_precision or MixedPrecision()
+def fsdp_summon_full_parameters(module: Module) -> ContextManager:
+    """
+    Unshards the parameters of ``module``.
 
-    # This is ugly, but our only option. We monkey-patch FSDP modules to
-    # replace their `forward` methods with the wrapped `forward` methods.
-    # Otherwise, FSDP fails to shard parameters at the end of the call.
-    def disable_fsdp_forward(module_: Module) -> None:
-        for m in module_.modules():
-            if isinstance(m, FSDP):
-                m._fs2_backup_forward = m.forward  # type: ignore[assignment]
+    In addition to unsharding the parameters, this function allows calling the
+    module locally. This is useful for online evaluation.
+    """
+    if isinstance(module, Fsdp1Module):
+        return fsdp1_summon_full_parameters(module)
 
-                m.forward = m.module.forward  # type: ignore[method-assign]
+    if isinstance(module, Fsdp2Module):
+        return fsdp2_summon_full_parameters(module)
 
-    def enable_fsdp_forward(module_: Module) -> None:
-        for m in module_.modules():
-            if isinstance(m, FSDP):
-                m.forward = m._fs2_backup_forward  # type: ignore[method-assign]
+    raise _type_error(module)
 
-                del m._fs2_backup_forward
 
-    def maybe_cast_dtype(t: Tensor) -> Tensor:
-        dtype = mp.param_dtype if isinstance(t, Parameter) else mp.buffer_dtype
-
-        if dtype is None:
-            return t
-
-        return t.to(dtype)
-
-    with FSDP.summon_full_params(module, writeback=False):
-        disable_fsdp_forward(module)
-
-        apply_to_parameters(module, maybe_cast_dtype)
-
-        try:
-            yield
-        finally:
-            enable_fsdp_forward(module)
+def _type_error(module: Module) -> Exception:
+    return TypeError(
+        f"`module` must be of type `Fsdp1Module` or `Fsdp2Module`, but is of type `{type(module)}` instead."
+    )
