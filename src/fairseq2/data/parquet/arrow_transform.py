@@ -6,16 +6,12 @@
 
 from __future__ import annotations
 
-from enum import Enum
 from typing import List, Optional, Union
 
 import numpy as np
 import polars as pl
 import pyarrow as pa
 import pyarrow.compute as pc
-
-from fairseq2.data.parquet.utils import hstack_pyarray_list, is_list_like
-from fairseq2.logging import log
 
 
 def build_uniform_list_column(
@@ -64,108 +60,16 @@ def maybe_cast(
     return arr
 
 
-def affix_list_column(
-    table: pa.Table,
-    column: str,
-    *,
-    prefix_array: pa.Array | None = None,
-    suffix_array: pa.Array | None = None,
-) -> pa.Array:
-    """
-    High-level helper that constructs and horizontally stacks prefix + original
-    column + suffix for each row in a given list column.
-
-    Args:
-        table: The input pyarrow Table.
-        column: Name of the list column to be modified.
-        prefix_array: An array of prefix tokens to prepend.
-        suffix_array: An array of suffix tokens to append.
-
-    Returns:
-        The new chunked array after prefix and suffix are applied.
-    """
-    prefix_extended = None
-    suffix_extended = None
-    target_type = table[column].type
-
-    # Build repeated prefix/suffix for each row
-    if prefix_array is not None:
-        prefix_extended = build_uniform_list_column(prefix_array, len(table))
-        prefix_extended = maybe_cast(prefix_extended, target_type)
-    if suffix_array is not None:
-        suffix_extended = build_uniform_list_column(suffix_array, len(table))
-        suffix_extended = maybe_cast(suffix_extended, target_type)
-
-    # Merge prefix, original column, and suffix
-    arr2merge = []
-    if prefix_extended is not None:
-        arr2merge.append(prefix_extended)
-    arr2merge.append(table[column])
-    if suffix_extended is not None:
-        arr2merge.append(suffix_extended)
-    return hstack_pyarray_list(*arr2merge)
-
-
 def replace_table_column(
     table: pa.Table,
     col_name: str,
-    new_array: Union[pa.Array, pa.ChunkedArray],
+    new_array: pa.Array | pa.ChunkedArray,
 ) -> pa.Table:
     """
     Replaces an existing column in the Table with a new array.
     """
     col_idx = table.schema.get_field_index(col_name)
     return table.set_column(col_idx, col_name, new_array)
-
-
-def correct_paragraph_length(
-    table: pa.Table,
-    page_lens_column: str,
-    len_break: int,
-    len_prefix: int,
-    len_suffix: int,
-) -> pa.Table:
-    def _correct(x):
-        x = x + len_break
-        x[0] += len_prefix
-        x[-1] += len_suffix - len_break
-        return x
-
-    page_lengths = table[page_lens_column].to_pandas().to_list()
-
-    corrected_lens = pa.array(
-        [_correct(x) for x in page_lengths], type=pa.list_(pa.int32())
-    )
-
-    return table.drop([page_lens_column]).append_column(
-        page_lens_column, corrected_lens
-    )
-
-
-def prefix_and_suffix_one_list_column(
-    table: pa.Table,
-    column: str,
-    prefix_array: pa.Array,
-    suffix_array: pa.Array,
-) -> pa.Table:
-    """
-    Adds a uniform prefix and suffix to each row of a list column.
-    This is a simple wrapper around `affix_list_column` that updates
-    the table in place.
-
-    Args:
-        table: The input pyarrow Table.
-        column: Name of the list column to be modified.
-        prefix_array: An array of prefix tokens to prepend.
-        suffix_array: An array of suffix tokens to append.
-
-    Returns:
-        A new pyarrow Table with the modified list column.
-    """
-    new_array = affix_list_column(
-        table, column, prefix_array=prefix_array, suffix_array=suffix_array
-    )
-    return replace_table_column(table, column, new_array)
 
 
 def shuffle_table(
@@ -354,62 +258,6 @@ def filter_list_by_range(
     return table.filter(filter_series)
 
 
-def filter_rows_by_consistent_list_length(
-    table: pa.Table, columns: List[str]
-) -> pa.Table:
-    """
-    Keep only rows where all specified list-like columns have the same list length per row.
-
-    If `columns` has length <= 1 or if any of the columns are not list-like,
-    the table is returned unmodified (no filtering).
-
-    For each column (after the first), rows are dropped if that column's list length
-    differs from the reference column's list length. After each filtering step,
-    the reference lengths are updated to match the newly filtered table.
-
-    Args:
-        table (pa.Table): A PyArrow Table.
-        columns (List[str]): Names of the columns to check for consistent list lengths.
-                             These columns should be list-like (ListArray or LargeListArray).
-
-    Returns:
-        pa.Table: A filtered PyArrow Table where all specified columns
-                  have the same list length in each row.
-    """
-    # Quick exit if there's nothing to compare or columns are not all list-like
-    if len(columns) <= 1:
-        return table
-
-    # Verify all specified columns are list-like
-    if not all(is_list_like(table[col]) for col in columns):
-        return table
-
-    # Use the first column as our "reference" for lengths
-    ref_lengths = pc.list_value_length(table[columns[0]])
-
-    # Iterate over subsequent columns to confirm matching lengths
-    for col in columns[1:]:
-        col_lengths = pc.list_value_length(table[col])
-        # same_lens[i] == True if row i has the same length in both columns
-        same_lens = pc.equal(col_lengths, ref_lengths)
-
-        # If all rows are consistent, move on
-        if pc.all(same_lens).as_py():
-            continue
-        else:
-            # Some rows differ => filter them out
-            num_kept = pc.sum(same_lens).as_py()
-            log.warning(
-                f"Filtering rows with consistent list lengths among columns; "
-                f"keeping {num_kept} out of {len(table)} rows."
-            )
-            table = table.filter(same_lens)
-            # Also filter ref_lengths so it stays in sync
-            ref_lengths = ref_lengths.filter(same_lens)
-
-    return table
-
-
 def filter_list_with_min_max_length(
     table: pa.Table,
     columns: List[str],
@@ -429,29 +277,3 @@ def filter_list_with_min_max_length(
     for column in columns:
         table = _length_filter(column)
     return table
-
-
-class ParquetBatchFormat(Enum):
-    pyarrow = 0
-    dicts = 1
-    """
-    pa.Table.to_pylist() -> List[Dict[str, Any]]
-    Creates a list of dictionaries, where each dictionary represents a row in the table with values converted to python types.
-    """
-    torch = 2
-    """
-    pa.Table -> {str: torch.Tensor | List[torch.Tensor] }
-    Best effort conversion of pa.Table to a dict of tensors (cpu), not converted fields are left as is.
-    """
-    pandas = 3
-    """
-    pa.Table -> pl.DataFrame
-    """
-    polars = 4
-    """
-    pa.Table -> pl.DataFrame conversion with potental cast of dtypes (fs16 is currently unsupported by polars).
-    """
-    dict = 5
-    """
-    pa.Table.to_pydict() -> Dict[str, Any]
-    """

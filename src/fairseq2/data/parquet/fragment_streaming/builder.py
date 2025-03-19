@@ -8,17 +8,16 @@
 from copy import deepcopy
 
 import pyarrow as pa
-import pyarrow.compute as pc  # noqa: F401
 import pyarrow.parquet as pq
 
 from fairseq2.data import DataPipelineBuilder
-from fairseq2.data.parquet.fragment_streaming.basic_pipeline import (
+from fairseq2.data.parquet.fragment_streaming.config import FragmentStreamingConfig
+from fairseq2.data.parquet.fragment_streaming.primitives import (
     init_parquet_dataset,
     list_parquet_fragments,
     process_filter,
     stream_parquet_fragments,
 )
-from fairseq2.data.parquet.fragment_streaming.config import FragmentStreamingConfig
 from fairseq2.logging import log
 
 

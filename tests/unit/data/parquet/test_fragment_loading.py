@@ -5,11 +5,9 @@
 # LICENSE file in the root directory of this source tree.
 
 
-from collections import Counter
 from dataclasses import dataclass
 from typing import List
 
-import numpy as np
 import pyarrow as pa
 import pyarrow.compute as pc
 import pytest

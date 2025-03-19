@@ -16,11 +16,11 @@ import pyarrow as pa
 
 from fairseq2.data import DataPipeline, DataPipelineBuilder
 from fairseq2.data.parquet.arrow_transform.transform import concat_table, shuffle_table
-from fairseq2.data.parquet.table_bucketing.basic_pipeline import (
+from fairseq2.data.parquet.table_bucketing.config import TableBucketingConfig
+from fairseq2.data.parquet.table_bucketing.primitives import (
     build_batching_loop_over_one_table,
     compute_rows_length,
 )
-from fairseq2.data.parquet.table_bucketing.config import TableBucketingConfig
 from fairseq2.data.parquet.utils import table_to_mmap_table
 from fairseq2.logging import log
 

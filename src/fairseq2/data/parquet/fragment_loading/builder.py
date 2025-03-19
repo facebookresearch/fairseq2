@@ -21,7 +21,7 @@ from fairseq2.data.parquet.arrow_transform.transform import (
     apply_filter,
 )
 from fairseq2.data.parquet.fragment_loading.config import FragmentLoadingConfig
-from fairseq2.data.parquet.fragment_streaming.basic_pipeline import process_filter
+from fairseq2.data.parquet.fragment_streaming.primitives import process_filter
 from fairseq2.data.parquet.utils import (
     add_partitioning_values,
     fragment_stable_hash,

@@ -10,7 +10,6 @@ import os
 import tempfile
 import unittest
 from typing import List
-from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd
@@ -21,7 +20,7 @@ import pytest
 import torch
 from pyarrow.dataset import Fragment
 
-from fairseq2.data.parquet.table_bucketing.basic_pipeline import (
+from fairseq2.data.parquet.table_bucketing.primitives import (
     compute_length_splits,
     compute_rows_length,
 )
@@ -29,15 +28,12 @@ from fairseq2.data.parquet.utils import (
     _fix_list_offset,
     add_partitioning_values,
     get_dataset_fragments,
-    hstack_pyarray_list,
     is_list_like,
-    load_one_fragment,
     pyarrow_column_to_array,
     pyarrow_cpu,
     pyarrow_table_to_torch_dict,
     pyarrow_to_torch_tensor,
     split_fragment_in_row_groups,
-    torch_random_seed,
 )
 from tests.unit.data.parquet.conftest import create_sample_parquet_dataset
 
@@ -101,48 +97,6 @@ def test_pyarrow_column_to_array() -> None:
     chunked = pa.chunked_array([arr1, arr2])
     result = pyarrow_column_to_array(chunked)
     assert result.to_pylist() == [[1, 2], [3, 4]]
-
-
-def test_hstack_pyarray_list() -> None:
-    # Test with simple lists
-    a = pa.array([[1], [2, 3], [5], []])
-    b = pa.array([[-1, -3], [-11], [], [22]])
-    result = hstack_pyarray_list(a, b)
-    expected = [[1, -1, -3], [2, 3, -11], [5], [22]]
-    assert result.to_pylist() == expected
-
-    # Test with nested lists
-    data1 = [[[1, 2]], [[3, 4]], [[5, 6]]]
-    data2 = [[[7, 8]], [[9, 10]], [[11, 12]]]
-    arr1 = pa.array(data1)
-    arr2 = pa.array(data2)
-    result = hstack_pyarray_list(arr1, arr2)
-    expected = [
-        [[1, 2], [7, 8]],  # type: ignore
-        [[3, 4], [9, 10]],  # type: ignore
-        [[5, 6], [11, 12]],  # type: ignore
-    ]
-    assert result.to_pylist() == expected
-
-    # Test with arrays of different types (regular and large)
-    regular = pa.array([[1], [2]])
-    large = pa.array([[1] * 1000] * 2)
-    result = hstack_pyarray_list(regular, large)
-    assert len(result) == 2
-
-
-def test_hstack_pyarray_list_errors() -> None:
-    # Test arrays of different lengths
-    a = pa.array([[1], [2]])
-    b = pa.array([[3]])
-    with pytest.raises(ValueError):
-        hstack_pyarray_list(a, b)
-
-    # Test with non-list arrays
-    regular_arr = pa.array([1, 2, 3])
-    list_arr = pa.array([[1], [2], [3]])
-    with pytest.raises(ValueError):
-        hstack_pyarray_list(regular_arr, list_arr)
 
 
 def test_pyarrow_to_torch_tensor_primitive() -> None:
@@ -270,47 +224,6 @@ def test_pyarrow_cpu_context_manager_exception() -> None:
     assert pa.io_thread_count() == original_io_thread_count
 
 
-def test_torch_random_seed_context_manager_with_seed() -> None:
-    seed = 42
-    with torch_random_seed(seed):
-        torch.manual_seed(seed)
-        tensor1 = torch.rand(3)
-
-    # After context, RNG state should be restored
-    torch.manual_seed(0)  # Change seed to differentiate
-    tensor2 = torch.rand(3)
-
-    # Verify that tensor1 is reproducible
-    torch.manual_seed(seed)
-    tensor1_repro = torch.rand(3)
-    assert torch.all(tensor1 == tensor1_repro)
-
-    # Verify that tensor2 is different
-    torch.manual_seed(0)
-    tensor2_repro = torch.rand(3)
-    assert torch.all(tensor2 == tensor2_repro)
-
-
-def test_torch_random_seed_context_manager_no_seed() -> None:
-    original_rng_state = torch.get_rng_state()
-
-    with torch_random_seed(None):
-        # RNG state should remain unchanged
-        assert torch.get_rng_state().equal(original_rng_state)
-        tensor1 = torch.rand(3)
-
-    # After context, RNG state should remain unchanged
-    tensor2 = torch.rand(3)
-
-    # Verify that tensor1 and tensor2 are part of the same RNG sequence
-    torch.set_rng_state(original_rng_state)
-    tensor1_repro = torch.rand(3)
-    assert torch.all(tensor1 == tensor1_repro)
-
-    tensor2_repro = torch.rand(3)
-    assert torch.all(tensor2 == tensor2_repro)
-
-
 def test_get_dataset_fragments() -> None:
     """
     Test the get_dataset_fragments function to ensure it returns the correct fragments based on filters.
@@ -430,90 +343,6 @@ def test_split_fragment_in_row_groups_no_row_groups() -> None:
         # Verify that at least one fragment is returned
         assert len(split_fragments) >= 1
         assert all(isinstance(frag, Fragment) for frag in split_fragments)
-
-
-class TestLoadOneFragment(unittest.TestCase):
-    @patch("fairseq2.data.parquet.utils.add_partitioning_values")
-    def test_load_one_fragment_with_no_columns(
-        self, mock_add_partitioning_values: MagicMock
-    ) -> None:
-        """Test loading fragment when columns=None (should load all)."""
-        # Setup a mock fragment
-        mock_fragment = MagicMock(spec=ds.Fragment)
-        mock_fragment.physical_schema.names = ["col1", "col2", "col3"]
-
-        # Mock the table returned by fragment.to_table
-        mock_table = MagicMock(spec=pa.Table)
-        mock_fragment.to_table.return_value = mock_table
-
-        # Mock the add_partitioning_values return
-        mock_add_partitioning_values.return_value = mock_table
-
-        # Call the function under test
-        result_table = load_one_fragment(mock_fragment, columns=None)
-
-        # Assertions
-        mock_fragment.to_table.assert_called_once_with(columns=None, use_threads=False)
-        mock_add_partitioning_values.assert_called_once_with(
-            mock_table, mock_fragment, None
-        )
-        self.assertEqual(result_table, mock_table)
-
-    @patch("fairseq2.data.parquet.utils.add_partitioning_values")
-    def test_load_one_fragment_with_subset_of_columns(
-        self, mock_add_partitioning_values: MagicMock
-    ) -> None:
-        """Test loading fragment when columns are specified (including some that don't exist)."""
-        # Setup a mock fragment
-        mock_fragment = MagicMock(spec=ds.Fragment)
-        mock_fragment.physical_schema.names = ["col1", "col2", "col3"]
-
-        # Mock the table returned by fragment.to_table
-        mock_table = MagicMock(spec=pa.Table)
-        mock_fragment.to_table.return_value = mock_table
-
-        # Mock the add_partitioning_values return
-        mock_add_partitioning_values.return_value = mock_table
-
-        # Suppose we request columns "col2" and "colX" (which does not exist)
-        requested_columns = ["col2", "colX"]
-        result_table = load_one_fragment(mock_fragment, columns=requested_columns)
-
-        # Only "col2" should be passed to fragment.to_table, since "colX" doesn't exist
-        mock_fragment.to_table.assert_called_once_with(
-            columns=["col2"], use_threads=False
-        )
-        mock_add_partitioning_values.assert_called_once_with(
-            mock_table, mock_fragment, requested_columns
-        )
-        self.assertEqual(result_table, mock_table)
-
-    @patch("fairseq2.data.parquet.utils.add_partitioning_values")
-    def test_load_one_fragment_empty_physical_schema(
-        self, mock_add_partitioning_values: MagicMock
-    ) -> None:
-        """Test behavior when the fragment has an empty physical schema."""
-        # Setup a mock fragment with empty schema
-        mock_fragment = MagicMock(spec=ds.Fragment)
-        mock_fragment.physical_schema.names = []
-
-        # Mock the table returned by fragment.to_table
-        mock_table = MagicMock(spec=pa.Table)
-        mock_fragment.to_table.return_value = mock_table
-
-        # Mock the add_partitioning_values return
-        mock_add_partitioning_values.return_value = mock_table
-
-        # Request columns that don't exist
-        requested_columns = ["col1", "col2"]
-        result_table = load_one_fragment(mock_fragment, columns=requested_columns)
-
-        # The fragment.to_table should receive columns=None or an empty list
-        mock_fragment.to_table.assert_called_once_with(columns=[], use_threads=False)
-        mock_add_partitioning_values.assert_called_once_with(
-            mock_table, mock_fragment, requested_columns
-        )
-        self.assertEqual(result_table, mock_table)
 
 
 @pytest.mark.parametrize(

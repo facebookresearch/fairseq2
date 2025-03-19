@@ -7,17 +7,16 @@
 import pickle
 from collections import Counter
 
-import numpy as np
-import pyarrow as pa
+# import numpy as np
+# import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
-from fairseq2.data.parquet.fragment_streaming.basic_pipeline import (
-    list_parquet_fragments,
-    stream_parquet_fragments,
-)
 from fairseq2.data.parquet.fragment_streaming.builder import ParquetFragmentStreamer
 from fairseq2.data.parquet.fragment_streaming.config import FragmentStreamingConfig
+from fairseq2.data.parquet.fragment_streaming.primitives import (  # list_parquet_fragments,
+    stream_parquet_fragments,
+)
 
 
 def are_fragments_equal(fragment1, fragment2):

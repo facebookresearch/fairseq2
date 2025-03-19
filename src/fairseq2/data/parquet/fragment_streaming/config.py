@@ -162,7 +162,7 @@ class FragmentStreamingConfig:
         """
         Add an extra partition filter to the dataset.
         """
-        from fairseq2.data.parquet.fragment_streaming.basic_pipeline import (
+        from fairseq2.data.parquet.fragment_streaming.primitives import (
             process_filter,
         )
 

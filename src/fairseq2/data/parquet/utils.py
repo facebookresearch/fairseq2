@@ -11,7 +11,7 @@ import uuid
 import weakref
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Callable, Generator, List, Optional, Union, no_type_check
+from typing import Any, Generator, List, Optional, Union, no_type_check
 
 import numpy as np
 import pandas as pd
@@ -27,17 +27,6 @@ from fairseq2.logging import log
 NestedDict = dict[str, "NestedDictValue"]
 NestedDictValue = torch.Tensor | list[str] | pd.Series | NestedDict
 BatchOutputType = pa.Table | pd.DataFrame | NestedDict
-
-
-def return_none_on_failure(func):
-    def wrapper(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except Exception as e:
-            log.warning(f"An error occurred: {e}")
-            return None
-
-    return wrapper
 
 
 def circular_shift_left(lst: List[Any], k: int) -> List[Any]:
@@ -92,51 +81,15 @@ def pyarrow_column_to_array(arg: pa.ChunkedArray | pa.Array) -> pa.Array:
     )
 
 
-def hstack_pyarray_list(*arrays: Union[pa.ChunkedArray, pa.Array]) -> pa.Array:
+def simple_array_to_nested(arr: pa.ChunkedArray | pa.Array) -> pa.Array:
     """
-    Example with simple list:
-    >>> a = pa.array([[1], [2,3], [5], []])
-    >>> b = pa.array([[-1, -3], [-11], [], [22]])
-    >>> hstack_pyarray_list(a, b).to_pylist()
-    [[1, -1, -3], [2, 3, -11], [5], [22]]
-
-    Example with nested lists:
-    >>> data = [np.array([[1, 2], [3, 4]]), np.array([[5, 6], [7, 8]]), np.array([[9, 10]])]
-    >>> list_array = nested_numpy_to_pyarrow(data)
-    >>> list_array.type
-    ListType(list<item: fixed_size_list<item: int64>[2]>)
-    >>> truncated_list_array = pc.list_slice(list_array, 1, 2)
-    [[[3, 4]], [[7, 8]], []]
-    >>> hstack_pyarray_list(list_array, truncated_list_array)
-    [[[1, 2], [3, 4], [3, 4]],
-     [[5, 6], [7, 8], [7, 8]],
-     [[9, 10]]]
+    >>> a = pa.array([1,2,3])
+    >>> simple_array_to_nested(a).to_pylist()
+    [[1], [2], [3]]
     """
-    if not all(map(is_list_like, arrays)):
-        raise ValueError("All pyarrow arrays must be list-like")
-
-    lens = list(set(map(len, arrays)))
-    if len(lens) != 1:
-        raise ValueError("All pyarrow arrays must have the same length")
-
-    list_off_views = [
-        pyarrow_column_to_array(pc.list_flatten(arr.slice(i, 1)))
-        for i in range(lens[0])
-        for arr in arrays
-    ]
-
-    is_large = any(pa.types.is_large_list(arr.type) for arr in arrays)
-
-    offsets = np.concatenate(
-        [
-            np.array([0]),
-            np.sum([pc.list_value_length(arr) for arr in arrays], axis=0),
-        ],
-        dtype=np.int64 if is_large else np.int32,
-    ).cumsum()
-
-    cls = pa.LargeListArray if is_large else pa.ListArray
-    return cls.from_arrays(offsets, pa.concat_arrays(list_off_views))
+    return pa.ListArray.from_arrays(
+        pa.array(np.arange(len(arr) + 1, dtype=np.int32)), pyarrow_column_to_array(arr)
+    )
 
 
 @no_type_check
@@ -222,9 +175,6 @@ def pyarrow_table_to_torch_dict(tt: pa.Table, strict: bool = False) -> NestedDic
             )
             out[col] = tt[col]
     return out
-
-
-# --- tested above --- #
 
 
 @contextmanager
