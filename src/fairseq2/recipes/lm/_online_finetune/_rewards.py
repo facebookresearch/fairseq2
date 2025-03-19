@@ -66,7 +66,7 @@ class GSM8kVerifierHandler(VLLMOutputRewardHandler):
         pass
 
     @override
-    def create(self, recipe_config, gangs):
+    def create(self, recipe_config, vllm_model, gangs):
         return GSM8kVerifier(gangs)
 
     @property
@@ -326,13 +326,6 @@ class SkyworkVerifier(VLLMOutputReward):
 
             rollouts_rewards = []
             for rollout_output in i_batch_request_output.outputs:
-
-                # prompt_text = self.tokenizer.decode(prompt)
-                # rollout_text = rollout_output.text
-                # vllm_input = prompt_text + rollout_text
-                # vllm_input = self.tokenizer.encode(vllm_input, add_special_tokens=False)
-                # vllm_input = TokensPrompt(prompt_token_ids=vllm_input)
-
                 prompt_text = self.tokenizer.decode(prompt)
 
                 prompt_text = self.extract_text_from_llama3_wrapper(
@@ -347,10 +340,6 @@ class SkyworkVerifier(VLLMOutputReward):
                     dp_gang=self._gangs.dp,
                     vllm_model=self.vllm_model,
                 )
-                # (output,) = ray.get(
-                #     self.vllm_model.vllm_model.encode.remote(vllm_input)
-                # )
-                # score = output.outputs.data.item()
 
                 rollouts_text.append(rollout_output.text)
                 rollouts_tokens.append(rollout_output.token_ids)
@@ -447,41 +436,6 @@ class SkyworkVerifier(VLLMOutputReward):
         return batch, is_bad_batch, reward_output
 
     def prepare_grpo_batch(self, prompt_batch: PromptBatch, rollouts):
-
-        prompt_rollouts = []
-        prompt_lens = []
-        rewards = []
-
-        reward_output = self.process_rollouts(
-            rollouts, prompt_batch.meta_info["answer"]
+        raise NotImplementedError(
+            "prepare_grpo_batch for skyworkverifier yet implemented."
         )
-        for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(
-            zip(reward_output["rewards"], reward_output["tokens"])
-        ):
-            prompt = prompt_batch.prompts[i_batch]
-            rollout_tokens = [
-                torch.tensor(prompt + list(c), device=self._gangs.dp.device)
-                for c in i_batch_tokens
-            ]
-            prompt_rollouts.extend(rollout_tokens)
-
-            prompt_lens.extend([len(prompt)] * len(rollout_tokens))
-
-            rewards.append(i_batch_rewards)
-
-        prompt_rollout_batch = collate_with_target_mask(
-            prompt_rollouts, prompt_lens, device=self._gangs.dp.device
-        )
-
-        rewards = torch.tensor(
-            rewards, device=self._gangs.dp.device
-        ).float()  # [Batch, Rollouts]
-        rewards_normalized = (rewards - rewards.mean(dim=1, keepdim=True)) / (
-            rewards.std(dim=1, keepdim=True) + 1e-6
-        )  # small epsilon to compensate 0 std
-
-        grpo_batch = GRPOBatch(
-            prompt_rollouts=prompt_rollout_batch, rewards=rewards_normalized
-        )
-
-        return grpo_batch, reward_output

@@ -380,16 +380,16 @@ class OnlineDpoFinetuneConfig:
         default_factory=lambda: VllmConfig(init_update_process_group=True)
     )
 
-    # reward: RewardSection = field(
-    #     default_factory=lambda: RewardSection(name="gsm8k_verifier")
-    # )
-
     vllm_reward_model: VllmConfig = field(
         default_factory=lambda: VllmConfig(init_update_process_group=False)
     )
+
     reward: RewardSection = field(
         default_factory=lambda: RewardSection(name="skywork_verifier")
     )
+    # reward: RewardSection = field(
+    #     default_factory=lambda: RewardSection(name="gsm8k_verifier")
+    # )
 
     sync_ref_model_every_n_steps: int = -1
     sync_vllm_model_every_n_steps: int = -1
@@ -414,15 +414,23 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
         validate(config)
 
         vllm_model = RemoteVllmModelHandler().create(
-            gangs=gangs, unit_config=config, configs_name="vllm_model"
+            gangs=gangs,
+            unit_config=config,
+            configs_name="vllm_model",  # FIXME better way to use the correct configs?
         )
 
-        vllm_reward_model = RemoteVllmModelHandler().create(
-            gangs=gangs, unit_config=config, configs_name="vllm_reward_model"
-        )
+        # FIXME better way to check if vllm_reward_model is present in config
+        if hasattr(config, "vllm_reward_model"):
+            vllm_reward_model = RemoteVllmModelHandler().create(
+                gangs=gangs,
+                unit_config=config,
+                configs_name="vllm_reward_model",  # FIXME better way to use the correct configs?
+            )
+        else:
+            vllm_reward_model = None
+
         reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
         reward_handler = reward_registry.get(config.reward.name)
-        # reward = reward_handler.create(recipe_config=recipe_config, gangs=gangs)
         reward = reward_handler.create(
             recipe_config=recipe_config, vllm_model=vllm_reward_model, gangs=gangs
         )
