@@ -59,14 +59,14 @@ data_pipeline::next()
                 warning_count_++;
 
                 // Log the exception with the current warning count
-                fprintf(stderr, "Data pipeline warning (%zu/%zu): %s\n", 
+                (void) fprintf(stderr, "Data pipeline warning (%zu/%zu): %s\n", 
                     warning_count_, max_num_warnings_, ex.what());
                 
                 // Continue to the next example
                 continue;
             } else {
                 if (max_num_warnings_ > 0 && warning_count_ >= max_num_warnings_) {
-                    fprintf(stderr, "Data pipeline error: Maximum number of warnings (%zu) reached.\n", 
+                    (void) fprintf(stderr, "Data pipeline error: Maximum number of warnings (%zu) reached.\n", 
                         max_num_warnings_);
                 }
 
