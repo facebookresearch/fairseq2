@@ -228,6 +228,8 @@ def_data_pipeline(py::module_ &data_module)
 
         .def_property_readonly("is_broken", &data_pipeline::is_broken)
 
+        .def_property_readonly("warning_count", &data_pipeline::warning_count)
+
         // state_dict
         .def(
             "state_dict",
