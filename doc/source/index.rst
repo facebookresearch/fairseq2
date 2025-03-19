@@ -71,6 +71,7 @@ Documentation
 
    notebooks/datapipeline
    notebooks/dataset_gsm8k_sft
+   notebooks/models/load_model
 
 .. toctree::
    :maxdepth: 1
