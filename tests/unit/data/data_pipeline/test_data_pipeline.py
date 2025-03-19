@@ -70,7 +70,6 @@ class TestDataPipeline:
 
         assert output == [1, 3, 5]
 
-    @pytest.mark.skip("need additional work in data_pipeline::next")
     def test_next_does_not_raise_error_when_num_errors_is_less_than_max_num_warnings(
         self,
     ) -> None:
@@ -89,7 +88,6 @@ class TestDataPipeline:
         # TODO: assert log warning
 
     @pytest.mark.parametrize("max_num_warnings", [0, 1, 2])
-    @pytest.mark.skip("need additional work in data_pipeline::next")
     def test_next_raises_error_when_num_errors_exceed_max_num_warnings(
         self, max_num_warnings: int
     ) -> None:
