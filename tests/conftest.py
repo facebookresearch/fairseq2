@@ -38,7 +38,7 @@ def pytest_sessionstart(session: Session) -> None:
     tests.common.device = cast(Device, session.config.getoption("device"))
 
 
-def pytest_ignore_collect(collection_path: Path, path: None, config: Config) -> bool:
+def pytest_ignore_collect(collection_path: Path, config: Config) -> bool:
     # Ignore integration tests unless we run `pytest --integration`.
     if "integration" in collection_path.parts:
         return not cast(bool, config.getoption("integration"))

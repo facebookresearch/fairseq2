@@ -8,21 +8,24 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
+from enum import Enum
 from pathlib import Path
-from typing import Literal, Protocol, TypeAlias, final
+from typing import Protocol, final
 
 from typing_extensions import override
 
-from fairseq2.assets._card import AssetCard
-from fairseq2.assets._error import AssetCardError, AssetCardNotFoundError
+from fairseq2.assets._card import AssetCard, AssetCardError, AssetCardNotFoundError
 from fairseq2.assets._metadata_provider import (
     AssetMetadataNotFoundError,
     AssetMetadataProvider,
 )
 from fairseq2.error import ContractError
-from fairseq2.utils.env import get_path_from_env
 
-AssetScope: TypeAlias = Literal["all", "global", "user"]
+
+class AssetLookupScope(Enum):
+    ALL = 0
+    SYSTEM = 1
+    USER = 2
 
 
 class AssetStore(ABC):
@@ -30,7 +33,11 @@ class AssetStore(ABC):
 
     @abstractmethod
     def retrieve_card(
-        self, name: str, *, envs: Sequence[str] | None = None, scope: AssetScope = "all"
+        self,
+        name: str,
+        *,
+        envs: Sequence[str] | None = None,
+        scope: AssetLookupScope = AssetLookupScope.ALL,
     ) -> AssetCard:
         """Retrieve the card of the specified asset.
 
@@ -45,7 +52,9 @@ class AssetStore(ABC):
         """
 
     @abstractmethod
-    def retrieve_names(self, *, scope: AssetScope = "all") -> list[str]:
+    def retrieve_names(
+        self, *, scope: AssetLookupScope = AssetLookupScope.ALL
+    ) -> list[str]:
         """Retrieve the names of the assets contained in this store.
 
         :param scope:
@@ -68,13 +77,12 @@ class StandardAssetStore(AssetStore):
 
     @override
     def retrieve_card(
-        self, name: str, *, envs: Sequence[str] | None = None, scope: AssetScope = "all"
+        self,
+        name: str,
+        *,
+        envs: Sequence[str] | None = None,
+        scope: AssetLookupScope = AssetLookupScope.ALL,
     ) -> AssetCard:
-        if scope not in ("all", "global", "user"):
-            raise ValueError(
-                f"`scope` must be 'all', 'global', or 'user', but is '{scope}' instead."
-            )
-
         name_env_pair = name.split("@", maxsplit=1)
 
         name = name_env_pair[0]
@@ -83,7 +91,7 @@ class StandardAssetStore(AssetStore):
         if len(name_env_pair) == 2:
             if envs is not None:
                 raise ValueError(
-                    "`envs` must be `None` since `name` already contains an environment tag."
+                    "`envs` must not be specified since `name` already contains an environment tag."
                 )
 
             envs = [name_env_pair[1]]
@@ -106,14 +114,12 @@ class StandardAssetStore(AssetStore):
         return envs
 
     def _do_retrieve_card(
-        self, name: str, envs: Sequence[str], scope: str
+        self, name: str, envs: Sequence[str], scope: AssetLookupScope
     ) -> AssetCard:
         try:
             metadata = self._get_metadata(f"{name}@", scope)
         except AssetMetadataNotFoundError:
-            raise AssetCardNotFoundError(
-                name, f"An asset card with name '{name}' is not found."
-            ) from None
+            raise AssetCardNotFoundError(name) from None
 
         # If we have environment-specific metadata, merge it with `metadata`.
         for env in reversed(envs):
@@ -162,15 +168,15 @@ class StandardAssetStore(AssetStore):
 
         return AssetCard(name, metadata, base_card, base_path)
 
-    def _get_metadata(self, name: str, scope: str) -> dict[str, object]:
-        if scope == "all" or scope == "user":
+    def _get_metadata(self, name: str, scope: AssetLookupScope) -> dict[str, object]:
+        if scope == AssetLookupScope.ALL or scope == AssetLookupScope.USER:
             for provider in reversed(self.user_metadata_providers):
                 try:
                     return provider.get_metadata(name)
                 except AssetMetadataNotFoundError:
                     continue
 
-        if scope == "all" or scope == "global":
+        if scope == AssetLookupScope.ALL or scope == AssetLookupScope.SYSTEM:
             for provider in reversed(self.metadata_providers):
                 try:
                     return provider.get_metadata(name)
@@ -180,67 +186,26 @@ class StandardAssetStore(AssetStore):
         if name[-1] == "@":
             name = name[:-1]
 
-        raise AssetMetadataNotFoundError(
-            f"An asset metadata with name '{name}' is not found."
-        ) from None
+        raise AssetMetadataNotFoundError(name)
 
     @override
-    def retrieve_names(self, *, scope: AssetScope = "all") -> list[str]:
-        if scope not in ("all", "global", "user"):
-            raise ValueError(
-                f"`scope` must be 'all', 'global', or 'user', but is '{scope}' instead."
-            )
-
+    def retrieve_names(
+        self, *, scope: AssetLookupScope = AssetLookupScope.ALL
+    ) -> list[str]:
         names = []
 
-        if scope == "all" or scope == "user":
+        if scope == AssetLookupScope.ALL or scope == AssetLookupScope.USER:
             for provider in self.user_metadata_providers:
                 names.extend(provider.get_names())
 
-        if scope == "all" or scope == "global":
+        if scope == AssetLookupScope.ALL or scope == AssetLookupScope.SYSTEM:
             for provider in self.metadata_providers:
                 names.extend(provider.get_names())
 
         return names
 
-    def clear_cache(self) -> None:
-        """Clear the cache of the underlying metadata providers."""
-        for provider in self.metadata_providers:
-            provider.clear_cache()
-
-        for provider in self.user_metadata_providers:
-            provider.clear_cache()
-
 
 class EnvironmentResolver(Protocol):
     """Resolves the environment within which assets should be loaded."""
 
-    def __call__(self) -> str | None:
-        ...
-
-
-default_asset_store = StandardAssetStore()
-
-
-def get_asset_dir() -> Path | None:
-    asset_dir = get_path_from_env("FAIRSEQ2_ASSET_DIR")
-    if asset_dir is None:
-        asset_dir = Path("/etc/fairseq2/assets").resolve()
-        if not asset_dir.exists():
-            return None
-
-    return asset_dir
-
-
-def get_user_asset_dir() -> Path | None:
-    asset_dir = get_path_from_env("FAIRSEQ2_USER_ASSET_DIR")
-    if asset_dir is None:
-        asset_dir = get_path_from_env("XDG_CONFIG_HOME")
-        if asset_dir is None:
-            asset_dir = Path("~/.config").expanduser()
-
-        asset_dir = asset_dir.joinpath("fairseq2/assets").resolve()
-        if not asset_dir.exists():
-            return None
-
-    return asset_dir
+    def __call__(self) -> str | None: ...

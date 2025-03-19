@@ -28,8 +28,8 @@ from fairseq2.datasets import (
     DataPipelineReader,
     DataReader,
     DataReadOptions,
-    DatasetError,
     DatasetHubAccessor,
+    DatasetLoadError,
     LengthBatching,
     StaticBatching,
 )
@@ -109,8 +109,8 @@ class GenericTextDataset(TextDataset):
             try:
                 files = [f for f in path.glob("**/*.txt") if not f.is_dir()]
             except OSError as ex:
-                raise DatasetError(
-                    name, f"The text files under the '{path}' directory cannot be retrieved. See the nested exception for details."  # fmt: skip
+                raise DatasetLoadError(
+                    name, f"The text files under the '{path}' directory of the '{name}' dataset cannot be retrieved. See the nested exception for details."  # fmt: skip
                 ) from ex
 
             files.sort()
@@ -214,7 +214,9 @@ class GenericTextDataset(TextDataset):
 
         pipeline = builder.map(f).and_return()
 
-        return DataPipelineReader[SequenceBatch](self._name, pipeline, gang, options)
+        return DataPipelineReader[SequenceBatch](
+            self._name, "default", pipeline, gang, options
+        )
 
     @staticmethod
     def _to_batch(example: dict[str, Any], device: Device) -> SequenceBatch:

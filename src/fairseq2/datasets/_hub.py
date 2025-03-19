@@ -8,13 +8,21 @@ from __future__ import annotations
 
 from typing import Generic, TypeVar, cast, final
 
-from fairseq2.assets import AssetCard, AssetStore
-from fairseq2.context import get_runtime_context
-from fairseq2.datasets._handler import (
-    DatasetHandler,
-    DatasetNotFoundError,
-    get_dataset_family,
+from fairseq2.assets import (
+    AssetCard,
+    AssetCardError,
+    AssetCardFieldNotFoundError,
+    AssetCardNotFoundError,
+    AssetStore,
 )
+from fairseq2.context import get_runtime_context
+from fairseq2.datasets._error import (
+    InvalidDatasetTypeError,
+    UnknownDatasetError,
+    UnknownDatasetFamilyError,
+    dataset_asset_card_error,
+)
+from fairseq2.datasets._handler import DatasetHandler
 from fairseq2.registry import Provider
 
 DatasetT = TypeVar("DatasetT")
@@ -39,20 +47,32 @@ class DatasetHub(Generic[DatasetT]):
     def load(self, name_or_card: str | AssetCard) -> DatasetT:
         if isinstance(name_or_card, AssetCard):
             card = name_or_card
-        else:
-            card = self._asset_store.retrieve_card(name_or_card)
 
-        family = get_dataset_family(card)
+            dataset_name = card.name
+        else:
+            dataset_name = name_or_card
+
+            try:
+                card = self._asset_store.retrieve_card(dataset_name)
+            except AssetCardNotFoundError:
+                raise UnknownDatasetError(dataset_name) from None
+            except AssetCardError as ex:
+                raise dataset_asset_card_error(dataset_name) from ex
 
         try:
-            handler = self._dataset_handlers.get(family)
+            dataset_family = card.field("dataset_family").as_(str)
+        except AssetCardFieldNotFoundError:
+            raise UnknownDatasetError(dataset_name) from None
+        except AssetCardError as ex:
+            raise dataset_asset_card_error(dataset_name) from ex
+
+        try:
+            handler = self._dataset_handlers.get(dataset_family)
         except LookupError:
-            raise DatasetNotFoundError(card.name) from None
+            raise UnknownDatasetFamilyError(dataset_family, dataset_name) from None
 
         if not issubclass(handler.kls, self._kls):
-            raise TypeError(
-                f"The '{card.name}' dataset is expected to be of type `{self._kls}`, but is of type `{handler.kls}` instead."
-            )
+            raise InvalidDatasetTypeError(dataset_name, handler.kls, self._kls)
 
         dataset = handler.load(card)
 
@@ -69,6 +89,8 @@ class DatasetHubAccessor(Generic[DatasetT]):
     def __call__(self) -> DatasetHub[DatasetT]:
         context = get_runtime_context()
 
+        asset_store = context.asset_store
+
         dataset_handlers = context.get_registry(DatasetHandler)
 
-        return DatasetHub(self._kls, context.asset_store, dataset_handlers)
+        return DatasetHub(self._kls, asset_store, dataset_handlers)

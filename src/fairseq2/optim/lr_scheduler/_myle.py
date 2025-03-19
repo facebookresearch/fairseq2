@@ -15,15 +15,16 @@ from typing_extensions import override
 
 from fairseq2.optim.lr_scheduler._handler import LRSchedulerHandler
 from fairseq2.optim.lr_scheduler._lr_scheduler import (
-    AbstractLRScheduler,
     LRScheduler,
+    LRSchedulerBase,
     get_per_param_group,
 )
-from fairseq2.typing import safe_cast
+from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import ValidationError, ValidationResult, validate
 
 
 @final
-class MyleLR(AbstractLRScheduler):
+class MyleLR(LRSchedulerBase):
     """Represents a scaled version of :class:`NoamLR` that preserves the base
     learning rate of the associated optimizer.
 
@@ -95,11 +96,22 @@ MYLE_LR: Final = "myle"
 
 @dataclass(kw_only=True)
 class MyleLRConfig:
-    num_warmup_steps: int = 0
+    num_warmup_steps: int = 1
     """The number of warmup steps."""
 
     start_lr: float = 0.0
     """The initial warmup learning rate."""
+
+    def validate(self) -> None:
+        result = ValidationResult()
+
+        if self.num_warmup_steps == 0:
+            result.add_error("`num_warmup_steps` must be greater than or equal to 1.")
+
+        if result.has_error:
+            raise ValidationError(
+                "The Myle learning rate scheduler configuration has one or more validation errors:", result  # fmt: skip
+            )
 
 
 @final
@@ -108,16 +120,23 @@ class MyleLRHandler(LRSchedulerHandler):
     def create(
         self, optimizer: Optimizer, config: object, num_steps: int | None
     ) -> LRScheduler:
-        config = safe_cast("config", config, MyleLRConfig)
+        config = structure(config, MyleLRConfig)
+
+        validate(config)
 
         return MyleLR(optimizer, config.num_warmup_steps, start_lr=config.start_lr)
 
     @property
     @override
-    def requires_num_steps(self) -> bool:
-        return False
+    def name(self) -> str:
+        return MYLE_LR
 
     @property
     @override
-    def config_kls(self) -> type:
+    def config_kls(self) -> type[object]:
         return MyleLRConfig
+
+    @property
+    @override
+    def requires_num_steps(self) -> bool:
+        return False

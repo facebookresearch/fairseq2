@@ -14,7 +14,6 @@ from typing_extensions import Self, override
 
 from fairseq2.data import DataPipeline, DataPipelineError
 from fairseq2.datasets._config import DataReadOptions, SyncMode
-from fairseq2.datasets._error import DataReadError
 from fairseq2.datasets._utils import _min_num_batches, _sum_num_batches
 from fairseq2.gang import Gang, GangError
 
@@ -25,29 +24,43 @@ class DataReader(ABC, Iterator[list[BatchT_co]]):
     """Reads batches of examples from a dataset."""
 
     @abstractmethod
-    def __iter__(self) -> Self:
-        ...
+    def __iter__(self) -> Self: ...
 
     @abstractmethod
-    def __next__(self) -> list[BatchT_co]:
-        ...
+    def __next__(self) -> list[BatchT_co]: ...
 
     @abstractmethod
     def reset(self) -> None:
         """Reset state and move back to the first batch."""
 
     @abstractmethod
-    def state_dict(self) -> dict[str, object]:
-        ...
+    def state_dict(self) -> dict[str, object]: ...
 
     @abstractmethod
-    def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
-        ...
+    def load_state_dict(self, state_dict: Mapping[str, object]) -> None: ...
+
+    @property
+    @abstractmethod
+    def dataset_name(self) -> str: ...
+
+    @property
+    @abstractmethod
+    def split(self) -> str: ...
 
     @property
     @abstractmethod
     def num_accumulate(self) -> int:
         """The number of batches accumulated in each iteration."""
+
+
+class DataReadError(Exception):
+    dataset_name: str
+
+    def __init__(self, dataset_name: str, split: str, message: str) -> None:
+        super().__init__(message)
+
+        self.dataset_name = dataset_name
+        self.split = split
 
 
 BatchT = TypeVar("BatchT")
@@ -57,7 +70,8 @@ BatchT = TypeVar("BatchT")
 class DataPipelineReader(DataReader[BatchT]):
     """Reads batches of examples from a dataset using a :class:`DataPipeline`."""
 
-    _name: str
+    _dataset_name: str
+    _split: str
     _pipeline: DataPipeline
     _pipeline_iter: Iterator[BatchT]
     _gang: Gang
@@ -65,7 +79,12 @@ class DataPipelineReader(DataReader[BatchT]):
     _eod: bool
 
     def __init__(
-        self, name: str, pipeline: DataPipeline, gang: Gang, options: DataReadOptions
+        self,
+        dataset_name: str,
+        split: str,
+        pipeline: DataPipeline,
+        gang: Gang,
+        options: DataReadOptions,
     ) -> None:
         """
         :param name: The name of the dataset.
@@ -73,7 +92,8 @@ class DataPipelineReader(DataReader[BatchT]):
         :param gang: The gang over which the underlying dataset is sharded.
         :param options: The read options.
         """
-        self._name = name
+        self._dataset_name = dataset_name
+        self._split = split
         self._pipeline = pipeline
         self._pipeline_iter = iter(pipeline)
         self._gang = gang
@@ -100,7 +120,7 @@ class DataPipelineReader(DataReader[BatchT]):
                 break
             except DataPipelineError as ex:
                 raise DataReadError(
-                    self._name, "The data pipeline has failed to read the next batch. See the nested exception for details."  # fmt: skip
+                    self._dataset_name, self._split, f"The data pipeline has failed to read the next batch from the '{self._split}' split of the '{self._dataset_name}' dataset. See the nested exception for details."  # fmt: skip
                 ) from ex
 
             batches.append(batch)
@@ -123,7 +143,7 @@ class DataPipelineReader(DataReader[BatchT]):
                         batches = batches[:num_batches]
             except GangError as ex:
                 raise DataReadError(
-                    self._name, "The batch synchronization of the gang processes has failed. See the nested exception for details."  # fmt: skip
+                    self._dataset_name, self._split, f"The batch synchronization of the gang processes has failed while reading the '{self._split}' split of the '{self._dataset_name}' dataset. See the nested exception for details."  # fmt: skip
                 ) from ex
         else:
             num_batches = local_num_batches
@@ -150,6 +170,16 @@ class DataPipelineReader(DataReader[BatchT]):
         self._eod = False
 
         self._pipeline.load_state_dict(state_dict)
+
+    @property
+    @override
+    def dataset_name(self) -> str:
+        return self._dataset_name
+
+    @property
+    @override
+    def split(self) -> str:
+        return self._split
 
     @property
     @override

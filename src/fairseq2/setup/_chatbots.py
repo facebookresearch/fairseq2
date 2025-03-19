@@ -10,12 +10,19 @@ from fairseq2.chatbots import ChatbotHandler
 from fairseq2.chatbots.llama import LLaMAChatbotHandler
 from fairseq2.chatbots.mistral import MistralChatbotHandler
 from fairseq2.context import RuntimeContext
-from fairseq2.models.llama import LLAMA_MODEL_FAMILY
-from fairseq2.models.mistral import MISTRAL_MODEL_FAMILY
 
 
-def _register_chatbots(context: RuntimeContext) -> None:
+def register_chatbots(context: RuntimeContext) -> None:
     registry = context.get_registry(ChatbotHandler)
 
-    registry.register(LLAMA_MODEL_FAMILY, LLaMAChatbotHandler())
-    registry.register(MISTRAL_MODEL_FAMILY, MistralChatbotHandler())
+    handler: ChatbotHandler
+
+    # LLaMA
+    handler = LLaMAChatbotHandler()
+
+    registry.register(handler.family, handler)
+
+    # Mistral
+    handler = MistralChatbotHandler()
+
+    registry.register(handler.family, handler)

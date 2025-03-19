@@ -6,55 +6,29 @@
 
 from __future__ import annotations
 
-from fairseq2.recipes.cli import Cli, RecipeCommandHandler
-from fairseq2.recipes.mt.eval import load_mt_evaluator, mt_eval_presets
-from fairseq2.recipes.mt.train import load_mt_trainer, mt_train_presets
-from fairseq2.recipes.mt.translate import load_text_translator, text_translate_presets
-
-
-def _setup_mt_cli(cli: Cli) -> None:
-    extra_sweep_keys = {"source_lang", "target_lang"}
-
-    group = cli.add_group("mt", help="machine translation recipes")
-
-    # Train
-    train_handler = RecipeCommandHandler(
-        loader=load_mt_trainer,
-        preset_configs=mt_train_presets,
-        default_preset="nllb_dense_600m",
-        extra_sweep_keys=extra_sweep_keys,
-    )
-
-    group.add_command(
-        name="train",
-        handler=train_handler,
-        help="train a machine translation model",
-    )
-
-    # Eval
-    eval_handler = RecipeCommandHandler(
-        loader=load_mt_evaluator,
-        preset_configs=mt_eval_presets,
-        default_preset="nllb_dense_600m",
-        extra_sweep_keys=extra_sweep_keys,
-    )
-
-    group.add_command(
-        name="eval",
-        handler=eval_handler,
-        help="evaluate a machine translation model",
-    )
-
-    # Translate
-    text_translate_handler = RecipeCommandHandler(
-        loader=load_text_translator,
-        preset_configs=text_translate_presets,
-        default_preset="nllb_dense_600m",
-        extra_sweep_keys=extra_sweep_keys,
-    )
-
-    group.add_command(
-        name="translate",
-        handler=text_translate_handler,
-        help="translate text",
-    )
+from fairseq2.recipes.mt._common import MTCriterion as MTCriterion
+from fairseq2.recipes.mt._common import MTLossSection as MTLossSection
+from fairseq2.recipes.mt._eval import MTBleuChrfEvalUnit as MTBleuChrfEvalUnit
+from fairseq2.recipes.mt._eval import MTEvalConfig as MTEvalConfig
+from fairseq2.recipes.mt._eval import MTEvalDatasetSection as MTEvalDatasetSection
+from fairseq2.recipes.mt._eval import MTLossEvalUnit as MTLossEvalUnit
+from fairseq2.recipes.mt._eval import load_mt_evaluator as load_mt_evaluator
+from fairseq2.recipes.mt._eval import (
+    register_mt_eval_configs as register_mt_eval_configs,
+)
+from fairseq2.recipes.mt._train import MTTrainConfig as MTTrainConfig
+from fairseq2.recipes.mt._train import MTTrainDatasetSection as MTTrainDatasetSection
+from fairseq2.recipes.mt._train import MTTrainUnit as MTTrainUnit
+from fairseq2.recipes.mt._train import MTValidationSection as MTValidationSection
+from fairseq2.recipes.mt._train import load_mt_trainer as load_mt_trainer
+from fairseq2.recipes.mt._train import (
+    register_mt_train_configs as register_mt_train_configs,
+)
+from fairseq2.recipes.mt._translate import TextTranslateConfig as TextTranslateConfig
+from fairseq2.recipes.mt._translate import (
+    TextTranslateDatasetSection as TextTranslateDatasetSection,
+)
+from fairseq2.recipes.mt._translate import load_text_translator as load_text_translator
+from fairseq2.recipes.mt._translate import (
+    register_text_translate_configs as register_text_translate_configs,
+)

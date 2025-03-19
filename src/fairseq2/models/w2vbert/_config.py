@@ -12,6 +12,7 @@ from typing import Final
 from fairseq2.context import RuntimeContext
 from fairseq2.models.wav2vec2 import Wav2Vec2Config, Wav2Vec2EncoderConfig
 from fairseq2.nn.transformer import TransformerNormOrder
+from fairseq2.utils.validation import ValidationError, ValidationResult
 
 W2VBERT_MODEL_FAMILY: Final = "w2vbert"
 
@@ -77,6 +78,31 @@ class W2VBertConfig:
 
     num_target_codebooks: int = 1
     """The number of consecutive codebooks to use as masked prediction targets."""
+
+    def validate(self) -> None:
+        result = ValidationResult()
+
+        encoder_config = self.w2v2_config.encoder_config
+
+        if encoder_config.layer_drop_p != 0.0:
+            result.add_error(
+                f"`w2v2_config.encoder_config.layer_drop_p` must be 0.0 since w2v-BERT does not support LayerDrop, but is {encoder_config.layer_drop_p} instead."
+            )
+
+        if self.num_bert_encoder_layers >= encoder_config.num_encoder_layers:
+            result.add_error(
+                f"`num_bert_encoder_layers` must be less than `w2v2_config.encoder_config.num_encoder_layers` ({encoder_config.num_encoder_layers}), but is {self.num_bert_encoder_layers} instead."
+            )
+
+        if self.num_target_codebooks > self.w2v2_config.num_codebooks:
+            result.add_error(
+                f"`num_target_codebooks` must be less than `w2v2_config.num_codebooks` ({self.w2v2_config.num_codebooks}), but is {self.num_target_codebooks} instead."
+            )
+
+        if result.has_error:
+            raise ValidationError(
+                "The W2V-BERT configuration has one or more validation errors:", result  # fmt: skip
+            )
 
 
 def register_w2vbert_configs(context: RuntimeContext) -> None:

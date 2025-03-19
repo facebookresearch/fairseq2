@@ -11,6 +11,7 @@ from typing import Final
 
 from fairseq2.context import RuntimeContext
 from fairseq2.nn.transformer import TransformerNormOrder
+from fairseq2.utils.validation import ValidationError, ValidationResult
 
 WAV2VEC2_MODEL_FAMILY: Final = "wav2vec2"
 
@@ -185,6 +186,19 @@ class Wav2Vec2EncoderConfig:
     depthwise_conv_kernel_size: int = 0
     """The kernel size of depthwise convolutions in Conformer blocks."""
 
+    def validate(self) -> None:
+        result = ValidationResult()
+
+        if self.use_conformer and self.norm_order != TransformerNormOrder.POST:
+            result.add_error(
+                f"`norm_order` must be `POST` when `use_conformer` is `True`, but is `{self.norm_order}` instead."
+            )
+
+        if result.has_error:
+            raise ValidationError(
+                "The wav2vec 2.0 encoder configuration has one or more validation errors:", result  # fmt: skip
+            )
+
 
 def register_wav2vec2_configs(context: RuntimeContext) -> None:
     registry = context.get_config_registry(Wav2Vec2Config)
@@ -222,52 +236,3 @@ def register_wav2vec2_configs(context: RuntimeContext) -> None:
         config.codebook_sampling_temperature = (2.0, 0.1, 0.999995)
 
         return config
-
-    @arch("pseudo_dinosr_base")
-    def pseudo_dinosr_base() -> Wav2Vec2Config:
-        layer_descs = [(512, 10, 5)] + [(512, 3, 2)] * 4 + [(512, 2, 2)] * 3
-
-        encoder_config = Wav2Vec2EncoderConfig(
-            model_dim=768,
-            max_seq_len=100000,
-            feature_dim=512,
-            use_fbank=False,
-            first_pass_dropout_p=0.0,
-            layer_norm_features=True,
-            feature_extractor_layer_descs=layer_descs,
-            feature_extractor_bias=False,
-            feature_extractor_layer_norm_convs=True,
-            feature_gradient_scale=0.1,
-            num_fbank_channels=0,
-            fbank_stride=0,
-            sample_fbank_every_k=0,
-            pos_encoder_type="conv",
-            pos_encoder_depth=5,
-            pos_conv_kernel_size=95,
-            num_pos_conv_groups=16,
-            use_conformer=False,
-            num_encoder_layers=12,
-            num_encoder_attn_heads=12,
-            ffn_inner_dim=3072,
-            dropout_p=0.1,
-            attn_dropout_p=0.1,
-            layer_drop_p=0.0,
-            norm_order=TransformerNormOrder.POST,
-            depthwise_conv_kernel_size=31,
-        )
-
-        return Wav2Vec2Config(
-            encoder_config=encoder_config,
-            final_dim=256,
-            final_proj_bias=True,
-            temporal_mask_span_len=10,
-            max_temporal_mask_prob=0.65,
-            spatial_mask_span_len=10,
-            max_spatial_mask_prob=0.0,
-            quantized_dim=256,
-            num_codebooks=2,
-            num_codebook_entries=320,
-            codebook_sampling_temperature=(2.0, 0.5, 0.999995),
-            num_distractors=100,
-            logit_temp=0.1,
-        )

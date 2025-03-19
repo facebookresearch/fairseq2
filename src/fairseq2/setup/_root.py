@@ -6,28 +6,51 @@
 
 from __future__ import annotations
 
-from fairseq2.assets import InProcAssetDownloadManager, default_asset_store
+import os
+from enum import Enum
+from typing import Mapping
+
+from fairseq2.assets import (
+    AssetDirectories,
+    AssetDownloadManager,
+    InProcAssetDownloadManager,
+    StandardAssetStore,
+)
 from fairseq2.context import RuntimeContext, set_runtime_context
 from fairseq2.extensions import run_extensions
-from fairseq2.setup._assets import _register_assets
-from fairseq2.setup._chatbots import _register_chatbots
-from fairseq2.setup._clusters import _register_clusters
-from fairseq2.setup._config import _register_config_sections
-from fairseq2.setup._datasets import _register_datasets
+from fairseq2.setup._asset import register_assets
+from fairseq2.setup._chatbots import register_chatbots
+from fairseq2.setup._cluster import register_clusters
+from fairseq2.setup._datasets import register_dataset_families
 from fairseq2.setup._generation import (
-    _register_beam_search_algorithms,
-    _register_samplers,
-    _register_seq2seq_generators,
-    _register_seq_generators,
+    register_beam_search_algorithms,
+    register_samplers,
+    register_seq2seq_generators,
+    register_seq_generators,
 )
-from fairseq2.setup._models import _register_models
-from fairseq2.setup._optim import _register_lr_schedulers, _register_optimizers
-from fairseq2.setup._text_tokenizers import _register_text_tokenizers
+from fairseq2.setup._lr_schedulers import register_lr_schedulers
+from fairseq2.setup._metric_recorders import register_metric_recorders
+from fairseq2.setup._metrics import register_metric_descriptors
+from fairseq2.setup._models import register_model_families
+from fairseq2.setup._optim import register_optimizers
+from fairseq2.setup._po_finetune_units import register_po_finetune_units
+from fairseq2.setup._profilers import register_profilers
+from fairseq2.setup._recipes import register_recipes
+from fairseq2.setup._text_tokenizers import register_text_tokenizer_families
+from fairseq2.utils.file import FileSystem, LocalFileSystem
+from fairseq2.utils.progress import NoopProgressReporter, ProgressReporter
 
-_setup_called: bool = False
+
+class _SetupState(Enum):
+    NOT_CALLED = 0
+    IN_CALL = 1
+    CALLED = 2
 
 
-def setup_fairseq2() -> None:
+_setup_state: _SetupState = _SetupState.NOT_CALLED
+
+
+def setup_fairseq2(progress_reporter: ProgressReporter | None = None) -> None:
     """
     Sets up fairseq2.
 
@@ -41,39 +64,76 @@ def setup_fairseq2() -> None:
 
     .. __: https://setuptools.pypa.io/en/latest/userguide/entry_point.html
     """
-    global _setup_called
+    global _setup_state
 
-    if _setup_called:
+    if _setup_state == _SetupState.CALLED:
         return
 
-    _setup_called = True  # Mark as called to avoid recursive calls.
+    if _setup_state == _SetupState.IN_CALL:
+        raise RuntimeError("`setup_fairseq2()` cannot be called recursively.")
 
-    context = setup_runtime_context()
+    _setup_state = _SetupState.IN_CALL
+
+    try:
+        context = setup_library(progress_reporter)
+    except Exception:
+        _setup_state = _SetupState.NOT_CALLED
+
+        raise
 
     set_runtime_context(context)
 
-    run_extensions("fairseq2")  # compat
+    _setup_state = _SetupState.CALLED
 
 
-def setup_runtime_context() -> RuntimeContext:
-    asset_download_manager = InProcAssetDownloadManager()
+def setup_library(progress_reporter: ProgressReporter | None = None) -> RuntimeContext:
+    env = os.environ
 
-    context = RuntimeContext(default_asset_store, asset_download_manager)
+    file_system = LocalFileSystem()
 
-    _register_assets(context)
-    _register_beam_search_algorithms(context)
-    _register_chatbots(context)
-    _register_clusters(context)
-    _register_config_sections(context)
-    _register_datasets(context)
-    _register_lr_schedulers(context)
-    _register_models(context)
-    _register_optimizers(context)
-    _register_samplers(context)
-    _register_seq2seq_generators(context)
-    _register_seq_generators(context)
-    _register_text_tokenizers(context)
+    asset_store = StandardAssetStore()
 
-    run_extensions("fairseq2.extension", context)
+    asset_download_manager = _create_asset_download_manager(env, file_system)
+
+    if progress_reporter is None:
+        progress_reporter = NoopProgressReporter()
+
+    context = RuntimeContext(
+        env, asset_store, asset_download_manager, file_system, progress_reporter
+    )
+
+    context.wall_watch.start()
+
+    register_assets(context)
+    register_beam_search_algorithms(context)
+    register_chatbots(context)
+    register_clusters(context)
+    register_dataset_families(context)
+    register_lr_schedulers(context)
+    register_metric_descriptors(context)
+    register_metric_recorders(context)
+    register_model_families(context)
+    register_optimizers(context)
+    register_po_finetune_units(context)
+    register_profilers(context)
+    register_recipes(context)
+    register_samplers(context)
+    register_seq2seq_generators(context)
+    register_seq_generators(context)
+    register_text_tokenizer_families(context)
+
+    signature = "extension_function(context: RuntimeContext) -> None"
+
+    run_extensions("fairseq2.extension", signature, context)
 
     return context
+
+
+def _create_asset_download_manager(
+    env: Mapping[str, str], file_system: FileSystem
+) -> AssetDownloadManager:
+    asset_dirs = AssetDirectories(env, file_system)
+
+    asset_cache_dir = asset_dirs.get_cache_dir()
+
+    return InProcAssetDownloadManager(asset_cache_dir)

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from setuptools import find_namespace_packages, setup
 
-version = "0.4.0.dev0"
+version = "0.5.0.dev0"
 
 # If this is a local development install, allow nightly fairseq2n builds to
 # take precedence.
@@ -73,5 +73,5 @@ setup(
     extras_require={
         "arrow": ["pyarrow>=13.0.0", "pandas~=2.0.0"],
     },
-    entry_points={"console_scripts": ["fairseq2=fairseq2.recipes:main"]},
+    entry_points={"console_scripts": ["fairseq2=fairseq2.cli:main"]},
 )

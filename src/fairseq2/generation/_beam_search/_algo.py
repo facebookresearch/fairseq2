@@ -62,7 +62,6 @@ class StandardBeamSearchAlgorithm(BeamSearchAlgorithm):
         return BeamStep(top_indices // vocab_size, top_indices % vocab_size, top_scores)
 
 
-@final
 @dataclass
 class BeamStep:
     """Represents the output of a beam search algorithm."""
@@ -111,16 +110,18 @@ class BeamStep:
 
 class BeamSearchAlgorithmHandler(ABC):
     @abstractmethod
-    def create(self, config: object) -> BeamSearchAlgorithm:
-        ...
+    def create(self, config: object) -> BeamSearchAlgorithm: ...
 
     @property
     @abstractmethod
-    def config_kls(self) -> type:
-        ...
+    def name(self) -> str: ...
+
+    @property
+    @abstractmethod
+    def config_kls(self) -> type[object]: ...
 
 
-class BeamSearchAlgorithmNotFoundError(LookupError):
+class UnknownBeamSearchAlgorithmError(Exception):
     name: str
 
     def __init__(self, name: str) -> None:
@@ -145,5 +146,10 @@ class StandardBeamSearchAlgorithmHandler(BeamSearchAlgorithmHandler):
 
     @property
     @override
-    def config_kls(self) -> type:
+    def name(self) -> str:
+        return STANDARD_BEAM_SEARCH_ALGO
+
+    @property
+    @override
+    def config_kls(self) -> type[object]:
         return NoneType

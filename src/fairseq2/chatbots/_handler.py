@@ -15,14 +15,10 @@ from fairseq2.generation import SequenceGenerator
 
 class ChatbotHandler(ABC):
     @abstractmethod
-    def create(self, generator: SequenceGenerator, tokenizer: TextTokenizer) -> Chatbot:
-        ...
+    def create(
+        self, generator: SequenceGenerator, tokenizer: TextTokenizer
+    ) -> Chatbot: ...
 
-
-class ChatbotNotFoundError(LookupError):
-    name: str
-
-    def __init__(self, name: str) -> None:
-        super().__init__(f"'{name}' is not a known chatbot.")
-
-        self.name = name
+    @property
+    @abstractmethod
+    def family(self) -> str: ...

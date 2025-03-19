@@ -16,17 +16,105 @@ Key Features
 - CLI setup for language model training
 - Common training recipes and configurations
 
-Submodules
-==========
+Instruction Fine-Tuning
+=======================
 
-.. toctree::
-    :maxdepth: 1
+Classes
+~~~~~~~
 
-    instruction_finetune
+.. autoclass:: InstructionFinetuneConfig
 
-The ``instruction_finetune`` module provides specialized utilities for instruction-based fine-tuning of language models.
+.. autoclass:: InstructionFinetuneCriterion
+
+.. autoclass:: InstructionFinetuneDatasetSection
+
+.. autoclass:: InstructionFinetuneUnit
+
+.. autoclass:: InstructionLossEvalUnit
+
+
+Functions
+~~~~~~~~~
+
+.. autofunction:: load_instruction_finetuner
+
+
+Preference Fine-Tuning
+======================
+
+Classes (PO)
+~~~~~~~~~~~~
+
+.. autoclass:: POFinetuneConfig
+
+.. autoclass:: POFinetuneMetricBag
+
+.. autoclass:: POCriterionSection
+
+.. autoclass:: POFinetuneDatasetSection
+
+
+.. autoclass:: CpoFinetuneConfig
+
+.. autoclass:: CpoFinetuneUnit
+
+.. autoclass:: CpoFinetuneUnitHandler
+
+.. autoclass:: CpoFinetuneMetricBag
+
+
+.. autoclass:: DpoFinetuneConfig
+
+.. autoclass:: DpoFinetuneUnit
+
+.. autoclass:: DpoFinetuneUnitHandler
+
+.. autoclass:: DpoFinetuneMetricBag
+
+
+.. autoclass:: OrpoFinetuneConfig
+
+.. autoclass:: OrpoFinetuneUnit
+
+.. autoclass:: OrpoFinetuneUnitHandler
+
+.. autoclass:: OrpoFinetuneMetricBag
+
+
+.. autoclass:: SimPOFinetuneConfig
+
+.. autoclass:: SimPOFinetuneUnit
+
+.. autoclass:: SimPOFinetuneUnitHandler
+
+.. autoclass:: SimPOFinetuneMetricBag
+
+Functions (PO)
+~~~~~~~~~~~~~~
+
+.. autofunction:: load_po_finetuner
+
+
+Text Generation
+================
+
+Classes (Text Generation)
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: TextGenerateConfig
+
+.. autoclass:: TextGenerateDatasetSection
+
+.. autoclass:: TextGenerateUnit
+
+Functions (Text Generation)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autofunction:: load_text_generator
+
 
 Usage Examples
 ==============
 
 - :ref:`tutorial-end-to-end-fine-tuning`
+

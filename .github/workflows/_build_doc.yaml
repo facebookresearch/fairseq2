@@ -9,7 +9,7 @@ on:
     inputs:
       torch:
         type: string
-        default: '2.5.1'
+        default: '2.6.0'
       py:
         type: string
         default: '3.12'
@@ -28,9 +28,9 @@ jobs:
       run:
         shell: bash
     steps:
-      - name: Install Git LFS
+      - name: Install Package
         run: |
-          yum install -y git-lfs
+          yum install -y git-lfs epel-release pandoc
       - name: Check-out the repository
         uses: actions/checkout@v3
         with:

@@ -19,17 +19,17 @@ T_co = TypeVar("T_co", covariant=True)
 
 class Provider(ABC, Generic[T_co]):
     @abstractmethod
-    def get(self, key: Hashable) -> T_co:
-        ...
+    def get(self, key: Hashable) -> T_co: ...
 
     @abstractmethod
-    def get_all(self) -> Iterable[tuple[Hashable, T_co]]:
-        ...
+    def get_all(self) -> Iterable[tuple[Hashable, T_co]]: ...
+
+    @abstractmethod
+    def has(self, key: Hashable) -> bool: ...
 
     @property
     @abstractmethod
-    def kls(self) -> type[T_co]:
-        ...
+    def kls(self) -> type[T_co]: ...
 
 
 T = TypeVar("T")
@@ -55,13 +55,17 @@ class Registry(Provider[T]):
     def get_all(self) -> Iterable[tuple[Hashable, T]]:
         return self._entries.items()
 
+    @override
+    def has(self, key: Hashable) -> bool:
+        return key in self._entries
+
     def register(self, key: Hashable, value: T) -> None:
         if key in self._entries:
             raise AlreadyExistsError(f"The registry already contains a '{key}' key.")
 
         self._entries[key] = value
 
-    @override
     @property
+    @override
     def kls(self) -> type[T]:
         return self._kls

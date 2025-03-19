@@ -7,23 +7,25 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections import OrderedDict
 from collections.abc import Sequence
 from typing import final
 
 import torch
 from torch import Tensor
 from torch.nn.functional import softmax
+from torch.utils.hooks import RemovableHandle
 from typing_extensions import override
 
 from fairseq2.data import VocabularyInfo
 from fairseq2.error import InternalError
 from fairseq2.generation._generator import (
-    AbstractSeq2SeqGenerator,
-    AbstractSequenceGenerator,
     GenerationCounters,
     Hypothesis,
+    Seq2SeqGenerator,
     Seq2SeqGeneratorOutput,
     SequenceGenerationError,
+    SequenceGenerator,
     SequenceGeneratorOutput,
     StepHook,
 )
@@ -35,13 +37,14 @@ from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.nn import IncrementalStateBag
 from fairseq2.nn.ops import repeat_interleave
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.utils.profiler import Stopwatch
+from fairseq2.utils.stopwatch import Stopwatch
 
 
 @final
-class SamplingSequenceGenerator(AbstractSequenceGenerator):
+class SamplingSequenceGenerator(SequenceGenerator):
     """Represents a sequence generator based on sampling."""
 
+    _model: DecoderModel
     _sampler: Sampler
     _num_gens: int
     _min_gen_len: int
@@ -56,6 +59,7 @@ class SamplingSequenceGenerator(AbstractSequenceGenerator):
     _prefill_chunk_size: int | None
     _decode_capacity_increment: int | None
     _step_processors: Sequence[StepProcessor]
+    _step_hooks: dict[int, StepHook]
 
     def __init__(
         self,
@@ -114,7 +118,14 @@ class SamplingSequenceGenerator(AbstractSequenceGenerator):
         :param step_processors:
             The processors to call at each generation step.
         """
-        super().__init__(model)
+        if model.vocab_info.eos_idx is None:
+            raise ValueError(
+                "`model.vocab_info` must have `eos_idx` set for sequence generation."
+            )
+
+        model.eval()
+
+        self._model = model
 
         if min_gen_len < 1:
             raise ValueError(
@@ -165,6 +176,8 @@ class SamplingSequenceGenerator(AbstractSequenceGenerator):
         else:
             self._step_processors = []
 
+        self._step_hooks = OrderedDict()
+
     @torch.inference_mode()
     @override
     def __call__(
@@ -195,11 +208,25 @@ class SamplingSequenceGenerator(AbstractSequenceGenerator):
 
         return SequenceGeneratorOutput(hypotheses, counters)
 
+    @override
+    def register_step_hook(self, hook: StepHook) -> RemovableHandle:
+        handle = RemovableHandle(self._step_hooks)
+
+        self._step_hooks[handle.id] = hook
+
+        return handle
+
+    @property
+    @override
+    def model(self) -> DecoderModel:
+        return self._model
+
 
 @final
-class SamplingSeq2SeqGenerator(AbstractSeq2SeqGenerator):
+class SamplingSeq2SeqGenerator(Seq2SeqGenerator):
     """Represents a sequence-to-sequence generator based on sampling."""
 
+    _model: EncoderDecoderModel
     _sampler: Sampler
     _num_gens: int
     _min_gen_len: int
@@ -214,6 +241,7 @@ class SamplingSeq2SeqGenerator(AbstractSeq2SeqGenerator):
     _prefill_chunk_size: int | None
     _decode_capacity_increment: int | None
     _step_processors: Sequence[StepProcessor]
+    _step_hooks: dict[int, StepHook]
 
     def __init__(
         self,
@@ -273,7 +301,14 @@ class SamplingSeq2SeqGenerator(AbstractSeq2SeqGenerator):
         :param step_processors:
             The processors to call at each generation step.
         """
-        super().__init__(model)
+        if model.target_vocab_info.eos_idx is None:
+            raise ValueError(
+                "`model.vocab_info` must have `eos_idx` set for sequence generation."
+            )
+
+        model.eval()
+
+        self._model = model
 
         if min_gen_len < 1:
             raise ValueError(
@@ -313,6 +348,8 @@ class SamplingSeq2SeqGenerator(AbstractSeq2SeqGenerator):
             self._step_processors = step_processors
         else:
             self._step_processors = []
+
+        self._step_hooks = OrderedDict()
 
     @torch.inference_mode()
     @override
@@ -378,6 +415,19 @@ class SamplingSeq2SeqGenerator(AbstractSeq2SeqGenerator):
             hypotheses, encoder_output, encoder_padding_mask, counters
         )
 
+    @override
+    def register_step_hook(self, hook: StepHook) -> RemovableHandle:
+        handle = RemovableHandle(self._step_hooks)
+
+        self._step_hooks[handle.id] = hook
+
+        return handle
+
+    @property
+    @override
+    def model(self) -> EncoderDecoderModel:
+        return self._model
+
 
 class _AbstractSamplingSequenceGeneratorOp(ABC):
     _sampler: Sampler
@@ -406,6 +456,7 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
     _seqs: Tensor
     _step_scores: Tensor | None
     _output: list[list[Hypothesis]]
+    _watch: Stopwatch
     _counters: GenerationCounters
 
     def __init__(
@@ -524,18 +575,24 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
         # Holds the sequences that have reached EOS.
         self._output = [[] for _ in range(num_prompts)]
 
+        self._watch = Stopwatch(device=self._seqs.device)
+
         self._counters = GenerationCounters()
 
     def __call__(self) -> tuple[list[list[Hypothesis]], GenerationCounters]:
         self._prepare_state()
 
-        watch = Stopwatch(start=True, device=self._seqs.device)
+        self._watch.start()
 
         for self._step_nr in range(self._min_prompt_len, self._max_seq_len):
             if not self._step():
                 break
 
-        self._counters.generation_time = watch.get_elapsed_time()
+        self._watch.stop()
+
+        self._counters.generation_time = self._watch.get_elapsed_time()
+
+        self._watch.reset()
 
         self._counters.cache_size = self._state_bag.size_bytes()
         self._counters.cache_capacity = self._state_bag.capacity_bytes()
@@ -743,8 +800,7 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
         return True
 
     @abstractmethod
-    def _decode(self, seqs: Tensor) -> SequenceModelOutput:
-        ...
+    def _decode(self, seqs: Tensor) -> SequenceModelOutput: ...
 
     def _finish_sequence(self, seq_idx: int) -> None:
         if self._echo_prompt:
@@ -767,7 +823,8 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
             # (S)
             step_scores = self._step_scores[seq_idx, :seq_len]
 
-            score = step_scores.sum()
+            # Skip the first step since its score is always 0.
+            score = step_scores[1:].log().sum()
 
             if self._normalize_scores:
                 # Since the first step's score is always 0, do not include it in

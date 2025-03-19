@@ -11,12 +11,26 @@ from typing import Generic, TypeVar, cast, final
 import torch
 from torch.nn import Module
 
-from fairseq2.assets import AssetCard, AssetStore
+from fairseq2.assets import (
+    AssetCard,
+    AssetCardError,
+    AssetCardFieldNotFoundError,
+    AssetCardNotFoundError,
+    AssetStore,
+)
 from fairseq2.context import get_runtime_context
 from fairseq2.gang import Gangs, fake_gangs
-from fairseq2.models._handler import ModelHandler, ModelNotFoundError, get_model_family
+from fairseq2.models._error import (
+    InvalidModelConfigTypeError,
+    InvalidModelTypeError,
+    ModelConfigLoadError,
+    UnknownModelError,
+    UnknownModelFamilyError,
+    model_asset_card_error,
+)
+from fairseq2.models._handler import ModelHandler
 from fairseq2.registry import Provider
-from fairseq2.typing import CPU, DataType, Device
+from fairseq2.typing import DataType, Device
 
 ModelT = TypeVar("ModelT", bound=Module)
 
@@ -43,21 +57,40 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
         self._model_handlers = model_handlers
 
     def load_config(self, name_or_card: str | AssetCard) -> ModelConfigT:
+        def asset_card_error(model_name: str) -> Exception:
+            return ModelConfigLoadError(
+                model_name, f"The '{model_name}' asset card cannot be read. See the nested exception for details."  # fmt: skip
+            )
+
         if isinstance(name_or_card, AssetCard):
             card = name_or_card
-        else:
-            card = self._asset_store.retrieve_card(name_or_card)
 
-        family = get_model_family(card)
+            model_name = card.name
+        else:
+            model_name = name_or_card
+
+            try:
+                card = self._asset_store.retrieve_card(model_name)
+            except AssetCardNotFoundError:
+                raise UnknownModelError(model_name) from None
+            except AssetCardError as ex:
+                raise asset_card_error(model_name) from ex
 
         try:
-            handler = self._model_handlers.get(family)
+            model_family = card.field("model_family").as_(str)
+        except AssetCardFieldNotFoundError:
+            raise UnknownModelError(model_name) from None
+        except AssetCardError as ex:
+            raise asset_card_error(model_name) from ex
+
+        try:
+            handler = self._model_handlers.get(model_family)
         except LookupError:
-            raise ModelNotFoundError(card.name) from None
+            raise UnknownModelFamilyError(model_family, model_name) from None
 
         if not issubclass(handler.config_kls, self._config_kls):
-            raise TypeError(
-                f"The '{card.name}' model configuration is expected to be of type `{self._config_kls}`, but is of type `{handler.config_kls}` instead."
+            raise InvalidModelConfigTypeError(
+                model_name, handler.config_kls, self._config_kls
             )
 
         config = handler.load_config(card)
@@ -84,30 +117,44 @@ class ModelHub(Generic[ModelT, ModelConfigT]):
 
             gangs = fake_gangs(device)
         elif gangs is None:
-            gangs = fake_gangs(CPU)
+            device = torch.get_default_device()
+
+            gangs = fake_gangs(device)
         else:
             if gangs.root.device.type == "meta":
                 raise ValueError("`gangs` must be on a real device.")
 
         if isinstance(name_or_card, AssetCard):
             card = name_or_card
-        else:
-            card = self._asset_store.retrieve_card(name_or_card)
 
-        family = get_model_family(card)
+            model_name = card.name
+        else:
+            model_name = name_or_card
+
+            try:
+                card = self._asset_store.retrieve_card(model_name)
+            except AssetCardNotFoundError:
+                raise UnknownModelError(model_name) from None
+            except AssetCardError as ex:
+                raise model_asset_card_error(model_name) from ex
 
         try:
-            handler = self._model_handlers.get(family)
+            model_family = card.field("model_family").as_(str)
+        except AssetCardFieldNotFoundError:
+            raise UnknownModelError(model_name) from None
+        except AssetCardError as ex:
+            raise model_asset_card_error(model_name) from ex
+
+        try:
+            handler = self._model_handlers.get(model_family)
         except LookupError:
-            raise ModelNotFoundError(card.name) from None
+            raise UnknownModelFamilyError(model_family, model_name) from None
 
         if not issubclass(handler.kls, self._kls):
-            raise TypeError(
-                f"The '{card.name}' model is expected to be of type `{self._kls}`, but is of type `{handler.kls}` instead."
-            )
+            raise InvalidModelTypeError(model_name, handler.kls, self._kls)
 
         if dtype is None:
-            dtype = torch.float32
+            dtype = torch.get_default_dtype()
 
         model = handler.load(card, gangs, dtype, config=config)
 
@@ -126,8 +173,8 @@ class ModelHubAccessor(Generic[ModelT, ModelConfigT]):
     def __call__(self) -> ModelHub[ModelT, ModelConfigT]:
         context = get_runtime_context()
 
+        asset_store = context.asset_store
+
         model_handlers = context.get_registry(ModelHandler)
 
-        return ModelHub(
-            self._kls, self._config_kls, context.asset_store, model_handlers
-        )
+        return ModelHub(self._kls, self._config_kls, asset_store, model_handlers)

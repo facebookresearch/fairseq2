@@ -6,30 +6,18 @@
 
 from __future__ import annotations
 
-import logging
-import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from typing import Any, Generic, Protocol, TypeVar, final, runtime_checkable
-from warnings import catch_warnings
-
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.nn import Module
-from torch.optim import Optimizer
-from typing_extensions import override
-
-from fairseq2.nn.utils.module import load_state_dict
 
 
 @runtime_checkable
 class Stateful(Protocol):
     """Represents an object that follows the ``state_dict`` convention."""
 
-    def state_dict(self) -> dict[str, object]:
-        ...
+    def state_dict(self) -> dict[str, object]: ...
 
-    def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
-        ...
+    def load_state_dict(self, state_dict: Mapping[str, object]) -> None: ...
 
 
 StatefulT = TypeVar("StatefulT")
@@ -121,29 +109,19 @@ class StatefulObjectBag:
             if is_explicit:
                 if state_handler is None:
                     if isinstance(obj, Stateful):
-                        state = self._state_dict(obj)
+                        state = obj.state_dict()
                     else:
                         state = obj
                 else:
                     state = state_handler.get_state(obj)
             elif isinstance(obj, Stateful) and not self._is_dunder(name):
-                state = self._state_dict(obj)
+                state = obj.state_dict()
             else:
                 continue
 
             state_dict[name] = state
 
         return state_dict
-
-    @staticmethod
-    def _state_dict(obj: Stateful) -> dict[str, object]:
-        if isinstance(obj, FSDP):
-            with catch_warnings():
-                warnings.simplefilter("ignore")  # Suppress noisy FSDP warnings.
-
-                return obj.state_dict()
-
-        return obj.state_dict()
 
     @final
     def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
@@ -181,7 +159,7 @@ class StatefulObjectBag:
                             raise state_type_error(name, state)
 
                         try:
-                            self._load_state_dict(obj, state)
+                            obj.load_state_dict(state)
                         except (ValueError, TypeError) as ex:
                             raise state_error(name, obj) from ex
                     else:
@@ -203,7 +181,7 @@ class StatefulObjectBag:
                     raise state_type_error(name, state)
 
                 try:
-                    self._load_state_dict(obj, state)
+                    obj.load_state_dict(state)
                 except (ValueError, TypeError) as ex:
                     raise state_error(name, obj) from ex
 
@@ -222,23 +200,6 @@ class StatefulObjectBag:
             raise ValueError(
                 f"`state_dict` must contain only the states of the attributes of this object, but it contains the following unexpected keys: {s}"
             )
-
-    @staticmethod
-    def _load_state_dict(obj: Stateful, state: Mapping[str, object]) -> None:
-        if isinstance(obj, FSDP):
-            with catch_warnings():
-                warnings.simplefilter("ignore")  # Suppress noisy FSDP warnings.
-
-                load_state_dict(obj, state)
-
-            return
-
-        if isinstance(obj, Module):
-            load_state_dict(obj, state)
-
-            return
-
-        return obj.load_state_dict(state)
 
     def _is_explicit(self, name: str) -> tuple[bool, StateHandler[Any] | None]:
         try:
@@ -266,59 +227,3 @@ class StateHandler(ABC, Generic[StatefulT]):
     @abstractmethod
     def set_state(self, stateful: StatefulT, state: object) -> None:
         """Set the state of ``stateful`` to ``state``."""
-
-
-@final
-class FSDPOptimizerStateHandler(StateHandler[Optimizer]):
-    """Gets and sets the state of an :class:`Optimizer` managed by FSDP."""
-
-    _module: Module
-
-    def __init__(self, module: Module) -> None:
-        """
-        :param module:
-            The module that is of type :class:`FSDP` or contains a module that
-            is of type :class:`FSDP`.
-        """
-        self._module = module
-
-    @override
-    def get_state(self, stateful: Optimizer) -> object:
-        with catch_warnings():
-            warnings.simplefilter("ignore")  # Suppress noisy FSDP warnings.
-
-            try:
-                # FSDP uses warning level to dump a lot of noisy internal trace
-                # information.
-                logging.disable(logging.WARNING)
-
-                return FSDP.optim_state_dict(self._module, stateful)
-            except UnicodeDecodeError as ex:
-                raise RuntimeError(
-                    "FSDP has failed to gather the optimizer state with a pickling error. This might indicate a disk space issue. Make sure you have enough space on your file system. See the nested exception for details."
-                ) from ex
-            finally:
-                logging.disable(logging.NOTSET)
-
-    @override
-    def set_state(self, stateful: Optimizer, state: object) -> None:
-        if not isinstance(state, dict):
-            raise TypeError(
-                f"`state` must be of type `dict`, but is of type `{type(state)}` instead."
-            )
-
-        with catch_warnings():
-            warnings.simplefilter("ignore")  # Suppress noisy FSDP warnings.
-
-            try:
-                # FSDP uses warning level to dump a lot of noisy internal trace
-                # information.
-                logging.disable(logging.WARNING)
-
-                state_dict = FSDP.optim_state_dict_to_load(
-                    self._module, stateful, state
-                )
-            finally:
-                logging.disable(logging.NOTSET)
-
-            stateful.load_state_dict(state_dict)

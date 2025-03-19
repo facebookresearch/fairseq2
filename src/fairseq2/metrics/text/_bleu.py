@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
-from typing import final
+from typing import Final, final
 
 import torch
 from sacrebleu import corpus_bleu
@@ -18,18 +18,31 @@ from typing_extensions import Self, override
 
 from fairseq2.typing import Device
 
+DEFAULT_BLEU_TOKENIZER: Final = BLEU.TOKENIZER_DEFAULT
+
 
 @final
 class BleuMetric(Metric[Tensor]):
     """Computes the BLEU score."""
 
+    tokenizer: str
     sys_len: Tensor
     ref_len: Tensor
     valid_ngrams: Tensor
     total_ngrams: Tensor
 
-    def __init__(self, *, device: Device | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        tokenizer: str = DEFAULT_BLEU_TOKENIZER,
+        device: Device | None = None,
+    ) -> None:
         super().__init__(device=device)
+
+        if tokenizer not in BLEU.TOKENIZERS:
+            raise UnknownBleuTokenizerError(tokenizer)
+
+        self.tokenizer = tokenizer
 
         dtype = torch.int64
 
@@ -49,12 +62,10 @@ class BleuMetric(Metric[Tensor]):
     @torch.inference_mode()
     def update(self, refs: Sequence[str], hyps: Sequence[str]) -> Self:
         """
-        :param refs:
-            The references.
-        :param hyps:
-            The hypotheses.
+        :param refs: The references.
+        :param hyps: The hypotheses.
         """
-        bleu = corpus_bleu(hyps, [refs])
+        bleu = corpus_bleu(hyps, [refs], tokenize=self.tokenizer)
 
         self.sys_len += bleu.sys_len
         self.ref_len += bleu.ref_len
@@ -88,3 +99,14 @@ class BleuMetric(Metric[Tensor]):
             self.total_ngrams += metric.total_ngrams.to(self.device)
 
         return self
+
+
+class UnknownBleuTokenizerError(Exception):
+    name: str
+
+    def __init__(self, name: str) -> None:
+        super().__init__(
+            f"'{name}' is not a known BLEU tokenizer. See the documentation of the sacrebleu package."
+        )
+
+        self.name = name

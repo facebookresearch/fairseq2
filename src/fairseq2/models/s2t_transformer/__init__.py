@@ -6,6 +6,9 @@
 
 from __future__ import annotations
 
+from fairseq2.models.s2t_transformer._checkpoint import (
+    convert_s2t_transformer_checkpoint as convert_s2t_transformer_checkpoint,
+)
 from fairseq2.models.s2t_transformer._config import (
     S2T_TRANSFORMER_MODEL_FAMILY as S2T_TRANSFORMER_MODEL_FAMILY,
 )
@@ -18,17 +21,14 @@ from fairseq2.models.s2t_transformer._config import (
 from fairseq2.models.s2t_transformer._factory import (
     S2TTransformerFactory as S2TTransformerFactory,
 )
+from fairseq2.models.s2t_transformer._factory import (
+    create_s2t_transformer_model as create_s2t_transformer_model,
+)
 from fairseq2.models.s2t_transformer._feature_extractor import (
     Conv1dFbankSubsampler as Conv1dFbankSubsampler,
 )
 from fairseq2.models.s2t_transformer._frontend import (
     S2TTransformerFrontend as S2TTransformerFrontend,
-)
-from fairseq2.models.s2t_transformer._handler import (
-    S2TTransformerModelHandler as S2TTransformerModelHandler,
-)
-from fairseq2.models.s2t_transformer._handler import (
-    convert_s2t_transformer_checkpoint as convert_s2t_transformer_checkpoint,
 )
 
 # isort: split

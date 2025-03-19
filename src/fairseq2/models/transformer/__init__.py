@@ -6,6 +6,9 @@
 
 from __future__ import annotations
 
+from fairseq2.models.transformer._checkpoint import (
+    convert_transformer_checkpoint as convert_transformer_checkpoint,
+)
 from fairseq2.models.transformer._config import (
     TRANSFORMER_MODEL_FAMILY as TRANSFORMER_MODEL_FAMILY,
 )
@@ -16,22 +19,19 @@ from fairseq2.models.transformer._config import (
 from fairseq2.models.transformer._factory import (
     TransformerFactory as TransformerFactory,
 )
+from fairseq2.models.transformer._factory import (
+    create_transformer_model as create_transformer_model,
+)
+from fairseq2.models.transformer._factory import (
+    init_final_projection as init_final_projection,
+)
 from fairseq2.models.transformer._frontend import (
     TransformerEmbeddingFrontend as TransformerEmbeddingFrontend,
 )
 from fairseq2.models.transformer._frontend import (
     TransformerFrontend as TransformerFrontend,
 )
-from fairseq2.models.transformer._handler import (
-    TransformerModelHandler as TransformerModelHandler,
-)
-from fairseq2.models.transformer._handler import (
-    convert_transformer_checkpoint as convert_transformer_checkpoint,
-)
 from fairseq2.models.transformer._model import TransformerModel as TransformerModel
-from fairseq2.models.transformer._model import (
-    init_final_projection as init_final_projection,
-)
 
 # isort: split
 

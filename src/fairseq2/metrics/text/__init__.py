@@ -6,6 +6,10 @@
 
 from __future__ import annotations
 
+from fairseq2.metrics.text._bleu import DEFAULT_BLEU_TOKENIZER as DEFAULT_BLEU_TOKENIZER
 from fairseq2.metrics.text._bleu import BleuMetric as BleuMetric
+from fairseq2.metrics.text._bleu import (
+    UnknownBleuTokenizerError as UnknownBleuTokenizerError,
+)
 from fairseq2.metrics.text._chrf import ChrfMetric as ChrfMetric
 from fairseq2.metrics.text._wer import WerMetric as WerMetric

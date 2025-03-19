@@ -9,7 +9,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from collections.abc import Iterable, Iterator
-from typing import Protocol, final
+from typing import Protocol, cast, final
 
 import torch
 from torch import Generator, Tensor
@@ -193,7 +193,7 @@ class StandardTransformerDecoder(TransformerDecoder):
         if not layer_list:
             raise ValueError("`layers` must be non-empty.")
 
-        model_dim = layer_list[0].model_dim
+        model_dim = cast(int, layer_list[0].model_dim)
 
         super().__init__(model_dim)
 

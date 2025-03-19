@@ -7,13 +7,11 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Protocol, final
+from typing import Protocol
 
 from torch import Tensor
 from torch.utils.hooks import RemovableHandle
-from typing_extensions import override
 
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
@@ -55,7 +53,6 @@ class SequenceGenerator(ABC):
         """The associated decoder model."""
 
 
-@final
 @dataclass
 class SequenceGeneratorOutput:
     """Holds the output of a sequence generator."""
@@ -67,7 +64,6 @@ class SequenceGeneratorOutput:
     """The performance counters of the call."""
 
 
-@final
 @dataclass
 class Hypothesis:
     """Represents a hypothesis produced by a sequence generator."""
@@ -83,7 +79,6 @@ class Hypothesis:
     """The score of each sequence step. *Shape:* Same as ``seq``."""
 
 
-@final
 @dataclass
 class GenerationCounters:
     """Holds the performance counters of a generator call."""
@@ -106,44 +101,6 @@ class GenerationCounters:
 
 class SequenceGenerationError(Exception):
     pass
-
-
-class AbstractSequenceGenerator(SequenceGenerator):
-    """Provides a skeletal implementation of :class:`SequenceGenerator`."""
-
-    _model: DecoderModel
-    _step_hooks: dict[int, StepHook]
-
-    def __init__(self, model: DecoderModel) -> None:
-        """
-        :param model:
-            The decoder model to use for generation.
-        """
-        if model.vocab_info.eos_idx is None:
-            raise ValueError(
-                "`model.vocab_info` must have `eos_idx` set for sequence generation."
-            )
-
-        model.eval()
-
-        self._model = model
-
-        self._step_hooks = OrderedDict()
-
-    @final
-    @override
-    def register_step_hook(self, hook: StepHook) -> RemovableHandle:
-        handle = RemovableHandle(self._step_hooks)
-
-        self._step_hooks[handle.id] = hook
-
-        return handle
-
-    @final
-    @property
-    @override
-    def model(self) -> DecoderModel:
-        return self._model
 
 
 class Seq2SeqGenerator(ABC):
@@ -192,7 +149,6 @@ class Seq2SeqGenerator(ABC):
         """The associated encoder-decoder model."""
 
 
-@final
 @dataclass
 class Seq2SeqGeneratorOutput:
     hypotheses: list[list[Hypothesis]]
@@ -211,44 +167,6 @@ class Seq2SeqGeneratorOutput:
 
     counters: GenerationCounters
     """The performance counters of the call."""
-
-
-class AbstractSeq2SeqGenerator(Seq2SeqGenerator):
-    """Provides a skeletal implementation of :class:`Seq2SeqGenerator`."""
-
-    _model: EncoderDecoderModel
-    _step_hooks: dict[int, StepHook]
-
-    def __init__(self, model: EncoderDecoderModel) -> None:
-        """
-        :param model:
-            The encoder-decoder model to use for generation.
-        """
-        if model.target_vocab_info.eos_idx is None:
-            raise ValueError(
-                "`model.vocab_info` must have `eos_idx` set for sequence generation."
-            )
-
-        model.eval()
-
-        self._model = model
-
-        self._step_hooks = OrderedDict()
-
-    @final
-    @override
-    def register_step_hook(self, hook: StepHook) -> RemovableHandle:
-        handle = RemovableHandle(self._step_hooks)
-
-        self._step_hooks[handle.id] = hook
-
-        return handle
-
-    @final
-    @property
-    @override
-    def model(self) -> EncoderDecoderModel:
-        return self._model
 
 
 class StepHook(Protocol):

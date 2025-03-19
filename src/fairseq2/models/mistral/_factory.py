@@ -40,6 +40,10 @@ from fairseq2.nn.transformer import (
 from fairseq2.typing import DataType, Device
 
 
+def create_mistral_model(config: MistralConfig) -> TransformerDecoderModel:
+    return MistralFactory(config).create_model()
+
+
 class MistralFactory:
     _config: MistralConfig
 

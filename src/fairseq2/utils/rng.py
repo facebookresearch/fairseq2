@@ -7,13 +7,13 @@
 from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
-from contextlib import AbstractContextManager, contextmanager
+from contextlib import contextmanager
 from typing import final
 
 import torch
 from torch import Generator, Tensor
 
-from fairseq2.typing import Device
+from fairseq2.typing import ContextManager, Device
 
 
 def use_deterministic(value: bool, warn_only: bool = False) -> None:
@@ -120,14 +120,13 @@ class RngBag:
         try:
             states = state_dict["generators"]
         except KeyError:
-            raise ValueError("`state_dict` must contain a 'generators' key.") from None
-
-        if len(state_dict) != 1:
-            raise ValueError("`state_dict` must contain only a 'generators' key.")
+            raise ValueError(
+                "`state_dict` must contain a key named 'generators'."
+            ) from None
 
         if not isinstance(states, list):
             raise TypeError(
-                f"`state_dict['generators']` must be of type `{list}`, but is of type `{type(states)}` instead."
+                f"`state_dict['generators']` must be of type `list`, but is of type `{type(states)}` instead."
             )
 
         if len(states) != len(self._generators):
@@ -151,7 +150,7 @@ def manual_seed(seed: int, *devices: Device) -> None:
     rng_bag.manual_seed(seed)
 
 
-def temporary_manual_seed(seed: int, *devices: Device) -> AbstractContextManager[None]:
+def temporary_manual_seed(seed: int, *devices: Device) -> ContextManager:
     """Temporarily change the seed of the random number generators of ``devices``."""
     rng_bag = RngBag.from_device_defaults(*devices)
 

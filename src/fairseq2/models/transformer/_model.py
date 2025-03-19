@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from typing import final
 
-import torch.nn as nn
 from torch import Tensor
 from typing_extensions import override
 
@@ -16,7 +15,7 @@ from fairseq2.data import VocabularyInfo
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.models.transformer._frontend import TransformerFrontend
-from fairseq2.nn import IncrementalStateBag, Linear, Projection
+from fairseq2.nn import IncrementalStateBag, Projection
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.transformer import TransformerDecoder, TransformerEncoder
 
@@ -106,10 +105,3 @@ class TransformerModel(EncoderDecoderModel):
         logits = self.final_proj(decoder_output)
 
         return SequenceModelOutput(logits, self.target_vocab_info.pad_idx)
-
-
-def init_final_projection(proj: Linear) -> None:
-    nn.init.normal_(proj.weight, std=proj.input_dim**-0.5)
-
-    if proj.bias is not None:
-        nn.init.zeros_(proj.bias)

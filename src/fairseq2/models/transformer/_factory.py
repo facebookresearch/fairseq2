@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import torch.nn as nn
+
 from fairseq2.models.transformer._config import TransformerConfig
 from fairseq2.models.transformer._frontend import (
     TransformerEmbeddingFrontend,
@@ -14,6 +16,7 @@ from fairseq2.models.transformer._frontend import (
 from fairseq2.models.transformer._model import TransformerModel
 from fairseq2.nn import (
     Embedding,
+    Linear,
     PositionEncoder,
     Projection,
     SinusoidalPositionEncoder,
@@ -36,6 +39,10 @@ from fairseq2.nn.transformer import (
     TransformerEncoderLayer,
     create_default_sdpa,
 )
+
+
+def create_transformer_model(config: TransformerConfig) -> TransformerModel:
+    return TransformerFactory(config).create_model()
 
 
 class TransformerFactory:
@@ -163,4 +170,16 @@ class TransformerFactory:
         )
 
     def create_final_proj(self, embed: Embedding) -> Projection:
-        return TiedProjection(embed.weight, bias=None)
+        config = self._config
+
+        if isinstance(embed, StandardEmbedding):
+            return TiedProjection(embed.weight, bias=None)
+
+        return Linear(config.model_dim, config.vocab_info.size, bias=False)
+
+
+def init_final_projection(proj: Linear) -> None:
+    nn.init.normal_(proj.weight, std=proj.input_dim**-0.5)
+
+    if proj.bias is not None:
+        nn.init.zeros_(proj.bias)

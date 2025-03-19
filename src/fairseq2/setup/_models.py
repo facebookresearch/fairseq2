@@ -6,108 +6,151 @@
 
 from __future__ import annotations
 
-from fairseq2.config_registry import ConfigProvider
+from typing import TypeVar, final
+
+from torch.nn import Module
+
 from fairseq2.context import RuntimeContext
-from fairseq2.models import ModelHandler
-from fairseq2.models.jepa import JepaConfig, JepaModelHandler, register_jepa_configs
+from fairseq2.models import (
+    CheckpointConverter,
+    ModelFactory,
+    ModelHandler,
+    ModelSharder,
+    ModelTorchCompiler,
+    StandardModelHandler,
+)
+from fairseq2.models.jepa import (
+    JEPA_MODEL_FAMILY,
+    JepaConfig,
+    JepaModel,
+    convert_jepa_checkpoint,
+    create_jepa_model,
+    register_jepa_configs,
+)
 from fairseq2.models.jepa.classifier import (
+    JEPA_CLASSIFIER_MODEL_FAMILY,
     JepaClassifierConfig,
-    JepaClassifierModelHandler,
+    JepaClassifierModel,
+    create_jepa_classifier_model,
     register_jepa_classifier_configs,
 )
-from fairseq2.models.llama import LLaMAConfig, LLaMAModelHandler, register_llama_configs
+from fairseq2.models.llama import (
+    LLAMA_MODEL_FAMILY,
+    LLaMAConfig,
+    convert_llama_checkpoint,
+    create_llama_model,
+    register_llama_configs,
+    shard_llama_model,
+)
 from fairseq2.models.mistral import (
+    MISTRAL_MODEL_FAMILY,
     MistralConfig,
-    MistralModelHandler,
+    convert_mistral_checkpoint,
+    create_mistral_model,
     register_mistral_configs,
 )
 from fairseq2.models.nllb import register_nllb_configs
 from fairseq2.models.s2t_transformer import (
+    S2T_TRANSFORMER_MODEL_FAMILY,
     S2TTransformerConfig,
-    S2TTransformerModelHandler,
+    convert_s2t_transformer_checkpoint,
+    create_s2t_transformer_model,
     register_s2t_transformer_configs,
 )
 from fairseq2.models.transformer import (
+    TRANSFORMER_MODEL_FAMILY,
     TransformerConfig,
-    TransformerModelHandler,
+    TransformerModel,
+    convert_transformer_checkpoint,
+    create_transformer_model,
     register_transformer_configs,
 )
+from fairseq2.models.transformer_decoder import TransformerDecoderModel
 from fairseq2.models.w2vbert import (
+    W2VBERT_MODEL_FAMILY,
     W2VBertConfig,
-    W2VBertModelHandler,
+    W2VBertModel,
+    convert_w2vbert_checkpoint,
+    create_w2vbert_model,
     register_w2vbert_configs,
 )
 from fairseq2.models.wav2vec2 import (
+    WAV2VEC2_MODEL_FAMILY,
     Wav2Vec2Config,
-    Wav2Vec2ModelHandler,
+    Wav2Vec2Model,
+    convert_wav2vec2_checkpoint,
+    create_wav2vec2_model,
     register_wav2vec2_configs,
 )
 from fairseq2.models.wav2vec2.asr import (
+    WAV2VEC2_ASR_MODEL_FAMILY,
     Wav2Vec2AsrConfig,
-    Wav2Vec2AsrModelHandler,
+    Wav2Vec2AsrModel,
+    convert_wav2vec2_asr_checkpoint,
+    create_wav2vec2_asr_model,
     register_wav2vec2_asr_configs,
 )
-from fairseq2.utils.file import load_tensors, load_unsafe_torch_tensors
+from fairseq2.registry import Registry
+from fairseq2.utils.file import StandardTensorLoader
 
 
-def _register_models(context: RuntimeContext) -> None:
-    asset_download_manager = context.asset_download_manager
-
-    registry = context.get_registry(ModelHandler)
-
-    handler: ModelHandler
-
-    configs: ConfigProvider[object]
+def register_model_families(context: RuntimeContext) -> None:
+    # fmt: off
+    registrar = ModelRegistrar(context)
 
     # JEPA
-    configs = context.get_config_registry(JepaConfig)
-
     default_arch = "base"
 
-    handler = JepaModelHandler(
-        configs, default_arch, asset_download_manager, load_tensors
+    registrar.register_family(
+        JEPA_MODEL_FAMILY,
+        JepaModel,
+        JepaConfig,
+        default_arch,
+        create_jepa_model,
+        checkpoint_converter=convert_jepa_checkpoint,
     )
-
-    registry.register(handler.family, handler)
 
     register_jepa_configs(context)
 
     # JEPA Classifier
-    configs = context.get_config_registry(JepaClassifierConfig)
-
     default_arch = "base"
 
-    handler = JepaClassifierModelHandler(
-        configs, default_arch, asset_download_manager, load_tensors
+    registrar.register_family(
+        JEPA_CLASSIFIER_MODEL_FAMILY,
+        JepaClassifierModel,
+        JepaClassifierConfig,
+        default_arch,
+        create_jepa_classifier_model,
     )
-
-    registry.register(handler.family, handler)
 
     register_jepa_classifier_configs(context)
 
     # LLaMA
-    configs = context.get_config_registry(LLaMAConfig)
-
     default_arch = "llama3_1_8b"
 
-    handler = LLaMAModelHandler(
-        configs, default_arch, asset_download_manager, load_tensors
+    registrar.register_family(
+        LLAMA_MODEL_FAMILY,
+        TransformerDecoderModel,
+        LLaMAConfig,
+        default_arch,
+        create_llama_model,
+        checkpoint_converter=convert_llama_checkpoint,
+        sharder=shard_llama_model,
     )
-
-    registry.register(handler.family, handler)
 
     register_llama_configs(context)
 
     # Mistral
-    configs = context.get_config_registry(MistralConfig)
-
     default_arch = "7b"
 
-    handler = MistralModelHandler(
-        configs, default_arch, asset_download_manager, load_tensors
+    registrar.register_family(
+        MISTRAL_MODEL_FAMILY,
+        TransformerDecoderModel,
+        MistralConfig,
+        default_arch,
+        create_mistral_model,
+        checkpoint_converter=convert_mistral_checkpoint,
     )
-
-    registry.register(handler.family, handler)
 
     register_mistral_configs(context)
 
@@ -115,66 +158,128 @@ def _register_models(context: RuntimeContext) -> None:
     register_nllb_configs(context)
 
     # S2T Transformer
-    configs = context.get_config_registry(S2TTransformerConfig)
-
     default_arch = "medium"
 
-    handler = S2TTransformerModelHandler(
-        configs, default_arch, asset_download_manager, load_unsafe_torch_tensors
+    registrar.register_family(
+        S2T_TRANSFORMER_MODEL_FAMILY,
+        TransformerModel,
+        S2TTransformerConfig,
+        default_arch,
+        create_s2t_transformer_model,
+        checkpoint_converter=convert_s2t_transformer_checkpoint,
     )
-
-    registry.register(handler.family, handler)
 
     register_s2t_transformer_configs(context)
 
     # Transformer
-    configs = context.get_config_registry(TransformerConfig)
-
     default_arch = "base"
 
-    handler = TransformerModelHandler(
-        configs, default_arch, asset_download_manager, load_unsafe_torch_tensors
+    registrar.register_family(
+        TRANSFORMER_MODEL_FAMILY,
+        TransformerModel,
+        TransformerConfig,
+        default_arch,
+        create_transformer_model,
+        checkpoint_converter=convert_transformer_checkpoint,
     )
-
-    registry.register(handler.family, handler)
 
     register_transformer_configs(context)
 
     # w2v-BERT
-    configs = context.get_config_registry(W2VBertConfig)
-
     default_arch = "300m"
 
-    handler = W2VBertModelHandler(
-        configs, default_arch, asset_download_manager, load_tensors
+    registrar.register_family(
+        W2VBERT_MODEL_FAMILY,
+        W2VBertModel,
+        W2VBertConfig,
+        default_arch,
+        create_w2vbert_model,
+        checkpoint_converter=convert_w2vbert_checkpoint,
     )
-
-    registry.register(handler.family, handler)
 
     register_w2vbert_configs(context)
 
     # wav2vec 2.0
-    configs = context.get_config_registry(Wav2Vec2Config)
-
     default_arch = "base"
 
-    handler = Wav2Vec2ModelHandler(
-        configs, default_arch, asset_download_manager, load_unsafe_torch_tensors
+    registrar.register_family(
+        WAV2VEC2_MODEL_FAMILY,
+        Wav2Vec2Model,
+        Wav2Vec2Config,
+        default_arch,
+        create_wav2vec2_model,
+        checkpoint_converter=convert_wav2vec2_checkpoint,
     )
-
-    registry.register(handler.family, handler)
 
     register_wav2vec2_configs(context)
 
     # wav2vec 2.0 ASR
-    configs = context.get_config_registry(Wav2Vec2AsrConfig)
-
     default_arch = "base_10h"
 
-    handler = Wav2Vec2AsrModelHandler(
-        configs, default_arch, asset_download_manager, load_unsafe_torch_tensors
+    registrar.register_family(
+        WAV2VEC2_ASR_MODEL_FAMILY,
+        Wav2Vec2AsrModel,
+        Wav2Vec2AsrConfig,
+        default_arch,
+        create_wav2vec2_asr_model,
+        checkpoint_converter=convert_wav2vec2_asr_checkpoint,
     )
 
-    registry.register(handler.family, handler)
-
     register_wav2vec2_asr_configs(context)
+
+    # fmt: on
+
+
+ModelT = TypeVar("ModelT", bound=Module)
+
+ModelConfigT = TypeVar("ModelConfigT")
+
+
+@final
+class ModelRegistrar:
+    _context: RuntimeContext
+    _registry: Registry[ModelHandler]
+
+    def __init__(self, context: RuntimeContext) -> None:
+        self._context = context
+
+        self._registry = context.get_registry(ModelHandler)
+
+    def register_family(
+        self,
+        family: str,
+        kls: type[ModelT],
+        config_kls: type[ModelConfigT],
+        default_arch: str,
+        factory: ModelFactory[ModelConfigT, ModelT],
+        *,
+        supports_meta: bool = True,
+        restrict: bool = True,
+        checkpoint_converter: CheckpointConverter[ModelConfigT] | None = None,
+        sharder: ModelSharder[ModelT, ModelConfigT] | None = None,
+        torch_compiler: ModelTorchCompiler[ModelT, ModelConfigT] | None = None,
+    ) -> None:
+        file_system = self._context.file_system
+
+        asset_download_manager = self._context.asset_download_manager
+
+        tensor_loader = StandardTensorLoader(file_system)
+
+        configs = self._context.get_config_registry(config_kls)
+
+        handler = StandardModelHandler(
+            family,
+            kls,
+            configs,
+            default_arch,
+            factory,
+            asset_download_manager,
+            tensor_loader,
+            supports_meta=supports_meta,
+            restrict=restrict,
+            checkpoint_converter=checkpoint_converter,
+            sharder=sharder,
+            torch_compiler=torch_compiler,
+        )
+
+        self._registry.register(handler.family, handler)

@@ -59,11 +59,18 @@ Documentation
    :caption: Tutorials
 
    tutorials/end_to_end_fine_tuning
+   tutorials/preference_optimization
    tutorials/monitor_your_experiments
    tutorials/presets
-   tutorials/benchmarking
    tutorials/pudb
    tutorials/models
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Notebooks
+
+   notebooks/datapipeline
+   notebooks/dataset_gsm8k_sft
 
 .. toctree::
    :maxdepth: 1

@@ -10,7 +10,7 @@ from pathlib import Path
 
 import torch
 
-from fairseq2.datasets._error import DatasetError
+from fairseq2.datasets._error import DatasetLoadError
 from fairseq2.gang import Gang, all_sum
 from fairseq2.logging import log
 
@@ -18,9 +18,9 @@ from fairseq2.logging import log
 def _min_num_batches(num_batches: int, gang: Gang) -> int:
     all_num_batches = torch.zeros((gang.size,), device=gang.device, dtype=torch.int64)
 
-    inp = torch.tensor(num_batches, device=gang.device)
+    input_ = torch.tensor([num_batches], device=gang.device)
 
-    gang.all_gather(all_num_batches, inp)
+    gang.all_gather(all_num_batches, input_)
 
     min_num_batches = int(all_num_batches.min())
     if min_num_batches != 0:
@@ -44,7 +44,9 @@ def _sum_num_batches(num_batches: int, gang: Gang) -> int:
     return int(total_num_batches)
 
 
-def _load_files_and_weights(name: str, path: Path) -> tuple[list[Path], list[float]]:
+def _load_files_and_weights(
+    dataset_name: str, path: Path
+) -> tuple[list[Path], list[float]]:
     path = path.expanduser().resolve()
 
     if not path.is_dir():
@@ -58,8 +60,8 @@ def _load_files_and_weights(name: str, path: Path) -> tuple[list[Path], list[flo
     except FileNotFoundError:
         content = None
     except OSError as ex:
-        raise DatasetError(
-            name, f"The '{manifest_file}' manifest file cannot be read. See the nested exception for details."  # fmt: skip
+        raise DatasetLoadError(
+            dataset_name, f"The '{manifest_file}' manifest file of the '{dataset_name}' dataset cannot be read. See the nested exception for details."  # fmt: skip
         ) from ex
 
     # If the directory does not contain a MANIFEST file, treat all JSONL
@@ -68,8 +70,8 @@ def _load_files_and_weights(name: str, path: Path) -> tuple[list[Path], list[flo
         try:
             files = list(path.glob("**/*.jsonl"))
         except OSError as ex:
-            raise DatasetError(
-                name, f"The JSONL files under the '{path}' directory cannot be retrieved. See the nested exception for details."  # fmt: skip
+            raise DatasetLoadError(
+                dataset_name, f"The JSONL files under the '{path}' directory of the '{dataset_name}' dataset cannot be retrieved. See the nested exception for details."  # fmt: skip
             ) from ex
 
         weights = [1.0 for _ in range(len(files))]
@@ -87,9 +89,9 @@ def _load_files_and_weights(name: str, path: Path) -> tuple[list[Path], list[flo
     # and its weight (e.g. number of examples).
     for idx, line in enumerate(content):
 
-        def error() -> DatasetError:
-            return DatasetError(
-                name, f"Each line in the '{manifest_file}' manifest file must represent a path to a JSONL file and a weight, but line {idx} is '{line}' instead."  # fmt: skip
+        def error() -> DatasetLoadError:
+            return DatasetLoadError(
+                dataset_name, f"Each line in the '{manifest_file}' manifest file of the '{dataset_name}' dataset must represent a path to a JSONL file and a weight, but line {idx} is '{line}' instead."  # fmt: skip
             )
 
         fields = line.rstrip().split("\t")
@@ -107,8 +109,8 @@ def _load_files_and_weights(name: str, path: Path) -> tuple[list[Path], list[flo
             raise error() from None
 
         if not file.exists():
-            raise DatasetError(
-                name, f"The '{file}' file referred at line {idx} in the '{manifest_file}' manifest file does not exist."  # fmt: skip
+            raise DatasetLoadError(
+                dataset_name, f"The '{file}' path referred at line {idx} in the '{manifest_file}' manifest file of the '{dataset_name}' dataset does not exist."  # fmt: skip
             )
 
         files.append(file)

@@ -6,6 +6,9 @@
 
 from __future__ import annotations
 
+from fairseq2.models.wav2vec2._checkpoint import (
+    convert_wav2vec2_checkpoint as convert_wav2vec2_checkpoint,
+)
 from fairseq2.models.wav2vec2._config import (
     WAV2VEC2_MODEL_FAMILY as WAV2VEC2_MODEL_FAMILY,
 )
@@ -20,6 +23,9 @@ from fairseq2.models.wav2vec2._factory import (
     Wav2Vec2EncoderFactory as Wav2Vec2EncoderFactory,
 )
 from fairseq2.models.wav2vec2._factory import Wav2Vec2Factory as Wav2Vec2Factory
+from fairseq2.models.wav2vec2._factory import (
+    create_wav2vec2_model as create_wav2vec2_model,
+)
 from fairseq2.models.wav2vec2._feature_extractor import (
     Wav2Vec2FbankFeatureExtractor as Wav2Vec2FbankFeatureExtractor,
 )
@@ -27,12 +33,6 @@ from fairseq2.models.wav2vec2._feature_extractor import (
     Wav2Vec2FeatureExtractor as Wav2Vec2FeatureExtractor,
 )
 from fairseq2.models.wav2vec2._frontend import Wav2Vec2Frontend as Wav2Vec2Frontend
-from fairseq2.models.wav2vec2._handler import (
-    Wav2Vec2ModelHandler as Wav2Vec2ModelHandler,
-)
-from fairseq2.models.wav2vec2._handler import (
-    convert_wav2vec2_checkpoint as convert_wav2vec2_checkpoint,
-)
 from fairseq2.models.wav2vec2._masker import (
     StandardWav2Vec2Masker as StandardWav2Vec2Masker,
 )

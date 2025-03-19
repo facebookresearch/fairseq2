@@ -17,15 +17,16 @@ from typing_extensions import override
 from fairseq2.logging import log
 from fairseq2.optim.lr_scheduler._handler import LRSchedulerHandler
 from fairseq2.optim.lr_scheduler._lr_scheduler import (
-    AbstractLRScheduler,
     LRScheduler,
+    LRSchedulerBase,
     get_per_param_group,
 )
-from fairseq2.typing import safe_cast
+from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import ValidationError, ValidationResult, validate
 
 
 @final
-class CosineAnnealingLR(AbstractLRScheduler):
+class CosineAnnealingLR(LRSchedulerBase):
     """Represents the learning rate schedule described in
     :cite:t:`https://doi.org/10.48550/arxiv.1608.03983`.
 
@@ -163,7 +164,7 @@ class CosineAnnealingLR(AbstractLRScheduler):
         return min_lr + 0.5 * (max_lr - min_lr) * (1 + c)
 
 
-COSINE_ANNEALING_LR: Final = "cosine-annealing"
+COSINE_ANNEALING_LR: Final = "cosine_annealing"
 
 
 @dataclass(kw_only=True)
@@ -194,6 +195,22 @@ class CosineAnnealingLRConfig:
     final learning rate. If ``None``, :attr:`final_lr` will be used.
     """
 
+    def validate(self) -> None:
+        result = ValidationResult()
+
+        if self.final_lr is not None:
+            if self.final_lr_scale is not None:
+                result.add_error(
+                    "`final_lr` and `final_lr_scale` must not be specified at the same time."
+                )
+        elif self.final_lr_scale is None:
+            result.add_error("Either `final_lr` or `final_lr_scale` must be specified.")
+
+        if result.has_error:
+            raise ValidationError(
+                "The cosine-annealing learning rate scheduler configuration has one or more validation errors:", result  # fmt: skip
+            )
+
 
 @final
 class CosineAnnealingLRHandler(LRSchedulerHandler):
@@ -201,7 +218,9 @@ class CosineAnnealingLRHandler(LRSchedulerHandler):
     def create(
         self, optimizer: Optimizer, config: object, num_steps: int | None
     ) -> LRScheduler:
-        config = safe_cast("config", config, CosineAnnealingLRConfig)
+        config = structure(config, CosineAnnealingLRConfig)
+
+        validate(config)
 
         if config.cycle_len is None:
             if num_steps is None:
@@ -235,7 +254,7 @@ class CosineAnnealingLRHandler(LRSchedulerHandler):
             )
 
         if final_lr > lr:
-            log.warning("The final learning rate ({}) is greater than the optimizer learning rate ({}). This means your learning rate will increase over the course of the training.", final_lr, lr)  # fmt: skip
+            log.warning("The final learning rate ({}) is greater than the optimizer learning rate ({}). This means the learning rate will increase over the course of the training.", final_lr, lr)  # fmt: skip
 
         return CosineAnnealingLR(
             optimizer,
@@ -249,10 +268,15 @@ class CosineAnnealingLRHandler(LRSchedulerHandler):
 
     @property
     @override
-    def requires_num_steps(self) -> bool:
-        return False
+    def name(self) -> str:
+        return COSINE_ANNEALING_LR
 
     @property
     @override
-    def config_kls(self) -> type:
+    def config_kls(self) -> type[object]:
         return CosineAnnealingLRConfig
+
+    @property
+    @override
+    def requires_num_steps(self) -> bool:
+        return False

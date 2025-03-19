@@ -6,42 +6,70 @@
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import IO, Protocol, TypeAlias
+from typing import IO, TypeAlias, final
 
 import yaml
+from typing_extensions import override
 from yaml import YAMLError
 
-
-class YamlLoader(Protocol):
-    def __call__(self, input_: Path | IO[str]) -> list[object]:
-        ...
+from fairseq2.utils.file import FileMode, FileSystem
 
 
-class YamlDumper(Protocol):
-    def __call__(self, obj: object, output: Path | IO[str]) -> None:
-        ...
+class YamlLoader(ABC):
+    @abstractmethod
+    def load(self, input_: Path | IO[str]) -> list[object]: ...
+
+
+class YamlDumper(ABC):
+    @abstractmethod
+    def dump(self, obj: object, output: Path | IO[str]) -> None: ...
 
 
 YamlError: TypeAlias = YAMLError
 
 
-def load_yaml(input_: Path | IO[str]) -> list[object]:
-    if isinstance(input_, Path):
-        with input_.open() as fp:
-            return load_yaml(fp)
+@final
+class StandardYamlLoader(YamlLoader):
+    _file_system: FileSystem
 
-    itr = yaml.safe_load_all(input_)
+    def __init__(self, file_system: FileSystem) -> None:
+        self._file_system = file_system
 
-    return list(itr)
+    @override
+    def load(self, input_: Path | IO[str]) -> list[object]:
+        if isinstance(input_, Path):
+            fp = self._file_system.open_text(input_)
+
+            try:
+                return self.load(fp)
+            finally:
+                fp.close()
+
+        itr = yaml.safe_load_all(input_)
+
+        return list(itr)
 
 
-def dump_yaml(obj: object, output: Path | IO[str]) -> None:
-    if isinstance(output, Path):
-        with output.open("w") as fp:
-            dump_yaml(obj, fp)
-    else:
-        yaml.safe_dump(obj, output, sort_keys=False)
+@final
+class StandardYamlDumper(YamlDumper):
+    _file_system: FileSystem
+
+    def __init__(self, file_system: FileSystem) -> None:
+        self._file_system = file_system
+
+    @override
+    def dump(self, obj: object, output: Path | IO[str]) -> None:
+        if isinstance(output, Path):
+            fp = self._file_system.open_text(output, mode=FileMode.WRITE)
+
+            try:
+                self.dump(obj, fp)
+            finally:
+                fp.close()
+        else:
+            yaml.safe_dump(obj, output, sort_keys=False)
 
 
 def read_yaml(s: str) -> object:

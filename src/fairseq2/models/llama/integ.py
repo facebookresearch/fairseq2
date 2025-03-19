@@ -12,7 +12,9 @@ from fairseq2.models.llama import LLaMAConfig
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
 
 
-def convert_to_reference_checkpoint(checkpoint: dict[str, object]) -> dict[str, object]:
+def convert_to_reference_llama_checkpoint(
+    checkpoint: dict[str, object],
+) -> dict[str, object]:
     """Convert a fairseq2 LLaMA checkpoint to the reference format."""
     model_key = checkpoint.get("model_key", "model")
 
@@ -48,14 +50,14 @@ def convert_to_reference_checkpoint(checkpoint: dict[str, object]) -> dict[str, 
     return convert_model_state_dict(state_dict, key_map)
 
 
-def convert_to_huggingface_config(arch: str, config: LLaMAConfig) -> dict[str, object]:
+def convert_to_hg_llama_config(config: LLaMAConfig) -> dict[str, object]:
     """Convert a fairseq2 LLaMA configuration to the HuggingFace format."""
     multiplier = config.ffn_inner_dim_multiplier
 
     multiple_of = config.ffn_inner_dim_to_multiple
 
     # Taken from https://github.com/huggingface/transformers/blob/82fcac0a7e40dc6cc5e3121d714b9b16775293ad/src/transformers/models/llama/convert_llama_weights_to_hf.py#L171.
-    intermediate_size = multiple_of * (int(multiplier * int(8 * config.model_dim / 3)) + multiple_of - 1) // multiple_of  # fmt: skip
+    intermediate_size = multiple_of * ((int(multiplier * int(8 * config.model_dim / 3)) + multiple_of - 1) // multiple_of)  # fmt: skip
 
     if config.rope_scaling is not None:
         rope_scaling = {
@@ -68,7 +70,7 @@ def convert_to_huggingface_config(arch: str, config: LLaMAConfig) -> dict[str, o
     else:
         rope_scaling = None
 
-    # We only specify the parameters made explicit in the Huggingface converter.
+    # We only specify the parameters made explicit in the Hugging Face converter.
     # See https://github.com/huggingface/transformers/blob/93aafdc620d39b9ec714ffecf015a085ea221282/src/transformers/models/llama/convert_llama_weights_to_hf.py#L384.
     return {
         "architectures": ["Fairseq2LlamaForCausalLM"],
@@ -84,6 +86,6 @@ def convert_to_huggingface_config(arch: str, config: LLaMAConfig) -> dict[str, o
         "rms_norm_eps": 1e-5,
         "rope_scaling": rope_scaling,
         "rope_theta": config.rope_theta,
-        "tie_word_embeddings": False,
+        "tie_word_embeddings": config.tie_embeddings,
         "vocab_size": config.vocab_info.size,
     }

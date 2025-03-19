@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from os import path
-from typing import Final
 
 import torch
 from setuptools import Command, find_packages, setup
@@ -47,9 +46,9 @@ class install_cmake(Command):
     bundle_lib: bool
     verbose: bool
 
-    description: Final = "install CMake artifacts"
+    description = "install CMake artifacts"
 
-    user_options: Final = [
+    user_options = [
         ("cmake-build-dir=", "b", "build directory (where to install from)"),
         ("install-dir=", "d", "directory to install to"),
     ]
@@ -137,7 +136,7 @@ setup(
         "install_cmake": install_cmake,
     },
     name="fairseq2n",
-    version="0.4.0.dev0",
+    version="0.5.0.dev0",
     description="FAIR Sequence Modeling Toolkit (Native)",
     long_description="https://github.com/facebookresearch/fairseq2",
     long_description_content_type="text/plain",

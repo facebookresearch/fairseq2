@@ -25,7 +25,3 @@ class AlreadyExistsError(Exception):
 
 class NotSupportedError(Exception):
     pass
-
-
-class SetupError(Exception):
-    pass

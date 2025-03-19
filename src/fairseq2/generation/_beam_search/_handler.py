@@ -14,7 +14,7 @@ from typing_extensions import override
 from fairseq2.generation._beam_search._algo import (
     STANDARD_BEAM_SEARCH_ALGO,
     BeamSearchAlgorithmHandler,
-    BeamSearchAlgorithmNotFoundError,
+    UnknownBeamSearchAlgorithmError,
 )
 from fairseq2.generation._beam_search._generator import (
     BeamSearchSeq2SeqGenerator,
@@ -28,16 +28,17 @@ from fairseq2.generation._handler import (
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.registry import Provider
-from fairseq2.typing import safe_cast
-from fairseq2.utils.config import ConfigSectionHandler
-from fairseq2.utils.structured import StructureError, structure
+from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import validate
 
 BEAM_SEARCH_GENERATOR: Final = "beam_search"
 
 
 @dataclass(kw_only=True)
 class BeamSearchConfig:
-    algorithm: AlgorithmSection = field(default_factory=lambda: AlgorithmSection())
+    algorithm: BeamSearchAlgorithmSection = field(
+        default_factory=lambda: BeamSearchAlgorithmSection()
+    )
     """The beam search algorithm."""
 
     beam_size: int = 5
@@ -75,36 +76,10 @@ class BeamSearchConfig:
 
 
 @dataclass(kw_only=True)
-class AlgorithmSection:
+class BeamSearchAlgorithmSection:
     name: str = STANDARD_BEAM_SEARCH_ALGO
 
     config: object = None
-
-
-@final
-class AlgorithmSectionHandler(ConfigSectionHandler):
-    _algorithm_handlers: Provider[BeamSearchAlgorithmHandler]
-
-    def __init__(
-        self, algorithm_handlers: Provider[BeamSearchAlgorithmHandler]
-    ) -> None:
-        self._algorithm_handlers = algorithm_handlers
-
-    @override
-    def process(self, section: object) -> None:
-        section = safe_cast("section", section, AlgorithmSection)
-
-        try:
-            algorithm_handler = self._algorithm_handlers.get(section.name)
-        except LookupError:
-            raise BeamSearchAlgorithmNotFoundError(section.name) from None
-
-        try:
-            section.config = structure(section.config, algorithm_handler.config_kls)
-        except StructureError as ex:
-            raise StructureError(
-                "`config` cannot be structured. See the nested exception for details."
-            ) from ex
 
 
 @final
@@ -118,14 +93,16 @@ class BeamSearchSequenceGeneratorHandler(SequenceGeneratorHandler):
 
     @override
     def create(self, model: DecoderModel, config: object) -> SequenceGenerator:
-        config = safe_cast("config", config, BeamSearchConfig)
+        config = structure(config, BeamSearchConfig)
+
+        validate(config)
 
         algorithm_section = config.algorithm
 
         try:
             algorithm_handler = self._algorithm_handlers.get(algorithm_section.name)
         except LookupError:
-            raise BeamSearchAlgorithmNotFoundError(algorithm_section.name) from None
+            raise UnknownBeamSearchAlgorithmError(algorithm_section.name) from None
 
         algorithm = algorithm_handler.create(algorithm_section.config)
 
@@ -155,7 +132,12 @@ class BeamSearchSequenceGeneratorHandler(SequenceGeneratorHandler):
 
     @property
     @override
-    def config_kls(self) -> type:
+    def name(self) -> str:
+        return BEAM_SEARCH_GENERATOR
+
+    @property
+    @override
+    def config_kls(self) -> type[object]:
         return BeamSearchConfig
 
 
@@ -170,14 +152,16 @@ class BeamSearchSeq2SeqGeneratorHandler(Seq2SeqGeneratorHandler):
 
     @override
     def create(self, model: EncoderDecoderModel, config: object) -> Seq2SeqGenerator:
-        config = safe_cast("config", config, BeamSearchConfig)
+        config = structure(config, BeamSearchConfig)
+
+        validate(config)
 
         algorithm_section = config.algorithm
 
         try:
             algorithm_handler = self._algorithm_handlers.get(algorithm_section.name)
         except LookupError:
-            raise BeamSearchAlgorithmNotFoundError(algorithm_section.name) from None
+            raise UnknownBeamSearchAlgorithmError(algorithm_section.name) from None
 
         algorithm = algorithm_handler.create(algorithm_section.config)
 
@@ -204,5 +188,10 @@ class BeamSearchSeq2SeqGeneratorHandler(Seq2SeqGeneratorHandler):
 
     @property
     @override
-    def config_kls(self) -> type:
+    def name(self) -> str:
+        return BEAM_SEARCH_GENERATOR
+
+    @property
+    @override
+    def config_kls(self) -> type[object]:
         return BeamSearchConfig

@@ -17,20 +17,18 @@ from rich.pretty import pretty_repr
 from torch.nn import Module
 
 import fairseq2
+from fairseq2.gang import Gangs
 from fairseq2.logging import LogWriter
+from fairseq2.metrics import format_as_byte_size
 from fairseq2.nn.utils.module import get_module_size
 from fairseq2.typing import Device
 
 
-def log_config(config: object, log: LogWriter) -> None:
-    log.info("Config:\n{}", pretty_repr(config, max_width=88))
+def log_config(log: LogWriter, title: str, config: object) -> None:
+    log.info("{}:\n{}", title, pretty_repr(config, max_width=88))
 
 
-def log_model_config(config: object, log: LogWriter) -> None:
-    log.info("Model Config:\n{}", pretty_repr(config, max_width=88))
-
-
-def log_environment_info(log: LogWriter, device: Device | None = None) -> None:
+def log_environment_info(log: LogWriter, device: Device) -> None:
     """Log information about the host system and the installed software."""
     log_system_info(log, device)
 
@@ -39,7 +37,7 @@ def log_environment_info(log: LogWriter, device: Device | None = None) -> None:
     log_environment_variables(log)
 
 
-def log_system_info(log: LogWriter, device: Device | None = None) -> None:
+def log_system_info(log: LogWriter, device: Device) -> None:
     """Log information about the host system."""
     if not log.is_enabled_for_info():
         return
@@ -131,13 +129,10 @@ def log_system_info(log: LogWriter, device: Device | None = None) -> None:
     s = (
         f"{s} | "
         f"Number of CPUs: {cpu_info} | "
-        f"Memory: {memory.total // (1024 * 1024 * 1024):,} GiB"
+        f"Memory: {format_as_byte_size(memory.total)}"
     )
 
     log.info("Host - {}", s)
-
-    if device is None:
-        return
 
     if device.type == "cpu":
         s = "CPU-only"
@@ -147,7 +142,7 @@ def log_system_info(log: LogWriter, device: Device | None = None) -> None:
         s = (
             f"ID: {device} | "
             f"Name: {props.name} | "
-            f"Memory: {props.total_memory // (1024 * 1024):,} MiB | "
+            f"Memory: {format_as_byte_size(props.total_memory)} | "
             f"Number of SMs: {props.multi_processor_count} | "
             f"Compute Capability: {props.major}.{props.minor}"
         )
@@ -157,14 +152,14 @@ def log_system_info(log: LogWriter, device: Device | None = None) -> None:
     log.info("Device - {}", s)
 
 
-def log_software_info(log: LogWriter, device: Device | None = None) -> None:
+def log_software_info(log: LogWriter, device: Device) -> None:
     """Log information about the installed software."""
     if not log.is_enabled_for_info():
         return
 
     s = f"Python: {platform.python_version()} | PyTorch: {torch.__version__}"
 
-    if device is not None and device.type == "cuda":
+    if device.type == "cuda":
         s = (
             f"{s} | "
             f"CUDA: {torch.version.cuda} | "
@@ -200,32 +195,27 @@ def log_environment_variables(log: LogWriter) -> None:
         if k.startswith("BASH_FUNC") or k in skip_list:
             continue
 
-        kv.append(f"{k}: {v}")
+        kv.append(f"{k}={v}")
 
     log.info("Environment Variables - {}", ", ".join(kv))
 
 
-def log_model(model: Module, log: LogWriter, *, rank: int | None = None) -> None:
+def log_model(log: LogWriter, model: Module, gangs: Gangs) -> None:
     """Log information about ``model``."""
     if not log.is_enabled_for_info():
         return
-
-    if rank is None:
-        r = ""
-    else:
-        r = f" (rank {rank})"
 
     si = get_module_size(model)
 
     s = (
         f"Parameter Size: {si.param_size:,} | "
-        f"Parameter Size (bytes): {si.param_size_bytes:,} | "
+        f"Parameter Size (bytes): {format_as_byte_size(si.param_size_bytes)} | "
         f"Trainable Parameter Size: {si.trainable_param_size:,} | "
-        f"Trainable Parameter Size (bytes): {si.trainable_param_size_bytes:,} | "
+        f"Trainable Parameter Size (bytes): {format_as_byte_size(si.trainable_param_size_bytes)} | "
         f"Buffer Size: {si.buffer_size:,} | "
-        f"Buffer Size (bytes): {si.buffer_size_bytes:,} | "
+        f"Buffer Size (bytes): {format_as_byte_size(si.buffer_size_bytes)} | "
         f"Total Size: {si.total_size:,} | "
-        f"Total Size (bytes): {si.total_size_bytes:,}"
+        f"Total Size (bytes): {format_as_byte_size(si.total_size_bytes)}"
     )
 
-    log.info("Model{} - {} | Layout:\n{}", r, s, model)
+    log.info("Model (rank {}) - {} | Layout:\n{}", gangs.root.rank, s, model)

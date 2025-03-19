@@ -26,7 +26,6 @@ from typing_extensions import override
 
 from fairseq2.assets._card import _starts_with_scheme
 from fairseq2.logging import log
-from fairseq2.utils.env import get_path_from_env
 
 
 class AssetDownloadManager(ABC):
@@ -38,7 +37,7 @@ class AssetDownloadManager(ABC):
         uri: str,
         model_name: str,
         *,
-        shard_idx: int | None = None,
+        shard_idx: int,
         force: bool = False,
         progress: bool = True,
     ) -> Path:
@@ -63,9 +62,8 @@ class AssetDownloadManager(ABC):
     def download_tokenizer(
         self,
         uri: str,
-        model_name: str,
+        tokenizer_name: str,
         *,
-        tokenizer_name: str | None = None,
         force: bool = False,
         progress: bool = True,
     ) -> Path:
@@ -73,8 +71,6 @@ class AssetDownloadManager(ABC):
 
         :param uri:
             The URI to download from.
-        :param model_name:
-            The name of the associated model.
         :param tokenizer_name:
             The name of the tokenizer.
         :param force:
@@ -121,15 +117,7 @@ class InProcAssetDownloadManager(AssetDownloadManager):
 
     _cache_dir: Path
 
-    def __init__(self) -> None:
-        cache_dir = get_path_from_env("FAIRSEQ2_CACHE_DIR", missing_ok=True)
-        if cache_dir is None:
-            cache_dir = get_path_from_env("XDG_CACHE_HOME")
-            if cache_dir is None:
-                cache_dir = Path("~/.cache").expanduser()
-
-            cache_dir = cache_dir.joinpath("fairseq2/assets").resolve()
-
+    def __init__(self, cache_dir: Path) -> None:
         self._cache_dir = cache_dir
 
     @override
@@ -138,14 +126,11 @@ class InProcAssetDownloadManager(AssetDownloadManager):
         uri: str,
         model_name: str,
         *,
-        shard_idx: int | None = None,
+        shard_idx: int = 0,
         force: bool = False,
         progress: bool = True,
     ) -> Path:
         display_name = f"checkpoint of {model_name}"
-
-        if shard_idx is not None:
-            display_name = f"{display_name} (shard {shard_idx})"
 
         op = _AssetDownloadOp(
             self._cache_dir, uri, display_name, force, progress, shard_idx
@@ -157,16 +142,12 @@ class InProcAssetDownloadManager(AssetDownloadManager):
     def download_tokenizer(
         self,
         uri: str,
-        model_name: str,
+        tokenizer_name: str,
         *,
-        tokenizer_name: str | None = None,
         force: bool = False,
         progress: bool = True,
     ) -> Path:
-        if not tokenizer_name:
-            display_name = f"tokenizer of {model_name}"
-        else:
-            display_name = f"{tokenizer_name} tokenizer of {model_name}"
+        display_name = f"{tokenizer_name} tokenizer"
 
         op = _AssetDownloadOp(self._cache_dir, uri, display_name, force, progress)
 
@@ -196,7 +177,7 @@ class _AssetDownloadOp:
     _display_name: str
     _force: bool
     _progress: bool
-    _shard_idx: int | None
+    _shard_idx: int
 
     def __init__(
         self,
@@ -205,7 +186,7 @@ class _AssetDownloadOp:
         display_name: str,
         force: bool,
         progress: bool,
-        shard_idx: int | None = None,
+        shard_idx: int = 0,
     ) -> None:
         self._cache_dir = cache_dir
         self._uri = uri
@@ -275,14 +256,12 @@ class _AssetDownloadOp:
         self._uri = parsed_uri._replace(params="").geturl()
 
     def _format_uri_with_shard_index(self) -> None:
-        if self._shard_idx is None:
-            return
-
         sharded_uri = self._uri.replace("%7Bshard_idx%7D", str(self._shard_idx))
-        if sharded_uri == self._uri:
-            raise AssetDownloadError(
-                f"`shard_idx` is specified, but the {self._display_name} is not sharded."
-            )
+        if self._shard_idx > 1:
+            if sharded_uri == self._uri:
+                raise AssetDownloadError(
+                    f"`shard_idx` is specified, but the {self._display_name} is not sharded."
+                )
 
         self._uri = sharded_uri
 

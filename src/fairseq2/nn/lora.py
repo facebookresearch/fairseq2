@@ -23,7 +23,6 @@ from fairseq2.nn import Embedding, Projection
 from fairseq2.typing import DataType, Device
 
 
-@final
 @dataclass
 class LoRAConfig:
     r: int
@@ -41,16 +40,13 @@ class LoRALayer(ABC):
 
     @property
     @abstractmethod
-    def wrapped_module(self) -> nn.Module:
-        ...
+    def wrapped_module(self) -> nn.Module: ...
 
     @abstractmethod
-    def merge(self) -> None:
-        ...
+    def merge(self) -> None: ...
 
     @abstractmethod
-    def unmerge(self) -> None:
-        ...
+    def unmerge(self) -> None: ...
 
 
 @final

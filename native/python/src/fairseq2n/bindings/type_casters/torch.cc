@@ -6,6 +6,8 @@
 
 #include "fairseq2n/bindings/type_casters/torch.h"
 
+#include <torch/version.h>
+
 #include <fairseq2n/exception.h>
 #include <fairseq2n/detail/exception.h>
 
@@ -20,7 +22,11 @@ struct THPVariable {
 
 extern PyObject *THPVariableClass;
 
+#if TORCH_VERSION_MAJOR < 2 || (TORCH_VERSION_MAJOR == 2 && TORCH_VERSION_MINOR < 6)
 PyObject *THPVariable_Wrap(at::TensorBase var);
+#else
+PyObject *THPVariable_Wrap(const at::TensorBase &var);
+#endif
 
 // Taken from <torch/bindings/Device.h>
 // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init)

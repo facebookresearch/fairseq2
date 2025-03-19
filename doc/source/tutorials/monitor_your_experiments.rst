@@ -66,11 +66,15 @@ What you need to do is simply add the following line in your config YAML file:
 
 .. code-block:: yaml
 
-    wandb_project: <YOUR_PROJECT_NAME>
+    common:
+        metric_recorders:
+            wandb:
+                _set_:
+                    enabled: true
+                    project: <YOUR_PROJECT_NAME>
+                    run: <YOUR_JOB_RUN_NAME>
 
 Then run your recipe with ``fairseq2 ... --config-file <YOUR_CONFIG>.yaml``.
-
-Or you can directly specify with ``fairseq2 ... --config wandb_project=<YOUR_PROJECT_NAME>``.
 
 Then you can open up your WanDB Portal and check the results in real-time.
 
@@ -84,7 +88,6 @@ Then you can open up your WanDB Portal and check the results in real-time.
         ENV_NAME=...  # YOUR_ENV_NAME
         CONFIG_FILE=...  # YOUR_CONFIG_FILE
         OUTPUT_DIR=...  # YOUR_OUTPUT_DIR
-        WANDB_PROJECT_NAME=...  # YOUR_PROJECT_NAME
 
         conda activate $ENV_NAME
         # install wandb
@@ -95,7 +98,6 @@ Then you can open up your WanDB Portal and check the results in real-time.
         # now you are good to go
         fairseq2 lm instruction_finetune $OUTPUT_DIR \
         --config-file $CONFIG_FILE \
-        --config wandb_project=$WANDB_PROJECT_NAME \
 
         # cleanup
         conda deactivate

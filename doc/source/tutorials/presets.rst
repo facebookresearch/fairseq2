@@ -54,73 +54,30 @@ fairseq2 comes with several built-in presets for common scenarios. To use a pres
 
 .. code-block:: bash
 
-    fairseq2 lm instruction_finetune --list-presets
+    fairseq2 lm instruction_finetune --list-preset-configs
 
 2. Use a preset:
 
 .. code-block:: bash
 
-    fairseq2 lm instruction_finetune $OUTPUT_DIR --preset base_10h
+    fairseq2 lm instruction_finetune $OUTPUT_DIR --preset llama3_1_instruct
 
 The preset will set default values for all configuration parameters.
 You can override any of these values using ``--config``.
 
+Available Presets
+^^^^^^^^^^^^^^^^^
 
-Creating Custom Presets
------------------------
+For instruction fine-tuning:
 
-You can create custom presets by:
+* ``llama3_1_instruct`` - Base LLaMA 3 1.8B configuration
+* ``llama3_1_instruct_constant_lr`` - With constant learning rate
+* ``llama3_1_instruct_lr_anneal_0`` - With LR annealing to 0
+* ``llama3_1_70b_instruct`` - LLaMA 3 70B configuration
 
-1. Define a configuration class (if not using an existing one)
+For preference optimization (DPO/CPO/ORPO/SimPO):
 
-.. code-block:: python
-
-    @dataclass(kw_only=True)
-    class MyTrainConfig:
-        """Configuration for my training task."""
-        
-        learning_rate: float = 1e-4
-        """The learning rate."""
-
-        batch_size: int = 32 
-        """The batch size."""
-
-        profile: tuple[int, int] | None = None
-        """The number of steps that the PyTorch profiler should skip and then record."""
-
-2. Create a preset registry
-
-.. code-block:: python
-
-    my_train_presets = ConfigRegistry[MyTrainConfig]()
-
-    my_train_preset = my_train_presets.decorator
-
-3. Define presets using the decorator
-
-.. code-block:: python
-
-    @my_train_preset("fast")
-    def _fast() -> MyTrainConfig:
-        return MyTrainConfig(
-            learning_rate=1e-3,
-            batch_size=64,
-            profile=(1000, 10),  # skip 1000 steps then record 10 steps
-        )
-
-    @my_train_preset("accurate") 
-    def _accurate() -> MyTrainConfig:
-        return MyTrainConfig(
-            learning_rate=1e-5,
-            batch_size=16,
-            profile=(1000, 10),  # skip 1000 steps then record 10 steps
-        )
-
-For a complete example of preset implementation, here are a couple of examples:
-
-* :mod:`fairseq2.recipes.wav2vec2.train <fairseq2.recipes.wav2vec2.train>`
-
-* :mod:`fairseq2.recipes.lm.instruction_finetune <fairseq2.recipes.lm.instruction_finetune>`
+* Similar presets are available with additional criterion-specific configurations
 
 
 Overriding Preset Values
@@ -134,15 +91,17 @@ You can override any preset values in two ways:
 
     fairseq2 lm instruction_finetune $OUTPUT_DIR \
         --preset llama3_1_instruct \
-        --config learning_rate=2e-4 batch_size=16
+        --config optimizer.config.lr=2e-4 dataset.batch_size=16
 
 2. Using a YAML configuration file:
 
 .. code-block:: yaml
     
     # my_config.yaml
-    learning_rate: 2e-4
-    batch_size: 16
+    optimizer:
+      config:
+        _set_:
+            lr: 2e-4
 
 .. code-block:: bash
 
@@ -196,7 +155,7 @@ Once you are familiar with presets, you can go beyond and easily run hyperparame
                 echo "Running preset::$preset | batch_size::$batch_size"
                 srun fairseq2 <your_recipe> train $output_dir/$preset/batch_size_$batch_size \
                     --preset $preset \
-                    --config batch_size=$batch_size
+                    --config dataset.batch_size=$batch_size
             done
         done
 

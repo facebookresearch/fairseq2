@@ -6,46 +6,28 @@
 
 from __future__ import annotations
 
-from fairseq2.recipes.cli import Cli, RecipeCommandHandler
-from fairseq2.recipes.wav2vec2.eval import (
-    load_wav2vec2_evaluator,
-    wav2vec2_eval_presets,
+from fairseq2.recipes.wav2vec2._common import Wav2Vec2Criterion as Wav2Vec2Criterion
+from fairseq2.recipes.wav2vec2._common import Wav2Vec2LossSection as Wav2Vec2LossSection
+from fairseq2.recipes.wav2vec2._common import Wav2Vec2MetricBag as Wav2Vec2MetricBag
+from fairseq2.recipes.wav2vec2._eval import Wav2Vec2EvalConfig as Wav2Vec2EvalConfig
+from fairseq2.recipes.wav2vec2._eval import (
+    Wav2Vec2EvalDatasetSection as Wav2Vec2EvalDatasetSection,
 )
-from fairseq2.recipes.wav2vec2.train import (
-    load_wav2vec2_trainer,
-    wav2vec2_train_presets,
+from fairseq2.recipes.wav2vec2._eval import Wav2Vec2EvalUnit as Wav2Vec2EvalUnit
+from fairseq2.recipes.wav2vec2._eval import (
+    load_wav2vec2_evaluator as load_wav2vec2_evaluator,
 )
-
-
-def _setup_wav2vec2_cli(cli: Cli) -> None:
-    extra_sweep_keys = {"max_audio_len", "min_audio_len", "normalize_audio"}
-
-    group = cli.add_group("wav2vec2", help="wav2vec 2.0 pretraining recipes")
-
-    # Train
-    train_handler = RecipeCommandHandler(
-        loader=load_wav2vec2_trainer,
-        preset_configs=wav2vec2_train_presets,
-        default_preset="base_960h",
-        extra_sweep_keys=extra_sweep_keys,
-    )
-
-    group.add_command(
-        name="train",
-        handler=train_handler,
-        help="train a wav2vec 2.0 model",
-    )
-
-    # Eval
-    eval_handler = RecipeCommandHandler(
-        loader=load_wav2vec2_evaluator,
-        preset_configs=wav2vec2_eval_presets,
-        default_preset="base_ls960h",
-        extra_sweep_keys=extra_sweep_keys,
-    )
-
-    group.add_command(
-        name="eval",
-        handler=eval_handler,
-        help="evaluate a wav2vec 2.0 model",
-    )
+from fairseq2.recipes.wav2vec2._eval import (
+    register_wav2vec2_eval_configs as register_wav2vec2_eval_configs,
+)
+from fairseq2.recipes.wav2vec2._train import Wav2Vec2TrainConfig as Wav2Vec2TrainConfig
+from fairseq2.recipes.wav2vec2._train import (
+    Wav2Vec2TrainDatasetSection as Wav2Vec2TrainDatasetSection,
+)
+from fairseq2.recipes.wav2vec2._train import Wav2Vec2TrainUnit as Wav2Vec2TrainUnit
+from fairseq2.recipes.wav2vec2._train import (
+    load_wav2vec2_trainer as load_wav2vec2_trainer,
+)
+from fairseq2.recipes.wav2vec2._train import (
+    register_wav2vec2_train_configs as register_wav2vec2_train_configs,
+)

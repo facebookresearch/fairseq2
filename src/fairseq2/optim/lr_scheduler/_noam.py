@@ -13,12 +13,13 @@ from torch.optim import Optimizer
 from typing_extensions import override
 
 from fairseq2.optim.lr_scheduler._handler import LRSchedulerHandler
-from fairseq2.optim.lr_scheduler._lr_scheduler import AbstractLRScheduler, LRScheduler
-from fairseq2.typing import safe_cast
+from fairseq2.optim.lr_scheduler._lr_scheduler import LRScheduler, LRSchedulerBase
+from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import validate
 
 
 @final
-class NoamLR(AbstractLRScheduler):
+class NoamLR(LRSchedulerBase):
     """Represents the learning rate schedule described in Section 5.3 of
     :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`.
 
@@ -92,16 +93,23 @@ class NoamLRHandler(LRSchedulerHandler):
     def create(
         self, optimizer: Optimizer, config: object, num_steps: int | None
     ) -> LRScheduler:
-        config = safe_cast("config", config, NoamLRConfig)
+        config = structure(config, NoamLRConfig)
+
+        validate(config)
 
         return NoamLR(optimizer, config.num_warmup_steps)
 
     @property
     @override
-    def requires_num_steps(self) -> bool:
-        return False
+    def name(self) -> str:
+        return NOAM_LR
 
     @property
     @override
-    def config_kls(self) -> type:
+    def config_kls(self) -> type[object]:
         return NoamLRConfig
+
+    @property
+    @override
+    def requires_num_steps(self) -> bool:
+        return False

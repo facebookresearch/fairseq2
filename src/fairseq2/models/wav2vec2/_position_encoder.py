@@ -7,8 +7,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import final
-from warnings import catch_warnings
+from typing import cast, final
 
 import torch.nn as nn
 from torch import Tensor
@@ -125,13 +124,17 @@ class Wav2Vec2PositionalConv1d(Conv1d):
         )
 
         if not getattr(self, "no_parametrization", False):
-            with catch_warnings():
-                warnings.simplefilter("ignore")  # Suppress the deprecation warning.
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    action="ignore", message=r".*deprecated in favor of `torch.nn.utils.parametrizations.weight_norm`.*"  # fmt: skip
+                )
 
                 weight_norm(self, dim=2)
 
-            self.weight_v.requires_grad_(weight.requires_grad)
-            self.weight_g.requires_grad_(weight.requires_grad)
+            requires_grad = cast(bool, weight.requires_grad)
+
+            self.weight_v.requires_grad_(requires_grad)
+            self.weight_g.requires_grad_(requires_grad)
 
         if self.bias is not None:
             nn.init.constant_(self.bias, 0.0)

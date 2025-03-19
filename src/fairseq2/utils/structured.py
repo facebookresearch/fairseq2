@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence, Set
-from copy import deepcopy
 from dataclasses import MISSING, fields, is_dataclass
 from enum import Enum
 from pathlib import Path
@@ -26,8 +25,7 @@ from typing import (
 
 import torch
 
-from fairseq2.typing import DataClass, DataType, Device
-from fairseq2.utils.dataclass import EMPTY
+from fairseq2.typing import EMPTY, DataClass, DataType, Device
 
 
 class _Structurer(Protocol):
@@ -37,13 +35,11 @@ class _Structurer(Protocol):
         type_args: tuple[object, ...],
         obj: object,
         set_empty: bool,
-    ) -> object:
-        ...
+    ) -> object: ...
 
 
 class _Unstructurer(Protocol):
-    def __call__(self, obj: object) -> object:
-        ...
+    def __call__(self, obj: object) -> object: ...
 
 
 class ValueConverter:
@@ -173,9 +169,7 @@ class ValueConverter:
             )
 
         if isinstance(obj, kls):
-            values = {f.name: getattr(obj, f.name) for f in fields(kls)}
-
-            return self._create_dataclass(kls, values, set_empty)
+            return obj
 
         if isinstance(obj, Mapping):
             values = self.structure(obj, dict[str, object])
@@ -204,14 +198,14 @@ class ValueConverter:
                 if not set_empty:
                     if field.default == MISSING and field.default_factory == MISSING:
                         raise StructureError(
-                            f"The `{field.name}` field of the dataclass has no default value or factory."
+                            f"The `{field.name}` field has no default value or factory."
                         )
 
                     continue
 
                 if hasattr(kls, "__post_init__"):
                     raise StructureError(
-                        f"The `{field.name}` field of the dataclass must not be `EMPTY` since `{kls}` has a `__post_init__()` method."
+                        f"The `{field.name}` field must not be `EMPTY` since `{kls}` has a `__post_init__()` method."
                     )
             else:
                 try:
@@ -220,7 +214,7 @@ class ValueConverter:
                     )
                 except StructureError as ex:
                     raise StructureError(
-                        f"The `{field.name}` field of the dataclass cannot be structured. See the nested exception for details."
+                        f"The `{field.name}` field cannot be structured. See the nested exception for details."
                     ) from ex
 
             kwargs[field.name] = value
@@ -232,7 +226,12 @@ class ValueConverter:
                 f"`obj` must contain only keys corresponding to the fields of `{kls}`, but it contains the following extra keys: {extra_keys}"
             )
 
-        return kls(**kwargs)
+        try:
+            return kls(**kwargs)
+        except TypeError as ex:
+            raise StructureError(
+                "The dataclass has one or more `InitVar` pseudo fields and cannot be constructed."
+            ) from ex
 
     def _structure_dict(
         self,
@@ -497,7 +496,7 @@ class ValueConverter:
     def unstructure(self, obj: object) -> object:
         kls = type(obj)
 
-        lookup_kls: type
+        lookup_kls: type[object]
 
         if is_dataclass(kls):
             lookup_kls = DataClass
@@ -545,7 +544,7 @@ class ValueConverter:
                 output[field.name] = self.unstructure(value)
             except StructureError as ex:
                 raise StructureError(
-                    f"The `{field.name}` field of the dataclass cannot be unstructured. See the nested exception for details."
+                    f"The `{field.name}` field cannot be unstructured. See the nested exception for details."
                 ) from ex
 
         return output
@@ -602,6 +601,10 @@ class ValueConverter:
         return [self.unstructure(e) for e in s]
 
 
+class StructureError(ValueError):
+    """Raised when a structure or unstructure operation fails."""
+
+
 default_value_converter = ValueConverter()
 
 
@@ -637,116 +640,3 @@ def is_unstructured(obj: object) -> bool:
         return True
 
     return isinstance(obj, NoneType | bool | int | float | str)
-
-
-def merge_unstructured(target: object, source: object) -> object:
-    def type_error(param_name: str) -> StructureError:
-        return StructureError(
-            f"`{param_name}` must be of a composition of types `bool`, `int`, `float`, `str`, `list`, and `dict`."
-        )
-
-    if not is_unstructured(target):
-        raise type_error("target")
-
-    if not is_unstructured(source):
-        raise type_error("source")
-
-    return _do_merge_unstructured(target, source, "")
-
-
-def _do_merge_unstructured(target: object, source: object, path: str) -> object:
-    if isinstance(source, dict):
-        if not isinstance(target, dict):
-            target = {}
-
-        sep = "." if path else ""
-
-        output = {}
-
-        ignored_keys = set()
-
-        del_keys = source.get("_del_")
-        if del_keys is not None:
-            if not isinstance(del_keys, list):
-                raise StructureError(
-                    f"'{path}{sep}_del_' in `source` must be of type `list`, but is of type `{type(del_keys).__name__}` instead."
-                )
-
-            for idx, del_key in enumerate(del_keys):
-                if not isinstance(del_key, str):
-                    raise StructureError(
-                        f"Each element under '{path}{sep}_del_' in `source` must be of type `str`, but the element at index {idx} is of type `{type(del_key).__name__}` instead."
-                    )
-
-                ignored_keys.add(del_key)
-
-        for k, v in target.items():
-            if k not in ignored_keys:
-                output[k] = deepcopy(v)
-
-        add_keys = source.get("_add_")
-        if add_keys is not None:
-            if not isinstance(add_keys, dict):
-                raise StructureError(
-                    f"'{path}{sep}_add_' in `source` must be of type `dict`, but is of type `{type(add_keys).__name__}` instead."
-                )
-
-            for idx, (add_key, value) in enumerate(add_keys.items()):
-                if not isinstance(add_key, str):
-                    raise StructureError(
-                        f"Each key under '{path}{sep}_add_' in `source` must be of type `str`, but the key at index {idx} is of type `{type(add_key).__name__}` instead."
-                    )
-
-                output[add_key] = deepcopy(value)
-
-        set_keys = source.get("_set_")
-        if set_keys is not None:
-            if not isinstance(set_keys, dict):
-                raise StructureError(
-                    f"'{path}{sep}_set_' in `source` must be of type `dict`, but is of type `{type(set_keys).__name__}` instead."
-                )
-
-            for idx, (set_key, value) in enumerate(set_keys.items()):
-                if not isinstance(set_key, str):
-                    raise StructureError(
-                        f"Each key under '{path}{sep}_set_' in `source` must be of type `str`, but the key at index {idx} is of type `{type(set_key).__name__}` instead."
-                    )
-
-                if set_key not in output:
-                    sub_path = set_key if not path else f"{path}.{set_key}"
-
-                    raise StructureError(
-                        f"`target` must contain a '{sub_path}' key since it exists in `source`."
-                    ) from None
-
-                output[set_key] = deepcopy(value)
-
-        for key, source_value in source.items():
-            if key == "_del_" or key == "_add_" or key == "_set_":
-                continue
-
-            # Maintain backwards compatibility with older configuration API.
-            if key == "_type_":
-                continue
-
-            sub_path = key if not path else f"{path}.{key}"
-
-            try:
-                target_value = output[key]
-            except KeyError:
-                raise StructureError(
-                    f"`target` must contain a '{sub_path}' key since it exists in `source`."
-                ) from None
-
-            output[key] = _do_merge_unstructured(target_value, source_value, sub_path)
-
-        return output
-
-    if isinstance(source, list | dict):
-        return deepcopy(source)
-
-    return source
-
-
-class StructureError(ValueError):
-    """Raised when a structure or unstructure operation fails."""

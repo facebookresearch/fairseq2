@@ -23,15 +23,14 @@ from fairseq2.generation._sampling._generator import (
 from fairseq2.generation._sampling._sampler import (
     TOP_P_SAMPLER,
     SamplerHandler,
-    SamplerNotFoundError,
     TopPSamplerConfig,
+    UnknownSamplerError,
 )
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.registry import Provider
-from fairseq2.typing import safe_cast
-from fairseq2.utils.config import ConfigSectionHandler
 from fairseq2.utils.structured import StructureError, structure
+from fairseq2.utils.validation import validate
 
 SAMPLING_GENERATOR: Final = "sampling"
 
@@ -83,30 +82,6 @@ class SamplerSection:
 
 
 @final
-class SamplerSectionHandler(ConfigSectionHandler):
-    _sampler_handlers: Provider[SamplerHandler]
-
-    def __init__(self, sampler_handlers: Provider[SamplerHandler]) -> None:
-        self._sampler_handlers = sampler_handlers
-
-    @override
-    def process(self, section: object) -> None:
-        section = safe_cast("section", section, SamplerSection)
-
-        try:
-            sampler_handler = self._sampler_handlers.get(section.name)
-        except LookupError:
-            raise SamplerNotFoundError(section.name) from None
-
-        try:
-            section.config = structure(section.config, sampler_handler.config_kls)
-        except StructureError as ex:
-            raise StructureError(
-                "`config` cannot be structured. See the nested exception for details."
-            ) from ex
-
-
-@final
 class SamplingSequenceGeneratorHandler(SequenceGeneratorHandler):
     _sampler_handlers: Provider[SamplerHandler]
 
@@ -115,16 +90,23 @@ class SamplingSequenceGeneratorHandler(SequenceGeneratorHandler):
 
     @override
     def create(self, model: DecoderModel, config: object) -> SequenceGenerator:
-        config = safe_cast("config", config, SamplingConfig)
+        config = structure(config, SamplingConfig)
+
+        validate(config)
 
         sampler_section = config.sampler
 
         try:
             sampler_handler = self._sampler_handlers.get(sampler_section.name)
         except LookupError:
-            raise SamplerNotFoundError(sampler_section.name) from None
+            raise UnknownSamplerError(sampler_section.name) from None
 
-        sampler = sampler_handler.create(sampler_section.config)
+        try:
+            sampler = sampler_handler.create(sampler_section.config)
+        except StructureError as ex:
+            raise StructureError(
+                "`sampler.config` cannot be structured. See the nested exception for details."
+            ) from ex
 
         if isinstance(config.max_gen_len, int):
             max_gen_len = config.max_gen_len
@@ -152,7 +134,12 @@ class SamplingSequenceGeneratorHandler(SequenceGeneratorHandler):
 
     @property
     @override
-    def config_kls(self) -> type:
+    def name(self) -> str:
+        return SAMPLING_GENERATOR
+
+    @property
+    @override
+    def config_kls(self) -> type[object]:
         return SamplingConfig
 
 
@@ -165,16 +152,23 @@ class SamplingSeq2SeqGeneratorHandler(Seq2SeqGeneratorHandler):
 
     @override
     def create(self, model: EncoderDecoderModel, config: object) -> Seq2SeqGenerator:
-        config = safe_cast("config", config, SamplingConfig)
+        config = structure(config, SamplingConfig)
+
+        validate(config)
 
         sampler_section = config.sampler
 
         try:
             sampler_handler = self._sampler_handlers.get(sampler_section.name)
         except LookupError:
-            raise SamplerNotFoundError(sampler_section.name) from None
+            raise UnknownSamplerError(sampler_section.name) from None
 
-        sampler = sampler_handler.create(sampler_section.config)
+        try:
+            sampler = sampler_handler.create(sampler_section.config)
+        except StructureError as ex:
+            raise StructureError(
+                "`sampler.config` cannot be structured. See the nested exception for details."
+            ) from ex
 
         max_gen_len = config.max_gen_len
 
@@ -199,5 +193,10 @@ class SamplingSeq2SeqGeneratorHandler(Seq2SeqGeneratorHandler):
 
     @property
     @override
-    def config_kls(self) -> type:
+    def name(self) -> str:
+        return SAMPLING_GENERATOR
+
+    @property
+    @override
+    def config_kls(self) -> type[object]:
         return SamplingConfig

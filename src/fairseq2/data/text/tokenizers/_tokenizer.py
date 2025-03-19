@@ -8,12 +8,10 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from typing import final
 
 from torch import Tensor
-from typing_extensions import override
 
-from fairseq2.data._vocabulary_info import VocabularyInfo
+from fairseq2.data import VocabularyInfo
 from fairseq2.typing import Device
 
 
@@ -74,26 +72,6 @@ class TextTokenizer(ABC):
     @abstractmethod
     def vocab_info(self) -> VocabularyInfo:
         """The vocabulary information associated with the tokenizer."""
-
-
-class AbstractTextTokenizer(TextTokenizer):
-    """Provides a skeletal implementation of :class:`TextTokenizer`."""
-
-    _vocab_info: VocabularyInfo
-
-    def __init__(self, vocab_info: VocabularyInfo) -> None:
-        """
-        :param vocab_info:
-            The vocabulary information associated with the tokenizer.
-        """
-        self._vocab_info = vocab_info
-
-    @final
-    @property
-    @override
-    def vocab_info(self) -> VocabularyInfo:
-        """The vocabulary information associated with the tokenizer."""
-        return self._vocab_info
 
 
 class TextTokenEncoder(ABC):
