@@ -15,17 +15,7 @@ from fairseq2.data.parquet.arrow_transform.transform import (
     maybe_cast,
     replace_table_column,
 )
-from fairseq2.data.parquet.configs import (
-    DataLoadingConfig,
-    EvaluationDataLoadingConfig,
-    ParquetBasicDataloaderConfig,
-    ParquetBatchFormat,
-    ParquetDatasetLimitOptions,
-    ValidationDataLoadingConfig,
-)
-from fairseq2.data.parquet.pipeline import (
-    init_parquet_dataset,
-)
+from fairseq2.data.parquet.fragment_streaming.basic_pipeline import init_parquet_dataset
 from fairseq2.data.parquet.utils import (
     BatchOutputType,
     NestedDict,
@@ -42,14 +32,6 @@ from fairseq2.data.parquet.utils import (
 )
 
 __all__ = [
-    # --- configs --- #
-    "ParquetDatasetLimitOptions",
-    "DataLoadingConfig",
-    "ValidationDataLoadingConfig",
-    "EvaluationDataLoadingConfig",
-    "ParquetBatchFormat",
-    "ParquetBasicDataloaderConfig",
-    # --- utils --- #
     "BatchOutputType",
     "NestedDict",
     "NestedDictValue",

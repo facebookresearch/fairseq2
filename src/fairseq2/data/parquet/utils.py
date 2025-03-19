@@ -243,19 +243,6 @@ def pyarrow_cpu(nb_cpu: int) -> Generator[None, None, None]:
         pa.set_io_thread_count(nb_io_cpu_old)
 
 
-@contextmanager
-def torch_random_seed(seed: Optional[int] = None) -> Generator[None, None, None]:
-    """
-    Set the random seed for torch.
-
-    Args:
-        seed (Optional[int]): The random seed to set. If None, the seed is not set.
-    """
-    if seed is not None:
-        torch.manual_seed(seed)
-    yield
-
-
 def get_dataset_fragments(
     dataset: pq.ParquetDataset, filters: pa.dataset.Expression
 ) -> list[pa.dataset.Fragment]:
@@ -269,6 +256,30 @@ def split_fragment_in_row_groups(
     Split a fragment into multiple fragments by row groups.
     """
     return list(fragment.split_by_row_group())
+
+
+def add_fragments_trace(table: pa.Table, fragment: pa.dataset.Fragment) -> pa.Table:
+    # we assume that the table will be loaded in the same order as the row groups
+    row_group_ids = np.repeat(
+        np.array([rr.id for rr in fragment.row_groups]),
+        np.array([rr.num_rows for rr in fragment.row_groups]),
+    )
+    row_group_ids = row_group_ids.astype(np.int32)
+    assert len(row_group_ids) == len(table)
+
+    index_in_fragment = np.concatenate(
+        [np.arange(rr.num_rows, dtype=np.int32) for rr in fragment.row_groups]
+    )
+
+    table = table.append_column(
+        "__row_groups_ids",
+        pa.array(row_group_ids, type=pa.int32()),
+    )
+    table = table.append_column(
+        "__index_in_fragement", pa.array(index_in_fragment, type=pa.int32())
+    )
+
+    return table
 
 
 def add_partitioning_values(
@@ -285,45 +296,6 @@ def add_partitioning_values(
             )
             table = table.append_column(key, values)
     return table
-
-
-def load_one_fragment(
-    fragment: pa.dataset.Fragment, columns: list[str] | None = None
-) -> pa.Table:
-    """
-    Load a single fragment from a dataset as a PyArrow Table.
-
-    This function filters out any column names not present in the fragment's
-    physical schema, then loads the data from the fragment as a PyArrow Table.
-    Finally, it calls `add_partitioning_values` to include partition keys
-    (if that function is defined to do so).
-
-    Args:
-        fragment (pa.dataset.Fragment): The dataset fragment to load.
-        columns (Optional[List[str]]): An optional list of column names to load.
-            If None, all columns in the fragment's physical schema are used.
-
-    Returns:
-        pa.Table: A PyArrow Table containing data from the fragment (and
-        potentially augmented with partitioning values).
-
-    Raises:
-        ValueError: If the fragment is invalid or cannot be read. (You can
-            optionally raise or handle other exceptions as needed.)
-    """
-    # Ensure columns only include names that exist in the fragment
-    fragment_columns = columns
-    if fragment_columns is not None:
-        fragment_columns = [
-            col for col in fragment_columns if col in fragment.physical_schema.names
-        ]
-    # Load the fragment data into a PyArrow table
-    fragment_table = fragment.to_table(columns=fragment_columns, use_threads=False)
-
-    # Add partitioning values if the function is defined
-    fragment_table = add_partitioning_values(fragment_table, fragment, columns)
-
-    return fragment_table
 
 
 def rename_table_columns(table: pa.Table, mapper: dict) -> pa.Table:
@@ -359,95 +331,3 @@ def write_table_to_arrow(table, cache_dir: str):
 def table_to_mmap_table(table, cache_dir: str):
     file_name = write_table_to_arrow(table, cache_dir)
     return read_mmap_table_with_finalizer(file_name)
-
-
-def apply_on_nested_array(
-    fn: Callable[[pa.Array], pa.Array], *inps: pa.ChunkedArray | pa.Array
-) -> pa.ChunkedArray | pa.Array:
-
-    if len(inps) > 0 and is_list_like(inps[0]):
-        assert all(is_list_like(arr) for arr in inps)
-
-        arrs = [pyarrow_column_to_array(arr) for arr in inps]
-        assert all(arr.offset == 0 for arr in arrs)
-
-        offsets = arrs[0].offsets
-        cls = (
-            pa.LargeListArray if pa.types.is_large_list(arrs[0].type) else pa.ListArray
-        )
-
-        assert all(pc.all(pc.equal(arr.offsets, offsets)).as_py() for arr in arrs)
-
-        res = apply_on_nested_array(fn, *(pc.list_flatten(arr) for arr in arrs))
-        output = cls.from_arrays(offsets=offsets, values=res)
-        for arr in arrs:
-            if arr.null_count > 0:
-                output = pc.if_else(pc.is_null(arr), None, output)
-        return output
-
-    return fn(*inps)
-
-
-def apply_over_groups(
-    table: pa.Table,
-    grp_columns: Optional[List[Optional[str]]],
-    table_mapper: Callable[[pa.Table], pa.Table],
-) -> pa.Table:
-    """
-    Apply a mapping function to each group of a PyArrow table.
-
-    Parameters:
-    - table: The input PyArrow table to be grouped and mapped.
-    - grp_columns: A list of column names to group the table by.
-        if `grp_columns=[None]` or `grp_columns=[]` or `grp_columns=None`,
-        `table_mapper` is applied on the full table.
-        Note also that None values in `grp_columns` will be filtered,
-        so one can you use grp_columns=[col1, col2] where each of col1 and col2 can be None.
-    - table_mapper: A callable function that takes a PyArrow table as input and returns a new PyArrow table.
-
-    Returns:
-    - A new PyArrow table resulting from applying the `table_mapper` function to each group of the input table.
-
-    Notes:
-    - The function adds a temporary column "__uuu_index" to the input table to facilitate grouping and sorting.
-    - The `table_mapper` function is applied to each group of the table, and the resulting tables are concatenated,
-        Therefore, the resulting sub-tables should have the same schema
-    - The function adds a temporary column "__uuu_index" to keep track of the original order of the rows.
-        So, it should be kept inchanged by `table_mapper`.
-        This column is removed in the final result.
-    """
-
-    # shortcut for no group case
-    if grp_columns is None:
-        return table_mapper(table)
-
-    grp_columns = [x for x in grp_columns if x is not None]
-    if len(grp_columns) == 0:
-        return table_mapper(table)
-
-    table = table.append_column(
-        "__uuu_index", pa.array(np.arange(len(table), dtype=np.int32))
-    )
-    split_grps = (
-        table.select(grp_columns + ["__uuu_index"])
-        .group_by(grp_columns)
-        .aggregate([("__uuu_index", "list")])
-    )
-    # shortcut for single group case
-    if len(split_grps) == 1:
-        return table_mapper(table.drop("__uuu_index"))
-
-    # to iterate per rows we convert to pandas
-    # TODO : this could be called in parallel
-    results = [
-        table_mapper(table.take(pa.array(ind)))
-        for ind in split_grps["__uuu_index_list"].to_pandas()
-    ]
-
-    result = pa.concat_tables(results, promote_options="permissive")
-    del results
-
-    if "__uuu_index" in result.column_names:
-        return result.sort_by("__uuu_index").drop("__uuu_index")
-
-    return result.combine_chunks()

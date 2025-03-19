@@ -8,7 +8,7 @@ import pyarrow.dataset as ds
 import pyarrow.parquet as pq
 import pytest
 
-from fairseq2.data.parquet.pipeline import SafeFragment
+from fairseq2.data.parquet.fragment_loading.builder import SafeFragment
 
 
 @pytest.fixture

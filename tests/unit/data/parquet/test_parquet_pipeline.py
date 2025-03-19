@@ -11,7 +11,8 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
-from fairseq2.data.parquet.pipeline import SafeFragment, init_parquet_dataset
+from fairseq2.data.parquet.fragment_loading.builder import SafeFragment
+from fairseq2.data.parquet.fragment_streaming.basic_pipeline import init_parquet_dataset
 from fairseq2.data.parquet.utils import get_dataset_fragments
 from tests.unit.data.parquet.conftest import create_sample_parquet_dataset
 

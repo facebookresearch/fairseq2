@@ -17,10 +17,7 @@ from fairseq2.data.parquet.fragment_streaming.basic_pipeline import (
     stream_parquet_fragments,
 )
 from fairseq2.data.parquet.fragment_streaming.builder import ParquetFragmentStreamer
-from fairseq2.data.parquet.fragment_streaming.config import (
-    FragmentStreamingConfig,
-    ParquetDatasetLimitOptions,
-)
+from fairseq2.data.parquet.fragment_streaming.config import FragmentStreamingConfig
 
 
 def are_fragments_equal(fragment1, fragment2):

@@ -13,12 +13,12 @@ import pyarrow.parquet as pq
 
 from fairseq2.data import DataPipelineBuilder
 from fairseq2.data.parquet.fragment_streaming.basic_pipeline import (
+    init_parquet_dataset,
     list_parquet_fragments,
     process_filter,
     stream_parquet_fragments,
 )
 from fairseq2.data.parquet.fragment_streaming.config import FragmentStreamingConfig
-from fairseq2.data.parquet.pipeline import init_parquet_dataset
 from fairseq2.logging import log
 
 
@@ -66,7 +66,7 @@ class ParquetFragmentStreamer:
         self, rank: int = 0, world_size: int = 1, even_sharding: bool = False
     ) -> DataPipelineBuilder:
         """
-        Build a pipeline of fragments (wrapped as SafeFragments) and next will be shared to a given rank and world size.
+        Build a pipeline of parquet fragments and next will be shared to a given rank and world size.
         """
         if even_sharding and self.config.files_circular_shift:
             raise ValueError(

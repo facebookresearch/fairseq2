@@ -11,6 +11,7 @@ from typing import Any, Iterator, List, Optional
 
 import numpy as np
 import pyarrow as pa
+import pyarrow.compute as pc  # noqa: F401
 import pyarrow.parquet as pq
 import torch
 from joblib import Parallel, delayed
@@ -21,7 +22,6 @@ from fairseq2.data import (
     read_sequence,
 )
 from fairseq2.data.parquet.fragment_streaming.config import ParquetDatasetLimitOptions
-from fairseq2.data.parquet.pipeline import SafeFragment
 from fairseq2.data.parquet.utils import (
     circular_shift_left,
     get_dataset_fragments,
@@ -46,6 +46,13 @@ except ImportError:
 def process_filter(
     filters: Optional[str | list[str] | pa.compute.Expression],
 ) -> Optional[pa.compute.Expression]:
+    """Process the filters to be applied to the dataset.
+    - python string is evaluated to get the expression using `eval` (in particular, symbols `pa`, `pc`, and `pq` can be used)
+       e.g. 'pc.is_in(pc.field("lang"), pa.array(["en", "fr"]))'
+
+    - list of filters is reduced to a single expression using `&` operator
+
+    """
     if filters is None or isinstance(filters, pa.compute.Expression):
         return filters
 
@@ -57,6 +64,28 @@ def process_filter(
         return reduce(lambda x, y: x & y, list_of_filter)
 
     raise ValueError(f"Unknown type of filters: {type(filters)}")
+
+
+def init_parquet_dataset(
+    parquet_path: str | List[str],
+    partition_filters: Optional[pa.dataset.Expression] = None,
+    filesystem=None,
+) -> pq.ParquetDataset:
+    """
+    Initialize a Parquet dataset.
+    Leaving `filesystem` to None will trigger the detection of the filesystem.
+
+    Args:
+        parquet_path (str or List[str]): The path to the Parquet dataset.
+        filters (Optional[pa.dataset.Expression]): Partition level filters to apply to the dataset.
+        filesystem : The filesystem to use. If None, the filesystem will be detected.
+
+    Returns:
+        pq.ParquetDataset: The initialized Parquet dataset.
+    """
+    return pq.ParquetDataset(
+        parquet_path, filters=partition_filters, filesystem=filesystem
+    )
 
 
 def _parquet_fragments_to_pipeline_builder(
@@ -89,7 +118,6 @@ def _parquet_fragments_to_pipeline_builder(
     if nb_epochs is None:
         pipeline_builder = pipeline_builder.repeat(None)
 
-    pipeline_builder = pipeline_builder.map(SafeFragment)
     return pipeline_builder
 
 
@@ -449,4 +477,4 @@ def stream_parquet_fragments(
         infinite=False,
     )
 
-    return pipeline.map(SafeFragment)
+    return pipeline

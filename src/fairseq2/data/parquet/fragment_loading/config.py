@@ -10,9 +10,6 @@ from abc import ABCMeta
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
-import pyarrow as pa  # noqa: F401
-import pyarrow.compute as pc  # noqa: F401
-
 
 class StringOnlyMeta(ABCMeta):
     def __call__(cls, *args, **kwargs):

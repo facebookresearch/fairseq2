@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from enum import Enum
 from typing import List, Optional, Union
 
 import numpy as np
@@ -167,31 +168,9 @@ def prefix_and_suffix_one_list_column(
     return replace_table_column(table, column, new_array)
 
 
-def add_fragments_trace(table: pa.Table, fragment: pa.dataset.Fragment) -> pa.Table:
-    # we assume that the table will be loaded in the same order as the row groups
-    row_group_ids = np.repeat(
-        np.array([rr.id for rr in fragment.row_groups]),
-        np.array([rr.num_rows for rr in fragment.row_groups]),
-    )
-    row_group_ids = row_group_ids.astype(np.int32)
-    assert len(row_group_ids) == len(table)
-
-    index_in_fragment = np.concatenate(
-        [np.arange(rr.num_rows, dtype=np.int32) for rr in fragment.row_groups]
-    )
-
-    table = table.append_column(
-        "__row_groups_ids",
-        pa.array(row_group_ids, type=pa.int32()),
-    )
-    table = table.append_column(
-        "__index_in_fragement", pa.array(index_in_fragment, type=pa.int32())
-    )
-
-    return table
-
-
-def shuffle_table(table: pa.Table, random_state: np.random.RandomState) -> pa.Table:
+def shuffle_table(
+    table: pa.Table, random_state: np.random.RandomState | None = None
+) -> pa.Table:
     """
     Shuffles the rows of a table.
 
@@ -202,7 +181,9 @@ def shuffle_table(table: pa.Table, random_state: np.random.RandomState) -> pa.Ta
     Returns:
         A new pyarrow Table with shuffled rows.
     """
-    permutation = pa.array(random_state.permutation(len(table)))
+    if random_state is None:
+        random_state = np.random.RandomState()
+    permutation: pa.Array = pa.array(random_state.permutation(len(table)))
     return table.take(permutation)
 
 
@@ -448,3 +429,29 @@ def filter_list_with_min_max_length(
     for column in columns:
         table = _length_filter(column)
     return table
+
+
+class ParquetBatchFormat(Enum):
+    pyarrow = 0
+    dicts = 1
+    """
+    pa.Table.to_pylist() -> List[Dict[str, Any]]
+    Creates a list of dictionaries, where each dictionary represents a row in the table with values converted to python types.
+    """
+    torch = 2
+    """
+    pa.Table -> {str: torch.Tensor | List[torch.Tensor] }
+    Best effort conversion of pa.Table to a dict of tensors (cpu), not converted fields are left as is.
+    """
+    pandas = 3
+    """
+    pa.Table -> pl.DataFrame
+    """
+    polars = 4
+    """
+    pa.Table -> pl.DataFrame conversion with potental cast of dtypes (fs16 is currently unsupported by polars).
+    """
+    dict = 5
+    """
+    pa.Table.to_pydict() -> Dict[str, Any]
+    """

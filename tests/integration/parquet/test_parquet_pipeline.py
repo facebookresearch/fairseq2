@@ -13,12 +13,14 @@ from fairseq2.data.parquet.configs import (
     ParquetDatasetConfig,
     ParquetDatasetLimitOptions,
 )
-from fairseq2.data.parquet.pipeline import (
-    SafeFragment,
-    build_iterator_over_one_table,
+from fairseq2.data.parquet.fragment_loading.builder import SafeFragment
+from fairseq2.data.parquet.fragment_streaming.basic_pipeline import (
     list_parquet_fragments,
-    parquet_iterator,
 )
+
+# TODO: fix import and tests
+# build_iterator_over_one_table,
+# parquet_iterator,
 
 
 class TestSafeFragmentIntegration:
@@ -163,7 +165,7 @@ class TestListParquetFragments:
         pipeline_builder = list_parquet_fragments(
             multi_row_group_dataset,
             split_to_row_groups=False,
-            shuffle_window=None,
+            shuffle=False,
         )
         pipeline = pipeline_builder.and_return()
 
@@ -182,7 +184,7 @@ class TestListParquetFragments:
         pipeline_builder = list_parquet_fragments(
             multi_row_group_dataset,
             split_to_row_groups=True,
-            shuffle_window=None,
+            shuffle=False,
         )
         pipeline = pipeline_builder.and_return()
 
@@ -201,7 +203,7 @@ class TestListParquetFragments:
         pipeline_builder1 = list_parquet_fragments(
             multi_row_group_dataset,
             split_to_row_groups=True,
-            shuffle_window=5,
+            shuffle=True,
             seed=42,
         )
         pipeline1 = pipeline_builder1.and_return()
@@ -209,7 +211,7 @@ class TestListParquetFragments:
         pipeline_builder2 = list_parquet_fragments(
             multi_row_group_dataset,
             split_to_row_groups=True,
-            shuffle_window=5,
+            shuffle=True,
             seed=42,
         )
         pipeline2 = pipeline_builder2.and_return()
@@ -231,7 +233,7 @@ class TestListParquetFragments:
         pipeline_builder3 = list_parquet_fragments(
             multi_row_group_dataset,
             split_to_row_groups=True,
-            shuffle_window=5,
+            shuffle=True,
             seed=43,
         )
         pipeline3 = pipeline_builder3.and_return()
@@ -264,7 +266,7 @@ class TestListParquetFragments:
         pipeline_builder = list_parquet_fragments(
             multi_row_group_dataset,
             split_to_row_groups=True,
-            shuffle_window=None,
+            shuffle=False,
         )
         pipeline = pipeline_builder.and_return()
 
