@@ -18,6 +18,7 @@ from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.gang import Gang, Gangs
 from fairseq2.metrics import Mean
 from fairseq2.models.sequence import SequenceModelOutput, as_auto_regressive_input
+from fairseq2.recipes import Model, TrainUnit
 from fairseq2.recipes.config import get_config_section
 from fairseq2.recipes.lm._preference_finetune._common import (
     POCriterionSection,
@@ -25,8 +26,6 @@ from fairseq2.recipes.lm._preference_finetune._common import (
     _gather_lprobs,
 )
 from fairseq2.recipes.lm._preference_finetune._handler import POFinetuneUnitHandler
-from fairseq2.recipes.model import Model
-from fairseq2.recipes.trainer import TrainUnit
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
 
@@ -168,7 +167,7 @@ class OrpoFinetuneUnitHandler(POFinetuneUnitHandler):
             recipe_config, "criterion", POCriterionSection
         )
 
-        config = structure(criterion_section, OrpoFinetuneConfig)
+        config = structure(criterion_section.config, OrpoFinetuneConfig)
 
         validate(config)
 

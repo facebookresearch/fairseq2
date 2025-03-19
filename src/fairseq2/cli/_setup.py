@@ -49,8 +49,9 @@ from fairseq2.optim.lr_scheduler import (
     UnspecifiedNumberOfStepsError,
 )
 from fairseq2.profilers import UnknownProfilerError
+from fairseq2.recipes import InconsistentGradientNormError, MinimumLossScaleReachedError
 from fairseq2.recipes.asr import AsrEvalConfig, load_asr_evaluator
-from fairseq2.recipes.error import (
+from fairseq2.recipes.common import (
     DatasetPathNotFoundError,
     HybridShardingNotSupportedError,
     InvalidCheckpointPathError,
@@ -110,7 +111,9 @@ def setup_cli(context: RuntimeContext) -> Cli:
 
     _register_user_error_types(cli)
 
-    run_extensions("fairseq2.cli", context, cli)
+    signature = "extension_function(context: RuntimeContext, cli: Cli) -> None"
+
+    run_extensions("fairseq2.cli", signature, context, cli)
 
     return cli
 
@@ -343,11 +346,13 @@ def _register_wav2vec2_asr_cli(cli: Cli) -> None:
 
 
 def _register_user_error_types(cli: Cli) -> None:
+    cli.register_user_error_type(InconsistentGradientNormError)
     cli.register_user_error_type(DatasetPathNotFoundError)
     cli.register_user_error_type(HybridShardingNotSupportedError)
     cli.register_user_error_type(InvalidCheckpointPathError)
     cli.register_user_error_type(InvalidDatasetTypeError)
     cli.register_user_error_type(InvalidModelTypeError)
+    cli.register_user_error_type(MinimumLossScaleReachedError)
     cli.register_user_error_type(ModelCompilationNotSupportedError)
     cli.register_user_error_type(ModelParallelismNotSupportedError)
     cli.register_user_error_type(ModelPathNotFoundError)

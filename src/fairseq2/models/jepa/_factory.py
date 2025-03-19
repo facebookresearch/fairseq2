@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import math
 from typing import cast
 
 import torch
@@ -183,12 +182,12 @@ class JepaEncoderFactory:
             layer_norm_factory=self.create_layer_norm,
         )
 
-    def create_encoder_layer(self, idx: int) -> TransformerEncoderLayer:
+    def create_encoder_layer(self, layer_idx: int) -> TransformerEncoderLayer:
         config = self._config
 
-        self_attn = self.create_attention(idx)
+        self_attn = self.create_attention(layer_idx)
 
-        ffn = self.create_ffn(idx)
+        ffn = self.create_ffn(layer_idx)
 
         drop_path = DropPathResidualConnect(drop_p=config.droppath_p)
 
@@ -226,7 +225,7 @@ class JepaEncoderFactory:
             _init_truncated_normal(proj.weight, proj.bias, std=init_std)
 
             with torch.no_grad():
-                proj.weight.div_(math.sqrt(2.0 * (layer_idx + 1)))
+                proj.weight.div_((2.0 * (layer_idx + 1)) ** 0.5)
 
         return Linear(
             config.model_dim, config.model_dim, bias=True, init_fn=init_projection
@@ -241,7 +240,7 @@ class JepaEncoderFactory:
             _init_truncated_normal(proj.weight, proj.bias, std=init_std)
 
             with torch.no_grad():
-                proj.weight.div_(math.sqrt(2.0 * (layer_idx + 1)))
+                proj.weight.div_((2.0 * (layer_idx + 1)) ** 0.5)
 
         inner_dim = int(config.model_dim * config.ffn_inner_dim_ratio)
 
@@ -282,7 +281,7 @@ class JepaEncoderFactory:
 def _init_truncated_normal(
     weight: Tensor, bias: Tensor | None, *, std: float = 1.0
 ) -> None:
-    nn.init.trunc_normal_(weight, std=std)
+    nn.init.trunc_normal_(weight, mean=0.0, std=std)
 
     if bias is not None:
         nn.init.zeros_(bias)

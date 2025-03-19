@@ -10,8 +10,7 @@ from abc import ABC, abstractmethod
 
 from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.gang import Gangs
-from fairseq2.recipes.model import Model
-from fairseq2.recipes.trainer import TrainUnit
+from fairseq2.recipes import Model, TrainUnit
 
 
 class POFinetuneUnitHandler(ABC):

@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Final
+from typing import Final, Literal
 
 from fairseq2.context import RuntimeContext
 from fairseq2.data import VocabularyInfo
@@ -35,6 +35,9 @@ class LLaMAConfig:
         )
     )
     """The vocabulary information."""
+
+    tie_embeddings: bool = False
+    """If ``True``, ties the embedding table and the output projection layer."""
 
     num_layers: int = 32
     """The number of decoder layers."""
@@ -78,7 +81,21 @@ class LLaMAConfig:
     encoder, aiming to increase the context length.
     """
 
-    dropout_p: float = 0.1
+    init_std: float | None = None
+    """
+    If not ``None``, the standard deviation to initialize input embeddings and
+    projection weights; otherwise, ``model_dim ** -0.5`` will be used instead.
+    """
+
+    init_std_scale: Literal["none", "layer", "stack"] = "layer"
+    """
+    The method to use to scale ``init_std`` per layer. If 'none', no scaling
+    will be applied. If 'layer', ``init_std`` will be scaled by the depth of
+    the layer. If 'stack', ``init_std`` will be scaled by the total depth of
+    the decoder.
+    """
+
+    dropout_p: float = 0.0
     """The dropout probability on outputs of Transformer layers."""
 
 
@@ -245,6 +262,7 @@ def register_llama_configs(context: RuntimeContext) -> None:
         config = llama3_1_8b()
 
         config.model_dim = 2048
+        config.tie_embeddings = True
         config.ffn_inner_dim = 2048 * 4
         config.ffn_inner_dim_multiplier = 1.5
         config.ffn_inner_dim_to_multiple = 256

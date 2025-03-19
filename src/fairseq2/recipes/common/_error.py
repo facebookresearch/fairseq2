@@ -69,12 +69,7 @@ class ModelCompilationNotSupportedError(NotSupportedError):
 
 
 class HybridShardingNotSupportedError(NotSupportedError):
-
     def __init__(self) -> None:
         super().__init__(
             "Hybrid sharded data parallelism cannot be used with model parallelism."
         )
-
-
-class UnitError(Exception):
-    pass

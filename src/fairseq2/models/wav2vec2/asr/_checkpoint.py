@@ -6,10 +6,10 @@
 
 from __future__ import annotations
 
-from collections.abc import MutableMapping
 from typing import cast
 
 from torch import Tensor
+from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
 
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
 from fairseq2.models.wav2vec2.asr._config import Wav2Vec2AsrConfig
@@ -19,10 +19,15 @@ from fairseq2.nn.transformer import TransformerNormOrder
 def convert_wav2vec2_asr_checkpoint(
     checkpoint: dict[str, object], config: Wav2Vec2AsrConfig
 ) -> dict[str, object]:
-    state_dict = cast(MutableMapping[str, Tensor], checkpoint["model"])
+    try:
+        state_dict = cast(dict[str, Tensor], checkpoint["model"])
+    except KeyError:
+        return checkpoint
 
     # Check if we have a fairseq2 checkpoint.
     if "w2v_encoder.proj.weight" not in state_dict:
+        consume_prefix_in_state_dict_if_present(state_dict, prefix="module.")
+
         return checkpoint
 
     if config.encoder_config.norm_order == TransformerNormOrder.POST:

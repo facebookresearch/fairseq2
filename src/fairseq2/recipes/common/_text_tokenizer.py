@@ -24,8 +24,8 @@ from fairseq2.data.text.tokenizers import (
     resolve_text_tokenizer_reference,
     text_tokenizer_asset_card_error,
 )
-from fairseq2.error import ProgramError
 from fairseq2.logging import log
+from fairseq2.recipes import RecipeError
 from fairseq2.recipes.config import (
     ConfigSectionNotFoundError,
     ModelSection,
@@ -46,7 +46,7 @@ def load_text_tokenizer(
     try:
         return loader.load(recipe_config)
     except TextTokenizerLoadError as ex:
-        raise ProgramError(
+        raise RecipeError(
             f"The '{ex.tokenizer_name}' tokenizer cannot be loaded. See the nested exception for details."
         ) from ex
 

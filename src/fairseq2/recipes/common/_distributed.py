@@ -15,7 +15,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
-from fairseq2.error import NotSupportedError, ProgramError
+from fairseq2.error import NotSupportedError
 from fairseq2.gang import GangError, Gangs
 from fairseq2.logging import log
 from fairseq2.models import ModelHandler
@@ -36,8 +36,8 @@ from fairseq2.nn.data_parallel import (
 )
 from fairseq2.nn.utils.gradient import clip_gradient_norm
 from fairseq2.nn.utils.module import broadcast_module, to_device
+from fairseq2.recipes import Model, RecipeError
 from fairseq2.recipes.config import TrainerSection, get_config_section
-from fairseq2.recipes.model import Model
 from fairseq2.typing import ContextManager
 
 
@@ -65,7 +65,7 @@ def setup_data_parallel_model(
         if data_parallelism == "fsdp":
             return wrap_fsdp(recipe_config, model, gangs, static_graph)
     except DistributedSetupError as ex:
-        raise ProgramError(
+        raise RecipeError(
             "The data parallelism cannot be setup. See the nested exception for details."
         ) from ex
 
@@ -339,7 +339,7 @@ def broadcast_model(model: Model, gangs: Gangs) -> None:
     try:
         broadcast_module(model.module, gangs.dp)
     except GangError as ex:
-        raise ProgramError(
+        raise RecipeError(
             f"The '{model.name}' model cannot be broadcasted from rank 0 to the rest of the gang. See the nested exception for details."
         ) from ex
 

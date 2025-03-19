@@ -32,6 +32,7 @@ from fairseq2.models.sequence import (
 from fairseq2.nn.transformer import enable_memory_efficient_torch_sdpa
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.optim.lr_scheduler import COSINE_ANNEALING_LR, CosineAnnealingLRConfig
+from fairseq2.recipes import EvalUnit, Model, SequenceMetricBag, Trainer, TrainUnit
 from fairseq2.recipes.common import (
     create_checkpoint_manager,
     create_lr_scheduler,
@@ -54,10 +55,6 @@ from fairseq2.recipes.config import (
     RegimeSection,
     TrainerSection,
 )
-from fairseq2.recipes.evaluator import EvalUnit
-from fairseq2.recipes.metrics import SequenceMetricBag
-from fairseq2.recipes.model import Model
-from fairseq2.recipes.trainer import Trainer, TrainUnit
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
@@ -88,7 +85,9 @@ class InstructionFinetuneConfig:
     optimizer: OptimizerSection = field(
         default_factory=lambda: OptimizerSection(
             name=ADAMW_OPTIMIZER,
-            config=AdamWConfig(lr=5.5e-06, betas=(0.9, 0.95), weight_decay=0.1),
+            config=AdamWConfig(
+                lr=5.5e-06, betas=(0.9, 0.95), weight_decay=0.1, impl="fused"
+            ),
         )
     )
 
@@ -160,11 +159,6 @@ class InstructionFinetuneDatasetSection(DatasetSection):
     """The dataset-specific extra options."""
 
 
-@dataclass(kw_only=True)
-class DropoutConfig:
-    dropout_p: float = 0.0
-
-
 def register_instruction_finetune_configs(context: RuntimeContext) -> None:
     registry = context.get_config_registry(InstructionFinetuneConfig)
 
@@ -172,11 +166,7 @@ def register_instruction_finetune_configs(context: RuntimeContext) -> None:
 
     @preset("llama3_1_instruct")
     def llama3_1_instruct() -> InstructionFinetuneConfig:
-        config = InstructionFinetuneConfig()
-
-        config.model.config = DropoutConfig()
-
-        return config
+        return InstructionFinetuneConfig()
 
     @preset("llama3_1_instruct_constant_lr")
     def llama3_1_instruct_constant_lr() -> InstructionFinetuneConfig:

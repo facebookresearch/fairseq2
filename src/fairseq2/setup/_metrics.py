@@ -22,8 +22,8 @@ from fairseq2.metrics._descriptor import (
 def register_metric_descriptors(context: RuntimeContext) -> None:
     registry = context.get_registry(MetricDescriptor)
 
-    def register(name: str, *args: Any) -> None:
-        registry.register(name, MetricDescriptor(name, *args))
+    def register(name: str, *args: Any, **kwargs: Any) -> None:
+        registry.register(name, MetricDescriptor(name, *args, **kwargs))
 
     # fmt: off
     register("loss",             "Loss",                   90, format_as_float)
@@ -32,9 +32,9 @@ def register_metric_descriptors(context: RuntimeContext) -> None:
     register("diversity_loss",   "Diversity Loss",        100, format_as_float)
     register("nll_loss",         "NLL Loss",              100, format_as_float)
     register("feature_penalty",  "Feature Penalty",       110, format_as_float)
-    register("accuracy",         "Accuracy",              200, format_as_float)
-    register("bleu",             "BLEU",                  200, format_as_float)
-    register("chrf",             "chrF++",                200, format_as_float)
+    register("accuracy",         "Accuracy",              200, format_as_float, higher_better=True)
+    register("bleu",             "BLEU",                  200, format_as_float, higher_better=True)
+    register("chrf",             "chrF++",                200, format_as_float, higher_better=True)
     register("uer",              "Unit Error Rate (UER)", 200, format_as_float)
     register("wer",              "Word Error Rate (WER)", 200, format_as_float)
     register("code_perplexity",  "Code Perplexity",       210, format_as_float)
@@ -42,8 +42,10 @@ def register_metric_descriptors(context: RuntimeContext) -> None:
     register("temperature",      "Temperature",           220, format_as_float)
     register("gradient_norm",    "Gradient Norm",         300, format_as_float)
     register("data_epoch",       "Data Epoch",            490, format_as_int)
-    register("data_read_time",   "Data Read Time",        500, format_as_seconds)
-    register("elapsed_time",     "Elapsed Time",          505, format_as_seconds)
+    register("data_time",        "Data Time",             500, format_as_seconds)
+    register("compute_time",     "Compute Time",          501, format_as_seconds)
+    register("lapse_time",       "Lapse Time",            502, format_as_seconds)
+    register("total_time",       "Total Time",            505, format_as_seconds)
     register("wall_time",        "Wall Time",             510, format_as_seconds)
     register("lr",               "Learning Rate",         700, format_as_float)
     register("loss_scale",       "Loss Scale",            710, format_as_float)

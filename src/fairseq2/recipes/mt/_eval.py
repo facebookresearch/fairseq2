@@ -22,13 +22,21 @@ from fairseq2.datasets.parallel_text import (
     ParallelTextDataset,
     ParallelTextReadOptions,
 )
-from fairseq2.error import ProgramError
 from fairseq2.gang import Gangs
 from fairseq2.generation import BeamSearchConfig, Seq2SeqGenerator
 from fairseq2.generation.text import SequenceToTextConverter
 from fairseq2.metrics.text import DEFAULT_BLEU_TOKENIZER, BleuMetric, ChrfMetric
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.seq2seq import Seq2SeqBatch
+from fairseq2.recipes import (
+    Evaluator,
+    EvalUnit,
+    Model,
+    RecipeError,
+    Seq2SeqGenerationMetricBag,
+    Seq2SeqMetricBag,
+    UnitError,
+)
 from fairseq2.recipes.common import (
     create_evaluator,
     create_seq2seq_generator,
@@ -46,10 +54,6 @@ from fairseq2.recipes.config import (
     ReferenceModelSection,
     Seq2SeqGeneratorSection,
 )
-from fairseq2.recipes.error import UnitError
-from fairseq2.recipes.evaluator import Evaluator, EvalUnit
-from fairseq2.recipes.metrics import Seq2SeqGenerationMetricBag, Seq2SeqMetricBag
-from fairseq2.recipes.model import Model
 from fairseq2.recipes.mt._common import MTCriterion, MTLossSection
 from fairseq2.typing import CPU
 from fairseq2.utils.file import FileMode
@@ -204,17 +208,17 @@ def load_mt_evaluator(
 
             rank = gangs.dp.rank
 
-            src_file = output_dir.joinpath(
-                f"translations/{direction}/rank_{rank}.src.txt"
-            )
-            ref_file = output_dir.joinpath(
-                f"translations/{direction}/rank_{rank}.ref.txt"
-            )
-            hyp_file = output_dir.joinpath(
-                f"translations/{direction}/rank_{rank}.hyp.txt"
-            )
-
             try:
+                src_file = output_dir.joinpath(
+                    f"translations/{direction}/rank_{rank}.src.txt"
+                )
+                ref_file = output_dir.joinpath(
+                    f"translations/{direction}/rank_{rank}.ref.txt"
+                )
+                hyp_file = output_dir.joinpath(
+                    f"translations/{direction}/rank_{rank}.hyp.txt"
+                )
+
                 try:
                     file_system.make_directory(src_file.parent)
                 except OSError as ex:
@@ -243,8 +247,8 @@ def load_mt_evaluator(
                         f"The '{hyp_file}' output file cannot be created. See the nested exception for details."
                     ) from ex
             except UnitError as ex:
-                raise ProgramError(
-                    "The evaluation unit cannot be initialized. See the nested exception for details."
+                raise RecipeError(
+                    f"The 'score/{direction}' evaluator unit cannot be initialized. See the nested exception for details."
                 ) from ex
         else:
             src_fp = None
@@ -458,7 +462,7 @@ class MTBleuChrfEvalUnit(EvalUnit[Seq2SeqBatch]):
                 stream.flush()
         except OSError as ex:
             raise UnitError(
-                "The generator output cannot be written to the stream. See the nested exception for details."
+                "The generator output cannot be written. See the nested exception for details."
             ) from ex
 
     @property

@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from enum import Enum
 from time import perf_counter
 from typing import Any, final
 
@@ -13,25 +14,36 @@ import torch
 from typing_extensions import Self
 
 from fairseq2.error import InvalidOperationError
-from fairseq2.typing import Device
+from fairseq2.typing import CPU, Device
+
+
+class _StopwatchState(Enum):
+    NOT_STARTED = 0
+    RUNNING = 1
+    PAUSED = 1
 
 
 @final
 class Stopwatch:
     """Measures elapsed execution time."""
 
-    _start_time: float | None
-    _device: Device | None
+    _is_running: bool
+    _accumulated_duration: float
+    _start_time: float
+    _device: Device
 
-    def __init__(self, *, start: bool = False, device: Device | None = None) -> None:
+    def __init__(self, *, device: Device | None = None) -> None:
         """
-        :param start: If ``True``, starts the stopwatch immediately.
         :param device: If not ``None``, waits for all operations on ``device``
             to complete before measuring the elapsed time. Note that this can
             have a negative impact on the runtime performance if not used
             carefully.
         """
-        self._start_time = None
+        self._is_running = False
+
+        self._accumulated_duration = 0.0
+
+        self._start_time = 0.0
 
         if device is not None:
             if device.type != "cpu" and device.type != "cuda":
@@ -39,49 +51,48 @@ class Stopwatch:
                     f"The type of `device` must be `cpu` or `cuda`, but is `{device.type}` instead."
                 )
 
-        self._device = device
-
-        if start:
-            self.start()
+        self._device = device or CPU
 
     def start(self) -> None:
-        """Start the stopwatch."""
-        if self._start_time is not None:
+        if self._is_running:
             raise InvalidOperationError("The stopwatch is already running.")
 
-        self._sync_device()
-
         self._start_time = perf_counter()
+
+        self._is_running = True
 
     def stop(self) -> None:
-        """Stop the stopwatch."""
-        self._start_time = None
+        if not self._is_running:
+            return
+
+        self._maybe_sync_device()
+
+        self._accumulated_duration += perf_counter() - self._start_time
+
+        self._is_running = False
 
     def reset(self) -> None:
-        """Reset the stopwatch."""
-        if self._start_time is None:
-            raise InvalidOperationError("The stopwatch is not running.")
+        self._accumulated_duration = 0.0
 
-        self._sync_device()
+        if self._is_running:
+            self._maybe_sync_device()
 
-        self._start_time = perf_counter()
+            self._start_time = perf_counter()
 
     def get_elapsed_time(self) -> float:
-        """Return the elapsed time since the last :meth:`start` or :meth:`reset`."""
-        if self._start_time is None:
-            return 0.0
+        if not self._is_running:
+            return self._accumulated_duration
 
-        self._sync_device()
+        self._maybe_sync_device()
 
-        return perf_counter() - self._start_time
+        return self._accumulated_duration + (perf_counter() - self._start_time)
 
-    def _sync_device(self) -> None:
-        if self._device is not None and self._device.type == "cuda":
+    def _maybe_sync_device(self) -> None:
+        if self._device.type == "cuda":
             torch.cuda.synchronize(self._device)
 
     def __enter__(self) -> Self:
-        if self._start_time is None:
-            self.start()
+        self.start()
 
         return self
 
@@ -90,5 +101,4 @@ class Stopwatch:
 
     @property
     def is_running(self) -> bool:
-        """Return ``True`` if the stopwatch is running."""
-        return self._start_time is not None
+        return self._is_running

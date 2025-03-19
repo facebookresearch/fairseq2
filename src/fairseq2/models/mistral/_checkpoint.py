@@ -13,6 +13,10 @@ from fairseq2.models.utils.checkpoint import convert_model_state_dict
 def convert_mistral_checkpoint(
     checkpoint: dict[str, object], config: MistralConfig
 ) -> dict[str, object]:
+    # Check if we have a fairseq2 checkpoint.
+    if "model" in checkpoint:
+        return checkpoint
+
     key_map = {
         # fmt: off
         r"^layers\.([0-9]+)\.attention\.wq\.":    r"decoder.layers.\1.self_attn.q_proj.",

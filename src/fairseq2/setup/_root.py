@@ -38,6 +38,7 @@ from fairseq2.setup._profilers import register_profilers
 from fairseq2.setup._recipes import register_recipes
 from fairseq2.setup._text_tokenizers import register_text_tokenizer_families
 from fairseq2.utils.file import FileSystem, LocalFileSystem
+from fairseq2.utils.progress import NoopProgressReporter, ProgressReporter
 
 
 class _SetupState(Enum):
@@ -49,7 +50,7 @@ class _SetupState(Enum):
 _setup_state: _SetupState = _SetupState.NOT_CALLED
 
 
-def setup_fairseq2() -> None:
+def setup_fairseq2(progress_reporter: ProgressReporter | None = None) -> None:
     """
     Sets up fairseq2.
 
@@ -74,7 +75,7 @@ def setup_fairseq2() -> None:
     _setup_state = _SetupState.IN_CALL
 
     try:
-        context = setup_library()
+        context = setup_library(progress_reporter)
     except Exception:
         _setup_state = _SetupState.NOT_CALLED
 
@@ -85,7 +86,7 @@ def setup_fairseq2() -> None:
     _setup_state = _SetupState.CALLED
 
 
-def setup_library() -> RuntimeContext:
+def setup_library(progress_reporter: ProgressReporter | None = None) -> RuntimeContext:
     env = os.environ
 
     file_system = LocalFileSystem()
@@ -94,7 +95,14 @@ def setup_library() -> RuntimeContext:
 
     asset_download_manager = _create_asset_download_manager(env, file_system)
 
-    context = RuntimeContext(env, asset_store, asset_download_manager, file_system)
+    if progress_reporter is None:
+        progress_reporter = NoopProgressReporter()
+
+    context = RuntimeContext(
+        env, asset_store, asset_download_manager, file_system, progress_reporter
+    )
+
+    context.wall_watch.start()
 
     register_assets(context)
     register_beam_search_algorithms(context)
@@ -114,7 +122,9 @@ def setup_library() -> RuntimeContext:
     register_seq_generators(context)
     register_text_tokenizer_families(context)
 
-    run_extensions("fairseq2.extension", context)
+    signature = "extension_function(context: RuntimeContext) -> None"
+
+    run_extensions("fairseq2.extension", signature, context)
 
     return context
 

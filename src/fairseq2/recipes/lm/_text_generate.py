@@ -22,11 +22,19 @@ from fairseq2.datasets.instruction import (
     InstructionDataset,
     InstructionPromptReadOptions,
 )
-from fairseq2.error import InternalError, ProgramError
+from fairseq2.error import InternalError
 from fairseq2.gang import Gangs
 from fairseq2.generation import SamplingConfig, SequenceGenerator
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.sequence import SequenceBatch
+from fairseq2.recipes import (
+    Generator,
+    GeneratorUnit,
+    Model,
+    RecipeError,
+    SequenceGenerationMetricBag,
+    UnitError,
+)
 from fairseq2.recipes.common import (
     create_generator,
     create_seq_generator,
@@ -44,10 +52,6 @@ from fairseq2.recipes.config import (
     ReferenceModelSection,
     SequenceGeneratorSection,
 )
-from fairseq2.recipes.error import UnitError
-from fairseq2.recipes.generator import Generator, GeneratorUnit
-from fairseq2.recipes.metrics import SequenceGenerationMetricBag
-from fairseq2.recipes.model import Model
 from fairseq2.typing import CPU
 from fairseq2.utils.file import FileMode
 from fairseq2.utils.rng import manual_seed
@@ -180,10 +184,10 @@ def load_text_generator(
 
         rank = gangs.dp.rank
 
-        text_file = output_dir.joinpath(f"output/rank_{rank}.txt")
-        json_file = output_dir.joinpath(f"output/rank_{rank}.jsonl")
-
         try:
+            text_file = output_dir.joinpath(f"output/rank_{rank}.txt")
+            json_file = output_dir.joinpath(f"output/rank_{rank}.jsonl")
+
             try:
                 file_system.make_directory(text_file.parent)
             except OSError as ex:
@@ -205,8 +209,8 @@ def load_text_generator(
                     f"The '{json_file}' output file cannot be created. See the nested exception for details."
                 ) from ex
         except UnitError as ex:
-            raise ProgramError(
-                "The generation unit cannot be initialized. See the nested exception for details."
+            raise RecipeError(
+                "The generator unit cannot be initialized. See the nested exception for details."
             ) from ex
     else:
         text_fp = None
@@ -392,7 +396,7 @@ class TextGenerateUnit(GeneratorUnit[SequenceBatch]):
                 stream.flush()
         except OSError as ex:
             raise UnitError(
-                "The generator output cannot be written to the stream. See the nested exception for details."
+                "The generator output cannot be written. See the nested exception for details."
             ) from ex
 
     @property

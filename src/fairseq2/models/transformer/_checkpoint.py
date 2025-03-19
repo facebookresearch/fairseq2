@@ -6,11 +6,11 @@
 
 from __future__ import annotations
 
-from collections.abc import MutableMapping
 from typing import cast
 
 import torch
 from torch import Tensor
+from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
 
 from fairseq2.models.transformer._config import TransformerConfig
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
@@ -19,6 +19,17 @@ from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
 def convert_transformer_checkpoint(
     checkpoint: dict[str, object], config: TransformerConfig
 ) -> dict[str, object]:
+    try:
+        state_dict = cast(dict[str, Tensor], checkpoint["model"])
+    except KeyError:
+        return checkpoint
+
+    # Check if we have a fairseq2 checkpoint.
+    if "decoder.output_projection.weight" not in state_dict:
+        consume_prefix_in_state_dict_if_present(state_dict, prefix="module.")
+
+        return checkpoint
+
     key_map = {
         # fmt: off
         r"^encoder\.embed_tokens\.":                              r"encoder_frontend.embed.",
@@ -43,7 +54,7 @@ def convert_transformer_checkpoint(
     # Convert to fairseq2.
     checkpoint = convert_fairseq_checkpoint(checkpoint, key_map)
 
-    state_dict = cast(MutableMapping[str, Tensor], checkpoint["model"])
+    state_dict = cast(dict[str, Tensor], checkpoint["model"])
 
     embeds = state_dict["final_proj.weight"]
 
