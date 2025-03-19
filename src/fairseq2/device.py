@@ -202,3 +202,8 @@ class CudaDeviceStatTracker(DeviceStatTracker):
     @override
     def reset(self) -> None:
         torch.cuda.reset_peak_memory_stats()
+
+
+class SupportsDeviceTransfer(ABC):
+    @abstractmethod
+    def to(self, device: Device) -> None: ...

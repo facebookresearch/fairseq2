@@ -26,7 +26,7 @@ from fairseq2.checkpoint import (
     CheckpointState,
 )
 from fairseq2.datasets import DataReader, DataReadError
-from fairseq2.device import DeviceStatTracker
+from fairseq2.device import DeviceStatTracker, SupportsDeviceTransfer
 from fairseq2.error import InternalError, InvalidOperationError
 from fairseq2.gang import GangError, Gangs, broadcast_flag
 from fairseq2.logging import log
@@ -49,16 +49,21 @@ from fairseq2.recipes._recipe import Recipe, RecipeStopException
 from fairseq2.recipes._validator import Validator
 from fairseq2.typing import CPU, ContextManager, DataType
 from fairseq2.utils.gc import GarbageCollector
-from fairseq2.utils.progress import ProgressReporter
+from fairseq2.utils.progress import ProgressReporter, ProgressTask
 from fairseq2.utils.rng import RngBag
 from fairseq2.utils.state import Stateful
 from fairseq2.utils.stopwatch import Stopwatch
 
-BatchT_contra = TypeVar("BatchT_contra", contravariant=True)
+BatchT_contra = TypeVar(
+    "BatchT_contra", bound=SupportsDeviceTransfer, contravariant=True
+)
 
 
 class TrainUnit(ABC, Generic[BatchT_contra]):
     """Represents a unit to be used with :class:`Trainer`."""
+
+    def set_step_nr(self, step_nr: int) -> None:
+        pass
 
     @abstractmethod
     def __call__(self, batch: BatchT_contra) -> tuple[Tensor, int | None]:
@@ -70,9 +75,6 @@ class TrainUnit(ABC, Generic[BatchT_contra]):
               model gradients won't be normalized.
         """
 
-    def set_step_nr(self, step_nr: int) -> None:
-        pass
-
     @property
     @abstractmethod
     def model(self) -> Model: ...
@@ -82,7 +84,7 @@ class TrainUnit(ABC, Generic[BatchT_contra]):
     def metric_bag(self) -> MetricBag: ...
 
 
-BatchT = TypeVar("BatchT")
+BatchT = TypeVar("BatchT", bound=SupportsDeviceTransfer)
 
 
 @final
@@ -138,9 +140,9 @@ class Trainer(Recipe, Generic[BatchT]):
     _wall_watch: Stopwatch
     _base_wall_time: float
     _progress_reporter: ProgressReporter
+    _first_iter: bool
+    _batches: list[BatchT] | None
     _stop_requested: bool
-    _repeat_step: bool
-    _has_read_any_data: bool
     _num_batches_read: int
     _last_lr: float
 
@@ -464,11 +466,11 @@ class Trainer(Recipe, Generic[BatchT]):
 
         self._progress_reporter = progress_reporter
 
+        self._first_iter = True
+
+        self._batches = None
+
         self._stop_requested = False
-
-        self._repeat_step = False
-
-        self._has_read_any_data = False
 
         self._num_batches_read = 0
 
@@ -479,13 +481,11 @@ class Trainer(Recipe, Generic[BatchT]):
         if self._state != TrainerState.NOT_STARTED:
             raise InvalidOperationError("The trainer cannot be run more than once.")
 
-        self._state = TrainerState.RUNNING
-
         gangs = self._gangs
 
         with self._progress_reporter:
             with self._rng_bag.temporary_manual_seed(self._seed + gangs.root.rank):
-                self._maybe_restore_state()
+                self._state = self._maybe_restore_state()
 
                 with self._profiler, self._garbage_collector:
                     self._do_run()
@@ -500,7 +500,7 @@ class Trainer(Recipe, Generic[BatchT]):
         if self._stop_requested:
             raise RecipeStopException()
 
-    def _maybe_restore_state(self) -> None:
+    def _maybe_restore_state(self) -> TrainerState:
         try:
             step_nr = self._checkpoint_manager.maybe_get_last_step_number()
         except CheckpointError as ex:
@@ -509,7 +509,7 @@ class Trainer(Recipe, Generic[BatchT]):
             ) from ex
 
         if step_nr is None:
-            return
+            return TrainerState.DATA_LOAD
 
         log.info("Restoring training from the last checkpoint at step {}.", step_nr)
 
@@ -549,11 +549,13 @@ class Trainer(Recipe, Generic[BatchT]):
 
         if self._max_num_steps is not None:
             if self._step_nr >= self._max_num_steps:
-                self._state = TrainerState.STOPPING
+                return TrainerState.STOPPED
 
         if self._max_num_data_epochs is not None:
             if self._data_epoch_nr >= self._max_num_data_epochs:
-                self._state = TrainerState.STOPPING
+                return TrainerState.STOPPED
+
+        return TrainerState.DATA_LOAD
 
     def _do_run(self) -> None:
         self._model.module.train()
@@ -564,111 +566,145 @@ class Trainer(Recipe, Generic[BatchT]):
 
         self._device_stat_tracker.reset()
 
-        first_iter = True
-
         with progress_task, self._lapse_watch:
-            while self._state == TrainerState.RUNNING:
-                self._step_nr += 1
+            while self._state != TrainerState.STOPPED:
+                match self._state:
+                    case TrainerState.DATA_LOAD:
+                        self._state = self._read_next_batches()
 
-                progress_task.step(1)
+                    case TrainerState.END_OF_DATA_EPOCH:
+                        self._state = self._handle_end_of_data_epoch()
 
-                try:
-                    self._checkpoint_manager.maybe_complete_async_checkpoint()
-                except CheckpointSaveError as ex:
-                    raise RecipeError(
-                        f"The checkpoint of step {ex.step_nr} cannot be saved. See the nested exception for details."
-                    ) from ex
+                    case TrainerState.STEP:
+                        self._state = self._run_step(progress_task)
 
-                detect_anomaly = torch.autograd.set_detect_anomaly(  # type: ignore[attr-defined]
-                    self._anomaly_detection, check_nan=True
-                )
+                    case TrainerState.POST_STEP:
+                        self._state = self._run_post_step()
 
-                with detect_anomaly:
-                    with record_function(f"step_{self._step_nr}"):
-                        self._run_step()
+                    case TrainerState.GRADIENT_OVERFLOW:
+                        self._state = self._repeat_step(progress_task)
 
-                if self._repeat_step:
-                    self._step_nr -= 1
+                    case TrainerState.END_OF_TRAINING:
+                        log.info("End of training reached at step {}.", self._step_nr)
 
-                    progress_task.step(-1)
-                elif self._max_num_steps is not None:
-                    if self._step_nr >= self._max_num_steps:
-                        self._state = TrainerState.STOPPING
+                        self._state = self._stop()
 
-                if self._should_checkpoint():
-                    self._checkpoint()
+                    case TrainerState.END_OF_DATA:
+                        log.info("End of data reached.")
 
-                if self._should_publish_metrics():
-                    self._publish_metrics()
+                        self._state = self._stop()
 
-                    self._metric_bag.reset_non_persistent_metrics()
+                    case TrainerState.EARLY_STOP:
+                        self._state = self._early_stop()
 
-                    self._reset_watches()
+                    case TrainerState.STOP_REQUESTED:
+                        log.info("Stopping training at step {}.", self._step_nr)
 
-                    self._num_batches_read = 0
+                        self._state = self._stop()
 
-                    self._device_stat_tracker.reset()
+    def _read_next_batches(self) -> TrainerState:
+        with self._data_watch:
+            try:
+                self._batches = next(self._data_reader)
+            except DataReadError as ex:
+                raise RecipeError(
+                    "The train data read operation has failed. See the nested exception for details."
+                ) from ex
+            except StopIteration:
+                self._batches = None
 
-                if self._should_validate():
-                    self._lapse_watch.stop()
+            if self._batches is not None:
+                return TrainerState.STEP
 
-                    self._validate()
+            self._data_reader.reset()
 
-                    self._lapse_watch.start()
+        if self._step_nr == 0:
+            log.info("Dataset empty. Stopping training.")
 
-                self._profiler.step()
+            return TrainerState.STOPPED
+        else:
+            return TrainerState.END_OF_DATA_EPOCH
 
-                self._garbage_collector.step()
+    def _handle_end_of_data_epoch(self) -> TrainerState:
+        log.info("End of epoch {} reached after step {}.", self._data_epoch_nr, self._step_nr)  # fmt: skip
 
-                if first_iter:
-                    # Emptying the CUDA memory allocator cache after the first
-                    # iteration can reduce fragmentation and avoid OOM.
-                    if self._gangs.root.device.type == "cuda":
-                        torch.cuda.empty_cache()
+        self._data_epoch_nr += 1
 
-                    first_iter = False
+        if self._max_num_data_epochs is not None:
+            if self._data_epoch_nr >= self._max_num_data_epochs:
+                return TrainerState.END_OF_DATA
 
-        if self._state != TrainerState.STOPPING:
-            raise InternalError(
-                f"`_state` must be `STOPPING`, but is `{self._state}` instead."
-            )
+        return self._run_post_step()
 
-        self._state = TrainerState.STOPPED
+    def _run_step(self, progress_task: ProgressTask) -> TrainerState:
+        try:
+            self._checkpoint_manager.maybe_complete_async_checkpoint()
+        except CheckpointSaveError as ex:
+            raise RecipeError(
+                f"The checkpoint of step {ex.step_nr} cannot be saved. See the nested exception for details."
+            ) from ex
 
-    def _run_step(self) -> None:
+        detect_anomaly = torch.autograd.set_detect_anomaly(  # type: ignore[attr-defined]
+            self._anomaly_detection, check_nan=True
+        )
+
+        self._step_nr += 1
+
+        progress_task.step(1)
+
+        with detect_anomaly:
+            with record_function(f"step_{self._step_nr}"):
+                state = self._do_run_step(progress_task)
+
+        self._profiler.step()
+
+        self._garbage_collector.step()
+
+        if self._first_iter:
+            # Emptying the CUDA memory allocator cache after the first iteration
+            # can reduce fragmentation and avoid OOM.
+            if self._gangs.root.device.type == "cuda":
+                torch.cuda.empty_cache()
+
+            self._first_iter = False
+
+        return state
+
+    def _do_run_step(self, progress_task: ProgressTask) -> TrainerState:
         step_nr = self._step_nr
 
-        log.debug("{} step {}.", "Repeating" if self._repeat_step else "Running", step_nr)  # fmt: skip
+        log.debug("Running step {}.", step_nr)
 
-        gangs = self._gangs
-
-        # Prepare the unit.
-        if not self._repeat_step:
-            with self._compute_watch:
-                with record_function(f"step_{step_nr}_setup"):
-                    try:
-                        self._unit.set_step_nr(step_nr)
-                    except UnitError as ex:
-                        raise RecipeError(
-                            "The train unit has failed. See the nested exception for details."
-                        ) from ex
-
-        # Collect the batches.
-        with self._data_watch:
-            with record_function(f"step_{step_nr}_data_load"):
-                batches = self._read_next_batches()
-                if batches is None:
-                    return
-
-        num_targets = 0
+        batches = self._batches
+        if batches is None:
+            raise InternalError("`_batches` is `None`.")
 
         if self._loss_scaler.is_enabled:
             self._metric_bag.begin_updates()
 
-        # Run the model.
+        gangs = self._gangs
+
+        num_targets = 0
+
         with self._compute_watch:
-            for batch_nr, batch in enumerate(batches):
-                with self._maybe_no_sync(batch_nr, len(batches)):
+            with record_function(f"step_{step_nr}_setup"):
+                try:
+                    self._unit.set_step_nr(step_nr)
+                except UnitError as ex:
+                    raise RecipeError(
+                        "The train unit has failed. See the nested exception for details."
+                    ) from ex
+
+            batches.reverse()
+
+            num_batches = len(batches)
+
+            for batch_nr in range(num_batches):
+                batch = batches.pop()
+
+                batch.to(gangs.root.device)
+
+                with self._maybe_no_sync(batch_nr, num_batches):
                     with record_function(f"step_{step_nr}_{batch_nr}_forward"):
                         loss, num_batch_targets = self._compute_loss(batch)
 
@@ -679,12 +715,14 @@ class Trainer(Recipe, Generic[BatchT]):
                     # the gradients at the end of the step, but we still have
                     # to take gradient accumulation into account.
                     if num_batch_targets is None:
-                        loss = loss / len(batches)
+                        loss = loss / num_batches
                     else:
                         num_targets += num_batch_targets
 
                     with record_function(f"step_{step_nr}_{batch_nr}_backward"):
                         self._loss_scaler.backward(loss)
+
+            self._batches = None
 
             # This function gathers the total number of logit targets across all
             # processes and divides the gradients by it. This is needed when the
@@ -697,7 +735,6 @@ class Trainer(Recipe, Generic[BatchT]):
 
             # Clip the gradients.
             with record_function(f"step_{step_nr}_grad_norm"):
-                # TODO(balioglu): Support tensor parallelism!
                 grad_norm = self._model.clip_gradient_norm(self._max_gradient_norm)
 
                 if self._gradient_check:
@@ -708,18 +745,15 @@ class Trainer(Recipe, Generic[BatchT]):
             with record_function(f"step_{step_nr}_optimizer"):
                 _, scale_result = self._loss_scaler.run_optimizer_step(step_nr)
 
-            # Reset.
             self._optimizer.zero_grad(set_to_none=True)
 
-        self._repeat_step = scale_result.overflow
-
-        if self._repeat_step:
+        if scale_result.overflow:
             if scale_result.min_reached:
                 raise MinimumLossScaleReachedError(step_nr)
 
             self._metric_bag.rollback_updates()
 
-            return
+            return TrainerState.GRADIENT_OVERFLOW
 
         self._last_lr = get_effective_lr(self._lr_scheduler)
 
@@ -732,48 +766,7 @@ class Trainer(Recipe, Generic[BatchT]):
 
         self._num_batches_read += 1
 
-    def _read_next_batches(self) -> list[BatchT] | None:
-        if self._state != TrainerState.RUNNING:
-            raise InternalError(
-                f"`_state` must be `RUNNING`, but is `{self._state}` instead."
-            )
-
-        try:
-            batches = next(self._data_reader)
-        except DataReadError as ex:
-            raise RecipeError(
-                "The train data read operation has failed. See the nested exception for details."
-            ) from ex
-        except StopIteration:
-            batches = None
-
-        if batches is not None:
-            self._has_read_any_data = True
-
-            return batches
-
-        self._data_reader.reset()
-
-        log.info("End of epoch {} reached at step {}.", self._data_epoch_nr, self._step_nr)  # fmt: skip
-
-        end_of_data = False
-
-        if not self._has_read_any_data:
-            end_of_data = True
-        elif self._max_num_data_epochs is not None:
-            if self._data_epoch_nr >= self._max_num_data_epochs:
-                end_of_data = True
-
-        if end_of_data:
-            self._state = TrainerState.STOPPING
-
-            log.info("End of data reached.", self._step_nr)
-        else:
-            self._data_epoch_nr += 1
-
-        self._repeat_step = not end_of_data
-
-        return None
+        return TrainerState.POST_STEP
 
     def _maybe_no_sync(self, batch_nr: int, num_batches: int) -> ContextManager:
         if batch_nr < num_batches - 1:
@@ -797,6 +790,148 @@ class Trainer(Recipe, Generic[BatchT]):
         device_type = self._gangs.root.device.type
 
         return torch.autocast(device_type=device_type, dtype=self._dtype)
+
+    def _repeat_step(self, progress_task: ProgressTask) -> TrainerState:
+        if self._stop_requested:
+            return TrainerState.STOP_REQUESTED
+
+        log.debug("Repeating step {}.", self._step_nr)
+
+        self._step_nr -= 1
+
+        progress_task.step(-1)
+
+        return TrainerState.DATA_LOAD
+
+    def _run_post_step(self) -> TrainerState:
+        if self._max_num_steps is not None:
+            if self._step_nr >= self._max_num_steps:
+                return TrainerState.END_OF_TRAINING
+        elif self._stop_requested:
+            return TrainerState.STOP_REQUESTED
+
+        self._maybe_checkpoint(block=False)
+
+        self._maybe_publish_metrics()
+
+        score = self._maybe_validate()
+
+        if score is not None:
+            should_stop = self._maybe_request_early_stop(score)
+        else:
+            should_stop = False
+
+        if should_stop:
+            return TrainerState.EARLY_STOP
+        else:
+            return TrainerState.DATA_LOAD
+
+    def _stop(self) -> TrainerState:
+        self._maybe_publish_metrics()
+
+        should_validate = self._should_validate()
+        if should_validate:
+            self._maybe_checkpoint(block=False)
+
+            self._validate()
+
+            self._maybe_wait_checkpoint()
+        else:
+            self._maybe_checkpoint(block=True)
+
+        return TrainerState.STOPPED
+
+    def _early_stop(self) -> TrainerState:
+        log.info("Early stop requested. Stopping training at step {}.", self._step_nr)  # fmt: skip
+
+        self._stop_requested = True
+
+        should_checkpoint = self._should_checkpoint()
+        if should_checkpoint:
+            self._checkpoint(block=True)
+        else:
+            self._maybe_wait_checkpoint()
+
+        return TrainerState.STOPPED
+
+    def _maybe_checkpoint(self, block: bool) -> None:
+        should_checkpoint = self._should_checkpoint()
+        if should_checkpoint:
+            self._checkpoint(block)
+
+    def _should_checkpoint(self) -> bool:
+        return self._should_do(
+            self._checkpoint_after_n_steps,
+            self._checkpoint_every_n_steps,
+            self._checkpoint_after_n_data_epochs,
+            self._checkpoint_every_n_data_epochs,
+        )
+
+    def _checkpoint(self, block: bool) -> None:
+        step_nr = self._step_nr
+
+        log.info("Preparing the checkpoint at step {}.", step_nr)
+
+        self._maybe_wait_checkpoint()
+
+        def log_ready(step_nr: int, state: CheckpointState) -> None:
+            if block:
+                log.info("Checkpoint prepared. Saving.")
+            else:
+                log.info("Checkpoint prepared. Saving asynchronously.")
+
+        trainer_state_bag = TrainerStateBag(self)
+
+        tmp = self._base_wall_time
+
+        self._base_wall_time += self._wall_watch.get_elapsed_time()
+
+        try:
+            self._checkpoint_manager.save_checkpoint(
+                step_nr,
+                trainer_state_bag,
+                self._model,
+                self._optimizer,
+                self._data_reader,
+                state_processor=log_ready,
+                callback=self._complete_checkpoint,
+                block=block,
+            )
+        except CheckpointSaveError as ex:
+            raise RecipeError(
+                f"The checkpoint of step {ex.step_nr} cannot be saved. See the nested exception for details."
+            ) from ex
+
+        self._base_wall_time = tmp
+
+    def _complete_checkpoint(self, step_nr: int) -> None:
+        try:
+            if self._keep_last_n_models is not None:
+                if self._keep_last_n_checkpoints is None:
+                    raise InternalError("`_keep_last_n_checkpoints` is `None`")
+
+                self._checkpoint_manager.keep_last_n_checkpoints(
+                    self._keep_last_n_models
+                )
+
+                self._checkpoint_manager.keep_last_n_checkpoints(
+                    self._keep_last_n_checkpoints, preserve_model=True
+                )
+            elif self._keep_last_n_checkpoints is not None:
+                self._checkpoint_manager.keep_last_n_checkpoints(
+                    self._keep_last_n_checkpoints
+                )
+        except CheckpointError as ex:
+            raise RecipeError(
+                f"The previous checkpoints before step {step_nr} cannot be deleted. See the nested exception for details."
+            ) from ex
+
+        log.info("Checkpoint at step {} saved.", step_nr)
+
+    def _maybe_publish_metrics(self) -> None:
+        should_publish = self._should_publish_metrics()
+        if should_publish:
+            self._publish_metrics()
 
     def _should_publish_metrics(self) -> bool:
         return self._should_do(
@@ -867,12 +1002,33 @@ class Trainer(Recipe, Generic[BatchT]):
                 "The collective barrier after the metric sync operation has failed. See the nested exception for details."
             ) from ex
 
-    def _reset_watches(self) -> None:
+        self._reset_lapse_metrics()
+
+    def _reset_lapse_metrics(self) -> None:
+        self._metric_bag.reset_non_persistent_metrics()
+
         self._data_watch.reset()
 
         self._compute_watch.reset()
 
         self._lapse_watch.reset()
+
+        self._device_stat_tracker.reset()
+
+        self._num_batches_read = 0
+
+    def _maybe_validate(self) -> float | None:
+        should_validate = self._should_validate()
+        if should_validate:
+            self._lapse_watch.stop()
+
+            score = self._validate()
+
+            self._lapse_watch.start()
+        else:
+            score = None
+
+        return score
 
     def _should_validate(self) -> bool:
         return self._should_do(
@@ -882,7 +1038,7 @@ class Trainer(Recipe, Generic[BatchT]):
             self._validate_every_n_data_epochs,
         )
 
-    def _validate(self) -> None:
+    def _validate(self) -> float | None:
         log.info("Starting validation after step {}.", self._step_nr)
 
         self._model.module.eval()
@@ -894,16 +1050,13 @@ class Trainer(Recipe, Generic[BatchT]):
             if self._should_checkpoint():
                 self._save_score(score)
 
-            self._maybe_request_early_stop(score)
-
         self._validator.reset()
 
         self._model.module.train()
 
-        if self._state == TrainerState.STOPPING:
-            log.info("Validation finished.")
-        else:
-            log.info("Validation finished. Resuming training from step {}.", self._step_nr)  # fmt: skip
+        log.info("Validation finished.")
+
+        return score
 
     def _save_score(self, score: float) -> None:
         try:
@@ -913,45 +1066,39 @@ class Trainer(Recipe, Generic[BatchT]):
                 f"The score of step {self._step_nr} cannot be saved. See the nested exception for details."
             ) from ex
 
-        num_chkpt = self._keep_best_n_checkpoints
-        num_model = self._keep_best_n_models
-
-        if num_chkpt is None and num_model is None:
+        if self._keep_best_n_checkpoints is None and self._keep_best_n_models is None:
             return
 
-        if self._checkpoint_manager.is_saving():
-            log.info("Waiting for the current checkpoint save operation to complete before deleting the old checkpoints.")  # fmt: skip
+        log.info("Deleting old checkpoints with low score.")
 
-            try:
-                self._checkpoint_manager.maybe_complete_async_checkpoint(block=True)
-            except CheckpointSaveError as ex:
-                raise RecipeError(
-                    f"The checkpoint of step {ex.step_nr} cannot be saved. See the nested exception for details."
-                ) from ex
+        self._maybe_wait_checkpoint()
 
         try:
-            if num_model is not None:
-                if num_chkpt is None:
+            if self._keep_best_n_models is not None:
+                if self._keep_best_n_checkpoints is None:
                     raise InternalError("`_keep_best_n_checkpoints` is `None`")
 
-                self._checkpoint_manager.keep_best_n_checkpoints(num_model)
+                self._checkpoint_manager.keep_best_n_checkpoints(
+                    self._keep_best_n_models
+                )
 
                 self._checkpoint_manager.keep_best_n_checkpoints(
-                    num_chkpt, preserve_model=True
+                    self._keep_best_n_checkpoints, preserve_model=True
                 )
-            elif num_chkpt is not None:
-                self._checkpoint_manager.keep_best_n_checkpoints(num_chkpt)
+            elif self._keep_best_n_checkpoints is not None:
+                self._checkpoint_manager.keep_best_n_checkpoints(
+                    self._keep_best_n_checkpoints
+                )
         except CheckpointError as ex:
             raise RecipeError(
                 f"The previous checkpoints before step {self._step_nr} cannot be deleted. See the nested exception for details."
             ) from ex
 
-    def _maybe_request_early_stop(self, score: float) -> None:
-        if self._early_stopper is None:
-            return
+        log.info("Old checkpoints deleted.")
 
-        if self._state != TrainerState.RUNNING:
-            return
+    def _maybe_request_early_stop(self, score: float) -> bool:
+        if self._early_stopper is None:
+            return False
 
         gangs = self._gangs
 
@@ -960,91 +1107,20 @@ class Trainer(Recipe, Generic[BatchT]):
         else:
             should_stop = False
 
-        should_stop = broadcast_flag(gangs.root, should_stop)
-        if should_stop:
-            log.info("Early stop requested. Training will be stopped.")
+        return broadcast_flag(gangs.root, should_stop)
 
-            self._stop_requested = True
+    def _maybe_wait_checkpoint(self) -> None:
+        if not self._checkpoint_manager.is_saving():
+            return
 
-            self._state = TrainerState.STOPPING
-
-    def _should_checkpoint(self) -> bool:
-        return self._should_do(
-            self._checkpoint_after_n_steps,
-            self._checkpoint_every_n_steps,
-            self._checkpoint_after_n_data_epochs,
-            self._checkpoint_every_n_data_epochs,
-        )
-
-    def _checkpoint(self) -> None:
-        step_nr = self._step_nr
-
-        if self._checkpoint_manager.is_saving():
-            log.info("Waiting for the current checkpoint save operation to complete before saving the next checkpoint at step {}.", step_nr)  # fmt: skip
-
-            try:
-                self._checkpoint_manager.maybe_complete_async_checkpoint(block=True)
-            except CheckpointSaveError as ex:
-                raise RecipeError(
-                    f"The checkpoint of step {ex.step_nr} cannot be saved. See the nested exception for details."
-                ) from ex
-
-        block = self._state == TrainerState.STOPPING
-
-        log.info("Preparing the checkpoint at step {}.", step_nr)
-
-        def log_ready(step_nr: int, state: CheckpointState) -> None:
-            if block:
-                log.info("Checkpoint prepared. Saving.")
-            else:
-                log.info("Checkpoint prepared. Saving asynchronously.")
-
-        trainer_state_bag = TrainerStateBag(self)
-
-        tmp = self._base_wall_time
-
-        self._base_wall_time += self._wall_watch.get_elapsed_time()
+        log.info("Waiting for the current checkpoint save operation to complete before continuing.")  # fmt: skip
 
         try:
-            self._checkpoint_manager.save_checkpoint(
-                step_nr,
-                trainer_state_bag,
-                self._model,
-                self._optimizer,
-                self._data_reader,
-                state_processor=log_ready,
-                callback=self._complete_checkpoint,
-                block=block,
-            )
+            self._checkpoint_manager.maybe_complete_async_checkpoint(block=True)
         except CheckpointSaveError as ex:
             raise RecipeError(
                 f"The checkpoint of step {ex.step_nr} cannot be saved. See the nested exception for details."
             ) from ex
-
-        self._base_wall_time = tmp
-
-    def _complete_checkpoint(self, step_nr: int) -> None:
-        try:
-            num_chkpt = self._keep_last_n_checkpoints
-            num_model = self._keep_last_n_models
-
-            if num_model is not None:
-                if num_chkpt is None:
-                    raise InternalError("`_keep_last_n_checkpoints` is `None`")
-
-                self._checkpoint_manager.keep_last_n_checkpoints(num_model)
-
-                self._checkpoint_manager.keep_last_n_checkpoints(
-                    num_chkpt, preserve_model=True
-                )
-            elif num_chkpt is not None:
-                self._checkpoint_manager.keep_last_n_checkpoints(num_chkpt)
-        except CheckpointError as ex:
-            raise RecipeError(
-                f"The previous checkpoints before step {step_nr} cannot be deleted. See the nested exception for details."
-            ) from ex
-
-        log.info("Checkpoint at step {} saved.", step_nr)
 
     def _should_do(
         self,
@@ -1053,30 +1129,53 @@ class Trainer(Recipe, Generic[BatchT]):
         after_n_data_epochs: int,
         every_n_data_epochs: int | None,
     ) -> bool:
-        if self._state == TrainerState.STOPPING:
-            return True
-
-        if self._state == TrainerState.RUNNING:
-            if self._repeat_step:
-                return False
-
+        def should_do_at_step() -> bool:
             if every_n_steps is not None:
                 if self._step_nr >= after_n_steps:
                     if self._step_nr % every_n_steps == 0:
                         return True
 
+            return False
+
+        if self._state == TrainerState.POST_STEP:
+            return should_do_at_step()
+
+        if self._state == TrainerState.END_OF_TRAINING:
+            return True
+
+        if self._state == TrainerState.END_OF_DATA:
+            already_done = should_do_at_step()
+
+            # If we have already returned true for this step before reaching the
+            # end of data, we should return false this time.
+            return not already_done
+
+        if self._state == TrainerState.END_OF_DATA_EPOCH:
             if every_n_data_epochs is not None:
                 if self._data_epoch_nr >= after_n_data_epochs:
                     if self._data_epoch_nr % every_n_data_epochs == 0:
-                        return True
+                        already_done = should_do_at_step()
 
-        return False
+                        # Same condition as above for `END_OF_DATA`.
+                        return not already_done
+
+            return False
+
+        if self._state == TrainerState.STOP_REQUESTED:
+            return True
+
+        if self._state == TrainerState.EARLY_STOP:
+            already_done = should_do_at_step()
+
+            # If we have already returned true for this step before an early
+            # stop, we should return false this time.
+            return not already_done
+
+        raise InternalError(f"`_state` is `{self._state}`")
 
     @override
     def request_stop(self) -> None:
         self._stop_requested = True
-
-        self._state = TrainerState.STOPPING
 
     @property
     @override
@@ -1086,9 +1185,16 @@ class Trainer(Recipe, Generic[BatchT]):
 
 class TrainerState(Enum):
     NOT_STARTED = 0
-    RUNNING = 1
-    STOPPING = 2
-    STOPPED = 3
+    DATA_LOAD = 1
+    STEP = 2
+    POST_STEP = 3
+    END_OF_DATA_EPOCH = 4
+    END_OF_TRAINING = 5
+    END_OF_DATA = 6
+    GRADIENT_OVERFLOW = 7
+    EARLY_STOP = 8
+    STOP_REQUESTED = 9
+    STOPPED = 10
 
 
 T = TypeVar("T")
@@ -1103,7 +1209,6 @@ class TrainerStateBag(Stateful, Generic[BatchT]):
         "_rng_bag",
         "_metric_bag",
         "_base_wall_time",
-        "_has_read_any_data",
     ]
 
     _trainer: Trainer[BatchT]

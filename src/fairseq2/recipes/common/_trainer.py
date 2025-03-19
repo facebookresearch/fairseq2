@@ -15,6 +15,7 @@ from torch.optim import Optimizer
 from fairseq2.checkpoint import CheckpointManager
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import DataReader
+from fairseq2.device import SupportsDeviceTransfer
 from fairseq2.gang import Gangs
 from fairseq2.logging import log
 from fairseq2.metrics import MetricDescriptor, UnknownMetricDescriptorError
@@ -37,7 +38,7 @@ from fairseq2.utils.gc import (
     NoopGarbageCollector,
 )
 
-BatchT = TypeVar("BatchT")
+BatchT = TypeVar("BatchT", bound=SupportsDeviceTransfer)
 
 
 def create_trainer(

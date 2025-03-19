@@ -379,6 +379,7 @@ class Wav2Vec2AsrTrainUnit(TrainUnit[Seq2SeqBatch]):
     _module: Wav2Vec2AsrModel
     _criterion: AsrCriterion
     _freeze_encoder_for_n_steps: int
+    _frozen: bool
     _metric_bag: AsrMetricBag
 
     def __init__(
@@ -398,6 +399,7 @@ class Wav2Vec2AsrTrainUnit(TrainUnit[Seq2SeqBatch]):
         self._module = module
         self._criterion = criterion
         self._freeze_encoder_for_n_steps = freeze_encoder_for_n_steps
+        self._frozen = False
 
         self._metric_bag = AsrMetricBag(gang)
 
@@ -410,6 +412,9 @@ class Wav2Vec2AsrTrainUnit(TrainUnit[Seq2SeqBatch]):
         module = self._module
 
         if step_nr <= self._freeze_encoder_for_n_steps:
+            if self._frozen:
+                return
+
             if step_nr == 1:
                 log.info("Freezing the encoder for the first {} steps.", self._freeze_encoder_for_n_steps)  # fmt: skip
 
@@ -418,7 +423,12 @@ class Wav2Vec2AsrTrainUnit(TrainUnit[Seq2SeqBatch]):
 
             if module.masker is not None:
                 freeze_parameters(module.masker)
+
+            self._frozen = True
         else:
+            if not self._frozen:
+                return
+
             if step_nr == self._freeze_encoder_for_n_steps + 1:
                 log.info("Unfreezing the encoder after step {}.", step_nr - 1)
 
@@ -426,6 +436,8 @@ class Wav2Vec2AsrTrainUnit(TrainUnit[Seq2SeqBatch]):
 
             # We never train the feature extractor.
             freeze_parameters(module.encoder_frontend.feature_extractor)
+
+            self._frozen = False
 
     @property
     @override
