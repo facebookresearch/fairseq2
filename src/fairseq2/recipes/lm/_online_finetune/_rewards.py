@@ -22,6 +22,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     collate_with_target_mask,
     find_first_value,
     GRPOBatch,
+    generate_rewards,
 )
 import re
 from fairseq2.recipes.config import (
@@ -297,10 +298,12 @@ class SkyworkVerifier(VLLMOutputReward):
             {"role": "user", "content": prompt_text},
             {"role": "assistant", "content": rollout_text},
         ]
-        templated_text = self.tokenizer.apply_chat_template(wrapped_text, tokenize=True)
-        tokens_prompt = TokensPrompt(prompt_token_ids=templated_text)
+        # templated_text = self.tokenizer.apply_chat_template(wrapped_text, tokenize=True)
+        # tokens_prompt = TokensPrompt(prompt_token_ids=templated_text)
+        chat_str = self.tokenizer.apply_chat_template(wrapped_text, tokenize=False)
+        chat_str = chat_str.replace("<|begin_of_text|>", "")
 
-        return tokens_prompt
+        return chat_str
 
     @override
     def process_rollouts(
@@ -339,14 +342,19 @@ class SkyworkVerifier(VLLMOutputReward):
 
                 vllm_input = self.wrap_text(prompt_text, rollout_text)
 
-                (output,) = ray.get(
-                    self.vllm_model.vllm_model.encode.remote(vllm_input)
+                score = generate_rewards(
+                    vllm_input,
+                    dp_gang=self._gangs.dp,
+                    vllm_model=self.vllm_model,
                 )
-                score = output.outputs.data.item()
+                # (output,) = ray.get(
+                #     self.vllm_model.vllm_model.encode.remote(vllm_input)
+                # )
+                # score = output.outputs.data.item()
 
                 rollouts_text.append(rollout_output.text)
                 rollouts_tokens.append(rollout_output.token_ids)
-                rollouts_rewards.append(score)
+                rollouts_rewards.extend(score)
             batch_text.append(rollouts_text)
             batch_tokens.append(rollouts_tokens)
             batch_rewards.append(rollouts_rewards)
