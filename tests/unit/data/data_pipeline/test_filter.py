@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from fairseq2.data import read_sequence
+from fairseq2.data import DataPipelineError, read_sequence
 
 
 class TestFilterOp:
@@ -34,8 +34,9 @@ class TestFilterOp:
 
         pipeline = read_sequence([1, 2, 3, 4]).filter(fn).and_return()
 
-        with pytest.raises(ValueError) as exc_info:
+        with pytest.raises(DataPipelineError) as exc_info:
             for d in pipeline:
                 pass
 
-        assert str(exc_info.value) == "filter error"
+        # Check that the original error message is included in the DataPipelineError
+        assert "filter error" in str(exc_info.value)

@@ -107,7 +107,7 @@ class TestDataPipeline:
 
         pipeline = read_sequence(seq).filter(fn).and_return(max_num_warnings)
 
-        with pytest.raises(ValueError):
+        with pytest.raises(DataPipelineError):
             for _ in pipeline:
                 pass
 
