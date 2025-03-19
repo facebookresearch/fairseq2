@@ -338,11 +338,15 @@ def generate_rewards(
         dp_gang.gather_object(prompts, None, 0)
 
     if dp_gang.rank == 0:
+
         rank_batch_sizes = [len(l) for l in prompts_to_generate]
         flat_request_list = []
         for rank_prompts in prompts_to_generate:
             flat_request_list.extend(rank_prompts)
 
+        # from pdb import set_trace
+
+        # set_trace()
         rollouts = vllm_model.get_reward_from_model(
             flat_request_list, sampling_params=sampling_params
         )

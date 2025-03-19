@@ -343,7 +343,7 @@ class SkyworkVerifier(VLLMOutputReward):
                 vllm_input = self.wrap_text(prompt_text, rollout_text)
 
                 score = generate_rewards(
-                    vllm_input,
+                    [vllm_input],
                     dp_gang=self._gangs.dp,
                     vllm_model=self.vllm_model,
                 )

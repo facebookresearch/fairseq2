@@ -250,6 +250,7 @@ class RemoteVllmModel:
     def get_reward_from_model(self, prompt_list, sampling_params=None):
         rewards = []
         for prompt in prompt_list:
+
             (output,) = ray.get(
                 self.vllm_model.encode.remote(
                     prompt,
