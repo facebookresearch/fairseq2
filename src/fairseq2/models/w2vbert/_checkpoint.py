@@ -6,11 +6,11 @@
 
 from __future__ import annotations
 
-from collections.abc import MutableMapping
 from typing import cast
 
 import torch
 from torch import Tensor
+from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
 
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
 from fairseq2.models.w2vbert._config import W2VBertConfig
@@ -20,7 +20,16 @@ from fairseq2.typing import CPU
 def convert_w2vbert_checkpoint(
     checkpoint: dict[str, object], config: W2VBertConfig
 ) -> dict[str, object]:
-    state_dict = cast(MutableMapping[str, Tensor], checkpoint["model"])
+    try:
+        state_dict = cast(dict[str, Tensor], checkpoint["model"])
+    except KeyError:
+        return checkpoint
+
+    # Check if we have a fairseq2 checkpoint.
+    if "mlm_proj.weight" not in state_dict:
+        consume_prefix_in_state_dict_if_present(state_dict, prefix="module.")
+
+        return checkpoint
 
     state_dict["w2v2_model.quantizer.num_updates"] = torch.zeros((), device=CPU)
 

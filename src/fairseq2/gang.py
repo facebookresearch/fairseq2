@@ -26,9 +26,9 @@ from fairseq2.logging import log
 from fairseq2.typing import Device
 from fairseq2.utils.env import (
     InvalidEnvironmentVariableError,
-    get_local_world_size,
     get_world_size,
 )
+from fairseq2.utils.threading import ThreadingError, get_num_threads
 from fairseq2.utils.version import torch_greater_or_equal
 
 
@@ -352,18 +352,13 @@ class ProcessGroupGang(Gang):
                 f"`device` must be of type `cpu` and `cuda`, but is of type `{device.type}` instead."
             )
 
-        if num_threads is None:
+        if num_threads is None and "OMP_NUM_THREADS" not in os.environ:
             try:
-                num_procs = get_local_world_size(os.environ)
-            except InvalidEnvironmentVariableError as ex:
+                num_threads = get_num_threads(os.environ)
+            except ThreadingError as ex:
                 raise GangError(
-                    "The local world size cannot be determined from the environment variables. See the nested exception for details."
+                    "The number of threads to use for intra-op parallelism cannot be determined. See the nested exception for details."
                 ) from ex
-
-            if num_procs > 1 and "OMP_NUM_THREADS" not in os.environ:
-                # To prevent thread oversubscription, we distribute cores evenly
-                # across the workers.
-                num_threads = _get_num_cpus(num_procs)
 
         if num_threads is not None:
             torch.set_num_threads(num_threads)
@@ -379,19 +374,20 @@ class ProcessGroupGang(Gang):
 
         kwargs: dict[str, Any] = {}
 
-        if torch_greater_or_equal(2, 3):
+        pg_options = None
+
+        if device.type == "cuda":
             # Forces NCCL to initialize immediately which enables deterministic
             # behavior.
-            kwargs = {"device_id": device}
+            if torch_greater_or_equal(2, 3):
+                kwargs = {"device_id": device}
 
-        # If enabled, uses high priority CUDA streams for NCCL.
-        if device.type == "cuda" and high_priority:
-            # Not available unless PyTorch is built with NCCL.
-            from torch.distributed import ProcessGroupNCCL
+            # If enabled, uses high priority CUDA streams for NCCL.
+            if high_priority:
+                # Not available unless PyTorch is built with NCCL.
+                from torch.distributed import ProcessGroupNCCL
 
-            pg_options = ProcessGroupNCCL.Options(is_high_priority_stream=True)
-        else:
-            pg_options = None
+                pg_options = ProcessGroupNCCL.Options(is_high_priority_stream=True)
 
         try:
             with warnings.catch_warnings():
@@ -496,8 +492,13 @@ class ProcessGroupGang(Gang):
     @override
     def barrier(self) -> None:
         if self._monitor_pg is None:
+            if self._device.type == "cpu":
+                device_ids = None
+            else:
+                device_ids = [self._device.index]
+
             try:
-                dist.barrier(group=self._pg, device_ids=[self._device.index])
+                dist.barrier(group=self._pg, device_ids=device_ids)
             except RuntimeError as ex:
                 raise GangError(
                     "The `barrier` collective operation has failed. See the nested exception for details."
@@ -598,20 +599,6 @@ class ProcessGroupGang(Gang):
         raise NotSupportedError(
             f"`{op}` operation is not supported by the underlying process group."
         )
-
-
-def _get_num_cpus(num_procs: int) -> int:
-    num_cpus = os.cpu_count()
-
-    affinity_mask = os.sched_getaffinity(0)
-
-    if num_cpus is None or affinity_mask is None:
-        log.warning("The number of CPU cores cannot be determined.")
-
-        return 1
-
-    # We should not exceed the number of cores available in the affinity mask.
-    return min(max(num_cpus // num_procs, 1), len(affinity_mask))
 
 
 def setup_root_gang(

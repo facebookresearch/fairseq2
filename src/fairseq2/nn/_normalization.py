@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
+from enum import Enum
 from typing import Any, Literal, final
 
 import torch
@@ -18,14 +19,28 @@ from torch.nn.functional import layer_norm
 from typing_extensions import override
 
 try:
+    # isort: off
     from apex.normalization.fused_layer_norm import (  # type: ignore[import]
-        fused_rms_norm,
-        fused_rms_norm_affine,
+        fused_rms_norm as apex_rms_norm,
     )
+    from apex.normalization.fused_layer_norm import (  # type: ignore[import]
+        fused_rms_norm_affine as apex_rms_norm_affine,
+    )
+
+    # isort: on
 
     _has_apex = True
 except ImportError:
     _has_apex = False
+
+
+try:
+    from torch.nn.functional import rms_norm as torch_rms_norm  # type: ignore[import]
+
+    _has_torch_rms_norm = True
+except ImportError:
+    _has_torch_rms_norm = False
+
 
 from fairseq2.error import NotSupportedError
 from fairseq2.typing import DataType, Device
@@ -139,11 +154,14 @@ class RMSNorm(LayerNorm):
     """Applies Root Mean Square Layer Normalization to incoming data as
     described in :cite:t:`https://doi.org/10.48550/arxiv.1910.07467`."""
 
-    _impl: str
-    _use_apex: bool
+    _impl_str: str
+    _impl: NormImplementation
 
     def __init__(
-        self, *args: Any, impl: Literal["auto", "py", "apex"] = "auto", **kwargs: Any
+        self,
+        *args: Any,
+        impl: Literal["auto", "py", "torch", "apex"] = "auto",
+        **kwargs: Any,
     ) -> None:
         """
         See :class:`LayerNorm` for ``args`` and ``kwargs``.
@@ -155,7 +173,12 @@ class RMSNorm(LayerNorm):
         super().__init__(*args, **kwargs)
 
         if impl == "auto":
-            impl = "apex" if _has_apex and self.bias is None else "py"
+            if _has_apex and self.bias is None:
+                impl = "apex"
+            elif _has_torch_rms_norm:
+                impl = "torch"
+            else:
+                impl = "py"
 
         if impl == "apex":
             if not _has_apex:
@@ -167,18 +190,30 @@ class RMSNorm(LayerNorm):
                 raise NotSupportedError(
                     "`impl` is 'apex', but APEX does not support the `bias` parameter."
                 )
-        elif impl != "py":
+
+            self._impl = NormImplementation.APEX
+        elif impl == "torch":
+            if not _has_torch_rms_norm:
+                raise NotSupportedError(
+                    "`impl` is 'torch', but PyTorch version is older than 2.4."
+                )
+
+            self._impl = NormImplementation.TORCH
+        elif impl == "py":
+            self._impl = NormImplementation.PY
+        else:
             raise ValueError(
-                f"`impl` must be 'auto', 'py', or 'apex', but is '{impl}' instead."
+                f"`impl` must be 'auto', 'py', 'torch', or 'apex', but is '{impl}' instead."
             )
 
-        self._impl = impl
-
-        self._use_apex = impl == "apex"
+        self._impl_str = impl
 
     @override
     def forward(self, x: Tensor) -> Tensor:
-        if self._use_apex and x.is_cuda:
+        if self._impl == NormImplementation.TORCH:
+            return torch_rms_norm(x, self.normalized_shape, self.weight, self.eps)
+
+        if self._impl == NormImplementation.APEX and x.is_cuda:
             return self._apex_forward(x)
 
         # For numerical stability normalize in single precision.
@@ -194,9 +229,9 @@ class RMSNorm(LayerNorm):
 
     def _apex_forward(self, x: Tensor) -> Tensor:
         if self.weight is None:
-            return fused_rms_norm(x, self.normalized_shape, self.eps)  # type: ignore[no-any-return]
+            return apex_rms_norm(x, self.normalized_shape, self.eps)  # type: ignore[no-any-return]
 
-        return fused_rms_norm_affine(x, self.weight, self.normalized_shape, self.eps)  # type: ignore[no-any-return]
+        return apex_rms_norm_affine(x, self.weight, self.normalized_shape, self.eps)  # type: ignore[no-any-return]
 
     def _normalize(self, x: Tensor) -> Tensor:
         dims = [-i for i in range(len(self.normalized_shape), 0, -1)]
@@ -208,13 +243,16 @@ class RMSNorm(LayerNorm):
     @property
     def impl(self) -> str:
         """The underlying implementation."""
-        return self._impl
+        return self._impl_str
 
     def extra_repr(self) -> str:
         """:meta private:"""
         s = super().extra_repr()
 
-        if self._impl != "py":
-            s = f"{s}, impl={self._impl}"
+        return f"{s}, impl={self._impl_str}"
 
-        return s
+
+class NormImplementation(Enum):
+    PY = 0
+    TORCH = 1
+    APEX = 2

@@ -21,12 +21,19 @@ from fairseq2.datasets.text import (
     TextDataset,
     TextReadOptions,
 )
-from fairseq2.error import ProgramError
 from fairseq2.gang import Gangs
 from fairseq2.generation import BeamSearchConfig, Seq2SeqGenerator
 from fairseq2.generation.text import SequenceToTextConverter
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.sequence import SequenceBatch
+from fairseq2.recipes import (
+    Generator,
+    GeneratorUnit,
+    Model,
+    RecipeError,
+    Seq2SeqGenerationMetricBag,
+    UnitError,
+)
 from fairseq2.recipes.common import (
     create_generator,
     create_seq2seq_generator,
@@ -44,10 +51,6 @@ from fairseq2.recipes.config import (
     ReferenceModelSection,
     Seq2SeqGeneratorSection,
 )
-from fairseq2.recipes.error import UnitError
-from fairseq2.recipes.generator import Generator, GeneratorUnit
-from fairseq2.recipes.metrics import Seq2SeqGenerationMetricBag
-from fairseq2.recipes.model import Model
 from fairseq2.typing import CPU
 from fairseq2.utils.file import FileMode
 from fairseq2.utils.rng import manual_seed
@@ -165,14 +168,14 @@ def load_text_translator(
         src_lang = config.source_lang
         tgt_lang = config.target_lang
 
-        src_file = output_dir.joinpath(
-            f"translations/{src_lang}-{tgt_lang}/rank_{rank}.src.txt"
-        )
-        hyp_file = output_dir.joinpath(
-            f"translations/{src_lang}-{tgt_lang}/rank_{rank}.hyp.txt"
-        )
-
         try:
+            src_file = output_dir.joinpath(
+                f"translations/{src_lang}-{tgt_lang}/rank_{rank}.src.txt"
+            )
+            hyp_file = output_dir.joinpath(
+                f"translations/{src_lang}-{tgt_lang}/rank_{rank}.hyp.txt"
+            )
+
             try:
                 file_system.make_directory(src_file.parent)
             except OSError as ex:
@@ -194,8 +197,8 @@ def load_text_translator(
                     f"The '{hyp_file}' output file cannot be created. See the nested exception for details."
                 ) from ex
         except UnitError as ex:
-            raise ProgramError(
-                "The generation unit cannot be initialized. See the nested exception for details."
+            raise RecipeError(
+                "The generator unit cannot be initialized. See the nested exception for details."
             ) from ex
     else:
         src_fp = None
@@ -320,7 +323,7 @@ class TextTranslationUnit(GeneratorUnit[SequenceBatch]):
                 stream.flush()
         except OSError as ex:
             raise UnitError(
-                "The generator output cannot be written to the stream. See the nested exception for details."
+                "The generator output cannot be written. See the nested exception for details."
             ) from ex
 
     @property

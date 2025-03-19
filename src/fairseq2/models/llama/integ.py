@@ -86,6 +86,6 @@ def convert_to_hg_llama_config(config: LLaMAConfig) -> dict[str, object]:
         "rms_norm_eps": 1e-5,
         "rope_scaling": rope_scaling,
         "rope_theta": config.rope_theta,
-        "tie_word_embeddings": False,
+        "tie_word_embeddings": config.tie_embeddings,
         "vocab_size": config.vocab_info.size,
     }

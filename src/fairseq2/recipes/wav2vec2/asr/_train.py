@@ -17,7 +17,7 @@ from typing_extensions import override
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import LengthBatching, SyncMode
 from fairseq2.datasets.asr import GENERIC_ASR_DATASET_FAMILY, AsrDataset, AsrReadOptions
-from fairseq2.gang import Gang
+from fairseq2.gang import Gang, GangError
 from fairseq2.logging import log
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.wav2vec2 import Wav2Vec2Model
@@ -25,6 +25,7 @@ from fairseq2.models.wav2vec2.asr import Wav2Vec2AsrModel
 from fairseq2.nn.utils.module import freeze_parameters, share_parameters, to_device
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.optim.lr_scheduler import TRI_STAGE_LR, TriStageLRConfig
+from fairseq2.recipes import Model, RecipeError, Trainer, TrainUnit
 from fairseq2.recipes.asr import AsrCriterion, AsrEvalUnit, AsrMetricBag, AsrScorer
 from fairseq2.recipes.common import (
     create_checkpoint_manager,
@@ -52,8 +53,6 @@ from fairseq2.recipes.config import (
     TextTokenizerSection,
     TrainerSection,
 )
-from fairseq2.recipes.model import Model
-from fairseq2.recipes.trainer import Trainer, TrainUnit
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
@@ -105,8 +104,6 @@ class Wav2Vec2AsrTrainConfig:
     regime: RegimeSection = field(
         default_factory=lambda: RegimeSection(
             num_steps=20_000,
-            score_metric="wer",
-            lower_score_better=True,
             validate_after_n_steps=10_000,
             validate_every_n_steps=1_000,
             publish_metrics_every_n_steps=200,
@@ -265,7 +262,12 @@ def load_wav2vec2_asr_trainer(
         if gangs.dp.rank == 0:
             to_device(module, gangs.root.device)
 
-        gangs.root.barrier()
+        try:
+            gangs.root.barrier()
+        except GangError as ex:
+            raise RecipeError(
+                "The collective barrier after the pretrained model load operation has failed. See the nested exception for details."
+            ) from ex
 
     # We never train the feature extractor.
     freeze_parameters(module.encoder_frontend.feature_extractor)
@@ -368,6 +370,7 @@ def load_wav2vec2_asr_trainer(
         optimizer,
         lr_scheduler,
         seed,
+        score_metric="wer",
     )
 
 

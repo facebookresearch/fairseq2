@@ -14,9 +14,10 @@ from typing import cast, final
 
 import torch
 from torch import Tensor
-from torch.cuda.amp.grad_scaler import GradScaler
+from torch.amp.grad_scaler import GradScaler
 from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
 from torch.optim import Optimizer
+from typing_extensions import override
 
 from fairseq2.error import InvalidOperationError
 from fairseq2.gang import Gang
@@ -30,12 +31,10 @@ class DynamicLossScaler:
     precision gradients."""
 
     _optimizer: Optimizer
+    _grad_scaler: GradScaler
     _scale_window: int
     _min_scale: float
     _enabled: bool
-
-    # compat: consolidate into `GradScaler` once we cease support for PT2.2
-    _grad_scaler: GradScaler | ShardedGradScaler
 
     def __init__(
         self,
@@ -83,27 +82,22 @@ class DynamicLossScaler:
                             f"The parameters held by `optimizer` must be of type `torch.float32` or `torch.float16`, but at least one parameter is of type `{param.dtype}` instead."
                         )
 
-                    if param.device.type != "cuda":
-                        raise ValueError(
-                            f"The parameters held by `optimizer` must be on a `cuda` device, but at least one parameter is on a `{param.device.type}` device instead."
-                        )
-
         if scale_window is None:
             if enabled:
                 # The same formula as in fairseq.
                 scale_window = max(int(2**14 / gang.size / gradient_accumulation), 1)
 
-                log.info("fp16 loss scale window set to {}.", scale_window)
+                log.info("float16 loss scale window set to {}.", scale_window)
             else:
                 scale_window = 1
 
         if not enabled or not sharded or gang.size == 1:
             with warnings.catch_warnings():
                 warnings.filterwarnings(
-                    action="ignore", message=r".*`torch\.cuda\.amp\.GradScaler\(args\.\.\.\)` is deprecated.*"  # fmt: skip
+                    action="ignore", message=r".*torch\.cuda\.amp\.GradScaler is enabled.*"  # fmt: skip
                 )
 
-                self._grad_scaler = _InternalGradScaler(
+                self._grad_scaler = InternalGradScaler(
                     init_scale=init_scale,
                     growth_factor=scale_factor,
                     backoff_factor=1 / scale_factor,
@@ -113,7 +107,7 @@ class DynamicLossScaler:
         else:
             if not supports_manual_gradient_scaling(optimizer):
                 raise ValueError(
-                    "`optimizer` must support manual gradient scaling via `torch.cuda.amp.GradScaler`, but supports only implicit scaling in its step function (i.e. `_step_supports_amp_scaling == True`) which is not supported in a distributed setting."
+                    "`optimizer` must support manual gradient scaling via `torch.amp.GradScaler`, but supports only implicit scaling in its step function (i.e. `_step_supports_amp_scaling == True`) which is not supported in a distributed setting."
                 )
 
             pg = gang.as_process_group()
@@ -211,7 +205,7 @@ class DynamicLossScaler:
         """Unscale the associated optimizer's gradients by the current scale."""
         if self._enabled and not supports_manual_gradient_scaling(self._optimizer):
             raise InvalidOperationError(
-                "`optimizer` must support manual gradient scaling via `torch.cuda.amp.GradScaler`, but supports only implicit scaling in its step function (i.e. `_step_supports_amp_scaling == True`)."
+                "`optimizer` must support manual gradient scaling via `torch.amp.GradScaler`, but supports only implicit scaling in its step function (i.e. `_step_supports_amp_scaling == True`)."
             )
 
         self._grad_scaler.unscale_(self._optimizer)
@@ -249,17 +243,19 @@ class LossScaleResult:
 
 def supports_manual_gradient_scaling(optimizer: Optimizer) -> bool:
     """
-    Returns ``True`` if ``optimizer`` supports manual gradient scaling via
-    ``torch.cuda.amp.GradScaler``.
+    Returns ``True`` if ``optimizer`` supports manual gradient scaling.
     """
     return not getattr(optimizer, "_step_supports_amp_scaling", False)
 
 
-# An ugly hack.
-class _InternalGradScaler(GradScaler):
-    # override
+class InternalGradScaler(GradScaler):
+    @override
     def _unscale_grads_(
-        self, optimizer: Optimizer, inv_scale: Tensor, found_inf: Tensor, _: bool
+        self,
+        optimizer: Optimizer,
+        inv_scale: Tensor,
+        found_inf: Tensor,
+        allow_fp16: bool,
     ) -> dict[Device, Tensor]:
         # `GradScaler` artificially limits fp16 gradients only to optimizers
         # that natively support AMP. Here, we hijack `_unscale_grads_()` and

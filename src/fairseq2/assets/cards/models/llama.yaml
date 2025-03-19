@@ -128,13 +128,6 @@ num_shards: 8
 
 ---
 
-name: llama3_3_70b_instruct
-base: llama3_instruct
-model_arch: llama3_1_70b
-num_shards: 8
-
----
-
 name: llama3_1_70b_instruct
 base: llama3_instruct
 model_arch: llama3_1_70b
@@ -163,3 +156,10 @@ model_arch: llama3_2_3b
 name: llama3_2_3b_instruct
 base: llama3_instruct
 model_arch: llama3_2_3b
+
+---
+
+name: llama3_3_70b_instruct
+base: llama3_instruct
+model_arch: llama3_1_70b
+num_shards: 8

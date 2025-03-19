@@ -26,11 +26,11 @@ from fairseq2.datasets import (
     UnknownDatasetFamilyError,
     dataset_asset_card_error,
 )
-from fairseq2.error import ProgramError
 from fairseq2.gang import GangError, Gangs
 from fairseq2.logging import log
+from fairseq2.recipes import RecipeError
+from fairseq2.recipes.common._error import DatasetPathNotFoundError
 from fairseq2.recipes.config import DatasetSection, get_config_section
-from fairseq2.recipes.error import DatasetPathNotFoundError
 from fairseq2.registry import Provider
 
 DatasetT = TypeVar("DatasetT")
@@ -58,7 +58,7 @@ def load_dataset(
     try:
         dataset = dataset_loader.load(recipe_config, gangs)
     except DatasetLoadError as ex:
-        raise ProgramError(
+        raise RecipeError(
             f"The '{ex.dataset_name}' dataset cannot be loaded. See the nested exception for details."
         ) from ex
 
@@ -124,7 +124,7 @@ class CardBasedDatasetLoader(DatasetLoader):
             gangs.root.barrier()
         except GangError as ex:
             raise DatasetLoadError(
-                dataset_name, f"The collective barrier after the load of the '{dataset_name}' dataset has failed. See the nested exception for details."  # fmt: skip
+                dataset_name, f"The collective barrier after the '{dataset_name}' dataset load operation has failed. See the nested exception for details."  # fmt: skip
             ) from ex
 
         log.info("Dataset loaded.")
@@ -174,7 +174,7 @@ class PathBasedDatasetLoader(DatasetLoader):
             gangs.root.barrier()
         except GangError as ex:
             raise DatasetLoadError(
-                dataset_name, f"The collective barrier after the load of the '{dataset_name}' dataset has failed. See the nested exception for details."  # fmt: skip
+                dataset_name, f"The collective barrier after the '{dataset_name}' dataset load operation has failed. See the nested exception for details."  # fmt: skip
             ) from ex
 
         log.info("Dataset loaded.")

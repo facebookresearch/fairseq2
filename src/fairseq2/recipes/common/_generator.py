@@ -12,11 +12,11 @@ from typing import TypeVar
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import DataReader
 from fairseq2.gang import Gangs
+from fairseq2.recipes import Generator, GeneratorUnit
 from fairseq2.recipes.common._device import create_device_stat_tracker
 from fairseq2.recipes.common._metrics import create_metric_recorder
 from fairseq2.recipes.common._profilers import create_profiler
 from fairseq2.recipes.config import GeneratorSection, get_config_section
-from fairseq2.recipes.generator import Generator, GeneratorUnit
 
 BatchT = TypeVar("BatchT")
 
@@ -30,7 +30,7 @@ def create_generator(
     gangs: Gangs,
     seed: int,
 ) -> Generator[BatchT]:
-    metric_recorder = create_metric_recorder(context, recipe_config, output_dir)
+    metric_recorder = create_metric_recorder(context, recipe_config, gangs, output_dir)
 
     profiler = create_profiler(context, recipe_config, gangs, output_dir)
 
@@ -44,9 +44,10 @@ def create_generator(
         gangs=gangs,
         dtype=generator_section.dtype,
         amp=generator_section.amp,
+        seed=seed,
         metric_recorder=metric_recorder,
         profiler=profiler,
         device_stat_tracker=device_stat_tracker,
         wall_watch=context.wall_watch,
-        seed=seed,
+        progress_reporter=context.progress_reporter,
     )

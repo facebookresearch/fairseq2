@@ -28,6 +28,7 @@ from fairseq2.metrics.recorders import (
     TensorBoardRecorderConfig,
     WandbRecorderConfig,
 )
+from fairseq2.nn.data_parallel import FsdpGranularity
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.profilers import TORCH_PROFILER, TorchProfilerConfig
 from fairseq2.typing import DataType
@@ -156,7 +157,7 @@ class TrainerSection:
         result = ValidationResult()
 
         if self.gc_every_n_steps is not None:
-            if self.gc_every_n_steps == 0:
+            if self.gc_every_n_steps <= 0:
                 result.add_error(
                     "`gc_every_n_steps must be greater than or equal to 1."
                 )
@@ -165,9 +166,6 @@ class TrainerSection:
             raise ValidationError(
                 "The trainer configuration section has one or more validation errors:", result  # fmt: skip
             )
-
-
-FsdpGranularity: TypeAlias = Literal["layer", "stack", "model"]
 
 
 @dataclass(kw_only=True)
@@ -208,10 +206,6 @@ class RegimeSection:
 
     num_data_epochs: int | None = None
     """The maximum number of data epochs to train for."""
-
-    score_metric: str | None = None
-
-    lower_score_better: bool = False
 
     validate_after_n_steps: int = 0
     """The number of steps after which to start validating the model."""
@@ -257,35 +251,47 @@ class RegimeSection:
         result = ValidationResult()
 
         if self.num_steps is not None:
-            if self.num_steps == 0:
+            if self.num_steps <= 0:
                 result.add_error("`num_steps` must be greater than or equal to 1.")
 
         if self.num_data_epochs is not None:
-            if self.num_data_epochs == 0:
+            if self.num_data_epochs <= 0:
                 result.add_error(
                     "`num_data_epochs` must be greater than or equal to 1."
                 )
 
         if self.validate_every_n_steps is not None:
-            if self.validate_every_n_steps == 0:
+            if self.validate_every_n_steps <= 0:
                 result.add_error(
                     "`validate_every_n_steps` must be greater than or equal to 1."
                 )
 
+            if self.publish_metrics_every_n_steps is not None:
+                if self.validate_every_n_steps % self.publish_metrics_every_n_steps != 0:  # fmt: skip
+                    result.add_error(
+                        f"`validate_every_n_steps` must be a multiple of `publish_metrics_every_n_steps` ({self.publish_metrics_every_n_steps}), but is {self.validate_every_n_steps} instead."
+                    )
+
         if self.validate_every_n_data_epochs is not None:
-            if self.validate_every_n_data_epochs == 0:
+            if self.validate_every_n_data_epochs <= 0:
                 result.add_error(
                     "`validate_every_n_data_epochs` must be greater than or equal to 1."
                 )
 
+            if self.publish_metrics_every_n_data_epochs is not None:
+                if self.validate_every_n_data_epochs % self.publish_metrics_every_n_data_epochs != 0:  # fmt: skip
+                    result.add_error(
+                        f"`validate_every_n_data_epochs` must be a multiple of `publish_metrics_every_n_data_epochs` ({self.publish_metrics_every_n_data_epochs}), but is {self.validate_every_n_data_epochs} instead."
+                    )
+
         if self.checkpoint_every_n_steps is not None:
-            if self.checkpoint_every_n_steps == 0:
+            if self.checkpoint_every_n_steps <= 0:
                 result.add_error(
                     "`checkpoint_every_n_steps` must be greater than or equal to 1."
                 )
 
         if self.checkpoint_every_n_data_epochs is not None:
-            if self.checkpoint_every_n_data_epochs == 0:
+            if self.checkpoint_every_n_data_epochs <= 0:
                 result.add_error(
                     "`checkpoint_every_n_data_epochs` must be greater than or equal to 1."
                 )
@@ -296,22 +302,17 @@ class RegimeSection:
                     "`keep_last_n_checkpoints` and `keep_best_n_checkpoints` must not be specified at the same time."
                 )
 
-            if self.keep_last_n_checkpoints == 0:
+            if self.keep_last_n_checkpoints <= 0:
                 result.add_error(
                     "`keep_last_n_checkpoints` must be greater than or equal to 1."
                 )
         elif self.keep_best_n_checkpoints is not None:
-            if self.keep_best_n_checkpoints == 0:
+            if self.keep_best_n_checkpoints <= 0:
                 result.add_error(
                     "`keep_best_n_checkpoints` must be greater than or equal to 1."
                 )
 
             if self.checkpoint_every_n_steps is not None:
-                if self.score_metric is None:
-                    result.add_error(
-                        "`score_metric` must be specified when `keep_best_n_checkpoints` is specified."
-                    )
-
                 if self.validate_every_n_steps is None:
                     result.add_error(
                         "`validate_every_n_steps` must be specified when `keep_best_n_checkpoints` is specified."
@@ -342,13 +343,13 @@ class RegimeSection:
                 )
 
         if self.publish_metrics_every_n_steps is not None:
-            if self.publish_metrics_every_n_steps == 0:
+            if self.publish_metrics_every_n_steps <= 0:
                 result.add_error(
                     "`publish_metrics_every_n_steps` must be greater than or equal to 1."
                 )
 
         if self.publish_metrics_every_n_data_epochs is not None:
-            if self.publish_metrics_every_n_data_epochs == 0:
+            if self.publish_metrics_every_n_data_epochs <= 0:
                 result.add_error(
                     "`publish_metrics_every_n_data_epochs` must be greater than or equal to 1."
                 )

@@ -25,6 +25,7 @@ class MetricDescriptor:
     priority: int
     formatter: MetricFormatter
     log: bool = True
+    higher_better: bool = False
 
 
 class UnknownMetricDescriptorError(Exception):

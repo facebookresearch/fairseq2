@@ -10,7 +10,6 @@ from datetime import timedelta
 
 from fairseq2.context import RuntimeContext
 from fairseq2.device import DeviceDetectionError, determine_default_device
-from fairseq2.error import ProgramError
 from fairseq2.gang import (
     GangError,
     Gangs,
@@ -19,6 +18,8 @@ from fairseq2.gang import (
     setup_root_gang,
 )
 from fairseq2.logging import log
+from fairseq2.recipes import RecipeError
+from fairseq2.recipes.common import HybridShardingNotSupportedError
 from fairseq2.recipes.config import (
     ConfigSectionNotFoundError,
     GangSection,
@@ -33,7 +34,7 @@ def setup_gangs(context: RuntimeContext, recipe_config: object) -> Gangs:
     try:
         device = determine_default_device(context)
     except DeviceDetectionError as ex:
-        raise ProgramError(
+        raise RecipeError(
             "The device of the process cannot be determined. See the nested exception for details."
         ) from ex
 
@@ -55,7 +56,7 @@ def setup_gangs(context: RuntimeContext, recipe_config: object) -> Gangs:
             monitored=gang_section.monitored,
         )
     except GangError as ex:
-        raise ProgramError(
+        raise RecipeError(
             "The root gang of the process cannot be set up. See the nested exception for details."
         ) from ex
 
@@ -78,18 +79,29 @@ def setup_gangs(context: RuntimeContext, recipe_config: object) -> Gangs:
 
         gangs = setup_parallel_gangs(root_gang, tp_size=tp_size)
     except GangError as ex:
-        raise ProgramError(
+        raise RecipeError(
             "The parallel gangs of the process cannot be set up. See the nested exception for details."
         ) from ex
 
     log.info("Parallel gangs initialized.")
 
     try:
-        return _maybe_setup_fsdp_gangs(context, recipe_config, gangs)
+        gangs = _maybe_setup_fsdp_gangs(context, recipe_config, gangs)
     except GangError as ex:
-        raise ProgramError(
+        raise RecipeError(
             "The hybrid sharded data parallel gangs cannot set up. See the nested exception for details."
         ) from ex
+
+    s = (
+        f"Data: {gangs.dp.rank} | "
+        f"Data/Replicated: {gangs.rdp.rank} | "
+        f"Data/Sharded: {gangs.sdp.rank} | "
+        f"Tensor: {gangs.tp.rank}"
+    )
+
+    log.info("Process Ranks - {}", s)
+
+    return gangs
 
 
 def _maybe_setup_fsdp_gangs(
@@ -104,6 +116,9 @@ def _maybe_setup_fsdp_gangs(
         return gangs
 
     if trainer_section.fsdp.hybrid:
+        if gangs.root.size != gangs.dp.size:  # means we have model parallelism.
+            raise HybridShardingNotSupportedError()
+
         log.info("Initializing hybrid sharded data parallel gangs.")
 
         try:
@@ -114,13 +129,13 @@ def _maybe_setup_fsdp_gangs(
             ) from ex
 
         if local_world_size == 1:
-            log.warning("`trainer.fsdp.hsdp` is set, but the local world size is 1. Skipping the setup of hybrid sharded data parallel gangs.")  # fmt: skip
+            log.warning("`trainer.fsdp.hybrid` is set, but the local world size is 1. Skipping the setup of hybrid sharded data parallel gangs.")  # fmt: skip
 
             return gangs
 
         if gangs.dp.size % local_world_size != 0:
             raise GangError(
-                f"The number of processes in the data parallel gang is expected to be a multiple of the local world size ({local_world_size}) when `trainer.fsdp.hsdp` is set, but is {gangs.dp.size} instead."
+                f"The number of processes in the data parallel gang is expected to be a multiple of the local world size ({local_world_size}) when `trainer.fsdp.hybrid` is set, but is {gangs.dp.size} instead."
             )
 
         gangs = setup_fsdp_gangs(gangs, local_world_size)

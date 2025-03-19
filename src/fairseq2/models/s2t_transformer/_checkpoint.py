@@ -6,6 +6,11 @@
 
 from __future__ import annotations
 
+from typing import cast
+
+from torch import Tensor
+from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
+
 from fairseq2.models.s2t_transformer._config import S2TTransformerConfig
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
 
@@ -13,6 +18,17 @@ from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
 def convert_s2t_transformer_checkpoint(
     checkpoint: dict[str, object], config: S2TTransformerConfig
 ) -> dict[str, object]:
+    try:
+        state_dict = cast(dict[str, Tensor], checkpoint["model"])
+    except KeyError:
+        return checkpoint
+
+    # Check if we have a fairseq2 checkpoint.
+    if "decoder.output_projection.weight" not in state_dict:
+        consume_prefix_in_state_dict_if_present(state_dict, prefix="module.")
+
+        return checkpoint
+
     key_map = {
         # fmt: off
         r"^encoder\.subsample\.conv_layers\.([0-9]+)\.":                   r"encoder_frontend.feature_extractor.layers.\1.conv.",

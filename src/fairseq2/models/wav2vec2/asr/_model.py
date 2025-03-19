@@ -74,7 +74,7 @@ class Wav2Vec2AsrModel(AsrModel):
             self.model_dim,
             target_vocab_info.size,
             bias=True,
-            init_fn=init_final_projection,
+            init_fn=_init_final_projection,
             device=device,
             dtype=dtype,
         )
@@ -105,7 +105,7 @@ class Wav2Vec2AsrModel(AsrModel):
         return AsrModelOutput(logits, padding_mask)
 
 
-def init_final_projection(proj: Linear) -> None:
+def _init_final_projection(proj: Linear) -> None:
     """Initialize ``proj`` as the final projection of a wav2vec 2.0 ASR model."""
     nn.init.xavier_uniform_(proj.weight)
 

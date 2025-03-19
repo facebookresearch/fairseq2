@@ -18,7 +18,7 @@ from fairseq2.assets import (
     AssetStore,
 )
 from fairseq2.context import RuntimeContext
-from fairseq2.error import NotSupportedError, ProgramError
+from fairseq2.error import NotSupportedError
 from fairseq2.gang import GangError, Gangs
 from fairseq2.logging import log
 from fairseq2.models import (
@@ -32,13 +32,13 @@ from fairseq2.models import (
     model_asset_card_error,
 )
 from fairseq2.nn.utils.module import remove_parametrizations
+from fairseq2.recipes import Model, RecipeError
 from fairseq2.recipes.common._distributed import broadcast_model
-from fairseq2.recipes.common._model import LocalModel
-from fairseq2.recipes.error import (
+from fairseq2.recipes.common._error import (
     ModelCompilationNotSupportedError,
     ModelParallelismNotSupportedError,
 )
-from fairseq2.recipes.model import Model
+from fairseq2.recipes.common._model import LocalModel
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.registry import Provider
 from fairseq2.typing import DataType
@@ -81,7 +81,7 @@ def load_reference_model(
     except ShardedModelLoadError:
         raise
     except ModelLoadError as ex:
-        raise ProgramError(
+        raise RecipeError(
             f"The '{ex.model_name}' model cannot be loaded. See the nested exception for details."
         ) from ex
 
@@ -158,7 +158,7 @@ class ReferenceModelLoader:
             gangs.root.barrier()
         except GangError as ex:
             raise ModelLoadError(
-                model_name, f"The collective barrier after the load of the '{model_name}' model has failed. See the nested exception for details."  # fmt: skip
+                model_name, f"The collective barrier after the '{model_name}' model load operation has failed. See the nested exception for details."  # fmt: skip
             ) from ex
 
         module.eval()
