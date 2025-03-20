@@ -344,9 +344,6 @@ def generate_rewards(
         for rank_prompts in prompts_to_generate:
             flat_request_list.extend(rank_prompts)
 
-        # from pdb import set_trace
-
-        # set_trace()
         rollouts = vllm_model.get_reward_from_model(
             flat_request_list, sampling_params=sampling_params
         )

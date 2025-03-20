@@ -316,8 +316,6 @@ class SkyworkVerifier(VLLMOutputReward):
         batch_tokens = []
         batch_rewards = []
 
-        self._gangs.root.barrier()
-
         for i, (i_batch_request_output, prompt) in enumerate(
             zip(vllm_outputs, prompts)
         ):
@@ -344,6 +342,7 @@ class SkyworkVerifier(VLLMOutputReward):
                 rollouts_text.append(rollout_output.text)
                 rollouts_tokens.append(rollout_output.token_ids)
                 rollouts_rewards.extend(score)
+
             batch_text.append(rollouts_text)
             batch_tokens.append(rollouts_tokens)
             batch_rewards.append(rollouts_rewards)
