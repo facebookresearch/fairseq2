@@ -107,7 +107,7 @@ def multi_row_group_dataset() -> Generator[str, None, None]:
         # Write with small row group size to ensure multiple groups
         pq.write_table(table, file_path, row_group_size=100)
 
-        yield str(file_path)
+        yield pq.ParquetDataset(str(file_path))
 
 
 @pytest.fixture
@@ -130,8 +130,8 @@ def complex_dataset() -> Generator[str, None, None]:
         for partition in range(3):
             data = {
                 "text": [f"text_{i}" for i in range(100)],
-                "tokens": [[i, i + 1] for i in range(100)],
-                "length": [2] * 100,
+                "tokens": [[a for a in range(i, i + (i**2 % 10))] for i in range(100)],
+                "length": [i**2 % 10 for i in range(100)],
                 "partition": [partition] * 100,
             }
             table = pa.Table.from_pydict(data)

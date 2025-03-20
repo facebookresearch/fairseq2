@@ -121,9 +121,7 @@ class ParquetFragmentLoader:
         else:
             self.columns = None
 
-    def build_pipeline(
-        self, fragment_pipeline: DataPipelineBuilder
-    ) -> DataPipelineBuilder:
+    def apply(self, fragment_pipeline: DataPipelineBuilder) -> DataPipelineBuilder:
 
         def load_fn(fragment: pa.dataset.ParquetFileFragment) -> pa.Table | None:
             return SafeFragment(fragment).load(

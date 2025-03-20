@@ -23,12 +23,16 @@ A fragment corrreponds to a file if the `split_to_row_groups` is set to `False` 
 For better streaming performance, we recommend to set `split_to_row_groups` to `True` which results in smaller fragments in memory.
 
 ### on shuffling
-If shuffle is enabled, all files dataset will be shuffled globally (and this shuffling will be different from one epoch to another).
+If `fragment_shuffle_window` is set to `0`, no shuffling will be applied.
+if `fragment_shuffle_window` is set to `-1`, all fragments will be shuffled globally.
+
+For other values of `fragment_shuffle_window`, shuffle is enabled and it will happen as follows.
+All files dataset will be shuffled globally (and this shuffling will be different from one epoch to another).
 Next, each file will be split into row groups and shuffled locally within `fragment_shuffle_window`.
-If `fragment_shuffle_window` is set to `-1`, all fragments will be shuffled globally.
-Note this requires to get parquet files metadata upfront which can be expensive for large datasets leaving on the clouds,
-where we recommend to set `fragment_shuffle_window` to smaller values (e.g. ~ average nb fragments per file * 5) to get faster starting times.
-In that case, metadata will be fetching will be done on the fly.
+
+Note this requires to get parquet files metadata upfront which can be expensive for large datasets located remotely,
+where we recommend to set `fragment_shuffle_window` to smaller values (e.g. ~ average nb fragments per file * 5) to get faster starting times. In that case, metadata will be fetching will be done on the fly.
+
 Note also that shuffling behavior is seeded to be completely deterministic by the `seed` parameter, thus if one reset a pipeline with the same `seed` value, the exactly same shuffling will be applied.
 
 
@@ -41,7 +45,6 @@ from fairseq2.data.parquet import *
 fragment_config = FragmentStreamingConfig(
     parquet_path="path/to/parquet/dataset_root/",
     nb_epochs=2,
-    shuffle=True,
     split_to_row_groups=True,  # working with row groups instead of files
     fragment_shuffle_window=-1, # -1 means global shuffle
 )
@@ -90,6 +93,7 @@ loading_pipeline = ParquetFragmentLoader(config=loading_config).build_pipeline(f
 
 In the above example, `loading_pipeline` will produce `pa.Table` objects.
 Note that raw column `cat` will be renamed to `category`, `id` to `uid`, and `seq` will be kept as is!
+If we set `columns=None`, all available columns will be read without any renaming.
 
 
 ## Table bucketing
@@ -99,7 +103,7 @@ We can bucketize or recombine several consecutive loaded tables into a a differe
 ```python
     bucketing_config = TableBucketingConfig(target_table_size=1000,
                                             min_fragment_number=2,
-                                            min_fragment_number=10,
+                                            max_fragment_number=10,
                                             shuffle=True,
                                             batch_size=5)
     bucketing_pipeline = TableBucketer(bucketing_config).build_pipeline(loading_pipeline)
@@ -108,6 +112,28 @@ The configuration above will
 1. take between 2 and 10 consecutive loaded tables (the precise number is determined in such a way that the total size is just above 1000 rows)
 2. concatenate them together and shuffle them in memory
 3. then split it into batches of size 5 that will be yielded one by one.
+
+
+## Putting everything together
+One can combine the steps above into a basic yet complete pipeline using `build_basic_parquet_data_pipeline`:
+
+```python
+    >>> from fairseq2.data.parquet import *
+    >>> config = BasicDataLoadingConfig(
+    ...     fragment_stream_config=FragmentStreamingConfig(
+    ...         parquet_path="path/to/parquet/dataset/",
+    ...         partition_filters='pc.field("split") == "train"',
+    ...         nb_epochs=None,
+    ...         fragment_shuffle_window=100),
+    ...     fragment_load_config=FragmentLoadingConfig(columns=None, nb_prefetch=2, num_parallel_fragments=3),
+    ...     table_bucketing_config=TableBucketingConfig(target_table_size=1000,
+    ...                                                 min_fragment_number=2, max_fragment_number=10,
+    ...                                                 shuffle=True, batch_size=5),
+    ... )
+    >>> pipeline = build_basic_parquet_data_pipeline(config).and_return()
+    >>> for batch in pipeline:
+    ...     print(batch.to_pandas())
+```
 
 
 ## Pyarrow Table converion

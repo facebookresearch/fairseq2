@@ -55,10 +55,8 @@ def test_basic_bucketing(controled_row_groups_pq_dataset, nb_epochs):
 
     def get_all_tables(bucketing_config):
         fragment_pipeline = PFS.build_pipeline(0, 1)
-        loading_pipeline = PFL.build_pipeline(fragment_pipeline)
-        bucketing_pipeline = TableBucketer(bucketing_config).build_pipeline(
-            loading_pipeline
-        )
+        loading_pipeline = PFL.apply(fragment_pipeline)
+        bucketing_pipeline = TableBucketer(bucketing_config).apply(loading_pipeline)
         return list(iter(bucketing_pipeline.and_return()))
 
     no_bucketing_result = get_all_tables(empty_bucketing_config)

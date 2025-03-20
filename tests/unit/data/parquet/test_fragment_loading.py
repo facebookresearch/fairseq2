@@ -55,7 +55,7 @@ def test_basic_fragment_loading(
     PFL = ParquetFragmentLoader(config=loading_config)
 
     fragment_pipeline = PFS.build_pipeline(0, 1)
-    loading_pipeline = PFL.build_pipeline(fragment_pipeline)
+    loading_pipeline = PFL.apply(fragment_pipeline)
 
     result = list(iter(loading_pipeline.and_return()))
 
@@ -106,7 +106,7 @@ def test_basic2_fragment_loading(
     PFL = ParquetFragmentLoader(config=loading_config)
 
     fragment_pipeline = PFS.build_pipeline(0, 1)
-    loading_pipeline = PFL.build_pipeline(fragment_pipeline)
+    loading_pipeline = PFL.apply(fragment_pipeline)
 
     result = list(iter(loading_pipeline.and_return()))
 

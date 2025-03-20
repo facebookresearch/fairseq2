@@ -49,7 +49,7 @@ class TableBucketer:
                 and len(self.config.length_columns) > 0
             )
 
-    def build_pipeline(self, pipeline: DataPipelineBuilder) -> DataPipelineBuilder:
+    def apply(self, pipeline: DataPipelineBuilder) -> DataPipelineBuilder:
 
         random_state = np.random.RandomState(self.config.seed)
         if self.config.target_table_memory is not None:

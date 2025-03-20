@@ -5,18 +5,26 @@ import pyarrow as pa
 import pyarrow.dataset as ds
 import pyarrow.parquet as pq
 import pytest
+import torch
 
+from fairseq2.data.parquet import (
+    BasicDataLoadingConfig,
+    build_basic_parquet_data_pipeline,
+)
 from fairseq2.data.parquet.fragment_loading.builder import SafeFragment
-from fairseq2.data.parquet.fragment_streaming.config import ParquetDatasetLimitOptions
+from fairseq2.data.parquet.fragment_loading.config import FragmentLoadingConfig
+from fairseq2.data.parquet.fragment_streaming.config import (
+    FragmentStreamingConfig,
+    ParquetDatasetLimitOptions,
+)
 from fairseq2.data.parquet.fragment_streaming.primitives import (
     list_parquet_fragments,
 )
+from fairseq2.data.parquet.table_bucketing.config import TableBucketingConfig
 from fairseq2.data.parquet.table_bucketing.primitives import (
     build_batching_loop_over_one_table,
 )
-
-# TODO: fix import and tests
-# parquet_iterator,
+from fairseq2.data.parquet.utils import pyarrow_table_to_torch_dict
 
 
 class TestSafeFragmentIntegration:
@@ -291,8 +299,7 @@ class TestBuildIteratorOverOneTable:
         )
 
         # Get batches and unwrap _TableWrapper
-        wrapped_batches = list(pipeline)
-        batches = [batch.table for batch in wrapped_batches]
+        batches = list(pipeline)
 
         assert len(batches) == 10  # 100 rows / 10 batch_size
 
@@ -308,12 +315,12 @@ class TestBuildIteratorOverOneTable:
         pipeline = build_batching_loop_over_one_table(
             table=sample_table,
             batch_size=20,
-            order_by_length="list_col",
+            order_by_length=True,
+            length_columns=["list_col"],
             shuffle=False,
         )
 
-        wrapped_batches = list(pipeline)
-        batches = [batch.table for batch in wrapped_batches]
+        batches = list(pipeline)
 
         # Verify batch sizes
         assert all(len(batch) == 20 for batch in batches)
@@ -329,12 +336,12 @@ class TestBuildIteratorOverOneTable:
         pipeline = build_batching_loop_over_one_table(
             table=sample_table,
             max_tokens=50,  # Small max_tokens to force multiple batches
-            order_by_length="list_col",
+            order_by_length=True,
+            length_columns=["list_col"],
             shuffle=False,
         )
 
-        wrapped_batches = list(pipeline)
-        batches = [batch.table for batch in wrapped_batches]
+        batches = list(pipeline)
 
         # Verify that each batch respects max_tokens
         for batch in batches:
@@ -360,11 +367,8 @@ class TestBuildIteratorOverOneTable:
             seed=42,
         )
 
-        wrapped_batches1 = list(pipeline1)
-        wrapped_batches2 = list(pipeline2)
-
-        batches1 = [batch.table for batch in wrapped_batches1]
-        batches2 = [batch.table for batch in wrapped_batches2]
+        batches1 = list(pipeline1)
+        batches2 = list(pipeline2)
 
         # Compare first values from each batch
         values1 = [batch["int_col"][0].as_py() for batch in batches1]
@@ -380,8 +384,7 @@ class TestBuildIteratorOverOneTable:
             seed=43,
         )
 
-        wrapped_batches3 = list(pipeline3)
-        batches3 = [batch.table for batch in wrapped_batches3]
+        batches3 = list(pipeline3)
         values3 = [batch["int_col"][0].as_py() for batch in batches3]
 
         assert values1 != values3  # Different seeds should give different orders
@@ -395,8 +398,7 @@ class TestBuildIteratorOverOneTable:
             num_parallel_calls=4,
         )
 
-        wrapped_batches = list(pipeline)
-        batches = [batch.table for batch in wrapped_batches]
+        batches = list(pipeline)
         assert len(batches) == 10
 
         # Verify all data is present and correct
@@ -416,14 +418,12 @@ class TestBuildIteratorOverOneTable:
         )
 
         # First iteration
-        wrapped_batches1 = list(pipeline)
-        batches1 = [batch.table for batch in wrapped_batches1]
+        batches1 = list(pipeline)
         values1 = [batch["int_col"][0].as_py() for batch in batches1]
 
         # Reset and iterate again
         pipeline.reset()
-        wrapped_batches2 = list(pipeline)
-        batches2 = [batch.table for batch in wrapped_batches2]
+        batches2 = list(pipeline)
         values2 = [batch["int_col"][0].as_py() for batch in batches2]
 
         # Should get same order after reset with same seed
@@ -432,7 +432,9 @@ class TestBuildIteratorOverOneTable:
     def test_invalid_config(self, sample_table):
         """Test error handling for invalid configurations."""
         # Test missing both batch_size and max_tokens
-        with pytest.raises(ValueError, match="unknown batching method"):
+        with pytest.raises(
+            ValueError, match="Need to provide either max_tokens or batch_size"
+        ):
             build_batching_loop_over_one_table(
                 table=sample_table,
                 shuffle=False,
@@ -443,109 +445,140 @@ class TestBuildIteratorOverOneTable:
             pipeline = build_batching_loop_over_one_table(
                 table=sample_table,
                 batch_size=10,
-                order_by_length="nonexistent_column",
+                order_by_length=True,
+                length_columns=["nonexistent_column"],
             )
             list(pipeline)  # Force execution
 
 
-# class TestParquetIterator:
-#     def test_basic_iteration(self, complex_dataset):
-#         """Test basic iteration with default settings."""
-#         dataset_config = ParquetDatasetConfig(
-#             parquet_path=complex_dataset,
-#             split_to_row_groups=True,
-#         )
+class TestComplexDatasetIterator:
 
-#         dataloader_config = ParquetBasicDataloaderConfig(
-#             batch_size=10, shuffle=False, output_format=ParquetBatchFormat.pyarrow
-#         )
+    def test_basic_iteration(self, complex_dataset):
+        config = BasicDataLoadingConfig(
+            fragment_stream_config=FragmentStreamingConfig(
+                parquet_path=complex_dataset, nb_epochs=1, fragment_shuffle_window=-1
+            ),
+            fragment_load_config=FragmentLoadingConfig(
+                columns=None, add_fragment_traces=False
+            ),
+            table_bucketing_config=TableBucketingConfig(batch_size=10),
+        )
+        pipeline = build_basic_parquet_data_pipeline(config).and_return()
 
-#         batches = list(parquet_iterator(dataset_config, dataloader_config))
+        batches = list(pipeline)
 
-#         # Should have 30 batches (300 total rows / 10 batch_size)
-#         assert len(batches) == 30
+        # Should have 30 batches (300 total rows / 10 batch_size)
+        assert len(batches) == 30
 
-#         # Verify batch size
-#         assert all(len(batch) == 10 for batch in batches)
+        # Verify batch size
+        assert all(len(batch) == 10 for batch in batches)
 
-#         # Verify columns
-#         assert set(batches[0].column_names) == {"text", "tokens", "length", "partition"}
+        # Verify columns
+        assert set(batches[0].column_names) == {"text", "tokens", "length", "partition"}
 
-#     def test_torch_output_format(self, complex_dataset):
-#         """Test iteration with torch output format."""
-#         dataset_config = ParquetDatasetConfig(
-#             parquet_path=complex_dataset,
-#         )
+        # Verify cast torch tensor output
+        torch_batch = pyarrow_table_to_torch_dict(batches[0])
 
-#         dataloader_config = ParquetBasicDataloaderConfig(
-#             batch_size=10, shuffle=False, output_format=ParquetBatchFormat.torch
-#         )
+        assert isinstance(torch_batch["length"], torch.Tensor)
+        assert isinstance(torch_batch["text"], list)
+        assert isinstance(torch_batch["tokens"], list)
 
-#         batches = list(parquet_iterator(dataset_config, dataloader_config))
+        # Verify tensor shapes
+        assert torch_batch["length"].shape == (10,)
 
-#         # Verify torch tensor output
-#         assert isinstance(batches[0]["length"], torch.Tensor)
-#         assert isinstance(batches[0]["text"], list)
-#         assert isinstance(batches[0]["tokens"], list)
+    @pytest.mark.parametrize("shuffle", [True, False])
+    @pytest.mark.parametrize("max_tokens", [20, 50, 100])
+    @pytest.mark.parametrize("nb_epochs", [1, 4, 8])
+    @pytest.mark.parametrize("fragment_shuffle_window", [0, -1, 20])
+    def test_ordered_batching(
+        self,
+        complex_dataset,
+        shuffle: bool,
+        max_tokens: int,
+        nb_epochs: int,
+        fragment_shuffle_window: int,
+    ):
+        """Test iteration with length-ordered batching."""
+        config = BasicDataLoadingConfig(
+            fragment_stream_config=FragmentStreamingConfig(
+                parquet_path=complex_dataset,
+                nb_epochs=nb_epochs,
+                fragment_shuffle_window=fragment_shuffle_window,
+            ),
+            fragment_load_config=FragmentLoadingConfig(columns=None),
+            table_bucketing_config=TableBucketingConfig(
+                shuffle=shuffle,
+                order_by_length=True,
+                length_columns=["tokens"],
+                total_batch_length=max_tokens,
+            ),
+        )
+        pipeline = build_basic_parquet_data_pipeline(config).and_return()
+        batches = list(pipeline)
 
-#         # Verify tensor shapes
-#         assert batches[0]["length"].shape == (10,)
+        # Verify max tokens constraint
+        for batch in batches:
+            lengths = [len(tokens) for tokens in batch["tokens"].to_pylist()]
+            max_len = max(lengths)
+            assert max_len * len(batch) <= max_tokens
 
-#     def test_ordered_batching(self, complex_dataset):
-#         """Test iteration with length-ordered batching."""
-#         dataset_config = ParquetDatasetConfig(
-#             parquet_path=complex_dataset,
-#         )
+        assert sum(len(batch) for batch in batches) == 300 * nb_epochs
 
-#         dataloader_config = ParquetBasicDataloaderConfig(
-#             max_tokens=50, order_by_length="tokens", shuffle=False
-#         )
+    @pytest.mark.parametrize("shuffle", [True, False])
+    @pytest.mark.parametrize("max_tokens", [None, 20, 50, 100])
+    def test_deterministic_shuffle(self, complex_dataset, shuffle: bool, max_tokens):
+        """Test deterministic shuffling with seeds."""
 
-#         batches = list(parquet_iterator(dataset_config, dataloader_config))
+        config = BasicDataLoadingConfig(
+            fragment_stream_config=FragmentStreamingConfig(
+                parquet_path=complex_dataset,
+                nb_epochs=1,
+                fragment_shuffle_window=-1,
+                seed=42,
+            ),
+            fragment_load_config=FragmentLoadingConfig(columns=None),
+            table_bucketing_config=TableBucketingConfig(
+                shuffle=shuffle,
+                order_by_length=True,
+                length_columns=["tokens"],
+                total_batch_length=max_tokens,
+                batch_size=10 if max_tokens is None else None,
+            ),
+        )
 
-#         # Verify max tokens constraint
-#         for batch in batches:
-#             lengths = [len(tokens) for tokens in batch["tokens"].to_pylist()]
-#             max_len = max(lengths)
-#             assert max_len * len(batch) <= 50
+        pipeline1 = build_basic_parquet_data_pipeline(config).and_return()
+        batches1 = list(pipeline1)
 
-#     def test_deterministic_shuffle(self, complex_dataset):
-#         """Test deterministic shuffling with seeds."""
-#         dataset_config = ParquetDatasetConfig(
-#             parquet_path=complex_dataset,
-#         )
+        pipeline2 = build_basic_parquet_data_pipeline(config).and_return()
+        batches2 = list(pipeline2)
 
-#         # Create two configs with same seed
-#         config1 = ParquetBasicDataloaderConfig(batch_size=10, shuffle=True, seed=42)
+        # Verify same order with same seed
+        texts1 = [text for batch in batches1 for text in batch["text"].to_pylist()]
+        texts2 = [text for batch in batches2 for text in batch["text"].to_pylist()]
+        assert texts1 == texts2
 
-#         config2 = ParquetBasicDataloaderConfig(batch_size=10, shuffle=True, seed=42)
+        assert sum(len(batch) for batch in batches1) == 300
 
-#         batches1 = list(parquet_iterator(dataset_config, config1))
-#         batches2 = list(parquet_iterator(dataset_config, config2))
+        # Different seed should give different order
+        config_new = BasicDataLoadingConfig(
+            fragment_stream_config=FragmentStreamingConfig(
+                parquet_path=complex_dataset,
+                nb_epochs=1,
+                fragment_shuffle_window=-1,
+                seed=43,
+            ),
+            fragment_load_config=FragmentLoadingConfig(columns=None),
+            table_bucketing_config=TableBucketingConfig(
+                shuffle=shuffle,
+                order_by_length=True,
+                length_columns=["tokens"],
+                total_batch_length=max_tokens,
+                batch_size=10 if max_tokens is None else None,
+            ),
+        )
 
-#         # Verify same order with same seed
-#         texts1 = [text for batch in batches1 for text in batch["text"].to_pylist()]
-#         texts2 = [text for batch in batches2 for text in batch["text"].to_pylist()]
-#         assert texts1 == texts2
+        pipeline3 = build_basic_parquet_data_pipeline(config_new).and_return()
+        batches3 = list(pipeline3)
 
-#         # Different seed should give different order
-#         config3 = ParquetBasicDataloaderConfig(batch_size=10, shuffle=True, seed=43)
-
-#         batches3 = list(parquet_iterator(dataset_config, config3))
-#         texts3 = [text for batch in batches3 for text in batch["text"].to_pylist()]
-#         assert texts1 != texts3
-
-#     def test_minimum_batch_size(self, complex_dataset):
-#         """Test minimum batch size filtering."""
-#         dataset_config = ParquetDatasetConfig(
-#             parquet_path=complex_dataset,
-#         )
-
-#         dataloader_config = ParquetBasicDataloaderConfig(
-#             batch_size=10, min_batch_size=10, shuffle=False  # Drop any smaller batches
-#         )
-
-#         batches = list(parquet_iterator(dataset_config, dataloader_config))
-
-#         # Verify all batches meet minimum size
-#         assert all(len(batch) >= 10 for batch in batches)
+        texts3 = [text for batch in batches3 for text in batch["text"].to_pylist()]
+        assert texts1 != texts3

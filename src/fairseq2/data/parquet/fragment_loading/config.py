@@ -43,7 +43,7 @@ class NamedColumns(metaclass=StringOnlyMeta):
 
     def _check_string_fields(self):
         for field_name, field_value in self.__dict__.items():
-            if field_name in ["extra_columns"] and field_value is not None:
+            if field_name == "extra_columns" and field_value is not None:
                 if not isinstance(field_value, list) or not all(
                     isinstance(col, str) for col in field_value
                 ):
@@ -65,7 +65,7 @@ class NamedColumns(metaclass=StringOnlyMeta):
             if col is not None and isinstance(col, str)
         ]
         extra_cols = getattr(self, "extra_columns", None)
-        if extra_cols:
+        if extra_cols is not None:
             cols.extend([col for col in extra_cols if col is not None])
         return cols
 
@@ -91,7 +91,7 @@ class FragmentLoadingConfig:
     This should be used to indicate which columns to load and how to rename them (if `rename_columns` is True).
     Renaming is useful to get uniform data schema when working from different datasets.
 
-    Note that if `columns` is None, all columns will be loaded.
+    Note that if `columns` is None, all columns will be loaded with their original names.
     """
 
     rename_columns: bool = True
