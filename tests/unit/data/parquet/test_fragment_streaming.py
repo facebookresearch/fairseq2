@@ -7,17 +7,16 @@
 import pickle
 from collections import Counter
 
+import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
 from fairseq2.data.parquet.fragment_streaming.builder import ParquetFragmentStreamer
 from fairseq2.data.parquet.fragment_streaming.config import FragmentStreamingConfig
-from fairseq2.data.parquet.fragment_streaming.primitives import (  # list_parquet_fragments,
+from fairseq2.data.parquet.fragment_streaming.primitives import (
+    list_parquet_fragments,
     stream_parquet_fragments,
 )
-
-# import numpy as np
-# import pyarrow as pa
 from fairseq2.data.parquet.utils import fragment_stable_hash
 
 
@@ -42,6 +41,49 @@ def are_fragments_equal(fragment1, fragment2):
     #     return False
 
     return True
+
+
+@pytest.mark.parametrize("split_to_row_groups", [True, False])
+@pytest.mark.parametrize("shuffle", [True, False])
+@pytest.mark.parametrize("nb_epochs", [1, 2, 10])
+def test_list_parquet_fragments_basic(
+    controled_row_groups_pq_dataset, split_to_row_groups, shuffle, nb_epochs
+):
+    parquet_ds = pq.ParquetDataset(controled_row_groups_pq_dataset)
+    fragments_pipeline = list_parquet_fragments(
+        parquet_ds,
+        nb_epochs=nb_epochs,
+        split_to_row_groups=split_to_row_groups,
+        shuffle=shuffle,
+        seed=1,
+    )
+    fragments = list(fragments_pipeline.and_return())
+
+    single_epoch_nb_fragments = 6 if split_to_row_groups else 3
+    assert all(isinstance(f, pa.dataset.Fragment) for f in fragments)
+    assert len(fragments) == single_epoch_nb_fragments * nb_epochs
+    assert len(set(fragments)) == single_epoch_nb_fragments
+    if not shuffle:
+        assert all(
+            are_fragments_equal(frag1, frag2)
+            for frag1, frag2 in zip(
+                fragments[:single_epoch_nb_fragments],
+                fragments[single_epoch_nb_fragments:],
+            )
+        )
+    else:
+        epoch_frags = []
+        for i in range(nb_epochs):
+            epoch_frag = fragments[
+                single_epoch_nb_fragments * i : single_epoch_nb_fragments * (i + 1)
+            ]
+            epoch_frags.append(epoch_frag)
+            assert len(set(epoch_frag)) == single_epoch_nb_fragments
+        if nb_epochs > 1:
+            assert not all(
+                are_fragments_equal(frag1, frag2)
+                for frag1, frag2 in zip(epoch_frags[0], epoch_frags[1])
+            )
 
 
 @pytest.mark.parametrize("nb_epochs", [1, 2, 10])
