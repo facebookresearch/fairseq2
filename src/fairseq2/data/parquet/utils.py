@@ -116,6 +116,27 @@ def pyarrow_to_torch_tensor(
 
 
 def pyarrow_table_to_torch_dict(tt: pa.Table, strict: bool = False) -> NestedDict:
+    """
+    Convert a pyarrow table to a nested dict of torch tensors.
+    The keys of the dict are the column names of the table.
+    Best effort conversion is done to convert the pyarrow types to torch types.
+    If strict is True, then the function will raise an exception if it cannot convert a column to a torch tensor.
+    If strict is False, then the function will return the column as is if it cannot convert it to a torch tensor.
+    example:
+    >>> import pyarrow as pa
+    >>> from fairseq2.data.parquet.utils import pyarrow_table_to_torch_dict
+    >>> table = pa.Table.from_pydict({
+    ...     'a': [1, 2, 3],
+    ...     'b': [4.4, 5.5, 6.2],
+    ...     'list': [[0, 1, 2], [3, 4], [5, 6, 7]],
+    ...     'c': ["a", "b", "c"],
+    ... })
+    >>> pyarrow_table_to_torch_dict(table)
+    {'a': tensor([1, 2, 3]),
+    'b': tensor([4.4000, 5.5000, 6.2000], dtype=torch.float64),
+    'list': [tensor([0, 1, 2]), tensor([3, 4]), tensor([5, 6, 7])],
+    'c': ['a', 'b', 'c']}
+    """
     out = {}
     for col in tt.column_names:
         try:
