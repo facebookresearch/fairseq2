@@ -15,13 +15,13 @@ from typing import Any, Generator, List, Optional, Union, no_type_check
 
 import numpy as np
 import pandas as pd
-import pyarrow as pa  # type: ignore
-import pyarrow.compute as pc  # type: ignore
+import pyarrow as pa
 import pyarrow.parquet as pq
 import torch
 import xxhash
 from pyarrow.dataset import get_partition_keys  # requires pyarrow >= 13
 
+from fairseq2.data.parquet.arrow_transform import pyarrow_column_to_array
 from fairseq2.logging import log
 
 NestedDict = dict[str, "NestedDictValue"]
@@ -42,54 +42,6 @@ def fragment_stable_hash(
 ) -> int:
     serialized_info = f"{fragment.path}-{[rr.id for rr in fragment.row_groups]}-{seed}"
     return xxhash.xxh32_intdigest(serialized_info)
-
-
-def is_list_like(arr: Union[pa.ChunkedArray, pa.Array]) -> bool:
-    """
-    Check if the array is a list or a large list.
-    """
-    return bool(pa.types.is_list(arr.type) or pa.types.is_large_list(arr.type))
-
-
-def _fix_list_offset(arr: pa.Array) -> pa.Array:
-    """
-    Recursively fixes list offset to 0, so that arr.offsets are always starts from 0
-    and can be used easily downstream.
-    """
-    if not is_list_like(arr):
-        return arr
-    if arr.offset == 0:
-        return arr
-
-    new_values = _fix_list_offset(pc.list_flatten(arr))
-    new_offsets = pc.subtract(arr.offsets, arr.offsets[0])
-
-    return (
-        pa.LargeListArray.from_arrays(new_offsets, new_values)
-        if pa.types.is_large_list(arr.type)
-        else pa.ListArray.from_arrays(new_offsets, new_values)
-    )
-
-
-def pyarrow_column_to_array(arg: pa.ChunkedArray | pa.Array) -> pa.Array:
-    # see https://github.com/apache/arrow/issues/37318
-    if isinstance(arg, pa.Array):
-        return _fix_list_offset(arg)
-
-    return _fix_list_offset(
-        arg.chunk(0) if arg.num_chunks == 1 else arg.combine_chunks()
-    )
-
-
-def simple_array_to_nested(arr: pa.ChunkedArray | pa.Array) -> pa.Array:
-    """
-    >>> a = pa.array([1,2,3])
-    >>> simple_array_to_nested(a).to_pylist()
-    [[1], [2], [3]]
-    """
-    return pa.ListArray.from_arrays(
-        pa.array(np.arange(len(arr) + 1, dtype=np.int32)), pyarrow_column_to_array(arr)
-    )
 
 
 @no_type_check

@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import List, Optional, Union
+from typing import List, Optional
 
 import numpy as np
 import polars as pl
@@ -14,37 +14,71 @@ import pyarrow as pa
 import pyarrow.compute as pc
 
 
-def build_uniform_list_column(
-    array: Union[pa.Array, pa.ChunkedArray],
+def is_list_like(arr: pa.ChunkedArray | pa.Array) -> bool:
+    """
+    Check if the array is a list or a large list.
+    """
+    return bool(pa.types.is_list(arr.type) or pa.types.is_large_list(arr.type))
+
+
+def _fix_list_offset(arr: pa.Array) -> pa.Array:
+    """
+    Recursively fixes list offset to 0, so that arr.offsets are always starts from 0
+    and can be used easily downstream.
+    """
+    if not is_list_like(arr):
+        return arr
+    if arr.offset == 0:
+        return arr
+
+    new_values = _fix_list_offset(pc.list_flatten(arr))
+    new_offsets = pc.subtract(arr.offsets, arr.offsets[0])
+
+    return (
+        pa.LargeListArray.from_arrays(new_offsets, new_values)
+        if pa.types.is_large_list(arr.type)
+        else pa.ListArray.from_arrays(new_offsets, new_values)
+    )
+
+
+def pyarrow_column_to_array(arg: pa.ChunkedArray | pa.Array) -> pa.Array:
+    # see https://github.com/apache/arrow/issues/37318
+    if isinstance(arg, pa.Array):
+        return _fix_list_offset(arg)
+
+    return _fix_list_offset(
+        arg.chunk(0) if arg.num_chunks == 1 else arg.combine_chunks()
+    )
+
+
+def repeat_list_column(
+    array: pa.Array | pa.ChunkedArray,
     length: int,
 ) -> pa.ChunkedArray:
     """
-    Creates a ChunkedArray where each chunk is a single-list array containing
-    all values in 'array', repeated 'length' times.
-
-    For example, if array = [10, 11] (len(array) = 2), then for length=3
-    the result is 3 identical ListArrays, each containing [10, 11].
-
-    Args:
-        array: The array to be repeated.
-        length: The number of times to repeat the array.
-
-    Returns:
-        A ChunkedArray where each chunk is a single-list array containing the
-        entire contents of `array`, repeated `length` times.
+    >>> repeat_list_column(pa.array([1,2,3]), 2).to_pylist()
+    [[1, 2, 3], [1, 2, 3]]
     """
-    if len(array) == 0:  # Edge case: empty array
-        single_list_array = pa.ListArray.from_arrays([0, 0], array)
-    else:
-        single_list_array = pa.ListArray.from_arrays([0, len(array)], array)
+    single_list_array = pa.ListArray.from_arrays([0, len(array)], array)
     repeated_arrays = [single_list_array] * length
     return pa.chunked_array(repeated_arrays)
 
 
+def simple_array_to_nested(arr: pa.ChunkedArray | pa.Array) -> pa.Array:
+    """
+    >>> a = pa.array([1,2,3])
+    >>> simple_array_to_nested(a).to_pylist()
+    [[1], [2], [3]]
+    """
+    return pa.ListArray.from_arrays(
+        pa.array(np.arange(len(arr) + 1, dtype=np.int32)), pyarrow_column_to_array(arr)
+    )
+
+
 def maybe_cast(
-    arr: Union[pa.ChunkedArray, pa.Array],
+    arr: pa.ChunkedArray | pa.Array,
     target_type: pa.DataType,
-) -> Union[pa.ChunkedArray, pa.Array]:
+) -> pa.ChunkedArray | pa.Array:
     """
     Casts a ChunkedArray to a target type if the current type does not match.
 
