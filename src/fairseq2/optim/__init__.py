@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from fairseq2.optim._adamw import ADAMW_OPTIMIZER as ADAMW_OPTIMIZER
-from fairseq2.optim._adamw import AdamW as AdamW
 from fairseq2.optim._adamw import AdamWConfig as AdamWConfig
 from fairseq2.optim._adamw import AdamWHandler as AdamWHandler
 from fairseq2.optim._dynamic_loss_scaler import DynamicLossScaler as DynamicLossScaler
