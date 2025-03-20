@@ -85,6 +85,7 @@ class DataPipelineReader(DataReader[BatchT]):
         pipeline: DataPipeline,
         gang: Gang,
         options: DataReadOptions,
+        *,
         strict_state: bool = True,
     ) -> None:
         """
