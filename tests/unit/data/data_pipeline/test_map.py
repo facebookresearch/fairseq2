@@ -406,7 +406,10 @@ class TestMapOp:
         with pytest.raises(StopIteration):
             d = next(iter(pipeline))
 
-    @pytest.mark.skipif(len(os.sched_getaffinity(0)) < 2, reason="Not enough CPU cores available")
+    @pytest.mark.skipif(
+        not hasattr(os, "sched_getaffinity") or len(os.sched_getaffinity(0)) < 2,
+        reason="Not enough CPU cores available",
+    )
     @pytest.mark.parametrize("num_parallel_calls", [1, 4, 20])
     @pytest.mark.parametrize("nb_elements", [10, 20])
     def test_return_order_non_deterministic(self, num_parallel_calls: int, nb_elements: int) -> None:  # fmt: skip
