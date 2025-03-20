@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 
+import concurrent.futures
 from dataclasses import dataclass
 from functools import reduce
 from typing import Any, Iterator, List, Optional
@@ -14,7 +15,6 @@ import pyarrow as pa
 import pyarrow.compute as pc  # noqa: F401
 import pyarrow.parquet as pq
 import torch
-from joblib import Parallel, delayed
 
 from fairseq2.data import (
     DataPipelineBuilder,
@@ -157,22 +157,27 @@ def list_parquet_fragments(
     output_fragments = []
     total_nb_rows: int = 0
     if split_to_row_groups:
-        with Parallel(backend="threading", n_jobs=nb_jobs) as parallel:
-            total_nb_fragments = 0
-            early_stop = False
-
+        total_nb_fragments = 0
+        early_stop = False
+        with concurrent.futures.ThreadPoolExecutor(max_workers=nb_jobs) as executor:
             for batch_of_files in batched(file_ds_fragments, 20 * nb_jobs):
-                row_groups = parallel(
-                    delayed(split_fragment_in_row_groups)(ff) for ff in batch_of_files
-                )
+                # Submit tasks to the executor for splitting fragments
+                futures = [
+                    executor.submit(split_fragment_in_row_groups, ff)
+                    for ff in batch_of_files
+                ]
+                row_groups = [future.result() for future in futures]
                 new_file_fragments = [x for y in row_groups for x in y]
-
                 new_file_fragments_stats: List[int]
                 if limit_options.nb_rows is not None:
-                    new_file_fragments_stats = parallel(
-                        delayed(lambda frag: int(frag.row_groups[0].num_rows))(ff)
+                    # Submit tasks to the executor for calculating stats
+                    futures = [
+                        executor.submit(
+                            lambda frag: int(frag.row_groups[0].num_rows), ff
+                        )
                         for ff in new_file_fragments
-                    )
+                    ]
+                    new_file_fragments_stats = [future.result() for future in futures]
                 else:
                     new_file_fragments_stats = [0] * len(new_file_fragments)
 

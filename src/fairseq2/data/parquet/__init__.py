@@ -13,7 +13,20 @@ from fairseq2.data.parquet.arrow_transform import (
     repeat_list_column,
     replace_table_column,
 )
-from fairseq2.data.parquet.fragment_streaming.primitives import init_parquet_dataset
+from fairseq2.data.parquet.fragment_loading import (
+    FragmentLoadingConfig,
+    NamedColumns,
+    ParquetFragmentLoader,
+)
+from fairseq2.data.parquet.fragment_streaming import (
+    FragmentStreamingConfig,
+    ParquetFragmentStreamer,
+)
+from fairseq2.data.parquet.fragment_streaming.primitives import (
+    init_parquet_dataset,
+    stream_parquet_fragments,
+)
+from fairseq2.data.parquet.table_bucketing import TableBucketer, TableBucketingConfig
 from fairseq2.data.parquet.utils import (
     BatchOutputType,
     NestedDict,
@@ -46,4 +59,12 @@ __all__ = [
     "maybe_cast",
     # --- pipeline --- #
     "init_parquet_dataset",
+    "stream_parquet_fragments",
+    "FragmentLoadingConfig",
+    "NamedColumns",
+    "ParquetFragmentLoader",
+    "FragmentStreamingConfig",
+    "ParquetFragmentStreamer",
+    "TableBucketer",
+    "TableBucketingConfig",
 ]
