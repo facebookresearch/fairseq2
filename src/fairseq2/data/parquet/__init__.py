@@ -4,13 +4,13 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 
-from fairseq2.data.parquet.arrow_transform.transform import (
+from fairseq2.data.parquet.arrow_transform import (
     apply_filter,
-    build_uniform_list_column,
     concat_table,
     filter_list_by_range,
     filter_strings_by_length,
     maybe_cast,
+    repeat_list_column,
     replace_table_column,
 )
 from fairseq2.data.parquet.fragment_streaming.primitives import init_parquet_dataset
@@ -40,7 +40,7 @@ __all__ = [
     "apply_filter",
     "concat_table",
     "replace_table_column",
-    "build_uniform_list_column",
+    "repeat_list_column",
     "filter_list_by_range",
     "filter_strings_by_length",
     "maybe_cast",

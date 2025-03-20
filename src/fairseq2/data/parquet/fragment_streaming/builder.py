@@ -18,6 +18,7 @@ from fairseq2.data.parquet.fragment_streaming.primitives import (
     process_filter,
     stream_parquet_fragments,
 )
+from fairseq2.data.parquet.utils import fragment_stable_hash
 from fairseq2.logging import log
 
 
@@ -116,7 +117,8 @@ class ParquetFragmentStreamer:
             # this makes sure that each rank will get different set row groups for each epoch
             # whaterver internal shuffle is done
             fragments_pipeline_builder = fragments_pipeline_builder.filter(
-                lambda fragment: fragment.stable_hash(self.config.seed) % world_size
+                lambda fragment: fragment_stable_hash(fragment, seed=self.config.seed)
+                % world_size
                 == rank
             )
         else:

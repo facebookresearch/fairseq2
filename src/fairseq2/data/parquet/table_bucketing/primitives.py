@@ -7,7 +7,7 @@ import pyarrow.compute as pc
 from numpy.typing import NDArray
 
 from fairseq2.data import DataPipeline, read_sequence
-from fairseq2.data.parquet.utils import is_list_like
+from fairseq2.data.parquet.arrow_transform import is_list_like
 from fairseq2.logging import log
 
 

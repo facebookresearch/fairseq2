@@ -7,8 +7,6 @@
 import pickle
 from collections import Counter
 
-# import numpy as np
-# import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
@@ -17,6 +15,10 @@ from fairseq2.data.parquet.fragment_streaming.config import FragmentStreamingCon
 from fairseq2.data.parquet.fragment_streaming.primitives import (  # list_parquet_fragments,
     stream_parquet_fragments,
 )
+
+# import numpy as np
+# import pyarrow as pa
+from fairseq2.data.parquet.utils import fragment_stable_hash
 
 
 def are_fragments_equal(fragment1, fragment2):
@@ -74,21 +76,21 @@ def test_stream_parquet_fragments_generic(
     all_fragments = list(iter(spf))
     all_fragments_bis = list(iter(get_new_stream()))
 
-    assert set(list(Counter([f.stable_hash() for f in all_fragments]).values())) == set(
-        [nb_epochs]
-    )
+    assert set(
+        list(Counter([fragment_stable_hash(f) for f in all_fragments]).values())
+    ) == set([nb_epochs])
 
     if shuffling_window <= total_number_of_row_groups // 2:
         assert set(
             list(
                 Counter(
-                    [f.stable_hash() for f in all_fragments[:shuffling_window]]
+                    [fragment_stable_hash(f) for f in all_fragments[:shuffling_window]]
                 ).values()
             )
         ) == set([1])
 
         assert set(
-            list(Counter([f.stable_hash() for f in all_fragments]).values())
+            list(Counter([fragment_stable_hash(f) for f in all_fragments]).values())
         ) == set([nb_epochs])
 
     # check deterministic behavior
@@ -98,7 +100,7 @@ def test_stream_parquet_fragments_generic(
         == total_number_of_row_groups * nb_epochs
     )
     for f, f_bis in zip(all_fragments, all_fragments_bis):
-        assert are_fragments_equal(f.fragment, f_bis.fragment)
+        assert are_fragments_equal(f, f_bis)
 
     # reset
     spf.reset()
@@ -109,7 +111,7 @@ def test_stream_parquet_fragments_generic(
         == total_number_of_row_groups * nb_epochs
     )
     for f, f_bis in zip(all_fragments, all_fragments_bis):
-        assert are_fragments_equal(f.fragment, f_bis.fragment)
+        assert are_fragments_equal(f, f_bis)
 
     # reload state
     spf.reset()
@@ -130,7 +132,7 @@ def test_stream_parquet_fragments_generic(
         == total_number_of_row_groups * nb_epochs
     )
     for f, f_bis in zip(all_fragments, all_fragments_bis):
-        assert are_fragments_equal(f.fragment, f_bis.fragment)
+        assert are_fragments_equal(f, f_bis)
 
 
 def test_stream_parquet_fragments_with_circular_shift(controled_row_groups_pq_dataset):
@@ -138,8 +140,8 @@ def test_stream_parquet_fragments_with_circular_shift(controled_row_groups_pq_da
 
     def show_fragments(frag):
         return (
-            frag.fragment.path.split("/")[-2],
-            [r.id for r in frag.fragment.row_groups][0],
+            frag.path.split("/")[-2],
+            [r.id for r in frag.row_groups][0],
         )
 
     def get_new_stream(files_circular_shift, shuffling_window):
@@ -232,9 +234,9 @@ def test_fragment_input_conifg(
     # with files_circular_shift > 0, shards will be perfectly speparated
 
     PFS = ParquetFragmentStreamer(config=config)
-    pi01 = PFS.build_pipeline(0, 1).map(lambda frag: frag.stable_hash()).and_return()
-    pi02 = PFS.build_pipeline(0, 2).map(lambda frag: frag.stable_hash()).and_return()
-    pi12 = PFS.build_pipeline(1, 2).map(lambda frag: frag.stable_hash()).and_return()
+    pi01 = PFS.build_pipeline(0, 1).map(fragment_stable_hash).and_return()
+    pi02 = PFS.build_pipeline(0, 2).map(fragment_stable_hash).and_return()
+    pi12 = PFS.build_pipeline(1, 2).map(fragment_stable_hash).and_return()
 
     result_01 = list(iter(pi01))
     result_02 = list(iter(pi02))

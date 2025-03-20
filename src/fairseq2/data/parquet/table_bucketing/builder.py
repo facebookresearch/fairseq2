@@ -15,7 +15,7 @@ import numpy as np
 import pyarrow as pa
 
 from fairseq2.data import DataPipeline, DataPipelineBuilder
-from fairseq2.data.parquet.arrow_transform.transform import concat_table, shuffle_table
+from fairseq2.data.parquet.arrow_transform import concat_table, shuffle_table
 from fairseq2.data.parquet.table_bucketing.config import TableBucketingConfig
 from fairseq2.data.parquet.table_bucketing.primitives import (
     build_batching_loop_over_one_table,

@@ -163,8 +163,8 @@ def split_fragment_in_row_groups(
 def add_fragments_trace(table: pa.Table, fragment: pa.dataset.Fragment) -> pa.Table:
     # we assume that the table will be loaded in the same order as the row groups
     row_group_ids = np.repeat(
-        np.array([rr.id for rr in fragment.row_groups]),
-        np.array([rr.num_rows for rr in fragment.row_groups]),
+        np.array([rr.id for rr in fragment.row_groups], dtype=np.int32),
+        np.array([rr.num_rows for rr in fragment.row_groups], dtype=np.int32),
     )
     row_group_ids = row_group_ids.astype(np.int32)
     assert len(row_group_ids) == len(table)

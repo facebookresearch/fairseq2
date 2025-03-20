@@ -16,13 +16,13 @@ import pyarrow as pa
 from retrying import retry
 
 from fairseq2.data import DataPipelineBuilder
-from fairseq2.data.parquet.arrow_transform.transform import (
-    add_fragments_trace,
+from fairseq2.data.parquet.arrow_transform import (
     apply_filter,
 )
 from fairseq2.data.parquet.fragment_loading.config import FragmentLoadingConfig
 from fairseq2.data.parquet.fragment_streaming.primitives import process_filter
 from fairseq2.data.parquet.utils import (
+    add_fragments_trace,
     add_partitioning_values,
     fragment_stable_hash,
     rename_table_columns,

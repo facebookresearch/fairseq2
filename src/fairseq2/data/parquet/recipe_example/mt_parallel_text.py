@@ -16,7 +16,7 @@ import pyarrow as pa
 from pyarrow.dataset import get_partition_keys
 
 from fairseq2.data import DataPipeline, DataPipelineBuilder
-from fairseq2.data.parquet.arrow_transform.transform import (
+from fairseq2.data.parquet.arrow_transform import (
     filter_list_with_min_max_length,
 )
 from fairseq2.data.parquet.fragment_loading import (

@@ -6,42 +6,35 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
-
 import numpy as np
 import pyarrow as pa
 import pyarrow.dataset as ds
 import pytest
 
-from fairseq2.data.parquet.arrow_transform.transform import (
-    add_fragments_trace,
-    affix_list_column,
+from fairseq2.data.parquet.arrow_transform import (
     apply_filter,
-    build_uniform_list_column,
     concat_table,
-    correct_paragraph_length,
     filter_list_by_range,
-    filter_rows_by_consistent_list_length,
     filter_strings_by_length,
     maybe_cast,
-    prefix_and_suffix_one_list_column,
+    repeat_list_column,
     replace_table_column,
     shuffle_table,
 )
 
 
-def test_build_uniform_list_column_empty() -> None:
+def test_repeat_list_column_empty() -> None:
     array = pa.array([], type=pa.int32())
     length = 3
-    result = build_uniform_list_column(array, length)
+    result = repeat_list_column(array, length)
     expected = pa.chunked_array([pa.ListArray.from_arrays([0, 0], array)] * length)
     assert result.equals(expected)
 
 
-def test_build_uniform_list_column_non_empty() -> None:
+def test_repeat_list_column_non_empty() -> None:
     array = pa.array([10, 11], type=pa.int32())
     length = 2
-    result = build_uniform_list_column(array, length)
+    result = repeat_list_column(array, length)
     single_list = pa.ListArray.from_arrays([0, 2], array)
     expected = pa.chunked_array([single_list] * length)
     assert result.equals(expected)
@@ -69,250 +62,6 @@ def test_replace_table_column(sample_table: pa.Table) -> None:
     expected_table = sample_table.drop(["tokens"]).append_column("tokens", new_array)
     result = replace_table_column(sample_table, "tokens", new_array)
     assert result.equals(expected_table)
-
-
-def test_affix_list_column_no_prefix_suffix(sample_table: pa.Table) -> None:
-    table = sample_table
-    result = affix_list_column(table, "tokens", prefix_array=None, suffix_array=None)
-    for i, v in enumerate(result):
-        assert v.equals(table[1][i])
-
-
-def test_affix_list_column_with_prefix(
-    sample_table: pa.Table, prefix_array: pa.Array
-) -> None:
-    table = sample_table
-    result = affix_list_column(
-        table, "tokens", prefix_array=prefix_array, suffix_array=None
-    )
-    expected_tokens = pa.array(
-        [
-            [0, 1, 2, 3],
-            [0, 4, 5],
-            [0, 6],
-        ],
-        type=pa.list_(pa.int64()),
-    )
-    expected_table = replace_table_column(table, "tokens", expected_tokens)
-    for i, v in enumerate(result):
-        assert v.equals(expected_table[1][i])
-
-
-def test_affix_list_column_with_suffix(
-    sample_table: pa.Table, suffix_array: pa.Array
-) -> None:
-    table = sample_table
-    result = affix_list_column(
-        table, "tokens", prefix_array=None, suffix_array=suffix_array
-    )
-    expected_tokens = pa.array(
-        [
-            [1, 2, 3, 999],
-            [4, 5, 999],
-            [6, 999],
-        ],
-        type=pa.list_(pa.int64()),
-    )
-    expected_table = replace_table_column(table, "tokens", expected_tokens)
-    for i, v in enumerate(result):
-        assert v.equals(expected_table[1][i])
-
-
-def test_affix_list_column_with_prefix_suffix(
-    sample_table: pa.Table,
-    prefix_array: pa.Array,
-    suffix_array: pa.Array,
-) -> None:
-    result = affix_list_column(
-        sample_table,
-        "tokens",
-        prefix_array=prefix_array,
-        suffix_array=suffix_array,
-    )
-    expected_tokens = pa.array(
-        [
-            [0, 1, 2, 3, 999],
-            [0, 4, 5, 999],
-            [0, 6, 999],
-        ],
-        type=pa.list_(pa.int64()),
-    )
-    expected = replace_table_column(sample_table, "tokens", expected_tokens)
-    for i, v in enumerate(result):
-        assert v.equals(expected[1][i])
-
-
-def test_prefix_suffix_list_column(
-    sample_table: pa.Table,
-    prefix_array: pa.Array,
-    suffix_array: pa.Array,
-) -> None:
-    result = prefix_and_suffix_one_list_column(
-        sample_table,
-        "tokens",
-        prefix_array=prefix_array,
-        suffix_array=suffix_array,
-    )
-    expected_tokens = pa.array(
-        [
-            [0, 1, 2, 3, 999],
-            [0, 4, 5, 999],
-            [0, 6, 999],
-        ],
-        type=pa.list_(pa.int64()),
-    )
-    expected = replace_table_column(sample_table, "tokens", expected_tokens)
-    assert result.equals(expected)
-
-
-@pytest.mark.skip("TODO: check if this is still correct")
-def test_correct_paragraph_length_basic(sample_table: pa.Table) -> None:
-    # Create test data with shorter lines
-    table = sample_table.append_column(
-        "page_lens",
-        pa.array([[3, 2, 1], [2, 1], [1]], type=pa.list_(pa.int32())),
-    )
-
-    result = correct_paragraph_length(
-        table,
-        "page_lens",
-        len_break=1,
-        len_prefix=2,
-        len_suffix=3,
-    )
-
-    expected_lens = pa.array(
-        [[5, 3, 4], [4, 4], [5]],
-        type=pa.list_(pa.int32()),
-    )
-    expected = replace_table_column(table, "page_lens", expected_lens)
-    assert result.equals(expected)
-
-
-def test_correct_paragraph_length_empty() -> None:
-    table = pa.Table.from_pydict(
-        {"page_lens_column": pa.array([], type=pa.list_(pa.int32()))}
-    )
-
-    len_break = 1
-    len_prefix = 2
-    len_suffix = 3
-
-    result = correct_paragraph_length(
-        table, "page_lens_column", len_break, len_prefix, len_suffix
-    )
-
-    expected_page_lens = pa.array([], type=pa.list_(pa.int32()))
-    expected_table = replace_table_column(table, "page_lens_column", expected_page_lens)
-    assert result.equals(expected_table)
-
-
-def test_correct_paragraph_length_single_element() -> None:
-    table = pa.Table.from_pydict(
-        {"page_lens_column": pa.array([[5]], type=pa.list_(pa.int32()))}
-    )
-
-    len_break = 2
-    len_prefix = 3
-    len_suffix = 4
-
-    result = correct_paragraph_length(
-        table, "page_lens_column", len_break, len_prefix, len_suffix
-    )
-
-    expected_page_lens = pa.array(
-        [[5 + 2 + (3 - 2) + (4 - 2)]], type=pa.list_(pa.int32())
-    )
-    expected_table = replace_table_column(table, "page_lens_column", expected_page_lens)
-    assert result.equals(expected_table)
-
-
-class TestAddFragmentsTrace:
-    def test_add_fragments_trace_basic(self) -> None:
-        table = pa.table({"col1": [10, 20, 30, 40]})
-        mock_fragment = MagicMock(spec=ds.Fragment)
-        # Two row groups: IDs 0 and 1
-        mock_fragment.row_groups = [MagicMock(id=0), MagicMock(id=1)]
-
-        traced_table = add_fragments_trace(table, mock_fragment)
-
-        assert traced_table.num_columns == 3
-        assert traced_table.num_rows == 4
-
-        # Check "__row_groups_ids" -> each row should have [0,1]
-        rg_col = traced_table["__row_groups_ids"]
-        rg_pylist = rg_col.to_pylist()
-        expected = [[0, 1]] * 4
-        assert rg_pylist == expected
-
-        # Check "__index_in_fragement"
-        idx_col = traced_table["__index_in_fragement"]
-        idx_pylist = idx_col.to_pylist()
-        assert idx_pylist == [0, 1, 2, 3]
-
-    def test_add_fragments_trace_no_row_groups(self) -> None:
-        table = pa.table({"col1": [1, 2, 3]})
-        mock_fragment = MagicMock(spec=ds.Fragment)
-        mock_fragment.row_groups = []  # no row groups
-
-        traced_table = add_fragments_trace(table, mock_fragment)
-
-        rg_pylist = traced_table["__row_groups_ids"].to_pylist()
-        # Expect each row has an empty list
-        assert rg_pylist == [[], [], []]
-
-        idx_pylist = traced_table["__index_in_fragement"].to_pylist()
-        assert idx_pylist == [0, 1, 2]
-
-    def test_add_fragments_trace_empty_table(self) -> None:
-        table = pa.table({"col1": []})  # 0 rows
-        mock_fragment = MagicMock(spec=ds.Fragment)
-        mock_fragment.row_groups = [MagicMock(id=99)]
-
-        traced_table = add_fragments_trace(table, mock_fragment)
-
-        assert traced_table.num_rows == 0
-        assert traced_table.num_columns == 3
-
-        rg_col = traced_table["__row_groups_ids"]
-        assert len(rg_col) == 0  # no rows
-        idx_col = traced_table["__index_in_fragement"]
-        assert len(idx_col) == 0
-
-    def test_add_fragments_trace_single_row(self) -> None:
-        table = pa.table({"col1": [999]})
-        mock_fragment = MagicMock(spec=ds.Fragment)
-        mock_fragment.row_groups = [MagicMock(id=42)]
-
-        traced_table = add_fragments_trace(table, mock_fragment)
-        assert traced_table.num_rows == 1
-
-        rg_pylist = traced_table["__row_groups_ids"].to_pylist()
-        # Should be [[42]] (a list with a single sub-list containing 42)
-        assert rg_pylist == [[42]]
-
-        idx_pylist = traced_table["__index_in_fragement"].to_pylist()
-        assert idx_pylist == [0]
-
-    def test_add_fragments_trace_multiple_row_groups(self) -> None:
-        table = pa.table({"col1": [10, 20]})
-        mock_fragment = MagicMock(spec=ds.Fragment)
-        # row group IDs: 100, 101, 102
-        mock_fragment.row_groups = [
-            MagicMock(id=100),
-            MagicMock(id=101),
-            MagicMock(id=102),
-        ]
-
-        traced_table = add_fragments_trace(table, mock_fragment)
-
-        assert traced_table.num_rows == 2
-        rg_pylist = traced_table["__row_groups_ids"].to_pylist()
-        # Each of the 2 rows -> [100, 101, 102]
-        assert rg_pylist == [[100, 101, 102], [100, 101, 102]]
-
-        idx_pylist = traced_table["__index_in_fragement"].to_pylist()
-        assert idx_pylist == [0, 1]
 
 
 class TestShuffleTable:
@@ -693,134 +442,4 @@ class TestFilterListByRange:
         table = pa.table({"id": [1, 2], "scores": [[-100.0, 50.0], [1e5, 1e6]]})
         # This is a giant range => all pass
         result = filter_list_by_range(table, "scores", min_val=-1e10, max_val=1e10)
-        assert result.equals(table)
-
-
-class TestFilterRowsByConsistentListLength:
-    def test_no_columns(self) -> None:
-        """
-        If columns is empty or has only 1 column, the function should return the table unmodified.
-        """
-        table = pa.table({"col1": [[1, 2], [3, 4, 5]]})
-        # 0 columns
-        result = filter_rows_by_consistent_list_length(table, [])
-        assert result.equals(table)
-
-        # 1 column
-        result_1col = filter_rows_by_consistent_list_length(table, ["col1"])
-        assert result_1col.equals(table)
-
-    def test_non_list_columns(self) -> None:
-        """
-        If any column is not list-like, the function returns the table unmodified.
-        """
-        table = pa.table({"col_list": [[1, 2], [3, 4]], "col_int": [100, 200]})
-        result = filter_rows_by_consistent_list_length(table, ["col_list", "col_int"])
-        # col_int is not list-like => returns unchanged
-        assert result.equals(table)
-
-    def test_all_consistent_lengths(self) -> None:
-        """
-        If all specified columns are list-like and have matching lengths in every row,
-        the original table should be returned unchanged.
-        """
-        table = pa.table(
-            {
-                "list1": [[1, 2], [3, 4], [5, 6]],
-                "list2": [[10, 20], [30, 40], [50, 60]],
-                "other_col": [999, 888, 777],  # This won't be checked
-            }
-        )
-        # list1 and list2 are each length 2 in every row
-        columns = ["list1", "list2"]
-
-        result = filter_rows_by_consistent_list_length(table, columns)
-        assert result.equals(table), "All lengths match => no filtering"
-
-    def test_inconsistent_lengths(self) -> None:
-        """
-        If some rows have differing lengths across columns, those rows should be filtered out.
-        """
-        table = pa.table(
-            {
-                "list1": [
-                    [1, 2],  # length 2
-                    [3, 4, 5],  # length 3
-                    [],  # length 0
-                ],
-                "list2": [
-                    [10, 20],  # length 2
-                    [30, 40],  # length 2
-                    [99],  # length 1
-                ],
-            }
-        )
-        # Row0 => list1=2, list2=2 => match
-        # Row1 => list1=3, list2=2 => mismatch => filter out
-        # Row2 => list1=0, list2=1 => mismatch => filter out
-        columns = ["list1", "list2"]
-
-        result = filter_rows_by_consistent_list_length(table, columns)
-        expected = pa.table({"list1": [[1, 2]], "list2": [[10, 20]]})
-        assert result.num_rows == 1
-        assert result.equals(expected)
-
-    def test_logging_warning_for_inconsistent(self) -> None:
-        """
-        Verify we log a warning message when rows get filtered out.
-        """
-        table = pa.table(
-            {
-                "list1": [[1, 2, 3], [4, 5], [6]],
-                "list2": [[10, 20, 30], [40, 50, 60], [70, 80]],
-            }
-        )
-        # Row1 => length(list1)=2, length(list2)=3 => mismatch => filtered
-        # Row2 => length(list1)=1, length(list2)=2 => mismatch => filtered
-        # Only Row0 => length3=length3 => keep
-
-        columns = ["list1", "list2"]
-        with patch("fairseq2.logging.log.warning") as mock_log:
-            result = filter_rows_by_consistent_list_length(table, columns)
-            # We expect 1 row kept => 2 filtered
-            assert result.num_rows == 1
-            assert mock_log.call_count > 0, "Should log at least one warning"
-
-    def test_multiple_mismatches_across_more_columns(self) -> None:
-        """
-        Check a scenario with more than two columns.
-        We filter step by step, updating the reference lengths after each filter.
-        """
-        table = pa.table(
-            {
-                "listA": [[1, 2], [3, 4, 5], [6, 7], [8, 9]],
-                "listB": [[10, 20], [30, 40], [70, 80], [90, 100]],
-                "listC": [[1000, 2000], [3000, 4000, 5000], [6000, 7000], [9000]],
-            }
-        )
-        # Let's break down the mismatch:
-        #   - For row0: listA=2, listB=2, listC=2 => all match
-        #   - For row1: listA=3, listB=2, listC=3 => mismatch with listB
-        #   - For row2: listA=2, listB=2, listC=2 => match
-        #   - For row3: listA=2, listB=2, listC=1 => mismatch with listC
-        # We keep row0, row2, filter out row1, row3.
-        columns = ["listA", "listB", "listC"]
-        result = filter_rows_by_consistent_list_length(table, columns)
-        expected = pa.table(
-            {
-                "listA": [[1, 2], [6, 7]],
-                "listB": [[10, 20], [70, 80]],
-                "listC": [[1000, 2000], [6000, 7000]],
-            }
-        )
-        assert result.equals(expected)
-
-    def test_empty_table(self) -> None:
-        """
-        If the table is empty, there's nothing to filter. Return as is.
-        """
-        table = pa.table({"list1": pa.array([], type=pa.list_(pa.int64()))})
-        columns = ["list1"]
-        result = filter_rows_by_consistent_list_length(table, columns)
-        assert result.num_rows == 0
         assert result.equals(table)

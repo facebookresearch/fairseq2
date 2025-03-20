@@ -20,15 +20,15 @@ import pytest
 import torch
 from pyarrow.dataset import Fragment
 
+from fairseq2.data.parquet.arrow_transform import _fix_list_offset, is_list_like
 from fairseq2.data.parquet.table_bucketing.primitives import (
     compute_length_splits,
     compute_rows_length,
 )
 from fairseq2.data.parquet.utils import (
-    _fix_list_offset,
+    add_fragments_trace,
     add_partitioning_values,
     get_dataset_fragments,
-    is_list_like,
     pyarrow_column_to_array,
     pyarrow_cpu,
     pyarrow_table_to_torch_dict,
@@ -529,3 +529,22 @@ class TestComputeRowsLength(unittest.TestCase):
         arr = pa.array([], type=pa.list_(pa.int64()))
         lengths = compute_rows_length(arr)
         assert len(lengths) == 0
+
+
+def test_add_fragments_trace_all_row_groups(controled_row_groups_pq_dataset) -> None:
+    ds = pq.ParquetDataset(controled_row_groups_pq_dataset)
+    row_group_size = 10
+    for fragment, nb_rg in zip(ds.fragments, [2, 1, 3]):
+        table = fragment.to_table()
+        table_with_fragment = add_fragments_trace(table, fragment)
+
+        assert table_with_fragment.select(table.column_names).equals(table)
+        assert sorted(
+            set(table_with_fragment.column_names) - set(table.column_names)
+        ) == ["__index_in_fragement", "__row_groups_ids"]
+        assert table_with_fragment["__row_groups_ids"].to_numpy().tolist() == sum(
+            [row_group_size * [i] for i in range(nb_rg)], []
+        )
+        assert table_with_fragment["__index_in_fragement"].to_numpy().tolist() == sum(
+            [list(range(row_group_size)) for i in range(nb_rg)], []
+        )
