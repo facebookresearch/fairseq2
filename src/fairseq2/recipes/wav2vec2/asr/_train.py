@@ -244,7 +244,7 @@ def load_wav2vec2_asr_trainer(
             config.pretrained_model.name,
             gangs,
             config.trainer.dtype,
-            mp=config.trainer.mixed_precision is not None,
+            mp=config.trainer.mixed_precision != "off",
         )
 
         pt_module = cast(Wav2Vec2Model, pt_model.module)
