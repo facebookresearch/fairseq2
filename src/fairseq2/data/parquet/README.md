@@ -30,8 +30,7 @@ For other values of `fragment_shuffle_window`, shuffle is enabled and it will ha
 All files dataset will be shuffled globally (and this shuffling will be different from one epoch to another).
 Next, each file will be split into row groups and shuffled locally within `fragment_shuffle_window`.
 
-Note this requires to get parquet files metadata upfront which can be expensive for large datasets located remotely,
-where we recommend to set `fragment_shuffle_window` to smaller values (e.g. ~ average nb fragments per file * 5) to get faster starting times. In that case, metadata will be fetching will be done on the fly.
+Note that the global shuffling requires to get parquet all files metadata upfront which can be expensive for large datasets located remotely, whearas  if `fragment_shuffle_window` is set to a small value (e.g. ~ average nb fragments per file * 5), the  time to the first batch will be faster. The metadata will be fetching will be done on the fly in that case.
 
 Note also that shuffling behavior is seeded to be completely deterministic by the `seed` parameter, thus if one reset a pipeline with the same `seed` value, the exactly same shuffling will be applied.
 
