@@ -71,7 +71,12 @@ setup(
         "blobfile~=3.0.0",
     ],
     extras_require={
-        "arrow": ["pyarrow>=13.0.0", "pandas~=2.0.0"],
+        "arrow": [
+            "pyarrow>=17.0.0",
+            "retrying~=1.3.4",
+            "polars>=1.19.0",
+            "xxhash~=3.5",
+        ],
     },
     entry_points={"console_scripts": ["fairseq2=fairseq2.cli:main"]},
 )

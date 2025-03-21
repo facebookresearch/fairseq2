@@ -15,6 +15,7 @@ from torch.nn import Module
 from fairseq2.data import VocabularyInfo
 from fairseq2.models.sequence import SequenceBatch, SequenceModelOutput
 from fairseq2.nn.padding import PaddingMask
+from fairseq2.typing import Device
 
 
 class Seq2SeqModel(Module, ABC):
@@ -92,6 +93,30 @@ class Seq2SeqBatch:
             return self.target_seqs.numel()
 
         return int(self.target_padding_mask.seq_lens.sum())
+
+    def to_device(self, device: Device) -> Seq2SeqBatch:
+        """Move the batch to the given device.
+
+        :param device:
+            The device to which to move the batch.
+        :returns:
+            The batch moved to the given device.
+        """
+        return Seq2SeqBatch(
+            self.source_seqs.to(device),
+            (
+                self.source_padding_mask.to(device)
+                if self.source_padding_mask is not None
+                else None
+            ),
+            self.target_seqs.to(device),
+            (
+                self.target_padding_mask.to(device)
+                if self.target_padding_mask is not None
+                else None
+            ),
+            self.example,
+        )
 
 
 def as_auto_regressive_input(batch: Seq2SeqBatch) -> tuple[Seq2SeqBatch, SequenceBatch]:
