@@ -39,8 +39,8 @@ from fairseq2.recipes.common import (
     prepare_model,
     register_extra_asset_paths,
     setup_data_parallel_model,
-    setup_gangs,
     setup_torch,
+    setup_training_gangs,
 )
 from fairseq2.recipes.config import (
     CommonSection,
@@ -75,7 +75,7 @@ class Wav2Vec2AsrTrainConfig:
         default_factory=lambda: Wav2Vec2AsrTrainDatasetSection()
     )
 
-    text_tokenizer: TextTokenizerSection = field(
+    tokenizer: TextTokenizerSection = field(
         default_factory=lambda: TextTokenizerSection(name="librispeech_asr")
     )
 
@@ -216,11 +216,11 @@ def load_wav2vec2_asr_trainer(
 
     validate(config)
 
-    register_extra_asset_paths(context, config)
+    register_extra_asset_paths(context, config.common)
 
-    setup_torch(context, config, output_dir)
+    setup_torch(context, config.common, output_dir)
 
-    gangs = setup_gangs(context, config)
+    gangs = setup_training_gangs(context, config.gang, config.trainer)
 
     checkpoint_manager = create_checkpoint_manager(context, gangs, output_dir)
 
@@ -231,8 +231,18 @@ def load_wav2vec2_asr_trainer(
     seed += 1
 
     model = load_base_model(
-        Wav2Vec2AsrModel, context, config, output_dir, gangs, checkpoint_manager
+        Wav2Vec2AsrModel,
+        context,
+        config.model,
+        config.trainer,
+        output_dir,
+        gangs,
+        checkpoint_manager,
     )
+
+    dataset = load_dataset(AsrDataset, context, config.dataset, gangs)
+
+    tokenizer = load_text_tokenizer(context, config.tokenizer)
 
     module = cast(Wav2Vec2AsrModel, model.module)
 
@@ -242,7 +252,7 @@ def load_wav2vec2_asr_trainer(
         pt_model = load_reference_model(
             Wav2Vec2Model,
             context,
-            config.pretrained_model.name,
+            config.pretrained_model,
             gangs,
             config.trainer.dtype,
             mp=config.trainer.mixed_precision != "off",
@@ -273,21 +283,21 @@ def load_wav2vec2_asr_trainer(
     # We never train the feature extractor.
     freeze_parameters(module.encoder_frontend.feature_extractor)
 
-    prepare_model(context, config, model, gangs)
+    prepare_model(context, config.trainer, model, gangs)
 
     static_graph = config.trainer.freeze_encoder_for_n_steps == 0
 
-    model = setup_data_parallel_model(context, config, model, gangs, static_graph)
+    model = setup_data_parallel_model(
+        context, config.trainer, model, gangs, static_graph
+    )
 
     log_model(log, model.module, gangs)
 
-    optimizer = create_optimizer(context, config, model)
+    optimizer = create_optimizer(context, config.optimizer, model)
 
-    lr_scheduler = create_lr_scheduler(context, config, optimizer)
-
-    dataset = load_dataset(AsrDataset, context, config, gangs)
-
-    tokenizer = load_text_tokenizer(context, config)
+    lr_scheduler = create_lr_scheduler(
+        context, config.lr_scheduler, config.regime, optimizer
+    )
 
     # Initialize the train unit.
     criterion = AsrCriterion(model)
@@ -360,7 +370,9 @@ def load_wav2vec2_asr_trainer(
 
     return create_trainer(
         context,
-        config,
+        config.trainer,
+        config.regime,
+        config.common,
         output_dir,
         unit,
         data_reader,

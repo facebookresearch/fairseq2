@@ -48,6 +48,7 @@ class BeamSearchSequenceGenerator(SequenceGenerator):
     """Represents a sequence generator based on beam search."""
 
     _model: DecoderModel
+    _vocab_info: VocabularyInfo
     _algorithm: BeamSearchAlgorithm
     _beam_size: int
     _min_gen_len: int
@@ -66,6 +67,7 @@ class BeamSearchSequenceGenerator(SequenceGenerator):
     def __init__(
         self,
         model: DecoderModel,
+        vocab_info: VocabularyInfo,
         *,
         algorithm: BeamSearchAlgorithm | None = None,
         beam_size: int = 5,
@@ -117,14 +119,15 @@ class BeamSearchSequenceGenerator(SequenceGenerator):
         :param step_processors:
             The processors to call at each generation step.
         """
-        if model.vocab_info.eos_idx is None:
+        if vocab_info.eos_idx is None:
             raise ValueError(
-                "`model.vocab_info` must have `eos_idx` set for sequence generation."
+                "`vocab_info` must have `eos_idx` set for sequence generation."
             )
 
         model.eval()
 
         self._model = model
+        self._vocab_info = vocab_info
 
         if min_gen_len < 1:
             raise ValueError(
@@ -183,6 +186,7 @@ class BeamSearchSequenceGenerator(SequenceGenerator):
     ) -> SequenceGeneratorOutput:
         op = _BeamSearchSequenceGeneratorOp(
             self._model,
+            self._vocab_info,
             prompt_seqs,
             prompt_padding_mask,
             self._algorithm,
@@ -224,6 +228,7 @@ class BeamSearchSeq2SeqGenerator(Seq2SeqGenerator):
     """Represents a sequence-to-sequence generator based on beam search."""
 
     _model: EncoderDecoderModel
+    _target_vocab_info: VocabularyInfo
     _algorithm: BeamSearchAlgorithm
     _beam_size: int
     _min_gen_len: int
@@ -242,6 +247,7 @@ class BeamSearchSeq2SeqGenerator(Seq2SeqGenerator):
     def __init__(
         self,
         model: EncoderDecoderModel,
+        target_vocab_info: VocabularyInfo,
         *,
         algorithm: BeamSearchAlgorithm | None = None,
         beam_size: int = 5,
@@ -294,14 +300,15 @@ class BeamSearchSeq2SeqGenerator(Seq2SeqGenerator):
         :param step_processors:
             The processors to call at each generation step.
         """
-        if model.target_vocab_info.eos_idx is None:
+        if target_vocab_info.eos_idx is None:
             raise ValueError(
-                "`model.vocab_info` must have `eos_idx` set for sequence generation."
+                "`target_vocab_info` must have `eos_idx` set for sequence generation."
             )
 
         model.eval()
 
         self._model = model
+        self._target_vocab_info = target_vocab_info
 
         if min_gen_len < 1:
             raise ValueError(
@@ -380,6 +387,7 @@ class BeamSearchSeq2SeqGenerator(Seq2SeqGenerator):
 
         op = _BeamSearchSeq2SeqGeneratorOp(
             self._model,
+            self._target_vocab_info,
             encoder_output,
             encoder_padding_mask,
             prompt_seqs,
@@ -452,10 +460,10 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
 
     def __init__(
         self,
+        vocab_info: VocabularyInfo,
         prompt_seqs: Tensor,
         prompt_padding_mask: PaddingMask | None,
         algorithm: BeamSearchAlgorithm,
-        vocab_info: VocabularyInfo,
         beam_size: int,
         min_gen_len: int,
         max_gen_len: int,
@@ -905,6 +913,7 @@ class _BeamSearchSequenceGeneratorOp(_AbstractBeamSearchSequenceGeneratorOp):
     def __init__(
         self,
         model: DecoderModel,
+        vocab_info: VocabularyInfo,
         prompt_seqs: Tensor,
         prompt_padding_mask: PaddingMask | None,
         algorithm: BeamSearchAlgorithm,
@@ -923,10 +932,10 @@ class _BeamSearchSequenceGeneratorOp(_AbstractBeamSearchSequenceGeneratorOp):
         step_hooks: dict[int, StepHook],
     ) -> None:
         super().__init__(
+            vocab_info,
             prompt_seqs,
             prompt_padding_mask,
             algorithm,
-            model.vocab_info,
             beam_size,
             min_gen_len,
             max_gen_len,
@@ -964,6 +973,7 @@ class _BeamSearchSeq2SeqGeneratorOp(_AbstractBeamSearchSequenceGeneratorOp):
     def __init__(
         self,
         model: EncoderDecoderModel,
+        target_vocab_info: VocabularyInfo,
         encoder_output: Tensor,
         encoder_padding_mask: PaddingMask | None,
         prompt_seqs: Tensor,
@@ -984,10 +994,10 @@ class _BeamSearchSeq2SeqGeneratorOp(_AbstractBeamSearchSequenceGeneratorOp):
         step_hooks: dict[int, StepHook],
     ) -> None:
         super().__init__(
+            target_vocab_info,
             prompt_seqs,
             prompt_padding_mask,
             algorithm,
-            model.target_vocab_info,
             beam_size,
             min_gen_len,
             max_gen_len,

@@ -14,7 +14,6 @@ from torch import Tensor
 from torch.nn import Module
 from typing_extensions import override
 
-from fairseq2.data import VocabularyInfo
 from fairseq2.device import SupportsDeviceTransfer
 from fairseq2.nn.functional import cross_entropy
 from fairseq2.nn.padding import PaddingMask
@@ -25,25 +24,19 @@ class SequenceModel(Module, ABC):
     """Represents a sequence model."""
 
     max_seq_len: int
-    vocab_info: VocabularyInfo
 
-    def __init__(self, max_seq_len: int, vocab_info: VocabularyInfo) -> None:
+    def __init__(self, max_seq_len: int) -> None:
         """
-        :param max_seq_len:
-            The maximum length of sequences produced by the model.
-        :param vocab_info:
-            The vocabulary information of sequences produced by the model.
+        :param max_seq_len: The maximum length of produced sequences.
         """
         super().__init__()
 
         self.max_seq_len = max_seq_len
-        self.vocab_info = vocab_info
 
     @abstractmethod
     def forward(self, batch: SequenceBatch) -> SequenceModelOutput:
         """
-        :param batch:
-            The batch of sequences to process.
+        :param batch: The batch of sequences to process.
         """
 
 

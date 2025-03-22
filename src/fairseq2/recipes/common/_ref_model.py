@@ -39,6 +39,7 @@ from fairseq2.recipes.common._error import (
     ModelParallelismNotSupportedError,
 )
 from fairseq2.recipes.common._model import LocalModel
+from fairseq2.recipes.config import ReferenceModelSection
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.registry import Provider
 from fairseq2.typing import DataType
@@ -47,13 +48,13 @@ from fairseq2.typing import DataType
 def setup_reference_model(
     kls: type[Module],
     context: RuntimeContext,
-    model_name: str,
+    model_section: ReferenceModelSection,
     gangs: Gangs,
     dtype: DataType,
     mp: bool,
     torch_compile: bool,
 ) -> Model:
-    model = load_reference_model(kls, context, model_name, gangs, dtype, mp)
+    model = load_reference_model(kls, context, model_section, gangs, dtype, mp)
 
     broadcast_model(model, gangs)
 
@@ -67,7 +68,7 @@ def setup_reference_model(
 def load_reference_model(
     kls: type[Module],
     context: RuntimeContext,
-    model_name: str,
+    model_section: ReferenceModelSection,
     gangs: Gangs,
     dtype: DataType,
     mp: bool,
@@ -77,7 +78,7 @@ def load_reference_model(
     loader = ReferenceModelLoader(kls, context.asset_store, model_handlers)
 
     try:
-        return loader.load(model_name, gangs, dtype, mp)
+        return loader.load(model_section, gangs, dtype, mp)
     except ShardedModelLoadError:
         raise
     except ModelLoadError as ex:
@@ -102,7 +103,15 @@ class ReferenceModelLoader:
         self._asset_store = asset_store
         self._model_handlers = model_handlers
 
-    def load(self, model_name: str, gangs: Gangs, dtype: DataType, mp: bool) -> Model:
+    def load(
+        self,
+        model_section: ReferenceModelSection,
+        gangs: Gangs,
+        dtype: DataType,
+        mp: bool,
+    ) -> Model:
+        model_name = model_section.name
+
         try:
             card = self._asset_store.retrieve_card(model_name)
         except AssetCardNotFoundError:
@@ -180,7 +189,5 @@ def prepare_reference_model(
         log.info("Compiling '{}' model.", model.name)
 
         model.handler.compile(model.module, model.config)
-
-        log.info("Model compiled.")
 
     return model

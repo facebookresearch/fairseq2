@@ -80,8 +80,8 @@ class S2TTransformerFactory:
             decoder_frontend,
             decoder,
             final_proj,
+            pad_idx=config.pad_idx,
             max_target_seq_len=config.max_target_seq_len,
-            target_vocab_info=config.target_vocab_info,
         )
 
     def create_encoder_frontend(self) -> TransformerFrontend:
@@ -223,9 +223,9 @@ class S2TTransformerFactory:
         config = self._config
 
         return StandardEmbedding(
-            num_embeddings=config.target_vocab_info.size,
+            num_embeddings=config.target_vocab_size,
             embedding_dim=config.model_dim,
-            pad_idx=config.target_vocab_info.pad_idx,
+            pad_idx=config.pad_idx,
             init_fn=init_scaled_embedding,
         )
 
@@ -279,7 +279,7 @@ class S2TTransformerFactory:
 
         return Linear(
             config.model_dim,
-            config.target_vocab_info.size,
+            config.target_vocab_size,
             bias=False,
             init_fn=init_final_projection,
         )

@@ -40,7 +40,7 @@ class Wav2Vec2AsrFactory:
         return Wav2Vec2AsrModel(
             encoder_frontend,
             encoder,
-            config.vocab_info,
+            config.vocab_size,
             masker=masker,
             final_dropout_p=config.final_dropout_p,
         )

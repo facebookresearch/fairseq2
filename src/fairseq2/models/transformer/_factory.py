@@ -70,17 +70,17 @@ class TransformerFactory:
             frontend,
             decoder,
             final_proj,
+            pad_idx=config.pad_idx,
             max_target_seq_len=config.max_seq_len,
-            target_vocab_info=config.vocab_info,
         )
 
     def create_embedding(self) -> Embedding:
         config = self._config
 
         return StandardEmbedding(
-            num_embeddings=config.vocab_info.size,
+            num_embeddings=config.vocab_size,
             embedding_dim=config.model_dim,
-            pad_idx=config.vocab_info.pad_idx,
+            pad_idx=config.pad_idx,
             init_fn=init_scaled_embedding,
         )
 
@@ -175,7 +175,7 @@ class TransformerFactory:
         if isinstance(embed, StandardEmbedding):
             return TiedProjection(embed.weight, bias=None)
 
-        return Linear(config.model_dim, config.vocab_info.size, bias=False)
+        return Linear(config.model_dim, config.vocab_size, bias=False)
 
 
 def init_final_projection(proj: Linear) -> None:

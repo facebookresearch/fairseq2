@@ -51,6 +51,7 @@ from fairseq2.recipes.config import (
     GeneratorSection,
     ReferenceModelSection,
     Seq2SeqGeneratorSection,
+    TextTokenizerSection,
 )
 from fairseq2.typing import CPU
 from fairseq2.utils.file import FileMode
@@ -69,6 +70,10 @@ class TextTranslateConfig:
 
     dataset: TextTranslateDatasetSection = field(
         default_factory=lambda: TextTranslateDatasetSection()
+    )
+
+    tokenizer: TextTokenizerSection = field(
+        default_factory=lambda: TextTokenizerSection(name="nllb-200")
     )
 
     gang: GangSection = field(default_factory=lambda: GangSection())
@@ -132,11 +137,11 @@ def load_text_translator(
 
     validate(config)
 
-    register_extra_asset_paths(context, config)
+    register_extra_asset_paths(context, config.common)
 
-    setup_torch(context, config, output_dir)
+    setup_torch(context, config.common, output_dir)
 
-    gangs = setup_gangs(context, config)
+    gangs = setup_gangs(context, config.gang)
 
     seed = config.common.seed
 
@@ -147,19 +152,21 @@ def load_text_translator(
     model = setup_reference_model(
         EncoderDecoderModel,
         context,
-        config.model.name,
+        config.model,
         gangs,
         config.generator.dtype,
         config.generator.amp,
         config.generator.torch_compile,
     )
 
-    dataset = load_dataset(TextDataset, context, config, gangs)
+    dataset = load_dataset(TextDataset, context, config.dataset, gangs)
 
-    tokenizer = load_text_tokenizer(context, config)
+    tokenizer = load_text_tokenizer(context, config.tokenizer)
 
     # Initialize the unit.
-    seq2seq_generator = create_seq2seq_generator(context, config, model)
+    seq2seq_generator = create_seq2seq_generator(
+        context, config.seq2seq_generator, model, tokenizer.vocab_info
+    )
 
     if gangs.tp.rank == 0:
         file_system = context.file_system
@@ -234,7 +241,16 @@ def load_text_translator(
 
     seed += 1
 
-    return create_generator(context, config, output_dir, unit, data_reader, gangs, seed)
+    return create_generator(
+        context,
+        config.generator,
+        config.common,
+        output_dir,
+        unit,
+        data_reader,
+        gangs,
+        seed,
+    )
 
 
 @final

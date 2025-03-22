@@ -200,6 +200,17 @@ def log_environment_variables(log: LogWriter) -> None:
     log.info("Environment Variables - {}", ", ".join(kv))
 
 
+def log_gangs(log: LogWriter, gangs: Gangs) -> None:
+    s = (
+        f"Data: {gangs.dp.rank} | "
+        f"Data/Replicated: {gangs.rdp.rank} | "
+        f"Data/Sharded: {gangs.sdp.rank} | "
+        f"Tensor: {gangs.tp.rank}"
+    )
+
+    log.info("Process Ranks - {}", s)
+
+
 def log_model(log: LogWriter, model: Module, gangs: Gangs) -> None:
     """Log information about ``model``."""
     if not log.is_enabled_for_info():

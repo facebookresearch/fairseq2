@@ -12,7 +12,6 @@ import torch.nn as nn
 from torch.nn import Dropout
 from typing_extensions import override
 
-from fairseq2.data import VocabularyInfo
 from fairseq2.models.asr import AsrModel, AsrModelOutput
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2 import Wav2Vec2Frontend, Wav2Vec2Masker
@@ -31,13 +30,12 @@ class Wav2Vec2AsrModel(AsrModel):
     masker: Wav2Vec2Masker | None
     final_dropout: Dropout | None
     final_proj: Linear
-    target_vocab_info: VocabularyInfo
 
     def __init__(
         self,
         encoder_frontend: Wav2Vec2Frontend,
         encoder: TransformerEncoder,
-        target_vocab_info: VocabularyInfo,
+        vocab_size: int,
         *,
         masker: Wav2Vec2Masker | None = None,
         final_dropout_p: float = 0.0,
@@ -45,16 +43,11 @@ class Wav2Vec2AsrModel(AsrModel):
         dtype: DataType | None = None,
     ) -> None:
         """
-        :param encoder_frontend:
-            The encoder frontend.
-        :param encoder:
-            The encoder (i.e. context network).
-        :param target_vocab_info:
-            The vocabulary information of sequences produced by the model.
-        :param masker:
-            The feature masker.
-        :param final_dropout_p:
-            The dropout probability on context network outputs.
+        :param encoder_frontend: The encoder frontend.
+        :param encoder: The encoder (i.e. context network).
+        :param masker: The feature masker.
+        :param final_dropout_p: The dropout probability on context network
+            outputs.
         """
         super().__init__()
 
@@ -72,14 +65,12 @@ class Wav2Vec2AsrModel(AsrModel):
 
         self.final_proj = Linear(
             self.model_dim,
-            target_vocab_info.size,
+            vocab_size,
             bias=True,
             init_fn=_init_final_projection,
             device=device,
             dtype=dtype,
         )
-
-        self.target_vocab_info = target_vocab_info
 
     @override
     def forward(self, batch: SequenceBatch) -> AsrModelOutput:

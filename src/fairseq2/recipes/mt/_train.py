@@ -38,9 +38,9 @@ from fairseq2.recipes.common import (
     load_dataset,
     load_text_tokenizer,
     register_extra_asset_paths,
-    setup_gangs,
     setup_model,
     setup_torch,
+    setup_training_gangs,
 )
 from fairseq2.recipes.config import (
     CommonSection,
@@ -80,7 +80,7 @@ class MTTrainConfig:
         default_factory=lambda: MTTrainDatasetSection()
     )
 
-    text_tokenizer: TextTokenizerSection = field(
+    tokenizer: TextTokenizerSection = field(
         default_factory=lambda: TextTokenizerSection(name="nllb-200")
     )
 
@@ -207,11 +207,11 @@ def load_mt_trainer(
 
     validate(config)
 
-    register_extra_asset_paths(context, config)
+    register_extra_asset_paths(context, config.common)
 
-    setup_torch(context, config, output_dir)
+    setup_torch(context, config.common, output_dir)
 
-    gangs = setup_gangs(context, config)
+    gangs = setup_training_gangs(context, config.gang, config.trainer)
 
     checkpoint_manager = create_checkpoint_manager(context, gangs, output_dir)
 
@@ -222,16 +222,24 @@ def load_mt_trainer(
     seed += 1
 
     model = setup_model(
-        EncoderDecoderModel, context, config, output_dir, gangs, checkpoint_manager
+        EncoderDecoderModel,
+        context,
+        config.model,
+        config.trainer,
+        output_dir,
+        gangs,
+        checkpoint_manager,
     )
 
-    optimizer = create_optimizer(context, config, model)
+    optimizer = create_optimizer(context, config.optimizer, model)
 
-    lr_scheduler = create_lr_scheduler(context, config, optimizer)
+    lr_scheduler = create_lr_scheduler(
+        context, config.lr_scheduler, config.regime, optimizer
+    )
 
-    dataset = load_dataset(ParallelTextDataset, context, config, gangs)
+    dataset = load_dataset(ParallelTextDataset, context, config.dataset, gangs)
 
-    tokenizer = load_text_tokenizer(context, config)
+    tokenizer = load_text_tokenizer(context, config.tokenizer)
 
     # Initialize the train unit.
     criterion = MTCriterion(model, label_smoothing=config.loss.label_smoothing)
@@ -268,7 +276,9 @@ def load_mt_trainer(
 
     # Initialize the validation units.
     if config.validation.compute_bleu_chrf:
-        seq2seq_generator = create_seq2seq_generator(context, config.validation, model)
+        seq2seq_generator = create_seq2seq_generator(
+            context, config.validation.seq2seq_generator, model, tokenizer.vocab_info
+        )
     else:
         seq2seq_generator = None
 
@@ -354,7 +364,9 @@ def load_mt_trainer(
 
     return create_trainer(
         context,
-        config,
+        config.trainer,
+        config.regime,
+        config.common,
         output_dir,
         unit,
         data_reader,

@@ -63,8 +63,8 @@ class MistralFactory:
             decoder_frontend,
             decoder,
             final_proj,
+            pad_idx=None,
             max_seq_len=config.max_seq_len,
-            vocab_info=config.vocab_info,
         )
 
     def create_decoder_frontend(self) -> TransformerFrontend:
@@ -80,7 +80,7 @@ class MistralFactory:
         config = self._config
 
         return StandardEmbedding(
-            num_embeddings=config.vocab_info.size, embedding_dim=config.model_dim
+            num_embeddings=config.vocab_size, embedding_dim=config.model_dim
         )
 
     def create_decoder(self) -> TransformerDecoder:
@@ -161,7 +161,7 @@ class MistralFactory:
 
         return Linear(
             config.model_dim,
-            config.vocab_info.size,
+            config.vocab_size,
             bias=False,
             init_fn=init_final_projection,
         )

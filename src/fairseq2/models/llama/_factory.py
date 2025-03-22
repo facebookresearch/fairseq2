@@ -70,8 +70,8 @@ class LLaMAFactory:
             decoder_frontend,
             decoder,
             final_proj,
+            pad_idx=config.pad_idx,
             max_seq_len=config.max_seq_len,
-            vocab_info=config.vocab_info,
         )
 
     def create_embedding(self) -> Embedding:
@@ -87,7 +87,7 @@ class LLaMAFactory:
             _init_truncated_normal(embed.weight, bias=None, std=std)
 
         return StandardEmbedding(
-            num_embeddings=config.vocab_info.size,
+            num_embeddings=config.vocab_size,
             embedding_dim=config.model_dim,
             init_fn=init_embed,
         )
@@ -123,7 +123,7 @@ class LLaMAFactory:
 
         if config.use_scaled_rope:
             freqs_init_fn = partial(
-                init_llama_scaled_freqs, rope_scaling=config.rope_scaling
+                init_llama_rope_freqs, rope_scaling=config.rope_scaling
             )
         else:
             freqs_init_fn = None
@@ -244,7 +244,7 @@ class LLaMAFactory:
 
         return Linear(
             config.model_dim,
-            config.vocab_info.size,
+            config.vocab_size,
             bias=False,
             init_fn=init_projection,
         )
@@ -265,7 +265,7 @@ def _init_truncated_normal(
         nn.init.zeros_(bias)
 
 
-def init_llama_scaled_freqs(
+def init_llama_rope_freqs(
     pos_encoder: RotaryEncoder, rope_scaling: LLaMARopeScalingConfig
 ) -> Tensor:
     device = pos_encoder.freqs.device

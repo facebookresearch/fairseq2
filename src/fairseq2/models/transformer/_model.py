@@ -11,7 +11,6 @@ from typing import final
 from torch import Tensor
 from typing_extensions import override
 
-from fairseq2.data import VocabularyInfo
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.models.transformer._frontend import TransformerFrontend
@@ -30,6 +29,7 @@ class TransformerModel(EncoderDecoderModel):
     decoder_frontend: TransformerFrontend
     decoder: TransformerDecoder
     final_proj: Projection
+    pad_idx: int | None
 
     def __init__(
         self,
@@ -39,26 +39,18 @@ class TransformerModel(EncoderDecoderModel):
         decoder: TransformerDecoder,
         final_proj: Projection,
         *,
+        pad_idx: int | None,
         max_target_seq_len: int,
-        target_vocab_info: VocabularyInfo,
     ) -> None:
         """
-        :param encoder_frontend:
-            The encoder frontend.
-        :param encoder:
-            The encoder.
-        :param decoder_frontend:
-            The decoder frontend.
-        :param decoder:
-            The decoder.
-        :param final_proj:
-            The projection to apply to decoder outputs.
-        :param max_target_seq_len:
-            The maximum length of sequences produced by the model.
-        :param target_vocab_info:
-            The vocabulary information of sequences produced by the model.
+        :param encoder_frontend: The encoder frontend.
+        :param encoder: The encoder.
+        :param decoder_frontend: The decoder frontend.
+        :param decoder: The decoder.
+        :param final_proj: The projection to apply to decoder outputs.
+        :param max_target_seq_len: The maximum length of produced sequences.
         """
-        super().__init__(encoder.model_dim, max_target_seq_len, target_vocab_info)
+        super().__init__(encoder.model_dim, max_target_seq_len)
 
         self.encoder_frontend = encoder_frontend
         self.encoder = encoder
@@ -67,6 +59,8 @@ class TransformerModel(EncoderDecoderModel):
         self.decoder = decoder
 
         self.final_proj = final_proj
+
+        self.pad_idx = pad_idx
 
     @override
     def encode(
@@ -104,4 +98,4 @@ class TransformerModel(EncoderDecoderModel):
     ) -> SequenceModelOutput:
         logits = self.final_proj(decoder_output)
 
-        return SequenceModelOutput(logits, self.target_vocab_info.pad_idx)
+        return SequenceModelOutput(logits, self.pad_idx)

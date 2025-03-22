@@ -10,7 +10,6 @@ from dataclasses import dataclass, field
 from typing import Final, Literal
 
 from fairseq2.context import RuntimeContext
-from fairseq2.data import VocabularyInfo
 
 LLAMA_MODEL_FAMILY: Final = "llama"
 
@@ -29,12 +28,11 @@ class LLaMAConfig:
     max_seq_len: int = 2048
     """The maximum sequence length."""
 
-    vocab_info: VocabularyInfo = field(
-        default_factory=lambda: VocabularyInfo(
-            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
-        )
-    )
-    """The vocabulary information."""
+    vocab_size: int = 32_000
+    """The size of the vocabulary."""
+
+    pad_idx: int | None = None
+    """The index of the PAD symbol in the vocabulary."""
 
     tie_embeddings: bool = False
     """If ``True``, ties the embedding table and the output projection layer."""
@@ -196,11 +194,7 @@ def register_llama_configs(context: RuntimeContext) -> None:
         config = llama2_7b()
 
         config.max_seq_len = 8192
-
-        config.vocab_info = VocabularyInfo(
-            size=128_256, unk_idx=None, bos_idx=128_000, eos_idx=128_001, pad_idx=None
-        )
-
+        config.vocab_size = 128_256
         config.num_key_value_heads = 8
         config.ffn_inner_dim = 4096 * 4
         config.ffn_inner_dim_multiplier = 1.3
@@ -214,11 +208,7 @@ def register_llama_configs(context: RuntimeContext) -> None:
         config = llama2_70b()
 
         config.max_seq_len = 8192
-
-        config.vocab_info = VocabularyInfo(
-            size=128_256, unk_idx=None, bos_idx=128_000, eos_idx=128_001, pad_idx=None
-        )
-
+        config.vocab_size = 128_256
         config.rope_theta = 500_000.0
 
         return config
