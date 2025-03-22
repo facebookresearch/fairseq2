@@ -230,7 +230,7 @@ class CardBasedModelLoader(ModelLoader):
 
         # Load the model.
         trainer_section = get_config_section(recipe_config, "trainer", TrainerSection)
-        if trainer_section.mixed_precision is None:
+        if trainer_section.mixed_precision == "off":
             dtype = trainer_section.dtype
         else:
             dtype = torch.float32
@@ -359,7 +359,7 @@ class PathBasedModelLoader(ModelLoader):
 
         # Load the model.
         trainer_section = get_config_section(recipe_config, "trainer", TrainerSection)
-        if trainer_section.mixed_precision is None:
+        if trainer_section.mixed_precision == "off":
             dtype = trainer_section.dtype
         else:
             dtype = torch.float32
@@ -498,7 +498,7 @@ class ModelCreator(ModelLoader):
 
         # Create the model.
         trainer_section = get_config_section(recipe_config, "trainer", TrainerSection)
-        if trainer_section.mixed_precision is None:
+        if trainer_section.mixed_precision == "off":
             dtype = trainer_section.dtype
         else:
             dtype = torch.float32

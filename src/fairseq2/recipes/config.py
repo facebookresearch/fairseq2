@@ -118,7 +118,7 @@ class TrainerSection:
 
     fsdp: FsdpSection = field(default_factory=lambda: FsdpSection())
 
-    mixed_precision: Literal["static", "dynamic"] | None = "static"
+    mixed_precision: Literal["static", "dynamic", "off"] = "static"
     """
     If 'none', the whole training will be run in `dtype`. If 'static', forward
     and backward passes will be run in `dtype`, but the optimizer step will be
