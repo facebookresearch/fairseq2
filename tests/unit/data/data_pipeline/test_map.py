@@ -7,7 +7,9 @@
 from __future__ import annotations
 
 import copy
+import os
 import re
+import time
 from dataclasses import dataclass
 
 import pytest
@@ -18,16 +20,24 @@ from fairseq2.data.text import StrToIntConverter
 
 class TestMapOp:
     @pytest.mark.parametrize("num_parallel_calls", [1, 4, 10, 20])
-    def test_op_works(self, num_parallel_calls: int) -> None:
+    @pytest.mark.parametrize("deterministic", [True, False])
+    def test_op_works(self, num_parallel_calls: int, deterministic: bool) -> None:
         def fn(d: int) -> int:
             return d**2
 
         seq = list(range(1, 10))
 
-        pipeline = read_sequence(seq).map(fn, num_parallel_calls=num_parallel_calls).and_return()  # fmt: skip
+        pipeline = (
+            read_sequence(seq)
+            .map(fn, num_parallel_calls=num_parallel_calls, deterministic=deterministic)
+            .and_return()
+        )
 
         for _ in range(2):
-            assert list(pipeline) == [i**2 for i in seq]
+            if deterministic:
+                assert list(pipeline) == [i**2 for i in seq]
+            else:
+                assert set(pipeline) == {i**2 for i in seq}
 
             pipeline.reset()
 
@@ -337,3 +347,88 @@ class TestMapOp:
 
         with pytest.raises(StopIteration):
             next(iter(pipeline))
+
+    @pytest.mark.parametrize("num_parallel_calls", [1, 4, 20])
+    def test_op_saves_and_restores_its_state_non_deterministic(self, num_parallel_calls: int) -> None:  # fmt: skip
+
+        def fn(d: int) -> int:
+            time.sleep(0.05 if d == 5 else 0.0)
+            return d
+
+        seq = list(range(1, 10))
+
+        pipeline = (
+            read_sequence(seq)
+            .map(fn, num_parallel_calls=num_parallel_calls, deterministic=False)
+            .and_return()
+        )
+
+        remaining = set(seq)
+        seen = set()
+
+        d = None
+
+        it = iter(pipeline)
+
+        # Move to the second example.
+        for _ in range(2):
+            d = next(it)
+            assert d in remaining
+            remaining.remove(d)
+            seen.add(d)
+
+        state_dict = pipeline.state_dict()
+
+        # Read a few examples before we roll back.
+        for _ in range(4):
+            d = next(it)
+
+        # Expected to roll back to the second example.
+        pipeline.load_state_dict(state_dict)
+
+        # Move to EOD.
+        for _ in range(7):
+            d = next(it)
+            assert d in remaining
+            remaining.remove(d)
+            seen.add(d)
+
+        assert not remaining
+        assert seen == set(seq)
+
+        state_dict = pipeline.state_dict()
+
+        pipeline.reset()
+
+        # Expected to be EOD.
+        pipeline.load_state_dict(state_dict)
+
+        with pytest.raises(StopIteration):
+            d = next(iter(pipeline))
+
+    @pytest.mark.skipif(
+        not hasattr(os, "sched_getaffinity") or len(os.sched_getaffinity(0)) < 2,
+        reason="Not enough CPU cores available",
+    )
+    @pytest.mark.parametrize("num_parallel_calls", [1, 4, 20])
+    @pytest.mark.parametrize("nb_elements", [10, 20])
+    def test_return_order_non_deterministic(self, num_parallel_calls: int, nb_elements: int) -> None:  # fmt: skip
+
+        def fn(d: int) -> int:
+            time.sleep(0.2 if d == 5 else 0.0)
+            return d
+
+        seq = list(range(nb_elements))
+        pipeline = (
+            read_sequence(seq)
+            .map(fn, num_parallel_calls=num_parallel_calls, deterministic=False)
+            .and_return()
+        )
+
+        return_seq = list(pipeline)
+        assert len(return_seq) == nb_elements
+        assert seq == sorted(return_seq)
+        if num_parallel_calls == 1:
+            assert return_seq == seq
+        else:
+            assert return_seq[-1] == 5  # 5 is the slowest one
