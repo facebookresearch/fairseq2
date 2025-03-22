@@ -236,7 +236,7 @@ DPO_FINETUNE_UNIT: Final = "dpo"
 
 @dataclass(kw_only=True)
 class DpoFinetuneConfig:
-    reference_model: ReferenceModelSection = field(
+    reference_model: ReferenceModelSection | None = field(
         default_factory=lambda: ReferenceModelSection(name="llama3_1_8b_instruct")
     )
     """
