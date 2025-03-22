@@ -36,8 +36,9 @@ from fairseq2.recipes.common import (
     load_text_tokenizer,
     setup_gangs,
     setup_reference_model,
+    setup_torch,
 )
-from fairseq2.recipes.config import GangSection, ReferenceModelSection
+from fairseq2.recipes.config import CommonSection, GangSection, ReferenceModelSection
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import RngBag
 
@@ -118,9 +119,11 @@ class RunChatbotHandler(CliCommandHandler):
 
         args.model = ReferenceModelSection(name=args.model_name)
 
+        args.common = CommonSection()
+
         set_torch_distributed_variables(context, args.cluster)
 
-        torch.set_float32_matmul_precision("high")
+        setup_torch(context, args)
 
         try:
             gangs = setup_gangs(context, args)
@@ -130,7 +133,7 @@ class RunChatbotHandler(CliCommandHandler):
             ) from ex
 
         if gangs.dp.size > 1:
-            log.warning("Using redundant data parallelism which may reduce throughput. It is recommended to use one device per model shard (i.e. a single device for a non-sharded model).")  # fmt: skip
+            log.warning("Using redundant data parallelism which may reduce throughput. It is recommended to use one device per model (shard).")  # fmt: skip
 
         try:
             model = setup_reference_model(
