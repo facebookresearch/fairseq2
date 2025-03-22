@@ -45,6 +45,7 @@ from fairseq2.recipes.common import (
     register_extra_asset_paths,
     setup_gangs,
     setup_reference_model,
+    setup_torch,
 )
 from fairseq2.recipes.config import (
     CommonSection,
@@ -140,7 +141,7 @@ def load_mt_evaluator(
 
     register_extra_asset_paths(context, config)
 
-    torch.set_float32_matmul_precision("high")
+    setup_torch(context, config, output_dir)
 
     gangs = setup_gangs(context, config)
 

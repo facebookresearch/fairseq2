@@ -401,6 +401,16 @@ class CommonSection:
 
     assets: AssetsSection = field(default_factory=lambda: AssetsSection())
 
+    num_threads: int | None = None
+    """
+    The number of threads to use for intra-op parallelism in PyTorch. If ``None``,
+    and the ``OMP_NUM_THREADS`` environment variable is not set, it will be set
+    to the number of CPU cores divided by the local world size.
+    """
+
+    allow_tf32: bool = True
+    """If ``True``, allows PyTorch to use TensorFloat32 tensor cores."""
+
     seed: int = 2
 
 
