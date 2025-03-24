@@ -105,21 +105,15 @@ class Seq2SeqBatch(SupportsDeviceTransfer):
         :returns:
             The batch moved to the given device.
         """
-        return Seq2SeqBatch(
-            self.source_seqs.to(device),
-            (
-                self.source_padding_mask.to(device)
-                if self.source_padding_mask is not None
-                else None
-            ),
-            self.target_seqs.to(device),
-            (
-                self.target_padding_mask.to(device)
-                if self.target_padding_mask is not None
-                else None
-            ),
-            self.example,
-        )
+        self.source_seqs = self.source_seqs.to(device)
+
+        if self.source_padding_mask is not None:
+            self.source_padding_mask = self.source_padding_mask.to(device)
+
+        self.target_seqs = self.target_seqs.to(device)
+
+        if self.target_padding_mask is not None:
+            self.target_padding_mask = self.target_padding_mask.to(device)
 
 
 def as_auto_regressive_input(batch: Seq2SeqBatch) -> tuple[Seq2SeqBatch, SequenceBatch]:
