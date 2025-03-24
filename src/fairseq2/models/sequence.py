@@ -12,10 +12,13 @@ from typing import Literal
 
 from torch import Tensor
 from torch.nn import Module
+from typing_extensions import override
 
 from fairseq2.data import VocabularyInfo
+from fairseq2.device import SupportsDeviceTransfer
 from fairseq2.nn.functional import cross_entropy
 from fairseq2.nn.padding import PaddingMask
+from fairseq2.typing import Device
 
 
 class SequenceModel(Module, ABC):
@@ -45,7 +48,7 @@ class SequenceModel(Module, ABC):
 
 
 @dataclass
-class SequenceBatch:
+class SequenceBatch(SupportsDeviceTransfer):
     """Represents a sequence batch."""
 
     seqs: Tensor
@@ -83,6 +86,16 @@ class SequenceBatch:
             return int(self.target_mask.sum())
 
         return self.num_elements()
+
+    @override
+    def to(self, device: Device) -> None:
+        self.seqs = self.seqs.to(device)
+
+        if self.padding_mask is not None:
+            self.padding_mask = self.padding_mask.to(device)
+
+        if self.target_mask is not None:
+            self.target_mask = self.target_mask.to(device)
 
 
 def as_auto_regressive_input(

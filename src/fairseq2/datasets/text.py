@@ -9,7 +9,6 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
-from functools import partial
 from pathlib import Path
 from typing import Any, Final, cast, final
 
@@ -37,7 +36,6 @@ from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
-from fairseq2.typing import Device
 
 
 @dataclass(kw_only=True)
@@ -210,19 +208,17 @@ class GenericTextDataset(TextDataset):
         # Prefetch `num_prefetch` batches in background.
         builder.prefetch(options.num_prefetch)
 
-        f = partial(self._to_batch, device=gang.device)
-
-        pipeline = builder.map(f).and_return()
+        pipeline = builder.map(self._to_batch).and_return()
 
         return DataPipelineReader[SequenceBatch](
             self._name, "default", pipeline, gang, options
         )
 
     @staticmethod
-    def _to_batch(example: dict[str, Any], device: Device) -> SequenceBatch:
+    def _to_batch(example: dict[str, Any]) -> SequenceBatch:
         data = cast(SequenceData, example["indices"])
 
-        seqs, padding_mask = get_seqs_and_padding_mask(data, device)
+        seqs, padding_mask = get_seqs_and_padding_mask(data)
 
         return SequenceBatch(seqs, padding_mask, example=example)
 

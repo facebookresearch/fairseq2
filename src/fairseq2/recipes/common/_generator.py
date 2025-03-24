@@ -11,6 +11,7 @@ from typing import TypeVar
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import DataReader
+from fairseq2.device import SupportsDeviceTransfer
 from fairseq2.gang import Gangs
 from fairseq2.recipes import Generator, GeneratorUnit
 from fairseq2.recipes.common._device import create_device_stat_tracker
@@ -18,7 +19,7 @@ from fairseq2.recipes.common._metrics import create_metric_recorder
 from fairseq2.recipes.common._profilers import create_profiler
 from fairseq2.recipes.config import GeneratorSection, get_config_section
 
-BatchT = TypeVar("BatchT")
+BatchT = TypeVar("BatchT", bound=SupportsDeviceTransfer)
 
 
 def create_generator(

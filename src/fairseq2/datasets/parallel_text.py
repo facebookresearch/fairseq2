@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from functools import partial
 from pathlib import Path
 from typing import Any, Final, cast, final
 
@@ -38,7 +37,6 @@ from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
-from fairseq2.typing import Device
 
 
 @dataclass(kw_only=True)
@@ -397,9 +395,7 @@ class GenericParallelTextDataset(ParallelTextDataset):
         # Prefetch `num_prefetch` batches in background.
         builder.prefetch(options.num_prefetch)
 
-        f = partial(self._to_batch, device=gang.device)
-
-        pipeline = builder.map(f).and_return()
+        pipeline = builder.map(self._to_batch).and_return()
 
         return DataPipelineReader[Seq2SeqBatch](
             self._name, split, pipeline, gang, options
@@ -444,16 +440,12 @@ class GenericParallelTextDataset(ParallelTextDataset):
         )
 
     @staticmethod
-    def _to_batch(example: dict[str, Any], device: Device) -> Seq2SeqBatch:
+    def _to_batch(example: dict[str, Any]) -> Seq2SeqBatch:
         source_data = cast(SequenceData, example["source_indices"])
         target_data = cast(SequenceData, example["target_indices"])
 
-        source_seqs, source_padding_mask = get_seqs_and_padding_mask(
-            source_data, device
-        )
-        target_seqs, target_padding_mask = get_seqs_and_padding_mask(
-            target_data, device
-        )
+        source_seqs, source_padding_mask = get_seqs_and_padding_mask(source_data)
+        target_seqs, target_padding_mask = get_seqs_and_padding_mask(target_data)
 
         return Seq2SeqBatch(
             source_seqs,

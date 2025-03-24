@@ -9,7 +9,6 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from contextlib import nullcontext
-from itertools import count
 from typing import Generic, TypeVar, final
 
 import torch
@@ -19,7 +18,7 @@ from typing_extensions import override
 
 from fairseq2.checkpoint import CheckpointError, CheckpointManager, CheckpointSaveError
 from fairseq2.datasets import DataReader, DataReadError
-from fairseq2.device import DeviceStatTracker
+from fairseq2.device import DeviceStatTracker, SupportsDeviceTransfer
 from fairseq2.error import ContractError, InternalError, InvalidOperationError
 from fairseq2.gang import GangError, Gangs
 from fairseq2.logging import log
@@ -30,7 +29,7 @@ from fairseq2.recipes._error import RecipeError, UnitError
 from fairseq2.recipes._evaluator import EvalUnit
 from fairseq2.recipes._metrics import extend_batch_metrics
 from fairseq2.typing import CPU, ContextManager, DataType
-from fairseq2.utils.progress import ProgressReporter
+from fairseq2.utils.progress import ProgressReporter, ProgressTask
 from fairseq2.utils.rng import RngBag
 from fairseq2.utils.stopwatch import Stopwatch
 
@@ -43,7 +42,7 @@ class Validator(ABC):
     def reset(self) -> None: ...
 
 
-BatchT = TypeVar("BatchT")
+BatchT = TypeVar("BatchT", bound=SupportsDeviceTransfer)
 
 
 @final
@@ -221,6 +220,8 @@ class StandardValidator(Validator, Generic[BatchT]):
 
         self._device_stat_tracker.reset()
 
+        eod = False
+
         with progress_task, self._lapse_watch:
             try:
                 unit.set_train_step_nr(train_step_nr)
@@ -234,11 +235,7 @@ class StandardValidator(Validator, Generic[BatchT]):
                     f"The {s} unit has failed. See the nested exception for details."
                 ) from ex
 
-            for step_nr in count(start=self._step_nr + 1):
-                self._step_nr = step_nr
-
-                progress_task.step(1)
-
+            while not eod:
                 try:
                     self._checkpoint_manager.maybe_complete_async_checkpoint()
                 except CheckpointSaveError as ex:
@@ -246,79 +243,100 @@ class StandardValidator(Validator, Generic[BatchT]):
                         f"The checkpoint of step {ex.step_nr} cannot be saved. See the nested exception for details."
                     ) from ex
 
-                with record_function(f"step_{step_nr}"):
-                    if not self._run_step(unit, data_reader):
-                        break
-
-                self._profiler.step()
+                batches = self._read_next_batches(unit, data_reader)
+                if batches is None:
+                    eod = True
+                else:
+                    self._run_step(unit, batches, progress_task)
 
             with self._compute_watch:
                 with record_function("finalize"):
-                    with self._maybe_autocast():
-                        try:
-                            unit.finalize()
-                        except UnitError as ex:
-                            s = "validator"
-
-                            if unit.name:
-                                s = f"'{unit.name}' {s}"
-
-                            raise RecipeError(
-                                f"The {s} unit has failed to finalize. See the nested exception for details."
-                            ) from ex
+                    self._call_unit_finalize(unit)
 
         metric_values = self._publish_metrics(train_step_nr, unit)
 
-        self._reset_watches()
-
-        self._num_batches_read = 0
-
         return self._maybe_get_unit_score(metric_values)
 
-    def _run_step(
+    def _read_next_batches(
         self, unit: EvalUnit[BatchT], data_reader: DataReader[BatchT]
-    ) -> bool:
-        step_nr = self._step_nr
-
-        log.debug("Running validation step {}.", step_nr)
-
-        # Collect the batches.
+    ) -> list[BatchT] | None:
         with self._data_watch:
-            with record_function(f"step_{step_nr}_data_load"):
-                try:
-                    batches = next(data_reader)
-                except DataReadError as ex:
-                    s = "validator"
+            try:
+                batches = next(data_reader)
+            except DataReadError as ex:
+                s = "validator"
 
-                    if unit.name:
-                        s = f"'{unit.name}' {s}"
+                if unit.name:
+                    s = f"'{unit.name}' {s}"
 
-                    raise RecipeError(
-                        f"The {s} data read operation has failed. See the nested exception for details."
-                    ) from ex
-                except StopIteration:
-                    return False
+                raise RecipeError(
+                    f"The {s} data read operation has failed. See the nested exception for details."
+                ) from ex
+            except StopIteration:
+                batches = None
 
-        # Call the unit.
+            if batches is None:
+                data_reader.reset()
+
+        return batches
+
+    def _run_step(
+        self, unit: EvalUnit[BatchT], batches: list[BatchT], progress_task: ProgressTask
+    ) -> None:
+        self._step_nr += 1
+
+        progress_task.step(1)
+
+        with record_function(f"step_{self._step_nr}"):
+            self._do_run_step(unit, batches)
+
+        self._profiler.step()
+
+    def _do_run_step(self, unit: EvalUnit[BatchT], batches: list[BatchT]) -> None:
+        log.debug("Running validation step {}.", self._step_nr)
+
         with self._compute_watch:
-            for batch_nr, batch in enumerate(batches):
-                with record_function(f"step_{step_nr}_{batch_nr}_forward"):
-                    with self._maybe_autocast():
-                        try:
-                            unit(batch)
-                        except UnitError as ex:
-                            s = "validator"
+            batches.reverse()
 
-                            if unit.name:
-                                s = f"'{unit.name}' {s}"
+            num_batches = len(batches)
 
-                            raise RecipeError(
-                                f"The {s} unit has failed. See the nested exception for details."
-                            ) from ex
+            for batch_nr in range(num_batches):
+                batch = batches.pop()
+
+                batch.to(self._gangs.root.device)
+
+                with record_function(f"step_{self._step_nr}_{batch_nr}"):
+                    self._call_unit(unit, batch)
 
         self._num_batches_read += 1
 
-        return True
+    def _call_unit(self, unit: EvalUnit[BatchT], batch: BatchT) -> None:
+        with self._maybe_autocast():
+            try:
+                unit(batch)
+            except UnitError as ex:
+                s = "validator"
+
+                if unit.name:
+                    s = f"'{unit.name}' {s}"
+
+                raise RecipeError(
+                    f"The {s} unit has failed. See the nested exception for details."
+                ) from ex
+
+    def _call_unit_finalize(self, unit: EvalUnit[BatchT]) -> None:
+        with self._maybe_autocast():
+            try:
+                unit.finalize()
+            except UnitError as ex:
+                s = "validator"
+
+                if unit.name:
+                    s = f"'{unit.name}' {s}"
+
+                raise RecipeError(
+                    f"The {s} unit has failed to finalize. See the nested exception for details."
+                ) from ex
 
     def _maybe_autocast(self) -> ContextManager:
         if self._dtype == torch.float32 or not self._amp:
@@ -398,10 +416,25 @@ class StandardValidator(Validator, Generic[BatchT]):
                 "The collective barrier after the metric sync operation has failed. See the nested exception for details."
             ) from ex
 
+        self._reset_lapse_metrics(unit)
+
         if values is None:
             values = {}
 
         return values
+
+    def _reset_lapse_metrics(self, unit: EvalUnit[BatchT]) -> None:
+        unit.metric_bag.reset_metrics()
+
+        self._data_watch.reset()
+
+        self._compute_watch.reset()
+
+        self._lapse_watch.reset()
+
+        self._device_stat_tracker.reset()
+
+        self._num_batches_read = 0
 
     def _maybe_get_unit_score(self, metric_values: dict[str, object]) -> float | None:
         if self._score_metric_descriptor is None:
@@ -478,18 +511,15 @@ class StandardValidator(Validator, Generic[BatchT]):
         for data_reader in self._data_readers:
             data_reader.reset()
 
-        self._reset_watches()
-
-        self._num_batches_read = 0
-
-        self._has_run = False
-
-    def _reset_watches(self) -> None:
         self._data_watch.reset()
 
         self._compute_watch.reset()
 
         self._lapse_watch.reset()
+
+        self._num_batches_read = 0
+
+        self._has_run = False
 
 
 @final
