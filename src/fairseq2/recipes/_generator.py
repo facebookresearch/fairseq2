@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from contextlib import nullcontext
-from itertools import count
 from typing import Generic, TypeVar, final
 
 import torch
@@ -16,7 +15,7 @@ from torch.profiler import record_function
 from typing_extensions import override
 
 from fairseq2.datasets import DataReader, DataReadError
-from fairseq2.device import DeviceStatTracker
+from fairseq2.device import DeviceStatTracker, SupportsDeviceTransfer
 from fairseq2.error import InternalError, InvalidOperationError
 from fairseq2.gang import GangError, Gangs
 from fairseq2.logging import log
@@ -28,11 +27,13 @@ from fairseq2.recipes._metrics import extend_batch_metrics
 from fairseq2.recipes._model import Model
 from fairseq2.recipes._recipe import Recipe, RecipeStopException
 from fairseq2.typing import CPU, ContextManager, DataType
-from fairseq2.utils.progress import ProgressReporter
+from fairseq2.utils.progress import ProgressReporter, ProgressTask
 from fairseq2.utils.rng import RngBag
 from fairseq2.utils.stopwatch import Stopwatch
 
-BatchT_contra = TypeVar("BatchT_contra", contravariant=True)
+BatchT_contra = TypeVar(
+    "BatchT_contra", bound=SupportsDeviceTransfer, contravariant=True
+)
 
 
 class GeneratorUnit(ABC, Generic[BatchT_contra]):
@@ -50,7 +51,7 @@ class GeneratorUnit(ABC, Generic[BatchT_contra]):
     def metric_bag(self) -> MetricBag: ...
 
 
-BatchT = TypeVar("BatchT")
+BatchT = TypeVar("BatchT", bound=SupportsDeviceTransfer)
 
 
 @final
@@ -160,55 +161,73 @@ class Generator(Recipe, Generic[BatchT]):
 
         self._device_stat_tracker.reset()
 
+        eod = False
+
         with progress_task, self._lapse_watch:
-            for step_nr in count(start=1):
+            while not eod:
                 if self._stop_requested:
                     raise RecipeStopException()
 
-                self._step_nr = step_nr
-
-                progress_task.step(1)
-
-                with record_function(f"step_{step_nr}"):
-                    if not self._run_step():
-                        break
-
-                self._profiler.step()
+                batches = self._read_next_batches()
+                if batches is None:
+                    eod = True
+                else:
+                    self._run_step(batches, progress_task)
 
         self._publish_metrics()
 
-    def _run_step(self) -> bool:
-        step_nr = self._step_nr
-
-        log.debug("Running step {}.", step_nr)
-
-        # Collect the batches.
+    def _read_next_batches(self) -> list[BatchT] | None:
         with self._data_watch:
-            with record_function(f"step_{step_nr}_data_load"):
-                try:
-                    batches = next(self._data_reader)
-                except DataReadError as ex:
-                    raise RecipeError(
-                        "The generator data read operation has failed. See the nested exception for details."
-                    ) from ex
-                except StopIteration:
-                    return False
+            try:
+                batches = next(self._data_reader)
+            except DataReadError as ex:
+                raise RecipeError(
+                    "The generator data read operation has failed. See the nested exception for details."
+                ) from ex
+            except StopIteration:
+                batches = None
 
-        # Call the unit.
+            if batches is None:
+                self._data_reader.reset()
+
+        return batches
+
+    def _run_step(self, batches: list[BatchT], progress_task: ProgressTask) -> None:
+        self._step_nr += 1
+
+        progress_task.step(1)
+
+        with record_function(f"step_{self._step_nr}"):
+            self._do_run_step(batches)
+
+        self._profiler.step()
+
+    def _do_run_step(self, batches: list[BatchT]) -> None:
+        log.debug("Running step {}.", self._step_nr)
+
         with self._compute_watch:
-            for batch_nr, batch in enumerate(batches):
-                with record_function(f"step_{step_nr}_{batch_nr}_forward"):
-                    with self._maybe_autocast():
-                        try:
-                            self._unit(batch)
-                        except UnitError as ex:
-                            raise RecipeError(
-                                "The generator unit has failed. See the nested exception for details."
-                            ) from ex
+            batches.reverse()
+
+            num_batches = len(batches)
+
+            for batch_nr in range(num_batches):
+                batch = batches.pop()
+
+                batch.to(self._gangs.root.device)
+
+                with record_function(f"step_{self._step_nr}_{batch_nr}"):
+                    self._call_unit(batch)
 
         self._num_batches_read += 1
 
-        return True
+    def _call_unit(self, batch: BatchT) -> None:
+        with self._maybe_autocast():
+            try:
+                self._unit(batch)
+            except UnitError as ex:
+                raise RecipeError(
+                    "The generator unit has failed. See the nested exception for details."
+                ) from ex
 
     def _maybe_autocast(self) -> ContextManager:
         if self._dtype == torch.float32 or not self._amp:
