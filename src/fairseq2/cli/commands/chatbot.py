@@ -34,11 +34,16 @@ from fairseq2.models.decoder import DecoderModel
 from fairseq2.recipes import RecipeError
 from fairseq2.recipes.common import (
     load_text_tokenizer,
-    setup_gangs,
+    setup_inference_gangs,
     setup_reference_model,
     setup_torch,
 )
-from fairseq2.recipes.config import CommonSection, GangSection, ReferenceModelSection, TextTokenizerSection
+from fairseq2.recipes.config import (
+    CommonSection,
+    GangSection,
+    ReferenceModelSection,
+    TextTokenizerSection,
+)
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import RngBag
 
@@ -124,14 +129,14 @@ class RunChatbotHandler(CliCommandHandler):
         )
 
         try:
-            gangs = setup_gangs(context, gang_section)
+            gangs = setup_inference_gangs(context, gang_section)
         except RecipeError as ex:
             raise CliCommandError(
                 "The chatbot setup has failed. See the nested exception for details."
             ) from ex
 
         if gangs.dp.size > 1:
-            log.warning("Using redundant data parallelism which may reduce throughput. It is recommended to use one device per model (shard).")  # fmt: skip
+            log.warning("Using redundant data parallelism which may reduce throughput.")  # fmt: skip
 
         model_section = ReferenceModelSection(name=args.model_name)
 

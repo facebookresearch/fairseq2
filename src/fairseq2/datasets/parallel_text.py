@@ -171,7 +171,7 @@ class GenericParallelTextDataset(ParallelTextDataset):
             manifest_file = path.joinpath(split).joinpath("MANIFEST")
 
             try:
-                with manifest_file.open() as fp:
+                with manifest_file.open(encoding="utf-8") as fp:
                     content = list(fp)
             except OSError as ex:
                 raise DatasetLoadError(

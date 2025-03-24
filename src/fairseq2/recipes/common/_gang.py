@@ -24,14 +24,14 @@ from fairseq2.recipes.config import (
     GangSection,
     TrainerSection,
 )
-from fairseq2.recipes.utils.log import log_environment_info, log_gangs
+from fairseq2.recipes.utils.log import log_environment_info, log_ranks
 from fairseq2.utils.env import InvalidEnvironmentVariableError, get_local_world_size
 
 
-def setup_gangs(context: RuntimeContext, gang_section: GangSection) -> Gangs:
+def setup_inference_gangs(context: RuntimeContext, gang_section: GangSection) -> Gangs:
     gangs = _do_setup_gangs(context, gang_section)
 
-    log_gangs(log, gangs)
+    log_ranks(log, gangs)
 
     return gangs
 
@@ -48,7 +48,7 @@ def setup_training_gangs(
             "The hybrid sharded data parallel gangs cannot set up. See the nested exception for details."
         ) from ex
 
-    log_gangs(log, gangs)
+    log_ranks(log, gangs)
 
     return gangs
 

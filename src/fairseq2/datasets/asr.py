@@ -289,7 +289,7 @@ class GenericAsrDataset(AsrDataset):
         manifest_file = self._manifest_dir.joinpath(f"{split}.tsv")
 
         try:
-            with manifest_file.open() as fp:
+            with manifest_file.open(encoding="utf-8") as fp:
                 line = fp.readline().rstrip()
         except OSError as ex:
             raise DataReadError(

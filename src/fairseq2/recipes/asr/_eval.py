@@ -26,7 +26,7 @@ from fairseq2.recipes.common import (
     load_dataset,
     load_text_tokenizer,
     register_extra_asset_paths,
-    setup_gangs,
+    setup_inference_gangs,
     setup_reference_model,
     setup_torch,
 )
@@ -119,7 +119,7 @@ def load_asr_evaluator(
 
     setup_torch(context, config.common, output_dir)
 
-    gangs = setup_gangs(context, config.gang)
+    gangs = setup_inference_gangs(context, config.gang)
 
     seed = config.common.seed
 

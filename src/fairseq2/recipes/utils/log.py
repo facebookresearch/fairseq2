@@ -200,7 +200,7 @@ def log_environment_variables(log: LogWriter) -> None:
     log.info("Environment Variables - {}", ", ".join(kv))
 
 
-def log_gangs(log: LogWriter, gangs: Gangs) -> None:
+def log_ranks(log: LogWriter, gangs: Gangs) -> None:
     s = (
         f"Data: {gangs.dp.rank} | "
         f"Data/Replicated: {gangs.rdp.rank} | "
