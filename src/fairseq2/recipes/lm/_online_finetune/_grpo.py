@@ -53,16 +53,16 @@ import ray
 from fairseq2.recipes.lm._online_finetune._rewards import VLLMOutputRewardHandler, RewardSection, VLLMOutputReward
 from fairseq2.recipes.lm._online_finetune._remote_vllm import VllmConfig, RemoteVllmModelHandler, RemoteVllmModel
 
-from fairseq2.recipes.lm._online_finetune._common import copy_state, generate_rollouts, GRPOBatch
+from fairseq2.recipes.lm._online_finetune._common import copy_state, generate_rollouts, GRPOBatch, prepare_grpo_batch
 from fairseq2.recipes.metrics import SequenceMetricBag
+
 
 @final
 class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
     """Represents the language model DPO-finetuning unit with online generations. Paper: https://arxiv.org/abs/2305.18290."""
 
     _reference_model: Module | None
-    _beta: float
-    _nll_scale: float
+    _loss_config: GrpoLossConfig
     _metric_bag: GrpoFinetuneMetricBag
     _length_normalization: bool
     _model_update_group: PyNcclCommunicator
@@ -77,18 +77,14 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         vllm_model: RemoteVllmModel,
         reward,
         gangs: Gangs,
-        beta: float = 0.1,
-        nll_scale: float = 1.0,
-        length_normalization: bool = False,
+        loss_config: GrpoLossConfig,
         sync_vllm_model_every_n_steps: int = 1,
         sync_ref_model_every_n_step: int = -1,
     ) -> None:
         super().__init__()
         self._model = model
         self._reference_model = reference_model
-        self._beta = beta
-        self._nll_scale = nll_scale
-        self._length_normalization = length_normalization
+        self._loss_config = loss_config
         self._vllm_model = vllm_model
         self._gangs = gangs
         self._sync_vllm_model_every_n_steps = sync_vllm_model_every_n_steps
@@ -120,8 +116,12 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         rollouts = generate_rollouts(prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._vllm_model)
 
+        reward_output = self._reward.process_rollouts(rollouts, prompt_batch.meta_info[self._reward.answer_key])
+
         grpo_batch: GRPOBatch
-        grpo_batch, reward_output = self._reward.prepare_grpo_batch(prompt_batch, rollouts)  # loss_zeroer is used when entire batch has no valid prefrence pair
+        grpo_batch = prepare_grpo_batch(prompt_batch=prompt_batch, reward_output=reward_output, gangs=self._gangs, num_rollout_per_forward=self._loss_config.num_rollout_per_forward)
+        
+        # grpo_batch, reward_output = self._reward.prepare_grpo_batch(prompt_batch, rollouts)  # loss_zeroer is used when entire batch has no valid prefrence pair
 
         grpo_input_batch, grpo_target_batch = as_auto_regressive_input(
             grpo_batch.prompt_rollouts
@@ -208,7 +208,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         per_token_scaled_advantage = (logps - logps.detach()).exp() * advantages[:,:,None]
         # per_token_scaled_advantage = logps * advantages[:,:,None]
 
-        per_token_loss = per_token_scaled_advantage - self._beta * kl
+        per_token_loss = per_token_scaled_advantage - self._loss_config.beta * kl
 
         target_mask = target_batch.target_mask.view(batch_size, num_rollouts, -1)
 
@@ -266,25 +266,6 @@ class GrpoFinetuneMetricBag(SequenceMetricBag):
             loss / batch.batch_size, weight=batch.batch_size
         )
 
-    # @torch.inference_mode()
-    # def update_logps(
-    #     self,
-    #     batch: PromptBatch,
-    #     rollout_logps: Tensor,
-    # ) -> None:
-    #     """Update the Chosen Sequence Log Probabilities and Rejected Sequence Log Probabilities metrics.
-
-    #     :param batch:
-    #         The batch processed by the model.
-    #     :param chosen_logps:
-    #         The log probabilities for each sequence in ``batch.chosen``.
-    #     :param rejected_logps:
-    #         The log probabilities for each sequence in ``batch.rejected``.
-    #     """
-    #     self.rollout_logps.update(
-    #         rollout_logps.sum() / batch.batch_size, weight=batch.batch_size
-    #     )
-
     @torch.inference_mode()
     def update_rollout_lengths(
         self,
@@ -306,6 +287,11 @@ class GrpoFinetuneMetricBag(SequenceMetricBag):
 
 GRPO_FINETUNE_UNIT: Final = "grpo"
 
+@dataclass(kw_only=True)
+class GrpoLossConfig:
+    num_rollout_per_forward: int = 1
+    beta: float = 0.1
+    """The coefficient of regularization towards the reference model."""
 
 @dataclass(kw_only=True)
 class GrpoFinetuneConfig:
@@ -318,18 +304,12 @@ class GrpoFinetuneConfig:
     data example (fields `reference_score_rejected` and  `reference_score_chosen`).
     """
 
+    loss_config: GrpoLossConfig = field(
+        default_factory=lambda: GrpoLossConfig()
+    )
+
     reference_dtype: DataType = torch.bfloat16
     """The data type of the reference model."""
-
-    # Loss
-    beta: float = 0.1
-    """The coefficient of regularization towards the reference model."""
-
-    nll_scale: float = 0.0
-    """The coefficient of NLL loss added to the DPO loss."""
-
-    length_normalization: bool = False
-    """Use length normalized DPO, which uses the average log probability of a sequence as the implicit reward."""
 
     vllm_model: VllmConfig = field(default_factory=lambda: VllmConfig(init_update_process_group=True))
 
@@ -358,10 +338,6 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
 
         validate(config)
 
-        reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
-        reward_handler = reward_registry.get(config.reward.name)
-        reward = reward_handler.create(reward_config=config.reward.config, gangs=gangs)
-
         if config.reference_model is not None:
             log.info("Setting up GRPO with reference model.")
 
@@ -389,15 +365,17 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
     
         gangs.root.barrier()
 
+        reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
+        reward_handler = reward_registry.get(config.reward.name)
+        reward = reward_handler.create(reward_config=config.reward.config, gangs=gangs)
+
         return GrpoFinetuneUnit(
             model,
             reference_model,
             vllm_model,
             reward,
             gangs,
-            config.beta,
-            config.nll_scale,
-            config.length_normalization,
+            config.loss_config,
             config.sync_vllm_model_every_n_steps,
             config.sync_ref_model_every_n_steps,
         )

@@ -71,10 +71,8 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
     """Represents the language model DPO-finetuning unit with online generations. Paper: https://arxiv.org/abs/2305.18290."""
 
     _reference_model: Module | None
-    _beta: float
-    _nll_scale: float
     _metric_bag: OnlineDpoFinetuneMetricBag
-    _length_normalization: bool
+    _loss_config: DpoLossConfig
     _model_update_group: PyNcclCommunicator
     _sync_vllm_model_every_n_steps: int
     _sync_ref_model_every_n_steps: int
@@ -87,18 +85,14 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         vllm_model: RemoteVllmModel,
         reward,
         gangs: Gangs,
-        beta: float = 0.1,
-        nll_scale: float = 1.0,
-        length_normalization: bool = False,
+        loss_config: DpoLossConfig,
         sync_vllm_model_every_n_steps: int = 1,
         sync_ref_model_every_n_step: int = -1,
     ) -> None:
         super().__init__()
         self._model = model
         self._reference_model = reference_model
-        self._beta = beta
-        self._nll_scale = nll_scale
-        self._length_normalization = length_normalization
+        self._loss_config = loss_config
         self._vllm_model = vllm_model
         self._gangs = gangs
         self._sync_vllm_model_every_n_steps = sync_vllm_model_every_n_steps
@@ -188,7 +182,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 "Reference model is not initialized and data batch does not provide reference score, but at least one must exist."
             )
 
-        if self._length_normalization:
+        if self._loss_config.length_normalization:
             _, _, dpo_loss = self._compute_dpo_loss(
                 average_chosen_logps,
                 ref_average_chosen_logps,
@@ -219,7 +213,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         loss = (
             dpo_loss
-            + self._nll_scale
+            + self._loss_config.nll_scale
             * nll_loss
             * chosen_target_batch.batch_size
             / chosen_target_batch.num_target_elements()
@@ -256,8 +250,8 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         rejected_logps: Tensor,
         ref_rejected_logps: Tensor,
     ) -> tuple[Tensor, Tensor, Tensor]:
-        logp_ratio_chosen = self._beta * (chosen_logps - ref_chosen_logps)
-        logp_ratio_rejected = self._beta * (rejected_logps - ref_rejected_logps)
+        logp_ratio_chosen = self._loss_config.beta * (chosen_logps - ref_chosen_logps)
+        logp_ratio_rejected = self._loss_config.beta * (rejected_logps - ref_rejected_logps)
         dpo_loss = -torch.nn.functional.logsigmoid(
             logp_ratio_chosen - logp_ratio_rejected
         )
@@ -321,6 +315,17 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
 
 ONLINE_DPO_FINETUNE_UNIT: Final = "online_dpo"
 
+@dataclass(kw_only=True)
+class DpoLossConfig:
+    # Loss
+    beta: float = 0.1
+    """The coefficient of regularization towards the reference model."""
+
+    nll_scale: float = 0.0
+    """The coefficient of NLL loss added to the DPO loss."""
+
+    length_normalization: bool = False
+    """Use length normalized DPO, which uses the average log probability of a sequence as the implicit reward."""
 
 @dataclass(kw_only=True)
 class OnlineDpoFinetuneConfig:
@@ -336,15 +341,7 @@ class OnlineDpoFinetuneConfig:
     reference_dtype: DataType = torch.bfloat16
     """The data type of the reference model."""
 
-    # Loss
-    beta: float = 0.1
-    """The coefficient of regularization towards the reference model."""
-
-    nll_scale: float = 0.0
-    """The coefficient of NLL loss added to the DPO loss."""
-
-    length_normalization: bool = False
-    """Use length normalized DPO, which uses the average log probability of a sequence as the implicit reward."""
+    loss_config: DpoLossConfig = field(default_factory=lambda: DpoLossConfig())
 
     vllm_model: VllmConfig = field(default_factory=lambda: VllmConfig(init_update_process_group=True))
 
@@ -427,9 +424,7 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
             vllm_model,
             reward,
             gangs,
-            config.beta,
-            config.nll_scale,
-            config.length_normalization,
+            config.loss_config,
             config.sync_vllm_model_every_n_steps,
             config.sync_ref_model_every_n_steps,
         )

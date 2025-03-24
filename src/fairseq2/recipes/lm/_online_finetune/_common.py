@@ -362,7 +362,7 @@ def prepare_preference_batch_random_pair(prompt_batch: PromptBatch, reward_outpu
     return batch, is_bad_batch
 
 
-def prepare_grpo_batch(prompt_batch: PromptBatch, reward_output: dict, gangs):
+def prepare_grpo_batch(prompt_batch: PromptBatch, reward_output: dict, gangs: Gang, num_rollout_per_forward: int):
 
     prompt_rollouts = []
     prompt_lens = []
@@ -371,14 +371,13 @@ def prepare_grpo_batch(prompt_batch: PromptBatch, reward_output: dict, gangs):
     # reward_output = self.process_rollouts(rollouts, prompt_batch.meta_info[self.answer_key])
     for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(zip(reward_output["rewards"],reward_output["tokens"])):
         prompt = prompt_batch.prompts[i_batch]
-        rollout_tokens = [torch.tensor(prompt+list(c), device=gangs.dp.device) for c in i_batch_tokens]
+        rollout_tokens = [torch.tensor(prompt+list(c), device=gangs.dp.device) for c in i_batch_tokens[:num_rollout_per_forward]]
+        
         prompt_rollouts.extend(rollout_tokens)
 
         prompt_lens.extend([len(prompt)]*len(rollout_tokens))
         
-        rewards.append(i_batch_rewards)
-
-    prompt_rollout_batch = collate_with_target_mask(prompt_rollouts, prompt_lens, device=gangs.dp.device)
+        rewards.append(i_batch_rewards)  # we add all rewards here to correctly compute group statistic
 
     # if gangs.root.rank == 0:
     #     from pudb.remote import set_trace
@@ -388,6 +387,9 @@ def prepare_grpo_batch(prompt_batch: PromptBatch, reward_output: dict, gangs):
 
     rewards = torch.tensor(rewards, device=gangs.dp.device).float()  # [Batch, Rollouts]
     rewards_normalized = (rewards - rewards.mean(dim=1, keepdim=True)) / (rewards.std(dim=1, keepdim=True) + 1e-6)  # small epsilon to compensate 0 std
+    
+    rewards_normalized = rewards_normalized[:, :num_rollout_per_forward]
+    prompt_rollout_batch = collate_with_target_mask(prompt_rollouts, prompt_lens, device=gangs.dp.device)
 
     grpo_batch = GRPOBatch(prompt_rollouts=prompt_rollout_batch, rewards=rewards_normalized)
 
