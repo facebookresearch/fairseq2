@@ -28,7 +28,6 @@ from fairseq2.utils.env import (
     InvalidEnvironmentVariableError,
     get_world_size,
 )
-from fairseq2.utils.threading import ThreadingError, get_num_threads
 from fairseq2.utils.version import torch_greater_or_equal
 
 
@@ -314,7 +313,6 @@ class ProcessGroupGang(Gang):
         *,
         timeout: timedelta | None = None,
         high_priority: bool = False,
-        num_threads: int | None = None,
         monitored: bool = False,
     ) -> ProcessGroupGang:
         """Initialize the root process group and wrap it as a gang.
@@ -323,8 +321,6 @@ class ProcessGroupGang(Gang):
             devices, NCCL; for CPU, Gloo will be used.
         :param timeout: The timeout for collective operations. If ``None``, the
             default timeout value (15 minutes) will be used.
-        :param num_threads: The number of threads to use for interaop
-            parallelism.
         :param high_priority: If ``True``, the underlying collective operations
             will be performed on high priority channels (e.g. CUDA streams).
         :param monitored: If ``True``,  puts a monitored barrier before every
@@ -351,19 +347,6 @@ class ProcessGroupGang(Gang):
             raise NotSupportedError(
                 f"`device` must be of type `cpu` and `cuda`, but is of type `{device.type}` instead."
             )
-
-        if num_threads is None and "OMP_NUM_THREADS" not in os.environ:
-            try:
-                num_threads = get_num_threads(os.environ)
-            except ThreadingError as ex:
-                raise GangError(
-                    "The number of threads to use for intra-op parallelism cannot be determined. See the nested exception for details."
-                ) from ex
-
-        if num_threads is not None:
-            torch.set_num_threads(num_threads)
-
-            log.info("Setting the number of threads used for intra-op parallelism to {}.", num_threads)  # fmt: skip
 
         if device.type == "cuda":
             # See https://github.com/pytorch/pytorch/issues/46874.

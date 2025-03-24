@@ -268,12 +268,8 @@ class GenericAsrDataset(AsrDataset):
             source_data = cast(SequenceData, example["audio"]["data"]["waveform"])
             target_data = cast(SequenceData, example["text"])
 
-            source_seqs, source_padding_mask = get_seqs_and_padding_mask(
-                source_data, gang.device
-            )
-            target_seqs, target_padding_mask = get_seqs_and_padding_mask(
-                target_data, gang.device
-            )
+            source_seqs, source_padding_mask = get_seqs_and_padding_mask(source_data)
+            target_seqs, target_padding_mask = get_seqs_and_padding_mask(target_data)
 
             return Seq2SeqBatch(
                 source_seqs,
