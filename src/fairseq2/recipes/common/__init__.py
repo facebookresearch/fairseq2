@@ -68,4 +68,5 @@ from fairseq2.recipes.common._ref_model import (
 from fairseq2.recipes.common._text_tokenizer import (
     load_text_tokenizer as load_text_tokenizer,
 )
+from fairseq2.recipes.common._torch import setup_torch as setup_torch
 from fairseq2.recipes.common._trainer import create_trainer as create_trainer
