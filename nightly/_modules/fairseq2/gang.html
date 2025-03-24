@@ -339,7 +339,6 @@
     <span class="n">InvalidEnvironmentVariableError</span><span class="p">,</span>
     <span class="n">get_world_size</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.threading</span><span class="w"> </span><span class="kn">import</span> <span class="n">ThreadingError</span><span class="p">,</span> <span class="n">get_num_threads</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.version</span><span class="w"> </span><span class="kn">import</span> <span class="n">torch_greater_or_equal</span>
 
 
@@ -692,7 +691,6 @@
         <span class="o">*</span><span class="p">,</span>
         <span class="n">timeout</span><span class="p">:</span> <span class="n">timedelta</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">high_priority</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-        <span class="n">num_threads</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">monitored</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ProcessGroupGang</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the root process group and wrap it as a gang.</span>
@@ -701,8 +699,6 @@
 <span class="sd">            devices, NCCL; for CPU, Gloo will be used.</span>
 <span class="sd">        :param timeout: The timeout for collective operations. If ``None``, the</span>
 <span class="sd">            default timeout value (15 minutes) will be used.</span>
-<span class="sd">        :param num_threads: The number of threads to use for interaop</span>
-<span class="sd">            parallelism.</span>
 <span class="sd">        :param high_priority: If ``True``, the underlying collective operations</span>
 <span class="sd">            will be performed on high priority channels (e.g. CUDA streams).</span>
 <span class="sd">        :param monitored: If ``True``,  puts a monitored barrier before every</span>
@@ -729,19 +725,6 @@
             <span class="k">raise</span> <span class="n">NotSupportedError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;`device` must be of type `cpu` and `cuda`, but is of type `</span><span class="si">{</span><span class="n">device</span><span class="o">.</span><span class="n">type</span><span class="si">}</span><span class="s2">` instead.&quot;</span>
             <span class="p">)</span>
-
-        <span class="k">if</span> <span class="n">num_threads</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="s2">&quot;OMP_NUM_THREADS&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">num_threads</span> <span class="o">=</span> <span class="n">get_num_threads</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">)</span>
-            <span class="k">except</span> <span class="n">ThreadingError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">GangError</span><span class="p">(</span>
-                    <span class="s2">&quot;The number of threads to use for intra-op parallelism cannot be determined. See the nested exception for details.&quot;</span>
-                <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
-
-        <span class="k">if</span> <span class="n">num_threads</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">torch</span><span class="o">.</span><span class="n">set_num_threads</span><span class="p">(</span><span class="n">num_threads</span><span class="p">)</span>
-
-            <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Setting the number of threads used for intra-op parallelism to </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">num_threads</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
 
         <span class="k">if</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span><span class="p">:</span>
             <span class="c1"># See https://github.com/pytorch/pytorch/issues/46874.</span>
@@ -1318,7 +1301,7 @@
       
     </aside>
   </div>
-</div><script src="../../_static/documentation_options.js?v=509278ea"></script>
+</div><script src="../../_static/documentation_options.js?v=742e0cf3"></script>
     <script src="../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/scripts/furo.js?v=5fa4622c"></script>

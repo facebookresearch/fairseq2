@@ -354,6 +354,7 @@
     <span class="n">register_extra_asset_paths</span><span class="p">,</span>
     <span class="n">setup_gangs</span><span class="p">,</span>
     <span class="n">setup_model</span><span class="p">,</span>
+    <span class="n">setup_torch</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.config</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">CommonSection</span><span class="p">,</span>
@@ -398,7 +399,9 @@
     <span class="n">optimizer</span><span class="p">:</span> <span class="n">OptimizerSection</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span>
         <span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">OptimizerSection</span><span class="p">(</span>
             <span class="n">name</span><span class="o">=</span><span class="n">ADAMW_OPTIMIZER</span><span class="p">,</span>
-            <span class="n">config</span><span class="o">=</span><span class="n">AdamWConfig</span><span class="p">(</span><span class="n">lr</span><span class="o">=</span><span class="mf">5.5e-06</span><span class="p">,</span> <span class="n">betas</span><span class="o">=</span><span class="p">(</span><span class="mf">0.9</span><span class="p">,</span> <span class="mf">0.95</span><span class="p">),</span> <span class="n">weight_decay</span><span class="o">=</span><span class="mf">0.1</span><span class="p">),</span>
+            <span class="n">config</span><span class="o">=</span><span class="n">AdamWConfig</span><span class="p">(</span>
+                <span class="n">lr</span><span class="o">=</span><span class="mf">5.5e-06</span><span class="p">,</span> <span class="n">betas</span><span class="o">=</span><span class="p">(</span><span class="mf">0.9</span><span class="p">,</span> <span class="mf">0.95</span><span class="p">),</span> <span class="n">weight_decay</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">impl</span><span class="o">=</span><span class="s2">&quot;fused&quot;</span>
+            <span class="p">),</span>
         <span class="p">)</span>
     <span class="p">)</span>
 
@@ -474,11 +477,6 @@
 
 
 
-<span class="nd">@dataclass</span><span class="p">(</span><span class="n">kw_only</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">DropoutConfig</span><span class="p">:</span>
-    <span class="n">dropout_p</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
-
-
 <span class="k">def</span><span class="w"> </span><span class="nf">register_instruction_finetune_configs</span><span class="p">(</span><span class="n">context</span><span class="p">:</span> <span class="n">RuntimeContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
     <span class="n">registry</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">get_config_registry</span><span class="p">(</span><span class="n">InstructionFinetuneConfig</span><span class="p">)</span>
 
@@ -486,11 +484,7 @@
 
     <span class="nd">@preset</span><span class="p">(</span><span class="s2">&quot;llama3_1_instruct&quot;</span><span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">llama3_1_instruct</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">InstructionFinetuneConfig</span><span class="p">:</span>
-        <span class="n">config</span> <span class="o">=</span> <span class="n">InstructionFinetuneConfig</span><span class="p">()</span>
-
-        <span class="n">config</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">DropoutConfig</span><span class="p">()</span>
-
-        <span class="k">return</span> <span class="n">config</span>
+        <span class="k">return</span> <span class="n">InstructionFinetuneConfig</span><span class="p">()</span>
 
     <span class="nd">@preset</span><span class="p">(</span><span class="s2">&quot;llama3_1_instruct_constant_lr&quot;</span><span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">llama3_1_instruct_constant_lr</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">InstructionFinetuneConfig</span><span class="p">:</span>
@@ -534,7 +528,7 @@
 
     <span class="n">register_extra_asset_paths</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
 
-    <span class="n">torch</span><span class="o">.</span><span class="n">set_float32_matmul_precision</span><span class="p">(</span><span class="s2">&quot;high&quot;</span><span class="p">)</span>
+    <span class="n">setup_torch</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">)</span>
 
     <span class="n">gangs</span> <span class="o">=</span> <span class="n">setup_gangs</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
 
@@ -784,7 +778,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=509278ea"></script>
+</div><script src="../../../../_static/documentation_options.js?v=742e0cf3"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>
