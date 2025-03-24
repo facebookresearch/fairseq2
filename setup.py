@@ -58,7 +58,7 @@ setup(
         "numpy~=1.23",
         "packaging~=24.1",
         "psutil~=5.9",
-        "pyyaml~=6.0",
+        "ruamel.yaml~=0.18",
         "rich~=13.7",
         "sacrebleu~=2.4",
         "tiktoken~=0.7",

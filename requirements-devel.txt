@@ -12,5 +12,4 @@ shellcheck-py~=0.9
 types-tqdm~=4.67.0
 types-editdistance~=0.6
 types-psutil~=5.9
-types-PyYAML~=6.0
 types-setuptools~=75.8
