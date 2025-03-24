@@ -40,6 +40,7 @@ class TransformerModel(EncoderDecoderModel):
         final_proj: Projection,
         *,
         pad_idx: int | None,
+        max_source_seq_len: int,
         max_target_seq_len: int,
     ) -> None:
         """
@@ -50,7 +51,7 @@ class TransformerModel(EncoderDecoderModel):
         :param final_proj: The projection to apply to decoder outputs.
         :param max_target_seq_len: The maximum length of produced sequences.
         """
-        super().__init__(encoder.model_dim, max_target_seq_len)
+        super().__init__(encoder.model_dim, max_source_seq_len, max_target_seq_len)
 
         self.encoder_frontend = encoder_frontend
         self.encoder = encoder

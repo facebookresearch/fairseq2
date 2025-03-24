@@ -195,6 +195,7 @@ def register_llama_configs(context: RuntimeContext) -> None:
 
         config.max_seq_len = 8192
         config.vocab_size = 128_256
+        config.pad_idx = 128_004
         config.num_key_value_heads = 8
         config.ffn_inner_dim = 4096 * 4
         config.ffn_inner_dim_multiplier = 1.3
@@ -209,6 +210,7 @@ def register_llama_configs(context: RuntimeContext) -> None:
 
         config.max_seq_len = 8192
         config.vocab_size = 128_256
+        config.pad_idx = 128_004
         config.rope_theta = 500_000.0
 
         return config

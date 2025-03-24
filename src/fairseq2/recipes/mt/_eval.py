@@ -43,7 +43,7 @@ from fairseq2.recipes.common import (
     load_dataset,
     load_text_tokenizer,
     register_extra_asset_paths,
-    setup_inference_gangs,
+    setup_gangs,
     setup_reference_model,
     setup_torch,
 )
@@ -76,7 +76,11 @@ class MTEvalConfig:
         default_factory=lambda: MTEvalDatasetSection()
     )
 
-    tokenizer: TextTokenizerSection = field(
+    source_tokenizer: TextTokenizerSection = field(
+        default_factory=lambda: TextTokenizerSection(name="nllb-200")
+    )
+
+    target_tokenizer: TextTokenizerSection = field(
         default_factory=lambda: TextTokenizerSection(name="nllb-200")
     )
 
@@ -148,7 +152,7 @@ def load_mt_evaluator(
 
     setup_torch(context, config.common, output_dir)
 
-    gangs = setup_inference_gangs(context, config.gang)
+    gangs = setup_gangs(context, config.gang)
 
     seed = config.common.seed
 
@@ -168,11 +172,16 @@ def load_mt_evaluator(
 
     dataset = load_dataset(ParallelTextDataset, context, config.dataset, gangs)
 
-    tokenizer = load_text_tokenizer(context, config.tokenizer)
+    source_tokenizer = load_text_tokenizer(context, config.source_tokenizer)
+
+    if config.source_tokenizer == config.target_tokenizer:
+        target_tokenizer = source_tokenizer
+    else:
+        target_tokenizer = load_text_tokenizer(context, config.target_tokenizer)
 
     # Initialize the units.
     seq2seq_generator = create_seq2seq_generator(
-        context, config.seq2seq_generator, model, tokenizer.vocab_info
+        context, config.seq2seq_generator, model, target_tokenizer.vocab_info
     )
 
     criterion = MTCriterion(model, label_smoothing=config.loss.label_smoothing)
@@ -199,7 +208,8 @@ def load_mt_evaluator(
 
         data_reader = dataset.create_reader(
             config.dataset.split,
-            tokenizer,
+            source_tokenizer,
+            target_tokenizer,
             gangs.dp,
             config.dataset.min_seq_len,
             config.dataset.max_seq_len,
@@ -267,7 +277,7 @@ def load_mt_evaluator(
             model,
             direction,
             seq2seq_generator,
-            tokenizer,
+            target_tokenizer,
             gangs,
             src_output_stream=src_fp,
             ref_output_stream=ref_fp,
@@ -290,7 +300,8 @@ def load_mt_evaluator(
 
         data_reader = dataset.create_reader(
             config.dataset.split,
-            tokenizer,
+            source_tokenizer,
+            target_tokenizer,
             gangs.dp,
             config.dataset.min_seq_len,
             config.dataset.max_seq_len,

@@ -27,6 +27,7 @@ from fairseq2.data.text.tokenizers import (
 from fairseq2.logging import log
 from fairseq2.recipes import RecipeError
 from fairseq2.recipes.config import TextTokenizerSection
+from fairseq2.recipes.utils.log import log_tokenizer
 from fairseq2.registry import Provider
 
 
@@ -92,5 +93,7 @@ class TextTokenizerLoader:
         tokenizer = handler.load(card)
 
         log.info("Tokenizer loaded.")
+
+        log_tokenizer(log, tokenizer)
 
         return tokenizer

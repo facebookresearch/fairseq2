@@ -40,7 +40,7 @@ from fairseq2.recipes.common import (
     load_dataset,
     load_text_tokenizer,
     register_extra_asset_paths,
-    setup_inference_gangs,
+    setup_gangs,
     setup_reference_model,
     setup_torch,
 )
@@ -72,7 +72,11 @@ class TextTranslateConfig:
         default_factory=lambda: TextTranslateDatasetSection()
     )
 
-    tokenizer: TextTokenizerSection = field(
+    source_tokenizer: TextTokenizerSection = field(
+        default_factory=lambda: TextTokenizerSection(name="nllb-200")
+    )
+
+    target_tokenizer: TextTokenizerSection = field(
         default_factory=lambda: TextTokenizerSection(name="nllb-200")
     )
 
@@ -141,7 +145,7 @@ def load_text_translator(
 
     setup_torch(context, config.common, output_dir)
 
-    gangs = setup_inference_gangs(context, config.gang)
+    gangs = setup_gangs(context, config.gang)
 
     seed = config.common.seed
 
@@ -161,11 +165,16 @@ def load_text_translator(
 
     dataset = load_dataset(TextDataset, context, config.dataset, gangs)
 
-    tokenizer = load_text_tokenizer(context, config.tokenizer)
+    source_tokenizer = load_text_tokenizer(context, config.source_tokenizer)
+
+    if config.source_tokenizer == config.target_tokenizer:
+        target_tokenizer = source_tokenizer
+    else:
+        target_tokenizer = load_text_tokenizer(context, config.target_tokenizer)
 
     # Initialize the unit.
     seq2seq_generator = create_seq2seq_generator(
-        context, config.seq2seq_generator, model, tokenizer.vocab_info
+        context, config.seq2seq_generator, model, target_tokenizer.vocab_info
     )
 
     if gangs.tp.rank == 0:
@@ -213,10 +222,16 @@ def load_text_translator(
         hyp_fp = None
 
     unit = TextTranslationUnit(
-        model, seq2seq_generator, tokenizer, config.target_lang, gangs, src_fp, hyp_fp
+        model,
+        seq2seq_generator,
+        target_tokenizer,
+        config.target_lang,
+        gangs,
+        src_fp,
+        hyp_fp,
     )
 
-    text_encoder = tokenizer.create_encoder(
+    text_encoder = source_tokenizer.create_encoder(
         task="translation", lang=config.source_lang, mode="source"
     )
 
@@ -232,7 +247,7 @@ def load_text_translator(
 
     data_reader = dataset.create_reader(
         text_encoder,
-        tokenizer.vocab_info.pad_idx,
+        target_tokenizer.vocab_info.pad_idx,
         gangs.dp,
         config.dataset.min_seq_len,
         config.dataset.max_seq_len,

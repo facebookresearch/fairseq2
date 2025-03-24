@@ -8,14 +8,13 @@ from __future__ import annotations
 
 from typing import final
 
-import torch.nn as nn
 from torch.nn import Dropout
 from typing_extensions import override
 
 from fairseq2.models.asr import AsrModel, AsrModelOutput
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2 import Wav2Vec2Frontend, Wav2Vec2Masker
-from fairseq2.nn import Linear
+from fairseq2.nn import Projection
 from fairseq2.nn.transformer import TransformerEncoder
 from fairseq2.typing import DataType, Device
 
@@ -29,13 +28,13 @@ class Wav2Vec2AsrModel(AsrModel):
     encoder_frontend: Wav2Vec2Frontend
     masker: Wav2Vec2Masker | None
     final_dropout: Dropout | None
-    final_proj: Linear
+    final_proj: Projection
 
     def __init__(
         self,
         encoder_frontend: Wav2Vec2Frontend,
         encoder: TransformerEncoder,
-        vocab_size: int,
+        final_proj: Projection,
         *,
         masker: Wav2Vec2Masker | None = None,
         final_dropout_p: float = 0.0,
@@ -63,14 +62,7 @@ class Wav2Vec2AsrModel(AsrModel):
         else:
             self.register_module("final_dropout", None)
 
-        self.final_proj = Linear(
-            self.model_dim,
-            vocab_size,
-            bias=True,
-            init_fn=_init_final_projection,
-            device=device,
-            dtype=dtype,
-        )
+        self.final_proj = final_proj
 
     @override
     def forward(self, batch: SequenceBatch) -> AsrModelOutput:
@@ -94,11 +86,3 @@ class Wav2Vec2AsrModel(AsrModel):
         logits = self.final_proj(seqs)
 
         return AsrModelOutput(logits, padding_mask)
-
-
-def _init_final_projection(proj: Linear) -> None:
-    """Initialize ``proj`` as the final projection of a wav2vec 2.0 ASR model."""
-    nn.init.xavier_uniform_(proj.weight)
-
-    if proj.bias is not None:
-        nn.init.zeros_(proj.bias)

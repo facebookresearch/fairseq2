@@ -14,6 +14,7 @@ from typing import Any, Final, cast, final
 from typing_extensions import override
 
 from fairseq2.data import (
+    CollateOptionsOverride,
     Collater,
     DataPipeline,
     DataPipelineBuilder,
@@ -77,7 +78,8 @@ class ParallelTextDataset(ABC):
     def create_reader(
         self,
         split: str,
-        tokenizer: TextTokenizer,
+        source_tokenizer: TextTokenizer,
+        target_tokenizer: TextTokenizer,
         gang: Gang,
         min_seq_len: int,
         max_seq_len: int,
@@ -85,20 +87,14 @@ class ParallelTextDataset(ABC):
     ) -> DataReader[Seq2SeqBatch]:
         """Create a dataset reader.
 
-        :param split:
-            The split to read.
-        :param tokenizer:
-            The tokenizer to encode text.
-        :param gang:
-            The gang over which to shard the dataset.
-        :param min_seq_len:
-            The minimum sequence length of each example. Examples shorter than
-            this value will be dropped.
-        :param max_seq_len:
-            The maximum sequence length of each example. Examples longer than
-            this value will be dropped.
-        :param options:
-            The read options.
+        :param split: The split to read.
+        :param source_tokenizer: The tokenizer to encode source text.
+        :param gang: The gang over which to shard the dataset.
+        :param min_seq_len: The minimum sequence length of each example.
+            Examples shorter than this value will be dropped.
+        :param max_seq_len: The maximum sequence length of each example.
+            Examples longer than this value will be dropped.
+        :param options: The read options.
         """
 
     @abstractmethod
@@ -252,7 +248,8 @@ class GenericParallelTextDataset(ParallelTextDataset):
     def create_reader(
         self,
         split: str,
-        tokenizer: TextTokenizer,
+        source_tokenizer: TextTokenizer,
+        target_tokenizer: TextTokenizer,
         gang: Gang,
         min_seq_len: int,
         max_seq_len: int,
@@ -289,11 +286,11 @@ class GenericParallelTextDataset(ParallelTextDataset):
             if direction.origin:
                 source_mode = f"{source_mode}_{direction.origin}"
 
-            source_encoder = tokenizer.create_encoder(
+            source_encoder = source_tokenizer.create_encoder(
                 task="translation", lang=direction.source_lang, mode=source_mode
             )
 
-            target_encoder = tokenizer.create_encoder(
+            target_encoder = target_tokenizer.create_encoder(
                 task="translation", lang=direction.target_lang, mode="target"
             )
 
@@ -384,7 +381,18 @@ class GenericParallelTextDataset(ParallelTextDataset):
         seed += 1
 
         # Collate bucketed examples into a batch.
-        collater = Collater(pad_value=tokenizer.vocab_info.pad_idx)
+        collater = Collater(
+            overrides=[
+                CollateOptionsOverride(
+                    selector="source_indices",
+                    pad_value=source_tokenizer.vocab_info.pad_idx,
+                ),
+                CollateOptionsOverride(
+                    selector="target_indices",
+                    pad_value=target_tokenizer.vocab_info.pad_idx,
+                ),
+            ]
+        )
 
         builder.map(collater, num_parallel_calls=npc)
 

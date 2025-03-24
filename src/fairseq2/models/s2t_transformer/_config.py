@@ -37,8 +37,8 @@ class S2TTransformerConfig:
     target_vocab_size: int = 10_000
     """The size of the target vocabulary."""
 
-    pad_idx: int | None = 1
-    """The index of the PAD symbol in the vocabulary."""
+    pad_idx: int = 1
+    """The index of the PAD symbol in the target vocabulary."""
 
     use_relative_pos: bool = False
     """If ``True``, uses relative positional encodings for source sequences."""

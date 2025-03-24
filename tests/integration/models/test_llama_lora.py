@@ -22,7 +22,6 @@ def test_lora_wrappers_llama_works() -> None:
     model_config = LLaMAConfig(
         model_dim=1024,
         max_seq_len=2048,
-        vocab_size=32_000,
         num_layers=16,
         num_attn_heads=8,
         num_key_value_heads=8,

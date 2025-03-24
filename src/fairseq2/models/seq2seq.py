@@ -22,14 +22,16 @@ from fairseq2.typing import Device
 class Seq2SeqModel(Module, ABC):
     """Represents a sequence-to-sequence model."""
 
+    max_source_seq_len: int
     max_target_seq_len: int
 
-    def __init__(self, max_target_seq_len: int) -> None:
+    def __init__(self, max_source_seq_len: int, max_target_seq_len: int) -> None:
         """
         :param max_target_seq_len: The maximum length of produced sequences.
         """
         super().__init__()
 
+        self.max_source_seq_len = max_source_seq_len
         self.max_target_seq_len = max_target_seq_len
 
     @abstractmethod

@@ -22,12 +22,14 @@ class EncoderDecoderModel(Seq2SeqModel):
 
     model_dim: int
 
-    def __init__(self, model_dim: int, max_target_seq_len: int) -> None:
+    def __init__(
+        self, model_dim: int, max_source_seq_len: int, max_target_seq_len: int
+    ) -> None:
         """
         :param model_dim: The dimensionality of the model.
         :param max_target_seq_len: The maximum length of produced sequences.
         """
-        super().__init__(max_target_seq_len)
+        super().__init__(max_source_seq_len, max_target_seq_len)
 
         self.model_dim = model_dim
 

@@ -323,7 +323,7 @@ class PathBasedModelLoader(ModelLoader):
 
         model_path = self._format_as_sharded_path(model_path, gangs)
 
-        model_name = "custom"
+        model_name = "recipe"
 
         try:
             handler = self._model_handlers.get(model_family)
@@ -461,7 +461,7 @@ class ModelCreator(ModelLoader):
         if model_family is None:
             raise ValueError("`recipe_config.model.family` must be specified.")
 
-        model_name = "custom"
+        model_name = "recipe"
 
         try:
             handler = self._model_handlers.get(model_family)

@@ -28,7 +28,7 @@ from fairseq2.recipes.common import (
     create_evaluator,
     load_dataset,
     register_extra_asset_paths,
-    setup_inference_gangs,
+    setup_gangs,
     setup_reference_model,
     setup_torch,
 )
@@ -122,7 +122,7 @@ def load_wav2vec2_evaluator(
 
     setup_torch(context, config.common, output_dir)
 
-    gangs = setup_inference_gangs(context, config.gang)
+    gangs = setup_gangs(context, config.gang)
 
     seed = config.common.seed
 

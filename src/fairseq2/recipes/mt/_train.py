@@ -80,7 +80,11 @@ class MTTrainConfig:
         default_factory=lambda: MTTrainDatasetSection()
     )
 
-    tokenizer: TextTokenizerSection = field(
+    source_tokenizer: TextTokenizerSection = field(
+        default_factory=lambda: TextTokenizerSection(name="nllb-200")
+    )
+
+    target_tokenizer: TextTokenizerSection = field(
         default_factory=lambda: TextTokenizerSection(name="nllb-200")
     )
 
@@ -239,7 +243,12 @@ def load_mt_trainer(
 
     dataset = load_dataset(ParallelTextDataset, context, config.dataset, gangs)
 
-    tokenizer = load_text_tokenizer(context, config.tokenizer)
+    source_tokenizer = load_text_tokenizer(context, config.source_tokenizer)
+
+    if config.source_tokenizer == config.target_tokenizer:
+        target_tokenizer = source_tokenizer
+    else:
+        target_tokenizer = load_text_tokenizer(context, config.target_tokenizer)
 
     # Initialize the train unit.
     criterion = MTCriterion(model, label_smoothing=config.loss.label_smoothing)
@@ -261,7 +270,8 @@ def load_mt_trainer(
 
     data_reader = dataset.create_reader(
         config.dataset.train_split,
-        tokenizer,
+        source_tokenizer,
+        target_tokenizer,
         gangs.dp,
         config.dataset.min_seq_len,
         config.dataset.max_seq_len,
@@ -277,7 +287,10 @@ def load_mt_trainer(
     # Initialize the validation units.
     if config.validation.compute_bleu_chrf:
         seq2seq_generator = create_seq2seq_generator(
-            context, config.validation.seq2seq_generator, model, tokenizer.vocab_info
+            context,
+            config.validation.seq2seq_generator,
+            model,
+            target_tokenizer.vocab_info,
         )
     else:
         seq2seq_generator = None
@@ -313,7 +326,8 @@ def load_mt_trainer(
 
         valid_data_reader = dataset.create_reader(
             valid_split,
-            tokenizer,
+            source_tokenizer,
+            target_tokenizer,
             gangs.dp,
             config.dataset.min_seq_len,
             config.dataset.max_seq_len,
@@ -331,7 +345,7 @@ def load_mt_trainer(
                 model,
                 direction,
                 seq2seq_generator,
-                tokenizer,
+                target_tokenizer,
                 gangs,
                 bleu_tokenizer=config.validation.bleu_tokenizer,
             )
@@ -351,7 +365,8 @@ def load_mt_trainer(
 
             valid_data_reader = dataset.create_reader(
                 valid_split,
-                tokenizer,
+                source_tokenizer,
+                target_tokenizer,
                 gangs.dp,
                 config.dataset.min_seq_len,
                 config.dataset.max_seq_len,

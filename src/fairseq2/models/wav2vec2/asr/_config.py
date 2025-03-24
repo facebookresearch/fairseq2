@@ -33,8 +33,8 @@ class Wav2Vec2AsrConfig:
     )
     """The configuration of the encoder."""
 
-    vocab_size: int = 32
-    """The number of output characters."""
+    target_vocab_size: int = 32
+    """The size of the target vocabulary."""
 
     final_dropout_p: float = 0.0
     """The dropout probability on the output of the encoder."""

@@ -10,7 +10,7 @@ from fairseq2.models.mistral._config import MistralConfig
 from fairseq2.models.transformer import (
     TransformerEmbeddingFrontend,
     TransformerFrontend,
-    init_final_projection,
+    init_transformer_final_projection,
 )
 from fairseq2.models.transformer_decoder import TransformerDecoderModel
 from fairseq2.nn import (
@@ -57,13 +57,13 @@ class MistralFactory:
 
         decoder = self.create_decoder()
 
-        final_proj = self.create_final_proj()
+        final_proj = self.create_final_projection()
 
         return TransformerDecoderModel(
             decoder_frontend,
             decoder,
             final_proj,
-            pad_idx=None,
+            pad_idx=config.pad_idx,
             max_seq_len=config.max_seq_len,
         )
 
@@ -156,14 +156,14 @@ class MistralFactory:
             config.model_dim, config.ffn_inner_dim, bias=False, inner_dim_scale=1.0
         )
 
-    def create_final_proj(self) -> Projection:
+    def create_final_projection(self) -> Projection:
         config = self._config
 
         return Linear(
             config.model_dim,
             config.vocab_size,
             bias=False,
-            init_fn=init_final_projection,
+            init_fn=init_transformer_final_projection,
         )
 
     @staticmethod

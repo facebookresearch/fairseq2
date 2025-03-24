@@ -32,7 +32,7 @@ class TransformerConfig:
     vocab_size: int = 32_768
     """The size of the vocabulary."""
 
-    pad_idx: int | None = 0
+    pad_idx: int = 0
     """The index of the PAD symbol in the vocabulary."""
 
     num_encoder_layers: int = 6

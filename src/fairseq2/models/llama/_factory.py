@@ -64,7 +64,7 @@ class LLaMAFactory:
 
         decoder = self.create_decoder()
 
-        final_proj = self.create_final_proj(embed)
+        final_proj = self.create_final_projection(embed)
 
         return TransformerDecoderModel(
             decoder_frontend,
@@ -222,7 +222,7 @@ class LLaMAFactory:
 
         return (2 * (n + 1)) ** 0.5  # type: ignore[no-any-return]
 
-    def create_final_proj(self, embed: Embedding) -> Projection:
+    def create_final_projection(self, embed: Embedding) -> Projection:
         config = self._config
 
         if config.tie_embeddings:

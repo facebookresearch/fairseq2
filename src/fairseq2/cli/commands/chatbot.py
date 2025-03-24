@@ -34,7 +34,7 @@ from fairseq2.models.decoder import DecoderModel
 from fairseq2.recipes import RecipeError
 from fairseq2.recipes.common import (
     load_text_tokenizer,
-    setup_inference_gangs,
+    setup_gangs,
     setup_reference_model,
     setup_torch,
 )
@@ -129,7 +129,7 @@ class RunChatbotHandler(CliCommandHandler):
         )
 
         try:
-            gangs = setup_inference_gangs(context, gang_section)
+            gangs = setup_gangs(context, gang_section)
         except RecipeError as ex:
             raise CliCommandError(
                 "The chatbot setup has failed. See the nested exception for details."
