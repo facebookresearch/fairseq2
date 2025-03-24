@@ -96,7 +96,8 @@ class Seq2SeqBatch(SupportsDeviceTransfer):
 
         return int(self.target_padding_mask.seq_lens.sum())
 
-    def to_device(self, device: Device) -> Seq2SeqBatch:
+    @override
+    def to(self, device: Device) -> None:
         """Move the batch to the given device.
 
         :param device:
