@@ -83,7 +83,7 @@ class SafeFragment:
             ]
 
         can_apply_on_phyiscal_schema = False
-        if filters is not None:
+        if filters is not None and not add_fragment_traces:
             try:
                 _ = physical_schema.empty_table().filter(filters)
                 can_apply_on_phyiscal_schema = True
