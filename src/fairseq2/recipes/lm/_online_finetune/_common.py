@@ -292,90 +292,42 @@ def find_first_value(lst, value):
 
 
 def generate_rollouts(
-    prompts: List[str], dp_gang: Gang, vllm_model, sampling_params=None
-):
-    prompts_to_generate = [None] * dp_gang.size
-    if dp_gang.rank == 0:
-        dp_gang.gather_object(prompts, prompts_to_generate, 0)
-    else:
-        dp_gang.gather_object(prompts, None, 0)
-
-    if dp_gang.rank == 0:
-        rank_batch_sizes = [len(l) for l in prompts_to_generate]
-        flat_request_list = []
-        for rank_prompts in prompts_to_generate:
-            flat_request_list.extend(rank_prompts)
-
-        rollouts = vllm_model.rollout_from_model(
-            flat_request_list, sampling_params=sampling_params
-        )
-
-        rollouts_to_scatter = []
-        rollouts_per_rank = [None]
-        for dp_rank, rank_batch_size in zip(range(dp_gang.size), rank_batch_sizes):
-            rank_start = sum(rank_batch_sizes[:dp_rank])
-            rank_end = rank_start + rank_batch_size
-            rollouts_to_scatter.append(rollouts[rank_start:rank_end])
-        dp_gang.scatter_object_list(
-            rollouts_per_rank, rollouts_to_scatter, source_rank=0
-        )
-    else:
-        rollouts_per_rank = [None]
-        dp_gang.scatter_object_list(rollouts_per_rank, None, source_rank=0)
-
-    dp_gang.barrier()
-
-    return rollouts_per_rank[0]
-
-
-def generate_rewards(
     prompts: List[str],
-    dp_gang: Gang,
+    dp_gang,
     vllm_model,
+    operation: str = "rollout",
     sampling_params=None,
-    prompt_len: int = None,
-    prompt_id: str = None,
 ):
-    # FIXME should be combined with generate_rollouts
-    # if dp_gang.rank == 0:
-    #     breakpoint()
-    prompts_to_generate = [None] * dp_gang.size
-    # prompt_lens = [len(prompt.split()) for prompt in prompts]
-    # log.info(f"***** PROMPT IDS: {prompt_id} *****")
-    # log.info(f"***** PROMPT LENS: {prompt_len} *****")
-    # log.info(f"***** PROMPT AND RESPONSE: {prompts[0]} *****")
-    # log.info(f"***** PROMPT AND RESPONSE LEN: {prompt_lens[0]} *****")
-    # log.info(f"==================================================\n")
+    if operation not in ["rollout", "reward"]:
+        raise ValueError("Operation must be either 'rollout' or 'reward'.")
 
+    prompts_to_generate = [None] * dp_gang.size
     if dp_gang.rank == 0:
         dp_gang.gather_object(prompts, prompts_to_generate, 0)
     else:
         dp_gang.gather_object(prompts, None, 0)
-
     if dp_gang.rank == 0:
-
         rank_batch_sizes = [len(l) for l in prompts_to_generate]
         flat_request_list = []
         for rank_prompts in prompts_to_generate:
             flat_request_list.extend(rank_prompts)
 
-        rollouts = vllm_model.get_reward_from_model(
-            flat_request_list, sampling_params=sampling_params
-        )
+        if operation == "rollout":
+            outputs = vllm_model.rollout_from_model(
+                flat_request_list, sampling_params=sampling_params
+            )
+        elif operation == "reward":
+            outputs = vllm_model.reward_from_model(flat_request_list)
 
-        rollouts_to_scatter = []
-        rollouts_per_rank = [None]
+        outputs_to_scatter = []
+        outputs_per_rank = [None]
         for dp_rank, rank_batch_size in zip(range(dp_gang.size), rank_batch_sizes):
             rank_start = sum(rank_batch_sizes[:dp_rank])
             rank_end = rank_start + rank_batch_size
-            rollouts_to_scatter.append(rollouts[rank_start:rank_end])
-        dp_gang.scatter_object_list(
-            rollouts_per_rank, rollouts_to_scatter, source_rank=0
-        )
+            outputs_to_scatter.append(outputs[rank_start:rank_end])
+        dp_gang.scatter_object_list(outputs_per_rank, outputs_to_scatter, source_rank=0)
     else:
-        rollouts_per_rank = [None]
-        dp_gang.scatter_object_list(rollouts_per_rank, None, source_rank=0)
-
+        outputs_per_rank = [None]
+        dp_gang.scatter_object_list(outputs_per_rank, None, source_rank=0)
     dp_gang.barrier()
-
-    return rollouts_per_rank[0]
+    return outputs_per_rank[0]

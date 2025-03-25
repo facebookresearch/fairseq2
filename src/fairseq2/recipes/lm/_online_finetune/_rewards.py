@@ -24,7 +24,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     collate_with_target_mask,
     find_first_value,
     GRPOBatch,
-    generate_rewards,
+    generate_rollouts,
 )
 import re
 from fairseq2.recipes.config import (
@@ -336,10 +336,11 @@ class SkyworkVerifier(VLLMOutputReward):
             batch_text.append(rollouts_text)
             batch_tokens.append(rollouts_tokens)
 
-        batch_rewards = generate_rewards(
+        batch_rewards = generate_rollouts(
             vllm_inputs,
             dp_gang=self._gangs.dp,
             vllm_model=self.vllm_model,
+            operation="reward",
         )
 
         # reshape batch_rewards to [Batch, Rollouts]

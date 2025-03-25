@@ -247,7 +247,7 @@ class RemoteVllmModel:
         )
         return outputs
 
-    def get_reward_from_model(self, prompt_list, sampling_params=None, batch_size=128):
+    def reward_from_model(self, prompt_list, batch_size=128):
         rewards = []
         for i in range(0, len(prompt_list), batch_size):
             prompt_chunk = prompt_list[i : i + batch_size]
