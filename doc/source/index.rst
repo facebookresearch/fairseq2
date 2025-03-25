@@ -71,6 +71,7 @@ Documentation
 
    notebooks/datapipeline
    notebooks/dataset_gsm8k_sft
+   notebooks/parquet_dataloader
    notebooks/models/load_model
 
 .. toctree::

@@ -1,149 +1,372 @@
-## Parquet Data Loading with fairseq2
+# Parquet Data Loading with fairseq2
 
-The subfolder contains some tooling necessary to build an efficient dataloader over an Apache Parquet dataset (partitioned or not) in `fairseq2.data`.
-The present tooling is of general purpose and can be combined with various downstream workflows.
-Note that it requires an extra package installation with `pip install fairseq2[arrow]` since we rely on the [pyarrow](https://arrow.apache.org/docs/python/index.html) library to interface with parquet files.
+A parquet dataset is a collection of parquet files that can be partitioned (or not).
+Each parquet file is a collection of row groups.
+And, roughly speaking, a row group is the smallest piece of parquet file  that can be read in memory.
+Yet since parquet is columnar format, we can flexibly and efficiently read only a subset of columns from a row group.
 
+This module provides an efficient and flexible data loading pipeline for Apache Parquet datasets in fairseq2.
+The present tooling of general purpose and can be combined with various downstream workflows for large-scale machine learning workloads with features like sharding, filtering, column selection, and dynamic batching.
 
-Folder is organized as follows:
-* [fragement_streaming](fragment_streaming/builder.py): is responsible for building various schedulers that produce Parquet dataset fragments;
-* [fragement_loading](fragment_loading/builder.py): is responsible for the data reading from the Parquet dataset fragments;
-* [table_bucketing](table_bucketing/builder.py): contains the logic of how to bucketize loaded data several loaded tables in memory.
+**Requirements**: Install the Arrow dependencies with `pip install fairseq2[arrow]`, since we rely on the 
+[pyarrow](https://arrow.apache.org/docs/python/index.html) library to interface with parquet files.
 
+## Table of Contents
 
-## Fragments streaming
-
-We're using the [pyarrow.parquet](https://arrow.apache.org/docs/python/generated/pyarrow.parquet.ParquetDataset.html) API to interface with Parquet datasets.
-A parquet dataset is a collection of parquet files that can be partitioned or not. Each parquet file is a collection of row groups.
-And, roughly speaking, a row group is the smallest piece of parquet file that can be read in memory. Yet since parquet is columnar format, we can always read only a subset of columns from a row group.
-
-
-`fragment_streaming/config.py:FragmentStreamingConfig` defines the configuration of the "fragment" streaming pipeline.
-A fragment corrreponds to a file if the `split_to_row_groups` is set to `False` and to a row group otherwise.
-For better streaming performance, we recommend to set `split_to_row_groups` to `True` which results in smaller fragments in memory.
-
-### on shuffling
-If `fragment_shuffle_window` is set to `0`, no shuffling will be applied.
-if `fragment_shuffle_window` is set to `-1`, all fragments will be shuffled globally.
-
-For other values of `fragment_shuffle_window`, shuffle is enabled and it will happen as follows.
-All files dataset will be shuffled globally (and this shuffling will be different from one epoch to another).
-Next, each file will be split into row groups and shuffled locally within `fragment_shuffle_window`.
-
-Note that the global shuffling requires to get parquet all files metadata upfront which can be expensive for large datasets located remotely, whearas  if `fragment_shuffle_window` is set to a small value (e.g. ~ average nb fragments per file * 5), the  time to the first batch will be faster. The metadata will be fetching will be done on the fly in that case.
-
-Note also that shuffling behavior is seeded to be completely deterministic by the `seed` parameter, thus if one reset a pipeline with the same `seed` value, the exactly same shuffling will be applied.
+- [Architecture Overview](#architecture-overview)
+- [Fragment Streaming](#fragment-streaming)
+- [Fragment Loading](#fragment-loading)
+- [Table Bucketing](#table-bucketing)
+- [Complete Pipeline Examples](#complete-pipeline-examples)
+- [Working with PyArrow Tables](#working-with-pyarrow-tables)
+- [Performance Considerations](#performance-considerations)
+- [Advanced Usage](#advanced-usage)
 
 
-### Example of simple usage:
+## Architecture Overview
+
+The data loading pipeline is organized into three main components:
+
+1. [**Fragment Streaming**](fragment_streaming/builder.py): Produces a stream of dataset fragments (files or row groups)
+2. [**Fragment Loading**](fragment_loading/builder.py): Reads data from these fragments into PyArrow tables
+3. [**Table Bucketing**](table_bucketing/builder.py): Combines and processes tables into batches
+
+Each component has its own configuration class to control behavior.
+
+
+
+## Fragment Streaming
+
+The `fragment_streaming/config.py:FragmentStreamingConfig` class defines how fragments are streamed from a Parquet dataset.
+
+### Basic Usage
+
 ```python
-import pyarrow as pa
-import pyarrow.compute as pc
-from fairseq2.data.parquet import *
-
-fragment_config = FragmentStreamingConfig(
-    parquet_path="path/to/parquet/dataset_root/",
-    nb_epochs=2,
-    split_to_row_groups=True,  # working with row groups instead of files
-    fragment_shuffle_window=-1, # -1 means global shuffle
+from fairseq2.data.parquet.fragment_streaming import (
+    FragmentStreamingConfig, ParquetFragmentStreamer
 )
-fragement_pipeline = ParquetFragmentStreamer(config=fragment_config).build_pipeline(rank=3, world_size=8)
 
+# Simple configuration
+config = FragmentStreamingConfig(
+    parquet_path="/path/to/dataset/",
+    nb_epochs=2,
+    split_to_row_groups=True,  # Work with row groups instead of files. Set to False makes a fragment correspond to a file.
+    fragment_shuffle_window=100,  # Shuffle within a window of 100 fragments
+    seed=42,  # For reproducibility
+)
+
+# Create the streamer
+streamer = ParquetFragmentStreamer(config=config)
+
+# Build a pipeline for a specific rank/world_size (for distributed training)
+fragment_pipeline = streamer.build_pipeline(rank=0, world_size=1).and_return()
 ```
-Here, `fragement_pipeline` will produce `pa.dataset.Fragment` objects which are kind of pointer to the physical data location that we will read from.
 
-### on sharding
-Here we can shard a dataset at fragment level using the `rank` and `world_size` parameters in `build_pipeline`.
-This sharding will typically be uneven in terms of resulting number of rows, so we recommend to use the `nb_epochs=None` for inifinte loop for large training runs. Alternatively, if parquet dataloading is not bottleneck, one can stream all fragments without sharding, load them in memory and only then shard them at row level to get more uniform sharding.
+### Shuffling Options
 
-
-### on filtering
-One can use the `partition_filters` (as `pa.compute.Expression`) parameter to restrict the dataset on a subset of the parquet files.
-Example:
-* `partition_filters='pc.field("ds") == "2023-01-01"'`
-* `partition_filters='pc.is_in(pc.field("split"), pa.array(["dev", "test"]))'`
-
-
-## Fragments loading
-
-`fragment_loading/config.py:FragmentLoadingConfig` defines the configuration of the "fragment" loading pipeline.
-In particular it uses `NamedColumns` dataclass abstraction to define the columns to read and their renaming.
-It's useful to unify the column names across the different datasets with different schemas.
-
+The module provides several shuffling strategies:
 
 ```python
+# No shuffling
+config = FragmentStreamingConfig(..., fragment_shuffle_window=0)
+
+# Global shuffling (requires loading all metadata up front)
+config = FragmentStreamingConfig(..., fragment_shuffle_window=-1)
+
+# Local shuffling within a window (faster start time)
+config = FragmentStreamingConfig(..., fragment_shuffle_window=100)
+
+# Circular shift for distributed training
+config = FragmentStreamingConfig(
+    ...,
+    files_circular_shift=True,  # Different ranks start at different positions
+    fragment_shuffle_window=100
+)
+```
+
+> [!NOTE]
+> How shuffling works:
+> - For non-zero postive `fragment_shuffle_window` value, all dataset files will be shuffled globally (and this shuffling will be different from one epoch to another).
+> - Next, each file will be split into row groups and shuffled locally within `fragment_shuffle_window`.
+> 
+> Note that the global shuffling needs all parquet files' metadata upfront, which can be expensive for remote large datasets.
+> However, if `fragment_shuffle_window` is set to a small value (_e.g._ ~ average number of fragments per file * 5), the time to the first batch will be shorter.
+> The metadata fetching will be done on the fly in that case.
+> 
+> Also note that the shuffling behavior is seeded to be completely deterministic by the `seed` parameter. 
+> Thus if one reset a pipeline with the same `seed` value, the exactly same shuffling will be applied.
+
+### Sharding
+
+We can shard a dataset at fragment level using the `rank` and `world_size` parameters in `build_pipeline`, as demonstrated in the simple usage example above.
+This sharding will typically be uneven -- different number of rows.
+Therefore o we recommend to use the `nb_epochs=None` for inifinte loop for large training runs.
+Alternatively, if parquet dataloading is not the bottleneck, you can stream all fragments without sharding -- load them in memory and only then shard them at the row level to get more uniform sharding.
+
+### Filtering Datasets
+
+You can filter the dataset using PyArrow expressions:
+
+```python
+import pyarrow.compute as pc
+
+# Filter by partition
+config = FragmentStreamingConfig(
+    partition_filters='pc.is_in(pc.field("split"), pa.array(["dev", "test"]))'
+)
+
+# Multiple filters
+config = FragmentStreamingConfig(
+    partition_filters=[
+        'pc.field("split") == "train"',
+        'pc.field("language") == "en"'
+    ]
+)
+
+# Complex filters
+config = FragmentStreamingConfig(
+    partition_filters='pc.greater(pc.field("date"), pc.scalar("2023-01-01"))'
+)
+```
+
+> Note: 
+> Make sure that the filters are applied to the parition columns.
+> If you want to pass the `partition_filter` here to the fragments, you will need to apply the filters during the loading process.
+
+## Fragment Loading
+
+The `fragment_loading/config.py:FragmentLoadingConfig` defines how data is loaded from fragments.
+
+### Column Selection
+
+Use the `NamedColumns` class to define which columns to load and how to rename them:
+
+```python
+from dataclasses import dataclass, field
+from typing import List
+from fairseq2.data.parquet.fragment_loading import (
+    FragmentLoadingConfig, NamedColumns, ParquetFragmentLoader
+)
 
 @dataclass
-class MyColumnsSchema(NamedColumns):
-    category: str
-    uid: str
-    extra_columns: List[str]
+class MyColumns(NamedColumns):
+    # Format: new_name: original_column_name
+    text: str = "source_text"
+    label: str = "target_label"
+    extra_columns: List[str] = field(default_factory=lambda: ["metadata", "timestamp"])
 
-
+# Create the loading config
 loading_config = FragmentLoadingConfig(
-    columns=MyColumnsSchema(category="cat", uid="id", extra_columns=["seq"]),
-    add_fragment_traces=True, # adding extra columns to trace the data origin (file path, row group id, row index)
-    num_parallel_fragments=4,  # reading 4 fragments in parallel
-    nb_prefetch=1,
+    columns=MyColumns(),
+    add_fragment_traces=True,  # Add tracking columns
+    drop_null=True,  # Drop rows with null values
+    nb_prefetch=2,  # Prefetch 2 fragments
+    num_parallel_fragments=4,  # Process 4 fragments in parallel
 )
 
-loading_pipeline = ParquetFragmentLoader(config=loading_config).build_pipeline(fragement_pipeline)
+# Build the loading pipeline
+loader = ParquetFragmentLoader(config=loading_config).build_pipeline(fragment_pipeline)
 ```
 
-In the above example, `loading_pipeline` will produce `pa.Table` objects.
-Note that raw column `cat` will be renamed to `category`, `id` to `uid`, and `seq` will be kept as is!
-If we set `columns=None`, all available columns will be read without any renaming.
+### Filtering Loaded Data
 
-
-## Table bucketing
-We can bucketize or recombine several consecutive loaded tables into a a different shape using
-`table_bucketing/config.py:TableBucketingConfig`.
+You can filter data after loading:
 
 ```python
-    bucketing_config = TableBucketingConfig(target_table_size=1000,
-                                            min_fragment_number=2,
-                                            max_fragment_number=10,
-                                            shuffle=True,
-                                            batch_size=5)
-    bucketing_pipeline = TableBucketer(bucketing_config).build_pipeline(loading_pipeline)
+loading_config = FragmentLoadingConfig(
+    columns=MyColumns(),
+    filters='pc.greater(pc.list_value_length(pc.field("text")), 10)'  # Rows with text length > 10
+)
 ```
-The configuration above will
-1. take between 2 and 10 consecutive loaded tables (the precise number is determined in such a way that the total size is just above 1000 rows)
-2. concatenate them together and shuffle them in memory
-3. then split it into batches of size 5 that will be yielded one by one.
 
+> [!NOTE]
+> Note that this is another layer of filtering different from the `partition_filters` for fragment streaming. 
 
-## Putting everything together
-One can combine the steps above into a basic yet complete pipeline using `build_basic_parquet_data_pipeline`:
+## Table Bucketing
+
+The `table_bucketing/config.py:TableBucketingConfig` controls how tables are combined and batched:
 
 ```python
-    >>> from fairseq2.data.parquet import *
-    >>> config = BasicDataLoadingConfig(
-    ...     fragment_stream_config=FragmentStreamingConfig(
-    ...         parquet_path="path/to/parquet/dataset/",
-    ...         partition_filters='pc.field("split") == "train"',
-    ...         nb_epochs=None,
-    ...         fragment_shuffle_window=100),
-    ...     fragment_load_config=FragmentLoadingConfig(columns=None, nb_prefetch=2, num_parallel_fragments=3),
-    ...     table_bucketing_config=TableBucketingConfig(target_table_size=1000,
-    ...                                                 min_fragment_number=2, max_fragment_number=10,
-    ...                                                 shuffle=True, batch_size=5),
-    ... )
-    >>> pipeline = build_basic_parquet_data_pipeline(config).and_return()
-    >>> for batch in pipeline:
-    ...     print(batch.to_pandas())
+from fairseq2.data.parquet.table_bucketing import (
+    TableBucketingConfig, TableBucketer
+)
+
+# Create bucketing config
+bucketing_config = TableBucketingConfig(
+    target_table_size=1000,  # Aim for tables with 1000 rows
+    min_fragment_number=2,   # Combine at least 2 fragments
+    max_fragment_number=10,  # Combine at most 10 fragments
+    shuffle=True,            # Shuffle rows in memory
+    batch_size=32            # Return batches of 32 rows
+)
+
+# Apply bucketing
+bucketer = TableBucketer(bucketing_config)
+final_pipeline = bucketer.apply(loading_pipeline)
+
+# Iterate through batches
+for batch in final_pipeline.and_return():
+    # batch is a PyArrow Table
+    print(batch.column_names)
+    print(len(batch))
 ```
 
+## Complete Pipeline Examples
 
-## Pyarrow Table converion
+### Basic End-to-End Pipeline
 
-Parquet fragments are represented in memory as [`pa.Table` objects](https://arrow.apache.org/docs/python/generated/pyarrow.Table.html),
-one can convert them into other format using the following:
-* `pa.Table.to_pandas()` to convert into pandas dataframe;
-* `pa.Table.to_pydict()` to convert into a dictionary of lists;
-* using [polars](https://docs.pola.rs/) one can use `pl.from_arrow(pa_table, rechunk=False)` to convert into a polars dataframe (with almost memory zero copy);
-* `pa.Table.to_pylist()` or `pl.from_arrow(...).to_dicts()` (usually much faster) to convert into a list of dictionaries;
-* `parquet/utiles.py:pyarrow_table_to_torch_dict` to convert pyarrow table into a dictionary of cpu torch tensors (best effort).
+```python
+from fairseq2.data.parquet import (
+    BasicDataLoadingConfig,
+    build_basic_parquet_data_pipeline,
+    FragmentStreamingConfig,
+    FragmentLoadingConfig,
+    TableBucketingConfig
+)
 
+# Configure the entire pipeline
+config = BasicDataLoadingConfig(
+    fragment_stream_config=FragmentStreamingConfig(
+        parquet_path="/path/to/dataset/",
+        partition_filters='pc.field("split") == "train"',
+        nb_epochs=None,  # Infinite iterations
+        fragment_shuffle_window=100
+    ),
+    fragment_load_config=FragmentLoadingConfig(
+        columns=MyColumns(),
+        nb_prefetch=2,
+        num_parallel_fragments=3
+    ),
+    table_bucketing_config=TableBucketingConfig(
+        target_table_size=1000,
+        min_fragment_number=2,
+        max_fragment_number=10,
+        shuffle=True,
+        batch_size=32
+    ),
+)
 
-Note that both pyarrow and polars offers powerful APIs to manipulate and transform tables objects that can be used out of the box with the present tooling.
+# Create the pipeline
+pipeline = build_basic_parquet_data_pipeline(config).and_return()
+
+# Use the pipeline
+for batch in pipeline:
+    # Process the batch
+    pass
+```
+
+### Distributed Training Example
+
+```python
+import torch.distributed as dist
+
+# Get distributed info
+rank = dist.get_rank()
+world_size = dist.get_world_size()
+
+config = BasicDataLoadingConfig(
+    fragment_stream_config=FragmentStreamingConfig(
+        parquet_path="/path/to/dataset/",
+        fragment_shuffle_window=100,
+        files_circular_shift=True  # Different ranks start at different positions
+    ),
+    # ... other configs
+)
+
+# Create a pipeline for this rank
+pipeline = build_basic_parquet_data_pipeline(
+    config, rank=rank, world_size=world_size
+).and_return()
+```
+
+## Working with PyArrow Tables
+
+PyArrow tables can be converted to various formats:
+
+```python
+# Convert to pandas
+df = batch.to_pandas()
+
+# Convert to dictionary
+batch_dict = batch.to_pydict()
+
+# Convert to torch tensors
+from fairseq2.data.parquet.utils import pyarrow_table_to_torch_dict
+tensor_dict = pyarrow_table_to_torch_dict(batch)
+
+# Using Polars (fast with zero-copy)
+import polars as pl
+polars_df = pl.from_arrow(batch, rechunk=False)
+
+# Convert to list of dictionaries (rows)
+rows = batch.to_pylist()
+# Or using polars (usually much faster)
+rows = pl.from_arrow(batch, rechunk=False).to_dicts()
+```
+
+> [!NOTE]
+> - Using [polars](https://docs.pola.rs/), one can use `pl.from_arrow(pa_table, rechunk=False)` to convert into a polars dataframe (with almost memory zero copy);
+> - `pa.Table.to_pylist()` or `pl.from_arrow(...).to_dicts()` (usually much faster) to convert into a list of dictionaries;
+> `parquet/utiles.py:pyarrow_table_to_torch_dict` to convert pyarrow table into a dictionary of cpu torch tensors (best effort)
+
+## Performance Considerations
+
+### Optimizing for Large Datasets
+
+For large, remote datasets:
+
+```python
+config = FragmentStreamingConfig(
+    # Avoid global shuffling which requires loading all metadata
+    fragment_shuffle_window=200,  # Use local shuffling
+    split_to_row_groups=True,     # Work with smaller row groups
+)
+
+loading_config = FragmentLoadingConfig(
+    # Only load needed columns
+    columns=MyColumns(text="source", label="target"),
+    # Cache data to reduce memory usage with large remote datasets
+    cache=True,
+    # Parallelize fragment loading
+    num_parallel_fragments=4,
+    # Prefetch to hide I/O latency
+    nb_prefetch=2
+)
+```
+
+### Memory Management
+
+For memory-intensive workloads:
+
+```python
+loading_config = FragmentLoadingConfig(
+    # Cache to temporary files
+    cache=True,
+    # Column pruning to reduce memory footprint
+    columns=MyColumns(text="source")  # Only load needed columns
+)
+
+bucketing_config = TableBucketingConfig(
+    # Smaller target size to reduce peak memory
+    target_table_size=500,
+    # Smaller batch size
+    batch_size=16
+)
+```
+
+## Transformations
+
+You can apply custom transformations to the pipeline:
+
+```python
+from fairseq2.data.parquet.arrow_transform import filter_strings_by_length
+
+# Create a custom transformation
+def my_transform(table):
+    # Apply filtering by text length
+    table = filter_strings_by_length(table, "text", min_len=10, max_len=1000)
+    return table
+
+# Apply the transformation
+final_pipeline = loading_pipeline.map(my_transform)
+```
