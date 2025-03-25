@@ -199,7 +199,9 @@ def register_po_finetune_configs(context: RuntimeContext) -> None:
 
         config.model.name = "llama3_1_70b_instruct"
         config.gang.tensor_parallel_size = 8
-        config.criterion.config.reference_model.name = "llama3_1_70b_instruct"
+
+        if config.criterion.config.reference_model is not None:
+            config.criterion.config.reference_model.name = "llama3_1_70b_instruct"
 
         return config
 
