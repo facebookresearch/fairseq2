@@ -45,6 +45,7 @@ class SamplingSequenceGenerator(SequenceGenerator):
     """Represents a sequence generator based on sampling."""
 
     _model: DecoderModel
+    _vocab_info: VocabularyInfo
     _sampler: Sampler
     _num_gens: int
     _min_gen_len: int
@@ -64,6 +65,7 @@ class SamplingSequenceGenerator(SequenceGenerator):
     def __init__(
         self,
         model: DecoderModel,
+        vocab_info: VocabularyInfo,
         sampler: Sampler,
         *,
         num_gens: int = 1,
@@ -118,14 +120,15 @@ class SamplingSequenceGenerator(SequenceGenerator):
         :param step_processors:
             The processors to call at each generation step.
         """
-        if model.vocab_info.eos_idx is None:
+        if vocab_info.eos_idx is None:
             raise ValueError(
-                "`model.vocab_info` must have `eos_idx` set for sequence generation."
+                "`vocab_info` must have `eos_idx` set for sequence generation."
             )
 
         model.eval()
 
         self._model = model
+        self._vocab_info = vocab_info
 
         if min_gen_len < 1:
             raise ValueError(
@@ -185,6 +188,7 @@ class SamplingSequenceGenerator(SequenceGenerator):
     ) -> SequenceGeneratorOutput:
         op = _SamplingSequenceGeneratorOp(
             self._model,
+            self._vocab_info,
             prompt_seqs,
             prompt_padding_mask,
             self._sampler,
@@ -227,6 +231,7 @@ class SamplingSeq2SeqGenerator(Seq2SeqGenerator):
     """Represents a sequence-to-sequence generator based on sampling."""
 
     _model: EncoderDecoderModel
+    _target_vocab_info: VocabularyInfo
     _sampler: Sampler
     _num_gens: int
     _min_gen_len: int
@@ -246,6 +251,7 @@ class SamplingSeq2SeqGenerator(Seq2SeqGenerator):
     def __init__(
         self,
         model: EncoderDecoderModel,
+        target_vocab_info: VocabularyInfo,
         sampler: Sampler,
         *,
         num_gens: int = 1,
@@ -301,14 +307,15 @@ class SamplingSeq2SeqGenerator(Seq2SeqGenerator):
         :param step_processors:
             The processors to call at each generation step.
         """
-        if model.target_vocab_info.eos_idx is None:
+        if target_vocab_info.eos_idx is None:
             raise ValueError(
-                "`model.vocab_info` must have `eos_idx` set for sequence generation."
+                "`target_vocab_info` must have `eos_idx` set for sequence generation."
             )
 
         model.eval()
 
         self._model = model
+        self._target_vocab_info = target_vocab_info
 
         if min_gen_len < 1:
             raise ValueError(
@@ -388,6 +395,7 @@ class SamplingSeq2SeqGenerator(Seq2SeqGenerator):
 
         op = _SamplingSeq2SeqGeneratorOp(
             self._model,
+            self._target_vocab_info,
             encoder_output,
             encoder_padding_mask,
             prompt_seqs,
@@ -461,10 +469,10 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
 
     def __init__(
         self,
+        vocab_info: VocabularyInfo,
         prompt_seqs: Tensor,
         prompt_padding_mask: PaddingMask | None,
         sampler: Sampler,
-        vocab_info: VocabularyInfo,
         num_gens: int,
         min_gen_len: int,
         max_gen_len: int,
@@ -874,6 +882,7 @@ class _SamplingSequenceGeneratorOp(_AbstractSamplingSequenceGeneratorOp):
     def __init__(
         self,
         model: DecoderModel,
+        vocab_info: VocabularyInfo,
         prompt_seqs: Tensor,
         prompt_padding_mask: PaddingMask | None,
         sampler: Sampler,
@@ -893,10 +902,10 @@ class _SamplingSequenceGeneratorOp(_AbstractSamplingSequenceGeneratorOp):
         step_hooks: dict[int, StepHook],
     ) -> None:
         super().__init__(
+            vocab_info,
             prompt_seqs,
             prompt_padding_mask,
             sampler,
-            model.vocab_info,
             num_gens,
             min_gen_len,
             max_gen_len,
@@ -935,6 +944,7 @@ class _SamplingSeq2SeqGeneratorOp(_AbstractSamplingSequenceGeneratorOp):
     def __init__(
         self,
         model: EncoderDecoderModel,
+        target_vocab_info: VocabularyInfo,
         encoder_output: Tensor,
         encoder_padding_mask: PaddingMask | None,
         prompt_seqs: Tensor,
@@ -956,10 +966,10 @@ class _SamplingSeq2SeqGeneratorOp(_AbstractSamplingSequenceGeneratorOp):
         step_hooks: dict[int, StepHook],
     ) -> None:
         super().__init__(
+            target_vocab_info,
             prompt_seqs,
             prompt_padding_mask,
             sampler,
-            model.target_vocab_info,
             num_gens,
             min_gen_len,
             max_gen_len,

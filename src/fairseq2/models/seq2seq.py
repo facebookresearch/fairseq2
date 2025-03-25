@@ -13,7 +13,6 @@ from torch import Tensor
 from torch.nn import Module
 from typing_extensions import override
 
-from fairseq2.data import VocabularyInfo
 from fairseq2.device import SupportsDeviceTransfer
 from fairseq2.models.sequence import SequenceBatch, SequenceModelOutput
 from fairseq2.nn.padding import PaddingMask
@@ -23,30 +22,22 @@ from fairseq2.typing import Device
 class Seq2SeqModel(Module, ABC):
     """Represents a sequence-to-sequence model."""
 
+    max_source_seq_len: int
     max_target_seq_len: int
-    target_vocab_info: VocabularyInfo
 
-    def __init__(
-        self,
-        max_target_seq_len: int,
-        target_vocab_info: VocabularyInfo,
-    ) -> None:
+    def __init__(self, max_source_seq_len: int, max_target_seq_len: int) -> None:
         """
-        :param max_target_seq_len:
-            The maximum length of sequences produced by the model.
-        :param target_vocab_info:
-            The vocabulary information of sequences produced by the model.
+        :param max_target_seq_len: The maximum length of produced sequences.
         """
         super().__init__()
 
+        self.max_source_seq_len = max_source_seq_len
         self.max_target_seq_len = max_target_seq_len
-        self.target_vocab_info = target_vocab_info
 
     @abstractmethod
     def forward(self, batch: Seq2SeqBatch) -> SequenceModelOutput:
         """
-        :param batch:
-            The batch of sequences to process.
+        :param batch: The batch of sequences to process.
         """
 
 

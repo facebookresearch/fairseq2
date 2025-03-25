@@ -21,16 +21,39 @@ from fairseq2.logging import log
 from fairseq2.recipes import RecipeError
 from fairseq2.recipes.common import HybridShardingNotSupportedError
 from fairseq2.recipes.config import (
-    ConfigSectionNotFoundError,
     GangSection,
     TrainerSection,
-    get_config_section,
 )
-from fairseq2.recipes.utils.log import log_environment_info
+from fairseq2.recipes.utils.log import log_environment_info, log_ranks
 from fairseq2.utils.env import InvalidEnvironmentVariableError, get_local_world_size
 
 
-def setup_gangs(context: RuntimeContext, recipe_config: object) -> Gangs:
+def setup_gangs(context: RuntimeContext, gang_section: GangSection) -> Gangs:
+    gangs = _do_setup_gangs(context, gang_section)
+
+    log_ranks(log, gangs)
+
+    return gangs
+
+
+def setup_training_gangs(
+    context: RuntimeContext, gang_section: GangSection, trainer_section: TrainerSection
+) -> Gangs:
+    gangs = _do_setup_gangs(context, gang_section)
+
+    try:
+        gangs = _maybe_setup_fsdp_gangs(context, trainer_section, gangs)
+    except GangError as ex:
+        raise RecipeError(
+            "The hybrid sharded data parallel gangs cannot set up. See the nested exception for details."
+        ) from ex
+
+    log_ranks(log, gangs)
+
+    return gangs
+
+
+def _do_setup_gangs(context: RuntimeContext, gang_section: GangSection) -> Gangs:
     try:
         device = determine_default_device(context)
     except DeviceDetectionError as ex:
@@ -43,8 +66,6 @@ def setup_gangs(context: RuntimeContext, recipe_config: object) -> Gangs:
     log_environment_info(log, device)
 
     log.info("Initializing the root gang.")
-
-    gang_section = get_config_section(recipe_config, "gang", GangSection)
 
     timeout = timedelta(minutes=gang_section.timeout)
 
@@ -85,33 +106,12 @@ def setup_gangs(context: RuntimeContext, recipe_config: object) -> Gangs:
 
     log.info("Parallel gangs initialized.")
 
-    try:
-        gangs = _maybe_setup_fsdp_gangs(context, recipe_config, gangs)
-    except GangError as ex:
-        raise RecipeError(
-            "The hybrid sharded data parallel gangs cannot set up. See the nested exception for details."
-        ) from ex
-
-    s = (
-        f"Data: {gangs.dp.rank} | "
-        f"Data/Replicated: {gangs.rdp.rank} | "
-        f"Data/Sharded: {gangs.sdp.rank} | "
-        f"Tensor: {gangs.tp.rank}"
-    )
-
-    log.info("Process Ranks - {}", s)
-
     return gangs
 
 
 def _maybe_setup_fsdp_gangs(
-    context: RuntimeContext, recipe_config: object, gangs: Gangs
+    context: RuntimeContext, trainer_section: TrainerSection, gangs: Gangs
 ) -> Gangs:
-    try:
-        trainer_section = get_config_section(recipe_config, "trainer", TrainerSection)
-    except ConfigSectionNotFoundError:
-        return gangs
-
     if trainer_section.data_parallelism != "fsdp":
         return gangs
 

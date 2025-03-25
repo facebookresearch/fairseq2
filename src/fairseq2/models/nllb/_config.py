@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from fairseq2.context import RuntimeContext
-from fairseq2.data import VocabularyInfo
 from fairseq2.models.transformer import TransformerConfig
 from fairseq2.nn.transformer import TransformerNormOrder
 
@@ -43,9 +42,8 @@ def register_nllb_configs(context: RuntimeContext) -> None:
         config = registry.get("base")
 
         config.model_dim = 1024
-        config.vocab_info = VocabularyInfo(
-            size=256206, unk_idx=1, bos_idx=2, eos_idx=3, pad_idx=0
-        )
+        config.vocab_size = 256_206
+        config.pad_idx = 0
         config.num_encoder_layers = 24
         config.num_decoder_layers = 24
         config.num_encoder_attn_heads = 16

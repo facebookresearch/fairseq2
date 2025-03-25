@@ -108,6 +108,12 @@ from fairseq2.nn.transformer._multihead_attention import (
 from fairseq2.nn.transformer._multihead_attention import (
     StaticAttentionState as StaticAttentionState,
 )
+from fairseq2.nn.transformer._multihead_attention import (
+    init_mha_output_projection as init_mha_output_projection,
+)
+from fairseq2.nn.transformer._multihead_attention import (
+    init_qkv_projection as init_qkv_projection,
+)
 from fairseq2.nn.transformer._norm_order import (
     TransformerNormOrder as TransformerNormOrder,
 )

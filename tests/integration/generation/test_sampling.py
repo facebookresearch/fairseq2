@@ -37,7 +37,7 @@ def test_greedy_sampling() -> None:
 
     sampler = TopKSampler(k=1)
 
-    generator = SamplingSeq2SeqGenerator(model, sampler)
+    generator = SamplingSeq2SeqGenerator(model, tokenizer.vocab_info, sampler)
 
     translator = TextTranslator(
         generator, tokenizer, source_lang="eng_Latn", target_lang="deu_Latn"

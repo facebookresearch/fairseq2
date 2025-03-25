@@ -76,15 +76,13 @@ def test_merge_object_works() -> None:
 
     source = {
         "_del_": ["foo3"],
-        "_add_": {
-            "foo6": 1.0,
-        },
         "_set_": {
             "foo5": 2.0,
+            "foo6": 1.0,
         },
         "foo2": {
             "_del_": ["foo2_foo1"],
-            "_add_": {
+            "_set_": {
                 "foo2_foo4": "a",
             },
         },
@@ -162,18 +160,18 @@ def test_merge_map_raises_error_when_type_is_invalid() -> None:
         merge_map(target, source)
 
     target = {"foo1": {"foo2": {}}}
-    source = {"foo1": {"foo2": {"_add_": "foo"}}}
+    source = {"foo1": {"foo2": {"_set_": "foo"}}}
 
     with pytest.raises(
-        MergeError, match=rf"^'foo1\.foo2\._add_' at `source` must be of type `{Mapping}`, but is of type `{str}` instead\.$"  # fmt: skip
+        MergeError, match=rf"^'foo1\.foo2\._set_' at `source` must be of type `{Mapping}`, but is of type `{str}` instead\.$"  # fmt: skip
     ):
         merge_map(target, source)
 
     target = {"foo1": {"foo2": {}}}
-    source = {"foo1": {"foo2": {"_add_": {0: "foo"}}}}
+    source = {"foo1": {"foo2": {"_set_": {0: "foo"}}}}
 
     with pytest.raises(
-        MergeError, match=rf"^Each key under 'foo1\.foo2\._add_' at `source` must be of type `str`, but the key at index 0 is of type `{int}` instead\.$"  # fmt: skip
+        MergeError, match=rf"^Each key under 'foo1\.foo2\._set_' at `source` must be of type `str`, but the key at index 0 is of type `{int}` instead\.$"  # fmt: skip
     ):
         merge_map(target, source)
 
