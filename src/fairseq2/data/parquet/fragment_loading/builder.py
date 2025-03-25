@@ -87,7 +87,7 @@ class SafeFragment:
             try:
                 _ = physical_schema.empty_table().filter(filters)
                 can_apply_on_phyiscal_schema = True
-            except pa.ArrowInvalid as e:
+            except pa.ArrowInvalid:
                 pass
 
         try:
