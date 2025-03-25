@@ -32,6 +32,8 @@ from fairseq2.datasets import (
     DatasetHubAccessor,
     LengthBatching,
     StaticBatching,
+    DatasetLoadError,
+    UnknownSplitError
 )
 from fairseq2.datasets._utils import _load_files_and_weights
 from fairseq2.error import NotSupportedError
@@ -59,6 +61,8 @@ class PromptReadOptions(DataReadOptions):
 
     src_key: str = "src"
 
+    repeat_batch_n_times: int = 1
+
 @dataclass
 class PromptBatch:
     """Represents a preference optimization dataset batch."""
@@ -77,6 +81,7 @@ class PromptDataset(ABC):
     @abstractmethod
     def create_reader(
         self,
+        split: str,
         tokenizer: TextTokenizer,
         gang: Gang,
         min_seq_len: int,
@@ -112,11 +117,10 @@ class GenericPromptDataset(PromptDataset):
     """Represents a generic JSONL preference optimization dataset."""
 
     _name: str
-    _files: Sequence[Path]
-    _weights: Sequence[float]
+    _splits: dict[str, tuple[Sequence[Path], Sequence[float]]]
 
     def __init__(
-        self, name: str, files: Sequence[Path], weights: Sequence[float]
+        self, name: str, splits: dict[str, tuple[Sequence[Path], Sequence[float]]]
     ) -> None:
         """
         :param files:
@@ -126,23 +130,42 @@ class GenericPromptDataset(PromptDataset):
         """
         self._name = name
 
-        if len(files) != len(weights):
-            raise ValueError(
-                f"The lengths of `files` and `weights` must match, but they are {len(files)} and {len(weights)} instead."
-            )
+        for split, (files, weights) in splits.items():
+            if len(files) != len(weights):
+                raise ValueError(
+                    f"The lengths of the file and weight lists of the '{split}' split must match, but they are {len(files)} and {len(weights)} instead."
+                )
 
-        self._files = files
-        self._weights = weights
+        self._splits = splits
 
     @staticmethod
     def from_path(path: Path, name: str) -> GenericPromptDataset:
-        files, weights = _load_files_and_weights(name, path)
+        splits: dict[str, tuple[Sequence[Path], Sequence[float]]] = {}
 
-        return GenericPromptDataset(name, files, weights)
+        if path.is_dir():
+            try:
+                child_dirs = [p for p in path.iterdir() if p.is_dir()]
+            except OSError as ex:
+                raise DatasetLoadError(
+                    name, f"The files under the '{path}' directory of the '{name}' dataset cannot be retrieved. See the nested exception for details."  # fmt: skip
+                ) from ex
+
+            for child_dir in child_dirs:
+                files, weights = _load_files_and_weights(name, child_dir)
+
+                splits[child_dir.name] = (files, weights)
+
+        if not splits:
+            files, weights = _load_files_and_weights(name, path)
+
+            splits["default"] = (files, weights)
+
+        return GenericPromptDataset(name, splits)
 
     @override
     def create_reader(
         self,
+        split: str,
         tokenizer: TextTokenizer,
         gang: Gang,
         min_seq_len: int,
@@ -155,19 +178,30 @@ class GenericPromptDataset(PromptDataset):
         seed = options.seed
         src_key = options.src_key
 
-        if len(self._files) == 1:
-            builder = self._read_jsonl(self._files[0], tokenizer)
+        files_weights = self._splits.get(split)
+        if files_weights is None:
+            raise UnknownSplitError(self._name, split, self._splits.keys())
+
+        if options is None:
+            options = PromptReadOptions()
+
+        seed = options.seed
+
+        files, weights = files_weights
+
+        if len(files) == 1:
+            builder = self._read_jsonl(files[0], tokenizer)
         else:
             pipelines = []
 
-            for file in self._files:
+            for file in files:
                 pipeline = self._read_jsonl(file, tokenizer).and_return()
 
                 pipelines.append(pipeline)
 
             if options.sample:
                 builder = DataPipeline.sample(
-                    pipelines, weights=self._weights, seed=seed
+                    pipelines, weights=weights, seed=seed
                 )
 
                 seed += 1
@@ -272,11 +306,11 @@ class GenericPromptDataset(PromptDataset):
                 prompts=prompts,
                 meta_info=meta_info
             )
-
-        pipeline = builder.map(to_batch).and_return()
+        
+        pipeline = builder.map(to_batch).yield_from(lambda x: read_sequence([x] * options.repeat_batch_n_times).and_return()).and_return()
 
         return DataPipelineReader[PromptBatch](
-            self._name, "default", pipeline, gang, options
+            self._name, split, pipeline, gang, options
         )
 
     def _read_jsonl(self, path: Path, tokenizer: TextTokenizer) -> DataPipelineBuilder:

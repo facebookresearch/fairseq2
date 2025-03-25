@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Final, List, cast, final
+from copy import copy
 
 import torch.nn as nn
 import torch
@@ -69,6 +70,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
     _sync_vllm_model_every_n_steps: int
     _sync_ref_model_every_n_steps: int
     _reward: VLLMOutputReward
+    _display_name: str
 
     def __init__(
         self,
@@ -91,6 +93,13 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         self._sync_ref_model_every_n_steps = sync_ref_model_every_n_step
         self._reward = reward
         self._metric_bag = GrpoFinetuneMetricBag(gangs.dp)
+        
+        self._display_name = "GRPO"
+
+    @property
+    @override
+    def display_name(self) -> str | None:
+        return self._display_name
 
     def maybe_sync_models(self):
 
@@ -108,10 +117,28 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 self._gangs.root.barrier()
                 broadcast_model(self._reference_model, self._gangs)
 
+    def validate_reward(self, prompt_batch: PromptBatch) -> tuple[Tensor, int]:
+        if self._gangs.dp.rank == 0:
+            policy_sampling_params = copy(self._vllm_model.sampling_params)
+            policy_sampling_params.n = 1
+        else:
+            policy_sampling_params = None
+        rollouts = generate_rollouts(prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._vllm_model, sampling_params=policy_sampling_params)
+        reward_output = self._reward.process_rollouts(rollouts, prompt_batch.meta_info[self._reward.answer_key])
+        avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
+        self._metric_bag.update_avg_reward(avg_reward)
+        # returning dummy loss since trainer expects it
+        return torch.tensor(0.0, device=self._gangs.dp.device), prompt_batch.batch_size
+
 
     @override
     def __call__(self, prompt_batch: PromptBatch) -> tuple[Tensor, int]:
 
+        if not self.model.module.training:
+            # we are in valid mode, only compute reward and return
+            dummy_loss, batch_size = self.validate_reward(prompt_batch)
+            return dummy_loss, batch_size
+        
         self.maybe_sync_models()
 
         rollouts = generate_rollouts(prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._vllm_model)

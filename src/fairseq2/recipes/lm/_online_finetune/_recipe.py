@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import List
 
 import torch
 import torch.distributed
@@ -127,6 +128,10 @@ class OnlineFinetuneDatasetSection(DatasetSection):
 
     path: Path | None = "/opt/hpcaas/.mounts/fs-08557fb804ac7e131/kulikov/llm_rl/data_wanswers_64.jsonl"
 
+    train_split: str = "default"
+
+    valid_split: str | List[str] | None = None
+
     source_encode_mode: str = "prompt"
     """The encode mode for the prompt, determines what special tokens to add."""
 
@@ -147,7 +152,7 @@ class OnlineFinetuneDatasetSection(DatasetSection):
     # max_num_tokens: int = 8192 * 2
     # """The maximum number of total `src`, `tgt_chosen`, and `tgt_rejected` tokens per batch."""
 
-    batch_size: int | None = 4
+    batch_size: int | None = 1
     """If not ``None``, ignores `max_num_tokens` and each batch will have `batch_size` examples."""
 
     example_shuffle_window: int = 10_000
@@ -259,16 +264,65 @@ def load_online_finetuner(
         # max_num_batches=4,  ## TODO
         seed=seed,
         extras=config.dataset.extras,
-        src_key=config.dataset.src_key
+        src_key=config.dataset.src_key,
+        repeat_batch_n_times=config.trainer.gradient_accumulation
     )
 
     data_reader = dataset.create_reader(
+        config.dataset.train_split,
         tokenizer,
         gangs.dp,
         config.dataset.min_seq_len,
         config.dataset.max_seq_len,
         read_options,
     )
+
+    if config.dataset.valid_split:
+        valid_batching = StaticBatching(10000)
+        valid_read_options = PromptReadOptions(
+            batching=valid_batching,
+            example_shuffle_window=config.dataset.example_shuffle_window,
+            batch_shuffle_window=config.dataset.batch_shuffle_window,
+            num_accumulate=1,
+            num_prefetch=config.dataset.num_prefetch,
+            source_encode_mode=config.dataset.source_encode_mode,
+            max_num_batches=10000,  ## TODO make confifurable ? 
+            seed=seed,
+            extras=config.dataset.extras,
+            src_key=config.dataset.src_key,
+        )
+        if isinstance(config.dataset.valid_split, list):
+            valid_data_readers = []
+            for valid_split in config.dataset.valid_split:
+                vdr = dataset.create_reader(
+                    valid_split,
+                    tokenizer,
+                    gangs.dp,
+                    config.dataset.min_seq_len,
+                    config.dataset.max_seq_len,
+                    valid_read_options,
+                )
+                valid_data_readers.append(vdr)
+        elif isinstance(config.dataset.valid_split, str):
+            valid_data_readers = [
+                dataset.create_reader(
+                    config.dataset.valid_split,
+                    tokenizer,
+                    gangs.dp,
+                    config.dataset.min_seq_len,
+                    config.dataset.max_seq_len,
+                    valid_read_options,
+                )
+            ]
+        else:
+            raise ValueError("valid split has to be either list of splits or single split")
+    else:
+        valid_data_readers = []
+
+    if len(valid_data_readers) > 0:
+        valid_units = [unit]*len(valid_data_readers)
+    else:
+        valid_units = []
 
     seed += 1
 
@@ -278,8 +332,8 @@ def load_online_finetuner(
         output_dir,
         unit,
         data_reader,
-        [],
-        [],
+        valid_units,
+        valid_data_readers,
         gangs,
         checkpoint_manager,
         optimizer,

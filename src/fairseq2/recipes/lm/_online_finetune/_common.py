@@ -271,7 +271,7 @@ def sync_weights_with_vllm(train_model, vllm_model, trainer_process_group):
 def find_first_value(lst, value):
     return next((i for i, x in enumerate(lst) if x == value), None)
 
-def generate_rollouts(prompts: List[str], dp_gang: Gang, vllm_model, sampling_params=None):
+def generate_rollouts(prompts: List[List[int]], dp_gang: Gang, vllm_model, sampling_params=None):
     prompts_to_generate = [None]*dp_gang.size
     if dp_gang.rank == 0:
         dp_gang.gather_object(prompts, prompts_to_generate, 0)
