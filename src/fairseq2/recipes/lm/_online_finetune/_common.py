@@ -41,6 +41,7 @@ from fairseq2.data import (
     read_sequence,
 )
 from fairseq2.nn.padding import get_seqs_and_padding_mask
+from fairseq2.logging import LoggingSetupError, log
 
 
 @dataclass
@@ -328,10 +329,24 @@ def generate_rollouts(
 
 
 def generate_rewards(
-    prompts: List[str], dp_gang: Gang, vllm_model, sampling_params=None
+    prompts: List[str],
+    dp_gang: Gang,
+    vllm_model,
+    sampling_params=None,
+    prompt_len: int = None,
+    prompt_id: str = None,
 ):
     # FIXME should be combined with generate_rollouts
+    # if dp_gang.rank == 0:
+    #     breakpoint()
     prompts_to_generate = [None] * dp_gang.size
+    # prompt_lens = [len(prompt.split()) for prompt in prompts]
+    # log.info(f"***** PROMPT IDS: {prompt_id} *****")
+    # log.info(f"***** PROMPT LENS: {prompt_len} *****")
+    # log.info(f"***** PROMPT AND RESPONSE: {prompts[0]} *****")
+    # log.info(f"***** PROMPT AND RESPONSE LEN: {prompt_lens[0]} *****")
+    # log.info(f"==================================================\n")
+
     if dp_gang.rank == 0:
         dp_gang.gather_object(prompts, prompts_to_generate, 0)
     else:

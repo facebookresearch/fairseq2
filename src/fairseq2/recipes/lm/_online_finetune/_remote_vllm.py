@@ -247,16 +247,16 @@ class RemoteVllmModel:
         )
         return outputs
 
-    def get_reward_from_model(self, prompt_list, sampling_params=None):
+    def get_reward_from_model(self, prompt_list, sampling_params=None, batch_size=128):
         rewards = []
-        for prompt in prompt_list:
-
-            (output,) = ray.get(
+        for i in range(0, len(prompt_list), batch_size):
+            prompt_chunk = prompt_list[i : i + batch_size]
+            output = ray.get(
                 self.vllm_model.encode.remote(
-                    prompt,
+                    prompt_chunk,
                     use_tqdm=False,
                 )
             )
-            reward = output.outputs.data.item()
-            rewards.append(reward)
+            chunk_rewards = [o.outputs.data.item() for o in output]
+            rewards.extend(chunk_rewards)
         return rewards

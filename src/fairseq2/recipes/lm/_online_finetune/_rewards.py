@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+import random
+import string
 import torch
 from typing_extensions import override
 from typing import Any, List
@@ -309,43 +311,40 @@ class SkyworkVerifier(VLLMOutputReward):
     def process_rollouts(
         self,
         vllm_outputs: List[RequestOutput],
-        reference_answers: List[str],
-        prompts,
+        prompt_batch,
     ):
+        vllm_inputs = []
         batch_text = []
         batch_tokens = []
-        batch_rewards = []
 
-        for i, (i_batch_request_output, prompt) in enumerate(
-            zip(vllm_outputs, prompts)
+        if vllm_outputs is None:
+            vllm_outputs = [None] * len(prompt_batch.prompts)
+
+        for i, (i_batch_request_output, prompt, prompt_text) in enumerate(
+            zip(vllm_outputs, prompt_batch.prompts, prompt_batch.meta_info["prompt"])
         ):
+
             rollouts_text = []
             rollouts_tokens = []
-
-            rollouts_rewards = []
             for rollout_output in i_batch_request_output.outputs:
-                prompt_text = self.tokenizer.decode(prompt)
-
-                prompt_text = self.extract_text_from_llama3_wrapper(
-                    prompt_text
-                )  # FIXME need more universal method
                 rollout_text = rollout_output.text
-
                 vllm_input = self.wrap_text(prompt_text, rollout_text)
-
-                score = generate_rewards(
-                    [vllm_input],
-                    dp_gang=self._gangs.dp,
-                    vllm_model=self.vllm_model,
-                )
-
+                vllm_inputs.append(vllm_input)
                 rollouts_text.append(rollout_output.text)
                 rollouts_tokens.append(rollout_output.token_ids)
-                rollouts_rewards.extend(score)
 
             batch_text.append(rollouts_text)
             batch_tokens.append(rollouts_tokens)
-            batch_rewards.append(rollouts_rewards)
+
+        batch_rewards = generate_rewards(
+            vllm_inputs,
+            dp_gang=self._gangs.dp,
+            vllm_model=self.vllm_model,
+        )
+
+        # reshape batch_rewards to [Batch, Rollouts]
+        B, R = len(batch_text), len(batch_text[0])  # batch size, rollouts
+        batch_rewards = [batch_rewards[i * R : (i + 1) * R] for i in range(B)]
 
         return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
 
@@ -353,9 +352,7 @@ class SkyworkVerifier(VLLMOutputReward):
         self, prompt_batch: PromptBatch, rollouts
     ) -> PreferenceBatch:
 
-        reward_output = self.process_rollouts(
-            rollouts, prompt_batch.meta_info["answer"], prompt_batch.prompts
-        )
+        reward_output = self.process_rollouts(rollouts, prompt_batch)
 
         chosen_batch = []
         rejected_batch = []
@@ -366,12 +363,6 @@ class SkyworkVerifier(VLLMOutputReward):
         for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(
             zip(reward_output["rewards"], reward_output["tokens"])
         ):
-            # if self._gangs.root.rank == 0:
-            #     from pdb import set_trace
-
-            #     set_trace()
-            # chosen_rollout_position = find_first_value(i_batch_rewards, 1)
-            # rejected_rollout_position = find_first_value(i_batch_rewards, 0)
             chosen_rollout_position = i_batch_rewards.index(max(i_batch_rewards))
             rejected_rollout_position = i_batch_rewards.index(min(i_batch_rewards))
 

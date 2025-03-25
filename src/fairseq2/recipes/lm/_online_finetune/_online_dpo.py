@@ -141,17 +141,15 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
     @override
     def __call__(self, prompt_batch: PromptBatch) -> tuple[Tensor, int]:
 
-        # if self._gangs.root.rank == 0:
         #     from pudb.remote import set_trace
         #     set_trace(host="submit-0", port=6899, term_size=(80*2, 24*2), reverse=True)
-
         # self._gangs.root.barrier()
 
         self.maybe_sync_models()
-
         rollouts = generate_rollouts(
             prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._vllm_model
         )
+        # rollouts = None
 
         batch, is_bad_batch, reward_output = self._reward.prepare_preference_batch(
             prompt_batch, rollouts
@@ -418,6 +416,7 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
             unit_config=config,
             configs_name="vllm_model",  # FIXME better way to use the correct configs?
         )
+        # vllm_model = None
 
         # FIXME better way to check if vllm_reward_model is present in config
         if hasattr(config, "vllm_reward_model"):
