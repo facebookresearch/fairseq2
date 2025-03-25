@@ -39,9 +39,7 @@ class TableBucketer:
                 "Only one of `target_table_memory`, `target_total_length`, `target_table_size` can be set"
             )
 
-        self.do_concat_tables = (
-            none_bucketing_params == 2
-        ) and self.config.combine_chunks
+        self.do_concat_tables = none_bucketing_params == 2
 
         if self.config.target_total_length is not None:
             assert (
@@ -95,9 +93,10 @@ class TableBucketer:
                 drop_remainder=False,
             )
 
-        pipeline = pipeline.map(
-            lambda tables: concat_table(tables, combine=self.do_concat_tables)
-        )
+        if self.do_concat_tables:
+            pipeline = pipeline.map(
+                lambda tables: concat_table(tables, combine=self.config.combine_chunks)
+            )
 
         if (
             self.config.target_total_length is not None
