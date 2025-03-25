@@ -1,5 +1,8 @@
 # Parquet Data Loading with fairseq2
 
+> [!NOTE]
+> This module aims at supporting complex data structures (_e.g._ embeddings, tokens, audios, videos, bytes) in one single format.
+
 A parquet dataset is a collection of parquet files that can be partitioned (or not).
 Each parquet file is a collection of row groups.
 And, roughly speaking, a row group is the smallest piece of parquet file  that can be read in memory.
@@ -340,19 +343,45 @@ For memory-intensive workloads:
 
 ```python
 loading_config = FragmentLoadingConfig(
-    # Cache to temporary files
+    # Enable caching to disk for large tables
     cache=True,
+    # Parallelize and prefetch for efficiency
+    num_parallel_fragments=2,
     # Column pruning to reduce memory footprint
     columns=MyColumns(text="source")  # Only load needed columns
 )
 
 bucketing_config = TableBucketingConfig(
-    # Smaller target size to reduce peak memory
-    target_table_size=500,
-    # Smaller batch size
-    batch_size=16
+    # Control memory usage directly (in MB)
+    target_table_memory=250,  # Limit each table to 250MB
+    # Set boundaries for fragment combining
+    min_fragment_number=1,
+    max_fragment_number=5,
+    # Apply smaller batches for processing
+    batch_size=16,
+    # Enable memory mapping for large tables
+    cache=True,
+    # Consider setting combine_chunks=False for very large datasets
+    combine_chunks=True
 )
 ```
+
+The `target_table_memory` parameter provides direct control over the memory footprint:
+
+- Specified in megabytes (MB)
+- Controls how many fragments are loaded and concatenated before processing 
+- Adapts to data complexity (variable-length text, lists, etc.)
+- More predictable memory peaks than row-based approaches
+- Better handles cases where row count doesn't correlate linearly with memory usage
+
+As alternatives, you can also use:
+- `target_table_size`: Controls the number of rows (instead of memory)
+- `target_total_length`: Controls the total token length across all columns
+
+For maximum memory efficiency, combine with:
+- Memory mapping: `cache=True` to store tables on disk
+- Column pruning: Only load needed columns
+- Chunk management: Consider `combine_chunks=False` for very large datasets
 
 ## Transformations
 
