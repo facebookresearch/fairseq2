@@ -94,7 +94,7 @@ class SafeFragment:
             fragment_table = self.fragment.to_table(
                 columns=fragment_columns,
                 use_threads=use_threads,
-                filters=filters if can_apply_on_phyiscal_schema else None,
+                filter=filters if can_apply_on_phyiscal_schema else None,
             )
         except OSError as e:
             log.info(
@@ -104,7 +104,7 @@ class SafeFragment:
             fragment_table = self.fragment.to_table(
                 columns=fragment_columns,
                 use_threads=use_threads,
-                filters=filters if can_apply_on_phyiscal_schema else None,
+                filter=filters if can_apply_on_phyiscal_schema else None,
             )
 
         if add_partitioning_columns:
