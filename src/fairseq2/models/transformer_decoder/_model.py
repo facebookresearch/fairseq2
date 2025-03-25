@@ -11,7 +11,6 @@ from typing import final
 from torch import Tensor
 from typing_extensions import override
 
-from fairseq2.data import VocabularyInfo
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.models.transformer import TransformerFrontend
@@ -27,6 +26,7 @@ class TransformerDecoderModel(DecoderModel):
     decoder_frontend: TransformerFrontend
     decoder: TransformerDecoder
     final_proj: Projection
+    pad_idx: int | None
 
     def __init__(
         self,
@@ -34,27 +34,23 @@ class TransformerDecoderModel(DecoderModel):
         decoder: TransformerDecoder,
         final_proj: Projection,
         *,
+        pad_idx: int | None,
         max_seq_len: int,
-        vocab_info: VocabularyInfo,
     ) -> None:
         """
-        :param decoder_frontend:
-            The decoder frontend.
-        :param decoder:
-            The decoder.
-        :param final_proj:
-            The projection to apply to decoder outputs.
-        :param max_seq_len:
-            The maximum length of sequences produced by the model.
-        :param vocab_info:
-            The vocabulary information of sequences produced by the model.
+        :param decoder_frontend: The decoder frontend.
+        :param decoder: The decoder.
+        :param final_proj: The projection to apply to decoder outputs.
+        :param max_seq_len: The maximum length of produced sequences.
         """
-        super().__init__(decoder.model_dim, max_seq_len, vocab_info)
+        super().__init__(decoder.model_dim, max_seq_len)
 
         self.decoder_frontend = decoder_frontend
         self.decoder = decoder
 
         self.final_proj = final_proj
+
+        self.pad_idx = pad_idx
 
     @override
     def decode(
@@ -80,4 +76,4 @@ class TransformerDecoderModel(DecoderModel):
     ) -> SequenceModelOutput:
         logits = self.final_proj(decoder_output)
 
-        return SequenceModelOutput(logits, self.vocab_info.pad_idx)
+        return SequenceModelOutput(logits, self.pad_idx)

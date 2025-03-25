@@ -120,7 +120,7 @@ class LocalFileSystem(FileSystem):
                     f"`mode` must be a valid `FileMode` value, but is `{mode}` instead."
                 )
 
-        fp = path.open(m)
+        fp = path.open(m, encoding="utf-8")
 
         return cast(TextIO, fp)
 

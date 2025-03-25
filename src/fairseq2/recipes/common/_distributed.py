@@ -37,19 +37,17 @@ from fairseq2.nn.data_parallel import (
 from fairseq2.nn.utils.gradient import clip_gradient_norm
 from fairseq2.nn.utils.module import broadcast_module, to_device
 from fairseq2.recipes import Model, RecipeError
-from fairseq2.recipes.config import TrainerSection, get_config_section
+from fairseq2.recipes.config import TrainerSection
 from fairseq2.typing import ContextManager
 
 
 def setup_data_parallel_model(
     context: RuntimeContext,
-    recipe_config: object,
+    trainer_section: TrainerSection,
     model: Model,
     gangs: Gangs,
     static_graph: bool = True,
 ) -> Model:
-    trainer_section = get_config_section(recipe_config, "trainer", TrainerSection)
-
     data_parallelism = trainer_section.data_parallelism
 
     if data_parallelism == "fsdp":
@@ -63,7 +61,7 @@ def setup_data_parallel_model(
             return wrap_ddp(model, gangs, static_graph)
 
         if data_parallelism == "fsdp":
-            return wrap_fsdp(recipe_config, model, gangs, static_graph)
+            return wrap_fsdp(trainer_section, model, gangs, static_graph)
     except DistributedSetupError as ex:
         raise RecipeError(
             "The data parallelism cannot be setup. See the nested exception for details."
@@ -153,10 +151,8 @@ class DdpModel(Model):
 
 
 def wrap_fsdp(
-    recipe_config: object, model: Model, gangs: Gangs, static_graph: bool
+    trainer_section: TrainerSection, model: Model, gangs: Gangs, static_graph: bool
 ) -> Model:
-    trainer_section = get_config_section(recipe_config, "trainer", TrainerSection)
-
     if gangs.dp.size == 1:
         to_device(model.module, gangs.root.device)
 

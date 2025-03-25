@@ -31,12 +31,6 @@ from fairseq2.checkpoint import (
 )
 from fairseq2.config_registry import ConfigNotFoundError
 from fairseq2.context import RuntimeContext
-from fairseq2.data.text.tokenizers import (
-    TextTokenizerLoadError,
-    UnknownTextTokenizerError,
-    resolve_text_tokenizer_reference,
-    text_tokenizer_asset_card_error,
-)
 from fairseq2.error import ContractError, NotSupportedError
 from fairseq2.gang import GangError, Gangs
 from fairseq2.logging import log
@@ -61,13 +55,7 @@ from fairseq2.recipes.common._error import (
     ModelParallelismNotSupportedError,
     ModelPathNotFoundError,
 )
-from fairseq2.recipes.config import (
-    ConfigSectionNotFoundError,
-    ModelSection,
-    TextTokenizerSection,
-    TrainerSection,
-    get_config_section,
-)
+from fairseq2.recipes.config import ModelSection, TrainerSection
 from fairseq2.recipes.utils.log import log_config, log_model
 from fairseq2.registry import Provider
 from fairseq2.typing import ContextManager, DataClass, is_dataclass_instance
@@ -79,20 +67,27 @@ from fairseq2.utils.yaml import StandardYamlDumper
 def setup_model(
     kls: type[Module],
     context: RuntimeContext,
-    recipe_config: object,
+    model_section: ModelSection,
+    trainer_section: TrainerSection,
     output_dir: Path,
     gangs: Gangs,
     checkpoint_manager: CheckpointManager,
     static_graph: bool = True,
 ) -> Model:
     model = load_base_model(
-        kls, context, recipe_config, output_dir, gangs, checkpoint_manager
+        kls,
+        context,
+        model_section,
+        trainer_section,
+        output_dir,
+        gangs,
+        checkpoint_manager,
     )
 
-    model = prepare_model(context, recipe_config, model, gangs)
+    model = prepare_model(context, trainer_section, model, gangs)
 
     model = setup_data_parallel_model(
-        context, recipe_config, model, gangs, static_graph
+        context, trainer_section, model, gangs, static_graph
     )
 
     log_model(log, model.module, gangs)
@@ -103,7 +98,8 @@ def setup_model(
 def load_base_model(
     kls: type[Module],
     context: RuntimeContext,
-    recipe_config: object,
+    model_section: ModelSection,
+    trainer_section: TrainerSection,
     output_dir: Path,
     gangs: Gangs,
     checkpoint_manager: CheckpointManager,
@@ -124,7 +120,6 @@ def load_base_model(
 
     model_loader: ModelLoader
 
-    model_section = get_config_section(recipe_config, "model", ModelSection)
     if model_section.checkpoint is not None:
         model_loader = PathBasedModelLoader(
             kls, model_handlers, model_card_saver, checkpoint_manager
@@ -143,7 +138,7 @@ def load_base_model(
         )
 
     try:
-        return model_loader.load(recipe_config, gangs)
+        return model_loader.load(model_section, trainer_section, gangs)
     except ShardedModelLoadError:
         raise
     except ModelLoadError as ex:
@@ -158,7 +153,9 @@ def load_base_model(
 
 class ModelLoader(ABC):
     @abstractmethod
-    def load(self, recipe_config: object, gangs: Gangs) -> Model: ...
+    def load(
+        self, model_section: ModelSection, trainer_section: TrainerSection, gangs: Gangs
+    ) -> Model: ...
 
 
 @final
@@ -184,9 +181,9 @@ class CardBasedModelLoader(ModelLoader):
         self._checkpoint_manager = checkpoint_manager
 
     @override
-    def load(self, recipe_config: object, gangs: Gangs) -> Model:
-        model_section = get_config_section(recipe_config, "model", ModelSection)
-
+    def load(
+        self, model_section: ModelSection, trainer_section: TrainerSection, gangs: Gangs
+    ) -> Model:
         model_name = model_section.name
         if model_name is None:
             raise ValueError("`recipe_config.model.name` must be specified.")
@@ -229,7 +226,6 @@ class CardBasedModelLoader(ModelLoader):
         log_config(log, "Model Config", model_config)
 
         # Load the model.
-        trainer_section = get_config_section(recipe_config, "trainer", TrainerSection)
         if trainer_section.mixed_precision == "off":
             dtype = trainer_section.dtype
         else:
@@ -289,7 +285,7 @@ class CardBasedModelLoader(ModelLoader):
 
         model = LocalModel(model_name, module, model_config, handler)
 
-        self._card_saver.save(recipe_config, model)
+        self._card_saver.save(model)
 
         return model
 
@@ -314,9 +310,9 @@ class PathBasedModelLoader(ModelLoader):
         self._checkpoint_manager = checkpoint_manager
 
     @override
-    def load(self, recipe_config: object, gangs: Gangs) -> Model:
-        model_section = get_config_section(recipe_config, "model", ModelSection)
-
+    def load(
+        self, model_section: ModelSection, trainer_section: TrainerSection, gangs: Gangs
+    ) -> Model:
         model_family = model_section.family
         if model_family is None:
             raise ValueError("`recipe_config.model.family` must be specified.")
@@ -358,7 +354,6 @@ class PathBasedModelLoader(ModelLoader):
         log_config(log, "Model Config", model_config)
 
         # Load the model.
-        trainer_section = get_config_section(recipe_config, "trainer", TrainerSection)
         if trainer_section.mixed_precision == "off":
             dtype = trainer_section.dtype
         else:
@@ -423,7 +418,7 @@ class PathBasedModelLoader(ModelLoader):
 
         model = LocalModel(model_name, module, model_config, handler)
 
-        self._card_saver.save(recipe_config, model)
+        self._card_saver.save(model)
 
         return model
 
@@ -459,9 +454,9 @@ class ModelCreator(ModelLoader):
         self._checkpoint_manager = checkpoint_manager
 
     @override
-    def load(self, recipe_config: object, gangs: Gangs) -> Model:
-        model_section = get_config_section(recipe_config, "model", ModelSection)
-
+    def load(
+        self, model_section: ModelSection, trainer_section: TrainerSection, gangs: Gangs
+    ) -> Model:
         model_family = model_section.family
         if model_family is None:
             raise ValueError("`recipe_config.model.family` must be specified.")
@@ -497,7 +492,6 @@ class ModelCreator(ModelLoader):
         log_config(log, "Model Config", model_config)
 
         # Create the model.
-        trainer_section = get_config_section(recipe_config, "trainer", TrainerSection)
         if trainer_section.mixed_precision == "off":
             dtype = trainer_section.dtype
         else:
@@ -562,7 +556,7 @@ class ModelCreator(ModelLoader):
             is_empty_initialized=step_nr is None,
         )
 
-        self._card_saver.save(recipe_config, model)
+        self._card_saver.save(model)
 
         return model
 
@@ -666,7 +660,7 @@ class LocalModel(Model):
 
 class ModelCardSaver(ABC):
     @abstractmethod
-    def save(self, recipe_config: object, mode: Model) -> None: ...
+    def save(self, mode: Model) -> None: ...
 
 
 @final
@@ -683,58 +677,13 @@ class StandardModelCardSaver(ModelCardSaver):
         self._checkpoint_metadata_saver = checkpoint_metadata_saver
 
     @override
-    def save(self, recipe_config: object, model: Model) -> None:
-        try:
-            tokenizer_name = self._get_text_tokenizer_name(recipe_config)
-        except TextTokenizerLoadError as ex:
-            raise AssetMetadataSaveError(
-                "The asset card of the model text tokenizer cannot be loaded. See the nested exception for details."
-            ) from ex
-
-        self._checkpoint_metadata_saver.save(
-            model.handler.family, model.config, tokenizer_name
-        )
-
-    def _get_text_tokenizer_name(self, recipe_config: object) -> str | None:
-        try:
-            tokenizer_section = get_config_section(
-                recipe_config, "text_tokenizer", TextTokenizerSection
-            )
-        except ConfigSectionNotFoundError:
-            tokenizer_section = None
-
-        if tokenizer_section is None:
-            model_section = get_config_section(recipe_config, "model", ModelSection)
-
-            tokenizer_name = model_section.name
-            if tokenizer_name is None:
-                return None
-        else:
-            tokenizer_name = tokenizer_section.name
-
-        try:
-            card = self._asset_store.retrieve_card(tokenizer_name)
-        except AssetCardNotFoundError:
-            if tokenizer_section is not None:
-                raise UnknownTextTokenizerError(tokenizer_name) from None
-
-            return None
-        except AssetCardError as ex:
-            raise text_tokenizer_asset_card_error(tokenizer_name) from ex
-
-        try:
-            card = resolve_text_tokenizer_reference(self._asset_store, card)
-        except AssetCardError as ex:
-            raise text_tokenizer_asset_card_error(tokenizer_name) from ex
-
-        return card.name
+    def save(self, model: Model) -> None:
+        self._checkpoint_metadata_saver.save(model.handler.family, model.config)
 
 
 def prepare_model(
-    context: RuntimeContext, recipe_config: object, model: Model, gangs: Gangs
+    context: RuntimeContext, trainer_section: TrainerSection, model: Model, gangs: Gangs
 ) -> Model:
-    trainer_section = get_config_section(recipe_config, "trainer", TrainerSection)
-
     if trainer_section.activation_checkpointing:
         use_layerwise_activation_checkpointing(model.module)
 
@@ -745,7 +694,5 @@ def prepare_model(
         log.info("Compiling '{}' model.", model.name)
 
         model.handler.compile(model.module, model.config)
-
-        log.info("Model compiled.")
 
     return model

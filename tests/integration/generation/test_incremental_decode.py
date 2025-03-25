@@ -33,10 +33,6 @@ def test_incremental_decoding_works() -> None:
 
     tokenizer = tokenizer_hub.load(model_name)
 
-    pad_idx = tokenizer.vocab_info.pad_idx
-
-    assert pad_idx is not None
-
     # Set up encoder and decoder inputs.
     source_token_encoder = tokenizer.create_encoder(
         task="translation", lang="deu_Latn", mode="source", device=device
@@ -54,6 +50,10 @@ def test_incremental_decoding_works() -> None:
         target_token_encoder(EN_SENTENCE),
         target_token_encoder(EN_SENTENCE),
     ]
+
+    pad_idx = tokenizer.vocab_info.pad_idx
+
+    assert pad_idx is not None
 
     source_seqs, source_padding_mask = pad_seqs(source_indices, pad_idx)
     target_seqs, target_padding_mask = pad_seqs(target_indices, pad_idx)

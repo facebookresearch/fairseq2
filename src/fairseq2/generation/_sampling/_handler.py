@@ -11,6 +11,7 @@ from typing import Final, final
 
 from typing_extensions import override
 
+from fairseq2.data import VocabularyInfo
 from fairseq2.generation._generator import Seq2SeqGenerator, SequenceGenerator
 from fairseq2.generation._handler import (
     Seq2SeqGeneratorHandler,
@@ -89,7 +90,9 @@ class SamplingSequenceGeneratorHandler(SequenceGeneratorHandler):
         self._sampler_handlers = sampler_handlers
 
     @override
-    def create(self, model: DecoderModel, config: object) -> SequenceGenerator:
+    def create(
+        self, model: DecoderModel, vocab_info: VocabularyInfo, config: object
+    ) -> SequenceGenerator:
         config = structure(config, SamplingConfig)
 
         validate(config)
@@ -118,6 +121,7 @@ class SamplingSequenceGeneratorHandler(SequenceGeneratorHandler):
 
         return SamplingSequenceGenerator(
             model,
+            vocab_info,
             sampler,
             min_gen_len=config.min_gen_len,
             max_gen_len=max_gen_len,
@@ -151,7 +155,12 @@ class SamplingSeq2SeqGeneratorHandler(Seq2SeqGeneratorHandler):
         self._sampler_handlers = sampler_handlers
 
     @override
-    def create(self, model: EncoderDecoderModel, config: object) -> Seq2SeqGenerator:
+    def create(
+        self,
+        model: EncoderDecoderModel,
+        target_vocab_info: VocabularyInfo,
+        config: object,
+    ) -> Seq2SeqGenerator:
         config = structure(config, SamplingConfig)
 
         validate(config)
@@ -177,6 +186,7 @@ class SamplingSeq2SeqGeneratorHandler(Seq2SeqGeneratorHandler):
 
         return SamplingSeq2SeqGenerator(
             model,
+            target_vocab_info,
             sampler,
             min_gen_len=config.min_gen_len,
             max_gen_len=max_gen_len,

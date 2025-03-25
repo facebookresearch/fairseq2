@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import torch.nn as nn
+
 from fairseq2.models.wav2vec2 import (
     StandardWav2Vec2Masker,
     Wav2Vec2EncoderFactory,
@@ -14,6 +16,7 @@ from fairseq2.models.wav2vec2 import (
 )
 from fairseq2.models.wav2vec2.asr._config import Wav2Vec2AsrConfig
 from fairseq2.models.wav2vec2.asr._model import Wav2Vec2AsrModel
+from fairseq2.nn import Linear, Projection
 from fairseq2.nn.transformer import TransformerEncoder
 
 
@@ -37,10 +40,12 @@ class Wav2Vec2AsrFactory:
         else:
             masker = None
 
+        final_proj = self.create_final_projection()
+
         return Wav2Vec2AsrModel(
             encoder_frontend,
             encoder,
-            config.vocab_info,
+            final_proj,
             masker=masker,
             final_dropout_p=config.final_dropout_p,
         )
@@ -68,3 +73,20 @@ class Wav2Vec2AsrFactory:
             config.max_spatial_mask_prob,
             config.min_num_spatial_mask_spans,
         )
+
+    def create_final_projection(self) -> Projection:
+        config = self._config
+
+        return Linear(
+            config.encoder_config.model_dim,
+            config.target_vocab_size,
+            bias=True,
+            init_fn=init_final_projection,
+        )
+
+
+def init_final_projection(proj: Linear) -> None:
+    nn.init.xavier_uniform_(proj.weight)
+
+    if proj.bias is not None:
+        nn.init.zeros_(proj.bias)

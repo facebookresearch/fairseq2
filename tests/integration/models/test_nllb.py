@@ -34,7 +34,9 @@ def test_load_dense_distill_600m() -> None:
 
     tokenizer = tokenizer_hub.load(model_name)
 
-    generator = BeamSearchSeq2SeqGenerator(model, echo_prompt=True, max_seq_len=128)
+    generator = BeamSearchSeq2SeqGenerator(
+        model, tokenizer.vocab_info, echo_prompt=True, max_seq_len=128
+    )
 
     translator = TextTranslator(
         generator, tokenizer, source_lang="eng_Latn", target_lang="deu_Latn"

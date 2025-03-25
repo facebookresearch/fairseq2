@@ -85,7 +85,9 @@ class TestBannedSequenceProcessor:
         banned_seqs = [text_encoder(b) for b in banned_words]
 
         generator = BeamSearchSeq2SeqGenerator(
-            self.model, step_processors=[BannedSequenceProcessor(banned_seqs)]
+            self.model,
+            self.tokenizer.vocab_info,
+            step_processors=[BannedSequenceProcessor(banned_seqs)],
         )
 
         translator = TextTranslator(
