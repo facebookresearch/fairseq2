@@ -79,6 +79,7 @@ def compute_rows_length(
     Compute the length of each row in a PyArrow array.
 
     This function handles the following types:
+        - Integers/Floats: Uses as it !
         - List / LargeList: Uses pyarrow.compute.list_value_length
         - String: Uses pyarrow.compute.utf8_length
         - Fallback: Tries to convert to pandas and apply len (e.g., for arrays of Python objects)
@@ -92,16 +93,20 @@ def compute_rows_length(
         NDArray[np.int32]: NumPy array of the computed lengths for each element.
     """
     type_ = pa_array.type
-    if is_list_like(pa_array):
-        length_col = pc.list_value_length(pa_array).to_numpy().copy()
+    if pa.types.is_integer(type_) or pa.types.is_floating(type_):
+        length_col = pa_array.to_numpy(zero_copy_only=False).copy()
+    elif is_list_like(pa_array):
+        length_col = (
+            pc.list_value_length(pa_array).to_numpy(zero_copy_only=False).copy()
+        )
     elif pa.types.is_string(type_):
         # TODO: use polars to compute chat length
-        length_col = pc.utf8_length(pa_array).to_numpy().copy()
+        length_col = pc.utf8_length(pa_array).to_numpy().copy(zero_copy_only=False)
     else:
-        length_col = np.asarray(pa_array.to_pandas().apply(len))
+        length_col = np.asarray(pa_array.to_pandas().apply(len), dtype=np.int32)
 
     length_col[np.isnan(length_col)] = 0
-    return np.asarray(length_col, dtype=np.int32)
+    return length_col
 
 
 def build_batching_loop_over_one_table(
