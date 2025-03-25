@@ -64,16 +64,16 @@ class SafeFragment:
     def load(
         self,
         columns: Optional[List[str]] = None,
+        filters: Optional[pa.dataset.Expression] = None,
         use_threads: bool = False,
         add_fragment_traces: bool = True,
         add_partitioning_columns: bool = True,
     ) -> pa.Table:
+        physical_schema = self.fragment.physical_schema
         if columns is not None:
-            fragment_columns = [
-                col for col in columns if col in self.fragment.physical_schema.names
-            ]
+            fragment_columns = [col for col in columns if col in physical_schema.names]
         else:
-            fragment_columns = list(self.fragment.physical_schema.names)
+            fragment_columns = list(physical_schema.names)
         # adding technical columns for tracking
         if add_fragment_traces:
             fragment_columns = list(fragment_columns) + [
@@ -81,18 +81,30 @@ class SafeFragment:
                 "__fragment_index",
                 "__filename",
             ]
+
+        can_apply_on_phyiscal_schema = False
+        if filters is not None:
+            try:
+                _ = physical_schema.empty_table().filter(filters)
+                can_apply_on_phyiscal_schema = True
+            except pa.ArrowInvalid as e:
+                pass
+
         try:
             fragment_table = self.fragment.to_table(
-                columns=fragment_columns, use_threads=use_threads
+                columns=fragment_columns,
+                use_threads=use_threads,
+                filters=filters if can_apply_on_phyiscal_schema else None,
             )
-
         except OSError as e:
             log.info(
                 "could not load fragment, reinit the fragment state. Error: ", str(e)
             )
             self.fragment = loads(dumps(self.fragment))
             fragment_table = self.fragment.to_table(
-                columns=fragment_columns, use_threads=use_threads
+                columns=fragment_columns,
+                use_threads=use_threads,
+                filters=filters if can_apply_on_phyiscal_schema else None,
             )
 
         if add_partitioning_columns:
@@ -101,6 +113,10 @@ class SafeFragment:
             )
         if add_fragment_traces:
             fragment_table = add_fragments_trace(fragment_table, self.fragment)
+
+        # otherwise, apply filters on full schema
+        if filters is not None and not can_apply_on_phyiscal_schema:
+            fragment_table = fragment_table.filter(filters)
         return fragment_table
 
 
@@ -128,6 +144,7 @@ class ParquetFragmentLoader:
                 columns=self.columns,
                 add_fragment_traces=self.config.add_fragment_traces,
                 use_threads=self.config.use_threads,
+                filters=self.filters,
                 add_partitioning_columns=True,
             )
 
@@ -141,13 +158,14 @@ class ParquetFragmentLoader:
             lambda table: isinstance(table, pa.Table)
         )
 
-        loading_pipeline = loading_pipeline.map(
-            partial(
-                apply_filter,
-                filters=self.filters,
-                drop_null=self.config.drop_null,
+        if self.config.drop_null:
+            loading_pipeline = loading_pipeline.map(
+                partial(
+                    apply_filter,
+                    filters=None,
+                    drop_null=self.config.drop_null,
+                )
             )
-        )
 
         loading_pipeline = loading_pipeline.filter(
             lambda table: bool(len(table) >= self.config.min_batch_size)
