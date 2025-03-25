@@ -250,7 +250,10 @@ class ParquetFragmentStreamer:
         self.seed = seed
         self.relative_files_circular_shift = relative_files_circular_shift
 
-        assert 0 <= self.relative_files_circular_shift <= 1.0
+        if not (0.0 <= self.relative_files_circular_shift <= 1.0):
+            raise ValueError(
+                f"relative_files_circular_shift must be between 0.0 and 1.0, got {self.relative_files_circular_shift} instead"  # fmt: skip
+            )
 
         if read_state is not None:
             self.state = read_state

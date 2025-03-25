@@ -30,10 +30,7 @@ class ParquetFragmentStreamer:
             self.config.files_circular_shift
             and self.config.fragment_shuffle_window == -1
         ):
-            log.info(
-                "Cannot use files circular shift and full shuffle at the same time."
-                "Ignoring files circular shift."
-            )
+            log.info("Cannot use files circular shift and full shuffle at the same time. Ignoring files circular shift.")  # fmt: skip
             self.config.files_circular_shift = False
 
     @property
