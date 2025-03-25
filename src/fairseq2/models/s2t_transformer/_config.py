@@ -6,11 +6,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Final
 
 from fairseq2.context import RuntimeContext
-from fairseq2.data import VocabularyInfo
 
 S2T_TRANSFORMER_MODEL_FAMILY: Final = "s2t_transformer"
 
@@ -35,12 +34,11 @@ class S2TTransformerConfig:
     max_target_seq_len: int = 1024
     """The maximum target sequence length."""
 
-    target_vocab_info: VocabularyInfo = field(
-        default_factory=lambda: VocabularyInfo(
-            size=10000, unk_idx=3, bos_idx=0, eos_idx=2, pad_idx=1
-        )
-    )
-    """The target vocabulary information."""
+    target_vocab_size: int = 10_000
+    """The size of the target vocabulary."""
+
+    pad_idx: int = 1
+    """The index of the PAD symbol in the target vocabulary."""
 
     use_relative_pos: bool = False
     """If ``True``, uses relative positional encodings for source sequences."""
@@ -124,9 +122,7 @@ def register_s2t_transformer_configs(context: RuntimeContext) -> None:
             max_source_seq_len=6000,
             num_fbank_channels=80,
             max_target_seq_len=1024,
-            target_vocab_info=VocabularyInfo(
-                size=181, unk_idx=3, bos_idx=0, eos_idx=2, pad_idx=1
-            ),
+            target_vocab_size=181,
             use_relative_pos=False,
             use_conformer=True,
             num_encoder_layers=12,

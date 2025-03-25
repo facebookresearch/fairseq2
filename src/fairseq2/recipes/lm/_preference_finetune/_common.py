@@ -6,8 +6,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 import torch
 from torch import Tensor
 from torcheval.metrics import Mean
@@ -38,13 +36,6 @@ def _gather_lprobs_avg(
     average_logps = total_logps / target.target_mask.sum(-1)
 
     return total_logps, average_logps
-
-
-@dataclass(kw_only=True)
-class POCriterionSection:
-    name: str
-
-    config: object
 
 
 class POFinetuneMetricBag(SequenceMetricBag):

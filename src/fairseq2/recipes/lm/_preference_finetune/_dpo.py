@@ -28,18 +28,13 @@ from fairseq2.models.sequence import (
 from fairseq2.nn.utils.module import freeze_parameters
 from fairseq2.recipes import Model, TrainUnit
 from fairseq2.recipes.common import setup_reference_model
-from fairseq2.recipes.config import (
-    ReferenceModelSection,
-    TrainerSection,
-    get_config_section,
-)
+from fairseq2.recipes.config import ReferenceModelSection
 from fairseq2.recipes.lm._preference_finetune._common import (
-    POCriterionSection,
     POFinetuneMetricBag,
     _gather_lprobs_avg,
 )
+from fairseq2.recipes.lm._preference_finetune._config import POFinetuneConfig
 from fairseq2.recipes.lm._preference_finetune._handler import POFinetuneUnitHandler
-from fairseq2.typing import DataType
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
 
@@ -245,9 +240,6 @@ class DpoFinetuneConfig:
     data example (fields `reference_score_rejected` and  `reference_score_chosen`).
     """
 
-    reference_dtype: DataType = torch.bfloat16
-    """The data type of the reference model."""
-
     # Loss
     beta: float = 0.1
     """The coefficient of regularization towards the reference model."""
@@ -268,31 +260,23 @@ class DpoFinetuneUnitHandler(POFinetuneUnitHandler):
 
     @override
     def create(
-        self, model: Model, gangs: Gangs, recipe_config: object
+        self, model: Model, gangs: Gangs, recipe_config: POFinetuneConfig
     ) -> TrainUnit[PreferenceBatch]:
-        criterion_section = get_config_section(
-            recipe_config, "criterion", POCriterionSection
-        )
-
-        config = structure(criterion_section.config, DpoFinetuneConfig)
+        config = structure(recipe_config.criterion.config, DpoFinetuneConfig)
 
         validate(config)
 
         if config.reference_model is not None:
             log.info("Setting up DPO with reference model.")
 
-            trainer_section = get_config_section(
-                recipe_config, "trainer", TrainerSection
-            )
-
             reference_model = setup_reference_model(
                 DecoderModel,
                 self._context,
-                config.reference_model.name,
+                config.reference_model,
                 gangs,
-                config.reference_dtype,
+                recipe_config.trainer.dtype,
                 mp=False,
-                torch_compile=trainer_section.torch_compile,
+                torch_compile=recipe_config.trainer.torch_compile,
             )
 
             freeze_parameters(reference_model.module)

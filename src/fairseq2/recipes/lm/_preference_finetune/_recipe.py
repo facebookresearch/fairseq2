@@ -6,24 +6,19 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from pathlib import Path
-
-import torch
-import torch.distributed
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import Batching, LengthBatching, StaticBatching
 from fairseq2.datasets.preference import (
-    GENERIC_PREFERENCE_DATASET_FAMILY,
     PreferenceBatch,
     PreferenceDataset,
     PreferenceReadOptions,
 )
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.nn.transformer import enable_memory_efficient_torch_sdpa
-from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
-from fairseq2.optim.lr_scheduler import COSINE_ANNEALING_LR, CosineAnnealingLRConfig
+from fairseq2.optim import AdamWConfig
+from fairseq2.optim.lr_scheduler import CosineAnnealingLRConfig
 from fairseq2.recipes import Trainer
 from fairseq2.recipes.common import (
     create_checkpoint_manager,
@@ -33,22 +28,14 @@ from fairseq2.recipes.common import (
     load_dataset,
     load_text_tokenizer,
     register_extra_asset_paths,
-    setup_gangs,
     setup_model,
     setup_torch,
+    setup_training_gangs,
 )
-from fairseq2.recipes.config import (
-    CommonSection,
-    DatasetSection,
-    FsdpSection,
-    GangSection,
-    LRSchedulerSection,
-    ModelSection,
-    OptimizerSection,
-    RegimeSection,
-    TrainerSection,
+from fairseq2.recipes.lm._preference_finetune._config import (
+    POCriterionSection,
+    POFinetuneConfig,
 )
-from fairseq2.recipes.lm._preference_finetune._common import POCriterionSection
 from fairseq2.recipes.lm._preference_finetune._dpo import (
     DPO_FINETUNE_UNIT,
     DpoFinetuneConfig,
@@ -63,104 +50,6 @@ from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
 
 
-@dataclass(kw_only=True)
-class POFinetuneConfig:
-    model: ModelSection = field(
-        default_factory=lambda: ModelSection(name="llama3_1_8b_instruct")
-    )
-
-    dataset: POFinetuneDatasetSection = field(
-        default_factory=lambda: POFinetuneDatasetSection()
-    )
-
-    gang: GangSection = field(default_factory=lambda: GangSection())
-
-    trainer: TrainerSection = field(
-        default_factory=lambda: TrainerSection(
-            dtype=torch.bfloat16,
-            data_parallelism="fsdp",
-            fsdp=FsdpSection(fp32_reduce=True),
-            activation_checkpointing=True,
-        )
-    )
-
-    criterion: POCriterionSection = field(
-        default_factory=lambda: POCriterionSection(
-            name=DPO_FINETUNE_UNIT, config=DpoFinetuneConfig()
-        )
-    )
-
-    optimizer: OptimizerSection = field(
-        default_factory=lambda: OptimizerSection(
-            name=ADAMW_OPTIMIZER,
-            config=AdamWConfig(
-                lr=5.5e-06, betas=(0.9, 0.95), weight_decay=0.1, impl="fused"
-            ),
-        )
-    )
-
-    lr_scheduler: LRSchedulerSection = field(
-        default_factory=lambda: LRSchedulerSection(
-            name=COSINE_ANNEALING_LR, config=CosineAnnealingLRConfig(final_lr_scale=0.2)
-        )
-    )
-
-    regime: RegimeSection = field(
-        default_factory=lambda: RegimeSection(
-            num_steps=5_000,
-            checkpoint_every_n_steps=1_000,
-            keep_last_n_checkpoints=1,
-            publish_metrics_every_n_steps=10,
-        )
-    )
-
-    common: CommonSection = field(default_factory=lambda: CommonSection())
-
-
-@dataclass(kw_only=True)
-class POFinetuneDatasetSection(DatasetSection):
-    name: str = "gsm8k_dpo"
-
-    family: str = GENERIC_PREFERENCE_DATASET_FAMILY
-
-    path: Path | None = None
-
-    source_encode_mode: str = "prompt"
-    """The encode mode for the prompt, determines what special tokens to add."""
-
-    target_encode_mode: str = "prompt_response"
-    """The encode mode for the target, determines what special tokens to add."""
-
-    mask_source_tokens: bool = True
-    """If ``False``, calculates loss on the `src` tokens as well as the `tgt` tokens."""
-
-    min_seq_len: int = 1
-    """The minimum sum of ``src + tgt_chosen`` and ``src + tgt_rejected``.
-    Shorter sequences will be dropped."""
-
-    max_seq_len: int = 8192
-    """The maximum sum of ``src + tgt_chosen`` and ``src + tgt_rejected``.
-    Longer sequences will be dropped."""
-
-    max_num_tokens: int = 8192 * 2
-    """The maximum number of total `src`, `tgt_chosen`, and `tgt_rejected` tokens per batch."""
-
-    batch_size: int | None = None
-    """If not ``None``, ignores `max_num_tokens` and each batch will have `batch_size` examples."""
-
-    example_shuffle_window: int = 10_000
-    """The size of the sliding window for shuffling examples."""
-
-    batch_shuffle_window: int = 1_000
-    """The size of the sliding window for shuffling batches."""
-
-    num_prefetch: int = 4
-    """The number of batches to prefetch in background."""
-
-    extras: dict[str, object] = field(default_factory=dict)
-    """The dataset-specific extra options."""
-
-
 def register_po_finetune_configs(context: RuntimeContext) -> None:
     registry = context.get_config_registry(POFinetuneConfig)
 
@@ -168,7 +57,11 @@ def register_po_finetune_configs(context: RuntimeContext) -> None:
 
     @preset("llama3_1_instruct")
     def llama3_1_instruct() -> POFinetuneConfig:
-        return POFinetuneConfig()
+        return POFinetuneConfig(
+            criterion=POCriterionSection(
+                name=DPO_FINETUNE_UNIT, config=DpoFinetuneConfig()
+            )
+        )
 
     @preset("llama3_1_instruct_constant_lr")
     def llama3_1_instruct_constant_lr() -> POFinetuneConfig:
@@ -213,11 +106,11 @@ def load_po_finetuner(
 
     validate(config)
 
-    register_extra_asset_paths(context, config)
+    register_extra_asset_paths(context, config.common)
 
-    setup_torch(context, config, output_dir)
+    setup_torch(context, config.common, output_dir)
 
-    gangs = setup_gangs(context, config)
+    gangs = setup_training_gangs(context, config.gang, config.trainer)
 
     checkpoint_manager = create_checkpoint_manager(context, gangs, output_dir)
 
@@ -228,7 +121,13 @@ def load_po_finetuner(
     seed += 1
 
     model = setup_model(
-        DecoderModel, context, config, output_dir, gangs, checkpoint_manager
+        DecoderModel,
+        context,
+        config.model,
+        config.trainer,
+        output_dir,
+        gangs,
+        checkpoint_manager,
     )
 
     # TODO(balioglu): investigate!
@@ -236,13 +135,15 @@ def load_po_finetuner(
     # used with padded inputs.
     enable_memory_efficient_torch_sdpa(model.module, False)
 
-    optimizer = create_optimizer(context, config, model)
+    optimizer = create_optimizer(context, config.optimizer, model)
 
-    lr_scheduler = create_lr_scheduler(context, config, optimizer)
+    lr_scheduler = create_lr_scheduler(
+        context, config.lr_scheduler, config.regime, optimizer
+    )
 
-    dataset = load_dataset(PreferenceDataset, context, config, gangs)
+    dataset = load_dataset(PreferenceDataset, context, config.dataset, gangs)
 
-    tokenizer = load_text_tokenizer(context, config)
+    tokenizer = load_text_tokenizer(context, config.tokenizer)
 
     # Initialize the train unit.
     unit_handlers = context.get_registry(POFinetuneUnitHandler)
@@ -286,7 +187,9 @@ def load_po_finetuner(
 
     return create_trainer(
         context,
-        config,
+        config.trainer,
+        config.regime,
+        config.common,
         output_dir,
         unit,
         data_reader,

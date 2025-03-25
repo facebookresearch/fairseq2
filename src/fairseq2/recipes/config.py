@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, TypeAlias, TypeVar
+from typing import Literal, TypeAlias
 
 import torch
 
@@ -438,33 +438,3 @@ class Seq2SeqGeneratorSection:
     config: object = field(default_factory=BeamSearchConfig)
 
     batch_size: int = 1
-
-
-ConfigSectionT = TypeVar("ConfigSectionT")
-
-
-def get_config_section(
-    config: object, name: str, kls: type[ConfigSectionT]
-) -> ConfigSectionT:
-    try:
-        section = getattr(config, name)
-    except AttributeError:
-        raise ConfigSectionNotFoundError(name) from None
-
-    if not isinstance(section, kls):
-        raise TypeError(
-            f"The '{name}' configuration section must be of type `{kls}`, but is of type `{type(section)}` instead."
-        )
-
-    return section
-
-
-class ConfigSectionNotFoundError(Exception):
-    section: str
-
-    def __init__(self, section: str) -> None:
-        super().__init__(
-            f"The recipe configuration does not have a section named '{section}'."
-        )
-
-        self.section = section

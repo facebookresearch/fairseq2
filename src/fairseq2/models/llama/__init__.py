@@ -20,7 +20,7 @@ from fairseq2.models.llama._config import (
 from fairseq2.models.llama._factory import LLaMAFactory as LLaMAFactory
 from fairseq2.models.llama._factory import create_llama_model as create_llama_model
 from fairseq2.models.llama._factory import (
-    init_llama_scaled_freqs as init_llama_scaled_freqs,
+    init_llama_rope_freqs as init_llama_rope_freqs,
 )
 from fairseq2.models.llama._shard import shard_llama_model as shard_llama_model
 

@@ -16,7 +16,7 @@ from fairseq2.models.transformer import (
     TransformerEmbeddingFrontend,
     TransformerFrontend,
     TransformerModel,
-    init_final_projection,
+    init_transformer_final_projection,
 )
 from fairseq2.nn import (
     Embedding,
@@ -72,7 +72,7 @@ class S2TTransformerFactory:
 
         decoder = self.create_decoder()
 
-        final_proj = self.create_final_proj()
+        final_proj = self.create_final_projection()
 
         return TransformerModel(
             encoder_frontend,
@@ -80,8 +80,9 @@ class S2TTransformerFactory:
             decoder_frontend,
             decoder,
             final_proj,
+            pad_idx=config.pad_idx,
+            max_source_seq_len=config.max_source_seq_len,
             max_target_seq_len=config.max_target_seq_len,
-            target_vocab_info=config.target_vocab_info,
         )
 
     def create_encoder_frontend(self) -> TransformerFrontend:
@@ -223,9 +224,9 @@ class S2TTransformerFactory:
         config = self._config
 
         return StandardEmbedding(
-            num_embeddings=config.target_vocab_info.size,
+            num_embeddings=config.target_vocab_size,
             embedding_dim=config.model_dim,
-            pad_idx=config.target_vocab_info.pad_idx,
+            pad_idx=config.pad_idx,
             init_fn=init_scaled_embedding,
         )
 
@@ -274,12 +275,12 @@ class S2TTransformerFactory:
             config.model_dim, config.num_decoder_attn_heads, sdpa=sdpa
         )
 
-    def create_final_proj(self) -> Projection:
+    def create_final_projection(self) -> Projection:
         config = self._config
 
         return Linear(
             config.model_dim,
-            config.target_vocab_info.size,
+            config.target_vocab_size,
             bias=False,
-            init_fn=init_final_projection,
+            init_fn=init_transformer_final_projection,
         )

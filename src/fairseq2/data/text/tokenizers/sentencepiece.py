@@ -125,7 +125,7 @@ class BasicSentencePieceTokenizer(TextTokenizer):
     def __init__(self, path: Path) -> None:
         self._model = SentencePieceModel(path)
 
-        self._vocab_info = vocab_info_from_sentencepiece(self._model)
+        self._vocab_info = get_sentencepiece_vocabulary_info(self._model)
 
     @override
     def create_encoder(
@@ -216,7 +216,7 @@ class RawSentencePieceTokenizer(TextTokenizer):
     def __init__(self, path: Path) -> None:
         self._model = SentencePieceModel(path)
 
-        self._vocab_info = vocab_info_from_sentencepiece(self._model)
+        self._vocab_info = get_sentencepiece_vocabulary_info(self._model)
 
     @override
     def create_encoder(
@@ -277,7 +277,7 @@ def load_raw_sentencepiece_tokenizer(path: Path, card: AssetCard) -> TextTokeniz
         ) from ex
 
 
-def vocab_info_from_sentencepiece(model: SentencePieceModel) -> VocabularyInfo:
+def get_sentencepiece_vocabulary_info(model: SentencePieceModel) -> VocabularyInfo:
     """Return the vocabulary information of ``model``."""
     return VocabularyInfo(
         model.vocabulary_size,

@@ -11,6 +11,7 @@ from typing import Final, final
 
 from typing_extensions import override
 
+from fairseq2.data import VocabularyInfo
 from fairseq2.generation._beam_search._algo import (
     STANDARD_BEAM_SEARCH_ALGO,
     BeamSearchAlgorithmHandler,
@@ -92,7 +93,9 @@ class BeamSearchSequenceGeneratorHandler(SequenceGeneratorHandler):
         self._algorithm_handlers = algorithm_handlers
 
     @override
-    def create(self, model: DecoderModel, config: object) -> SequenceGenerator:
+    def create(
+        self, model: DecoderModel, vocab_info: VocabularyInfo, config: object
+    ) -> SequenceGenerator:
         config = structure(config, BeamSearchConfig)
 
         validate(config)
@@ -116,6 +119,7 @@ class BeamSearchSequenceGeneratorHandler(SequenceGeneratorHandler):
 
         return BeamSearchSequenceGenerator(
             model,
+            vocab_info,
             algorithm=algorithm,
             beam_size=config.beam_size,
             min_gen_len=config.min_gen_len,
@@ -151,7 +155,12 @@ class BeamSearchSeq2SeqGeneratorHandler(Seq2SeqGeneratorHandler):
         self._algorithm_handlers = algorithm_handlers
 
     @override
-    def create(self, model: EncoderDecoderModel, config: object) -> Seq2SeqGenerator:
+    def create(
+        self,
+        model: EncoderDecoderModel,
+        target_vocab_info: VocabularyInfo,
+        config: object,
+    ) -> Seq2SeqGenerator:
         config = structure(config, BeamSearchConfig)
 
         validate(config)
@@ -172,6 +181,7 @@ class BeamSearchSeq2SeqGeneratorHandler(Seq2SeqGeneratorHandler):
 
         return BeamSearchSeq2SeqGenerator(
             model,
+            target_vocab_info,
             algorithm=algorithm,
             beam_size=config.beam_size,
             min_gen_len=config.min_gen_len,

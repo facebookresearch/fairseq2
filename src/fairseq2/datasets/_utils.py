@@ -55,7 +55,7 @@ def _load_files_and_weights(
     manifest_file = path.joinpath("MANIFEST")
 
     try:
-        with manifest_file.open() as fp:
+        with manifest_file.open(encoding="utf-8") as fp:
             content = list(fp)
     except FileNotFoundError:
         content = None

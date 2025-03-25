@@ -10,7 +10,6 @@ from dataclasses import dataclass, field
 from typing import Final
 
 from fairseq2.context import RuntimeContext
-from fairseq2.data import VocabularyInfo
 from fairseq2.models.wav2vec2 import Wav2Vec2Config, Wav2Vec2EncoderConfig
 
 WAV2VEC2_ASR_MODEL_FAMILY: Final = "wav2vec2_asr"
@@ -34,12 +33,8 @@ class Wav2Vec2AsrConfig:
     )
     """The configuration of the encoder."""
 
-    vocab_info: VocabularyInfo = field(
-        default_factory=lambda: VocabularyInfo(
-            size=32, unk_idx=3, bos_idx=0, eos_idx=2, pad_idx=1
-        )
-    )
-    """The vocabulary information."""
+    target_vocab_size: int = 32
+    """The size of the target vocabulary."""
 
     final_dropout_p: float = 0.0
     """The dropout probability on the output of the encoder."""
