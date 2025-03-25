@@ -94,8 +94,10 @@ class TableBucketer:
                 max_num_examples=self.config.max_fragment_number,
                 drop_remainder=False,
             )
-        if self.do_concat_tables:
-            pipeline = pipeline.map(concat_table)
+
+        pipeline = pipeline.map(
+            lambda tables: concat_table(tables, combine=self.do_concat_tables)
+        )
 
         if (
             self.config.target_total_length is not None
