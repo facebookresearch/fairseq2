@@ -337,10 +337,10 @@ PyArrow tables can be converted to various formats:
     - ``parquet/utils.py:pyarrow_table_to_torch_dict`` to convert pyarrow table into a dictionary of cpu torch tensors (best effort)
 
 Performance Considerations
--------------------------
+--------------------------
 
 Optimizing for Large Datasets
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 For large, remote datasets:
 
