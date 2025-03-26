@@ -38,8 +38,6 @@ The data loading pipeline is organized into three main components:
 
 Each component has its own configuration class to control behavior.
 
-
-
 ## Fragment Streaming
 
 The `fragment_streaming/config.py:FragmentStreamingConfig` class defines how fragments are streamed from a Parquet dataset.
@@ -401,3 +399,71 @@ def my_transform(table):
 # Apply the transformation
 final_pipeline = loading_pipeline.map(my_transform)
 ```
+
+## Integration with Hugging Face Datasets
+
+fairseq2's parquet dataloader can easily integrate with datasets from the [Hugging Face Hub](https://huggingface.co/datasets) that are available in parquet format. This integration leverages the `huggingface_hub` package's `HfFileSystem` to seamlessly access parquet files stored on the Hub.
+
+### Basic Integration Example
+
+```python
+from fairseq2.data.parquet.fragment_streaming import (
+    FragmentStreamingConfig, ParquetFragmentStreamer
+)
+from fairseq2.data.parquet.fragment_loading import (
+    FragmentLoadingConfig, ParquetFragmentLoader
+)
+
+# Initialize the Hugging Face FileSystem
+from huggingface_hub import HfFileSystem
+hf_fs = HfFileSystem()  # FileSystem interface for HF
+
+# Get dataset files from Hugging Face Hub
+source_dataset_glob_path = "datasets/cais/mmlu/*/*.parquet"
+all_paths = hf_fs.glob(source_dataset_glob_path)  # Find all parquet files
+test_paths = [path for path in all_paths if "test-" in path]  # Optional filtering
+
+# Configure the fragment streaming
+fragment_config = FragmentStreamingConfig(
+    parquet_path=test_paths,
+    nb_epochs=1,
+    filesystem=hf_fs,  # Provide the Hugging Face filesystem
+    split_to_row_groups=True,
+    fragment_shuffle_window=0,  # No shuffling in this example
+)
+
+streamer = ParquetFragmentStreamer(config=fragment_config)
+
+# Configure the fragment loading
+loading_config = FragmentLoadingConfig(
+    columns=None,  # Use all columns
+    add_fragment_traces=False,
+    drop_null=False,
+    nb_prefetch=1,
+    num_parallel_fragments=4,
+    filters='pc.field("answer") == 0',  # Optional filtering
+)
+
+# Build the pipeline
+loader = ParquetFragmentLoader(config=loading_config)
+fragment_pipeline = streamer.build_pipeline(0, 1)
+loading_pipeline = loader.apply(fragment_pipeline)
+
+# Process the results
+tables = list(iter(loading_pipeline.and_return()))
+
+# Process tables as needed
+# Examples: 
+# - Convert to pandas: df = table.to_pandas()
+# - Convert to polars (efficient): pl.from_arrow(table)
+```
+
+### Benefits of Using Hugging Face Datasets with fairseq2
+
+- **No Download Required**: Access datasets directly from Hugging Face Hub without downloading them first
+- **Efficient Loading**: Only load the necessary parts of the dataset
+- **Advanced Processing**: Apply all fairseq2's parquet capabilities (filtering, batching, sharding, etc.)
+- **Memory Efficiency**: Stream data without loading entire datasets into memory
+- **High Performance**: Leverage the optimized data loading pipeline of fairseq2
+
+This integration is particularly useful for large-scale datasets like multilingual text corpora, embedding collections, or multimodal datasets where efficient data handling is crucial.
