@@ -383,7 +383,7 @@ class StandardTensorLoader(TensorLoader):
             ) from ex
 
         if is_dir:
-            if has_file(".safetensors"):
+            if not has_file(".safetensors"):
                 raise TensorLoadError(
                     path, f"The '{path}' directory does not contain any supported tensor files."  # fmt: skip
                 )
