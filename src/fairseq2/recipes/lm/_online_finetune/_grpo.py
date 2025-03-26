@@ -140,6 +140,11 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._vllm_model
         )
 
+        # FIXME move to wandb
+        log.info(prompt_batch.meta_info["prompt"][0])
+        log.info(rollouts[0].outputs[0].text)
+        log.info("--------------------")
+
         grpo_batch: GRPOBatch
         grpo_batch, reward_output = self._reward.prepare_grpo_batch(
             prompt_batch, rollouts

@@ -316,6 +316,7 @@ def generate_rollouts(
             outputs = vllm_model.rollout_from_model(
                 flat_request_list, sampling_params=sampling_params
             )
+
         elif operation == "reward":
             outputs = vllm_model.reward_from_model(flat_request_list)
 

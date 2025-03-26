@@ -245,6 +245,7 @@ class RemoteVllmModel:
                 use_tqdm=False,
             )
         )
+
         return outputs
 
     def reward_from_model(self, prompt_list, batch_size=128):
