@@ -70,12 +70,19 @@ def convert_to_hg_llama_config(config: LLaMAConfig) -> dict[str, object]:
     else:
         rope_scaling = None
 
+    if config.vocab_size == 32_000:  # LLaMA 1 and 2
+        bos_idx = 1
+        eos_idx = 2
+    else:
+        bos_idx = 128_000
+        eos_idx = 128_001
+
     # We only specify the parameters made explicit in the Hugging Face converter.
     # See https://github.com/huggingface/transformers/blob/93aafdc620d39b9ec714ffecf015a085ea221282/src/transformers/models/llama/convert_llama_weights_to_hf.py#L384.
     return {
         "architectures": ["Fairseq2LlamaForCausalLM"],
-        "bos_token_id": config.vocab_info.bos_idx,
-        "eos_token_id": config.vocab_info.eos_idx,
+        "bos_token_id": bos_idx,
+        "eos_token_id": eos_idx,
         "hidden_size": config.model_dim,
         "intermediate_size": intermediate_size,
         "max_position_embeddings": config.max_seq_len,
@@ -87,5 +94,5 @@ def convert_to_hg_llama_config(config: LLaMAConfig) -> dict[str, object]:
         "rope_scaling": rope_scaling,
         "rope_theta": config.rope_theta,
         "tie_word_embeddings": config.tie_embeddings,
-        "vocab_size": config.vocab_info.size,
+        "vocab_size": config.vocab_size,
     }

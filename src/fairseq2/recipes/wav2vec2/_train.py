@@ -34,9 +34,9 @@ from fairseq2.recipes.common import (
     create_trainer,
     load_dataset,
     register_extra_asset_paths,
-    setup_gangs,
     setup_model,
     setup_torch,
+    setup_training_gangs,
 )
 from fairseq2.recipes.config import (
     CommonSection,
@@ -190,11 +190,11 @@ def load_wav2vec2_trainer(
 
     validate(config)
 
-    register_extra_asset_paths(context, config)
+    register_extra_asset_paths(context, config.common)
 
-    setup_torch(context, config, output_dir)
+    setup_torch(context, config.common, output_dir)
 
-    gangs = setup_gangs(context, config)
+    gangs = setup_training_gangs(context, config.gang, config.trainer)
 
     checkpoint_manager = create_checkpoint_manager(context, gangs, output_dir)
 
@@ -205,14 +205,22 @@ def load_wav2vec2_trainer(
     seed += 1
 
     model = setup_model(
-        Wav2Vec2Model, context, config, output_dir, gangs, checkpoint_manager
+        Wav2Vec2Model,
+        context,
+        config.model,
+        config.trainer,
+        output_dir,
+        gangs,
+        checkpoint_manager,
     )
 
-    optimizer = create_optimizer(context, config, model)
+    optimizer = create_optimizer(context, config.optimizer, model)
 
-    lr_scheduler = create_lr_scheduler(context, config, optimizer)
+    lr_scheduler = create_lr_scheduler(
+        context, config.lr_scheduler, config.regime, optimizer
+    )
 
-    dataset = load_dataset(SpeechDataset, context, config, gangs)
+    dataset = load_dataset(SpeechDataset, context, config.dataset, gangs)
 
     # Initialize the train unit.
     criterion = Wav2Vec2Criterion(
@@ -278,7 +286,9 @@ def load_wav2vec2_trainer(
 
     return create_trainer(
         context,
-        config,
+        config.trainer,
+        config.regime,
+        config.common,
         output_dir,
         unit,
         data_reader,

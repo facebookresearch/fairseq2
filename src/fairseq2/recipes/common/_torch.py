@@ -13,16 +13,16 @@ import torch
 from fairseq2.context import RuntimeContext
 from fairseq2.logging import log
 from fairseq2.recipes import RecipeError
-from fairseq2.recipes.config import CommonSection, get_config_section
+from fairseq2.recipes.config import CommonSection
 from fairseq2.utils.env import get_rank
 from fairseq2.utils.threading import ThreadingError, get_num_threads
 
 
 def setup_torch(
-    context: RuntimeContext, recipe_config: object, output_dir: Path | None = None
+    context: RuntimeContext,
+    common_section: CommonSection,
+    output_dir: Path | None,
 ) -> None:
-    common_section = get_config_section(recipe_config, "common", CommonSection)
-
     _set_environment_variables(context, output_dir)
 
     _set_num_threads(context, common_section.num_threads)

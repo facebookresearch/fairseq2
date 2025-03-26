@@ -414,7 +414,7 @@ class GenericInstructionDataset(InstructionDataset):
         lines = []
 
         # TODO(balioglu): Do in C++.
-        with path.open() as fp:
+        with path.open(encoding="utf-8") as fp:
             for line in fp:
                 lines.append(line)
 

@@ -23,7 +23,7 @@ from fairseq2.data.text.tokenizers.sentencepiece import (
     SentencePieceDecoder,
     SentencePieceEncoder,
     SentencePieceModel,
-    vocab_info_from_sentencepiece,
+    get_sentencepiece_vocabulary_info,
 )
 from fairseq2.typing import Device
 
@@ -63,7 +63,7 @@ class NllbTokenizer(TextTokenizer):
 
         self._default_lang = default_lang
 
-        self._vocab_info = vocab_info_from_sentencepiece(self._model)
+        self._vocab_info = get_sentencepiece_vocabulary_info(self._model)
 
     @override
     def create_encoder(

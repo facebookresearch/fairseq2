@@ -19,12 +19,14 @@ from fairseq2.checkpoint import FileCheckpointMetadataLoader
 from fairseq2.context import RuntimeContext
 from fairseq2.logging import log
 from fairseq2.recipes import RecipeError
-from fairseq2.recipes.config import CommonSection, get_config_section
+from fairseq2.recipes.config import CommonSection
 from fairseq2.utils.file import FileSystem
 from fairseq2.utils.yaml import StandardYamlLoader
 
 
-def register_extra_asset_paths(context: RuntimeContext, recipe_config: object) -> None:
+def register_extra_asset_paths(
+    context: RuntimeContext, common_section: CommonSection
+) -> None:
     asset_store = context.asset_store
 
     file_system = context.file_system
@@ -38,7 +40,7 @@ def register_extra_asset_paths(context: RuntimeContext, recipe_config: object) -
     )
 
     try:
-        extra_path_registrar.register(recipe_config)
+        extra_path_registrar.register(common_section)
     except AssetMetadataLoadError as ex:
         raise RecipeError(
             "`common.assets.extra_path` cannot be registered as an asset card path. See the nested exception for details."
@@ -49,7 +51,7 @@ def register_extra_asset_paths(context: RuntimeContext, recipe_config: object) -
     )
 
     try:
-        checkpoint_dir_registrar.register(recipe_config)
+        checkpoint_dir_registrar.register(common_section)
     except AssetMetadataLoadError as ex:
         raise RecipeError(
             "`common.assets.checkpoint_dir` cannot be registered as an asset card path. See the nested exception for details."
@@ -72,9 +74,7 @@ class ExtraPathRegistrar:
         self._file_system = file_system
         self._asset_metadata_file_loader = asset_metadata_file_loader
 
-    def register(self, recipe_config: object) -> None:
-        common_section = get_config_section(recipe_config, "common", CommonSection)
-
+    def register(self, common_section: CommonSection) -> None:
         extra_path = common_section.assets.extra_path
         if extra_path is None:
             return
@@ -116,9 +116,7 @@ class CheckpointDirectoryRegistrar:
         self._file_system = file_system
         self._asset_metadata_file_loader = asset_metadata_file_loader
 
-    def register(self, recipe_config: object) -> None:
-        common_section = get_config_section(recipe_config, "common", CommonSection)
-
+    def register(self, common_section: CommonSection) -> None:
         checkpoint_dir = common_section.assets.checkpoint_dir
         if checkpoint_dir is None:
             return

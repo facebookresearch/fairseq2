@@ -54,6 +54,7 @@ from fairseq2.recipes.config import (
     GangSection,
     ReferenceModelSection,
     Seq2SeqGeneratorSection,
+    TextTokenizerSection,
 )
 from fairseq2.recipes.mt._common import MTCriterion, MTLossSection
 from fairseq2.typing import CPU
@@ -73,6 +74,14 @@ class MTEvalConfig:
 
     dataset: MTEvalDatasetSection = field(
         default_factory=lambda: MTEvalDatasetSection()
+    )
+
+    source_tokenizer: TextTokenizerSection = field(
+        default_factory=lambda: TextTokenizerSection(name="nllb-200")
+    )
+
+    target_tokenizer: TextTokenizerSection = field(
+        default_factory=lambda: TextTokenizerSection(name="nllb-200")
     )
 
     gang: GangSection = field(default_factory=lambda: GangSection())
@@ -139,11 +148,11 @@ def load_mt_evaluator(
 
     validate(config)
 
-    register_extra_asset_paths(context, config)
+    register_extra_asset_paths(context, config.common)
 
-    setup_torch(context, config, output_dir)
+    setup_torch(context, config.common, output_dir)
 
-    gangs = setup_gangs(context, config)
+    gangs = setup_gangs(context, config.gang)
 
     seed = config.common.seed
 
@@ -154,19 +163,26 @@ def load_mt_evaluator(
     model = setup_reference_model(
         EncoderDecoderModel,
         context,
-        config.model.name,
+        config.model,
         gangs,
         config.evaluator.dtype,
         config.evaluator.amp,
         config.evaluator.torch_compile,
     )
 
-    dataset = load_dataset(ParallelTextDataset, context, config, gangs)
+    dataset = load_dataset(ParallelTextDataset, context, config.dataset, gangs)
 
-    tokenizer = load_text_tokenizer(context, config)
+    source_tokenizer = load_text_tokenizer(context, config.source_tokenizer)
+
+    if config.source_tokenizer == config.target_tokenizer:
+        target_tokenizer = source_tokenizer
+    else:
+        target_tokenizer = load_text_tokenizer(context, config.target_tokenizer)
 
     # Initialize the units.
-    seq2seq_generator = create_seq2seq_generator(context, config, model)
+    seq2seq_generator = create_seq2seq_generator(
+        context, config.seq2seq_generator, model, target_tokenizer.vocab_info
+    )
 
     criterion = MTCriterion(model, label_smoothing=config.loss.label_smoothing)
 
@@ -192,7 +208,8 @@ def load_mt_evaluator(
 
         data_reader = dataset.create_reader(
             config.dataset.split,
-            tokenizer,
+            source_tokenizer,
+            target_tokenizer,
             gangs.dp,
             config.dataset.min_seq_len,
             config.dataset.max_seq_len,
@@ -260,7 +277,7 @@ def load_mt_evaluator(
             model,
             direction,
             seq2seq_generator,
-            tokenizer,
+            target_tokenizer,
             gangs,
             src_output_stream=src_fp,
             ref_output_stream=ref_fp,
@@ -283,7 +300,8 @@ def load_mt_evaluator(
 
         data_reader = dataset.create_reader(
             config.dataset.split,
-            tokenizer,
+            source_tokenizer,
+            target_tokenizer,
             gangs.dp,
             config.dataset.min_seq_len,
             config.dataset.max_seq_len,
@@ -295,7 +313,14 @@ def load_mt_evaluator(
         seed += 1
 
     return create_evaluator(
-        context, config, output_dir, units, data_readers, gangs, seed
+        context,
+        config.evaluator,
+        config.common,
+        output_dir,
+        units,
+        data_readers,
+        gangs,
+        seed,
     )
 
 

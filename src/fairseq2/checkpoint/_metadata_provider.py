@@ -28,9 +28,7 @@ from fairseq2.utils.yaml import YamlDumper
 
 class CheckpointMetadataSaver(ABC):
     @abstractmethod
-    def save(
-        self, model_family: str, model_config: object, tokenizer_name: str | None = None
-    ) -> None: ...
+    def save(self, model_family: str, model_config: object) -> None: ...
 
 
 @final
@@ -52,9 +50,7 @@ class FileCheckpointMetadataSaver(CheckpointMetadataSaver):
         self._file_system = file_system
         self._yaml_dumper = yaml_dumper
 
-    def save(
-        self, model_family: str, model_config: object, tokenizer_name: str | None = None
-    ) -> None:
+    def save(self, model_family: str, model_config: object) -> None:
         if self._gangs.root.rank == 0:
             unstructured_config = unstructure(model_config)
 
@@ -65,9 +61,6 @@ class FileCheckpointMetadataSaver(CheckpointMetadataSaver):
                     "_set_": unstructured_config,
                 },
             }
-
-            if tokenizer_name is not None:
-                metadata["tokenizer_ref"] = tokenizer_name
 
             if self._gangs.tp.size != 1:
                 metadata["num_shards"] = self._gangs.tp.size

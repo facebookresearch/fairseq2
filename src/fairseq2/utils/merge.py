@@ -153,30 +153,6 @@ def _do_merge_map(
         if k not in ignored_keys:
             output[k] = deepcopy(v)
 
-    add_keys = source.get("_add_")
-    if add_keys is not None:
-        if not isinstance(add_keys, Mapping):
-            pathname = build_pathname("_add_")
-
-            raise MergeError(
-                f"'{pathname}' at `source` must be of type `{Mapping}`, but is of type `{type(add_keys)}` instead."
-            )
-
-        for idx, (add_key, value) in enumerate(add_keys.items()):
-            if not isinstance(add_key, str):
-                pathname = build_pathname("_add_")
-
-                raise MergeError(
-                    f"Each key under '{pathname}' at `source` must be of type `str`, but the key at index {idx} is of type `{type(add_key)}` instead."
-                )
-
-            if add_key in output:
-                pathname = build_pathname(add_key)
-
-                raise MergeError(f"`target` already has an item at path '{pathname}'.")
-
-            output[add_key] = deepcopy(value)
-
     set_keys = source.get("_set_")
     if set_keys is not None:
         if not isinstance(set_keys, Mapping):
@@ -194,17 +170,10 @@ def _do_merge_map(
                     f"Each key under '{pathname}' at `source` must be of type `str`, but the key at index {idx} is of type `{type(set_key)}` instead."
                 )
 
-            if set_key not in output:
-                pathname = build_pathname(set_key)
-
-                raise MergeError(
-                    f"`target` does not have an item at path '{pathname}'."
-                )
-
             output[set_key] = deepcopy(value)
 
     for key, source_value in source.items():
-        if key == "_del_" or key == "_add_" or key == "_set_":
+        if key == "_del_" or key == "_set_":
             continue
 
         try:
