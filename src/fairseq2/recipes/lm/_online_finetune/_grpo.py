@@ -50,11 +50,24 @@ from fairseq2.recipes.common._distributed import broadcast_model
 from vllm.distributed.device_communicators.pynccl import PyNcclCommunicator
 
 import ray
-from fairseq2.recipes.lm._online_finetune._rewards import VLLMOutputRewardHandler, RewardSection, VLLMOutputReward
-from fairseq2.recipes.lm._online_finetune._remote_vllm import VllmConfig, RemoteVllmModelHandler, RemoteVllmModel
+from fairseq2.recipes.lm._online_finetune._rewards import (
+    VLLMOutputRewardHandler,
+    RewardSection,
+    VLLMOutputReward,
+)
+from fairseq2.recipes.lm._online_finetune._remote_vllm import (
+    VllmConfig,
+    RemoteVllmModelHandler,
+    RemoteVllmModel,
+)
 
-from fairseq2.recipes.lm._online_finetune._common import copy_state, generate_rollouts, GRPOBatch
+from fairseq2.recipes.lm._online_finetune._common import (
+    copy_state,
+    generate_rollouts,
+    GRPOBatch,
+)
 from fairseq2.recipes.metrics import SequenceMetricBag
+
 
 @final
 class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
@@ -98,13 +111,19 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
     def maybe_sync_models(self):
 
-        if self._sync_vllm_model_every_n_steps > 0 and self._step_nr % self._sync_vllm_model_every_n_steps == 0:
+        if (
+            self._sync_vllm_model_every_n_steps > 0
+            and self._step_nr % self._sync_vllm_model_every_n_steps == 0
+        ):
             with self._model.summon_full_parameters():
                 if self._gangs.root.rank == 0:
                     self._vllm_model.sync_weights_with_vllm(train_model=self._model)
                 self._gangs.root.barrier()
 
-        if self._sync_ref_model_every_n_steps > 0 and self._step_nr % self._sync_ref_model_every_n_steps == 0:
+        if (
+            self._sync_ref_model_every_n_steps > 0
+            and self._step_nr % self._sync_ref_model_every_n_steps == 0
+        ):
             with self._model.summon_full_parameters():
                 if self._gangs.root.rank == 0:
                     # syncing with ref model
@@ -112,22 +131,27 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 self._gangs.root.barrier()
                 broadcast_model(self._reference_model, self._gangs)
 
-
     @override
     def __call__(self, prompt_batch: PromptBatch) -> tuple[Tensor, int]:
 
         self.maybe_sync_models()
 
-        rollouts = generate_rollouts(prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._vllm_model)
+        rollouts = generate_rollouts(
+            prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._vllm_model
+        )
 
         grpo_batch: GRPOBatch
-        grpo_batch, reward_output = self._reward.prepare_grpo_batch(prompt_batch, rollouts)  # loss_zeroer is used when entire batch has no valid prefrence pair
+        grpo_batch, reward_output = self._reward.prepare_grpo_batch(
+            prompt_batch, rollouts
+        )  # loss_zeroer is used when entire batch has no valid prefrence pair
 
         grpo_input_batch, grpo_target_batch = as_auto_regressive_input(
             grpo_batch.prompt_rollouts
         )
 
-        grpo_model_output = cast(SequenceModelOutput, self._model.module(grpo_input_batch))
+        grpo_model_output = cast(
+            SequenceModelOutput, self._model.module(grpo_input_batch)
+        )
 
         # if self._gangs.root.rank == 0:
         #     from pudb.remote import set_trace
@@ -139,15 +163,15 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             ref_grpo_model_output = cast(
                 SequenceModelOutput, self._reference_model.module(grpo_input_batch)
             )
-        
+
         _grpo_objective = self._compute_grpo_objective(
             grpo_model_output,
             ref_grpo_model_output,
             grpo_batch.rewards,
-            grpo_target_batch
+            grpo_target_batch,
         )
 
-        grpo_loss = - _grpo_objective
+        grpo_loss = -_grpo_objective
 
         self._metric_bag.update_grpo_loss(prompt_batch, grpo_loss)
 
@@ -155,12 +179,18 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         for prompt_rollouts in reward_output["tokens"]:
             lengths = [len(r) for r in prompt_rollouts]  # lengths per the same prompt
             rollouts_lengths.append(lengths)
-        rollouts_lengths = torch.tensor(rollouts_lengths, device=self._gangs.dp.device).float().mean(dim=1)  # [Batch]
+        rollouts_lengths = (
+            torch.tensor(rollouts_lengths, device=self._gangs.dp.device)
+            .float()
+            .mean(dim=1)
+        )  # [Batch]
         self._metric_bag.update_rollout_lengths(rollouts_lengths)
 
         # self._metric_bag.update_logps(batch, chosen_logps, rejected_logps)
 
-        self._metric_bag.update_batch_metrics(grpo_batch.prompt_rollouts)  # TODO fix, now logs only the last prompt from the batch
+        self._metric_bag.update_batch_metrics(
+            grpo_batch.prompt_rollouts
+        )  # TODO fix, now logs only the last prompt from the batch
 
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
         self._metric_bag.update_avg_reward(avg_reward)
@@ -190,10 +220,10 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         self,
         grpo_model_output: SequenceModelOutput,
         grpo_ref_model_output: SequenceModelOutput,
-        advantages: Tensor,  # outcome based only for now 
-        target_batch: SequenceBatch
+        advantages: Tensor,  # outcome based only for now
+        target_batch: SequenceBatch,
     ) -> tuple[Tensor, Tensor, Tensor]:
-        
+
         logps = self._gather_lprobs(grpo_model_output, target_batch)
         ref_logps = self._gather_lprobs(grpo_ref_model_output, target_batch)
 
@@ -205,14 +235,17 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         # kl penalty
         kl = (ref_logps - logps).exp() - (ref_logps - logps) - 1.0
 
-        per_token_scaled_advantage = (logps - logps.detach()).exp() * advantages[:,:,None]
+        per_token_scaled_advantage = (logps - logps.detach()).exp() * advantages[
+            :, :, None
+        ]
 
         per_token_loss = per_token_scaled_advantage - self._beta * kl
 
         target_mask = target_batch.target_mask.view(batch_size, num_rollouts, -1)
 
-        per_seq_loss = ((per_token_loss * target_mask).sum(dim=-1) / target_mask.sum(dim=-1)).mean(dim=1)
-
+        per_seq_loss = (
+            (per_token_loss * target_mask).sum(dim=-1) / target_mask.sum(dim=-1)
+        ).mean(dim=1)
 
         # if self._gangs.root.rank == 0:
         #     from pudb.remote import set_trace
@@ -239,6 +272,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
 class GrpoFinetuneMetricBag(SequenceMetricBag):
     """Holds the metrics of a DPO preference finetuning task."""
+
     # rollout_logps: Mean
     rollout_lengths: Mean
     grpo_loss: Mean
@@ -248,7 +282,9 @@ class GrpoFinetuneMetricBag(SequenceMetricBag):
         super().__init__(gang)
 
         # self.register_metric("rollout_logps", Mean(device=gang.device), persistent=False)
-        self.register_metric("rollout_lengths", Mean(device=gang.device), persistent=False)
+        self.register_metric(
+            "rollout_lengths", Mean(device=gang.device), persistent=False
+        )
         self.register_metric("grpo_loss", Mean(device=gang.device), persistent=False)
         self.register_metric("avg_reward", Mean(device=gang.device), persistent=False)
 
@@ -261,9 +297,7 @@ class GrpoFinetuneMetricBag(SequenceMetricBag):
         :param loss:
             The GRPO loss of ``batch``.
         """
-        self.grpo_loss.update(
-            loss / batch.batch_size, weight=batch.batch_size
-        )
+        self.grpo_loss.update(loss / batch.batch_size, weight=batch.batch_size)
 
     # @torch.inference_mode()
     # def update_logps(
@@ -303,6 +337,7 @@ class GrpoFinetuneMetricBag(SequenceMetricBag):
     def update_avg_reward(self, avg_reward):
         self.avg_reward.update(avg_reward, weight=1)
 
+
 GRPO_FINETUNE_UNIT: Final = "grpo"
 
 
@@ -330,9 +365,20 @@ class GrpoFinetuneConfig:
     length_normalization: bool = False
     """Use length normalized DPO, which uses the average log probability of a sequence as the implicit reward."""
 
-    vllm_model: VllmConfig = field(default_factory=lambda: VllmConfig(init_update_process_group=True))
+    vllm_model: VllmConfig = field(
+        default_factory=lambda: VllmConfig(init_update_process_group=True)
+    )
 
-    reward: RewardSection = field(default_factory=lambda: RewardSection(name="gsm8k_verifier"))
+    vllm_reward_model: VllmConfig = field(
+        default_factory=lambda: VllmConfig(init_update_process_group=False)
+    )
+
+    reward: RewardSection = field(
+        default_factory=lambda: RewardSection(name="skywork_verifier")
+    )
+    # reward: RewardSection = field(
+    #     default_factory=lambda: RewardSection(name="gsm8k_verifier")
+    # )
 
     sync_ref_model_every_n_steps: int = -1
     sync_vllm_model_every_n_steps: int = -1
@@ -356,10 +402,6 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
         config = structure(criterion_section.config, GrpoFinetuneConfig)
 
         validate(config)
-
-        reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
-        reward_handler = reward_registry.get(config.reward.name)
-        reward = reward_handler.create(recipe_config=recipe_config, gangs=gangs)
 
         if config.reference_model is not None:
             log.info("Setting up GRPO with reference model.")
@@ -385,7 +427,23 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
             reference_model = None
 
         vllm_model = RemoteVllmModelHandler().create(gangs=gangs, unit_config=config)
-    
+
+        # FIXME better way to check if vllm_reward_model is present in config
+        if hasattr(config, "vllm_reward_model"):
+            vllm_reward_model = RemoteVllmModelHandler().create(
+                gangs=gangs,
+                unit_config=config,
+                configs_name="vllm_reward_model",  # FIXME better way to use the correct configs?
+            )
+        else:
+            vllm_reward_model = None
+
+        reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
+        reward_handler = reward_registry.get(config.reward.name)
+        reward = reward_handler.create(
+            recipe_config=recipe_config, vllm_model=vllm_reward_model, gangs=gangs
+        )
+
         gangs.root.barrier()
 
         return GrpoFinetuneUnit(
@@ -400,7 +458,7 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
             config.sync_vllm_model_every_n_steps,
             config.sync_ref_model_every_n_steps,
         )
-    
+
     @property
     @override
     def name(self) -> str:

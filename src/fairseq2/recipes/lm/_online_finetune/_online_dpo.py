@@ -415,7 +415,6 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
             unit_config=config,
             configs_name="vllm_model",  # FIXME better way to use the correct configs?
         )
-        # vllm_model = None
 
         # FIXME better way to check if vllm_reward_model is present in config
         if hasattr(config, "vllm_reward_model"):
