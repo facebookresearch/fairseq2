@@ -1,17 +1,19 @@
 # Parquet Data Loading with fairseq2
+[Parquet](https://parquet.apache.org/docs/) is a popular binary columnar file format optimized for data storage and large-scale distributed data processing.
 
 > [!NOTE]
-> This module aims at supporting complex data structures (_e.g._ embeddings, tokens, audios, videos, bytes) in one single format.
+> Consider using the Parquet format when dealing with complex or nested data structures, such as embeddings, tokens, audio files, bytes, etc., as it enables their efficient and self-contained representation.
 
-A parquet dataset is a collection of parquet files that can be partitioned (or not).
-Each parquet file is a collection of row groups.
-And, roughly speaking, a row group is the smallest piece of parquet file  that can be read in memory.
-Yet since parquet is columnar format, we can flexibly and efficiently read only a subset of columns from a row group.
+A Parquet dataset is a collection of Parquet files that can be partitioned or not. Each Parquet file consists of row groups. Roughly speaking, a row group is the smallest piece of a Parquet file that can be read into memory. Since Parquet is a columnar format, we can flexibly and efficiently read only a subset of columns from a row group.
+
+> [!NOTE]
+> The row group size, when writing a Parquet file, should be chosen carefully to balance the trade-off between memory usage, read performance, and shuffling quality. As a rule of thumb, a good initial recommendation is to adjust the row group size so that each row group is between 50MB and 500MB.
+
 
 This module provides an efficient and flexible data loading pipeline for Apache Parquet datasets in fairseq2.
 The present tooling of general purpose and can be combined with various downstream workflows for large-scale machine learning workloads with features like sharding, filtering, column selection, and dynamic batching.
 
-**Requirements**: Install the Arrow dependencies with `pip install fairseq2[arrow]`, since we rely on the 
+**Requirements**: Install the Arrow dependencies with `pip install fairseq2[arrow]`, since we rely on the
 [pyarrow](https://arrow.apache.org/docs/python/index.html) library to interface with parquet files.
 
 ## Table of Contents
@@ -91,12 +93,12 @@ config = FragmentStreamingConfig(
 > How shuffling works:
 > - For non-zero postive `fragment_shuffle_window` value, all dataset files will be shuffled globally (and this shuffling will be different from one epoch to another).
 > - Next, each file will be split into row groups and shuffled locally within `fragment_shuffle_window`.
-> 
+>
 > Note that the global shuffling needs all parquet files' metadata upfront, which can be expensive for remote large datasets.
 > However, if `fragment_shuffle_window` is set to a small value (_e.g._ ~ average number of fragments per file * 5), the time to the first batch will be shorter.
 > The metadata fetching will be done on the fly in that case.
-> 
-> Also note that the shuffling behavior is seeded to be completely deterministic by the `seed` parameter. 
+>
+> Also note that the shuffling behavior is seeded to be completely deterministic by the `seed` parameter.
 > Thus if one reset a pipeline with the same `seed` value, the exactly same shuffling will be applied.
 
 ### Sharding
@@ -132,7 +134,7 @@ config = FragmentStreamingConfig(
 )
 ```
 
-> Note: 
+> Note:
 > Make sure that the filters are applied to the parition columns.
 > If you want to pass the `partition_filter` here to the fragments, you will need to apply the filters during the loading process.
 
@@ -183,7 +185,7 @@ loading_config = FragmentLoadingConfig(
 ```
 
 > [!NOTE]
-> Note that this is another layer of filtering different from the `partition_filters` for fragment streaming. 
+> Note that this is another layer of filtering different from the `partition_filters` for fragment streaming.
 
 ## Table Bucketing
 
@@ -369,7 +371,7 @@ bucketing_config = TableBucketingConfig(
 The `target_table_memory` parameter provides direct control over the memory footprint:
 
 - Specified in megabytes (MB)
-- Controls how many fragments are loaded and concatenated before processing 
+- Controls how many fragments are loaded and concatenated before processing
 - Adapts to data complexity (variable-length text, lists, etc.)
 - More predictable memory peaks than row-based approaches
 - Better handles cases where row count doesn't correlate linearly with memory usage
