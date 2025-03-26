@@ -48,6 +48,7 @@ Documentation
    basics/cli
    basics/assets
    basics/data_pipeline
+   basics/parquet_dataloader
    basics/ckpt
    basics/recipe
    basics/runtime_extensions
@@ -72,6 +73,7 @@ Documentation
    notebooks/datapipeline
    notebooks/dataset_gsm8k_sft
    notebooks/parquet_dataloader
+   notebooks/hf_parquet_integration
    notebooks/models/load_model
 
 .. toctree::
