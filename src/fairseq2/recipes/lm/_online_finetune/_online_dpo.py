@@ -387,7 +387,7 @@ class OnlineDpoFinetuneConfig:
     )
 
     reward: RewardSection = field(
-        default_factory=lambda: RewardSection(name="skywork_verifier")
+        default_factory=lambda: RewardSection(name="gsm8k_verifier")
     )
     # reward: RewardSection = field(
     #     default_factory=lambda: RewardSection(name="gsm8k_verifier")
@@ -421,6 +421,7 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
             configs_name="vllm_model",  # FIXME better way to use the correct configs?
         )
 
+        reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
         # FIXME better way to check if vllm_reward_model is present in config
         if hasattr(config, "vllm_reward_model"):
             vllm_reward_model = RemoteVllmModelHandler().create(
@@ -428,14 +429,16 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
                 unit_config=config,
                 configs_name="vllm_reward_model",  # FIXME better way to use the correct configs?
             )
-        else:
-            vllm_reward_model = None
 
-        reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
-        reward_handler = reward_registry.get(config.reward.name)
-        reward = reward_handler.create(
-            recipe_config=recipe_config, vllm_model=vllm_reward_model, gangs=gangs
-        )
+            reward_handler = reward_registry.get("skywork_verifier")
+            reward = reward_handler.create(
+                recipe_config=recipe_config, vllm_model=vllm_reward_model, gangs=gangs
+            )
+        else:
+            reward_handler = reward_registry.get(config.reward.name)
+            reward = reward_handler.create(
+                recipe_config=recipe_config, vllm_model=None, gangs=gangs
+            )
 
         if config.reference_model is not None:
             log.info("Setting up DPO with reference model.")
