@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from fairseq2.cluster import ClusterHandler, SlurmClusterHandler
+from fairseq2.cluster import ClusterHandler, RayClusterHandler, SlurmClusterHandler
 from fairseq2.context import RuntimeContext
 
 
@@ -16,4 +16,8 @@ def register_clusters(context: RuntimeContext) -> None:
     # Slurm
     handler = SlurmClusterHandler(context.env)
 
+    registry.register(handler.supported_cluster, handler)
+
+    # Ray
+    handler = RayClusterHandler(context.env)
     registry.register(handler.supported_cluster, handler)
