@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List
 
+import ray
 import torch
 import torch.distributed
 
@@ -57,6 +58,7 @@ from fairseq2.recipes.lm._online_finetune._online_dpo import (
     # ONLINE_DPO_FINETUNE_UNIT,
     OnlineDpoFinetuneConfig,
 )
+from fairseq2.recipes.lm._online_finetune._grpo import GrpoFinetuneConfig
 from fairseq2.recipes.lm._online_finetune._handler import (
     OnlineFinetuneUnitHandler,
     UnknownOnlineFinetuneUnitError,
@@ -66,7 +68,10 @@ from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
+from fairseq2.logging import log
 
+from fairseq2.recipes.lm._online_finetune._remote_vllm import VllmConfig, VllmEngineArgs, VllmRayActorConfig, RemoteVllmModelHandler
+from fairseq2.recipes.lm._online_finetune._common import get_ray_actor
 
 @dataclass(kw_only=True)
 class OnlineFinetuneConfig:
@@ -91,7 +96,7 @@ class OnlineFinetuneConfig:
 
     criterion: OnlineCriterionSection = field(
         default_factory=lambda: OnlineCriterionSection(
-            name="online_dpo", config=OnlineDpoFinetuneConfig()
+            name="grpo", config=GrpoFinetuneConfig()
         )
     )
 
@@ -117,8 +122,14 @@ class OnlineFinetuneConfig:
         )
     )
 
+    vllm: VllmActorsSection = field(default_factory=lambda: VllmActorsSection())
+
     common: CommonSection = field(default_factory=lambda: CommonSection())
 
+@dataclass(kw_only=True)
+class VllmActorsSection():
+    ray_cluster_ip_address: str | None = None
+    ray_actors: List[VllmRayActorConfig] | None = None
 
 @dataclass(kw_only=True)
 class OnlineFinetuneDatasetSection(DatasetSection):
@@ -237,6 +248,16 @@ def load_online_finetuner(
 
     tokenizer = load_text_tokenizer(context, config)
 
+    # initialize ray and vllm actors
+    ray.init(address=f"ray://{config.vllm.ray_cluster_ip_address}:10001", namespace="vllm_workers")
+
+    vllm_actors = {}
+    # go over actor configs and initialize all of them
+    for actor_config in config.vllm.ray_actors:
+        log.info(f"Setting up '{actor_config.ray_actor_name}' vllm actor")
+        actor = RemoteVllmModelHandler().create(gangs=gangs, actor_config=actor_config)
+        vllm_actors[actor_config.ray_actor_name] = actor
+
     # Initialize the train unit.
     unit_handlers = context.get_registry(OnlineFinetuneUnitHandler)
 
@@ -245,7 +266,7 @@ def load_online_finetuner(
     except LookupError:
         raise UnknownOnlineFinetuneUnitError(config.criterion.name) from None
 
-    unit = unit_handler.create(model, gangs, config)
+    unit = unit_handler.create(model, gangs, config, vllm_actors)
 
     batching: Batching
 

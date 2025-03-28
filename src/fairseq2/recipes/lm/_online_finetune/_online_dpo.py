@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from copy import copy
 from dataclasses import dataclass, field
-from typing import Final, List, cast, final
+from typing import Dict, Final, List, cast, final
 
 import torch.nn as nn
 import torch
@@ -65,25 +65,31 @@ import ray
 from fairseq2.recipes.lm._online_finetune._rewards import VLLMOutputRewardHandler, RewardSection, VLLMOutputReward
 from fairseq2.recipes.lm._online_finetune._remote_vllm import VllmConfig, RemoteVllmModelHandler, RemoteVllmModel
 
-from fairseq2.recipes.lm._online_finetune._common import collate_with_target_mask, copy_state, find_first_value, generate_rollouts
+from fairseq2.recipes.lm._online_finetune._common import collate_with_target_mask, copy_state, find_first_value, generate_rollouts, convert_vllm_output_to_ref_score
 
 @final
 class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
     """Represents the language model DPO-finetuning unit with online generations. Paper: https://arxiv.org/abs/2305.18290."""
 
-    _reference_model: Module | None
+    _reference_model: Module | RemoteVllmModel | None
+    _vllm_model: RemoteVllmModel
+    _vllm_actors: Dict[str, RemoteVllmModel]
     _metric_bag: OnlineDpoFinetuneMetricBag
     _loss_config: DpoLossConfig
     _model_update_group: PyNcclCommunicator
     _sync_vllm_model_every_n_steps: int
     _sync_ref_model_every_n_steps: int
+    _display_name: str
     _reward: VLLMOutputReward
+    _reference_offload: bool
 
     def __init__(
         self,
         model: Module,
-        reference_model: Module | None,
+        reference_model: Module | RemoteVllmModel,
+        reference_offload: bool,
         vllm_model: RemoteVllmModel,
+        vllm_actors: List[RemoteVllmModel],
         reward,
         gangs: Gangs,
         loss_config: DpoLossConfig,
@@ -93,6 +99,8 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         super().__init__()
         self._model = model
         self._reference_model = reference_model
+        self._reference_offload = reference_offload
+        self._vllm_actors = vllm_actors
         self._loss_config = loss_config
         self._vllm_model = vllm_model
         self._gangs = gangs
@@ -100,6 +108,13 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         self._sync_ref_model_every_n_steps = sync_ref_model_every_n_step
         self._reward = reward
         self._metric_bag = OnlineDpoFinetuneMetricBag(gangs.dp)
+
+        self._display_name = "online_dpo"
+
+    @property
+    @override
+    def display_name(self) -> str | None:
+        return self._display_name
 
     def maybe_sync_models(self):
 
@@ -110,12 +125,19 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 self._gangs.root.barrier()
 
         if self._sync_ref_model_every_n_steps > 0 and self._step_nr % self._sync_ref_model_every_n_steps == 0:
-            with self._model.summon_full_parameters():
-                if self._gangs.root.rank == 0:
-                    # syncing with ref model
-                    copy_state(self._model.module, self._reference_model.module)
-                self._gangs.root.barrier()
-                broadcast_model(self._reference_model, self._gangs)
+
+            if self._reference_offload:
+                with self._model.summon_full_parameters():
+                    if self._gangs.root.rank == 0:
+                        self._reference_model.sync_weights_with_vllm(train_model=self._model)
+                    self._gangs.root.barrier()
+            else:
+                with self._model.summon_full_parameters():
+                    if self._gangs.root.rank == 0:
+                        # syncing with ref model
+                        copy_state(self._model.module, self._reference_model.module)
+                    self._gangs.root.barrier()
+                    broadcast_model(self._reference_model, self._gangs)
 
     def validate_reward(self, prompt_batch: PromptBatch) -> tuple[Tensor, int]:
         if self._gangs.dp.rank == 0:
@@ -125,10 +147,25 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             policy_sampling_params = None
         rollouts = generate_rollouts(prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._vllm_model, sampling_params=policy_sampling_params)
         reward_output = self._reward.process_rollouts(rollouts, prompt_batch.meta_info[self._reward.answer_key])
-        avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
+        avg_reward = torch.tensor(reward_output["rewards"]).float().mean())
+
         self._metric_bag.update_avg_reward(avg_reward)
         # returning dummy loss since trainer expects it
         return torch.tensor(0.0, device=self._gangs.dp.device), prompt_batch.batch_size
+
+    def compute_reference_logps(self, seq_batch: SequenceBatch):
+        seqs_to_score = seq_batch.seqs.tolist()
+        if seq_batch.padding_mask:
+            prompt_lengths = (~seq_batch.target_mask).logical_and(seq_batch.padding_mask.materialize()).sum(dim=-1).cpu()  # extracting actual prompt lengths
+            seqs_to_score = [seq[:l] for seq,l in zip(seqs_to_score, seq_batch.padding_mask.seq_lens.tolist())]
+        else:
+            prompt_lengths = (~seq_batch.target_mask).sum(dim=-1).cpu()
+        
+        scored_responses = generate_rollouts(seqs_to_score, dp_gang=self._gangs.dp, vllm_model=self._reference_model)
+        ref_logps = convert_vllm_output_to_ref_score(scored_responses, self._gangs)
+        ref_logps = collate_with_target_mask(ref_logps, prompt_lengths, device=self._gangs.dp.device).seqs
+
+        return ref_logps
 
     @override
     def __call__(self, prompt_batch: PromptBatch) -> tuple[Tensor, int]:
@@ -142,6 +179,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         rollouts = generate_rollouts(prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._vllm_model)
 
+        batch: PreferenceBatch
         batch, is_bad_batch, reward_output = self._reward.prepare_preference_batch(prompt_batch, rollouts)  # loss_zeroer is used when entire batch has no valid prefrence pair
         if is_bad_batch:
             loss_zeroer = 0.0
@@ -175,7 +213,17 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             rejected_output, rejected_target_batch
         )
 
-        if self._reference_model is not None:
+        if self._reference_offload:
+            token_ref_chosen_logps = self.compute_reference_logps(batch.chosen)
+            token_ref_rejected_logps = self.compute_reference_logps(batch.rejected)
+
+            ref_average_chosen_logps = token_ref_chosen_logps.mean(dim=-1)
+            ref_average_rejected_logps = token_ref_rejected_logps.mean(dim=-1)
+
+            ref_chosen_logps = token_ref_chosen_logps.sum(dim=-1)
+            ref_rejected_logps = token_ref_rejected_logps.sum(dim=-1)
+
+        else:
             with torch.no_grad():
                 ref_chosen_output = cast(
                     SequenceModelOutput, self._reference_model.module(batch.chosen)
@@ -189,10 +237,6 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 ref_rejected_logps, ref_average_rejected_logps = _gather_lprobs_avg(
                     ref_rejected_output, rejected_target_batch
                 )
-        else:
-            raise RuntimeError(
-                "Reference model is not initialized and data batch does not provide reference score, but at least one must exist."
-            )
 
         if self._loss_config.length_normalization:
             _, _, dpo_loss = self._compute_dpo_loss(
@@ -341,13 +385,12 @@ class DpoLossConfig:
 
 @dataclass(kw_only=True)
 class OnlineDpoFinetuneConfig:
-    reference_model: ReferenceModelSection = field(
+    reference_model: ReferenceModelSection | str = field(
         default_factory=lambda: ReferenceModelSection(name="fs2_llama3_1_8b_instruct")
     )
     """
-    The reference model. If ``None``, the recipe expects to get reference
-    log-probabilities for chosen and rejected targets as float values in the
-    data example (fields `reference_score_rejected` and  `reference_score_chosen`).
+    The reference model. If set to string, the recipe expects to get reference
+    log-probabilities for rollouts using vllm actor.
     """
 
     reference_dtype: DataType = torch.bfloat16
@@ -355,7 +398,7 @@ class OnlineDpoFinetuneConfig:
 
     loss_config: DpoLossConfig = field(default_factory=lambda: DpoLossConfig())
 
-    vllm_model: VllmConfig = field(default_factory=lambda: VllmConfig(init_update_process_group=True))
+    ray_policy_actor_name: str = "vllm_policy"
 
     reward: RewardSection = field(default_factory=lambda: RewardSection(name="gsm8k_verifier"))
 
@@ -372,7 +415,7 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
 
     @override
     def create(
-        self, model: Module, gangs: Gangs, recipe_config: object
+        self, model: Module, gangs: Gangs, recipe_config: object, vllm_actors: object
     ) -> TrainUnit[PreferenceBatch]:
         criterion_section = get_config_section(
             recipe_config, "criterion", OnlineCriterionSection
@@ -382,12 +425,8 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
 
         validate(config)
 
-        reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
-        reward_handler = reward_registry.get(config.reward.name)
-        reward = reward_handler.create(reward_config=config.reward.config, gangs=gangs)
-
-        if config.reference_model is not None:
-            log.info("Setting up DPO with reference model.")
+        if isinstance(config.reference_model, ReferenceModelSection):
+            log.info("Setting up GRPO with reference model.")
 
             trainer_section = get_config_section(
                 recipe_config, "trainer", TrainerSection
@@ -404,36 +443,32 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
             )
 
             freeze_parameters(reference_model.module)
+            reference_offload = False
 
-            log.info("DPO setup complete.")
+        elif isinstance(config.reference_model, str):
+            reference_model = vllm_actors[config.reference_model]
+            reference_offload = True
+            if config.sync_ref_model_every_n_steps != -1:
+                if reference_model and reference_model.update_process_group is None:
+                    raise ValueError(f"Reference model actor must have update process group if we sync weights")
+
         else:
-            reference_model = None
+            raise ValueError(f"reference model {config.reference_model} not supported")
 
-        # if gangs.dp.rank == 0:
-            # ray.init(address=f"ray://{config.ray_cluster_ip_address}:10001", namespace="vllm_workers")
-            # actor_name = "vllm_model"
-            # vllm_model, model_update_group = setup_vllm(actor_name, config.vllm_init_checkpoint_dir, config.vllm_init_tokenizer, config.vllm_tensor_parallel_size, gangs.dp.device)
-        vllm_model = RemoteVllmModelHandler().create(gangs=gangs, unit_config=config)
-    
         gangs.root.barrier()
 
-        # if gangs.dp.rank != 0:
-        #     # vllm_model = ray.get_actor(actor_name)
-        #     vllm_model = None
-        #     model_update_group = None
+        vllm_model = vllm_actors[config.ray_policy_actor_name]
 
-        # gangs.root.barrier()
-
-        # if gangs.root.rank == 0:
-        #     from pudb.remote import set_trace
-        #     set_trace(host="submit-0", port=6899, term_size=(80*2, 24*2), reverse=True)
-
-        # gangs.root.barrier()
+        reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
+        reward_handler = reward_registry.get(config.reward.name)
+        reward = reward_handler.create(reward_config=config.reward.config, gangs=gangs)
 
         return OnlineDpoFinetuneUnit(
             model,
             reference_model,
+            reference_offload,
             vllm_model,
+            vllm_actors,
             reward,
             gangs,
             config.loss_config,

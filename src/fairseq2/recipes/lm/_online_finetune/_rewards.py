@@ -128,7 +128,7 @@ class GSM8kVerifier(VLLMOutputReward):
 
         batch, is_bad_batch = prepare_preference_batch_random_pair(prompt_batch=prompt_batch, reward_output=reward_output, gangs=self._gangs)
 
-        return batch, is_bad_batch
+        return batch, is_bad_batch, reward_output
 
     def prepare_grpo_batch(self, prompt_batch: PromptBatch, rollouts):
 

@@ -62,6 +62,14 @@ class OnlineFinetuneMetricBag(SequenceMetricBag):
     def __init__(self, gang: Gang) -> None:
         super().__init__(gang)
 
+def get_ray_actor(gangs: Gang, actor_name):
+    # only retrieve vllm actors on main rank process as a safety measure to avoid blocking
+    if gangs.dp.rank == 0 and gangs.tp.rank == 0:
+        actor = ray.get_actor(actor_name)
+    else:
+        actor = None
+
+    return actor
 
 def stateless_init_process_group(master_address, master_port, rank, world_size,
                                  device):
@@ -394,3 +402,35 @@ def prepare_grpo_batch(prompt_batch: PromptBatch, reward_output: dict, gangs: Ga
     grpo_batch = GRPOBatch(prompt_rollouts=prompt_rollout_batch, rewards=rewards_normalized)
 
     return grpo_batch
+
+
+def combine_prompts_responses_for_scoring(prompt_batch, rollouts: List[RequestOutput], gangs):
+    prompts: List[List[int]]
+    prompts = prompt_batch.prompts
+
+    responses = []
+    for prompt, req_output in zip(prompts, rollouts):
+        rollout_outputs = []
+        for output in req_output.outputs:
+            prompt_response_tokens = prompt + list(output.token_ids)
+            rollout_outputs.append(prompt_response_tokens)
+        responses.extend(rollout_outputs)
+
+    # if gangs.root.rank == 0:
+    #     from pudb.remote import set_trace
+    #     set_trace(host="submit-0", port=6899, term_size=(80*2, 24*2), reverse=True)
+
+    # gangs.root.barrier()
+
+    return responses
+
+def convert_vllm_output_to_ref_score(vllm_outputs: List[RequestOutput], gangs):
+    ref_scores = []
+    for req_output in vllm_outputs:
+        prompt_logprobs = req_output.prompt_logprobs[1:]
+        logprobs = [list(d.values())[0].logprob for d in prompt_logprobs]
+        # selecting only the response part that we scored
+        logprobs = torch.tensor(logprobs)
+        ref_scores.append(logprobs)
+
+    return ref_scores
