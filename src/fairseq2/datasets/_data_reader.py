@@ -85,12 +85,15 @@ class DataPipelineReader(DataReader[BatchT]):
         pipeline: DataPipeline,
         gang: Gang,
         options: DataReadOptions,
+        *,
+        strict_state: bool = True,
     ) -> None:
         """
         :param name: The name of the dataset.
         :param pipeline: The data pipeline to iterate over.
         :param gang: The gang over which the underlying dataset is sharded.
         :param options: The read options.
+        :param strict_state: If ``True``, the state of the data pipeline is strict (taking state from all pipeline steps).
         """
         self._dataset_name = dataset_name
         self._split = split
@@ -99,6 +102,7 @@ class DataPipelineReader(DataReader[BatchT]):
         self._gang = gang
         self._options = options
         self._eod = False
+        self._strict_state = strict_state
 
     @override
     def __iter__(self) -> Self:
@@ -163,7 +167,7 @@ class DataPipelineReader(DataReader[BatchT]):
 
     @override
     def state_dict(self) -> dict[str, object]:
-        return self._pipeline.state_dict()
+        return self._pipeline.state_dict(strict=self._strict_state)
 
     @override
     def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
