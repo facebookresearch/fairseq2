@@ -494,7 +494,7 @@ Benefits of Using Hugging Face Datasets with fairseq2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - **No Download Required**: Access datasets directly from Hugging Face Hub without downloading them first
-- **Efficient Loading**: Only load the necessary parts of the dataset
+- **Efficient and Resilient Loading**: Only load the necessary parts of the dataset, and auto-retry (thanks to ``SafeFragment``) when network issues or expired authentication tokens interrupt the data loading
 - **Advanced Processing**: Apply all fairseq2's parquet capabilities (filtering, batching, sharding, etc.)
 - **Memory Efficiency**: Stream data without loading entire datasets into memory
 - **High Performance**: Leverage the optimized data loading pipeline of fairseq2
