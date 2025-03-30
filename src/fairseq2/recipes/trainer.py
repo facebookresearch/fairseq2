@@ -12,10 +12,40 @@ from contextlib import AbstractContextManager, nullcontext
 from itertools import count
 from pathlib import Path
 from statistics import mean
-from typing import Any, Generic, TypeVar, final
+from typing import Any, final, Generic, TypeVar
 
 import torch
 import torch.distributed
+
+from fairseq2.checkpoint import CheckpointManager, CheckpointNotFoundError
+from fairseq2.datasets import DataReader
+from fairseq2.early_stopper import EarlyStopper
+from fairseq2.gang import all_sum, broadcast_flag, FakeGang, Gang
+from fairseq2.logging import get_log_writer
+from fairseq2.metrics import (
+    format_metric_value,
+    JsonFileMetricRecorder,
+    LogMetricRecorder,
+    MetricBag,
+    MetricRecorder,
+    record_metrics,
+    TensorBoardRecorder,
+)
+from fairseq2.nn.fsdp import summon_fsdp_for_validation
+from fairseq2.nn.utils.gradient import (
+    check_gradient_norms,
+    clip_gradient_norm,
+    normalize_gradients,
+)
+from fairseq2.optim import DynamicLossScaler
+from fairseq2.optim.lr_scheduler import get_effective_lr, LRScheduler, NoopLR
+from fairseq2.recipes.common_metrics import set_throughput_value
+from fairseq2.recipes.evaluator import EvalUnit
+from fairseq2.recipes.utils.cli import create_rich_progress
+from fairseq2.typing import CPU, DataType
+from fairseq2.utils.profiler import Profiler, Stopwatch
+from fairseq2.utils.rng import RngBag
+from fairseq2.utils.state import FSDPOptimizerStateHandler, StatefulObjectBag
 from rich.progress import Progress, TaskID
 from torch import Tensor
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
@@ -25,36 +55,6 @@ from torch.optim import Optimizer
 from torch.profiler import record_function
 from torcheval.metrics import Mean
 from typing_extensions import override
-
-from fairseq2.checkpoint import CheckpointManager, CheckpointNotFoundError
-from fairseq2.datasets import DataReader
-from fairseq2.early_stopper import EarlyStopper
-from fairseq2.gang import FakeGang, Gang, all_sum, broadcast_flag
-from fairseq2.logging import get_log_writer
-from fairseq2.metrics import (
-    JsonFileMetricRecorder,
-    LogMetricRecorder,
-    MetricBag,
-    MetricRecorder,
-    TensorBoardRecorder,
-    format_metric_value,
-    record_metrics,
-)
-from fairseq2.nn.fsdp import summon_fsdp_for_validation
-from fairseq2.nn.utils.gradient import (
-    check_gradient_norms,
-    clip_gradient_norm,
-    normalize_gradients,
-)
-from fairseq2.optim import DynamicLossScaler
-from fairseq2.optim.lr_scheduler import LRScheduler, NoopLR, get_effective_lr
-from fairseq2.recipes.common_metrics import set_throughput_value
-from fairseq2.recipes.evaluator import EvalUnit
-from fairseq2.recipes.utils.cli import create_rich_progress
-from fairseq2.typing import CPU, DataType
-from fairseq2.utils.profiler import Profiler, Stopwatch
-from fairseq2.utils.rng import RngBag
-from fairseq2.utils.state import FSDPOptimizerStateHandler, StatefulObjectBag
 
 log = get_log_writer(__name__)
 
@@ -912,6 +912,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         valid_task = self._progress.add_task("valid", total=None)
 
+        _max_num_valid_steps = 10
         for step_nr in count(start=1):
             self._progress.update(valid_task, advance=1)
 
@@ -926,7 +927,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
                 with self._maybe_autocast():
                     unit(batch)
 
-            if self._is_valid_end_of_data(batches):
+            if self._is_valid_end_of_data(batches) or step_nr == _max_num_valid_steps:
                 break
 
         self._progress.remove_task(valid_task)
