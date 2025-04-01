@@ -74,6 +74,7 @@ class Wav2Vec2AsrFactory:
         config = self._config
 
         return StandardWav2Vec2Masker(
+            config.mask_codebase,
             config.encoder_config.model_dim,
             config.temporal_mask_span_len,
             config.max_temporal_mask_prob,

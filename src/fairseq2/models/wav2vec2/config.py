@@ -43,6 +43,8 @@ class Wav2Vec2Config:
     from the transformer. """
 
     # Mask
+    mask_codebase: str = "fairseq2"
+    
     temporal_mask_span_len: int = 10
     """The length of each temporal mask span that is applied over time steps."""
 
