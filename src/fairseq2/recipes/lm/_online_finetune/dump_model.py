@@ -15,7 +15,7 @@ context = get_runtime_context()
 
 config = InstructionFinetuneConfig()
 
-config.gang.tensor_parallel_size=1
+config.gang.tensor_parallel_size = 1
 model_name = "llama3_1_8b_instruct"
 config.model.name = model_name
 
@@ -24,8 +24,8 @@ output_dir = Path(f"/checkpoint/ram/kulikov/fs2_{model_name}")
 checkpoint_manager = create_checkpoint_manager(context, gangs, output_dir)
 
 model = setup_model(
-        DecoderModel, context, config, output_dir, gangs, checkpoint_manager
-    )
+    DecoderModel, context, config, output_dir, gangs, checkpoint_manager
+)
 
 checkpoint_manager.begin_checkpoint(step_nr=0)
 print("saving the model")

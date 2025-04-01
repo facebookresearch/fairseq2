@@ -43,12 +43,14 @@ from fairseq2.data import (
 )
 from fairseq2.nn.padding import get_seqs_and_padding_mask
 
+
 @dataclass
 class GRPOBatch:
     """Represents a preference optimization dataset batch."""
 
     prompt_rollouts: SequenceBatch
     rewards: torch.Tensor
+
 
 @dataclass(kw_only=True)
 class OnlineCriterionSection:
@@ -62,6 +64,7 @@ class OnlineFinetuneMetricBag(SequenceMetricBag):
     def __init__(self, gang: Gang) -> None:
         super().__init__(gang)
 
+
 def get_ray_actor(gangs: Gang, actor_name):
     # only retrieve vllm actors on main rank process as a safety measure to avoid blocking
     if gangs.dp.rank == 0 and gangs.tp.rank == 0:
@@ -71,23 +74,24 @@ def get_ray_actor(gangs: Gang, actor_name):
 
     return actor
 
-def stateless_init_process_group(master_address, master_port, rank, world_size,
-                                 device):
+
+def stateless_init_process_group(master_address, master_port, rank, world_size, device):
     """
     vLLM provides `StatelessProcessGroup` to create a process group
     without considering the global process group in torch.distributed.
     It is recommended to create `StatelessProcessGroup`, and then initialize
-    the data-plane communication (NCCL) between external (train processes) 
+    the data-plane communication (NCCL) between external (train processes)
     and vLLM workers.
     """
     from vllm.distributed.device_communicators.pynccl import PyNcclCommunicator
     from vllm.distributed.utils import StatelessProcessGroup
-    pg = StatelessProcessGroup.create(host=master_address,
-                                      port=master_port,
-                                      rank=rank,
-                                      world_size=world_size)
+
+    pg = StatelessProcessGroup.create(
+        host=master_address, port=master_port, rank=rank, world_size=world_size
+    )
     pynccl = PyNcclCommunicator(pg, device=device)
     return pynccl
+
 
 @ray.remote
 class NoEnvLLM(LLM):
@@ -103,18 +107,21 @@ class NoEnvLLM(LLM):
     def is_ready(self):
         return self.ready
 
+
 class MyWorker(Worker):
     """
     The `MyWorker` class inherits from `Worker` to provide custom functions.
-    For simplicity, we define the `MyWorker` class in this self-contained 
-    script. Normally, we should define the `MyWorker` class in a separate 
-    file and pass the qualified name of the class to the `worker_cls` 
+    For simplicity, we define the `MyWorker` class in this self-contained
+    script. Normally, we should define the `MyWorker` class in a separate
+    file and pass the qualified name of the class to the `worker_cls`
     parameter.
     """
 
-    def init_weight_update_group(self, master_address, master_port,
-                                 rank_offset, world_size):
+    def init_weight_update_group(
+        self, master_address, master_port, rank_offset, world_size
+    ):
         from vllm.distributed.parallel_state import get_world_group
+
         rank = get_world_group().rank + rank_offset
         print(f"vllm own rank: {rank}")
         self.model_update_group = stateless_init_process_group(
@@ -127,21 +134,25 @@ class MyWorker(Worker):
 
     def update_weight(self, name, dtype, shape):
         weight = torch.empty(shape, dtype=dtype, device="cuda")
-        self.model_update_group.broadcast(weight,
-                                          src=0,
-                                          stream=torch.cuda.current_stream())
+        self.model_update_group.broadcast(
+            weight, src=0, stream=torch.cuda.current_stream()
+        )
 
         # wrap in fs2 style dict
-        weights = {
-            "model_key": "model",
-            "model": {name: weight}
-        }.items()
-        #self.model_runner.model.load_weights(weights=[(name, weight)])
+        weights = {"model_key": "model", "model": {name: weight}}.items()
+        # self.model_runner.model.load_weights(weights=[(name, weight)])
         self.model_runner.model.load_weights(weights=weights)
 
         del weight
 
-def setup_vllm(actor_name, vllm_init_checkpoint_dir, vllm_init_tokenizer, tensor_parallel_size, dp_device):
+
+def setup_vllm(
+    actor_name,
+    vllm_init_checkpoint_dir,
+    vllm_init_tokenizer,
+    tensor_parallel_size,
+    dp_device,
+):
 
     pg_inference = placement_group([{"GPU": 1, "CPU": 0}] * tensor_parallel_size)
 
@@ -156,10 +167,14 @@ def setup_vllm(actor_name, vllm_init_checkpoint_dir, vllm_init_tokenizer, tensor
     """
     launch the vLLM inference engine.
     here we use `enforce_eager` to reduce the start time.
-    """ 
-    llm = NoEnvLLM.options(name=actor_name,num_cpus=0,
+    """
+    llm = NoEnvLLM.options(
+        name=actor_name,
+        num_cpus=0,
         num_gpus=0,
-        scheduling_strategy=scheduling_inference,get_if_exists=True).remote(
+        scheduling_strategy=scheduling_inference,
+        get_if_exists=True,
+    ).remote(
         model=vllm_init_checkpoint_dir,
         tokenizer=vllm_init_tokenizer,
         enforce_eager=True,
@@ -179,15 +194,19 @@ def setup_vllm(actor_name, vllm_init_checkpoint_dir, vllm_init_tokenizer, tensor
     print(f"{master_port} {master_address}")
 
     print("init pg on vllm host")
-    handle = llm.collective_rpc.remote("init_weight_update_group",
-                                    args=(master_address, master_port, 1, tensor_parallel_size+1))
+    handle = llm.collective_rpc.remote(
+        "init_weight_update_group",
+        args=(master_address, master_port, 1, tensor_parallel_size + 1),
+    )
 
     print("init pg on train host")
-    model_update_group = stateless_init_process_group(master_address, master_port,
-                                                    0, tensor_parallel_size+1, dp_device)
+    model_update_group = stateless_init_process_group(
+        master_address, master_port, 0, tensor_parallel_size + 1, dp_device
+    )
     ray.get(handle)
 
     return llm, model_update_group
+
 
 def gsm8k_correctness_verifier(vllm_output: RequestOutput, reference_answer: List[str]):
     # verifier to match predicted answer with gsm8k format with the reference
@@ -224,36 +243,35 @@ def gsm8k_correctness_verifier(vllm_output: RequestOutput, reference_answer: Lis
         batch_tokens.append(rollouts_tokens)
         batch_rewards.append(rollouts_rewards)
 
-    return {
-        "text": batch_text,
-        "tokens": batch_tokens,
-        "rewards": batch_rewards
-    }
+    return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
+
 
 def collate_with_target_mask(list_of_tensors, prompt_lens, pad_value=0, device="cpu"):
     # list_of_tensors contain prompt+rollout tokens, we use prompt_len to define the target loss mask here
     to_collate = []
     for seq, prompt_len in zip(list_of_tensors, prompt_lens):
         target_loss_mask = torch.arange(len(seq)) >= prompt_len
-        to_collate.append({
-            "seqs": seq,
-            "target_loss_mask": target_loss_mask
-        })
+        to_collate.append({"seqs": seq, "target_loss_mask": target_loss_mask})
 
     target_mask_collate_opts = [
-            CollateOptionsOverride("target_loss_mask", pad_value=False),
-        ]
-    collater = Collater(pad_value=pad_value, pad_to_multiple=1, overrides=target_mask_collate_opts)
+        CollateOptionsOverride("target_loss_mask", pad_value=False),
+    ]
+    collater = Collater(
+        pad_value=pad_value, pad_to_multiple=1, overrides=target_mask_collate_opts
+    )
 
     seq_data = cast(SequenceData, collater(to_collate))
 
-    seqs, padding_mask = get_seqs_and_padding_mask(
-                seq_data["seqs"], device
-            )
+    seqs, padding_mask = get_seqs_and_padding_mask(seq_data["seqs"], device)
 
-    batch = SequenceBatch(seqs=seqs, padding_mask=padding_mask, target_mask=seq_data["target_loss_mask"]["seqs"].to(device))
+    batch = SequenceBatch(
+        seqs=seqs,
+        padding_mask=padding_mask,
+        target_mask=seq_data["target_loss_mask"]["seqs"].to(device),
+    )
 
     return batch
+
 
 def copy_state(src_module: nn.Module, tgt_module: nn.Module):
     tgt_state = tgt_module.state_dict()  # assumed tgt is not sharded
@@ -264,6 +282,7 @@ def copy_state(src_module: nn.Module, tgt_module: nn.Module):
         tgt_param = tgt_state[name_edited]
         tgt_param.data.copy_(src_param.data.to(tgt_param.device))
 
+
 def sync_weights_with_vllm(train_model, vllm_model, trainer_process_group):
     """
     trainer_process_group must connect training process with vllm_model processes
@@ -271,16 +290,21 @@ def sync_weights_with_vllm(train_model, vllm_model, trainer_process_group):
     for name, p in train_model.module.named_parameters():
         name = name.replace("._checkpoint_wrapped_module", "")
         # print(f'sync call {name}')
-        handle = vllm_model.collective_rpc.remote("update_weight",
-                                        args=(name, p.dtype, p.shape))
+        handle = vllm_model.collective_rpc.remote(
+            "update_weight", args=(name, p.dtype, p.shape)
+        )
         trainer_process_group.broadcast(p, src=0, stream=torch.cuda.current_stream())
         ray.get(handle)
+
 
 def find_first_value(lst, value):
     return next((i for i, x in enumerate(lst) if x == value), None)
 
-def generate_rollouts(prompts: List[List[int]], dp_gang: Gang, vllm_model, sampling_params=None):
-    prompts_to_generate = [None]*dp_gang.size
+
+def generate_rollouts(
+    prompts: List[List[int]], dp_gang: Gang, vllm_model, sampling_params=None
+):
+    prompts_to_generate = [None] * dp_gang.size
     if dp_gang.rank == 0:
         dp_gang.gather_object(prompts, prompts_to_generate, 0)
     else:
@@ -291,8 +315,10 @@ def generate_rollouts(prompts: List[List[int]], dp_gang: Gang, vllm_model, sampl
         flat_request_list = []
         for rank_prompts in prompts_to_generate:
             flat_request_list.extend(rank_prompts)
-        
-        rollouts = vllm_model.rollout_from_model(flat_request_list, sampling_params=sampling_params)
+
+        rollouts = vllm_model.rollout_from_model(
+            flat_request_list, sampling_params=sampling_params
+        )
 
         rollouts_to_scatter = []
         rollouts_per_rank = [None]
@@ -300,7 +326,9 @@ def generate_rollouts(prompts: List[List[int]], dp_gang: Gang, vllm_model, sampl
             rank_start = sum(rank_batch_sizes[:dp_rank])
             rank_end = rank_start + rank_batch_size
             rollouts_to_scatter.append(rollouts[rank_start:rank_end])
-        dp_gang.scatter_object_list(rollouts_per_rank, rollouts_to_scatter, source_rank=0)
+        dp_gang.scatter_object_list(
+            rollouts_per_rank, rollouts_to_scatter, source_rank=0
+        )
     else:
         rollouts_per_rank = [None]
         dp_gang.scatter_object_list(rollouts_per_rank, None, source_rank=0)
@@ -310,7 +338,9 @@ def generate_rollouts(prompts: List[List[int]], dp_gang: Gang, vllm_model, sampl
     return rollouts_per_rank[0]
 
 
-def prepare_preference_batch_random_pair(prompt_batch: PromptBatch, reward_output: dict, gangs) -> PreferenceBatch:
+def prepare_preference_batch_random_pair(
+    prompt_batch: PromptBatch, reward_output: dict, gangs
+) -> PreferenceBatch:
     """
     Single & random preference pair from rollouts and rewards
     """
@@ -321,9 +351,11 @@ def prepare_preference_batch_random_pair(prompt_batch: PromptBatch, reward_outpu
     rejected_batch = []
     prompt_lens = []
     dummy_batch_ids = []  # keep posiitons of dummy pairs here
-    
+
     # choosing first rollouts with reward 1 as chosen and 0 as rejected (sort of random given that we sample rollouts randomly)
-    for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(zip(reward_output["rewards"],reward_output["tokens"])):
+    for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(
+        zip(reward_output["rewards"], reward_output["tokens"])
+    ):
         chosen_rollout_position = find_first_value(i_batch_rewards, 1)
         rejected_rollout_position = find_first_value(i_batch_rewards, 0)
         if chosen_rollout_position is None or rejected_rollout_position is None:
@@ -344,11 +376,13 @@ def prepare_preference_batch_random_pair(prompt_batch: PromptBatch, reward_outpu
 
         prompt_lens.append(len(prompt_tokens))
 
-    filter_batch = lambda batch: [item for index, item in enumerate(batch) if index not in dummy_batch_ids]
+    filter_batch = lambda batch: [
+        item for index, item in enumerate(batch) if index not in dummy_batch_ids
+    ]
 
     if len(dummy_batch_ids) == len(reward_output["tokens"]):
         # entire batch does not have a valid preference pair
-        # we use it as dummy batch and zero the loss in the end 
+        # we use it as dummy batch and zero the loss in the end
         is_bad_batch = True
     else:
         # removing dummy pairs from the batch
@@ -359,33 +393,58 @@ def prepare_preference_batch_random_pair(prompt_batch: PromptBatch, reward_outpu
 
     prompt_lens = torch.tensor(prompt_lens)
 
-    chosen_batch = [torch.tensor(sequence, device=gangs.dp.device) for sequence in chosen_batch]
-    chosen_batch = collate_with_target_mask(chosen_batch, prompt_lens, device=gangs.dp.device)
+    chosen_batch = [
+        torch.tensor(sequence, device=gangs.dp.device) for sequence in chosen_batch
+    ]
+    chosen_batch = collate_with_target_mask(
+        chosen_batch, prompt_lens, device=gangs.dp.device
+    )
 
-    rejected_batch = [torch.tensor(sequence, device=gangs.dp.device) for sequence in rejected_batch]
-    rejected_batch = collate_with_target_mask(rejected_batch, prompt_lens, device=gangs.dp.device)
+    rejected_batch = [
+        torch.tensor(sequence, device=gangs.dp.device) for sequence in rejected_batch
+    ]
+    rejected_batch = collate_with_target_mask(
+        rejected_batch, prompt_lens, device=gangs.dp.device
+    )
 
-    batch = PreferenceBatch(chosen=chosen_batch, rejected=rejected_batch, reference_score_chosen=None, reference_score_rejected=None)
+    batch = PreferenceBatch(
+        chosen=chosen_batch,
+        rejected=rejected_batch,
+        reference_score_chosen=None,
+        reference_score_rejected=None,
+    )
 
     return batch, is_bad_batch
 
 
-def prepare_grpo_batch(prompt_batch: PromptBatch, reward_output: dict, gangs: Gang, num_rollout_per_forward: int):
+def prepare_grpo_batch(
+    prompt_batch: PromptBatch,
+    reward_output: dict,
+    gangs: Gang,
+    num_rollout_per_forward: int,
+):
 
     prompt_rollouts = []
     prompt_lens = []
     rewards = []
 
     # reward_output = self.process_rollouts(rollouts, prompt_batch.meta_info[self.answer_key])
-    for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(zip(reward_output["rewards"],reward_output["tokens"])):
+    for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(
+        zip(reward_output["rewards"], reward_output["tokens"])
+    ):
         prompt = prompt_batch.prompts[i_batch]
-        rollout_tokens = [torch.tensor(prompt+list(c), device=gangs.dp.device) for c in i_batch_tokens[:num_rollout_per_forward]]
-        
+        rollout_tokens = [
+            torch.tensor(prompt + list(c), device=gangs.dp.device)
+            for c in i_batch_tokens[:num_rollout_per_forward]
+        ]
+
         prompt_rollouts.extend(rollout_tokens)
 
-        prompt_lens.extend([len(prompt)]*len(rollout_tokens))
-        
-        rewards.append(i_batch_rewards)  # we add all rewards here to correctly compute group statistic
+        prompt_lens.extend([len(prompt)] * len(rollout_tokens))
+
+        rewards.append(
+            i_batch_rewards
+        )  # we add all rewards here to correctly compute group statistic
 
     # if gangs.root.rank == 0:
     #     from pudb.remote import set_trace
@@ -394,17 +453,25 @@ def prepare_grpo_batch(prompt_batch: PromptBatch, reward_output: dict, gangs: Ga
     # gangs.root.barrier()
 
     rewards = torch.tensor(rewards, device=gangs.dp.device).float()  # [Batch, Rollouts]
-    rewards_normalized = (rewards - rewards.mean(dim=1, keepdim=True)) / (rewards.std(dim=1, keepdim=True) + 1e-6)  # small epsilon to compensate 0 std
-    
-    rewards_normalized = rewards_normalized[:, :num_rollout_per_forward]
-    prompt_rollout_batch = collate_with_target_mask(prompt_rollouts, prompt_lens, device=gangs.dp.device)
+    rewards_normalized = (rewards - rewards.mean(dim=1, keepdim=True)) / (
+        rewards.std(dim=1, keepdim=True) + 1e-6
+    )  # small epsilon to compensate 0 std
 
-    grpo_batch = GRPOBatch(prompt_rollouts=prompt_rollout_batch, rewards=rewards_normalized)
+    rewards_normalized = rewards_normalized[:, :num_rollout_per_forward]
+    prompt_rollout_batch = collate_with_target_mask(
+        prompt_rollouts, prompt_lens, device=gangs.dp.device
+    )
+
+    grpo_batch = GRPOBatch(
+        prompt_rollouts=prompt_rollout_batch, rewards=rewards_normalized
+    )
 
     return grpo_batch
 
 
-def combine_prompts_responses_for_scoring(prompt_batch, rollouts: List[RequestOutput], gangs):
+def combine_prompts_responses_for_scoring(
+    prompt_batch, rollouts: List[RequestOutput], gangs
+):
     prompts: List[List[int]]
     prompts = prompt_batch.prompts
 
@@ -423,6 +490,7 @@ def combine_prompts_responses_for_scoring(prompt_batch, rollouts: List[RequestOu
     # gangs.root.barrier()
 
     return responses
+
 
 def convert_vllm_output_to_ref_score(vllm_outputs: List[RequestOutput], gangs):
     ref_scores = []

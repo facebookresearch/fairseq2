@@ -18,7 +18,7 @@ from fairseq2.recipes.lm import (
     OnlineFinetuneUnitHandler,
     GSM8kVerifierHandler,
     NuminaMathVerifierHandler,
-    VLLMOutputRewardHandler
+    VLLMOutputRewardHandler,
 )
 
 

@@ -33,7 +33,7 @@ from fairseq2.datasets import (
     LengthBatching,
     StaticBatching,
     DatasetLoadError,
-    UnknownSplitError
+    UnknownSplitError,
 )
 from fairseq2.datasets._utils import _load_files_and_weights
 from fairseq2.error import NotSupportedError
@@ -63,6 +63,7 @@ class PromptReadOptions(DataReadOptions):
 
     repeat_batch_n_times: int = 1
 
+
 @dataclass
 class PromptBatch:
     """Represents a preference optimization dataset batch."""
@@ -74,6 +75,7 @@ class PromptBatch:
     def batch_size(self) -> int:
         """The size of the batch dimension."""
         return len(self.prompts)
+
 
 class PromptDataset(ABC):
     """Represents a preference optimization dataset."""
@@ -200,9 +202,7 @@ class GenericPromptDataset(PromptDataset):
                 pipelines.append(pipeline)
 
             if options.sample:
-                builder = DataPipeline.sample(
-                    pipelines, weights=weights, seed=seed
-                )
+                builder = DataPipeline.sample(pipelines, weights=weights, seed=seed)
 
                 seed += 1
             else:
@@ -277,7 +277,7 @@ class GenericPromptDataset(PromptDataset):
             raise NotSupportedError(f"`{batching}` is not supported.")
 
         # Shuffle buckets.
-        
+
         if options.batch_shuffle_window != 1:
             builder.shuffle(options.batch_shuffle_window, seed=seed)
 
@@ -294,20 +294,22 @@ class GenericPromptDataset(PromptDataset):
             result = {}
             for k in keep_jsonl_keys:
                 result[k] = [d["keep_jsonl_keys"][k] for d in list_of_dicts]
-            
-            return result
 
+            return result
 
         # Wrap examples with `PromptBatch`.
         def to_batch(example: dict[str, Any]) -> PromptBatch:
             prompts = [e["indices_prompt"] for e in example]
             meta_info = glue_jsonl_columns(example, options.extras["keep_jsonl_keys"])
-            return PromptBatch(
-                prompts=prompts,
-                meta_info=meta_info
+            return PromptBatch(prompts=prompts, meta_info=meta_info)
+
+        pipeline = (
+            builder.map(to_batch)
+            .yield_from(
+                lambda x: read_sequence([x] * options.repeat_batch_n_times).and_return()
             )
-        
-        pipeline = builder.map(to_batch).yield_from(lambda x: read_sequence([x] * options.repeat_batch_n_times).and_return()).and_return()
+            .and_return()
+        )
 
         return DataPipelineReader[PromptBatch](
             self._name, split, pipeline, gang, options

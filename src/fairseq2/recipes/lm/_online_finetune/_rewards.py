@@ -18,22 +18,33 @@ from fairseq2.gang import Gangs
 from fairseq2.recipes.model import Model
 from fairseq2.recipes.trainer import TrainUnit
 from vllm import LLM, SamplingParams, RequestOutput, CompletionOutput
-from fairseq2.recipes.lm._online_finetune._common import collate_with_target_mask, find_first_value, GRPOBatch, prepare_preference_batch_random_pair, prepare_grpo_batch
+from fairseq2.recipes.lm._online_finetune._common import (
+    collate_with_target_mask,
+    find_first_value,
+    GRPOBatch,
+    prepare_preference_batch_random_pair,
+    prepare_grpo_batch,
+)
 import re
 from fairseq2.recipes.config import (
     get_config_section,
 )
-from fairseq2.recipes.lm._online_finetune._math_utils import remove_boxed, last_boxed_only_string
+from fairseq2.recipes.lm._online_finetune._math_utils import (
+    remove_boxed,
+    last_boxed_only_string,
+)
+
 
 @dataclass(kw_only=True)
 class RewardModelConfig:
     answer_key: str = "answer"
 
+
 @dataclass(kw_only=True)
 class RewardSection:
     name: str = "dummy"
     config: RewardModelConfig = field(default_factory=lambda: RewardModelConfig())
-    
+
 
 class VLLMOutputRewardHandler(ABC):
     @abstractmethod
@@ -60,6 +71,7 @@ class VLLMOutputReward(ABC):
     @abstractmethod
     def prepare_grpo_batch(self, prompt_batch: PromptBatch, rollouts): ...
 
+
 class GSM8kVerifierHandler(VLLMOutputRewardHandler):
     def __init__(self):
         pass
@@ -67,12 +79,12 @@ class GSM8kVerifierHandler(VLLMOutputRewardHandler):
     @override
     def create(self, reward_config, gangs):
         return GSM8kVerifier(answer_key=reward_config.answer_key, gangs=gangs)
-    
+
     @property
     @override
     def name(self):
         return "gsm8k_verifier"
-    
+
     @property
     @override
     def config_kls(self):
@@ -81,7 +93,9 @@ class GSM8kVerifierHandler(VLLMOutputRewardHandler):
 
 class GSM8kVerifier(VLLMOutputReward):
     def __init__(self, answer_key, gangs):
-        self.answer_re = re.compile(r"#### (\-?[0-9\.\,]+)")  # regexp from original gsm8k to extract formatted answer
+        self.answer_re = re.compile(
+            r"#### (\-?[0-9\.\,]+)"
+        )  # regexp from original gsm8k to extract formatted answer
         self.invalid_answer = "[invalid]"
         self._gangs = gangs
         self.answer_key = answer_key
@@ -96,7 +110,9 @@ class GSM8kVerifier(VLLMOutputReward):
             return self.invalid_answer
 
     @override
-    def process_rollouts(self, vllm_outputs: List[RequestOutput], reference_answers: List[str]):
+    def process_rollouts(
+        self, vllm_outputs: List[RequestOutput], reference_answers: List[str]
+    ):
         batch_text = []
         batch_tokens = []
         batch_rewards = []
@@ -116,25 +132,31 @@ class GSM8kVerifier(VLLMOutputReward):
             batch_tokens.append(rollouts_tokens)
             batch_rewards.append(rollouts_rewards)
 
-        return {
-            "text": batch_text,
-            "tokens": batch_tokens,
-            "rewards": batch_rewards
-        }
+        return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
 
-    def prepare_preference_batch(self, prompt_batch: PromptBatch, rollouts) -> PreferenceBatch:
+    def prepare_preference_batch(
+        self, prompt_batch: PromptBatch, rollouts
+    ) -> PreferenceBatch:
 
-        reward_output = self.process_rollouts(rollouts, prompt_batch.meta_info[self.answer_key])
+        reward_output = self.process_rollouts(
+            rollouts, prompt_batch.meta_info[self.answer_key]
+        )
 
-        batch, is_bad_batch = prepare_preference_batch_random_pair(prompt_batch=prompt_batch, reward_output=reward_output, gangs=self._gangs)
+        batch, is_bad_batch = prepare_preference_batch_random_pair(
+            prompt_batch=prompt_batch, reward_output=reward_output, gangs=self._gangs
+        )
 
         return batch, is_bad_batch, reward_output
 
     def prepare_grpo_batch(self, prompt_batch: PromptBatch, rollouts):
 
-        reward_output = self.process_rollouts(rollouts, prompt_batch.meta_info[self.answer_key])
-        
-        batch = prepare_grpo_batch(prompt_batch=prompt_batch, reward_output=reward_output, gangs=self._gangs)
+        reward_output = self.process_rollouts(
+            rollouts, prompt_batch.meta_info[self.answer_key]
+        )
+
+        batch = prepare_grpo_batch(
+            prompt_batch=prompt_batch, reward_output=reward_output, gangs=self._gangs
+        )
 
         return batch, reward_output
 
@@ -146,12 +168,12 @@ class NuminaMathVerifierHandler(VLLMOutputRewardHandler):
     @override
     def create(self, reward_config, gangs):
         return NuminaMathVerifier(answer_key=reward_config.answer_key, gangs=gangs)
-    
+
     @property
     @override
     def name(self):
         return "numinamath_verifier"
-    
+
     @property
     @override
     def config_kls(self):

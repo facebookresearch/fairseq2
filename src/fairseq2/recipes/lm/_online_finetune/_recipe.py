@@ -24,9 +24,13 @@ from fairseq2.datasets.prompt import (
     GENERIC_PROMPT_DATASET_FAMILY,
     GenericPromptDataset,
     PromptDataset,
-    PromptReadOptions
+    PromptReadOptions,
 )
-from fairseq2.datasets.instruction import InstructionDataset, InstructionPromptReadOptions, GENERIC_INSTRUCTION_DATASET_FAMILY
+from fairseq2.datasets.instruction import (
+    InstructionDataset,
+    InstructionPromptReadOptions,
+    GENERIC_INSTRUCTION_DATASET_FAMILY,
+)
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.nn.transformer import enable_memory_efficient_torch_sdpa
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
@@ -70,8 +74,14 @@ from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
 from fairseq2.logging import log
 
-from fairseq2.recipes.lm._online_finetune._remote_vllm import VllmConfig, VllmEngineArgs, VllmRayActorConfig, RemoteVllmModelHandler
+from fairseq2.recipes.lm._online_finetune._remote_vllm import (
+    VllmConfig,
+    VllmEngineArgs,
+    VllmRayActorConfig,
+    RemoteVllmModelHandler,
+)
 from fairseq2.recipes.lm._online_finetune._common import get_ray_actor
+
 
 @dataclass(kw_only=True)
 class OnlineFinetuneConfig:
@@ -126,10 +136,12 @@ class OnlineFinetuneConfig:
 
     common: CommonSection = field(default_factory=lambda: CommonSection())
 
+
 @dataclass(kw_only=True)
-class VllmActorsSection():
+class VllmActorsSection:
     ray_cluster_ip_address: str | None = None
     ray_actors: List[VllmRayActorConfig] | None = None
+
 
 @dataclass(kw_only=True)
 class OnlineFinetuneDatasetSection(DatasetSection):
@@ -137,7 +149,9 @@ class OnlineFinetuneDatasetSection(DatasetSection):
 
     family: str = GENERIC_PROMPT_DATASET_FAMILY
 
-    path: Path | None = "/opt/hpcaas/.mounts/fs-08557fb804ac7e131/kulikov/llm_rl/data_wanswers_64.jsonl"
+    path: Path | None = (
+        "/opt/hpcaas/.mounts/fs-08557fb804ac7e131/kulikov/llm_rl/data_wanswers_64.jsonl"
+    )
 
     train_split: str = "default"
 
@@ -179,6 +193,7 @@ class OnlineFinetuneDatasetSection(DatasetSection):
     """The dataset-specific extra options."""
 
     src_key: str = "src"
+
 
 @dataclass(kw_only=True)
 class DropoutConfig:
@@ -249,7 +264,10 @@ def load_online_finetuner(
     tokenizer = load_text_tokenizer(context, config)
 
     # initialize ray and vllm actors
-    ray.init(address=f"ray://{config.vllm.ray_cluster_ip_address}:10001", namespace="vllm_workers")
+    ray.init(
+        address=f"ray://{config.vllm.ray_cluster_ip_address}:10001",
+        namespace="vllm_workers",
+    )
 
     vllm_actors = {}
     # go over actor configs and initialize all of them
@@ -286,7 +304,7 @@ def load_online_finetuner(
         seed=seed,
         extras=config.dataset.extras,
         src_key=config.dataset.src_key,
-        repeat_batch_n_times=config.trainer.gradient_accumulation
+        repeat_batch_n_times=config.trainer.gradient_accumulation,
     )
 
     data_reader = dataset.create_reader(
@@ -307,7 +325,7 @@ def load_online_finetuner(
             num_accumulate=1,
             num_prefetch=config.dataset.num_prefetch,
             source_encode_mode=config.dataset.source_encode_mode,
-            max_num_batches=500,  ## TODO make confifurable ? 
+            max_num_batches=500,  ## TODO make confifurable ?
             seed=seed,
             extras=config.dataset.extras,
             src_key=config.dataset.src_key,
@@ -336,12 +354,14 @@ def load_online_finetuner(
                 )
             ]
         else:
-            raise ValueError("valid split has to be either list of splits or single split")
+            raise ValueError(
+                "valid split has to be either list of splits or single split"
+            )
     else:
         valid_data_readers = []
 
     if len(valid_data_readers) > 0:
-        valid_units = [unit]*len(valid_data_readers)
+        valid_units = [unit] * len(valid_data_readers)
     else:
         valid_units = []
 
