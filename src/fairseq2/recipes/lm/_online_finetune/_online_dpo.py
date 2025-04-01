@@ -456,6 +456,31 @@ class DpoLossConfig:
     sync_vllm_model_every_n_steps: int = -1
 
 
+@dataclass(kw_only=True)
+class OnlineDpoFinetuneConfig:
+    reference_model: ReferenceModelSection | str = field(
+        default_factory=lambda: ReferenceModelSection(name="fs2_llama3_1_8b_instruct")
+    )
+    """
+    The reference model. If set to string, the recipe expects to get reference
+    log-probabilities for rollouts using vllm actor.
+    """
+
+    reference_dtype: DataType = torch.bfloat16
+    """The data type of the reference model."""
+
+    loss_config: DpoLossConfig = field(default_factory=lambda: DpoLossConfig())
+
+    ray_policy_actor_name: str = "vllm_policy"
+
+    reward: RewardSection = field(
+        default_factory=lambda: RewardSection(name="gsm8k_verifier")
+    )
+
+    sync_ref_model_every_n_steps: int = -1
+    sync_vllm_model_every_n_steps: int = -1
+
+
 @final
 class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
     _context: RuntimeContext
