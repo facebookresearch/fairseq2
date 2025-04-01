@@ -254,8 +254,9 @@ class Wav2Vec2Model(Module):
 
         return distractors
 
+    @staticmethod
     def cosine_similarity(
-        self, x1: torch.Tensor, x2: torch.Tensor, dim=1, eps=1e-8
+        x1: torch.Tensor, x2: torch.Tensor, dim=1, eps=1e-8
     ) -> torch.Tensor:
         # Normalize along the specified dimension
         x1_norm = x1 / (x1.norm(dim=dim, dtype=x1.dtype).clamp(min=eps).unsqueeze(dim))
@@ -276,7 +277,7 @@ class Wav2Vec2Model(Module):
 
         # Perform in fp32.
         # (N, S, L + 1, M) -> (N, S, L + 1)
-        logits = self.cosine_similarity(seqs, candidates, dim=-1)
+        logits = Wav2Vec2Model.cosine_similarity(seqs, candidates, dim=-1)
 
         if self.logit_temp != 1.0:
             logits = logits / self.logit_temp
