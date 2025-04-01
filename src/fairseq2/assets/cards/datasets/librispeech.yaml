@@ -13,10 +13,8 @@ tokenizer_family: char_tokenizer
 
 name: librispeech_asr_100h
 base: librispeech_asr
-data: "/fsx-ust/shared/assets/datasets/librispeech/100h"
 
 ---
 
 name: librispeech_960h
 dataset_family: generic_speech
-data: "/fsx-mms/shared/assets/datasets/librispeech/960h"
