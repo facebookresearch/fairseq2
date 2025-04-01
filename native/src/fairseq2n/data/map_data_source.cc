@@ -11,19 +11,22 @@
 #include "fairseq2n/data/data_pipeline.h"
 #include "fairseq2n/data/detail/exception.h"
 #include "fairseq2n/detail/parallel.h"
+#include "fairseq2n/utils/cast.h"
+
+#ifdef FAIRSEQ2N_USE_TBB
+using PoolArgType = int;
+#include <oneapi/tbb.h>
+#else
+using PoolArgType = std::size_t;
+#endif
 
 namespace fairseq2n::detail {
 
-map_data_source::map_data_source(
-    std::unique_ptr<data_source> &&inner,
-    std::vector<map_fn> &&fns,
-    std::size_t num_parallel_calls,
-    bool deterministic)
-  : inner_{std::move(inner)},
-    map_fns_{std::move(fns)},
-    num_parallel_calls_{num_parallel_calls},
-    deterministic_{deterministic || num_parallel_calls == 1},
-    pool_{deterministic ? 0 : num_parallel_calls}
+map_data_source::map_data_source(std::unique_ptr<data_source> &&inner, std::vector<map_fn> &&fns,
+                                 std::size_t num_parallel_calls, bool deterministic)
+    : inner_{std::move(inner)}, map_fns_{std::move(fns)}, num_parallel_calls_{num_parallel_calls},
+      deterministic_{deterministic || num_parallel_calls == 1},
+      pool_{conditional_cast<PoolArgType>(deterministic ? 0u : num_parallel_calls)}
 {
     buffer_.reserve(num_parallel_calls);
 
@@ -50,15 +53,14 @@ map_data_source::next()
                 if (*buffer_pos_)
                     return std::move(*buffer_pos_++);
             }
-        // If we have exhausted all buffered examples, try to refill the buffer.
+            // If we have exhausted all buffered examples, try to refill the buffer.
         } while (fill_buffer());
     } else {
         // Check that we either have work or waiting outputs
         while (fill_buffer_async()) {
             // Wait until the next output is ready
             std::unique_lock<std::mutex> lock{async_output_mutex_};
-            read_output_condition_.wait(lock, [this]
-            {
+            read_output_condition_.wait(lock, [this] {
                 return !async_queue_.empty() || exception_ptr_;
             });
 
@@ -81,7 +83,7 @@ map_data_source::reset(bool reset_rng)
     buffer_.clear();
 
     buffer_pos_ = buffer_.begin();
-    
+
     reset_async_state();
 
     async_queue_.clear();
@@ -170,8 +172,7 @@ map_data_source::fill_buffer()
         return false;
 
     // Apply the processor to all buffered examples.
-    auto apply_function = [this](std::size_t begin, std::size_t end)
-    {
+    auto apply_function = [this](std::size_t begin, std::size_t end) {
         for (auto i = begin; i < end; ++i)
             buffer_[i] = invoke_function(*std::move(buffer_[i]), i);
     };
@@ -206,13 +207,32 @@ void
 map_data_source::wait_until_done() const
 {
     std::unique_lock<std::mutex> lock{async_output_mutex_};
-    read_output_condition_.wait(lock, [this]
-    {
+    read_output_condition_.wait(lock, [this] {
         return tasks_in_flight_ == 0 || exception_ptr_;
     });
 
     if (exception_ptr_)
         std::rethrow_exception(exception_ptr_);
+}
+
+void
+map_data_source::AsyncMapTask::operator()() const
+{
+    try {
+        // Move out of example, even though we're in a const operator
+        data result = p_this->map_fns_[0](std::move(example));
+
+        {
+            std::unique_lock<std::mutex> lock(p_this->async_output_mutex_);
+            p_this->async_queue_.emplace_back(std::move(result));
+        }
+    } catch (...) {
+        std::unique_lock<std::mutex> lock(p_this->async_output_mutex_);
+        p_this->exception_ptr_ = std::current_exception();
+    }
+
+    p_this->tasks_in_flight_--;
+    p_this->read_output_condition_.notify_one();
 }
 
 bool
@@ -230,26 +250,7 @@ map_data_source::fill_buffer_async()
         // Create task and send to thread pool
         data example = std::move(*maybe_example);
 
-        auto apply_function = [this](data&& ex)
-        {
-            try {
-                // Compute the function (the first one)
-                data result = map_fns_[0](std::move(ex));
-                // Add to output queue
-                {
-                    std::unique_lock<std::mutex> lock(async_output_mutex_);
-                    async_queue_.emplace_back(std::move(result));
-                }
-            } catch (const std::exception &) {
-                std::unique_lock<std::mutex> lock(async_output_mutex_);
-                exception_ptr_ = std::current_exception();
-            }
-            
-            tasks_in_flight_--;
-            read_output_condition_.notify_one();
-        };
-        
-        pool_.enqueue(apply_function, std::move(example));
+        pool_.enqueue(AsyncMapTask{this, std::move(example)});
     }
 
     return !finished_ || tasks_in_flight_ > 0 || has_async_output();
