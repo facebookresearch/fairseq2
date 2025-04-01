@@ -43,7 +43,7 @@ class Wav2Vec2Config:
 
     # Mask
     mask_codebase: str = "fairseq2"
-    
+
     temporal_mask_span_len: int = 10
     """The length of each temporal mask span that is applied over time steps."""
 
@@ -203,13 +203,16 @@ class Wav2Vec2EncoderConfig:
 
 
 def register_wav2vec2_configs(context: RuntimeContext) -> None:
-    registry = context.get_config_registry(Wav2Vec2Config)
-
-    arch = registry.decorator
+    arch = context.get_config_registry(Wav2Vec2Config).decorator
+    arch_encoder = context.get_config_registry(Wav2Vec2EncoderConfig).decorator
 
     @arch("base")
     def base() -> Wav2Vec2Config:
         return Wav2Vec2Config()
+
+    @arch_encoder("base")
+    def base_encoder() -> Wav2Vec2EncoderConfig:
+        return base().encoder_config
 
     @arch("large")
     def large() -> Wav2Vec2Config:
@@ -226,6 +229,10 @@ def register_wav2vec2_configs(context: RuntimeContext) -> None:
 
         return config
 
+    @arch_encoder("large")
+    def large_encoder() -> Wav2Vec2EncoderConfig:
+        return large().encoder_config
+
     @arch("large_lv60k")
     def large_lv60k() -> Wav2Vec2Config:
         config = large()
@@ -238,3 +245,251 @@ def register_wav2vec2_configs(context: RuntimeContext) -> None:
         config.codebook_sampling_temperature = (2.0, 0.1, 0.999995)
 
         return config
+
+    @arch_encoder("large_lv60k")
+    def large_lv60k_encoder() -> Wav2Vec2EncoderConfig:
+        return large_lv60k().encoder_config
+
+    @arch("xlsr_base")
+    def xlsr_base() -> Wav2Vec2Config:
+        config = large_lv60k()
+        config.encoder_config.attn_dropout_p = 0.0
+        config.encoder_config.feature_gradient_scale = 1.0
+        return config
+
+    @arch_encoder("xlsr_base")
+    def xlsr_base_encoder() -> Wav2Vec2EncoderConfig:
+        return xlsr_base().encoder_config
+
+    @arch("base_conformer")
+    def base_conformer() -> Wav2Vec2Config:
+        config = xlsr_base()
+
+        config.encoder_config.use_conformer = True
+        config.encoder_config.norm_order = TransformerNormOrder.POST
+        config.encoder_config.depthwise_conv_kernel_size = 31
+        # pos_encoder_type
+
+        return config
+
+    @arch_encoder("base_conformer")
+    def base_conformer_encoder() -> Wav2Vec2EncoderConfig:
+        return base_conformer().encoder_config
+
+    @arch("1b")
+    def b1() -> Wav2Vec2Config:
+        config = xlsr_base()
+
+        config.encoder_config.model_dim = 1280
+        config.encoder_config.num_encoder_layers = 48
+        config.encoder_config.ffn_inner_dim = 5120
+        config.encoder_config.dropout_p = 0.0
+        config.quantized_dim = 1024
+        config.final_dim = 1024
+        config.encoder_config.first_pass_dropout_p = 0.1
+
+        return config
+
+    @arch_encoder("1b")
+    def b1_encoder() -> Wav2Vec2EncoderConfig:
+        return b1().encoder_config
+
+    @arch("2b")
+    def b2() -> Wav2Vec2Config:
+        config = b1()
+
+        config.encoder_config.model_dim = 1920
+        config.encoder_config.ffn_inner_dim = 7680
+
+        return config
+
+    @arch_encoder("2b")
+    def b2_encoder() -> Wav2Vec2EncoderConfig:
+        return b2().encoder_config
+
+
+    @arch("3b")
+    def b3() -> Wav2Vec2Config:
+        config = b1()
+
+        config.encoder_config.num_encoder_layers = 60
+        config.encoder_config.model_dim = 2048
+        config.encoder_config.ffn_inner_dim = 8192
+
+        return config
+
+    @arch_encoder("3b")
+    def b3_encoder() -> Wav2Vec2EncoderConfig:
+        return b3().encoder_config
+
+    @arch("3b_mel")
+    def mel_3b() -> Wav2Vec2Config:
+        config = b3()
+
+        config.encoder_config.use_fbank = True
+        config.encoder_config.num_fbank_channels = 80
+        config.encoder_config.fbank_stride = 2
+        config.encoder_config.sample_fbank_every_k = 1
+        config.encoder_config.feature_dim = 160
+
+        return config
+
+    @arch_encoder("3b_mel")
+    def mel_3b_encoder() -> Wav2Vec2EncoderConfig:
+        return mel_3b().encoder_config
+
+    @arch("3.25b")
+    def higher_3b() -> Wav2Vec2Config:
+        config = b1()
+
+        config.encoder_config.num_encoder_layers = 64
+        config.encoder_config.model_dim = 2048
+        config.encoder_config.ffn_inner_dim = 8192
+        config.encoder_config.num_encoder_attn_heads = 32
+        config.quantized_dim = 1280
+        config.final_dim = 1280
+
+        return config
+
+    @arch_encoder("3.25b")
+    def higher_3b_encoder() -> Wav2Vec2EncoderConfig:
+        return higher_3b().encoder_config
+
+    @arch("4b")
+    def b4() -> Wav2Vec2Config:
+        config = b2()
+
+        config.quantized_dim = 1280
+        config.final_dim = 1280
+        config.encoder_config.num_encoder_layers = 64
+        config.encoder_config.model_dim = 2304
+        config.encoder_config.ffn_inner_dim = 9216
+        config.encoder_config.num_encoder_attn_heads = 32
+
+        return config
+
+    @arch_encoder("4b")
+    def b4_encoder() -> Wav2Vec2EncoderConfig:
+        return b4().encoder_config
+
+    @arch("1b_llama")
+    def llama_1b() -> Wav2Vec2Config:
+        config = xlsr_base()
+
+        config.encoder_config.model_dim = 2048
+        config.encoder_config.num_encoder_layers = 16
+        config.encoder_config.ffn_inner_dim = int(2048 * 4 * 1.5)
+        config.encoder_config.num_encoder_attn_heads = 32
+        config.encoder_config.dropout_p = 0.0
+        config.quantized_dim = 1024
+        config.final_dim = 1024
+        config.encoder_config.first_pass_dropout_p = 0.1
+
+        return config
+
+    @arch_encoder("1b_llama")
+    def llama_1b_encoder() -> Wav2Vec2EncoderConfig:
+        return llama_1b().encoder_config
+
+    @arch("3b_llama")
+    def llama_3b() -> Wav2Vec2Config:
+        config = llama_1b()
+
+        config.encoder_config.model_dim = 2560
+        config.encoder_config.num_encoder_layers = 32
+        config.encoder_config.ffn_inner_dim = int(2560 * 4 * 1.0)
+        config.quantized_dim = 2048
+        config.final_dim = 2048
+
+        return config
+
+    @arch_encoder("3b_llama")
+    def llama_3b_encoder() -> Wav2Vec2EncoderConfig:
+        return llama_3b().encoder_config
+
+    @arch("5b")
+    def b5() -> Wav2Vec2Config:
+        config = b3()
+
+        config.encoder_config.num_encoder_layers = 96
+        config.encoder_config.model_dim = 2048
+        config.encoder_config.ffn_inner_dim = 8192
+        config.encoder_config.num_encoder_attn_heads = 16
+        config.quantized_dim = 1024
+        config.final_dim = 1024
+
+        return config
+
+    @arch_encoder("5b")
+    def b5_encoder() -> Wav2Vec2EncoderConfig:
+        return b5().encoder_config
+
+    @arch("7b")
+    def b7() -> Wav2Vec2Config:
+        config = b5()
+
+        config.encoder_config.num_encoder_layers = 128
+        config.encoder_config.model_dim = 2048
+        config.encoder_config.ffn_inner_dim = 8192
+        config.encoder_config.num_encoder_attn_heads = 16
+        config.quantized_dim = 1024
+        config.final_dim = 1024
+
+        return config
+
+    @arch_encoder("7b")
+    def b7_encoder() -> Wav2Vec2EncoderConfig:
+        return b7().encoder_config
+
+    @arch("pseudo_dinosr_base")
+    def pseudo_dinosr_base() -> Wav2Vec2Config:
+        layer_descs = [(512, 10, 5)] + [(512, 3, 2)] * 4 + [(512, 2, 2)] * 3
+
+        encoder_config = Wav2Vec2EncoderConfig(
+            model_dim=768,
+            max_seq_len=100000,
+            feature_dim=512,
+            use_fbank=False,
+            first_pass_dropout_p=0.0,
+            layer_norm_features=True,
+            feature_extractor_layer_descs=layer_descs,
+            feature_extractor_bias=False,
+            feature_extractor_layer_norm_convs=True,
+            feature_gradient_scale=0.1,
+            num_fbank_channels=0,
+            fbank_stride=0,
+            sample_fbank_every_k=0,
+            pos_encoder_type="conv",
+            pos_encoder_depth=5,
+            pos_conv_kernel_size=95,
+            num_pos_conv_groups=16,
+            use_conformer=False,
+            num_encoder_layers=12,
+            num_encoder_attn_heads=12,
+            ffn_inner_dim=3072,
+            dropout_p=0.1,
+            attn_dropout_p=0.1,
+            layer_drop_p=0.0,
+            norm_order=TransformerNormOrder.POST,
+            depthwise_conv_kernel_size=31,
+        )
+
+        return Wav2Vec2Config(
+            encoder_config=encoder_config,
+            final_dim=256,
+            final_proj_bias=True,
+            temporal_mask_span_len=10,
+            max_temporal_mask_prob=0.65,
+            spatial_mask_span_len=10,
+            max_spatial_mask_prob=0.0,
+            quantized_dim=256,
+            num_codebooks=2,
+            num_codebook_entries=320,
+            codebook_sampling_temperature=(2.0, 0.5, 0.999995),
+            num_distractors=100,
+            logit_temp=0.1,
+        )
+
+    @arch_encoder("pseudo_dinosr_base")
+    def pseudo_dinosr_base_encoder() -> Wav2Vec2EncoderConfig:
+        return pseudo_dinosr_base().encoder_config
