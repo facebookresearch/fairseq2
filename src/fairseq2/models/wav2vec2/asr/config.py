@@ -13,8 +13,7 @@ from fairseq2.models.wav2vec2 import Wav2Vec2Config, Wav2Vec2EncoderConfig
 from fairseq2.runtime.config_registry import ConfigRegistrar, get_config
 from fairseq2.runtime.dependency import DependencyContainer, DependencyResolver
 
-WAV2VEC2_ASR_FAMILY: Final = "wav2vec2_asr"
-
+WAV2VEC2_ASR_MODEL_FAMILY: Final = "wav2vec2_asr"
 
 @dataclass(kw_only=True)
 class Wav2Vec2AsrConfig:
@@ -103,7 +102,6 @@ def _register_wav2vec2_asr_configs(container: DependencyContainer) -> None:
     @arch("large_100h", resolver=True)
     def large_100h(resolver: DependencyResolver) -> Wav2Vec2AsrConfig:
         config = large_10h(resolver)
-
         config.max_temporal_mask_prob = 0.53
         config.max_spatial_mask_prob = 0.55
 
@@ -130,8 +128,273 @@ def _register_wav2vec2_asr_configs(container: DependencyContainer) -> None:
     @arch("large_lv60k_100h", resolver=True)
     def large_lv60k_100h(resolver: DependencyResolver) -> Wav2Vec2AsrConfig:
         config = large_lv60k_10h(resolver)
-
         config.max_temporal_mask_prob = 0.53
         config.max_spatial_mask_prob = 0.55
+
+        return config
+
+    @arch("300m_bib61", resolver=True)
+    def bib61_300m(resolver: DependencyResolver) -> Wav2Vec2AsrConfig:
+        config = base_10h()
+        w2v2_config = get_config(resolver, Wav2Vec2Config, "large_lv60k")
+        config.encoder_config = w2v2_config.encoder_config
+
+        config.encoder_config.feature_grad_scale = 1.0
+        config.encoder_config.dropout_p = 0.0
+        config.encoder_config.attn_dropout_p = 0.0
+        config.encoder_config.ffn_inner_dropout_p = 0.1
+        config.encoder_config.layer_drop_p = 0.1
+
+        config.use_masking = False
+        config.max_temporal_mask_prob = 0.0
+        config.max_spatial_mask_prob = 0.0
+        config.vocab_info.size = 2475
+
+        return config
+
+    @arch("1b_bib61", resolver=True)
+    def bib61_1b(resolver: DependencyResolver) -> Wav2Vec2AsrConfig:
+        config = base_10h()
+        w2v2_config = get_config(resolver, Wav2Vec2Config, "1b")
+        config.encoder_config = w2v2_config.encoder_config
+
+        config.encoder_config.feature_grad_scale = 1.0
+        config.encoder_config.dropout_p = 0.0
+        config.encoder_config.attn_dropout_p = 0.0
+        config.encoder_config.ffn_inner_dropout_p = 0.1
+        config.encoder_config.layer_drop_p = 0.1
+
+        config.use_masking = False
+        config.max_temporal_mask_prob = 0.0
+        config.max_spatial_mask_prob = 0.0
+        config.vocab_info.size = 2475
+
+        return config
+
+    @arch("1b_llama_bib61", resolver=True)
+    def llama_bib61_1b(resolver: DependencyResolver) -> Wav2Vec2AsrConfig:
+        config = base_10h()
+        w2v2_config = get_config(resolver, Wav2Vec2Config, "1b")
+        config.encoder_config = w2v2_config.encoder_config
+
+        config.encoder_config.feature_grad_scale = 1.0
+        config.encoder_config.dropout_p = 0.0
+        config.encoder_config.attn_dropout_p = 0.0
+        config.encoder_config.ffn_inner_dropout_p = 0.1
+        config.encoder_config.layer_drop_p = 0.1
+
+        config.use_masking = False
+        config.max_temporal_mask_prob = 0.0
+        config.max_spatial_mask_prob = 0.0
+        config.vocab_info.size = 2475
+
+        return config
+
+    @arch("2b_bib61", resolver=True)
+    def bib61_2b(resolver: DependencyResolver) -> Wav2Vec2AsrConfig:
+        config = base_10h()
+        w2v2_config = get_config(resolver, Wav2Vec2Config, "2b")
+        config.encoder_config = w2v2_config.encoder_config
+
+        config.encoder_config.feature_grad_scale = 1.0
+        config.encoder_config.dropout_p = 0.0
+        config.encoder_config.attn_dropout_p = 0.0
+        config.encoder_config.ffn_inner_dropout_p = 0.1
+        config.encoder_config.layer_drop_p = 0.1
+
+        config.use_masking = False
+        config.max_temporal_mask_prob = 0.0
+        config.max_spatial_mask_prob = 0.0
+        config.vocab_info.size = 2475
+
+        return config
+
+    @arch("3b_bib61", resolver=True)
+    def bib61_3b(resolver: DependencyResolver) -> Wav2Vec2AsrConfig:
+        config = base_10h()
+        w2v2_config = get_config(resolver, Wav2Vec2Config, "3b")
+        config.encoder_config = w2v2_config.encoder_config
+
+        config.encoder_config.feature_grad_scale = 1.0
+        config.encoder_config.dropout_p = 0.0
+        config.encoder_config.attn_dropout_p = 0.0
+        config.encoder_config.ffn_inner_dropout_p = 0.1
+        config.encoder_config.layer_drop_p = 0.1
+
+        config.use_masking = False
+        config.max_temporal_mask_prob = 0.0
+        config.max_spatial_mask_prob = 0.0
+        config.vocab_info.size = 2475
+
+        return config
+
+    @arch("5b_bib61", resolver=True)
+    def bib61_5b(resolver: DependencyResolver) -> Wav2Vec2AsrConfig:
+        config = base_10h()
+        w2v2_config = get_config(resolver, Wav2Vec2Config, "5b")
+        config.encoder_config = w2v2_config.encoder_config
+
+        config.encoder_config.feature_grad_scale = 1.0
+        config.encoder_config.dropout_p = 0.0
+        config.encoder_config.attn_dropout_p = 0.0
+        config.encoder_config.ffn_inner_dropout_p = 0.1
+        config.encoder_config.layer_drop_p = 0.1
+
+        config.use_masking = False
+        config.max_temporal_mask_prob = 0.0
+        config.max_spatial_mask_prob = 0.0
+        config.vocab_info.size = 2475
+
+        return config
+
+    @arch("7b_bib61", resolver=True)
+    def bib61_7b(resolver: DependencyResolver) -> Wav2Vec2AsrConfig:
+        config = base_10h()
+        w2v2_config = get_config(resolver, Wav2Vec2Config, "7b")
+        config.encoder_config = w2v2_config.encoder_config
+
+        config.encoder_config.feature_grad_scale = 1.0
+        config.encoder_config.dropout_p = 0.0
+        config.encoder_config.attn_dropout_p = 0.0
+        config.encoder_config.ffn_inner_dropout_p = 0.1
+        config.encoder_config.layer_drop_p = 0.1
+
+        config.use_masking = False
+        config.max_temporal_mask_prob = 0.0
+        config.max_spatial_mask_prob = 0.0
+        config.vocab_info.size = 2475
+
+        return config
+
+    @arch("3.25b_bib61", resolver=True)
+    def higher_bib61_3b(resolver: DependencyResolver) -> Wav2Vec2AsrConfig:
+        config = base_10h()
+        w2v2_config = get_config(resolver, Wav2Vec2Config, "3.25b")
+        config.encoder_config = w2v2_config.encoder_config
+
+        config.encoder_config.feature_grad_scale = 1.0
+        config.encoder_config.dropout_p = 0.0
+        config.encoder_config.attn_dropout_p = 0.0
+        config.encoder_config.ffn_inner_dropout_p = 0.1
+        config.encoder_config.layer_drop_p = 0.1
+
+        config.use_masking = False
+        config.max_temporal_mask_prob = 0.0
+        config.max_spatial_mask_prob = 0.0
+        config.vocab_info.size = 2475
+
+        return config
+
+    @arch("5b_front51", resolver=True)
+    def front51_5b(resolver: DependencyResolver) -> Wav2Vec2AsrConfig:
+        config = base_10h()
+        w2v2_config = get_config(resolver, Wav2Vec2Config, "5b")
+        config.encoder_config = w2v2_config.encoder_config
+
+        config.encoder_config.feature_grad_scale = 1.0
+        config.encoder_config.dropout_p = 0.0
+        config.encoder_config.attn_dropout_p = 0.0
+        config.encoder_config.ffn_inner_dropout_p = 0.1
+        config.encoder_config.layer_drop_p = 0.1
+
+        config.use_masking = False
+        config.max_temporal_mask_prob = 0.0
+        config.max_spatial_mask_prob = 0.0
+        config.vocab_info.size = 222
+
+        return config
+
+    @arch("7b_front51", resolver=True)
+    def front51_7b(resolver: DependencyResolver) -> Wav2Vec2AsrConfig:
+        config = base_10h()
+        w2v2_config = get_config(resolver, Wav2Vec2Config, "7b")
+        config.encoder_config = w2v2_config.encoder_config
+
+        config.encoder_config.feature_grad_scale = 1.0
+        config.encoder_config.dropout_p = 0.0
+        config.encoder_config.attn_dropout_p = 0.0
+        config.encoder_config.ffn_inner_dropout_p = 0.1
+        config.encoder_config.layer_drop_p = 0.1
+
+        config.use_masking = False
+        config.max_temporal_mask_prob = 0.0
+        config.max_spatial_mask_prob = 0.0
+        config.vocab_info.size = 222
+
+        return config
+
+    @arch("1b_bib1143", resolver=True)
+    def bib1143_1b(resolver: DependencyResolver) -> Wav2Vec2AsrConfig:
+        config = base_10h()
+        w2v2_config = get_config(resolver, Wav2Vec2Config, "1b")
+        config.encoder_config = w2v2_config.encoder_config
+
+        config.encoder_config.feature_grad_scale = 1.0
+        config.encoder_config.dropout_p = 0.0
+        config.encoder_config.attn_dropout_p = 0.0
+        config.encoder_config.ffn_inner_dropout_p = 0.1
+        config.encoder_config.layer_drop_p = 0.1
+
+        config.use_masking = False
+        config.max_temporal_mask_prob = 0.0
+        config.max_spatial_mask_prob = 0.0
+        config.vocab_info.size = 3335
+
+        return config
+
+    @arch("3b_bib1143", resolver=True)
+    def bib1143_3b(resolver: DependencyResolver) -> Wav2Vec2AsrConfig:
+        config = base_10h()
+        w2v2_config = get_config(resolver, Wav2Vec2Config, "3b")
+        config.encoder_config = w2v2_config.encoder_config
+
+        config.encoder_config.feature_grad_scale = 1.0
+        config.encoder_config.dropout_p = 0.0
+        config.encoder_config.attn_dropout_p = 0.0
+        config.encoder_config.ffn_inner_dropout_p = 0.1
+        config.encoder_config.layer_drop_p = 0.1
+
+        config.use_masking = False
+        config.max_temporal_mask_prob = 0.0
+        config.max_spatial_mask_prob = 0.0
+        config.vocab_info.size = 3335
+
+        return config
+
+    @arch("5b_bib1143", resolver=True)
+    def bib1143_5b(resolver: DependencyResolver) -> Wav2Vec2AsrConfig:
+        config = base_10h()
+        w2v2_config = get_config(resolver, Wav2Vec2Config, "5b")
+        config.encoder_config = w2v2_config.encoder_config
+
+        config.encoder_config.feature_grad_scale = 1.0
+        config.encoder_config.dropout_p = 0.0
+        config.encoder_config.attn_dropout_p = 0.0
+        config.encoder_config.ffn_inner_dropout_p = 0.1
+        config.encoder_config.layer_drop_p = 0.1
+
+        config.use_masking = False
+        config.max_temporal_mask_prob = 0.0
+        config.max_spatial_mask_prob = 0.0
+        config.vocab_info.size = 3335           # following bibfront1194's vocab size
+
+        return config
+
+    @arch("7b_bib1143", resolver=True)
+    def bib1143_7b(resolver: DependencyResolver) -> Wav2Vec2AsrConfig:
+        config = base_10h()
+        w2v2_config = get_config(resolver, Wav2Vec2Config, "7b")
+        config.encoder_config = w2v2_config.encoder_config
+
+        config.encoder_config.feature_grad_scale = 1.0
+        config.encoder_config.dropout_p = 0.0
+        config.encoder_config.attn_dropout_p = 0.0
+        config.encoder_config.ffn_inner_dropout_p = 0.1
+        config.encoder_config.layer_drop_p = 0.1
+
+        config.use_masking = False
+        config.max_temporal_mask_prob = 0.0
+        config.max_spatial_mask_prob = 0.0
+        config.vocab_info.size = 3335
 
         return config
