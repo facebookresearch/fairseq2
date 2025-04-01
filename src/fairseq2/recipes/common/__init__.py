@@ -40,6 +40,7 @@ from fairseq2.recipes.common._error import (
 )
 from fairseq2.recipes.common._evaluator import create_evaluator as create_evaluator
 from fairseq2.recipes.common._gang import setup_gangs as setup_gangs
+from fairseq2.recipes.common._gang import setup_training_gangs as setup_training_gangs
 from fairseq2.recipes.common._generation import (
     create_seq2seq_generator as create_seq2seq_generator,
 )
@@ -68,4 +69,5 @@ from fairseq2.recipes.common._ref_model import (
 from fairseq2.recipes.common._text_tokenizer import (
     load_text_tokenizer as load_text_tokenizer,
 )
+from fairseq2.recipes.common._torch import setup_torch as setup_torch
 from fairseq2.recipes.common._trainer import create_trainer as create_trainer

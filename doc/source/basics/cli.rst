@@ -79,7 +79,7 @@ or add, delete values:
     fairseq2 lm instruction_finetune <OUTPUT_DIR> --config del:common.metric_recorders.tensorboard
 
     # Add a configuration key
-    fairseq2 lm instruction_finetune <OUTPUT_DIR> --config add:common.metric_recorders.tensorboard="{enabled: true}"
+    fairseq2 lm instruction_finetune <OUTPUT_DIR> --config set:common.metric_recorders.tensorboard="{enabled: true}"
 
 .. note::
 
@@ -88,12 +88,12 @@ or add, delete values:
 3. Adding and Removing Values
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Use ``add:`` and ``del:`` directives for more advanced configuration:
+Use ``set:`` and ``del:`` directives for more advanced configuration:
 
 .. code-block:: bash
 
     # Add a new configuration value
-    fairseq2 lm instruction_finetune <OUTPUT_DIR> --config add:new_param=value
+    fairseq2 lm instruction_finetune <OUTPUT_DIR> --config set:new_param=value
 
     # Remove a configuration value
     fairseq2 lm instruction_finetune <OUTPUT_DIR> --config del:unwanted_param
@@ -110,7 +110,7 @@ You can combine all these methods, with later values taking precedence:
         --config-file override.yaml \
         --config max_num_tokens=512 \
         optimizer_config.lr=4e-5 \
-        add:custom_param=value
+        set:custom_param=value
 
 Asset Management
 ----------------

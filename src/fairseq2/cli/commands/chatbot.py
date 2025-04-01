@@ -36,8 +36,14 @@ from fairseq2.recipes.common import (
     load_text_tokenizer,
     setup_gangs,
     setup_reference_model,
+    setup_torch,
 )
-from fairseq2.recipes.config import GangSection, ReferenceModelSection
+from fairseq2.recipes.config import (
+    CommonSection,
+    GangSection,
+    ReferenceModelSection,
+    TextTokenizerSection,
+)
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import RngBag
 
@@ -112,31 +118,33 @@ class RunChatbotHandler(CliCommandHandler):
 
         view = CliChatbotView(args.model_name, console)
 
-        args.gang = GangSection(
+        set_torch_distributed_variables(context, args.cluster)
+
+        common_section = CommonSection()
+
+        setup_torch(context, common_section, output_dir=None)
+
+        gang_section = GangSection(
             tensor_parallel_size=args.tensor_parallel_size, timeout=999
         )
 
-        args.model = ReferenceModelSection(name=args.model_name)
-
-        set_torch_distributed_variables(context, args.cluster)
-
-        torch.set_float32_matmul_precision("high")
-
         try:
-            gangs = setup_gangs(context, args)
+            gangs = setup_gangs(context, gang_section)
         except RecipeError as ex:
             raise CliCommandError(
                 "The chatbot setup has failed. See the nested exception for details."
             ) from ex
 
         if gangs.dp.size > 1:
-            log.warning("Using redundant data parallelism which may reduce throughput. It is recommended to use one device per model shard (i.e. a single device for a non-sharded model).")  # fmt: skip
+            log.warning("Using redundant data parallelism which may reduce throughput.")  # fmt: skip
+
+        model_section = ReferenceModelSection(name=args.model_name)
 
         try:
             model = setup_reference_model(
                 DecoderModel,
                 context,
-                args.model_name,
+                model_section,
                 gangs,
                 args.dtype,
                 mp=False,
@@ -149,18 +157,24 @@ class RunChatbotHandler(CliCommandHandler):
 
         module = cast(DecoderModel, model.module)
 
-        sampler = TopPSampler(p=args.top_p)
-
-        generator = SamplingSequenceGenerator(
-            module, sampler, temperature=args.temperature, max_gen_len=args.max_gen_len
-        )
+        tokenizer_section = TextTokenizerSection(name=args.model_name)
 
         try:
-            tokenizer = load_text_tokenizer(context, args)
+            tokenizer = load_text_tokenizer(context, tokenizer_section)
         except RecipeError as ex:
             raise CliCommandError(
                 "The chatbot setup has failed. See the nested exception for details."
             ) from ex
+
+        sampler = TopPSampler(p=args.top_p)
+
+        generator = SamplingSequenceGenerator(
+            module,
+            tokenizer.vocab_info,
+            sampler,
+            temperature=args.temperature,
+            max_gen_len=args.max_gen_len,
+        )
 
         card = context.asset_store.retrieve_card(args.model_name)
 

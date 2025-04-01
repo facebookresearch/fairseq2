@@ -38,10 +38,16 @@ from fairseq2.recipes.lm._loss_eval import (
     register_lm_loss_eval_configs as register_lm_loss_eval_configs,
 )
 from fairseq2.recipes.lm._preference_finetune._common import (
+    POFinetuneMetricBag as POFinetuneMetricBag,
+)
+from fairseq2.recipes.lm._preference_finetune._config import (
     POCriterionSection as POCriterionSection,
 )
-from fairseq2.recipes.lm._preference_finetune._common import (
-    POFinetuneMetricBag as POFinetuneMetricBag,
+from fairseq2.recipes.lm._preference_finetune._config import (
+    POFinetuneConfig as POFinetuneConfig,
+)
+from fairseq2.recipes.lm._preference_finetune._config import (
+    POFinetuneDatasetSection as POFinetuneDatasetSection,
 )
 from fairseq2.recipes.lm._preference_finetune._cpo import (
     CPO_FINETUNE_UNIT as CPO_FINETUNE_UNIT,
@@ -93,12 +99,6 @@ from fairseq2.recipes.lm._preference_finetune._orpo import (
 )
 from fairseq2.recipes.lm._preference_finetune._orpo import (
     OrpoFinetuneUnitHandler as OrpoFinetuneUnitHandler,
-)
-from fairseq2.recipes.lm._preference_finetune._recipe import (
-    POFinetuneConfig as POFinetuneConfig,
-)
-from fairseq2.recipes.lm._preference_finetune._recipe import (
-    POFinetuneDatasetSection as POFinetuneDatasetSection,
 )
 from fairseq2.recipes.lm._preference_finetune._recipe import (
     load_po_finetuner as load_po_finetuner,

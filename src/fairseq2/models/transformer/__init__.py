@@ -23,7 +23,7 @@ from fairseq2.models.transformer._factory import (
     create_transformer_model as create_transformer_model,
 )
 from fairseq2.models.transformer._factory import (
-    init_final_projection as init_final_projection,
+    init_transformer_final_projection as init_transformer_final_projection,
 )
 from fairseq2.models.transformer._frontend import (
     TransformerEmbeddingFrontend as TransformerEmbeddingFrontend,

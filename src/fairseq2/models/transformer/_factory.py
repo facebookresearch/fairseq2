@@ -62,7 +62,7 @@ class TransformerFactory:
 
         decoder = self.create_decoder()
 
-        final_proj = self.create_final_proj(embed)
+        final_proj = self.create_final_projection(embed)
 
         return TransformerModel(
             frontend,
@@ -70,17 +70,18 @@ class TransformerFactory:
             frontend,
             decoder,
             final_proj,
+            pad_idx=config.pad_idx,
+            max_source_seq_len=config.max_seq_len,
             max_target_seq_len=config.max_seq_len,
-            target_vocab_info=config.vocab_info,
         )
 
     def create_embedding(self) -> Embedding:
         config = self._config
 
         return StandardEmbedding(
-            num_embeddings=config.vocab_info.size,
+            num_embeddings=config.vocab_size,
             embedding_dim=config.model_dim,
-            pad_idx=config.vocab_info.pad_idx,
+            pad_idx=config.pad_idx,
             init_fn=init_scaled_embedding,
         )
 
@@ -169,16 +170,21 @@ class TransformerFactory:
             norm_order=config.norm_order,
         )
 
-    def create_final_proj(self, embed: Embedding) -> Projection:
+    def create_final_projection(self, embed: Embedding) -> Projection:
         config = self._config
 
         if isinstance(embed, StandardEmbedding):
             return TiedProjection(embed.weight, bias=None)
 
-        return Linear(config.model_dim, config.vocab_info.size, bias=False)
+        return Linear(
+            config.model_dim,
+            config.vocab_size,
+            bias=False,
+            init_fn=init_transformer_final_projection,
+        )
 
 
-def init_final_projection(proj: Linear) -> None:
+def init_transformer_final_projection(proj: Linear) -> None:
     nn.init.normal_(proj.weight, std=proj.input_dim**-0.5)
 
     if proj.bias is not None:

@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import final
 
 from fairseq2.context import RuntimeContext
+from fairseq2.data import VocabularyInfo
 from fairseq2.generation import (
     Seq2SeqGenerator,
     Seq2SeqGeneratorHandler,
@@ -23,20 +24,22 @@ from fairseq2.recipes import Model
 from fairseq2.recipes.config import (
     Seq2SeqGeneratorSection,
     SequenceGeneratorSection,
-    get_config_section,
 )
 from fairseq2.registry import Provider
 from fairseq2.utils.structured import StructureError
 
 
 def create_seq_generator(
-    context: RuntimeContext, recipe_config: object, model: Model
+    context: RuntimeContext,
+    seq_generator_section: SequenceGeneratorSection,
+    model: Model,
+    vocab_info: VocabularyInfo,
 ) -> SequenceGenerator:
     seq_generator_handlers = context.get_registry(SequenceGeneratorHandler)
 
     creator = SequenceGeneratorCreator(seq_generator_handlers)
 
-    return creator.create(recipe_config, model)
+    return creator.create(seq_generator_section, model, vocab_info)
 
 
 @final
@@ -48,15 +51,16 @@ class SequenceGeneratorCreator:
     ) -> None:
         self._seq_generator_handlers = seq_generator_handlers
 
-    def create(self, recipe_config: object, model: Model) -> SequenceGenerator:
+    def create(
+        self,
+        seq_generator_section: SequenceGeneratorSection,
+        model: Model,
+        vocab_info: VocabularyInfo,
+    ) -> SequenceGenerator:
         if not isinstance(model.base_module, DecoderModel):
             raise TypeError(
                 f"`model` must be of type `{DecoderModel}`, but is of type `{type(model)}` instead."
             )
-
-        seq_generator_section = get_config_section(
-            recipe_config, "seq_generator", SequenceGeneratorSection
-        )
 
         try:
             handler = self._seq_generator_handlers.get(seq_generator_section.name)
@@ -64,7 +68,9 @@ class SequenceGeneratorCreator:
             raise UnknownSequenceGeneratorError(seq_generator_section.name) from None
 
         try:
-            return handler.create(model.base_module, seq_generator_section.config)
+            return handler.create(
+                model.base_module, vocab_info, seq_generator_section.config
+            )
         except StructureError as ex:
             raise StructureError(
                 "`seq_generator.config` cannot be structured. See the nested exception for details."
@@ -72,13 +78,16 @@ class SequenceGeneratorCreator:
 
 
 def create_seq2seq_generator(
-    context: RuntimeContext, recipe_config: object, model: Model
+    context: RuntimeContext,
+    seq2seq_generator_section: Seq2SeqGeneratorSection,
+    model: Model,
+    target_vocab_info: VocabularyInfo,
 ) -> Seq2SeqGenerator:
     seq2seq_generator_handlers = context.get_registry(Seq2SeqGeneratorHandler)
 
     creator = Seq2SeqGeneratorCreator(seq2seq_generator_handlers)
 
-    return creator.create(recipe_config, model)
+    return creator.create(seq2seq_generator_section, model, target_vocab_info)
 
 
 @final
@@ -90,15 +99,16 @@ class Seq2SeqGeneratorCreator:
     ) -> None:
         self._seq2seq_generator_handlers = seq2seq_generator_handlers
 
-    def create(self, recipe_config: object, model: Model) -> Seq2SeqGenerator:
+    def create(
+        self,
+        seq2seq_generator_section: Seq2SeqGeneratorSection,
+        model: Model,
+        target_vocab_info: VocabularyInfo,
+    ) -> Seq2SeqGenerator:
         if not isinstance(model.base_module, EncoderDecoderModel):
             raise TypeError(
                 f"`model` must be of type `{EncoderDecoderModel}`, but is of type `{type(model)}` instead."
             )
-
-        seq2seq_generator_section = get_config_section(
-            recipe_config, "seq2seq_generator", Seq2SeqGeneratorSection
-        )
 
         try:
             handler = self._seq2seq_generator_handlers.get(
@@ -108,7 +118,9 @@ class Seq2SeqGeneratorCreator:
             raise UnknownSeq2SeqGeneratorError(seq2seq_generator_section.name) from None
 
         try:
-            return handler.create(model.base_module, seq2seq_generator_section.config)
+            return handler.create(
+                model.base_module, target_vocab_info, seq2seq_generator_section.config
+            )
         except StructureError as ex:
             raise StructureError(
                 "`seq2seq_generator.config` cannot be structured. See the nested exception for details."

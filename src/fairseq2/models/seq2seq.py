@@ -11,44 +11,38 @@ from dataclasses import dataclass
 
 from torch import Tensor
 from torch.nn import Module
+from typing_extensions import override
 
-from fairseq2.data import VocabularyInfo
+from fairseq2.device import SupportsDeviceTransfer
 from fairseq2.models.sequence import SequenceBatch, SequenceModelOutput
 from fairseq2.nn.padding import PaddingMask
+from fairseq2.typing import Device
 
 
 class Seq2SeqModel(Module, ABC):
     """Represents a sequence-to-sequence model."""
 
+    max_source_seq_len: int
     max_target_seq_len: int
-    target_vocab_info: VocabularyInfo
 
-    def __init__(
-        self,
-        max_target_seq_len: int,
-        target_vocab_info: VocabularyInfo,
-    ) -> None:
+    def __init__(self, max_source_seq_len: int, max_target_seq_len: int) -> None:
         """
-        :param max_target_seq_len:
-            The maximum length of sequences produced by the model.
-        :param target_vocab_info:
-            The vocabulary information of sequences produced by the model.
+        :param max_target_seq_len: The maximum length of produced sequences.
         """
         super().__init__()
 
+        self.max_source_seq_len = max_source_seq_len
         self.max_target_seq_len = max_target_seq_len
-        self.target_vocab_info = target_vocab_info
 
     @abstractmethod
     def forward(self, batch: Seq2SeqBatch) -> SequenceModelOutput:
         """
-        :param batch:
-            The batch of sequences to process.
+        :param batch: The batch of sequences to process.
         """
 
 
 @dataclass
-class Seq2SeqBatch:
+class Seq2SeqBatch(SupportsDeviceTransfer):
     """Represents a sequence-to-sequence batch."""
 
     source_seqs: Tensor
@@ -92,6 +86,18 @@ class Seq2SeqBatch:
             return self.target_seqs.numel()
 
         return int(self.target_padding_mask.seq_lens.sum())
+
+    @override
+    def to(self, device: Device) -> None:
+        self.source_seqs = self.source_seqs.to(device)
+
+        if self.source_padding_mask is not None:
+            self.source_padding_mask = self.source_padding_mask.to(device)
+
+        self.target_seqs = self.target_seqs.to(device)
+
+        if self.target_padding_mask is not None:
+            self.target_padding_mask = self.target_padding_mask.to(device)
 
 
 def as_auto_regressive_input(batch: Seq2SeqBatch) -> tuple[Seq2SeqBatch, SequenceBatch]:

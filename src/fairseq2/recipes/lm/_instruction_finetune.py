@@ -41,8 +41,9 @@ from fairseq2.recipes.common import (
     load_dataset,
     load_text_tokenizer,
     register_extra_asset_paths,
-    setup_gangs,
     setup_model,
+    setup_torch,
+    setup_training_gangs,
 )
 from fairseq2.recipes.config import (
     CommonSection,
@@ -53,6 +54,7 @@ from fairseq2.recipes.config import (
     ModelSection,
     OptimizerSection,
     RegimeSection,
+    TextTokenizerSection,
     TrainerSection,
 )
 from fairseq2.typing import CPU
@@ -69,6 +71,10 @@ class InstructionFinetuneConfig:
 
     dataset: InstructionFinetuneDatasetSection = field(
         default_factory=lambda: InstructionFinetuneDatasetSection()
+    )
+
+    tokenizer: TextTokenizerSection = field(
+        default_factory=lambda: TextTokenizerSection(name="llama3_instruct")
     )
 
     gang: GangSection = field(default_factory=lambda: GangSection())
@@ -206,11 +212,11 @@ def load_instruction_finetuner(
 
     validate(config)
 
-    register_extra_asset_paths(context, config)
+    register_extra_asset_paths(context, config.common)
 
-    torch.set_float32_matmul_precision("high")
+    setup_torch(context, config.common, output_dir)
 
-    gangs = setup_gangs(context, config)
+    gangs = setup_training_gangs(context, config.gang, config.trainer)
 
     checkpoint_manager = create_checkpoint_manager(context, gangs, output_dir)
 
@@ -221,21 +227,29 @@ def load_instruction_finetuner(
     seed += 1
 
     model = setup_model(
-        DecoderModel, context, config, output_dir, gangs, checkpoint_manager
+        DecoderModel,
+        context,
+        config.model,
+        config.trainer,
+        output_dir,
+        gangs,
+        checkpoint_manager,
     )
+
+    dataset = load_dataset(InstructionDataset, context, config.dataset, gangs)
+
+    tokenizer = load_text_tokenizer(context, config.tokenizer)
 
     # TODO(balioglu): investigate!
     # The memory efficient SDPA implementation in PyTorch is not stable when
     # used with padded inputs.
     enable_memory_efficient_torch_sdpa(model.module, False)
 
-    optimizer = create_optimizer(context, config, model)
+    optimizer = create_optimizer(context, config.optimizer, model)
 
-    lr_scheduler = create_lr_scheduler(context, config, optimizer)
-
-    dataset = load_dataset(InstructionDataset, context, config, gangs)
-
-    tokenizer = load_text_tokenizer(context, config)
+    lr_scheduler = create_lr_scheduler(
+        context, config.lr_scheduler, config.regime, optimizer
+    )
 
     # Initialize the unit.
     criterion = InstructionFinetuneCriterion(model)
@@ -313,7 +327,9 @@ def load_instruction_finetuner(
 
     return create_trainer(
         context,
-        config,
+        config.trainer,
+        config.regime,
+        config.common,
         output_dir,
         unit,
         data_reader,

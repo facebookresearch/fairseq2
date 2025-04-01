@@ -30,6 +30,7 @@ from fairseq2.recipes.common import (
     register_extra_asset_paths,
     setup_gangs,
     setup_reference_model,
+    setup_torch,
 )
 from fairseq2.recipes.config import (
     CommonSection,
@@ -117,11 +118,11 @@ def load_wav2vec2_evaluator(
 
     validate(config)
 
-    register_extra_asset_paths(context, config)
+    register_extra_asset_paths(context, config.common)
 
-    torch.set_float32_matmul_precision("high")
+    setup_torch(context, config.common, output_dir)
 
-    gangs = setup_gangs(context, config)
+    gangs = setup_gangs(context, config.gang)
 
     seed = config.common.seed
 
@@ -132,14 +133,14 @@ def load_wav2vec2_evaluator(
     model = setup_reference_model(
         Wav2Vec2Model,
         context,
-        config.model.name,
+        config.model,
         gangs,
         config.evaluator.dtype,
         config.evaluator.amp,
         config.evaluator.torch_compile,
     )
 
-    dataset = load_dataset(SpeechDataset, context, config, gangs)
+    dataset = load_dataset(SpeechDataset, context, config.dataset, gangs)
 
     # Initialize the unut.
     criterion = Wav2Vec2Criterion(
@@ -171,7 +172,14 @@ def load_wav2vec2_evaluator(
     seed += 1
 
     return create_evaluator(
-        context, config, output_dir, [unit], [data_reader], gangs, seed
+        context,
+        config.evaluator,
+        config.common,
+        output_dir,
+        [unit],
+        [data_reader],
+        gangs,
+        seed,
     )
 
 

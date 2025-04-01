@@ -39,7 +39,8 @@ from fairseq2.recipes.common import (
     prepare_model,
     register_extra_asset_paths,
     setup_data_parallel_model,
-    setup_gangs,
+    setup_torch,
+    setup_training_gangs,
 )
 from fairseq2.recipes.config import (
     CommonSection,
@@ -74,7 +75,7 @@ class Wav2Vec2AsrTrainConfig:
         default_factory=lambda: Wav2Vec2AsrTrainDatasetSection()
     )
 
-    text_tokenizer: TextTokenizerSection = field(
+    tokenizer: TextTokenizerSection = field(
         default_factory=lambda: TextTokenizerSection(name="librispeech_asr")
     )
 
@@ -215,11 +216,11 @@ def load_wav2vec2_asr_trainer(
 
     validate(config)
 
-    register_extra_asset_paths(context, config)
+    register_extra_asset_paths(context, config.common)
 
-    torch.set_float32_matmul_precision("high")
+    setup_torch(context, config.common, output_dir)
 
-    gangs = setup_gangs(context, config)
+    gangs = setup_training_gangs(context, config.gang, config.trainer)
 
     checkpoint_manager = create_checkpoint_manager(context, gangs, output_dir)
 
@@ -230,8 +231,18 @@ def load_wav2vec2_asr_trainer(
     seed += 1
 
     model = load_base_model(
-        Wav2Vec2AsrModel, context, config, output_dir, gangs, checkpoint_manager
+        Wav2Vec2AsrModel,
+        context,
+        config.model,
+        config.trainer,
+        output_dir,
+        gangs,
+        checkpoint_manager,
     )
+
+    dataset = load_dataset(AsrDataset, context, config.dataset, gangs)
+
+    tokenizer = load_text_tokenizer(context, config.tokenizer)
 
     module = cast(Wav2Vec2AsrModel, model.module)
 
@@ -241,10 +252,10 @@ def load_wav2vec2_asr_trainer(
         pt_model = load_reference_model(
             Wav2Vec2Model,
             context,
-            config.pretrained_model.name,
+            config.pretrained_model,
             gangs,
             config.trainer.dtype,
-            mp=config.trainer.mixed_precision is not None,
+            mp=config.trainer.mixed_precision != "off",
         )
 
         pt_module = cast(Wav2Vec2Model, pt_model.module)
@@ -272,21 +283,21 @@ def load_wav2vec2_asr_trainer(
     # We never train the feature extractor.
     freeze_parameters(module.encoder_frontend.feature_extractor)
 
-    prepare_model(context, config, model, gangs)
+    prepare_model(context, config.trainer, model, gangs)
 
     static_graph = config.trainer.freeze_encoder_for_n_steps == 0
 
-    model = setup_data_parallel_model(context, config, model, gangs, static_graph)
+    model = setup_data_parallel_model(
+        context, config.trainer, model, gangs, static_graph
+    )
 
     log_model(log, model.module, gangs)
 
-    optimizer = create_optimizer(context, config, model)
+    optimizer = create_optimizer(context, config.optimizer, model)
 
-    lr_scheduler = create_lr_scheduler(context, config, optimizer)
-
-    dataset = load_dataset(AsrDataset, context, config, gangs)
-
-    tokenizer = load_text_tokenizer(context, config)
+    lr_scheduler = create_lr_scheduler(
+        context, config.lr_scheduler, config.regime, optimizer
+    )
 
     # Initialize the train unit.
     criterion = AsrCriterion(model)
@@ -359,7 +370,9 @@ def load_wav2vec2_asr_trainer(
 
     return create_trainer(
         context,
-        config,
+        config.trainer,
+        config.regime,
+        config.common,
         output_dir,
         unit,
         data_reader,
@@ -379,6 +392,7 @@ class Wav2Vec2AsrTrainUnit(TrainUnit[Seq2SeqBatch]):
     _module: Wav2Vec2AsrModel
     _criterion: AsrCriterion
     _freeze_encoder_for_n_steps: int
+    _frozen: bool
     _metric_bag: AsrMetricBag
 
     def __init__(
@@ -398,6 +412,7 @@ class Wav2Vec2AsrTrainUnit(TrainUnit[Seq2SeqBatch]):
         self._module = module
         self._criterion = criterion
         self._freeze_encoder_for_n_steps = freeze_encoder_for_n_steps
+        self._frozen = False
 
         self._metric_bag = AsrMetricBag(gang)
 
@@ -410,6 +425,9 @@ class Wav2Vec2AsrTrainUnit(TrainUnit[Seq2SeqBatch]):
         module = self._module
 
         if step_nr <= self._freeze_encoder_for_n_steps:
+            if self._frozen:
+                return
+
             if step_nr == 1:
                 log.info("Freezing the encoder for the first {} steps.", self._freeze_encoder_for_n_steps)  # fmt: skip
 
@@ -418,7 +436,12 @@ class Wav2Vec2AsrTrainUnit(TrainUnit[Seq2SeqBatch]):
 
             if module.masker is not None:
                 freeze_parameters(module.masker)
+
+            self._frozen = True
         else:
+            if not self._frozen:
+                return
+
             if step_nr == self._freeze_encoder_for_n_steps + 1:
                 log.info("Unfreezing the encoder after step {}.", step_nr - 1)
 
@@ -426,6 +449,8 @@ class Wav2Vec2AsrTrainUnit(TrainUnit[Seq2SeqBatch]):
 
             # We never train the feature extractor.
             freeze_parameters(module.encoder_frontend.feature_extractor)
+
+            self._frozen = False
 
     @property
     @override

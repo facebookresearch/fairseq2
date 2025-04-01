@@ -43,6 +43,7 @@ from fairseq2.recipes.common import (
     register_extra_asset_paths,
     setup_gangs,
     setup_reference_model,
+    setup_torch,
 )
 from fairseq2.recipes.config import (
     CommonSection,
@@ -51,6 +52,7 @@ from fairseq2.recipes.config import (
     GeneratorSection,
     ReferenceModelSection,
     SequenceGeneratorSection,
+    TextTokenizerSection,
 )
 from fairseq2.typing import CPU
 from fairseq2.utils.file import FileMode
@@ -67,6 +69,10 @@ class TextGenerateConfig:
 
     dataset: TextGenerateDatasetSection = field(
         default_factory=lambda: TextGenerateDatasetSection()
+    )
+
+    tokenizer: TextTokenizerSection = field(
+        default_factory=lambda: TextTokenizerSection(name="llama3_instruct")
     )
 
     gang: GangSection = field(default_factory=lambda: GangSection())
@@ -150,11 +156,11 @@ def load_text_generator(
 
     validate(config)
 
-    register_extra_asset_paths(context, config)
+    register_extra_asset_paths(context, config.common)
 
-    torch.set_float32_matmul_precision("high")
+    setup_torch(context, config.common, output_dir)
 
-    gangs = setup_gangs(context, config)
+    gangs = setup_gangs(context, config.gang)
 
     seed = config.common.seed
 
@@ -165,19 +171,21 @@ def load_text_generator(
     model = setup_reference_model(
         DecoderModel,
         context,
-        config.model.name,
+        config.model,
         gangs,
         config.generator.dtype,
         config.generator.amp,
         config.generator.torch_compile,
     )
 
-    dataset = load_dataset(InstructionDataset, context, config, gangs)
+    dataset = load_dataset(InstructionDataset, context, config.dataset, gangs)
 
-    tokenizer = load_text_tokenizer(context, config)
+    tokenizer = load_text_tokenizer(context, config.tokenizer)
 
     # Initialize the unit.
-    seq_generator = create_seq_generator(context, config, model)
+    seq_generator = create_seq_generator(
+        context, config.seq_generator, model, tokenizer.vocab_info
+    )
 
     if gangs.tp.rank == 0:
         file_system = context.file_system
@@ -246,7 +254,16 @@ def load_text_generator(
 
     seed += 1
 
-    return create_generator(context, config, output_dir, unit, data_reader, gangs, seed)
+    return create_generator(
+        context,
+        config.generator,
+        config.common,
+        output_dir,
+        unit,
+        data_reader,
+        gangs,
+        seed,
+    )
 
 
 @final

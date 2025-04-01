@@ -28,6 +28,7 @@ from fairseq2.recipes.common import (
     register_extra_asset_paths,
     setup_gangs,
     setup_reference_model,
+    setup_torch,
 )
 from fairseq2.recipes.config import (
     CommonSection,
@@ -35,6 +36,7 @@ from fairseq2.recipes.config import (
     EvaluatorSection,
     GangSection,
     ReferenceModelSection,
+    TextTokenizerSection,
 )
 from fairseq2.typing import CPU
 from fairseq2.utils.file import FileMode
@@ -51,6 +53,10 @@ class AsrEvalConfig:
 
     dataset: AsrEvalDatasetSection = field(
         default_factory=lambda: AsrEvalDatasetSection()
+    )
+
+    tokenizer: TextTokenizerSection = field(
+        default_factory=lambda: TextTokenizerSection(name="librispeech_asr")
     )
 
     gang: GangSection = field(default_factory=lambda: GangSection())
@@ -109,11 +115,11 @@ def load_asr_evaluator(
 
     validate(config)
 
-    register_extra_asset_paths(context, config)
+    register_extra_asset_paths(context, config.common)
 
-    torch.set_float32_matmul_precision("high")
+    setup_torch(context, config.common, output_dir)
 
-    gangs = setup_gangs(context, config)
+    gangs = setup_gangs(context, config.gang)
 
     seed = config.common.seed
 
@@ -124,16 +130,16 @@ def load_asr_evaluator(
     model = setup_reference_model(
         AsrModel,
         context,
-        config.model.name,
+        config.model,
         gangs,
         config.evaluator.dtype,
         config.evaluator.amp,
         config.evaluator.torch_compile,
     )
 
-    dataset = load_dataset(AsrDataset, context, config, gangs)
+    dataset = load_dataset(AsrDataset, context, config.dataset, gangs)
 
-    tokenizer = load_text_tokenizer(context, config)
+    tokenizer = load_text_tokenizer(context, config.tokenizer)
 
     # Initialize the unit.
     if gangs.tp.rank == 0:
@@ -203,7 +209,14 @@ def load_asr_evaluator(
     seed += 1
 
     return create_evaluator(
-        context, config, output_dir, [unit], [data_reader], gangs, seed
+        context,
+        config.evaluator,
+        config.common,
+        output_dir,
+        [unit],
+        [data_reader],
+        gangs,
+        seed,
     )
 
 

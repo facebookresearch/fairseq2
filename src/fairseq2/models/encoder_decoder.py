@@ -11,7 +11,6 @@ from abc import abstractmethod
 from torch import Tensor
 from typing_extensions import override
 
-from fairseq2.data import VocabularyInfo
 from fairseq2.models.seq2seq import Seq2SeqBatch, Seq2SeqModel
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.nn import IncrementalStateBag
@@ -24,17 +23,13 @@ class EncoderDecoderModel(Seq2SeqModel):
     model_dim: int
 
     def __init__(
-        self, model_dim: int, max_target_seq_len: int, target_vocab_info: VocabularyInfo
+        self, model_dim: int, max_source_seq_len: int, max_target_seq_len: int
     ) -> None:
         """
-        :param model_dim:
-            The dimensionality of the model.
-        :param max_target_seq_len:
-            The maximum length of sequences produced by the model.
-        :param target_vocab_info:
-            The vocabulary information of sequences produced by the model.
+        :param model_dim: The dimensionality of the model.
+        :param max_target_seq_len: The maximum length of produced sequences.
         """
-        super().__init__(max_target_seq_len, target_vocab_info)
+        super().__init__(max_source_seq_len, max_target_seq_len)
 
         self.model_dim = model_dim
 

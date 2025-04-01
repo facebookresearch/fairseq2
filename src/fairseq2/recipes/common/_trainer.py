@@ -15,6 +15,7 @@ from torch.optim import Optimizer
 from fairseq2.checkpoint import CheckpointManager
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import DataReader
+from fairseq2.device import SupportsDeviceTransfer
 from fairseq2.gang import Gangs
 from fairseq2.logging import log
 from fairseq2.metrics import MetricDescriptor, UnknownMetricDescriptorError
@@ -30,19 +31,21 @@ from fairseq2.recipes import (
 from fairseq2.recipes.common._device import create_device_stat_tracker
 from fairseq2.recipes.common._metrics import create_metric_recorder
 from fairseq2.recipes.common._profilers import create_profiler
-from fairseq2.recipes.config import RegimeSection, TrainerSection, get_config_section
+from fairseq2.recipes.config import CommonSection, RegimeSection, TrainerSection
 from fairseq2.utils.gc import (
     CPythonGarbageCollector,
     GarbageCollector,
     NoopGarbageCollector,
 )
 
-BatchT = TypeVar("BatchT")
+BatchT = TypeVar("BatchT", bound=SupportsDeviceTransfer)
 
 
 def create_trainer(
     context: RuntimeContext,
-    recipe_config: object,
+    trainer_section: TrainerSection,
+    regime_section: RegimeSection,
+    common_section: CommonSection,
     output_dir: Path,
     unit: TrainUnit[BatchT],
     data_reader: DataReader[BatchT],
@@ -58,23 +61,19 @@ def create_trainer(
 ) -> Trainer[BatchT]:
     score_metric_descriptor = get_score_metric_descriptor(context, score_metric)
 
-    metric_recorder = create_metric_recorder(context, recipe_config, gangs, output_dir)
+    metric_recorder = create_metric_recorder(context, common_section, gangs, output_dir)
 
-    profiler = create_profiler(context, recipe_config, gangs, output_dir)
+    profiler = create_profiler(context, common_section, gangs, output_dir)
 
-    garbage_collector = create_garbage_collector(context, recipe_config)
+    garbage_collector = create_garbage_collector(context, trainer_section)
 
     device_stat_tracker = create_device_stat_tracker(gangs)
-
-    trainer_section = get_config_section(recipe_config, "trainer", TrainerSection)
 
     # TODO: Fix once we support static mixed precision on single device.
     if trainer_section.mixed_precision == "static":
         amp = gangs.root.size == 1 or trainer_section.data_parallelism != "fsdp"
     else:
         amp = trainer_section.mixed_precision == "dynamic"
-
-    regime_section = get_config_section(recipe_config, "regime", RegimeSection)
 
     if gangs.root.device.type == "cpu":
         log.warning("Based on your environment setup the training will be run on CPU. If this was not intended, check your job options (e.g. pass `--gpus-per-node` on Slurm).")  # fmt: skip
@@ -160,10 +159,8 @@ def get_score_metric_descriptor(
 
 
 def create_garbage_collector(
-    context: RuntimeContext, recipe_config: object
+    context: RuntimeContext, trainer_section: TrainerSection
 ) -> GarbageCollector:
-    trainer_section = get_config_section(recipe_config, "trainer", TrainerSection)
-
     if trainer_section.gc_every_n_steps is None:
         return NoopGarbageCollector()
 

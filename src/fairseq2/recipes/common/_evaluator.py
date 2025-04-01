@@ -12,32 +12,32 @@ from typing import TypeVar
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import DataReader
+from fairseq2.device import SupportsDeviceTransfer
 from fairseq2.gang import Gangs
 from fairseq2.recipes import Evaluator, EvalUnit
 from fairseq2.recipes.common._device import create_device_stat_tracker
 from fairseq2.recipes.common._metrics import create_metric_recorder
 from fairseq2.recipes.common._profilers import create_profiler
-from fairseq2.recipes.config import EvaluatorSection, get_config_section
+from fairseq2.recipes.config import CommonSection, EvaluatorSection
 
-BatchT = TypeVar("BatchT")
+BatchT = TypeVar("BatchT", bound=SupportsDeviceTransfer)
 
 
 def create_evaluator(
     context: RuntimeContext,
-    recipe_config: object,
+    evaluator_section: EvaluatorSection,
+    common_section: CommonSection,
     output_dir: Path,
     units: Sequence[EvalUnit[BatchT]],
     data_readers: Sequence[DataReader[BatchT]],
     gangs: Gangs,
     seed: int,
 ) -> Evaluator[BatchT]:
-    metric_recorder = create_metric_recorder(context, recipe_config, gangs, output_dir)
+    metric_recorder = create_metric_recorder(context, common_section, gangs, output_dir)
 
-    profiler = create_profiler(context, recipe_config, gangs, output_dir)
+    profiler = create_profiler(context, common_section, gangs, output_dir)
 
     device_stat_tracker = create_device_stat_tracker(gangs)
-
-    evaluator_section = get_config_section(recipe_config, "evaluator", EvaluatorSection)
 
     return Evaluator[BatchT](
         units=units,

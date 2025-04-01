@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, TypeAlias, TypeVar
+from typing import Literal, TypeAlias
 
 import torch
 
@@ -118,7 +118,7 @@ class TrainerSection:
 
     fsdp: FsdpSection = field(default_factory=lambda: FsdpSection())
 
-    mixed_precision: Literal["static", "dynamic"] | None = "static"
+    mixed_precision: Literal["static", "dynamic", "off"] = "static"
     """
     If 'none', the whole training will be run in `dtype`. If 'static', forward
     and backward passes will be run in `dtype`, but the optimizer step will be
@@ -401,6 +401,16 @@ class CommonSection:
 
     assets: AssetsSection = field(default_factory=lambda: AssetsSection())
 
+    num_threads: int | None = None
+    """
+    The number of threads to use for intra-op parallelism in PyTorch. If ``None``,
+    and the ``OMP_NUM_THREADS`` environment variable is not set, it will be set
+    to the number of CPU cores divided by the local world size.
+    """
+
+    allow_tf32: bool = True
+    """If ``True``, allows PyTorch to use TensorFloat32 tensor cores."""
+
     seed: int = 2
 
 
@@ -428,33 +438,3 @@ class Seq2SeqGeneratorSection:
     config: object = field(default_factory=BeamSearchConfig)
 
     batch_size: int = 1
-
-
-ConfigSectionT = TypeVar("ConfigSectionT")
-
-
-def get_config_section(
-    config: object, name: str, kls: type[ConfigSectionT]
-) -> ConfigSectionT:
-    try:
-        section = getattr(config, name)
-    except AttributeError:
-        raise ConfigSectionNotFoundError(name) from None
-
-    if not isinstance(section, kls):
-        raise TypeError(
-            f"The '{name}' configuration section must be of type `{kls}`, but is of type `{type(section)}` instead."
-        )
-
-    return section
-
-
-class ConfigSectionNotFoundError(Exception):
-    section: str
-
-    def __init__(self, section: str) -> None:
-        super().__init__(
-            f"The recipe configuration does not have a section named '{section}'."
-        )
-
-        self.section = section

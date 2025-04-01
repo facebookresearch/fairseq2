@@ -377,7 +377,7 @@ class StandardMultiheadAttention(MultiheadAttention):
                 v_dim,
                 model_dim,
                 output_proj_bias,
-                init_fn=output_proj_init_fn or init_output_projection,
+                init_fn=output_proj_init_fn or init_mha_output_projection,
                 device=device,
                 dtype=dtype,
             )
@@ -579,7 +579,7 @@ def init_qkv_projection(proj: Linear) -> None:
         nn.init.zeros_(proj.bias)
 
 
-def init_output_projection(proj: Linear) -> None:
+def init_mha_output_projection(proj: Linear) -> None:
     """Initialize ``proj`` as a multi-head attention output projection."""
     nn.init.xavier_uniform_(proj.weight)
 

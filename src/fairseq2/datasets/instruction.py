@@ -313,9 +313,9 @@ class GenericInstructionDataset(InstructionDataset):
         def to_batch(example: dict[str, Any]) -> SequenceBatch:
             indices = cast(SequenceData, example["indices"])
 
-            seqs, padding_mask = get_seqs_and_padding_mask(indices, gang.device)
+            seqs, padding_mask = get_seqs_and_padding_mask(indices)
 
-            target_mask = example["target_mask"]["seqs"].to(gang.device)
+            target_mask = example["target_mask"]["seqs"]
 
             return SequenceBatch(seqs, padding_mask, target_mask, example=example)
 
@@ -414,7 +414,7 @@ class GenericInstructionDataset(InstructionDataset):
         lines = []
 
         # TODO(balioglu): Do in C++.
-        with path.open() as fp:
+        with path.open(encoding="utf-8") as fp:
             for line in fp:
                 lines.append(line)
 
