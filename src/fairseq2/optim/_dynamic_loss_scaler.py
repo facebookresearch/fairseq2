@@ -203,7 +203,6 @@ class DynamicLossScaler:
 
     def unscale_gradients_(self) -> None:
         """Unscale the associated optimizer's gradients by the current scale."""
-
         if self._enabled and not supports_manual_gradient_scaling(self._optimizer):
             raise InvalidOperationError(
                 "`optimizer` must support manual gradient scaling via `torch.amp.GradScaler`, but supports only implicit scaling in its step function (i.e. `_step_supports_amp_scaling == True`)."
