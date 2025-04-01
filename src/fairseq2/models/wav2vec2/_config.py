@@ -307,7 +307,6 @@ def register_wav2vec2_configs(context: RuntimeContext) -> None:
     def b2_encoder() -> Wav2Vec2EncoderConfig:
         return b2().encoder_config
 
-
     @arch("3b")
     def b3() -> Wav2Vec2Config:
         config = b1()
