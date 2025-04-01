@@ -26,7 +26,6 @@ from fairseq2.typing import DataType, Device, get_name_or_self
 
 # TODO:cirquit unclear whether to use fairseq2.data_type of fairseq2.typing
 
-
 class Wav2Vec2Masker(Module, ABC):
     """Masks extracted wav2vec 2.0 features."""
 

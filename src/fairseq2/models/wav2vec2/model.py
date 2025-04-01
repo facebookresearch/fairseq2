@@ -256,7 +256,7 @@ class Wav2Vec2Model(Module):
 
     @staticmethod
     def cosine_similarity(
-        x1: torch.Tensor, x2: torch.Tensor, dim:int=1, eps:float=1e-8
+        x1: torch.Tensor, x2: torch.Tensor, dim: int = 1, eps: float = 1e-8
     ) -> torch.Tensor:
         # Normalize along the specified dimension
         x1_norm = x1 / (x1.norm(dim=dim, dtype=x1.dtype).clamp(min=eps).unsqueeze(dim))

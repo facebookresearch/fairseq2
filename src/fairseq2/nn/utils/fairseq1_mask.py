@@ -4,9 +4,10 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
+import numpy.typing as npt
 import torch
 
 
@@ -22,7 +23,7 @@ def compute_mask_indices(
     min_space: int = 0,
     require_same_masks: bool = True,
     mask_dropout: float = 0.0,
-) -> np.ndarray:
+) -> npt.NDArray[np.bool_]:
     """
     Computes random mask spans for a given shape
 
@@ -59,7 +60,7 @@ def compute_mask_indices(
     mask_idcs = []
     for i in range(bsz):
         if padding_mask is not None:
-            sz = all_sz - padding_mask[i].long().sum().item()
+            sz: int = int(all_sz - padding_mask[i].long().sum().item())
             num_mask = int(
                 # add a random number for probabilistic rounding
                 mask_prob * sz / float(mask_length)
@@ -71,15 +72,15 @@ def compute_mask_indices(
             num_mask = all_num_mask
 
         if mask_type == "static":
-            lengths = np.full(num_mask, mask_length)
+            lengths = np.full(num_mask, mask_length, dtype=np.int64)
         elif mask_type == "uniform":
-            lengths = np.random.randint(mask_other, mask_length * 2 + 1, size=num_mask)
+            lengths = np.random.randint(mask_other, mask_length * 2 + 1, size=num_mask)  # type: ignore
         elif mask_type == "normal":
-            lengths = np.random.normal(mask_length, mask_other, size=num_mask)
-            lengths = [max(1, int(round(x))) for x in lengths]
+            lengths_ = np.random.normal(mask_length, mask_other, size=num_mask)
+            lengths = np.maximum(1, np.round(lengths_).astype(np.int64))
         elif mask_type == "poisson":
             lengths = np.random.poisson(mask_length, size=num_mask)
-            lengths = [int(round(x)) for x in lengths]
+            lengths = np.round(lengths).astype(np.int64)
         else:
             raise Exception("unknown mask selection " + mask_type)
 
@@ -87,25 +88,27 @@ def compute_mask_indices(
             lengths[0] = min(mask_length, sz - 1)
 
         if no_overlap:
-            mask_idc = []
+            mask_idc_: List[int] = []
 
-            def arrange(s, e, length, keep_length):
+            def arrange(
+                s: int, e: int, length: int, keep_length: int
+            ) -> List[Tuple[int, int]]:
                 span_start = np.random.randint(s, e - length)
-                mask_idc.extend(span_start + i for i in range(length))
+                mask_idc_.extend(span_start + i for i in range(length))
 
-                new_parts = []
+                new_parts: List[Tuple[int, int]] = []
                 if span_start - s - min_space >= keep_length:
                     new_parts.append((s, span_start - min_space + 1))
                 if e - span_start - keep_length - min_space > keep_length:
                     new_parts.append((span_start + length + min_space, e))
                 return new_parts
 
-            parts = [(0, sz)]
+            parts: List[Tuple[int, int]] = [(0, sz)]
             min_length = min(lengths)
             for length in sorted(lengths, reverse=True):
                 lens = np.fromiter(
                     (e - s if e - s >= length + min_space else 0 for s, e in parts),
-                    np.int,
+                    np.int64,
                 )
                 l_sum = np.sum(lens)
                 if l_sum == 0:
@@ -114,7 +117,7 @@ def compute_mask_indices(
                 c = np.random.choice(len(parts), p=probs)
                 s, e = parts.pop(c)
                 parts.extend(arrange(s, e, length, min_length))
-            mask_idc = np.asarray(mask_idc)
+            mask_idc = np.asarray(mask_idc_, dtype=np.int64)
         else:
             min_len = min(lengths)
             if sz - min_len <= num_mask:

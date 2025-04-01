@@ -89,7 +89,7 @@ class Wav2Vec2AsrFactory:
 
         return Linear(
             config.encoder_config.model_dim,
-            config.target_vocab_size,
+            config.vocab_info.size,
             bias=True,
             init_fn=_init_final_projection,
         )
