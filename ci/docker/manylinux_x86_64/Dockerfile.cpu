@@ -4,12 +4,14 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-FROM quay.io/pypa/manylinux2014_x86_64
+FROM quay.io/pypa/manylinux_2_28_x86_64
 
 # Install system dependencies.
-RUN yum --assumeyes install\
-        devtoolset-10-lib{asan,lsan,ubsan,tsan}-devel libsndfile-devel &&\
-    yum clean all
+RUN dnf --assumeyes install\
+        gcc-toolset-11\
+        gcc-toolset-11-lib{asan,lsan,ubsan,tsan}-devel\
+        libsndfile-devel &&\
+    dnf clean all
 
 # Install Ninja.
 RUN pipx install --pip-args=--no-cache-dir ninja
@@ -17,7 +19,8 @@ RUN pipx install --pip-args=--no-cache-dir ninja
 # Install LLVM.
 COPY build-scripts/install-llvm.sh /build-scripts/
 
-RUN /build-scripts/install-llvm.sh && rm -rf /build-scripts
+RUN scl enable gcc-toolset-11 /build-scripts/install-llvm.sh &&\
+    rm -rf /build-scripts
 
 # Path to sanitizer libs. Used by the CI tests.
 ENV LIBASAN=/usr/lib64/libasan.so.6
