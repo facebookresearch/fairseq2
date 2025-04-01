@@ -9,20 +9,20 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import final
 
-from torch import Tensor
-from torch.nn import Module
-from torch.nn.functional import cross_entropy
-
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2 import (
+    extract_masked_elements,
     Wav2Vec2Loss,
     Wav2Vec2Model,
     Wav2Vec2Output,
-    extract_masked_elements,
 )
 from fairseq2.nn import Linear
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.typing import DataType, Device
+
+from torch import Tensor
+from torch.nn import Module
+from torch.nn.functional import cross_entropy
 
 
 @final
@@ -85,8 +85,6 @@ class W2VBertModel(Module):
             layer_padding_mask: PaddingMask | None,
             num_layers: int,
         ) -> bool:
-            nonlocal w2v2_features
-
             if layer_idx == num_layers - self.num_bert_encoder_layers - 1:
                 w2v2_features.seqs = layer_output
 
