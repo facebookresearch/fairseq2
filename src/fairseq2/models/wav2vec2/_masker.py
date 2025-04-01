@@ -17,9 +17,8 @@ from typing_extensions import override
 
 from fairseq2.error import InternalError
 from fairseq2.nn.padding import PaddingMask
-
-from fairseq2.nn.utils.mask import RowMaskFactory, compute_row_mask
 from fairseq2.nn.utils.fairseq1_mask import compute_mask_indices
+from fairseq2.nn.utils.mask import RowMaskFactory, compute_row_mask
 from fairseq2.typing import DataType, Device
 
 

@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from typing import Final
 
 from fairseq2.context import RuntimeContext
+from fairseq2.data import VocabularyInfo
 from fairseq2.models.wav2vec2 import Wav2Vec2EncoderConfig
 
 WAV2VEC2_ASR_MODEL_FAMILY: Final = "wav2vec2_asr"
@@ -33,15 +34,19 @@ class Wav2Vec2AsrConfig:
     )
     """The configuration of the encoder."""
 
-    target_vocab_size: int = 32
-    """The size of the target vocabulary."""
+    vocab_info: VocabularyInfo = field(
+        default_factory=lambda: VocabularyInfo(
+            size=32, unk_idx=3, bos_idx=0, eos_idx=2, pad_idx=1
+        )
+    )
+    """The vocabulary information."""
 
     final_dropout_p: float = 0.0
     """The dropout probability on the output of the encoder."""
 
     # Mask
     mask_codebase: str = "fairseq2"
-    
+
     use_masking: bool = True
     """If ``True``, masks features as regularization."""
 
@@ -364,7 +369,7 @@ def register_wav2vec2_asr_configs(context: RuntimeContext) -> None:
         config.use_masking = False
         config.max_temporal_mask_prob = 0.0
         config.max_spatial_mask_prob = 0.0
-        config.vocab_info.size = 3335           # following bibfront1194's vocab size
+        config.vocab_info.size = 3335  # following bibfront1194's vocab size
 
         return config
 
