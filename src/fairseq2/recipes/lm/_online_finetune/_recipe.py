@@ -307,7 +307,7 @@ def load_online_finetuner(
             num_accumulate=1,
             num_prefetch=config.dataset.num_prefetch,
             source_encode_mode=config.dataset.source_encode_mode,
-            max_num_batches=10000,  ## TODO make confifurable ? 
+            max_num_batches=500,  ## TODO make confifurable ? 
             seed=seed,
             extras=config.dataset.extras,
             src_key=config.dataset.src_key,

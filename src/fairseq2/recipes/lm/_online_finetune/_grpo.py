@@ -144,9 +144,13 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         return torch.tensor(0.0, device=self._gangs.dp.device), prompt_batch.batch_size
 
     def compute_reference_logps(self, seq_batch: SequenceBatch):
-        prompt_lengths = (~seq_batch.target_mask).logical_and(seq_batch.padding_mask.materialize()).sum(dim=-1).cpu()  # extracting actual prompt lengths
         seqs_to_score = seq_batch.seqs.tolist()
-        seqs_to_score = [seq[:l] for seq,l in zip(seqs_to_score, seq_batch.padding_mask.seq_lens.tolist())]
+        if seq_batch.padding_mask:
+            prompt_lengths = (~seq_batch.target_mask).logical_and(seq_batch.padding_mask.materialize()).sum(dim=-1).cpu()  # extracting actual prompt lengths
+            seqs_to_score = [seq[:l] for seq,l in zip(seqs_to_score, seq_batch.padding_mask.seq_lens.tolist())]
+        else:
+            prompt_lengths = (~seq_batch.target_mask).sum(dim=-1).cpu()
+        
         scored_responses = generate_rollouts(seqs_to_score, dp_gang=self._gangs.dp, vllm_model=self._reference_model)
         ref_logps = convert_vllm_output_to_ref_score(scored_responses, self._gangs)
         ref_logps = collate_with_target_mask(ref_logps, prompt_lengths, device=self._gangs.dp.device).seqs

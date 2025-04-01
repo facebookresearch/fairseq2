@@ -147,7 +147,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             policy_sampling_params = None
         rollouts = generate_rollouts(prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._vllm_model, sampling_params=policy_sampling_params)
         reward_output = self._reward.process_rollouts(rollouts, prompt_batch.meta_info[self._reward.answer_key])
-        avg_reward = torch.tensor(reward_output["rewards"]).float().mean())
+        avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
 
         self._metric_bag.update_avg_reward(avg_reward)
         # returning dummy loss since trainer expects it
