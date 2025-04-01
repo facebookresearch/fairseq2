@@ -25,7 +25,7 @@ from ray.util.placement_group import placement_group
 from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
 from transformers import AutoModelForCausalLM
 
-from vllm import LLM, SamplingParams, RequestOutput, CompletionOutput, TokensPrompt
+from vllm import LLM, SamplingParams, RequestOutput, CompletionOutput
 import re
 from vllm.utils import get_ip, get_open_port
 from vllm.worker.worker import Worker
@@ -41,7 +41,6 @@ from fairseq2.data import (
     read_sequence,
 )
 from fairseq2.nn.padding import get_seqs_and_padding_mask
-from fairseq2.logging import LoggingSetupError, log
 
 
 @dataclass
@@ -313,22 +312,24 @@ def generate_rollouts(
             flat_request_list.extend(rank_prompts)
 
         if operation == "rollout":
-            outputs = vllm_model.rollout_from_model(
+            rollouts = vllm_model.rollout_from_model(
                 flat_request_list, sampling_params=sampling_params
             )
 
         elif operation == "reward":
-            outputs = vllm_model.reward_from_model(flat_request_list)
+            rollouts = vllm_model.reward_from_model(flat_request_list)
 
-        outputs_to_scatter = []
-        outputs_per_rank = [None]
+        rollouts_to_scatter = []
+        rollouts_per_rank = [None]
         for dp_rank, rank_batch_size in zip(range(dp_gang.size), rank_batch_sizes):
             rank_start = sum(rank_batch_sizes[:dp_rank])
             rank_end = rank_start + rank_batch_size
-            outputs_to_scatter.append(outputs[rank_start:rank_end])
-        dp_gang.scatter_object_list(outputs_per_rank, outputs_to_scatter, source_rank=0)
+            rollouts_to_scatter.append(rollouts[rank_start:rank_end])
+        dp_gang.scatter_object_list(
+            rollouts_per_rank, rollouts_to_scatter, source_rank=0
+        )
     else:
-        outputs_per_rank = [None]
-        dp_gang.scatter_object_list(outputs_per_rank, None, source_rank=0)
+        rollouts_per_rank = [None]
+        dp_gang.scatter_object_list(rollouts_per_rank, None, source_rank=0)
     dp_gang.barrier()
-    return outputs_per_rank[0]
+    return rollouts_per_rank[0]
