@@ -26,7 +26,7 @@ map_data_source::map_data_source(std::unique_ptr<data_source> &&inner, std::vect
                                  std::size_t num_parallel_calls, bool deterministic)
     : inner_{std::move(inner)}, map_fns_{std::move(fns)}, num_parallel_calls_{num_parallel_calls},
       deterministic_{deterministic || num_parallel_calls == 1},
-      pool_{conditional_cast<PoolArgType>(deterministic ? 0u : num_parallel_calls)}
+      pool_{conditional_cast<PoolArgType>(deterministic ? 0U : num_parallel_calls)}
 {
     buffer_.reserve(num_parallel_calls);
 
