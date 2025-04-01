@@ -32,6 +32,8 @@ from fairseq2.datasets import (
     DatasetHubAccessor,
     LengthBatching,
     StaticBatching,
+    DatasetLoadError,
+    UnknownSplitError,
 )
 from fairseq2.datasets._utils import _load_files_and_weights
 from fairseq2.error import NotSupportedError
@@ -57,6 +59,11 @@ class PromptReadOptions(DataReadOptions):
     source_encode_mode: str = "prompt"
     """The tokenizer mode to encode the source text."""
 
+    src_key: str = "src"
+
+    repeat_batch_n_times: int = 1
+
+
 @dataclass
 class PromptBatch:
     """Represents a preference optimization dataset batch."""
@@ -69,12 +76,14 @@ class PromptBatch:
         """The size of the batch dimension."""
         return len(self.prompts)
 
+
 class PromptDataset(ABC):
     """Represents a preference optimization dataset."""
 
     @abstractmethod
     def create_reader(
         self,
+        split: str,
         tokenizer: TextTokenizer,
         gang: Gang,
         min_seq_len: int,
@@ -99,7 +108,7 @@ class PromptDataset(ABC):
 
 
 # TODO: FIX, INFER
-npc = 1
+npc = 10
 
 
 GENERIC_PROMPT_DATASET_FAMILY: Final = "prompt_dataset"
@@ -110,11 +119,10 @@ class GenericPromptDataset(PromptDataset):
     """Represents a generic JSONL preference optimization dataset."""
 
     _name: str
-    _files: Sequence[Path]
-    _weights: Sequence[float]
+    _splits: dict[str, tuple[Sequence[Path], Sequence[float]]]
 
     def __init__(
-        self, name: str, files: Sequence[Path], weights: Sequence[float]
+        self, name: str, splits: dict[str, tuple[Sequence[Path], Sequence[float]]]
     ) -> None:
         """
         :param files:
@@ -124,23 +132,42 @@ class GenericPromptDataset(PromptDataset):
         """
         self._name = name
 
-        if len(files) != len(weights):
-            raise ValueError(
-                f"The lengths of `files` and `weights` must match, but they are {len(files)} and {len(weights)} instead."
-            )
+        for split, (files, weights) in splits.items():
+            if len(files) != len(weights):
+                raise ValueError(
+                    f"The lengths of the file and weight lists of the '{split}' split must match, but they are {len(files)} and {len(weights)} instead."
+                )
 
-        self._files = files
-        self._weights = weights
+        self._splits = splits
 
     @staticmethod
     def from_path(path: Path, name: str) -> GenericPromptDataset:
-        files, weights = _load_files_and_weights(name, path)
+        splits: dict[str, tuple[Sequence[Path], Sequence[float]]] = {}
 
-        return GenericPromptDataset(name, files, weights)
+        if path.is_dir():
+            try:
+                child_dirs = [p for p in path.iterdir() if p.is_dir()]
+            except OSError as ex:
+                raise DatasetLoadError(
+                    name, f"The files under the '{path}' directory of the '{name}' dataset cannot be retrieved. See the nested exception for details."  # fmt: skip
+                ) from ex
+
+            for child_dir in child_dirs:
+                files, weights = _load_files_and_weights(name, child_dir)
+
+                splits[child_dir.name] = (files, weights)
+
+        if not splits:
+            files, weights = _load_files_and_weights(name, path)
+
+            splits["default"] = (files, weights)
+
+        return GenericPromptDataset(name, splits)
 
     @override
     def create_reader(
         self,
+        split: str,
         tokenizer: TextTokenizer,
         gang: Gang,
         min_seq_len: int,
@@ -151,21 +178,31 @@ class GenericPromptDataset(PromptDataset):
             options = PromptReadOptions()
 
         seed = options.seed
+        src_key = options.src_key
 
-        if len(self._files) == 1:
-            builder = self._read_jsonl(self._files[0], tokenizer)
+        files_weights = self._splits.get(split)
+        if files_weights is None:
+            raise UnknownSplitError(self._name, split, self._splits.keys())
+
+        if options is None:
+            options = PromptReadOptions()
+
+        seed = options.seed
+
+        files, weights = files_weights
+
+        if len(files) == 1:
+            builder = self._read_jsonl(files[0], tokenizer)
         else:
             pipelines = []
 
-            for file in self._files:
+            for file in files:
                 pipeline = self._read_jsonl(file, tokenizer).and_return()
 
                 pipelines.append(pipeline)
 
             if options.sample:
-                builder = DataPipeline.sample(
-                    pipelines, weights=self._weights, seed=seed
-                )
+                builder = DataPipeline.sample(pipelines, weights=weights, seed=seed)
 
                 seed += 1
             else:
@@ -182,15 +219,23 @@ class GenericPromptDataset(PromptDataset):
 
         seed += gang.rank
 
+        # copy original prompt text in the example to use it in the reward models etc.
+        # user must specify f"{src_key}_text" in keep jsonl keys arg to keep pass it to batch
+        def copy_prompt_text(example: dict[str, Any]) -> dict[str, Any]:
+            example[f"{src_key}_text"] = example[f"{src_key}"]
+            return example
+
+        builder.map(copy_prompt_text, num_parallel_calls=npc)
+
         # Encode source and target texts.
         source_encoder = tokenizer.create_encoder(mode=options.source_encode_mode)
 
-        builder.map(source_encoder, selector="src", num_parallel_calls=npc)
+        builder.map(source_encoder, selector=src_key, num_parallel_calls=npc)
 
         def process_examples(example: dict[str, Any]) -> dict[str, Any]:
             id_ = example.get("id", None)
 
-            source_indices = example["src"].tolist()
+            source_indices = example[src_key].tolist()
 
             total_tokens = len(source_indices)
 
@@ -222,7 +267,7 @@ class GenericPromptDataset(PromptDataset):
             def skip(example: dict[str, Any]) -> bool:
                 total_tokens = example["total_tokens"]
 
-                return total_tokens <= max_seq_len
+                return total_tokens <= max_seq_len and total_tokens >= min_seq_len
 
             builder.filter(skip)
 
@@ -230,19 +275,13 @@ class GenericPromptDataset(PromptDataset):
             builder.bucket(batching.batch_size, drop_remainder=options.drop_remainder)
         else:
             raise NotSupportedError(f"`{batching}` is not supported.")
-        
-        
 
         # Shuffle buckets.
-        
+
         if options.batch_shuffle_window != 1:
             builder.shuffle(options.batch_shuffle_window, seed=seed)
 
         seed += 1
-
-        # collater = Collater(pad_value=tokenizer.vocab_info.pad_idx)
-
-        # builder.map(collater, num_parallel_calls=npc)
 
         # Return only the first `max_num_batches`.
         if options.max_num_batches is not None:
@@ -255,23 +294,25 @@ class GenericPromptDataset(PromptDataset):
             result = {}
             for k in keep_jsonl_keys:
                 result[k] = [d["keep_jsonl_keys"][k] for d in list_of_dicts]
-            
-            return result
 
+            return result
 
         # Wrap examples with `PromptBatch`.
         def to_batch(example: dict[str, Any]) -> PromptBatch:
             prompts = [e["indices_prompt"] for e in example]
             meta_info = glue_jsonl_columns(example, options.extras["keep_jsonl_keys"])
-            return PromptBatch(
-                prompts=prompts,
-                meta_info=meta_info
-            )
+            return PromptBatch(prompts=prompts, meta_info=meta_info)
 
-        pipeline = builder.map(to_batch).and_return()
+        pipeline = (
+            builder.map(to_batch)
+            .yield_from(
+                lambda x: read_sequence([x] * options.repeat_batch_n_times).and_return()
+            )
+            .and_return()
+        )
 
         return DataPipelineReader[PromptBatch](
-            self._name, "default", pipeline, gang, options
+            self._name, split, pipeline, gang, options
         )
 
     def _read_jsonl(self, path: Path, tokenizer: TextTokenizer) -> DataPipelineBuilder:

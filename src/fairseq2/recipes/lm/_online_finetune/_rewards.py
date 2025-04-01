@@ -7,9 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-import random
-import string
+from dataclasses import dataclass, field
 import torch
 from typing_extensions import override
 from typing import Any, List
@@ -24,27 +22,35 @@ from fairseq2.recipes.lm._online_finetune._common import (
     collate_with_target_mask,
     find_first_value,
     GRPOBatch,
-    generate_rollouts,
+    prepare_preference_batch_random_pair,
+    prepare_grpo_batch,
 )
 import re
 from fairseq2.recipes.config import (
     get_config_section,
 )
+from fairseq2.recipes.lm._online_finetune._math_utils import (
+    remove_boxed,
+    last_boxed_only_string,
+)
 from transformers import AutoTokenizer
-from vllm import TokensPrompt
-import ray
-import re
+
+
+@dataclass(kw_only=True)
+class RewardModelConfig:
+    answer_key: str = "answer"
 
 
 @dataclass(kw_only=True)
 class RewardSection:
-    name: str
+    name: str = "dummy"
+    config: RewardModelConfig = field(default_factory=lambda: RewardModelConfig())
 
 
 class VLLMOutputRewardHandler(ABC):
     @abstractmethod
     def create(
-        self, reward_model: Any, gangs: Gangs, recipe_config: object
+        self, reward_model: Any, gangs: Gangs, reward_config: object
     ) -> VLLMOutputReward: ...
 
     @property
@@ -60,7 +66,11 @@ class VLLMOutputReward(ABC):
     @abstractmethod
     def process_rollouts(self, vllm_outputs: List[RequestOutput]): ...
 
+    @abstractmethod
     def prepare_preference_batch(self, prompt_batch: PromptBatch, rollouts): ...
+
+    @abstractmethod
+    def prepare_grpo_batch(self, prompt_batch: PromptBatch, rollouts): ...
 
 
 class GSM8kVerifierHandler(VLLMOutputRewardHandler):
@@ -68,8 +78,8 @@ class GSM8kVerifierHandler(VLLMOutputRewardHandler):
         pass
 
     @override
-    def create(self, recipe_config, vllm_model, gangs):
-        return GSM8kVerifier(gangs)
+    def create(self, reward_config, gangs):
+        return GSM8kVerifier(answer_key=reward_config.answer_key, gangs=gangs)
 
     @property
     @override
@@ -83,12 +93,13 @@ class GSM8kVerifierHandler(VLLMOutputRewardHandler):
 
 
 class GSM8kVerifier(VLLMOutputReward):
-    def __init__(self, gangs):
+    def __init__(self, answer_key, gangs):
         self.answer_re = re.compile(
             r"#### (\-?[0-9\.\,]+)"
         )  # regexp from original gsm8k to extract formatted answer
         self.invalid_answer = "[invalid]"
         self._gangs = gangs
+        self.answer_key = answer_key
 
     def extract_answer(self, completion: str):
         match = self.answer_re.search(completion)
@@ -101,9 +112,7 @@ class GSM8kVerifier(VLLMOutputReward):
 
     @override
     def process_rollouts(
-        self,
-        vllm_outputs: List[RequestOutput],
-        reference_answers: List[str],
+        self, vllm_outputs: List[RequestOutput], reference_answers: List[str]
     ):
         batch_text = []
         batch_tokens = []
@@ -131,119 +140,59 @@ class GSM8kVerifier(VLLMOutputReward):
     ) -> PreferenceBatch:
 
         reward_output = self.process_rollouts(
-            rollouts, prompt_batch.meta_info["answer"]
+            rollouts, prompt_batch.meta_info[self.answer_key]
         )
 
-        chosen_batch = []
-        rejected_batch = []
-        prompt_lens = []
-        dummy_batch_ids = []  # keep posiitons of dummy pairs here
-
-        # choosing first rollouts with reward 1 as chosen and 0 as rejected (sort of random given that we sample rollouts randomly)
-        for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(
-            zip(reward_output["rewards"], reward_output["tokens"])
-        ):
-            chosen_rollout_position = find_first_value(i_batch_rewards, 1)
-            rejected_rollout_position = find_first_value(i_batch_rewards, 0)
-            if chosen_rollout_position is None or rejected_rollout_position is None:
-                # cant form preference pair when we dont have such rollouts
-                # this will be dummy batch and we zero out loss
-                chosen_rollout_position = 0
-                rejected_rollout_position = 1
-                dummy_batch_ids.append(i_batch)
-            chosen_rollout_tokens = list(i_batch_tokens[chosen_rollout_position])
-            rejected_rollout_tokens = list(i_batch_tokens[rejected_rollout_position])
-            prompt_tokens = prompt_batch.prompts[i_batch]
-
-            chosen_tokens = prompt_tokens + chosen_rollout_tokens
-            chosen_batch.append(chosen_tokens)
-
-            rejected_tokens = prompt_tokens + rejected_rollout_tokens
-            rejected_batch.append(rejected_tokens)
-
-            prompt_lens.append(len(prompt_tokens))
-
-        filter_batch = lambda batch: [
-            item for index, item in enumerate(batch) if index not in dummy_batch_ids
-        ]
-
-        if len(dummy_batch_ids) == len(reward_output["tokens"]):
-            # entire batch does not have a valid preference pair
-            # we use it as dummy batch and zero the loss in the end
-            is_bad_batch = True
-        else:
-            # removing dummy pairs from the batch
-            chosen_batch = filter_batch(chosen_batch)
-            rejected_batch = filter_batch(rejected_batch)
-            prompt_lens = filter_batch(prompt_lens)
-            is_bad_batch = False
-
-        prompt_lens = torch.tensor(prompt_lens)
-
-        chosen_batch = [
-            torch.tensor(sequence, device=self._gangs.dp.device)
-            for sequence in chosen_batch
-        ]
-        chosen_batch = collate_with_target_mask(
-            chosen_batch, prompt_lens, device=self._gangs.dp.device
-        )
-
-        rejected_batch = [
-            torch.tensor(sequence, device=self._gangs.dp.device)
-            for sequence in rejected_batch
-        ]
-        rejected_batch = collate_with_target_mask(
-            rejected_batch, prompt_lens, device=self._gangs.dp.device
-        )
-
-        batch = PreferenceBatch(
-            chosen=chosen_batch,
-            rejected=rejected_batch,
-            reference_score_chosen=None,
-            reference_score_rejected=None,
+        batch, is_bad_batch = prepare_preference_batch_random_pair(
+            prompt_batch=prompt_batch, reward_output=reward_output, gangs=self._gangs
         )
 
         return batch, is_bad_batch, reward_output
 
     def prepare_grpo_batch(self, prompt_batch: PromptBatch, rollouts):
 
-        prompt_rollouts = []
-        prompt_lens = []
-        rewards = []
-
         reward_output = self.process_rollouts(
-            rollouts, prompt_batch.meta_info["answer"]
-        )
-        for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(
-            zip(reward_output["rewards"], reward_output["tokens"])
-        ):
-            prompt = prompt_batch.prompts[i_batch]
-            rollout_tokens = [
-                torch.tensor(prompt + list(c), device=self._gangs.dp.device)
-                for c in i_batch_tokens
-            ]
-            prompt_rollouts.extend(rollout_tokens)
-
-            prompt_lens.extend([len(prompt)] * len(rollout_tokens))
-
-            rewards.append(i_batch_rewards)
-
-        prompt_rollout_batch = collate_with_target_mask(
-            prompt_rollouts, prompt_lens, device=self._gangs.dp.device
+            rollouts, prompt_batch.meta_info[self.answer_key]
         )
 
-        rewards = torch.tensor(
-            rewards, device=self._gangs.dp.device
-        ).float()  # [Batch, Rollouts]
-        rewards_normalized = (rewards - rewards.mean(dim=1, keepdim=True)) / (
-            rewards.std(dim=1, keepdim=True) + 1e-6
-        )  # small epsilon to compensate 0 std
-
-        grpo_batch = GRPOBatch(
-            prompt_rollouts=prompt_rollout_batch, rewards=rewards_normalized
+        batch = prepare_grpo_batch(
+            prompt_batch=prompt_batch, reward_output=reward_output, gangs=self._gangs
         )
 
-        return grpo_batch, reward_output
+        return batch, reward_output
+
+
+class NuminaMathVerifierHandler(VLLMOutputRewardHandler):
+    def __init__(self):
+        pass
+
+    @override
+    def create(self, reward_config, gangs):
+        return NuminaMathVerifier(answer_key=reward_config.answer_key, gangs=gangs)
+
+    @property
+    @override
+    def name(self):
+        return "numinamath_verifier"
+
+    @property
+    @override
+    def config_kls(self):
+        return None
+
+
+class NuminaMathVerifier(GSM8kVerifier):
+    def __init__(self, answer_key, gangs):
+        self.invalid_answer = "[invalid]"
+        self._gangs = gangs
+        self.answer_key = answer_key
+
+    def extract_answer(self, completion: str):
+        try:
+            parsed_answer = remove_boxed(last_boxed_only_string(completion))
+        except:
+            return self.invalid_answer
+        return parsed_answer
 
 
 class SkyworkVerifierHandler(VLLMOutputRewardHandler):

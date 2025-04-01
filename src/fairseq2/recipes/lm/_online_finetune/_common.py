@@ -16,6 +16,7 @@ from torch import Tensor
 from torcheval.metrics import Mean
 
 from fairseq2.datasets.preference import PreferenceBatch
+from fairseq2.datasets.prompt import PromptBatch
 from fairseq2.gang import Gang
 from fairseq2.models.sequence import SequenceBatch, SequenceModelOutput
 from fairseq2.recipes.metrics import SequenceMetricBag
@@ -62,6 +63,16 @@ class OnlineFinetuneMetricBag(SequenceMetricBag):
 
     def __init__(self, gang: Gang) -> None:
         super().__init__(gang)
+
+
+def get_ray_actor(gangs: Gang, actor_name):
+    # only retrieve vllm actors on main rank process as a safety measure to avoid blocking
+    if gangs.dp.rank == 0 and gangs.tp.rank == 0:
+        actor = ray.get_actor(actor_name)
+    else:
+        actor = None
+
+    return actor
 
 
 def stateless_init_process_group(master_address, master_port, rank, world_size, device):
@@ -291,7 +302,7 @@ def find_first_value(lst, value):
 
 
 def generate_rollouts(
-    prompts: List[str],
+    prompts: List[List[int]],
     dp_gang,
     vllm_model,
     operation: str = "rollout",
@@ -332,4 +343,171 @@ def generate_rollouts(
         rollouts_per_rank = [None]
         dp_gang.scatter_object_list(rollouts_per_rank, None, source_rank=0)
     dp_gang.barrier()
+
     return rollouts_per_rank[0]
+
+
+def prepare_preference_batch_random_pair(
+    prompt_batch: PromptBatch, reward_output: dict, gangs
+) -> PreferenceBatch:
+    """
+    Single & random preference pair from rollouts and rewards
+    """
+
+    # reward_output = self.process_rollouts(rollouts, prompt_batch.meta_info[self.answer_key])
+
+    chosen_batch = []
+    rejected_batch = []
+    prompt_lens = []
+    dummy_batch_ids = []  # keep posiitons of dummy pairs here
+
+    # choosing first rollouts with reward 1 as chosen and 0 as rejected (sort of random given that we sample rollouts randomly)
+    for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(
+        zip(reward_output["rewards"], reward_output["tokens"])
+    ):
+        chosen_rollout_position = find_first_value(i_batch_rewards, 1)
+        rejected_rollout_position = find_first_value(i_batch_rewards, 0)
+        if chosen_rollout_position is None or rejected_rollout_position is None:
+            # cant form preference pair when we dont have such rollouts
+            # this will be dummy batch and we zero out loss
+            chosen_rollout_position = 0
+            rejected_rollout_position = 1
+            dummy_batch_ids.append(i_batch)
+        chosen_rollout_tokens = list(i_batch_tokens[chosen_rollout_position])
+        rejected_rollout_tokens = list(i_batch_tokens[rejected_rollout_position])
+        prompt_tokens = prompt_batch.prompts[i_batch]
+
+        chosen_tokens = prompt_tokens + chosen_rollout_tokens
+        chosen_batch.append(chosen_tokens)
+
+        rejected_tokens = prompt_tokens + rejected_rollout_tokens
+        rejected_batch.append(rejected_tokens)
+
+        prompt_lens.append(len(prompt_tokens))
+
+    filter_batch = lambda batch: [
+        item for index, item in enumerate(batch) if index not in dummy_batch_ids
+    ]
+
+    if len(dummy_batch_ids) == len(reward_output["tokens"]):
+        # entire batch does not have a valid preference pair
+        # we use it as dummy batch and zero the loss in the end
+        is_bad_batch = True
+    else:
+        # removing dummy pairs from the batch
+        chosen_batch = filter_batch(chosen_batch)
+        rejected_batch = filter_batch(rejected_batch)
+        prompt_lens = filter_batch(prompt_lens)
+        is_bad_batch = False
+
+    prompt_lens = torch.tensor(prompt_lens)
+
+    chosen_batch = [
+        torch.tensor(sequence, device=gangs.dp.device) for sequence in chosen_batch
+    ]
+    chosen_batch = collate_with_target_mask(
+        chosen_batch, prompt_lens, device=gangs.dp.device
+    )
+
+    rejected_batch = [
+        torch.tensor(sequence, device=gangs.dp.device) for sequence in rejected_batch
+    ]
+    rejected_batch = collate_with_target_mask(
+        rejected_batch, prompt_lens, device=gangs.dp.device
+    )
+
+    batch = PreferenceBatch(
+        chosen=chosen_batch,
+        rejected=rejected_batch,
+        reference_score_chosen=None,
+        reference_score_rejected=None,
+    )
+
+    return batch, is_bad_batch
+
+
+def prepare_grpo_batch(
+    prompt_batch: PromptBatch,
+    reward_output: dict,
+    gangs: Gang,
+    num_rollout_per_forward: int,
+):
+
+    prompt_rollouts = []
+    prompt_lens = []
+    rewards = []
+
+    # reward_output = self.process_rollouts(rollouts, prompt_batch.meta_info[self.answer_key])
+    for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(
+        zip(reward_output["rewards"], reward_output["tokens"])
+    ):
+        prompt = prompt_batch.prompts[i_batch]
+        rollout_tokens = [
+            torch.tensor(prompt + list(c), device=gangs.dp.device)
+            for c in i_batch_tokens[:num_rollout_per_forward]
+        ]
+
+        prompt_rollouts.extend(rollout_tokens)
+
+        prompt_lens.extend([len(prompt)] * len(rollout_tokens))
+
+        rewards.append(
+            i_batch_rewards
+        )  # we add all rewards here to correctly compute group statistic
+
+    # if gangs.root.rank == 0:
+    #     from pudb.remote import set_trace
+    #     set_trace(host="submit-0", port=6899, term_size=(80*2, 24*2), reverse=True)
+
+    # gangs.root.barrier()
+
+    rewards = torch.tensor(rewards, device=gangs.dp.device).float()  # [Batch, Rollouts]
+    rewards_normalized = (rewards - rewards.mean(dim=1, keepdim=True)) / (
+        rewards.std(dim=1, keepdim=True) + 1e-6
+    )  # small epsilon to compensate 0 std
+
+    rewards_normalized = rewards_normalized[:, :num_rollout_per_forward]
+    prompt_rollout_batch = collate_with_target_mask(
+        prompt_rollouts, prompt_lens, device=gangs.dp.device
+    )
+
+    grpo_batch = GRPOBatch(
+        prompt_rollouts=prompt_rollout_batch, rewards=rewards_normalized
+    )
+
+    return grpo_batch
+
+
+def combine_prompts_responses_for_scoring(
+    prompt_batch, rollouts: List[RequestOutput], gangs
+):
+    prompts: List[List[int]]
+    prompts = prompt_batch.prompts
+
+    responses = []
+    for prompt, req_output in zip(prompts, rollouts):
+        rollout_outputs = []
+        for output in req_output.outputs:
+            prompt_response_tokens = prompt + list(output.token_ids)
+            rollout_outputs.append(prompt_response_tokens)
+        responses.extend(rollout_outputs)
+
+    # if gangs.root.rank == 0:
+    #     from pudb.remote import set_trace
+    #     set_trace(host="submit-0", port=6899, term_size=(80*2, 24*2), reverse=True)
+
+    # gangs.root.barrier()
+
+    return responses
+
+
+def convert_vllm_output_to_ref_score(vllm_outputs: List[RequestOutput], gangs):
+    ref_scores = []
+    for req_output in vllm_outputs:
+        prompt_logprobs = req_output.prompt_logprobs[1:]
+        logprobs = [list(d.values())[0].logprob for d in prompt_logprobs]
+        # selecting only the response part that we scored
+        logprobs = torch.tensor(logprobs)
+        ref_scores.append(logprobs)
+
+    return ref_scores

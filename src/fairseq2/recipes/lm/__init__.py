@@ -160,4 +160,9 @@ from fairseq2.recipes.lm._online_finetune._rewards import (
 )
 from fairseq2.recipes.lm._online_finetune._rewards import (
     SkyworkVerifierHandler as SkyworkVerifierHandler,
+from fairseq2.recipes.lm._online_finetune._rewards import (
+    NuminaMathVerifier as NuminaMathVerifier,
+)
+from fairseq2.recipes.lm._online_finetune._rewards import (
+    NuminaMathVerifierHandler as NuminaMathVerifierHandler,
 )

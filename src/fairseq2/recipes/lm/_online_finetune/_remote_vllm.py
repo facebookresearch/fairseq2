@@ -61,6 +61,18 @@ class VllmSamplingParams:
     n: int = 4
     temperature: float = 1.0
     max_tokens: int = 1024
+    prompt_logprobs: int | None = None
+    detokenize: bool = True
+
+
+@dataclass(kw_only=True)
+class VllmRayActorConfig:
+    ray_actor_name: str = "dummy"
+    vllm_engine_args: VllmEngineArgs = field(default_factory=lambda: VllmEngineArgs())
+    vllm_sampling_params: VllmSamplingParams = field(
+        default_factory=lambda: VllmSamplingParams()
+    )
+    init_update_process_group: bool = False
 
 
 @dataclass(kw_only=True)
@@ -76,22 +88,14 @@ class VllmConfig:
 
 class RemoteVllmModelHandler(RemoteModelHandler):
     @override
-    def create(
-        self, gangs: Gangs, unit_config: object, configs_name: str = "vllm_model"
-    ) -> RemoteVllmModel:
-        if gangs.dp.rank == 0:
+    def create(self, gangs: Gangs, actor_config: VllmRayActorConfig) -> RemoteVllmModel:
+        if gangs.dp.rank == 0 and gangs.tp.rank == 0:
             # vllm worker is only created on the first DP rank (incuding all TP ranks)
-            # if gangs.root.rank == 0:
-            #     breakpoint()
-
-            vllm_config = get_config_section(unit_config, configs_name, VllmConfig)
-
             remote_vllm_model = RemoteVllmModel(
-                vllm_config.ray_cluster_ip_address,
-                vllm_config.ray_actor_name,
-                vllm_config.vllm_engine_args,
-                vllm_config.vllm_sampling_params,
-                vllm_config.init_update_process_group,
+                actor_config.ray_actor_name,
+                actor_config.vllm_engine_args,
+                actor_config.vllm_sampling_params,
+                actor_config.init_update_process_group,
                 gangs,
             )
         else:
@@ -113,27 +117,17 @@ class RemoteVllmModelHandler(RemoteModelHandler):
 class RemoteVllmModel:
     def __init__(
         self,
-        ray_cluster_ip_address: str,
         ray_actor_name: str,
         vllm_engine_args: VllmEngineArgs,
         sampling_params: VllmSamplingParams,
         init_update_process_group: bool,
         gangs: Gangs,
     ):
-        if gangs.dp.rank != 0:
-            raise ValueError("vllm worker should only be initialized on DP rank 0")
+        if gangs.dp.rank != 0 and gangs.tp.rank != 0:
+            raise ValueError("vllm worker should only be initialized on DP & TP rank 0")
 
-        try:
-            ray.init(
-                address=f"ray://{ray_cluster_ip_address}:10001",
-                namespace="vllm_workers",
-            )
-        except RuntimeError as e:
-            if "Ray Client is already connected" in str(e):
-                print("Ray Client is already connected. Skipping ray.init().")
-            else:
-                # Other error
-                raise
+        # connection is done on recipe level and at this point we are connected
+        # ray.init(address=f"ray://{ray_cluster_ip_address}:10001", namespace="vllm_workers")
 
         self._gangs = gangs
         self.vllm_model = self.setup_vllm_worker(
@@ -143,13 +137,17 @@ class RemoteVllmModel:
             n=sampling_params.n,
             temperature=sampling_params.temperature,
             max_tokens=sampling_params.max_tokens,
+            detokenize=sampling_params.detokenize,
+            prompt_logprobs=sampling_params.prompt_logprobs,
         )
+
         if init_update_process_group:
             self.update_process_group = self.setup_process_group_for_model_sync(
                 vllm_engine_args.tensor_parallel_size
             )
         else:
             self.update_process_group = None
+
         self._vllm_engine_args = vllm_engine_args
 
     def setup_vllm_worker(
@@ -157,7 +155,8 @@ class RemoteVllmModel:
     ):
 
         pg_inference = placement_group(
-            [{"GPU": 1, "CPU": 0}] * vllm_engine_args.tensor_parallel_size
+            [{"GPU": 1, "CPU": 0}] * vllm_engine_args.tensor_parallel_size,
+            strategy="STRICT_PACK",
         )
 
         ray.get(pg_inference.ready())
@@ -168,10 +167,6 @@ class RemoteVllmModel:
             placement_group_bundle_index=0,
         )
 
-        """
-        launch the vLLM inference engine.
-        here we use `enforce_eager` to reduce the start time.
-        """
         llm = NoEnvLLM.options(
             name=ray_actor_name,
             num_cpus=0,
@@ -184,9 +179,6 @@ class RemoteVllmModel:
             enforce_eager=vllm_engine_args.enforce_eager,
             worker_cls=MyWorker,
             tensor_parallel_size=vllm_engine_args.tensor_parallel_size,
-            task=vllm_engine_args.task,
-            hf_overrides=vllm_engine_args.hf_overrides,
-            override_pooler_config=vllm_engine_args.override_pooler_config,
             distributed_executor_backend="ray",
         )
 

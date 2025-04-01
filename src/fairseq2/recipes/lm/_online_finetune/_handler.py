@@ -18,7 +18,7 @@ from fairseq2.recipes.trainer import TrainUnit
 class OnlineFinetuneUnitHandler(ABC):
     @abstractmethod
     def create(
-        self, model: Module, gangs: Gangs, recipe_config: object
+        self, model: Module, gangs: Gangs, recipe_config: object, vllm_actors: object
     ) -> TrainUnit[SequenceBatch]: ...
 
     @property

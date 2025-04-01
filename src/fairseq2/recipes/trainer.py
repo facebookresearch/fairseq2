@@ -919,13 +919,13 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         data_reader.reset()
 
         metric_values = self._publish_validation_metrics(
-            unit, num_effective_batches, watch.get_elapsed_time()
+            unit, num_effective_batches, watch.get_elapsed_time(), data_reader.split
         )
 
         return self._get_unit_score(metric_values)
 
     def _publish_validation_metrics(
-        self, unit: EvalUnit[BatchT], num_batches: int, elapsed_time: float
+        self, unit: EvalUnit[BatchT], num_batches: int, elapsed_time: float, split: str
     ) -> dict[str, object] | None:
         log.debug("Syncing validation metrics.")
 
@@ -948,10 +948,10 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
             values["wall_time"] = self._wall_watch.get_elapsed_time()
 
+            run_name = f"valid/{split}"
+
             if unit.display_name:
-                run_name = "valid/" + unit.display_name
-            else:
-                run_name = "valid"
+                run_name += f"/{unit.display_name}"
 
             self._metric_recorder.record_metrics(run_name, values, self._step_nr)
 
