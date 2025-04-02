@@ -24,7 +24,97 @@ from fairseq2.data.text.tokenizers.tiktoken import (
     TiktokenEncoder,
     TiktokenModel,
 )
+from fairseq2.data.text.tokenizers.huggingface_tokenizer import (
+    HuggingfaceTokenizerEncoder,
+    HuggingfaceTokenizerDecoder,
+)
 from fairseq2.typing import Device
+from transformers import AutoTokenizer
+
+
+@final
+class LLaMA3TokenizerHuggingFace(TextTokenizer):
+    """Represents a HuggingFace version of LLama 3 tokenizer"""
+
+    _tokenizer: AutoTokenizer
+    _bos_token: str
+    _eos_token: str
+
+    def __init__(self, path: Path) -> None:
+
+        self._tokenizer = AutoTokenizer.from_pretrained(path)
+
+        self._eos_token = self._tokenizer.special_tokens_map["eos_token"]
+        self._bos_token = self._tokenizer.special_tokens_map["bos_token"]
+
+    @override
+    def create_encoder(
+        self,
+        *,
+        task: str | None = None,
+        lang: str | None = None,
+        mode: str | None = None,
+        device: Device | None = None,
+        pin_memory: bool = False,
+    ) -> TiktokenEncoder:
+        if task is not None:
+            raise ValueError(f"`task` must be `None`, but is '{task}' instead.")
+
+        if lang is not None:
+            raise ValueError(f"`lang` must be `None`, but is '{lang}' instead.")
+
+        match mode:
+            case None | "default":
+                prefix_tokens = [self._bos_token]
+                suffix_tokens = [self._eos_token]
+            case "prompt":
+                prefix_tokens = [self._bos_token]
+                # In prompt mode, we expect the generator to finish the sequence.
+                suffix_tokens = []
+            case "prompt_response":
+                prefix_tokens = []
+                suffix_tokens = [self._eos_token]
+            case "as_is":
+                prefix_tokens = []
+                suffix_tokens = []
+            case _:
+                raise ValueError(
+                    f"`mode` must be one of the following values, but is '{mode}' instead: default, prompt, prompt_response, as_is"
+                )
+
+        return HuggingfaceTokenizerEncoder(
+            self._tokenizer,
+            prefix_tokens=prefix_tokens,
+            suffix_tokens=suffix_tokens,
+            device=device,
+            pin_memory=pin_memory,
+        )
+
+    @override
+    def create_raw_encoder(
+        self, *, device: Device | None = None, pin_memory: bool = False
+    ) -> TiktokenEncoder:
+        return HuggingfaceTokenizerEncoder(
+            self._tokenizer, device=device, pin_memory=pin_memory
+        )
+
+    @override
+    def create_decoder(self) -> TiktokenDecoder:
+        return HuggingfaceTokenizerDecoder(self._model)
+
+    @property
+    @override
+    def vocab_info(self) -> VocabularyInfo:
+        bos_idx = self._tokenizer.convert_tokens_to_ids(self._bos_token)
+        eos_idx = self._tokenizer.convert_tokens_to_ids(self._eos_token)
+        vocab_info = VocabularyInfo(
+            size=len(self._tokenizer),
+            bos_idx=bos_idx,
+            eos_idx=eos_idx,
+            unk_idx=None,
+            pad_idx=None,
+        )
+        return vocab_info
 
 
 @final
@@ -139,6 +229,27 @@ LLAMA_TOKENIZER_FAMILY: Final = "llama"
 
 
 def load_llama_tokenizer(path: Path, card: AssetCard) -> TextTokenizer:
+
+    # first check if this is HuggingFace tokenizer
+    try:
+        use_hf = card.field("use_hf_tokenizer").as_(bool)
+    except AssetCardFieldNotFoundError:
+        use_hf = False
+    except AssetCardError as ex:
+        raise text_tokenizer_asset_card_error(card.name) from ex
+
+    if use_hf:
+        try:
+            return LLaMA3TokenizerHuggingFace(path)
+        except ValueError as ex:
+            raise TextTokenizerLoadError(
+                card.name, f"The '{card.name}' asset card does not contain a valid text tokenizer configuration of the '{LLAMA_TOKENIZER_FAMILY}' family. See the nested exception for details."  # fmt: skip
+            ) from ex
+        except RuntimeError as ex:
+            raise TextTokenizerLoadError(
+                card.name, f"The '{card.name}' text tokenizer cannot be loaded. See the nested exception for details."  # fmt: skip
+            ) from ex
+
     try:
         use_v2 = card.field("use_v2_tokenizer").as_(bool)
     except AssetCardFieldNotFoundError:
