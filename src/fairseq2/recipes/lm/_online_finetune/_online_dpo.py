@@ -171,7 +171,9 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             sampling_params=policy_sampling_params,
         )
         reward_output = self._reward.process_rollouts(
-            rollouts, prompt_batch.meta_info[self._reward.answer_key], prompt_batch
+            rollouts,
+            prompt_batch.meta_info[self._reward.answer_key],
+            prompt_batch.meta_info[self._reward.prompt_key],
         )
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
 
