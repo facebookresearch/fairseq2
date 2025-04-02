@@ -163,11 +163,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             vllm_model=self._vllm_model,
             sampling_params=policy_sampling_params,
         )
-        reward_output = self._reward.process_rollouts(
-            rollouts,
-            prompt_batch.meta_info[self._reward.answer_key],
-            prompt_batch.meta_info[self._reward.prompt_key],
-        )
+        reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
         self._metric_bag.update_avg_reward(avg_reward)
         # returning dummy loss since trainer expects it
@@ -215,11 +211,11 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._vllm_model
         )
 
-        reward_output = self._reward.process_rollouts(
-            rollouts,
-            prompt_batch.meta_info[self._reward.answer_key],
-            prompt_batch.meta_info[self._reward.prompt_key],
-        )
+        if self._gangs.dp.rank == 0:
+            breakpoint()
+        self._gangs.root.barrier()
+
+        reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
 
         grpo_batch: GRPOBatch
         grpo_batch = prepare_grpo_batch(

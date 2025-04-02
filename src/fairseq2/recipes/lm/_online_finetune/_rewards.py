@@ -80,7 +80,11 @@ class GSM8kVerifierHandler(VLLMOutputRewardHandler):
 
     @override
     def create(self, reward_model, reward_config, gangs):
-        return GSM8kVerifier(answer_key=reward_config.answer_key, gangs=gangs)
+        return GSM8kVerifier(
+            answer_key=reward_config.answer_key,
+            prompt_key=reward_config.prompt_key,
+            gangs=gangs,
+        )
 
     @property
     @override
@@ -94,13 +98,14 @@ class GSM8kVerifierHandler(VLLMOutputRewardHandler):
 
 
 class GSM8kVerifier(VLLMOutputReward):
-    def __init__(self, answer_key, gangs):
+    def __init__(self, answer_key, prompt_key, gangs):
         self.answer_re = re.compile(
             r"#### (\-?[0-9\.\,]+)"
         )  # regexp from original gsm8k to extract formatted answer
         self.invalid_answer = "[invalid]"
         self._gangs = gangs
         self.answer_key = answer_key
+        self.prompt_key = prompt_key
 
     def extract_answer(self, completion: str):
         match = self.answer_re.search(completion)
@@ -115,12 +120,13 @@ class GSM8kVerifier(VLLMOutputReward):
     def process_rollouts(
         self,
         vllm_outputs: List[RequestOutput],
-        reference_answers: List[str],
-        text_prompts: List[str] = None,
+        prompt_batch: PromptBatch,
     ):
         batch_text = []
         batch_tokens = []
         batch_rewards = []
+
+        reference_answers = prompt_batch.meta_info.get(self.answer_key)
 
         for i, i_batch_request_output in enumerate(vllm_outputs):
             rollouts_text = []
@@ -143,9 +149,7 @@ class GSM8kVerifier(VLLMOutputReward):
         self, prompt_batch: PromptBatch, rollouts
     ) -> PreferenceBatch:
 
-        reward_output = self.process_rollouts(
-            rollouts, prompt_batch.meta_info[self.answer_key]
-        )
+        reward_output = self.process_rollouts(rollouts, prompt_batch)
 
         batch, is_bad_batch = prepare_preference_batch_random_pair(
             prompt_batch=prompt_batch, reward_output=reward_output, gangs=self._gangs
@@ -155,9 +159,7 @@ class GSM8kVerifier(VLLMOutputReward):
 
     def prepare_grpo_batch(self, prompt_batch: PromptBatch, rollouts):
 
-        reward_output = self.process_rollouts(
-            rollouts, prompt_batch.meta_info[self.answer_key]
-        )
+        reward_output = self.process_rollouts(rollouts, prompt_batch)
 
         batch = prepare_grpo_batch(
             prompt_batch=prompt_batch, reward_output=reward_output, gangs=self._gangs
@@ -172,7 +174,11 @@ class NuminaMathVerifierHandler(VLLMOutputRewardHandler):
 
     @override
     def create(self, reward_model, reward_config, gangs):
-        return NuminaMathVerifier(answer_key=reward_config.answer_key, gangs=gangs)
+        return NuminaMathVerifier(
+            answer_key=reward_config.answer_key,
+            prompt_key=reward_config.prompt_key,
+            gangs=gangs,
+        )
 
     @property
     @override
@@ -186,10 +192,11 @@ class NuminaMathVerifierHandler(VLLMOutputRewardHandler):
 
 
 class NuminaMathVerifier(GSM8kVerifier):
-    def __init__(self, answer_key, gangs):
+    def __init__(self, answer_key, prompt_key, gangs):
         self.invalid_answer = "[invalid]"
         self._gangs = gangs
         self.answer_key = answer_key
+        self.prompt_key = prompt_key
 
     def extract_answer(self, completion: str):
         try:
@@ -269,10 +276,7 @@ class SkyworkVerifier(VLLMOutputReward):
 
     @override
     def process_rollouts(
-        self,
-        vllm_outputs: List[RequestOutput],
-        reference_answers: List[str],
-        text_prompts: List[str],
+        self, vllm_outputs: List[RequestOutput], prompt_batch: PromptBatch
     ):
         vllm_inputs = []
         batch_text = []
@@ -281,6 +285,7 @@ class SkyworkVerifier(VLLMOutputReward):
         if vllm_outputs is None:
             vllm_outputs = [None] * len(prompt_batch.prompts)
 
+        text_prompts = prompt_batch.meta_info.get(self.prompt_key)
         for i, (i_batch_request_output, prompt_text) in enumerate(
             zip(vllm_outputs, text_prompts)
         ):
@@ -314,9 +319,7 @@ class SkyworkVerifier(VLLMOutputReward):
         self, prompt_batch: PromptBatch, rollouts
     ) -> PreferenceBatch:
 
-        reward_output = self.process_rollouts(
-            rollouts, None, prompt_batch.meta_info[self.prompt_key]
-        )
+        reward_output = self.process_rollouts(rollouts, prompt_batch)
 
         chosen_batch = []
         rejected_batch = []
@@ -395,9 +398,7 @@ class SkyworkVerifier(VLLMOutputReward):
         prompt_lens = []
         rewards = []
 
-        reward_output = self.process_rollouts(
-            rollouts, None, prompt_batch.meta_info[self.prompt_key]
-        )
+        reward_output = self.process_rollouts(rollouts, prompt_batch)
 
         for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(
             zip(reward_output["rewards"], reward_output["tokens"])
