@@ -428,7 +428,7 @@ class GrpoFinetuneConfig:
     """The data type of the reference model."""
 
     ray_policy_actor_name: str = "vllm_policy"
-    vllm_reward_model_name: str = "vllm_reward_model"
+    vllm_reward_model_name: str = "vllm_reward"
 
     reward: RewardSection = field(
         default_factory=lambda: RewardSection(name="gsm8k_verifier")

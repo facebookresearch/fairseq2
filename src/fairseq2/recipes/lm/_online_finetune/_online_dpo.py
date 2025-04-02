@@ -523,28 +523,6 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
 
         vllm_model = vllm_actors[config.ray_policy_actor_name]
 
-        # FIXME better way to check if vllm_reward_model is present in config
-        # if hasattr(config, "vllm_reward_model"):
-        #     vllm_reward_model = RemoteVllmModelHandler().create(
-        #         gangs=gangs,
-        #         unit_config=config,
-        #         configs_name="vllm_reward_model",  # FIXME better way to use the correct configs?
-        #     )
-
-        #     reward_handler = reward_registry.get("skywork_verifier")
-        #     reward = reward_handler.create(
-        #         recipe_config=recipe_config, vllm_model=vllm_reward_model, gangs=gangs
-        #     )
-        # else:
-        #     reward_handler = reward_registry.get(config.reward.name)
-        #     reward = reward_handler.create(
-        #         recipe_config=recipe_config, vllm_model=None, gangs=gangs
-        #  )
-        # gangs.root.barrier()
-        # if gangs.root.rank == 0:
-        #     breakpoint()
-        # gangs.root.barrier()
-
         reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
         vllm_reward_model = vllm_actors[config.vllm_reward_model_name]
         reward_handler = reward_registry.get(config.reward.name)
