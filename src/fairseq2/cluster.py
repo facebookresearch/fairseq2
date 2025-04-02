@@ -12,7 +12,7 @@ import time
 from abc import ABC, abstractmethod
 from collections.abc import Collection, Mapping, MutableMapping
 from random import Random
-from typing import final
+from typing import List, final
 
 import ray
 from typing_extensions import override
@@ -194,7 +194,13 @@ class RayCoordinator:
     LEADER_MAX_RETRIES = 30
     LEADER_RETRY_INTERVAL = 1.0
 
-    def __init__(self, job_id, num_nodes, gpus_per_node, placement_group_ids):
+    def __init__(
+        self,
+        job_id: int,
+        num_nodes: int,
+        gpus_per_node: int,
+        placement_group_ids: List[str],
+    ):
         self.job_id = job_id
         self.worker_info = {}
         self.num_nodes = num_nodes
@@ -302,7 +308,7 @@ class RayClusterHandler(ClusterHandler):
         leader = None
         for attempts in range(RayCoordinator.LEADER_MAX_RETRIES):
             leader = ray.get(self.coordinator.get_leader_info.remote())
-            if leader:
+            if leader is not None:
                 break
             time.sleep(RayCoordinator.LEADER_RETRY_INTERVAL * (1.1**attempts))
         if not leader:
@@ -325,14 +331,14 @@ class RayClusterHandler(ClusterHandler):
             return self._job_id
 
         try:
-            job_id = self._env["RAY_JOB_ID"]
+            job_id_hex = self._env["RAY_JOB_ID"]
         except KeyError:
             raise ClusterError(
                 "ray", "`RAY_JOB_ID` environment variable does not exist."
             ) from None
 
         try:
-            self._job_id = int(job_id)
+            self._job_id = int(job_id_hex, 16) & 0x7FFFFFFF
         except ValueError as ex:
             raise ClusterError("ray", "Ray job ID cannot be parsed.") from ex
 
