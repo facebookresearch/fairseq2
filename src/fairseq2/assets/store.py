@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
+import os
 from pathlib import Path
 from typing import Any, Literal, Protocol, final
 
@@ -107,7 +108,16 @@ class StandardAssetStore(AssetStore):
         if envs is None:
             envs = self._resolve_envs()
 
-        return self._do_retrieve_card(name, envs, scope, extra_provider)
+        card = self._do_retrieve_card(name, envs, scope, extra_provider)
+        if not os.path.exists("/fsx-mms"):
+            for field in card.metadata:
+                try:
+                    if "/fsx-mms" in card.metadata[field]:
+                        card.metadata[field] = card.metadata[field].replace("/fsx-mms", "/checkpoint/mms")
+                except:
+                    pass
+
+        return card
 
     def _resolve_envs(self) -> list[str]:
         # This is a special, always available environment for users to override

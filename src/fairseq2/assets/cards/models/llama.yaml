@@ -87,6 +87,16 @@ model_arch: llama3_8b
 
 ---
 
+name: llama3_8b_gil
+model_family: llama
+checkpoint: /checkpoint/mms/shared/Meta-Llama-3-8B/consolidated.00.pth
+tokenizer: /checkpoint/mms/shared/Meta-Llama-3-8B/tokenizer.model
+tokenizer_family: llama
+use_v2_tokenizer: true
+model_arch: llama3_8b
+
+---
+
 name: llama3_8b_instruct
 base: llama3_instruct
 model_arch: llama3_8b
