@@ -6,31 +6,22 @@
 
 from __future__ import annotations
 
+import os
+import re
 from dataclasses import dataclass
-from typing import Any, cast, List
-
-import torch.nn as nn
-
-import torch
-from torch import Tensor
-from torcheval.metrics import Mean
-
-from fairseq2.datasets.preference import PreferenceBatch
-from fairseq2.datasets.prompt import PromptBatch
-from fairseq2.gang import Gang
-from fairseq2.models.sequence import SequenceBatch, SequenceModelOutput
-from fairseq2.recipes.metrics import SequenceMetricBag
+from typing import Any, List, cast
 
 import ray
+import torch
+import torch.nn as nn
 from ray.util.placement_group import placement_group
 from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
+from torch import Tensor
+from torcheval.metrics import Mean
 from transformers import AutoModelForCausalLM
-
-from vllm import LLM, SamplingParams, RequestOutput, CompletionOutput
-import re
+from vllm import LLM, CompletionOutput, RequestOutput, SamplingParams
 from vllm.utils import get_ip, get_open_port
 from vllm.worker.worker import Worker
-import os
 
 from fairseq2.data import (
     CollateOptionsOverride,
@@ -41,7 +32,12 @@ from fairseq2.data import (
     create_bucket_sizes,
     read_sequence,
 )
+from fairseq2.datasets.preference import PreferenceBatch
+from fairseq2.datasets.prompt import PromptBatch
+from fairseq2.gang import Gang
+from fairseq2.models.sequence import SequenceBatch, SequenceModelOutput
 from fairseq2.nn.padding import get_seqs_and_padding_mask
+from fairseq2.recipes.metrics import SequenceMetricBag
 
 
 @dataclass
@@ -59,7 +55,6 @@ class OnlineCriterionSection:
 
 
 class OnlineFinetuneMetricBag(SequenceMetricBag):
-
     def __init__(self, gang: Gang) -> None:
         super().__init__(gang)
 
@@ -94,7 +89,6 @@ def stateless_init_process_group(master_address, master_port, rank, world_size, 
 
 @ray.remote
 class NoEnvLLM(LLM):
-
     def __init__(self, *args, **kwargs):
         # stop ray from manipulating CUDA_VISIBLE_DEVICES
         # at the top-level

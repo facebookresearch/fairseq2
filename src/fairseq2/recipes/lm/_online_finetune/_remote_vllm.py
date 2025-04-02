@@ -9,40 +9,41 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict
-from typing_extensions import override
+
+import ray
 import torch
-
+from ray.util.placement_group import placement_group
+from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
 from torch.nn import Module
+from typing_extensions import override
+from vllm import SamplingParams
+from vllm.engine.arg_utils import PoolerConfig
+from vllm.utils import get_ip, get_open_port
 
-from fairseq2.models.sequence import SequenceBatch
 from fairseq2.gang import Gangs
+from fairseq2.models.sequence import SequenceBatch
+from fairseq2.recipes.config import get_config_section
 from fairseq2.recipes.lm._online_finetune._common import (
-    NoEnvLLM,
     MyWorker,
+    NoEnvLLM,
     stateless_init_process_group,
 )
-from fairseq2.recipes.config import (
-    get_config_section,
-)
-from vllm import SamplingParams
-from ray.util.placement_group import placement_group
-from vllm.utils import get_ip, get_open_port
-from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
-import ray
-from vllm.engine.arg_utils import PoolerConfig
 
 
 class RemoteModelHandler(ABC):
     @abstractmethod
-    def create(self, gangs: Gangs, unit_config: object) -> RemoteVllmModel: ...
+    def create(self, gangs: Gangs, unit_config: object) -> RemoteVllmModel:
+        ...
 
     @property
     @abstractmethod
-    def name(self) -> str: ...
+    def name(self) -> str:
+        ...
 
     @property
     @abstractmethod
-    def config_kls(self) -> type[object]: ...
+    def config_kls(self) -> type[object]:
+        ...
 
 
 @dataclass(kw_only=True)

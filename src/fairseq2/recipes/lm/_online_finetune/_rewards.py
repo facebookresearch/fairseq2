@@ -6,35 +6,34 @@
 
 from __future__ import annotations
 
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-import torch
-from typing_extensions import override
 from typing import Any, List
+
+import torch
+from transformers import AutoTokenizer
+from typing_extensions import override
+from vllm import LLM, CompletionOutput, RequestOutput, SamplingParams
 
 from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.datasets.prompt import PromptBatch
 from fairseq2.gang import Gangs
-from fairseq2.recipes.model import Model
-from fairseq2.recipes.trainer import TrainUnit
-from vllm import LLM, SamplingParams, RequestOutput, CompletionOutput
+from fairseq2.recipes.config import get_config_section
 from fairseq2.recipes.lm._online_finetune._common import (
+    GRPOBatch,
     collate_with_target_mask,
     find_first_value,
-    GRPOBatch,
-    prepare_preference_batch_random_pair,
-    prepare_grpo_batch,
     generate_rollouts,
-)
-import re
-from fairseq2.recipes.config import (
-    get_config_section,
+    prepare_grpo_batch,
+    prepare_preference_batch_random_pair,
 )
 from fairseq2.recipes.lm._online_finetune._math_utils import (
-    remove_boxed,
     last_boxed_only_string,
+    remove_boxed,
 )
-from transformers import AutoTokenizer
+from fairseq2.recipes.model import Model
+from fairseq2.recipes.trainer import TrainUnit
 
 
 @dataclass(kw_only=True)
@@ -53,26 +52,32 @@ class VLLMOutputRewardHandler(ABC):
     @abstractmethod
     def create(
         self, reward_model: Any, gangs: Gangs, reward_config: object
-    ) -> VLLMOutputReward: ...
+    ) -> VLLMOutputReward:
+        ...
 
     @property
     @abstractmethod
-    def name(self) -> str: ...
+    def name(self) -> str:
+        ...
 
     @property
     @abstractmethod
-    def config_kls(self) -> type[object]: ...
+    def config_kls(self) -> type[object]:
+        ...
 
 
 class VLLMOutputReward(ABC):
     @abstractmethod
-    def process_rollouts(self, vllm_outputs: List[RequestOutput]): ...
+    def process_rollouts(self, vllm_outputs: List[RequestOutput]):
+        ...
 
     @abstractmethod
-    def prepare_preference_batch(self, prompt_batch: PromptBatch, rollouts): ...
+    def prepare_preference_batch(self, prompt_batch: PromptBatch, rollouts):
+        ...
 
     @abstractmethod
-    def prepare_grpo_batch(self, prompt_batch: PromptBatch, rollouts): ...
+    def prepare_grpo_batch(self, prompt_batch: PromptBatch, rollouts):
+        ...
 
 
 class GSM8kVerifierHandler(VLLMOutputRewardHandler):

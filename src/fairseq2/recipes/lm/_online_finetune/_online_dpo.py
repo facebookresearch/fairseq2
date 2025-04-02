@@ -10,17 +10,21 @@ from copy import copy
 from dataclasses import dataclass, field
 from typing import Dict, Final, List, cast, final
 
-import torch.nn as nn
+import ray
 import torch
 import torch.distributed
+import torch.nn as nn
 from torch import Tensor
 from torch.nn import Module
 from torcheval.metrics import Mean
 from typing_extensions import override
-from fairseq2.recipes.model import Model
+from vllm import SamplingParams
+from vllm.distributed.device_communicators.pynccl import PyNcclCommunicator
 
 from fairseq2.context import RuntimeContext
+from fairseq2.data import CollateOptionsOverride, Collater, SequenceData
 from fairseq2.datasets.preference import PreferenceBatch
+from fairseq2.datasets.prompt import PromptBatch
 from fairseq2.gang import Gang, Gangs
 from fairseq2.logging import log
 from fairseq2.models.decoder import DecoderModel
@@ -29,53 +33,46 @@ from fairseq2.models.sequence import (
     SequenceModelOutput,
     as_auto_regressive_input,
 )
-from fairseq2.data import CollateOptionsOverride, Collater, SequenceData
-from fairseq2.datasets.prompt import PromptBatch
-from fairseq2.nn.utils.module import freeze_parameters
 from fairseq2.nn.data_parallel._fsdp import (
     fsdp_summon_full_parameters as fsdp_summon_full_parameters,
 )
+from fairseq2.nn.utils.module import freeze_parameters
 from fairseq2.recipes.common import setup_reference_model
+from fairseq2.recipes.common._distributed import broadcast_model
 from fairseq2.recipes.config import (
     ReferenceModelSection,
     TrainerSection,
     get_config_section,
+)
+from fairseq2.recipes.lm._online_finetune._common import (
+    OnlineCriterionSection,
+    collate_with_target_mask,
+    convert_vllm_output_to_ref_score,
+    copy_state,
+    find_first_value,
+    generate_rollouts,
+)
+from fairseq2.recipes.lm._online_finetune._handler import OnlineFinetuneUnitHandler
+from fairseq2.recipes.lm._online_finetune._remote_vllm import (
+    RemoteVllmModel,
+    RemoteVllmModelHandler,
+    VllmConfig,
+)
+from fairseq2.recipes.lm._online_finetune._rewards import (
+    RewardSection,
+    VLLMOutputReward,
+    VLLMOutputRewardHandler,
 )
 from fairseq2.recipes.lm._preference_finetune._common import (
     POCriterionSection,
     POFinetuneMetricBag,
     _gather_lprobs_avg,
 )
-from fairseq2.recipes.lm._online_finetune._common import OnlineCriterionSection
-from fairseq2.recipes.lm._online_finetune._handler import OnlineFinetuneUnitHandler
+from fairseq2.recipes.model import Model
 from fairseq2.recipes.trainer import TrainUnit
 from fairseq2.typing import DataType
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
-from fairseq2.recipes.common._distributed import broadcast_model
-
-from vllm import SamplingParams
-from vllm.distributed.device_communicators.pynccl import PyNcclCommunicator
-
-import ray
-from fairseq2.recipes.lm._online_finetune._rewards import (
-    VLLMOutputRewardHandler,
-    RewardSection,
-    VLLMOutputReward,
-)
-from fairseq2.recipes.lm._online_finetune._remote_vllm import (
-    VllmConfig,
-    RemoteVllmModelHandler,
-    RemoteVllmModel,
-)
-
-from fairseq2.recipes.lm._online_finetune._common import (
-    collate_with_target_mask,
-    copy_state,
-    find_first_value,
-    generate_rollouts,
-    convert_vllm_output_to_ref_score,
-)
 
 
 @final
