@@ -482,9 +482,9 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
         criterion_section = get_config_section(
             recipe_config, "criterion", OnlineCriterionSection
         )
-        if gangs.root.rank == 0:
-            breakpoint()
-        gangs.root.barrier()
+        # if gangs.root.rank == 0:
+        #     breakpoint()
+        # gangs.root.barrier()
         config = structure(criterion_section.config, OnlineDpoFinetuneConfig)
 
         validate(config)

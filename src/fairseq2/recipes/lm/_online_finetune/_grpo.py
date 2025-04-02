@@ -428,22 +428,7 @@ class GrpoFinetuneConfig:
     """The data type of the reference model."""
 
     ray_policy_actor_name: str = "vllm_policy"
-
-    vllm_reward_model_name: str = "vllm_reward"
-
-    nll_scale: float = 0.0
-    """The coefficient of NLL loss added to the DPO loss."""
-
-    length_normalization: bool = False
-    """Use length normalized DPO, which uses the average log probability of a sequence as the implicit reward."""
-
-    vllm_model: VllmConfig = field(
-        default_factory=lambda: VllmConfig(init_update_process_group=True)
-    )
-
-    # vllm_reward_model: VllmConfig = field(
-    #     default_factory=lambda: VllmConfig(init_update_process_group=False)
-    # )
+    vllm_reward_model_name: str = "vllm_reward_model"
 
     reward: RewardSection = field(
         default_factory=lambda: RewardSection(name="gsm8k_verifier")
@@ -503,24 +488,6 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
 
         else:
             raise ValueError(f"reference model {config.reference_model} not supported")
-
-        vllm_model = RemoteVllmModelHandler().create(gangs=gangs, unit_config=config)
-
-        # FIXME better way to check if vllm_reward_model is present in config
-        if hasattr(config, "vllm_reward_model"):
-            vllm_reward_model = RemoteVllmModelHandler().create(
-                gangs=gangs,
-                unit_config=config,
-                configs_name="vllm_reward_model",  # FIXME better way to use the correct configs?
-            )
-        else:
-            vllm_reward_model = None
-
-        reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
-        reward_handler = reward_registry.get(config.reward.name)
-        reward = reward_handler.create(
-            recipe_config=recipe_config, vllm_model=vllm_reward_model, gangs=gangs
-        )
 
         gangs.root.barrier()
 

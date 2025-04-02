@@ -58,11 +58,10 @@ def register_online_finetune_units(context: RuntimeContext) -> None:
 
     # Online DPO
     handler = OnlineDpoFinetuneUnitHandler(context)
-
     registry.register(handler.name, handler)
 
+    # GRPO
     handler = GrpoFinetuneUnitHandler(context)
-
     registry.register(handler.name, handler)
 
     # reward models
