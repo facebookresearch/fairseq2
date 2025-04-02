@@ -24,7 +24,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     GRPOBatch,
     collate_with_target_mask,
     find_first_value,
-    generate_rollouts,
+    generate_rewards,
     prepare_grpo_batch,
     prepare_preference_batch_random_pair,
 )
@@ -52,32 +52,26 @@ class VLLMOutputRewardHandler(ABC):
     @abstractmethod
     def create(
         self, reward_model: Any, gangs: Gangs, reward_config: object
-    ) -> VLLMOutputReward:
-        ...
+    ) -> VLLMOutputReward: ...
 
     @property
     @abstractmethod
-    def name(self) -> str:
-        ...
+    def name(self) -> str: ...
 
     @property
     @abstractmethod
-    def config_kls(self) -> type[object]:
-        ...
+    def config_kls(self) -> type[object]: ...
 
 
 class VLLMOutputReward(ABC):
     @abstractmethod
-    def process_rollouts(self, vllm_outputs: List[RequestOutput]):
-        ...
+    def process_rollouts(self, vllm_outputs: List[RequestOutput]): ...
 
     @abstractmethod
-    def prepare_preference_batch(self, prompt_batch: PromptBatch, rollouts):
-        ...
+    def prepare_preference_batch(self, prompt_batch: PromptBatch, rollouts): ...
 
     @abstractmethod
-    def prepare_grpo_batch(self, prompt_batch: PromptBatch, rollouts):
-        ...
+    def prepare_grpo_batch(self, prompt_batch: PromptBatch, rollouts): ...
 
 
 class GSM8kVerifierHandler(VLLMOutputRewardHandler):
@@ -303,7 +297,7 @@ class SkyworkVerifier(VLLMOutputReward):
             batch_text.append(rollouts_text)
             batch_tokens.append(rollouts_tokens)
 
-        batch_rewards = generate_rollouts(
+        batch_rewards = generate_rewards(
             vllm_inputs,
             dp_gang=self._gangs.dp,
             vllm_model=self.reward_model,
