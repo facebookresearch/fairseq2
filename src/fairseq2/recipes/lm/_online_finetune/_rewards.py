@@ -50,7 +50,7 @@ class RewardSection:
 class VLLMOutputRewardHandler(ABC):
     @abstractmethod
     def create(
-        self, reward_model: Any, gangs: Gangs, reward_config: object
+        self, reward_model: Any, vllm_model, gangs: Gangs, reward_config: object
     ) -> VLLMOutputReward: ...
 
     @property
@@ -78,7 +78,7 @@ class GSM8kVerifierHandler(VLLMOutputRewardHandler):
         pass
 
     @override
-    def create(self, reward_config, gangs):
+    def create(self, reward_config, vllm_model, gangs):
         return GSM8kVerifier(answer_key=reward_config.answer_key, gangs=gangs)
 
     @property
@@ -167,7 +167,7 @@ class NuminaMathVerifierHandler(VLLMOutputRewardHandler):
         pass
 
     @override
-    def create(self, reward_config, gangs):
+    def create(self, reward_config, vllm_model, gangs):
         return NuminaMathVerifier(answer_key=reward_config.answer_key, gangs=gangs)
 
     @property

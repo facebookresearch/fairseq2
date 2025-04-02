@@ -55,7 +55,6 @@ class GRPOBatch:
 @dataclass(kw_only=True)
 class OnlineCriterionSection:
     name: str
-
     config: object
 
 

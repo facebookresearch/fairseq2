@@ -109,6 +109,9 @@ class OnlineFinetuneConfig:
             name="grpo", config=GrpoFinetuneConfig()
         )
     )
+    # criterion: OnlineCriterionSection = field(
+    #     default_factory=lambda: OnlineCriterionSection(name="dummy", config=dict())
+    # )
 
     optimizer: OptimizerSection = field(
         default_factory=lambda: OptimizerSection(
