@@ -494,8 +494,13 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
         vllm_model = vllm_actors[config.ray_policy_actor_name]
 
         reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
+        vllm_reward_model = vllm_actors[config.vllm_reward_model_name]
         reward_handler = reward_registry.get(config.reward.name)
-        reward = reward_handler.create(reward_config=config.reward.config, gangs=gangs)
+        reward = reward_handler.create(
+            reward_config=config.reward.config,
+            vllm_model=vllm_reward_model,
+            gangs=gangs,
+        )
 
         log.info("GRPO setup complete.")
 
