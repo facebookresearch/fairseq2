@@ -188,6 +188,27 @@ LLAMA_TOKENIZER_FAMILY: Final = "llama"
 
 
 def load_llama_tokenizer(path: Path, card: AssetCard) -> TextTokenizer:
+
+    # first check if this is HuggingFace tokenizer
+    try:
+        use_hf = card.field("use_hf_tokenizer").as_(bool)
+    except AssetCardFieldNotFoundError:
+        use_hf = False
+    except AssetCardError as ex:
+        raise text_tokenizer_asset_card_error(card.name) from ex
+
+    if use_hf:
+        try:
+            return LLaMA3TokenizerHuggingFace(path)
+        except ValueError as ex:
+            raise TextTokenizerLoadError(
+                card.name, f"The '{card.name}' asset card does not contain a valid text tokenizer configuration of the '{LLAMA_TOKENIZER_FAMILY}' family. See the nested exception for details."  # fmt: skip
+            ) from ex
+        except RuntimeError as ex:
+            raise TextTokenizerLoadError(
+                card.name, f"The '{card.name}' text tokenizer cannot be loaded. See the nested exception for details."  # fmt: skip
+            ) from ex
+
     try:
         use_v2 = card.field("use_v2_tokenizer").as_(bool)
     except AssetCardFieldNotFoundError:
