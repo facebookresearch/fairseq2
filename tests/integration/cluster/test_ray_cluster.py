@@ -74,7 +74,6 @@ def test_ray_cluster_coordination(
     cpus_per_node = cluster_setup["cpus_per_node"]
     placement_groups = cluster_setup["placement_groups"]
     coordinator_name = cluster_setup["coordinator_name"]
-    job_id = cluster_setup["job_id"]
 
     # Create and test workers
     @ray.remote

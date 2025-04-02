@@ -19,5 +19,5 @@ def register_clusters(context: RuntimeContext) -> None:
     registry.register(handler.supported_cluster, handler)
 
     # Ray
-    handler = RayClusterHandler(context.env)
-    registry.register(handler.supported_cluster, handler)
+    ray_handler = RayClusterHandler(context.env)
+    registry.register(ray_handler.supported_cluster, ray_handler)
