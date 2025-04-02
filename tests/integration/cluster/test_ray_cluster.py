@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import random
+from typing import Any, Dict, Generator
 
 import pytest
 import ray
@@ -14,7 +15,7 @@ from fairseq2.cluster import RayClusterHandler, RayCoordinator
 
 
 @pytest.fixture(scope="module")
-def ray_cluster():
+def ray_cluster() -> Generator[Any, Any, Any]:
     """Start and stop Ray for the duration of these tests."""
     if not ray.is_initialized():
         ray.init(num_cpus=4)  # Adjust based on your local machine
@@ -26,7 +27,7 @@ def ray_cluster():
 
 
 @pytest.fixture
-def cluster_setup():
+def cluster_setup() -> Generator[Any, Any, Any]:
     """Set up test configuration and placement groups."""
     # Test configuration
     num_nodes = 2
@@ -44,13 +45,14 @@ def cluster_setup():
 
     # Create coordinator
     coordinator_name = f"coordinator_{job_id}"
-    coordinator = RayCoordinator.options(
+    coordinator = RayCoordinator.options(  # type: ignore[attr-defined]
         name=coordinator_name,
         namespace="fairseq2",
     ).remote(
         job_id=job_id,
         world_size=num_nodes * cpus_per_node,  # Using CPUs instead of GPUs
     )
+    ray.get(coordinator.get_leader_info.remote())
 
     # Return test configuration
     setup = {
@@ -64,7 +66,9 @@ def cluster_setup():
     yield setup
 
 
-def test_ray_cluster_coordination(ray_cluster, cluster_setup):
+def test_ray_cluster_coordination(
+    ray_cluster: None, cluster_setup: Dict[str, Any]
+) -> None:
     """Test that the RayClusterHandler instances correctly coordinate through RayCoordinator."""
     num_nodes = cluster_setup["num_nodes"]
     cpus_per_node = cluster_setup["cpus_per_node"]
@@ -75,17 +79,17 @@ def test_ray_cluster_coordination(ray_cluster, cluster_setup):
     # Create and test workers
     @ray.remote
     class TestWorker:
-        def __init__(self, rank, local_rank, local_world_size):
+        def __init__(self, rank: int, local_rank: int, local_world_size: int) -> None:
             self.env = {
                 "RAY_FAIRSEQ2_COORDINATOR_NAME": f"{coordinator_name}:fairseq2",
-                "RANK": rank,
-                "LOCAL_RANK": local_rank,
-                "LOCAL_WORLD_SIZE": local_world_size,
+                "RANK": str(rank),
+                "LOCAL_RANK": str(local_rank),
+                "LOCAL_WORLD_SIZE": str(local_world_size),
                 "CUDA_VISIBLE_DEVICES": str(bundle_idx),  # Simulate GPU ID with CPU ID
             }
             self.cluster_handler = RayClusterHandler(self.env)
 
-        def run_test(self):
+        def run_test(self) -> Dict[str, Any]:
             self.cluster_handler.set_torch_distributed_variables()
 
             # Return environment after setup
@@ -96,7 +100,7 @@ def test_ray_cluster_coordination(ray_cluster, cluster_setup):
     for pg_idx in range(num_nodes):
         for bundle_idx in range(cpus_per_node):
             # Place the worker in the appropriate placement group
-            worker = TestWorker.options(
+            worker = TestWorker.options(  # type: ignore[attr-defined]
                 scheduling_strategy=PlacementGroupSchedulingStrategy(
                     placement_group=placement_groups[pg_idx],
                     placement_group_bundle_index=bundle_idx,
