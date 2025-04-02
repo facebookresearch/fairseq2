@@ -429,6 +429,8 @@ class GrpoFinetuneConfig:
 
     ray_policy_actor_name: str = "vllm_policy"
 
+    vllm_reward_model_name: str = "vllm_reward"
+
     nll_scale: float = 0.0
     """The coefficient of NLL loss added to the DPO loss."""
 
@@ -439,9 +441,9 @@ class GrpoFinetuneConfig:
         default_factory=lambda: VllmConfig(init_update_process_group=True)
     )
 
-    vllm_reward_model: VllmConfig = field(
-        default_factory=lambda: VllmConfig(init_update_process_group=False)
-    )
+    # vllm_reward_model: VllmConfig = field(
+    #     default_factory=lambda: VllmConfig(init_update_process_group=False)
+    # )
 
     reward: RewardSection = field(
         default_factory=lambda: RewardSection(name="gsm8k_verifier")

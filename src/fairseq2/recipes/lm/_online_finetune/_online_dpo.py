@@ -216,6 +216,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             return dummy_loss, batch_size
 
         self.maybe_sync_models()
+
         rollouts = generate_rollouts(
             prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._vllm_model
         )
@@ -440,21 +441,6 @@ class DpoLossConfig:
     length_normalization: bool = False
     """Use length normalized DPO, which uses the average log probability of a sequence as the implicit reward."""
 
-    vllm_model: VllmConfig = field(
-        default_factory=lambda: VllmConfig(init_update_process_group=True)
-    )
-
-    vllm_reward_model: VllmConfig = field(
-        default_factory=lambda: VllmConfig(init_update_process_group=False)
-    )
-
-    reward: RewardSection = field(
-        default_factory=lambda: RewardSection(name="gsm8k_verifier")
-    )
-
-    sync_ref_model_every_n_steps: int = -1
-    sync_vllm_model_every_n_steps: int = -1
-
 
 @dataclass(kw_only=True)
 class OnlineDpoFinetuneConfig:
@@ -472,6 +458,7 @@ class OnlineDpoFinetuneConfig:
     loss_config: DpoLossConfig = field(default_factory=lambda: DpoLossConfig())
 
     ray_policy_actor_name: str = "vllm_policy"
+    vllm_reward_model_name: str = "vllm_reward"
 
     reward: RewardSection = field(
         default_factory=lambda: RewardSection(name="gsm8k_verifier")
@@ -495,34 +482,12 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
         criterion_section = get_config_section(
             recipe_config, "criterion", OnlineCriterionSection
         )
+        if gangs.root.rank == 0:
+            breakpoint()
+        gangs.root.barrier()
         config = structure(criterion_section.config, OnlineDpoFinetuneConfig)
 
         validate(config)
-
-        vllm_model = RemoteVllmModelHandler().create(
-            gangs=gangs,
-            unit_config=config,
-            configs_name="vllm_model",  # FIXME better way to use the correct configs?
-        )
-
-        reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
-        # FIXME better way to check if vllm_reward_model is present in config
-        if hasattr(config, "vllm_reward_model"):
-            vllm_reward_model = RemoteVllmModelHandler().create(
-                gangs=gangs,
-                unit_config=config,
-                configs_name="vllm_reward_model",  # FIXME better way to use the correct configs?
-            )
-
-            reward_handler = reward_registry.get("skywork_verifier")
-            reward = reward_handler.create(
-                recipe_config=recipe_config, vllm_model=vllm_reward_model, gangs=gangs
-            )
-        else:
-            reward_handler = reward_registry.get(config.reward.name)
-            reward = reward_handler.create(
-                recipe_config=recipe_config, vllm_model=None, gangs=gangs
-            )
 
         if isinstance(config.reference_model, ReferenceModelSection):
             log.info("Setting up GRPO with reference model.")
@@ -560,9 +525,32 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
 
         vllm_model = vllm_actors[config.ray_policy_actor_name]
 
+        # FIXME better way to check if vllm_reward_model is present in config
+        # if hasattr(config, "vllm_reward_model"):
+        #     vllm_reward_model = RemoteVllmModelHandler().create(
+        #         gangs=gangs,
+        #         unit_config=config,
+        #         configs_name="vllm_reward_model",  # FIXME better way to use the correct configs?
+        #     )
+
+        #     reward_handler = reward_registry.get("skywork_verifier")
+        #     reward = reward_handler.create(
+        #         recipe_config=recipe_config, vllm_model=vllm_reward_model, gangs=gangs
+        #     )
+        # else:
+        #     reward_handler = reward_registry.get(config.reward.name)
+        #     reward = reward_handler.create(
+        #         recipe_config=recipe_config, vllm_model=None, gangs=gangs
+        #  )
+
         reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
+        vllm_reward_model = vllm_actors[config.vllm_reward_model_name]
         reward_handler = reward_registry.get(config.reward.name)
-        reward = reward_handler.create(reward_config=config.reward.config, gangs=gangs)
+        reward = reward_handler.create(
+            reward_config=config.reward.config,
+            vllm_model=vllm_reward_model,
+            gangs=gangs,
+        )
 
         return OnlineDpoFinetuneUnit(
             model,

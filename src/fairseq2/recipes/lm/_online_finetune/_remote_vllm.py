@@ -179,6 +179,9 @@ class RemoteVllmModel:
             enforce_eager=vllm_engine_args.enforce_eager,
             worker_cls=MyWorker,
             tensor_parallel_size=vllm_engine_args.tensor_parallel_size,
+            task=vllm_engine_args.task,
+            hf_overrides=vllm_engine_args.hf_overrides,
+            override_pooler_config=vllm_engine_args.override_pooler_config,
             distributed_executor_backend="ray",
         )
 
