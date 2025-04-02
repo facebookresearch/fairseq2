@@ -456,7 +456,7 @@ def prepare_grpo_batch(
     prompt_lens = []
     rewards = []
 
-    # reward_output = self.process_rollouts(rollouts, prompt_batch.meta_info[self.answer_key])
+    # reward_output = self.operationouts(rollouts, prompt_batch.meta_info[self.answer_key])
     for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(
         zip(reward_output["rewards"], reward_output["tokens"])
     ):

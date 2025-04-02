@@ -303,10 +303,7 @@ class SkyworkVerifier(VLLMOutputReward):
             batch_tokens.append(rollouts_tokens)
 
         batch_rewards = generate_rewards(
-            vllm_inputs,
-            dp_gang=self._gangs.dp,
-            vllm_model=self.reward_model,
-            operation="reward",
+            vllm_inputs, dp_gang=self._gangs.dp, vllm_model=self.reward_model
         )
 
         # reshape batch_rewards to [Batch, Rollouts]
