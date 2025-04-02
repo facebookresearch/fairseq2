@@ -104,11 +104,6 @@ class OnlineFinetuneConfig:
         )
     )
 
-    # criterion: OnlineCriterionSection = field(
-    #     default_factory=lambda: OnlineCriterionSection(
-    #         name="grpo", config=GrpoFinetuneConfig()
-    #     )
-    # )
     criterion: OnlineCriterionSection = field(
         default_factory=lambda: OnlineCriterionSection(name="grpo", config={})
     )

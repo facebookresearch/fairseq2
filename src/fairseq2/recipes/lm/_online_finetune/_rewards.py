@@ -51,7 +51,7 @@ class RewardSection:
 class VLLMOutputRewardHandler(ABC):
     @abstractmethod
     def create(
-        self, reward_model: Any, vllm_model, gangs: Gangs, reward_config: object
+        self, reward_model: Any, gangs: Gangs, reward_config: object
     ) -> VLLMOutputReward: ...
 
     @property
@@ -79,7 +79,7 @@ class GSM8kVerifierHandler(VLLMOutputRewardHandler):
         pass
 
     @override
-    def create(self, reward_config, vllm_model, gangs):
+    def create(self, reward_model, reward_config, gangs):
         return GSM8kVerifier(answer_key=reward_config.answer_key, gangs=gangs)
 
     @property
@@ -168,7 +168,7 @@ class NuminaMathVerifierHandler(VLLMOutputRewardHandler):
         pass
 
     @override
-    def create(self, reward_config, vllm_model, gangs):
+    def create(self, reward_model, reward_config, gangs):
         return NuminaMathVerifier(answer_key=reward_config.answer_key, gangs=gangs)
 
     @property
@@ -201,8 +201,8 @@ class SkyworkVerifierHandler(VLLMOutputRewardHandler):
         pass
 
     @override
-    def create(self, reward_config, vllm_model, gangs):
-        return SkyworkVerifier(gangs, vllm_model)
+    def create(self, reward_model, reward_config, gangs):
+        return SkyworkVerifier(gangs, reward_model, answer_key=reward_config.answer_key)
 
     @property
     @override
@@ -216,13 +216,14 @@ class SkyworkVerifierHandler(VLLMOutputRewardHandler):
 
 
 class SkyworkVerifier(VLLMOutputReward):
-    def __init__(self, gangs, vllm_model):
+    def __init__(self, gangs, reward_model, answer_key):
         self.answer_re = re.compile(
             r"#### (\-?[0-9\.\,]+)"
         )  # regexp from original gsm8k to extract formatted answer
+        self.answer_key = answer_key
         self.invalid_answer = "[invalid]"
         self._gangs = gangs
-        self.vllm_model = vllm_model
+        self.reward_model = reward_model
         self.tokenizer = AutoTokenizer.from_pretrained(
             "Skywork/Skywork-Reward-Llama-3.1-8B-v0.2"
         )
@@ -289,7 +290,7 @@ class SkyworkVerifier(VLLMOutputReward):
         batch_rewards = generate_rollouts(
             vllm_inputs,
             dp_gang=self._gangs.dp,
-            vllm_model=self.vllm_model,
+            vllm_model=self.reward_model,
             operation="reward",
         )
 

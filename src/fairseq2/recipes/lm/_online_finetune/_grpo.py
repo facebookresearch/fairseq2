@@ -428,7 +428,7 @@ class GrpoFinetuneConfig:
     """The data type of the reference model."""
 
     ray_policy_actor_name: str = "vllm_policy"
-    vllm_reward_model_name: str = "vllm_reward"
+    vllm_reward_model_name: str = None
 
     reward: RewardSection = field(
         default_factory=lambda: RewardSection(name="gsm8k_verifier")
@@ -493,12 +493,12 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
 
         vllm_model = vllm_actors[config.ray_policy_actor_name]
 
+        vllm_reward_model = vllm_actors.get(config.vllm_reward_model_name, None)
         reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
-        vllm_reward_model = vllm_actors[config.vllm_reward_model_name]
         reward_handler = reward_registry.get(config.reward.name)
         reward = reward_handler.create(
+            reward_model=vllm_reward_model,
             reward_config=config.reward.config,
-            vllm_model=vllm_reward_model,
             gangs=gangs,
         )
 
