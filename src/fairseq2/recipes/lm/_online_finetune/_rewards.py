@@ -113,7 +113,10 @@ class GSM8kVerifier(VLLMOutputReward):
 
     @override
     def process_rollouts(
-        self, vllm_outputs: List[RequestOutput], reference_answers: List[str]
+        self,
+        vllm_outputs: List[RequestOutput],
+        reference_answers: List[str],
+        prompt_batch: PromptBatch,
     ):
         batch_text = []
         batch_tokens = []
@@ -262,6 +265,7 @@ class SkyworkVerifier(VLLMOutputReward):
     def process_rollouts(
         self,
         vllm_outputs: List[RequestOutput],
+        reference_answers: List[str],
         prompt_batch,
     ):
         vllm_inputs = []

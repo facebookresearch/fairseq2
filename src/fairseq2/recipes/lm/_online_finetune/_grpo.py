@@ -167,7 +167,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             sampling_params=policy_sampling_params,
         )
         reward_output = self._reward.process_rollouts(
-            rollouts, prompt_batch.meta_info[self._reward.answer_key]
+            rollouts, prompt_batch.meta_info[self._reward.answer_key], prompt_batch
         )
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
         self._metric_bag.update_avg_reward(avg_reward)
@@ -217,7 +217,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         )
 
         reward_output = self._reward.process_rollouts(
-            rollouts, prompt_batch.meta_info[self._reward.answer_key]
+            rollouts, prompt_batch.meta_info[self._reward.answer_key], prompt_batch
         )
 
         grpo_batch: GRPOBatch
