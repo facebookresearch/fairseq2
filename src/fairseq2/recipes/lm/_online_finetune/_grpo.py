@@ -211,9 +211,9 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._vllm_model
         )
 
-        if self._gangs.dp.rank == 0:
-            breakpoint()
-        self._gangs.root.barrier()
+        # if self._gangs.dp.rank == 0:
+        #     breakpoint()
+        # self._gangs.root.barrier()
 
         reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
 
