@@ -134,3 +134,10 @@ base: llama3_instruct
 model_arch: llama3_1_70b
 num_shards: 8
 shard_embed_dim: false
+
+---
+name: mms_llama3_8b
+base: llama3
+model_arch: llama3_8b
+checkpoint: /checkpoint/mms/shared/Meta-Llama-3-8B/consolidated.00.pth
+tokenizer: /checkpoint/mms/shared/Meta-Llama-3-8B/tokenizer.model
