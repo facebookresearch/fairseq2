@@ -243,7 +243,7 @@ class RemoteVllmModel:
 
         return outputs
 
-    def reward_from_model(self, prompt_list, batch_size=128):
+    def reward_from_model(self, prompt_list, batch_size=64):
         # NOTE: need to batch inputs to vllm.encode model for current models that aren't supported by vllm
         rewards = []
         for i in range(0, len(prompt_list), batch_size):

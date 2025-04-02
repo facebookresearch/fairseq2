@@ -482,9 +482,7 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
         criterion_section = get_config_section(
             recipe_config, "criterion", OnlineCriterionSection
         )
-        # if gangs.root.rank == 0:
-        #     breakpoint()
-        # gangs.root.barrier()
+
         config = structure(criterion_section.config, OnlineDpoFinetuneConfig)
 
         validate(config)
@@ -542,6 +540,10 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
         #     reward = reward_handler.create(
         #         recipe_config=recipe_config, vllm_model=None, gangs=gangs
         #  )
+        # gangs.root.barrier()
+        # if gangs.root.rank == 0:
+        #     breakpoint()
+        # gangs.root.barrier()
 
         reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
         vllm_reward_model = vllm_actors[config.vllm_reward_model_name]

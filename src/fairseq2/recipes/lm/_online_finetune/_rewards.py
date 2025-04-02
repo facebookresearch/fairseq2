@@ -24,6 +24,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     GRPOBatch,
     prepare_preference_batch_random_pair,
     prepare_grpo_batch,
+    generate_rollouts,
 )
 import re
 from fairseq2.recipes.config import (
@@ -200,7 +201,7 @@ class SkyworkVerifierHandler(VLLMOutputRewardHandler):
         pass
 
     @override
-    def create(self, recipe_config, vllm_model, gangs):
+    def create(self, reward_config, vllm_model, gangs):
         return SkyworkVerifier(gangs, vllm_model)
 
     @property
