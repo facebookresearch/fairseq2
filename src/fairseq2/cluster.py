@@ -11,8 +11,9 @@ import subprocess
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Collection, Mapping, MutableMapping
+from contextlib import closing
 from random import Random
-from typing import List, final
+from typing import Any, Dict, final
 
 import ray
 from typing_extensions import override
@@ -197,152 +198,91 @@ class RayCoordinator:
     def __init__(
         self,
         job_id: int,
-        num_nodes: int,
-        gpus_per_node: int,
-        placement_group_ids: List[str],
+        world_size: int,
     ):
         self.job_id = job_id
-        self.worker_info = {}
-        self.num_nodes = num_nodes
-        self.gpus_per_node = gpus_per_node
-        self.leader = None
+        self.worker_info: Dict[int, Dict[str, Any]] = {}
         self.leader_port = None
         self.ready_workers = 0
-        self.total_workers = num_nodes * gpus_per_node
-        self.placement_group_ids = placement_group_ids
+        self.world_size = world_size
 
-    def register_worker(self, worker_id, hostname, node_id, placement_group_id, gpu_id):
+    def register_worker(self, hostname: str, rank: int, free_port: int | None) -> Dict[str, Any]:
         """Register a worker with its placement group ID and GPU ID"""
-        assert (
-            placement_group_id in self.placement_group_ids
-        ), f"Placement group id {placement_group_id} should in {self.placement_group_ids}"
-        assert 0 <= gpu_id <= 7, f"Bad gpu_id {gpu_id}"
-        node_index = self.placement_group_ids.index(placement_group_id)
-        global_rank = node_index * self.gpus_per_node + gpu_id
-        info = {
-            "worker_id": worker_id,
-            "hostname": hostname,
-            "node_id": node_id,
-            "local_rank": gpu_id,
-            "placement_group_id": placement_group_id,
-            "global_rank": global_rank,
-            "world_size": self.total_workers,
-            "local_world_size": self.gpus_per_node,
-        }
-        self.worker_info[worker_id] = info
-
         self.ready_workers += 1
-
-        is_leader = node_index == 0 and gpu_id == 0
-
-        if is_leader:
-            self.leader_port = str(Random(self.job_id).randint(20_000, 60_000))
-            self.leader = info
-
-        return {
-            **self.worker_info[worker_id],
-            "is_leader": is_leader,
+        info = {
+            "hostname": hostname,
+            "rank": rank,
             "ready_workers": self.ready_workers,
-            "total_workers": self.total_workers,
+            "world_size": self.world_size,
+            "leader_port": free_port,
         }
+        self.worker_info[rank] = info
+        return info
 
-    def get_leader_info(self):
-        if self.leader and self.ready_workers == self.total_workers:
-            result = self.leader.copy()
-            result["leader_port"] = self.leader_port
-            return result
+    def get_leader_info(self) -> Dict[str, Any] | None:
+        if self.ready_workers == self.world_size:
+            return self.worker_info[0]
         else:
             return None
 
 
 @final
 class RayClusterHandler(ClusterHandler):
-    _job_id: int | None
     _env: MutableMapping[str, str]
 
     def __init__(self, env: MutableMapping[str, str]) -> None:
-        self._job_id = None
         self._env = env
 
     @override
     def set_torch_distributed_variables(self) -> None:
-        job_id = self._ensure_job_id()
-
         env = self._env
 
-        ray_context = ray.get_runtime_context()
-        self.actor_id = ray_context.get_actor_id()
-        self.worker_id = str(self.actor_id)
-        self.node_id = ray_context.get_node_id()
-        self.hostname = socket.gethostname()
-        self.placement_group_id = ray_context.get_placement_group_id()
+        rank = env.get("RANK")
+        assert rank is not None, "Missing environment variable RANK"
+        rank = int(rank)
+        local_rank = env.get("LOCAL_RANK")
+        assert local_rank is not None, "Missing environment variable LOCAL_RANK"
+        local_world_size = env.get("LOCAL_WORLD_SIZE")
+        assert (
+            local_world_size is not None
+        ), "Missing environment variable LOCAL_WORLD_SIZE"
+        hostname = socket.gethostname()
 
         # Get the coordinator name from environment variable
         coordinator_name = env.get(RayCoordinator.NAME)
         assert coordinator_name
-        self.coordinator = ray.get_actor(*coordinator_name.split(":"))
+        coordinator = ray.get_actor(*coordinator_name.split(":"))
 
-        accelerator_ids = ray_context.get_accelerator_ids()
-        if (
-            not accelerator_ids
-            or "GPU" not in accelerator_ids
-            or not accelerator_ids["GPU"]
-        ):
-            raise ValueError("No GPU accelerator ID available")
-        self.gpu_id = int(accelerator_ids["GPU"][0])
-
-        assert self.gpu_id == int(env["CUDA_VISIBLE_DEVICES"])
-
-        self.worker_info = ray.get(
-            self.coordinator.register_worker.remote(
-                self.worker_id,
-                self.hostname,
-                self.node_id,
-                self.placement_group_id,
-                self.gpu_id,
-            )
+        free_port = None
+        if rank == 0:
+            free_port = self.find_free_port()
+        worker_info = ray.get(
+            coordinator.register_worker.remote(hostname, rank, free_port)
         )
 
-        log.info(f"Worker info: {self.worker_info}")
+        log.info(f"Worker info: {worker_info}")
 
         leader = None
         for attempts in range(RayCoordinator.LEADER_MAX_RETRIES):
-            leader = ray.get(self.coordinator.get_leader_info.remote())
+            leader = ray.get(coordinator.get_leader_info.remote())
             if leader is not None:
                 break
             time.sleep(RayCoordinator.LEADER_RETRY_INTERVAL * (1.1**attempts))
         if not leader:
             raise TimeoutError(
-                f"Worker {self.worker_id} (rank {self.global_rank}) timed out waiting"
+                f"Worker {rank} timed out waiting"
             )
 
-        env["WORLD_SIZE"] = str(self.worker_info["world_size"])
-        env["RANK"] = str(self.worker_info["global_rank"])
-        env["LOCAL_WORLD_SIZE"] = str(self.worker_info["local_world_size"])
-        env["LOCAL_RANK"] = str(self.worker_info["local_rank"])
-
+        env["WORLD_SIZE"] = str(worker_info["world_size"])
         env["MASTER_ADDR"] = str(leader["hostname"])
         env["MASTER_PORT"] = str(leader["leader_port"])
 
-        env["CUDA_VISIBLE_DEVICES"] = str(self.gpu_id)
-
-    def _ensure_job_id(self) -> int:
-        if self._job_id is not None:
-            return self._job_id
-
-        try:
-            job_id_hex = self._env["RAY_JOB_ID"]
-        except KeyError:
-            raise ClusterError(
-                "ray", "`RAY_JOB_ID` environment variable does not exist."
-            ) from None
-
-        try:
-            self._job_id = int(job_id_hex, 16) & 0x7FFFFFFF
-        except ValueError as ex:
-            raise ClusterError("ray", "Ray job ID cannot be parsed.") from ex
-
-        return self._job_id
+    def find_free_port(self) -> int:
+        with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
+            s.bind(("", 0))
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            port = s.getsockname()[1]
+            return port
 
     @override
     def supports_current_cluster(self) -> bool:

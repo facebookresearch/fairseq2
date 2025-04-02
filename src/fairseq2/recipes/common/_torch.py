@@ -77,7 +77,7 @@ def _set_environment_variables(
 
         # PyTorch does not offer any function to set the compilation trace
         # directory programmatically. This is a hacky workaround.
-        trace_handler = torch._logging._internal.LOG_TRACE_HANDLER
+        trace_handler = None  # torch._logging._internal.LOG_TRACE_HANDLER
         if trace_handler is not None:
             trace_handler.root_dir = str(trace_dir)
 
