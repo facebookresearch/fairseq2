@@ -206,7 +206,9 @@ class RayCoordinator:
         self.ready_workers = 0
         self.world_size = world_size
 
-    def register_worker(self, hostname: str, rank: int, free_port: int | None) -> Dict[str, Any]:
+    def register_worker(
+        self, hostname: str, rank: int, free_port: int | None
+    ) -> Dict[str, Any]:
         """Register a worker with its placement group ID and GPU ID"""
         self.ready_workers += 1
         info = {
@@ -237,9 +239,9 @@ class RayClusterHandler(ClusterHandler):
     def set_torch_distributed_variables(self) -> None:
         env = self._env
 
-        rank = env.get("RANK")
-        assert rank is not None, "Missing environment variable RANK"
-        rank = int(rank)
+        rank_str = env.get("RANK")
+        assert rank_str is not None, "Missing environment variable RANK"
+        rank = int(rank_str)
         local_rank = env.get("LOCAL_RANK")
         assert local_rank is not None, "Missing environment variable LOCAL_RANK"
         local_world_size = env.get("LOCAL_WORLD_SIZE")
@@ -269,9 +271,7 @@ class RayClusterHandler(ClusterHandler):
                 break
             time.sleep(RayCoordinator.LEADER_RETRY_INTERVAL * (1.1**attempts))
         if not leader:
-            raise TimeoutError(
-                f"Worker {rank} timed out waiting"
-            )
+            raise TimeoutError(f"Worker {rank} timed out waiting")
 
         env["WORLD_SIZE"] = str(worker_info["world_size"])
         env["MASTER_ADDR"] = str(leader["hostname"])
@@ -282,7 +282,7 @@ class RayClusterHandler(ClusterHandler):
             s.bind(("", 0))
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             port = s.getsockname()[1]
-            return port
+            return int(port)
 
     @override
     def supports_current_cluster(self) -> bool:
