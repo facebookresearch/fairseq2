@@ -15,11 +15,18 @@ from contextlib import closing
 from random import Random
 from typing import Any, Dict, final
 
-import ray
+try:
+    import ray
+
+    _has_ray = True
+except ImportError:
+    _has_ray = False
+
 from typing_extensions import override
 
 from fairseq2.logging import log
 from fairseq2.registry import Provider
+from fairseq2.utils.env import get_rank
 
 
 @final
@@ -189,7 +196,6 @@ class _NoneClusterHandler(ClusterHandler):
         return "none"
 
 
-@ray.remote(num_cpus=0)
 class RayCoordinator:
     NAME = "RAY_FAIRSEQ2_COORDINATOR_NAME"
     LEADER_MAX_RETRIES = 30
@@ -239,15 +245,7 @@ class RayClusterHandler(ClusterHandler):
     def set_torch_distributed_variables(self) -> None:
         env = self._env
 
-        rank_str = env.get("RANK")
-        assert rank_str is not None, "Missing environment variable RANK"
-        rank = int(rank_str)
-        local_rank = env.get("LOCAL_RANK")
-        assert local_rank is not None, "Missing environment variable LOCAL_RANK"
-        local_world_size = env.get("LOCAL_WORLD_SIZE")
-        assert (
-            local_world_size is not None
-        ), "Missing environment variable LOCAL_WORLD_SIZE"
+        rank = get_rank(env)
         hostname = socket.gethostname()
 
         # Get the coordinator name from environment variable
@@ -286,7 +284,7 @@ class RayClusterHandler(ClusterHandler):
 
     @override
     def supports_current_cluster(self) -> bool:
-        return "RAY_FAIRSEQ2_COORDINATOR_NAME" in self._env
+        return _has_ray and "RAY_FAIRSEQ2_COORDINATOR_NAME" in self._env
 
     @property
     @override
