@@ -170,7 +170,10 @@ public:
     filter(predicate_fn fn) &&;
 
     data_pipeline_builder
-    map(const map_fn &fn, std::size_t num_parallel_calls = 1) &&;
+    map(
+        const map_fn &fn,
+        std::size_t num_parallel_calls = 1,
+        bool deterministic = true) &&;
 
     data_pipeline_builder
     prefetch(std::size_t num_examples) &&;
