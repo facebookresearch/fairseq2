@@ -187,7 +187,10 @@ def get_seqs_and_padding_mask(
 
 
 def pad_seqs(
-    seqs: Sequence[Tensor], pad_value: int = 0, pad_to_multiple: int = 1
+    seqs: Sequence[Tensor],
+    pad_value: int = 0,
+    pad_to_multiple: int = 1,
+    device: Device | None = None,
 ) -> tuple[Tensor, PaddingMask | None]:
     """Stack ``seqs`` along a new batch dimension and pad them to equal length.
 
@@ -211,4 +214,4 @@ def pad_seqs(
 
     seq_data = cast(SequenceData, collater(seqs))
 
-    return get_seqs_and_padding_mask(seq_data)
+    return get_seqs_and_padding_mask(seq_data, device)
