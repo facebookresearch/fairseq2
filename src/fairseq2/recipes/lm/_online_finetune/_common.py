@@ -456,7 +456,6 @@ def prepare_grpo_batch(
     prompt_lens = []
     rewards = []
 
-    # reward_output = self.operationouts(rollouts, prompt_batch.meta_info[self.answer_key])
     for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(
         zip(reward_output["rewards"], reward_output["tokens"])
     ):
@@ -474,11 +473,6 @@ def prepare_grpo_batch(
             i_batch_rewards
         )  # we add all rewards here to correctly compute group statistic
 
-    # if gangs.root.rank == 0:
-    #     from pudb.remote import set_trace
-    #     set_trace(host="submit-0", port=6899, term_size=(80*2, 24*2), reverse=True)
-
-    # gangs.root.barrier()
 
     rewards = torch.tensor(rewards, device=gangs.dp.device).float()  # [Batch, Rollouts]
     rewards_normalized = (rewards - rewards.mean(dim=1, keepdim=True)) / (

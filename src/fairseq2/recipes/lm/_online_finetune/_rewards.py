@@ -232,26 +232,13 @@ class SkyworkVerifierHandler(VLLMOutputRewardHandler):
 
 class SkyworkVerifier(VLLMOutputReward):
     def __init__(self, gangs, reward_model, answer_key, prompt_key):
-        self.answer_re = re.compile(
-            r"#### (\-?[0-9\.\,]+)"
-        )  # regexp from original gsm8k to extract formatted answer
         self.answer_key = answer_key
         self.prompt_key = prompt_key
-        self.invalid_answer = "[invalid]"
         self._gangs = gangs
         self.reward_model = reward_model
         self.tokenizer = AutoTokenizer.from_pretrained(
             "Skywork/Skywork-Reward-Llama-3.1-8B-v0.2"
         )
-
-    def extract_answer(self, completion: str):
-        match = self.answer_re.search(completion)
-        if match:
-            match_str = match.group(1).strip()
-            match_str = match_str.replace(",", "")
-            return match_str
-        else:
-            return self.invalid_answer
 
     def extract_text_from_llama3_wrapper(self, input_string):
         start_pattern = r"<\|start_header_id\|>user<\|end_header_id\|>"
