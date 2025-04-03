@@ -69,10 +69,10 @@ setup(
         # listed as optional in tiktoken's pyproject.toml
         # (https://github.com/openai/tiktoken/blob/main/pyproject.toml#L9)
         "blobfile~=3.0.0",
-        "ray~=2.40",
     ],
     extras_require={
         "arrow": ["pyarrow>=13.0.0", "pandas~=2.0.0"],
+        "ray": ["ray~=2.40"],
     },
     entry_points={"console_scripts": ["fairseq2=fairseq2.cli:main"]},
 )
