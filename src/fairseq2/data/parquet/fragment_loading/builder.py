@@ -148,11 +148,18 @@ class ParquetFragmentLoader:
                 add_partitioning_columns=True,
             )
 
-        # TODO: we want to do async loading of the fragments
-        loading_pipeline = fragment_pipeline.map(
-            load_fn,
-            num_parallel_calls=self.config.num_parallel_fragments,
-        )
+        if self.config.non_deterministic_read:
+            # keeping if above checks for back-compatibility
+            loading_pipeline = fragment_pipeline.map(
+                load_fn,
+                num_parallel_calls=self.config.num_parallel_fragments,
+                deterministic=self.config.non_deterministic_read,
+            )
+        else:
+            loading_pipeline = fragment_pipeline.map(
+                load_fn,
+                num_parallel_calls=self.config.num_parallel_fragments,
+            )
 
         loading_pipeline = loading_pipeline.filter(
             lambda table: isinstance(table, pa.Table)

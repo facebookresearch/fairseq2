@@ -123,6 +123,12 @@ class FragmentLoadingConfig:
     """
 
     # performance related params
+    non_deterministic_read: bool = False
+    """If ``True``, the loading performance can be faster and more regular when `num_parallel_fragments` > 1.
+    Note that the order of the loaded fragments is not guaranteed to be the same between different runs,
+    in particular it's NOT recommended if sharding is done in memory on loaded fragments.
+    """
+
     use_threads: bool = False
     """Whether pyarrow should use its internal threads to read the Parquet file.
     Since we rely on the external parallelism, this param is tuned off by
