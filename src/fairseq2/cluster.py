@@ -16,7 +16,7 @@ from random import Random
 from typing import Any, Dict, final
 
 try:
-    import ray
+    import ray  # type: ignore[import-not-found]
 
     _has_ray = True
 except ImportError:

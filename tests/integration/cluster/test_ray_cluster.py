@@ -10,8 +10,10 @@ from typing import Any, Dict, Generator
 import pytest
 
 try:
-    import ray
-    from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
+    import ray  # type: ignore[import-not-found]
+    from ray.util.scheduling_strategies import (  # type: ignore[import-not-found]
+        PlacementGroupSchedulingStrategy,
+    )
 
     _has_ray = True
 except ImportError:
