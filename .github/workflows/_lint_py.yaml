@@ -79,7 +79,7 @@ jobs:
 
           trap remove_matcher EXIT
 
-          black --check .
+          black --check --diff .
       - name: Run flake8
         if: success() || (failure() && steps.install_fairseq2.outcome == 'success')
         run: |
