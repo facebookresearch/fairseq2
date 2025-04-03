@@ -6,31 +6,22 @@
 
 from __future__ import annotations
 
+import os
+import re
 from dataclasses import dataclass
-from typing import Any, cast, List
-
-import torch.nn as nn
-
-import torch
-from torch import Tensor
-from torcheval.metrics import Mean
-
-from fairseq2.datasets.preference import PreferenceBatch
-from fairseq2.datasets.prompt import PromptBatch
-from fairseq2.gang import Gang
-from fairseq2.models.sequence import SequenceBatch, SequenceModelOutput
-from fairseq2.recipes.metrics import SequenceMetricBag
+from typing import Any, List, cast
 
 import ray
+import torch
+import torch.nn as nn
 from ray.util.placement_group import placement_group
 from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
+from torch import Tensor
+from torcheval.metrics import Mean
 from transformers import AutoModelForCausalLM
-
-from vllm import LLM, SamplingParams, RequestOutput, CompletionOutput
-import re
+from vllm import LLM, CompletionOutput, RequestOutput, SamplingParams
 from vllm.utils import get_ip, get_open_port
 from vllm.worker.worker import Worker
-import os
 
 from fairseq2.data import (
     CollateOptionsOverride,
@@ -41,7 +32,12 @@ from fairseq2.data import (
     create_bucket_sizes,
     read_sequence,
 )
+from fairseq2.datasets.preference import PreferenceBatch
+from fairseq2.datasets.prompt import PromptBatch
+from fairseq2.gang import Gang
+from fairseq2.models.sequence import SequenceBatch, SequenceModelOutput
 from fairseq2.nn.padding import get_seqs_and_padding_mask
+from fairseq2.recipes.metrics import SequenceMetricBag
 
 
 @dataclass
@@ -55,12 +51,10 @@ class GRPOBatch:
 @dataclass(kw_only=True)
 class OnlineCriterionSection:
     name: str
-
     config: object
 
 
 class OnlineFinetuneMetricBag(SequenceMetricBag):
-
     def __init__(self, gang: Gang) -> None:
         super().__init__(gang)
 
@@ -95,7 +89,6 @@ def stateless_init_process_group(master_address, master_port, rank, world_size, 
 
 @ray.remote
 class NoEnvLLM(LLM):
-
     def __init__(self, *args, **kwargs):
         # stop ray from manipulating CUDA_VISIBLE_DEVICES
         # at the top-level
@@ -302,14 +295,16 @@ def find_first_value(lst, value):
 
 
 def generate_rollouts(
-    prompts: List[List[int]], dp_gang: Gang, vllm_model, sampling_params=None
+    prompts: List[List[int]],
+    dp_gang,
+    vllm_model,
+    sampling_params=None,
 ):
     prompts_to_generate = [None] * dp_gang.size
     if dp_gang.rank == 0:
         dp_gang.gather_object(prompts, prompts_to_generate, 0)
     else:
         dp_gang.gather_object(prompts, None, 0)
-
     if dp_gang.rank == 0:
         rank_batch_sizes = [len(l) for l in prompts_to_generate]
         flat_request_list = []
@@ -332,10 +327,43 @@ def generate_rollouts(
     else:
         rollouts_per_rank = [None]
         dp_gang.scatter_object_list(rollouts_per_rank, None, source_rank=0)
-
     dp_gang.barrier()
 
     return rollouts_per_rank[0]
+
+
+def generate_rewards(
+    prompts: List[List[int]],
+    dp_gang,
+    vllm_model,
+    sampling_params=None,
+):
+    prompts_to_generate = [None] * dp_gang.size
+    if dp_gang.rank == 0:
+        dp_gang.gather_object(prompts, prompts_to_generate, 0)
+    else:
+        dp_gang.gather_object(prompts, None, 0)
+    if dp_gang.rank == 0:
+        rank_batch_sizes = [len(l) for l in prompts_to_generate]
+        flat_request_list = []
+        for rank_prompts in prompts_to_generate:
+            flat_request_list.extend(rank_prompts)
+
+        rewards = vllm_model.reward_from_model(flat_request_list)
+
+        rewards_to_scatter = []
+        rewards_per_rank = [None]
+        for dp_rank, rank_batch_size in zip(range(dp_gang.size), rank_batch_sizes):
+            rank_start = sum(rank_batch_sizes[:dp_rank])
+            rank_end = rank_start + rank_batch_size
+            rewards_to_scatter.append(rewards[rank_start:rank_end])
+        dp_gang.scatter_object_list(rewards_per_rank, rewards_to_scatter, source_rank=0)
+    else:
+        rewards_per_rank = [None]
+        dp_gang.scatter_object_list(rewards_per_rank, None, source_rank=0)
+    dp_gang.barrier()
+
+    return rewards_per_rank[0]
 
 
 def prepare_preference_batch_random_pair(
@@ -428,7 +456,6 @@ def prepare_grpo_batch(
     prompt_lens = []
     rewards = []
 
-    # reward_output = self.process_rollouts(rollouts, prompt_batch.meta_info[self.answer_key])
     for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(
         zip(reward_output["rewards"], reward_output["tokens"])
     ):
@@ -446,11 +473,6 @@ def prepare_grpo_batch(
             i_batch_rewards
         )  # we add all rewards here to correctly compute group statistic
 
-    # if gangs.root.rank == 0:
-    #     from pudb.remote import set_trace
-    #     set_trace(host="submit-0", port=6899, term_size=(80*2, 24*2), reverse=True)
-
-    # gangs.root.barrier()
 
     rewards = torch.tensor(rewards, device=gangs.dp.device).float()  # [Batch, Rollouts]
     rewards_normalized = (rewards - rewards.mean(dim=1, keepdim=True)) / (

@@ -18,6 +18,7 @@ from fairseq2.recipes.lm import (
     OnlineFinetuneUnitHandler,
     GSM8kVerifierHandler,
     NuminaMathVerifierHandler,
+    SkyworkVerifierHandler,
     VLLMOutputRewardHandler,
 )
 
@@ -57,11 +58,10 @@ def register_online_finetune_units(context: RuntimeContext) -> None:
 
     # Online DPO
     handler = OnlineDpoFinetuneUnitHandler(context)
-
     registry.register(handler.name, handler)
 
+    # GRPO
     handler = GrpoFinetuneUnitHandler(context)
-
     registry.register(handler.name, handler)
 
     # reward models
@@ -70,10 +70,11 @@ def register_online_finetune_units(context: RuntimeContext) -> None:
 
     # GSM8kVerifier
     handler = GSM8kVerifierHandler()
+    registry.register(handler.name, handler)
 
+    handler = SkyworkVerifierHandler()
     registry.register(handler.name, handler)
 
     # NuminaMathVerifier
     handler = NuminaMathVerifierHandler()
-
     registry.register(handler.name, handler)

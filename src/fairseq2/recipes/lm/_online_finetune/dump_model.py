@@ -1,13 +1,10 @@
-from fairseq2.setup import setup_fairseq2
-from fairseq2.recipes.common import (
-    create_checkpoint_manager,
-    setup_gangs,
-    setup_model,
-)
-from fairseq2.recipes.lm import InstructionFinetuneConfig
-from fairseq2.models.decoder import DecoderModel
-from fairseq2.context import get_runtime_context
 from pathlib import Path
+
+from fairseq2.context import get_runtime_context
+from fairseq2.models.decoder import DecoderModel
+from fairseq2.recipes.common import create_checkpoint_manager, setup_gangs, setup_model
+from fairseq2.recipes.lm import InstructionFinetuneConfig
+from fairseq2.setup import setup_fairseq2
 
 setup_fairseq2()
 

@@ -154,9 +154,17 @@ from fairseq2.recipes.lm._online_finetune._rewards import GSM8kVerifier as GSM8k
 from fairseq2.recipes.lm._online_finetune._rewards import (
     GSM8kVerifierHandler as GSM8kVerifierHandler,
 )
+
+from fairseq2.recipes.lm._online_finetune._rewards import (
+    SkyworkVerifier as SkyworkVerifier,
+)
+from fairseq2.recipes.lm._online_finetune._rewards import (
+    SkyworkVerifierHandler as SkyworkVerifierHandler,
+)
 from fairseq2.recipes.lm._online_finetune._rewards import (
     NuminaMathVerifier as NuminaMathVerifier,
 )
+
 from fairseq2.recipes.lm._online_finetune._rewards import (
     NuminaMathVerifierHandler as NuminaMathVerifierHandler,
 )

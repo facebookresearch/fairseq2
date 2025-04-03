@@ -16,6 +16,11 @@ import torch.distributed
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import Batching, LengthBatching, StaticBatching
+from fairseq2.datasets.instruction import (
+    GENERIC_INSTRUCTION_DATASET_FAMILY,
+    InstructionDataset,
+    InstructionPromptReadOptions,
+)
 from fairseq2.datasets.preference import (
     GENERIC_PREFERENCE_DATASET_FAMILY,
     PreferenceBatch,
@@ -26,11 +31,7 @@ from fairseq2.datasets.prompt import (
     PromptDataset,
     PromptReadOptions,
 )
-from fairseq2.datasets.instruction import (
-    InstructionDataset,
-    InstructionPromptReadOptions,
-    GENERIC_INSTRUCTION_DATASET_FAMILY,
-)
+from fairseq2.logging import log
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.nn.transformer import enable_memory_efficient_torch_sdpa
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
@@ -57,30 +58,29 @@ from fairseq2.recipes.config import (
     RegimeSection,
     TrainerSection,
 )
-from fairseq2.recipes.lm._online_finetune._common import OnlineCriterionSection
-from fairseq2.recipes.lm._online_finetune._online_dpo import (
-    # ONLINE_DPO_FINETUNE_UNIT,
-    OnlineDpoFinetuneConfig,
+from fairseq2.recipes.lm._online_finetune._common import (
+    OnlineCriterionSection,
+    get_ray_actor,
 )
 from fairseq2.recipes.lm._online_finetune._grpo import GrpoFinetuneConfig
 from fairseq2.recipes.lm._online_finetune._handler import (
     OnlineFinetuneUnitHandler,
     UnknownOnlineFinetuneUnitError,
 )
+from fairseq2.recipes.lm._online_finetune._online_dpo import (  # ONLINE_DPO_FINETUNE_UNIT,
+    OnlineDpoFinetuneConfig,
+)
+from fairseq2.recipes.lm._online_finetune._remote_vllm import (
+    RemoteVllmModelHandler,
+    VllmConfig,
+    VllmEngineArgs,
+    VllmRayActorConfig,
+)
 from fairseq2.recipes.trainer import Trainer
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
-from fairseq2.logging import log
-
-from fairseq2.recipes.lm._online_finetune._remote_vllm import (
-    VllmConfig,
-    VllmEngineArgs,
-    VllmRayActorConfig,
-    RemoteVllmModelHandler,
-)
-from fairseq2.recipes.lm._online_finetune._common import get_ray_actor
 
 
 @dataclass(kw_only=True)
@@ -105,9 +105,7 @@ class OnlineFinetuneConfig:
     )
 
     criterion: OnlineCriterionSection = field(
-        default_factory=lambda: OnlineCriterionSection(
-            name="grpo", config={}
-        )
+        default_factory=lambda: OnlineCriterionSection(name="grpo", config={})
     )
 
     optimizer: OptimizerSection = field(
