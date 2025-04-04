@@ -240,6 +240,7 @@ def register_llama_configs(context: RuntimeContext) -> None:
         config.num_layers = 28
         config.use_scaled_rope = True
         config.rope_scaling.factor = 32.0
+        config.tie_embeddings = True
 
         return config
 
