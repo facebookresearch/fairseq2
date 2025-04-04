@@ -6,12 +6,24 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, Protocol
 
 import torch
 from torch import Tensor
 from torch.nn.functional import log_softmax
-from torch.nn.functional import nll_loss as _nll_loss
+from torch.nn.functional import nll_loss as torch_nll_loss
+
+
+class CrossEntropy(Protocol):
+    def __call__(
+        self,
+        logits: Tensor,
+        targets: Tensor,
+        pad_idx: int | None,
+        *,
+        label_smoothing: float = 0.0,
+        reduction: Literal["sum", "mean", "none"] = "sum",
+    ) -> Tensor: ...
 
 
 def cross_entropy(
@@ -22,7 +34,8 @@ def cross_entropy(
     label_smoothing: float = 0.0,
     reduction: Literal["sum", "mean", "none"] = "sum",
 ) -> Tensor:
-    """Computes the cross entropy loss between ``logits`` and ``targets``.
+    """
+    Computes the cross entropy loss between ``logits`` and ``targets``.
 
     This function differs from :func:`torch.nn.functional.cross_entropy` in
     two ways:
@@ -40,31 +53,24 @@ def cross_entropy(
         computing the loss.
     :param reduction: The reduction to apply to the output.
     """
-    # If we don't require label smoothing, use the fused cross entropy with
-    # the `nll_loss()` of PyTorch as it is faster than our implementation.
+    # For numerical stability run in single precision.
+    # (S, T) -> (S, T)
+    lprobs = log_softmax(logits, dim=-1, dtype=torch.float32)
+
     if label_smoothing == 0.0:
         if pad_idx is None:
             pad_idx = -100
 
-        return _fused_cross_entropy(logits, targets, pad_idx, reduction)
-
-    lprobs = log_softmax(logits, dim=-1, dtype=torch.float32)
+        # Unless we need label smoothing, use PyTorch `nll_loss()` as it can be
+        # fused with `log_softmax()` when compiled.
+        return torch_nll_loss(
+            lprobs, targets, ignore_index=pad_idx, reduction=reduction
+        )
 
     # sum/mean: (), none: (S)
     return nll_loss(
         lprobs, targets, pad_idx, label_smoothing=label_smoothing, reduction=reduction
     )
-
-
-@torch.compile(fullgraph=True)
-def _fused_cross_entropy(
-    logits: Tensor, targets: Tensor, pad_idx: int, reduction: str
-) -> Tensor:
-    # For numerical stability run in single precision.
-    # (S, T) -> (S, T)
-    lprobs = log_softmax(logits, dim=-1, dtype=torch.float32)
-
-    return _nll_loss(lprobs, targets, ignore_index=pad_idx, reduction=reduction)
 
 
 def nll_loss(

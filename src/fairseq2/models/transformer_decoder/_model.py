@@ -6,8 +6,9 @@
 
 from __future__ import annotations
 
-from typing import final
+from typing import Any, final
 
+import torch
 from torch import Tensor
 from typing_extensions import override
 
@@ -15,6 +16,7 @@ from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.models.transformer import TransformerFrontend
 from fairseq2.nn import IncrementalStateBag, Projection
+from fairseq2.nn.functional import CrossEntropy, cross_entropy
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.transformer import TransformerDecoder
 
@@ -27,6 +29,8 @@ class TransformerDecoderModel(DecoderModel):
     decoder: TransformerDecoder
     final_proj: Projection
     pad_idx: int | None
+
+    _loss_fn: CrossEntropy
 
     def __init__(
         self,
@@ -52,6 +56,11 @@ class TransformerDecoderModel(DecoderModel):
 
         self.pad_idx = pad_idx
 
+        self._loss_fn = cross_entropy
+
+    def compile_loss_function(self, *args: Any, **kwargs: Any) -> None:
+        self._loss_fn = torch.compile(self._loss_fn, **kwargs)
+
     @override
     def decode(
         self,
@@ -59,7 +68,7 @@ class TransformerDecoderModel(DecoderModel):
         padding_mask: PaddingMask | None,
         *,
         state_bag: IncrementalStateBag | None = None,
-    ) -> tuple[Tensor, PaddingMask]:
+    ) -> tuple[Tensor, PaddingMask | None]:
         seqs, padding_mask = self.decoder_frontend(
             seqs, padding_mask, state_bag=state_bag
         )
@@ -76,4 +85,4 @@ class TransformerDecoderModel(DecoderModel):
     ) -> SequenceModelOutput:
         logits = self.final_proj(decoder_output)
 
-        return SequenceModelOutput(logits, self.pad_idx)
+        return SequenceModelOutput(logits, self.pad_idx, loss_fn=self._loss_fn)

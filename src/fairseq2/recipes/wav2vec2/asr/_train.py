@@ -216,9 +216,9 @@ def load_wav2vec2_asr_trainer(
 
     validate(config)
 
-    register_extra_asset_paths(context, config.common)
+    register_extra_asset_paths(context, config.common.assets)
 
-    setup_torch(context, config.common, output_dir)
+    setup_torch(context, config.common.torch, output_dir)
 
     gangs = setup_training_gangs(context, config.gang, config.trainer)
 
@@ -239,10 +239,6 @@ def load_wav2vec2_asr_trainer(
         gangs,
         checkpoint_manager,
     )
-
-    dataset = load_dataset(AsrDataset, context, config.dataset, gangs)
-
-    tokenizer = load_text_tokenizer(context, config.tokenizer)
 
     module = cast(Wav2Vec2AsrModel, model.module)
 
@@ -283,7 +279,7 @@ def load_wav2vec2_asr_trainer(
     # We never train the feature extractor.
     freeze_parameters(module.encoder_frontend.feature_extractor)
 
-    prepare_model(context, config.trainer, model, gangs)
+    prepare_model(context, config.trainer, model)
 
     static_graph = config.trainer.freeze_encoder_for_n_steps == 0
 
@@ -298,6 +294,10 @@ def load_wav2vec2_asr_trainer(
     lr_scheduler = create_lr_scheduler(
         context, config.lr_scheduler, config.regime, optimizer
     )
+
+    dataset = load_dataset(AsrDataset, context, config.dataset, gangs)
+
+    tokenizer = load_text_tokenizer(context, config.tokenizer)
 
     # Initialize the train unit.
     criterion = AsrCriterion(model)

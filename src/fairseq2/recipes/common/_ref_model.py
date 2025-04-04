@@ -34,12 +34,9 @@ from fairseq2.models import (
 from fairseq2.nn.utils.module import remove_parametrizations
 from fairseq2.recipes import Model, RecipeError
 from fairseq2.recipes.common._distributed import broadcast_model
-from fairseq2.recipes.common._error import (
-    ModelCompilationNotSupportedError,
-    ModelParallelismNotSupportedError,
-)
-from fairseq2.recipes.common._model import LocalModel
-from fairseq2.recipes.config import ReferenceModelSection
+from fairseq2.recipes.common._error import ModelParallelismNotSupportedError
+from fairseq2.recipes.common._model import LocalModel, maybe_compile_model
+from fairseq2.recipes.config import ReferenceModelSection, TorchCompileSection
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.registry import Provider
 from fairseq2.typing import DataType
@@ -52,13 +49,13 @@ def setup_reference_model(
     gangs: Gangs,
     dtype: DataType,
     mp: bool,
-    torch_compile: bool,
+    torch_compile_section: TorchCompileSection,
 ) -> Model:
     model = load_reference_model(kls, context, model_section, gangs, dtype, mp)
 
     broadcast_model(model, gangs)
 
-    model = prepare_reference_model(context, model, gangs, torch_compile)
+    model = prepare_reference_model(context, model, torch_compile_section)
 
     log_model(log, model.module, gangs)
 
@@ -178,16 +175,10 @@ class ReferenceModelLoader:
 
 
 def prepare_reference_model(
-    context: RuntimeContext, model: Model, gangs: Gangs, torch_compile: bool
+    context: RuntimeContext, model: Model, torch_compile_section: TorchCompileSection
 ) -> Model:
     remove_parametrizations(model.module)
 
-    if torch_compile:
-        if not model.handler.supports_compilation:
-            raise ModelCompilationNotSupportedError(model.name)
-
-        log.info("Compiling '{}' model.", model.name)
-
-        model.handler.compile(model.module, model.config)
+    maybe_compile_model(model, torch_compile_section)
 
     return model

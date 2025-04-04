@@ -139,7 +139,9 @@ class TrainerSection:
     fp16_loss_scale: tuple[float, float] = (128.0, 0.0001)
     """The initial and minimum loss scale for fp16 training."""
 
-    torch_compile: bool = False
+    torch_compile: TorchCompileSection = field(
+        default_factory=lambda: TorchCompileSection()
+    )
 
     gc_every_n_steps: int | None = None
     """If specified, calls CPython's ``gc.collect()`` every N steps."""
@@ -183,6 +185,27 @@ class FsdpSection:
     """If ``True``, reshards the parameters only after the backward pass."""
 
     fp32_reduce: bool = False
+
+
+TorchCompileMode: TypeAlias = Literal[
+    "default", "reduce-overhead", "max-autotune", "max-autotune-no-cudagraphs"
+]
+
+
+@dataclass(kw_only=True)
+class TorchCompileSection:
+    enabled: bool = False
+    """If ``True``, compiles the model."""
+
+    fullgraph: bool = False
+
+    dynamic: bool | None = None
+
+    backend: str = "inductor"
+
+    mode: TorchCompileMode = "default"
+
+    options: dict[str, object] | None = None
 
 
 @dataclass(kw_only=True)
@@ -368,7 +391,9 @@ class EvaluatorSection:
     amp: bool = False
     """If ``True``, runs evaluation with ``torch.amp``."""
 
-    torch_compile: bool = False
+    torch_compile: TorchCompileSection = field(
+        default_factory=lambda: TorchCompileSection()
+    )
 
 
 @dataclass(kw_only=True)
@@ -379,11 +404,15 @@ class GeneratorSection:
     amp: bool = False
     """If ``True``, runs evaluation with ``torch.amp``."""
 
-    torch_compile: bool = False
+    torch_compile: TorchCompileSection = field(
+        default_factory=lambda: TorchCompileSection()
+    )
 
 
 @dataclass(kw_only=True)
 class CommonSection:
+    torch: TorchSection = field(default_factory=lambda: TorchSection())
+
     metric_recorders: dict[str, object] = field(
         default_factory=lambda: {
             LOG_METRIC_RECORDER: LogMetricRecorderConfig(),
@@ -401,6 +430,20 @@ class CommonSection:
 
     assets: AssetsSection = field(default_factory=lambda: AssetsSection())
 
+    seed: int = 2
+
+
+SDPAVariant: TypeAlias = Literal[
+    "torch",
+    "torch_math",
+    "torch_mem_efficient",
+    "torch_flash",
+    "naive",
+]
+
+
+@dataclass(kw_only=True)
+class TorchSection:
     num_threads: int | None = None
     """
     The number of threads to use for intra-op parallelism in PyTorch. If ``None``,
@@ -411,7 +454,21 @@ class CommonSection:
     allow_tf32: bool = True
     """If ``True``, allows PyTorch to use TensorFloat32 tensor cores."""
 
-    seed: int = 2
+    fp16_reduced_precision: bool = True
+    """If ``True``, fp16 GEMMs are done with reduced precision reductions."""
+
+    bf16_reduced_precision: bool = True
+    """If ``True``, bf16 GEMMs are done with reduced precision reductions."""
+
+    sdpa: SDPAVariant = "torch_mem_efficient"
+    """The default scaled dot-product attention variant."""
+
+    torch_compile_activation_budget: float = 1.0
+    """
+    The knob to adjust the activation memory budget of compiled regions. Lower
+    values reduce the memory budget and recomputes activations during backward
+    pass (experimental).
+    """
 
 
 @dataclass(kw_only=True)

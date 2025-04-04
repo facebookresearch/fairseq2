@@ -16,7 +16,6 @@ from fairseq2.datasets.preference import (
     PreferenceReadOptions,
 )
 from fairseq2.models.decoder import DecoderModel
-from fairseq2.nn.transformer import enable_memory_efficient_torch_sdpa
 from fairseq2.optim import AdamWConfig
 from fairseq2.optim.lr_scheduler import CosineAnnealingLRConfig
 from fairseq2.recipes import Trainer
@@ -106,9 +105,9 @@ def load_po_finetuner(
 
     validate(config)
 
-    register_extra_asset_paths(context, config.common)
+    register_extra_asset_paths(context, config.common.assets)
 
-    setup_torch(context, config.common, output_dir)
+    setup_torch(context, config.common.torch, output_dir)
 
     gangs = setup_training_gangs(context, config.gang, config.trainer)
 
@@ -129,11 +128,6 @@ def load_po_finetuner(
         gangs,
         checkpoint_manager,
     )
-
-    # TODO(balioglu): investigate!
-    # The memory efficient SDPA implementation in PyTorch is not stable when
-    # used with padded inputs.
-    enable_memory_efficient_torch_sdpa(model.module, False)
 
     optimizer = create_optimizer(context, config.optimizer, model)
 

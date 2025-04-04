@@ -52,6 +52,7 @@ from fairseq2.recipes.common._metrics import (
     create_metric_recorder as create_metric_recorder,
 )
 from fairseq2.recipes.common._model import load_base_model as load_base_model
+from fairseq2.recipes.common._model import maybe_compile_model as maybe_compile_model
 from fairseq2.recipes.common._model import prepare_model as prepare_model
 from fairseq2.recipes.common._model import setup_model as setup_model
 from fairseq2.recipes.common._optim import create_lr_scheduler as create_lr_scheduler

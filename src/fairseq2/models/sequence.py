@@ -7,15 +7,15 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Literal
+from dataclasses import InitVar, dataclass
+from typing import Literal, final
 
 from torch import Tensor
 from torch.nn import Module
 from typing_extensions import override
 
 from fairseq2.device import SupportsDeviceTransfer
-from fairseq2.nn.functional import cross_entropy
+from fairseq2.nn.functional import CrossEntropy, cross_entropy
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.typing import Device
 
@@ -125,6 +125,7 @@ def as_auto_regressive_input(
     return batch, target_batch
 
 
+@final
 @dataclass
 class SequenceModelOutput:
     """Holds the output of a sequence model."""
@@ -137,32 +138,34 @@ class SequenceModelOutput:
     pad_idx: int | None
     """The index of the PAD symbols in the vocabulary."""
 
+    loss_fn: InitVar[CrossEntropy | None] = None
+
+    def __post_init__(self, loss_fn: CrossEntropy | None) -> None:
+        self._loss_fn = loss_fn or cross_entropy
+
     def compute_loss(
         self,
         targets: Tensor,
         *,
         loss_mask: Tensor | None = None,
         reduction: Literal["sum", "mean"] = "sum",
-        ignore_prefix_size: int = 0,
         label_smoothing: float = 0.0,
+        ignore_prefix_size: int = 0,
     ) -> Tensor:
-        """Compute the NLL (negative log-likelihood) loss.
+        """
+        Computes the negative log-likelihood loss.
 
-        :param targets:
-            The target indices. *Shape:* :math:`(N,S)`, where :math:`N` is the
-            batch size and :math:`S` is the sequence length.
-        :param loss_mask:
-            The loss mask that specifies the elements in ``targets`` that should
-            be used in the loss computation. All non-masked elements will be
-            ignored. *Shape:* Same as ``targets``.
-        :param ignore_prefix_size:
-            The number of steps from the beginning of the sequence that should
-            be ignored in the loss computation.
-        :param label_smoothing:
-            The amount of label smoothing to apply while computing the loss.
+        :param targets: The target indices. *Shape:* :math:`(N,S)`, where
+            :math:`N` is the batch size and :math:`S` is the sequence length.
+        :param loss_mask: The loss mask that specifies the elements in ``targets``
+            that should be used in the loss computation. All non-masked elements
+            will be ignored. *Shape:* Same as ``targets``.
+        :param label_smoothing: The amount of label smoothing to apply while
+            computing the loss.
+        :param ignore_prefix_size: The number of steps from the beginning of the
+            sequence that should be ignored in the loss computation.
 
-        :returns:
-            A scalar tensor representing the summed NLL loss.
+        :returns: A scalar tensor representing the loss.
         """
         if ignore_prefix_size > 0:
             logits = self.logits[:, ignore_prefix_size:, :]
@@ -179,7 +182,7 @@ class SequenceModelOutput:
         targets = targets.flatten(0, 1)
 
         # sum/mean: (), none: (N x S)
-        loss = cross_entropy(
+        loss = self._loss_fn(
             logits,
             targets,
             pad_idx=self.pad_idx,
