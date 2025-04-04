@@ -91,7 +91,7 @@ BatchT = TypeVar("BatchT", bound=SupportsDeviceTransfer)
 class Trainer(Recipe, Generic[BatchT]):
     """Trains a machine learning model."""
 
-    _state: TrainerState
+    _state: _TrainerState
     _step_nr: int
     _data_epoch_nr: int
     _model: Model
@@ -263,7 +263,7 @@ class Trainer(Recipe, Generic[BatchT]):
         :param seed:
             The random number generator seed.
         """
-        self._state = TrainerState.NOT_STARTED
+        self._state = _TrainerState.NOT_STARTED
 
         self._step_nr = 0
 
@@ -478,7 +478,7 @@ class Trainer(Recipe, Generic[BatchT]):
 
     @override
     def run(self) -> None:
-        if self._state != TrainerState.NOT_STARTED:
+        if self._state != _TrainerState.NOT_STARTED:
             raise InvalidOperationError("The trainer cannot be run more than once.")
 
         gangs = self._gangs
@@ -490,7 +490,7 @@ class Trainer(Recipe, Generic[BatchT]):
                 with self._profiler, self._garbage_collector:
                     self._do_run()
 
-        if self._state != TrainerState.STOPPED:
+        if self._state != _TrainerState.STOPPED:
             raise InternalError(
                 f"`_state` must be `STOPPED`, but is `{self._state}` instead."
             )
@@ -500,7 +500,7 @@ class Trainer(Recipe, Generic[BatchT]):
         if self._stop_requested:
             raise RecipeStopException()
 
-    def _maybe_restore_state(self) -> TrainerState:
+    def _maybe_restore_state(self) -> _TrainerState:
         try:
             step_nr = self._checkpoint_manager.maybe_get_last_step_number()
         except CheckpointError as ex:
@@ -509,14 +509,14 @@ class Trainer(Recipe, Generic[BatchT]):
             ) from ex
 
         if step_nr is None:
-            return TrainerState.DATA_LOAD
+            return _TrainerState.DATA_LOAD
 
         log.info("Restoring training from the last checkpoint at step {}.", step_nr)
 
         try:
             log.info("Restoring the trainer state.")
 
-            trainer_state_bag = TrainerStateBag(self)
+            trainer_state_bag = _TrainerStateBag(self)
 
             self._checkpoint_manager.load_trainer_state(step_nr, trainer_state_bag)
 
@@ -549,13 +549,13 @@ class Trainer(Recipe, Generic[BatchT]):
 
         if self._max_num_steps is not None:
             if self._step_nr >= self._max_num_steps:
-                return TrainerState.STOPPED
+                return _TrainerState.STOPPED
 
         if self._max_num_data_epochs is not None:
             if self._data_epoch_nr >= self._max_num_data_epochs:
-                return TrainerState.STOPPED
+                return _TrainerState.STOPPED
 
-        return TrainerState.DATA_LOAD
+        return _TrainerState.DATA_LOAD
 
     def _do_run(self) -> None:
         self._model.module.train()
@@ -567,42 +567,42 @@ class Trainer(Recipe, Generic[BatchT]):
         self._device_stat_tracker.reset()
 
         with progress_task, self._lapse_watch:
-            while self._state != TrainerState.STOPPED:
+            while self._state != _TrainerState.STOPPED:
                 match self._state:
-                    case TrainerState.DATA_LOAD:
+                    case _TrainerState.DATA_LOAD:
                         self._state = self._read_next_batches()
 
-                    case TrainerState.END_OF_DATA_EPOCH:
+                    case _TrainerState.END_OF_DATA_EPOCH:
                         self._state = self._handle_end_of_data_epoch()
 
-                    case TrainerState.STEP:
+                    case _TrainerState.STEP:
                         self._state = self._run_step(progress_task)
 
-                    case TrainerState.POST_STEP:
+                    case _TrainerState.POST_STEP:
                         self._state = self._run_post_step()
 
-                    case TrainerState.GRADIENT_OVERFLOW:
+                    case _TrainerState.GRADIENT_OVERFLOW:
                         self._state = self._repeat_step(progress_task)
 
-                    case TrainerState.END_OF_TRAINING:
+                    case _TrainerState.END_OF_TRAINING:
                         log.info("End of training reached at step {}.", self._step_nr)
 
                         self._state = self._stop()
 
-                    case TrainerState.END_OF_DATA:
+                    case _TrainerState.END_OF_DATA:
                         log.info("End of data reached.")
 
                         self._state = self._stop()
 
-                    case TrainerState.EARLY_STOP:
+                    case _TrainerState.EARLY_STOP:
                         self._state = self._early_stop()
 
-                    case TrainerState.STOP_REQUESTED:
+                    case _TrainerState.STOP_REQUESTED:
                         log.info("Stopping training at step {}.", self._step_nr)
 
                         self._state = self._stop()
 
-    def _read_next_batches(self) -> TrainerState:
+    def _read_next_batches(self) -> _TrainerState:
         with self._data_watch:
             try:
                 self._batches = next(self._data_reader)
@@ -614,29 +614,29 @@ class Trainer(Recipe, Generic[BatchT]):
                 self._batches = None
 
             if self._batches is not None:
-                return TrainerState.STEP
+                return _TrainerState.STEP
 
             self._data_reader.reset()
 
         if self._step_nr == 0:
             log.info("Dataset empty. Stopping training.")
 
-            return TrainerState.STOPPED
+            return _TrainerState.STOPPED
         else:
-            return TrainerState.END_OF_DATA_EPOCH
+            return _TrainerState.END_OF_DATA_EPOCH
 
-    def _handle_end_of_data_epoch(self) -> TrainerState:
+    def _handle_end_of_data_epoch(self) -> _TrainerState:
         log.info("End of epoch {} reached after step {}.", self._data_epoch_nr, self._step_nr)  # fmt: skip
 
         self._data_epoch_nr += 1
 
         if self._max_num_data_epochs is not None:
             if self._data_epoch_nr >= self._max_num_data_epochs:
-                return TrainerState.END_OF_DATA
+                return _TrainerState.END_OF_DATA
 
         return self._run_post_step()
 
-    def _run_step(self, progress_task: ProgressTask) -> TrainerState:
+    def _run_step(self, progress_task: ProgressTask) -> _TrainerState:
         try:
             self._checkpoint_manager.maybe_complete_async_checkpoint()
         except CheckpointSaveError as ex:
@@ -670,7 +670,7 @@ class Trainer(Recipe, Generic[BatchT]):
 
         return state
 
-    def _do_run_step(self, progress_task: ProgressTask) -> TrainerState:
+    def _do_run_step(self, progress_task: ProgressTask) -> _TrainerState:
         step_nr = self._step_nr
 
         log.debug("Running step {}.", step_nr)
@@ -753,7 +753,7 @@ class Trainer(Recipe, Generic[BatchT]):
 
             self._metric_bag.rollback_updates()
 
-            return TrainerState.GRADIENT_OVERFLOW
+            return _TrainerState.GRADIENT_OVERFLOW
 
         self._last_lr = get_effective_lr(self._lr_scheduler)
 
@@ -766,7 +766,7 @@ class Trainer(Recipe, Generic[BatchT]):
 
         self._num_batches_read += 1
 
-        return TrainerState.POST_STEP
+        return _TrainerState.POST_STEP
 
     def _maybe_no_sync(self, batch_nr: int, num_batches: int) -> ContextManager:
         if batch_nr < num_batches - 1:
@@ -791,9 +791,9 @@ class Trainer(Recipe, Generic[BatchT]):
 
         return torch.autocast(device_type=device_type, dtype=self._dtype)
 
-    def _repeat_step(self, progress_task: ProgressTask) -> TrainerState:
+    def _repeat_step(self, progress_task: ProgressTask) -> _TrainerState:
         if self._stop_requested:
-            return TrainerState.STOP_REQUESTED
+            return _TrainerState.STOP_REQUESTED
 
         log.debug("Repeating step {}.", self._step_nr)
 
@@ -801,14 +801,14 @@ class Trainer(Recipe, Generic[BatchT]):
 
         progress_task.step(-1)
 
-        return TrainerState.DATA_LOAD
+        return _TrainerState.DATA_LOAD
 
-    def _run_post_step(self) -> TrainerState:
+    def _run_post_step(self) -> _TrainerState:
         if self._max_num_steps is not None:
             if self._step_nr >= self._max_num_steps:
-                return TrainerState.END_OF_TRAINING
+                return _TrainerState.END_OF_TRAINING
         elif self._stop_requested:
-            return TrainerState.STOP_REQUESTED
+            return _TrainerState.STOP_REQUESTED
 
         self._maybe_checkpoint(block=False)
 
@@ -822,11 +822,11 @@ class Trainer(Recipe, Generic[BatchT]):
             should_stop = False
 
         if should_stop:
-            return TrainerState.EARLY_STOP
+            return _TrainerState.EARLY_STOP
         else:
-            return TrainerState.DATA_LOAD
+            return _TrainerState.DATA_LOAD
 
-    def _stop(self) -> TrainerState:
+    def _stop(self) -> _TrainerState:
         self._maybe_publish_metrics()
 
         should_validate = self._should_validate()
@@ -839,9 +839,9 @@ class Trainer(Recipe, Generic[BatchT]):
         else:
             self._maybe_checkpoint(block=True)
 
-        return TrainerState.STOPPED
+        return _TrainerState.STOPPED
 
-    def _early_stop(self) -> TrainerState:
+    def _early_stop(self) -> _TrainerState:
         log.info("Early stop requested. Stopping training at step {}.", self._step_nr)  # fmt: skip
 
         self._stop_requested = True
@@ -852,7 +852,7 @@ class Trainer(Recipe, Generic[BatchT]):
         else:
             self._maybe_wait_checkpoint()
 
-        return TrainerState.STOPPED
+        return _TrainerState.STOPPED
 
     def _maybe_checkpoint(self, block: bool) -> None:
         should_checkpoint = self._should_checkpoint()
@@ -880,7 +880,7 @@ class Trainer(Recipe, Generic[BatchT]):
             else:
                 log.info("Checkpoint prepared. Saving asynchronously.")
 
-        trainer_state_bag = TrainerStateBag(self)
+        trainer_state_bag = _TrainerStateBag(self)
 
         tmp = self._base_wall_time
 
@@ -1137,20 +1137,20 @@ class Trainer(Recipe, Generic[BatchT]):
 
             return False
 
-        if self._state == TrainerState.POST_STEP:
+        if self._state == _TrainerState.POST_STEP:
             return should_do_at_step()
 
-        if self._state == TrainerState.END_OF_TRAINING:
+        if self._state == _TrainerState.END_OF_TRAINING:
             return True
 
-        if self._state == TrainerState.END_OF_DATA:
+        if self._state == _TrainerState.END_OF_DATA:
             already_done = should_do_at_step()
 
             # If we have already returned true for this step before reaching the
             # end of data, we should return false this time.
             return not already_done
 
-        if self._state == TrainerState.END_OF_DATA_EPOCH:
+        if self._state == _TrainerState.END_OF_DATA_EPOCH:
             if every_n_data_epochs is not None:
                 if self._data_epoch_nr >= after_n_data_epochs:
                     if self._data_epoch_nr % every_n_data_epochs == 0:
@@ -1161,10 +1161,10 @@ class Trainer(Recipe, Generic[BatchT]):
 
             return False
 
-        if self._state == TrainerState.STOP_REQUESTED:
+        if self._state == _TrainerState.STOP_REQUESTED:
             return True
 
-        if self._state == TrainerState.EARLY_STOP:
+        if self._state == _TrainerState.EARLY_STOP:
             already_done = should_do_at_step()
 
             # If we have already returned true for this step before an early
@@ -1183,7 +1183,7 @@ class Trainer(Recipe, Generic[BatchT]):
         return self._step_nr
 
 
-class TrainerState(Enum):
+class _TrainerState(Enum):
     NOT_STARTED = 0
     DATA_LOAD = 1
     STEP = 2
@@ -1200,7 +1200,7 @@ class TrainerState(Enum):
 T = TypeVar("T")
 
 
-class TrainerStateBag(Stateful, Generic[BatchT]):
+class _TrainerStateBag(Stateful, Generic[BatchT]):
     _KEYS: Final = [
         "_step_nr",
         "_data_epoch_nr",

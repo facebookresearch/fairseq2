@@ -27,6 +27,7 @@ from fairseq2.recipes.config import (
     OptimizerSection,
     RegimeSection,
     TextTokenizerSection,
+    TorchSection,
     TrainerSection,
 )
 
@@ -82,7 +83,11 @@ class POFinetuneConfig:
         )
     )
 
-    common: CommonSection = field(default_factory=lambda: CommonSection())
+    # The memory efficient SDPA implementation in PyTorch is numerically not
+    # stable when used with padded inputs.
+    common: CommonSection = field(
+        default_factory=lambda: CommonSection(torch=TorchSection(sdpa="torch_math"))
+    )
 
 
 @dataclass(kw_only=True)

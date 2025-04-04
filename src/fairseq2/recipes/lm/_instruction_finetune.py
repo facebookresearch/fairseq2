@@ -29,7 +29,6 @@ from fairseq2.models.sequence import (
     SequenceModelOutput,
     as_auto_regressive_input,
 )
-from fairseq2.nn.transformer import enable_memory_efficient_torch_sdpa
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.optim.lr_scheduler import COSINE_ANNEALING_LR, CosineAnnealingLRConfig
 from fairseq2.recipes import EvalUnit, Model, SequenceMetricBag, Trainer, TrainUnit
@@ -55,6 +54,7 @@ from fairseq2.recipes.config import (
     OptimizerSection,
     RegimeSection,
     TextTokenizerSection,
+    TorchSection,
     TrainerSection,
 )
 from fairseq2.typing import CPU
@@ -113,7 +113,11 @@ class InstructionFinetuneConfig:
         )
     )
 
-    common: CommonSection = field(default_factory=lambda: CommonSection())
+    # The memory efficient SDPA implementation in PyTorch is numerically not
+    # stable when used with padded inputs.
+    common: CommonSection = field(
+        default_factory=lambda: CommonSection(torch=TorchSection(sdpa="torch_math"))
+    )
 
 
 @dataclass(kw_only=True)
@@ -212,9 +216,9 @@ def load_instruction_finetuner(
 
     validate(config)
 
-    register_extra_asset_paths(context, config.common)
+    register_extra_asset_paths(context, config.common.assets)
 
-    setup_torch(context, config.common, output_dir)
+    setup_torch(context, config.common.torch, output_dir)
 
     gangs = setup_training_gangs(context, config.gang, config.trainer)
 
@@ -236,20 +240,15 @@ def load_instruction_finetuner(
         checkpoint_manager,
     )
 
-    dataset = load_dataset(InstructionDataset, context, config.dataset, gangs)
-
-    tokenizer = load_text_tokenizer(context, config.tokenizer)
-
-    # TODO(balioglu): investigate!
-    # The memory efficient SDPA implementation in PyTorch is not stable when
-    # used with padded inputs.
-    enable_memory_efficient_torch_sdpa(model.module, False)
-
     optimizer = create_optimizer(context, config.optimizer, model)
 
     lr_scheduler = create_lr_scheduler(
         context, config.lr_scheduler, config.regime, optimizer
     )
+
+    dataset = load_dataset(InstructionDataset, context, config.dataset, gangs)
+
+    tokenizer = load_text_tokenizer(context, config.tokenizer)
 
     # Initialize the unit.
     criterion = InstructionFinetuneCriterion(model)

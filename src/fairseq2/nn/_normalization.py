@@ -155,7 +155,7 @@ class RMSNorm(LayerNorm):
     described in :cite:t:`https://doi.org/10.48550/arxiv.1910.07467`."""
 
     _impl_str: str
-    _impl: NormImplementation
+    _impl: _NormImplementation
 
     def __init__(
         self,
@@ -191,16 +191,16 @@ class RMSNorm(LayerNorm):
                     "`impl` is 'apex', but APEX does not support the `bias` parameter."
                 )
 
-            self._impl = NormImplementation.APEX
+            self._impl = _NormImplementation.APEX
         elif impl == "torch":
             if not _has_torch_rms_norm:
                 raise NotSupportedError(
                     "`impl` is 'torch', but PyTorch version is older than 2.4."
                 )
 
-            self._impl = NormImplementation.TORCH
+            self._impl = _NormImplementation.TORCH
         elif impl == "py":
-            self._impl = NormImplementation.PY
+            self._impl = _NormImplementation.PY
         else:
             raise ValueError(
                 f"`impl` must be 'auto', 'py', 'torch', or 'apex', but is '{impl}' instead."
@@ -210,10 +210,10 @@ class RMSNorm(LayerNorm):
 
     @override
     def forward(self, x: Tensor) -> Tensor:
-        if self._impl == NormImplementation.TORCH:
+        if self._impl == _NormImplementation.TORCH:
             return torch_rms_norm(x, self.normalized_shape, self.weight, self.eps)
 
-        if self._impl == NormImplementation.APEX and x.is_cuda:
+        if self._impl == _NormImplementation.APEX and x.is_cuda:
             return self._apex_forward(x)
 
         # For numerical stability normalize in single precision.
@@ -252,7 +252,7 @@ class RMSNorm(LayerNorm):
         return f"{s}, impl={self._impl_str}"
 
 
-class NormImplementation(Enum):
+class _NormImplementation(Enum):
     PY = 0
     TORCH = 1
     APEX = 2
