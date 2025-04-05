@@ -70,6 +70,10 @@ from fairseq2.recipes.lm._online_finetune._handler import (
 from fairseq2.recipes.lm._online_finetune._online_dpo import (  # ONLINE_DPO_FINETUNE_UNIT,
     OnlineDpoFinetuneConfig,
 )
+from fairseq2.recipes.lm._online_finetune._grpo import (
+    GrpoFinetuneConfig,
+)
+
 from fairseq2.recipes.lm._online_finetune._remote_vllm import (
     RemoteVllmModelHandler,
     VllmConfig,
@@ -208,6 +212,15 @@ def register_online_finetune_configs(context: RuntimeContext) -> None:
         config = OnlineFinetuneConfig()
 
         config.model.config = DropoutConfig()
+
+        return config
+
+    @preset("llama3_1_instruct_grpo")
+    def llama3_1_instruct() -> OnlineFinetuneConfig:
+        config = OnlineFinetuneConfig()
+
+        config.model.config = DropoutConfig()
+        config.criterion.config = GrpoFinetuneConfig()
 
         return config
 
