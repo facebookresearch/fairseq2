@@ -320,3 +320,82 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
             f"inner_dim_scale={self.inner_dim_scale:G}, "
             f"inner_dim_to_multiple={self.inner_dim_to_multiple}"
         )
+
+
+@final
+class GLUFeedForwardNetworkV2(FeedForwardNetwork):
+    """Represents a GLU-based Transformer feed-forward network as described in
+    :cite:t:`https://doi.org/10.48550/arxiv.2002.05202`"""
+
+    gate_proj: Projection
+    gate_activation: Module
+    inner_proj: Projection
+    inner_dropout: Dropout | None
+    output_proj: Projection
+
+    def __init__(
+        self,
+        model_dim: int,
+        inner_dim: int,
+        bias: bool,
+        *,
+        gate_activation: Module | None = None,
+        inner_dropout_p: float = 0.0,
+        device: Device | None = None,
+        dtype: DataType | None = None,
+    ) -> None:
+        """
+        :param model_dim:
+            The dimensionality of the model.
+        :param inner_dim:
+            The non-scaled dimensionality of the inner projection layer.
+        :param bias:
+            If ``True``, all projections learn an additive bias.
+        :param gate_activation:
+            The activation to apply to outputs of the gate projection. If
+            ``None``, :func:`~torch.nn.SiLU` will be used.
+        :param inner_dim_scale:
+            The scale factor for the dimensionality of the inner projection
+            layer.
+        :param inner_dim_to_multiple:
+            The dimensionality of the inner projection layer is rounded up to
+            the nearest multiple of this value.
+        :param inner_dropout_p:
+            The dropout probability on outputs of the inner projection layer.
+        """
+        super().__init__(model_dim)
+
+        self.gate_proj = Linear(model_dim, inner_dim, bias, device=device, dtype=dtype)
+
+        if gate_activation is None:
+            self.gate_activation = SiLU()
+        else:
+            self.gate_activation = gate_activation
+
+        self.inner_proj = Linear(model_dim, inner_dim, bias, device=device, dtype=dtype)
+
+        if inner_dropout_p > 0.0:
+            self.inner_dropout = Dropout(inner_dropout_p)
+        else:
+            self.register_module("inner_dropout", None)
+
+        self.output_proj = Linear(
+            inner_dim, model_dim, bias, device=device, dtype=dtype
+        )
+
+    @override
+    def forward(self, seqs: Tensor) -> Tensor:
+        gate = self.gate_proj(seqs)
+
+        gate = self.gate_activation(gate)
+
+        seqs = self.inner_proj(seqs)
+
+        seqs = seqs * gate
+
+        if self.inner_dropout is not None:
+            seqs = self.inner_dropout(seqs)
+
+        seqs = self.output_proj(seqs)
+
+        return seqs

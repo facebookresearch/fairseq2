@@ -22,6 +22,10 @@ from fairseq2.data.text.tokenizers.llama import (
     LLAMA_TOKENIZER_FAMILY,
     load_llama_tokenizer,
 )
+from fairseq2.data.text.tokenizers.qwen25 import (
+    QWEN25_TOKENIZER_FAMILY,
+    load_qwen25_tokenizer,
+)
 from fairseq2.data.text.tokenizers.mistral import (
     MISTRAL_TOKENIZER_FAMILY,
     load_mistral_tokenizer,
@@ -49,6 +53,11 @@ def _register_text_tokenizer_families(context: RuntimeContext) -> None:
     # LLaMA
     registrar.register_family(
         LLAMA_TOKENIZER_FAMILY, load_llama_tokenizer
+    )
+
+    # Qwen25
+    registrar.register_family(
+        QWEN25_TOKENIZER_FAMILY, load_qwen25_tokenizer
     )
 
     # NLLB
