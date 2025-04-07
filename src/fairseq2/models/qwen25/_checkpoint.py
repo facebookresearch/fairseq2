@@ -18,32 +18,6 @@ import torch
 def convert_qwen_checkpoint(
     checkpoint: dict[str, object], config: Qwen25Config
 ) -> dict[str, object]:
-    # Check if we have a reference or Hugging Face checkpoint.
-    head_dim = config.model_dim // config.num_attn_heads
-
-    def permute_rotary(w: Tensor, num_heads: int) -> Tensor:
-        # (H, M) -> (H_d, 2, D / 2, M)
-        w = w.view(num_heads, 2, head_dim // 2, config.model_dim)
-
-        # (H_d, 2, D / 2, M) -> (H_d, D / 2, 2, M)
-        w = w.transpose(1, 2)
-
-        # (H_d, D / 2, 2, M) -> (H, M)
-        return w.reshape(-1, config.model_dim)
-
-    for idx in range(config.num_layers):
-        q_key = f"model.layers.{idx}.self_attn.q_proj.weight"
-        k_key = f"model.layers.{idx}.self_attn.k_proj.weight"
-
-        q_proj = cast(Tensor, checkpoint[q_key])
-        k_proj = cast(Tensor, checkpoint[k_key])
-
-        q_proj = permute_rotary(q_proj, config.num_attn_heads)
-        k_proj = permute_rotary(k_proj, config.num_key_value_heads)
-
-        checkpoint[q_key] = q_proj
-        checkpoint[k_key] = k_proj
-
     key_map = {
         # fmt: off
         r"^model\.layers\.([0-9]+)\.self_attn\.q_proj\.":        r"decoder.layers.\1.self_attn.q_proj.",
@@ -62,13 +36,5 @@ def convert_qwen_checkpoint(
     }
 
     checkpoint = convert_model_state_dict(checkpoint, key_map)
-
-    # # adding head scaler
-    # head_dim = config.model_dim // config.num_attn_heads
-    # scale = head_dim**-0.5
-    # scale_tensor = torch.empty(config.num_attn_heads).fill_(scale) 
-    # for idx in range(config.num_layers):
-    #     key = f"decoder.layers.{idx}.self_attn.head_scale_weight"
-    #     checkpoint[key] = scale_tensor
 
     return {"model": checkpoint}

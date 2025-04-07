@@ -26,7 +26,7 @@ from fairseq2.nn import (
     PositionEncoder,
     Projection,
     RMSNorm,
-    RotaryEncoder,
+    ReferenceRotaryEncoder,
     StandardEmbedding,
 )
 from fairseq2.nn.transformer import (
@@ -48,16 +48,6 @@ from transformers.modeling_rope_utils import ROPE_INIT_FUNCTIONS
 
 def create_qwen25_model(config: Qwen25Config) -> TransformerDecoderModel:
     return Qwen25Factory(config).create_model()
-
-def make_qwen_init_rope(config: Qwen25Config) -> Tensor:
-    base = config.rope_theta
-    partial_rotary_factor = 1.0
-    head_dim = config.model_dim // config.num_attn_heads
-    dim = int(head_dim * partial_rotary_factor)
-
-    # Compute the inverse frequencies
-    gen_freq = lambda rot_encoder: 1.0 / (base ** (torch.arange(0, dim, 2, dtype=torch.int64).float().to(rot_encoder.freqs.device) / dim))
-    return gen_freq
 
 class Qwen25Factory:
     _config: Qwen25Config
@@ -119,13 +109,11 @@ class Qwen25Factory:
 
     def create_position_encoder(self) -> PositionEncoder:
         config = self._config
-        init_fn = make_qwen_init_rope(config)
 
-        return RotaryEncoder(
+        return ReferenceRotaryEncoder(
             config.model_dim // config.num_attn_heads,
-            config.max_seq_len, 
+            config.max_seq_len,
             theta=config.rope_theta,
-            freqs_init_fn=init_fn
         )
 
     def create_decoder_layer(
@@ -154,7 +142,6 @@ class Qwen25Factory:
             num_key_value_heads=config.num_key_value_heads,
             sdpa=sdpa,
             pos_encoder=pos_encoder,
-            # pos_encoder=None,
             bias=True,
             output_proj_bias=False,
         )
