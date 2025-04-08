@@ -211,9 +211,9 @@ def load_mt_trainer(
 
     validate(config)
 
-    register_extra_asset_paths(context, config.common)
+    register_extra_asset_paths(context, config.common.assets)
 
-    setup_torch(context, config.common, output_dir)
+    setup_torch(context, config.common.torch, output_dir)
 
     gangs = setup_training_gangs(context, config.gang, config.trainer)
 

@@ -89,13 +89,7 @@ class Seq2SeqBatch(SupportsDeviceTransfer):
 
     @override
     def to(self, device: Device) -> None:
-        """Move the batch to the given device.
-
-        :param device:
-            The device to which to move the batch.
-        :returns:
-            The batch moved to the given device.
-        """
+        """Moves the batch to ``device``."""
         self.source_seqs = self.source_seqs.to(device)
 
         if self.source_padding_mask is not None:

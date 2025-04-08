@@ -87,7 +87,7 @@ class DynamicLossScaler:
                 # The same formula as in fairseq.
                 scale_window = max(int(2**14 / gang.size / gradient_accumulation), 1)
 
-                log.info("float16 loss scale window set to {}.", scale_window)
+                log.info("fp16 loss scale window set to {}.", scale_window)
             else:
                 scale_window = 1
 
@@ -97,7 +97,7 @@ class DynamicLossScaler:
                     action="ignore", message=r".*torch\.cuda\.amp\.GradScaler is enabled.*"  # fmt: skip
                 )
 
-                self._grad_scaler = InternalGradScaler(
+                self._grad_scaler = _InternalGradScaler(
                     init_scale=init_scale,
                     growth_factor=scale_factor,
                     backoff_factor=1 / scale_factor,
@@ -248,7 +248,7 @@ def supports_manual_gradient_scaling(optimizer: Optimizer) -> bool:
     return not getattr(optimizer, "_step_supports_amp_scaling", False)
 
 
-class InternalGradScaler(GradScaler):
+class _InternalGradScaler(GradScaler):
     @override
     def _unscale_grads_(
         self,

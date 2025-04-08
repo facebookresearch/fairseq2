@@ -13,10 +13,10 @@ from torch.nn import Module
 from fairseq2.context import RuntimeContext
 from fairseq2.models import (
     CheckpointConverter,
+    ModelCompiler,
     ModelFactory,
     ModelHandler,
     ModelSharder,
-    ModelTorchCompiler,
     StandardModelHandler,
 )
 from fairseq2.models.jepa import (
@@ -37,6 +37,7 @@ from fairseq2.models.jepa.classifier import (
 from fairseq2.models.llama import (
     LLAMA_MODEL_FAMILY,
     LLaMAConfig,
+    compile_llama_model,
     convert_llama_checkpoint,
     create_llama_model,
     register_llama_configs,
@@ -136,6 +137,7 @@ def register_model_families(context: RuntimeContext) -> None:
         create_llama_model,
         checkpoint_converter=convert_llama_checkpoint,
         sharder=shard_llama_model,
+        compiler=compile_llama_model,
     )
 
     register_llama_configs(context)
@@ -257,7 +259,7 @@ class ModelRegistrar:
         restrict: bool = True,
         checkpoint_converter: CheckpointConverter[ModelConfigT] | None = None,
         sharder: ModelSharder[ModelT, ModelConfigT] | None = None,
-        torch_compiler: ModelTorchCompiler[ModelT, ModelConfigT] | None = None,
+        compiler: ModelCompiler[ModelT] | None = None,
     ) -> None:
         file_system = self._context.file_system
 
@@ -279,7 +281,7 @@ class ModelRegistrar:
             restrict=restrict,
             checkpoint_converter=checkpoint_converter,
             sharder=sharder,
-            torch_compiler=torch_compiler,
+            compiler=compiler,
         )
 
         self._registry.register(handler.family, handler)

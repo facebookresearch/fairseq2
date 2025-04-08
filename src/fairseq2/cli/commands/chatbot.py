@@ -39,10 +39,11 @@ from fairseq2.recipes.common import (
     setup_torch,
 )
 from fairseq2.recipes.config import (
-    CommonSection,
     GangSection,
     ReferenceModelSection,
     TextTokenizerSection,
+    TorchCompileSection,
+    TorchSection,
 )
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import RngBag
@@ -64,7 +65,7 @@ class RunChatbotHandler(CliCommandHandler):
         parser.add_argument(
             "--dtype",
             type=parse_dtype,
-            default=torch.bfloat16,
+            default=torch.float16,
             help="data type of the model (default: %(default)s)",
         )
 
@@ -120,9 +121,9 @@ class RunChatbotHandler(CliCommandHandler):
 
         set_torch_distributed_variables(context, args.cluster)
 
-        common_section = CommonSection()
+        torch_section = TorchSection()
 
-        setup_torch(context, common_section, output_dir=None)
+        setup_torch(context, torch_section, output_dir=None)
 
         gang_section = GangSection(
             tensor_parallel_size=args.tensor_parallel_size, timeout=999
@@ -140,6 +141,10 @@ class RunChatbotHandler(CliCommandHandler):
 
         model_section = ReferenceModelSection(name=args.model_name)
 
+        mp = False
+
+        torch_compile_section = TorchCompileSection()
+
         try:
             model = setup_reference_model(
                 DecoderModel,
@@ -147,8 +152,8 @@ class RunChatbotHandler(CliCommandHandler):
                 model_section,
                 gangs,
                 args.dtype,
-                mp=False,
-                torch_compile=False,
+                mp,
+                torch_compile_section,
             )
         except RecipeError as ex:
             raise CliCommandError(

@@ -78,7 +78,7 @@ class ModelHandler(ABC):
     ) -> Module: ...
 
     @abstractmethod
-    def compile(self, model: Module, config: object) -> Module: ...
+    def compile(self, model: Module, **kwargs: Any) -> None: ...
 
     @abstractmethod
     def apply_fsdp(
@@ -134,8 +134,8 @@ class ModelSharder(Protocol[ModelT_contra, ModelConfigT_contra]):
     ) -> None: ...
 
 
-class ModelTorchCompiler(Protocol[ModelT_contra, ModelConfigT_contra]):
-    def __call__(self, model: ModelT_contra, config: ModelConfigT_contra) -> Module: ...
+class ModelCompiler(Protocol[ModelT_contra]):
+    def __call__(self, model: ModelT_contra, **kwargs: Any) -> None: ...
 
 
 ModelT = TypeVar("ModelT", bound=Module)
@@ -156,7 +156,7 @@ class StandardModelHandler(ModelHandler):
     _restrict: bool
     _checkpoint_converter: CheckpointConverter[Any] | None
     _sharder: ModelSharder[Any, Any] | None
-    _torch_compiler: ModelTorchCompiler[Any, Any] | None
+    _compiler: ModelCompiler[Any] | None
 
     def __init__(
         self,
@@ -172,7 +172,7 @@ class StandardModelHandler(ModelHandler):
         restrict: bool = True,
         checkpoint_converter: CheckpointConverter[ModelConfigT] | None = None,
         sharder: ModelSharder[ModelT, ModelConfigT] | None = None,
-        torch_compiler: ModelTorchCompiler[ModelT, ModelConfigT] | None = None,
+        compiler: ModelCompiler[ModelT] | None = None,
     ) -> None:
         self._family = family
         self._kls = kls
@@ -185,7 +185,7 @@ class StandardModelHandler(ModelHandler):
         self._restrict = restrict
         self._checkpoint_converter = checkpoint_converter
         self._sharder = sharder
-        self._torch_compiler = torch_compiler
+        self._compiler = compiler
 
     @override
     def get_config(self, arch: str | None) -> object:
@@ -475,8 +475,8 @@ class StandardModelHandler(ModelHandler):
         return model
 
     @override
-    def compile(self, model: Module, config: object) -> Module:
-        if self._torch_compiler is None:
+    def compile(self, model: Module, **kwargs: Any) -> None:
+        if self._compiler is None:
             raise NotSupportedError(
                 f"The '{self._family}' model family does not support `torch.compile()`."
             )
@@ -486,12 +486,7 @@ class StandardModelHandler(ModelHandler):
                 f"`model` must be of type `{self._kls}`, but is of type `{type(model)}` instead."
             )
 
-        if not isinstance(config, self.config_kls):
-            raise TypeError(
-                f"`config` must be of type `{self.config_kls}`, but is of type `{type(config)}` instead."
-            )
-
-        return self._torch_compiler(model, config)
+        self._compiler(model, **kwargs)
 
     @override
     def apply_fsdp(
@@ -527,4 +522,4 @@ class StandardModelHandler(ModelHandler):
     @property
     @override
     def supports_compilation(self) -> bool:
-        return self._torch_compiler is not None
+        return self._compiler is not None

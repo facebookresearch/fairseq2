@@ -55,7 +55,7 @@ from fairseq2.recipes.common._error import (
     ModelParallelismNotSupportedError,
     ModelPathNotFoundError,
 )
-from fairseq2.recipes.config import ModelSection, TrainerSection
+from fairseq2.recipes.config import ModelSection, TorchCompileSection, TrainerSection
 from fairseq2.recipes.utils.log import log_config, log_model
 from fairseq2.registry import Provider
 from fairseq2.typing import ContextManager, DataClass, is_dataclass_instance
@@ -84,7 +84,7 @@ def setup_model(
         checkpoint_manager,
     )
 
-    model = prepare_model(context, trainer_section, model, gangs)
+    model = prepare_model(context, trainer_section, model)
 
     model = setup_data_parallel_model(
         context, trainer_section, model, gangs, static_graph
@@ -682,17 +682,37 @@ class StandardModelCardSaver(ModelCardSaver):
 
 
 def prepare_model(
-    context: RuntimeContext, trainer_section: TrainerSection, model: Model, gangs: Gangs
+    context: RuntimeContext, trainer_section: TrainerSection, model: Model
 ) -> Model:
     if trainer_section.activation_checkpointing:
         use_layerwise_activation_checkpointing(model.module)
 
-    if trainer_section.torch_compile:
-        if not model.handler.supports_compilation:
-            raise ModelCompilationNotSupportedError(model.name)
-
-        log.info("Compiling '{}' model.", model.name)
-
-        model.handler.compile(model.module, model.config)
+    maybe_compile_model(model, trainer_section.torch_compile)
 
     return model
+
+
+def maybe_compile_model(
+    model: Model, torch_compile_section: TorchCompileSection
+) -> None:
+    if not torch_compile_section.enabled:
+        return
+
+    if not model.handler.supports_compilation:
+        raise ModelCompilationNotSupportedError(model.name)
+
+    log.info("Compiling '{}' model.", model.name)
+
+    try:
+        model.handler.compile(
+            model.module,
+            fullgraph=torch_compile_section.fullgraph,
+            dynamic=torch_compile_section.dynamic,
+            backend=torch_compile_section.backend,
+            mode=torch_compile_section.mode,
+            options=torch_compile_section.options,
+        )
+    except RuntimeError as ex:
+        raise RecipeError(
+            "torch.compile() has failed. See the nested exception for details."
+        ) from ex

@@ -19,13 +19,13 @@ from fairseq2.checkpoint import FileCheckpointMetadataLoader
 from fairseq2.context import RuntimeContext
 from fairseq2.logging import log
 from fairseq2.recipes import RecipeError
-from fairseq2.recipes.config import CommonSection
+from fairseq2.recipes.config import AssetsSection
 from fairseq2.utils.file import FileSystem
 from fairseq2.utils.yaml import StandardYamlLoader
 
 
 def register_extra_asset_paths(
-    context: RuntimeContext, common_section: CommonSection
+    context: RuntimeContext, assets_section: AssetsSection
 ) -> None:
     asset_store = context.asset_store
 
@@ -40,7 +40,7 @@ def register_extra_asset_paths(
     )
 
     try:
-        extra_path_registrar.register(common_section)
+        extra_path_registrar.register(assets_section)
     except AssetMetadataLoadError as ex:
         raise RecipeError(
             "`common.assets.extra_path` cannot be registered as an asset card path. See the nested exception for details."
@@ -51,7 +51,7 @@ def register_extra_asset_paths(
     )
 
     try:
-        checkpoint_dir_registrar.register(common_section)
+        checkpoint_dir_registrar.register(assets_section)
     except AssetMetadataLoadError as ex:
         raise RecipeError(
             "`common.assets.checkpoint_dir` cannot be registered as an asset card path. See the nested exception for details."
@@ -74,8 +74,8 @@ class ExtraPathRegistrar:
         self._file_system = file_system
         self._asset_metadata_file_loader = asset_metadata_file_loader
 
-    def register(self, common_section: CommonSection) -> None:
-        extra_path = common_section.assets.extra_path
+    def register(self, assets_section: AssetsSection) -> None:
+        extra_path = assets_section.extra_path
         if extra_path is None:
             return
 
@@ -116,8 +116,8 @@ class CheckpointDirectoryRegistrar:
         self._file_system = file_system
         self._asset_metadata_file_loader = asset_metadata_file_loader
 
-    def register(self, common_section: CommonSection) -> None:
-        checkpoint_dir = common_section.assets.checkpoint_dir
+    def register(self, assets_section: AssetsSection) -> None:
+        checkpoint_dir = assets_section.checkpoint_dir
         if checkpoint_dir is None:
             return
 

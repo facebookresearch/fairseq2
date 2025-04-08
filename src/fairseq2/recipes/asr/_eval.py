@@ -115,9 +115,9 @@ def load_asr_evaluator(
 
     validate(config)
 
-    register_extra_asset_paths(context, config.common)
+    register_extra_asset_paths(context, config.common.assets)
 
-    setup_torch(context, config.common, output_dir)
+    setup_torch(context, config.common.torch, output_dir)
 
     gangs = setup_gangs(context, config.gang)
 
