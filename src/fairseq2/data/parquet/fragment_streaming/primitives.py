@@ -8,13 +8,14 @@
 import concurrent.futures
 from dataclasses import dataclass
 from functools import reduce
-from typing import Any, Iterator, List, Optional
+from typing import Any, Dict, Iterator, List, Optional
 
 import numpy as np
 import pyarrow as pa
 import pyarrow.compute as pc  # noqa: F401
 import pyarrow.parquet as pq
 import torch
+from pyarrow.dataset import get_partition_keys
 
 from fairseq2.data import (
     DataPipelineBuilder,
@@ -486,3 +487,84 @@ def stream_parquet_fragments(
     )
 
     return pipeline
+
+
+class RejectionDistributionSmoother:
+    def __init__(
+        self,
+        partition_groups: List[str],
+        alpha: float = 0.5,
+        min_count: int = 10,
+        seed: int | None = 0,
+    ):
+        """
+        RejectionDistributionSmoother is used to balance fragments the distribution of samples across partition groups.
+
+        This class implements a rejection sampling technique to smooth the distribution of data
+        across different partition groups in a Parquet dataset. It keeps track of the frequency
+        of each partition group and uses these frequencies to decide whether to accept or reject
+        a fragment based on its partition values.
+
+        Args:
+            partition_groups (List[str]): List of partition column names to group by.
+            alpha (float, optional): Controls the smoothing effect.
+                                    0 = original distribution,
+                                    1 = uniform distribution.
+                                    Defaults to 0.5.
+            min_count (int, optional): Minimum count to use for frequency normalization. Defaults to 10.
+            seed (int | None, optional): Random seed for reproducibility. Defaults to 0.
+
+        Example:
+            ```python
+
+            # Create a smoother for balancing across 'lang' and 'domain' partitions
+            smoother = RejectionDistributionSmoother(
+                partition_groups=["lang", "domain"],
+                alpha=0.3,  # Partial smoothing between original and uniform
+                min_count=20,
+                seed=42
+            )
+
+            # Create a pipeline that streams fragments and applies the smoother
+
+            fragment_stream_config=FragmentStreamingConfig(
+                parquet_path="path/to/partitioned_parquet",
+                partition_filters='pc.field("split") == "train"',
+                nb_epochs=None,
+                fragment_shuffle_window=100)
+
+            build_pipeline = ParquetFragmentStreamer(
+                config=config.fragment_stream_config
+            ).build_pipeline(rank=0, world_size=1)
+
+            # Note that parquet dataset must be partitioned on the partition_groups ("lang" and "domain" here)!!
+            balanced_build_pipeline = build_pipeline.map(smoother).filter(lambda x: x is not None)
+            ```
+        """
+
+        self.partition_groups = partition_groups
+        self.freqs: Dict[Any, int] = {}
+        self.alpha = alpha
+        self.min_count = min_count
+        self.random_state = np.random.RandomState(seed)
+
+    def extract(self, fragment: pa.dataset.ParquetFileFragment):
+        partition_dict = get_partition_keys(fragment.partition_expression)
+        sorted_values = tuple(
+            [partition_dict.get(key) for key in self.partition_groups]
+        )
+        cnt = sum(rr.num_rows for rr in fragment.row_groups)
+        return sorted_values, cnt
+
+    def __call__(self, element: pa.dataset.ParquetFileFragment):
+        extracted_element, cnt = self.extract(element)
+        self.freqs[extracted_element] = self.freqs.get(extracted_element, 0) + cnt
+        normalization_weight = sum(
+            1 / max(self.freqs[elem], self.min_count) for elem in self.freqs
+        )
+        acceptance_prob = 1.0 / (self.freqs[extracted_element] * normalization_weight)
+
+        if self.random_state.rand() < acceptance_prob**self.alpha:
+            return element
+        else:
+            return None
