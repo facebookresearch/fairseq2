@@ -7,7 +7,7 @@
 name: wav2vec2_base
 model_family: wav2vec2
 model_arch: base
-checkpoint: "https://dl.fbaipublicfiles.com/fairseq/wav2vec/wav2vec2_fs2_small.pt"
+checkpoint: /checkpoint/mms/shared/assets/debug/wav2vec2_fs2_small.pt
 
 ---
 

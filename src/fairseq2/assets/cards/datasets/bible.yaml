@@ -1,0 +1,13 @@
+name: bible_61
+dataset_family: generic_asr
+data: /checkpoint/mms/shared/assets/datasets/bib_61
+tokenizer: /checkpoint/mms/shared/assets/datasets/bib_61/spm.model
+tokenizer_family: char_tokenizer
+
+---
+
+name: bible_1143
+dataset_family: generic_asr
+data: /checkpoint/mms/shared/assets/datasets/bib_1143_exp
+tokenizer: /checkpoint/mms/shared/assets/datasets/bib_1143_exp/spm.model
+tokenizer_family: char_tokenizer
