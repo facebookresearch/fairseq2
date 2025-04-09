@@ -254,6 +254,17 @@ class Wav2Vec2Model(Module):
 
         return distractors
 
+    @staticmethod
+    def cosine_similarity(
+        x1: torch.Tensor, x2: torch.Tensor, dim: int = 1, eps: float = 1e-8
+    ) -> torch.Tensor:
+        # Normalize along the specified dimension
+        x1_norm = x1 / (x1.norm(dim=dim, dtype=x1.dtype).clamp(min=eps).unsqueeze(dim))
+        x2_norm = x2 / (x2.norm(dim=dim, dtype=x2.dtype).clamp(min=eps).unsqueeze(dim))
+
+        # Compute dot product along the specified dimension
+        return torch.sum(x1_norm * x2_norm, dim=dim, dtype=x1.dtype)
+
     def _compute_logits(
         self, seqs: Tensor, targets: Tensor, distractors: Tensor
     ) -> Tensor:
@@ -266,7 +277,7 @@ class Wav2Vec2Model(Module):
 
         # Perform in fp32.
         # (N, S, L + 1, M) -> (N, S, L + 1)
-        logits = torch.cosine_similarity(seqs.float(), candidates.float(), dim=-1)
+        logits = Wav2Vec2Model.cosine_similarity(seqs, candidates, dim=-1)
 
         if self.logit_temp != 1.0:
             logits = logits / self.logit_temp
@@ -356,6 +367,7 @@ class Wav2Vec2Output:
     """The raw features returned by the frontend. *Shape*: Same as
     :attr:`encoder_output`."""
 
+    # @torch.compile(fullgraph=True)
     def compute_loss(
         self, diversity_loss_weight: float = 0.1, feature_penalty_weight: float = 10.0
     ) -> Wav2Vec2Loss:
@@ -370,13 +382,16 @@ class Wav2Vec2Output:
 
         diversity_loss = self.compute_diversity_loss()
 
-        feature_penalty = self.compute_feature_penalty()
-
         weighted_diversity_loss = diversity_loss_weight * diversity_loss
 
-        weighted_feature_penalty = feature_penalty_weight * feature_penalty
+        loss = contrastive_loss + weighted_diversity_loss
 
-        loss = contrastive_loss + weighted_diversity_loss + weighted_feature_penalty
+        if feature_penalty_weight > 0.0:
+            feature_penalty = self.compute_feature_penalty()
+            weighted_feature_penalty = feature_penalty_weight * feature_penalty
+            loss += weighted_feature_penalty
+        else:
+            feature_penalty = torch.tensor([0.0])
 
         return Wav2Vec2Loss(loss, contrastive_loss, diversity_loss, feature_penalty)
 
