@@ -34,12 +34,14 @@ from fairseq2.recipes.lm._online_finetune._math_utils import (
 )
 from fairseq2.recipes.model import Model
 from fairseq2.recipes.trainer import TrainUnit
+import numpy as np
+from fairseq2.logging import log
 
 
 @dataclass(kw_only=True)
 class RewardModelConfig:
     answer_key: str = "answer"
-    prompt_key: str = "prompt"
+    prompt_key: str = "prompt_raw"
 
 
 @dataclass(kw_only=True)
@@ -240,22 +242,11 @@ class SkyworkVerifier(VLLMOutputReward):
             "Skywork/Skywork-Reward-Llama-3.1-8B-v0.2"
         )
 
-    def extract_text_from_llama3_wrapper(self, input_string):
-        start_pattern = r"<\|start_header_id\|>user<\|end_header_id\|>"
-        end_pattern = r"<\|eot_id\|><\|start_header_id\|>assistant<\|end_header_id\|>"
-        start_index = re.search(start_pattern, input_string).end()
-        end_index = re.search(end_pattern, input_string).start()
-        # Extract the text between the start and end indices
-        extracted_text = input_string[start_index:end_index].strip()
-        return extracted_text
-
     def wrap_text(self, prompt_text, rollout_text):
         wrapped_text = [
             {"role": "user", "content": prompt_text},
             {"role": "assistant", "content": rollout_text},
         ]
-        # templated_text = self.tokenizer.apply_chat_template(wrapped_text, tokenize=True)
-        # tokens_prompt = TokensPrompt(prompt_token_ids=templated_text)
         chat_str = self.tokenizer.apply_chat_template(wrapped_text, tokenize=False)
         chat_str = chat_str.replace("<|begin_of_text|>", "")
 
@@ -299,8 +290,48 @@ class SkyworkVerifier(VLLMOutputReward):
 
         return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
 
+    def get_divpo_indices(self, rewards, rollouts, p=0.10):
+        cumulative_logprobs_norm = []
+        for rollout_idx in range(len(rollouts[0].outputs)):
+            logprobs = self.extract_logprobs(rollouts[0].outputs[rollout_idx].logprobs)
+            cumulative_logprob_norm = sum(logprobs) / len(logprobs)
+            cumulative_logprobs_norm.append(cumulative_logprob_norm)
+
+        assert len(rewards) == len(
+            cumulative_logprobs_norm
+        ), "Rewards and logprobs must have the same length"
+
+        # Convert the list to a numpy array
+        max_val = max(rewards)
+        min_val = min(rewards)
+
+        diff = max_val - min_val
+        thresh_offset = diff * p
+        top_thresh = max_val - thresh_offset
+        bot_thresh = min_val + thresh_offset
+
+        chosen_set = [idx for idx, val in enumerate(rewards) if val >= top_thresh]
+        rejected_set = [idx for idx, val in enumerate(rewards) if val <= bot_thresh]
+
+        # Debugging output
+        # log.info(f"rewards: {rewards}")
+        # log.info(f"top_thresh: {top_thresh}, bot_thresh: {bot_thresh}")
+        # log.info(f"chosen_set: {chosen_set}, rejected_set: {rejected_set}")
+
+        max_reward_idx = min(chosen_set, key=lambda i: cumulative_logprobs_norm[i])
+        min_reward_idx = max(rejected_set, key=lambda i: cumulative_logprobs_norm[i])
+
+        return max_reward_idx, min_reward_idx
+
+    def extract_logprobs(self, data):
+        logprobs = []
+        for item in data:
+            for key, logprob in item.items():
+                logprobs.append(logprob.logprob)
+        return logprobs
+
     def prepare_preference_batch(
-        self, prompt_batch: PromptBatch, rollouts
+        self, prompt_batch: PromptBatch, rollouts, divpo_p=0
     ) -> PreferenceBatch:
 
         reward_output = self.process_rollouts(rollouts, prompt_batch)
@@ -314,8 +345,17 @@ class SkyworkVerifier(VLLMOutputReward):
         for i_batch, (i_batch_rewards, i_batch_tokens) in enumerate(
             zip(reward_output["rewards"], reward_output["tokens"])
         ):
-            chosen_rollout_position = i_batch_rewards.index(max(i_batch_rewards))
-            rejected_rollout_position = i_batch_rewards.index(min(i_batch_rewards))
+
+            # if self._gangs.root.rank == 0:
+            #     breakpoint()
+
+            if divpo_p > 0:
+                chosen_rollout_position, rejected_rollout_position = (
+                    self.get_divpo_indices(i_batch_rewards, rollouts, divpo_p)
+                )
+            else:
+                chosen_rollout_position = i_batch_rewards.index(max(i_batch_rewards))
+                rejected_rollout_position = i_batch_rewards.index(min(i_batch_rewards))
 
             if chosen_rollout_position == rejected_rollout_position:
                 # cant form preference pair when we dont have such rollouts

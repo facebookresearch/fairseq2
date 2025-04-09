@@ -32,18 +32,15 @@ from fairseq2.recipes.lm._online_finetune._common import (
 
 class RemoteModelHandler(ABC):
     @abstractmethod
-    def create(self, gangs: Gangs, unit_config: object) -> RemoteVllmModel:
-        ...
+    def create(self, gangs: Gangs, unit_config: object) -> RemoteVllmModel: ...
 
     @property
     @abstractmethod
-    def name(self) -> str:
-        ...
+    def name(self) -> str: ...
 
     @property
     @abstractmethod
-    def config_kls(self) -> type[object]:
-        ...
+    def config_kls(self) -> type[object]: ...
 
 
 @dataclass(kw_only=True)
@@ -63,6 +60,7 @@ class VllmSamplingParams:
     temperature: float = 1.0
     max_tokens: int = 1024
     prompt_logprobs: int | None = None
+    logprobs: int | None = None
     detokenize: bool = True
 
 
@@ -140,6 +138,7 @@ class RemoteVllmModel:
             max_tokens=sampling_params.max_tokens,
             detokenize=sampling_params.detokenize,
             prompt_logprobs=sampling_params.prompt_logprobs,
+            logprobs=sampling_params.logprobs,
         )
 
         if init_update_process_group:
@@ -249,6 +248,7 @@ class RemoteVllmModel:
         rewards = []
         for i in range(0, len(prompt_list), batch_size):
             prompt_chunk = prompt_list[i : i + batch_size]
+
             output = ray.get(
                 self.vllm_model.encode.remote(
                     prompt_chunk,
@@ -258,3 +258,6 @@ class RemoteVllmModel:
             chunk_rewards = [o.outputs.data.item() for o in output]
             rewards.extend(chunk_rewards)
         return rewards
+
+
+# ray.get(self.vllm_model.encode.remote([prompt_chunk[0]],use_tqdm=False,))[0].outputs.data

@@ -161,16 +161,31 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             policy_sampling_params.n = 1
         else:
             policy_sampling_params = None
+
         rollouts = generate_rollouts(
             prompt_batch.prompts,
             dp_gang=self._gangs.dp,
             vllm_model=self._vllm_model,
             sampling_params=policy_sampling_params,
         )
-        reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
-        avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
 
-        self._metric_bag.update_avg_reward(avg_reward)
+        # if self._gangs.dp.rank == 0:
+        try:
+            prompt_0 = prompt_batch.meta_info.get("prompt_raw")[0]
+            rollout_0 = rollouts[0].outputs[0].text
+            log.info(f"Prompt: {prompt_0}")
+            log.info(f"Rollout: {rollout_0}")
+        except:
+            # print except error message
+            log.info("Rollout print error")
+
+        # if self._gangs.dp.rank == 0:
+        #     breakpoint()
+        reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
+        total_reward = torch.tensor(reward_output["rewards"]).float().mean()
+
+        self._metric_bag.update_batch_metrics(prompt_batch)
+        self._metric_bag.update_avg_reward(total_reward)
         # returning dummy loss since trainer expects it
         return torch.tensor(0.0, device=self._gangs.dp.device), prompt_batch.batch_size
 
@@ -218,7 +233,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         batch: PreferenceBatch
         batch, is_bad_batch, reward_output = self._reward.prepare_preference_batch(
-            prompt_batch, rollouts
+            prompt_batch, rollouts, divpo_p=self._loss_config.divpo_p
         )  # loss_zeroer is used when entire batch has no valid prefrence pair
         if is_bad_batch:
             loss_zeroer = 0.0
@@ -417,6 +432,11 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
         self.avg_reward.update(avg_reward, weight=1)
 
     @torch.inference_mode()
+    def update_batch_metrics(self, batch: PreferenceBatch):
+        num_examples = batch.batch_size
+        self.num_examples.update(num_examples)
+
+    @torch.inference_mode()
     def update_avg_zeroed_loss(self, avg_zeroed_loss):
         self.avg_zeroed_loss.update(avg_zeroed_loss, weight=1)
 
@@ -435,6 +455,9 @@ class DpoLossConfig:
 
     length_normalization: bool = False
     """Use length normalized DPO, which uses the average log probability of a sequence as the implicit reward."""
+
+    divpo_p: float = 0.0
+    """Use diverse preference optimization."""
 
 
 @dataclass(kw_only=True)

@@ -88,6 +88,8 @@ class WandbRecorder(MetricRecorder):
             else:
                 display_name = descriptor.display_name
 
+            display_name = run + "/" + display_name
+
             try:
                 self._run.log({display_name: value}, step=step_nr)
             except RuntimeError as ex:

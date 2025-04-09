@@ -349,6 +349,8 @@ def generate_rewards(
         for rank_prompts in prompts_to_generate:
             flat_request_list.extend(rank_prompts)
 
+        # if dp_gang.rank == 0:
+        #     breakpoint()
         rewards = vllm_model.reward_from_model(flat_request_list)
 
         rewards_to_scatter = []
@@ -472,7 +474,6 @@ def prepare_grpo_batch(
         rewards.append(
             i_batch_rewards
         )  # we add all rewards here to correctly compute group statistic
-
 
     rewards = torch.tensor(rewards, device=gangs.dp.device).float()  # [Batch, Rollouts]
     rewards_normalized = (rewards - rewards.mean(dim=1, keepdim=True)) / (
