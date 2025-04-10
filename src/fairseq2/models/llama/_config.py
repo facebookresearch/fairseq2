@@ -95,6 +95,12 @@ class LLaMAConfig:
 
     dropout_p: float = 0.0
     """The dropout probability on outputs of Transformer layers."""
+    
+    nope_layer_interval: int | None = None
+    """
+    If not ``None``, will use a NoPE layer (no positional embedding)
+    instead of a RoPE layer every ``nope_layer_interval`` layers.
+    """
 
 
 @dataclass

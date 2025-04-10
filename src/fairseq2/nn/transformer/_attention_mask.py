@@ -245,6 +245,96 @@ class CausalAttentionMaskFactory(AttentionMaskFactory):
 
 
 @final
+class ChunkedAttentionMask(AbstractAttentionMask):
+    """Represents a chunked attention mask.
+    
+    Tokens (0, K), (K, 2K), (2K, 3K) attend to each other
+    when doing local chunked attention in the iRoPE architecture.
+    """
+
+    _seq_len: int
+    _attn_chunk_size: int
+    _device: Device | None
+    _dtype: DataType | None
+
+    def __init__(
+        self,
+        seq_len: int,
+        attention_chunk_size: int,
+        *,
+        device: Device | None = None,
+        dtype: DataType | None = None,
+    ) -> None:
+        """
+        :param seq_len:
+            The sequence length.
+        :param attention_chunk_size:
+            The size of an attention chunk.
+        """
+        super().__init__()
+
+        self._seq_len = seq_len
+        self._attn_chunk_size = attention_chunk_size
+
+        self._device, self._dtype = device, dtype
+
+    @override
+    def _do_materialize(self) -> Tensor:
+        return _create_chunked_attention_mask(
+            self._seq_len,
+            self._attn_chunk_size,
+            self._device,
+            self._dtype,
+        )
+
+
+@final
+class ChunkedAttentionMaskFactory(AttentionMaskFactory):
+    """Constructs instances of :class:`ChunkedAttentionMask`."""
+
+    _attn_chunk_size: int
+
+    def __init__(self, attn_chunk_size: int) -> None:
+        """
+        :param attn_chunk_size:
+            The attention chunk size.
+        """
+        self._attn_chunk_size = attn_chunk_size
+
+    def __call__(
+        self,
+        seqs: Tensor,
+        keys: Tensor,
+        *,
+        training: bool = True,
+        state_bag: IncrementalStateBag | None = None,
+    ) -> ChunkedAttentionMask | None:
+        attn_len: int | None
+
+        attn_len = seqs.size(1)
+
+        if training or state_bag is None:
+            seq_len = attn_len
+        else:
+            seq_len = state_bag.step_nr + attn_len
+        
+        if attn_len <= 1:
+            # Return `None` if the sequence has a length of 1 during training;
+            # or if we attend to past steps during incremental decoding.
+            return None
+
+        return ChunkedAttentionMask(
+            seq_len,
+            self._attn_chunk_size,
+            device=seqs.device,
+            dtype=seqs.dtype,
+        )
+
+    def __repr__(self) -> str:
+        return f"ChunkedAttentionMaskFactory(attn_chunk_size={self._attn_chunk_size})"
+
+
+@final
 class ALiBiMask(AbstractAttentionMask):
     """Represents an ALiBi attention mask as described in
     :cite:t:`https://doi.org/10.48550/arxiv.2108.12409`.
@@ -418,3 +508,21 @@ def _create_causal_attention_mask(
     mask.log_()
 
     return mask.to(dtype)
+
+
+def _create_chunked_attention_mask(
+    seq_len: int,
+    attention_chunk_size: int,
+    device: Device | None,
+    dtype: DataType | None,
+) -> torch.Tensor:
+    if dtype is None:
+        dtype = torch.get_default_dtype()
+    
+    block_pos = torch.abs(
+        (torch.arange(seq_len).unsqueeze(0) // attention_chunk_size)
+        - (torch.arange(seq_len).unsqueeze(1) // attention_chunk_size)
+    )
+    token_pos = torch.arange(seq_len).unsqueeze(0) - torch.arange(seq_len).unsqueeze(1)
+    mask = (block_pos == 0) & (token_pos <= 0)
+    return mask.to(device=device, dtype=dtype)
