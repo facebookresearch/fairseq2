@@ -23,6 +23,7 @@ from fairseq2.models.llama._factory import (
 from fairseq2.models.llama4._config import LLaMA4DecoderConfig
 from fairseq2.models.llama4.model._frontend import LLaMA4DecoderFrontend
 from fairseq2.models.llama4.model.moe._moe import MoE
+from fairseq2.models.llama4.model.vision._embedding import VisionEmbeddings
 from fairseq2.models.transformer import (
     TransformerEmbeddingFrontend,
     TransformerFrontend,
@@ -69,12 +70,18 @@ class LLaMA4Factory(LLaMAFactory):
     def create_decoder_frontend(self, embed: Embedding) -> TransformerFrontend:
         config = self._config
         
-        # TODO: build image embedding here
-        vision_embed = None
+        vision_embed = VisionEmbeddings(config.vision_config)
+        vision_proj = Linear(
+            config.vision_config.output_dim,
+            config.model_dim,
+            bias=False,
+            init_fn=lambda x: x,
+        )
         
         return LLaMA4DecoderFrontend(
             embed,
             vision_embed,
+            vision_proj,
             pos_encoder=None,
             no_scale=True,
             dropout_p=config.dropout_p,

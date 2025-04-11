@@ -27,9 +27,11 @@ class LLaMA4VisionEncoderConfig:
     
     patch_size: int = 14
     
-    dim: int = 1408
+    model_dim: int = 1408
     
     num_layers: int = 34
+    
+    num_attn_heads: int = 16
     
     mlp_ratio: float = 4.0
     

@@ -11,6 +11,7 @@ from fairseq2.models.llama4._config import LLaMA4DecoderConfig
 from fairseq2.models.llama4.model._frontend import LLaMA4DecoderFrontend
 from fairseq2.models.llama4.model.moe._moe import MoE
 from fairseq2.models.llama4.model.moe._experts import Experts
+from fairseq2.models.llama4.model.vision._shard import shard_vision_embedding
 from fairseq2.models.transformer import TransformerEmbeddingFrontend
 from fairseq2.models.transformer_decoder._model import TransformerDecoderModel
 from fairseq2.nn import (
@@ -42,6 +43,10 @@ def shard_llama4_model(
         The model to shard.
     :param gangs:
         The gang used for parallelism.
+        
+    TODO: possibly merge this with shard_transformer_decoder_model, the only
+    reason this isn't done already is to avoid circular imports: this one relies
+    on llama4 modules which could actually be generic like MoE or Experts.
     """
     tp_gang = gangs.tp  # tensor parallel
     if tp_gang.size == 1:
@@ -55,9 +60,11 @@ def shard_llama4_model(
     
     def shard_llama4_frontend(m: LLaMA4DecoderFrontend) -> None:
         m.embed = VocabShardedEmbedding.from_embedding(m.embed, tp_gang)
-        # m.speech_embed = VocabShardedEmbedding.from_embedding(
-        #     m.speech_embed, tp_gang
-        # )
+        
+        shard_vision_embedding(m.vision_embed)
+        m.vision_proj = ColumnShardedLinear.from_linear(
+            m.vision_proj, tp_gang
+        )
 
     def shard_mha(m: StandardMultiheadAttention) -> None:
         for proj in (m.q_proj, m.k_proj, m.v_proj, m.output_proj):

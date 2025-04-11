@@ -7,9 +7,10 @@
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 
 from fairseq2.models.transformer import TransformerFrontend
-from fairseq2.nn import Embedding, IncrementalStateBag, LayerNorm, PositionEncoder
+from fairseq2.nn import Embedding, IncrementalStateBag, LayerNorm, PositionEncoder, Projection
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.transformer import LayerNormFactory, create_standard_layer_norm
 from fairseq2.typing import DataType, Device
@@ -18,12 +19,19 @@ from torch.nn import Dropout
 from typing_extensions import override
 
 
+@dataclass
+class MaskedEmbedding:
+    embedding: Tensor
+    mask: Tensor
+
+
 class LLaMA4DecoderFrontend(TransformerFrontend):
     """Represents a Llama 4 front-end with different embeddings
     for multiple modalities."""
     
     embed: Embedding
     vision_embed: Embedding | None
+    vision_proj: Projection | None
     scale: float
     pos_encoder: PositionEncoder | None
     layer_norm: LayerNorm | None
@@ -33,6 +41,7 @@ class LLaMA4DecoderFrontend(TransformerFrontend):
         self,
         embed: Embedding,
         vision_embed: Embedding | None,
+        vision_proj: Projection | None,
         pos_encoder: PositionEncoder | None,
         *,
         no_scale: bool = False,
@@ -47,6 +56,8 @@ class LLaMA4DecoderFrontend(TransformerFrontend):
             The token embedding table.
         :param vision_encoder:
             The vision embedder.
+        :param vision_proj:
+            The vision projection.
         :param pos_encoder:
             The position encoder.
         :param no_scale:
@@ -69,6 +80,7 @@ class LLaMA4DecoderFrontend(TransformerFrontend):
 
         self.embed = embed
         self.vision_embed = vision_embed
+        self.vision_proj = vision_proj
 
         self.scale = 1.0 if no_scale else math.sqrt(model_dim)
 
@@ -99,9 +111,18 @@ class LLaMA4DecoderFrontend(TransformerFrontend):
         padding_mask: PaddingMask | None,
         *,
         state_bag: IncrementalStateBag | None = None,
+        image_embedding: MaskedEmbedding | None = None,
     ) -> tuple[Tensor, PaddingMask | None]:
         embeds = self.embed(seqs)
-
+        
+        # early image fusion if relevant embeddings are passed
+        if image_embedding is not None and self.vision_proj is not None:
+            embeds_image = self.vision_proj(image_embedding.embedding)
+            embeds = (
+                embeds * ~image_embedding.mask
+                + embeds_image * image_embedding.mask
+            )
+        
         if self.scale != 1.0:
             embeds = embeds * self.scale
 

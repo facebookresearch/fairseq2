@@ -100,10 +100,6 @@ def convert_llama4_checkpoint(
                 # This might contain FP8 quantization info
                 pass
             
-            elif k.startswith("vision_"):
-                # TODO: Add vision input modality
-                pass
-            
             elif k.endswith(".expert_activation_DE"):
                 # This doesn't seem to be used in Scout or Maverick
                 pass
@@ -140,6 +136,8 @@ def convert_llama4_checkpoint(
             r"^norm\.": r"decoder.layer_norm.",
             # Embeddings and input projections
             r"^tok_embeddings\.": r"decoder_frontend.embed.",
+            r"^vision_embeddings\.": r"decoder_frontend.vision_embed.",
+            r"^vision_projection\.": r"decoder_frontend.vision_proj.",
             r"^speech_embeddings\.embeddings\.": r"decoder_frontend.speech_embed.",
             # Output projections
             r"^output\.": r"final_proj.",
