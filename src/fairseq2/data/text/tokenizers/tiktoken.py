@@ -29,6 +29,7 @@ class TiktokenModel:
     _encoding: Encoding
     _num_bpe_tokens: int
     _vocab_info: VocabularyInfo
+    special_tokens: dict[str, int]
 
     def __init__(
         self,
@@ -68,6 +69,7 @@ class TiktokenModel:
             }
         else:
             special_token_map = {}
+        self.special_tokens = special_token_map
 
         self._encoding = Encoding(
             name=path.stem,

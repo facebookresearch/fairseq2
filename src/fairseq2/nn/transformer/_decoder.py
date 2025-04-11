@@ -23,6 +23,7 @@ from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.transformer._attention_mask import (
     AttentionMaskFactory,
     CausalAttentionMaskFactory,
+    ChunkedAttentionMaskFactory
 )
 from fairseq2.nn.transformer._decoder_layer import TransformerDecoderLayer
 from fairseq2.nn.transformer._encoder import _record_drop_for_backward
@@ -148,6 +149,8 @@ class StandardTransformerDecoder(TransformerDecoder):
     :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`."""
 
     self_attn_mask_factory: AttentionMaskFactory | None
+    local_attn_mask_factory: AttentionMaskFactory | None
+    use_local_attn_mask_list: list[bool]
     layer_drop_p: float
     generator: Generator | None
     layer_norm: LayerNorm | None
@@ -159,12 +162,15 @@ class StandardTransformerDecoder(TransformerDecoder):
         layers: Iterable[TransformerDecoderLayer],
         *,
         self_attn_mask_factory: AttentionMaskFactory | None = None,
+        local_attn_mask_factory: AttentionMaskFactory | None = None,
         use_causal_attn_mask: bool = True,
         layer_drop_p: float = 0.0,
         generator: Generator | None = None,
         dropout_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
         layer_norm_factory: LayerNormFactory | None = None,
+        attention_chunk_size: int = 0,
+        use_local_attn_mask: Iterable[bool] | None = None,
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> None:
@@ -188,6 +194,10 @@ class StandardTransformerDecoder(TransformerDecoder):
             The Layer Normalization order.
         :param layer_norm_factory:
             The factory to construct the Layer Normalization module.
+        :param attention_chunk_size:
+            Tokens (0, K), (K, 2K), (2K, 3K) attend to each other
+            when doing local chunked attention in the iRoPE architecture.
+            Leave to 0 to disable.
         """
         layer_list = ModuleList(layers)
         if not layer_list:
@@ -206,6 +216,20 @@ class StandardTransformerDecoder(TransformerDecoder):
             self.self_attn_mask_factory = CausalAttentionMaskFactory()
         else:
             self.self_attn_mask_factory = None
+        
+        if local_attn_mask_factory is not None:
+            self.local_attn_mask_factory = local_attn_mask_factory
+        elif attention_chunk_size > 0:
+            self.local_attn_mask_factory = (
+                ChunkedAttentionMaskFactory(attention_chunk_size)
+            )
+        else:
+            self.local_attn_mask_factory = None
+        
+        if use_local_attn_mask:
+            self.use_local_attn_mask_list = list(use_local_attn_mask)
+        else:
+            self.use_local_attn_mask_list = [False] * len(layer_list)
 
         self.layers = layer_list
 
@@ -248,12 +272,22 @@ class StandardTransformerDecoder(TransformerDecoder):
             self_attn_mask = self.self_attn_mask_factory(
                 seqs, keys=seqs, training=self.training, state_bag=state_bag
             )
+        
+        if self.local_attn_mask_factory is None:
+            local_attn_mask = None
+        else:
+            local_attn_mask = self.local_attn_mask_factory(
+                seqs, keys=seqs, training=self.training, state_bag=state_bag
+            )
 
         for layer_idx, (layer, drop) in enumerate(self._drop_iter()):
+            use_local_attn_mask = self.use_local_attn_mask_list[layer_idx]
+            attn_mask = local_attn_mask if use_local_attn_mask else self_attn_mask
+            
             layer_output, layer_padding_mask = layer(
                 seqs,
                 padding_mask,
-                self_attn_mask,
+                attn_mask,
                 encoder_output,
                 encoder_padding_mask,
                 state_bag=state_bag,
@@ -301,6 +335,13 @@ class StandardTransformerDecoder(TransformerDecoder):
             )
 
             s = f"{s}, self_attn_mask_factory={self_attn_mask_factory}"
+        
+        if self.local_attn_mask_factory is not None:
+            local_attn_mask_factory = getattr(
+                self.local_attn_mask_factory, "__name__", self.local_attn_mask_factory
+            )
+
+            s = f"{s}, local_attn_mask_factory={local_attn_mask_factory}"
 
         if self.layer_drop_p > 0.0:
             s = f"{s}, layer_drop_p={self.layer_drop_p:G}"

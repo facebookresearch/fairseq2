@@ -106,6 +106,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
     ffn_residual: ResidualConnect
     ffn_layer_norm: LayerNorm
     norm_order: TransformerNormOrder
+    is_nope_layer: bool
 
     def __init__(
         self,
@@ -119,6 +120,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         self_attn_residual: ResidualConnect | None = None,
         encoder_decoder_attn_residual: ResidualConnect | None = None,
         ffn_residual: ResidualConnect | None = None,
+        is_nope_layer: bool = False,
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> None:

@@ -148,6 +148,7 @@ class LLaMAFactory:
             ffn=ffn,
             norm_order=TransformerNormOrder.PRE,
             layer_norm_factory=self.create_layer_norm,
+            is_nope_layer=self._is_nope_layer(layer_idx),
         )
 
     def create_attention(
@@ -167,6 +168,20 @@ class LLaMAFactory:
             _init_truncated_normal(proj.weight, proj.bias, std=std / std_scale_factor)
 
         sdpa = create_default_sdpa(attn_dropout_p=config.dropout_p)
+        
+        is_nope_layer = self._is_nope_layer(layer_idx)
+        
+        pos_encoder = pos_encoder if not is_nope_layer else None
+        
+        qk_norm = None
+        if config.use_qk_norm and not is_nope_layer:
+            head_dim = config.model_dim // config.num_attn_heads
+            qk_norm = RMSNorm(
+                head_dim,
+                bias=False,
+                impl="py",  # switch to "auto"?
+                elementwise_affine=False,
+            )
 
         return StandardMultiheadAttention(
             config.model_dim,
@@ -177,6 +192,7 @@ class LLaMAFactory:
             pos_encoder=pos_encoder,
             output_proj_init_fn=init_projection,
             bias=False,
+            qk_norm=qk_norm,
         )
 
     def create_ffn(self, layer_idx: int) -> FeedForwardNetwork:
@@ -221,6 +237,12 @@ class LLaMAFactory:
                 )
 
         return (2 * (n + 1)) ** 0.5  # type: ignore[no-any-return]
+    
+    def _is_nope_layer(self, layer_idx: int) -> bool:
+        return (
+            self._config.nope_layer_interval is not None
+            and (layer_idx + 1) % self._config.nope_layer_interval == 0
+        )
 
     def create_final_projection(self, embed: Embedding) -> Projection:
         config = self._config

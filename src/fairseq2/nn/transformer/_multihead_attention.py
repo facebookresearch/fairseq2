@@ -23,6 +23,7 @@ from fairseq2.error import NotSupportedError
 from fairseq2.nn import (
     IncrementalState,
     IncrementalStateBag,
+    LayerNorm,
     Linear,
     PositionEncoder,
     Projection,
@@ -185,6 +186,7 @@ class StandardMultiheadAttention(MultiheadAttention):
     pos_encoder: PositionEncoder | None
     sdpa: SDPA
     head_scale_weight: Parameter | None
+    qk_norm: LayerNorm | None
     output_proj: Projection
     state_factory: AttentionStateFactory | None
 
@@ -203,6 +205,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         pos_encoder: PositionEncoder | None = None,
         sdpa: SDPA | None = None,
         scale_heads: bool = False,
+        qk_norm: LayerNorm | None = None,
         output_proj: Projection | None = None,
         output_proj_init_fn: Callable[[Linear], None] | None = None,
         bias: bool = True,
@@ -368,6 +371,8 @@ class StandardMultiheadAttention(MultiheadAttention):
             self.register_parameter("head_scale_weight", None)
 
         v_dim = v_proj.output_dim * num_query_groups
+        
+        self.qk_norm = qk_norm
 
         if output_proj is None:
             if output_proj_bias is None:
@@ -529,6 +534,9 @@ class StandardMultiheadAttention(MultiheadAttention):
 
         if self.pos_encoder is not None:
             q = self.pos_encoder(q, padding_mask, state_bag=state_bag)
+        
+        if self.qk_norm is not None:
+            q = self.qk_norm(q)
 
         return q  # type: ignore[no-any-return]
 
@@ -551,6 +559,9 @@ class StandardMultiheadAttention(MultiheadAttention):
 
         if self.pos_encoder is not None:
             k = self.pos_encoder(k, key_padding_mask, state_bag=state_bag)
+        
+        if self.qk_norm is not None:
+            k = self.qk_norm(k)
 
         return k, v
 

@@ -43,6 +43,14 @@ from fairseq2.models.llama import (
     register_llama_configs,
     shard_llama_model,
 )
+from fairseq2.models.llama4 import (
+    LLAMA4_MODEL_FAMILY,
+    LLaMA4DecoderConfig,
+    convert_llama4_checkpoint,
+    create_llama4_model,
+    register_llama4_configs,
+    shard_llama4_model,
+)
 from fairseq2.models.mistral import (
     MISTRAL_MODEL_FAMILY,
     MistralConfig,
@@ -141,6 +149,22 @@ def register_model_families(context: RuntimeContext) -> None:
     )
 
     register_llama_configs(context)
+    
+    # LLaMA 4
+    default_arch = "llama4_scout"
+    
+    registrar.register_family(
+        LLAMA4_MODEL_FAMILY,
+        TransformerDecoderModel,
+        LLaMA4DecoderConfig,
+        default_arch,
+        create_llama4_model,
+        checkpoint_converter=convert_llama4_checkpoint,
+        sharder=shard_llama4_model,
+        compiler=compile_llama_model,
+    )
+    
+    register_llama4_configs(context)
 
     # Mistral
     default_arch = "7b"
