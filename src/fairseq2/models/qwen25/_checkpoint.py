@@ -37,4 +37,8 @@ def convert_qwen_checkpoint(
 
     checkpoint = convert_model_state_dict(checkpoint, key_map)
 
+    # if weights are tied, we need to create a copy in statedict here for model loading
+    if config.tie_embeddings:
+        checkpoint["final_proj.weight"] = checkpoint["decoder_frontend.embed.weight"]
+
     return {"model": checkpoint}

@@ -79,6 +79,7 @@ class LLaMAConfig:
     encoder, aiming to increase the context length.
     """
 
+<<<<<<< HEAD
     init_std: float | None = None
     """
     If not ``None``, the standard deviation to initialize input embeddings and
@@ -93,6 +94,8 @@ class LLaMAConfig:
     the decoder.
     """
 
+=======
+>>>>>>> a379e752 (qwen25 model working)
     dropout_p: float = 0.0
     """The dropout probability on outputs of Transformer layers."""
 

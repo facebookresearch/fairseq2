@@ -12,7 +12,7 @@ from functools import partial
 import torch
 from torch import Tensor
 
-from fairseq2.models.qwen25._config import Qwen25Config, Qwen25HFRopeConfigPatch
+from fairseq2.models.qwen25._config import Qwen25Config
 from fairseq2.models.transformer import (
     TransformerEmbeddingFrontend,
     TransformerFrontend,
@@ -28,6 +28,7 @@ from fairseq2.nn import (
     RMSNorm,
     ReferenceRotaryEncoder,
     StandardEmbedding,
+    TiedProjection
 )
 from fairseq2.nn.transformer import (
     FeedForwardNetwork,
@@ -62,7 +63,7 @@ class Qwen25Factory:
 
         decoder = self.create_decoder()
 
-        final_proj = self.create_final_proj()
+        final_proj = self.create_final_proj(decoder_frontend.embed)
 
         return TransformerDecoderModel(
             decoder_frontend,
@@ -72,7 +73,7 @@ class Qwen25Factory:
             vocab_info=config.vocab_info,
         )
 
-    def create_decoder_frontend(self) -> TransformerFrontend:
+    def create_decoder_frontend(self) -> TransformerEmbeddingFrontend:
         config = self._config
 
         embed = self.create_embedding()
@@ -156,8 +157,16 @@ class Qwen25Factory:
             inner_dropout_p=config.dropout_p,
         )
 
-    def create_final_proj(self) -> Projection:
+    def create_final_proj(self, embed: Embedding) -> Projection:
         config = self._config
+
+        if config.tie_embeddings:
+            if not isinstance(embed, StandardEmbedding):
+                raise TypeError(
+                    f"`embed` must be of type `{StandardEmbedding}` when `config.tie_embeddings` is set, but is of type `{type(embed)}` instead."
+                )
+
+            return TiedProjection(embed.weight, bias=None)
 
         return Linear(
             config.model_dim,
