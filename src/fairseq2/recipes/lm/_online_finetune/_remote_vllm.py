@@ -48,6 +48,8 @@ class VllmEngineArgs:
     model: str = "/checkpoint/ram/kulikov/gsm8k_8b_sft/checkpoints/step_20"
     tokenizer: str = "/datasets/pretrained-llms/Llama-3.1-8B-Instruct"
     task: str = "generate"
+    trust_remote_code: bool = False
+    model_impl: str = "auto"
     tensor_parallel_size: int = 4
     enforce_eager: bool = True
     hf_overrides: object = None
@@ -180,6 +182,8 @@ class RemoteVllmModel:
             worker_cls=MyWorker,
             tensor_parallel_size=vllm_engine_args.tensor_parallel_size,
             task=vllm_engine_args.task,
+            trust_remote_code=vllm_engine_args.trust_remote_code,
+            model_impl=vllm_engine_args.model_impl,
             hf_overrides=vllm_engine_args.hf_overrides,
             override_pooler_config=vllm_engine_args.override_pooler_config,
             distributed_executor_backend="ray",
@@ -255,6 +259,11 @@ class RemoteVllmModel:
                     use_tqdm=False,
                 )
             )
+            # print("************")
+            # print(output[0])
+            # print("==========")
+            # if self._gangs.dp.rank == 0:
+            #     breakpoint()
             chunk_rewards = [o.outputs.data.item() for o in output]
             rewards.extend(chunk_rewards)
         return rewards
