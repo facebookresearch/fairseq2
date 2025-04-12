@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from fairseq2.models.qwen25._checkpoint import (
     convert_qwen_checkpoint as convert_qwen_checkpoint,
+    convert_qwen_fs2_to_hf_checkpoint as convert_qwen_fs2_to_hf_checkpoint,
 )
 from fairseq2.models.qwen25._config import QWEN25_MODEL_FAMILY as QWEN25_MODEL_FAMILY
 from fairseq2.models.qwen25._config import Qwen25Config as Qwen25Config

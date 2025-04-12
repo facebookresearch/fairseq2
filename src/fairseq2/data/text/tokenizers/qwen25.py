@@ -27,7 +27,13 @@ from fairseq2.data.text.tokenizers.huggingface_tokenizer import (
     HuggingfaceTokenizerDecoder,
 )
 from fairseq2.typing import Device
-from transformers import AutoTokenizer
+
+try:
+    from transformers import AutoTokenizer
+except ImportError:
+    raise RuntimeError(
+        "transformers library is required to use HF tokenizers. Install it via `pip install transformers`."
+    )
 
 
 @final

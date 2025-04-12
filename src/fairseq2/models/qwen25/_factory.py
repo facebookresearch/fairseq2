@@ -6,16 +6,9 @@
 
 from __future__ import annotations
 
-import math
-from functools import partial
-
-import torch
-from torch import Tensor
-
 from fairseq2.models.qwen25._config import Qwen25Config
 from fairseq2.models.transformer import (
     TransformerEmbeddingFrontend,
-    TransformerFrontend,
     init_final_projection,
 )
 from fairseq2.models.transformer_decoder import TransformerDecoderModel
@@ -28,7 +21,7 @@ from fairseq2.nn import (
     RMSNorm,
     ReferenceRotaryEncoder,
     StandardEmbedding,
-    TiedProjection
+    TiedProjection,
 )
 from fairseq2.nn.transformer import (
     FeedForwardNetwork,
@@ -40,15 +33,14 @@ from fairseq2.nn.transformer import (
     TransformerDecoder,
     TransformerDecoderLayer,
     TransformerNormOrder,
-    create_default_sdpa
+    create_default_sdpa,
 )
-from fairseq2.nn.transformer._multihead_attention import init_output_projection
 from fairseq2.typing import DataType, Device
 
-from transformers.modeling_rope_utils import ROPE_INIT_FUNCTIONS
 
 def create_qwen25_model(config: Qwen25Config) -> TransformerDecoderModel:
     return Qwen25Factory(config).create_model()
+
 
 class Qwen25Factory:
     _config: Qwen25Config

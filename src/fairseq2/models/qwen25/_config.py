@@ -11,13 +11,21 @@ from typing import Final
 
 from fairseq2.context import RuntimeContext
 from fairseq2.data import VocabularyInfo
-from fairseq2.models.llama._config import LLaMARopeScalingConfig
+
+try:
+    from transformers.models.qwen2.configuration_qwen2 import Qwen2Config
+except ImportError:
+    raise RuntimeError(
+        "transformers library is required to use HF configs. Install it via `pip install transformers`."
+    )
 
 QWEN25_MODEL_FAMILY: Final = "qwen25"
+
 
 @dataclass(kw_only=True)
 class Qwen25Config:
     """Abstract config without defaults"""
+
     model_dim: int
     """The dimensionality of the model."""
 
@@ -47,6 +55,21 @@ class Qwen25Config:
 
     tie_embeddings: bool
 
+    def to_hf_config(self) -> Qwen2Config:
+        return Qwen2Config(
+            hidden_size=self.model_dim,
+            vocab_size=self.vocab_info.size,
+            intermediate_size=self.ffn_inner_dim,
+            num_attention_heads=self.num_attn_heads,
+            num_key_value_heads=self.num_key_value_heads,
+            rope_theta=self.rope_theta,
+            tie_word_embeddings=self.tie_embeddings,
+            num_hidden_layers=self.num_layers,
+            max_position_embeddings=self.max_seq_len,
+            bos_token_id=self.vocab_info.bos_idx,
+            eos_token_id=self.vocab_info.eos_idx,
+        )
+
 
 def register_qwen_configs(context: RuntimeContext) -> None:
     registry = context.get_config_registry(Qwen25Config)
@@ -68,11 +91,11 @@ def register_qwen_configs(context: RuntimeContext) -> None:
             ffn_inner_dim=18944,
             rope_theta=1000000.0,
             tie_embeddings=False,
-            vocab_info=vocab_info
+            vocab_info=vocab_info,
         )
 
         return config
-    
+
     @arch("qwen25_7b")
     def qwen25_7b():
         config = qwen25_7b_instruct()
@@ -95,18 +118,18 @@ def register_qwen_configs(context: RuntimeContext) -> None:
             ffn_inner_dim=8960,
             rope_theta=1000000.0,
             tie_embeddings=True,
-            vocab_info=vocab_info
+            vocab_info=vocab_info,
         )
-    
+
         return config
-    
+
     @arch("qwen25_1_5b")
     def qwen25_1_5b():
         config = qwen25_1_5b_instruct()
         config.vocab_info.eos_idx = 151643
         config.max_seq_len = 131072
         return config
-    
+
     @arch("qwen25_3b_instruct")
     def qwen25_3b_instruct():
         vocab_info = VocabularyInfo(
@@ -121,11 +144,11 @@ def register_qwen_configs(context: RuntimeContext) -> None:
             ffn_inner_dim=11008,
             rope_theta=1000000.0,
             tie_embeddings=True,
-            vocab_info=vocab_info
+            vocab_info=vocab_info,
         )
-    
+
         return config
-    
+
     @arch("qwen25_3b")
     def qwen25_3b():
         config = qwen25_3b_instruct()
