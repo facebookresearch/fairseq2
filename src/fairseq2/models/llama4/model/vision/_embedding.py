@@ -7,11 +7,10 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Callable, Dict, List
+from typing import Any, Dict, List
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from fairseq2.models.llama4._config import LLaMA4VisionEncoderConfig
 from fairseq2.models.llama4.model.vision._encoder import VisionEncoder
@@ -95,9 +94,9 @@ class VisionEmbeddings(torch.nn.Module):
         image_size = config.image_size
         patch_size = config.patch_size
         self.vision_encoder = VisionEncoder(
-            image_size=(image_size.height, image_size.width),
-            patch_size=(patch_size.height, patch_size.width),
-            dim=config.dim,
+            image_size=(image_size, image_size),
+            patch_size=(patch_size, patch_size),
+            dim=config.model_dim,
             layers=config.num_layers,
             heads=config.num_attn_heads,
             mlp_ratio=config.mlp_ratio,

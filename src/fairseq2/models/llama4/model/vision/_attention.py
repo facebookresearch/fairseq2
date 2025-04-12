@@ -102,8 +102,9 @@ class Attention(nn.Module):
 
         self.n_heads = n_heads
         self.n_kv_heads = n_heads if n_kv_heads is None else n_kv_heads
-        self.n_local_heads = n_heads // world_size
-        self.n_local_kv_heads = n_kv_heads // world_size
+        # Will get divided when sharding
+        self.n_local_heads = n_heads
+        self.n_local_kv_heads = n_kv_heads
         self.n_rep = self.n_local_heads // self.n_local_kv_heads
         self.head_dim = dim // n_heads
         

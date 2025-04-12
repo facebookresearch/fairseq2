@@ -100,6 +100,10 @@ def convert_llama4_checkpoint(
                 # This might contain FP8 quantization info
                 pass
             
+            elif k.startswith("vision_") and not config.vision_config:
+                # Skip vision layers if vision config is disabled
+                pass
+            
             elif k.endswith(".expert_activation_DE"):
                 # This doesn't seem to be used in Scout or Maverick
                 pass

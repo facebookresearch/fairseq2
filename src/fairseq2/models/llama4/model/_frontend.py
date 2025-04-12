@@ -10,6 +10,7 @@ import math
 from dataclasses import dataclass
 
 from fairseq2.models.transformer import TransformerFrontend
+from fairseq2.models.llama4.model.vision._embedding import VisionEmbeddings
 from fairseq2.nn import Embedding, IncrementalStateBag, LayerNorm, PositionEncoder, Projection
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.transformer import LayerNormFactory, create_standard_layer_norm
@@ -30,7 +31,7 @@ class LLaMA4DecoderFrontend(TransformerFrontend):
     for multiple modalities."""
     
     embed: Embedding
-    vision_embed: Embedding | None
+    vision_embed: VisionEmbeddings | None
     vision_proj: Projection | None
     scale: float
     pos_encoder: PositionEncoder | None
@@ -40,7 +41,7 @@ class LLaMA4DecoderFrontend(TransformerFrontend):
     def __init__(
         self,
         embed: Embedding,
-        vision_embed: Embedding | None,
+        vision_embed: VisionEmbeddings | None,
         vision_proj: Projection | None,
         pos_encoder: PositionEncoder | None,
         *,

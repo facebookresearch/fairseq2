@@ -70,13 +70,17 @@ class LLaMA4Factory(LLaMAFactory):
     def create_decoder_frontend(self, embed: Embedding) -> TransformerFrontend:
         config = self._config
         
-        vision_embed = VisionEmbeddings(config.vision_config)
-        vision_proj = Linear(
-            config.vision_config.output_dim,
-            config.model_dim,
-            bias=False,
-            init_fn=lambda x: x,
-        )
+        if config.vision_config:
+            vision_embed = VisionEmbeddings(config.vision_config)
+            vision_proj = Linear(
+                config.vision_config.output_dim,
+                config.model_dim,
+                bias=False,
+                init_fn=lambda x: x,
+            )
+        else:
+            vision_embed = None
+            vision_proj = None
         
         return LLaMA4DecoderFrontend(
             embed,

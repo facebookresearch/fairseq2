@@ -61,10 +61,13 @@ def shard_llama4_model(
     def shard_llama4_frontend(m: LLaMA4DecoderFrontend) -> None:
         m.embed = VocabShardedEmbedding.from_embedding(m.embed, tp_gang)
         
-        shard_vision_embedding(m.vision_embed)
-        m.vision_proj = ColumnShardedLinear.from_linear(
-            m.vision_proj, tp_gang
-        )
+        if m.vision_embed is not None:
+            shard_vision_embedding(m.vision_embed, tp_gang)
+        
+        if m.vision_proj is not None:
+            m.vision_proj = ColumnShardedLinear.from_linear(
+                m.vision_proj, tp_gang
+            )
 
     def shard_mha(m: StandardMultiheadAttention) -> None:
         for proj in (m.q_proj, m.k_proj, m.v_proj, m.output_proj):

@@ -128,6 +128,8 @@ def register_llama4_configs(context: RuntimeContext) -> None:
         config.use_qk_norm = True
 
         config.experts = LLaMA4ExpertsConfig()
+        
+        #config.vision_config = LLaMA4VisionEncoderConfig()
 
         config.rope_theta = 500_000.0
         config.use_scaled_rope = True
