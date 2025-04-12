@@ -19,10 +19,10 @@ from fairseq2.assets import (
     AssetCardFieldNotFoundError,
     AssetCardNotFoundError,
 )
-from fairseq2.cli import CliArgumentError, CliCommandHandler
+from fairseq2.cli import CliArgumentError, CliCommandHandler, CliCommandError
 from fairseq2.cli.utils.rich import get_error_console
 from fairseq2.context import RuntimeContext
-from fairseq2.error import InternalError, ProgramError
+from fairseq2.error import InternalError
 from fairseq2.logging import log
 from fairseq2.models import ModelConfigLoadError, ModelHandler
 from fairseq2.models.qwen25 import (
@@ -74,8 +74,8 @@ class ConvertQwen25CheckpointHandler(CliCommandHandler):
 
         input_dir: Path = args.input_dir
 
-        def read_error() -> ProgramError:
-            return ProgramError(
+        def read_error() -> CliCommandError:
+            return CliCommandError(
                 f"The '{input_dir}' directory cannot be read. See the nested exception for details."
             )
 

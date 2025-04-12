@@ -9,7 +9,6 @@ from __future__ import annotations
 from fairseq2.models.qwen25._config import Qwen25Config
 from fairseq2.models.transformer import (
     TransformerEmbeddingFrontend,
-    init_final_projection,
 )
 from fairseq2.models.transformer_decoder import TransformerDecoderModel
 from fairseq2.nn import (
@@ -36,6 +35,7 @@ from fairseq2.nn.transformer import (
     create_default_sdpa,
 )
 from fairseq2.typing import DataType, Device
+from fairseq2.models.llama._factory import _init_truncated_normal
 
 
 def create_qwen25_model(config: Qwen25Config) -> TransformerDecoderModel:
@@ -62,7 +62,7 @@ class Qwen25Factory:
             decoder,
             final_proj,
             max_seq_len=config.max_seq_len,
-            vocab_info=config.vocab_info,
+            pad_idx=config.vocab_info.pad_idx
         )
 
     def create_decoder_frontend(self) -> TransformerEmbeddingFrontend:
@@ -159,12 +159,19 @@ class Qwen25Factory:
                 )
 
             return TiedProjection(embed.weight, bias=None)
+        
+        def init_projection(proj: Linear) -> None:
+            input_dim = proj.weight.shape[1]
+
+            std = input_dim**-0.5
+
+            _init_truncated_normal(proj.weight, proj.bias, std=std)
 
         return Linear(
             config.model_dim,
             config.vocab_info.size,
             bias=False,
-            init_fn=init_final_projection,
+            init_fn=init_projection,
         )
 
     @staticmethod
