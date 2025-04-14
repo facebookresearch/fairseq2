@@ -11,15 +11,15 @@ from fairseq2.models.llama4._checkpoint import (
 )
 from fairseq2.models.llama4._config import LLAMA4_MODEL_FAMILY as LLAMA4_MODEL_FAMILY
 from fairseq2.models.llama4._config import LLaMA4DecoderConfig as LLaMA4DecoderConfig
-from fairseq2.models.llama._config import (
-    LLaMARopeScalingConfig as LLaMARopeScalingConfig,
-)
 from fairseq2.models.llama4._config import (
     register_llama4_configs as register_llama4_configs,
 )
 from fairseq2.models.llama4._factory import LLaMA4Factory as LLaMA4Factory
 from fairseq2.models.llama4._factory import create_llama4_model as create_llama4_model
 from fairseq2.models.llama4._shard import shard_llama4_model as shard_llama4_model
+from fairseq2.models.llama._config import (
+    LLaMARopeScalingConfig as LLaMARopeScalingConfig,
+)
 
 # isort: split
 

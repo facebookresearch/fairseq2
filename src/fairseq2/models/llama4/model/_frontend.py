@@ -9,15 +9,22 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from fairseq2.models.transformer import TransformerFrontend
-from fairseq2.models.llama4.model.vision._embedding import VisionEmbeddings
-from fairseq2.nn import Embedding, IncrementalStateBag, LayerNorm, PositionEncoder, Projection
-from fairseq2.nn.padding import PaddingMask
-from fairseq2.nn.transformer import LayerNormFactory, create_standard_layer_norm
-from fairseq2.typing import DataType, Device
 from torch import Tensor
 from torch.nn import Dropout
 from typing_extensions import override
+
+from fairseq2.models.llama4.model.vision._embedding import VisionEmbeddings
+from fairseq2.models.transformer import TransformerFrontend
+from fairseq2.nn import (
+    Embedding,
+    IncrementalStateBag,
+    LayerNorm,
+    PositionEncoder,
+    Projection,
+)
+from fairseq2.nn.padding import PaddingMask
+from fairseq2.nn.transformer import LayerNormFactory, create_standard_layer_norm
+from fairseq2.typing import DataType, Device
 
 
 @dataclass
@@ -29,7 +36,7 @@ class MaskedEmbedding:
 class LLaMA4DecoderFrontend(TransformerFrontend):
     """Represents a Llama 4 front-end with different embeddings
     for multiple modalities."""
-    
+
     embed: Embedding
     vision_embed: VisionEmbeddings | None
     vision_proj: Projection | None
@@ -104,7 +111,7 @@ class LLaMA4DecoderFrontend(TransformerFrontend):
             self.dropout = Dropout(dropout_p)
         else:
             self.register_module("dropout", None)
-    
+
     @override
     def forward(
         self,
@@ -115,15 +122,14 @@ class LLaMA4DecoderFrontend(TransformerFrontend):
         image_embedding: MaskedEmbedding | None = None,
     ) -> tuple[Tensor, PaddingMask | None]:
         embeds = self.embed(seqs)
-        
+
         # early image fusion if relevant embeddings are passed
         if image_embedding is not None and self.vision_proj is not None:
             embeds_image = self.vision_proj(image_embedding.embedding)
             embeds = (
-                embeds * ~image_embedding.mask
-                + embeds_image * image_embedding.mask
+                embeds * ~image_embedding.mask + embeds_image * image_embedding.mask
             )
-        
+
         if self.scale != 1.0:
             embeds = embeds * self.scale
 

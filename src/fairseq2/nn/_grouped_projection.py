@@ -10,14 +10,15 @@ from abc import ABC, abstractmethod
 from typing import final
 
 import torch
-from fairseq2.gang import Gang
-from fairseq2.nn.utils.module import to_empty
-from fairseq2.tensor_parallel import gather, reduce, reduce_on_backward, scatter
-from fairseq2.typing import META, DataType, Device
 from torch import Tensor
 from torch.nn import Module
 from torch.nn.parameter import Parameter
 from typing_extensions import override
+
+from fairseq2.gang import Gang
+from fairseq2.nn.utils.module import to_empty
+from fairseq2.tensor_parallel import gather, reduce, reduce_on_backward, scatter
+from fairseq2.typing import META, DataType, Device
 
 
 class GroupedProjection(Module, ABC):
@@ -281,10 +282,14 @@ class BatchRowShardedLinear(GroupedProjection):
     weight: Parameter
     bias: Parameter | None
     scatter_input: bool
+    reduce_output: bool
 
     @staticmethod
     def from_batch_linear(
-        linear: BatchLinear, gang: Gang, scatter_input: bool = False
+        linear: BatchLinear,
+        gang: Gang,
+        scatter_input: bool = False,
+        reduce_output: bool = True,
     ) -> "BatchRowShardedLinear":
         """Construct a :class:`BatchedRowShardedLinear` by sharding a BatchedLinear.
 
@@ -295,6 +300,8 @@ class BatchRowShardedLinear(GroupedProjection):
         :param scatter_input:
             If ``True``, inputs are considered already sharded and won't be
             scattered.
+        :param reduce_output:
+            If ``False``, output will not be reduced at the end.
         """
         device = linear.weight.device
 
@@ -311,6 +318,7 @@ class BatchRowShardedLinear(GroupedProjection):
             input_dim,
             output_dim,
             scatter_input=scatter_input,
+            reduce_output=reduce_output,
             device=META,
             dtype=linear.weight.dtype,
         )
@@ -330,6 +338,7 @@ class BatchRowShardedLinear(GroupedProjection):
         output_dim: int,
         *,
         scatter_input: bool = True,
+        reduce_output: bool = True,
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> None:
@@ -345,6 +354,8 @@ class BatchRowShardedLinear(GroupedProjection):
         :param scatter_input:
             If ``True``, scatters the input tensor; otherwise, considers it
             already sharded.
+        :param reduce_output:
+            If ``False``, output will not be reduced at the end.
         """
         super().__init__(extra_first_dim, input_dim, output_dim)
 
@@ -371,6 +382,7 @@ class BatchRowShardedLinear(GroupedProjection):
 
         self.weight = Parameter(weight)
         self.scatter_input = scatter_input
+        self.reduce_output = reduce_output
 
     def _copy_weight(self, param: Parameter) -> None:
         with torch.no_grad():
@@ -385,7 +397,8 @@ class BatchRowShardedLinear(GroupedProjection):
 
         x = _maybe_bmm(x, self.weight, num_inputs_per_group)
 
-        x = reduce(x, self.gang)
+        if self.reduce_output:
+            x = reduce(x, self.gang)
 
         return x
 
@@ -402,6 +415,7 @@ class BatchRowShardedLinear(GroupedProjection):
             f"{s}, "
             f"output_dim={self.output_dim}, "
             f"scatter_input={self.scatter_input}, "
+            f"reduce_output={self.reduce_output}, "
             f"rank={self.gang.rank}, "
             f"world_size={self.gang.size}"
         )

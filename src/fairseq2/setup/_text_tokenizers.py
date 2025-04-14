@@ -54,7 +54,7 @@ def register_text_tokenizer_families(context: RuntimeContext) -> None:
     registrar.register_family(
         LLAMA_TOKENIZER_FAMILY, load_llama_tokenizer
     )
-    
+
     # LLaMA 4
     registrar.register_family(
         LLAMA4_TOKENIZER_FAMILY, load_llama4_tokenizer

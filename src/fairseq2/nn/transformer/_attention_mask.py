@@ -247,7 +247,7 @@ class CausalAttentionMaskFactory(AttentionMaskFactory):
 @final
 class ChunkedAttentionMask(AbstractAttentionMask):
     """Represents a chunked attention mask.
-    
+
     Tokens (0, K), (K, 2K), (2K, 3K) attend to each other
     when doing local chunked attention in the iRoPE architecture.
     """
@@ -317,7 +317,7 @@ class ChunkedAttentionMaskFactory(AttentionMaskFactory):
             seq_len = attn_len
         else:
             seq_len = state_bag.step_nr + attn_len
-        
+
         if attn_len <= 1:
             # Return `None` if the sequence has a length of 1 during training;
             # or if we attend to past steps during incremental decoding.
@@ -518,7 +518,7 @@ def _create_chunked_attention_mask(
 ) -> torch.Tensor:
     if dtype is None:
         dtype = torch.get_default_dtype()
-    
+
     block_pos = torch.abs(
         (torch.arange(seq_len).unsqueeze(0) // attention_chunk_size)
         - (torch.arange(seq_len).unsqueeze(1) // attention_chunk_size)

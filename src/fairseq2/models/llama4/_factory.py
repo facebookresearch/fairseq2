@@ -6,26 +6,17 @@
 
 from __future__ import annotations
 
-import math
-from functools import partial
 from typing_extensions import override
 
-import torch
-import torch.nn as nn
-from torch import Tensor
-
-from fairseq2.models.llama._config import LLaMARopeScalingConfig
-from fairseq2.models.llama._factory import (
-    LLaMAFactory,
-    init_llama_rope_freqs,
-    _init_truncated_normal,
-)
 from fairseq2.models.llama4._config import LLaMA4DecoderConfig
 from fairseq2.models.llama4.model._frontend import LLaMA4DecoderFrontend
 from fairseq2.models.llama4.model.moe._moe import MoE
 from fairseq2.models.llama4.model.vision._embedding import VisionEmbeddings
+from fairseq2.models.llama._factory import (
+    LLaMAFactory,
+    _init_truncated_normal,
+)
 from fairseq2.models.transformer import (
-    TransformerEmbeddingFrontend,
     TransformerFrontend,
 )
 from fairseq2.models.transformer_decoder import TransformerDecoderModel
@@ -33,26 +24,14 @@ from fairseq2.nn import (
     Embedding,
     LayerNorm,
     Linear,
-    PositionEncoder,
-    Projection,
     RMSNorm,
-    RotaryEncoder,
-    StandardEmbedding,
-    TiedProjection,
 )
 from fairseq2.nn.transformer import (
     FeedForwardNetwork,
-    GLUFeedForwardNetwork,
-    MultiheadAttention,
-    StandardMultiheadAttention,
     StandardTransformerDecoder,
-    StandardTransformerDecoderLayer,
     TransformerDecoder,
-    TransformerDecoderLayer,
     TransformerNormOrder,
-    create_default_sdpa,
 )
-from fairseq2.nn.transformer._attention_mask import AttentionMaskFactory
 from fairseq2.typing import DataType, Device
 
 
@@ -65,23 +44,23 @@ class LLaMA4Factory(LLaMAFactory):
 
     def __init__(self, config: LLaMA4DecoderConfig) -> None:
         self._config = config
-    
+
     @override
     def create_decoder_frontend(self, embed: Embedding) -> TransformerFrontend:
         config = self._config
-        
+
         if config.vision_config:
             vision_embed = VisionEmbeddings(config.vision_config)
             vision_proj = Linear(
                 config.vision_config.output_dim,
                 config.model_dim,
                 bias=False,
-                init_fn=lambda x: x,
+                init_fn=lambda x: None,
             )
         else:
             vision_embed = None
             vision_proj = None
-        
+
         return LLaMA4DecoderFrontend(
             embed,
             vision_embed,
@@ -90,7 +69,7 @@ class LLaMA4Factory(LLaMAFactory):
             no_scale=True,
             dropout_p=config.dropout_p,
         )
-    
+
     @override
     def create_decoder(self) -> TransformerDecoder:
         config = self._config
@@ -104,7 +83,7 @@ class LLaMA4Factory(LLaMAFactory):
             layer = self.create_decoder_layer(idx, pos_encoder)
 
             layers.append(layer)
-            
+
             use_local_attn_mask.append(not self._is_nope_layer(idx))
 
         return StandardTransformerDecoder(
@@ -115,7 +94,7 @@ class LLaMA4Factory(LLaMAFactory):
             attention_chunk_size=config.attention_chunk_size,
             use_local_attn_mask=use_local_attn_mask,
         )
-    
+
     @override
     def create_ffn(self, layer_idx: int) -> FeedForwardNetwork:
         config = self._config
@@ -132,9 +111,9 @@ class LLaMA4Factory(LLaMAFactory):
             _init_truncated_normal(proj.weight, proj.bias, std=std / std_scale_factor)
 
         ffn_inner_dim = int(config.ffn_inner_dim * config.ffn_inner_dim_multiplier)
-        
+
         # TODO: implement interleave_moe_layer_step for Llama 4 Maverick
-        
+
         return MoE(
             config.model_dim,
             ffn_inner_dim,
@@ -148,6 +127,7 @@ class LLaMA4Factory(LLaMAFactory):
             expert_act_threshold=config.experts.expert_act_threshold,
         )
 
+        # TODO: re-introduce for Maverick
         # return GLUFeedForwardNetwork(
         #     config.model_dim,
         #     ffn_inner_dim,
@@ -157,3 +137,50 @@ class LLaMA4Factory(LLaMAFactory):
         #     inner_dropout_p=config.dropout_p,
         #     proj_init_fn=init_projection,
         # )
+
+    @staticmethod
+    def create_llama4_rms_norm(
+        model_dim: int,
+        *,
+        elementwise_affine: bool = True,
+        device: Device | None = None,
+        dtype: DataType | None = None,
+    ) -> LayerNorm:
+        # This is llama-stack version, we can try switching
+        return RMSNorm(
+            model_dim,
+            bias=False,
+            impl="py",
+            elementwise_affine=elementwise_affine,
+            eps=1e-5,
+            device=device,
+            dtype=dtype,
+        )
+
+    @staticmethod
+    def create_layer_norm(
+        model_dim: int,
+        *,
+        device: Device | None = None,
+        dtype: DataType | None = None,
+    ) -> LayerNorm:
+        return LLaMA4Factory.create_llama4_rms_norm(
+            model_dim,
+            elementwise_affine=True,
+            device=device,
+            dtype=dtype,
+        )
+
+    @staticmethod
+    def create_qk_norm(
+        model_dim: int,
+        *,
+        device: Device | None = None,
+        dtype: DataType | None = None,
+    ) -> LayerNorm:
+        return LLaMA4Factory.create_llama4_rms_norm(
+            model_dim,
+            elementwise_affine=False,
+            device=device,
+            dtype=dtype,
+        )

@@ -149,10 +149,10 @@ def register_model_families(context: RuntimeContext) -> None:
     )
 
     register_llama_configs(context)
-    
+
     # LLaMA 4
     default_arch = "llama4_scout"
-    
+
     registrar.register_family(
         LLAMA4_MODEL_FAMILY,
         TransformerDecoderModel,
@@ -163,7 +163,7 @@ def register_model_families(context: RuntimeContext) -> None:
         sharder=shard_llama4_model,
         compiler=compile_llama_model,
     )
-    
+
     register_llama4_configs(context)
 
     # Mistral

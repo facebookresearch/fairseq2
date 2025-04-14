@@ -11,12 +11,11 @@ from typing import Final, final
 
 from typing_extensions import override
 
-from fairseq2.assets import AssetCard, AssetCardError, AssetCardFieldNotFoundError
+from fairseq2.assets import AssetCard
 from fairseq2.data import VocabularyInfo
 from fairseq2.data.text.tokenizers import (
     TextTokenizer,
     TextTokenizerLoadError,
-    text_tokenizer_asset_card_error,
 )
 from fairseq2.data.text.tokenizers.tiktoken import (
     TiktokenDecoder,
@@ -26,9 +25,13 @@ from fairseq2.data.text.tokenizers.tiktoken import (
 from fairseq2.typing import Device
 
 
-
-def get_reserved_special_tokens(name, count, start_index=0):
-    return [f"<|{name}_reserved_special_token_{i}|>" for i in range(start_index, start_index + count)]
+def get_reserved_special_tokens(
+    name: str, count: int, start_index: int = 0
+) -> list[str]:
+    return [
+        f"<|{name}_reserved_special_token_{i}|>"
+        for i in range(start_index, start_index + count)
+    ]
 
 
 # 200005, ..., 200079
@@ -85,7 +88,9 @@ LLAMA4_REASONING_SPECIAL_TOKENS = [
 ]
 
 LLAMA4_SPECIAL_TOKENS = (
-    LLAMA4_TEXT_POST_TRAIN_SPECIAL_TOKENS + LLAMA4_VISION_SPECIAL_TOKENS + LLAMA4_REASONING_SPECIAL_TOKENS
+    LLAMA4_TEXT_POST_TRAIN_SPECIAL_TOKENS
+    + LLAMA4_VISION_SPECIAL_TOKENS
+    + LLAMA4_REASONING_SPECIAL_TOKENS
 )
 
 BASIC_SPECIAL_TOKENS = [
@@ -100,9 +105,9 @@ BASIC_SPECIAL_TOKENS = [
 @final
 class LLaMA4Tokenizer(TextTokenizer):
     """Represents a LLaMA 4 tokenizer."""
-    
+
     O200K_PATTERN = r"""[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]*[\p{Ll}\p{Lm}\p{Lo}\p{M}]+(?i:'s|'t|'re|'ve|'m|'ll|'d)?|[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]+[\p{Ll}\p{Lm}\p{Lo}\p{M}]*(?i:'s|'t|'re|'ve|'m|'ll|'d)?|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n/]*|\s*[\r\n]+|\s+(?!\S)|\s+"""  # fmt: skip
-    
+
     num_reserved_special_tokens = 2048
 
     _SPLIT_REGEX: Final = O200K_PATTERN
@@ -119,13 +124,14 @@ class LLaMA4Tokenizer(TextTokenizer):
             If not ``None``, replaces the original EOS token.
         """
         self._eos_token = custom_eos or "<|end_of_text|>"
-        
+
         special_tokens = BASIC_SPECIAL_TOKENS + LLAMA4_SPECIAL_TOKENS
         assert len(set(special_tokens)) == len(special_tokens)
         assert len(special_tokens) <= self.num_reserved_special_tokens
 
         reserved_tokens = [
-            f"<|reserved_special_token_{i}|>" for i in range(self.num_reserved_special_tokens - len(special_tokens))
+            f"<|reserved_special_token_{i}|>"
+            for i in range(self.num_reserved_special_tokens - len(special_tokens))
         ]
         special_tokens = special_tokens + reserved_tokens
 

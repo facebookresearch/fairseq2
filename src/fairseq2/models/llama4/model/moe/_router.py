@@ -8,7 +8,7 @@ from typing import NamedTuple, Optional
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+
 from fairseq2.typing import DataType, Device
 
 
@@ -60,8 +60,6 @@ class Router(nn.Module):
     top_k: int
     eval_with_expert_activation_model: bool
     expert_act_threshold: float
-    is_tp_sharding_strategy: bool
-    tp_size: int
 
     def __init__(
         self,
@@ -79,15 +77,12 @@ class Router(nn.Module):
         self.gate = nn.Parameter(
             torch.empty(model_dim, num_experts, device=device, dtype=dtype)
         )
-        
+
         self.expert_act_threshold = expert_act_threshold
 
         self.model_dim = model_dim
         self.num_experts = num_experts
         self.top_k = top_k
-        self.is_tp_sharding_strategy = is_tp_sharding_strategy
-        # Start initially with tp_size == 1 until sharding is actually performed
-        self.tp_size = 1
 
     def forward(
         self, x: torch.Tensor, experts_threshold: Optional[torch.Tensor] = None
@@ -110,17 +105,21 @@ class Router(nn.Module):
 
         # logits shape (bs*slen, num_experts)
         logits = x @ self.gate
-        
+
         scores, token_indices = torch.topk(logits, self.top_k, dim=1)
-        
+
         scores = (
             torch.full_like(logits, float("-inf"))
             .scatter_(1, token_indices, scores)
             .transpose(0, 1)
         )
-        
-        token_indices = torch.arange(bszseqlen, device=x.device).view(1, -1).expand(scores.size(0), -1)
-        
+
+        token_indices = (
+            torch.arange(bszseqlen, device=x.device)
+            .view(1, -1)
+            .expand(scores.size(0), -1)
+        )
+
         scores = torch.sigmoid(scores)
 
         return RouterOutput(

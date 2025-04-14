@@ -11,8 +11,9 @@ from enum import Enum, auto
 from typing import Any, Dict, List, Optional
 
 import torch
-from fairseq2.gang import Gang
 from typing_extensions import override
+
+from fairseq2.gang import Gang
 
 
 class ShardingStrategy(Enum):

@@ -371,7 +371,7 @@ class StandardMultiheadAttention(MultiheadAttention):
             self.register_parameter("head_scale_weight", None)
 
         v_dim = v_proj.output_dim * num_query_groups
-        
+
         self.qk_norm = qk_norm
 
         if output_proj is None:
@@ -534,7 +534,7 @@ class StandardMultiheadAttention(MultiheadAttention):
 
         if self.pos_encoder is not None:
             q = self.pos_encoder(q, padding_mask, state_bag=state_bag)
-        
+
         if self.qk_norm is not None:
             q = self.qk_norm(q)
 
@@ -559,7 +559,7 @@ class StandardMultiheadAttention(MultiheadAttention):
 
         if self.pos_encoder is not None:
             k = self.pos_encoder(k, key_padding_mask, state_bag=state_bag)
-        
+
         if self.qk_norm is not None:
             k = self.qk_norm(k)
 

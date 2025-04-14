@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-from fairseq2.typing import DataType, Device
 from torch import Tensor, nn
 from torch.nn import Module, SiLU
 

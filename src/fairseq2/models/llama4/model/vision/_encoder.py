@@ -15,13 +15,13 @@ from torch import einsum
 
 from fairseq2.models.llama4.model.vision._attention import Attention
 from fairseq2.models.llama4.model.vision._ffn import _FeedForward
-from fairseq2.nn import Linear
+from fairseq2.nn import Linear, Projection
 
 
 class LayerNorm(nn.LayerNorm):
     """Subclass torch's LayerNorm to handle fp16."""
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = F.layer_norm(x, self.normalized_shape, self.weight, self.bias, self.eps)
         return x
 
@@ -39,13 +39,15 @@ class Conv2dPatch(torch.nn.Module):
     Output: (bsz, num_tokens, out_channels)
     """
 
+    _linear: Projection
+
     def __init__(
         self,
         in_channels: int,
         out_channels: int,
         kernel_size: Union[int, Tuple[int, int]],
         stride: Union[int, Tuple[int, int]],
-        bias: Optional[bool] = False,
+        bias: bool = False,
     ) -> None:
         super().__init__()
         if isinstance(kernel_size, int):
@@ -70,12 +72,12 @@ class _TransformerBlock(nn.Module):
         d_model: int,
         n_head: int,
         mlp_ratio: float = 4.0,
-        act_layer: Callable = nn.GELU,
+        act_layer: Callable[..., nn.Module] = nn.GELU,
         gated: bool = False,
-    ):
+    ) -> None:
         super().__init__()
         assert d_model % n_head == 0
-        
+
         self.attn = Attention(
             dim=d_model,
             n_heads=n_head,
@@ -90,7 +92,7 @@ class _TransformerBlock(nn.Module):
             hidden_dim=int(mlp_ratio * d_model),
             dropout=0.0,
             act_layer=act_layer,
-            init_method=lambda x: x,
+            init_method=lambda x: None,
         )
         self.ln_2 = LayerNorm(d_model)
         self.gated = gated
@@ -102,15 +104,15 @@ class _TransformerBlock(nn.Module):
         self,
         x: torch.Tensor,
         freq_cis: Optional[torch.Tensor] = None,
-    ):
-        return self.attn(x=x, start_pos=0, freqs_cis=freq_cis)
+    ) -> torch.Tensor:
+        return self.attn(x=x, start_pos=0, freqs_cis=freq_cis)  # type: ignore
 
     def forward(
         self,
         x: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
         freq_cis: Optional[torch.Tensor] = None,
-    ):
+    ) -> torch.Tensor:
         _gate_attn = 1 if not self.gated else self.gate_attn.tanh()
         _gate_ffn = 1 if not self.gated else self.gate_ffn.tanh()
 
@@ -126,9 +128,9 @@ class _Transformer(nn.Module):
         layers: int,
         heads: int,
         mlp_ratio: float = 4.0,
-        act_layer: Callable = nn.GELU,
+        act_layer: Callable[..., nn.Module] = nn.GELU,
         gated: bool = False,
-    ):        
+    ) -> None:
         super().__init__()
         self.resblocks = nn.ModuleList(
             [
@@ -143,7 +145,13 @@ class _Transformer(nn.Module):
             ]
         )
 
-    def forward(self, x: torch.Tensor, return_intermediate=None, mask=None, freq_cis=None):
+    def forward(
+        self,
+        x: torch.Tensor,
+        return_intermediate: Optional[list[int]] = None,
+        mask: Optional[torch.Tensor] = None,
+        freq_cis: Optional[torch.Tensor] = None,
+    ) -> tuple[torch.Tensor, torch.Tensor] | torch.Tensor:
         out = []
         for idx, r in enumerate(self.resblocks):
             if return_intermediate is not None and idx in return_intermediate:
@@ -184,7 +192,7 @@ class VisionEncoder(nn.Module):
         heads: int,
         mlp_ratio: float,
         in_channels: int = 3,
-    ):
+    ) -> None:
         super().__init__()
         self.image_size = image_size
         self.patch_size = patch_size
@@ -220,7 +228,9 @@ class VisionEncoder(nn.Module):
         image_h, image_w = self.image_size
         patch_h, patch_w = self.patch_size
         idx_h, idx_w = image_h // patch_h, image_w // patch_w
-        img_idx = torch.arange(image_h * image_w // (patch_h * patch_w), dtype=torch.int32)
+        img_idx = torch.arange(
+            image_h * image_w // (patch_h * patch_w), dtype=torch.int32
+        )
         img_idx = img_idx.reshape(idx_h * idx_w, 1)
         img_idx = torch.cat([img_idx, img_idx[:1]], dim=0)
         img_idx[-1, -1] = PackingIndex.ID_CLS_TOKEN
@@ -241,25 +251,33 @@ class VisionEncoder(nn.Module):
 
         # compute rope freqs
         rope_freq = self.get_rope_freqs(dim // heads // 2)
-        freqs_x = self.compute_rope_freqs(rope_freq, packed_img_idx[:, :, PackingIndex.X] + 1)
-        freqs_y = self.compute_rope_freqs(rope_freq, packed_img_idx[:, :, PackingIndex.Y] + 1)
+        freqs_x = self.compute_rope_freqs(
+            rope_freq, packed_img_idx[:, :, PackingIndex.X] + 1
+        )
+        freqs_y = self.compute_rope_freqs(
+            rope_freq, packed_img_idx[:, :, PackingIndex.Y] + 1
+        )
         freqs = torch.cat([freqs_x, freqs_y], dim=-1).float().contiguous()[..., ::2]
         # disable RoPE for padding and cls tokens
         freqs = freqs.masked_fill(packed_img_idx[:, :, PackingIndex.IDX, None] < 0, 0)
         # compute complex freqs
-        self.freq_cis = torch.view_as_complex(torch.stack([torch.cos(freqs), torch.sin(freqs)], dim=-1))
+        self.freq_cis = torch.view_as_complex(
+            torch.stack([torch.cos(freqs), torch.sin(freqs)], dim=-1)
+        )
         # xlf automatically broadcasts
         self.freq_cis = self.freq_cis.squeeze(0)
-        
+
         # TODO: remove this and move load_hook to _checkpoint
         self._register_load_state_dict_pre_hook(self.load_hook)
 
-    def get_rope_freqs(self, dim, theta=10000):
-        freqs = 1.0 / (theta ** (torch.arange(0, dim, 2)[: (dim // 2)].float() / dim))
+    def get_rope_freqs(self, dim: int, theta: int = 10000) -> torch.Tensor:
+        freqs: torch.Tensor = 1.0 / (
+            theta ** (torch.arange(0, dim, 2)[: (dim // 2)].float() / dim)
+        )
         return freqs
 
-    @torch.amp.autocast("cuda", enabled=False)
-    def compute_rope_freqs(self, freqs, t):
+    @torch.amp.autocast("cuda", enabled=False)  # type: ignore
+    def compute_rope_freqs(self, freqs: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
         freqs = einsum("..., f -> ... f", t.type(freqs.dtype), freqs)
         freqs = freqs.repeat_interleave(2, dim=-1)
         return freqs
@@ -270,13 +288,16 @@ class VisionEncoder(nn.Module):
         prefix: str,
         local_metadata: Dict[str, Any],
         strict: bool = True,
-        missing_keys: List[str] = None,
-        unexpected_keys: List[str] = None,
-        error_msgs: List[str] = None,
+        missing_keys: List[str] | None = None,
+        unexpected_keys: List[str] | None = None,
+        error_msgs: List[str] | None = None,
         return_state_dict: bool = False,
-    ) -> None:
+    ) -> None | Dict[str, Any]:
         orig_pos_embed = state_dict.get(prefix + "positional_embedding")
-        if orig_pos_embed is not None and orig_pos_embed.shape[-2:] != self.positional_embedding_vlm.shape[-2:]:
+        if (
+            orig_pos_embed is not None
+            and orig_pos_embed.shape[-2:] != self.positional_embedding_vlm.shape[-2:]
+        ):
             raise ValueError(
                 f"Positional embedding shape {orig_pos_embed.shape} does not match expected shape {self.positional_embedding_vlm.shape}"
             )
@@ -288,22 +309,36 @@ class VisionEncoder(nn.Module):
 
         # Grid values are [-1, 1] and coords are w, h
         grid = (
-            (idx[:, :, [PackingIndex.X, PackingIndex.Y]] / idx[:, :, [PackingIndex.WIDTH, PackingIndex.HEIGHT]]) * 2 - 1
+            (
+                idx[:, :, [PackingIndex.X, PackingIndex.Y]]
+                / idx[:, :, [PackingIndex.WIDTH, PackingIndex.HEIGHT]]
+            )
+            * 2
+            - 1
         )[None, ...]
 
         # In this mode, cls token has no position embedding
         if orig_pos_embed is not None:
             posemb = (
-                orig_pos_embed[1:].view(1, self.grid_size[0], self.grid_size[1], -1).permute(0, 3, 1, 2).contiguous()
+                orig_pos_embed[1:]
+                .view(1, self.grid_size[0], self.grid_size[1], -1)
+                .permute(0, 3, 1, 2)
+                .contiguous()
             )
             posemb = posemb.to(device=grid.device, dtype=grid.dtype)
             sample = F.grid_sample(
                 posemb, grid, padding_mode="zeros"
             )  # padding tokens / class token will get zero for posemb
-            sample = sample.view(-1, total_windows, window_size).permute(1, 2, 0).contiguous()
+            sample = (
+                sample.view(-1, total_windows, window_size)
+                .permute(1, 2, 0)
+                .contiguous()
+            )
             sample = torch.where(
                 idx[:, :, PackingIndex.IDX, None] == PackingIndex.ID_CLS_TOKEN,
-                orig_pos_embed[0].view(1, 1, -1).to(device=sample.device, dtype=sample.dtype),
+                orig_pos_embed[0]
+                .view(1, 1, -1)
+                .to(device=sample.device, dtype=sample.dtype),
                 sample,
             )
 
@@ -313,13 +348,16 @@ class VisionEncoder(nn.Module):
 
         if return_state_dict:
             return state_dict
+        return None
 
-    def apply_class_embedding(self, x):
+    def apply_class_embedding(self, x: torch.Tensor) -> torch.Tensor:
         x = torch.cat(
             [
                 x,
                 self.class_embedding.to(x.dtype)
-                + torch.zeros(x.shape[0], 1, x.shape[-1], dtype=x.dtype, device=x.device),
+                + torch.zeros(
+                    x.shape[0], 1, x.shape[-1], dtype=x.dtype, device=x.device
+                ),
             ],
             dim=1,
         )  # shape = [*, grid ** 2 + 1, width]

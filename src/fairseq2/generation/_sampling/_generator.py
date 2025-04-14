@@ -458,7 +458,7 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
     _step_hooks: dict[int, StepHook]
     _step_nr: int
     _state_bag: IncrementalStateBag
-    _prompt_lens: Tensor | None
+    _prompt_lens: Tensor
     _prompt_mask: Tensor | None
     _prompt_indices: Tensor
     _seqs: Tensor
@@ -509,7 +509,7 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
                 (prompt_seqs.size(0),),
                 prompt_seqs.size(1),
                 dtype=prompt_seqs.dtype,
-                device=prompt_seqs.device
+                device=prompt_seqs.device,
             )
         else:
             prompt_seq_lens = prompt_padding_mask.seq_lens
@@ -530,7 +530,7 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
             raise ValueError(
                 f"The length of `prompt_seqs[{int(max_prompt_idx)}]` must be less than `max_seq_len` ({max_seq_len}), but is {self._max_prompt_len} instead."
             )
-        
+
         self._min_seq_lens = (prompt_seq_lens + min_gen_len).clamp(max=max_seq_len)
         self._max_seq_len = min(max_seq_len, self._max_prompt_len + max_gen_len)
 
@@ -550,13 +550,12 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
             self._max_seq_len, capacity_increment=decode_capacity_increment
         )
 
+        # (P)
+        self._prompt_lens = prompt_seq_lens
+
         if prompt_padding_mask is None:
-            self._prompt_lens = None
             self._prompt_mask = None
         else:
-            # (P)
-            self._prompt_lens = prompt_padding_mask.seq_lens
-
             # (P, S_prm)
             self._prompt_mask = prompt_padding_mask.materialize()
 
@@ -655,8 +654,7 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
 
             logits = model_output.logits
 
-            if self._temperature != 1.0:
-                logits /= self._temperature
+            self._apply_temperature(logits)
 
             # (P, S_prm - 1, V)
             probs = softmax(logits, dim=-1, dtype=torch.float32)
@@ -695,6 +693,7 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
         self._counters.prefill_size += prefill_len * self._seqs.size(0)
 
     def _step(self) -> bool:
+
         # Generate the next step output.
         model_output = self._decode(self._seqs[:, self._step_nr - 1 : self._step_nr])
 
@@ -704,8 +703,7 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
 
         logits = model_output.logits
 
-        if self._temperature != 1.0:
-            logits /= self._temperature
+        self._apply_temperature(logits)
 
         # (N, 1, V)
         probs = softmax(logits, dim=-1, dtype=torch.float32)
@@ -739,7 +737,9 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
                 probs[:, self._pad_idx] = 0
 
             # Do not allow EOS till we reach the minimum sequence length.
-            do_not_eos_mask = self._step_nr < self._min_seq_lens - 1
+            mask_min_len = self._step_nr < self._min_seq_lens - 1
+            mask_after_prompt = self._step_nr >= self._prompt_lens
+            do_not_eos_mask = mask_min_len & mask_after_prompt
             probs[do_not_eos_mask, self._eos_idx] = 0
 
             # (N)
@@ -859,6 +859,16 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
 
         self._output[prompt_idx].append(Hypothesis(seq, score, step_scores))
 
+    def _apply_temperature(self, logits: Tensor) -> None:
+        if self._temperature == 0.0:
+            max_indices = torch.argmax(logits, dim=-1)  # (N, 1)
+            logits.fill_(float("-inf"))
+            # (N, 1, V)
+            logits.scatter_(-1, max_indices.unsqueeze(-1), 0.0)
+
+        elif self._temperature != 1.0:
+            logits.div_(self._temperature)
+
     def _reorder_state(self, new_order: Tensor) -> None:
         self._state_bag.reorder(new_order)
 
@@ -872,7 +882,7 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
 
         # (N) -> (N - F)
         self._prompt_indices = self._prompt_indices.index_select(dim=0, index=new_order)
-        
+
         # (N) -> (N - F)
         self._min_seq_lens = self._min_seq_lens.index_select(dim=0, index=new_order)
 

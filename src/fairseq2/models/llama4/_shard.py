@@ -9,10 +9,9 @@ from __future__ import annotations
 from fairseq2.gang import Gangs
 from fairseq2.models.llama4._config import LLaMA4DecoderConfig
 from fairseq2.models.llama4.model._frontend import LLaMA4DecoderFrontend
-from fairseq2.models.llama4.model.moe._moe import MoE
 from fairseq2.models.llama4.model.moe._experts import Experts
+from fairseq2.models.llama4.model.moe._moe import MoE
 from fairseq2.models.llama4.model.vision._shard import shard_vision_embedding
-from fairseq2.models.transformer import TransformerEmbeddingFrontend
 from fairseq2.models.transformer_decoder._model import TransformerDecoderModel
 from fairseq2.nn import (
     BatchColumnShardedLinear,
@@ -21,13 +20,10 @@ from fairseq2.nn import (
     ColumnShardedLinear,
     Linear,
     RowShardedLinear,
-    ShardedEmbedding,
-    StandardEmbedding,
     VocabShardedEmbedding,
 )
 from fairseq2.nn.transformer import (
     GLUFeedForwardNetwork,
-    StandardFeedForwardNetwork,
     StandardMultiheadAttention,
 )
 
@@ -43,7 +39,7 @@ def shard_llama4_model(
         The model to shard.
     :param gangs:
         The gang used for parallelism.
-        
+
     TODO: possibly merge this with shard_transformer_decoder_model, the only
     reason this isn't done already is to avoid circular imports: this one relies
     on llama4 modules which could actually be generic like MoE or Experts.
@@ -52,22 +48,14 @@ def shard_llama4_model(
     if tp_gang.size == 1:
         return
 
-    def shard_embed_frontend(m: TransformerEmbeddingFrontend) -> None:
-        if not isinstance(m.embed, StandardEmbedding):
-            return
-
-        m.embed = VocabShardedEmbedding.from_embedding(m.embed, tp_gang)
-    
     def shard_llama4_frontend(m: LLaMA4DecoderFrontend) -> None:
         m.embed = VocabShardedEmbedding.from_embedding(m.embed, tp_gang)
-        
+
         if m.vision_embed is not None:
             shard_vision_embedding(m.vision_embed, tp_gang)
-        
+
         if m.vision_proj is not None:
-            m.vision_proj = ColumnShardedLinear.from_linear(
-                m.vision_proj, tp_gang
-            )
+            m.vision_proj = ColumnShardedLinear.from_linear(m.vision_proj, tp_gang)
 
     def shard_mha(m: StandardMultiheadAttention) -> None:
         for proj in (m.q_proj, m.k_proj, m.v_proj, m.output_proj):
@@ -93,22 +81,10 @@ def shard_llama4_model(
         m.num_heads = m.num_heads // tp_gang.size
         m.num_key_value_heads = m.num_key_value_heads // tp_gang.size
 
-    def shard_ffn(m: StandardFeedForwardNetwork) -> None:
-        for proj in (m.inner_proj, m.outer_proj):
-            if not isinstance(proj, Linear):
-                return
-
-        # Scatter.
-        m.inner_proj = ColumnShardedLinear.from_linear(
-            m.inner_proj, tp_gang, gather_output=False
-        )
-
-        # Gather.
-        m.output_proj = RowShardedLinear.from_linear(
-            m.output_proj, tp_gang, scatter_input=False
-        )
-
-    def shard_glu_ffn(m: GLUFeedForwardNetwork) -> None:
+    def shard_glu_ffn(
+        m: GLUFeedForwardNetwork,
+        reduce_output: bool = True,
+    ) -> None:
         for proj in (m.gate_proj, m.inner_proj, m.output_proj):
             if not isinstance(proj, Linear):
                 return
@@ -124,9 +100,9 @@ def shard_llama4_model(
 
         # Gather.
         m.output_proj = RowShardedLinear.from_linear(
-            m.output_proj, tp_gang, scatter_input=False
+            m.output_proj, tp_gang, scatter_input=False, reduce_output=reduce_output
         )
-    
+
     def shard_moe(m: MoE) -> None:
         if not isinstance(m.experts, Experts):
             return
@@ -134,6 +110,9 @@ def shard_llama4_model(
         for proj in (m.experts.gate_proj, m.experts.inner_proj, m.experts.output_proj):
             if not isinstance(proj, BatchLinear):
                 return
+
+        # Shard shared expert without reducing its output
+        shard_glu_ffn(m.shared_expert, reduce_output=False)
 
         # Shard expert layers on TP gang
         m.experts.gate_proj = BatchColumnShardedLinear.from_batch_linear(
@@ -145,20 +124,15 @@ def shard_llama4_model(
         )
 
         m.experts.output_proj = BatchRowShardedLinear.from_batch_linear(
-            m.experts.output_proj, tp_gang, scatter_input=False
+            m.experts.output_proj, tp_gang, scatter_input=False, reduce_output=False
         )
 
-        # Inform router of the tp size, for choosing between looped impl or not
-        m.router.tp_size = tp_gang.size
+        # Set the gang of the MoE module, to force output reduce at the end
+        m.tp_gang = tp_gang
 
     for m in model.modules():
         if isinstance(m, LLaMA4DecoderFrontend):
             shard_llama4_frontend(m)
-            
-            continue
-        
-        if isinstance(m, TransformerEmbeddingFrontend):
-            shard_embed_frontend(m)
 
             continue
 
@@ -167,16 +141,11 @@ def shard_llama4_model(
 
             continue
 
-        if isinstance(m, StandardFeedForwardNetwork):
-            shard_ffn(m)
-
-            continue
-
         if isinstance(m, GLUFeedForwardNetwork):
             shard_glu_ffn(m)
 
             continue
-        
+
         if isinstance(m, MoE):
             shard_moe(m)
 

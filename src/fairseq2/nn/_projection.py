@@ -349,11 +349,15 @@ class RowShardedLinear(Projection):
     weight: Parameter
     bias: Parameter | None
     scatter_input: bool
+    reduce_output: bool
     init_fn: Callable[[Linear], None] | None
 
     @staticmethod
     def from_linear(
-        linear: Linear, gang: Gang, scatter_input: bool = False
+        linear: Linear,
+        gang: Gang,
+        scatter_input: bool = False,
+        reduce_output: bool = True,
     ) -> RowShardedLinear:
         """Construct a :class:`RowShardedLinear` by sharding ``linear``.
 
@@ -364,6 +368,8 @@ class RowShardedLinear(Projection):
         :param scatter_input:
             If ``True``, inputs are considered already sharded and won't be
             scattered.
+        :param reduce_output:
+            If ``False``, output will not be reduced at the end.
         """
         device = linear.weight.device
 
@@ -378,6 +384,7 @@ class RowShardedLinear(Projection):
             linear.output_dim,
             bias=linear.bias is not None,
             scatter_input=scatter_input,
+            reduce_output=reduce_output,
             init_fn=linear.init_fn,
             device=META,
             dtype=linear.weight.dtype,
@@ -398,6 +405,7 @@ class RowShardedLinear(Projection):
         bias: bool,
         *,
         scatter_input: bool = True,
+        reduce_output: bool = True,
         init_fn: Callable[[Linear], None] | None = None,
         device: Device | None = None,
         dtype: DataType | None = None,
@@ -414,6 +422,8 @@ class RowShardedLinear(Projection):
         :param scatter_input:
             If ``True``, scatters the input tensor; otherwise, considers it
             already sharded.
+        :param reduce_output:
+            If ``False``, output will not be reduced at the end.
         :param init_fn:
             The callable to initialize the weight and bias.
         """
@@ -449,6 +459,7 @@ class RowShardedLinear(Projection):
             self.register_parameter("bias", None)
 
         self.scatter_input = scatter_input
+        self.reduce_output = reduce_output
 
         self.init_fn = init_fn
 
@@ -480,7 +491,8 @@ class RowShardedLinear(Projection):
 
         x = linear(x, self.weight)
 
-        x = reduce(x, self.gang)
+        if self.reduce_output:
+            x = reduce(x, self.gang)
 
         if self.bias is not None:
             x = x + self.bias
@@ -529,6 +541,7 @@ class RowShardedLinear(Projection):
             f"output_dim={self.output_dim}, "
             f"bias={self.bias is not None}, "
             f"scatter_input={self.scatter_input}, "
+            f"reduce_output={self.reduce_output}, "
             f"rank={self.gang.rank}, "
             f"world_size={self.gang.size}"
         )

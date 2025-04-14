@@ -13,17 +13,19 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from fairseq2.nn import Linear
+from fairseq2.nn import Linear, Projection
 
 
-def rmsnorm(x, eps):
-    def _norm(y):
+def rmsnorm(x: torch.Tensor, eps: float) -> torch.Tensor:
+    def _norm(y: torch.Tensor) -> torch.Tensor:
         return y * torch.rsqrt(y.pow(2).mean(-1, keepdim=True) + eps)
 
     return _norm(x.float()).type_as(x)
 
 
-def apply_scaling(freqs: torch.Tensor, scale_factor: float, high_freq_factor: float):
+def apply_scaling(
+    freqs: torch.Tensor, scale_factor: float, high_freq_factor: float
+) -> torch.Tensor:
     low_freq_factor = 1
     old_context_len = 8192  # original llama3 length
 
@@ -38,7 +40,9 @@ def apply_scaling(freqs: torch.Tensor, scale_factor: float, high_freq_factor: fl
             new_freqs.append(freq / scale_factor)
         else:
             assert low_freq_wavelen != high_freq_wavelen
-            smooth = (old_context_len / wavelen - low_freq_factor) / (high_freq_factor - low_freq_factor)
+            smooth = (old_context_len / wavelen - low_freq_factor) / (
+                high_freq_factor - low_freq_factor
+            )
             new_freqs.append((1 - smooth) * freq / scale_factor + smooth * freq)
     return torch.tensor(new_freqs, dtype=freqs.dtype, device=freqs.device)
 
@@ -50,7 +54,7 @@ def precompute_freqs_cis(
     use_scaled: bool,
     scale_factor: float,
     high_freq_factor: float,
-):
+) -> torch.Tensor:
     freqs = 1.0 / (theta ** (torch.arange(0, dim, 2)[: (dim // 2)].float() / dim))
     t = torch.arange(end, device=freqs.device, dtype=torch.float32)
     if use_scaled:
@@ -60,7 +64,7 @@ def precompute_freqs_cis(
     return freqs_cis
 
 
-def reshape_for_broadcast(freqs_cis: torch.Tensor, x: torch.Tensor):
+def reshape_for_broadcast(freqs_cis: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
     ndim = x.ndim
     assert 0 <= 1 < ndim
     assert freqs_cis.shape == (x.shape[1], x.shape[-1])
@@ -83,6 +87,11 @@ def apply_rotary_emb(
 
 class Attention(nn.Module):
     # TODO: this module needs to be phased out in favor of StandardMultiheadAttention
+    wq: Projection
+    wk: Projection
+    wv: Projection
+    wo: Projection
+
     def __init__(
         self,
         dim: int,
@@ -104,10 +113,10 @@ class Attention(nn.Module):
         self.n_kv_heads = n_heads if n_kv_heads is None else n_kv_heads
         # Will get divided when sharding
         self.n_local_heads = n_heads
-        self.n_local_kv_heads = n_kv_heads
+        self.n_local_kv_heads = self.n_kv_heads
         self.n_rep = self.n_local_heads // self.n_local_kv_heads
         self.head_dim = dim // n_heads
-        
+
         # In the ref implementation, these are hard-coded
         # They only concern the vision encoder though, not the L4 decoder
         self.max_batch_size = 32
@@ -118,32 +127,32 @@ class Attention(nn.Module):
             dim,
             n_heads * self.head_dim,
             bias=add_bias,
-            init_fn=lambda x: x,
+            init_fn=lambda x: None,
         )
         self.wk = Linear(
             dim,
-            n_kv_heads * self.head_dim,
+            self.n_kv_heads * self.head_dim,
             bias=add_bias,
-            init_fn=lambda x: x,
+            init_fn=lambda x: None,
         )
         self.wv = Linear(
             dim,
-            n_kv_heads * self.head_dim,
+            self.n_kv_heads * self.head_dim,
             bias=add_bias,
-            init_fn=lambda x: x,
+            init_fn=lambda x: None,
         )
         self.wo = Linear(
             n_heads * self.head_dim,
             dim,
             bias=add_bias,
-            init_fn=lambda x: x,
+            init_fn=lambda x: None,
         )
-        
+
         self.init_kv_cache()
-        
+
         self.norm_eps = norm_eps
         self._register_load_state_dict_pre_hook(self.load_hook)
-    
+
     def init_kv_cache(self) -> None:
         self.cache_k = torch.zeros(
             (
@@ -180,7 +189,9 @@ class Attention(nn.Module):
                     f"shape={tuple(wqkv.shape)} is not divisible by "
                     f"n_heads ({self.n_heads}) + 2 * n_kv_heads ({self.n_kv_heads})"
                 )
-            wq, wk, wv = wqkv.split([d * self.n_heads, d * self.n_kv_heads, d * self.n_kv_heads], dim=0)
+            wq, wk, wv = wqkv.split(
+                [d * self.n_heads, d * self.n_kv_heads, d * self.n_kv_heads], dim=0
+            )
             state_dict[prefix + "wq.weight"] = wq
             state_dict[prefix + "wk.weight"] = wk
             state_dict[prefix + "wv.weight"] = wv
@@ -191,7 +202,7 @@ class Attention(nn.Module):
         start_pos: int,
         freqs_cis: torch.Tensor,
         mask: Optional[torch.Tensor] = None,
-    ):
+    ) -> torch.Tensor:
         bsz, seqlen, _ = x.shape
         xq, xk, xv = self.wq(x), self.wk(x), self.wv(x)
 
@@ -210,8 +221,14 @@ class Attention(nn.Module):
         # the inference-time temperature tuning function is customized to not affect short context
         # while working at very long context
         if self.attn_temperature_tuning and not self.use_rope:
-            seq_positions = torch.arange(start_pos, start_pos + seqlen, device=xq.device, dtype=torch.float32)
-            attn_scales = torch.log(torch.floor((seq_positions + 1.0) / self.floor_scale) + 1.0) * self.attn_scale + 1.0
+            seq_positions = torch.arange(
+                start_pos, start_pos + seqlen, device=xq.device, dtype=torch.float32
+            )
+            attn_scales = (
+                torch.log(torch.floor((seq_positions + 1.0) / self.floor_scale) + 1.0)
+                * self.attn_scale
+                + 1.0
+            )
 
             # reshape for broadcasting [seqlen] -> [1, seqlen, 1, 1]
             attn_scales = attn_scales.view(1, seqlen, 1, 1)
@@ -231,7 +248,9 @@ class Attention(nn.Module):
         xk = xk.repeat_interleave(self.n_rep, dim=1)
         xv = xv.repeat_interleave(self.n_rep, dim=1)
 
-        attn_output = F.scaled_dot_product_attention(xq, xk, xv, attn_mask=mask, dropout_p=0.0)
+        attn_output = F.scaled_dot_product_attention(
+            xq, xk, xv, attn_mask=mask, dropout_p=0.0
+        )
         attn_output = attn_output.transpose(1, 2).contiguous().view(bsz, seqlen, -1)
-        output = self.wo(attn_output)
+        output: torch.Tensor = self.wo(attn_output)
         return output

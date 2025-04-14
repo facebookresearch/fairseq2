@@ -52,8 +52,10 @@ def get_indices_to_split_wqkv(
 
 
 def convert_llama4_checkpoint(
-    loaded_checkpoint: dict[str, object], config: LLaMA4DecoderConfig
+    checkpoint: dict[str, object], config: LLaMA4DecoderConfig
 ) -> dict[str, object]:
+    loaded_checkpoint = checkpoint
+
     # Check if we have a fairseq2 checkpoint.
     if "model" in loaded_checkpoint:
         return loaded_checkpoint
@@ -62,17 +64,17 @@ def convert_llama4_checkpoint(
     if "lm_head.weight" in loaded_checkpoint:  # HG
         raise ValueError("Llama 4 Huggingface checkpoint is not supported yet.")
     else:
-        checkpoint: dict[str, object] = {}
-        
+        checkpoint = {}  # type: ignore
+
         for k, v in loaded_checkpoint.items():
             if ".moe_w_" in k:
                 assert isinstance(v, torch.Tensor)
                 assert config.experts is not None
 
                 num_experts = config.experts.num_experts
-                
+
                 checkpoint[k] = v.unflatten(0, (num_experts, -1))
-            
+
             elif re.match(r"layers\.([0-9]+)\.attention\.wqkv\.weight", k):
                 assert isinstance(v, torch.Tensor)
                 # split fused QKV weights (along the output dimension)
@@ -91,7 +93,7 @@ def convert_llama4_checkpoint(
                 checkpoint[wq_key] = wq
                 checkpoint[wk_key] = wk
                 checkpoint[wv_key] = wv
-            
+
             elif "rope.freqs" in k:
                 # We do not need the pre-computed 'rope.freqs' buffers.
                 pass
@@ -99,18 +101,18 @@ def convert_llama4_checkpoint(
             elif "._extra_state" in k:
                 # This might contain FP8 quantization info
                 pass
-            
+
             elif k.startswith("vision_") and not config.vision_config:
                 # Skip vision layers if vision config is disabled
                 pass
-            
+
             elif k.endswith(".expert_activation_DE"):
                 # This doesn't seem to be used in Scout or Maverick
                 pass
-            
+
             else:
                 checkpoint[k] = v
-        
+
         key_map = {
             # fmt: off
             r"^layers\.([0-9]+)\.attention\.wq\.": r"decoder.layers.\1.self_attn.q_proj.",
@@ -153,14 +155,13 @@ def convert_llama4_checkpoint(
     return {"model": checkpoint}
 
 
-
 # 'vision_projection.weight',
 # 'tok_embeddings.weight',
 # 'norm.weight',
 # 'output.weight',
 # 'layers.0.feed_forward.norm.weight', 'layers.0.attention.wo.weight', 'layers.0.feed_forward.global_gate_stats_3E', 'layers.0.feed_forward.expert_activation_DE', 'layers.0.feed_forward.running_gate_stats_3E', 'layers.0.feed_forward.router_DE', 'layers.0.feed_forward.w_in_shared_FD.weight', 'layers.0.feed_forward.w_swiglu_FD.weight', 'layers.0.feed_forward.w_out_shared_DF.weight', 'layers.0.feed_forward.experts.moe_w_in_eD_F', 'layers.0.feed_forward.experts.moe_w_swiglu_eD_F', 'layers.0.feed_forward.experts.moe_w_out_eF_D', 'layers.0.attention.wqkv.weight', 'layers.0.attention.wqkv.layer_norm_weight',
 # 'layers.1.feed_forward.norm.weight', 'layers.1.attention.wo.weight', 'layers.1.feed_forward.expert_activation_DE', 'layers.1.feed_forward.running_gate_stats_3E', 'layers.1.feed_forward.global_gate_stats_3E', 'layers.1.feed_forward.router_DE', 'layers.1.feed_forward.w_in_shared_FD.weight', 'layers.1.feed_forward.w_swiglu_FD.weight', 'layers.1.feed_forward.w_out_shared_DF.weight', 'layers.1.feed_forward.experts.moe_w_in_eD_F', 'layers.1.feed_forward.experts.moe_w_swiglu_eD_F', 'layers.1.feed_forward.experts.moe_w_out_eF_D', 'layers.1.attention.wqkv.weight', 'layers.1.attention.wqkv.layer_norm_weight',
-# 
+#
 # 'vision_embeddings.vision_adapter.mlp.c_fc.weight',
 # 'vision_embeddings.vision_adapter.mlp.c_proj.weight',
 # 'vision_embeddings.vision_encoder.class_embedding',

@@ -331,7 +331,7 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
         seqs = self.forward_output(seqs)
 
         return seqs
-    
+
     def forward_gateinner(self, seqs: Tensor) -> Tensor:
         """
         First step of the forward pass.

@@ -12,17 +12,20 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from fairseq2.nn import Linear
+from fairseq2.nn import Linear, Projection
 
 
 class _FeedForward(torch.nn.Module):
+    c_fc: Projection
+    c_proj: Projection
+
     def __init__(
         self,
         dim: int,
         hidden_dim: int,
         bias: bool = True,
         dropout: float = 0.0,
-        act_layer: Callable = nn.GELU,
+        act_layer: Callable[..., nn.Module] = nn.GELU,
         act_on_output: bool = False,
         init_method: Callable[[Linear], None] | None = None,
     ):
@@ -44,13 +47,13 @@ class _FeedForward(torch.nn.Module):
         self.act_on_output = act_on_output
         self.dropout = dropout
 
-    def forward(self, x):
-        hidden = self.c_fc(x)
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        hidden: torch.Tensor = self.c_fc(x)
         hidden = self.non_linearity(hidden)
         hidden = F.dropout(hidden, p=self.dropout, training=self.training)
         hidden = self.c_proj(hidden)
-        
+
         if self.act_on_output:
             hidden = self.non_linearity(hidden)
-        
+
         return hidden

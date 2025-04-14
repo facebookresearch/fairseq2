@@ -23,7 +23,7 @@ from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.transformer._attention_mask import (
     AttentionMaskFactory,
     CausalAttentionMaskFactory,
-    ChunkedAttentionMaskFactory
+    ChunkedAttentionMaskFactory,
 )
 from fairseq2.nn.transformer._decoder_layer import TransformerDecoderLayer
 from fairseq2.nn.transformer._encoder import _record_drop_for_backward
@@ -216,16 +216,16 @@ class StandardTransformerDecoder(TransformerDecoder):
             self.self_attn_mask_factory = CausalAttentionMaskFactory()
         else:
             self.self_attn_mask_factory = None
-        
+
         if local_attn_mask_factory is not None:
             self.local_attn_mask_factory = local_attn_mask_factory
         elif attention_chunk_size > 0:
-            self.local_attn_mask_factory = (
-                ChunkedAttentionMaskFactory(attention_chunk_size)
+            self.local_attn_mask_factory = ChunkedAttentionMaskFactory(
+                attention_chunk_size
             )
         else:
             self.local_attn_mask_factory = None
-        
+
         if use_local_attn_mask:
             self.use_local_attn_mask_list = list(use_local_attn_mask)
         else:
@@ -272,7 +272,7 @@ class StandardTransformerDecoder(TransformerDecoder):
             self_attn_mask = self.self_attn_mask_factory(
                 seqs, keys=seqs, training=self.training, state_bag=state_bag
             )
-        
+
         if self.local_attn_mask_factory is None:
             local_attn_mask = None
         else:
@@ -283,7 +283,7 @@ class StandardTransformerDecoder(TransformerDecoder):
         for layer_idx, (layer, drop) in enumerate(self._drop_iter()):
             use_local_attn_mask = self.use_local_attn_mask_list[layer_idx]
             attn_mask = local_attn_mask if use_local_attn_mask else self_attn_mask
-            
+
             layer_output, layer_padding_mask = layer(
                 seqs,
                 padding_mask,
@@ -335,7 +335,7 @@ class StandardTransformerDecoder(TransformerDecoder):
             )
 
             s = f"{s}, self_attn_mask_factory={self_attn_mask_factory}"
-        
+
         if self.local_attn_mask_factory is not None:
             local_attn_mask_factory = getattr(
                 self.local_attn_mask_factory, "__name__", self.local_attn_mask_factory

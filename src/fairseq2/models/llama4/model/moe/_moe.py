@@ -4,21 +4,19 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Optional
-
 import torch
 import torch.nn as nn
-from fairseq2.nn.transformer import FeedForwardNetwork
-from fairseq2.typing import DataType, Device
 from typing_extensions import override
 
+from fairseq2.gang import Gang
 from fairseq2.models.llama4.model.moe._experts import Experts
 from fairseq2.models.llama4.model.moe._router import Router
 from fairseq2.models.llama4.model.moe._token_dispatcher import (
     MoETokenDispatcher,
     TPTokenDispatcher,
 )
-from fairseq2.nn.transformer import GLUFeedForwardNetwork
+from fairseq2.nn.transformer import FeedForwardNetwork, GLUFeedForwardNetwork
+from fairseq2.tensor_parallel import reduce
 
 
 class MoE(FeedForwardNetwork):
@@ -31,7 +29,8 @@ class MoE(FeedForwardNetwork):
     experts: Experts
     shared_expert: GLUFeedForwardNetwork | None
     token_dispatcher: MoETokenDispatcher
-    
+    tp_gang: Gang | None
+
     eval_with_saved_stats: bool
 
     def __init__(
@@ -81,7 +80,7 @@ class MoE(FeedForwardNetwork):
             )
         else:
             self.shared_expert = None
-        
+
         self.eval_with_saved_stats = eval_with_saved_stats
 
         self.running_stats_ema = running_stats_ema
@@ -113,6 +112,9 @@ class MoE(FeedForwardNetwork):
 
         # Use a TP token dispatcher for non-EP scenarios
         self.token_dispatcher = TPTokenDispatcher(num_experts)
+
+        # If set, is used at the end of the forward to reduce the output
+        self.tp_gang = None
 
     @override
     def forward(self, seqs: torch.Tensor) -> torch.Tensor:
@@ -205,6 +207,10 @@ class MoE(FeedForwardNetwork):
 
         # add experts output
         out.scatter_add_(dim=0, index=token_indices, src=routed_output)
+
+        # possibly reduce
+        if self.tp_gang:
+            out = reduce(out, self.tp_gang)
 
         # shape (bs, slen, dim)
         out = out.reshape(bs, slen, dim)
