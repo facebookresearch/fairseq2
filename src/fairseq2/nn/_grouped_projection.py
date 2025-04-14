@@ -301,7 +301,7 @@ class BatchRowShardedLinear(GroupedProjection):
             If ``True``, inputs are considered already sharded and won't be
             scattered.
         :param reduce_output:
-            If ``False``, output will not be reduced at the end.
+            If ``False``, output will not be reduced.
         """
         device = linear.weight.device
 
@@ -355,7 +355,7 @@ class BatchRowShardedLinear(GroupedProjection):
             If ``True``, scatters the input tensor; otherwise, considers it
             already sharded.
         :param reduce_output:
-            If ``False``, output will not be reduced at the end.
+            If ``False``, output will not be reduced.
         """
         super().__init__(extra_first_dim, input_dim, output_dim)
 
