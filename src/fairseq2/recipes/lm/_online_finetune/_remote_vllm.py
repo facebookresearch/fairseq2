@@ -247,7 +247,7 @@ class RemoteVllmModel:
 
         return outputs
 
-    def reward_from_model(self, prompt_list, batch_size=64):
+    def reward_from_model(self, prompt_list, batch_size=32):
         # NOTE: need to batch inputs to vllm.encode model for current models that aren't supported by vllm
         rewards = []
         for i in range(0, len(prompt_list), batch_size):
@@ -259,11 +259,6 @@ class RemoteVllmModel:
                     use_tqdm=False,
                 )
             )
-            # print("************")
-            # print(output[0])
-            # print("==========")
-            # if self._gangs.dp.rank == 0:
-            #     breakpoint()
             chunk_rewards = [o.outputs.data.item() for o in output]
             rewards.extend(chunk_rewards)
         return rewards

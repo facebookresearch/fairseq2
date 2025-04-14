@@ -17,6 +17,8 @@ import torch.nn as nn
 from torch import Tensor
 from torch.nn import Module
 from torcheval.metrics import Mean
+
+# from fairseq2.metrics import String
 from typing_extensions import override
 from vllm import SamplingParams
 from vllm.distributed.device_communicators.pynccl import PyNcclCommunicator
@@ -73,6 +75,9 @@ from fairseq2.recipes.trainer import TrainUnit
 from fairseq2.typing import DataType
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
+import string as string_lib
+from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
+import gzip
 
 
 @final
@@ -116,7 +121,6 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         self._sync_ref_model_every_n_steps = sync_ref_model_every_n_step
         self._reward = reward
         self._metric_bag = OnlineDpoFinetuneMetricBag(gangs.dp)
-
         self._display_name = "online_dpo"
 
     @property
@@ -173,8 +177,8 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         try:
             prompt_0 = prompt_batch.meta_info.get("prompt_raw")[0]
             rollout_0 = rollouts[0].outputs[0].text
-            log.info(f"Prompt: {prompt_0}")
-            log.info(f"Rollout: {rollout_0}")
+            log.info(f"Validation Prompt: {prompt_0}")
+            log.info(f"Validation Rollout: {rollout_0}")
         except:
             # print except error message
             log.info("Rollout print error")
@@ -183,9 +187,21 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         #     breakpoint()
         reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
         total_reward = torch.tensor(reward_output["rewards"]).float().mean()
+        unique_1grams, unique_1grams_norm = self.get_unique_1grams(
+            reward_output["text"][0]
+        )
+        self_bleu_score = self.get_self_bleu_score(reward_output["text"][0])
+        compression_ratio = self.get_compression_ratio(reward_output["text"][0])
 
         self._metric_bag.update_batch_metrics(prompt_batch)
         self._metric_bag.update_avg_reward(total_reward)
+        self._metric_bag.update_diversity_metrics(
+            unique_1grams,
+            unique_1grams_norm,
+            self_bleu_score,
+            compression_ratio,
+            rollouts,
+        )
         # returning dummy loss since trainer expects it
         return torch.tensor(0.0, device=self._gangs.dp.device), prompt_batch.batch_size
 
@@ -217,6 +233,75 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         return ref_logps
 
+    def get_unique_1grams(self, strings):
+
+        # Initialize an empty set to store unique 1-grams
+        unique_words = set()
+        total_words = 0
+
+        # Create a translation table to remove punctuation
+        translator = str.maketrans("", "", string_lib.punctuation)
+
+        # Iterate over each string in the list
+        for string in strings:
+            # Convert the string to lowercase and remove punctuation
+            cleaned_string = string.lower().translate(translator)
+
+            # Split the cleaned string into words (1-grams) and update the set
+            words = cleaned_string.split()
+            total_words += len(words)
+            unique_words.update(words)
+
+        # Return the set of unique 1-grams
+        num_unique_1grams = len(unique_words)
+        num_unique_1grams_norm = (
+            len(unique_words) / total_words if total_words > 0 else 0
+        )
+        num_unique_1grams_tensor = torch.Tensor([num_unique_1grams])
+        num_unique_1grams_norm = torch.Tensor([num_unique_1grams_norm])
+        return num_unique_1grams_tensor, num_unique_1grams_norm
+
+    def get_self_bleu_score(self, strings):
+        # Create a translation table to remove punctuation
+        translator = str.maketrans("", "", string_lib.punctuation)
+
+        # Preprocess the strings: convert to lowercase and remove punctuation
+        cleaned_strings = [s.lower().translate(translator) for s in strings]
+
+        # Tokenize the cleaned strings into lists of words
+        tokenized_strings = [s.split() for s in cleaned_strings]
+
+        # Initialize a dictionary to store BLEU scores
+        bleu_scores = []
+
+        # Calculate BLEU scores for all pairs of strings
+        for i in range(len(tokenized_strings)):
+            for j in range(i + 1, len(tokenized_strings)):
+                # Use smoothing to handle cases where there are no n-grams in common
+                smoothie = SmoothingFunction().method4
+                bleu = sentence_bleu(
+                    [tokenized_strings[i]],
+                    tokenized_strings[j],
+                    smoothing_function=smoothie,
+                )
+
+                # Store the BLEU score
+                bleu_scores.append(bleu)
+
+        mean_bleu_score = sum(bleu_scores) / len(bleu_scores) if bleu_scores else 0.0
+        mean_bleu_score_tensor = torch.Tensor([mean_bleu_score])
+        return mean_bleu_score_tensor
+
+    def get_compression_ratio(self, strings):
+
+        flattened_generation = " ".join(strings)
+        original_byte_size = len(bytes(flattened_generation, "UTF-8"))
+        compressed_bytes_size = len(gzip.compress(bytes(flattened_generation, "UTF-8")))
+
+        cr = compressed_bytes_size / original_byte_size
+        cr_tensor = torch.Tensor([cr])
+        return cr_tensor
+
     @override
     def __call__(self, prompt_batch: PromptBatch) -> tuple[Tensor, int]:
 
@@ -231,10 +316,27 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._vllm_model
         )
 
+        try:
+            prompt_0 = prompt_batch.meta_info.get("prompt_raw")[0]
+            rollout_0 = rollouts[0].outputs[0].text
+            log.info(f"Training Prompt: {prompt_0}")
+            log.info(f"Training Rollout: {rollout_0}")
+        except:
+            log.info("Rollout print error")
+
         batch: PreferenceBatch
         batch, is_bad_batch, reward_output = self._reward.prepare_preference_batch(
             prompt_batch, rollouts, divpo_p=self._loss_config.divpo_p
         )  # loss_zeroer is used when entire batch has no valid prefrence pair
+        # if self._gangs.dp.rank == 0:
+        #     breakpoint()
+
+        unique_1grams, unique_1grams_norm = self.get_unique_1grams(
+            reward_output["text"][0]
+        )
+        self_bleu_score = self.get_self_bleu_score(reward_output["text"][0])
+        compression_ratio = self.get_compression_ratio(reward_output["text"][0])
+
         if is_bad_batch:
             loss_zeroer = 0.0
         else:
@@ -322,6 +424,14 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         self._metric_bag.update_batch_metrics(batch.chosen)
 
+        self._metric_bag.update_diversity_metrics(
+            unique_1grams,
+            unique_1grams_norm,
+            self_bleu_score,
+            compression_ratio,
+            rollouts,
+        )
+
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
         self._metric_bag.update_avg_reward(avg_reward)
 
@@ -395,6 +505,13 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
     num_dummy_batches: Mean
     avg_reward: Mean
     avg_zeroed_loss: Mean
+    unique_1grams: Mean
+    unique_1grams_norm: Mean
+    self_bleu_score: Mean
+    compression_ratio: Mean
+    entropy: Mean
+    entropy_norm: Mean
+    # rollouts: str
 
     def __init__(self, gang: Gang) -> None:
         super().__init__(gang)
@@ -407,6 +524,21 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
         self.register_metric(
             "avg_zeroed_loss", Mean(device=gang.device), persistent=False
         )
+        self.register_metric(
+            "unique_1grams", Mean(device=gang.device), persistent=False
+        )
+        self.register_metric(
+            "unique_1grams_norm", Mean(device=gang.device), persistent=False
+        )
+        self.register_metric(
+            "self_bleu_score", Mean(device=gang.device), persistent=False
+        )
+        self.register_metric(
+            "compression_ratio", Mean(device=gang.device), persistent=False
+        )
+        self.register_metric("entropy", Mean(device=gang.device), persistent=False)
+        self.register_metric("entropy_norm", Mean(device=gang.device), persistent=False)
+        # self.register_metric("rollouts", String(), persistent=False)
 
     @torch.inference_mode()
     def update_dpo_loss(self, batch: PreferenceBatch, loss: Tensor) -> None:
@@ -433,12 +565,63 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
 
     @torch.inference_mode()
     def update_batch_metrics(self, batch: PreferenceBatch):
+        # if self._gang.rank == 0:
+        #     breakpoint()
+
         num_examples = batch.batch_size
         self.num_examples.update(num_examples)
+        if self._train:
+            assert self.total_num_examples is not None
+            self.total_num_examples.update(num_examples)
 
     @torch.inference_mode()
     def update_avg_zeroed_loss(self, avg_zeroed_loss):
         self.avg_zeroed_loss.update(avg_zeroed_loss, weight=1)
+
+    def extract_logprobs(self, data):
+        # FIXME duplicated in _rewards.py
+        logprobs = []
+        for item in data:
+            for key, logprob in item.items():
+                logprobs.append(logprob.logprob)
+        return logprobs
+
+    @torch.inference_mode()
+    def update_diversity_metrics(
+        self,
+        unique_1grams,
+        unique_1grams_norm,
+        self_bleu_score,
+        compression_ratio,
+        rollouts,
+    ):
+        self.unique_1grams.update(unique_1grams, weight=1)
+        self.unique_1grams_norm.update(unique_1grams_norm, weight=1)
+        self.self_bleu_score.update(self_bleu_score, weight=1)
+        self.compression_ratio.update(compression_ratio, weight=1)
+
+        batch_sum_logprobs = []
+        batch_sum_logprobs_per_tok = []
+        for rollout_idx in range(len(rollouts[0].outputs)):
+            logprobs = self.extract_logprobs(rollouts[0].outputs[rollout_idx].logprobs)
+
+            sum_logprobs = -sum(logprobs)
+            sum_logprobs_per_tok = -sum(logprobs) / len(logprobs)
+
+            batch_sum_logprobs.append(sum_logprobs)
+            batch_sum_logprobs_per_tok.append(sum_logprobs_per_tok)
+
+        entropy = sum(batch_sum_logprobs) / len(batch_sum_logprobs)
+        entropy_norm = sum(batch_sum_logprobs_per_tok) / len(batch_sum_logprobs_per_tok)
+        self.entropy.update(torch.Tensor([entropy]), weight=1)
+        self.entropy_norm.update(torch.Tensor([entropy_norm]), weight=1)
+
+        # if self._gang.rank == 0:
+        #     breakpoint()
+
+    # @torch.inference_mode()
+    # def update_rollouts(self, rollouts):
+    #     self.rollouts.update(rollouts)
 
 
 ONLINE_DPO_FINETUNE_UNIT: Final = "online_dpo"
@@ -506,7 +689,7 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
         validate(config)
 
         if isinstance(config.reference_model, ReferenceModelSection):
-            log.info("Setting up GRPO with reference model.")
+            log.info("Setting up Online DPO with reference model.")
 
             trainer_section = get_config_section(
                 recipe_config, "trainer", TrainerSection

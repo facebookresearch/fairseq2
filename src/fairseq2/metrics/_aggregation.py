@@ -75,3 +75,23 @@ class Sum(SumBase):
         super().update(input_, weight=weight)
 
         return self
+
+
+# class String:
+#     """Logs strings."""
+
+#     def __init__(self) -> None:
+#         self._strings = []
+
+#     def update(self, input_: str) -> Self:
+#         if not isinstance(input_, str):
+#             raise TypeError(
+#                 f"Expected input to be of type str, but got {type(input_).__name__}"
+#             )
+
+#         self._strings.append(input_)
+#         return self
+
+#     def get_logged_strings(self) -> list[str]:
+#         """Retrieve all logged strings."""
+#         return self._strings
