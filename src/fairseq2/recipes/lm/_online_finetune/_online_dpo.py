@@ -159,6 +159,13 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
                     self._gangs.root.barrier()
                     broadcast_model(self._reference_model, self._gangs)
 
+    def maybe_log_rollouts(self, prompt_batch: PromptBatch, rollouts, split_name):
+        if self._loss_config.log_rollouts:
+            prompt0 = prompt_batch.meta_info.get("prompt_raw")[0]
+            rollout0 = rollouts[0].outputs[0].text
+            log.info(f"{split_name} Prompt: {prompt0}")
+            log.info(f"{split_name} Rollout: {rollout0}")
+
     def validate_reward(self, prompt_batch: PromptBatch) -> tuple[Tensor, int]:
         if self._gangs.dp.rank == 0:
             policy_sampling_params = copy(self._vllm_model.sampling_params)
@@ -173,15 +180,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             sampling_params=policy_sampling_params,
         )
 
-        # if self._gangs.dp.rank == 0:
-        try:
-            prompt_0 = prompt_batch.meta_info.get("prompt_raw")[0]
-            rollout_0 = rollouts[0].outputs[0].text
-            log.info(f"Validation Prompt: {prompt_0}")
-            log.info(f"Validation Rollout: {rollout_0}")
-        except:
-            # print except error message
-            log.info("Rollout print error")
+        self.maybe_log_rollouts(prompt_batch, rollouts, "Valid")
 
         # if self._gangs.dp.rank == 0:
         #     breakpoint()
@@ -316,13 +315,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._vllm_model
         )
 
-        try:
-            prompt_0 = prompt_batch.meta_info.get("prompt_raw")[0]
-            rollout_0 = rollouts[0].outputs[0].text
-            log.info(f"Training Prompt: {prompt_0}")
-            log.info(f"Training Rollout: {rollout_0}")
-        except:
-            log.info("Rollout print error")
+        self.maybe_log_rollouts(prompt_batch, rollouts, "Train")
 
         batch: PreferenceBatch
         batch, is_bad_batch, reward_output = self._reward.prepare_preference_batch(
@@ -641,6 +634,9 @@ class DpoLossConfig:
 
     divpo_p: float = 0.0
     """Use diverse preference optimization."""
+
+    log_rollouts: bool = True
+    """Add prompts/rollouts to the logs"""
 
 
 @dataclass(kw_only=True)
