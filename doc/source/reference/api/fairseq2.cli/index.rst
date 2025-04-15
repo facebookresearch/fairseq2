@@ -159,13 +159,14 @@ How path resolution works
 -------------------------
 
 When adding extra sweep keys, you only need to add the missing path components. For example:
-
+    
     - To include ``my_custom_category.config.parameter`` in sweep tags, add ``extra_sweep_keys={"my_custom_category", "parameter"}``
     - You don't need to add ``config`` because it's already in the default sweep keys
 
 For example, if you have a custom configuration like:
 
 .. code-block:: python
+
     {
         "custom_module": {
             "specialized_param": "value",
@@ -174,6 +175,7 @@ For example, if you have a custom configuration like:
             }
         }
     }
+
 You would need to add ``"custom_module"`` and possibly ``"specialized_param"`` and ``"nested_param"`` to your extra sweep keys.
 
 Customizing Sweep Tag Format
@@ -182,6 +184,7 @@ Customizing Sweep Tag Format
 The sweep tag format can be customized to include specific configuration values:
 
 .. code-block:: python
+
     # Basic format with default placeholders
     fmt="ps_{preset}.ws_{world_size}.{hash}"
     
@@ -190,6 +193,7 @@ The sweep tag format can be customized to include specific configuration values:
     
     # Including deeply nested values
     fmt="dropout_{model.config.dropout_p}.batch_{dataset.batch_size}"
+
 Available placeholders include:
 - Any configuration key path that exists in your configuration (you can use ``--dump-config`` to see the full configuration)
 - Special values: ``preset``, ``world_size``, and ``hash``
@@ -198,6 +202,7 @@ CLI Usage Example
 -----------------
 
 .. code-block:: bash
+
     # Use a custom sweep tag format to organize runs by learning rate
     fairseq2 lm instruction_finetune <OUTPUT_DIR> --sweep-format="lr_{optimizer.config.lr}"
     
