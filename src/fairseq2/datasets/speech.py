@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import Final, final
 
 import torch
-from typing_extensions import override
 
 from fairseq2.datasets import (
     DataPipelineReader,
@@ -24,6 +23,7 @@ from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.typing import DataType
+from typing_extensions import override
 
 
 @dataclass(kw_only=True)
@@ -33,6 +33,9 @@ class SpeechReadOptions(DataReadOptions):
 
     normalize_audio: bool = False
     """If ``True``, normalizes audio to have zero mean and unit variance."""
+
+    is_binarized: bool = False
+    """If ``True``, the dataset manifest is binarized."""
 
 
 class SpeechDataset(ABC):
@@ -45,7 +48,7 @@ class SpeechDataset(ABC):
         gang: Gang,
         min_audio_len: int,
         max_audio_len: int,
-        options: SpeechReadOptions | None = None,
+        options: SpeechReadOptions = SpeechReadOptions(),
     ) -> DataReader[SequenceBatch]:
         """Create a dataset reader.
 
