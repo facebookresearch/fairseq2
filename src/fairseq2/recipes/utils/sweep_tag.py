@@ -249,19 +249,16 @@ def get_default_sweep_keys() -> Set[Hashable]:
         "family",
         "config",
         "text_tokenizer",
-        
-        # top level keys
+        # Top level keys
         "model",
         "dataset",
         "gang",
         "trainer",
         "criterion",
         "optimizer",
-
         # Model configuration
         "arch",
         "checkpoint",
-
         # Dataset configuration
         "path",
         "min_seq_len",
@@ -273,13 +270,11 @@ def get_default_sweep_keys() -> Set[Hashable]:
         "num_prefetch",
         "train_split",
         "valid_split",
-        
         # Gang configuration
         "tensor_parallel_size",
         "timeout",
         "high_priority",
         "monitored",
-        
         # Trainer configuration
         "dtype",
         "data_parallelism",
@@ -299,14 +294,12 @@ def get_default_sweep_keys() -> Set[Hashable]:
         "profile",
         "gradient_check",
         "anomaly_detection",
-        
         # Criterion configuration
         "reference_model",
         "reference_dtype",
         "beta",
         "nll_scale",
         "length_normalization",
-        
         # Optimizer configuration
         "lr",
         "betas",
@@ -318,7 +311,6 @@ def get_default_sweep_keys() -> Set[Hashable]:
         "differentiable",
         "impl",
         "use_fp32",
-        
         # Learning rate scheduler configuration
         "cycle_len",
         "num_warmup_steps",
@@ -327,7 +319,6 @@ def get_default_sweep_keys() -> Set[Hashable]:
         "start_lr",
         "final_lr",
         "final_lr_scale",
-        
         # Regime configuration
         "num_steps",
         "num_data_epochs",
@@ -348,7 +339,6 @@ def get_default_sweep_keys() -> Set[Hashable]:
         "publish_metrics_every_n_steps",
         "publish_metrics_after_n_data_epochs",
         "publish_metrics_every_n_data_epochs",
-        
         # Common configuration
         "metric_recorders",
         "profilers",
@@ -363,16 +353,13 @@ def get_default_sweep_keys() -> Set[Hashable]:
         "extra_path",
         "checkpoint_dir",
         "seed",
-        
         # Wav2Vec2 configuration
         "encoder_config",
         "final_dim",
         "pretrained_model",
-        
         # MT configuration
         "loss",
         "label_smoothing",
-        
         # LM configuration
         "criterion",
         "reference_model",
