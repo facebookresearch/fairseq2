@@ -281,7 +281,7 @@ def get_default_sweep_keys() -> Set[Hashable]:
         "fsdp",
         "version",
         "granularity",
-        "hsdp",
+        "hybrid",
         "reshard_after_forward",
         "fp32_reduce",
         "mixed_precision",
