@@ -325,7 +325,11 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
 @final
 class GLUFeedForwardNetworkV2(FeedForwardNetwork):
     """Represents a GLU-based Transformer feed-forward network as described in
-    :cite:t:`https://doi.org/10.48550/arxiv.2002.05202`"""
+    :cite:t:`https://doi.org/10.48550/arxiv.2002.05202`
+    
+    This is a temporary module that modifies input arguments to only use inner_dim
+    during the module creation.
+    """
 
     gate_proj: Projection
     gate_activation: Module

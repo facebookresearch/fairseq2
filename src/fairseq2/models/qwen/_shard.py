@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from fairseq2.gang import Gangs
-from fairseq2.models.qwen25._config import Qwen25Config
+from fairseq2.models.qwen._config import QwenConfig
 from fairseq2.models.transformer_decoder import (
     TransformerDecoderModel,
     shard_transformer_decoder_model,
@@ -15,7 +15,7 @@ from fairseq2.models.transformer_decoder import (
 
 
 def shard_qwen_model(
-    model: TransformerDecoderModel, config: Qwen25Config, gangs: Gangs
+    model: TransformerDecoderModel, config: QwenConfig, gangs: Gangs
 ) -> None:
 
     shard_transformer_decoder_model(model, gangs, shard_embed_dim=False)

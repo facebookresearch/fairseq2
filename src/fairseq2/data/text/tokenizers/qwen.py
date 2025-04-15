@@ -11,12 +11,11 @@ from typing import Final, final
 
 from typing_extensions import override
 
-from fairseq2.assets import AssetCard, AssetCardError
+from fairseq2.assets import AssetCard
 from fairseq2.data import VocabularyInfo
 from fairseq2.data.text.tokenizers import (
     TextTokenizer,
     TextTokenizerLoadError,
-    text_tokenizer_asset_card_error,
 )
 from fairseq2.data.text.tokenizers.tiktoken import (
     TiktokenDecoder,
@@ -37,7 +36,7 @@ except ImportError:
 
 
 @final
-class Qwen25TokenizerHuggingFace(TextTokenizer):
+class QwenTokenizerHuggingFace(TextTokenizer):
     """Represents a HuggingFace version of LLama 3 tokenizer"""
 
     _tokenizer: AutoTokenizer
@@ -120,15 +119,15 @@ class Qwen25TokenizerHuggingFace(TextTokenizer):
         return vocab_info
 
 
-QWEN25_TOKENIZER_FAMILY: Final = "qwen25"
+QWEN_TOKENIZER_FAMILY: Final = "qwen"
 
 
-def load_qwen25_tokenizer(path: Path, card: AssetCard) -> TextTokenizer:
+def load_qwen_tokenizer(path: Path, card: AssetCard) -> TextTokenizer:
     try:
-        return Qwen25TokenizerHuggingFace(path)
+        return QwenTokenizerHuggingFace(path)
     except ValueError as ex:
         raise TextTokenizerLoadError(
-            card.name, f"The '{card.name}' asset card does not contain a valid text tokenizer configuration of the '{QWEN25_TOKENIZER_FAMILY}' family. See the nested exception for details."  # fmt: skip
+            card.name, f"The '{card.name}' asset card does not contain a valid text tokenizer configuration of the '{QWEN_TOKENIZER_FAMILY}' family. See the nested exception for details."  # fmt: skip
         ) from ex
     except RuntimeError as ex:
         raise TextTokenizerLoadError(

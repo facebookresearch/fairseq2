@@ -7,5 +7,5 @@
 from __future__ import annotations
 
 from fairseq2.cli.commands.qwen._convert_to_hf_checkpoint import (
-    ConvertQwen25CheckpointHandler as ConvertQwen25CheckpointHandler,
+    ConvertQwenCheckpointHandler as ConvertQwenCheckpointHandler,
 )

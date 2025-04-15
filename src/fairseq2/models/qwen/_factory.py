@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from fairseq2.models.qwen25._config import Qwen25Config
+from fairseq2.models.qwen._config import QwenConfig
 from fairseq2.models.transformer import (
     TransformerEmbeddingFrontend,
 )
@@ -38,14 +38,14 @@ from fairseq2.typing import DataType, Device
 from fairseq2.models.llama._factory import _init_truncated_normal
 
 
-def create_qwen25_model(config: Qwen25Config) -> TransformerDecoderModel:
-    return Qwen25Factory(config).create_model()
+def create_qwen_model(config: QwenConfig) -> TransformerDecoderModel:
+    return QwenFactory(config).create_model()
 
 
-class Qwen25Factory:
-    _config: Qwen25Config
+class QwenFactory:
+    _config: QwenConfig
 
-    def __init__(self, config: Qwen25Config) -> None:
+    def __init__(self, config: QwenConfig) -> None:
         self._config = config
 
     def create_model(self) -> TransformerDecoderModel:

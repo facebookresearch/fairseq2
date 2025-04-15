@@ -25,9 +25,9 @@ from fairseq2.context import RuntimeContext
 from fairseq2.error import InternalError
 from fairseq2.logging import log
 from fairseq2.models import ModelConfigLoadError, ModelHandler
-from fairseq2.models.qwen25 import (
-    QWEN25_MODEL_FAMILY,
-    Qwen25Config,
+from fairseq2.models.qwen import (
+    QWEN_MODEL_FAMILY,
+    QwenConfig,
     convert_qwen_fs2_to_hf_checkpoint,
 )
 
@@ -45,7 +45,7 @@ from fairseq2.utils.file import (
 
 
 @final
-class ConvertQwen25CheckpointHandler(CliCommandHandler):
+class ConvertQwenCheckpointHandler(CliCommandHandler):
     @override
     def init_parser(self, parser: ArgumentParser) -> None:
         parser.add_argument(
@@ -164,7 +164,7 @@ class ConvertQwen25CheckpointHandler(CliCommandHandler):
                 f"The '{args.model}' asset card cannot be read. See the nested exception for details."
             ) from ex
 
-        if family != QWEN25_MODEL_FAMILY:
+        if family != QWEN_MODEL_FAMILY:
             raise CliArgumentError(
                 "model", f"'{args.model}' is not a model of QWEN2.5 family."
             )
@@ -172,7 +172,7 @@ class ConvertQwen25CheckpointHandler(CliCommandHandler):
         model_handlers = context.get_registry(ModelHandler)
 
         try:
-            model_handler = model_handlers.get(QWEN25_MODEL_FAMILY)
+            model_handler = model_handlers.get(QWEN_MODEL_FAMILY)
         except LookupError:
             raise InternalError(
                 "The LLaMA model handler cannot be found. Please file a bug report."
@@ -185,7 +185,7 @@ class ConvertQwen25CheckpointHandler(CliCommandHandler):
                 f"The configuration of '{args.model}' cannot be loaded. See the nested exception for details."
             ) from ex
 
-        if not isinstance(model_config, Qwen25Config):
+        if not isinstance(model_config, QwenConfig):
             raise InternalError(
                 "The model configuration type is not valid. Please file a bug report."
             )

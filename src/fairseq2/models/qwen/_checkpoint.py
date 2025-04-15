@@ -10,7 +10,7 @@ from typing import cast
 
 from torch import Tensor
 
-from fairseq2.models.qwen25._config import Qwen25Config
+from fairseq2.models.qwen._config import QwenConfig
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
 import torch
 
@@ -50,7 +50,7 @@ reverse_key_map = {
 
 
 def convert_qwen_checkpoint(
-    checkpoint: dict[str, object], config: Qwen25Config
+    checkpoint: dict[str, object], config: QwenConfig
 ) -> dict[str, object]:
 
     checkpoint = convert_model_state_dict(checkpoint, key_map)
@@ -63,7 +63,7 @@ def convert_qwen_checkpoint(
 
 
 def convert_qwen_fs2_to_hf_checkpoint(
-    checkpoint: dict[str, object], config: Qwen25Config
+    checkpoint: dict[str, object], config: QwenConfig
 ):
 
     checkpoint = convert_model_state_dict(checkpoint, reverse_key_map)

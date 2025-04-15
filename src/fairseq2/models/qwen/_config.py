@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Final
 
 from fairseq2.context import RuntimeContext
@@ -19,11 +19,11 @@ except ImportError:
         "transformers library is required to use HF configs. Install it via `pip install transformers`."
     )
 
-QWEN25_MODEL_FAMILY: Final = "qwen25"
+QWEN_MODEL_FAMILY: Final = "qwen"
 
 
 @dataclass(kw_only=True)
-class Qwen25Config:
+class QwenConfig:
     """Abstract config without defaults"""
 
     model_dim: int
@@ -72,7 +72,7 @@ class Qwen25Config:
 
 
 def register_qwen_configs(context: RuntimeContext) -> None:
-    registry = context.get_config_registry(Qwen25Config)
+    registry = context.get_config_registry(QwenConfig)
 
     arch = registry.decorator
 
@@ -82,7 +82,7 @@ def register_qwen_configs(context: RuntimeContext) -> None:
             size=152064, unk_idx=None, bos_idx=151643, eos_idx=151645, pad_idx=None
         )
 
-        config = Qwen25Config(
+        config = QwenConfig(
             model_dim=3584,
             max_seq_len=32768,
             num_layers=28,
@@ -109,7 +109,7 @@ def register_qwen_configs(context: RuntimeContext) -> None:
             size=151936, unk_idx=None, bos_idx=151643, eos_idx=151645, pad_idx=None
         )
 
-        config = Qwen25Config(
+        config = QwenConfig(
             model_dim=1536,
             max_seq_len=32768,
             num_layers=28,
@@ -135,7 +135,7 @@ def register_qwen_configs(context: RuntimeContext) -> None:
         vocab_info = VocabularyInfo(
             size=151936, unk_idx=None, bos_idx=151643, eos_idx=151645, pad_idx=None
         )
-        config = Qwen25Config(
+        config = QwenConfig(
             model_dim=2048,
             max_seq_len=32768,
             num_layers=36,
