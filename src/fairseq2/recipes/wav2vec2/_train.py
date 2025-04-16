@@ -138,14 +138,20 @@ class Wav2Vec2TrainDatasetSection(DatasetSection):
     normalize_audio: bool = False
     """If ``True``, normalizes audio to have zero mean and unit variance."""
 
-    example_shuffle_window: int = 0
+    use_fbank: bool = False
+
+    no_padding: bool = True
+
+    example_shuffle_window: int = 500_000
     """The size of the sliding window for shuffling examples."""
 
-    batch_shuffle_window: int = 0
+    batch_shuffle_window: int = 50_000
     """The size of the sliding window for shuffling batches."""
 
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
+
+    npc: int = 10
 
     extras: dict[str, object] = field(default_factory=dict)
     """The dataset-specific extra options."""
@@ -153,7 +159,7 @@ class Wav2Vec2TrainDatasetSection(DatasetSection):
 
 def register_wav2vec2_train_configs(context: RuntimeContext) -> None:
     registry = context.get_config_registry(Wav2Vec2TrainConfig)
-
+    # wav2vec2_archs = context.get_config_registry(Wav2Vec2Config)
     preset = registry.decorator
 
     @preset("base_960h")
@@ -174,7 +180,7 @@ def register_wav2vec2_train_configs(context: RuntimeContext) -> None:
         config.model.arch = "large"
         config.model.config = {"encoder_config": {"first_pass_dropout_p": 0.1}}
         config.dataset.max_audio_len = 320_000
-        config.dataset.max_num_elements = 1_200_000
+        config.dataset.max_num_elements = 1_600_000
         config.optimizer.config.lr = 3e-04
         config.lr_scheduler.config.num_warmup_steps = 20_000
         config.regime.num_steps = 250_000
@@ -238,6 +244,10 @@ def load_wav2vec2_trainer(
         batch_shuffle_window=config.dataset.batch_shuffle_window,
         num_accumulate=config.trainer.gradient_accumulation,
         num_prefetch=config.dataset.num_prefetch,
+        example_shuffle_window=config.dataset.example_shuffle_window,
+        use_fbank=config.dataset.use_fbank,
+        no_padding=config.dataset.no_padding,
+        npc=config.dataset.npc,
         seed=seed,
         extras=config.dataset.extras,
     )
@@ -245,9 +255,9 @@ def load_wav2vec2_trainer(
     data_reader = dataset.create_reader(
         config.dataset.train_split,
         gangs.dp,
-        config.dataset.min_audio_len,
-        config.dataset.max_audio_len,
-        read_options,
+        min_audio_len=config.dataset.min_audio_len,
+        max_audio_len=config.dataset.max_audio_len,
+        options=read_options,
     )
 
     seed += 1
@@ -262,6 +272,10 @@ def load_wav2vec2_trainer(
             normalize_audio=config.dataset.normalize_audio,
             sync_mode=SyncMode.UNTIL_LAST,
             num_prefetch=config.dataset.num_prefetch,
+            example_shuffle_window=config.dataset.example_shuffle_window,
+            use_fbank=config.dataset.use_fbank,
+            no_padding=config.dataset.no_padding,
+            npc=config.dataset.npc,
             seed=seed,
             extras=config.dataset.extras,
         )
@@ -269,9 +283,9 @@ def load_wav2vec2_trainer(
         valid_data_reader = dataset.create_reader(
             config.dataset.valid_split,
             gangs.dp,
-            config.dataset.min_audio_len,
-            config.dataset.max_audio_len,
-            read_options,
+            min_audio_len=config.dataset.min_audio_len,
+            max_audio_len=config.dataset.max_audio_len,
+            options=read_options,
         )
 
         valid_units = [valid_unit]

@@ -8,13 +8,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import cast, final, Literal
+from typing import Literal, cast, final
 
 import torch
+from torch import Tensor
+from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import LengthBatching, SyncMode
-from fairseq2.datasets.asr import AsrDataset, AsrReadOptions, GENERIC_ASR_DATASET_FAMILY
+from fairseq2.datasets.asr import GENERIC_ASR_DATASET_FAMILY, AsrDataset, AsrReadOptions
 from fairseq2.gang import Gang, GangError
 from fairseq2.logging import log
 from fairseq2.models.seq2seq import Seq2SeqBatch
@@ -57,8 +59,6 @@ from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
-from torch import Tensor
-from typing_extensions import override
 
 
 @dataclass(kw_only=True)
