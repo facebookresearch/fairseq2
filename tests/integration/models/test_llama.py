@@ -9,7 +9,7 @@ from typing import cast
 
 import pytest
 
-from fairseq2.context import get_runtime_context
+from fairseq2 import get_runtime_context
 from fairseq2.models.llama import LLaMAConfig, LLaMAFactory, convert_llama_checkpoint
 from fairseq2.models.llama.integ import convert_to_reference_llama_checkpoint
 

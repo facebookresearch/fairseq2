@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Generic, TypeVar, cast, final
 
+from fairseq2 import get_runtime_context
 from fairseq2.assets import (
     AssetCard,
     AssetCardError,
@@ -15,7 +16,6 @@ from fairseq2.assets import (
     AssetCardNotFoundError,
     AssetStore,
 )
-from fairseq2.context import get_runtime_context
 from fairseq2.datasets._error import (
     InvalidDatasetTypeError,
     UnknownDatasetError,
