@@ -339,8 +339,6 @@ def load_wav2vec2_asr_trainer(
 
         valid_criterion = AsrCriterion(model, valid_scorer)
 
-        valid_unit = AsrEvalUnit(valid_criterion, gangs)
-
         read_options = AsrReadOptions(
             batching=batching,
             dtype=config.trainer.dtype,
@@ -351,18 +349,22 @@ def load_wav2vec2_asr_trainer(
             extras=config.dataset.extras,
         )
 
-        valid_data_reader = dataset.create_reader(
-            config.dataset.valid_split,
-            tokenizer,
-            gangs.dp,
-            config.dataset.min_audio_len,
-            config.dataset.max_audio_len,
-            read_options,
-        )
+        valid_units = []
+        valid_data_readers = []
+        valid_splits = (config.dataset.valid_split).split(",")
+        for i in range(len(valid_splits)):
+            valid_unit = AsrEvalUnit(valid_criterion, gangs)
+            valid_units.append(valid_unit)
 
-        valid_units = [valid_unit]
-
-        valid_data_readers = [valid_data_reader]
+            valid_data_reader = dataset.create_reader(
+                valid_splits[i],
+                tokenizer,
+                gangs.dp,
+                config.dataset.min_audio_len,
+                config.dataset.max_audio_len,
+                read_options,
+            )
+            valid_data_readers.append(valid_data_reader)
     else:
         valid_units = []
 
