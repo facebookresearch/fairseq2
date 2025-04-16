@@ -65,6 +65,9 @@ class TrainUnit(ABC, Generic[BatchT_contra]):
     def set_step_nr(self, step_nr: int) -> None:
         pass
 
+    def set_data_epoch_nr(self, data_epoch_nr: int) -> None:
+        pass
+
     @abstractmethod
     def __call__(self, batch: BatchT_contra) -> tuple[Tensor, int | None]:
         """Process ``batch``.
@@ -564,6 +567,13 @@ class Trainer(Recipe, Generic[BatchT]):
             "train", total=self._max_num_steps, completed=self._step_nr
         )
 
+        try:
+            self._unit.set_data_epoch_nr(self._data_epoch_nr)
+        except UnitError as ex:
+            raise RecipeError(
+                "The train unit has failed. See the nested exception for details."
+            ) from ex
+
         self._device_stat_tracker.reset()
 
         with progress_task, self._lapse_watch:
@@ -633,6 +643,13 @@ class Trainer(Recipe, Generic[BatchT]):
         if self._max_num_data_epochs is not None:
             if self._data_epoch_nr >= self._max_num_data_epochs:
                 return _TrainerState.END_OF_DATA
+
+        try:
+            self._unit.set_data_epoch_nr(self._data_epoch_nr)
+        except UnitError as ex:
+            raise RecipeError(
+                "The train unit has failed. See the nested exception for details."
+            ) from ex
 
         return self._run_post_step()
 
