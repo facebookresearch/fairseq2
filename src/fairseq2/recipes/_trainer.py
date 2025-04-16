@@ -65,6 +65,9 @@ class TrainUnit(ABC, Generic[BatchT_contra]):
     def set_step_nr(self, step_nr: int) -> None:
         pass
 
+    def set_data_epoch_nr(self, data_epoch_nr: int) -> None:
+        pass
+
     @abstractmethod
     def __call__(self, batch: BatchT_contra) -> tuple[Tensor, int | None]:
         """Process ``batch``.
@@ -633,6 +636,8 @@ class Trainer(Recipe, Generic[BatchT]):
         if self._max_num_data_epochs is not None:
             if self._data_epoch_nr >= self._max_num_data_epochs:
                 return _TrainerState.END_OF_DATA
+
+        self._unit.set_data_epoch_nr(self._data_epoch_nr)
 
         return self._run_post_step()
 
