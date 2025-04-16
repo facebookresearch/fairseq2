@@ -487,7 +487,7 @@ class AtheneVerifier(VLLMOutputReward):
         self._gangs = gangs
         self.reward_model = reward_model
         self.tokenizer = AutoTokenizer.from_pretrained(
-            "/checkpoint/ram/shared/Athene-RM-8B_tmp/"
+            "/checkpoint/ram/shared/Athene-RM-8B"  # FIXME move to configs
         )
 
     def wrap_text(self, prompt_text, rollout_text):

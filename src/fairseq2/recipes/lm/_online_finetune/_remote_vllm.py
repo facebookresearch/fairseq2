@@ -53,6 +53,7 @@ class VllmEngineArgs:
     tensor_parallel_size: int = 4
     enforce_eager: bool = True
     hf_overrides: object = None
+    dtype: str = "auto"
     override_pooler_config: PoolerConfig = field(default_factory=lambda: PoolerConfig())
 
 
@@ -186,6 +187,7 @@ class RemoteVllmModel:
             model_impl=vllm_engine_args.model_impl,
             hf_overrides=vllm_engine_args.hf_overrides,
             override_pooler_config=vllm_engine_args.override_pooler_config,
+            dtype=vllm_engine_args.dtype,
             distributed_executor_backend="ray",
         )
 
@@ -247,7 +249,7 @@ class RemoteVllmModel:
 
         return outputs
 
-    def reward_from_model(self, prompt_list, batch_size=32):
+    def reward_from_model(self, prompt_list, batch_size=16):
         # NOTE: need to batch inputs to vllm.encode model for current models that aren't supported by vllm
         rewards = []
         for i in range(0, len(prompt_list), batch_size):
