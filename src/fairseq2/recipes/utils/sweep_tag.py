@@ -7,9 +7,8 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Hashable, Iterable, Sequence, Set
+from collections.abc import Iterable, Sequence
 from enum import Enum
-from functools import cache
 from hashlib import sha1
 from typing import final
 
@@ -21,24 +20,16 @@ from fairseq2.utils.structured import StructureError
 @final
 class SweepTagGenerator:
     _world_size: int
-    _allowed_keys: Set[Hashable]
-    _format: str
+    _sweep_format: str
 
-    def __init__(
-        self, world_size: int, allowed_keys: Set[Hashable], fmt: str | None = None
-    ) -> None:
-        """
-        :param allowed_keys: The recipe configuration keys allowed to be used in
-            sweep tags.
-        """
+    def __init__(self, world_size: int, sweep_format: str | None = None) -> None:
         self._world_size = world_size
-        self._allowed_keys = allowed_keys
 
-        if fmt is None:
-            self._format = "ps_{preset}.ws_{world_size}.{hash}"
+        if sweep_format is None:
+            self._sweep_format = "ps_{preset}.ws_{world_size}.{hash}"
         else:
-            self._format = fmt.strip()
-            if not self._format:
+            self._sweep_format = sweep_format.strip()
+            if not self._sweep_format:
                 raise ValueError("`fmt` must not be empty.")
 
             self._safe_format({}, dry_run=True)
@@ -91,10 +82,9 @@ class SweepTagGenerator:
 
         if isinstance(obj, dict):
             for key, value in obj.items():
-                if key in self._allowed_keys:
-                    self._collect_tags(
-                        value, tags, path=f"{path}.{key}" if path else f"{key}"
-                    )
+                self._collect_tags(
+                    value, tags, path=f"{path}.{key}" if path else f"{key}"
+                )
 
             return
 
@@ -141,7 +131,7 @@ class SweepTagGenerator:
 
         state = State.LITERAL
 
-        for c in self._format:
+        for c in self._sweep_format:
             match state:
                 case State.LITERAL:
                     if c == "{":
@@ -230,141 +220,3 @@ class SweepFormatPlaceholderError(ValueError):
         super().__init__(message)
 
         self.unknown_keys = unknown_keys
-
-
-def get_sweep_keys(extra_sweep_keys: Set[Hashable] | None) -> Set[Hashable]:
-    sweep_keys = get_default_sweep_keys()
-
-    if extra_sweep_keys is not None:
-        sweep_keys = sweep_keys | extra_sweep_keys
-
-    return sweep_keys
-
-
-@cache
-def get_default_sweep_keys() -> Set[Hashable]:
-    return {
-        # Common configuration
-        "name",
-        "family",
-        "config",
-        "text_tokenizer",
-        # Top level keys
-        "model",
-        "dataset",
-        "gang",
-        "trainer",
-        "criterion",
-        "optimizer",
-        # Model configuration
-        "arch",
-        "checkpoint",
-        # Dataset configuration
-        "path",
-        "min_seq_len",
-        "max_seq_len",
-        "max_num_tokens",
-        "batch_size",
-        "example_shuffle_window",
-        "batch_shuffle_window",
-        "num_prefetch",
-        "train_split",
-        "valid_split",
-        # Gang configuration
-        "tensor_parallel_size",
-        "timeout",
-        "high_priority",
-        "monitored",
-        # Trainer configuration
-        "dtype",
-        "data_parallelism",
-        "fsdp",
-        "version",
-        "granularity",
-        "hybrid",
-        "reshard_after_forward",
-        "fp32_reduce",
-        "mixed_precision",
-        "gradient_accumulation",
-        "activation_checkpointing",
-        "max_gradient_norm",
-        "fp16_loss_scale",
-        "torch_compile",
-        "gc_every_n_steps",
-        "profile",
-        "gradient_check",
-        "anomaly_detection",
-        # Criterion configuration
-        "reference_model",
-        "reference_dtype",
-        "beta",
-        "nll_scale",
-        "length_normalization",
-        # Optimizer configuration
-        "lr",
-        "betas",
-        "eps",
-        "weight_decay",
-        "amsgrad",
-        "maximize",
-        "capturable",
-        "differentiable",
-        "impl",
-        "use_fp32",
-        # Learning rate scheduler configuration
-        "cycle_len",
-        "num_warmup_steps",
-        "cycle_mul",
-        "lr_mul",
-        "start_lr",
-        "final_lr",
-        "final_lr_scale",
-        # Regime configuration
-        "num_steps",
-        "num_data_epochs",
-        "score_metric",
-        "lower_score_better",
-        "validate_after_n_steps",
-        "validate_every_n_steps",
-        "validate_after_n_data_epochs",
-        "checkpoint_after_n_steps",
-        "checkpoint_every_n_steps",
-        "checkpoint_after_n_data_epochs",
-        "checkpoint_every_n_data_epochs",
-        "keep_last_n_checkpoints",
-        "keep_best_n_checkpoints",
-        "keep_last_n_models",
-        "keep_best_n_models",
-        "publish_metrics_after_n_steps",
-        "publish_metrics_every_n_steps",
-        "publish_metrics_after_n_data_epochs",
-        "publish_metrics_every_n_data_epochs",
-        # Common configuration
-        "metric_recorders",
-        "profilers",
-        "torch",
-        "enabled",
-        "skip_n_steps",
-        "wait_n_steps",
-        "num_warmup_steps",
-        "num_active_steps",
-        "repeat",
-        "assets",
-        "extra_path",
-        "checkpoint_dir",
-        "seed",
-        # Wav2Vec2 configuration
-        "encoder_config",
-        "final_dim",
-        "pretrained_model",
-        # MT configuration
-        "loss",
-        "label_smoothing",
-        # LM configuration
-        "criterion",
-        "reference_model",
-        "reference_dtype",
-        "beta",
-        "nll_scale",
-        "length_normalization",
-    }
