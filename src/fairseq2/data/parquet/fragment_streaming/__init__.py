@@ -13,3 +13,6 @@ from fairseq2.data.parquet.fragment_streaming.config import (
 from fairseq2.data.parquet.fragment_streaming.config import (
     ParquetDatasetLimitOptions as ParquetDatasetLimitOptions,
 )
+from fairseq2.data.parquet.fragment_streaming.primitives import (
+    RejectionDistributionSmoother as RejectionDistributionSmoother,
+)

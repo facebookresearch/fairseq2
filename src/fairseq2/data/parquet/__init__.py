@@ -24,6 +24,7 @@ from fairseq2.data.parquet.fragment_loading import (
 from fairseq2.data.parquet.fragment_streaming import (
     FragmentStreamingConfig,
     ParquetFragmentStreamer,
+    RejectionDistributionSmoother,
 )
 from fairseq2.data.parquet.fragment_streaming.primitives import (
     init_parquet_dataset,

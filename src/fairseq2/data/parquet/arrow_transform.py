@@ -28,7 +28,7 @@ def _fix_list_offset(arr: pa.Array) -> pa.Array:
     """
     if not is_list_like(arr):
         return arr
-    if arr.offset == 0:
+    if arr.offset == 0 and arr.offsets[0].as_py() == 0:
         return arr
 
     new_values = _fix_list_offset(pc.list_flatten(arr))
@@ -298,7 +298,6 @@ def filter_list_with_min_max_length(
     min_length: int,
     max_length: int,
 ) -> pa.Table:
-
     def _length_filter(column):
         filter_min = pc.greater_equal(pc.list_value_length(table[column]), min_length)
         filter_max = pc.less_equal(pc.list_value_length(table[column]), max_length)
