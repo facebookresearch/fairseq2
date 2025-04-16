@@ -155,7 +155,7 @@ The following features are available in fairseq2 sweep tags generator:
     # Create nested directory structure with forward slashes
     fairseq2 lm instruction_finetune <OUTPUT_DIR> --sweep-format="model_{model.name}/{optimizer.config.lr}"
 
-For detailed information about which configuration keys are automatically included in sweep tags and how to add custom keys, see :doc:`/reference/api/fairseq2.cli/index`.
+For detailed information see :doc:`/reference/api/fairseq2.cli/index`.
 
 Asset Management
 ----------------
