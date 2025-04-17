@@ -42,7 +42,7 @@ from fairseq2.typing import Device
 
 # isort: split
 
-from fairseq2.datasets._utils import _load_files_and_weights
+from fairseq2.datasets.utils._manifest import _load_files_and_weights
 
 
 @dataclass(kw_only=True)
