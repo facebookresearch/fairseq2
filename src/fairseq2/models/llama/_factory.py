@@ -17,7 +17,7 @@ from fairseq2.models.transformer import (
     TransformerEmbeddingFrontend,
     TransformerFrontend,
 )
-from fairseq2.models.transformer_decoder import TransformerDecoderModel
+from fairseq2.models.transformer_lm import TransformerLanguageModel
 from fairseq2.nn import (
     Embedding,
     LayerNorm,
@@ -48,7 +48,7 @@ from fairseq2.typing import DataType, Device
 from fairseq2.models.llama._config import LLaMAConfig, LLaMARopeScalingConfig
 
 
-def create_llama_model(config: LLaMAConfig) -> TransformerDecoderModel:
+def create_llama_model(config: LLaMAConfig) -> TransformerLanguageModel:
     return LLaMAFactory(config).create_model()
 
 
@@ -58,7 +58,7 @@ class LLaMAFactory:
     def __init__(self, config: LLaMAConfig) -> None:
         self._config = config
 
-    def create_model(self) -> TransformerDecoderModel:
+    def create_model(self) -> TransformerLanguageModel:
         config = self._config
 
         embed = self.create_embedding()
@@ -69,7 +69,7 @@ class LLaMAFactory:
 
         final_proj = self.create_final_projection(embed)
 
-        return TransformerDecoderModel(
+        return TransformerLanguageModel(
             decoder_frontend,
             decoder,
             final_proj,

@@ -11,7 +11,7 @@ from fairseq2.models.transformer import (
     TransformerFrontend,
     init_transformer_final_projection,
 )
-from fairseq2.models.transformer_decoder import TransformerDecoderModel
+from fairseq2.models.transformer_lm import TransformerLanguageModel
 from fairseq2.nn import (
     Embedding,
     LayerNorm,
@@ -43,7 +43,7 @@ from fairseq2.typing import DataType, Device
 from fairseq2.models.mistral._config import MistralConfig
 
 
-def create_mistral_model(config: MistralConfig) -> TransformerDecoderModel:
+def create_mistral_model(config: MistralConfig) -> TransformerLanguageModel:
     return MistralFactory(config).create_model()
 
 
@@ -53,7 +53,7 @@ class MistralFactory:
     def __init__(self, config: MistralConfig) -> None:
         self._config = config
 
-    def create_model(self) -> TransformerDecoderModel:
+    def create_model(self) -> TransformerLanguageModel:
         config = self._config
 
         decoder_frontend = self.create_decoder_frontend()
@@ -62,7 +62,7 @@ class MistralFactory:
 
         final_proj = self.create_final_projection()
 
-        return TransformerDecoderModel(
+        return TransformerLanguageModel(
             decoder_frontend,
             decoder,
             final_proj,

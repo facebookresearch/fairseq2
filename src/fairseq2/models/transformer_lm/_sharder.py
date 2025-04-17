@@ -24,13 +24,13 @@ from fairseq2.nn.transformer import (
 
 # isort: split
 
-from fairseq2.models.transformer_decoder._model import TransformerDecoderModel
+from fairseq2.models.transformer_lm._model import TransformerLanguageModel
 
 # mypy: disable-error-code="arg-type"
 
 
-def shard_transformer_decoder_model(
-    model: TransformerDecoderModel, gangs: Gangs, shard_embed_dim: bool
+def shard_transformer_language_model(
+    model: TransformerLanguageModel, gangs: Gangs, shard_embed_dim: bool
 ) -> None:
     """Shard ``model`` over ``gangs`` for tensor parallelism.
 

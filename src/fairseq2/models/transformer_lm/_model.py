@@ -22,8 +22,8 @@ from fairseq2.nn.transformer import TransformerDecoder
 
 
 @final
-class TransformerDecoderModel(DecoderModel):
-    """Represents a Transformer-based decoder model."""
+class TransformerLanguageModel(DecoderModel):
+    """Represents a Transformer-based language model."""
 
     decoder_frontend: TransformerFrontend
     decoder: TransformerDecoder

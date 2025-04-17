@@ -66,7 +66,7 @@ from fairseq2.models.transformer import (
     create_transformer_model,
     register_transformer_configs,
 )
-from fairseq2.models.transformer_decoder import TransformerDecoderModel
+from fairseq2.models.transformer_lm import TransformerLanguageModel
 from fairseq2.models.w2vbert import (
     W2VBERT_MODEL_FAMILY,
     W2VBertConfig,
@@ -131,7 +131,7 @@ def register_model_families(context: RuntimeContext) -> None:
 
     registrar.register_family(
         LLAMA_MODEL_FAMILY,
-        TransformerDecoderModel,
+        TransformerLanguageModel,
         LLaMAConfig,
         default_arch,
         create_llama_model,
@@ -147,7 +147,7 @@ def register_model_families(context: RuntimeContext) -> None:
 
     registrar.register_family(
         MISTRAL_MODEL_FAMILY,
-        TransformerDecoderModel,
+        TransformerLanguageModel,
         MistralConfig,
         default_arch,
         create_mistral_model,
