@@ -14,7 +14,7 @@ from typing import Any, Dict, Final, List, final
 
 import numpy as np
 import torch
-from torch import Tensor
+from torch import Tensor, device
 from torch.nn.functional import layer_norm
 from typing_extensions import override
 
@@ -42,7 +42,7 @@ from fairseq2.gang import Gang
 from fairseq2.logging import log
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
-from fairseq2.typing import DataType
+from fairseq2.typing import DataType, Device
 
 
 @torch.no_grad()
@@ -100,6 +100,19 @@ def rename_feature(batch: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return batch
 
 
+def to_batch(example: dict[str, Any], no_padding: bool, device: Device) -> SequenceBatch:
+    audio_feature = example["audio_feature"]
+    if no_padding:
+        seqs = audio_feature.to(device)
+        padding_mask = None
+    else:
+        seqs, padding_mask = get_seqs_and_padding_mask(
+            audio_feature, device=device
+        )
+
+    return SequenceBatch(seqs, padding_mask, example=example)
+
+
 @dataclass(kw_only=True)
 class SpeechReadOptions(DataReadOptions):
 
@@ -155,6 +168,7 @@ class SpeechDataset(ABC):
 
 
 GENERIC_SPEECH_DATASET_FAMILY: Final = "generic_speech"
+get_speech_dataset_hub = DatasetHubAccessor(SpeechDataset)
 
 
 @final
@@ -274,7 +288,7 @@ class GenericSpeechDataset(SpeechDataset):
         builder = self._read_manifest(split, max_audio_len, min_audio_len, audio_dir)
 
         if options.example_shuffle_window != 1:
-            builder.prefetch(options.example_shuffle_window * options.num_prefetch)
+            # builder.prefetch(options.example_shuffle_window * options.num_prefetch)
             builder.shuffle(options.example_shuffle_window, seed)
             seed += 1
 
@@ -320,8 +334,7 @@ class GenericSpeechDataset(SpeechDataset):
         # Shuffle buckets.
         if options.batch_shuffle_window != 1:
             builder.shuffle(options.batch_shuffle_window, seed)
-
-        seed += 1
+            seed += 1
 
         # Memory map audio files.
         cached_fd_count = options.extras.get("cached_fd_count", 100)
@@ -374,9 +387,8 @@ class GenericSpeechDataset(SpeechDataset):
         builder.map(audio_cropper.crop_audios_in_batch)
 
         # Collate batched examples into a batch.
-        pad_value = None if no_padding else 0
-        collater = Collater(pad_value=pad_value)
-        builder.map(collater, num_parallel_calls=npc)
+        collater = Collater(pad_value=None if no_padding else 0)
+        builder.map(collater)
 
         # Return only the first `max_num_batches`.
         if options.max_num_batches is not None:
@@ -384,23 +396,8 @@ class GenericSpeechDataset(SpeechDataset):
 
         builder.prefetch(options.num_prefetch)
 
-        def to_batch(example: dict[str, Any]) -> SequenceBatch:
-            audio_feature = example["audio_feature"]
-            if no_padding:
-                seqs = audio_feature.to(gang.device)
-                padding_mask = None
-            else:
-                seqs, padding_mask = get_seqs_and_padding_mask(
-                    audio_feature, device=gang.device
-                )
-
-            return SequenceBatch(seqs, padding_mask, example=example)
-
-        pipeline = builder.map(to_batch).and_return()
+        pipeline = builder.map(partial(to_batch, no_padding=no_padding, device=gang.device)).and_return()
 
         return DataPipelineReader[SequenceBatch](
             self._name, split, pipeline, gang, options
         )
-
-
-get_speech_dataset_hub = DatasetHubAccessor(SpeechDataset)
