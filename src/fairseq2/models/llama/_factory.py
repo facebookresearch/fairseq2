@@ -13,7 +13,6 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 
-from fairseq2.models.llama._config import LLaMAConfig, LLaMARopeScalingConfig
 from fairseq2.models.transformer import (
     TransformerEmbeddingFrontend,
     TransformerFrontend,
@@ -43,6 +42,10 @@ from fairseq2.nn.transformer import (
     create_default_sdpa,
 )
 from fairseq2.typing import DataType, Device
+
+# isort: split
+
+from fairseq2.models.llama._config import LLaMAConfig, LLaMARopeScalingConfig
 
 
 def create_llama_model(config: LLaMAConfig) -> TransformerDecoderModel:

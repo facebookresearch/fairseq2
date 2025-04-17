@@ -16,9 +16,12 @@ from typing_extensions import override
 from fairseq2.error import InternalError
 from fairseq2.nn import StandardEmbedding
 from fairseq2.nn.padding import PaddingMask
+from fairseq2.typing import DataType, Device
+
+# isort: split
+
 from fairseq2.nn.transformer._attention import SDPA, create_default_sdpa
 from fairseq2.nn.transformer._attention_mask import AttentionMask, CustomAttentionMask
-from fairseq2.typing import DataType, Device
 
 
 @final

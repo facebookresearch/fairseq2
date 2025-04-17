@@ -9,9 +9,6 @@ from __future__ import annotations
 from torch.nn import SiLU
 
 from fairseq2.models.conformer import ConformerBlock, ConformerConvolution
-from fairseq2.models.s2t_transformer._config import S2TTransformerConfig
-from fairseq2.models.s2t_transformer._feature_extractor import Conv1dFbankSubsampler
-from fairseq2.models.s2t_transformer._frontend import S2TTransformerFrontend
 from fairseq2.models.transformer import (
     TransformerEmbeddingFrontend,
     TransformerFrontend,
@@ -46,6 +43,12 @@ from fairseq2.nn.transformer import (
     create_default_sdpa,
 )
 from fairseq2.utils.lazy import Lazy
+
+# isort: split
+
+from fairseq2.models.s2t_transformer._config import S2TTransformerConfig
+from fairseq2.models.s2t_transformer._feature_extractor import Conv1dFbankSubsampler
+from fairseq2.models.s2t_transformer._frontend import S2TTransformerFrontend
 
 
 def create_s2t_transformer_model(config: S2TTransformerConfig) -> TransformerModel:

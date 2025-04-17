@@ -38,14 +38,17 @@ from fairseq2.recipes.config import (
     ReferenceModelSection,
     TextTokenizerSection,
 )
-from fairseq2.recipes.lm._instruction_finetune import (
-    InstructionFinetuneCriterion,
-    InstructionLossEvalUnit,
-)
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
+
+# isort: split
+
+from fairseq2.recipes.lm._instruction_finetune import (
+    InstructionFinetuneCriterion,
+    InstructionLossEvalUnit,
+)
 
 
 @dataclass(kw_only=True)

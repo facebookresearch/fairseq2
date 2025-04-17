@@ -15,7 +15,6 @@ from typing_extensions import override
 from fairseq2.error import NotSupportedError
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
 from fairseq2.models.transformer import TransformerFrontend
-from fairseq2.models.wav2vec2._masker import Wav2Vec2Masker
 from fairseq2.nn import (
     IncrementalStateBag,
     LayerNorm,
@@ -25,6 +24,10 @@ from fairseq2.nn import (
 )
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.typing import DataType, Device
+
+# isort: split
+
+from fairseq2.models.wav2vec2._masker import Wav2Vec2Masker
 
 
 @final

@@ -38,6 +38,15 @@ from fairseq2.nn.utils.gradient import check_gradient_norms, normalize_gradients
 from fairseq2.optim import DynamicLossScaler
 from fairseq2.optim.lr_scheduler import LRScheduler, get_effective_lr
 from fairseq2.profilers import Profiler
+from fairseq2.typing import CPU, ContextManager, DataType
+from fairseq2.utils.gc import GarbageCollector
+from fairseq2.utils.progress import ProgressReporter, ProgressTask
+from fairseq2.utils.rng import RngBag
+from fairseq2.utils.state import Stateful
+from fairseq2.utils.stopwatch import Stopwatch
+
+# isort: split
+
 from fairseq2.recipes._early_stopper import EarlyStopper
 from fairseq2.recipes._error import (
     InconsistentGradientNormError,
@@ -49,12 +58,6 @@ from fairseq2.recipes._metrics import extend_batch_metrics
 from fairseq2.recipes._model import Model
 from fairseq2.recipes._recipe import Recipe, RecipeStopException
 from fairseq2.recipes._validator import Validator
-from fairseq2.typing import CPU, ContextManager, DataType
-from fairseq2.utils.gc import GarbageCollector
-from fairseq2.utils.progress import ProgressReporter, ProgressTask
-from fairseq2.utils.rng import RngBag
-from fairseq2.utils.state import Stateful
-from fairseq2.utils.stopwatch import Stopwatch
 
 BatchT_contra = TypeVar(
     "BatchT_contra", bound=SupportsDeviceTransfer, contravariant=True

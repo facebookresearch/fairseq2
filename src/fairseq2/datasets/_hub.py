@@ -16,6 +16,10 @@ from fairseq2.assets import (
     AssetCardNotFoundError,
     AssetStore,
 )
+from fairseq2.registry import Provider
+
+# isort: split
+
 from fairseq2.datasets._error import (
     InvalidDatasetTypeError,
     UnknownDatasetError,
@@ -23,7 +27,6 @@ from fairseq2.datasets._error import (
     dataset_asset_card_error,
 )
 from fairseq2.datasets._handler import DatasetHandler
-from fairseq2.registry import Provider
 
 DatasetT = TypeVar("DatasetT")
 

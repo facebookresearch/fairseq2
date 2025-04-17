@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-from fairseq2.models.mistral._config import MistralConfig
 from fairseq2.models.transformer import (
     TransformerEmbeddingFrontend,
     TransformerFrontend,
@@ -38,6 +37,10 @@ from fairseq2.nn.transformer import (
     create_default_sdpa,
 )
 from fairseq2.typing import DataType, Device
+
+# isort: split
+
+from fairseq2.models.mistral._config import MistralConfig
 
 
 def create_mistral_model(config: MistralConfig) -> TransformerDecoderModel:

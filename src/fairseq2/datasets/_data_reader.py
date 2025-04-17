@@ -13,9 +13,12 @@ from typing import TypeVar, final
 from typing_extensions import Self, override
 
 from fairseq2.data import DataPipeline, DataPipelineError
+from fairseq2.gang import Gang, GangError
+
+# isort: split
+
 from fairseq2.datasets._config import DataReadOptions, SyncMode
 from fairseq2.datasets._utils import _min_num_batches, _sum_num_batches
-from fairseq2.gang import Gang, GangError
 
 BatchT_co = TypeVar("BatchT_co", covariant=True)
 

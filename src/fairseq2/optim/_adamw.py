@@ -12,10 +12,13 @@ from typing import Final, Literal, final
 from torch.optim import AdamW, Optimizer
 from typing_extensions import override
 
-from fairseq2.optim._handler import OptimizerHandler
-from fairseq2.optim._optimizer import ParameterCollection
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
+
+# isort: split
+
+from fairseq2.optim._handler import OptimizerHandler
+from fairseq2.optim._optimizer import ParameterCollection
 
 ADAMW_OPTIMIZER: Final = "adamw"
 

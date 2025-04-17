@@ -8,9 +8,12 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from fairseq2.chatbots._chatbot import Chatbot
 from fairseq2.data.text.tokenizers import TextTokenizer
 from fairseq2.generation import SequenceGenerator
+
+# isort: split
+
+from fairseq2.chatbots._chatbot import Chatbot
 
 
 class ChatbotHandler(ABC):

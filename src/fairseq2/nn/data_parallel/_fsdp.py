@@ -11,12 +11,12 @@ from typing import TYPE_CHECKING, Literal
 from torch.nn import Module
 
 from fairseq2.gang import Gangs
-from fairseq2.nn.data_parallel._common import FsdpApplier, FsdpGranularity
 from fairseq2.typing import ContextManager, DataType
 from fairseq2.utils.version import torch_greater_or_equal
 
 # isort: split
 
+from fairseq2.nn.data_parallel._common import FsdpApplier, FsdpGranularity
 from fairseq2.nn.data_parallel._fsdp1 import Fsdp1Module as Fsdp1Module
 from fairseq2.nn.data_parallel._fsdp1 import (
     fsdp1_local_state_dict as fsdp1_local_state_dict,

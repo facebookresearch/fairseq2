@@ -29,9 +29,12 @@ from fairseq2.nn import (
 )
 from fairseq2.nn.ops import repeat_interleave
 from fairseq2.nn.padding import PaddingMask
+from fairseq2.typing import DataType, Device
+
+# isort: split
+
 from fairseq2.nn.transformer._attention import SDPA, create_default_sdpa
 from fairseq2.nn.transformer._attention_mask import AttentionMask, AttentionMaskFactory
-from fairseq2.typing import DataType, Device
 
 
 class MultiheadAttention(Module, ABC):

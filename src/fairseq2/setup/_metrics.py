@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from fairseq2.context import RuntimeContext
-from fairseq2.metrics._descriptor import (
+from fairseq2.metrics import (
     MetricDescriptor,
     format_as_byte_size,
     format_as_float,

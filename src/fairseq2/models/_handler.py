@@ -23,13 +23,6 @@ from fairseq2.assets import (
 from fairseq2.config_registry import ConfigNotFoundError, ConfigProvider
 from fairseq2.error import ContractError, NotSupportedError
 from fairseq2.gang import Gangs
-from fairseq2.models._error import (
-    ModelConfigLoadError,
-    ModelLoadError,
-    ShardedModelLoadError,
-    UnknownModelArchitectureError,
-    model_asset_card_error,
-)
 from fairseq2.models.fsdp import apply_default_fsdp
 from fairseq2.nn.data_parallel import FsdpGranularity, FsdpWrapper, load_with_sdp_gang
 from fairseq2.nn.utils.module import (
@@ -46,6 +39,16 @@ from fairseq2.utils.file import (
 from fairseq2.utils.merge import MergeError, merge_object
 from fairseq2.utils.structured import StructureError, structure, unstructure
 from fairseq2.utils.validation import validate
+
+# isort: split
+
+from fairseq2.models._error import (
+    ModelConfigLoadError,
+    ModelLoadError,
+    ShardedModelLoadError,
+    UnknownModelArchitectureError,
+    model_asset_card_error,
+)
 
 
 class ModelHandler(ABC):

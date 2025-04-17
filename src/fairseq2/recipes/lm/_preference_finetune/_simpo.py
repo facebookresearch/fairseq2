@@ -19,14 +19,17 @@ from fairseq2.gang import Gang, Gangs
 from fairseq2.metrics import Mean
 from fairseq2.models.sequence import SequenceModelOutput, as_auto_regressive_input
 from fairseq2.recipes import Model, TrainUnit
+from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import validate
+
+# isort: split
+
 from fairseq2.recipes.lm._preference_finetune._common import (
     POFinetuneMetricBag,
     _gather_lprobs_avg,
 )
 from fairseq2.recipes.lm._preference_finetune._config import POFinetuneConfig
 from fairseq2.recipes.lm._preference_finetune._handler import POFinetuneUnitHandler
-from fairseq2.utils.structured import structure
-from fairseq2.utils.validation import validate
 
 
 @final

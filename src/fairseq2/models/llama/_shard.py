@@ -7,11 +7,14 @@
 from __future__ import annotations
 
 from fairseq2.gang import Gangs
-from fairseq2.models.llama._config import LLaMAConfig
 from fairseq2.models.transformer_decoder import (
     TransformerDecoderModel,
     shard_transformer_decoder_model,
 )
+
+# isort: split
+
+from fairseq2.models.llama._config import LLaMAConfig
 
 
 def shard_llama_model(

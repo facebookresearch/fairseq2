@@ -23,14 +23,17 @@ from fairseq2.logging import log
 from fairseq2.metrics import MetricBag, MetricBagError
 from fairseq2.metrics.recorders import MetricRecorder, MetricRecordError
 from fairseq2.profilers import Profiler
-from fairseq2.recipes._error import RecipeError, UnitError
-from fairseq2.recipes._metrics import extend_batch_metrics
-from fairseq2.recipes._model import Model
-from fairseq2.recipes._recipe import Recipe, RecipeStopException
 from fairseq2.typing import CPU, ContextManager, DataType
 from fairseq2.utils.progress import ProgressReporter, ProgressTask
 from fairseq2.utils.rng import RngBag
 from fairseq2.utils.stopwatch import Stopwatch
+
+# isort: split
+
+from fairseq2.recipes._error import RecipeError, UnitError
+from fairseq2.recipes._metrics import extend_batch_metrics
+from fairseq2.recipes._model import Model
+from fairseq2.recipes._recipe import Recipe, RecipeStopException
 
 BatchT_contra = TypeVar(
     "BatchT_contra", bound=SupportsDeviceTransfer, contravariant=True

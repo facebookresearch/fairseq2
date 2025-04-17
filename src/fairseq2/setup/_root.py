@@ -17,6 +17,11 @@ from fairseq2.assets import (
 )
 from fairseq2.context import RuntimeContext
 from fairseq2.extensions import run_extensions
+from fairseq2.utils.file import FileSystem, LocalFileSystem
+from fairseq2.utils.progress import NoopProgressReporter, ProgressReporter
+
+# isort: split
+
 from fairseq2.setup._asset import register_assets
 from fairseq2.setup._chatbots import register_chatbots
 from fairseq2.setup._cluster import register_clusters
@@ -36,8 +41,6 @@ from fairseq2.setup._po_finetune_units import register_po_finetune_units
 from fairseq2.setup._profilers import register_profilers
 from fairseq2.setup._recipes import register_recipes
 from fairseq2.setup._text_tokenizers import register_text_tokenizer_families
-from fairseq2.utils.file import FileSystem, LocalFileSystem
-from fairseq2.utils.progress import NoopProgressReporter, ProgressReporter
 
 
 def setup_library(progress_reporter: ProgressReporter | None = None) -> RuntimeContext:

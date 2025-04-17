@@ -10,9 +10,12 @@ from pathlib import Path
 
 import torch
 
-from fairseq2.datasets._error import DatasetLoadError
 from fairseq2.gang import Gang, all_sum
 from fairseq2.logging import log
+
+# isort: split
+
+from fairseq2.datasets._error import DatasetLoadError
 
 
 def _min_num_batches(num_batches: int, gang: Gang) -> int:

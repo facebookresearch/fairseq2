@@ -19,6 +19,16 @@ from typing_extensions import override
 
 from fairseq2.data import VocabularyInfo
 from fairseq2.error import InternalError
+from fairseq2.models.decoder import DecoderModel
+from fairseq2.models.encoder_decoder import EncoderDecoderModel
+from fairseq2.models.sequence import SequenceModelOutput
+from fairseq2.nn import IncrementalStateBag
+from fairseq2.nn.ops import repeat_interleave
+from fairseq2.nn.padding import PaddingMask
+from fairseq2.utils.stopwatch import Stopwatch
+
+# isort: split
+
 from fairseq2.generation._generator import (
     GenerationCounters,
     Hypothesis,
@@ -31,13 +41,6 @@ from fairseq2.generation._generator import (
 )
 from fairseq2.generation._sampling._sampler import Sampler
 from fairseq2.generation._step_processor import StepProcessor
-from fairseq2.models.decoder import DecoderModel
-from fairseq2.models.encoder_decoder import EncoderDecoderModel
-from fairseq2.models.sequence import SequenceModelOutput
-from fairseq2.nn import IncrementalStateBag
-from fairseq2.nn.ops import repeat_interleave
-from fairseq2.nn.padding import PaddingMask
-from fairseq2.utils.stopwatch import Stopwatch
 
 
 @final

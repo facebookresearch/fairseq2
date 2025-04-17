@@ -48,13 +48,6 @@ from fairseq2.models import (
 from fairseq2.nn.checkpointing import use_layerwise_activation_checkpointing
 from fairseq2.nn.utils.gradient import clip_gradient_norm
 from fairseq2.recipes import Model, RecipeError
-from fairseq2.recipes.common._distributed import setup_data_parallel_model
-from fairseq2.recipes.common._error import (
-    InvalidCheckpointPathError,
-    ModelCompilationNotSupportedError,
-    ModelParallelismNotSupportedError,
-    ModelPathNotFoundError,
-)
 from fairseq2.recipes.config import ModelSection, TorchCompileSection, TrainerSection
 from fairseq2.recipes.utils.log import log_config, log_model
 from fairseq2.registry import Provider
@@ -62,6 +55,16 @@ from fairseq2.typing import ContextManager, DataClass, is_dataclass_instance
 from fairseq2.utils.merge import MergeError, merge_dataclass
 from fairseq2.utils.structured import StructureError, structure
 from fairseq2.utils.yaml import StandardYamlDumper
+
+# isort: split
+
+from fairseq2.recipes.common._distributed import setup_data_parallel_model
+from fairseq2.recipes.common._error import (
+    InvalidCheckpointPathError,
+    ModelCompilationNotSupportedError,
+    ModelParallelismNotSupportedError,
+    ModelPathNotFoundError,
+)
 
 
 def setup_model(

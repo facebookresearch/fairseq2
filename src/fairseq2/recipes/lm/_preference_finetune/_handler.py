@@ -11,6 +11,9 @@ from abc import ABC, abstractmethod
 from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.gang import Gangs
 from fairseq2.recipes import Model, TrainUnit
+
+# isort: split
+
 from fairseq2.recipes.lm._preference_finetune._config import POFinetuneConfig
 
 

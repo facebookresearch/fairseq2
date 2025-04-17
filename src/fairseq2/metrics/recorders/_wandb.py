@@ -15,15 +15,18 @@ from typing_extensions import override
 
 from fairseq2.logging import log
 from fairseq2.metrics import MetricDescriptor
+from fairseq2.registry import Provider
+from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import ValidationError, ValidationResult, validate
+
+# isort: split
+
 from fairseq2.metrics.recorders._handler import MetricRecorderHandler
 from fairseq2.metrics.recorders._recorder import (
     MetricRecorder,
     MetricRecordError,
     NoopMetricRecorder,
 )
-from fairseq2.registry import Provider
-from fairseq2.utils.structured import structure
-from fairseq2.utils.validation import ValidationError, ValidationResult, validate
 
 try:
     import wandb  # type: ignore[import-not-found]

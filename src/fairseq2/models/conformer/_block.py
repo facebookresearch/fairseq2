@@ -12,7 +12,6 @@ from torch import Tensor
 from torch.nn import Dropout
 from typing_extensions import override
 
-from fairseq2.models.conformer._convolution import ConformerConvolution
 from fairseq2.nn import LayerNorm
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.transformer import (
@@ -24,6 +23,10 @@ from fairseq2.nn.transformer import (
     create_standard_layer_norm,
 )
 from fairseq2.typing import DataType, Device
+
+# isort: split
+
+from fairseq2.models.conformer._convolution import ConformerConvolution
 
 
 @final

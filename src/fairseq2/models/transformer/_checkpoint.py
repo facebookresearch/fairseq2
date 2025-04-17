@@ -12,8 +12,11 @@ import torch
 from torch import Tensor
 from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
 
-from fairseq2.models.transformer._config import TransformerConfig
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
+
+# isort: split
+
+from fairseq2.models.transformer._config import TransformerConfig
 
 
 def convert_transformer_checkpoint(

@@ -10,8 +10,11 @@ from typing import cast
 
 from torch import Tensor
 
-from fairseq2.models.llama._config import LLaMAConfig
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
+
+# isort: split
+
+from fairseq2.models.llama._config import LLaMAConfig
 
 
 def convert_llama_checkpoint(

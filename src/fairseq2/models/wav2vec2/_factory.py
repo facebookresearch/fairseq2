@@ -10,22 +10,6 @@ from torch.nn import GELU, SiLU
 
 from fairseq2.models.conformer import ConformerBlock, ConformerConvolution
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
-from fairseq2.models.wav2vec2._config import Wav2Vec2Config, Wav2Vec2EncoderConfig
-from fairseq2.models.wav2vec2._feature_extractor import (
-    Wav2Vec2FbankFeatureExtractor,
-    Wav2Vec2FeatureExtractor,
-)
-from fairseq2.models.wav2vec2._frontend import Wav2Vec2Frontend
-from fairseq2.models.wav2vec2._masker import StandardWav2Vec2Masker, Wav2Vec2Masker
-from fairseq2.models.wav2vec2._model import Wav2Vec2Model
-from fairseq2.models.wav2vec2._position_encoder import (
-    Wav2Vec2PositionEncoder,
-    Wav2Vec2StackedPositionEncoder,
-)
-from fairseq2.models.wav2vec2._vector_quantizer import (
-    GumbelVectorQuantizer,
-    VectorQuantizer,
-)
 from fairseq2.nn import PositionEncoder, RotaryEncoder, init_bert_projection
 from fairseq2.nn.transformer import (
     FeedForwardNetwork,
@@ -42,6 +26,25 @@ from fairseq2.nn.transformer import (
     create_default_sdpa,
 )
 from fairseq2.utils.lazy import Lazy
+
+# isort: split
+
+from fairseq2.models.wav2vec2._config import Wav2Vec2Config, Wav2Vec2EncoderConfig
+from fairseq2.models.wav2vec2._feature_extractor import (
+    Wav2Vec2FbankFeatureExtractor,
+    Wav2Vec2FeatureExtractor,
+)
+from fairseq2.models.wav2vec2._frontend import Wav2Vec2Frontend
+from fairseq2.models.wav2vec2._masker import StandardWav2Vec2Masker, Wav2Vec2Masker
+from fairseq2.models.wav2vec2._model import Wav2Vec2Model
+from fairseq2.models.wav2vec2._position_encoder import (
+    Wav2Vec2PositionEncoder,
+    Wav2Vec2StackedPositionEncoder,
+)
+from fairseq2.models.wav2vec2._vector_quantizer import (
+    GumbelVectorQuantizer,
+    VectorQuantizer,
+)
 
 
 def create_wav2vec2_model(config: Wav2Vec2Config) -> Wav2Vec2Model:

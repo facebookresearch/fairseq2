@@ -19,6 +19,9 @@ from typing_extensions import override
 
 from fairseq2.logging import log
 from fairseq2.nn.padding import PaddingMask
+
+# isort: split
+
 from fairseq2.nn.transformer._attention_mask import AttentionMask, CausalAttentionMask
 
 
