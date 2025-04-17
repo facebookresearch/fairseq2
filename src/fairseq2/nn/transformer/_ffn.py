@@ -15,12 +15,15 @@ from torch.nn import Dropout, Module, ReLU, Sigmoid, SiLU
 from typing_extensions import override
 
 from fairseq2.nn import LayerNorm, Linear, Projection
+from fairseq2.typing import DataType, Device
+
+# isort: split
+
 from fairseq2.nn.transformer._layer_norm import (
     LayerNormFactory,
     create_standard_layer_norm,
 )
 from fairseq2.nn.transformer._norm_order import TransformerNormOrder
-from fairseq2.typing import DataType, Device
 
 
 class FeedForwardNetwork(Module, ABC):

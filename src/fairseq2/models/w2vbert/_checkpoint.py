@@ -13,8 +13,11 @@ from torch import Tensor
 from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
 
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
-from fairseq2.models.w2vbert._config import W2VBertConfig
 from fairseq2.typing import CPU
+
+# isort: split
+
+from fairseq2.models.w2vbert._config import W2VBertConfig
 
 
 def convert_w2vbert_checkpoint(

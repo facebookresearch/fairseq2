@@ -13,9 +13,12 @@ from torch.nn import Dropout
 from typing_extensions import override
 
 from fairseq2.models.transformer import TransformerFrontend
-from fairseq2.models.vit._feature_extractor import PatchFeatureExtractor
 from fairseq2.nn import IncrementalStateBag, InterpolatedPositionEncoder
 from fairseq2.nn.padding import PaddingMask
+
+# isort: split
+
+from fairseq2.models.vit._feature_extractor import PatchFeatureExtractor
 
 
 @final

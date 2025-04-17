@@ -27,14 +27,17 @@ from torch.nn import Module, Parameter, SyncBatchNorm
 
 from fairseq2.error import InvalidOperationError, NotSupportedError
 from fairseq2.gang import Gangs
+from fairseq2.nn.utils.module import apply_to_parameters, broadcast_module, infer_device
+from fairseq2.typing import DataType
+
+# isort: split
+
 from fairseq2.nn.data_parallel._common import (
     FsdpApplier,
     FsdpGranularity,
     FsdpParameterInitializer,
 )
 from fairseq2.nn.data_parallel._error import DistributedSetupError
-from fairseq2.nn.utils.module import apply_to_parameters, broadcast_module, infer_device
-from fairseq2.typing import DataType
 
 # Suppress yet another non-actionable FSDP warning as it originates from within
 # PyTorch itself.

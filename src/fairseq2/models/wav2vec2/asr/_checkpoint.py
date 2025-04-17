@@ -12,8 +12,11 @@ from torch import Tensor
 from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
 
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
-from fairseq2.models.wav2vec2.asr._config import Wav2Vec2AsrConfig
 from fairseq2.nn.transformer import TransformerNormOrder
+
+# isort: split
+
+from fairseq2.models.wav2vec2.asr._config import Wav2Vec2AsrConfig
 
 
 def convert_wav2vec2_asr_checkpoint(

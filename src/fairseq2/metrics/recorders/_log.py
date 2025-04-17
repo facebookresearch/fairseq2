@@ -15,11 +15,14 @@ from typing_extensions import override
 
 from fairseq2.logging import LogWriter
 from fairseq2.metrics import MetricDescriptor
-from fairseq2.metrics.recorders._handler import MetricRecorderHandler
-from fairseq2.metrics.recorders._recorder import MetricRecorder, NoopMetricRecorder
 from fairseq2.registry import Provider
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
+
+# isort: split
+
+from fairseq2.metrics.recorders._handler import MetricRecorderHandler
+from fairseq2.metrics.recorders._recorder import MetricRecorder, NoopMetricRecorder
 
 
 @final

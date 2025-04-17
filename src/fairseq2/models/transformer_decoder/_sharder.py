@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from fairseq2.gang import Gangs
 from fairseq2.models.transformer import TransformerEmbeddingFrontend
-from fairseq2.models.transformer_decoder._model import TransformerDecoderModel
 from fairseq2.nn import (
     ColumnShardedLinear,
     Linear,
@@ -22,6 +21,10 @@ from fairseq2.nn.transformer import (
     StandardFeedForwardNetwork,
     StandardMultiheadAttention,
 )
+
+# isort: split
+
+from fairseq2.models.transformer_decoder._model import TransformerDecoderModel
 
 # mypy: disable-error-code="arg-type"
 

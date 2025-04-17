@@ -8,12 +8,6 @@ from __future__ import annotations
 
 import torch.nn as nn
 
-from fairseq2.models.transformer._config import TransformerConfig
-from fairseq2.models.transformer._frontend import (
-    TransformerEmbeddingFrontend,
-    TransformerFrontend,
-)
-from fairseq2.models.transformer._model import TransformerModel
 from fairseq2.nn import (
     Embedding,
     Linear,
@@ -39,6 +33,15 @@ from fairseq2.nn.transformer import (
     TransformerEncoderLayer,
     create_default_sdpa,
 )
+
+# isort: split
+
+from fairseq2.models.transformer._config import TransformerConfig
+from fairseq2.models.transformer._frontend import (
+    TransformerEmbeddingFrontend,
+    TransformerFrontend,
+)
+from fairseq2.models.transformer._model import TransformerModel
 
 
 def create_transformer_model(config: TransformerConfig) -> TransformerModel:

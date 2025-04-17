@@ -13,8 +13,6 @@ import torch.nn as nn
 from torch import Tensor
 from torch.nn import GELU, Conv2d, Conv3d
 
-from fairseq2.models.jepa._config import JepaConfig, JepaEncoderConfig
-from fairseq2.models.jepa._model import JepaModel
 from fairseq2.models.transformer import TransformerFrontend
 from fairseq2.models.vit import (
     Conv2dPatchFeatureExtractor,
@@ -44,6 +42,11 @@ from fairseq2.nn.transformer import (
     create_default_sdpa,
 )
 from fairseq2.typing import DataType, Device
+
+# isort: split
+
+from fairseq2.models.jepa._config import JepaConfig, JepaEncoderConfig
+from fairseq2.models.jepa._model import JepaModel
 
 
 def create_jepa_model(config: JepaConfig) -> JepaModel:

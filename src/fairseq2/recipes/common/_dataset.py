@@ -29,9 +29,12 @@ from fairseq2.datasets import (
 from fairseq2.gang import GangError, Gangs
 from fairseq2.logging import log
 from fairseq2.recipes import RecipeError
-from fairseq2.recipes.common._error import DatasetPathNotFoundError
 from fairseq2.recipes.config import DatasetSection
 from fairseq2.registry import Provider
+
+# isort: split
+
+from fairseq2.recipes.common._error import DatasetPathNotFoundError
 
 DatasetT = TypeVar("DatasetT")
 

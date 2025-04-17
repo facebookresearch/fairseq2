@@ -14,10 +14,13 @@ from fairseq2.models.wav2vec2 import (
     Wav2Vec2Frontend,
     Wav2Vec2Masker,
 )
-from fairseq2.models.wav2vec2.asr._config import Wav2Vec2AsrConfig
-from fairseq2.models.wav2vec2.asr._model import Wav2Vec2AsrModel
 from fairseq2.nn import Linear, Projection
 from fairseq2.nn.transformer import TransformerEncoder
+
+# isort: split
+
+from fairseq2.models.wav2vec2.asr._config import Wav2Vec2AsrConfig
+from fairseq2.models.wav2vec2.asr._model import Wav2Vec2AsrModel
 
 
 def create_wav2vec2_asr_model(config: Wav2Vec2AsrConfig) -> Wav2Vec2AsrModel:

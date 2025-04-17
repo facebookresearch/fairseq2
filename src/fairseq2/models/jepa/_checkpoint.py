@@ -9,8 +9,11 @@ from __future__ import annotations
 import torch
 from torch import Tensor
 
-from fairseq2.models.jepa._config import JepaConfig
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
+
+# isort: split
+
+from fairseq2.models.jepa._config import JepaConfig
 
 
 def convert_jepa_checkpoint(

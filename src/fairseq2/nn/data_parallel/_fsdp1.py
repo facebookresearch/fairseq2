@@ -31,17 +31,20 @@ from torch.nn import Module, Parameter, SyncBatchNorm
 
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gangs
+from fairseq2.nn.utils.module import (
+    apply_to_parameters,
+    infer_device,
+)
+from fairseq2.typing import DataType
+
+# isort: split
+
 from fairseq2.nn.data_parallel._common import (
     FsdpApplier,
     FsdpGranularity,
     FsdpParameterInitializer,
 )
 from fairseq2.nn.data_parallel._error import DistributedSetupError
-from fairseq2.nn.utils.module import (
-    apply_to_parameters,
-    infer_device,
-)
-from fairseq2.typing import DataType
 
 # Suppress excessively noisy FSDP log messages that are wrongfully output at
 # the warning level when TORCH_DISTRIBUTED_DEBUG is set to INFO.

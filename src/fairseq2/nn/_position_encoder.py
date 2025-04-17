@@ -20,9 +20,12 @@ from torch.nn.parameter import Parameter
 from typing_extensions import override
 
 from fairseq2.error import InternalError
-from fairseq2.nn._incremental_state import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.typing import DataType, Device
+
+# isort: split
+
+from fairseq2.nn._incremental_state import IncrementalStateBag
 
 
 class PositionEncoder(Module, ABC):
