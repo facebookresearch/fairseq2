@@ -28,6 +28,6 @@ from fairseq2.models.llama._shard import shard_llama_model as shard_llama_model
 # isort: split
 
 from fairseq2.models import ModelHubAccessor
-from fairseq2.models.transformer_decoder import TransformerDecoderModel
+from fairseq2.models.transformer_lm import TransformerLanguageModel
 
-get_llama_model_hub = ModelHubAccessor(TransformerDecoderModel, LLaMAConfig)
+get_llama_model_hub = ModelHubAccessor(TransformerLanguageModel, LLaMAConfig)

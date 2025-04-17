@@ -6,9 +6,9 @@
 
 from __future__ import annotations
 
-from fairseq2.models.transformer_decoder._model import (
-    TransformerDecoderModel as TransformerDecoderModel,
+from fairseq2.models.transformer_lm._model import (
+    TransformerLanguageModel as TransformerLanguageModel,
 )
-from fairseq2.models.transformer_decoder._sharder import (
-    shard_transformer_decoder_model as shard_transformer_decoder_model,
+from fairseq2.models.transformer_lm._sharder import (
+    shard_transformer_language_model as shard_transformer_language_model,
 )
