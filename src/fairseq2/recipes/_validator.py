@@ -36,7 +36,7 @@ from fairseq2.utils.stopwatch import Stopwatch
 
 class Validator(ABC):
     @abstractmethod
-    def run(self, train_step_nr: int) -> float | None: ...
+    def run(self, train_step_nr: int, train_data_epoch_nr: int) -> float | None: ...
 
     @abstractmethod
     def reset(self) -> None: ...
@@ -150,7 +150,7 @@ class StandardValidator(Validator, Generic[BatchT]):
 
     @override
     @torch.inference_mode()
-    def run(self, train_step_nr: int) -> float | None:
+    def run(self, train_step_nr: int, train_data_epoch_nr: int) -> float | None:
         if self._has_run:
             raise InvalidOperationError("The validator has already been run.")
 
@@ -160,7 +160,7 @@ class StandardValidator(Validator, Generic[BatchT]):
 
         with self._rng_bag.temporary_manual_seed(self._seed):
             with self._profiler:
-                return self._do_run(train_step_nr)
+                return self._do_run(train_step_nr, train_data_epoch_nr)
 
     def _maybe_restore_best_score_and_step(self) -> None:
         if self._score_metric_descriptor is None:
@@ -191,14 +191,17 @@ class StandardValidator(Validator, Generic[BatchT]):
         else:
             self._best_step_nr = 0
 
-    def _do_run(self, train_step_nr: int) -> float | None:
+    def _do_run(self, train_step_nr: int, train_data_epoch_nr: int) -> float | None:
         scores = []
 
         for unit, data_reader in zip(self._units, self._data_readers):
             if unit.name:
                 log.info("Validating {}.", unit.name)
 
-            score = self._run_unit(train_step_nr, unit, data_reader)
+            score = self._run_unit(
+                train_step_nr, train_data_epoch_nr, unit, data_reader
+            )
+
             if score is not None:
                 scores.append(score)
 
@@ -211,6 +214,7 @@ class StandardValidator(Validator, Generic[BatchT]):
     def _run_unit(
         self,
         train_step_nr: int,
+        train_data_epoch_nr: int,
         unit: EvalUnit[BatchT],
         data_reader: DataReader[BatchT],
     ) -> float | None:
@@ -253,7 +257,7 @@ class StandardValidator(Validator, Generic[BatchT]):
                 with record_function("finalize"):
                     self._call_unit_finalize(unit)
 
-        metric_values = self._publish_metrics(train_step_nr, unit)
+        metric_values = self._publish_metrics(train_step_nr, train_data_epoch_nr, unit)
 
         return self._maybe_get_unit_score(metric_values)
 
@@ -347,7 +351,7 @@ class StandardValidator(Validator, Generic[BatchT]):
         return torch.autocast(device_type=device_type, dtype=self._dtype)
 
     def _publish_metrics(
-        self, train_step_nr: int, unit: EvalUnit[BatchT]
+        self, train_step_nr: int, train_data_epoch_nr: int, unit: EvalUnit[BatchT]
     ) -> dict[str, object]:
         log.debug("Syncing validation metrics.")
 
@@ -371,6 +375,8 @@ class StandardValidator(Validator, Generic[BatchT]):
         if gangs.root.rank == 0:
             if values is None:
                 raise InternalError("`values` is `None`.")
+
+            values["data_epoch"] = train_data_epoch_nr
 
             device_stats = self._device_stat_tracker.get_stats()
 
@@ -525,7 +531,7 @@ class StandardValidator(Validator, Generic[BatchT]):
 @final
 class NoopValidator(Validator):
     @override
-    def run(self, train_step_nr: int) -> float:
+    def run(self, train_step_nr: int, train_data_epoch_nr: int) -> float:
         return -torch.inf
 
     @override

@@ -255,10 +255,7 @@ class RegimeSection:
 
     keep_best_n_checkpoints: int | None = None
 
-    keep_last_n_models: int | None = None
-    """The number of checkpoint models to keep. If ``None``, none will be deleted."""
-
-    keep_best_n_models: int | None = None
+    keep_checkpoint_every_n_steps: int | None = None
 
     publish_metrics_after_n_steps: int = 0
 
@@ -320,16 +317,12 @@ class RegimeSection:
                 )
 
         if self.keep_last_n_checkpoints is not None:
-            if self.keep_best_n_checkpoints is not None:
-                result.add_error(
-                    "`keep_last_n_checkpoints` and `keep_best_n_checkpoints` must not be specified at the same time."
-                )
-
             if self.keep_last_n_checkpoints <= 0:
                 result.add_error(
                     "`keep_last_n_checkpoints` must be greater than or equal to 1."
                 )
-        elif self.keep_best_n_checkpoints is not None:
+
+        if self.keep_best_n_checkpoints is not None:
             if self.keep_best_n_checkpoints <= 0:
                 result.add_error(
                     "`keep_best_n_checkpoints` must be greater than or equal to 1."
@@ -338,32 +331,27 @@ class RegimeSection:
             if self.checkpoint_every_n_steps is not None:
                 if self.validate_every_n_steps is None:
                     result.add_error(
-                        "`validate_every_n_steps` must be specified when `keep_best_n_checkpoints` is specified."
+                        "`validate_every_n_steps` must be specified when `keep_best_n_checkpoints` and `checkpoint_every_n_steps` are specified."
                     )
                 elif self.checkpoint_every_n_steps % self.validate_every_n_steps != 0:
                     result.add_error(
                         f"`checkpoint_every_n_steps` must be a multiple of `validate_every_n_steps` ({self.validate_every_n_steps}), but is {self.checkpoint_every_n_steps} instead."
                     )
 
-        if self.keep_last_n_models is not None:
-            if self.keep_last_n_checkpoints is None:
+        if self.keep_checkpoint_every_n_steps is not None:
+            if self.keep_checkpoint_every_n_steps <= 0:
                 result.add_error(
-                    "`keep_last_n_checkpoints` must be specified when `keep_last_n_models` is specified."
-                )
-            elif self.keep_last_n_checkpoints > self.keep_last_n_models:
-                result.add_error(
-                    f"`keep_last_n_models` must be greater than or equal to `keep_last_n_checkpoints` ({self.keep_last_n_checkpoints}), but is {self.keep_last_n_models} instead."
+                    "`keep_checkpoint_every_n_steps` must be greater than or equal to 1."
                 )
 
-        if self.keep_best_n_models is not None:
-            if self.keep_best_n_checkpoints is None:
-                result.add_error(
-                    "`keep_best_n_checkpoints` must be specified when `keep_best_n_models` is specified."
-                )
-            elif self.keep_best_n_checkpoints > self.keep_best_n_models:
-                result.add_error(
-                    f"`keep_best_n_models` must be greater than or equal to `keep_best_n_checkpoints` ({self.keep_best_n_checkpoints}), but is {self.keep_best_n_models} instead."
-                )
+            if self.checkpoint_every_n_steps is not None:
+                if (
+                    self.keep_checkpoint_every_n_steps % self.checkpoint_every_n_steps
+                    != 0
+                ):
+                    result.add_error(
+                        f"`keep_checkpoint_every_n_steps` must be a multiple of `checkpoint_every_n_steps` ({self.checkpoint_every_n_steps}), but is {self.keep_checkpoint_every_n_steps} instead."
+                    )
 
         if self.publish_metrics_every_n_steps is not None:
             if self.publish_metrics_every_n_steps <= 0:

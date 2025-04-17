@@ -159,7 +159,6 @@ Read more about this recipe in :ref:`tutorial-preference-optimization`.
                 num_data_epochs: 20
                 checkpoint_every_n_steps: 1000
                 keep_last_n_checkpoints: 1
-                keep_last_n_models: 1
                 publish_metrics_every_n_steps: 5
 
     Then run:

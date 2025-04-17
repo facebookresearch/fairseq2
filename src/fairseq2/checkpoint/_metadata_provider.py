@@ -254,13 +254,13 @@ class FileCheckpointMetadataLoader:
         if not scores:
             return cache
 
-        scores.sort()
+        scores.sort(reverse=True)
 
-        best_step_nr = scores[-1][1]
+        best_step_nr = scores[0][1]
 
         add_checkpoint_metadata("best_checkpoint@", best_step_nr)
 
-        for idx, (_, step_nr) in enumerate(reversed(scores)):
+        for idx, (_, step_nr) in enumerate(scores):
             add_checkpoint_metadata(f"best_checkpoint_{idx}@", step_nr)
 
         return cache
