@@ -10,7 +10,10 @@ from dataclasses import dataclass
 from typing import Final
 
 from fairseq2.context import RuntimeContext
-from fairseq2.nn.transformer import TransformerNormOrder
+
+# isort: split
+
+from fairseq2.models.transformer._norm_order import TransformerNormOrder
 
 TRANSFORMER_MODEL_FAMILY: Final = "transformer"
 

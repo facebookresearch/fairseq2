@@ -32,8 +32,11 @@ from fairseq2.typing import DataType, Device
 
 # isort: split
 
-from fairseq2.nn.transformer._attention import SDPA, create_default_sdpa
-from fairseq2.nn.transformer._attention_mask import AttentionMask, AttentionMaskFactory
+from fairseq2.models.transformer._attention import SDPA, create_default_sdpa
+from fairseq2.models.transformer._attention_mask import (
+    AttentionMask,
+    AttentionMaskFactory,
+)
 
 
 class MultiheadAttention(Module, ABC):

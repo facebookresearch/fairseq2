@@ -7,8 +7,20 @@
 from __future__ import annotations
 
 from fairseq2.models.transformer import (
+    CausalAttentionMaskFactory,
+    FeedForwardNetwork,
+    GLUFeedForwardNetwork,
+    LocalAttentionStateFactory,
+    MultiheadAttention,
+    StandardMultiheadAttention,
+    StandardTransformerDecoder,
+    StandardTransformerDecoderLayer,
+    TransformerDecoder,
+    TransformerDecoderLayer,
     TransformerEmbeddingFrontend,
     TransformerFrontend,
+    TransformerNormOrder,
+    create_default_sdpa,
     init_transformer_final_projection,
 )
 from fairseq2.models.transformer_lm import TransformerLanguageModel
@@ -21,20 +33,6 @@ from fairseq2.nn import (
     RMSNorm,
     RotaryEncoder,
     StandardEmbedding,
-)
-from fairseq2.nn.transformer import (
-    CausalAttentionMaskFactory,
-    FeedForwardNetwork,
-    GLUFeedForwardNetwork,
-    LocalAttentionStateFactory,
-    MultiheadAttention,
-    StandardMultiheadAttention,
-    StandardTransformerDecoder,
-    StandardTransformerDecoderLayer,
-    TransformerDecoder,
-    TransformerDecoderLayer,
-    TransformerNormOrder,
-    create_default_sdpa,
 )
 from fairseq2.typing import DataType, Device
 

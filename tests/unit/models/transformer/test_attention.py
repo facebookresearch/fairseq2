@@ -12,13 +12,13 @@ import pytest
 import torch
 from torch import Tensor
 
-from fairseq2.nn.padding import PaddingMask
-from fairseq2.nn.transformer import (
+from fairseq2.models.transformer import (
     CustomAttentionMask,
     NaiveSDPA,
     StandardMultiheadAttention,
     TorchSDPA,
 )
+from fairseq2.nn.padding import PaddingMask
 from tests.common import assert_close, device
 
 

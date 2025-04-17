@@ -7,14 +7,14 @@
 from copy import copy
 
 from fairseq2.models.jepa import JepaEncoderFactory
-from fairseq2.models.transformer import TransformerFrontend
-from fairseq2.nn import IdentityProjection, Linear, Projection
-from fairseq2.nn.transformer import (
+from fairseq2.models.transformer import (
     MultiheadAttention,
     StandardMultiheadAttention,
     TransformerEncoder,
+    TransformerFrontend,
     create_default_sdpa,
 )
+from fairseq2.nn import IdentityProjection, Linear, Projection
 
 # isort: split
 

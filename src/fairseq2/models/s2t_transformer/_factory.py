@@ -10,21 +10,6 @@ from torch.nn import SiLU
 
 from fairseq2.models.conformer import ConformerBlock, ConformerConvolution
 from fairseq2.models.transformer import (
-    TransformerEmbeddingFrontend,
-    TransformerFrontend,
-    TransformerModel,
-    init_transformer_final_projection,
-)
-from fairseq2.nn import (
-    Embedding,
-    Linear,
-    PositionEncoder,
-    Projection,
-    SinusoidalPositionEncoder,
-    StandardEmbedding,
-    init_scaled_embedding,
-)
-from fairseq2.nn.transformer import (
     FeedForwardNetwork,
     MultiheadAttention,
     RelativePositionalEncoding,
@@ -37,10 +22,23 @@ from fairseq2.nn.transformer import (
     StandardTransformerEncoderLayer,
     TransformerDecoder,
     TransformerDecoderLayer,
+    TransformerEmbeddingFrontend,
     TransformerEncoder,
     TransformerEncoderLayer,
+    TransformerFrontend,
+    TransformerModel,
     TransformerNormOrder,
     create_default_sdpa,
+    init_transformer_final_projection,
+)
+from fairseq2.nn import (
+    Embedding,
+    Linear,
+    PositionEncoder,
+    Projection,
+    SinusoidalPositionEncoder,
+    StandardEmbedding,
+    init_scaled_embedding,
 )
 from fairseq2.utils.lazy import Lazy
 

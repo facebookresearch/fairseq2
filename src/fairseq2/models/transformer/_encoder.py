@@ -25,13 +25,13 @@ from fairseq2.typing import CPU, DataType, Device
 
 # isort: split
 
-from fairseq2.nn.transformer._attention_mask import AttentionMaskFactory
-from fairseq2.nn.transformer._encoder_layer import TransformerEncoderLayer
-from fairseq2.nn.transformer._layer_norm import (
+from fairseq2.models.transformer._attention_mask import AttentionMaskFactory
+from fairseq2.models.transformer._encoder_layer import TransformerEncoderLayer
+from fairseq2.models.transformer._norm_order import TransformerNormOrder
+from fairseq2.models.transformer._normalization import (
     LayerNormFactory,
     create_standard_layer_norm,
 )
-from fairseq2.nn.transformer._norm_order import TransformerNormOrder
 
 
 class TransformerEncoder(LayerStack, ABC):

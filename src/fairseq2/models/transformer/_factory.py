@@ -18,30 +18,40 @@ from fairseq2.nn import (
     TiedProjection,
     init_scaled_embedding,
 )
-from fairseq2.nn.transformer import (
-    FeedForwardNetwork,
-    MultiheadAttention,
-    StandardFeedForwardNetwork,
-    StandardMultiheadAttention,
-    StandardTransformerDecoder,
-    StandardTransformerDecoderLayer,
-    StandardTransformerEncoder,
-    StandardTransformerEncoderLayer,
-    TransformerDecoder,
-    TransformerDecoderLayer,
-    TransformerEncoder,
-    TransformerEncoderLayer,
-    create_default_sdpa,
-)
 
 # isort: split
 
+from fairseq2.models.transformer._attention import create_default_sdpa
 from fairseq2.models.transformer._config import TransformerConfig
+from fairseq2.models.transformer._decoder import (
+    StandardTransformerDecoder,
+    TransformerDecoder,
+)
+from fairseq2.models.transformer._decoder_layer import (
+    StandardTransformerDecoderLayer,
+    TransformerDecoderLayer,
+)
+from fairseq2.models.transformer._encoder import (
+    StandardTransformerEncoder,
+    TransformerEncoder,
+)
+from fairseq2.models.transformer._encoder_layer import (
+    StandardTransformerEncoderLayer,
+    TransformerEncoderLayer,
+)
+from fairseq2.models.transformer._ffn import (
+    FeedForwardNetwork,
+    StandardFeedForwardNetwork,
+)
 from fairseq2.models.transformer._frontend import (
     TransformerEmbeddingFrontend,
     TransformerFrontend,
 )
 from fairseq2.models.transformer._model import TransformerModel
+from fairseq2.models.transformer._multihead_attention import (
+    MultiheadAttention,
+    StandardMultiheadAttention,
+)
 
 
 def create_transformer_model(config: TransformerConfig) -> TransformerModel:

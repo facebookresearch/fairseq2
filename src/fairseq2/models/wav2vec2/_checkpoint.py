@@ -12,8 +12,8 @@ import torch
 from torch import Tensor
 from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
 
+from fairseq2.models.transformer import TransformerNormOrder
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
-from fairseq2.nn.transformer import TransformerNormOrder
 from fairseq2.typing import CPU
 
 # isort: split
