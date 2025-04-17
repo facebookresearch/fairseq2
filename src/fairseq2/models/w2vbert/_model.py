@@ -90,7 +90,7 @@ class W2VBertModel(Module):
 
             return True
 
-        with self.w2v2_model.encoder.register_layer_output_hook(hook):
+        with self.w2v2_model.encoder.register_layer_hook(hook):
             encoder_output, _ = self.w2v2_model.encoder(
                 w2v2_features.seqs, w2v2_features.padding_mask
             )
