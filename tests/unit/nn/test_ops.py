@@ -10,7 +10,7 @@ import pytest
 import torch
 from torch.nn.functional import cross_entropy, log_softmax
 
-from fairseq2.nn.functional import nll_loss
+from fairseq2.nn.ops import nll_loss
 from tests.common import assert_close, device
 
 

@@ -8,8 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
-from enum import Enum
-from typing import Any, Literal, final
+from typing import final
 
 import torch
 import torch.nn as nn
@@ -18,21 +17,7 @@ from torch.nn import Module, Parameter
 from torch.nn.functional import layer_norm
 from typing_extensions import override
 
-try:
-    # isort: off
-    from apex.normalization.fused_layer_norm import (  # type: ignore[import]
-        fused_rms_norm as apex_rms_norm,
-    )
-    from apex.normalization.fused_layer_norm import (  # type: ignore[import]
-        fused_rms_norm_affine as apex_rms_norm_affine,
-    )
-
-    # isort: on
-
-    _has_apex = True
-except ImportError:
-    _has_apex = False
-
+from fairseq2.typing import DataType, Device
 
 try:
     from torch.nn.functional import rms_norm as torch_rms_norm  # type: ignore[import]
@@ -40,10 +25,6 @@ try:
     _has_torch_rms_norm = True
 except ImportError:
     _has_torch_rms_norm = False
-
-
-from fairseq2.error import NotSupportedError
-from fairseq2.typing import DataType, Device
 
 
 class LayerNorm(Module, ABC):
@@ -154,67 +135,10 @@ class RMSNorm(LayerNorm):
     """Applies Root Mean Square Layer Normalization to incoming data as
     described in :cite:t:`https://doi.org/10.48550/arxiv.1910.07467`."""
 
-    _impl_str: str
-    _impl: _NormImplementation
-
-    def __init__(
-        self,
-        *args: Any,
-        impl: Literal["auto", "py", "torch", "apex"] = "auto",
-        **kwargs: Any,
-    ) -> None:
-        """
-        See :class:`LayerNorm` for ``args`` and ``kwargs``.
-
-        :param impl:
-            The underlying implementation. If 'auto', attempts to use APEX if
-            installed; otherwise, falls back to Python.
-        """
-        super().__init__(*args, **kwargs)
-
-        if impl == "auto":
-            if _has_apex and self.bias is None:
-                impl = "apex"
-            elif _has_torch_rms_norm:
-                impl = "torch"
-            else:
-                impl = "py"
-
-        if impl == "apex":
-            if not _has_apex:
-                raise NotSupportedError(
-                    "`impl` is 'apex', but no APEX installation can be found."
-                )
-
-            if self.bias is not None:
-                raise NotSupportedError(
-                    "`impl` is 'apex', but APEX does not support the `bias` parameter."
-                )
-
-            self._impl = _NormImplementation.APEX
-        elif impl == "torch":
-            if not _has_torch_rms_norm:
-                raise NotSupportedError(
-                    "`impl` is 'torch', but PyTorch version is older than 2.4."
-                )
-
-            self._impl = _NormImplementation.TORCH
-        elif impl == "py":
-            self._impl = _NormImplementation.PY
-        else:
-            raise ValueError(
-                f"`impl` must be 'auto', 'py', 'torch', or 'apex', but is '{impl}' instead."
-            )
-
-        self._impl_str = impl
-
     @override
     def forward(self, x: Tensor) -> Tensor:
-        if self._impl == _NormImplementation.TORCH:
+        if _has_torch_rms_norm:
             return torch_rms_norm(x, self.normalized_shape, self.weight, self.eps)
-
-        if self._impl == _NormImplementation.APEX and x.is_cuda:
-            return self._apex_forward(x)
 
         # For numerical stability normalize in single precision.
         x = self._normalize(x.float()).type_as(x)
@@ -227,32 +151,9 @@ class RMSNorm(LayerNorm):
 
         return x
 
-    def _apex_forward(self, x: Tensor) -> Tensor:
-        if self.weight is None:
-            return apex_rms_norm(x, self.normalized_shape, self.eps)  # type: ignore[no-any-return]
-
-        return apex_rms_norm_affine(x, self.weight, self.normalized_shape, self.eps)  # type: ignore[no-any-return]
-
     def _normalize(self, x: Tensor) -> Tensor:
         dims = [-i for i in range(len(self.normalized_shape), 0, -1)]
 
         # Unlike the reference implementation, we add the epsilon before square
-        # root similar to LLaMA. APEX does the same.
+        # root similar to LLaMA.
         return x * torch.rsqrt(x.pow(2).mean(dims, keepdim=True) + self.eps)
-
-    @property
-    def impl(self) -> str:
-        """The underlying implementation."""
-        return self._impl_str
-
-    def extra_repr(self) -> str:
-        """:meta private:"""
-        s = super().extra_repr()
-
-        return f"{s}, impl={self._impl_str}"
-
-
-class _NormImplementation(Enum):
-    PY = 0
-    TORCH = 1
-    APEX = 2

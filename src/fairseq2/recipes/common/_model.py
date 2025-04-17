@@ -45,7 +45,7 @@ from fairseq2.models import (
     UnknownModelFamilyError,
     model_asset_card_error,
 )
-from fairseq2.nn.checkpointing import use_layerwise_activation_checkpointing
+from fairseq2.models.checkpointing import use_layerwise_activation_checkpointing
 from fairseq2.nn.utils.gradient import clip_gradient_norm
 from fairseq2.recipes import Model, RecipeError
 from fairseq2.recipes.config import ModelSection, TorchCompileSection, TrainerSection

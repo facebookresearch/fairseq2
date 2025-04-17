@@ -15,7 +15,7 @@ from torch.nn import Module
 from typing_extensions import override
 
 from fairseq2.device import SupportsDeviceTransfer
-from fairseq2.nn.functional import CrossEntropy, cross_entropy
+from fairseq2.nn.ops import CrossEntropy, cross_entropy
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.typing import Device
 

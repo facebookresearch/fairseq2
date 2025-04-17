@@ -21,6 +21,7 @@ from fairseq2.models.vit import (
     StandardViTFrontend,
 )
 from fairseq2.nn import (
+    DropPathResidualConnect,
     InterpolatedPositionEncoder,
     LayerNorm,
     Linear,
@@ -29,7 +30,6 @@ from fairseq2.nn import (
     StandardLayerNorm,
 )
 from fairseq2.nn.transformer import (
-    DropPathResidualConnect,
     FeedForwardNetwork,
     MultiheadAttention,
     StandardFeedForwardNetwork,

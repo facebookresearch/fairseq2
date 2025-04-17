@@ -594,8 +594,8 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
 
         self._watch.reset()
 
-        self._counters.cache_size = self._state_bag.size_bytes()
-        self._counters.cache_capacity = self._state_bag.capacity_bytes()
+        self._counters.cache_size = self._state_bag.size()
+        self._counters.cache_capacity = self._state_bag.capacity()
 
         # Sort the hypotheses by their scores before returning.
         for hypotheses in self._output:
