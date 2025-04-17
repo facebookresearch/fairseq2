@@ -232,7 +232,9 @@ class CardBasedModelLoader(ModelLoader):
             dtype = torch.float32
 
         try:
-            step_nr = self._checkpoint_manager.maybe_get_last_step_number()
+            step_nr = self._checkpoint_manager.maybe_get_last_step_number(
+                exclude_model_only=True
+            )
         except CheckpointError:
             raise ModelLoadError(
                 model_name, "The last training checkpoint cannot be retrieved. See the nested exception for details."  # fmt: skip
@@ -360,7 +362,9 @@ class PathBasedModelLoader(ModelLoader):
             dtype = torch.float32
 
         try:
-            step_nr = self._checkpoint_manager.maybe_get_last_step_number()
+            step_nr = self._checkpoint_manager.maybe_get_last_step_number(
+                exclude_model_only=True
+            )
         except CheckpointError:
             raise ModelLoadError(
                 model_name, "The last training checkpoint cannot be retrieved. See the nested exception for details."  # fmt: skip
@@ -498,7 +502,9 @@ class ModelCreator(ModelLoader):
             dtype = torch.float32
 
         try:
-            step_nr = self._checkpoint_manager.maybe_get_last_step_number()
+            step_nr = self._checkpoint_manager.maybe_get_last_step_number(
+                exclude_model_only=True
+            )
         except CheckpointError:
             raise ModelLoadError(
                 model_name, "The last training checkpoint cannot be retrieved. See the nested exception for details."  # fmt: skip

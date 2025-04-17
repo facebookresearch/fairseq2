@@ -124,6 +124,7 @@ class Trainer(Recipe, Generic[BatchT]):
     _checkpoint_every_n_steps: int | None
     _checkpoint_after_n_data_epochs: int
     _checkpoint_every_n_data_epochs: int | None
+    _save_model_only: bool
     _keep_last_n_checkpoints: int | None
     _keep_best_n_checkpoints: int | None
     _keep_checkpoint_every_n_steps: int | None
@@ -183,6 +184,7 @@ class Trainer(Recipe, Generic[BatchT]):
         checkpoint_every_n_steps: int | None = None,
         checkpoint_after_n_data_epochs: int = 0,
         checkpoint_every_n_data_epochs: int | None = None,
+        save_model_only: bool = False,
         keep_last_n_checkpoints: int | None = None,
         keep_best_n_checkpoints: int | None = None,
         keep_checkpoint_every_n_steps: int | None = None,
@@ -371,6 +373,8 @@ class Trainer(Recipe, Generic[BatchT]):
         self._checkpoint_after_n_data_epochs = checkpoint_after_n_data_epochs
         self._checkpoint_every_n_data_epochs = checkpoint_every_n_data_epochs
 
+        self._save_model_only = save_model_only
+
         if keep_last_n_checkpoints is not None:
             if keep_last_n_checkpoints <= 0:
                 raise ValueError(
@@ -489,7 +493,9 @@ class Trainer(Recipe, Generic[BatchT]):
 
     def _maybe_restore_state(self) -> _TrainerState:
         try:
-            step_nr = self._checkpoint_manager.maybe_get_last_step_number()
+            step_nr = self._checkpoint_manager.maybe_get_last_step_number(
+                exclude_model_only=True
+            )
         except CheckpointError as ex:
             raise RecipeError(
                 "The checkpoints cannot accessed. See the nested exception for details."
@@ -883,23 +889,32 @@ class Trainer(Recipe, Generic[BatchT]):
             else:
                 log.info("Checkpoint prepared. Saving asynchronously.")
 
-        trainer_state_bag = _TrainerStateBag(self)
-
         tmp = self._base_wall_time
 
         self._base_wall_time += self._wall_watch.get_elapsed_time()
 
+        trainer_state_bag = _TrainerStateBag(self)
+
         try:
-            self._checkpoint_manager.save_checkpoint(
-                step_nr,
-                trainer_state_bag,
-                self._model,
-                self._optimizer,
-                self._data_reader,
-                state_processor=log_ready,
-                callback=self._complete_checkpoint,
-                block=block,
-            )
+            if self._save_model_only:
+                self._checkpoint_manager.save_model_only(
+                    step_nr,
+                    self._model,
+                    state_processor=log_ready,
+                    callback=self._complete_checkpoint,
+                    block=block,
+                )
+            else:
+                self._checkpoint_manager.save_checkpoint(
+                    step_nr,
+                    trainer_state_bag,
+                    self._model,
+                    self._optimizer,
+                    self._data_reader,
+                    state_processor=log_ready,
+                    callback=self._complete_checkpoint,
+                    block=block,
+                )
         except CheckpointSaveError as ex:
             raise RecipeError(
                 f"The checkpoint of step {ex.step_nr} cannot be saved. See the nested exception for details."

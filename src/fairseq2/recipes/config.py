@@ -250,6 +250,8 @@ class RegimeSection:
     checkpoint_every_n_data_epochs: int | None = None
     """The data epoch interval at which to checkpoint."""
 
+    save_model_only: bool = False
+
     keep_last_n_checkpoints: int | None = None
     """The number of checkpoints to keep. If ``None``, none will be deleted."""
 

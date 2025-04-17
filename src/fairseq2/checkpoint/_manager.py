@@ -54,6 +54,17 @@ class CheckpointManager(ABC):
     ) -> None: ...
 
     @abstractmethod
+    def save_model_only(
+        self,
+        step_nr: int,
+        model: Stateful,
+        *,
+        state_processor: CheckpointStateProcessor | None = None,
+        callback: CheckpointCallback | None = None,
+        block: bool = False,
+    ) -> None: ...
+
+    @abstractmethod
     def maybe_complete_async_checkpoint(
         self, *, block: bool = False
     ) -> bool | None: ...
@@ -97,10 +108,12 @@ class CheckpointManager(ABC):
     ) -> bool: ...
 
     @abstractmethod
-    def get_step_numbers(self) -> list[int]: ...
+    def get_step_numbers(self, *, exclude_model_only: bool = False) -> list[int]: ...
 
     @abstractmethod
-    def maybe_get_last_step_number(self) -> int | None: ...
+    def maybe_get_last_step_number(
+        self, *, exclude_model_only: bool = False
+    ) -> int | None: ...
 
 
 CheckpointState: TypeAlias = list[tuple[Path, dict[str, object]]]
@@ -189,6 +202,36 @@ class FileCheckpointManager(CheckpointManager):
 
         self._collect_metadata(step_nr, metadata, state)
 
+        self._do_save_checkpoint(step_nr, state, state_processor, callback, block)
+
+    @override
+    def save_model_only(
+        self,
+        step_nr: int,
+        model: Stateful,
+        *,
+        state_processor: CheckpointStateProcessor | None = None,
+        callback: CheckpointCallback | None = None,
+        block: bool = False,
+    ) -> None:
+        self.maybe_complete_async_checkpoint(block=True)
+
+        state: CheckpointState = []
+
+        self._begin_checkpoint(step_nr)
+
+        self._collect_model_state(step_nr, model, state)
+
+        self._do_save_checkpoint(step_nr, state, state_processor, callback, block)
+
+    def _do_save_checkpoint(
+        self,
+        step_nr: int,
+        state: CheckpointState,
+        state_processor: CheckpointStateProcessor | None,
+        callback: CheckpointCallback | None,
+        block: bool,
+    ) -> None:
         try:
             self._sync_nfs_cache()
         except GangError as ex:
@@ -917,7 +960,7 @@ class FileCheckpointManager(CheckpointManager):
         return scores
 
     @override
-    def get_step_numbers(self) -> list[int]:
+    def get_step_numbers(self, *, exclude_model_only: bool = False) -> list[int]:
         step_numbers = []
 
         try:
@@ -930,11 +973,13 @@ class FileCheckpointManager(CheckpointManager):
                 except ValueError:
                     continue
 
-                trainer_dir = step_dir.joinpath("trainer")
+                if exclude_model_only:
+                    trainer_dir = step_dir.joinpath("trainer")
 
-                # Make sure that the directory does not only contain the model.
-                if self._file_system.exists(trainer_dir):
-                    step_numbers.append(step_nr)
+                    # Make sure that the directory does not only contain the
+                    # model.
+                    if self._file_system.exists(trainer_dir):
+                        step_numbers.append(step_nr)
         except OSError as ex:
             raise CheckpointError(
                 f"The '{self._checkpoint_dir}' checkpoint directory cannot be traversed. See the nested exception for details."
@@ -945,8 +990,10 @@ class FileCheckpointManager(CheckpointManager):
         return step_numbers
 
     @override
-    def maybe_get_last_step_number(self) -> int | None:
-        step_numbers = self.get_step_numbers()
+    def maybe_get_last_step_number(
+        self, *, exclude_model_only: bool = False
+    ) -> int | None:
+        step_numbers = self.get_step_numbers(exclude_model_only=exclude_model_only)
         if step_numbers:
             return step_numbers[-1]
 
