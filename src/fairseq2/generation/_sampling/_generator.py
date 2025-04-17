@@ -445,7 +445,7 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
     _num_gens: int
     _min_prompt_len: int
     _max_prompt_len: int
-    _min_seq_len: int
+    _min_seq_lens: Tensor
     _max_seq_len: int
     _echo_prompt: bool
     _compute_scores: bool
@@ -458,7 +458,7 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
     _step_hooks: dict[int, StepHook]
     _step_nr: int
     _state_bag: IncrementalStateBag
-    _prompt_lens: Tensor | None
+    _prompt_lens: Tensor
     _prompt_mask: Tensor | None
     _prompt_indices: Tensor
     _seqs: Tensor
@@ -505,6 +505,12 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
         if prompt_padding_mask is None:
             self._min_prompt_len, min_prompt_idx = prompt_seqs.size(1), 0
             self._max_prompt_len, max_prompt_idx = prompt_seqs.size(1), 0
+            prompt_seq_lens = torch.full(
+                (prompt_seqs.size(0),),
+                prompt_seqs.size(1),
+                dtype=prompt_seqs.dtype,
+                device=prompt_seqs.device,
+            )
         else:
             prompt_seq_lens = prompt_padding_mask.seq_lens
 
@@ -525,7 +531,7 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
                 f"The length of `prompt_seqs[{int(max_prompt_idx)}]` must be less than `max_seq_len` ({max_seq_len}), but is {self._max_prompt_len} instead."
             )
 
-        self._min_seq_len = min(max_seq_len, self._max_prompt_len + min_gen_len)
+        self._min_seq_lens = (prompt_seq_lens + min_gen_len).clamp(max=max_seq_len)
         self._max_seq_len = min(max_seq_len, self._max_prompt_len + max_gen_len)
 
         self._echo_prompt = echo_prompt
@@ -544,13 +550,12 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
             self._max_seq_len, capacity_increment=decode_capacity_increment
         )
 
+        # (P)
+        self._prompt_lens = prompt_seq_lens
+
         if prompt_padding_mask is None:
-            self._prompt_lens = None
             self._prompt_mask = None
         else:
-            # (P)
-            self._prompt_lens = prompt_padding_mask.seq_lens
-
             # (P, S_prm)
             self._prompt_mask = prompt_padding_mask.materialize()
 
@@ -649,8 +654,7 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
 
             logits = model_output.logits
 
-            if self._temperature != 1.0:
-                logits /= self._temperature
+            self._apply_temperature(logits)
 
             # (P, S_prm - 1, V)
             probs = softmax(logits, dim=-1, dtype=torch.float32)
@@ -689,6 +693,7 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
         self._counters.prefill_size += prefill_len * self._seqs.size(0)
 
     def _step(self) -> bool:
+
         # Generate the next step output.
         model_output = self._decode(self._seqs[:, self._step_nr - 1 : self._step_nr])
 
@@ -698,8 +703,7 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
 
         logits = model_output.logits
 
-        if self._temperature != 1.0:
-            logits /= self._temperature
+        self._apply_temperature(logits)
 
         # (N, 1, V)
         probs = softmax(logits, dim=-1, dtype=torch.float32)
@@ -733,8 +737,10 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
                 probs[:, self._pad_idx] = 0
 
             # Do not allow EOS till we reach the minimum sequence length.
-            if self._step_nr < self._min_seq_len - 1:
-                probs[:, self._eos_idx] = 0
+            mask_min_len = self._step_nr < self._min_seq_lens - 1
+            mask_after_prompt = self._step_nr >= self._prompt_lens
+            do_not_eos_mask = mask_min_len & mask_after_prompt
+            probs[do_not_eos_mask, self._eos_idx] = 0
 
             # (N)
             vocab_indices = self._sampler.sample(probs)
@@ -853,6 +859,16 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
 
         self._output[prompt_idx].append(Hypothesis(seq, score, step_scores))
 
+    def _apply_temperature(self, logits: Tensor) -> None:
+        if self._temperature == 0.0:
+            max_indices = torch.argmax(logits, dim=-1)  # (N, 1)
+            logits.fill_(float("-inf"))
+            # (N, 1, V)
+            logits.scatter_(-1, max_indices.unsqueeze(-1), 0.0)
+
+        elif self._temperature != 1.0:
+            logits.div_(self._temperature)
+
     def _reorder_state(self, new_order: Tensor) -> None:
         self._state_bag.reorder(new_order)
 
@@ -866,6 +882,9 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
 
         # (N) -> (N - F)
         self._prompt_indices = self._prompt_indices.index_select(dim=0, index=new_order)
+
+        # (N) -> (N - F)
+        self._min_seq_lens = self._min_seq_lens.index_select(dim=0, index=new_order)
 
         # (N, S) -> (N - F, S)
         self._seqs = self._seqs.index_select(dim=0, index=new_order)

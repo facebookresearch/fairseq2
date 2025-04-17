@@ -151,7 +151,7 @@ class LLaMAFactory:
         )
 
     def create_attention(
-        self, layer_idx: int, pos_encoder: PositionEncoder
+        self, layer_idx: int, pos_encoder: PositionEncoder | None
     ) -> MultiheadAttention:
         config = self._config
 
@@ -168,6 +168,15 @@ class LLaMAFactory:
 
         sdpa = create_default_sdpa(attn_dropout_p=config.dropout_p)
 
+        is_nope_layer = self._is_nope_layer(layer_idx)
+
+        pos_encoder = pos_encoder if not is_nope_layer else None
+
+        qk_norm = None
+        if config.use_qk_norm and not is_nope_layer:
+            head_dim = config.model_dim // config.num_attn_heads
+            qk_norm = self.create_qk_norm(head_dim)
+
         return StandardMultiheadAttention(
             config.model_dim,
             config.num_attn_heads,
@@ -177,6 +186,7 @@ class LLaMAFactory:
             pos_encoder=pos_encoder,
             output_proj_init_fn=init_projection,
             bias=False,
+            qk_norm=qk_norm,
         )
 
     def create_ffn(self, layer_idx: int) -> FeedForwardNetwork:
@@ -222,6 +232,12 @@ class LLaMAFactory:
 
         return (2 * (n + 1)) ** 0.5  # type: ignore[no-any-return]
 
+    def _is_nope_layer(self, layer_idx: int) -> bool:
+        return (
+            self._config.nope_layer_interval is not None
+            and (layer_idx + 1) % self._config.nope_layer_interval == 0
+        )
+
     def create_final_projection(self, embed: Embedding) -> Projection:
         config = self._config
 
@@ -251,9 +267,21 @@ class LLaMAFactory:
 
     @staticmethod
     def create_layer_norm(
-        model_dim: int, *, device: Device | None = None, dtype: DataType | None = None
+        model_dim: int,
+        *,
+        device: Device | None = None,
+        dtype: DataType | None = None,
     ) -> LayerNorm:
         return RMSNorm(model_dim, bias=False, device=device, dtype=dtype)
+
+    @staticmethod
+    def create_qk_norm(
+        model_dim: int,
+        *,
+        device: Device | None = None,
+        dtype: DataType | None = None,
+    ) -> LayerNorm:
+        return LLaMAFactory.create_layer_norm(model_dim, device=device, dtype=dtype)
 
 
 def _init_truncated_normal(
