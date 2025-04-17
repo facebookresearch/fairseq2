@@ -116,7 +116,9 @@ class InstructionFinetuneConfig:
     # The memory efficient SDPA implementation in PyTorch is numerically not
     # stable when used with padded inputs.
     common: CommonSection = field(
-        default_factory=lambda: CommonSection(torch=TorchSection(sdpa="torch_math"))
+        default_factory=lambda: CommonSection(
+            torch=TorchSection(default_sdpa="torch_math")
+        )
     )
 
 

@@ -450,7 +450,7 @@ class TorchSection:
     bf16_reduced_precision: bool = True
     """If ``True``, bf16 GEMMs are done with reduced precision reductions."""
 
-    sdpa: SDPAVariant = "torch_mem_efficient"
+    default_sdpa: SDPAVariant = "torch"
     """The default scaled dot-product attention variant."""
 
     torch_compile_activation_budget: float = 1.0

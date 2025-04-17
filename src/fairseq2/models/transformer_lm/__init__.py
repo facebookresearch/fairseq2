@@ -6,6 +6,18 @@
 
 from __future__ import annotations
 
+from fairseq2.models.transformer_lm._decoder import (
+    StandardTransformerLMDecoder as StandardTransformerLMDecoder,
+)
+from fairseq2.models.transformer_lm._decoder import (
+    TransformerLMDecoder as TransformerLMDecoder,
+)
+from fairseq2.models.transformer_lm._decoder_layer import (
+    StandardTransformerLMDecoderLayer as StandardTransformerLMDecoderLayer,
+)
+from fairseq2.models.transformer_lm._decoder_layer import (
+    TransformerLMDecoderLayer as TransformerLMDecoderLayer,
+)
 from fairseq2.models.transformer_lm._model import (
     TransformerLanguageModel as TransformerLanguageModel,
 )

@@ -18,16 +18,18 @@ from fairseq2.models.transformer import (
     GLUFeedForwardNetwork,
     MultiheadAttention,
     StandardMultiheadAttention,
-    StandardTransformerDecoder,
-    StandardTransformerDecoderLayer,
-    TransformerDecoder,
-    TransformerDecoderLayer,
     TransformerEmbeddingFrontend,
     TransformerFrontend,
     TransformerNormOrder,
     create_default_sdpa,
 )
-from fairseq2.models.transformer_lm import TransformerLanguageModel
+from fairseq2.models.transformer_lm import (
+    StandardTransformerLMDecoder,
+    StandardTransformerLMDecoderLayer,
+    TransformerLanguageModel,
+    TransformerLMDecoder,
+    TransformerLMDecoderLayer,
+)
 from fairseq2.nn import (
     Embedding,
     LayerNorm,
@@ -43,7 +45,7 @@ from fairseq2.typing import DataType, Device
 
 # isort: split
 
-from fairseq2.models.llama._config import LLaMAConfig, LLaMARopeScalingConfig
+from fairseq2.models.llama._config import LLaMAConfig, LLaMARoPEScaleConfig
 
 
 def create_llama_model(config: LLaMAConfig) -> TransformerLanguageModel:
@@ -100,7 +102,7 @@ class LLaMAFactory:
             embed, pos_encoder=None, no_scale=True, dropout_p=config.dropout_p
         )
 
-    def create_decoder(self) -> TransformerDecoder:
+    def create_decoder(self) -> TransformerLMDecoder:
         config = self._config
 
         pos_encoder = self.create_position_encoder()
@@ -112,7 +114,7 @@ class LLaMAFactory:
 
             layers.append(layer)
 
-        return StandardTransformerDecoder(
+        return StandardTransformerLMDecoder(
             layers,
             dropout_p=config.dropout_p,
             norm_order=TransformerNormOrder.PRE,
@@ -138,15 +140,14 @@ class LLaMAFactory:
 
     def create_decoder_layer(
         self, layer_idx: int, pos_encoder: PositionEncoder
-    ) -> TransformerDecoderLayer:
+    ) -> TransformerLMDecoderLayer:
         self_attn = self.create_attention(layer_idx, pos_encoder)
 
         ffn = self.create_ffn(layer_idx)
 
-        return StandardTransformerDecoderLayer(
+        return StandardTransformerLMDecoderLayer(
             self_attn,
-            encoder_decoder_attn=None,
-            ffn=ffn,
+            ffn,
             norm_order=TransformerNormOrder.PRE,
             layer_norm_factory=self.create_layer_norm,
         )
@@ -267,7 +268,7 @@ def _init_truncated_normal(
 
 
 def init_llama_rope_freqs(
-    pos_encoder: RotaryEncoder, rope_scaling: LLaMARopeScalingConfig
+    pos_encoder: RotaryEncoder, rope_scaling: LLaMARoPEScaleConfig
 ) -> Tensor:
     device = pos_encoder.freqs.device
 
