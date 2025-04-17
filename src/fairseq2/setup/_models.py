@@ -43,6 +43,14 @@ from fairseq2.models.llama import (
     register_llama_configs,
     shard_llama_model,
 )
+from fairseq2.models.qwen import (
+    QWEN_MODEL_FAMILY,
+    QwenConfig,
+    convert_qwen_checkpoint,
+    create_qwen_model,
+    register_qwen_configs,
+    shard_qwen_model,
+)
 from fairseq2.models.mistral import (
     MISTRAL_MODEL_FAMILY,
     MistralConfig,
@@ -141,6 +149,21 @@ def register_model_families(context: RuntimeContext) -> None:
     )
 
     register_llama_configs(context)
+
+    # Qwen
+    default_arch = "qwen_7b"
+
+    registrar.register_family(
+        QWEN_MODEL_FAMILY,
+        TransformerDecoderModel,
+        QwenConfig,
+        default_arch,
+        create_qwen_model,
+        checkpoint_converter=convert_qwen_checkpoint,
+        sharder=shard_qwen_model,
+    )
+
+    register_qwen_configs(context)
 
     # Mistral
     default_arch = "7b"

@@ -398,6 +398,130 @@ class RotaryEncoder(PositionEncoder):
         return fp32_seqs.type_as(seqs)
 
 
+@final
+class ReferenceRotaryEncoder(PositionEncoder):
+    """
+    Encodes sequences with relative positional information as described in
+    :cite:t:`https://doi.org/10.48550/arxiv.2104.09864`.
+    """
+
+    cos_freqs: Tensor
+    sin_freqs: Tensor
+    theta: float
+
+    def __init__(
+        self,
+        encoding_dim: int,
+        max_seq_len: int,
+        *,
+        theta: float = 10_000.0,
+        device: Device | None = None,
+    ) -> None:
+        """
+        :param encoding_dim: The dimensionality of positional encodings. The
+            last dimension of input sequences is expected to have the same
+            dimensionality.
+        :param max_seq_len: The maximum allowed length for input sequences.
+            Sequences longer than ``max_seq_len`` will cause a :class:`ValueError`.
+        :param theta: The coefficient of the long-term decay as described in
+            section 3.3 of the reference paper.
+
+        :raise ValueError: when ``encoding_dim`` is not even.
+        """
+        super().__init__(encoding_dim, max_seq_len)
+
+        if encoding_dim % 2 != 0:
+            raise ValueError(
+                f"`encoding_dim` must be even, but is {encoding_dim} instead."
+            )
+
+        cos_freqs = torch.empty(
+            (max_seq_len, encoding_dim), device=device, dtype=torch.float32
+        )
+
+        sin_freqs = torch.empty(
+            (max_seq_len, encoding_dim), device=device, dtype=torch.float32
+        )
+
+        self.register_buffer("cos_freqs", cos_freqs, persistent=False)
+        self.register_buffer("sin_freqs", sin_freqs, persistent=False)
+
+        self.theta = theta
+
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        """Reset the parameters and buffers of the module."""
+        self.reset_non_persistent_buffers()
+
+    def reset_non_persistent_buffers(self) -> None:
+        """Reset the non-persistent buffers of the module."""
+        if self.max_seq_len is None:
+            raise InternalError("`max_seq_len` is `None`.")
+
+        dtype = torch.float32
+
+        device = self.cos_freqs.device
+
+        encoding_dim = self.encoding_dim
+
+        # (E)
+        indices = torch.arange(encoding_dim // 2, device=device, dtype=dtype)
+
+        # (E) -> (1, E)
+        indices = indices.unsqueeze(0)
+
+        # (S)
+        steps = torch.arange(self.max_seq_len, device=device, dtype=dtype)
+
+        # (S, 1)
+        steps = steps.unsqueeze(1)
+
+        # (S, 1) x (1, E) -> (S, E)
+        table = torch.matmul(steps, self.theta ** (-2.0 * indices / encoding_dim))
+
+        cos = torch.cos(table)
+        sin = torch.sin(table)
+
+        self.cos_freqs[:, : encoding_dim // 2] = cos
+        self.cos_freqs[:, encoding_dim // 2 :] = cos
+
+        self.sin_freqs[:, : encoding_dim // 2] = sin
+        self.sin_freqs[:, encoding_dim // 2 :] = sin
+
+    @override
+    def _do_forward(
+        self,
+        seqs: Tensor,
+        padding_mask: PaddingMask | None,
+        state_bag: IncrementalStateBag | None,
+    ) -> Tensor:
+        """:meta private:"""
+        seq_len = seqs.size(-2)
+
+        if self.training or state_bag is None:
+            start_step = 0
+        else:
+            start_step = state_bag.step_nr
+
+        cos_freqs = self.cos_freqs[start_step : start_step + seq_len]
+        sin_freqs = self.sin_freqs[start_step : start_step + seq_len]
+
+        fp32_seqs = seqs.float()
+
+        fp32_rotated_seqs = self._rotate_half_way(fp32_seqs)
+
+        fp32_seqs = (fp32_seqs * cos_freqs) + (fp32_rotated_seqs * sin_freqs)
+
+        return fp32_seqs.type_as(seqs)
+
+    def _rotate_half_way(self, seqs: Tensor) -> Tensor:
+        half1 = seqs[..., : self.encoding_dim // 2]
+        half2 = seqs[..., self.encoding_dim // 2 :]
+
+        return torch.cat((-half2, half1), dim=-1)
+
+
 class InterpolatedPositionEncoder(Module, ABC):
     """Encodes N-dimensional inputs with interpolated positional information."""
 

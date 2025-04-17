@@ -71,6 +71,7 @@ from fairseq2.nn.transformer._ffn import (
 )
 from fairseq2.nn.transformer._ffn import FeedForwardNetwork as FeedForwardNetwork
 from fairseq2.nn.transformer._ffn import GLUFeedForwardNetwork as GLUFeedForwardNetwork
+from fairseq2.nn.transformer._ffn import GLUFeedForwardNetworkV2 as GLUFeedForwardNetworkV2
 from fairseq2.nn.transformer._ffn import (
     StandardFeedForwardNetwork as StandardFeedForwardNetwork,
 )

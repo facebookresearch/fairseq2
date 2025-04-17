@@ -14,6 +14,7 @@ from fairseq2.cli.commands.llama import (
     ConvertLLaMACheckpointHandler,
     WriteHFLLaMAConfigHandler,
 )
+from fairseq2.cli.commands.qwen import ConvertQwenCheckpointHandler
 from fairseq2.cli.commands.recipe import RecipeCommandHandler
 from fairseq2.context import RuntimeContext
 from fairseq2.data.text.tokenizers import (
@@ -104,6 +105,7 @@ def setup_cli(context: RuntimeContext) -> Cli:
     _register_asset_cli(cli)
     _register_chatbot_cli(cli)
     _register_llama_cli(cli)
+    _register_qwen_cli(cli)
     _register_lm_cli(cli)
     _register_mt_cli(cli)
     _register_wav2vec2_asr_cli(cli)
@@ -176,6 +178,16 @@ def _register_llama_cli(cli: Cli) -> None:
         name="write_hf_config",
         handler=WriteHFLLaMAConfigHandler(),
         help="write fairseq2 LLaMA configurations in Hugging Face format",
+    )
+
+
+def _register_qwen_cli(cli: Cli) -> None:
+    group = cli.add_group("qwen", help="LLaMA recipes")
+
+    group.add_command(
+        name="convert_fs2_to_hf_checkpoint",
+        handler=ConvertQwenCheckpointHandler(),
+        help="convert fairseq2 Qwen2.5 checkpoints to HF checkpoints",
     )
 
 
