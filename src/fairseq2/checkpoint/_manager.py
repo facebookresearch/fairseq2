@@ -86,37 +86,18 @@ class CheckpointManager(ABC):
     def load_scores(self) -> list[tuple[float, int]]: ...
 
     @abstractmethod
-    def delete_checkpoint(self, step_nr: int, *, preserve_model: bool = False) -> None:
-        """
-        Deletes the checkpoint of the specified training step.
-
-        :param step_nr: The number of the training step.
-        :param preserve_model: If ``True``, model won't be deleted.
-        """
+    def delete_checkpoint(self, step_nr: int) -> None: ...
 
     @abstractmethod
-    def keep_last_n_checkpoints(self, n: int, *, preserve_model: bool = False) -> None:
-        """
-        Deletes all but the last ``n`` checkpoints.
-
-        :param n: The number of checkpoints to preserve.
-        :param preserve_model: If ``True``, models of old checkpoints won't be
-            deleted.
-        """
+    def delete_stale_checkpoints(
+        self,
+        keep_last_n: int | None,
+        keep_best_n: int | None,
+        keep_every_n_steps: int | None,
+    ) -> bool: ...
 
     @abstractmethod
-    def keep_best_n_checkpoints(self, n: int, *, preserve_model: bool = False) -> None:
-        """
-        Deletes all but the best ``n`` checkpoints based on their score.
-
-        :param n: The number of checkpoints to preserve.
-        :param preserve_model: If ``True``, models of old checkpoints won't be
-            deleted.
-        """
-
-    @abstractmethod
-    def get_step_numbers(self) -> list[int]:
-        """Returns the numbers of the training steps that have a checkpoint."""
+    def get_step_numbers(self) -> list[int]: ...
 
     @abstractmethod
     def maybe_get_last_step_number(self) -> int | None: ...
@@ -735,7 +716,7 @@ class FileCheckpointManager(CheckpointManager):
     def _load_state_dict(self, step_nr: int, pathname: str) -> dict[str, object]:
         gangs = self._gangs
 
-        with load_with_sdp_gang(gangs):  # Required for ShardedTensor.
+        with load_with_sdp_gang(gangs):  # Required for `ShardedTensor`.
             file = self._checkpoint_dir.joinpath(f"step_{step_nr}/{pathname}")
 
             try:
@@ -785,7 +766,7 @@ class FileCheckpointManager(CheckpointManager):
         return self._do_load_scores(step_numbers)
 
     @override
-    def delete_checkpoint(self, step_nr: int, *, preserve_model: bool = False) -> None:
+    def delete_checkpoint(self, step_nr: int) -> None:
         gangs = self._gangs
 
         if gangs.root.rank == 0:
@@ -812,29 +793,12 @@ class FileCheckpointManager(CheckpointManager):
                 ) from ex
 
             if step_dir_exists:
-                if preserve_model:
-                    for pathname in ["trainer", "optimizer.pt", "data_reader"]:
-                        path = step_dir.joinpath(pathname)
-
-                        try:
-                            if self._file_system.is_dir(path):
-                                self._file_system.remove_directory(path)
-                            else:
-                                try:
-                                    self._file_system.remove(path)
-                                except FileNotFoundError:
-                                    pass
-                        except OSError as ex:
-                            raise CheckpointDeleteError(
-                                step_nr, f"The '{path}' path of step {step_nr} cannot be deleted. See the nested exception for details."  # fmt: skip
-                            ) from ex
-                else:
-                    try:
-                        self._file_system.remove_directory(step_dir)
-                    except OSError as ex:
-                        raise CheckpointDeleteError(
-                            step_nr, f"The '{step_dir}' checkpoint directory of step {step_nr} cannot be deleted. See the nested exception for details."  # fmt: skip
-                        ) from ex
+                try:
+                    self._file_system.remove_directory(step_dir)
+                except OSError as ex:
+                    raise CheckpointDeleteError(
+                        step_nr, f"The '{step_dir}' checkpoint directory of step {step_nr} cannot be deleted. See the nested exception for details."  # fmt: skip
+                    ) from ex
 
             # Delete the score file.
             score_file = self._checkpoint_dir.joinpath(f"scores/step_{step_nr}.txt")
@@ -856,13 +820,44 @@ class FileCheckpointManager(CheckpointManager):
             ) from ex
 
     @override
-    def keep_last_n_checkpoints(self, n: int, *, preserve_model: bool = False) -> None:
-        if n == 0:
-            raise ValueError("`n` must be greater than zero.")
+    def delete_stale_checkpoints(
+        self,
+        keep_last_n: int | None,
+        keep_best_n: int | None,
+        keep_every_n_steps: int | None,
+    ) -> bool:
+        if keep_last_n is None and keep_best_n is None and keep_every_n_steps is None:
+            return False
 
         step_numbers = self.get_step_numbers()
         if not step_numbers:
-            return
+            return False
+
+        non_stale_steps = {step_numbers[-1]}  # never delete the last checkpoint.
+
+        if keep_last_n is not None:
+            if keep_last_n <= 0:
+                raise ValueError("`keep_last_n` must be greater than or equal to 1.")
+
+            non_stale_steps.update(step_numbers[-keep_last_n:])
+
+        if keep_best_n is not None:
+            if keep_best_n <= 0:
+                raise ValueError("`keep_best_n` must be greater than or equal to 1.")
+
+            scores = self._do_load_scores(step_numbers)
+
+            non_stale_steps.update(step_nr for _, step_nr in scores[:keep_best_n])
+
+        if keep_every_n_steps is not None:
+            if keep_every_n_steps <= 0:
+                raise ValueError(
+                    "`keep_every_n_steps` must be greater than or equal to 1."
+                )
+
+            non_stale_steps.update(
+                n for n in step_numbers if n % keep_every_n_steps == 0
+            )
 
         try:
             self._gangs.root.barrier()
@@ -871,35 +866,15 @@ class FileCheckpointManager(CheckpointManager):
                 "The collective barrier before the checkpoint delete operation has failed. See the nested exception for details."
             ) from ex
 
-        for step_nr in step_numbers[:-n]:
-            self.delete_checkpoint(step_nr, preserve_model=preserve_model)
+        deleted = False
 
-    @override
-    def keep_best_n_checkpoints(self, n: int, *, preserve_model: bool = False) -> None:
-        if n < 1:
-            raise ValueError("`n` must be greater than or equal to 1.")
+        for step_nr in step_numbers:
+            if step_nr not in non_stale_steps:
+                self.delete_checkpoint(step_nr)
 
-        step_numbers = self.get_step_numbers()
-        if not step_numbers:
-            return
+                deleted = True
 
-        last_step_nr = step_numbers[-1]
-
-        scores = self._do_load_scores(step_numbers)
-        if not scores:
-            return
-
-        try:
-            self._gangs.root.barrier()
-        except GangError as ex:
-            raise CheckpointError(
-                "The collective barrier before the checkpoint delete operation has failed. See the nested exception for details."
-            ) from ex
-
-        for _, step_nr in scores[n:]:
-            # Always preserve the last checkpoint.
-            if step_nr != last_step_nr:
-                self.delete_checkpoint(step_nr, preserve_model=preserve_model)
+        return deleted
 
     def _do_load_scores(self, step_numbers: list[int]) -> list[tuple[float, int]]:
         scores_dir = self._checkpoint_dir.joinpath("scores")
@@ -955,7 +930,11 @@ class FileCheckpointManager(CheckpointManager):
                 except ValueError:
                     continue
 
-                step_numbers.append(step_nr)
+                trainer_dir = step_dir.joinpath("trainer")
+
+                # Make sure that the directory does not only contain the model.
+                if self._file_system.exists(trainer_dir):
+                    step_numbers.append(step_nr)
         except OSError as ex:
             raise CheckpointError(
                 f"The '{self._checkpoint_dir}' checkpoint directory cannot be traversed. See the nested exception for details."

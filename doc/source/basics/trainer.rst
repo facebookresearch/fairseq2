@@ -129,8 +129,6 @@ The :class:`fairseq2.recipes.trainer.Trainer` class accepts a wide range of conf
         checkpoint_every_n_steps=5_000,      # Checkpoint frequency
         keep_last_n_checkpoints=5,           # Number of checkpoints to keep
         keep_best_n_checkpoints=3,           # Number of best checkpoints to keep
-        keep_last_n_models=5,                # Number of models to keep
-        keep_best_n_models=3,                # Number of best models to keep
         
         # Metric parameters
         publish_metrics_every_n_steps=100,   # Metric publishing frequency
