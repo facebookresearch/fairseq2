@@ -96,7 +96,6 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
     :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`."""
 
     self_attn: MultiheadAttention
-    self_attn_norm: LayerNorm | None
     self_attn_dropout: Dropout | None
     self_attn_residual: ResidualConnect
     self_attn_layer_norm: LayerNorm
@@ -162,13 +161,6 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
             self.self_attn_layer_norm = self_attn_layer_norm
 
         self.self_attn = self_attn
-
-        if norm_order == TransformerNormOrder.PRE_WITH_NORMFORMER:
-            self.self_attn_norm = layer_norm_factory(
-                model_dim, device=device, dtype=dtype
-            )
-        else:
-            self.register_module("self_attn_norm", None)
 
         if dropout_p > 0.0:
             self.self_attn_dropout = Dropout(dropout_p)
@@ -275,9 +267,6 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
             attn_mask=self_attn_mask,
             state_bag=state_bag,
         )
-
-        if self.self_attn_norm is not None:
-            seqs = self.self_attn_norm(seqs)
 
         if self.self_attn_dropout is not None:
             seqs = self.self_attn_dropout(seqs)

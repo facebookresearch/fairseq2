@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from fairseq2.chatbots import UnknownChatbotError
-from fairseq2.cli import Cli
 from fairseq2.cli.commands.assets import ListAssetsHandler, ShowAssetHandler
 from fairseq2.cli.commands.chatbot import RunChatbotHandler
 from fairseq2.cli.commands.llama import (
@@ -88,6 +87,10 @@ from fairseq2.recipes.wav2vec2.asr import (
     load_wav2vec2_asr_trainer,
 )
 from fairseq2.utils.validation import ValidationError
+
+# isort: split
+
+from fairseq2.cli._cli import Cli
 
 
 def setup_cli(context: RuntimeContext) -> Cli:

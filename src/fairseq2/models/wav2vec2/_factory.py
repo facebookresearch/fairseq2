@@ -258,7 +258,6 @@ class Wav2Vec2EncoderFactory:
             bias=True,
             inner_activation=SiLU() if use_swish else GELU(),
             inner_dropout_p=config.ffn_inner_dropout_p,
-            norm_order=config.norm_order,
             proj_init_fn=init_bert_projection,
         )
 

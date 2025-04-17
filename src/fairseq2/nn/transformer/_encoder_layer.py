@@ -82,7 +82,6 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
     """
 
     self_attn: MultiheadAttention
-    self_attn_norm: LayerNorm | None
     self_attn_dropout: Dropout | None
     self_attn_residual: ResidualConnect
     self_attn_layer_norm: LayerNorm
@@ -137,13 +136,6 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
             self.self_attn_layer_norm = self_attn_layer_norm
 
         self.self_attn = self_attn
-
-        if norm_order == TransformerNormOrder.PRE_WITH_NORMFORMER:
-            self.self_attn_norm = layer_norm_factory(
-                model_dim, device=device, dtype=dtype
-            )
-        else:
-            self.register_module("self_attn_norm", None)
 
         if dropout_p > 0.0:
             self.self_attn_dropout = Dropout(dropout_p)
@@ -212,9 +204,6 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
             values=seqs,
             attn_mask=self_attn_mask,
         )
-
-        if self.self_attn_norm is not None:
-            seqs = self.self_attn_norm(seqs)
 
         if self.self_attn_dropout is not None:
             seqs = self.self_attn_dropout(seqs)
