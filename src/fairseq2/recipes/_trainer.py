@@ -13,7 +13,9 @@ from typing import Final, Generic, Mapping, TypeVar, final
 
 import torch
 import torch.distributed
+from rich.pretty import pretty_repr
 from torch import Tensor
+from torch.cuda import OutOfMemoryError
 from torch.optim import Optimizer
 from torch.profiler import record_function
 from typing_extensions import override
@@ -711,25 +713,33 @@ class Trainer(Recipe, Generic[BatchT]):
             for batch_nr in range(num_batches):
                 batch = batches.pop()
 
-                batch.to(gangs.root.device)
+                try:
+                    batch.to(gangs.root.device)
 
-                with self._maybe_no_sync(batch_nr, num_batches):
-                    with record_function(f"step_{step_nr}_{batch_nr}_forward"):
-                        loss, num_batch_targets = self._compute_loss(batch)
+                    with self._maybe_no_sync(batch_nr, num_batches):
+                        with record_function(f"step_{step_nr}_{batch_nr}_forward"):
+                            loss, num_batch_targets = self._compute_loss(batch)
 
-                    # If the unit does not return the number of logit targets
-                    # of this batch, we assume that the loss is the mean loss
-                    # and that each batch in this step has the same number of
-                    # logit targets. In this case, we don't need to normalize
-                    # the gradients at the end of the step, but we still have
-                    # to take gradient accumulation into account.
-                    if num_batch_targets is None:
-                        loss = loss / num_batches
-                    else:
-                        num_targets += num_batch_targets
+                        # If the unit does not return the number of logit targets
+                        # of this batch, we assume that the loss is the mean loss
+                        # and that each batch in this step has the same number of
+                        # logit targets. In this case, we don't need to normalize
+                        # the gradients at the end of the step, but we still have
+                        # to take gradient accumulation into account.
+                        if num_batch_targets is None:
+                            loss = loss / num_batches
+                        else:
+                            num_targets += num_batch_targets
 
-                    with record_function(f"step_{step_nr}_{batch_nr}_backward"):
-                        self._loss_scaler.backward(loss)
+                        with record_function(f"step_{step_nr}_{batch_nr}_backward"):
+                            self._loss_scaler.backward(loss)
+                except OutOfMemoryError:
+                    if log.is_enabled_for_error():
+                        s = pretty_repr(batch, max_width=88, max_string=128)
+
+                        log.error("CUDA out of memory. Note that CUDA operations are async. Dumping the likely input batch information. Use the `CUDA_LAUNCH_BLOCKING=1` environment variable for debugging:\n{}", s)  # fmt: skip
+
+                    raise
 
             self._batches = None
 
@@ -1052,6 +1062,10 @@ class Trainer(Recipe, Generic[BatchT]):
         self._validator.reset()
 
         self._model.module.train()
+
+        # Try to avoid CUDA memory fragmentation after validation.
+        if self._gangs.root.device.type == "cuda":
+            torch.cuda.empty_cache()
 
         log.info("Validation finished.")
 
