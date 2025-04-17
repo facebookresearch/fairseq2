@@ -363,7 +363,7 @@ class ProcessGroupGang(Gang):
             # Forces NCCL to initialize immediately which enables deterministic
             # behavior.
             if torch_greater_or_equal(2, 3):
-                kwargs = {"device_id": device}
+                kwargs["device_id"] = device
 
             # If enabled, uses high priority CUDA streams for NCCL.
             if high_priority:

@@ -10,7 +10,6 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Protocol, TypeVar, final
 
-import torch
 from torch.nn import Module
 from typing_extensions import override
 
@@ -21,6 +20,7 @@ from fairseq2.assets import (
     AssetDownloadManager,
 )
 from fairseq2.config_registry import ConfigNotFoundError, ConfigProvider
+from fairseq2.device import default_device_and_dtype
 from fairseq2.error import ContractError, NotSupportedError
 from fairseq2.gang import Gangs
 from fairseq2.models.fsdp import apply_default_fsdp
@@ -447,12 +447,8 @@ class StandardModelHandler(ModelHandler):
         else:
             device = gangs.root.device
 
-        original_dtype = torch.get_default_dtype()
-
         try:
-            torch.set_default_dtype(dtype)
-
-            with device:
+            with default_device_and_dtype(device, dtype):
                 model = self._factory(config)
         except NotImplementedError as ex:
             if "'Meta' backend" not in str(ex):
@@ -461,8 +457,6 @@ class StandardModelHandler(ModelHandler):
             raise ContractError(
                 "One or more operators in the model constructor have failed to initialize on the meta device. See the nested exception for details."
             ) from ex
-        finally:
-            torch.set_default_dtype(original_dtype)
 
         if gangs.root.size != gangs.dp.size:
             if self._sharder is None:

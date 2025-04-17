@@ -28,7 +28,7 @@ from fairseq2.checkpoint import (
     CheckpointState,
 )
 from fairseq2.datasets import DataReader, DataReadError
-from fairseq2.device import DeviceStatTracker, SupportsDeviceTransfer
+from fairseq2.device import SupportsDeviceTransfer
 from fairseq2.error import InternalError, InvalidOperationError
 from fairseq2.gang import GangError, Gangs, broadcast_flag
 from fairseq2.logging import log
@@ -39,6 +39,7 @@ from fairseq2.optim import DynamicLossScaler
 from fairseq2.optim.lr_scheduler import LRScheduler, get_effective_lr
 from fairseq2.profilers import Profiler
 from fairseq2.typing import CPU, ContextManager, DataType
+from fairseq2.utils.device_stat import DeviceStatTracker
 from fairseq2.utils.gc import GarbageCollector
 from fairseq2.utils.progress import ProgressReporter, ProgressTask
 from fairseq2.utils.rng import RngBag
