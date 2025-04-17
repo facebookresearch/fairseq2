@@ -14,11 +14,10 @@ from typing_extensions import override
 
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.sequence import SequenceModelOutput
-from fairseq2.models.transformer import TransformerFrontend
+from fairseq2.models.transformer import TransformerDecoder, TransformerFrontend
 from fairseq2.nn import IncrementalStateBag, Projection
 from fairseq2.nn.ops import CrossEntropy, cross_entropy
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.nn.transformer import TransformerDecoder
 
 
 @final

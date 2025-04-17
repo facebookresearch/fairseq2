@@ -22,7 +22,10 @@ from fairseq2.nn.padding import PaddingMask
 
 # isort: split
 
-from fairseq2.nn.transformer._attention_mask import AttentionMask, CausalAttentionMask
+from fairseq2.models.transformer._attention_mask import (
+    AttentionMask,
+    CausalAttentionMask,
+)
 
 
 class SDPA(Module, ABC):

@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import torch
 
+from fairseq2.models.transformer import ALiBiMaskFactory, CausalAttentionMaskFactory
 from fairseq2.nn import IncrementalStateBag
-from fairseq2.nn.transformer import ALiBiMaskFactory, CausalAttentionMaskFactory
 from tests.common import assert_close, device
 
 

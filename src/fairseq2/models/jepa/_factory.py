@@ -13,7 +13,19 @@ import torch.nn as nn
 from torch import Tensor
 from torch.nn import GELU, Conv2d, Conv3d
 
-from fairseq2.models.transformer import TransformerFrontend
+from fairseq2.models.transformer import (
+    FeedForwardNetwork,
+    MultiheadAttention,
+    StandardFeedForwardNetwork,
+    StandardMultiheadAttention,
+    StandardTransformerEncoder,
+    StandardTransformerEncoderLayer,
+    TransformerEncoder,
+    TransformerEncoderLayer,
+    TransformerFrontend,
+    TransformerNormOrder,
+    create_default_sdpa,
+)
 from fairseq2.models.vit import (
     Conv2dPatchFeatureExtractor,
     Conv3dPatchFeatureExtractor,
@@ -28,18 +40,6 @@ from fairseq2.nn import (
     Sinusoidal2dPositionEncoder,
     Sinusoidal3dPositionEncoder,
     StandardLayerNorm,
-)
-from fairseq2.nn.transformer import (
-    FeedForwardNetwork,
-    MultiheadAttention,
-    StandardFeedForwardNetwork,
-    StandardMultiheadAttention,
-    StandardTransformerEncoder,
-    StandardTransformerEncoderLayer,
-    TransformerEncoder,
-    TransformerEncoderLayer,
-    TransformerNormOrder,
-    create_default_sdpa,
 )
 from fairseq2.typing import DataType, Device
 

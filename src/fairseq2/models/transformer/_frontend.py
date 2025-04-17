@@ -16,8 +16,14 @@ from typing_extensions import override
 
 from fairseq2.nn import Embedding, IncrementalStateBag, LayerNorm, PositionEncoder
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.nn.transformer import LayerNormFactory, create_standard_layer_norm
 from fairseq2.typing import DataType, Device
+
+# isort: split
+
+from fairseq2.models.transformer._normalization import (
+    LayerNormFactory,
+    create_standard_layer_norm,
+)
 
 
 class TransformerFrontend(Module, ABC):

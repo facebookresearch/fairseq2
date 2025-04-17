@@ -7,7 +7,12 @@
 from __future__ import annotations
 
 from fairseq2.gang import Gangs
-from fairseq2.models.transformer import TransformerEmbeddingFrontend
+from fairseq2.models.transformer import (
+    GLUFeedForwardNetwork,
+    StandardFeedForwardNetwork,
+    StandardMultiheadAttention,
+    TransformerEmbeddingFrontend,
+)
 from fairseq2.nn import (
     ColumnShardedLinear,
     Linear,
@@ -15,11 +20,6 @@ from fairseq2.nn import (
     ShardedEmbedding,
     StandardEmbedding,
     VocabShardedEmbedding,
-)
-from fairseq2.nn.transformer import (
-    GLUFeedForwardNetwork,
-    StandardFeedForwardNetwork,
-    StandardMultiheadAttention,
 )
 
 # isort: split

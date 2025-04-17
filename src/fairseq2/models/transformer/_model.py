@@ -15,10 +15,11 @@ from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.nn import IncrementalStateBag, Projection
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.nn.transformer import TransformerDecoder, TransformerEncoder
 
 # isort: split
 
+from fairseq2.models.transformer._decoder import TransformerDecoder
+from fairseq2.models.transformer._encoder import TransformerEncoder
 from fairseq2.models.transformer._frontend import TransformerFrontend
 
 

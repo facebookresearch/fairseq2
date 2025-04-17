@@ -13,7 +13,7 @@ import torch
 
 from fairseq2.context import RuntimeContext
 from fairseq2.logging import log
-from fairseq2.nn.transformer import (
+from fairseq2.models.transformer import (
     NaiveSDPA,
     TorchSDPA,
     set_default_sdpa_factory,

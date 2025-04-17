@@ -13,21 +13,25 @@ from torch import Tensor
 from torch.nn import Dropout, Module
 from typing_extensions import override
 
-from fairseq2.nn import IncrementalStateBag, LayerNorm
+from fairseq2.nn import (
+    IncrementalStateBag,
+    LayerNorm,
+    ResidualConnect,
+    StandardResidualConnect,
+)
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.typing import DataType, Device
 
 # isort: split
 
-from fairseq2.nn import ResidualConnect, StandardResidualConnect
-from fairseq2.nn.transformer._attention_mask import AttentionMask
-from fairseq2.nn.transformer._ffn import FeedForwardNetwork
-from fairseq2.nn.transformer._layer_norm import (
+from fairseq2.models.transformer._attention_mask import AttentionMask
+from fairseq2.models.transformer._ffn import FeedForwardNetwork
+from fairseq2.models.transformer._multihead_attention import MultiheadAttention
+from fairseq2.models.transformer._norm_order import TransformerNormOrder
+from fairseq2.models.transformer._normalization import (
     LayerNormFactory,
     create_standard_layer_norm,
 )
-from fairseq2.nn.transformer._multihead_attention import MultiheadAttention
-from fairseq2.nn.transformer._norm_order import TransformerNormOrder
 
 
 class TransformerDecoderLayer(Module, ABC):

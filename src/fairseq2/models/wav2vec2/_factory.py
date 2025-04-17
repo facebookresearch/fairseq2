@@ -10,8 +10,7 @@ from torch.nn import GELU, SiLU
 
 from fairseq2.models.conformer import ConformerBlock, ConformerConvolution
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
-from fairseq2.nn import PositionEncoder, RotaryEncoder, init_bert_projection
-from fairseq2.nn.transformer import (
+from fairseq2.models.transformer import (
     FeedForwardNetwork,
     MultiheadAttention,
     RelativePositionalEncoding,
@@ -25,6 +24,7 @@ from fairseq2.nn.transformer import (
     TransformerNormOrder,
     create_default_sdpa,
 )
+from fairseq2.nn import PositionEncoder, RotaryEncoder, init_bert_projection
 from fairseq2.utils.lazy import Lazy
 
 # isort: split
