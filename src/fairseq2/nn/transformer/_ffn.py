@@ -17,14 +17,6 @@ from typing_extensions import override
 from fairseq2.nn import LayerNorm, Linear, Projection
 from fairseq2.typing import DataType, Device
 
-# isort: split
-
-from fairseq2.nn.transformer._layer_norm import (
-    LayerNormFactory,
-    create_standard_layer_norm,
-)
-from fairseq2.nn.transformer._norm_order import TransformerNormOrder
-
 
 class FeedForwardNetwork(Module, ABC):
     """Represents a Transformer feed-forward network."""
@@ -76,8 +68,6 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         *,
         inner_activation: Module | None = None,
         inner_dropout_p: float = 0.0,
-        norm_order: TransformerNormOrder = TransformerNormOrder.POST,
-        layer_norm_factory: LayerNormFactory | None = None,
         proj_init_fn: Callable[[Linear], None] | None = None,
         device: Device | None = None,
         dtype: DataType | None = None,
@@ -95,17 +85,10 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
             ``None``, :func:`~torch.nn.ReLU` will be used.
         :param inner_dropout_p:
             The dropout probability on outputs of the inner projection layer.
-        :param norm_order:
-            The Layer Normalization order.
-        :param layer_norm_factory:
-            The factory to construct the Layer Normalization module.
         :param proj_init_fn:
             The callable to initialize the inner and output projections.
         """
         super().__init__(model_dim)
-
-        if layer_norm_factory is None:
-            layer_norm_factory = create_standard_layer_norm
 
         self.inner_proj = Linear(
             model_dim, inner_dim, bias, init_fn=proj_init_fn, device=device, dtype=dtype
@@ -121,13 +104,6 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         else:
             self.register_module("inner_dropout", None)
 
-        if norm_order == TransformerNormOrder.PRE_WITH_NORMFORMER:
-            self.inner_layer_norm = layer_norm_factory(
-                inner_dim, device=device, dtype=dtype
-            )
-        else:
-            self.register_module("inner_layer_norm", None)
-
         self.output_proj = Linear(
             inner_dim, model_dim, bias, init_fn=proj_init_fn, device=device, dtype=dtype
         )
@@ -137,9 +113,6 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         seqs = self.inner_proj(seqs)
 
         seqs = self.inner_activation(seqs)
-
-        if self.inner_layer_norm is not None:
-            seqs = self.inner_layer_norm(seqs)
 
         if self.inner_dropout is not None:
             seqs = self.inner_dropout(seqs)

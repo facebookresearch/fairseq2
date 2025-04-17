@@ -15,7 +15,6 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 from torch.nn import Module
-from torch.nn.parameter import Parameter
 from torch.utils.hooks import RemovableHandle
 from typing_extensions import override
 
@@ -187,7 +186,6 @@ class StandardMultiheadAttention(MultiheadAttention):
     attn_mask_factory: AttentionMaskFactory | None
     pos_encoder: PositionEncoder | None
     sdpa: SDPA
-    head_scale_weight: Parameter | None
     output_proj: Projection
     state_factory: AttentionStateFactory | None
 
@@ -205,7 +203,6 @@ class StandardMultiheadAttention(MultiheadAttention):
         attn_mask_factory: AttentionMaskFactory | None = None,
         pos_encoder: PositionEncoder | None = None,
         sdpa: SDPA | None = None,
-        scale_heads: bool = False,
         output_proj: Projection | None = None,
         output_proj_init_fn: Callable[[Linear], None] | None = None,
         bias: bool = True,
@@ -246,9 +243,6 @@ class StandardMultiheadAttention(MultiheadAttention):
         :param sdpa:
             The :class:`SDPA` module to compute head attentions. If ``None``, a
             default implementation will be used.
-        :param scale_heads:
-            If ``True``, applies head scaling as described in
-            :cite:t:`https://doi.org/10.48550/arxiv.2110.09456`
         :param output_proj:
             The projection to produce final attentions. If ``None``, a default
             projection will be used.
@@ -363,13 +357,6 @@ class StandardMultiheadAttention(MultiheadAttention):
         else:
             self.sdpa = create_default_sdpa()
 
-        if scale_heads:
-            self.head_scale_weight = Parameter(
-                torch.empty(num_heads, device=device, dtype=dtype)
-            )
-        else:
-            self.register_parameter("head_scale_weight", None)
-
         v_dim = v_proj.output_dim * num_query_groups
 
         if output_proj is None:
@@ -403,13 +390,6 @@ class StandardMultiheadAttention(MultiheadAttention):
             self.output_proj = output_proj
 
         self.state_factory = state_factory
-
-        self.reset_parameters()
-
-    def reset_parameters(self) -> None:
-        """Reset the parameters and buffers of the module."""
-        if self.head_scale_weight is not None:
-            nn.init.ones_(self.head_scale_weight)
 
     @override
     def forward(
@@ -506,9 +486,6 @@ class StandardMultiheadAttention(MultiheadAttention):
 
         # (N, H, S, V_h) -> (N, S, H, V_h)
         attn = attn.transpose(1, 2)
-
-        if self.head_scale_weight is not None:
-            attn = torch.einsum("nshv,h->nshv", attn, self.head_scale_weight)
 
         # (N, S, H, V_h) -> (N, S, V_proj)
         attn = attn.flatten(2, 3)

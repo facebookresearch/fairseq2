@@ -138,10 +138,7 @@ class TransformerFactory:
         config = self._config
 
         return StandardFeedForwardNetwork(
-            config.model_dim,
-            config.ffn_inner_dim,
-            bias=True,
-            norm_order=config.norm_order,
+            config.model_dim, config.ffn_inner_dim, bias=True
         )
 
     def create_decoder(self) -> TransformerDecoder:

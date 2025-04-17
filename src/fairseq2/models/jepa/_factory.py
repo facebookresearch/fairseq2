@@ -253,7 +253,6 @@ class JepaEncoderFactory:
             bias=True,
             inner_activation=GELU(),
             proj_init_fn=init_projection,
-            norm_order=TransformerNormOrder.PRE,
         )
 
     def create_layer_norm(
