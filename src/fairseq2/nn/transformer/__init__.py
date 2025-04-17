@@ -41,12 +41,12 @@ from fairseq2.nn.transformer._attention_mask import (
     CustomAttentionMask as CustomAttentionMask,
 )
 from fairseq2.nn.transformer._decoder import (
-    DecoderLayerOutputHook as DecoderLayerOutputHook,
-)
-from fairseq2.nn.transformer._decoder import (
     StandardTransformerDecoder as StandardTransformerDecoder,
 )
 from fairseq2.nn.transformer._decoder import TransformerDecoder as TransformerDecoder
+from fairseq2.nn.transformer._decoder import (
+    TransformerDecoderLayerHook as TransformerDecoderLayerHook,
+)
 from fairseq2.nn.transformer._decoder_layer import (
     StandardTransformerDecoderLayer as StandardTransformerDecoderLayer,
 )
@@ -54,12 +54,12 @@ from fairseq2.nn.transformer._decoder_layer import (
     TransformerDecoderLayer as TransformerDecoderLayer,
 )
 from fairseq2.nn.transformer._encoder import (
-    EncoderLayerOutputHook as EncoderLayerOutputHook,
-)
-from fairseq2.nn.transformer._encoder import (
     StandardTransformerEncoder as StandardTransformerEncoder,
 )
 from fairseq2.nn.transformer._encoder import TransformerEncoder as TransformerEncoder
+from fairseq2.nn.transformer._encoder import (
+    TransformerEncoderLayerHook as TransformerEncoderLayerHook,
+)
 from fairseq2.nn.transformer._encoder_layer import (
     StandardTransformerEncoderLayer as StandardTransformerEncoderLayer,
 )

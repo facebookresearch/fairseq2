@@ -8,18 +8,18 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections import OrderedDict
-from collections.abc import Iterable, Iterator
-from typing import Any, Protocol, cast, final
+from collections.abc import Iterator
+from typing import Any, Protocol, Sequence, final
 
 import torch
 from torch import Generator, Tensor
 from torch.autograd import Function
-from torch.nn import Dropout, Module, ModuleList
+from torch.nn import Dropout, Module
 from torch.utils.hooks import RemovableHandle
 from typing_extensions import override
 
 from fairseq2.error import InvalidOperationError
-from fairseq2.nn import LayerNorm
+from fairseq2.nn import LayerNorm, LayerStack
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.typing import CPU, DataType, Device
 
@@ -34,24 +34,24 @@ from fairseq2.nn.transformer._layer_norm import (
 from fairseq2.nn.transformer._norm_order import TransformerNormOrder
 
 
-class TransformerEncoder(Module, ABC):
+class TransformerEncoder(LayerStack, ABC):
     """Represents a Transformer encoder."""
 
     model_dim: int
-    layers: ModuleList
 
-    _layer_output_hooks: dict[int, EncoderLayerOutputHook]
+    _layer_hooks: dict[int, TransformerEncoderLayerHook]
 
-    def __init__(self, model_dim: int) -> None:
+    def __init__(
+        self, model_dim: int, layers: Sequence[TransformerEncoderLayer]
+    ) -> None:
         """
-        :param model_dim:
-            The dimensionality of the model.
+        :param model_dim: The dimensionality of the model.
         """
-        super().__init__()
+        super().__init__(layers)
 
         self.model_dim = model_dim
 
-        self._layer_output_hooks = OrderedDict()
+        self._layer_hooks = OrderedDict()
 
     @abstractmethod
     def forward(
@@ -72,24 +72,22 @@ class TransformerEncoder(Module, ABC):
               ``padding_mask``.
         """
 
-    def register_layer_output_hook(
-        self, hook: EncoderLayerOutputHook
-    ) -> RemovableHandle:
-        """Register a layer output hook on the module.
+    def register_layer_hook(self, hook: TransformerEncoderLayerHook) -> RemovableHandle:
+        """
+        Registers a layer hook on the module.
 
         The hook will be called every time after a layer in the encoder stack
         has computed an output.
 
-        :param hook:
-            The hook to register.
+        :param hook: The hook to register.
 
         :returns:
             A handle that can be used to remove the added hook by calling
             ``handle.remove()``.
         """
-        handle = RemovableHandle(self._layer_output_hooks)
+        handle = RemovableHandle(self._layer_hooks)
 
-        self._layer_output_hooks[handle.id] = hook
+        self._layer_hooks[handle.id] = hook
 
         return handle
 
@@ -98,9 +96,10 @@ class TransformerEncoder(Module, ABC):
         return f"model_dim={self.model_dim}"
 
 
-class EncoderLayerOutputHook(Protocol):
-    """Represents a hook to pass to
-    :meth:`~TransformerEncoder.register_layer_output_hook`."""
+class TransformerEncoderLayerHook(Protocol):
+    """
+    Represents a hook to pass to :meth:`~TransformerEncoder.register_layer_hook`.
+    """
 
     def __call__(
         self,
@@ -140,7 +139,7 @@ class StandardTransformerEncoder(TransformerEncoder):
 
     def __init__(
         self,
-        layers: Iterable[TransformerEncoderLayer],
+        layers: Sequence[TransformerEncoderLayer],
         *,
         self_attn_mask_factory: AttentionMaskFactory | None = None,
         layer_drop_p: float = 0.0,
@@ -152,36 +151,29 @@ class StandardTransformerEncoder(TransformerEncoder):
         dtype: DataType | None = None,
     ) -> None:
         """
-        :param layers:
-            The encoder layers.
-        :param self_attn_mask_factory:
-            The self attention mask factory.
-        :param layer_drop_p:
-            If greater than zero, applies LayerDrop to the encoder layers as
-            described in :cite:t:`https://doi.org/10.48550/arxiv.1909.11556`.
-        :param generator:
-            The random number generator for LayerDrop probabilities.
-        :param dropout_p:
-            The dropout probability on encoder outputs.
-        :param norm_order:
-            The Layer Normalization order.
-        :param layer_norm_factory:
-            The factory to construct the Layer Normalization module.
+        :param layers: The encoder layers.
+        :param self_attn_mask_factory: The self attention mask factory.
+        :param layer_drop_p: If greater than zero, applies LayerDrop to the
+            encoder layers as described in
+            :cite:t:`https://doi.org/10.48550/arxiv.1909.11556`.
+        :param generator: The random number generator for LayerDrop
+            probabilities.
+        :param dropout_p: The dropout probability on encoder outputs.
+        :param norm_order: The Layer Normalization order.
+        :param layer_norm_factory: The factory to construct the Layer
+            Normalization module.
         """
-        layer_list = ModuleList(layers)
-        if not layer_list:
+        if not layers:
             raise ValueError("`layers` must be non-empty.")
 
-        model_dim = cast(int, layer_list[0].model_dim)
+        model_dim = layers[0].model_dim
 
-        super().__init__(model_dim)
+        super().__init__(model_dim, layers)
 
         if layer_norm_factory is None:
             layer_norm_factory = create_standard_layer_norm
 
         self.self_attn_mask_factory = self_attn_mask_factory
-
-        self.layers = layer_list
 
         self.layer_drop_p = layer_drop_p
 
@@ -203,7 +195,7 @@ class StandardTransformerEncoder(TransformerEncoder):
     def forward(
         self, seqs: Tensor, padding_mask: PaddingMask | None
     ) -> tuple[Tensor, PaddingMask | None]:
-        if self._layer_output_hooks and self.layer_drop_p > 0.0 and self.training:
+        if self._layer_hooks and self.layer_drop_p > 0.0 and self.training:
             raise InvalidOperationError(
                 "The layer output hooks cannot be run when LayerDrop is enabled."
             )
@@ -227,7 +219,7 @@ class StandardTransformerEncoder(TransformerEncoder):
 
             seqs, padding_mask = layer_output, layer_padding_mask
 
-            for hook in self._layer_output_hooks.values():
+            for hook in self._layer_hooks.values():
                 if not hook(layer_idx, seqs, padding_mask, num_layers):
                     break
 

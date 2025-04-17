@@ -43,3 +43,4 @@ from fairseq2.nn._projection import Projection as Projection
 from fairseq2.nn._projection import RowShardedLinear as RowShardedLinear
 from fairseq2.nn._projection import TiedProjection as TiedProjection
 from fairseq2.nn._projection import init_bert_projection as init_bert_projection
+from fairseq2.nn._stack import LayerStack as LayerStack

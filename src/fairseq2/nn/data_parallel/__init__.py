@@ -12,6 +12,7 @@ from fairseq2.nn.data_parallel._common import (
     FsdpParameterInitializer as FsdpParameterInitializer,
 )
 from fairseq2.nn.data_parallel._common import FsdpWrapper as FsdpWrapper
+from fairseq2.nn.data_parallel._common import apply_default_fsdp as apply_default_fsdp
 from fairseq2.nn.data_parallel._common import load_with_sdp_gang as load_with_sdp_gang
 from fairseq2.nn.data_parallel._ddp import DdpModule as DdpModule
 from fairseq2.nn.data_parallel._ddp import to_ddp as to_ddp

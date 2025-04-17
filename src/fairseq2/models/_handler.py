@@ -23,8 +23,12 @@ from fairseq2.config_registry import ConfigNotFoundError, ConfigProvider
 from fairseq2.device import default_device_and_dtype
 from fairseq2.error import ContractError, NotSupportedError
 from fairseq2.gang import Gangs
-from fairseq2.models.fsdp import apply_default_fsdp
-from fairseq2.nn.data_parallel import FsdpGranularity, FsdpWrapper, load_with_sdp_gang
+from fairseq2.nn.data_parallel import (
+    FsdpGranularity,
+    FsdpWrapper,
+    apply_default_fsdp,
+    load_with_sdp_gang,
+)
 from fairseq2.nn.utils.module import (
     load_state_dict,
     reset_non_persistent_buffers,
