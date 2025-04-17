@@ -229,22 +229,24 @@ class FileCheckpointMetadataLoader:
             except OSError as ex:
                 raise load_error() from ex
 
-            if fp is not None:
-                try:
-                    line = fp.readline()
-                except OSError as ex:
-                    raise load_error() from ex
-                finally:
-                    fp.close()
+            if fp is None:
+                continue
 
-                try:
-                    score = float(line)
-                except ValueError:
-                    raise AssetMetadataLoadError(
-                        f"The score of the training step {step_nr} cannot be parsed as a floating-point number."
-                    ) from None
+            try:
+                line = fp.readline()
+            except OSError as ex:
+                raise load_error() from ex
+            finally:
+                fp.close()
 
-                scores.append((score, step_nr))
+            try:
+                score = float(line)
+            except ValueError:
+                raise AssetMetadataLoadError(
+                    f"The score of the training step {step_nr} cannot be parsed as a floating-point number."
+                ) from None
+
+            scores.append((score, step_nr))
 
         if max_step_nr == -1:
             return cache

@@ -126,6 +126,7 @@ def create_trainer(
         checkpoint_every_n_steps=regime_section.checkpoint_every_n_steps,
         checkpoint_after_n_data_epochs=regime_section.checkpoint_after_n_data_epochs,
         checkpoint_every_n_data_epochs=regime_section.checkpoint_every_n_data_epochs,
+        save_model_only=regime_section.save_model_only,
         keep_last_n_checkpoints=regime_section.keep_last_n_checkpoints,
         keep_best_n_checkpoints=regime_section.keep_best_n_checkpoints,
         keep_checkpoint_every_n_steps=regime_section.keep_checkpoint_every_n_steps,
