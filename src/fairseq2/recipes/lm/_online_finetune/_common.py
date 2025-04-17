@@ -524,3 +524,10 @@ def convert_vllm_output_to_ref_score(vllm_outputs: List[RequestOutput], gangs):
         ref_scores.append(logprobs)
 
     return ref_scores
+
+
+def compute_token_level_entropy(logits: torch.Tensor):
+    """Calculate entropy from logits."""
+    pd = torch.nn.functional.softmax(logits, dim=-1)
+    entropy = torch.logsumexp(logits, dim=-1) - torch.sum(pd * logits, dim=-1)
+    return entropy

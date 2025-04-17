@@ -58,31 +58,11 @@ class VllmEngineArgs:
 
 
 @dataclass(kw_only=True)
-class VllmSamplingParams:
-    n: int = 4
-    temperature: float = 1.0
-    max_tokens: int = 1024
-    prompt_logprobs: int | None = None
-    detokenize: bool = True
-
-
-@dataclass(kw_only=True)
 class VllmRayActorConfig:
     ray_actor_name: str = "dummy"
     vllm_engine_args: VllmEngineArgs = field(default_factory=lambda: VllmEngineArgs())
-    vllm_sampling_params: VllmSamplingParams = field(
-        default_factory=lambda: VllmSamplingParams()
-    )
-    init_update_process_group: bool = False
-
-
-@dataclass(kw_only=True)
-class VllmConfig:
-    ray_cluster_ip_address: str = "dummy"
-    ray_actor_name: str = "dummy"
-    vllm_engine_args: VllmEngineArgs = field(default_factory=lambda: VllmEngineArgs())
-    vllm_sampling_params: VllmSamplingParams = field(
-        default_factory=lambda: VllmSamplingParams()
+    vllm_sampling_params: Dict[str, Any] = field(
+        default_factory=lambda: {}
     )
     init_update_process_group: bool = False
 
@@ -112,7 +92,7 @@ class RemoteVllmModelHandler(RemoteModelHandler):
     @property
     @override
     def config_kls(self) -> type[object]:
-        return VllmConfig
+        return VllmRayActorConfig
 
 
 class RemoteVllmModel:
@@ -120,7 +100,7 @@ class RemoteVllmModel:
         self,
         ray_actor_name: str,
         vllm_engine_args: VllmEngineArgs,
-        sampling_params: VllmSamplingParams,
+        sampling_params: dict,
         init_update_process_group: bool,
         gangs: Gangs,
     ):
@@ -134,12 +114,10 @@ class RemoteVllmModel:
         self.vllm_model = self.setup_vllm_worker(
             ray_actor_name, vllm_engine_args, gangs
         )
+        
+        # populate sampling params using all values that were passed in the config
         self.sampling_params = SamplingParams(
-            n=sampling_params.n,
-            temperature=sampling_params.temperature,
-            max_tokens=sampling_params.max_tokens,
-            detokenize=sampling_params.detokenize,
-            prompt_logprobs=sampling_params.prompt_logprobs,
+            **sampling_params
         )
 
         if init_update_process_group:

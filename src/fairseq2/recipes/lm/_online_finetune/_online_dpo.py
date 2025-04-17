@@ -56,7 +56,6 @@ from fairseq2.recipes.lm._online_finetune._handler import OnlineFinetuneUnitHand
 from fairseq2.recipes.lm._online_finetune._remote_vllm import (
     RemoteVllmModel,
     RemoteVllmModelHandler,
-    VllmConfig,
 )
 from fairseq2.recipes.lm._online_finetune._rewards import (
     RewardSection,
