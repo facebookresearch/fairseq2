@@ -123,16 +123,6 @@ from fairseq2.nn.transformer._relative_attention import (
 from fairseq2.nn.transformer._relative_attention import (
     RelativePositionSDPA as RelativePositionSDPA,
 )
-from fairseq2.nn.transformer._residual import (
-    DropPathResidualConnect as DropPathResidualConnect,
-)
-from fairseq2.nn.transformer._residual import (
-    NormFormerResidualConnect as NormFormerResidualConnect,
-)
-from fairseq2.nn.transformer._residual import ResidualConnect as ResidualConnect
-from fairseq2.nn.transformer._residual import (
-    ScaledResidualConnect as ScaledResidualConnect,
-)
 from fairseq2.nn.transformer._shaw_attention import (
     ShawRelativePositionSDPA as ShawRelativePositionSDPA,
 )
