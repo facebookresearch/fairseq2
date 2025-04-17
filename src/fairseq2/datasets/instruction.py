@@ -43,7 +43,7 @@ from fairseq2.nn.padding import get_seqs_and_padding_mask
 
 # isort: split
 
-from fairseq2.datasets._utils import _load_files_and_weights
+from fairseq2.datasets.utils._manifest import _load_files_and_weights
 
 
 @dataclass(kw_only=True)
