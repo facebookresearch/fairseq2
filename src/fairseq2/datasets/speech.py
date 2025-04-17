@@ -14,7 +14,7 @@ from typing import Any, Dict, Final, List, final
 
 import numpy as np
 import torch
-from torch import Tensor, device
+from torch import Tensor
 from torch.nn.functional import layer_norm
 from typing_extensions import override
 
@@ -100,15 +100,15 @@ def rename_feature(batch: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return batch
 
 
-def to_batch(example: dict[str, Any], no_padding: bool, device: Device) -> SequenceBatch:
+def to_batch(
+    example: dict[str, Any], no_padding: bool, device: Device
+) -> SequenceBatch:
     audio_feature = example["audio_feature"]
     if no_padding:
         seqs = audio_feature.to(device)
         padding_mask = None
     else:
-        seqs, padding_mask = get_seqs_and_padding_mask(
-            audio_feature, device=device
-        )
+        seqs, padding_mask = get_seqs_and_padding_mask(audio_feature, device=device)
 
     return SequenceBatch(seqs, padding_mask, example=example)
 
@@ -396,7 +396,9 @@ class GenericSpeechDataset(SpeechDataset):
 
         builder.prefetch(options.num_prefetch)
 
-        pipeline = builder.map(partial(to_batch, no_padding=no_padding, device=gang.device)).and_return()
+        pipeline = builder.map(
+            partial(to_batch, no_padding=no_padding, device=gang.device)
+        ).and_return()
 
         return DataPipelineReader[SequenceBatch](
             self._name, split, pipeline, gang, options

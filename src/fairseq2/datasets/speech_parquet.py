@@ -7,53 +7,52 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from functools import partial, reduce
+from functools import partial
 from pathlib import Path
-from typing import Any, Dict, Final, List, final
-import pyarrow.parquet as pq
-import pyarrow as pa
+from typing import Any, Dict, Final, List, Set, final
 
-from fairseq2.datasets.speech import SpeechDataset, SpeechReadOptions, postprocess, AudioCropper
 import numpy as np
+import pyarrow as pa
+import pyarrow.parquet as pq
 import torch
-from torch import Tensor
-from torch.nn.functional import layer_norm
+from numpy.typing import NDArray
 from typing_extensions import override
 
 from fairseq2.data import (
     Collater,
-    DataPipelineBuilder,
-    FileMapper,
     MemoryBlock,
     create_bucket_sizes,
-    read_sequence
+    read_sequence,
 )
-
-import polars as pl
-import pyarrow as pa
-import pyarrow.compute as pc
-from fairseq2.data.parquet import *
-
-from fairseq2.data.audio import AudioDecoder, WaveformToFbankConverter
-from fairseq2.data.text import StrSplitter, read_text
+from fairseq2.data.audio import (
+    AudioDecoder,
+    AudioDecoderOutput,
+    WaveformToFbankConverter,
+)
+from fairseq2.data.parquet import (
+    FragmentLoadingConfig,
+    FragmentStreamingConfig,
+    NamedColumns,
+    ParquetFragmentLoader,
+    ParquetFragmentStreamer,
+)
 from fairseq2.datasets import (
     DataPipelineReader,
-    DataReader,
-    DataReadError,
-    DataReadOptions,
-    DatasetHubAccessor,
-    DatasetLoadError,
     LengthBatching,
     StaticBatching,
     UnknownSplitError,
+)
+from fairseq2.datasets.speech import (
+    AudioCropper,
+    SpeechDataset,
+    SpeechReadOptions,
+    postprocess,
+    to_batch,
 )
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
 from fairseq2.logging import log
 from fairseq2.models.sequence import SequenceBatch
-from fairseq2.nn.padding import get_seqs_and_padding_mask
-from fairseq2.typing import DataType
-
 
 
 def rename_feature(batch: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -76,7 +75,6 @@ class DefaultAudioSchema(NamedColumns):
     extra_columns: List[str] | None = None
 
 
-
 @final
 class GenericSpeechParquetDataset(SpeechDataset):
     """Represents a generic manifest-based Speech dataset."""
@@ -86,32 +84,39 @@ class GenericSpeechParquetDataset(SpeechDataset):
     _splits: set[str]
     split_column: str = "split"
 
+    nb_samples_per_fragment = 1000  # FIXME: detect it from the dataset metadata
+    max_num_batches: int = 1000
+    max_num_examples: int = 50_000
+    pa_cpu_count: int = 20
+
     def __init__(self, name: str, dataset: pq.ParquetDataset, splits: set[str]) -> None:
         self._dataset = dataset
         self._splits = splits
         self._name = name
 
-        pa.set_cpu_count(20)
-        pa.set_io_thread_count(20)
-
     @classmethod
-    def from_path(cls, path: Path | str | List[str | Path], name: str) -> GenericSpeechParquetDataset:
+    def from_path(
+        cls, path: Path | str | List[str | Path], name: str
+    ) -> GenericSpeechParquetDataset:
         # to work with BlobStore filesystem
-        from stopes.fb_config import get_filesystem_from_path
+        from stopes.fb_config import get_filesystem_from_path  # type: ignore
+
         fixed_path, filesystem = get_filesystem_from_path(path)
-        datasest = pq.ParquetDataset(fixed_path, filesystem=filesystem)
+        datasest = pq.ParquetDataset(fixed_path, filesystem=filesystem)  # type: ignore
 
-        partition_columns = datasest.partitioning.schema.names
+        assert isinstance(datasest, pq.ParquetDataset)
+        partition_columns: List[str] = []
+        if datasest.partitioning is not None:
+            partition_columns = datasest.partitioning.schema.names
 
-        if cls.split_column in partition_columns:
+        splits: Set[str] = set()
+        if datasest.partitioning is not None and cls.split_column in partition_columns:
             idx = partition_columns.index(cls.split_column)
             _splits = datasest.partitioning.dictionaries[idx]
             if _splits is None:
                 splits = set()
             else:
                 splits = set(_splits.to_pylist())
-        else:
-            splits = set()
 
         return GenericSpeechParquetDataset(name, datasest, splits)
 
@@ -128,6 +133,7 @@ class GenericSpeechParquetDataset(SpeechDataset):
         max_audio_len: int,
         options: SpeechReadOptions | None = None,
     ) -> DataPipelineReader[SequenceBatch]:
+        assert min_audio_len <= max_audio_len, "min_audio_len must be <= max_audio_len"
 
         if split not in self._splits:
             raise UnknownSplitError(self._name, split, self._splits)
@@ -144,26 +150,29 @@ class GenericSpeechParquetDataset(SpeechDataset):
         npc = options.npc
         no_padding = options.no_padding
 
+        pa_cpu_count = int(options.extras.get("pa_cpu_count", self.pa_cpu_count))  # type: ignore
+        pa.set_cpu_count(pa_cpu_count)
+        pa.set_io_thread_count(pa_cpu_count)
+
         # Streaming
-        nb_epochs = None if split == "train" else 1
+
         partition_filters = options.extras.get("partition_filters", None)
-
-        # FIXME: detect it from the dataset
-        nb_samples_per_fragment = 1000
-
+        parquet_files: List[str] = self._dataset.files  # type: ignore
         fragment_config = FragmentStreamingConfig(
-            parquet_path=self._dataset.files,
+            parquet_path=parquet_files,
             filesystem=self._dataset.filesystem,
-            nb_epochs=nb_epochs,
-            partition_filters=partition_filters,
+            nb_epochs=(None if split == "train" else 1),
+            partition_filters=partition_filters,  # type: ignore
             split_to_row_groups=True,
             files_circular_shift=True,
             seed=seed,
-            fragment_shuffle_window=max(100, options.example_shuffle_window // nb_samples_per_fragment),
+            fragment_shuffle_window=max(
+                100, options.example_shuffle_window // self.nb_samples_per_fragment
+            ),
         )
-        fragement_builder = ParquetFragmentStreamer(config=fragment_config).build_pipeline(
-            rank=gang.rank, world_size=gang.size
-        )
+        fragement_builder = ParquetFragmentStreamer(
+            config=fragment_config
+        ).build_pipeline(rank=gang.rank, world_size=gang.size)
 
         seed += gang.rank
 
@@ -172,13 +181,14 @@ class GenericSpeechParquetDataset(SpeechDataset):
             add_fragment_traces=False,
             num_parallel_fragments=npc,
             nb_prefetch=options.num_prefetch,
+            # non_deterministic_read=True,
             drop_null=False,
         )
 
         # load data in memory
         builder = ParquetFragmentLoader(config=loading_config).apply(fragement_builder)
 
-        # dispatch table into exampels
+        # dispatch table into examples
         builder = builder.yield_from(
             lambda table: read_sequence(
                 table.to_pandas().to_dict(orient="records")
@@ -186,16 +196,18 @@ class GenericSpeechParquetDataset(SpeechDataset):
         )
 
         # truncate length to max_audio_len
-        builder = builder.map(lambda x: min(max_audio_len, int(x)), selector="length")
-
+        builder = builder.filter(lambda x: int(x["length"]) < min_audio_len)
+        builder = builder.map(lambda x: min(max_audio_len, x), selector="length")
 
         # shuffle examples in memory
         if options.example_shuffle_window != 1:
-            example_shuffle_window = min(options.example_shuffle_window, 10_000)
+            # FIXME: make it configurable, we need some upper bound to avoid OOM in cpu
+            example_shuffle_window = min(
+                options.example_shuffle_window, self.max_num_examples
+            )
             builder = builder.prefetch(int(1.2 * example_shuffle_window))
             builder = builder.shuffle(example_shuffle_window, seed=seed)
             seed += 1
-
 
         batching = options.batching
 
@@ -234,16 +246,18 @@ class GenericSpeechParquetDataset(SpeechDataset):
 
         # Shuffle buckets.
         if options.batch_shuffle_window != 1:
-            batch_shuffle_window = min(options.batch_shuffle_window, 100)
+            batch_shuffle_window = min(
+                options.batch_shuffle_window, self.max_num_batches
+            )
             builder.shuffle(batch_shuffle_window, seed)
             seed += 1
-
 
         # Decode audio.
         audio_decoder = AudioDecoder(
             dtype=torch.float32 if options.normalize_audio else options.dtype
         )
-        def decoded_audio(_bytes):
+
+        def decoded_audio(_bytes: NDArray[np.int8]) -> AudioDecoderOutput:
             return audio_decoder(MemoryBlock(_bytes.tobytes()))
 
         builder.map(decoded_audio, selector="[*].audio", num_parallel_calls=npc)
@@ -257,9 +271,7 @@ class GenericSpeechParquetDataset(SpeechDataset):
                 dtype=options.dtype,
             )
 
-            builder.map(
-                fbank_converter, selector="[*].audio", num_parallel_calls=npc
-            )
+            builder.map(fbank_converter, selector="[*].audio", num_parallel_calls=npc)
         else:
             builder.map(
                 partial(
@@ -282,9 +294,8 @@ class GenericSpeechParquetDataset(SpeechDataset):
         builder.map(audio_cropper.crop_audios_in_batch)
 
         # Collate batched examples into a batch.
-        pad_value = None if no_padding else 0
-        collater = Collater(pad_value=pad_value)
-        builder.map(collater, num_parallel_calls=npc)
+        collater = Collater(pad_value=None if no_padding else 0)
+        builder.map(collater)
 
         # Return only the first `max_num_batches`.
         if options.max_num_batches is not None:
@@ -292,19 +303,9 @@ class GenericSpeechParquetDataset(SpeechDataset):
 
         builder.prefetch(options.num_prefetch)
 
-        def to_batch(example: dict[str, Any]) -> SequenceBatch:
-            audio_feature = example["audio_feature"]
-            if no_padding:
-                seqs = audio_feature.to(gang.device)
-                padding_mask = None
-            else:
-                seqs, padding_mask = get_seqs_and_padding_mask(
-                    audio_feature, device=gang.device
-                )
-
-            return SequenceBatch(seqs, padding_mask, example=example)
-
-        pipeline = builder.map(to_batch).and_return()
+        pipeline = builder.map(
+            partial(to_batch, no_padding=no_padding, device=gang.device)
+        ).and_return()
 
         return DataPipelineReader[SequenceBatch](
             self._name, split, pipeline, gang, options, strict_state=False
