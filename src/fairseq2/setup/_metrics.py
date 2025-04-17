@@ -81,8 +81,8 @@ def register_metric_descriptors(context: RuntimeContext) -> None:
     register("rejected_lengths", "Rejected Sequence Length",            70, format_as_float)
 
     # Memory
-    register("peak_active_mem",         "Peak Active Device Memory",       920, format_as_byte_size)
+    register("peak_active_mem_bytes",   "Peak Active Device Memory",       920, format_as_byte_size)
     register("peak_active_mem_ratio",   "Peak Active Device Memory (%)",   920, format_as_percentage)
-    register("peak_reserved_mem",       "Peak Reserved Device Memory",     925, format_as_byte_size)
+    register("peak_reserved_mem_bytes", "Peak Reserved Device Memory",     925, format_as_byte_size)
     register("peak_reserved_mem_ratio", "Peak Reserved Device Memory (%)", 925, format_as_percentage)
     # fmt, on
