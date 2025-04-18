@@ -86,7 +86,7 @@ class GenericSpeechParquetDataset(SpeechDataset):
 
     nb_samples_per_fragment = 1000  # FIXME: detect it from the dataset metadata
     max_num_batches: int = 1000
-    max_num_examples: int = 50_000
+    max_num_examples: int = 2_000_000
     pa_cpu_count: int = 20
 
     def __init__(self, name: str, dataset: pq.ParquetDataset, splits: set[str]) -> None:
@@ -96,13 +96,15 @@ class GenericSpeechParquetDataset(SpeechDataset):
 
     @classmethod
     def from_path(
-        cls, path: Path | str | List[str | Path], name: str
+        cls,
+        path: Path | str | List[str | Path],
+        name: str,
+        filesystem: Any | None = None,
     ) -> GenericSpeechParquetDataset:
-        # to work with BlobStore filesystem
-        from stopes.fb_config import get_filesystem_from_path  # type: ignore
 
-        fixed_path, filesystem = get_filesystem_from_path(path)
-        datasest = pq.ParquetDataset(fixed_path, filesystem=filesystem)  # type: ignore
+        # from stopes.fb_config import get_filesystem_from_path
+        # path, filesystem = get_filesystem_from_path(path)  # type: ignore
+        datasest = pq.ParquetDataset(path, filesystem=filesystem)  # type: ignore
 
         assert isinstance(datasest, pq.ParquetDataset)
         partition_columns: List[str] = []
@@ -155,7 +157,6 @@ class GenericSpeechParquetDataset(SpeechDataset):
         pa.set_io_thread_count(pa_cpu_count)
 
         # Streaming
-
         partition_filters = options.extras.get("partition_filters", None)
         parquet_files: List[str] = self._dataset.files  # type: ignore
         fragment_config = FragmentStreamingConfig(
@@ -176,12 +177,23 @@ class GenericSpeechParquetDataset(SpeechDataset):
 
         seed += gang.rank
 
+        # we want to give less compute to the loader compared to the audio decoder
+        num_parallel_fragments = options.extras.get(
+            "num_parallel_fragments", max(npc // 3, 1)
+        )
+        assert isinstance(num_parallel_fragments, int)
+        assert num_parallel_fragments > 0, "num_parallel_fragments must be > 0"
+
+        columns = options.extras.get("columns", DefaultAudioSchema())
+        if columns is not None:
+            assert isinstance(columns, NamedColumns)
+
         loading_config = FragmentLoadingConfig(
-            columns=DefaultAudioSchema(),
+            columns=columns,
             add_fragment_traces=False,
-            num_parallel_fragments=npc,
+            num_parallel_fragments=num_parallel_fragments,
             nb_prefetch=options.num_prefetch,
-            # non_deterministic_read=True,
+            non_deterministic_read=True,
             drop_null=False,
         )
 
@@ -196,7 +208,7 @@ class GenericSpeechParquetDataset(SpeechDataset):
         )
 
         # truncate length to max_audio_len
-        builder = builder.filter(lambda x: int(x["length"]) < min_audio_len)
+        builder = builder.filter(lambda x: int(x["length"]) >= min_audio_len)
         builder = builder.map(lambda x: min(max_audio_len, x), selector="length")
 
         # shuffle examples in memory
@@ -205,7 +217,7 @@ class GenericSpeechParquetDataset(SpeechDataset):
             example_shuffle_window = min(
                 options.example_shuffle_window, self.max_num_examples
             )
-            builder = builder.prefetch(int(1.2 * example_shuffle_window))
+            builder = builder.prefetch(int(2 * example_shuffle_window))
             builder = builder.shuffle(example_shuffle_window, seed=seed)
             seed += 1
 
@@ -214,10 +226,15 @@ class GenericSpeechParquetDataset(SpeechDataset):
         if isinstance(batching, LengthBatching):
             # Bucket by the audio length.
             max_num_elements = batching.max_num_elements
+
+            num_seqs_multiple_of = options.extras.get("num_seqs_multiple_of", 8)
+            assert isinstance(
+                num_seqs_multiple_of, int
+            ), "num_seqs_multiple_of must be an integer"
+            assert num_seqs_multiple_of > 0, "num_seqs_multiple_of must be positive"
+
             if max_num_elements % max_audio_len != 0:
-                max_num_elements = (
-                    max_num_elements // max_audio_len + 1
-                ) * max_audio_len
+                max_num_elements = (max_num_elements // max_audio_len) * max_audio_len
                 log.warning(f"`max_num_elements` is rounded to {max_num_elements}")
 
             bucket_sizes = create_bucket_sizes(
