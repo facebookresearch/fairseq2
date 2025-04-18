@@ -276,6 +276,24 @@ def _register_wav2vec2_configs(container: DependencyContainer) -> None:
     def base_conformer_encoder() -> Wav2Vec2EncoderConfig:
         return base_conformer().encoder_config
 
+    @arch("tiny")
+    def tiny() -> Wav2Vec2Config:
+        config = xlsr_base()
+
+        config.encoder_config.model_dim = 1280
+        config.encoder_config.num_encoder_layers = 4
+        config.encoder_config.ffn_inner_dim = 1280
+        config.encoder_config.dropout_p = 0.0
+        config.quantized_dim = 512
+        config.final_dim = 512
+        config.encoder_config.first_pass_dropout_p = 0.1
+
+        return config
+
+    @arch_encoder("tiny")
+    def tiny_encoder() -> Wav2Vec2EncoderConfig:
+        return tiny().encoder_config
+
     @arch("1b")
     def b1() -> Wav2Vec2Config:
         config = xlsr_base()
