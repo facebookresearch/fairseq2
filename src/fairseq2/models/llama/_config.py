@@ -71,8 +71,8 @@ class LLaMAConfig:
     use_scaled_rope: bool = False
     """If ``True``, scales Rotary encoder frequencies to the context length."""
 
-    rope_scaling: LLaMARopeScalingConfig = field(
-        default_factory=lambda: LLaMARopeScalingConfig()
+    rope_scaling: LLaMARoPEScaleConfig = field(
+        default_factory=lambda: LLaMARoPEScaleConfig()
     )
     """
     If not ``None``, specifies scaling parameters for the Rotary position
@@ -98,7 +98,7 @@ class LLaMAConfig:
 
 
 @dataclass
-class LLaMARopeScalingConfig:
+class LLaMARoPEScaleConfig:
     """
     Holds the frequency scaling configuration for the Rotary position encoder
     in LLaMA models.

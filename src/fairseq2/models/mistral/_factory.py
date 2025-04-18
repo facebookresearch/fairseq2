@@ -13,17 +13,19 @@ from fairseq2.models.transformer import (
     LocalAttentionStateFactory,
     MultiheadAttention,
     StandardMultiheadAttention,
-    StandardTransformerDecoder,
-    StandardTransformerDecoderLayer,
-    TransformerDecoder,
-    TransformerDecoderLayer,
     TransformerEmbeddingFrontend,
     TransformerFrontend,
     TransformerNormOrder,
     create_default_sdpa,
     init_transformer_final_projection,
 )
-from fairseq2.models.transformer_lm import TransformerLanguageModel
+from fairseq2.models.transformer_lm import (
+    StandardTransformerLMDecoder,
+    StandardTransformerLMDecoderLayer,
+    TransformerLanguageModel,
+    TransformerLMDecoder,
+    TransformerLMDecoderLayer,
+)
 from fairseq2.nn import (
     Embedding,
     LayerNorm,
@@ -84,7 +86,7 @@ class MistralFactory:
             num_embeddings=config.vocab_size, embedding_dim=config.model_dim
         )
 
-    def create_decoder(self) -> TransformerDecoder:
+    def create_decoder(self) -> TransformerLMDecoder:
         config = self._config
 
         pos_encoder = self.create_position_encoder()
@@ -100,7 +102,7 @@ class MistralFactory:
             attn_window_len=config.attn_window_len
         )
 
-        return StandardTransformerDecoder(
+        return StandardTransformerLMDecoder(
             layers,
             self_attn_mask_factory=self_attn_mask_factory,
             norm_order=TransformerNormOrder.PRE,
@@ -117,17 +119,16 @@ class MistralFactory:
 
     def create_decoder_layer(
         self, pos_encoder: PositionEncoder
-    ) -> TransformerDecoderLayer:
+    ) -> TransformerLMDecoderLayer:
         config = self._config
 
         self_attn = self.create_attention(pos_encoder)
 
         ffn = self.create_ffn()
 
-        return StandardTransformerDecoderLayer(
+        return StandardTransformerLMDecoderLayer(
             self_attn,
-            encoder_decoder_attn=None,
-            ffn=ffn,
+            ffn,
             dropout_p=config.dropout_p,
             norm_order=TransformerNormOrder.PRE,
             layer_norm_factory=self.create_layer_norm,

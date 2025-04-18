@@ -53,9 +53,9 @@ class TransformerDecoderLayer(Module, ABC):
         self,
         seqs: Tensor,
         padding_mask: PaddingMask | None,
-        self_attn_mask: AttentionMask | None = None,
-        encoder_output: Tensor | None = None,
-        encoder_padding_mask: PaddingMask | None = None,
+        self_attn_mask: AttentionMask | None,
+        encoder_output: Tensor,
+        encoder_padding_mask: PaddingMask | None,
         *,
         state_bag: IncrementalStateBag | None = None,
     ) -> tuple[Tensor, PaddingMask | None]:
@@ -103,10 +103,10 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
     self_attn_dropout: Dropout | None
     self_attn_residual: ResidualConnect
     self_attn_layer_norm: LayerNorm
-    encoder_decoder_attn: MultiheadAttention | None
+    encoder_decoder_attn: MultiheadAttention
     encoder_decoder_attn_dropout: Dropout | None
-    encoder_decoder_attn_residual: ResidualConnect | None
-    encoder_decoder_attn_layer_norm: LayerNorm | None
+    encoder_decoder_attn_residual: ResidualConnect
+    encoder_decoder_attn_layer_norm: LayerNorm
     ffn: FeedForwardNetwork
     ffn_dropout: Dropout | None
     ffn_residual: ResidualConnect
@@ -116,7 +116,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
     def __init__(
         self,
         self_attn: MultiheadAttention,
-        encoder_decoder_attn: MultiheadAttention | None,
+        encoder_decoder_attn: MultiheadAttention,
         ffn: FeedForwardNetwork,
         *,
         dropout_p: float = 0.0,
@@ -179,33 +179,27 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         if norm_order == TransformerNormOrder.POST:
             self.self_attn_layer_norm = self_attn_layer_norm
 
-        if encoder_decoder_attn is None:
-            self.register_module("encoder_decoder_attn", None)
-            self.register_module("encoder_decoder_attn_dropout", None)
-            self.register_module("encoder_decoder_attn_residual", None)
-            self.register_module("encoder_decoder_attn_layer_norm", None)
+        encoder_decoder_attn_layer_norm = layer_norm_factory(
+            model_dim, device=device, dtype=dtype
+        )
+
+        if norm_order != TransformerNormOrder.POST:
+            self.encoder_decoder_attn_layer_norm = encoder_decoder_attn_layer_norm
+
+        self.encoder_decoder_attn = encoder_decoder_attn
+
+        if dropout_p > 0.0:
+            self.encoder_decoder_attn_dropout = Dropout(dropout_p)
         else:
-            encoder_decoder_attn_layer_norm = layer_norm_factory(
-                model_dim, device=device, dtype=dtype
-            )
+            self.register_module("encoder_decoder_attn_dropout", None)
 
-            if norm_order != TransformerNormOrder.POST:
-                self.encoder_decoder_attn_layer_norm = encoder_decoder_attn_layer_norm
+        if encoder_decoder_attn_residual is None:
+            encoder_decoder_attn_residual = StandardResidualConnect()
 
-            self.encoder_decoder_attn = encoder_decoder_attn
+        self.encoder_decoder_attn_residual = encoder_decoder_attn_residual
 
-            if dropout_p > 0.0:
-                self.encoder_decoder_attn_dropout = Dropout(dropout_p)
-            else:
-                self.register_module("encoder_decoder_attn_dropout", None)
-
-            if encoder_decoder_attn_residual is None:
-                encoder_decoder_attn_residual = StandardResidualConnect()
-
-            self.encoder_decoder_attn_residual = encoder_decoder_attn_residual
-
-            if norm_order == TransformerNormOrder.POST:
-                self.encoder_decoder_attn_layer_norm = encoder_decoder_attn_layer_norm
+        if norm_order == TransformerNormOrder.POST:
+            self.encoder_decoder_attn_layer_norm = encoder_decoder_attn_layer_norm
 
         ffn_layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
 
@@ -234,9 +228,9 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         self,
         seqs: Tensor,
         padding_mask: PaddingMask | None,
-        self_attn_mask: AttentionMask | None = None,
-        encoder_output: Tensor | None = None,
-        encoder_padding_mask: PaddingMask | None = None,
+        self_attn_mask: AttentionMask | None,
+        encoder_output: Tensor,
+        encoder_padding_mask: PaddingMask | None,
         *,
         state_bag: IncrementalStateBag | None = None,
     ) -> tuple[Tensor, PaddingMask | None]:
@@ -286,26 +280,10 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         self,
         seqs: Tensor,
         padding_mask: PaddingMask | None,
-        encoder_output: Tensor | None,
+        encoder_output: Tensor,
         encoder_padding_mask: PaddingMask | None,
         state_bag: IncrementalStateBag | None,
     ) -> Tensor:
-        if self.encoder_decoder_attn is None:
-            if encoder_output is not None:
-                raise ValueError(
-                    "`encoder_output` must not be specified for decoder-only attention."
-                )
-
-            return seqs
-
-        if encoder_output is None:
-            raise ValueError(
-                "`encoder_output` must be specified for encoder-decoder attention."
-            )
-
-        assert self.encoder_decoder_attn_residual is not None
-        assert self.encoder_decoder_attn_layer_norm is not None
-
         residual = seqs
 
         if self.norm_order != TransformerNormOrder.POST:

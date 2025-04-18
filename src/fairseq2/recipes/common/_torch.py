@@ -34,7 +34,7 @@ def setup_torch(
 
     _set_numerics(torch_section)
 
-    _set_sdpa_variant(torch_section.sdpa)
+    _set_default_sdpa_variant(torch_section.default_sdpa)
 
     torch._functorch.config.activation_memory_budget = (
         torch_section.torch_compile_activation_budget
@@ -122,7 +122,7 @@ def _set_numerics(torch_section: TorchSection) -> None:
     )
 
 
-def _set_sdpa_variant(name: str) -> None:
+def _set_default_sdpa_variant(name: str) -> None:
     match name:
         case "torch":
             set_default_sdpa_factory(TorchSDPA)

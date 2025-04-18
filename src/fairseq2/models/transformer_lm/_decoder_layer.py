@@ -13,24 +13,26 @@ from torch import Tensor
 from torch.nn import Dropout, Module
 from typing_extensions import override
 
-from fairseq2.nn import LayerNorm, ResidualConnect, StandardResidualConnect
+from fairseq2.models.transformer import (
+    AttentionMask,
+    FeedForwardNetwork,
+    LayerNormFactory,
+    MultiheadAttention,
+    TransformerNormOrder,
+    create_standard_layer_norm,
+)
+from fairseq2.nn import (
+    IncrementalStateBag,
+    LayerNorm,
+    ResidualConnect,
+    StandardResidualConnect,
+)
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.typing import DataType, Device
 
-# isort: split
 
-from fairseq2.models.transformer._attention_mask import AttentionMask
-from fairseq2.models.transformer._ffn import FeedForwardNetwork
-from fairseq2.models.transformer._multihead_attention import MultiheadAttention
-from fairseq2.models.transformer._norm_order import TransformerNormOrder
-from fairseq2.models.transformer._normalization import (
-    LayerNormFactory,
-    create_standard_layer_norm,
-)
-
-
-class TransformerEncoderLayer(Module, ABC):
-    """Represents a Transformer encoder layer."""
+class TransformerLMDecoderLayer(Module, ABC):
+    """Represents a Transformer-based language model decoder layer."""
 
     model_dim: int
 
@@ -49,6 +51,8 @@ class TransformerEncoderLayer(Module, ABC):
         seqs: Tensor,
         padding_mask: PaddingMask | None,
         self_attn_mask: AttentionMask | None,
+        *,
+        state_bag: IncrementalStateBag | None = None,
     ) -> tuple[Tensor, PaddingMask | None]:
         """
         :param seqs:
@@ -62,10 +66,12 @@ class TransformerEncoderLayer(Module, ABC):
             The mask that will be added to attention weights before computing
             the self attention. *Shape:* :math:`([H],S,S)`, where :math:`H` is
             the number of attention heads and :math:`S` is the sequence length.
+        :param state_bag:
+            The state bag to use for incremental decoding.
 
         :returns:
-            - The encoder layer output. *Shape:* Same as ``seqs``.
-            - The padding mask of the encoder layer output. *Shape:* Same as
+            - The decoder layer output. *Shape:* Same as ``seqs``.
+            - The padding mask of the decoder layer output. *Shape:* Same as
               ``padding_mask``.
         """
 
@@ -75,11 +81,7 @@ class TransformerEncoderLayer(Module, ABC):
 
 
 @final
-class StandardTransformerEncoderLayer(TransformerEncoderLayer):
-    """Represents a Transformer encoder layer as described in
-    :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`.
-    """
-
+class StandardTransformerLMDecoderLayer(TransformerLMDecoderLayer):
     self_attn: MultiheadAttention
     self_attn_dropout: Dropout | None
     self_attn_residual: ResidualConnect
@@ -109,8 +111,8 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
         :param ffn:
             The feed-forward network.
         :param dropout_p:
-            The dropout probability on outputs of the self attention layer and
-            the feed-forward network.
+            The dropout probability on outputs of the attention layers and the
+            feed-forward network.
         :param norm_order:
             The Layer Normalization order.
         :param layer_norm_factory:
@@ -176,9 +178,11 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
         self,
         seqs: Tensor,
         padding_mask: PaddingMask | None,
-        self_attn_mask: AttentionMask | None = None,
+        self_attn_mask: AttentionMask | None,
+        *,
+        state_bag: IncrementalStateBag | None = None,
     ) -> tuple[Tensor, PaddingMask | None]:
-        seqs = self._forward_self_attn(seqs, padding_mask, self_attn_mask)
+        seqs = self._forward_self_attn(seqs, padding_mask, self_attn_mask, state_bag)
 
         seqs = self._forward_ffn(seqs)
 
@@ -189,6 +193,7 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
         seqs: Tensor,
         padding_mask: PaddingMask | None,
         self_attn_mask: AttentionMask | None,
+        state_bag: IncrementalStateBag | None,
     ) -> Tensor:
         residual = seqs
 
@@ -202,6 +207,7 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
             key_padding_mask=padding_mask,
             values=seqs,
             attn_mask=self_attn_mask,
+            state_bag=state_bag,
         )
 
         if self.self_attn_dropout is not None:
