@@ -24,10 +24,22 @@ from fairseq2.datasets.preference import (
     GenericPreferenceDataset,
 )
 from fairseq2.datasets.speech import GENERIC_SPEECH_DATASET_FAMILY, GenericSpeechDataset
-from fairseq2.datasets.speech_parquet import (
-    PARQUET_SPEECH_DATASET_FAMILY,
-    GenericSpeechParquetDataset,
-)
+from fairseq2.logging import log
+
+try:
+    from fairseq2.datasets.speech_parquet import (
+        PARQUET_SPEECH_DATASET_FAMILY,
+        GenericSpeechParquetDataset,
+    )
+except ImportError as e:
+    PARQUET_SPEECH_DATASET_FAMILY = None  # type: ignore
+    GenericSpeechParquetDataset = None  # type: ignore
+    if "No module named 'pyarrow'" in str(e):
+        log.warning(
+            "PyArrow is not installed. Please install it with `pip install fairseq2[arrow]`."
+        )
+    else:
+        log.warning(f"Failed to import speech_parquet module: {e}")
 from fairseq2.datasets.text import GENERIC_TEXT_DATASET_FAMILY, GenericTextDataset
 from fairseq2.registry import Registry
 
@@ -65,12 +77,12 @@ def register_dataset_families(context: RuntimeContext) -> None:
         GenericSpeechDataset,
         GenericSpeechDataset.from_path,
     )
-
-    registrar.register_family(
-        PARQUET_SPEECH_DATASET_FAMILY,
-        GenericSpeechParquetDataset,
-        GenericSpeechParquetDataset.from_path,
-    )
+    if PARQUET_SPEECH_DATASET_FAMILY is not None and GenericSpeechParquetDataset is not None:
+        registrar.register_family(
+            PARQUET_SPEECH_DATASET_FAMILY,
+            GenericSpeechParquetDataset,
+            GenericSpeechParquetDataset.from_path,
+        )
 
     registrar.register_family(
         GENERIC_TEXT_DATASET_FAMILY,
