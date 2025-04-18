@@ -50,6 +50,9 @@ from fairseq2.recipes.config import (
 )
 # isort: split
 
+from torch import Tensor
+from typing_extensions import override
+
 from fairseq2.recipes.wav2vec2._common import (
     Wav2Vec2Criterion,
     Wav2Vec2LossSection,
