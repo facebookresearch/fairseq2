@@ -77,6 +77,7 @@ def register_metric_descriptors(context: RuntimeContext) -> None:
     register("avg_reward",       "Reward",                               1, format_as_float)
     register("chosen_logps",     "Chosen Sequence Log Probabilities",   50, format_as_float)
     register("rejected_logps",   "Rejected Sequence Log Probabilities", 50, format_as_float)
+    register("logit_entropy",    "Logit Entropy",                       51, format_as_float)
     register("rollout_lengths",  "Rollout Length",                      70, format_as_float)
     register("chosen_lengths",   "Chosen Sequence Length",              70, format_as_float)
     register("rejected_lengths", "Rejected Sequence Length",            70, format_as_float)

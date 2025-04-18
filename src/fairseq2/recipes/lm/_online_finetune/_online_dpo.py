@@ -66,6 +66,7 @@ from fairseq2.recipes.lm._preference_finetune._common import (
     POFinetuneMetricBag,
     _gather_lprobs_avg,
 )
+from fairseq2.recipes.lm._online_finetune._common import compute_token_level_entropy
 from fairseq2.recipes.model import Model
 from fairseq2.recipes.trainer import TrainUnit
 from fairseq2.typing import DataType
@@ -370,6 +371,14 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         rejected_logps, average_rejected_logps = _gather_lprobs_avg(
             rejected_output, rejected_target_batch
         )
+        tgt_logit_entropy = compute_token_level_entropy(
+            chosen_output.logits, chosen_target_batch.target_mask
+        )  # [Batch x Rollouts, 1]
+
+        max_entropy_regularizer = (
+            -tgt_logit_entropy.sum() * self._loss_config.entropy_regularizer_scale
+        )
+        self.metric_bag.update_logit_entropy(tgt_logit_entropy)
 
         if self._reference_offload:
             token_ref_chosen_logps = self.compute_reference_logps(batch.chosen)
@@ -439,7 +448,8 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             * nll_loss
             * chosen_target_batch.batch_size
             / chosen_target_batch.num_target_elements()
-        )  # normalization applied locally per-rank
+            + max_entropy_regularizer
+        )  # nll normalization applied locally per-rank
 
         loss = loss * loss_zeroer  # zero loss if entire batch was dummy batch
 
@@ -509,7 +519,7 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
     compression_ratio: Mean
     entropy: Mean
     entropy_norm: Mean
-    # rollouts: str
+    logit_entropy: Mean
 
     def __init__(self, gang: Gang) -> None:
         super().__init__(gang)
@@ -536,7 +546,12 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
         )
         self.register_metric("entropy", Mean(device=gang.device), persistent=False)
         self.register_metric("entropy_norm", Mean(device=gang.device), persistent=False)
-        # self.register_metric("rollouts", String(), persistent=False)
+
+    @torch.inference_mode()
+    def update_logit_entropy(self, logit_entropy: Tensor):
+        # logit_entropy is expected to contain token-level entropy for every sequence in the current batch
+        batch_size = logit_entropy.size(0)
+        self.logit_entropy.update(logit_entropy.sum() / batch_size, weight=batch_size)
 
     @torch.inference_mode()
     def update_dpo_loss(self, batch: PreferenceBatch, loss: Tensor) -> None:
@@ -642,6 +657,7 @@ class DpoLossConfig:
 
     log_rollouts: bool = True
     """Add prompts/rollouts to the logs"""
+    entropy_regularizer_scale: float = 0.0
 
 
 @dataclass(kw_only=True)
