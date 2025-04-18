@@ -171,7 +171,6 @@ GENERIC_SPEECH_DATASET_FAMILY: Final = "generic_speech"
 get_speech_dataset_hub = DatasetHubAccessor(SpeechDataset)
 
 
-@final
 class GenericSpeechDataset(SpeechDataset):
     """Represents a generic manifest-based Speech dataset."""
 
