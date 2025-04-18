@@ -67,9 +67,6 @@ from fairseq2.recipes.lm._online_finetune._handler import (
     OnlineFinetuneUnitHandler,
     UnknownOnlineFinetuneUnitError,
 )
-from fairseq2.recipes.lm._online_finetune._online_dpo import (  # ONLINE_DPO_FINETUNE_UNIT,
-    OnlineDpoFinetuneConfig,
-)
 from fairseq2.recipes.lm._online_finetune._remote_vllm import (
     RemoteVllmModelHandler,
     VllmRayActorConfig,
@@ -325,7 +322,8 @@ def load_online_finetuner(
     )
 
     if config.dataset.valid_split:
-        valid_batching = StaticBatching(10000)
+        # valid_batching = StaticBatching(10000)
+        valid_batching = StaticBatching(32)
         valid_read_options = PromptReadOptions(
             batching=valid_batching,
             example_shuffle_window=config.dataset.example_shuffle_window,
