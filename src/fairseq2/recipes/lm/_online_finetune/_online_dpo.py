@@ -546,6 +546,9 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
         )
         self.register_metric("entropy", Mean(device=gang.device), persistent=False)
         self.register_metric("entropy_norm", Mean(device=gang.device), persistent=False)
+        self.register_metric(
+            "logit_entropy", Mean(device=gang.device), persistent=False
+        )
 
     @torch.inference_mode()
     def update_logit_entropy(self, logit_entropy: Tensor):
