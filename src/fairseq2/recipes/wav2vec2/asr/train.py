@@ -6,14 +6,13 @@
 
 from __future__ import annotations
 
+import os
+
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, final
+from typing import final, Literal
 
 import torch
-from torch import Tensor
-from torch.nn import Module
-from typing_extensions import override
 
 from fairseq2.assets import AssetNotFoundError, default_asset_store
 from fairseq2.checkpoint import CheckpointModelMetadataProvider, FileCheckpointManager
@@ -28,17 +27,17 @@ from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2 import load_wav2vec2_model
 from fairseq2.models.wav2vec2.asr import (
+    wav2vec2_asr_archs,
     Wav2Vec2AsrModel,
     Wav2Vec2AsrOutput,
-    wav2vec2_asr_archs,
 )
 from fairseq2.nn.utils.module import freeze_parameters, share_parameters, to_device
 from fairseq2.optim import AdamWConfig, create_optimizer
-from fairseq2.optim.lr_scheduler import TriStageLRConfig, create_lr_scheduler
+from fairseq2.optim.lr_scheduler import create_lr_scheduler, TriStageLRConfig
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
 from fairseq2.recipes.utils.asset import (
-    AssetReference,
     asset_as_path,
+    AssetReference,
     retrieve_asset_card,
 )
 from fairseq2.recipes.utils.log import log_model, log_model_config
@@ -50,9 +49,12 @@ from fairseq2.recipes.utils.setup import (
 )
 from fairseq2.recipes.wav2vec2.asr.common import Wav2Vec2AsrMetricBag
 from fairseq2.recipes.wav2vec2.asr.eval import Wav2Vec2AsrEvalUnit
-from fairseq2.typing import CPU, META, DataClass, DataType
+from fairseq2.typing import CPU, DataClass, DataType, META
 from fairseq2.utils.profiler import Stopwatch
 from fairseq2.utils.rng import manual_seed
+from torch import Tensor
+from torch.nn import Module
+from typing_extensions import override
 
 log = get_log_writer(__name__)
 
@@ -302,6 +304,13 @@ def load_wav2vec2_asr_trainer(
 
     log.info("Tokenizer loaded.")
 
+    # Set tensorboard folder (for syncing with tensorboard relay)
+    parts = list(output_dir.parts)
+    assert output_dir.parts[-3] == os.getenv("USER")
+    parts = parts[:-2] + ["tensorboard", "sync"] + parts[-2:]
+    tb_dir = Path(*parts)
+    log.info(f"Tensorboard dir: {tb_dir}")
+
     # Load the dataset.
     try:
         dataset_card = retrieve_asset_card(config.dataset)
@@ -501,7 +510,7 @@ def load_wav2vec2_asr_trainer(
         checkpoint_after_n_steps=config.checkpoint_after_n_steps,
         checkpoint_every_n_steps=config.checkpoint_every_n_steps,
         keep_best_n_checkpoints=config.keep_best_n_checkpoints,
-        tb_dir=output_dir.joinpath("tb"),
+        tb_dir=tb_dir,
         metrics_dir=output_dir.joinpath("metrics"),
         publish_metrics_every_n_steps=config.publish_metrics_every_n_steps,
         profile=config.profile,
