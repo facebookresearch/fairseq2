@@ -72,9 +72,8 @@ from fairseq2.recipes.lm._online_finetune._online_dpo import (  # ONLINE_DPO_FIN
 )
 from fairseq2.recipes.lm._online_finetune._remote_vllm import (
     RemoteVllmModelHandler,
-    VllmConfig,
     VllmRayActorConfig,
-    VllmEngineArgs
+)
 from fairseq2.recipes.lm._online_finetune._grpo import (
     GrpoFinetuneConfig,
 )

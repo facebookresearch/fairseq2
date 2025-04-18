@@ -57,15 +57,15 @@ class VllmEngineArgs:
     override_pooler_config: PoolerConfig = field(default_factory=lambda: PoolerConfig())
 
 
-@dataclass(kw_only=True)
-class VllmSamplingParams:
-    n: int = 4
-    valid_n: int = 1
-    temperature: float = 1.0
-    max_tokens: int = 1024
-    prompt_logprobs: int | None = None
-    logprobs: int | None = None
-    detokenize: bool = True
+# @dataclass(kw_only=True)
+# class VllmSamplingParams:
+#     n: int = 4
+#     valid_n: int = 1
+#     temperature: float = 1.0
+#     max_tokens: int = 1024
+#     prompt_logprobs: int | None = None
+#     logprobs: int | None = None
+#     detokenize: bool = True
 
 
 @dataclass(kw_only=True)
@@ -123,7 +123,9 @@ class RemoteVllmModel:
         self.vllm_model = self.setup_vllm_worker(
             ray_actor_name, vllm_engine_args, gangs
         )
-        self.valid_n = sampling_params.valid_n  # num validation rollouts
+        self.valid_n = (
+            16  # sampling_params.get("valid_n", 1)  # num validation rollouts
+        )
 
         # populate sampling params using all values that were passed in the config
         self.sampling_params = SamplingParams(**sampling_params)
