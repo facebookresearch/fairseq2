@@ -301,17 +301,21 @@ class GenericSpeechDataset(SpeechDataset):
         if isinstance(batching, LengthBatching):
             # Bucket by the audio length.
             max_num_elements = batching.max_num_elements
+            num_seqs_multiple_of = options.extras.get("num_seqs_multiple_of", 8)
+            assert isinstance(
+                num_seqs_multiple_of, int
+            ), "num_seqs_multiple_of must be an integer"
+            assert num_seqs_multiple_of > 0, "num_seqs_multiple_of must be positive"
+
             if max_num_elements % max_audio_len != 0:
-                max_num_elements = (
-                    max_num_elements // max_audio_len + 1
-                ) * max_audio_len
+                max_num_elements = (max_num_elements // max_audio_len) * max_audio_len
                 log.warning(f"`max_num_elements` is rounded to {max_num_elements}")
 
             bucket_sizes = create_bucket_sizes(
                 min_seq_len=min_audio_len,
                 max_seq_len=max_audio_len,
                 max_num_elements=max_num_elements,
-                num_seqs_multiple_of=8,
+                num_seqs_multiple_of=num_seqs_multiple_of,
             )
 
             builder.bucket_by_length(
