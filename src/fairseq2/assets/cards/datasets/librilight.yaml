@@ -6,3 +6,4 @@
 
 name: librilight_asr_10h
 dataset_family: generic_asr
+data: /checkpoint/mms/shared/assets/debug/librilight

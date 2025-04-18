@@ -24,6 +24,10 @@ from fairseq2.datasets.preference import (
     GenericPreferenceDataset,
 )
 from fairseq2.datasets.speech import GENERIC_SPEECH_DATASET_FAMILY, GenericSpeechDataset
+from fairseq2.datasets.speech_parquet import (
+    PARQUET_SPEECH_DATASET_FAMILY,
+    GenericSpeechParquetDataset,
+)
 from fairseq2.datasets.text import GENERIC_TEXT_DATASET_FAMILY, GenericTextDataset
 from fairseq2.registry import Registry
 
@@ -60,6 +64,12 @@ def register_dataset_families(context: RuntimeContext) -> None:
         GENERIC_SPEECH_DATASET_FAMILY,
         GenericSpeechDataset,
         GenericSpeechDataset.from_path,
+    )
+
+    registrar.register_family(
+        PARQUET_SPEECH_DATASET_FAMILY,
+        GenericSpeechParquetDataset,
+        GenericSpeechParquetDataset.from_path,
     )
 
     registrar.register_family(

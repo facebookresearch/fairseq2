@@ -120,7 +120,6 @@ class CardBasedDatasetLoader(DatasetLoader):
             raise InvalidDatasetTypeError(dataset_name, handler.kls, self._kls)
 
         log.info("Loading '{}' dataset.", dataset_name)
-
         dataset = handler.load(card)
 
         try:

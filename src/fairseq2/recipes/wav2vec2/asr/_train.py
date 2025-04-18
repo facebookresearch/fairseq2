@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import cast, final
+from typing import Literal, cast, final
 
 import torch
 from torch import Tensor
@@ -112,6 +112,8 @@ class Wav2Vec2AsrTrainConfig:
     )
 
     common: CommonSection = field(default_factory=lambda: CommonSection())
+
+    best_checkpoint_metric: Literal["uer", "wer"] = "uer"
 
 
 @dataclass(kw_only=True)
@@ -337,8 +339,6 @@ def load_wav2vec2_asr_trainer(
 
         valid_criterion = AsrCriterion(model, valid_scorer)
 
-        valid_unit = AsrEvalUnit(valid_criterion, gangs)
-
         read_options = AsrReadOptions(
             batching=batching,
             dtype=config.trainer.dtype,
@@ -349,18 +349,22 @@ def load_wav2vec2_asr_trainer(
             extras=config.dataset.extras,
         )
 
-        valid_data_reader = dataset.create_reader(
-            config.dataset.valid_split,
-            tokenizer,
-            gangs.dp,
-            config.dataset.min_audio_len,
-            config.dataset.max_audio_len,
-            read_options,
-        )
+        valid_units = []
+        valid_data_readers = []
+        valid_splits = (config.dataset.valid_split).split(",")
+        for i in range(len(valid_splits)):
+            valid_unit = AsrEvalUnit(valid_criterion, gangs)
+            valid_units.append(valid_unit)
 
-        valid_units = [valid_unit]
-
-        valid_data_readers = [valid_data_reader]
+            valid_data_reader = dataset.create_reader(
+                valid_splits[i],
+                tokenizer,
+                gangs.dp,
+                config.dataset.min_audio_len,
+                config.dataset.max_audio_len,
+                read_options,
+            )
+            valid_data_readers.append(valid_data_reader)
     else:
         valid_units = []
 
@@ -383,7 +387,7 @@ def load_wav2vec2_asr_trainer(
         optimizer,
         lr_scheduler,
         seed,
-        score_metric="wer",
+        score_metric=config.best_checkpoint_metric,
     )
 
 

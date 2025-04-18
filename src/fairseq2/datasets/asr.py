@@ -100,7 +100,6 @@ GENERIC_ASR_DATASET_FAMILY: Final = "generic_asr"
 
 
 # TODO: Work in progress!
-@final
 class GenericAsrDataset(AsrDataset):
     """Represents a generic manifest-based ASR dataset."""
 
