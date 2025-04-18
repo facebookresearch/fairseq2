@@ -11,8 +11,6 @@ from pathlib import Path
 from typing import final
 
 import torch
-from torch import Tensor
-from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import LengthBatching, SyncMode
@@ -48,10 +46,6 @@ from fairseq2.recipes.config import (
     RegimeSection,
     TrainerSection,
 )
-from fairseq2.typing import CPU
-from fairseq2.utils.rng import manual_seed
-from fairseq2.utils.structured import structure
-from fairseq2.utils.validation import validate
 
 # isort: split
 
@@ -61,6 +55,12 @@ from fairseq2.recipes.wav2vec2._common import (
     Wav2Vec2MetricBag,
 )
 from fairseq2.recipes.wav2vec2._eval import Wav2Vec2EvalUnit
+from fairseq2.typing import CPU
+from fairseq2.utils.rng import manual_seed
+from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import validate
+from torch import Tensor
+from typing_extensions import override
 
 
 @dataclass(kw_only=True)
@@ -267,7 +267,6 @@ def load_wav2vec2_trainer(
 
     # Initialize the validation unit.
     if config.dataset.valid_split is not None:
-        valid_unit = Wav2Vec2EvalUnit(criterion, gangs)
 
         read_options = SpeechReadOptions(
             batching=batching,
@@ -283,17 +282,21 @@ def load_wav2vec2_trainer(
             extras=config.dataset.extras,
         )
 
-        valid_data_reader = dataset.create_reader(
-            config.dataset.valid_split,
-            gangs.dp,
-            min_audio_len=config.dataset.min_audio_len,
-            max_audio_len=config.dataset.max_audio_len,
-            options=read_options,
-        )
+        valid_units = []
+        valid_data_readers = []
+        valid_splits = (config.dataset.valid_split).split(",")
+        for i in range(len(valid_splits)):
+            valid_unit = Wav2Vec2EvalUnit(criterion, gangs)
+            valid_units.append(valid_unit)
 
-        valid_units = [valid_unit]
-
-        valid_data_readers = [valid_data_reader]
+            valid_data_reader = dataset.create_reader(
+                valid_splits[i],
+                gangs.dp,
+                min_audio_len=config.dataset.min_audio_len,
+                max_audio_len=config.dataset.max_audio_len,
+                options=read_options,
+            )
+            valid_data_readers.append(valid_data_reader)
     else:
         valid_units = []
 
