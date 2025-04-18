@@ -184,11 +184,10 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             vllm_model=self._vllm_model,
             sampling_params=policy_sampling_params,
         )
+        avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
 
         self.maybe_log_rollouts(prompt_batch, rollouts, "Valid")
 
-        # if self._gangs.dp.rank == 0:
-        #     breakpoint()
         reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
         # if self._valid_reward:
         #     reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
@@ -666,7 +665,6 @@ class OnlineDpoFinetuneConfig:
 
     ray_policy_actor_name: str = "vllm_policy"
     vllm_reward_model_name: str = None
-    # vllm_valid_reward_model_name: str = ""
 
     reward: RewardSection = field(
         default_factory=lambda: RewardSection(name="gsm8k_verifier")

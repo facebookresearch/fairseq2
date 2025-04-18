@@ -41,7 +41,7 @@ from fairseq2.logging import log
 @dataclass(kw_only=True)
 class RewardModelConfig:
     answer_key: str = "answer"
-    prompt_key: str = "prompt_raw"
+    prompt_key: str = "prompt"
 
 
 @dataclass(kw_only=True)

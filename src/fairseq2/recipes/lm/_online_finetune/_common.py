@@ -349,8 +349,6 @@ def generate_rewards(
         for rank_prompts in prompts_to_generate:
             flat_request_list.extend(rank_prompts)
 
-        # if dp_gang.rank == 0:
-        #     breakpoint()
         rewards = vllm_model.reward_from_model(flat_request_list)
 
         rewards_to_scatter = []
@@ -525,3 +523,10 @@ def convert_vllm_output_to_ref_score(vllm_outputs: List[RequestOutput], gangs):
         ref_scores.append(logprobs)
 
     return ref_scores
+
+
+def compute_token_level_entropy(logits: torch.Tensor):
+    """Calculate entropy from logits."""
+    pd = torch.nn.functional.softmax(logits, dim=-1)
+    entropy = torch.logsumexp(logits, dim=-1) - torch.sum(pd * logits, dim=-1)
+    return entropy

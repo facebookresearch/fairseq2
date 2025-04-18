@@ -56,7 +56,6 @@ from fairseq2.recipes.lm._online_finetune._handler import OnlineFinetuneUnitHand
 from fairseq2.recipes.lm._online_finetune._remote_vllm import (
     RemoteVllmModel,
     RemoteVllmModelHandler,
-    VllmConfig,
 )
 from fairseq2.recipes.lm._online_finetune._rewards import (
     RewardSection,
@@ -425,7 +424,7 @@ class GrpoFinetuneConfig:
     """The data type of the reference model."""
 
     ray_policy_actor_name: str = "vllm_policy"
-    vllm_reward_model_name: str = None
+    vllm_reward_model_name: str | None = None
 
     reward: RewardSection = field(
         default_factory=lambda: RewardSection(name="gsm8k_verifier")

@@ -50,8 +50,8 @@ class VllmEngineArgs:
     task: str = "generate"
     trust_remote_code: bool = False
     model_impl: str = "auto"
-    tensor_parallel_size: int = 4
     enforce_eager: bool = True
+    tensor_parallel_size: int = 4
     hf_overrides: object = None
     dtype: str = "auto"
     override_pooler_config: PoolerConfig = field(default_factory=lambda: PoolerConfig())
@@ -72,20 +72,7 @@ class VllmSamplingParams:
 class VllmRayActorConfig:
     ray_actor_name: str = "dummy"
     vllm_engine_args: VllmEngineArgs = field(default_factory=lambda: VllmEngineArgs())
-    vllm_sampling_params: VllmSamplingParams = field(
-        default_factory=lambda: VllmSamplingParams()
-    )
-    init_update_process_group: bool = False
-
-
-@dataclass(kw_only=True)
-class VllmConfig:
-    ray_cluster_ip_address: str = "dummy"
-    ray_actor_name: str = "dummy"
-    vllm_engine_args: VllmEngineArgs = field(default_factory=lambda: VllmEngineArgs())
-    vllm_sampling_params: VllmSamplingParams = field(
-        default_factory=lambda: VllmSamplingParams()
-    )
+    vllm_sampling_params: Dict[str, Any] = field(default_factory=lambda: {})
     init_update_process_group: bool = False
 
 
@@ -114,7 +101,7 @@ class RemoteVllmModelHandler(RemoteModelHandler):
     @property
     @override
     def config_kls(self) -> type[object]:
-        return VllmConfig
+        return VllmRayActorConfig
 
 
 class RemoteVllmModel:
@@ -122,7 +109,7 @@ class RemoteVllmModel:
         self,
         ray_actor_name: str,
         vllm_engine_args: VllmEngineArgs,
-        sampling_params: VllmSamplingParams,
+        sampling_params: dict,
         init_update_process_group: bool,
         gangs: Gangs,
     ):
@@ -137,14 +124,9 @@ class RemoteVllmModel:
             ray_actor_name, vllm_engine_args, gangs
         )
         self.valid_n = sampling_params.valid_n  # num validation rollouts
-        self.sampling_params = SamplingParams(
-            n=sampling_params.n,
-            temperature=sampling_params.temperature,
-            max_tokens=sampling_params.max_tokens,
-            detokenize=sampling_params.detokenize,
-            prompt_logprobs=sampling_params.prompt_logprobs,
-            logprobs=sampling_params.logprobs,
-        )
+
+        # populate sampling params using all values that were passed in the config
+        self.sampling_params = SamplingParams(**sampling_params)
 
         if init_update_process_group:
             self.update_process_group = self.setup_process_group_for_model_sync(
@@ -256,7 +238,6 @@ class RemoteVllmModel:
         rewards = []
         for i in range(0, len(prompt_list), batch_size):
             prompt_chunk = prompt_list[i : i + batch_size]
-
             output = ray.get(
                 self.vllm_model.encode.remote(
                     prompt_chunk,
@@ -266,6 +247,3 @@ class RemoteVllmModel:
             chunk_rewards = [o.outputs.data.item() for o in output]
             rewards.extend(chunk_rewards)
         return rewards
-
-
-# ray.get(self.vllm_model.encode.remote([prompt_chunk[0]],use_tqdm=False,))[0].outputs.data
