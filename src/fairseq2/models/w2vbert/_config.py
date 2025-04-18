@@ -10,8 +10,8 @@ from dataclasses import dataclass, field
 from typing import Final
 
 from fairseq2.context import RuntimeContext
+from fairseq2.models.transformer import TransformerNormOrder
 from fairseq2.models.wav2vec2 import Wav2Vec2Config, Wav2Vec2EncoderConfig
-from fairseq2.nn.transformer import TransformerNormOrder
 from fairseq2.utils.validation import ValidationError, ValidationResult
 
 W2VBERT_MODEL_FAMILY: Final = "w2vbert"

@@ -12,6 +12,14 @@ from typing import Final, final
 from typing_extensions import override
 
 from fairseq2.data import VocabularyInfo
+from fairseq2.models.decoder import DecoderModel
+from fairseq2.models.encoder_decoder import EncoderDecoderModel
+from fairseq2.registry import Provider
+from fairseq2.utils.structured import StructureError, structure
+from fairseq2.utils.validation import validate
+
+# isort: split
+
 from fairseq2.generation._generator import Seq2SeqGenerator, SequenceGenerator
 from fairseq2.generation._handler import (
     Seq2SeqGeneratorHandler,
@@ -27,11 +35,6 @@ from fairseq2.generation._sampling._sampler import (
     TopPSamplerConfig,
     UnknownSamplerError,
 )
-from fairseq2.models.decoder import DecoderModel
-from fairseq2.models.encoder_decoder import EncoderDecoderModel
-from fairseq2.registry import Provider
-from fairseq2.utils.structured import StructureError, structure
-from fairseq2.utils.validation import validate
 
 SAMPLING_GENERATOR: Final = "sampling"
 

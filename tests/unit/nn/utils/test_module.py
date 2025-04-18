@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from torch.nn import Parameter
 
-from fairseq2.context import get_runtime_context
+from fairseq2 import get_runtime_context
 from fairseq2.models.transformer import TransformerConfig, TransformerFactory
 from fairseq2.nn.utils.module import select_parameters
 from fairseq2.typing import META

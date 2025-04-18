@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import sys
 from argparse import OPTIONAL, ArgumentParser, BooleanOptionalAction, Namespace
-from collections.abc import Hashable, Iterable, Mapping, Set
+from collections.abc import Iterable, Mapping
 from itertools import chain
 from logging import getLogger
 from pathlib import Path
@@ -38,7 +38,6 @@ from fairseq2.recipes.utils.sweep_tag import (
     SweepFormatError,
     SweepFormatPlaceholderError,
     SweepTagGenerator,
-    get_sweep_keys,
 )
 from fairseq2.utils.env import InvalidEnvironmentVariableError, get_rank, get_world_size
 from fairseq2.utils.file import FileSystem
@@ -60,28 +59,19 @@ class RecipeCommandHandler(CliCommandHandler):
     _loader: RecipeLoader
     _config_kls: type[object]
     _default_preset: str
-    _extra_sweep_keys: Set[Hashable] | None
 
     def __init__(
-        self,
-        loader: RecipeLoader,
-        config_kls: type[object],
-        default_preset: str,
-        *,
-        extra_sweep_keys: Set[Hashable] | None = None,
+        self, loader: RecipeLoader, config_kls: type[object], default_preset: str
     ) -> None:
         """
         :param loader: The recipe loader.
         :param preset_configs: The registry containing the preset recipe
             configurations.
         :param default_preset: The name of the default preset.
-        :param extra_sweep_keys: The recipe specific configuration keys to
-            include in the sweep directory name.
         """
         self._loader = loader
         self._config_kls = config_kls
         self._default_preset = default_preset
-        self._extra_sweep_keys = extra_sweep_keys
 
     @override
     def init_parser(self, parser: ArgumentParser) -> None:
@@ -325,9 +315,7 @@ class RecipeCommandHandler(CliCommandHandler):
         if args.no_sweep_dir:
             return None
 
-        keys = get_sweep_keys(self._extra_sweep_keys)
-
-        tag_generator = SweepTagGenerator(world_size, keys, args.sweep_format)
+        tag_generator = SweepTagGenerator(world_size, args.sweep_format)
 
         try:
             return tag_generator.generate(args.preset, config)

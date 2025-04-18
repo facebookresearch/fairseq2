@@ -15,8 +15,11 @@ from fairseq2.assets import (
     WheelPackageFileLister,
 )
 from fairseq2.context import RuntimeContext
-from fairseq2.setup._error import SetupError
 from fairseq2.utils.yaml import StandardYamlLoader
+
+# isort: split
+
+from fairseq2.setup._error import SetupError
 
 
 def register_assets(context: RuntimeContext) -> None:

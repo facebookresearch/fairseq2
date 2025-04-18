@@ -8,58 +8,56 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections import OrderedDict
-from collections.abc import Iterable, Iterator
-from typing import Protocol, cast, final
+from collections.abc import Sequence
+from typing import Protocol, final
 
-import torch
 from torch import Generator, Tensor
-from torch.nn import Dropout, Module, ModuleList
+from torch.nn import Dropout
 from torch.utils.hooks import RemovableHandle
 from typing_extensions import override
 
-from fairseq2.error import InvalidOperationError
-from fairseq2.nn import IncrementalStateBag, LayerNorm
-from fairseq2.nn.padding import PaddingMask
-from fairseq2.nn.transformer._attention_mask import (
+from fairseq2.models.transformer import (
+    LayerNormFactory,
+    TransformerNormOrder,
+    create_standard_layer_norm,
+)
+from fairseq2.models.transformer._attention_mask import (
     AttentionMaskFactory,
     CausalAttentionMaskFactory,
 )
-from fairseq2.nn.transformer._decoder_layer import TransformerDecoderLayer
-from fairseq2.nn.transformer._encoder import _record_drop_for_backward
-from fairseq2.nn.transformer._layer_norm import (
-    LayerNormFactory,
-    create_standard_layer_norm,
-)
-from fairseq2.nn.transformer._norm_order import TransformerNormOrder
-from fairseq2.typing import CPU, DataType, Device
+from fairseq2.nn import IncrementalStateBag, LayerNorm, LayerStack
+from fairseq2.nn.padding import PaddingMask
+from fairseq2.typing import DataType, Device
+
+# isort: split
+
+from fairseq2.models.transformer_lm._decoder_layer import TransformerLMDecoderLayer
 
 
-class TransformerDecoder(Module, ABC):
-    """Represents a Transformer decoder."""
+class TransformerLMDecoder(LayerStack, ABC):
+    """Represents a Transformer-based language model decoder."""
 
     model_dim: int
-    layers: ModuleList
 
-    _layer_output_hooks: dict[int, DecoderLayerOutputHook]
+    _layer_hooks: dict[int, TransformerLMDecoderLayerHook]
 
-    def __init__(self, model_dim: int) -> None:
+    def __init__(
+        self, model_dim: int, layers: Sequence[TransformerLMDecoderLayer]
+    ) -> None:
         """
-        :param model_dim:
-            The dimensionality of the model.
+        :param model_dim: The dimensionality of the model.
         """
-        super().__init__()
+        super().__init__(layers)
 
         self.model_dim = model_dim
 
-        self._layer_output_hooks = OrderedDict()
+        self._layer_hooks = OrderedDict()
 
     @abstractmethod
     def forward(
         self,
         seqs: Tensor,
         padding_mask: PaddingMask | None,
-        encoder_output: Tensor | None = None,
-        encoder_padding_mask: PaddingMask | None = None,
         *,
         state_bag: IncrementalStateBag | None = None,
     ) -> tuple[Tensor, PaddingMask | None]:
@@ -71,15 +69,6 @@ class TransformerDecoder(Module, ABC):
         :param padding_mask:
             The padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where :math:`N`
             is the batch size and :math:`S` is the sequence length.
-        :param encoder_output:
-            The encoder output to use in encoder-decoder attention. *Shape:*
-            :math:`(N,S_{enc},M_{enc})`, where :math:`N` is the batch size,
-            :math:`S_{enc}` is the encoder output sequence length, and
-            :math:`M_{enc}` is the dimensionality of the encoder.
-        :param encoder_padding_mask:
-            The padding mask of ``encoder_output``. *Shape:* :math:`(N,S_{enc})`,
-            where :math:`N` is the batch size and :math:`S_{enc}` is the encoder
-            output sequence length.
         :param state_bag:
             The state bag to use for incremental decoding.
 
@@ -89,24 +78,24 @@ class TransformerDecoder(Module, ABC):
               ``padding_mask``.
         """
 
-    def register_layer_output_hook(
-        self, hook: DecoderLayerOutputHook
+    def register_layer_hook(
+        self, hook: TransformerLMDecoderLayerHook
     ) -> RemovableHandle:
-        """Register a layer output hook on the module.
+        """
+        Registers a layer output hook on the module.
 
         The hook will be called every time after a layer in the decoder stack
         has computed an output.
 
-        :param hook:
-            The hook to register.
+        :param hook: The hook to register.
 
         :returns:
             A handle that can be used to remove the added hook by calling
             ``handle.remove()``.
         """
-        handle = RemovableHandle(self._layer_output_hooks)
+        handle = RemovableHandle(self._layer_hooks)
 
-        self._layer_output_hooks[handle.id] = hook
+        self._layer_hooks[handle.id] = hook
 
         return handle
 
@@ -115,8 +104,10 @@ class TransformerDecoder(Module, ABC):
         return f"model_dim={self.model_dim}"
 
 
-class DecoderLayerOutputHook(Protocol):
-    """Represents a hook to pass to :meth:`~TransformerDecoder.forward`."""
+class TransformerLMDecoderLayerHook(Protocol):
+    """
+    Represents a hook to pass to :meth:`~TransformerLMDecoder.register_layer_hook`.
+    """
 
     def __call__(
         self,
@@ -143,12 +134,8 @@ class DecoderLayerOutputHook(Protocol):
 
 
 @final
-class StandardTransformerDecoder(TransformerDecoder):
-    """Represents a Transformer decoder as described in
-    :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`."""
-
+class StandardTransformerLMDecoder(TransformerLMDecoder):
     self_attn_mask_factory: AttentionMaskFactory | None
-    layer_drop_p: float
     generator: Generator | None
     layer_norm: LayerNorm | None
     dropout_p: float
@@ -156,11 +143,10 @@ class StandardTransformerDecoder(TransformerDecoder):
 
     def __init__(
         self,
-        layers: Iterable[TransformerDecoderLayer],
+        layers: Sequence[TransformerLMDecoderLayer],
         *,
         self_attn_mask_factory: AttentionMaskFactory | None = None,
         use_causal_attn_mask: bool = True,
-        layer_drop_p: float = 0.0,
         generator: Generator | None = None,
         dropout_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
@@ -169,33 +155,24 @@ class StandardTransformerDecoder(TransformerDecoder):
         dtype: DataType | None = None,
     ) -> None:
         """
-        :param layers:
-            The decoder layers.
-        :param self_attn_mask_factory:
-            The self attention mask factory.
-        :param use_causal_attn_mask:
-            If ``True``, passes a full :class:`CausalAttentionMask` to the
-            decoder layers; otherwise, passes ``None``. Ignored if
-            ``self_attn_mask_factory`` is specified.
-        :param layer_drop_p:
-            If greater than zero, applies LayerDrop to the decoder layers as
-            described in :cite:t:`https://doi.org/10.48550/arxiv.1909.11556`.
-        :param generator:
-            The random number generator for LayerDrop probabilities.
-        :param dropout_p:
-            The dropout probability on decoder outputs.
-        :param norm_order:
-            The Layer Normalization order.
-        :param layer_norm_factory:
-            The factory to construct the Layer Normalization module.
+        :param layers: The decoder layers.
+        :param self_attn_mask_factory: The self attention mask factory.
+        :param use_causal_attn_mask: If ``True``, passes a full
+            :class:`CausalAttentionMask` to the decoder layers; otherwise,
+            passes ``None``. Ignored if ``self_attn_mask_factory`` is specified.
+        :param generator: The random number generator for LayerDrop
+            probabilities.
+        :param dropout_p: The dropout probability on decoder outputs.
+        :param norm_order: The Layer Normalization order.
+        :param layer_norm_factory: The factory to construct the Layer
+            Normalization module.
         """
-        layer_list = ModuleList(layers)
-        if not layer_list:
+        if not layers:
             raise ValueError("`layers` must be non-empty.")
 
-        model_dim = cast(int, layer_list[0].model_dim)
+        model_dim = layers[0].model_dim
 
-        super().__init__(model_dim)
+        super().__init__(model_dim, layers)
 
         if layer_norm_factory is None:
             layer_norm_factory = create_standard_layer_norm
@@ -206,10 +183,6 @@ class StandardTransformerDecoder(TransformerDecoder):
             self.self_attn_mask_factory = CausalAttentionMaskFactory()
         else:
             self.self_attn_mask_factory = None
-
-        self.layers = layer_list
-
-        self.layer_drop_p = layer_drop_p
 
         self.generator = generator
 
@@ -230,16 +203,9 @@ class StandardTransformerDecoder(TransformerDecoder):
         self,
         seqs: Tensor,
         padding_mask: PaddingMask | None,
-        encoder_output: Tensor | None = None,
-        encoder_padding_mask: PaddingMask | None = None,
         *,
         state_bag: IncrementalStateBag | None = None,
     ) -> tuple[Tensor, PaddingMask | None]:
-        if self._layer_output_hooks and self.layer_drop_p > 0.0 and self.training:
-            raise InvalidOperationError(
-                "The layer output hooks cannot be run when LayerDrop is enabled."
-            )
-
         num_layers = len(self.layers)
 
         if self.self_attn_mask_factory is None:
@@ -249,24 +215,12 @@ class StandardTransformerDecoder(TransformerDecoder):
                 seqs, keys=seqs, training=self.training, state_bag=state_bag
             )
 
-        for layer_idx, (layer, drop) in enumerate(self._drop_iter()):
-            layer_output, layer_padding_mask = layer(
-                seqs,
-                padding_mask,
-                self_attn_mask,
-                encoder_output,
-                encoder_padding_mask,
-                state_bag=state_bag,
+        for layer_idx, layer in enumerate(self.layers):
+            seqs, padding_mask = layer(
+                seqs, padding_mask, self_attn_mask, state_bag=state_bag
             )
 
-            if drop:
-                seqs = _record_drop_for_backward(seqs, layer_output)
-
-                continue
-
-            seqs, padding_mask = layer_output, layer_padding_mask
-
-            for hook in self._layer_output_hooks.values():
+            for hook in self._layer_hooks.values():
                 if not hook(layer_idx, seqs, padding_mask, num_layers):
                     break
 
@@ -278,19 +232,6 @@ class StandardTransformerDecoder(TransformerDecoder):
 
         return seqs, padding_mask
 
-    def _drop_iter(self) -> Iterator[tuple[Module, bool]]:
-        if self.training and self.layer_drop_p > 0.0:
-            prob_dist = torch.rand(
-                len(self.layers), generator=self.generator, device=CPU
-            )
-        else:
-            prob_dist = None
-
-        for idx, m in enumerate(self.layers):
-            drop = prob_dist is not None and float(prob_dist[idx]) <= self.layer_drop_p
-
-            yield m, drop
-
     def extra_repr(self) -> str:
         """:meta private:"""
         s = super().extra_repr()
@@ -301,8 +242,5 @@ class StandardTransformerDecoder(TransformerDecoder):
             )
 
             s = f"{s}, self_attn_mask_factory={self_attn_mask_factory}"
-
-        if self.layer_drop_p > 0.0:
-            s = f"{s}, layer_drop_p={self.layer_drop_p:G}"
 
         return f"{s}, norm_order={self.norm_order.name}"

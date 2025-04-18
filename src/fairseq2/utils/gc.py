@@ -70,7 +70,7 @@ class CPythonGarbageCollector(GarbageCollector):
         self._step += 1
 
         if self._step == self._collect_every_n_step:
-            log.info("Running garbage collection for the oldest two generations.")  # fmt: skip
+            log.info("Running garbage collection.")
 
             gc.collect(generation=1)
 

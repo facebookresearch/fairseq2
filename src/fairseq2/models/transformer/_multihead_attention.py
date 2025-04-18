@@ -15,7 +15,6 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 from torch.nn import Module
-from torch.nn.parameter import Parameter
 from torch.utils.hooks import RemovableHandle
 from typing_extensions import override
 
@@ -29,9 +28,15 @@ from fairseq2.nn import (
 )
 from fairseq2.nn.ops import repeat_interleave
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.nn.transformer._attention import SDPA, create_default_sdpa
-from fairseq2.nn.transformer._attention_mask import AttentionMask, AttentionMaskFactory
 from fairseq2.typing import DataType, Device
+
+# isort: split
+
+from fairseq2.models.transformer._attention import SDPA, create_default_sdpa
+from fairseq2.models.transformer._attention_mask import (
+    AttentionMask,
+    AttentionMaskFactory,
+)
 
 
 class MultiheadAttention(Module, ABC):
@@ -184,7 +189,6 @@ class StandardMultiheadAttention(MultiheadAttention):
     attn_mask_factory: AttentionMaskFactory | None
     pos_encoder: PositionEncoder | None
     sdpa: SDPA
-    head_scale_weight: Parameter | None
     output_proj: Projection
     state_factory: AttentionStateFactory | None
 
@@ -202,7 +206,6 @@ class StandardMultiheadAttention(MultiheadAttention):
         attn_mask_factory: AttentionMaskFactory | None = None,
         pos_encoder: PositionEncoder | None = None,
         sdpa: SDPA | None = None,
-        scale_heads: bool = False,
         output_proj: Projection | None = None,
         output_proj_init_fn: Callable[[Linear], None] | None = None,
         bias: bool = True,
@@ -243,9 +246,6 @@ class StandardMultiheadAttention(MultiheadAttention):
         :param sdpa:
             The :class:`SDPA` module to compute head attentions. If ``None``, a
             default implementation will be used.
-        :param scale_heads:
-            If ``True``, applies head scaling as described in
-            :cite:t:`https://doi.org/10.48550/arxiv.2110.09456`
         :param output_proj:
             The projection to produce final attentions. If ``None``, a default
             projection will be used.
@@ -360,13 +360,6 @@ class StandardMultiheadAttention(MultiheadAttention):
         else:
             self.sdpa = create_default_sdpa()
 
-        if scale_heads:
-            self.head_scale_weight = Parameter(
-                torch.empty(num_heads, device=device, dtype=dtype)
-            )
-        else:
-            self.register_parameter("head_scale_weight", None)
-
         v_dim = v_proj.output_dim * num_query_groups
 
         if output_proj is None:
@@ -400,13 +393,6 @@ class StandardMultiheadAttention(MultiheadAttention):
             self.output_proj = output_proj
 
         self.state_factory = state_factory
-
-        self.reset_parameters()
-
-    def reset_parameters(self) -> None:
-        """Reset the parameters and buffers of the module."""
-        if self.head_scale_weight is not None:
-            nn.init.ones_(self.head_scale_weight)
 
     @override
     def forward(
@@ -503,9 +489,6 @@ class StandardMultiheadAttention(MultiheadAttention):
 
         # (N, H, S, V_h) -> (N, S, H, V_h)
         attn = attn.transpose(1, 2)
-
-        if self.head_scale_weight is not None:
-            attn = torch.einsum("nshv,h->nshv", attn, self.head_scale_weight)
 
         # (N, S, H, V_h) -> (N, S, V_proj)
         attn = attn.flatten(2, 3)
@@ -738,7 +721,7 @@ class FullAttentionState(AttentionState):
         self._v = self._v.index_select(0, new_order)
 
     @override
-    def size_bytes(self) -> int:
+    def size(self) -> int:
         batch_size, num_heads, _, head_dim = self._k.shape
 
         numel = 2 * batch_size * num_heads * self._seq_len * head_dim
@@ -746,7 +729,7 @@ class FullAttentionState(AttentionState):
         return numel * self._k.dtype.itemsize
 
     @override
-    def capacity_bytes(self) -> int:
+    def capacity(self) -> int:
         return 2 * self._k.numel() * self._k.dtype.itemsize
 
 
@@ -882,9 +865,9 @@ class LocalAttentionState(AttentionState):
         self._v = self._v.index_select(0, new_order)
 
     @override
-    def size_bytes(self) -> int:
+    def size(self) -> int:
         if self._seq_len >= self._attn_window_len:
-            return self.capacity_bytes()
+            return self.capacity()
 
         batch_size, num_heads, _, head_dim = self._k.shape
 
@@ -893,7 +876,7 @@ class LocalAttentionState(AttentionState):
         return numel * self._k.dtype.itemsize
 
     @override
-    def capacity_bytes(self) -> int:
+    def capacity(self) -> int:
         return 2 * self._k.numel() * self._k.dtype.itemsize
 
 
@@ -954,9 +937,9 @@ class StaticAttentionState(AttentionState):
             self._v = self._v.index_select(0, new_order)
 
     @override
-    def size_bytes(self) -> int:
-        return self.capacity_bytes()
+    def size(self) -> int:
+        return self.capacity()
 
     @override
-    def capacity_bytes(self) -> int:
+    def capacity(self) -> int:
         return 2 * self._k.numel() * self._k.dtype.itemsize

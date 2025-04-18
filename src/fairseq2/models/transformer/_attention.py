@@ -19,7 +19,13 @@ from typing_extensions import override
 
 from fairseq2.logging import log
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.nn.transformer._attention_mask import AttentionMask, CausalAttentionMask
+
+# isort: split
+
+from fairseq2.models.transformer._attention_mask import (
+    AttentionMask,
+    CausalAttentionMask,
+)
 
 
 class SDPA(Module, ABC):

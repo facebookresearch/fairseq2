@@ -8,40 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import torch
-
 from fairseq2.datasets._error import DatasetLoadError
-from fairseq2.gang import Gang, all_sum
-from fairseq2.logging import log
-
-
-def _min_num_batches(num_batches: int, gang: Gang) -> int:
-    all_num_batches = torch.zeros((gang.size,), device=gang.device, dtype=torch.int64)
-
-    input_ = torch.tensor([num_batches], device=gang.device)
-
-    gang.all_gather(all_num_batches, input_)
-
-    min_num_batches = int(all_num_batches.min())
-    if min_num_batches != 0:
-        return min_num_batches
-
-    # If not all processes have reached end of data, report the ones that have
-    # reached for debugging purposes.
-    if log.is_enabled_for_debug() and all_num_batches.sum() > 0:
-        ranks = all_num_batches.bool().logical_not_().nonzero().squeeze(-1).tolist()
-
-        s = ", ".join(str(r) for r in ranks)
-
-        log.debug("End of data reached at rank(s) {}.", s)
-
-    return 0
-
-
-def _sum_num_batches(num_batches: int, gang: Gang) -> int:
-    total_num_batches = all_sum(gang, num_batches)
-
-    return int(total_num_batches)
 
 
 def _load_files_and_weights(

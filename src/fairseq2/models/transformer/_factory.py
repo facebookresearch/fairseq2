@@ -8,12 +8,6 @@ from __future__ import annotations
 
 import torch.nn as nn
 
-from fairseq2.models.transformer._config import TransformerConfig
-from fairseq2.models.transformer._frontend import (
-    TransformerEmbeddingFrontend,
-    TransformerFrontend,
-)
-from fairseq2.models.transformer._model import TransformerModel
 from fairseq2.nn import (
     Embedding,
     Linear,
@@ -24,20 +18,39 @@ from fairseq2.nn import (
     TiedProjection,
     init_scaled_embedding,
 )
-from fairseq2.nn.transformer import (
-    FeedForwardNetwork,
-    MultiheadAttention,
-    StandardFeedForwardNetwork,
-    StandardMultiheadAttention,
+
+# isort: split
+
+from fairseq2.models.transformer._attention import create_default_sdpa
+from fairseq2.models.transformer._config import TransformerConfig
+from fairseq2.models.transformer._decoder import (
     StandardTransformerDecoder,
-    StandardTransformerDecoderLayer,
-    StandardTransformerEncoder,
-    StandardTransformerEncoderLayer,
     TransformerDecoder,
+)
+from fairseq2.models.transformer._decoder_layer import (
+    StandardTransformerDecoderLayer,
     TransformerDecoderLayer,
+)
+from fairseq2.models.transformer._encoder import (
+    StandardTransformerEncoder,
     TransformerEncoder,
+)
+from fairseq2.models.transformer._encoder_layer import (
+    StandardTransformerEncoderLayer,
     TransformerEncoderLayer,
-    create_default_sdpa,
+)
+from fairseq2.models.transformer._ffn import (
+    FeedForwardNetwork,
+    StandardFeedForwardNetwork,
+)
+from fairseq2.models.transformer._frontend import (
+    TransformerEmbeddingFrontend,
+    TransformerFrontend,
+)
+from fairseq2.models.transformer._model import TransformerModel
+from fairseq2.models.transformer._multihead_attention import (
+    MultiheadAttention,
+    StandardMultiheadAttention,
 )
 
 
@@ -135,10 +148,7 @@ class TransformerFactory:
         config = self._config
 
         return StandardFeedForwardNetwork(
-            config.model_dim,
-            config.ffn_inner_dim,
-            bias=True,
-            norm_order=config.norm_order,
+            config.model_dim, config.ffn_inner_dim, bias=True
         )
 
     def create_decoder(self) -> TransformerDecoder:

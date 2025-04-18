@@ -31,6 +31,13 @@ from fairseq2.recipes.common import (
     setup_torch,
     setup_training_gangs,
 )
+from fairseq2.typing import CPU
+from fairseq2.utils.rng import manual_seed
+from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import validate
+
+# isort: split
+
 from fairseq2.recipes.lm._preference_finetune._config import (
     POCriterionSection,
     POFinetuneConfig,
@@ -43,10 +50,6 @@ from fairseq2.recipes.lm._preference_finetune._handler import (
     POFinetuneUnitHandler,
     UnknownPOFinetuneUnitError,
 )
-from fairseq2.typing import CPU
-from fairseq2.utils.rng import manual_seed
-from fairseq2.utils.structured import structure
-from fairseq2.utils.validation import validate
 
 
 def register_po_finetune_configs(context: RuntimeContext) -> None:

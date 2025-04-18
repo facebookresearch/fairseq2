@@ -229,22 +229,24 @@ class FileCheckpointMetadataLoader:
             except OSError as ex:
                 raise load_error() from ex
 
-            if fp is not None:
-                try:
-                    line = fp.readline()
-                except OSError as ex:
-                    raise load_error() from ex
-                finally:
-                    fp.close()
+            if fp is None:
+                continue
 
-                try:
-                    score = float(line)
-                except ValueError:
-                    raise AssetMetadataLoadError(
-                        f"The score of the training step {step_nr} cannot be parsed as a floating-point number."
-                    ) from None
+            try:
+                line = fp.readline()
+            except OSError as ex:
+                raise load_error() from ex
+            finally:
+                fp.close()
 
-                scores.append((score, step_nr))
+            try:
+                score = float(line)
+            except ValueError:
+                raise AssetMetadataLoadError(
+                    f"The score of the training step {step_nr} cannot be parsed as a floating-point number."
+                ) from None
+
+            scores.append((score, step_nr))
 
         if max_step_nr == -1:
             return cache
@@ -254,13 +256,13 @@ class FileCheckpointMetadataLoader:
         if not scores:
             return cache
 
-        scores.sort()
+        scores.sort(reverse=True)
 
-        best_step_nr = scores[-1][1]
+        best_step_nr = scores[0][1]
 
         add_checkpoint_metadata("best_checkpoint@", best_step_nr)
 
-        for idx, (_, step_nr) in enumerate(reversed(scores)):
+        for idx, (_, step_nr) in enumerate(scores):
             add_checkpoint_metadata(f"best_checkpoint_{idx}@", step_nr)
 
         return cache

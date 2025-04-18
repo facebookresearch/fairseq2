@@ -33,13 +33,16 @@ from fairseq2.models import (
 )
 from fairseq2.nn.utils.module import remove_parametrizations
 from fairseq2.recipes import Model, RecipeError
-from fairseq2.recipes.common._distributed import broadcast_model
-from fairseq2.recipes.common._error import ModelParallelismNotSupportedError
-from fairseq2.recipes.common._model import LocalModel, maybe_compile_model
 from fairseq2.recipes.config import ReferenceModelSection, TorchCompileSection
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.registry import Provider
 from fairseq2.typing import DataType
+
+# isort: split
+
+from fairseq2.recipes.common._distributed import broadcast_model
+from fairseq2.recipes.common._error import ModelParallelismNotSupportedError
+from fairseq2.recipes.common._model import LocalModel, maybe_compile_model
 
 
 def setup_reference_model(

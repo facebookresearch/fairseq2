@@ -10,22 +10,18 @@ from abc import ABC, abstractmethod
 from typing import final
 
 import torch
-import torch.nn as nn
 from torch import Tensor
-from torch.nn import Module, Parameter
+from torch.nn import Module
 from typing_extensions import override
-
-from fairseq2.typing import DataType, Device
 
 
 class ResidualConnect(Module, ABC):
-    """Represents a residual connection within a Transformer layer."""
+    """Represents a residual connection."""
 
     @abstractmethod
     def forward(self, seqs: Tensor, residual: Tensor) -> Tensor:
         """
-        :param seqs: The sequences output by a module such as a multi-head
-            attention layer or a feed-forward network. *Shape:* :math:`(N,S,M)`,
+        :param seqs: The sequences output by a module. *Shape:* :math:`(N,S,M)`,
             where :math:`N` is the batch size, :math:`S` is the sequence length,
             and :math:`M` is the dimensionality of the model.
         :param residual: The input sequences to the module. *Shape:* Same as
@@ -38,7 +34,7 @@ class ResidualConnect(Module, ABC):
 
 @final
 class StandardResidualConnect(ResidualConnect):
-    """Sums inputs and outputs of a Transformer module."""
+    """Sums inputs and outputs of a module."""
 
     @override
     def forward(self, seqs: Tensor, residual: Tensor) -> Tensor:
@@ -63,43 +59,6 @@ class ScaledResidualConnect(ResidualConnect):
     @override
     def forward(self, seqs: Tensor, residual: Tensor) -> Tensor:
         residual = self.scale * residual
-
-        return seqs + residual
-
-
-@final
-class NormFormerResidualConnect(ResidualConnect):
-    """
-    Scales residuals by a learned factor before adding them to the output of a
-    feed-forward network as described in
-    :cite:t:`https://doi.org/10.48550/arxiv.2110.09456`.
-    """
-
-    scale_proj: Parameter
-
-    def __init__(
-        self,
-        model_dim: int,
-        *,
-        device: Device | None = None,
-        dtype: DataType | None = None,
-    ) -> None:
-        """
-        :param model_dim: The dimensionality of the model.
-        """
-        super().__init__()
-
-        self.scale_proj = Parameter(
-            torch.empty((model_dim,), device=device, dtype=dtype)
-        )
-
-    def reset_parameters(self) -> None:
-        """Reset the parameters and buffers of the module."""
-        nn.init.ones_(self.scale_proj)
-
-    @override
-    def forward(self, seqs: Tensor, residual: Tensor) -> Tensor:
-        residual = self.scale_proj * residual
 
         return seqs + residual
 

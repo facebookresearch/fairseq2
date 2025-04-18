@@ -89,21 +89,3 @@ class RuntimeContext:
     @property
     def wall_watch(self) -> Stopwatch:
         return self._wall_watch
-
-
-_default_context: RuntimeContext | None = None
-
-
-def set_runtime_context(context: RuntimeContext) -> None:
-    global _default_context
-
-    _default_context = context
-
-
-def get_runtime_context() -> RuntimeContext:
-    if _default_context is None:
-        raise RuntimeError(
-            "fairseq2 is not initialized. Make sure to call `fairseq2.setup_fairseq2()`."
-        )
-
-    return _default_context

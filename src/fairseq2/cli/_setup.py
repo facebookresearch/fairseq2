@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from fairseq2.chatbots import UnknownChatbotError
-from fairseq2.cli import Cli
 from fairseq2.cli.commands.assets import ListAssetsHandler, ShowAssetHandler
 from fairseq2.cli.commands.chatbot import RunChatbotHandler
 from fairseq2.cli.commands.llama import (
@@ -89,6 +88,10 @@ from fairseq2.recipes.wav2vec2.asr import (
 )
 from fairseq2.utils.validation import ValidationError
 
+# isort: split
+
+from fairseq2.cli._cli import Cli
+
 
 def setup_cli(context: RuntimeContext) -> Cli:
     from fairseq2 import __version__
@@ -119,8 +122,6 @@ def setup_cli(context: RuntimeContext) -> Cli:
 
 
 def _register_asr_cli(cli: Cli) -> None:
-    extra_sweep_keys = {"max_audio_len", "min_audio_len", "normalize_audio"}
-
     group = cli.add_group("asr", help="ASR recipes")
 
     # Eval
@@ -128,7 +129,6 @@ def _register_asr_cli(cli: Cli) -> None:
         loader=load_asr_evaluator,
         config_kls=AsrEvalConfig,
         default_preset="wav2vec2",
-        extra_sweep_keys=extra_sweep_keys,
     )
 
     group.add_command(
@@ -239,8 +239,6 @@ def _register_lm_cli(cli: Cli) -> None:
 
 
 def _register_mt_cli(cli: Cli) -> None:
-    extra_sweep_keys = {"source_lang", "target_lang"}
-
     group = cli.add_group("mt", help="machine translation recipes")
 
     # Eval
@@ -248,7 +246,6 @@ def _register_mt_cli(cli: Cli) -> None:
         loader=load_mt_evaluator,
         config_kls=MTEvalConfig,
         default_preset="nllb_dense",
-        extra_sweep_keys=extra_sweep_keys,
     )
 
     group.add_command(
@@ -262,7 +259,6 @@ def _register_mt_cli(cli: Cli) -> None:
         loader=load_mt_trainer,
         config_kls=MTTrainConfig,
         default_preset="nllb_dense",
-        extra_sweep_keys=extra_sweep_keys,
     )
 
     group.add_command(
@@ -276,7 +272,6 @@ def _register_mt_cli(cli: Cli) -> None:
         loader=load_text_translator,
         config_kls=TextTranslateConfig,
         default_preset="nllb_dense",
-        extra_sweep_keys=extra_sweep_keys,
     )
 
     group.add_command(
@@ -287,8 +282,6 @@ def _register_mt_cli(cli: Cli) -> None:
 
 
 def _register_wav2vec2_cli(cli: Cli) -> None:
-    extra_sweep_keys = {"max_audio_len", "min_audio_len", "normalize_audio"}
-
     group = cli.add_group("wav2vec2", help="wav2vec 2.0 pretraining recipes")
 
     # Eval
@@ -296,7 +289,6 @@ def _register_wav2vec2_cli(cli: Cli) -> None:
         loader=load_wav2vec2_evaluator,
         config_kls=Wav2Vec2EvalConfig,
         default_preset="base_ls960h",
-        extra_sweep_keys=extra_sweep_keys,
     )
 
     group.add_command(
@@ -310,7 +302,6 @@ def _register_wav2vec2_cli(cli: Cli) -> None:
         loader=load_wav2vec2_trainer,
         config_kls=Wav2Vec2TrainConfig,
         default_preset="base_960h",
-        extra_sweep_keys=extra_sweep_keys,
     )
 
     group.add_command(
@@ -321,13 +312,6 @@ def _register_wav2vec2_cli(cli: Cli) -> None:
 
 
 def _register_wav2vec2_asr_cli(cli: Cli) -> None:
-    extra_sweep_keys = {
-        "freeze_encoder_for_n_steps",
-        "max_audio_len",
-        "min_audio_len",
-        "normalize_audio",
-    }
-
     group = cli.add_group("wav2vec2_asr", help="wav2vec 2.0 ASR recipes")
 
     # Train
@@ -335,7 +319,6 @@ def _register_wav2vec2_asr_cli(cli: Cli) -> None:
         loader=load_wav2vec2_asr_trainer,
         config_kls=Wav2Vec2AsrTrainConfig,
         default_preset="base_10h",
-        extra_sweep_keys=extra_sweep_keys,
     )
 
     group.add_command(

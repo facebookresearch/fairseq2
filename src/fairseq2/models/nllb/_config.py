@@ -7,8 +7,7 @@
 from __future__ import annotations
 
 from fairseq2.context import RuntimeContext
-from fairseq2.models.transformer import TransformerConfig
-from fairseq2.nn.transformer import TransformerNormOrder
+from fairseq2.models.transformer import TransformerConfig, TransformerNormOrder
 
 
 def register_nllb_configs(context: RuntimeContext) -> None:

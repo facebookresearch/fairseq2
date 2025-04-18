@@ -14,15 +14,15 @@ from torch import Tensor
 from torch.nn import Module, Parameter
 
 from fairseq2.models.sequence import SequenceBatch
-from fairseq2.models.transformer import TransformerFrontend
-from fairseq2.nn import LayerNorm, Projection
-from fairseq2.nn.transformer import (
+from fairseq2.models.transformer import (
     FeedForwardNetwork,
     LayerNormFactory,
     MultiheadAttention,
     TransformerEncoder,
+    TransformerFrontend,
     create_standard_layer_norm,
 )
+from fairseq2.nn import LayerNorm, Projection
 from fairseq2.typing import DataType, Device
 
 

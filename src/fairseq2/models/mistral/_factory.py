@@ -6,13 +6,26 @@
 
 from __future__ import annotations
 
-from fairseq2.models.mistral._config import MistralConfig
 from fairseq2.models.transformer import (
+    CausalAttentionMaskFactory,
+    FeedForwardNetwork,
+    GLUFeedForwardNetwork,
+    LocalAttentionStateFactory,
+    MultiheadAttention,
+    StandardMultiheadAttention,
     TransformerEmbeddingFrontend,
     TransformerFrontend,
+    TransformerNormOrder,
+    create_default_sdpa,
     init_transformer_final_projection,
 )
-from fairseq2.models.transformer_decoder import TransformerDecoderModel
+from fairseq2.models.transformer_lm import (
+    StandardTransformerLMDecoder,
+    StandardTransformerLMDecoderLayer,
+    TransformerLanguageModel,
+    TransformerLMDecoder,
+    TransformerLMDecoderLayer,
+)
 from fairseq2.nn import (
     Embedding,
     LayerNorm,
@@ -23,24 +36,14 @@ from fairseq2.nn import (
     RotaryEncoder,
     StandardEmbedding,
 )
-from fairseq2.nn.transformer import (
-    CausalAttentionMaskFactory,
-    FeedForwardNetwork,
-    GLUFeedForwardNetwork,
-    LocalAttentionStateFactory,
-    MultiheadAttention,
-    StandardMultiheadAttention,
-    StandardTransformerDecoder,
-    StandardTransformerDecoderLayer,
-    TransformerDecoder,
-    TransformerDecoderLayer,
-    TransformerNormOrder,
-    create_default_sdpa,
-)
 from fairseq2.typing import DataType, Device
 
+# isort: split
 
-def create_mistral_model(config: MistralConfig) -> TransformerDecoderModel:
+from fairseq2.models.mistral._config import MistralConfig
+
+
+def create_mistral_model(config: MistralConfig) -> TransformerLanguageModel:
     return MistralFactory(config).create_model()
 
 
@@ -50,7 +53,7 @@ class MistralFactory:
     def __init__(self, config: MistralConfig) -> None:
         self._config = config
 
-    def create_model(self) -> TransformerDecoderModel:
+    def create_model(self) -> TransformerLanguageModel:
         config = self._config
 
         decoder_frontend = self.create_decoder_frontend()
@@ -59,7 +62,7 @@ class MistralFactory:
 
         final_proj = self.create_final_projection()
 
-        return TransformerDecoderModel(
+        return TransformerLanguageModel(
             decoder_frontend,
             decoder,
             final_proj,
@@ -83,7 +86,7 @@ class MistralFactory:
             num_embeddings=config.vocab_size, embedding_dim=config.model_dim
         )
 
-    def create_decoder(self) -> TransformerDecoder:
+    def create_decoder(self) -> TransformerLMDecoder:
         config = self._config
 
         pos_encoder = self.create_position_encoder()
@@ -99,7 +102,7 @@ class MistralFactory:
             attn_window_len=config.attn_window_len
         )
 
-        return StandardTransformerDecoder(
+        return StandardTransformerLMDecoder(
             layers,
             self_attn_mask_factory=self_attn_mask_factory,
             norm_order=TransformerNormOrder.PRE,
@@ -116,17 +119,16 @@ class MistralFactory:
 
     def create_decoder_layer(
         self, pos_encoder: PositionEncoder
-    ) -> TransformerDecoderLayer:
+    ) -> TransformerLMDecoderLayer:
         config = self._config
 
         self_attn = self.create_attention(pos_encoder)
 
         ffn = self.create_ffn()
 
-        return StandardTransformerDecoderLayer(
+        return StandardTransformerLMDecoderLayer(
             self_attn,
-            encoder_decoder_attn=None,
-            ffn=ffn,
+            ffn,
             dropout_p=config.dropout_p,
             norm_order=TransformerNormOrder.PRE,
             layer_norm_factory=self.create_layer_norm,

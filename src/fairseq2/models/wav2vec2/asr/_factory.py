@@ -8,16 +8,19 @@ from __future__ import annotations
 
 import torch.nn as nn
 
+from fairseq2.models.transformer import TransformerEncoder
 from fairseq2.models.wav2vec2 import (
     StandardWav2Vec2Masker,
     Wav2Vec2EncoderFactory,
     Wav2Vec2Frontend,
     Wav2Vec2Masker,
 )
+from fairseq2.nn import Linear, Projection
+
+# isort: split
+
 from fairseq2.models.wav2vec2.asr._config import Wav2Vec2AsrConfig
 from fairseq2.models.wav2vec2.asr._model import Wav2Vec2AsrModel
-from fairseq2.nn import Linear, Projection
-from fairseq2.nn.transformer import TransformerEncoder
 
 
 def create_wav2vec2_asr_model(config: Wav2Vec2AsrConfig) -> Wav2Vec2AsrModel:

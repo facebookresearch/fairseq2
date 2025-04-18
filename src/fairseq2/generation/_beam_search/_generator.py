@@ -19,6 +19,15 @@ from typing_extensions import override
 
 from fairseq2.data import VocabularyInfo
 from fairseq2.error import InternalError
+from fairseq2.models.decoder import DecoderModel
+from fairseq2.models.encoder_decoder import EncoderDecoderModel
+from fairseq2.models.sequence import SequenceModelOutput
+from fairseq2.nn import IncrementalStateBag
+from fairseq2.nn.padding import PaddingMask
+from fairseq2.utils.stopwatch import Stopwatch
+
+# isort: split
+
 from fairseq2.generation._beam_search._algo import (
     BeamSearchAlgorithm,
     BeamStep,
@@ -35,12 +44,6 @@ from fairseq2.generation._generator import (
     StepHook,
 )
 from fairseq2.generation._step_processor import StepProcessor
-from fairseq2.models.decoder import DecoderModel
-from fairseq2.models.encoder_decoder import EncoderDecoderModel
-from fairseq2.models.sequence import SequenceModelOutput
-from fairseq2.nn import IncrementalStateBag
-from fairseq2.nn.padding import PaddingMask
-from fairseq2.utils.stopwatch import Stopwatch
 
 
 @final
@@ -591,8 +594,8 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
 
         self._watch.reset()
 
-        self._counters.cache_size = self._state_bag.size_bytes()
-        self._counters.cache_capacity = self._state_bag.capacity_bytes()
+        self._counters.cache_size = self._state_bag.size()
+        self._counters.cache_capacity = self._state_bag.capacity()
 
         # Sort the hypotheses by their scores before returning.
         for hypotheses in self._output:

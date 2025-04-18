@@ -12,6 +12,14 @@ from typing import Final, final
 from typing_extensions import override
 
 from fairseq2.data import VocabularyInfo
+from fairseq2.models.decoder import DecoderModel
+from fairseq2.models.encoder_decoder import EncoderDecoderModel
+from fairseq2.registry import Provider
+from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import validate
+
+# isort: split
+
 from fairseq2.generation._beam_search._algo import (
     STANDARD_BEAM_SEARCH_ALGO,
     BeamSearchAlgorithmHandler,
@@ -26,11 +34,6 @@ from fairseq2.generation._handler import (
     Seq2SeqGeneratorHandler,
     SequenceGeneratorHandler,
 )
-from fairseq2.models.decoder import DecoderModel
-from fairseq2.models.encoder_decoder import EncoderDecoderModel
-from fairseq2.registry import Provider
-from fairseq2.utils.structured import structure
-from fairseq2.utils.validation import validate
 
 BEAM_SEARCH_GENERATOR: Final = "beam_search"
 

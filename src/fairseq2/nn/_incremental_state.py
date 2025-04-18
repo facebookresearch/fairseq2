@@ -14,7 +14,8 @@ from torch.nn import Module
 
 
 class IncrementalState(ABC):
-    """Holds the state of a module during incremental decoding.
+    """
+    Holds the state of a module during incremental decoding.
 
     Incremental decoding is a special mode at inference time where the module
     only receives an input corresponding to the previous output and must produce
@@ -24,7 +25,8 @@ class IncrementalState(ABC):
 
     @abstractmethod
     def reorder(self, new_order: Tensor) -> None:
-        """Rearrange the state according to a new batch order.
+        """
+        Rearranges the state according to a new batch order.
 
         This will be called when the order of the batch has changed. A typical
         use case is beam search, where the batch order changes between steps
@@ -37,12 +39,12 @@ class IncrementalState(ABC):
         """
 
     @abstractmethod
-    def size_bytes(self) -> int:
-        """Return the size of the state in bytes."""
+    def size(self) -> int:
+        """Returns the size of the state in bytes."""
 
     @abstractmethod
-    def capacity_bytes(self) -> int:
-        """Return the reserved capacity of the state in bytes."""
+    def capacity(self) -> int:
+        """Returns the reserved capacity of the state in bytes."""
 
 
 T = TypeVar("T", bound=IncrementalState)
@@ -61,12 +63,10 @@ class IncrementalStateBag:
         self, max_num_steps: int, *, capacity_increment: int | None = 16
     ) -> None:
         """
-        :param max_num_steps:
-            The maximum number of steps to take.
-        :param capacity_increment:
-            The sequence length capacity of state tensors will be incremented by
-            multiples of this value. If ``None``, state tensors will be
-            preallocated with a capacity of ``max_num_steps``.
+        :param max_num_steps: The maximum number of steps to take.
+        :param capacity_increment: The sequence length capacity of state tensors
+            will be incremented by multiples of this value. If ``None``, state
+            tensors will be preallocated with a capacity of ``max_num_steps``.
         """
         if capacity_increment is not None and capacity_increment < 1:
             raise ValueError(
@@ -80,13 +80,13 @@ class IncrementalStateBag:
         self._module_states = {}
 
     def increment_step_nr(self, value: int = 1) -> None:
-        """Increment the step number.
+        """
+        Increments the step number.
 
         This method should be called after every decoding step. It is used by
         modules to keep track of the position in the sequence.
 
-        :param value:
-            The value by which to increment the step number.
+        :param value: The value by which to increment the step number.
         """
         step_nr = self._step_nr + value
 
@@ -98,16 +98,14 @@ class IncrementalStateBag:
         self._step_nr = step_nr
 
     def get_state(self, m: Module, kls: type[T]) -> T | None:
-        """Get the state of ``m`` if present in the bag.
+        """
+        Gets the state of ``m`` if present in the bag.
 
-        :param m:
-            The module.
-        :param kls:
-            The expected ``type`` of the state. If the type of the state in the
-            bag does not match ``kls``, ``None`` will be returned.
+        :param m: The module.
+        :param kls: The expected ``type`` of the state. If the type of the state
+            in the bag does not match ``kls``, ``None`` will be returned.
 
-        :returns:
-            The state of the module.
+        :returns: The state of the module.
         """
         state = self._module_states.get(m, None)
         if isinstance(state, kls):
@@ -116,17 +114,17 @@ class IncrementalStateBag:
             return None
 
     def set_state(self, m: Module, state: IncrementalState) -> None:
-        """Set the state of ``m``.
+        """
+        Sets the state of ``m``.
 
-        :param m:
-            The module.
-        :param state:
-            The state to store.
+        :param m: The module.
+        :param state: The state to store.
         """
         self._module_states[m] = state
 
     def reorder(self, new_order: Tensor) -> None:
-        """Reorder the module states.
+        """
+        Reorders the module states.
 
         See :meth:`IncrementalState.reorder` for more information.
         """
@@ -145,14 +143,16 @@ class IncrementalStateBag:
 
     @property
     def capacity_increment(self) -> int | None:
-        """The sequence length capacity of state tensors will be incremented by
-        multiples of this value."""
+        """
+        The sequence length capacity of state tensors will be incremented by
+        multiples of this value.
+        """
         return self._capacity_increment
 
-    def size_bytes(self) -> int:
-        """Return the size of the state bag in bytes."""
-        return sum(s.size_bytes() for s in self._module_states.values())
+    def size(self) -> int:
+        """Returns the size of the state bag in bytes."""
+        return sum(s.size() for s in self._module_states.values())
 
-    def capacity_bytes(self) -> int:
-        """Return the reserved capacity of the state bag in bytes."""
-        return sum(s.capacity_bytes() for s in self._module_states.values())
+    def capacity(self) -> int:
+        """Returns the reserved capacity of the state bag in bytes."""
+        return sum(s.capacity() for s in self._module_states.values())

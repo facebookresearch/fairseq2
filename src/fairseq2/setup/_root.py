@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import os
-from enum import Enum
 from typing import Mapping
 
 from fairseq2.assets import (
@@ -16,8 +15,13 @@ from fairseq2.assets import (
     InProcAssetDownloadManager,
     StandardAssetStore,
 )
-from fairseq2.context import RuntimeContext, set_runtime_context
+from fairseq2.context import RuntimeContext
 from fairseq2.extensions import run_extensions
+from fairseq2.utils.file import FileSystem, LocalFileSystem
+from fairseq2.utils.progress import NoopProgressReporter, ProgressReporter
+
+# isort: split
+
 from fairseq2.setup._asset import register_assets
 from fairseq2.setup._chatbots import register_chatbots
 from fairseq2.setup._cluster import register_clusters
@@ -37,53 +41,6 @@ from fairseq2.setup._po_finetune_units import register_po_finetune_units
 from fairseq2.setup._profilers import register_profilers
 from fairseq2.setup._recipes import register_recipes
 from fairseq2.setup._text_tokenizers import register_text_tokenizer_families
-from fairseq2.utils.file import FileSystem, LocalFileSystem
-from fairseq2.utils.progress import NoopProgressReporter, ProgressReporter
-
-
-class _SetupState(Enum):
-    NOT_CALLED = 0
-    IN_CALL = 1
-    CALLED = 2
-
-
-_setup_state: _SetupState = _SetupState.NOT_CALLED
-
-
-def setup_fairseq2(progress_reporter: ProgressReporter | None = None) -> None:
-    """
-    Sets up fairseq2.
-
-    As part of the initialization, this function also registers extensions
-    with via setuptools' `entry-point`__ mechanism. See
-    :doc:`/basics/runtime_extensions` for more information.
-
-    .. important::
-
-        This function must be called before using any of the fairseq2 APIs.
-
-    .. __: https://setuptools.pypa.io/en/latest/userguide/entry_point.html
-    """
-    global _setup_state
-
-    if _setup_state == _SetupState.CALLED:
-        return
-
-    if _setup_state == _SetupState.IN_CALL:
-        raise RuntimeError("`setup_fairseq2()` cannot be called recursively.")
-
-    _setup_state = _SetupState.IN_CALL
-
-    try:
-        context = setup_library(progress_reporter)
-    except Exception:
-        _setup_state = _SetupState.NOT_CALLED
-
-        raise
-
-    set_runtime_context(context)
-
-    _setup_state = _SetupState.CALLED
 
 
 def setup_library(progress_reporter: ProgressReporter | None = None) -> RuntimeContext:

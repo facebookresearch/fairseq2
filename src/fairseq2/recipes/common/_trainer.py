@@ -28,15 +28,18 @@ from fairseq2.recipes import (
     TrainUnit,
     Validator,
 )
-from fairseq2.recipes.common._device import create_device_stat_tracker
-from fairseq2.recipes.common._metrics import create_metric_recorder
-from fairseq2.recipes.common._profilers import create_profiler
 from fairseq2.recipes.config import CommonSection, RegimeSection, TrainerSection
 from fairseq2.utils.gc import (
     CPythonGarbageCollector,
     GarbageCollector,
     NoopGarbageCollector,
 )
+
+# isort: split
+
+from fairseq2.recipes.common._device import create_device_stat_tracker
+from fairseq2.recipes.common._metrics import create_metric_recorder
+from fairseq2.recipes.common._profilers import create_profiler
 
 BatchT = TypeVar("BatchT", bound=SupportsDeviceTransfer)
 
@@ -126,10 +129,10 @@ def create_trainer(
         checkpoint_every_n_steps=regime_section.checkpoint_every_n_steps,
         checkpoint_after_n_data_epochs=regime_section.checkpoint_after_n_data_epochs,
         checkpoint_every_n_data_epochs=regime_section.checkpoint_every_n_data_epochs,
+        save_model_only=regime_section.save_model_only,
         keep_last_n_checkpoints=regime_section.keep_last_n_checkpoints,
         keep_best_n_checkpoints=regime_section.keep_best_n_checkpoints,
-        keep_last_n_models=regime_section.keep_last_n_models,
-        keep_best_n_models=regime_section.keep_best_n_models,
+        keep_checkpoint_every_n_steps=regime_section.keep_checkpoint_every_n_steps,
         metric_recorder=metric_recorder,
         publish_metrics_after_n_steps=regime_section.publish_metrics_after_n_steps,
         publish_metrics_every_n_steps=regime_section.publish_metrics_every_n_steps,

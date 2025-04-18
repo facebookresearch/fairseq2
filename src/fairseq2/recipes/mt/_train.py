@@ -55,12 +55,15 @@ from fairseq2.recipes.config import (
     TextTokenizerSection,
     TrainerSection,
 )
-from fairseq2.recipes.mt._common import MTCriterion, MTLossSection
-from fairseq2.recipes.mt._eval import MTBleuChrfEvalUnit, MTLossEvalUnit
 from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
+
+# isort: split
+
+from fairseq2.recipes.mt._common import MTCriterion, MTLossSection
+from fairseq2.recipes.mt._eval import MTBleuChrfEvalUnit, MTLossEvalUnit
 
 
 @dataclass(kw_only=True)

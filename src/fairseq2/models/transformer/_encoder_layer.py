@@ -13,18 +13,20 @@ from torch import Tensor
 from torch.nn import Dropout, Module
 from typing_extensions import override
 
-from fairseq2.nn import LayerNorm
+from fairseq2.nn import LayerNorm, ResidualConnect, StandardResidualConnect
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.nn.transformer._attention_mask import AttentionMask
-from fairseq2.nn.transformer._ffn import FeedForwardNetwork
-from fairseq2.nn.transformer._layer_norm import (
+from fairseq2.typing import DataType, Device
+
+# isort: split
+
+from fairseq2.models.transformer._attention_mask import AttentionMask
+from fairseq2.models.transformer._ffn import FeedForwardNetwork
+from fairseq2.models.transformer._multihead_attention import MultiheadAttention
+from fairseq2.models.transformer._norm_order import TransformerNormOrder
+from fairseq2.models.transformer._normalization import (
     LayerNormFactory,
     create_standard_layer_norm,
 )
-from fairseq2.nn.transformer._multihead_attention import MultiheadAttention
-from fairseq2.nn.transformer._norm_order import TransformerNormOrder
-from fairseq2.nn.transformer._residual import ResidualConnect, StandardResidualConnect
-from fairseq2.typing import DataType, Device
 
 
 class TransformerEncoderLayer(Module, ABC):
@@ -46,7 +48,7 @@ class TransformerEncoderLayer(Module, ABC):
         self,
         seqs: Tensor,
         padding_mask: PaddingMask | None,
-        self_attn_mask: AttentionMask | None = None,
+        self_attn_mask: AttentionMask | None,
     ) -> tuple[Tensor, PaddingMask | None]:
         """
         :param seqs:
@@ -79,7 +81,6 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
     """
 
     self_attn: MultiheadAttention
-    self_attn_norm: LayerNorm | None
     self_attn_dropout: Dropout | None
     self_attn_residual: ResidualConnect
     self_attn_layer_norm: LayerNorm
@@ -134,13 +135,6 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
             self.self_attn_layer_norm = self_attn_layer_norm
 
         self.self_attn = self_attn
-
-        if norm_order == TransformerNormOrder.PRE_WITH_NORMFORMER:
-            self.self_attn_norm = layer_norm_factory(
-                model_dim, device=device, dtype=dtype
-            )
-        else:
-            self.register_module("self_attn_norm", None)
 
         if dropout_p > 0.0:
             self.self_attn_dropout = Dropout(dropout_p)
@@ -209,9 +203,6 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
             values=seqs,
             attn_mask=self_attn_mask,
         )
-
-        if self.self_attn_norm is not None:
-            seqs = self.self_attn_norm(seqs)
 
         if self.self_attn_dropout is not None:
             seqs = self.self_attn_dropout(seqs)

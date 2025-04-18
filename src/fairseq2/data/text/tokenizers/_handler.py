@@ -13,6 +13,9 @@ from typing import Protocol, final
 from typing_extensions import override
 
 from fairseq2.assets import AssetCard, AssetCardError, AssetDownloadManager
+
+# isort: split
+
 from fairseq2.data.text.tokenizers._error import text_tokenizer_asset_card_error
 from fairseq2.data.text.tokenizers._tokenizer import TextTokenizer
 

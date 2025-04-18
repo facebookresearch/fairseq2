@@ -11,8 +11,7 @@ from typing import final
 from torch.nn import Module
 
 from fairseq2.models.sequence import SequenceBatch
-from fairseq2.models.transformer import TransformerFrontend
-from fairseq2.nn.transformer import TransformerEncoder
+from fairseq2.models.transformer import TransformerEncoder, TransformerFrontend
 
 # TODO(balioglu): This implementation is not complete. As of this commit, only
 # the encoder and encoder-frontend are available for parity check purposes.

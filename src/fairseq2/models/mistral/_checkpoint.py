@@ -6,8 +6,11 @@
 
 from __future__ import annotations
 
-from fairseq2.models.mistral._config import MistralConfig
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
+
+# isort: split
+
+from fairseq2.models.mistral._config import MistralConfig
 
 
 def convert_mistral_checkpoint(

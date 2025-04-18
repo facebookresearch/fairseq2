@@ -45,16 +45,9 @@ from fairseq2.models import (
     UnknownModelFamilyError,
     model_asset_card_error,
 )
-from fairseq2.nn.checkpointing import use_layerwise_activation_checkpointing
+from fairseq2.models.checkpointing import use_layerwise_activation_checkpointing
 from fairseq2.nn.utils.gradient import clip_gradient_norm
 from fairseq2.recipes import Model, RecipeError
-from fairseq2.recipes.common._distributed import setup_data_parallel_model
-from fairseq2.recipes.common._error import (
-    InvalidCheckpointPathError,
-    ModelCompilationNotSupportedError,
-    ModelParallelismNotSupportedError,
-    ModelPathNotFoundError,
-)
 from fairseq2.recipes.config import ModelSection, TorchCompileSection, TrainerSection
 from fairseq2.recipes.utils.log import log_config, log_model
 from fairseq2.registry import Provider
@@ -62,6 +55,16 @@ from fairseq2.typing import ContextManager, DataClass, is_dataclass_instance
 from fairseq2.utils.merge import MergeError, merge_dataclass
 from fairseq2.utils.structured import StructureError, structure
 from fairseq2.utils.yaml import StandardYamlDumper
+
+# isort: split
+
+from fairseq2.recipes.common._distributed import setup_data_parallel_model
+from fairseq2.recipes.common._error import (
+    InvalidCheckpointPathError,
+    ModelCompilationNotSupportedError,
+    ModelParallelismNotSupportedError,
+    ModelPathNotFoundError,
+)
 
 
 def setup_model(
@@ -232,7 +235,9 @@ class CardBasedModelLoader(ModelLoader):
             dtype = torch.float32
 
         try:
-            step_nr = self._checkpoint_manager.maybe_get_last_step_number()
+            step_nr = self._checkpoint_manager.maybe_get_last_step_number(
+                exclude_model_only=True
+            )
         except CheckpointError:
             raise ModelLoadError(
                 model_name, "The last training checkpoint cannot be retrieved. See the nested exception for details."  # fmt: skip
@@ -360,7 +365,9 @@ class PathBasedModelLoader(ModelLoader):
             dtype = torch.float32
 
         try:
-            step_nr = self._checkpoint_manager.maybe_get_last_step_number()
+            step_nr = self._checkpoint_manager.maybe_get_last_step_number(
+                exclude_model_only=True
+            )
         except CheckpointError:
             raise ModelLoadError(
                 model_name, "The last training checkpoint cannot be retrieved. See the nested exception for details."  # fmt: skip
@@ -498,7 +505,9 @@ class ModelCreator(ModelLoader):
             dtype = torch.float32
 
         try:
-            step_nr = self._checkpoint_manager.maybe_get_last_step_number()
+            step_nr = self._checkpoint_manager.maybe_get_last_step_number(
+                exclude_model_only=True
+            )
         except CheckpointError:
             raise ModelLoadError(
                 model_name, "The last training checkpoint cannot be retrieved. See the nested exception for details."  # fmt: skip

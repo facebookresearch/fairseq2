@@ -9,9 +9,12 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 from fairseq2.data import VocabularyInfo
-from fairseq2.generation._generator import Seq2SeqGenerator, SequenceGenerator
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
+
+# isort: split
+
+from fairseq2.generation._generator import Seq2SeqGenerator, SequenceGenerator
 
 
 class SequenceGeneratorHandler(ABC):

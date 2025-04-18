@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-from enum import Enum
 from time import perf_counter
 from typing import Any, final
 
@@ -15,12 +14,6 @@ from typing_extensions import Self
 
 from fairseq2.error import InvalidOperationError
 from fairseq2.typing import CPU, Device
-
-
-class _StopwatchState(Enum):
-    NOT_STARTED = 0
-    RUNNING = 1
-    PAUSED = 1
 
 
 @final

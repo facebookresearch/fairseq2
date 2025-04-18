@@ -48,14 +48,14 @@ Here's a complete example:
     from fairseq2.cli import Cli, CliCommandHandler
     from fairseq2.cli.commands.recipe import RecipeCommandHandler
     from fairseq2.context import RuntimeContext
-    
+
     def setup_custom_cli(context: RuntimeContext, cli: Cli) -> None:
         # Create a new command group
         group = cli.add_group(
             "custom",
             help="Custom recipes and utilities"
         )
-        
+
         group.add_command(
             name="custom_command",
             handler=custom_handler(),  # this is the command handler fn.
@@ -65,7 +65,7 @@ Here's a complete example:
     def setup_recipe_cli(cli: Cli) -> None:
         # Create a new command group for recipes
         group = cli.add_group("recipe_name", help="Recipe commands")
-        
+
         # create a recipe command handler first
         recipe_handler = RecipeCommandHandler(
             loader=recipe_loader,
@@ -124,6 +124,45 @@ Example implementation:
     # Create preset configs
     custom_presets = ConfigRegistry(CustomConfig)
     custom_presets.register("default", CustomConfig(param1="value", param2=42))
+
+
+Understanding Sweep Tags
+========================
+
+Sweep tags are generated based on configuration values and are used to organize
+output directories for different runs. The default format is ``"ps_{preset}.ws_{world_size}.{hash}"``.
+
+Customizing Sweep Tag Format
+----------------------------
+
+The sweep tag format can be customized to include specific configuration values:
+
+.. code-block:: python
+
+    # Basic format with default placeholders
+    fmt="ps_{preset}.ws_{world_size}.{hash}"
+
+    # Including specific configuration values
+    fmt="model_{model.name}.lr_{optimizer.config.lr}"
+
+    # Including deeply nested values
+    fmt="dropout_{model.config.dropout_p}.batch_{dataset.batch_size}"
+
+Available placeholders include:
+- Any configuration key path that exists in your configuration (you can use ``--dump-config`` to see the full configuration)
+- Special values: ``preset``, ``world_size``, and ``hash``
+
+CLI Usage Example
+-----------------
+
+.. code-block:: bash
+
+    # Use a custom sweep tag format to organize runs by learning rate
+    fairseq2 lm instruction_finetune <OUTPUT_DIR> --sweep-format="lr_{optimizer.config.lr}"
+
+    # Complex format with multiple parameters 
+    fairseq2 lm instruction_finetune <OUTPUT_DIR> --sweep-format="model_{model.name}/bs_{dataset.batch_size}.lr_{optimizer.config.lr}"
+
 
 CLI Initialization Process
 ==========================

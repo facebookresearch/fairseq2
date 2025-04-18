@@ -13,7 +13,9 @@ from typing import Final, Generic, Mapping, TypeVar, final
 
 import torch
 import torch.distributed
+from rich.pretty import pretty_repr
 from torch import Tensor
+from torch.cuda import OutOfMemoryError
 from torch.optim import Optimizer
 from torch.profiler import record_function
 from typing_extensions import override
@@ -26,7 +28,7 @@ from fairseq2.checkpoint import (
     CheckpointState,
 )
 from fairseq2.datasets import DataReader, DataReadError
-from fairseq2.device import DeviceStatTracker, SupportsDeviceTransfer
+from fairseq2.device import SupportsDeviceTransfer
 from fairseq2.error import InternalError, InvalidOperationError
 from fairseq2.gang import GangError, Gangs, broadcast_flag
 from fairseq2.logging import log
@@ -36,6 +38,16 @@ from fairseq2.nn.utils.gradient import check_gradient_norms, normalize_gradients
 from fairseq2.optim import DynamicLossScaler
 from fairseq2.optim.lr_scheduler import LRScheduler, get_effective_lr
 from fairseq2.profilers import Profiler
+from fairseq2.typing import CPU, ContextManager, DataType
+from fairseq2.utils.device_stat import DeviceStatTracker
+from fairseq2.utils.gc import GarbageCollector
+from fairseq2.utils.progress import ProgressReporter, ProgressTask
+from fairseq2.utils.rng import RngBag
+from fairseq2.utils.state import Stateful
+from fairseq2.utils.stopwatch import Stopwatch
+
+# isort: split
+
 from fairseq2.recipes._early_stopper import EarlyStopper
 from fairseq2.recipes._error import (
     InconsistentGradientNormError,
@@ -47,12 +59,6 @@ from fairseq2.recipes._metrics import extend_batch_metrics
 from fairseq2.recipes._model import Model
 from fairseq2.recipes._recipe import Recipe, RecipeStopException
 from fairseq2.recipes._validator import Validator
-from fairseq2.typing import CPU, ContextManager, DataType
-from fairseq2.utils.gc import GarbageCollector
-from fairseq2.utils.progress import ProgressReporter, ProgressTask
-from fairseq2.utils.rng import RngBag
-from fairseq2.utils.state import Stateful
-from fairseq2.utils.stopwatch import Stopwatch
 
 BatchT_contra = TypeVar(
     "BatchT_contra", bound=SupportsDeviceTransfer, contravariant=True
@@ -63,6 +69,9 @@ class TrainUnit(ABC, Generic[BatchT_contra]):
     """Represents a unit to be used with :class:`Trainer`."""
 
     def set_step_nr(self, step_nr: int) -> None:
+        pass
+
+    def set_data_epoch_nr(self, data_epoch_nr: int) -> None:
         pass
 
     @abstractmethod
@@ -121,10 +130,10 @@ class Trainer(Recipe, Generic[BatchT]):
     _checkpoint_every_n_steps: int | None
     _checkpoint_after_n_data_epochs: int
     _checkpoint_every_n_data_epochs: int | None
+    _save_model_only: bool
     _keep_last_n_checkpoints: int | None
     _keep_best_n_checkpoints: int | None
-    _keep_last_n_models: int | None
-    _keep_best_n_models: int | None
+    _keep_checkpoint_every_n_steps: int | None
     _metric_bag: MetricBag
     _metric_recorder: MetricRecorder
     _publish_metrics_after_n_steps: int
@@ -181,10 +190,10 @@ class Trainer(Recipe, Generic[BatchT]):
         checkpoint_every_n_steps: int | None = None,
         checkpoint_after_n_data_epochs: int = 0,
         checkpoint_every_n_data_epochs: int | None = None,
+        save_model_only: bool = False,
         keep_last_n_checkpoints: int | None = None,
         keep_best_n_checkpoints: int | None = None,
-        keep_last_n_models: int | None = None,
-        keep_best_n_models: int | None = None,
+        keep_checkpoint_every_n_steps: int | None = None,
         publish_metrics_after_n_steps: int = 0,
         publish_metrics_every_n_steps: int | None = None,
         publish_metrics_after_n_data_epochs: int = 0,
@@ -240,13 +249,6 @@ class Trainer(Recipe, Generic[BatchT]):
         :param keep_best_n_checkpoints:
             The number of checkpoints to keep based on their validation score.
             If ``None``, none will be deleted.
-        :param keep_last_n_models:
-            The number of checkpoint models to keep. Must be greater than or
-            equal to ``keep_last_n_checkpoints``.
-        :param keep_best_n_models:
-            The number of best checkpoint models to keep based on their
-            validation score. Must be greater than or equal to
-            ``keep_best_n_checkpoints``.
         :param metric_recorder:
             The metric recorder.
         :param publish_metrics_after_n_steps:
@@ -311,13 +313,15 @@ class Trainer(Recipe, Generic[BatchT]):
 
         if max_num_steps is not None:
             if max_num_steps <= 0:
-                raise ValueError("`max_num_steps` must be greater than zero.")
+                raise ValueError("`max_num_steps` must be greater than or equal to 1.")
 
         self._max_num_steps = max_num_steps
 
         if max_num_data_epochs is not None:
             if max_num_data_epochs <= 0:
-                raise ValueError("`max_num_data_epochs` must be greater than zero.")
+                raise ValueError(
+                    "`max_num_data_epochs` must be greater than or equal to 1."
+                )
 
         self._max_num_data_epochs = max_num_data_epochs
 
@@ -325,7 +329,9 @@ class Trainer(Recipe, Generic[BatchT]):
 
         if validate_every_n_steps is not None:
             if validate_every_n_steps <= 0:
-                raise ValueError("`validate_every_n_steps` must be greater than zero.")
+                raise ValueError(
+                    "`validate_every_n_steps` must be greater than or equal to 1."
+                )
 
             if publish_metrics_every_n_steps is not None:
                 if validate_every_n_steps % publish_metrics_every_n_steps != 0:
@@ -339,7 +345,7 @@ class Trainer(Recipe, Generic[BatchT]):
         if validate_every_n_data_epochs is not None:
             if validate_every_n_data_epochs <= 0:
                 raise ValueError(
-                    "`validate_every_n_data_epochs` must be greater than zero."
+                    "`validate_every_n_data_epochs` must be greater than or equal to 1."
                 )
 
             if publish_metrics_every_n_data_epochs is not None:
@@ -358,7 +364,7 @@ class Trainer(Recipe, Generic[BatchT]):
         if checkpoint_every_n_steps is not None:
             if checkpoint_every_n_steps <= 0:
                 raise ValueError(
-                    "`checkpoint_every_n_steps` must be greater than zero."
+                    "`checkpoint_every_n_steps` must be greater than or equal to 1."
                 )
 
         self._checkpoint_after_n_steps = checkpoint_after_n_steps
@@ -367,28 +373,30 @@ class Trainer(Recipe, Generic[BatchT]):
         if checkpoint_every_n_data_epochs is not None:
             if checkpoint_every_n_data_epochs <= 0:
                 raise ValueError(
-                    "`checkpoint_every_n_data_epochs` must be greater than zero."
+                    "`checkpoint_every_n_data_epochs` must be greater than or equal to 1."
                 )
 
         self._checkpoint_after_n_data_epochs = checkpoint_after_n_data_epochs
         self._checkpoint_every_n_data_epochs = checkpoint_every_n_data_epochs
 
+        self._save_model_only = save_model_only
+
         if keep_last_n_checkpoints is not None:
-            if keep_best_n_checkpoints is not None:
+            if keep_last_n_checkpoints <= 0:
                 raise ValueError(
-                    "`keep_last_n_checkpoints` and `keep_best_n_checkpoints` must not be specified at the same time."
+                    "`keep_last_n_checkpoints` must be greater than or equal to 1."
                 )
 
-            if keep_last_n_checkpoints <= 0:
-                raise ValueError("`keep_last_n_checkpoints` must be greater than zero.")
-        elif keep_best_n_checkpoints is not None:
+        if keep_best_n_checkpoints is not None:
             if keep_best_n_checkpoints <= 0:
-                raise ValueError("`keep_best_n_checkpoints` must be greater than zero.")
+                raise ValueError(
+                    "`keep_best_n_checkpoints` must be greater than or equal to 1."
+                )
 
             if checkpoint_every_n_steps is not None:
                 if validate_every_n_steps is None:
                     raise ValueError(
-                        "`validate_every_n_steps` must be specified when `keep_best_n_checkpoints` is specified."
+                        "`validate_every_n_steps` must be specified when `keep_best_n_checkpoints`  and `checkpoint_every_n_steps` are specified."
                     )
 
                 if checkpoint_every_n_steps % validate_every_n_steps != 0:
@@ -396,33 +404,22 @@ class Trainer(Recipe, Generic[BatchT]):
                         f"`checkpoint_every_n_steps` must be a multiple of `validate_every_n_steps` ({validate_every_n_steps}) when `keep_best_n_checkpoints` is specified, but is {checkpoint_every_n_steps} instead."
                     )
 
+        if keep_checkpoint_every_n_steps is not None:
+            if keep_checkpoint_every_n_steps <= 0:
+                raise ValueError(
+                    "`keep_checkpoint_every_n_steps` must be greater than or equal to 1."
+                )
+
+            if checkpoint_every_n_steps is not None:
+                if keep_checkpoint_every_n_steps % checkpoint_every_n_steps != 0:
+                    raise ValueError(
+                        f"`keep_checkpoint_every_n_steps` must be a multiple of `checkpoint_every_n_steps` ({checkpoint_every_n_steps}), but is {keep_checkpoint_every_n_steps} instead."
+                    )
+
         self._keep_last_n_checkpoints = keep_last_n_checkpoints
         self._keep_best_n_checkpoints = keep_best_n_checkpoints
 
-        if keep_last_n_models is not None:
-            if keep_last_n_checkpoints is None:
-                raise ValueError(
-                    "`keep_last_n_models` must not be specified when `keep_last_n_checkpoints` is not specified."
-                )
-
-            if keep_last_n_checkpoints > keep_last_n_models:
-                raise ValueError(
-                    f"`keep_last_n_models` must be greater than or equal to `keep_last_n_checkpoints` ({keep_last_n_checkpoints}), but is {keep_last_n_models} instead."
-                )
-
-        if keep_best_n_models is not None:
-            if keep_best_n_checkpoints is None:
-                raise ValueError(
-                    "`keep_best_n_models` must not be specified when `keep_best_n_checkpoints` is not specified."
-                )
-
-            if keep_best_n_checkpoints > keep_best_n_models:
-                raise ValueError(
-                    f"`keep_best_n_models` must be greater than or equal to `keep_best_n_checkpoints` ({keep_best_n_checkpoints}), but is {keep_best_n_models} instead."
-                )
-
-        self._keep_last_n_models = keep_last_n_models
-        self._keep_best_n_models = keep_best_n_models
+        self._keep_checkpoint_every_n_steps = keep_checkpoint_every_n_steps
 
         unit.metric_bag.register_metric(
             "gradient_norm", Mean(device=gangs.root.device), persistent=False
@@ -434,7 +431,7 @@ class Trainer(Recipe, Generic[BatchT]):
 
         if publish_metrics_every_n_steps == 0:
             raise ValueError(
-                "`publish_metrics_every_n_steps` must be greater than zero."
+                "`publish_metrics_every_n_steps` must be greater than or equal to 1."
             )
 
         self._publish_metrics_after_n_steps = publish_metrics_after_n_steps
@@ -442,7 +439,7 @@ class Trainer(Recipe, Generic[BatchT]):
 
         if publish_metrics_every_n_data_epochs == 0:
             raise ValueError(
-                "`publish_metrics_every_n_data_epochs` must be greater than zero."
+                "`publish_metrics_every_n_data_epochs` must be greater than or equal to 1."
             )
 
         self._publish_metrics_after_n_data_epochs = publish_metrics_after_n_data_epochs
@@ -502,7 +499,9 @@ class Trainer(Recipe, Generic[BatchT]):
 
     def _maybe_restore_state(self) -> _TrainerState:
         try:
-            step_nr = self._checkpoint_manager.maybe_get_last_step_number()
+            step_nr = self._checkpoint_manager.maybe_get_last_step_number(
+                exclude_model_only=True
+            )
         except CheckpointError as ex:
             raise RecipeError(
                 "The checkpoints cannot accessed. See the nested exception for details."
@@ -563,6 +562,13 @@ class Trainer(Recipe, Generic[BatchT]):
         progress_task = self._progress_reporter.create_task(
             "train", total=self._max_num_steps, completed=self._step_nr
         )
+
+        try:
+            self._unit.set_data_epoch_nr(self._data_epoch_nr)
+        except UnitError as ex:
+            raise RecipeError(
+                "The train unit has failed. See the nested exception for details."
+            ) from ex
 
         self._device_stat_tracker.reset()
 
@@ -628,13 +634,22 @@ class Trainer(Recipe, Generic[BatchT]):
     def _handle_end_of_data_epoch(self) -> _TrainerState:
         log.info("End of epoch {} reached after step {}.", self._data_epoch_nr, self._step_nr)  # fmt: skip
 
-        self._data_epoch_nr += 1
-
         if self._max_num_data_epochs is not None:
             if self._data_epoch_nr >= self._max_num_data_epochs:
                 return _TrainerState.END_OF_DATA
 
-        return self._run_post_step()
+        state = self._run_post_step()
+
+        self._data_epoch_nr += 1
+
+        try:
+            self._unit.set_data_epoch_nr(self._data_epoch_nr)
+        except UnitError as ex:
+            raise RecipeError(
+                "The train unit has failed. See the nested exception for details."
+            ) from ex
+
+        return state
 
     def _run_step(self, progress_task: ProgressTask) -> _TrainerState:
         try:
@@ -702,25 +717,33 @@ class Trainer(Recipe, Generic[BatchT]):
             for batch_nr in range(num_batches):
                 batch = batches.pop()
 
-                batch.to(gangs.root.device)
+                try:
+                    batch.to(gangs.root.device)
 
-                with self._maybe_no_sync(batch_nr, num_batches):
-                    with record_function(f"step_{step_nr}_{batch_nr}_forward"):
-                        loss, num_batch_targets = self._compute_loss(batch)
+                    with self._maybe_no_sync(batch_nr, num_batches):
+                        with record_function(f"step_{step_nr}_{batch_nr}_forward"):
+                            loss, num_batch_targets = self._compute_loss(batch)
 
-                    # If the unit does not return the number of logit targets
-                    # of this batch, we assume that the loss is the mean loss
-                    # and that each batch in this step has the same number of
-                    # logit targets. In this case, we don't need to normalize
-                    # the gradients at the end of the step, but we still have
-                    # to take gradient accumulation into account.
-                    if num_batch_targets is None:
-                        loss = loss / num_batches
-                    else:
-                        num_targets += num_batch_targets
+                        # If the unit does not return the number of logit targets
+                        # of this batch, we assume that the loss is the mean loss
+                        # and that each batch in this step has the same number of
+                        # logit targets. In this case, we don't need to normalize
+                        # the gradients at the end of the step, but we still have
+                        # to take gradient accumulation into account.
+                        if num_batch_targets is None:
+                            loss = loss / num_batches
+                        else:
+                            num_targets += num_batch_targets
 
-                    with record_function(f"step_{step_nr}_{batch_nr}_backward"):
-                        self._loss_scaler.backward(loss)
+                        with record_function(f"step_{step_nr}_{batch_nr}_backward"):
+                            self._loss_scaler.backward(loss)
+                except OutOfMemoryError:
+                    if log.is_enabled_for_error():
+                        s = pretty_repr(batch, max_width=88, max_string=128)
+
+                        log.error("CUDA out of memory. Note that CUDA operations are async. Dumping the likely input batch information. Use the `CUDA_LAUNCH_BLOCKING=1` environment variable for debugging:\n{}", s)  # fmt: skip
+
+                    raise
 
             self._batches = None
 
@@ -870,7 +893,7 @@ class Trainer(Recipe, Generic[BatchT]):
     def _checkpoint(self, block: bool) -> None:
         step_nr = self._step_nr
 
-        log.info("Preparing the checkpoint at step {}.", step_nr)
+        log.info("Preparing checkpoint at step {}.", step_nr)
 
         self._maybe_wait_checkpoint()
 
@@ -880,23 +903,32 @@ class Trainer(Recipe, Generic[BatchT]):
             else:
                 log.info("Checkpoint prepared. Saving asynchronously.")
 
-        trainer_state_bag = _TrainerStateBag(self)
-
         tmp = self._base_wall_time
 
         self._base_wall_time += self._wall_watch.get_elapsed_time()
 
+        trainer_state_bag = _TrainerStateBag(self)
+
         try:
-            self._checkpoint_manager.save_checkpoint(
-                step_nr,
-                trainer_state_bag,
-                self._model,
-                self._optimizer,
-                self._data_reader,
-                state_processor=log_ready,
-                callback=self._complete_checkpoint,
-                block=block,
-            )
+            if self._save_model_only:
+                self._checkpoint_manager.save_model_only(
+                    step_nr,
+                    self._model,
+                    state_processor=log_ready,
+                    callback=self._complete_checkpoint,
+                    block=block,
+                )
+            else:
+                self._checkpoint_manager.save_checkpoint(
+                    step_nr,
+                    trainer_state_bag,
+                    self._model,
+                    self._optimizer,
+                    self._data_reader,
+                    state_processor=log_ready,
+                    callback=self._complete_checkpoint,
+                    block=block,
+                )
         except CheckpointSaveError as ex:
             raise RecipeError(
                 f"The checkpoint of step {ex.step_nr} cannot be saved. See the nested exception for details."
@@ -905,28 +937,9 @@ class Trainer(Recipe, Generic[BatchT]):
         self._base_wall_time = tmp
 
     def _complete_checkpoint(self, step_nr: int) -> None:
-        try:
-            if self._keep_last_n_models is not None:
-                if self._keep_last_n_checkpoints is None:
-                    raise InternalError("`_keep_last_n_checkpoints` is `None`")
-
-                self._checkpoint_manager.keep_last_n_checkpoints(
-                    self._keep_last_n_models
-                )
-
-                self._checkpoint_manager.keep_last_n_checkpoints(
-                    self._keep_last_n_checkpoints, preserve_model=True
-                )
-            elif self._keep_last_n_checkpoints is not None:
-                self._checkpoint_manager.keep_last_n_checkpoints(
-                    self._keep_last_n_checkpoints
-                )
-        except CheckpointError as ex:
-            raise RecipeError(
-                f"The previous checkpoints before step {step_nr} cannot be deleted. See the nested exception for details."
-            ) from ex
-
         log.info("Checkpoint at step {} saved.", step_nr)
+
+        self._delete_stale_checkpoints()
 
     def _maybe_publish_metrics(self) -> None:
         should_publish = self._should_publish_metrics()
@@ -1044,7 +1057,7 @@ class Trainer(Recipe, Generic[BatchT]):
         self._model.module.eval()
 
         with self._model.summon_full_parameters():
-            score = self._validator.run(self._step_nr)
+            score = self._validator.run(self._step_nr, self._data_epoch_nr)
 
         if score is not None:
             if self._should_checkpoint():
@@ -1053,6 +1066,10 @@ class Trainer(Recipe, Generic[BatchT]):
         self._validator.reset()
 
         self._model.module.train()
+
+        # Try to avoid CUDA memory fragmentation after validation.
+        if self._gangs.root.device.type == "cuda":
+            torch.cuda.empty_cache()
 
         log.info("Validation finished.")
 
@@ -1066,35 +1083,8 @@ class Trainer(Recipe, Generic[BatchT]):
                 f"The score of step {self._step_nr} cannot be saved. See the nested exception for details."
             ) from ex
 
-        if self._keep_best_n_checkpoints is None and self._keep_best_n_models is None:
-            return
-
-        log.info("Deleting old checkpoints with low score.")
-
-        self._maybe_wait_checkpoint()
-
-        try:
-            if self._keep_best_n_models is not None:
-                if self._keep_best_n_checkpoints is None:
-                    raise InternalError("`_keep_best_n_checkpoints` is `None`")
-
-                self._checkpoint_manager.keep_best_n_checkpoints(
-                    self._keep_best_n_models
-                )
-
-                self._checkpoint_manager.keep_best_n_checkpoints(
-                    self._keep_best_n_checkpoints, preserve_model=True
-                )
-            elif self._keep_best_n_checkpoints is not None:
-                self._checkpoint_manager.keep_best_n_checkpoints(
-                    self._keep_best_n_checkpoints
-                )
-        except CheckpointError as ex:
-            raise RecipeError(
-                f"The previous checkpoints before step {self._step_nr} cannot be deleted. See the nested exception for details."
-            ) from ex
-
-        log.info("Old checkpoints deleted.")
+        if self._keep_best_n_checkpoints is not None:
+            self._delete_stale_checkpoints()
 
     def _maybe_request_early_stop(self, score: float) -> bool:
         if self._early_stopper is None:
@@ -1121,6 +1111,21 @@ class Trainer(Recipe, Generic[BatchT]):
             raise RecipeError(
                 f"The checkpoint of step {ex.step_nr} cannot be saved. See the nested exception for details."
             ) from ex
+
+    def _delete_stale_checkpoints(self) -> None:
+        try:
+            deleted = self._checkpoint_manager.delete_stale_checkpoints(
+                self._keep_last_n_checkpoints,
+                self._keep_best_n_checkpoints,
+                self._keep_checkpoint_every_n_steps,
+            )
+        except CheckpointError as ex:
+            raise RecipeError(
+                "The stale checkpoints cannot be deleted. See the nested exception for details."
+            ) from ex
+
+        if deleted:
+            log.info("Stale checkpoints deleted.")
 
     def _should_do(
         self,

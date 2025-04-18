@@ -16,17 +16,20 @@ from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.models.transformer import TransformerFrontend
 from fairseq2.nn import IncrementalStateBag, Projection
-from fairseq2.nn.functional import CrossEntropy, cross_entropy
+from fairseq2.nn.ops import CrossEntropy, cross_entropy
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.nn.transformer import TransformerDecoder
+
+# isort: split
+
+from fairseq2.models.transformer_lm._decoder import TransformerLMDecoder
 
 
 @final
-class TransformerDecoderModel(DecoderModel):
-    """Represents a Transformer-based decoder model."""
+class TransformerLanguageModel(DecoderModel):
+    """Represents a Transformer-based language model."""
 
     decoder_frontend: TransformerFrontend
-    decoder: TransformerDecoder
+    decoder: TransformerLMDecoder
     final_proj: Projection
     pad_idx: int | None
 
@@ -35,7 +38,7 @@ class TransformerDecoderModel(DecoderModel):
     def __init__(
         self,
         decoder_frontend: TransformerFrontend,
-        decoder: TransformerDecoder,
+        decoder: TransformerLMDecoder,
         final_proj: Projection,
         *,
         pad_idx: int | None,

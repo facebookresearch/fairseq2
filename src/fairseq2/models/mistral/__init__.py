@@ -22,6 +22,6 @@ from fairseq2.models.mistral._factory import (
 # isort: split
 
 from fairseq2.models import ModelHubAccessor
-from fairseq2.models.transformer_decoder import TransformerDecoderModel
+from fairseq2.models.transformer_lm import TransformerLanguageModel
 
-get_mistral_model_hub = ModelHubAccessor(TransformerDecoderModel, MistralConfig)
+get_mistral_model_hub = ModelHubAccessor(TransformerLanguageModel, MistralConfig)

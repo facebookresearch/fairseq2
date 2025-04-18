@@ -13,22 +13,26 @@ from torch import Tensor
 from torch.nn import Dropout, Module
 from typing_extensions import override
 
-from fairseq2.nn import IncrementalStateBag, LayerNorm
-from fairseq2.nn.padding import PaddingMask
-from fairseq2.nn.transformer._attention_mask import AttentionMask
-from fairseq2.nn.transformer._ffn import FeedForwardNetwork
-from fairseq2.nn.transformer._layer_norm import (
+from fairseq2.models.transformer import (
+    AttentionMask,
+    FeedForwardNetwork,
     LayerNormFactory,
+    MultiheadAttention,
+    TransformerNormOrder,
     create_standard_layer_norm,
 )
-from fairseq2.nn.transformer._multihead_attention import MultiheadAttention
-from fairseq2.nn.transformer._norm_order import TransformerNormOrder
-from fairseq2.nn.transformer._residual import ResidualConnect, StandardResidualConnect
+from fairseq2.nn import (
+    IncrementalStateBag,
+    LayerNorm,
+    ResidualConnect,
+    StandardResidualConnect,
+)
+from fairseq2.nn.padding import PaddingMask
 from fairseq2.typing import DataType, Device
 
 
-class TransformerDecoderLayer(Module, ABC):
-    """Represents a Transformer decoder layer."""
+class TransformerLMDecoderLayer(Module, ABC):
+    """Represents a Transformer-based language model decoder layer."""
 
     model_dim: int
 
@@ -46,9 +50,7 @@ class TransformerDecoderLayer(Module, ABC):
         self,
         seqs: Tensor,
         padding_mask: PaddingMask | None,
-        self_attn_mask: AttentionMask | None = None,
-        encoder_output: Tensor | None = None,
-        encoder_padding_mask: PaddingMask | None = None,
+        self_attn_mask: AttentionMask | None,
         *,
         state_bag: IncrementalStateBag | None = None,
     ) -> tuple[Tensor, PaddingMask | None]:
@@ -64,15 +66,6 @@ class TransformerDecoderLayer(Module, ABC):
             The mask that will be added to attention weights before computing
             the self attention. *Shape:* :math:`([H],S,S)`, where :math:`H` is
             the number of attention heads and :math:`S` is the sequence length.
-        :param encoder_output:
-            The encoder output to use in encoder-decoder attention. *Shape:*
-            :math:`(N,S_{enc},M_{enc})`, where :math:`N` is the batch size,
-            :math:`S_{enc}` is the encoder output sequence length, and
-            :math:`M_{enc}` is the dimensionality of the encoder.
-        :param encoder_padding_mask:
-            The padding mask of ``encoder_output``. *Shape:* :math:`(N,S_{enc})`,
-            where :math:`N` is the batch size and :math:`S_{enc}` is the encoder
-            output sequence length.
         :param state_bag:
             The state bag to use for incremental decoding.
 
@@ -88,19 +81,11 @@ class TransformerDecoderLayer(Module, ABC):
 
 
 @final
-class StandardTransformerDecoderLayer(TransformerDecoderLayer):
-    """Represents a Transformer decoder layer as described in
-    :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`."""
-
+class StandardTransformerLMDecoderLayer(TransformerLMDecoderLayer):
     self_attn: MultiheadAttention
-    self_attn_norm: LayerNorm | None
     self_attn_dropout: Dropout | None
     self_attn_residual: ResidualConnect
     self_attn_layer_norm: LayerNorm
-    encoder_decoder_attn: MultiheadAttention | None
-    encoder_decoder_attn_dropout: Dropout | None
-    encoder_decoder_attn_residual: ResidualConnect | None
-    encoder_decoder_attn_layer_norm: LayerNorm | None
     ffn: FeedForwardNetwork
     ffn_dropout: Dropout | None
     ffn_residual: ResidualConnect
@@ -110,14 +95,12 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
     def __init__(
         self,
         self_attn: MultiheadAttention,
-        encoder_decoder_attn: MultiheadAttention | None,
         ffn: FeedForwardNetwork,
         *,
         dropout_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
         layer_norm_factory: LayerNormFactory | None = None,
         self_attn_residual: ResidualConnect | None = None,
-        encoder_decoder_attn_residual: ResidualConnect | None = None,
         ffn_residual: ResidualConnect | None = None,
         device: Device | None = None,
         dtype: DataType | None = None,
@@ -125,8 +108,6 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         """
         :param self_attn:
             The self attention layer.
-        :param encoder_decoder_attn:
-            The encoder-decoder attention layer.
         :param ffn:
             The feed-forward network.
         :param dropout_p:
@@ -139,9 +120,6 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         :param self_attn_residual:
             The residual connection between the input and output of the self
             attention layer.
-        :param encoder_decoder_attn_residual:
-            The residual connection between the input and output of the
-            encoder-decoder attention layer.
         :param ffn_residual:
             The residual connection between the input and output of the
             feed-forward network.
@@ -160,13 +138,6 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
 
         self.self_attn = self_attn
 
-        if norm_order == TransformerNormOrder.PRE_WITH_NORMFORMER:
-            self.self_attn_norm = layer_norm_factory(
-                model_dim, device=device, dtype=dtype
-            )
-        else:
-            self.register_module("self_attn_norm", None)
-
         if dropout_p > 0.0:
             self.self_attn_dropout = Dropout(dropout_p)
         else:
@@ -179,34 +150,6 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
 
         if norm_order == TransformerNormOrder.POST:
             self.self_attn_layer_norm = self_attn_layer_norm
-
-        if encoder_decoder_attn is None:
-            self.register_module("encoder_decoder_attn", None)
-            self.register_module("encoder_decoder_attn_dropout", None)
-            self.register_module("encoder_decoder_attn_residual", None)
-            self.register_module("encoder_decoder_attn_layer_norm", None)
-        else:
-            encoder_decoder_attn_layer_norm = layer_norm_factory(
-                model_dim, device=device, dtype=dtype
-            )
-
-            if norm_order != TransformerNormOrder.POST:
-                self.encoder_decoder_attn_layer_norm = encoder_decoder_attn_layer_norm
-
-            self.encoder_decoder_attn = encoder_decoder_attn
-
-            if dropout_p > 0.0:
-                self.encoder_decoder_attn_dropout = Dropout(dropout_p)
-            else:
-                self.register_module("encoder_decoder_attn_dropout", None)
-
-            if encoder_decoder_attn_residual is None:
-                encoder_decoder_attn_residual = StandardResidualConnect()
-
-            self.encoder_decoder_attn_residual = encoder_decoder_attn_residual
-
-            if norm_order == TransformerNormOrder.POST:
-                self.encoder_decoder_attn_layer_norm = encoder_decoder_attn_layer_norm
 
         ffn_layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
 
@@ -235,17 +178,11 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         self,
         seqs: Tensor,
         padding_mask: PaddingMask | None,
-        self_attn_mask: AttentionMask | None = None,
-        encoder_output: Tensor | None = None,
-        encoder_padding_mask: PaddingMask | None = None,
+        self_attn_mask: AttentionMask | None,
         *,
         state_bag: IncrementalStateBag | None = None,
     ) -> tuple[Tensor, PaddingMask | None]:
         seqs = self._forward_self_attn(seqs, padding_mask, self_attn_mask, state_bag)
-
-        seqs = self._forward_encoder_decoder_attn(
-            seqs, padding_mask, encoder_output, encoder_padding_mask, state_bag
-        )
 
         seqs = self._forward_ffn(seqs)
 
@@ -273,9 +210,6 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
             state_bag=state_bag,
         )
 
-        if self.self_attn_norm is not None:
-            seqs = self.self_attn_norm(seqs)
-
         if self.self_attn_dropout is not None:
             seqs = self.self_attn_dropout(seqs)
 
@@ -283,54 +217,6 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
 
         if self.norm_order == TransformerNormOrder.POST:
             seqs = self.self_attn_layer_norm(seqs)
-
-        return seqs
-
-    def _forward_encoder_decoder_attn(
-        self,
-        seqs: Tensor,
-        padding_mask: PaddingMask | None,
-        encoder_output: Tensor | None,
-        encoder_padding_mask: PaddingMask | None,
-        state_bag: IncrementalStateBag | None,
-    ) -> Tensor:
-        if self.encoder_decoder_attn is None:
-            if encoder_output is not None:
-                raise ValueError(
-                    "`encoder_output` must not be specified for decoder-only attention."
-                )
-
-            return seqs
-
-        if encoder_output is None:
-            raise ValueError(
-                "`encoder_output` must be specified for encoder-decoder attention."
-            )
-
-        assert self.encoder_decoder_attn_residual is not None
-        assert self.encoder_decoder_attn_layer_norm is not None
-
-        residual = seqs
-
-        if self.norm_order != TransformerNormOrder.POST:
-            seqs = self.encoder_decoder_attn_layer_norm(seqs)
-
-        seqs = self.encoder_decoder_attn(
-            seqs,
-            padding_mask,
-            keys=encoder_output,
-            key_padding_mask=encoder_padding_mask,
-            values=encoder_output,
-            state_bag=state_bag,
-        )
-
-        if self.encoder_decoder_attn_dropout is not None:
-            seqs = self.encoder_decoder_attn_dropout(seqs)
-
-        seqs = self.encoder_decoder_attn_residual(seqs, residual)
-
-        if self.norm_order == TransformerNormOrder.POST:
-            seqs = self.encoder_decoder_attn_layer_norm(seqs)
 
         return seqs
 

@@ -20,7 +20,6 @@ from fairseq2.gang import Gangs
 from fairseq2.models.asr import AsrModel
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.recipes import Evaluator, EvalUnit, Model, RecipeError, UnitError
-from fairseq2.recipes.asr._common import AsrCriterion, AsrMetricBag, AsrScorer
 from fairseq2.recipes.common import (
     create_evaluator,
     load_dataset,
@@ -43,6 +42,10 @@ from fairseq2.utils.file import FileMode
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
+
+# isort: split
+
+from fairseq2.recipes.asr._common import AsrCriterion, AsrMetricBag, AsrScorer
 
 
 @dataclass(kw_only=True)
