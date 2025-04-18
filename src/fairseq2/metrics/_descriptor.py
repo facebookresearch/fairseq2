@@ -80,12 +80,6 @@ def format_as_float(value: object, *, postfix: str | None = None) -> str:
     return s
 
 
-# def format_as_str(value: object, *, postfix: str | None = None) -> str:
-#     """Format metric ``value`` as string."""
-#     f = str(value)
-#     return f
-
-
 def format_as_percentage(value: object) -> str:
     """Format metric ``value`` as percentage."""
     if isinstance(value, float):
