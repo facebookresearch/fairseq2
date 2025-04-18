@@ -49,6 +49,9 @@ from fairseq2.recipes.config import (
 
 # isort: split
 
+from torch import Tensor
+from typing_extensions import override
+
 from fairseq2.recipes.wav2vec2._common import (
     Wav2Vec2Criterion,
     Wav2Vec2LossSection,
@@ -59,8 +62,6 @@ from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
-from torch import Tensor
-from typing_extensions import override
 
 
 @dataclass(kw_only=True)
