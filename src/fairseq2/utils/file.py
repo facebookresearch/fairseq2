@@ -17,7 +17,9 @@ from pickle import PickleError
 from shutil import copytree, rmtree
 from typing import BinaryIO, TextIO, TypeAlias, cast, final
 
+import fsspec
 import torch
+from fsspec.implementations.local import LocalFileSystem as fsspec_LocalFileSystem
 from torch import Tensor
 from typing_extensions import override
 
@@ -79,7 +81,7 @@ class FileSystem(ABC):
 
 
 @final
-class LocalFileSystem(FileSystem):
+class NativeLocalFileSystem(FileSystem):
     @override
     def is_file(self, path: Path) -> bool:
         return path.is_file()
@@ -168,6 +170,115 @@ class LocalFileSystem(FileSystem):
     @override
     def is_local(self) -> bool:
         return True
+
+
+class FSspecFileSystem(FileSystem):
+    """
+    Wrapper around fsspec to provide a FileSystem interface.
+    >>> from s3fs import S3FileSystem
+    >>> fs = S3FileSystem()
+    >>> fs = FSspecFileSystem(fs)
+    """
+
+    __fs: fsspec.AbstractFileSystem
+
+    def __init__(self, fs: fsspec.AbstractFileSystem) -> None:
+        self.__fs = fs
+
+    @override
+    def is_file(self, path: Path) -> bool:
+        return self.__fs.isfile(str(path))
+
+    @override
+    def is_dir(self, path: Path) -> bool:
+        return self.__fs.isdir(str(path))
+
+    @override
+    def exists(self, path: Path) -> bool:
+        return self.__fs.exists(str(path))
+
+    @override
+    def open(self, path: Path, mode: FileMode = FileMode.READ) -> BinaryIO:
+        mode_str = "rb"
+        if mode == FileMode.WRITE:
+            mode_str = "wb"
+        elif mode == FileMode.APPEND:
+            mode_str = "ab"
+
+        return cast(BinaryIO, self.__fs.open(str(path), mode_str))
+
+    @override
+    def open_text(self, path: Path, mode: FileMode = FileMode.READ) -> TextIO:
+        mode_str = "r"
+        if mode == FileMode.WRITE:
+            mode_str = "w"
+        elif mode == FileMode.APPEND:
+            mode_str = "a"
+
+        return cast(TextIO, self.__fs.open(str(path), mode_str, encoding="utf-8"))
+
+    @override
+    def move(self, old_path: Path, new_path: Path) -> None:
+        self.__fs.mv(str(old_path), str(new_path), recursive=True)
+
+    @override
+    def remove(self, path: Path) -> None:
+        # only one file !
+        self.__fs.rm(str(path), recursive=False)
+
+    @override
+    def make_directory(self, path: Path) -> None:
+        self.__fs.makedirs(str(path), exist_ok=True)
+
+    @override
+    def copy_directory(self, source_path: Path, target_path: Path) -> None:
+        self.__fs.copy(str(source_path), str(target_path), recursive=True)
+
+    @override
+    def remove_directory(self, path: Path) -> None:
+        self.__fs.rmdir(str(path))
+
+    @override
+    def glob(self, path: Path, pattern: str) -> Iterable[Path]:
+        paths = self.__fs.glob(str(path.joinpath(pattern)))
+        return [Path(p) for p in paths]
+
+    @override
+    def walk_directory(
+        self, path: Path, *, on_error: Callable[[OSError], None] | None
+    ) -> Iterable[tuple[str, Sequence[str]]]:
+        results = self.__fs.walk(str(path), on_error=on_error)  # type: ignore[arg-type]
+        for dir_pathname, _, filenames in results:
+            yield str(dir_pathname), filenames  # type: ignore[return-value]
+
+    @override
+    def resolve(self, path: Path) -> Path:
+        # Use expanduser if available, otherwise just convert to string and back
+        if self.is_local:
+            return path.expanduser().resolve()
+        raise NotImplementedError("resolve is not implemented for this filesystem")
+
+    @property
+    @override
+    def is_local(self) -> bool:
+        try:
+            return isinstance(self.__fs, fsspec_LocalFileSystem)
+        except ImportError:
+            return False
+
+
+@final
+class LocalFileSystem(FSspecFileSystem):
+    def __init__(self) -> None:
+        super().__init__(fsspec_LocalFileSystem())
+
+
+@final
+class S3FileSystem(FSspecFileSystem):
+    def __init__(self, *arg, **kwargs) -> None:
+        from s3fs import S3FileSystem
+
+        super().__init__(S3FileSystem(*arg, **kwargs))
 
 
 MapLocation: TypeAlias = (
