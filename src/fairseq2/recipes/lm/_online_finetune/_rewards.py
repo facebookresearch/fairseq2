@@ -496,8 +496,10 @@ class AtheneVerifier(VLLMOutputReward):
             {"role": "assistant", "content": rollout_text},
         ]
         chat_str = self.tokenizer.apply_chat_template(wrapped_text, tokenize=False)
-        # chat_str = chat_str.replace("<|begin_of_text|>", "")
         chat_str += "<|reserved_special_token_1|>"
+
+        # if self._gangs.root.rank == 0:
+        #     breakpoint()
 
         return chat_str
 

@@ -94,6 +94,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
     _sync_ref_model_every_n_steps: int
     _display_name: str
     _reward: VLLMOutputReward
+    _valid_reward: VLLMOutputReward | None
     _reference_offload: bool
 
     def __init__(
@@ -104,10 +105,12 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         vllm_model: RemoteVllmModel,
         vllm_actors: List[RemoteVllmModel],
         reward,
+        valid_reward,
         gangs: Gangs,
         loss_config: DpoLossConfig,
         sync_vllm_model_every_n_steps: int = 1,
         sync_ref_model_every_n_step: int = -1,
+        vllm_valid_model: RemoteVllmModel | None = None,
     ) -> None:
         super().__init__()
         self._model = model
@@ -120,6 +123,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         self._sync_vllm_model_every_n_steps = sync_vllm_model_every_n_steps
         self._sync_ref_model_every_n_steps = sync_ref_model_every_n_step
         self._reward = reward
+        self._valid_reward = valid_reward
         self._metric_bag = OnlineDpoFinetuneMetricBag(gangs.dp)
         self._display_name = "online_dpo"
 
@@ -169,7 +173,8 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
     def validate_reward(self, prompt_batch: PromptBatch) -> tuple[Tensor, int]:
         if self._gangs.dp.rank == 0:
             policy_sampling_params = copy(self._vllm_model.sampling_params)
-            policy_sampling_params.n = 1
+            # policy_sampling_params.n = self._vllm_model.valid_n
+            policy_sampling_params.n = 16
         else:
             policy_sampling_params = None
 
@@ -185,6 +190,11 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         # if self._gangs.dp.rank == 0:
         #     breakpoint()
         reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
+        # if self._valid_reward:
+        #     reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
+        # else:
+        #     reward_output = self._valid_reward.process_rollouts(rollouts, prompt_batch)
+
         total_reward = torch.tensor(reward_output["rewards"]).float().mean()
         unique_1grams, unique_1grams_norm = self.get_unique_1grams(
             reward_output["text"][0]
@@ -656,11 +666,16 @@ class OnlineDpoFinetuneConfig:
 
     ray_policy_actor_name: str = "vllm_policy"
     vllm_reward_model_name: str = None
+    # vllm_valid_reward_model_name: str = ""
 
     reward: RewardSection = field(
         default_factory=lambda: RewardSection(name="gsm8k_verifier")
     )
 
+    # valid_reward: RewardSection = field(
+    #     default_factory=lambda: RewardSection(name="gsm8k_verifier")
+    # )
+    # valid_reward= None
     sync_ref_model_every_n_steps: int = -1
     sync_vllm_model_every_n_steps: int = -1
 
@@ -729,6 +744,21 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
             gangs=gangs,
         )
 
+        # VALID REWARD MODEL
+        # if config.vllm_valid_reward_model_name is not None:
+        #     vllm_valid_reward_model = vllm_actors.get(
+        #         config.vllm_valid_reward_model_name, None
+        #     )
+        #     reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
+        #     reward_handler = reward_registry.get(config.valid_reward.name)
+        #     valid_reward = reward_handler.create(
+        #         reward_model=vllm_valid_reward_model,
+        #         reward_config=config.valid_reward.config,
+        #         gangs=gangs,
+        #     )
+        # else:
+        valid_reward = None
+
         return OnlineDpoFinetuneUnit(
             model,
             reference_model,
@@ -736,6 +766,7 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
             vllm_model,
             vllm_actors,
             reward,
+            valid_reward,
             gangs,
             config.loss_config,
             config.sync_vllm_model_every_n_steps,

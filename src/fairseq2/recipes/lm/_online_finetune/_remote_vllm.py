@@ -60,6 +60,7 @@ class VllmEngineArgs:
 @dataclass(kw_only=True)
 class VllmSamplingParams:
     n: int = 4
+    valid_n: int = 1
     temperature: float = 1.0
     max_tokens: int = 1024
     prompt_logprobs: int | None = None
@@ -135,6 +136,7 @@ class RemoteVllmModel:
         self.vllm_model = self.setup_vllm_worker(
             ray_actor_name, vllm_engine_args, gangs
         )
+        self.valid_n = sampling_params.valid_n  # num validation rollouts
         self.sampling_params = SamplingParams(
             n=sampling_params.n,
             temperature=sampling_params.temperature,
