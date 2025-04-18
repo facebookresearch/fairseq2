@@ -19,6 +19,7 @@ from torch.nn import Module
 from torcheval.metrics import Mean
 from typing_extensions import override
 from vllm.distributed.device_communicators.pynccl import PyNcclCommunicator
+from fairseq2.recipes.lm._online_finetune._common import compute_token_level_entropy
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets.preference import PreferenceBatch
@@ -210,10 +211,6 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._vllm_model
         )
 
-        # if self._gangs.dp.rank == 0:
-        #     breakpoint()
-        # self._gangs.root.barrier()
-
         reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
 
         grpo_batch: GRPOBatch
@@ -235,6 +232,15 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         )
         logps = self._gather_lprobs(grpo_model_output, grpo_target_batch)
 
+        tgt_logit_entropy = compute_token_level_entropy(
+            grpo_model_output.logits, grpo_target_batch.target_mask
+        )  # [Batch x Rollouts, 1]
+
+        max_entropy_regularizer = (
+            -tgt_logit_entropy.sum() * self._loss_config.entropy_regularizer_scale
+        )
+        self.metric_bag.update_logit_entropy(tgt_logit_entropy)
+
         if self._reference_offload:
 
             ref_logps = self.compute_reference_logps(grpo_batch.prompt_rollouts)
@@ -252,7 +258,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             logps, ref_logps, grpo_batch.rewards, grpo_target_batch
         )
 
-        grpo_loss = -_grpo_objective
+        grpo_loss = -_grpo_objective + max_entropy_regularizer
 
         self._metric_bag.update_grpo_loss(prompt_batch, grpo_loss)
 
@@ -355,6 +361,7 @@ class GrpoFinetuneMetricBag(SequenceMetricBag):
     # rollout_logps: Mean
     rollout_lengths: Mean
     grpo_loss: Mean
+    logit_entropy: Mean
     avg_reward: Mean
 
     def __init__(self, gang: Gang) -> None:
@@ -366,9 +373,18 @@ class GrpoFinetuneMetricBag(SequenceMetricBag):
         )
         self.register_metric("grpo_loss", Mean(device=gang.device), persistent=False)
         self.register_metric("avg_reward", Mean(device=gang.device), persistent=False)
+        self.register_metric(
+            "logit_entropy", Mean(device=gang.device), persistent=False
+        )
 
     @torch.inference_mode()
-    def update_grpo_loss(self, batch: PreferenceBatch, loss: Tensor) -> None:
+    def update_logit_entropy(self, logit_entropy: Tensor):
+        # logit_entropy is expected to contain token-level entropy for every sequence in the current batch
+        batch_size = logit_entropy.size(0)
+        self.logit_entropy.update(logit_entropy.sum() / batch_size, weight=batch_size)
+
+    @torch.inference_mode()
+    def update_grpo_loss(self, batch: PromptBatch, loss: Tensor) -> None:
         """Update the GRPO loss metric.
 
         :param batch:
@@ -403,9 +419,10 @@ GRPO_FINETUNE_UNIT: Final = "grpo"
 
 @dataclass(kw_only=True)
 class GrpoLossConfig:
-    num_rollout_per_forward: int = 1
+    num_rollout_per_forward: int = 8
     beta: float = 0.1
     """The coefficient of regularization towards the reference model."""
+    entropy_regularizer_scale: float = 0.0
 
 
 @dataclass(kw_only=True)

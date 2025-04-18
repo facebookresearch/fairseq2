@@ -473,6 +473,11 @@ def prepare_grpo_batch(
             i_batch_rewards
         )  # we add all rewards here to correctly compute group statistic
 
+    # if gangs.root.rank == 0:
+    #     from pudb.remote import set_trace
+    #     set_trace(host="submit-0", port=6899, term_size=(80*2, 24*2), reverse=True)
+
+    # gangs.root.barrier()
 
     rewards = torch.tensor(rewards, device=gangs.dp.device).float()  # [Batch, Rollouts]
     rewards_normalized = (rewards - rewards.mean(dim=1, keepdim=True)) / (
@@ -526,8 +531,11 @@ def convert_vllm_output_to_ref_score(vllm_outputs: List[RequestOutput], gangs):
     return ref_scores
 
 
-def compute_token_level_entropy(logits: torch.Tensor):
-    """Calculate entropy from logits."""
+def compute_token_level_entropy(logits: torch.Tensor, target_mask: torch.Tensor):
+    """Calculate entropy from logits. Returns sum of entropies averages for each sequence."""
     pd = torch.nn.functional.softmax(logits, dim=-1)
     entropy = torch.logsumexp(logits, dim=-1) - torch.sum(pd * logits, dim=-1)
-    return entropy
+    entropy_target_only = entropy * target_mask
+    entropy_per_seq = entropy_target_only.sum(dim=-1) / target_mask.sum(dim=-1)
+
+    return entropy_per_seq
