@@ -58,17 +58,6 @@ class VllmEngineArgs:
     valid_n: int = 1
 
 
-# @dataclass(kw_only=True)
-# class VllmSamplingParams:
-#     n: int = 4
-#     valid_n: int = 1
-#     temperature: float = 1.0
-#     max_tokens: int = 1024
-#     prompt_logprobs: int | None = None
-#     logprobs: int | None = None
-#     detokenize: bool = True
-
-
 @dataclass(kw_only=True)
 class VllmRayActorConfig:
     ray_actor_name: str = "dummy"
