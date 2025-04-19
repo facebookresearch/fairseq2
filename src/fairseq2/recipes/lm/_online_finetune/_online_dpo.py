@@ -17,6 +17,8 @@ import torch.nn as nn
 from torch import Tensor
 from torch.nn import Module
 from torcheval.metrics import Mean
+
+# from fairseq2.metrics import String
 from typing_extensions import override
 from vllm import SamplingParams
 from vllm.distributed.device_communicators.pynccl import PyNcclCommunicator
@@ -53,10 +55,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     generate_rollouts,
 )
 from fairseq2.recipes.lm._online_finetune._handler import OnlineFinetuneUnitHandler
-from fairseq2.recipes.lm._online_finetune._remote_vllm import (
-    RemoteVllmModel,
-    RemoteVllmModelHandler,
-)
+from fairseq2.recipes.lm._online_finetune._remote_vllm import RemoteVllmModel
 from fairseq2.recipes.lm._online_finetune._rewards import (
     RewardSection,
     VLLMOutputReward,
@@ -74,6 +73,13 @@ from fairseq2.typing import DataType
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
 
+from fairseq2.recipes.lm._online_finetune._diversity_metrics import (
+    get_compression_ratio,
+    get_self_bleu_score,
+    get_unique_1grams,
+    get_entropy,
+)
+
 
 @final
 class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
@@ -89,6 +95,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
     _sync_ref_model_every_n_steps: int
     _display_name: str
     _reward: VLLMOutputReward
+    _valid_reward: VLLMOutputReward | None
     _reference_offload: bool
 
     def __init__(
@@ -99,6 +106,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         vllm_model: RemoteVllmModel,
         vllm_actors: List[RemoteVllmModel],
         reward,
+        valid_reward,
         gangs: Gangs,
         loss_config: DpoLossConfig,
         sync_vllm_model_every_n_steps: int = 1,
@@ -115,8 +123,8 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         self._sync_vllm_model_every_n_steps = sync_vllm_model_every_n_steps
         self._sync_ref_model_every_n_steps = sync_ref_model_every_n_step
         self._reward = reward
+        self._valid_reward = valid_reward
         self._metric_bag = OnlineDpoFinetuneMetricBag(gangs.dp)
-
         self._display_name = "online_dpo"
 
     @property
@@ -124,12 +132,12 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
     def display_name(self) -> str | None:
         return self._display_name
 
-    def maybe_sync_models(self):
+    def maybe_sync_models(self, force_sync=False):
 
         if (
             self._sync_vllm_model_every_n_steps > 0
             and self._step_nr % self._sync_vllm_model_every_n_steps == 0
-        ):
+        ) or force_sync:
             with self._model.summon_full_parameters():
                 if self._gangs.root.rank == 0:
                     self._vllm_model.sync_weights_with_vllm(train_model=self._model)
@@ -155,22 +163,52 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
                     self._gangs.root.barrier()
                     broadcast_model(self._reference_model, self._gangs)
 
+    def maybe_log_rollouts(self, prompt_batch: PromptBatch, rollouts, split_name):
+        if self._loss_config.log_rollouts:
+            prompt0 = prompt_batch.meta_info.get("prompt_raw")[0]
+            rollout0 = rollouts[0].outputs[0].text
+            log.info(f"{split_name} Prompt: {prompt0}")
+            log.info(f"{split_name} Rollout: {rollout0}")
+
     def validate_reward(self, prompt_batch: PromptBatch) -> tuple[Tensor, int]:
         if self._gangs.dp.rank == 0:
             policy_sampling_params = copy(self._vllm_model.sampling_params)
-            policy_sampling_params.n = 1
+            policy_sampling_params.n = self._vllm_model.valid_n
+            # policy_sampling_params.n = 16
         else:
             policy_sampling_params = None
+
         rollouts = generate_rollouts(
             prompt_batch.prompts,
             dp_gang=self._gangs.dp,
             vllm_model=self._vllm_model,
             sampling_params=policy_sampling_params,
         )
-        reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
-        avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
 
-        self._metric_bag.update_avg_reward(avg_reward)
+        self.maybe_log_rollouts(prompt_batch, rollouts, "Valid")
+
+        if self._valid_reward is None:
+            reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
+        else:
+            reward_output = self._valid_reward.process_rollouts(rollouts, prompt_batch)
+
+        self._metric_bag.update_batch_metrics(prompt_batch)
+        total_reward = torch.tensor(reward_output["rewards"]).float().mean()
+        self._metric_bag.update_avg_reward(total_reward)
+
+        # Diversity metrics
+        unique_1grams, unique_1grams_norm = get_unique_1grams(reward_output["text"][0])
+        self_bleu_score = get_self_bleu_score(reward_output["text"][0])
+        compression_ratio = get_compression_ratio(reward_output["text"][0])
+        entropy, entropy_norm = get_entropy(rollouts)
+        self._metric_bag.update_diversity_metrics(
+            unique_1grams,
+            unique_1grams_norm,
+            self_bleu_score,
+            compression_ratio,
+            entropy,
+            entropy_norm,
+        )
         # returning dummy loss since trainer expects it
         return torch.tensor(0.0, device=self._gangs.dp.device), prompt_batch.batch_size
 
@@ -216,10 +254,19 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._vllm_model
         )
 
+        self.maybe_log_rollouts(prompt_batch, rollouts, "Train")
+
         batch: PreferenceBatch
         batch, is_bad_batch, reward_output = self._reward.prepare_preference_batch(
-            prompt_batch, rollouts
+            prompt_batch, rollouts, divpo_p=self._loss_config.divpo_p
         )  # loss_zeroer is used when entire batch has no valid prefrence pair
+
+        unique_1grams, unique_1grams_norm = self.get_unique_1grams(
+            reward_output["text"][0]
+        )
+        self_bleu_score = self.get_self_bleu_score(reward_output["text"][0])
+        compression_ratio = self.get_compression_ratio(reward_output["text"][0])
+
         if is_bad_batch:
             loss_zeroer = 0.0
         else:
@@ -255,14 +302,19 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         rejected_logps, average_rejected_logps = _gather_lprobs_avg(
             rejected_output, rejected_target_batch
         )
-        tgt_logit_entropy = compute_token_level_entropy(
+        chosen_tgt_logit_entropy = compute_token_level_entropy(
             chosen_output.logits, chosen_target_batch.target_mask
+        )  # [Batch x Rollouts, 1]
+        rejected_tgt_logit_entropy = compute_token_level_entropy(
+            rejected_output.logits, rejected_target_batch.target_mask
         )  # [Batch x Rollouts, 1]
 
         max_entropy_regularizer = (
-            -tgt_logit_entropy.sum() * self._loss_config.entropy_regularizer_scale
+            -chosen_tgt_logit_entropy.sum()
+            * self._loss_config.entropy_regularizer_scale
         )
-        self.metric_bag.update_logit_entropy(tgt_logit_entropy)
+        self.metric_bag.update_chosen_logit_entropy(chosen_tgt_logit_entropy)
+        self.metric_bag.update_rejected_logit_entropy(rejected_tgt_logit_entropy)
 
         if self._reference_offload:
             token_ref_chosen_logps = self.compute_reference_logps(batch.chosen)
@@ -314,6 +366,14 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         self._metric_bag.update_logps(batch, chosen_logps, rejected_logps)
 
         self._metric_bag.update_batch_metrics(batch.chosen)
+
+        self._metric_bag.update_diversity_metrics(
+            unique_1grams,
+            unique_1grams_norm,
+            self_bleu_score,
+            compression_ratio,
+            rollouts,
+        )
 
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
         self._metric_bag.update_avg_reward(avg_reward)
@@ -389,7 +449,14 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
     num_dummy_batches: Mean
     avg_reward: Mean
     avg_zeroed_loss: Mean
-    logit_entropy: Mean
+    unique_1grams: Mean
+    unique_1grams_norm: Mean
+    self_bleu_score: Mean
+    compression_ratio: Mean
+    entropy: Mean
+    entropy_norm: Mean
+    chosen_logit_entropy: Mean
+    rejected_logit_entropy: Mean
 
     def __init__(self, gang: Gang) -> None:
         super().__init__(gang)
@@ -403,14 +470,41 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
             "avg_zeroed_loss", Mean(device=gang.device), persistent=False
         )
         self.register_metric(
-            "logit_entropy", Mean(device=gang.device), persistent=False
+            "unique_1grams", Mean(device=gang.device), persistent=False
+        )
+        self.register_metric(
+            "unique_1grams_norm", Mean(device=gang.device), persistent=False
+        )
+        self.register_metric(
+            "self_bleu_score", Mean(device=gang.device), persistent=False
+        )
+        self.register_metric(
+            "compression_ratio", Mean(device=gang.device), persistent=False
+        )
+        self.register_metric("entropy", Mean(device=gang.device), persistent=False)
+        self.register_metric("entropy_norm", Mean(device=gang.device), persistent=False)
+        self.register_metric(
+            "chosen_logit_entropy", Mean(device=gang.device), persistent=False
+        )
+        self.register_metric(
+            "rejected_logit_entropy", Mean(device=gang.device), persistent=False
         )
 
     @torch.inference_mode()
-    def update_logit_entropy(self, logit_entropy: Tensor):
+    def update_chosen_logit_entropy(self, logit_entropy: Tensor):
         # logit_entropy is expected to contain token-level entropy for every sequence in the current batch
         batch_size = logit_entropy.size(0)
-        self.logit_entropy.update(logit_entropy.sum() / batch_size, weight=batch_size)
+        self.chosen_logit_entropy.update(
+            logit_entropy.sum() / batch_size, weight=batch_size
+        )
+
+    @torch.inference_mode()
+    def update_rejected_logit_entropy(self, logit_entropy: Tensor):
+        # logit_entropy is expected to contain token-level entropy for every sequence in the current batch
+        batch_size = logit_entropy.size(0)
+        self.rejected_logit_entropy.update(
+            logit_entropy.sum() / batch_size, weight=batch_size
+        )
 
     @torch.inference_mode()
     def update_dpo_loss(self, batch: PreferenceBatch, loss: Tensor) -> None:
@@ -436,8 +530,41 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
         self.avg_reward.update(avg_reward, weight=1)
 
     @torch.inference_mode()
+    def update_batch_metrics(self, batch: PreferenceBatch):
+        # if self._gang.rank == 0:
+        #     breakpoint()
+
+        num_examples = batch.batch_size
+        self.num_examples.update(num_examples)
+        if self._train:
+            assert self.total_num_examples is not None
+            self.total_num_examples.update(num_examples)
+
+    @torch.inference_mode()
     def update_avg_zeroed_loss(self, avg_zeroed_loss):
         self.avg_zeroed_loss.update(avg_zeroed_loss, weight=1)
+
+    @torch.inference_mode()
+    def update_diversity_metrics(
+        self,
+        unique_1grams,
+        unique_1grams_norm,
+        self_bleu_score,
+        compression_ratio,
+        entropy,
+        entropy_norm,
+    ):
+        self.unique_1grams.update(unique_1grams, weight=1)
+        self.unique_1grams_norm.update(unique_1grams_norm, weight=1)
+        self.self_bleu_score.update(self_bleu_score, weight=1)
+        self.compression_ratio.update(compression_ratio, weight=1)
+
+        self.entropy.update(torch.Tensor([entropy]), weight=1)
+        self.entropy_norm.update(torch.Tensor([entropy_norm]), weight=1)
+
+    # @torch.inference_mode()
+    # def update_rollouts(self, rollouts):
+    #     self.rollouts.update(rollouts)
 
 
 ONLINE_DPO_FINETUNE_UNIT: Final = "online_dpo"
@@ -455,6 +582,11 @@ class DpoLossConfig:
     length_normalization: bool = False
     """Use length normalized DPO, which uses the average log probability of a sequence as the implicit reward."""
 
+    divpo_p: float = 0.0
+    """Use diverse preference optimization."""
+
+    log_rollouts: bool = True
+    """Add prompts/rollouts to the logs"""
     entropy_regularizer_scale: float = 0.0
 
 
@@ -474,11 +606,14 @@ class OnlineDpoFinetuneConfig:
     loss_config: DpoLossConfig = field(default_factory=lambda: DpoLossConfig())
 
     ray_policy_actor_name: str = "vllm_policy"
-    vllm_reward_model_name: str = None
 
+    vllm_reward_model_name: str = None
     reward: RewardSection = field(
         default_factory=lambda: RewardSection(name="gsm8k_verifier")
     )
+
+    vllm_valid_reward_model_name: str = None
+    valid_reward: RewardSection | None = None
 
     sync_ref_model_every_n_steps: int = -1
     sync_vllm_model_every_n_steps: int = -1
@@ -504,7 +639,7 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
         validate(config)
 
         if isinstance(config.reference_model, ReferenceModelSection):
-            log.info("Setting up GRPO with reference model.")
+            log.info("Setting up Online DPO with reference model.")
 
             trainer_section = get_config_section(
                 recipe_config, "trainer", TrainerSection
@@ -548,6 +683,22 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
             gangs=gangs,
         )
 
+        # VALID REWARD MODEL
+        if config.vllm_valid_reward_model_name is not None:
+            vllm_valid_reward_model = vllm_actors.get(
+                config.vllm_valid_reward_model_name, None
+            )
+            reward_registry = self._context.get_registry(VLLMOutputRewardHandler)
+            reward_handler = reward_registry.get(config.valid_reward.name)
+            valid_reward = reward_handler.create(
+                reward_model=vllm_valid_reward_model,
+                reward_config=config.valid_reward.config,
+                gangs=gangs,
+            )
+            log.info("Setting up Online DPO with valid reward model.")
+        else:
+            valid_reward = None
+
         return OnlineDpoFinetuneUnit(
             model,
             reference_model,
@@ -555,6 +706,7 @@ class OnlineDpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
             vllm_model,
             vllm_actors,
             reward,
+            valid_reward,
             gangs,
             config.loss_config,
             config.sync_vllm_model_every_n_steps,
