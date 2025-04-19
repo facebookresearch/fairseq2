@@ -8,15 +8,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, cast, final
+from typing import cast, final, Literal
 
 import torch
-from torch import Tensor
-from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import LengthBatching, SyncMode
-from fairseq2.datasets.asr import GENERIC_ASR_DATASET_FAMILY, AsrDataset, AsrReadOptions
+from fairseq2.datasets.asr import AsrDataset, AsrReadOptions, GENERIC_ASR_DATASET_FAMILY
 from fairseq2.gang import Gang, GangError
 from fairseq2.logging import log
 from fairseq2.models.seq2seq import Seq2SeqBatch
@@ -59,6 +57,8 @@ from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
+from torch import Tensor
+from typing_extensions import override
 
 
 @dataclass(kw_only=True)
@@ -246,7 +246,7 @@ def load_wav2vec2_asr_trainer(
 
     # If we start the training with an empty ASR model, use the weights of a
     # pretrained wav2vec 2.0 model.
-    if model.is_empty_initialized:
+    if model.is_empty_initialized and config.pretrained_model.name:
         pt_model = load_reference_model(
             Wav2Vec2Model,
             context,
