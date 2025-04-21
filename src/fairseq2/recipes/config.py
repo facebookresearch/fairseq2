@@ -102,8 +102,6 @@ class GangSection:
 
     high_priority: bool = True
 
-    monitored: bool = False
-
 
 DataParallelism: TypeAlias = Literal["ddp", "fsdp"]
 
