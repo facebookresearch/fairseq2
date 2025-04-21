@@ -225,20 +225,13 @@ class TorchTensorLoader(TensorLoader):
                 )
 
             try:
-                fp = self._file_system.open(path)
+                data: dict[str, object] = torch.load(
+                    path, map_location, weights_only=restrict, mmap=True  # type: ignore[arg-type]
+                )
             except FileNotFoundError:
                 raise
-            except OSError as ex:
-                raise load_error() from ex
-
-            try:
-                data: dict[str, object] = torch.load(
-                    fp, map_location, weights_only=restrict  # type: ignore[arg-type]
-                )
             except (RuntimeError, OSError, PickleError) as ex:
                 raise load_error() from ex
-            finally:
-                fp.close()
 
         return data
 
