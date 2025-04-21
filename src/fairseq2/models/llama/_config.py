@@ -61,7 +61,7 @@ class LLaMAConfig:
     feed-forward networks.
     """
 
-    ffn_inner_dim_to_multiple: int = 256
+    ffn_inner_dim_multiple_of: int = 256
     """The dimensionality of inner projection layers in feed-forward networks is
     rounded up to the nearest multiple of this value."""
 
@@ -71,7 +71,7 @@ class LLaMAConfig:
     use_scaled_rope: bool = False
     """If ``True``, scales Rotary encoder frequencies to the context length."""
 
-    rope_scaling: LLaMARoPEScaleConfig = field(
+    rope_scale: LLaMARoPEScaleConfig = field(
         default_factory=lambda: LLaMARoPEScaleConfig()
     )
     """
@@ -185,7 +185,7 @@ def register_llama_configs(context: RuntimeContext) -> None:
         config.num_key_value_heads = 8
         config.ffn_inner_dim = 8192 * 4
         config.ffn_inner_dim_multiplier = 1.3  # See A.2.1 in LLaMA 2
-        config.ffn_inner_dim_to_multiple = 4096
+        config.ffn_inner_dim_multiple_of = 4096
 
         return config
 
@@ -199,7 +199,7 @@ def register_llama_configs(context: RuntimeContext) -> None:
         config.num_key_value_heads = 8
         config.ffn_inner_dim = 4096 * 4
         config.ffn_inner_dim_multiplier = 1.3
-        config.ffn_inner_dim_to_multiple = 1024
+        config.ffn_inner_dim_multiple_of = 1024
         config.rope_theta = 500_000.0
 
         return config
@@ -240,12 +240,12 @@ def register_llama_configs(context: RuntimeContext) -> None:
         config.model_dim = 3072
         config.ffn_inner_dim = 3072 * 4
         config.ffn_inner_dim_multiplier = 1.0
-        config.ffn_inner_dim_to_multiple = 256
+        config.ffn_inner_dim_multiple_of = 256
         config.num_attn_heads = 24
         config.num_key_value_heads = 8
         config.num_layers = 28
         config.use_scaled_rope = True
-        config.rope_scaling.factor = 32.0
+        config.rope_scale.factor = 32.0
 
         return config
 
@@ -257,11 +257,11 @@ def register_llama_configs(context: RuntimeContext) -> None:
         config.tie_embeddings = True
         config.ffn_inner_dim = 2048 * 4
         config.ffn_inner_dim_multiplier = 1.5
-        config.ffn_inner_dim_to_multiple = 256
+        config.ffn_inner_dim_multiple_of = 256
         config.num_attn_heads = 32
         config.num_key_value_heads = 8
         config.num_layers = 16
         config.use_scaled_rope = True
-        config.rope_scaling.factor = 32.0
+        config.rope_scale.factor = 32.0
 
         return config

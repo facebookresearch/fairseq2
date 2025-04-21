@@ -17,6 +17,7 @@ from fairseq2.models import (
     CheckpointConverter,
     DelegatingModelHandler,
     FsdpApplier,
+    HGConfigConverter,
     ModelCompiler,
     ModelFactory,
     ModelHandler,
@@ -43,6 +44,8 @@ from fairseq2.models.llama import (
     LLAMA_MODEL_FAMILY,
     LLaMAConfig,
     convert_llama_checkpoint,
+    convert_to_hg_checkpoint,
+    convert_to_hg_config,
     create_llama_model,
     register_llama_configs,
     shard_llama_model,
@@ -144,6 +147,8 @@ def register_model_families(context: RuntimeContext) -> None:
         checkpoint_converter=convert_llama_checkpoint,
         sharder=shard_llama_model,
         compiler=compile_transformer_lm,
+        hg_config_converter=convert_to_hg_config,
+        hg_checkpoint_converter=convert_to_hg_checkpoint,
     )
 
     register_llama_configs(context)
@@ -270,6 +275,8 @@ class ModelRegistrar:
         compiler: ModelCompiler[ModelT] | None = None,
         ac_applier: ActivationCheckpointApplier[ModelT] | None = None,
         fsdp_applier: FsdpApplier[ModelT] | None = None,
+        hg_config_converter: HGConfigConverter[ModelConfigT] | None = None,
+        hg_checkpoint_converter: CheckpointConverter[ModelConfigT] | None = None,
     ) -> None:
         file_system = self._context.file_system
 
@@ -316,6 +323,8 @@ class ModelRegistrar:
             compiler=compiler,
             ac_applier=ac_applier,
             fsdp_applier=fsdp_applier,
+            hg_config_converter=hg_config_converter,
+            hg_checkpoint_converter=hg_checkpoint_converter,
         )
 
         self._registry.register(handler.family, handler)

@@ -96,6 +96,14 @@ class ModelHandler(ABC):
         self, model: Module, granularity: FsdpGranularity, wrapper: FsdpWrapper
     ) -> None: ...
 
+    @abstractmethod
+    def convert_to_hg_config(self, config: object) -> dict[str, object]: ...
+
+    @abstractmethod
+    def convert_to_hg_checkpoint(
+        self, state_dict: dict[str, object], config: object
+    ) -> dict[str, object]: ...
+
     @property
     @abstractmethod
     def family(self) -> str: ...
@@ -127,6 +135,10 @@ class ModelHandler(ABC):
     @property
     @abstractmethod
     def supports_fsdp(self) -> bool: ...
+
+    @property
+    @abstractmethod
+    def supports_hg(self) -> bool: ...
 
 
 ModelT_co = TypeVar("ModelT_co", bound=Module, covariant=True)
@@ -167,6 +179,10 @@ class FsdpApplier(Protocol[ModelT_contra]):
     ) -> None: ...
 
 
+class HGConfigConverter(Protocol[ModelConfigT_contra]):
+    def __call__(self, config: ModelConfigT_contra) -> dict[str, object]: ...
+
+
 ModelT = TypeVar("ModelT", bound=Module)
 
 ModelConfigT = TypeVar("ModelConfigT")
@@ -188,6 +204,8 @@ class DelegatingModelHandler(ModelHandler):
     _compiler: ModelCompiler[Any] | None
     _ac_applier: ActivationCheckpointApplier[Any] | None
     _fsdp_applier: FsdpApplier[Any] | None
+    _hg_config_converter: HGConfigConverter[Any] | None
+    _hg_checkpoint_converter: CheckpointConverter[Any] | None
 
     def __init__(
         self,
@@ -206,6 +224,8 @@ class DelegatingModelHandler(ModelHandler):
         compiler: ModelCompiler[ModelT] | None = None,
         ac_applier: ActivationCheckpointApplier[ModelT] | None = None,
         fsdp_applier: FsdpApplier[ModelT] | None = None,
+        hg_config_converter: HGConfigConverter[ModelConfigT] | None = None,
+        hg_checkpoint_converter: CheckpointConverter[ModelConfigT] | None = None,
     ) -> None:
         self._family = family
         self._kls = kls
@@ -221,6 +241,8 @@ class DelegatingModelHandler(ModelHandler):
         self._compiler = compiler
         self._ac_applier = ac_applier
         self._fsdp_applier = fsdp_applier
+        self._hg_config_converter = hg_config_converter
+        self._hg_checkpoint_converter = hg_checkpoint_converter
 
     @override
     def get_arch_config(self, arch: str | None) -> object:
@@ -556,6 +578,36 @@ class DelegatingModelHandler(ModelHandler):
 
         self._fsdp_applier(model, granularity, wrapper)
 
+    @override
+    def convert_to_hg_config(self, config: object) -> dict[str, object]:
+        if self._hg_config_converter is None:
+            raise NotSupportedError(
+                f"The '{self._family}' model family does not support Hugging Face integration."
+            )
+
+        if not isinstance(config, self._configs.config_kls):
+            raise TypeError(
+                f"`config` must be of type `{self._configs.config_kls}`, but is of type `{type(config)}` instead."
+            )
+
+        return self._hg_config_converter(config)
+
+    @override
+    def convert_to_hg_checkpoint(
+        self, state_dict: dict[str, object], config: object
+    ) -> dict[str, object]:
+        if self._hg_checkpoint_converter is None:
+            raise NotSupportedError(
+                f"The '{self._family}' model family does not support Hugging Face integration."
+            )
+
+        if not isinstance(config, self._configs.config_kls):
+            raise TypeError(
+                f"`config` must be of type `{self._configs.config_kls}`, but is of type `{type(config)}` instead."
+            )
+
+        return self._hg_checkpoint_converter(state_dict, config)
+
     @property
     @override
     def family(self) -> str:
@@ -595,3 +647,8 @@ class DelegatingModelHandler(ModelHandler):
     @override
     def supports_fsdp(self) -> bool:
         return self._fsdp_applier is not None
+
+    @property
+    @override
+    def supports_hg(self) -> bool:
+        return self._hg_config_converter is not None

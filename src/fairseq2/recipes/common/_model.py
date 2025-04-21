@@ -297,7 +297,14 @@ class CardBasedModelLoader(ModelLoader):
                 model_name, f"The collective barrier after the '{model_name}' model load operation has failed. See the nested exception for details."  # fmt: skip
             ) from ex
 
-        self._checkpoint_metadata_saver.save(model_family, model_config)
+        if handler.supports_hg:
+            hg_model_config = handler.convert_to_hg_config(model_config)
+        else:
+            hg_model_config = None
+
+        self._checkpoint_metadata_saver.save(
+            model_family, model_config, hg_model_config
+        )
 
         log.info("Model loaded on data parallel rank 0.")
 
@@ -442,7 +449,14 @@ class PathBasedModelLoader(ModelLoader):
                 model_name, f"The collective barrier after the '{model_name}' model load operation has failed. See the nested exception for details."  # fmt: skip
             ) from ex
 
-        self._checkpoint_metadata_saver.save(model_family, model_config)
+        if handler.supports_hg:
+            hg_model_config = handler.convert_to_hg_config(model_config)
+        else:
+            hg_model_config = None
+
+        self._checkpoint_metadata_saver.save(
+            model_family, model_config, hg_model_config
+        )
 
         log.info("Model loaded on data parallel rank 0.")
 
@@ -580,7 +594,14 @@ class EmptyModelLoader(ModelLoader):
                 model_name, f"The collective barrier after the '{model_name}' model load operation has failed. See the nested exception for details."  # fmt: skip
             ) from ex
 
-        self._checkpoint_metadata_saver.save(model_family, model_config)
+        if handler.supports_hg:
+            hg_model_config = handler.convert_to_hg_config(model_config)
+        else:
+            hg_model_config = None
+
+        self._checkpoint_metadata_saver.save(
+            model_family, model_config, hg_model_config
+        )
 
         if step_nr is not None:
             log.info("Model loaded on data parallel rank 0.")

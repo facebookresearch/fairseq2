@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from typing import cast
 
-from fairseq2.models.llama import LLaMAConfig
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
 
 
@@ -48,51 +47,3 @@ def convert_to_reference_llama_checkpoint(
     }
 
     return convert_model_state_dict(state_dict, key_map)
-
-
-def convert_to_hg_llama_config(config: LLaMAConfig) -> dict[str, object]:
-    """Convert a fairseq2 LLaMA configuration to the HuggingFace format."""
-    multiplier = config.ffn_inner_dim_multiplier
-
-    multiple_of = config.ffn_inner_dim_to_multiple
-
-    # Taken from https://github.com/huggingface/transformers/blob/82fcac0a7e40dc6cc5e3121d714b9b16775293ad/src/transformers/models/llama/convert_llama_weights_to_hf.py#L171.
-    intermediate_size = multiple_of * ((int(multiplier * int(8 * config.model_dim / 3)) + multiple_of - 1) // multiple_of)  # fmt: skip
-
-    if config.rope_scaling is not None:
-        rope_scaling = {
-            "factor": config.rope_scaling.factor,
-            "low_freq_factor": config.rope_scaling.frequency_factors[0],
-            "high_freq_factor": config.rope_scaling.frequency_factors[1],
-            "original_max_position_embeddings": config.rope_scaling.original_context_length,
-            "rope_type": "llama3",
-        }
-    else:
-        rope_scaling = None
-
-    if config.vocab_size == 32_000:  # LLaMA 1 and 2
-        bos_idx = 1
-        eos_idx = 2
-    else:
-        bos_idx = 128_000
-        eos_idx = 128_001
-
-    # We only specify the parameters made explicit in the Hugging Face converter.
-    # See https://github.com/huggingface/transformers/blob/93aafdc620d39b9ec714ffecf015a085ea221282/src/transformers/models/llama/convert_llama_weights_to_hf.py#L384.
-    return {
-        "architectures": ["Fairseq2LlamaForCausalLM"],
-        "bos_token_id": bos_idx,
-        "eos_token_id": eos_idx,
-        "hidden_size": config.model_dim,
-        "intermediate_size": intermediate_size,
-        "max_position_embeddings": config.max_seq_len,
-        "model_type": "llama",
-        "num_attention_heads": config.num_attn_heads,
-        "num_hidden_layers": config.num_layers,
-        "num_key_value_heads": config.num_key_value_heads,
-        "rms_norm_eps": 1e-5,
-        "rope_scaling": rope_scaling,
-        "rope_theta": config.rope_theta,
-        "tie_word_embeddings": config.tie_embeddings,
-        "vocab_size": config.vocab_size,
-    }

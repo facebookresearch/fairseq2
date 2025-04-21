@@ -20,5 +20,9 @@ from fairseq2.models.llama._factory import create_llama_model as create_llama_mo
 from fairseq2.models.llama._factory import (
     init_llama_rope_freqs as init_llama_rope_freqs,
 )
+from fairseq2.models.llama._hg import (
+    convert_to_hg_checkpoint as convert_to_hg_checkpoint,
+)
+from fairseq2.models.llama._hg import convert_to_hg_config as convert_to_hg_config
 from fairseq2.models.llama._hub import get_llama_model_hub as get_llama_model_hub
 from fairseq2.models.llama._shard import shard_llama_model as shard_llama_model

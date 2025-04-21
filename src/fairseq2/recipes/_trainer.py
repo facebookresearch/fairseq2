@@ -922,7 +922,13 @@ class Trainer(Recipe, Generic[BatchT]):
                 f"The consolidated model state cannot be gathered at step {step_nr}. See the nested exception for details."
             ) from ex
 
-        model_state_dict = {"model": model_state_dict, "fs2": True}
+        if self._gangs.dp.rank == 0:
+            if self._model.handler.supports_hg:
+                model_state_dict = self._model.handler.convert_to_hg_checkpoint(
+                    model_state_dict, self._model.config
+                )
+            else:
+                model_state_dict = {"model": model_state_dict, "fs2": True}
 
         def log_ready(step_nr: int, state: CheckpointState) -> None:
             if blocking:
