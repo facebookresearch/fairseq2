@@ -334,14 +334,17 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mean</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.sequence</span><span class="w"> </span><span class="kn">import</span> <span class="n">SequenceModelOutput</span><span class="p">,</span> <span class="n">as_auto_regressive_input</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes</span><span class="w"> </span><span class="kn">import</span> <span class="n">Model</span><span class="p">,</span> <span class="n">TrainUnit</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.structured</span><span class="w"> </span><span class="kn">import</span> <span class="n">structure</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.validation</span><span class="w"> </span><span class="kn">import</span> <span class="n">validate</span>
+
+<span class="c1"># isort: split</span>
+
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.lm._preference_finetune._common</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">POFinetuneMetricBag</span><span class="p">,</span>
     <span class="n">_gather_lprobs_avg</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.lm._preference_finetune._config</span><span class="w"> </span><span class="kn">import</span> <span class="n">POFinetuneConfig</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.lm._preference_finetune._handler</span><span class="w"> </span><span class="kn">import</span> <span class="n">POFinetuneUnitHandler</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.structured</span><span class="w"> </span><span class="kn">import</span> <span class="n">structure</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.validation</span><span class="w"> </span><span class="kn">import</span> <span class="n">validate</span>
 
 
 <div class="viewcode-block" id="SimPOFinetuneUnit">
@@ -552,7 +555,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../../_static/documentation_options.js?v=06fca38e"></script>
+</div><script src="../../../../../_static/documentation_options.js?v=ee97a8ed"></script>
     <script src="../../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../../_static/scripts/furo.js?v=5fa4622c"></script>

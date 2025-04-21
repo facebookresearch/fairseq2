@@ -572,7 +572,7 @@ command line program.</p></li>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.cli.commands.recipe.RecipeCommandHandler">
-<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.cli.commands.recipe.</span></span><span class="sig-name descname"><span class="pre">RecipeCommandHandler</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loader</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config_kls</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default_preset</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">extra_sweep_keys</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/cli/commands/recipe.html#RecipeCommandHandler"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.cli.commands.recipe.RecipeCommandHandler" title="Link to this definition">¶</a></dt>
+<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.cli.commands.recipe.</span></span><span class="sig-name descname"><span class="pre">RecipeCommandHandler</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loader</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config_kls</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default_preset</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/cli/commands/recipe.html#RecipeCommandHandler"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.cli.commands.recipe.RecipeCommandHandler" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#fairseq2.cli.CliCommandHandler" title="fairseq2.cli._cli.CliCommandHandler"><code class="xref py py-class docutils literal notranslate"><span class="pre">CliCommandHandler</span></code></a></p>
 <p>Runs a recipe over command line.</p>
 <dl class="field-list simple">
@@ -582,8 +582,6 @@ command line program.</p></li>
 <li><p><strong>preset_configs</strong> – The registry containing the preset recipe
 configurations.</p></li>
 <li><p><strong>default_preset</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>) – The name of the default preset.</p></li>
-<li><p><strong>extra_sweep_keys</strong> (<em>Set</em><em>[</em><em>Hashable</em><em>] </em><em>| </em><em>None</em>) – The recipe specific configuration keys to
-include in the sweep directory name.</p></li>
 </ul>
 </dd>
 </dl>
@@ -699,6 +697,38 @@ include in the sweep directory name.</p></li>
 </pre></div>
 </div>
 </section>
+<section id="understanding-sweep-tags">
+<h3>Understanding Sweep Tags<a class="headerlink" href="#understanding-sweep-tags" title="Link to this heading">¶</a></h3>
+<p>Sweep tags are generated based on configuration values and are used to organize
+output directories for different runs. The default format is <code class="docutils literal notranslate"><span class="pre">&quot;ps_{preset}.ws_{world_size}.{hash}&quot;</span></code>.</p>
+</section>
+</section>
+<section id="customizing-sweep-tag-format">
+<h2>Customizing Sweep Tag Format<a class="headerlink" href="#customizing-sweep-tag-format" title="Link to this heading">¶</a></h2>
+<p>The sweep tag format can be customized to include specific configuration values:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Basic format with default placeholders</span>
+<span class="n">fmt</span><span class="o">=</span><span class="s2">&quot;ps_</span><span class="si">{preset}</span><span class="s2">.ws_</span><span class="si">{world_size}</span><span class="s2">.</span><span class="si">{hash}</span><span class="s2">&quot;</span>
+
+<span class="c1"># Including specific configuration values</span>
+<span class="n">fmt</span><span class="o">=</span><span class="s2">&quot;model_</span><span class="si">{model.name}</span><span class="s2">.lr_</span><span class="si">{optimizer.config.lr}</span><span class="s2">&quot;</span>
+
+<span class="c1"># Including deeply nested values</span>
+<span class="n">fmt</span><span class="o">=</span><span class="s2">&quot;dropout_</span><span class="si">{model.config.dropout_p}</span><span class="s2">.batch_</span><span class="si">{dataset.batch_size}</span><span class="s2">&quot;</span>
+</pre></div>
+</div>
+<p>Available placeholders include:
+- Any configuration key path that exists in your configuration (you can use <code class="docutils literal notranslate"><span class="pre">--dump-config</span></code> to see the full configuration)
+- Special values: <code class="docutils literal notranslate"><span class="pre">preset</span></code>, <code class="docutils literal notranslate"><span class="pre">world_size</span></code>, and <code class="docutils literal notranslate"><span class="pre">hash</span></code></p>
+</section>
+<section id="cli-usage-example">
+<h2>CLI Usage Example<a class="headerlink" href="#cli-usage-example" title="Link to this heading">¶</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Use a custom sweep tag format to organize runs by learning rate</span>
+fairseq2<span class="w"> </span>lm<span class="w"> </span>instruction_finetune<span class="w"> </span>&lt;OUTPUT_DIR&gt;<span class="w"> </span>--sweep-format<span class="o">=</span><span class="s2">&quot;lr_{optimizer.config.lr}&quot;</span>
+
+<span class="c1"># Complex format with multiple parameters</span>
+fairseq2<span class="w"> </span>lm<span class="w"> </span>instruction_finetune<span class="w"> </span>&lt;OUTPUT_DIR&gt;<span class="w"> </span>--sweep-format<span class="o">=</span><span class="s2">&quot;model_{model.name}/bs_{dataset.batch_size}.lr_{optimizer.config.lr}&quot;</span>
+</pre></div>
+</div>
 <section id="cli-initialization-process">
 <h3>CLI Initialization Process<a class="headerlink" href="#cli-initialization-process" title="Link to this heading">¶</a></h3>
 <p>The CLI system is initialized in the following order:</p>
@@ -832,6 +862,11 @@ include in the sweep directory name.</p></li>
 <li><a class="reference internal" href="#examples">Examples</a><ul>
 <li><a class="reference internal" href="#creating-a-custom-cli">Creating a Custom CLI</a></li>
 <li><a class="reference internal" href="#recipe-command-handler">Recipe Command Handler</a></li>
+<li><a class="reference internal" href="#understanding-sweep-tags">Understanding Sweep Tags</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#customizing-sweep-tag-format">Customizing Sweep Tag Format</a></li>
+<li><a class="reference internal" href="#cli-usage-example">CLI Usage Example</a><ul>
 <li><a class="reference internal" href="#cli-initialization-process">CLI Initialization Process</a></li>
 </ul>
 </li>
@@ -846,7 +881,7 @@ include in the sweep directory name.</p></li>
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=06fca38e"></script>
+</div><script src="../../../_static/documentation_options.js?v=ee97a8ed"></script>
     <script src="../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/scripts/furo.js?v=5fa4622c"></script>

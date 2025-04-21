@@ -415,6 +415,40 @@ fairseq2<span class="w"> </span>lm<span class="w"> </span>instruction_finetune<s
 </pre></div>
 </div>
 </section>
+<section id="running-sweeps">
+<h3>5. Running Sweeps<a class="headerlink" href="#running-sweeps" title="Link to this heading">¶</a></h3>
+<p>Sweep tags help organize different runs by creating subdirectories based on configuration values.
+The default sweep tag will be generated with the format <code class="docutils literal notranslate"><span class="pre">&quot;ps_{preset}.ws_{world_size}.{hash}&quot;</span></code>.
+You can customize the sweep tag format with the <code class="docutils literal notranslate"><span class="pre">--sweep-format</span></code> argument:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Use a custom sweep tag format</span>
+fairseq2<span class="w"> </span>lm<span class="w"> </span>preference_finetune<span class="w"> </span>&lt;OUTPUT_DIR&gt;<span class="w"> </span>--config-file<span class="w"> </span>config.yaml<span class="w"> </span>--sweep-format<span class="o">=</span><span class="s2">&quot;lr_{optimizer.config.lr}/criterion_{criterion.name}&quot;</span>
+
+<span class="c1"># If you don&#39;t want the sweep tag, you can use --no-sweep-dir</span>
+fairseq2<span class="w"> </span>lm<span class="w"> </span>preference_finetune<span class="w"> </span>&lt;OUTPUT_DIR&gt;<span class="w"> </span>--config-file<span class="w"> </span>config.yaml<span class="w"> </span>--no-sweep-dir
+</pre></div>
+</div>
+<p>The following features are available in fairseq2 sweep tags generator:</p>
+<p><strong>1. Accessing nested configuration values:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>fairseq2<span class="w"> </span>lm<span class="w"> </span>instruction_finetune<span class="w"> </span>&lt;OUTPUT_DIR&gt;<span class="w"> </span>--sweep-format<span class="o">=</span><span class="s2">&quot;dropout_{model.config.dropout_p}&quot;</span>
+</pre></div>
+</div>
+<p><strong>2. Including multiple parameters:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>fairseq2<span class="w"> </span>lm<span class="w"> </span>instruction_finetune<span class="w"> </span>&lt;OUTPUT_DIR&gt;<span class="w"> </span>--sweep-format<span class="o">=</span><span class="s2">&quot;model_{model.name}.bs_{dataset.batch_size}.lr_{optimizer.config.lr}&quot;</span>
+</pre></div>
+</div>
+<p><strong>3. Special placeholders:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">{preset}</span></code> - The configuration preset name</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">{world_size}</span></code> - The distributed training world size</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">{hash}</span></code> - A unique hash based on configuration values</p></li>
+</ul>
+<p><strong>4. Custom directory structure:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Create nested directory structure with forward slashes</span>
+fairseq2<span class="w"> </span>lm<span class="w"> </span>instruction_finetune<span class="w"> </span>&lt;OUTPUT_DIR&gt;<span class="w"> </span>--sweep-format<span class="o">=</span><span class="s2">&quot;model_{model.name}/{optimizer.config.lr}&quot;</span>
+</pre></div>
+</div>
+<p>For detailed information see <a class="reference internal" href="../reference/api/fairseq2.cli/index.html"><span class="doc">fairseq2.cli</span></a>.</p>
+</section>
 </section>
 <section id="asset-management">
 <h2>Asset Management<a class="headerlink" href="#asset-management" title="Link to this heading">¶</a></h2>
@@ -530,6 +564,7 @@ fairseq2<span class="w"> </span>llama<span class="w"> </span>write_hf_config<spa
 <li><a class="reference internal" href="#command-line-overrides">2. Command Line Overrides</a></li>
 <li><a class="reference internal" href="#adding-and-removing-values">3. Adding and Removing Values</a></li>
 <li><a class="reference internal" href="#combining-different-methods">4. Combining Different Methods</a></li>
+<li><a class="reference internal" href="#running-sweeps">5. Running Sweeps</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#asset-management">Asset Management</a></li>
@@ -547,7 +582,7 @@ fairseq2<span class="w"> </span>llama<span class="w"> </span>write_hf_config<spa
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=06fca38e"></script>
+</div><script src="../_static/documentation_options.js?v=ee97a8ed"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/scripts/furo.js?v=5fa4622c"></script>

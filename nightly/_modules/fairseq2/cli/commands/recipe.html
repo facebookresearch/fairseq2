@@ -323,7 +323,7 @@
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">argparse</span><span class="w"> </span><span class="kn">import</span> <span class="n">OPTIONAL</span><span class="p">,</span> <span class="n">ArgumentParser</span><span class="p">,</span> <span class="n">BooleanOptionalAction</span><span class="p">,</span> <span class="n">Namespace</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Hashable</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">,</span> <span class="n">Set</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Mapping</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">itertools</span><span class="w"> </span><span class="kn">import</span> <span class="n">chain</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">getLogger</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
@@ -353,7 +353,6 @@
     <span class="n">SweepFormatError</span><span class="p">,</span>
     <span class="n">SweepFormatPlaceholderError</span><span class="p">,</span>
     <span class="n">SweepTagGenerator</span><span class="p">,</span>
-    <span class="n">get_sweep_keys</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.env</span><span class="w"> </span><span class="kn">import</span> <span class="n">InvalidEnvironmentVariableError</span><span class="p">,</span> <span class="n">get_rank</span><span class="p">,</span> <span class="n">get_world_size</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.file</span><span class="w"> </span><span class="kn">import</span> <span class="n">FileSystem</span>
@@ -377,28 +376,19 @@
     <span class="n">_loader</span><span class="p">:</span> <span class="n">RecipeLoader</span>
     <span class="n">_config_kls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="nb">object</span><span class="p">]</span>
     <span class="n">_default_preset</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="n">_extra_sweep_keys</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">Hashable</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">loader</span><span class="p">:</span> <span class="n">RecipeLoader</span><span class="p">,</span>
-        <span class="n">config_kls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="nb">object</span><span class="p">],</span>
-        <span class="n">default_preset</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-        <span class="o">*</span><span class="p">,</span>
-        <span class="n">extra_sweep_keys</span><span class="p">:</span> <span class="n">Set</span><span class="p">[</span><span class="n">Hashable</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">loader</span><span class="p">:</span> <span class="n">RecipeLoader</span><span class="p">,</span> <span class="n">config_kls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="nb">object</span><span class="p">],</span> <span class="n">default_preset</span><span class="p">:</span> <span class="nb">str</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        :param loader: The recipe loader.</span>
 <span class="sd">        :param preset_configs: The registry containing the preset recipe</span>
 <span class="sd">            configurations.</span>
 <span class="sd">        :param default_preset: The name of the default preset.</span>
-<span class="sd">        :param extra_sweep_keys: The recipe specific configuration keys to</span>
-<span class="sd">            include in the sweep directory name.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_loader</span> <span class="o">=</span> <span class="n">loader</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_config_kls</span> <span class="o">=</span> <span class="n">config_kls</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_default_preset</span> <span class="o">=</span> <span class="n">default_preset</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_extra_sweep_keys</span> <span class="o">=</span> <span class="n">extra_sweep_keys</span>
 
 <div class="viewcode-block" id="RecipeCommandHandler.init_parser">
 <a class="viewcode-back" href="../../../../reference/api/fairseq2.cli/index.html#fairseq2.cli.commands.recipe.RecipeCommandHandler.init_parser">[docs]</a>
@@ -648,9 +638,7 @@
         <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">no_sweep_dir</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
 
-        <span class="n">keys</span> <span class="o">=</span> <span class="n">get_sweep_keys</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_extra_sweep_keys</span><span class="p">)</span>
-
-        <span class="n">tag_generator</span> <span class="o">=</span> <span class="n">SweepTagGenerator</span><span class="p">(</span><span class="n">world_size</span><span class="p">,</span> <span class="n">keys</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">sweep_format</span><span class="p">)</span>
+        <span class="n">tag_generator</span> <span class="o">=</span> <span class="n">SweepTagGenerator</span><span class="p">(</span><span class="n">world_size</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">sweep_format</span><span class="p">)</span>
 
         <span class="k">try</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">tag_generator</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">preset</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
@@ -905,7 +893,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=06fca38e"></script>
+</div><script src="../../../../_static/documentation_options.js?v=ee97a8ed"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>
