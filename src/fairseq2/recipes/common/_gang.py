@@ -71,10 +71,7 @@ def _do_setup_gangs(context: RuntimeContext, gang_section: GangSection) -> Gangs
 
     try:
         root_gang = setup_root_gang(
-            device,
-            timeout=timeout,
-            high_priority=gang_section.high_priority,
-            monitored=gang_section.monitored,
+            device, timeout=timeout, high_priority=gang_section.high_priority
         )
     except GangError as ex:
         raise RecipeError(
