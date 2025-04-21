@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import final
+from typing import Any, final
 
 import torch
 import torch.nn as nn
@@ -249,6 +249,8 @@ class ColumnShardedLinear(Projection):
 
         self.init_fn = init_fn
 
+        self.register_load_state_dict_pre_hook(self._pre_load_state_dict_hook)
+
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
@@ -261,7 +263,9 @@ class ColumnShardedLinear(Projection):
         with torch.no_grad():
             weight_shards = linear.weight.split(self.sharded_output_dim)
 
-            self.weight.copy_(weight_shards[self.gang.rank])
+            weight = weight_shards[self.gang.rank]
+
+            self.weight.copy_(weight)
 
         if self.bias is not None:
             if linear.bias is None:
@@ -270,7 +274,41 @@ class ColumnShardedLinear(Projection):
             with torch.no_grad():
                 bias_shards = linear.bias.split(self.sharded_output_dim)
 
-                self.bias.copy_(bias_shards[self.gang.rank])
+                bias = bias_shards[self.gang.rank]
+
+                self.bias.copy_(bias)
+
+    @staticmethod
+    def _pre_load_state_dict_hook(
+        module: Module, state_dict: dict[str, object], prefix: str, *args: Any
+    ) -> None:
+        if not isinstance(module, ColumnShardedLinear):
+            raise InternalError(f"`module` is of type `{type(module)}`.")
+
+        key = f"{prefix}weight"
+
+        weight = state_dict.get(key)
+        if weight is None or not isinstance(weight, Tensor):
+            return
+
+        if weight.size(0) == module.output_dim:
+            with torch.no_grad():
+                weight_shards = weight.split(module.sharded_output_dim)
+
+                state_dict[key] = weight_shards[module.gang.rank]
+
+        if module.bias is not None:
+            key = f"{prefix}bias"
+
+            bias = state_dict.get(key)
+            if bias is None or not isinstance(bias, Tensor):
+                return
+
+            if bias.size(0) == module.output_dim:
+                with torch.no_grad():
+                    bias_shards = bias.split(module.sharded_output_dim)
+
+                    state_dict[key] = bias_shards[module.gang.rank]
 
     @override
     def forward(self, x: Tensor) -> Tensor:
@@ -452,6 +490,8 @@ class RowShardedLinear(Projection):
 
         self.init_fn = init_fn
 
+        self.register_load_state_dict_pre_hook(self._pre_load_state_dict_hook)
+
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
@@ -464,7 +504,9 @@ class RowShardedLinear(Projection):
         with torch.no_grad():
             weight_shards = linear.weight.split(self.sharded_input_dim, dim=1)
 
-            self.weight.copy_(weight_shards[self.gang.rank])
+            weight = weight_shards[self.gang.rank]
+
+            self.weight.copy_(weight)
 
         if self.bias is not None:
             if linear.bias is None:
@@ -472,6 +514,25 @@ class RowShardedLinear(Projection):
 
             with torch.no_grad():
                 self.bias.copy_(linear.bias)
+
+    @staticmethod
+    def _pre_load_state_dict_hook(
+        module: Module, state_dict: dict[str, object], prefix: str, *args: Any
+    ) -> None:
+        if not isinstance(module, RowShardedLinear):
+            raise InternalError(f"`module` is of type `{type(module)}`.")
+
+        key = f"{prefix}weight"
+
+        weight = state_dict.get(key)
+        if weight is None or not isinstance(weight, Tensor):
+            return
+
+        if weight.size(1) == module.input_dim:
+            with torch.no_grad():
+                weight_shards = weight.split(module.sharded_input_dim, dim=1)
+
+                state_dict[key] = weight_shards[module.gang.rank]
 
     @override
     def forward(self, x: Tensor) -> Tensor:

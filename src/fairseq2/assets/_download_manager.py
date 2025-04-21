@@ -37,7 +37,7 @@ class AssetDownloadManager(ABC):
         uri: str,
         model_name: str,
         *,
-        shard_idx: int,
+        shard_idx: int = 0,
         force: bool = False,
         progress: bool = True,
     ) -> Path:

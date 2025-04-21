@@ -299,7 +299,7 @@ class StandardModelHandler(ModelHandler):
         except AssetCardError as ex:
             raise model_asset_card_error(model_name) from ex
 
-        if gangs.tp.size != num_shards:
+        if num_shards > 1 and gangs.tp.size != num_shards:
             raise ShardedModelLoadError(model_name, num_shards, gangs.tp.size)
 
         # Load the checkpoint.
@@ -308,8 +308,10 @@ class StandardModelHandler(ModelHandler):
         except AssetCardError as ex:
             raise model_asset_card_error(model_name) from ex
 
+        shard_idx = gangs.tp.rank if num_shards > 1 else 0
+
         path = self._asset_download_manager.download_checkpoint(
-            checkpoint_uri, model_name, shard_idx=gangs.tp.rank
+            checkpoint_uri, model_name, shard_idx=shard_idx
         )
 
         # Load the configuration.

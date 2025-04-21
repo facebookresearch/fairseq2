@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 from fairseq2.gang import Gangs
 from fairseq2.models.transformer import (
     GLUFeedForwardNetwork,
@@ -26,8 +28,6 @@ from fairseq2.nn import (
 
 from fairseq2.models.transformer_lm._model import TransformerLanguageModel
 
-# mypy: disable-error-code="arg-type"
-
 
 def shard_transformer_language_model(
     model: TransformerLanguageModel, gangs: Gangs, shard_embed_dim: bool
@@ -42,8 +42,7 @@ def shard_transformer_language_model(
         If ``True``, shards :class:`StandardEmbedding` instances over the
         embedding dimension; otherwise, over the vocabulary dimension.
     """
-    tp_gang = gangs.tp  # tensor parallel
-    if tp_gang.size == 1:
+    if gangs.tp.size == 1:
         return
 
     def shard_embed_frontend(m: TransformerEmbeddingFrontend) -> None:
@@ -51,9 +50,9 @@ def shard_transformer_language_model(
             return
 
         if shard_embed_dim:
-            m.embed = ShardedEmbedding.from_embedding(m.embed, tp_gang)
+            m.embed = ShardedEmbedding.from_embedding(m.embed, gangs.tp)
         else:
-            m.embed = VocabShardedEmbedding.from_embedding(m.embed, tp_gang)
+            m.embed = VocabShardedEmbedding.from_embedding(m.embed, gangs.tp)
 
     def shard_mha(m: StandardMultiheadAttention) -> None:
         for proj in (m.q_proj, m.k_proj, m.v_proj, m.output_proj):
@@ -62,22 +61,22 @@ def shard_transformer_language_model(
 
         # Scatter.
         m.q_proj = ColumnShardedLinear.from_linear(
-            m.q_proj, tp_gang, gather_output=False
+            cast(Linear, m.q_proj), gangs.tp, gather_output=False
         )
         m.k_proj = ColumnShardedLinear.from_linear(
-            m.k_proj, tp_gang, gather_output=False
+            cast(Linear, m.k_proj), gangs.tp, gather_output=False
         )
         m.v_proj = ColumnShardedLinear.from_linear(
-            m.v_proj, tp_gang, gather_output=False
+            cast(Linear, m.v_proj), gangs.tp, gather_output=False
         )
 
         # Gather.
         m.output_proj = RowShardedLinear.from_linear(
-            m.output_proj, tp_gang, scatter_input=False
+            cast(Linear, m.output_proj), gangs.tp, scatter_input=False
         )
 
-        m.num_heads = m.num_heads // tp_gang.size
-        m.num_key_value_heads = m.num_key_value_heads // tp_gang.size
+        m.num_heads = m.num_heads // gangs.tp.size
+        m.num_key_value_heads = m.num_key_value_heads // gangs.tp.size
 
     def shard_ffn(m: StandardFeedForwardNetwork) -> None:
         for proj in (m.inner_proj, m.outer_proj):
@@ -86,12 +85,12 @@ def shard_transformer_language_model(
 
         # Scatter.
         m.inner_proj = ColumnShardedLinear.from_linear(
-            m.inner_proj, tp_gang, gather_output=False
+            cast(Linear, m.inner_proj), gangs.tp, gather_output=False
         )
 
         # Gather.
         m.output_proj = RowShardedLinear.from_linear(
-            m.output_proj, tp_gang, scatter_input=False
+            cast(Linear, m.output_proj), gangs.tp, scatter_input=False
         )
 
     def shard_glu_ffn(m: GLUFeedForwardNetwork) -> None:
@@ -101,16 +100,16 @@ def shard_transformer_language_model(
 
         # Scatter.
         m.gate_proj = ColumnShardedLinear.from_linear(
-            m.gate_proj, tp_gang, gather_output=False
+            cast(Linear, m.gate_proj), gangs.tp, gather_output=False
         )
 
         m.inner_proj = ColumnShardedLinear.from_linear(
-            m.inner_proj, tp_gang, gather_output=False
+            cast(Linear, m.inner_proj), gangs.tp, gather_output=False
         )
 
         # Gather.
         m.output_proj = RowShardedLinear.from_linear(
-            m.output_proj, tp_gang, scatter_input=False
+            cast(Linear, m.output_proj), gangs.tp, scatter_input=False
         )
 
     for m in model.modules():
@@ -135,4 +134,4 @@ def shard_transformer_language_model(
             continue
 
     if isinstance(model.final_proj, Linear):
-        model.final_proj = ColumnShardedLinear.from_linear(model.final_proj, tp_gang)
+        model.final_proj = ColumnShardedLinear.from_linear(model.final_proj, gangs.tp)
