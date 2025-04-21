@@ -180,7 +180,12 @@ class TensorLoader(ABC):
 
     @abstractmethod
     def load(
-        self, path: Path, *, map_location: MapLocation = None, restrict: bool = True
+        self,
+        path: Path,
+        *,
+        map_location: MapLocation = None,
+        restrict: bool = True,
+        mmap: bool = False,
     ) -> dict[str, object]:
         """
         :param path:
@@ -212,7 +217,12 @@ class TorchTensorLoader(TensorLoader):
 
     @override
     def load(
-        self, path: Path, *, map_location: MapLocation = None, restrict: bool = True
+        self,
+        path: Path,
+        *,
+        map_location: MapLocation = None,
+        restrict: bool = True,
+        mmap: bool = False,
     ) -> dict[str, object]:
         with warnings.catch_warnings():
             warnings.filterwarnings(
@@ -226,7 +236,7 @@ class TorchTensorLoader(TensorLoader):
 
             try:
                 data: dict[str, object] = torch.load(
-                    path, map_location, weights_only=restrict, mmap=True  # type: ignore[arg-type]
+                    path, map_location, weights_only=restrict, mmap=mmap  # type: ignore[arg-type]
                 )
             except FileNotFoundError:
                 raise
@@ -282,7 +292,12 @@ class SafetensorLoader(TensorLoader):
 
     @override
     def load(
-        self, path: Path, *, map_location: MapLocation = None, restrict: bool = True
+        self,
+        path: Path,
+        *,
+        map_location: MapLocation = None,
+        restrict: bool = True,
+        mmap: bool = False,
     ) -> dict[str, object]:
         try:
             from safetensors import safe_open  # type: ignore[import-not-found]
@@ -294,7 +309,7 @@ class SafetensorLoader(TensorLoader):
         if map_location is not None:
             if not isinstance(map_location, (Device, str)):
                 raise NotSupportedError(
-                    "Safetensors only supports `torch.device` and `str` for the `map_location` parameter."
+                    "Safetensors supports only `torch.device` and `str` as `map_location`."
                 )
 
         try:
@@ -356,7 +371,12 @@ class ShardedTensorLoader(TensorLoader):
 
     @override
     def load(
-        self, path: Path, *, map_location: MapLocation = None, restrict: bool = True
+        self,
+        path: Path,
+        *,
+        map_location: MapLocation = None,
+        restrict: bool = True,
+        mmap: bool = False,
     ) -> dict[str, object]:
         try:
             is_dir = self._file_system.is_dir(path)
@@ -367,7 +387,7 @@ class ShardedTensorLoader(TensorLoader):
 
         if not is_dir:
             return self._inner_loader.load(
-                path, map_location=map_location, restrict=restrict
+                path, map_location=map_location, restrict=restrict, mmap=mmap
             )
 
         # Determine the list of shard files.
@@ -398,7 +418,7 @@ class ShardedTensorLoader(TensorLoader):
 
         for idx, shard_file in enumerate(shard_files):
             shard = self._inner_loader.load(
-                shard_file, map_location=map_location, restrict=restrict
+                shard_file, map_location=map_location, restrict=restrict, mmap=mmap
             )
 
             shards.append(shard)
@@ -493,7 +513,12 @@ class StandardTensorLoader(TensorLoader):
 
     @override
     def load(
-        self, path: Path, *, map_location: MapLocation = None, restrict: bool = True
+        self,
+        path: Path,
+        *,
+        map_location: MapLocation = None,
+        restrict: bool = True,
+        mmap: bool = False,
     ) -> dict[str, object]:
         def has_file(extension: str) -> bool:
             try:
@@ -528,7 +553,9 @@ class StandardTensorLoader(TensorLoader):
         else:
             loader = self._default_tensor_loader
 
-        return loader.load(path, map_location=map_location, restrict=restrict)
+        return loader.load(
+            path, map_location=map_location, restrict=restrict, mmap=mmap
+        )
 
 
 class TensorLoadError(Exception):

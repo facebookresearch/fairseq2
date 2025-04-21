@@ -741,7 +741,7 @@ class Trainer(Recipe, Generic[BatchT]):
                     if log.is_enabled_for_error():
                         s = pretty_repr(batch, max_width=88, max_string=128)
 
-                        log.error("CUDA out of memory. Note that CUDA operations are async. Dumping the likely input batch information. Use the `CUDA_LAUNCH_BLOCKING=1` environment variable for debugging:\n{}", s)  # fmt: skip
+                        log.error("CUDA out of memory. Note that CUDA operations are async. Dumping the likely input batch. Use `CUDA_LAUNCH_BLOCKING=1` for debugging:\n{}", s)  # fmt: skip
 
                     raise
 

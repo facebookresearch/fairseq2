@@ -69,7 +69,13 @@ class ModelHandler(ABC):
 
     @abstractmethod
     def load(
-        self, card: AssetCard, gangs: Gangs, dtype: DataType, config: object
+        self,
+        card: AssetCard,
+        gangs: Gangs,
+        dtype: DataType,
+        config: object,
+        *,
+        mmap: bool = False,
     ) -> Module: ...
 
     @abstractmethod
@@ -81,7 +87,8 @@ class ModelHandler(ABC):
         gangs: Gangs,
         dtype: DataType,
         *,
-        restrict: bool = True,
+        restrict: bool | None = None,
+        mmap: bool = False,
     ) -> Module: ...
 
     @abstractmethod
@@ -284,7 +291,13 @@ class StandardModelHandler(ModelHandler):
 
     @override
     def load(
-        self, card: AssetCard, gangs: Gangs, dtype: DataType, config: object
+        self,
+        card: AssetCard,
+        gangs: Gangs,
+        dtype: DataType,
+        config: object,
+        *,
+        mmap: bool = False,
     ) -> Module:
         model_name = card.name
 
@@ -336,7 +349,7 @@ class StandardModelHandler(ModelHandler):
 
         try:
             return self.load_from_path(
-                path, model_name, config, gangs, dtype, restrict=restrict
+                path, model_name, config, gangs, dtype, restrict=restrict, mmap=mmap
             )
         except FileNotFoundError:
             raise ModelLoadError(
@@ -360,6 +373,7 @@ class StandardModelHandler(ModelHandler):
         dtype: DataType,
         *,
         restrict: bool | None = None,
+        mmap: bool = False,
     ) -> Module:
         if gangs.root.device.type == "meta":
             raise ValueError(
@@ -384,7 +398,7 @@ class StandardModelHandler(ModelHandler):
         with load_with_sdp_gang(gangs):  # Required for ShardedTensor
             try:
                 checkpoint = self._tensor_loader.load(
-                    path, map_location=CPU, restrict=restrict
+                    path, map_location=CPU, restrict=restrict, mmap=mmap
                 )
             except TensorLoadError as ex:
                 raise ModelLoadError(
