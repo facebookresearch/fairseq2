@@ -13,7 +13,7 @@ from copy import deepcopy
 from os import scandir
 from pathlib import Path
 from shutil import Error
-from typing import Protocol, TypeAlias, cast, final
+from typing import Protocol, TypeAlias, cast, final, runtime_checkable
 
 import torch
 from torch import Tensor
@@ -31,8 +31,14 @@ from fairseq2.utils.file import (
     TensorLoader,
     TensorLoadError,
 )
-from fairseq2.utils.state import Stateful
 from fairseq2.utils.threading import ThreadPool
+
+
+@runtime_checkable
+class Stateful(Protocol):
+    def state_dict(self) -> dict[str, object]: ...
+
+    def load_state_dict(self, state_dict: Mapping[str, object]) -> None: ...
 
 
 class CheckpointManager(ABC):

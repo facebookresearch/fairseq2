@@ -20,6 +20,7 @@ from fairseq2.checkpoint._manager import (
     CheckpointStateProcessor as CheckpointStateProcessor,
 )
 from fairseq2.checkpoint._manager import FileCheckpointManager as FileCheckpointManager
+from fairseq2.checkpoint._manager import Stateful as Stateful
 from fairseq2.checkpoint._metadata_provider import (
     CheckpointMetadataSaver as CheckpointMetadataSaver,
 )
