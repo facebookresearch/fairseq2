@@ -45,16 +45,16 @@ class ModelSection:
 
     config: object = None
 
-    checkpoint: Path | None = None
+    path: Path | None = None
+
+    mmap: bool = False
 
     def validate(self) -> None:
         result = ValidationResult()
 
-        if self.checkpoint is not None:
+        if self.path is not None:
             if self.family is None:
-                result.add_error(
-                    "`family` must be specified when `checkpoint` is specified."
-                )
+                result.add_error("`family` must be specified when `path` is specified.")
         elif self.name is None and self.family is None:
             result.add_error("Either `name` or `family` must be specified.")
 
@@ -67,6 +67,8 @@ class ModelSection:
 @dataclass
 class ReferenceModelSection:
     name: str
+
+    mmap: bool = False
 
 
 @dataclass(kw_only=True)

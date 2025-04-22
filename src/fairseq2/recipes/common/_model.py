@@ -123,7 +123,7 @@ def load_base_model(
 
     model_loader: ModelLoader
 
-    if model_section.checkpoint is not None:
+    if model_section.path is not None:
         model_loader = PathBasedModelLoader(
             kls, model_handlers, model_card_saver, checkpoint_manager
         )
@@ -262,14 +262,21 @@ class CardBasedModelLoader(ModelLoader):
 
                     try:
                         module = handler.load_from_path(
-                            model_path, model_name, model_config, gangs, dtype
+                            model_path,
+                            model_name,
+                            model_config,
+                            gangs,
+                            dtype,
+                            mmap=model_section.mmap,
                         )
                     except FileNotFoundError:
                         raise ModelLoadError(
                             model_name, f"The '{model_name}' model cannot be found at the '{model_path}' path."  # fmt: skip
                         ) from None
                 else:
-                    module = handler.load(card, gangs, dtype, model_config)
+                    module = handler.load(
+                        card, gangs, dtype, model_config, mmap=model_section.mmap
+                    )
             else:
                 module = handler.create(
                     model_config, gangs, dtype, meta=handler.supports_meta
@@ -322,9 +329,9 @@ class PathBasedModelLoader(ModelLoader):
         if model_family is None:
             raise ValueError("`recipe_config.model.family` must be specified.")
 
-        model_path = model_section.checkpoint
+        model_path = model_section.path
         if model_path is None:
-            raise ValueError("`recipe_config.model.checkpoint` must be specified.")
+            raise ValueError("`recipe_config.model.path` must be specified.")
 
         model_path = self._format_as_sharded_path(model_path, gangs)
 
@@ -392,7 +399,12 @@ class PathBasedModelLoader(ModelLoader):
 
                     try:
                         module = handler.load_from_path(
-                            model_path, model_name, model_config, gangs, dtype
+                            model_path,
+                            model_name,
+                            model_config,
+                            gangs,
+                            dtype,
+                            mmap=model_section.mmap,
                         )
                     except FileNotFoundError:
                         raise ModelLoadError(
@@ -401,7 +413,12 @@ class PathBasedModelLoader(ModelLoader):
                 else:
                     try:
                         module = handler.load_from_path(
-                            model_path, model_name, model_config, gangs, dtype
+                            model_path,
+                            model_name,
+                            model_config,
+                            gangs,
+                            dtype,
+                            mmap=model_section.mmap,
                         )
                     except FileNotFoundError:
                         raise ModelPathNotFoundError(model_name, model_path) from None
@@ -530,7 +547,12 @@ class ModelCreator(ModelLoader):
 
                     try:
                         module = handler.load_from_path(
-                            model_path, model_name, model_config, gangs, dtype
+                            model_path,
+                            model_name,
+                            model_config,
+                            gangs,
+                            dtype,
+                            mmap=model_section.mmap,
                         )
                     except FileNotFoundError:
                         raise ModelLoadError(
