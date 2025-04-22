@@ -163,7 +163,9 @@ def register_wav2vec2_train_configs(context: RuntimeContext) -> None:
     def base_960h() -> Wav2Vec2TrainConfig:
         config = Wav2Vec2TrainConfig()
 
-        config.model.config = {"encoder_config": {"first_pass_dropout_p": 0.1}}
+        config.model.config_overrides = {
+            "encoder_config": {"first_pass_dropout_p": 0.1}
+        }
 
         return config
 
@@ -175,7 +177,9 @@ def register_wav2vec2_train_configs(context: RuntimeContext) -> None:
         assert isinstance(config.lr_scheduler.config, PolynomialDecayLRConfig)
 
         config.model.arch = "large"
-        config.model.config = {"encoder_config": {"first_pass_dropout_p": 0.1}}
+        config.model.config_overrides = {
+            "encoder_config": {"first_pass_dropout_p": 0.1}
+        }
         config.dataset.max_audio_len = 320_000
         config.dataset.max_num_elements = 1_200_000
         config.optimizer.config.lr = 3e-04

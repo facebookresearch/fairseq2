@@ -43,7 +43,7 @@ class ModelSection:
 
     arch: str | None = None
 
-    config: object = None
+    config_overrides: object = None
 
     path: Path | None = None
 

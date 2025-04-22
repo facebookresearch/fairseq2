@@ -146,8 +146,8 @@ class DdpModel(Model):
 
     @property
     @override
-    def is_empty_initialized(self) -> bool:
-        return self._wrapped_model.is_empty_initialized
+    def empty_initialized(self) -> bool:
+        return self._wrapped_model.empty_initialized
 
 
 def wrap_fsdp(
@@ -260,8 +260,8 @@ class Fsdp1Model(Model):
 
     @property
     @override
-    def is_empty_initialized(self) -> bool:
-        return self._wrapped_model.is_empty_initialized
+    def empty_initialized(self) -> bool:
+        return self._wrapped_model.empty_initialized
 
 
 @final
@@ -322,8 +322,8 @@ class Fsdp2Model(Model):
 
     @property
     @override
-    def is_empty_initialized(self) -> bool:
-        return self._wrapped_model.is_empty_initialized
+    def empty_initialized(self) -> bool:
+        return self._wrapped_model.empty_initialized
 
 
 def broadcast_model(model: Model, gangs: Gangs) -> None:
