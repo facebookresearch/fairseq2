@@ -9,7 +9,6 @@ from __future__ import annotations
 from typing import final
 
 import torch
-from torch.nn import Module
 
 from fairseq2.assets import (
     AssetCardError,
@@ -23,26 +22,27 @@ from fairseq2.gang import GangError, Gangs
 from fairseq2.logging import log
 from fairseq2.models import (
     InvalidModelTypeError,
+    model_asset_card_error,
     ModelConfigLoadError,
     ModelHandler,
     ModelLoadError,
     ShardedModelLoadError,
     UnknownModelError,
     UnknownModelFamilyError,
-    model_asset_card_error,
 )
 from fairseq2.nn.utils.module import remove_parametrizations
 from fairseq2.recipes import Model, RecipeError
-from fairseq2.recipes.config import ReferenceModelSection, TorchCompileSection
-from fairseq2.recipes.utils.log import log_model
-from fairseq2.registry import Provider
-from fairseq2.typing import DataType
 
 # isort: split
 
 from fairseq2.recipes.common._distributed import broadcast_model
 from fairseq2.recipes.common._error import ModelParallelismNotSupportedError
 from fairseq2.recipes.common._model import LocalModel, maybe_compile_model
+from fairseq2.recipes.config import ReferenceModelSection, TorchCompileSection
+from fairseq2.recipes.utils.log import log_model
+from fairseq2.registry import Provider
+from fairseq2.typing import DataType
+from torch.nn import Module
 
 
 def setup_reference_model(
@@ -54,7 +54,9 @@ def setup_reference_model(
     mp: bool,
     torch_compile_section: TorchCompileSection,
 ) -> Model:
+    print("setzler in setup_reference_model")
     model = load_reference_model(kls, context, model_section, gangs, dtype, mp)
+    print("here?")
 
     broadcast_model(model, gangs)
 

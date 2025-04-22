@@ -9,15 +9,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final, final
-
-from typing_extensions import override
+from typing import Final, final, Optional
 
 from fairseq2.logging import log
 from fairseq2.metrics import MetricDescriptor
-from fairseq2.registry import Provider
-from fairseq2.utils.structured import structure
-from fairseq2.utils.validation import ValidationError, ValidationResult, validate
 
 # isort: split
 
@@ -27,6 +22,11 @@ from fairseq2.metrics.recorders._recorder import (
     MetricRecordError,
     NoopMetricRecorder,
 )
+from fairseq2.registry import Provider
+from fairseq2.utils.structured import structure
+from fairseq2.utils.validation import validate, ValidationError, ValidationResult
+
+from typing_extensions import override
 
 try:
     import wandb  # type: ignore[import-not-found]
@@ -44,6 +44,7 @@ class WandbRecorder(MetricRecorder):
 
     def __init__(
         self,
+        entity: str | None,
         project: str,
         name: str,
         output_dir: Path,
@@ -63,7 +64,11 @@ class WandbRecorder(MetricRecorder):
             self._run = None
         else:
             self._run = wandb.init(
-                project=project, name=name, dir=output_dir.parent, resume="allow"
+                entity=entity,
+                project=project,
+                name=name,
+                dir=output_dir.parent,
+                resume="allow",
             )
 
         self._metric_descriptors = metric_descriptors
@@ -111,6 +116,8 @@ WANDB_RECORDER: Final = "wandb"
 class WandbRecorderConfig:
     enabled: bool = False
 
+    entity: str | None = None
+
     project: str | None = None
 
     run: str | None = None
@@ -154,7 +161,11 @@ class WandbRecorderHandler(MetricRecorderHandler):
         wandb_dir = output_dir.joinpath("wandb")
 
         return WandbRecorder(
-            config.project, config.run, wandb_dir, self._metric_descriptors
+            config.entity,
+            config.project,
+            config.run,
+            wandb_dir,
+            self._metric_descriptors,
         )
 
     @property
