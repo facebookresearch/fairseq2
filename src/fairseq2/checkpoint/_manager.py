@@ -20,12 +20,11 @@ from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.error import InternalError
+from fairseq2.file_system import FileMode, FileSystem
 from fairseq2.gang import Gang, GangError, Gangs, all_sum
 from fairseq2.nn.data_parallel import load_with_sdp_gang
 from fairseq2.typing import CPU
-from fairseq2.utils.file import (
-    FileMode,
-    FileSystem,
+from fairseq2.utils.io import (
     TensorDumper,
     TensorDumpError,
     TensorLoader,

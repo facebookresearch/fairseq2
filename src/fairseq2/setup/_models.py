@@ -92,7 +92,7 @@ from fairseq2.models.wav2vec2.asr import (
     register_wav2vec2_asr_configs,
 )
 from fairseq2.registry import Registry
-from fairseq2.utils.file import StandardTensorLoader
+from fairseq2.utils.io import AutoTensorLoader
 
 
 def register_model_families(context: RuntimeContext) -> None:
@@ -265,7 +265,7 @@ class ModelRegistrar:
 
         asset_download_manager = self._context.asset_download_manager
 
-        tensor_loader = StandardTensorLoader(file_system)
+        tensor_loader = AutoTensorLoader(file_system)
 
         configs = self._context.get_config_registry(config_kls)
 

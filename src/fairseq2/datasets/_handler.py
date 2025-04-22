@@ -15,7 +15,7 @@ from typing import Protocol, final
 from typing_extensions import override
 
 from fairseq2.assets import AssetCard, AssetCardError, AssetDownloadManager
-from fairseq2.utils.file import FileSystem
+from fairseq2.file_system import FileSystem
 
 # isort: split
 

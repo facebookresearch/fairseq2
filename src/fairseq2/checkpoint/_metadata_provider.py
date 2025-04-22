@@ -18,10 +18,10 @@ from fairseq2.assets import (
     AssetMetadataSaveError,
     CachedAssetMetadataProvider,
 )
+from fairseq2.file_system import FileMode, FileSystem
 from fairseq2.gang import GangError, Gangs
 from fairseq2.models.llama import LLAMA_MODEL_FAMILY, LLaMAConfig
 from fairseq2.models.llama.integ import convert_to_hg_llama_config
-from fairseq2.utils.file import FileMode, FileSystem
 from fairseq2.utils.structured import unstructure
 from fairseq2.utils.yaml import YamlDumper
 

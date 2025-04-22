@@ -17,7 +17,7 @@ from fairseq2.assets import (
 )
 from fairseq2.context import RuntimeContext
 from fairseq2.extensions import run_extensions
-from fairseq2.utils.file import FileSystem, LocalFileSystem
+from fairseq2.file_system import FileSystem, LocalFileSystem
 from fairseq2.utils.progress import NoopProgressReporter, ProgressReporter
 
 # isort: split

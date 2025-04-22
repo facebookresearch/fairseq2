@@ -13,9 +13,9 @@ from typing import TYPE_CHECKING, final
 
 from fairseq2n import DOC_MODE
 
+from fairseq2.file_system import FileSystem
 from fairseq2.logging import LoggingSetupError
 from fairseq2.utils.env import InvalidEnvironmentVariableError, get_rank
-from fairseq2.utils.file import FileSystem
 
 
 @final

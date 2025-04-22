@@ -11,8 +11,8 @@ from typing import Any, TypeVar, final
 
 from fairseq2.assets import AssetDownloadManager, StandardAssetStore
 from fairseq2.config_registry import ConfigRegistry
+from fairseq2.file_system import FileSystem
 from fairseq2.registry import Registry
-from fairseq2.utils.file import FileSystem
 from fairseq2.utils.progress import ProgressReporter
 from fairseq2.utils.stopwatch import Stopwatch
 

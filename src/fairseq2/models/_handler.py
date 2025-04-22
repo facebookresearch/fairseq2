@@ -36,10 +36,7 @@ from fairseq2.nn.utils.module import (
     to_empty,
 )
 from fairseq2.typing import CPU, META, DataType
-from fairseq2.utils.file import (
-    TensorLoader,
-    TensorLoadError,
-)
+from fairseq2.utils.io import TensorLoader, TensorLoadError
 from fairseq2.utils.merge import MergeError, merge_object
 from fairseq2.utils.structured import StructureError, structure, unstructure
 from fairseq2.utils.validation import validate

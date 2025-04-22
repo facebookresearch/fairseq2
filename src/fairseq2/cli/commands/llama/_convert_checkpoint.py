@@ -23,13 +23,13 @@ from fairseq2.cli import CliArgumentError, CliCommandError, CliCommandHandler
 from fairseq2.cli.utils.rich import get_error_console
 from fairseq2.context import RuntimeContext
 from fairseq2.error import InternalError
+from fairseq2.file_system import FileMode
 from fairseq2.logging import log
 from fairseq2.models import ModelConfigLoadError, ModelHandler
 from fairseq2.models.llama import LLAMA_MODEL_FAMILY, LLaMAConfig
 from fairseq2.models.llama.integ import convert_to_reference_llama_checkpoint
-from fairseq2.utils.file import (
-    FileMode,
-    StandardTensorLoader,
+from fairseq2.utils.io import (
+    AutoTensorLoader,
     TensorDumpError,
     TensorLoadError,
     TorchTensorDumper,
@@ -192,7 +192,7 @@ class ConvertLLaMACheckpointHandler(CliCommandHandler):
         # Begin conversion.
         console = get_error_console()
 
-        tensor_loader = StandardTensorLoader(file_system)
+        tensor_loader = AutoTensorLoader(file_system)
         tensor_dumper = TorchTensorDumper(file_system)
 
         with console.status("[bold green]Converting...") as status:
