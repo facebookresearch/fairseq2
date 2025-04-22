@@ -117,23 +117,25 @@ def load_base_model(
         output_dir.joinpath("checkpoints"), gangs, file_system, yaml_dumper
     )
 
-    model_card_saver = StandardModelCardSaver(asset_store, checkpoint_metadata_saver)
-
     model_handlers = context.get_registry(ModelHandler)
 
     model_loader: ModelLoader
 
     if model_section.path is not None:
         model_loader = PathBasedModelLoader(
-            kls, model_handlers, model_card_saver, checkpoint_manager
+            kls, model_handlers, checkpoint_metadata_saver, checkpoint_manager
         )
     elif model_section.name is not None:
         model_loader = CardBasedModelLoader(
-            kls, asset_store, model_handlers, model_card_saver, checkpoint_manager
+            kls,
+            asset_store,
+            model_handlers,
+            checkpoint_metadata_saver,
+            checkpoint_manager,
         )
     elif model_section.family is not None:
-        model_loader = ModelCreator(
-            kls, model_handlers, model_card_saver, checkpoint_manager
+        model_loader = EmptyModelLoader(
+            kls, model_handlers, checkpoint_metadata_saver, checkpoint_manager
         )
     else:
         raise ValueError(
@@ -166,7 +168,7 @@ class CardBasedModelLoader(ModelLoader):
     _kls: type[Module]
     _asset_store: AssetStore
     _model_handlers: Provider[ModelHandler]
-    _card_saver: ModelCardSaver
+    _checkpoint_metadata_saver: CheckpointMetadataSaver
     _checkpoint_manager: CheckpointManager
 
     def __init__(
@@ -174,13 +176,13 @@ class CardBasedModelLoader(ModelLoader):
         kls: type[Module],
         asset_store: AssetStore,
         model_handlers: Provider[ModelHandler],
-        card_saver: ModelCardSaver,
+        checkpoint_metadata_saver: CheckpointMetadataSaver,
         checkpoint_manager: CheckpointManager,
     ) -> None:
         self._kls = kls
         self._asset_store = asset_store
         self._model_handlers = model_handlers
-        self._card_saver = card_saver
+        self._checkpoint_metadata_saver = checkpoint_metadata_saver
         self._checkpoint_manager = checkpoint_manager
 
     @override
@@ -224,7 +226,9 @@ class CardBasedModelLoader(ModelLoader):
                 model_name, f"The '{model_name}' model configuration cannot be loaded. See the nested exception for details."  # fmt: skip
             ) from ex
 
-        model_config = apply_model_config_overrides(model_config, model_section.config)
+        model_config = apply_config_overrides(
+            model_config, model_section.config_overrides
+        )
 
         log_config(log, "Model Config", model_config)
 
@@ -293,32 +297,30 @@ class CardBasedModelLoader(ModelLoader):
                 model_name, f"The collective barrier after the '{model_name}' model load operation has failed. See the nested exception for details."  # fmt: skip
             ) from ex
 
+        self._checkpoint_metadata_saver.save(model_family, model_config)
+
         log.info("Model loaded on data parallel rank 0.")
 
-        model = LocalModel(model_name, module, model_config, handler)
-
-        self._card_saver.save(model)
-
-        return model
+        return BasicModel(model_name, module, model_config, handler)
 
 
 @final
 class PathBasedModelLoader(ModelLoader):
     _kls: type[Module]
     _model_handlers: Provider[ModelHandler]
-    _card_saver: ModelCardSaver
+    _checkpoint_metadata_saver: CheckpointMetadataSaver
     _checkpoint_manager: CheckpointManager
 
     def __init__(
         self,
         kls: type[Module],
         model_handlers: Provider[ModelHandler],
-        card_saver: ModelCardSaver,
+        checkpoint_metadata_saver: CheckpointMetadataSaver,
         checkpoint_manager: CheckpointManager,
     ) -> None:
         self._kls = kls
         self._model_handlers = model_handlers
-        self._card_saver = card_saver
+        self._checkpoint_metadata_saver = checkpoint_metadata_saver
         self._checkpoint_manager = checkpoint_manager
 
     @override
@@ -361,7 +363,9 @@ class PathBasedModelLoader(ModelLoader):
 
             raise
 
-        model_config = apply_model_config_overrides(model_config, model_section.config)
+        model_config = apply_config_overrides(
+            model_config, model_section.config_overrides
+        )
 
         log_config(log, "Model Config", model_config)
 
@@ -438,13 +442,11 @@ class PathBasedModelLoader(ModelLoader):
                 model_name, f"The collective barrier after the '{model_name}' model load operation has failed. See the nested exception for details."  # fmt: skip
             ) from ex
 
+        self._checkpoint_metadata_saver.save(model_family, model_config)
+
         log.info("Model loaded on data parallel rank 0.")
 
-        model = LocalModel(model_name, module, model_config, handler)
-
-        self._card_saver.save(model)
-
-        return model
+        return BasicModel(model_name, module, model_config, handler)
 
     @staticmethod
     def _format_as_sharded_path(model_path: Path, gangs: Gangs) -> Path:
@@ -459,22 +461,22 @@ class PathBasedModelLoader(ModelLoader):
 
 
 @final
-class ModelCreator(ModelLoader):
+class EmptyModelLoader(ModelLoader):
     _kls: type[Module]
     _model_handlers: Provider[ModelHandler]
-    _card_saver: ModelCardSaver
+    _checkpoint_metadata_saver: CheckpointMetadataSaver
     _checkpoint_manager: CheckpointManager
 
     def __init__(
         self,
         kls: type[Module],
         model_handlers: Provider[ModelHandler],
-        card_saver: ModelCardSaver,
+        checkpoint_metadata_saver: CheckpointMetadataSaver,
         checkpoint_manager: CheckpointManager,
     ) -> None:
         self._kls = kls
         self._model_handlers = model_handlers
-        self._card_saver = card_saver
+        self._checkpoint_metadata_saver = checkpoint_metadata_saver
         self._checkpoint_manager = checkpoint_manager
 
     @override
@@ -511,7 +513,9 @@ class ModelCreator(ModelLoader):
 
             raise
 
-        model_config = apply_model_config_overrides(model_config, model_section.config)
+        model_config = apply_config_overrides(
+            model_config, model_section.config_overrides
+        )
 
         log_config(log, "Model Config", model_config)
 
@@ -576,53 +580,51 @@ class ModelCreator(ModelLoader):
                 model_name, f"The collective barrier after the '{model_name}' model load operation has failed. See the nested exception for details."  # fmt: skip
             ) from ex
 
+        self._checkpoint_metadata_saver.save(model_family, model_config)
+
         if step_nr is not None:
             log.info("Model loaded on data parallel rank 0.")
 
-        model = LocalModel(
+        return BasicModel(
             model_name,
             module,
             model_config,
             handler,
-            is_empty_initialized=step_nr is None,
+            empty_initialized=step_nr is None,
         )
 
-        self._card_saver.save(model)
 
-        return model
-
-
-def apply_model_config_overrides(model_config: object, overrides: object) -> object:
-    if overrides is None:
-        return model_config
+def apply_config_overrides(config: object, config_overrides: object) -> object:
+    if config_overrides is None:
+        return config
 
     try:
-        overrides = structure(overrides, type(model_config), set_empty=True)
+        config_overrides = structure(config_overrides, type(config), set_empty=True)
     except StructureError as ex:
         raise StructureError(
-            "`model.config` cannot be structured. See the nested exception for details."
+            "`model.config_overrides` cannot be structured. See the nested exception for details."
         ) from ex
 
-    if not is_dataclass_instance(model_config):
-        return overrides
+    if not is_dataclass_instance(config):
+        return config_overrides
 
-    overrides = cast(DataClass, overrides)
+    config_overrides = cast(DataClass, config_overrides)
 
     try:
-        return merge_dataclass(model_config, overrides)
+        return merge_dataclass(config, config_overrides)
     except MergeError as ex:
         raise ContractError(
-            "`overrides` cannot be merged with `config`. See the nested exception for details."
+            "`config_overrides` cannot be merged with `config`. See the nested exception for details."
         ) from ex
 
 
 @final
-class LocalModel(Model):
+class BasicModel(Model):
     _name: str
     _module: Module
     _config: object
     _handler: ModelHandler
-    _is_empty_initialized: bool
+    _empty_initialized: bool
 
     def __init__(
         self,
@@ -630,13 +632,13 @@ class LocalModel(Model):
         module: Module,
         config: object,
         handler: ModelHandler,
-        is_empty_initialized: bool = False,
+        empty_initialized: bool = False,
     ) -> None:
         self._name = name
         self._module = module
         self._config = config
         self._handler = handler
-        self._is_empty_initialized = is_empty_initialized
+        self._empty_initialized = empty_initialized
 
     @override
     def state_dict(self) -> dict[str, object]:
@@ -685,31 +687,8 @@ class LocalModel(Model):
 
     @property
     @override
-    def is_empty_initialized(self) -> bool:
-        return self._is_empty_initialized
-
-
-class ModelCardSaver(ABC):
-    @abstractmethod
-    def save(self, mode: Model) -> None: ...
-
-
-@final
-class StandardModelCardSaver(ModelCardSaver):
-    _asset_store: AssetStore
-    _checkpoint_metadata_saver: CheckpointMetadataSaver
-
-    def __init__(
-        self,
-        asset_store: AssetStore,
-        checkpoint_metadata_saver: CheckpointMetadataSaver,
-    ) -> None:
-        self._asset_store = asset_store
-        self._checkpoint_metadata_saver = checkpoint_metadata_saver
-
-    @override
-    def save(self, model: Model) -> None:
-        self._checkpoint_metadata_saver.save(model.handler.family, model.config)
+    def empty_initialized(self) -> bool:
+        return self._empty_initialized
 
 
 def prepare_model(
