@@ -304,7 +304,7 @@ class ProcessGroupGang(Gang):
             raise GangError("`torch.distributed` is not available.")
 
         if dist.is_initialized():
-            raise GangError("The default process group is already initialized.")
+            raise GangError("The root process group is already initialized.")
 
         backend: str | None
 
@@ -368,14 +368,14 @@ class ProcessGroupGang(Gang):
     def _do_create_gang(self, ranks: Sequence[int]) -> ProcessGroupGang | None:
         if self._pg is not dist.group.WORLD:
             raise InvalidOperationError(
-                "`create_gang()` can only be called on the gang associated with the default (i.e. main) process group."
+                "`create_gang()` can only be called on the gang associated with the root process group."
             )
 
         try:
             backend = dist.get_backend()
         except RuntimeError as ex:
             raise GangError(
-                "The default process group backend cannot be determined. See the nested exception for details."
+                "The root process group backend cannot be determined. See the nested exception for details."
             ) from ex
 
         try:
@@ -384,7 +384,7 @@ class ProcessGroupGang(Gang):
             s = ", ".join(sorted(str(r) for r in ranks))
 
             raise GangError(
-                f"The creation of a new child process group has failed for ranks {s}. See the nested exception for details."
+                f"The child process group for ranks {s} cannot be created. See the nested exception for details."
             ) from ex
 
         if self._rank not in ranks:
@@ -481,8 +481,8 @@ def setup_root_gang(
     """
     Creates the root gang of this process.
 
-    :param device: The device for which to initialize the gang. For CUDA
-        devices, NCCL; for CPU, Gloo will be used.
+    :param device: The device for which to initialize the gang. For CUDA devices,
+        NCCL; for CPU, Gloo will be used.
     :param timeout: The timeout for collective operations. If ``None``, the
         default timeout value (15 minutes) will be used.
     :param high_priority: If ``True``, the underlying collective operations
@@ -607,9 +607,14 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
             dp_gang = root_gang
         case _:
             if torch_greater_or_equal(2, 5) and root_gang.device.type == "cuda":
-                pg = torch.distributed.distributed_c10d.split_group(
-                    split_ranks=mesh.T.tolist(), group_desc="dp"
-                )
+                try:
+                    pg = torch.distributed.distributed_c10d.split_group(
+                        split_ranks=mesh.T.tolist(), group_desc="dp"
+                    )
+                except RuntimeError as ex:
+                    raise GangError(
+                        "The data parallel process group cannot be created. See the nested exception for details."
+                    ) from ex
 
                 if pg is not None:
                     dp_gang = ProcessGroupGang(pg, root_gang.device)
@@ -634,9 +639,14 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Gangs:
             tp_gang = root_gang
         case _:
             if torch_greater_or_equal(2, 5) and root_gang.device.type == "cuda":
-                pg = torch.distributed.distributed_c10d.split_group(
-                    split_ranks=mesh.tolist(), group_desc="tp"
-                )
+                try:
+                    pg = torch.distributed.distributed_c10d.split_group(
+                        split_ranks=mesh.tolist(), group_desc="tp"
+                    )
+                except RuntimeError as ex:
+                    raise GangError(
+                        "The tensor parallel process group cannot be created. See the nested exception for details."
+                    ) from ex
 
                 if pg is not None:
                     tp_gang = ProcessGroupGang(pg, root_gang.device)
@@ -707,9 +717,14 @@ def setup_fsdp_gangs(gangs: Gangs, intra_node_size: int | None = None) -> Gangs:
             inter_gang = dp_gang
         case _:
             if torch_greater_or_equal(2, 5) and dp_gang.device.type == "cuda":
-                pg = torch.distributed.distributed_c10d.split_group(
-                    split_ranks=mesh.T.tolist(), group_desc="inter"
-                )
+                try:
+                    pg = torch.distributed.distributed_c10d.split_group(
+                        split_ranks=mesh.T.tolist(), group_desc="inter"
+                    )
+                except RuntimeError as ex:
+                    raise GangError(
+                        "The inter-node process group cannot be created. See the nested exception for details."
+                    ) from ex
 
                 if pg is not None:
                     inter_gang = ProcessGroupGang(pg, dp_gang.device)
@@ -734,9 +749,14 @@ def setup_fsdp_gangs(gangs: Gangs, intra_node_size: int | None = None) -> Gangs:
             intra_gang = dp_gang
         case _:
             if torch_greater_or_equal(2, 5) and dp_gang.device.type == "cuda":
-                pg = torch.distributed.distributed_c10d.split_group(
-                    split_ranks=mesh.tolist(), group_desc="intra"
-                )
+                try:
+                    pg = torch.distributed.distributed_c10d.split_group(
+                        split_ranks=mesh.tolist(), group_desc="intra"
+                    )
+                except RuntimeError as ex:
+                    raise GangError(
+                        "The intra-node process group cannot be created. See the nested exception for details."
+                    ) from ex
 
                 if pg is not None:
                     intra_gang = ProcessGroupGang(pg, dp_gang.device)
