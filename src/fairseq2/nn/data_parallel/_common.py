@@ -15,7 +15,6 @@ from torch.nn import Module
 
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gangs
-from fairseq2.nn import LayerStack
 from fairseq2.nn.utils.module import (
     reset_non_persistent_buffers,
     reset_parameters,
@@ -29,49 +28,13 @@ FsdpGranularity: TypeAlias = Literal["layer", "stack"]
 class FsdpApplier(Protocol):
     def __call__(
         self, module: Module, granularity: FsdpGranularity, wrapper: FsdpWrapper
-    ) -> Module: ...
+    ) -> None: ...
 
 
 class FsdpWrapper(Protocol):
     def __call__(
         self, module: Module, reshard_after_forward: bool | None = None
     ) -> Module: ...
-
-
-def apply_default_fsdp(
-    module: Module, granularity: FsdpGranularity, wrapper: FsdpWrapper
-) -> Module:
-    children = list(module.named_children())
-
-    for name, child in children:
-        if isinstance(child, LayerStack):
-            if granularity == "stack":
-                module.register_module(name, wrapper(child))
-
-                continue
-
-            if granularity == "layer":
-                layers = list(child.layers.named_children())
-
-                for idx, (layer_name, layer) in enumerate(layers):
-                    # We don't need to reshard the last layer since we will
-                    # immediately gather it for the backward pass.
-                    if idx < len(layers) - 1:
-                        reshard_after_forward = None
-                    else:
-                        reshard_after_forward = False
-
-                    child.layers.register_module(
-                        layer_name, wrapper(layer, reshard_after_forward)
-                    )
-
-                continue
-
-            raise ValueError(
-                f"`granularity` must be 'stack' or 'layer', but is '{granularity}' instead."
-            )
-
-    return wrapper(module, reshard_after_forward=False)
 
 
 @final

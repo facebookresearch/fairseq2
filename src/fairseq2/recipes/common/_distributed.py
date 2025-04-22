@@ -40,6 +40,10 @@ from fairseq2.recipes import Model, RecipeError
 from fairseq2.recipes.config import TrainerSection
 from fairseq2.typing import ContextManager
 
+# isort: split
+
+from fairseq2.recipes.common._error import FsdpNotSupportedError
+
 
 def setup_data_parallel_model(
     context: RuntimeContext,
@@ -153,6 +157,9 @@ class DdpModel(Model):
 def wrap_fsdp(
     trainer_section: TrainerSection, model: Model, gangs: Gangs, static_graph: bool
 ) -> Model:
+    if not model.handler.supports_fsdp:
+        raise FsdpNotSupportedError(model.name)
+
     if gangs.dp.size == 1:
         to_device(model.module, gangs.root.device)
 
@@ -165,8 +172,8 @@ def wrap_fsdp(
 
     def apply_fsdp(
         module: Module, granularity: FsdpGranularity, wrapper: FsdpWrapper
-    ) -> Module:
-        return model.handler.apply_fsdp(module, granularity, wrapper)
+    ) -> None:
+        model.handler.apply_fsdp(module, granularity, wrapper)
 
     if trainer_section.fsdp.version == "v1":
         log.info("Wrapping the model with FSDP1 and broadcasting to all processes.")  # fmt: skip
@@ -217,9 +224,7 @@ class Fsdp1Model(Model):
 
     @override
     def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
-        raise NotSupportedError(
-            "The state of an FSDP1 model cannot be restored via `load_state_dict()`."
-        )
+        raise NotSupportedError("FSDP1 does not support `load_state_dict()`.")
 
     @override
     def no_sync(self) -> ContextManager:
@@ -279,9 +284,7 @@ class Fsdp2Model(Model):
 
     @override
     def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
-        raise NotSupportedError(
-            "The state of an FSDP2 model cannot be restored via `load_state_dict()`."
-        )
+        raise NotSupportedError("FSDP2 does not support `load_state_dict()`.")
 
     @override
     def no_sync(self) -> ContextManager:

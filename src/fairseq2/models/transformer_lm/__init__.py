@@ -6,6 +6,9 @@
 
 from __future__ import annotations
 
+from fairseq2.models.transformer_lm._compile import (
+    compile_transformer_lm as compile_transformer_lm,
+)
 from fairseq2.models.transformer_lm._decoder import (
     StandardTransformerLMDecoder as StandardTransformerLMDecoder,
 )
@@ -22,5 +25,5 @@ from fairseq2.models.transformer_lm._model import (
     TransformerLanguageModel as TransformerLanguageModel,
 )
 from fairseq2.models.transformer_lm._sharder import (
-    shard_transformer_language_model as shard_transformer_language_model,
+    shard_transformer_lm as shard_transformer_lm,
 )

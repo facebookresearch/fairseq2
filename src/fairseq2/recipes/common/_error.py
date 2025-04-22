@@ -37,7 +37,7 @@ class DatasetPathNotFoundError(Exception):
         self.path = path
 
 
-class InvalidCheckpointPathError(Exception):
+class InvalidModelPathError(Exception):
     pathname: str
 
     def __init__(self, pathname: str) -> None:
@@ -68,8 +68,28 @@ class ModelCompilationNotSupportedError(NotSupportedError):
         self.model_name = model_name
 
 
+class ActivationCheckpointingNotSupportedError(NotSupportedError):
+    model_name: str
+
+    def __init__(self, model_name: str) -> None:
+        super().__init__(
+            f"The '{model_name}' model does not support activation checkpointing."
+        )
+
+        self.model_name = model_name
+
+
+class FsdpNotSupportedError(NotSupportedError):
+    model_name: str
+
+    def __init__(self, model_name: str) -> None:
+        super().__init__(f"The '{model_name}' model does not support FSDP.")
+
+        self.model_name = model_name
+
+
 class HybridShardingNotSupportedError(NotSupportedError):
     def __init__(self) -> None:
         super().__init__(
-            "Hybrid sharded data parallelism cannot be used with model parallelism."
+            "Hybrid sharded data parallelism is not supported when model parallelism is enabled."
         )

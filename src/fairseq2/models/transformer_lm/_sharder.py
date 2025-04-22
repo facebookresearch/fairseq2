@@ -29,18 +29,17 @@ from fairseq2.nn import (
 from fairseq2.models.transformer_lm._model import TransformerLanguageModel
 
 
-def shard_transformer_language_model(
-    model: TransformerLanguageModel, gangs: Gangs, shard_embed_dim: bool
+def shard_transformer_lm(
+    model: TransformerLanguageModel, gangs: Gangs, *, shard_embed_dim: bool = False
 ) -> None:
-    """Shard ``model`` over ``gangs`` for tensor parallelism.
+    """
+    Shards ``model`` over ``gangs`` for tensor parallelism.
 
-    :param model:
-        The model to shard.
-    :param gangs:
-        The gang used for parallelism.
-    :param shard_embed_dim:
-        If ``True``, shards :class:`StandardEmbedding` instances over the
-        embedding dimension; otherwise, over the vocabulary dimension.
+    :param model: The model to shard.
+    :param gangs: The gangs used for parallelism.
+    :param shard_embed_dim: If ``True``, shards :class:`StandardEmbedding`
+        modules over the embedding dimension; otherwise, over the vocabulary
+        dimension.
     """
     if gangs.tp.size == 1:
         return

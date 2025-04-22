@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from fairseq2.models.transformer_lm import TransformerLanguageModel
+from fairseq2.models.transformer_lm._model import TransformerLanguageModel
 
 
-def compile_llama_model(model: TransformerLanguageModel, **kwargs: Any) -> None:
+def compile_transformer_lm(model: TransformerLanguageModel, **kwargs: Any) -> None:
     for layer in model.decoder.layers:
         layer.compile(**kwargs)
 

@@ -74,7 +74,7 @@ def to_fsdp2(
 ) -> Fsdp2Module:
     if gangs.sdp.size == 1:
         raise NotSupportedError(
-            "FSDP2 does not support non-sharded data parallelism. Please use DDP instead."
+            "FSDP2 does not support non-sharded data parallelism. Use DDP instead."
         )
 
     dp_gang = gangs.dp
@@ -178,7 +178,7 @@ def to_fsdp2(
         return cast(Fsdp2Module, module)
 
     try:
-        module = applier(module, granularity, wrap)
+        applier(module, granularity, wrap)
 
         if not isinstance(module, Fsdp2Module):
             module = wrap(module, reshard_after_forward=False)

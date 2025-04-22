@@ -50,7 +50,7 @@ def to_ddp(
     """
     if gangs.sdp.size > 1:
         raise NotSupportedError(
-            "DDP does not support sharded data parallelism. Please use FSDP or FSDP2 instead."
+            "DDP does not support sharded data parallelism. Use FSDP1 or FSDP2 instead."
         )
 
     try:

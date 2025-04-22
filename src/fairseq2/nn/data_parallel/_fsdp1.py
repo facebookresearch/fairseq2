@@ -69,7 +69,7 @@ def to_fsdp1(
 
     if gangs.sdp.size == 1:
         raise NotSupportedError(
-            "FSDP1 does not support non-sharded data parallelism. Please use DDP instead."
+            "FSDP1 does not support non-sharded data parallelism. Use DDP instead."
         )
 
     process_group: ProcessGroup | tuple[ProcessGroup, ProcessGroup]
@@ -175,7 +175,7 @@ def to_fsdp1(
         )
 
     try:
-        module = applier(module, granularity, wrap)
+        applier(module, granularity, wrap)
 
         if not isinstance(module, Fsdp1Module):
             module = wrap(module, reshard_after_forward=False)

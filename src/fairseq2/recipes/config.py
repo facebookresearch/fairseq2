@@ -131,7 +131,7 @@ class TrainerSection:
     """The number of steps to accumulate gradients before an optimizer update."""
 
     activation_checkpointing: bool = False
-    """If ``True``, uses layer-wise activation checkpointing."""
+    """If ``True``, uses activation checkpointing."""
 
     max_gradient_norm: float | None = None
     """The maximum gradient norm. If ``None``, no clipping will be applied."""
