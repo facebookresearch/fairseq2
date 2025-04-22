@@ -26,6 +26,7 @@ from fairseq2.checkpoint import (
     CheckpointManager,
     CheckpointSaveError,
     CheckpointState,
+    Stateful,
 )
 from fairseq2.datasets import DataReader, DataReadError
 from fairseq2.device import SupportsDeviceTransfer
@@ -43,7 +44,6 @@ from fairseq2.utils.device_stat import DeviceStatTracker
 from fairseq2.utils.gc import GarbageCollector
 from fairseq2.utils.progress import ProgressReporter, ProgressTask
 from fairseq2.utils.rng import RngBag
-from fairseq2.utils.state import Stateful
 from fairseq2.utils.stopwatch import Stopwatch
 
 # isort: split
