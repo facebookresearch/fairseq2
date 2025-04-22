@@ -10,9 +10,9 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import final
 
+from fairseq2.file_system import FileSystem
 from fairseq2.logging import log
 from fairseq2.utils.env import InvalidEnvironmentVariableError, get_path_from_env
-from fairseq2.utils.file import FileSystem
 
 # isort: split
 

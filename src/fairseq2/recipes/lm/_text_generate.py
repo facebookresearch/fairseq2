@@ -23,6 +23,7 @@ from fairseq2.datasets.instruction import (
     InstructionPromptReadOptions,
 )
 from fairseq2.error import InternalError
+from fairseq2.file_system import FileMode
 from fairseq2.gang import Gangs
 from fairseq2.generation import SamplingConfig, SequenceGenerator
 from fairseq2.models.decoder import DecoderModel
@@ -55,7 +56,6 @@ from fairseq2.recipes.config import (
     TextTokenizerSection,
 )
 from fairseq2.typing import CPU
-from fairseq2.utils.file import FileMode
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate

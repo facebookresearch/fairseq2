@@ -11,7 +11,7 @@ from pathlib import Path
 from fairseq2.checkpoint import CheckpointManager, FileCheckpointManager
 from fairseq2.context import RuntimeContext
 from fairseq2.gang import Gangs
-from fairseq2.utils.file import TorchTensorDumper, TorchTensorLoader
+from fairseq2.utils.io import TorchTensorDumper, TorchTensorLoader
 from fairseq2.utils.threading import get_default_thread_pool
 
 

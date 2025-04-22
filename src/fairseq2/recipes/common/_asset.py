@@ -17,11 +17,11 @@ from fairseq2.assets import (
 )
 from fairseq2.checkpoint import FileCheckpointMetadataLoader
 from fairseq2.context import RuntimeContext
+from fairseq2.file_system import FileSystem
 from fairseq2.logging import log
 from fairseq2.recipes import RecipeError
 from fairseq2.recipes.config import AssetsSection
-from fairseq2.utils.file import FileSystem
-from fairseq2.utils.yaml import StandardYamlLoader
+from fairseq2.utils.yaml import RuamelYamlLoader
 
 
 def register_extra_asset_paths(
@@ -31,7 +31,7 @@ def register_extra_asset_paths(
 
     file_system = context.file_system
 
-    yaml_loader = StandardYamlLoader(file_system)
+    yaml_loader = RuamelYamlLoader(file_system)
 
     asset_metadata_file_loader = StandardAssetMetadataFileLoader(yaml_loader)
 

@@ -21,11 +21,11 @@ from fairseq2.assets import (
 from fairseq2.cli import CliArgumentError, CliCommandError, CliCommandHandler
 from fairseq2.context import RuntimeContext
 from fairseq2.error import InternalError
+from fairseq2.file_system import FileMode
 from fairseq2.logging import log
 from fairseq2.models import ModelConfigLoadError, ModelHandler
 from fairseq2.models.llama import LLAMA_MODEL_FAMILY, LLaMAConfig
 from fairseq2.models.llama.integ import convert_to_hg_llama_config
-from fairseq2.utils.file import FileMode
 
 
 @final

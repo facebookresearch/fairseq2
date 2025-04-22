@@ -30,6 +30,7 @@ from fairseq2.cli.utils.rich import get_console
 from fairseq2.config_registry import ConfigNotFoundError, ConfigProvider
 from fairseq2.context import RuntimeContext
 from fairseq2.error import ContractError
+from fairseq2.file_system import FileSystem
 from fairseq2.logging import LoggingSetupError, log
 from fairseq2.recipes import Recipe, RecipeError, RecipeStopException
 from fairseq2.recipes.utils.log import log_config
@@ -40,12 +41,11 @@ from fairseq2.recipes.utils.sweep_tag import (
     SweepTagGenerator,
 )
 from fairseq2.utils.env import InvalidEnvironmentVariableError, get_rank, get_world_size
-from fairseq2.utils.file import FileSystem
 from fairseq2.utils.merge import MergeError, merge_object, to_mergeable
 from fairseq2.utils.structured import StructureError, unstructure
 from fairseq2.utils.yaml import (
-    StandardYamlDumper,
-    StandardYamlLoader,
+    RuamelYamlDumper,
+    RuamelYamlLoader,
     YamlDumper,
     YamlError,
     YamlLoader,
@@ -168,7 +168,7 @@ class RecipeCommandHandler(CliCommandHandler):
             if isinstance(config, Mapping):
                 config = to_mergeable(config)
 
-            yaml_dumper = StandardYamlDumper(context.file_system)
+            yaml_dumper = RuamelYamlDumper(context.file_system)
 
             try:
                 yaml_dumper.dump(config, sys.stdout)
@@ -275,7 +275,7 @@ class RecipeCommandHandler(CliCommandHandler):
 
         file_system = context.file_system
 
-        yaml_loader = StandardYamlLoader(file_system)
+        yaml_loader = RuamelYamlLoader(file_system)
 
         config_reader = ConfigReader(configs, file_system, yaml_loader)
 
@@ -365,7 +365,7 @@ class RecipeCommandHandler(CliCommandHandler):
 
     @staticmethod
     def _dump_config(context: RuntimeContext, config: object, output_dir: Path) -> None:
-        yaml_dumper = StandardYamlDumper(context.file_system)
+        yaml_dumper = RuamelYamlDumper(context.file_system)
 
         dumper = ConfigDumper(context.env, yaml_dumper)
 

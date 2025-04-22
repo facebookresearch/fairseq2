@@ -54,7 +54,7 @@ from fairseq2.registry import Provider
 from fairseq2.typing import ContextManager, DataClass, is_dataclass_instance
 from fairseq2.utils.merge import MergeError, merge_dataclass
 from fairseq2.utils.structured import StructureError, structure
-from fairseq2.utils.yaml import StandardYamlDumper
+from fairseq2.utils.yaml import RuamelYamlDumper
 
 # isort: split
 
@@ -111,7 +111,7 @@ def load_base_model(
 
     file_system = context.file_system
 
-    yaml_dumper = StandardYamlDumper(file_system)
+    yaml_dumper = RuamelYamlDumper(file_system)
 
     checkpoint_metadata_saver = FileCheckpointMetadataSaver(
         output_dir.joinpath("checkpoints"), gangs, file_system, yaml_dumper

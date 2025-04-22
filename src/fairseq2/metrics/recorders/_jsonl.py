@@ -17,9 +17,9 @@ from typing import Final, TextIO, final
 from torch import Tensor
 from typing_extensions import override
 
+from fairseq2.file_system import FileMode, FileSystem
 from fairseq2.metrics import MetricDescriptor, format_as_int
 from fairseq2.registry import Provider
-from fairseq2.utils.file import FileMode, FileSystem
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
 
