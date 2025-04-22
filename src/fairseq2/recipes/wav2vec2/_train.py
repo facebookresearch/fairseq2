@@ -48,11 +48,6 @@ from fairseq2.recipes.config import (
     RegimeSection,
     TrainerSection,
 )
-# isort: split
-
-from torch import Tensor
-from typing_extensions import override
-
 from fairseq2.recipes.wav2vec2._common import (
     Wav2Vec2Criterion,
     Wav2Vec2LossSection,
@@ -63,6 +58,11 @@ from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate
+
+# isort: split
+
+from torch import Tensor
+from typing_extensions import override
 
 
 @dataclass(kw_only=True)
@@ -150,7 +150,8 @@ class Wav2Vec2TrainDatasetSection(DatasetSection):
     example_shuffle_window: int = 500_000
     """The size of the sliding window for shuffling examples."""
 
-    batch_shuffle_window: int = 50_000
+    # TODO:cirquit - check with MMS team whether this is still correct, the v0.5 branch had this at 50_000
+    batch_shuffle_window: int = 0
     """The size of the sliding window for shuffling batches."""
 
     num_prefetch: int = 4
