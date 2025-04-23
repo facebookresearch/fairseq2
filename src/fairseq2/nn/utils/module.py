@@ -20,6 +20,7 @@ from torch.nn.utils import remove_weight_norm  # type: ignore[attr-defined]
 from fairseq2.gang import Gang
 from fairseq2.logging import log
 from fairseq2.typing import CPU, Device
+from fairseq2.utils.version import torch_greater_or_equal
 
 
 @runtime_checkable
@@ -460,9 +461,9 @@ def load_state_dict(
     """Copy parameters and buffers from ``state_dict`` into ``module`` and its
     descendant modules.
 
-    This implementation internally calls :meth:`Module.load_state_dict()`, and also enforces that
-    ``state_dict`` does not contain any keys corresponding to descendants that are set to ``None``
-    via :meth:`Module.register_module()`.
+    This implementation internally calls :meth:`Module.load_state_dict()`, and
+    also enforces that ``state_dict`` does not contain any keys corresponding to
+    descendants that are set to ``None`` via :meth:`Module.register_module()`.
     """
     module.load_state_dict(state_dict, strict=strict)
 
@@ -564,38 +565,52 @@ class ModuleSizeInfo:
     """The total size of the module, in bytes."""
 
 
-def get_module_size(module: Module) -> ModuleSizeInfo:
+def get_module_size_info(module: Module) -> ModuleSizeInfo:
     """Return the size information of ``module`` and its descendant modules."""
+
+    def get_numel(tensor: Tensor) -> int:
+        if torch_greater_or_equal(2, 6):
+            from torch.distributed.tensor import DTensor
+
+            if isinstance(tensor, DTensor):
+                return tensor.detach().to_local().numel()  # type: ignore[no-any-return]
+
+        return tensor.numel()
+
     info = ModuleSizeInfo()
+
+    param: Tensor | None
 
     for param in module.parameters():
         if param is None:
             continue
 
-        size = param.numel()
-        size_bytes = size * param.element_size()
+        numel = get_numel(param)
 
-        info.param_size += size
+        size_bytes = numel * param.element_size()
+
+        info.param_size += numel
         info.param_size_bytes += size_bytes
 
         if param.requires_grad:
-            info.trainable_param_size += size
+            info.trainable_param_size += numel
             info.trainable_param_size_bytes += size_bytes
 
-        info.total_size += size
+        info.total_size += numel
         info.total_size_bytes += size_bytes
 
     for buffer in module.buffers():
         if buffer is None:
             continue
 
-        size = buffer.numel()
-        size_bytes = size * buffer.element_size()
+        numel = buffer.numel()
 
-        info.buffer_size += size
+        size_bytes = numel * buffer.element_size()
+
+        info.buffer_size += numel
         info.buffer_size_bytes += size_bytes
 
-        info.total_size += size
+        info.total_size += numel
         info.total_size_bytes += size_bytes
 
     return info
