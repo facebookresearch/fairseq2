@@ -211,6 +211,70 @@ class GenericSpeechDataset(SpeechDataset):
     def splits(self) -> set[str]:
         return self._splits
 
+    def add_audio_reading_pipeline(
+        self,
+        builder: DataPipelineBuilder,
+        audio_dir: Path,
+        options: SpeechReadOptions,
+        seed: int,
+        max_audio_len: int,
+    ) -> DataPipelineBuilder:
+        # Memory map audio files.
+        cached_fd_count = options.extras.get("cached_fd_count", 100)
+        if not isinstance(cached_fd_count, int):
+            raise TypeError(
+                f"`options.extras['cached_fd_count']` must be of type `int`, but is of type `{type(cached_fd_count)}` instead."
+            )
+
+        file_mapper = FileMapper(audio_dir, cached_fd_count=cached_fd_count)
+
+        builder.map(file_mapper, selector="[*].audio")
+
+        # Decode audio.
+        audio_decoder = AudioDecoder(
+            dtype=torch.float32 if options.normalize_audio else options.dtype
+        )
+        builder.map(
+            audio_decoder, selector="[*].audio.data", num_parallel_calls=options.npc
+        )
+
+        if options.use_fbank:
+            fbank_converter = WaveformToFbankConverter(
+                num_mel_bins=80,
+                waveform_scale=2**15,
+                channel_last=True,
+                standardize=True,
+                dtype=options.dtype,
+            )
+
+            builder.map(
+                fbank_converter,
+                selector="[*].audio.data",
+                num_parallel_calls=options.npc,
+            )
+        else:
+            builder.map(
+                partial(
+                    postprocess,
+                    normalize_audio=options.normalize_audio,
+                    dtype=options.dtype,
+                ),
+                selector="[*].audio.data.waveform",
+            )
+
+        # select the audio feature at the top level
+        builder.map(rename_feature)
+
+        # Crop long audios to `max_audio_len`.
+        audio_cropper = AudioCropper(
+            max_audio_len,
+            seed=seed,
+            crop_to_batch_minimal_size=options.no_padding,
+        )
+        builder.map(audio_cropper.crop_audios_in_batch)
+
+        return builder
+
     def _retrieve_data_directory(self, split: str) -> Path:
         manifest_file = self._manifest_dir.joinpath(f"{split}.tsv")
 
@@ -258,6 +322,59 @@ class GenericSpeechDataset(SpeechDataset):
 
         return builder
 
+    def add_bucketing_pipeline(
+        self,
+        builder: DataPipelineBuilder,
+        options: SpeechReadOptions,
+        max_audio_len: int,
+        min_audio_len: int,
+        seed: int,
+        columns: str,
+    ) -> DataPipelineBuilder:
+        batching = options.batching
+
+        if isinstance(batching, LengthBatching):
+            # Bucket by the audio length.
+            max_num_elements = batching.max_num_elements
+            num_seqs_multiple_of = options.extras.get("num_seqs_multiple_of", 8)
+            assert isinstance(
+                num_seqs_multiple_of, int
+            ), "num_seqs_multiple_of must be an integer"
+            assert num_seqs_multiple_of > 0, "num_seqs_multiple_of must be positive"
+
+            if max_num_elements % max_audio_len != 0:
+                max_num_elements = (max_num_elements // max_audio_len) * max_audio_len
+                log.warning(f"`max_num_elements` is rounded to {max_num_elements}")
+
+            bucket_sizes = create_bucket_sizes(
+                min_seq_len=min_audio_len,
+                max_seq_len=max_audio_len,
+                max_num_elements=max_num_elements,
+                num_seqs_multiple_of=num_seqs_multiple_of,
+            )
+
+            builder.bucket_by_length(
+                bucket_sizes,
+                selector=columns,
+                min_data_len=min_audio_len,
+                skip_below_min_examples=True,  # this should be neutral
+                skip_above_max_examples=True,  # this should be neutral
+                drop_remainder=options.drop_remainder,
+            )
+        elif isinstance(batching, StaticBatching):
+            if options.no_padding:
+                raise NotSupportedError(
+                    "no_padding is not supported for static batching"
+                )
+            builder.bucket(batching.batch_size, drop_remainder=options.drop_remainder)
+        else:
+            raise NotSupportedError(f"`{batching}` is not supported.")
+
+        # Shuffle buckets.
+        if options.batch_shuffle_window != 1:
+            builder.shuffle(options.batch_shuffle_window, seed)
+        return builder
+
     @override
     def create_reader(
         self,
@@ -295,100 +412,13 @@ class GenericSpeechDataset(SpeechDataset):
         builder.shard(gang.rank, gang.size, allow_uneven=True)
         seed += gang.rank
 
-        batching = options.batching
-
-        if isinstance(batching, LengthBatching):
-            # Bucket by the audio length.
-            max_num_elements = batching.max_num_elements
-            num_seqs_multiple_of = options.extras.get("num_seqs_multiple_of", 8)
-            assert isinstance(
-                num_seqs_multiple_of, int
-            ), "num_seqs_multiple_of must be an integer"
-            assert num_seqs_multiple_of > 0, "num_seqs_multiple_of must be positive"
-
-            if max_num_elements % max_audio_len != 0:
-                max_num_elements = (max_num_elements // max_audio_len) * max_audio_len
-                log.warning(f"`max_num_elements` is rounded to {max_num_elements}")
-
-            bucket_sizes = create_bucket_sizes(
-                min_seq_len=min_audio_len,
-                max_seq_len=max_audio_len,
-                max_num_elements=max_num_elements,
-                num_seqs_multiple_of=num_seqs_multiple_of,
-            )
-
-            builder.bucket_by_length(
-                bucket_sizes,
-                selector="audio_size",
-                min_data_len=min_audio_len,
-                skip_below_min_examples=True,  # this should be neutral
-                skip_above_max_examples=True,  # this should be neutral
-                drop_remainder=options.drop_remainder,
-            )
-        elif isinstance(batching, StaticBatching):
-            if options.no_padding:
-                raise NotSupportedError(
-                    "no_padding is not supported for static batching"
-                )
-            builder.bucket(batching.batch_size, drop_remainder=options.drop_remainder)
-        else:
-            raise NotSupportedError(f"`{batching}` is not supported.")
-
-        # Shuffle buckets.
-        if options.batch_shuffle_window != 1:
-            builder.shuffle(options.batch_shuffle_window, seed)
-            seed += 1
-
-        # Memory map audio files.
-        cached_fd_count = options.extras.get("cached_fd_count", 100)
-        if not isinstance(cached_fd_count, int):
-            raise TypeError(
-                f"`options.extras['cached_fd_count']` must be of type `int`, but is of type `{type(cached_fd_count)}` instead."
-            )
-
-        file_mapper = FileMapper(audio_dir, cached_fd_count=cached_fd_count)
-
-        builder.map(file_mapper, selector="[*].audio")
-
-        # Decode audio.
-        audio_decoder = AudioDecoder(
-            dtype=torch.float32 if options.normalize_audio else options.dtype
+        builder = self.add_bucketing_pipeline(
+            builder, options, max_audio_len, min_audio_len, seed, "audio_size"
         )
-        builder.map(audio_decoder, selector="[*].audio.data", num_parallel_calls=npc)
-
-        if options.use_fbank:
-            fbank_converter = WaveformToFbankConverter(
-                num_mel_bins=80,
-                waveform_scale=2**15,
-                channel_last=True,
-                standardize=True,
-                dtype=options.dtype,
-            )
-
-            builder.map(
-                fbank_converter, selector="[*].audio.data", num_parallel_calls=npc
-            )
-        else:
-            builder.map(
-                partial(
-                    postprocess,
-                    normalize_audio=options.normalize_audio,
-                    dtype=options.dtype,
-                ),
-                selector="[*].audio.data.waveform",
-            )
-
-        # select the audio feature at the top level
-        builder.map(rename_feature)
-
-        # Crop long audios to `max_audio_len`.
-        audio_cropper = AudioCropper(
-            max_audio_len,
-            seed=seed,
-            crop_to_batch_minimal_size=no_padding,
+        seed += 1
+        builder = self.add_audio_reading_pipeline(
+            builder, audio_dir, options, seed, max_audio_len
         )
-        builder.map(audio_cropper.crop_audios_in_batch)
-
         # Collate batched examples into a batch.
         collater = Collater(pad_value=None if no_padding else 0)
         builder.map(collater)
