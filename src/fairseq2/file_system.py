@@ -16,6 +16,7 @@ from typing import Any, BinaryIO, cast, Dict, final, List, TextIO, Tuple
 
 import fsspec
 from fsspec.implementations.local import LocalFileSystem as fsspec_LocalFileSystem
+from fsspec.registry import available_protocols, filesystem
 from typing_extensions import override
 
 
@@ -75,6 +76,7 @@ class FileSystem(ABC):
 ExtenedPath = str | Path | Sequence[str | Path]
 
 
+@final
 class FSspecFileSystem(FileSystem):
     """
     Wrapper around fsspec to provide a FileSystem interface.
@@ -223,36 +225,6 @@ class FSspecFileSystem(FileSystem):
             return False
 
 
-@final
-class LocalFileSystem(FSspecFileSystem):
-    def __init__(self) -> None:
-        super().__init__(fsspec_LocalFileSystem(), prefix="")
-
-
-@final
-class S3FileSystem(FSspecFileSystem):
-    def __init__(self, *arg, **kwargs) -> None:
-        from s3fs import S3FileSystem  # type: ignore
-
-        super().__init__(S3FileSystem(*arg, **kwargs), prefix="s3://")
-
-
-@final
-class HFFileSystem(FSspecFileSystem):
-    def __init__(self, *arg, **kwargs) -> None:
-        from huggingface_hub import HfFileSystem  # type: ignore
-
-        super().__init__(HfFileSystem(*arg, **kwargs), prefix="hf://")
-
-
-@final
-class GCSFileSystem(FSspecFileSystem):
-    def __init__(self, *arg, **kwargs) -> None:
-        from gcsfs import GCSFileSystem  # type: ignore
-
-        super().__init__(GCSFileSystem(*arg, **kwargs), prefix="gc://")
-
-
 class FileSystemRegistry:
     """
     Registry for resolving FileSystem instances based on path patterns.
@@ -262,7 +234,7 @@ class FileSystemRegistry:
         []
     )
     _fs_cache: Dict[Any, FileSystem] = {}
-    _local_fs = LocalFileSystem()
+    _local_fs: FileSystem = FSspecFileSystem(fsspec_LocalFileSystem(), "")
 
     @classmethod
     def register(
@@ -325,22 +297,20 @@ class FileSystemRegistry:
         return cls._local_fs
 
 
-def _register_filesystems(context: RuntimeContext) -> None:
-    # FIXME: to propagate different credentials
-    FileSystemRegistry.register(
-        lambda p: str(p).startswith("s3://"),
-        S3FileSystem,
-    )
+def _register_filesystems(context: Any) -> None:
+    for protocol in available_protocols():
+        # FIXME: to propagate different credentials from the context
+        storage_options: Dict[str, Any] = {}
+        if hasattr(context, "storage_options"):
+            all_storage_options = getattr(context, "storage_options", {})
+            storage_options = all_storage_options.get(protocol, {})
 
-    FileSystemRegistry.register(
-        lambda p: str(p).startswith("hf://"),
-        HFFileSystem,
-    )
-
-    FileSystemRegistry.register(
-        lambda p: str(p).startswith("gc://"),
-        GCSFileSystem,
-    )
+        fsspec = filesystem(protocol, **storage_options)
+        prefix = f"{protocol}://"
+        FileSystemRegistry.register(
+            lambda p: str(p).startswith(prefix),
+            lambda: FSspecFileSystem(fsspec, prefix),
+        )
 
 
 path_fs_resolver = FileSystemRegistry.resolve_filesystem
