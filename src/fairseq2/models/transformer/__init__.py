@@ -107,6 +107,9 @@ from fairseq2.models.transformer._frontend import (
 from fairseq2.models.transformer._frontend import (
     TransformerFrontend as TransformerFrontend,
 )
+from fairseq2.models.transformer._hub import (
+    get_transformer_model_hub as get_transformer_model_hub,
+)
 from fairseq2.models.transformer._model import TransformerModel as TransformerModel
 from fairseq2.models.transformer._multihead_attention import (
     AttentionState as AttentionState,
@@ -165,9 +168,3 @@ from fairseq2.models.transformer._shaw_attention import (
 from fairseq2.models.transformer._shaw_attention import (
     init_shaw_embedding as init_shaw_embedding,
 )
-
-# isort: split
-
-from fairseq2.models import ModelHubAccessor
-
-get_transformer_model_hub = ModelHubAccessor(TransformerModel, TransformerConfig)

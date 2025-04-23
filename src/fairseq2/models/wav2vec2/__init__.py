@@ -33,6 +33,9 @@ from fairseq2.models.wav2vec2._feature_extractor import (
     Wav2Vec2FeatureExtractor as Wav2Vec2FeatureExtractor,
 )
 from fairseq2.models.wav2vec2._frontend import Wav2Vec2Frontend as Wav2Vec2Frontend
+from fairseq2.models.wav2vec2._hub import (
+    get_wav2vec2_model_hub as get_wav2vec2_model_hub,
+)
 from fairseq2.models.wav2vec2._masker import (
     StandardWav2Vec2Masker as StandardWav2Vec2Masker,
 )
@@ -62,9 +65,3 @@ from fairseq2.models.wav2vec2._vector_quantizer import (
 from fairseq2.models.wav2vec2._vector_quantizer import (
     VectorQuantizerOutput as VectorQuantizerOutput,
 )
-
-# isort: split
-
-from fairseq2.models import ModelHubAccessor
-
-get_wav2vec2_model_hub = ModelHubAccessor(Wav2Vec2Model, Wav2Vec2Config)
