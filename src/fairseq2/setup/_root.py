@@ -20,7 +20,7 @@ from fairseq2.assets import (
 )
 from fairseq2.context import RuntimeContext
 from fairseq2.extensions import run_extensions
-from fairseq2.file_system import FileSystem, LocalFileSystem
+from fairseq2.file_system import FileSystem, GlobalFileSystem
 from fairseq2.utils.progress import NoopProgressReporter, ProgressReporter
 
 # isort: split
@@ -49,7 +49,7 @@ from fairseq2.setup._text_tokenizers import _register_text_tokenizer_families
 def setup_library(progress_reporter: ProgressReporter | None = None) -> RuntimeContext:
     env = os.environ
 
-    file_system = LocalFileSystem()
+    file_system = GlobalFileSystem()
 
     asset_store = StandardAssetStore()
 
