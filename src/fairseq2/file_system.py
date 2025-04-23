@@ -17,7 +17,7 @@ from pathlib import Path
 from shutil import copytree, rmtree
 
 from tempfile import TemporaryDirectory
-from typing import Any, BinaryIO, Dict, List, TextIO, Tuple, cast, final
+from typing import Any, BinaryIO, Dict, List, TextIO, Tuple, TypeAlias, cast, final
 
 import fsspec
 from fsspec.implementations.local import LocalFileSystem as fsspec_LocalFileSystem
@@ -84,7 +84,7 @@ class FileSystem(ABC):
     def is_local(self) -> bool: ...
 
 
-ExtenedPath = str | Path | Sequence[str | Path]
+ExtenedPath: TypeAlias = str | Path | Sequence[str | Path]
 
 
 @final
