@@ -12,13 +12,11 @@ from collections.abc import Callable, Iterable, Sequence
 from enum import Enum
 from pathlib import Path
 from shutil import copytree, rmtree
-from typing import Any, BinaryIO, Dict, List, TextIO, Tuple, cast, final
+from typing import Any, BinaryIO, cast, Dict, final, List, TextIO, Tuple
 
 import fsspec
 from fsspec.implementations.local import LocalFileSystem as fsspec_LocalFileSystem
 from typing_extensions import override
-
-from fairseq2.context import RuntimeContext
 
 
 class FileMode(Enum):
