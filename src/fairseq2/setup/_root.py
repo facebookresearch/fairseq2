@@ -20,8 +20,7 @@ from fairseq2.assets import (
 )
 from fairseq2.context import RuntimeContext
 from fairseq2.extensions import run_extensions
-from fairseq2.file_system import FileSystem, GlobalFileSystem
-from fairseq2.utils.progress import NoopProgressReporter, ProgressReporter
+from fairseq2.file_system import FileSystem, GlobalFileSystem, _register_filesystems
 
 # isort: split
 
@@ -44,6 +43,7 @@ from fairseq2.setup._po_finetune_units import _register_po_finetune_units
 from fairseq2.setup._profilers import _register_profilers
 from fairseq2.setup._recipes import _register_recipes
 from fairseq2.setup._text_tokenizers import _register_text_tokenizer_families
+from fairseq2.utils.progress import NoopProgressReporter, ProgressReporter
 
 
 def setup_library(progress_reporter: ProgressReporter | None = None) -> RuntimeContext:
@@ -81,6 +81,7 @@ def setup_library(progress_reporter: ProgressReporter | None = None) -> RuntimeC
     _register_seq2seq_generators(context)
     _register_seq_generators(context)
     _register_text_tokenizer_families(context)
+    _register_filesystems(context)
 
     signature = "extension_function(context: RuntimeContext) -> None"
 
