@@ -16,7 +16,7 @@ from typing_extensions import override
 
 from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.gang import Gang, Gangs
-from fairseq2.metrics import Mean
+from fairseq2.metrics import Mean, MetricBag
 from fairseq2.models.sequence import SequenceModelOutput, as_auto_regressive_input
 from fairseq2.recipes import Model, TrainUnit
 from fairseq2.utils.structured import structure
@@ -119,7 +119,7 @@ class OrpoFinetuneUnit(TrainUnit[PreferenceBatch]):
 
     @property
     @override
-    def metric_bag(self) -> OrpoFinetuneMetricBag:
+    def metric_bag(self) -> MetricBag:
         return self._metric_bag
 
 
@@ -131,17 +131,10 @@ class OrpoFinetuneMetricBag(POFinetuneMetricBag):
     def __init__(self, gang: Gang) -> None:
         super().__init__(gang)
 
-        self.register_metric("orpo_loss", Mean(device=gang.device), persistent=False)
+        self.orpo_loss = Mean(device=gang.device)
 
     @torch.inference_mode()
     def update_orpo_loss(self, batch: PreferenceBatch, loss: Tensor) -> None:
-        """Update the ORPO loss metric.
-
-        :param batch:
-            The batch processed by the model.
-        :param loss:
-            The ORPO loss of ``batch``.
-        """
         self.orpo_loss.update(
             loss / batch.chosen.batch_size, weight=batch.chosen.batch_size
         )

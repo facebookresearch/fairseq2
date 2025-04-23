@@ -23,6 +23,7 @@ from fairseq2.datasets.parallel_text import (
 )
 from fairseq2.gang import Gangs
 from fairseq2.generation import BeamSearchConfig
+from fairseq2.metrics import MetricBag
 from fairseq2.metrics.text import DEFAULT_BLEU_TOKENIZER
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.seq2seq import Seq2SeqBatch
@@ -419,5 +420,5 @@ class MTTrainUnit(TrainUnit[Seq2SeqBatch]):
 
     @property
     @override
-    def metric_bag(self) -> Seq2SeqMetricBag:
+    def metric_bag(self) -> MetricBag:
         return self._metric_bag

@@ -26,6 +26,7 @@ from fairseq2.file_system import FileMode
 from fairseq2.gang import Gangs
 from fairseq2.generation import BeamSearchConfig, Seq2SeqGenerator
 from fairseq2.generation.text import SequenceToTextConverter
+from fairseq2.metrics import MetricBag
 from fairseq2.metrics.text import DEFAULT_BLEU_TOKENIZER, BleuMetric, ChrfMetric
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.seq2seq import Seq2SeqBatch
@@ -339,7 +340,7 @@ class MTLossEvalUnit(EvalUnit[Seq2SeqBatch]):
 
         self._criterion = criterion
 
-        self._metric_bag = Seq2SeqMetricBag(gangs.dp, train=False)
+        self._metric_bag = Seq2SeqMetricBag(gangs.dp)
 
     @override
     def __call__(self, batch: Seq2SeqBatch) -> None:
@@ -357,7 +358,7 @@ class MTLossEvalUnit(EvalUnit[Seq2SeqBatch]):
 
     @property
     @override
-    def metric_bag(self) -> Seq2SeqMetricBag:
+    def metric_bag(self) -> MetricBag:
         return self._metric_bag
 
 
@@ -415,8 +416,8 @@ class MTBleuChrfEvalUnit(EvalUnit[Seq2SeqBatch]):
         bleu_metric = BleuMetric(device=device, tokenizer=bleu_tokenizer)
         chrf_metric = ChrfMetric(device=device)
 
-        self._metric_bag.register_metric("bleu", bleu_metric, persistent=False)
-        self._metric_bag.register_metric("chrf", chrf_metric, persistent=False)
+        self._metric_bag.bleu = bleu_metric
+        self._metric_bag.chrf = chrf_metric
 
     @override
     def __call__(self, batch: Seq2SeqBatch) -> None:
@@ -505,5 +506,5 @@ class MTBleuChrfEvalUnit(EvalUnit[Seq2SeqBatch]):
 
     @property
     @override
-    def metric_bag(self) -> Seq2SeqGenerationMetricBag:
+    def metric_bag(self) -> MetricBag:
         return self._metric_bag

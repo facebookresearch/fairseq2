@@ -22,6 +22,7 @@ from fairseq2.datasets.speech import (
     SpeechReadOptions,
 )
 from fairseq2.gang import Gangs
+from fairseq2.metrics import MetricBag
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2 import Wav2Vec2Model
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
@@ -330,5 +331,5 @@ class Wav2Vec2TrainUnit(TrainUnit[SequenceBatch]):
 
     @property
     @override
-    def metric_bag(self) -> Wav2Vec2MetricBag:
+    def metric_bag(self) -> MetricBag:
         return self._metric_bag

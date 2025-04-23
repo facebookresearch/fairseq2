@@ -43,9 +43,9 @@ class MTCriterion:
     ) -> tuple[Tensor, int]:
         input_batch, target_batch = as_auto_regressive_input(batch)
 
-        output = self._forward(input_batch)
+        model_output: SequenceModelOutput = self._model.module(input_batch)
 
-        loss = output.compute_loss(
+        loss = model_output.compute_loss(
             target_batch.seqs, label_smoothing=self._label_smoothing
         )
 
@@ -54,9 +54,6 @@ class MTCriterion:
         metric_bag.update_batch_metrics(input_batch)
 
         return loss, batch.num_target_elements()
-
-    def _forward(self, batch: Seq2SeqBatch) -> SequenceModelOutput:
-        return self._model.module(batch)  # type: ignore[no-any-return]
 
     @property
     def model(self) -> Model:

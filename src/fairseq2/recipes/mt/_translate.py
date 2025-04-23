@@ -25,6 +25,7 @@ from fairseq2.file_system import FileMode
 from fairseq2.gang import Gangs
 from fairseq2.generation import BeamSearchConfig, Seq2SeqGenerator
 from fairseq2.generation.text import SequenceToTextConverter
+from fairseq2.metrics import MetricBag
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.recipes import (
@@ -364,5 +365,5 @@ class TextTranslationUnit(GeneratorUnit[SequenceBatch]):
 
     @property
     @override
-    def metric_bag(self) -> Seq2SeqGenerationMetricBag:
+    def metric_bag(self) -> MetricBag:
         return self._metric_bag

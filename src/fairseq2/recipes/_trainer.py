@@ -55,7 +55,7 @@ from fairseq2.recipes._error import (
     RecipeError,
     UnitError,
 )
-from fairseq2.recipes._metrics import extend_batch_metrics
+from fairseq2.recipes._metrics import extend_batch_metric_values
 from fairseq2.recipes._model import Model
 from fairseq2.recipes._recipe import Recipe, RecipeStopException
 from fairseq2.recipes._validator import Validator
@@ -421,11 +421,9 @@ class Trainer(Recipe, Generic[BatchT]):
 
         self._keep_checkpoint_every_n_steps = keep_checkpoint_every_n_steps
 
-        unit.metric_bag.register_metric(
-            "gradient_norm", Mean(device=gangs.root.device), persistent=False
-        )
-
         self._metric_bag = unit.metric_bag
+
+        self._metric_bag.gradient_norm = Mean(device=gangs.root.device)
 
         self._metric_recorder = metric_recorder
 
@@ -985,7 +983,7 @@ class Trainer(Recipe, Generic[BatchT]):
 
             compute_time = self._compute_watch.get_elapsed_time()
 
-            extend_batch_metrics(
+            extend_batch_metric_values(
                 values, self._num_batches_read, data_time + compute_time
             )
 
@@ -1015,10 +1013,12 @@ class Trainer(Recipe, Generic[BatchT]):
                 "The collective barrier after the metric sync operation has failed. See the nested exception for details."
             ) from ex
 
-        self._reset_lapse_metrics()
+        self._reset_lapse_state()
 
-    def _reset_lapse_metrics(self) -> None:
-        self._metric_bag.reset_non_persistent_metrics()
+    def _reset_lapse_state(self) -> None:
+        for name, metric in self._metric_bag.metrics.items():
+            if not name.startswith("total_"):
+                metric.reset()
 
         self._data_watch.reset()
 

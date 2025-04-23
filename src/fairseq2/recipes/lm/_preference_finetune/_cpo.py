@@ -16,7 +16,7 @@ from typing_extensions import override
 
 from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.gang import Gang, Gangs
-from fairseq2.metrics import Mean
+from fairseq2.metrics import Mean, MetricBag
 from fairseq2.models.sequence import SequenceModelOutput, as_auto_regressive_input
 from fairseq2.recipes import Model, TrainUnit
 from fairseq2.utils.structured import structure
@@ -116,7 +116,7 @@ class CpoFinetuneUnit(TrainUnit[PreferenceBatch]):
 
     @property
     @override
-    def metric_bag(self) -> CpoFinetuneMetricBag:
+    def metric_bag(self) -> MetricBag:
         return self._metric_bag
 
 
@@ -128,17 +128,10 @@ class CpoFinetuneMetricBag(POFinetuneMetricBag):
     def __init__(self, gang: Gang) -> None:
         super().__init__(gang)
 
-        self.register_metric("cpo_loss", Mean(device=gang.device), persistent=False)
+        self.cpo_loss = Mean(device=gang.device)
 
     @torch.inference_mode()
     def update_cpo_loss(self, batch: PreferenceBatch, loss: Tensor) -> None:
-        """Update the CPO loss metric.
-
-        :param batch:
-            The batch processed by the model.
-        :param loss:
-            The CPO loss of ``batch``.
-        """
         self.cpo_loss.update(
             loss / batch.chosen.batch_size, weight=batch.chosen.batch_size
         )

@@ -32,7 +32,7 @@ from fairseq2.utils.stopwatch import Stopwatch
 # isort: split
 
 from fairseq2.recipes._error import RecipeError, UnitError
-from fairseq2.recipes._metrics import extend_batch_metrics
+from fairseq2.recipes._metrics import extend_batch_metric_values
 from fairseq2.recipes._model import Model
 from fairseq2.recipes._recipe import Recipe, RecipeStopException
 
@@ -323,6 +323,8 @@ class Evaluator(Recipe, Generic[BatchT]):
             if values is None:
                 raise InternalError("`values` is `None`.")
 
+            values = {k: v for k, v in values.items() if not k.startswith("total_")}
+
             device_stats = self._device_stat_tracker.get_stats()
 
             values.update(device_stats)
@@ -331,7 +333,7 @@ class Evaluator(Recipe, Generic[BatchT]):
 
             compute_time = self._compute_watch.get_elapsed_time()
 
-            extend_batch_metrics(
+            extend_batch_metric_values(
                 values, self._num_batches_read, data_time + compute_time
             )
 
@@ -367,9 +369,9 @@ class Evaluator(Recipe, Generic[BatchT]):
                 "The collective barrier after the metric sync operation has failed. See the nested exception for details."
             ) from ex
 
-        self._reset_lapse_metrics(unit)
+        self._reset_lapse_state(unit)
 
-    def _reset_lapse_metrics(self, unit: EvalUnit[BatchT]) -> None:
+    def _reset_lapse_state(self, unit: EvalUnit[BatchT]) -> None:
         unit.metric_bag.reset_metrics()
 
         self._data_watch.reset()
