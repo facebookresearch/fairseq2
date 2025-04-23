@@ -304,13 +304,15 @@ def _register_filesystems(context: Any) -> None:
         if hasattr(context, "storage_options"):
             all_storage_options = getattr(context, "storage_options", {})
             storage_options = all_storage_options.get(protocol, {})
-
-        fsspec = filesystem(protocol, **storage_options)
-        prefix = f"{protocol}://"
-        FileSystemRegistry.register(
-            lambda p: str(p).startswith(prefix),
-            lambda: FSspecFileSystem(fsspec, prefix),
-        )
+        try:
+            fsspec = filesystem(protocol, **storage_options)
+            prefix = f"{protocol}://"
+            FileSystemRegistry.register(
+                lambda p: str(p).startswith(prefix),
+                lambda: FSspecFileSystem(fsspec, prefix),
+            )
+        except ImportError:
+            pass
 
 
 path_fs_resolver = FileSystemRegistry.resolve_filesystem
