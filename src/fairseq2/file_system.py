@@ -19,9 +19,14 @@ from shutil import copytree, rmtree
 from tempfile import TemporaryDirectory
 from typing import Any, BinaryIO, Dict, List, TextIO, Tuple, TypeAlias, cast, final
 
-import fsspec
-from fsspec.implementations.local import LocalFileSystem as fsspec_LocalFileSystem
-from fsspec.registry import available_protocols, filesystem
+import fsspec  # type: ignore[import-untyped]
+from fsspec.implementations.local import (
+    LocalFileSystem as fsspec_LocalFileSystem,  # type: ignore[import-untyped]
+)
+from fsspec.registry import (  # type: ignore[import-untyped]
+    available_protocols,
+    filesystem,
+)
 from typing_extensions import override
 
 from fairseq2.typing import ContextManager
@@ -147,15 +152,15 @@ class FSspecFileSystem(FileSystem):
 
     @override
     def is_file(self, path: Path) -> bool:
-        return self.__fsspec.isfile(self.get_short_uri(path))
+        return bool(self.__fsspec.isfile(self.get_short_uri(path)))
 
     @override
     def is_dir(self, path: Path) -> bool:
-        return self.__fsspec.isdir(self.get_short_uri(path))
+        return bool(self.__fsspec.isdir(self.get_short_uri(path)))
 
     @override
     def exists(self, path: Path) -> bool:
-        return self.__fsspec.exists(self.get_short_uri(path))
+        return bool(self.__fsspec.exists(self.get_short_uri(path)))
 
     @override
     def open(self, path: Path, mode: FileMode = FileMode.READ) -> BinaryIO:
@@ -322,7 +327,7 @@ def _register_filesystems(context: Any) -> None:
                 lambda p: str(p).startswith(prefix),
                 lambda: FSspecFileSystem(fsspec, prefix),
             )
-        except (ImportError, OSError, ValueError):
+        except (ImportError, OSError, ValueError, TypeError):
             pass
 
 
