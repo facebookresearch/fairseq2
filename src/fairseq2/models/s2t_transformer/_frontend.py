@@ -104,7 +104,7 @@ class S2TTransformerFrontend(TransformerFrontend):
     ) -> tuple[Tensor, PaddingMask | None]:
         if state_bag is not None:
             raise NotSupportedError(
-                "`S2TTransformerFrontend` does not support incremental decoding."
+                f"`{S2TTransformerFrontend}` does not support incremental decoding."
             )
 
         if self.feature_extractor is not None:

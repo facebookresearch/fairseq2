@@ -924,7 +924,9 @@ class StaticAttentionState(AttentionState):
 
     @override
     def append(self, k: Tensor, v: Tensor) -> None:
-        raise NotSupportedError(f"`{type(self)}` does not support `append()`.")
+        raise NotSupportedError(
+            f"`{StaticAttentionState}` does not support `append()`."
+        )
 
     @override
     def get(self) -> tuple[Tensor, Tensor]:

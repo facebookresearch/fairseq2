@@ -23,12 +23,7 @@ from fairseq2.config_registry import ConfigNotFoundError, ConfigProvider
 from fairseq2.device import default_device_and_dtype
 from fairseq2.error import ContractError, NotSupportedError
 from fairseq2.gang import Gangs
-from fairseq2.nn.data_parallel import (
-    FsdpGranularity,
-    FsdpWrapper,
-    apply_default_fsdp,
-    load_with_sdp_gang,
-)
+from fairseq2.nn.data_parallel import FsdpGranularity, FsdpWrapper, load_with_sdp_gang
 from fairseq2.nn.utils.module import (
     load_state_dict,
     reset_non_persistent_buffers,
@@ -54,7 +49,7 @@ from fairseq2.models._error import (
 
 class ModelHandler(ABC):
     @abstractmethod
-    def get_config(self, arch: str | None) -> object: ...
+    def get_arch_config(self, arch: str | None) -> object: ...
 
     @abstractmethod
     def load_config(self, card: AssetCard) -> object: ...
@@ -79,7 +74,7 @@ class ModelHandler(ABC):
     def load_from_path(
         self,
         path: Path,
-        model_name: str,
+        name: str,
         config: object,
         gangs: Gangs,
         dtype: DataType,
@@ -92,9 +87,12 @@ class ModelHandler(ABC):
     def compile(self, model: Module, **kwargs: Any) -> None: ...
 
     @abstractmethod
+    def apply_activation_checkpointing(self, model: Module) -> None: ...
+
+    @abstractmethod
     def apply_fsdp(
         self, model: Module, granularity: FsdpGranularity, wrapper: FsdpWrapper
-    ) -> Module: ...
+    ) -> None: ...
 
     @property
     @abstractmethod
@@ -114,11 +112,19 @@ class ModelHandler(ABC):
 
     @property
     @abstractmethod
-    def supports_sharding(self) -> bool: ...
+    def supports_model_parallelism(self) -> bool: ...
 
     @property
     @abstractmethod
     def supports_compilation(self) -> bool: ...
+
+    @property
+    @abstractmethod
+    def supports_activation_checkpointing(self) -> bool: ...
+
+    @property
+    @abstractmethod
+    def supports_fsdp(self) -> bool: ...
 
 
 ModelT_co = TypeVar("ModelT_co", bound=Module, covariant=True)
@@ -149,13 +155,23 @@ class ModelCompiler(Protocol[ModelT_contra]):
     def __call__(self, model: ModelT_contra, **kwargs: Any) -> None: ...
 
 
+class ActivationCheckpointApplier(Protocol[ModelT_contra]):
+    def __call__(self, model: ModelT_contra) -> None: ...
+
+
+class FsdpApplier(Protocol[ModelT_contra]):
+    def __call__(
+        self, model: ModelT_contra, granularity: FsdpGranularity, wrapper: FsdpWrapper
+    ) -> None: ...
+
+
 ModelT = TypeVar("ModelT", bound=Module)
 
 ModelConfigT = TypeVar("ModelConfigT")
 
 
 @final
-class StandardModelHandler(ModelHandler):
+class DelegatingModelHandler(ModelHandler):
     _family: str
     _kls: type[Module]
     _configs: ConfigProvider[object]
@@ -168,6 +184,8 @@ class StandardModelHandler(ModelHandler):
     _checkpoint_converter: CheckpointConverter[Any] | None
     _sharder: ModelSharder[Any, Any] | None
     _compiler: ModelCompiler[Any] | None
+    _ac_applier: ActivationCheckpointApplier[Any] | None
+    _fsdp_applier: FsdpApplier[Any] | None
 
     def __init__(
         self,
@@ -184,6 +202,8 @@ class StandardModelHandler(ModelHandler):
         checkpoint_converter: CheckpointConverter[ModelConfigT] | None = None,
         sharder: ModelSharder[ModelT, ModelConfigT] | None = None,
         compiler: ModelCompiler[ModelT] | None = None,
+        ac_applier: ActivationCheckpointApplier[ModelT] | None = None,
+        fsdp_applier: FsdpApplier[ModelT] | None = None,
     ) -> None:
         self._family = family
         self._kls = kls
@@ -197,9 +217,11 @@ class StandardModelHandler(ModelHandler):
         self._checkpoint_converter = checkpoint_converter
         self._sharder = sharder
         self._compiler = compiler
+        self._ac_applier = ac_applier
+        self._fsdp_applier = fsdp_applier
 
     @override
-    def get_config(self, arch: str | None) -> object:
+    def get_arch_config(self, arch: str | None) -> object:
         if arch is None:
             effective_arch = self._default_arch
         else:
@@ -217,7 +239,7 @@ class StandardModelHandler(ModelHandler):
 
     @override
     def load_config(self, card: AssetCard) -> object:
-        model_name = card.name
+        name = card.name
 
         try:
             arch = card.field("model_arch").as_(str)
@@ -225,16 +247,14 @@ class StandardModelHandler(ModelHandler):
             arch = None
         except AssetCardError as ex:
             raise ModelConfigLoadError(
-                model_name, f"The '{model_name}' asset card cannot be read. See the nested exception for details."  # fmt: skip
+                name, f"The '{name}' asset card cannot be read. See the nested exception for details."  # fmt: skip
             ) from ex
 
         try:
-            config = self.get_config(arch)
+            config = self.get_arch_config(arch)
         except ConfigNotFoundError:
             if arch is not None:
-                raise UnknownModelArchitectureError(
-                    arch, self._family, model_name
-                ) from None
+                raise UnknownModelArchitectureError(arch, self._family, name) from None
 
             raise
 
@@ -271,7 +291,7 @@ class StandardModelHandler(ModelHandler):
                 config = structure(unstructured_config, type(config))
             except MergeError as ex:
                 raise ModelConfigLoadError(
-                    model_name, f"The '{model_name}' asset card does not contain a valid model configuration. See the nested exception for details."  # fmt: skip
+                    name, f"The '{name}' asset card does not contain a valid model configuration. See the nested exception for details."  # fmt: skip
                 ) from ex
 
         return config
@@ -296,32 +316,32 @@ class StandardModelHandler(ModelHandler):
         *,
         mmap: bool = False,
     ) -> Module:
-        model_name = card.name
+        name = card.name
 
         try:
             num_shards = card.field("num_shards").as_(int)
             if num_shards < 1:
                 raise AssetCardError(
-                    model_name, f"The value of the 'num_shards' field of the '{model_name}' asset card is expected to be a positive integer, but is {num_shards} instead."  # fmt: skip
+                    name, f"The value of the 'num_shards' field of the '{name}' asset card is expected to be a positive integer, but is {num_shards} instead."  # fmt: skip
                 )
         except AssetCardFieldNotFoundError:
             num_shards = 1
         except AssetCardError as ex:
-            raise model_asset_card_error(model_name) from ex
+            raise model_asset_card_error(name) from ex
 
         if num_shards > 1 and gangs.tp.size != num_shards:
-            raise ShardedModelLoadError(model_name, num_shards, gangs.tp.size)
+            raise ShardedModelLoadError(name, num_shards, gangs.tp.size)
 
         # Load the checkpoint.
         try:
             checkpoint_uri = card.field("checkpoint").as_uri()
         except AssetCardError as ex:
-            raise model_asset_card_error(model_name) from ex
+            raise model_asset_card_error(name) from ex
 
         shard_idx = gangs.tp.rank if num_shards > 1 else 0
 
         path = self._asset_download_manager.download_checkpoint(
-            checkpoint_uri, model_name, shard_idx=shard_idx
+            checkpoint_uri, name, shard_idx=shard_idx
         )
 
         # Load the configuration.
@@ -330,7 +350,7 @@ class StandardModelHandler(ModelHandler):
                 config = self.load_config(card)
             except ModelConfigLoadError as ex:
                 raise ModelLoadError(
-                    model_name, f"The '{model_name}' model configuration cannot be loaded. See the nested exception for details."  # fmt: skip
+                    name, f"The '{name}' model configuration cannot be loaded. See the nested exception for details."  # fmt: skip
                 ) from ex
 
             has_custom_config = False
@@ -342,29 +362,29 @@ class StandardModelHandler(ModelHandler):
         except AssetCardFieldNotFoundError:
             restrict = None
         except AssetCardError as ex:
-            raise model_asset_card_error(model_name) from ex
+            raise model_asset_card_error(name) from ex
 
         try:
             return self.load_from_path(
-                path, model_name, config, gangs, dtype, restrict=restrict, mmap=mmap
+                path, name, config, gangs, dtype, restrict=restrict, mmap=mmap
             )
         except FileNotFoundError:
             raise ModelLoadError(
-                model_name, f"The '{model_name}' model cannot be found at the '{path}' path."  # fmt: skip
+                name, f"The '{name}' model cannot be found at the '{path}' path."  # fmt: skip
             ) from None
         except ValueError as ex:
             if has_custom_config:
                 raise
 
             raise ModelLoadError(
-                model_name, f"The '{model_name}' asset card does not contain a valid model configuration of the '{self._family}' family. See the nested exception for details."  # fmt: skip
+                name, f"The '{name}' asset card does not contain a valid model configuration of the '{self._family}' family. See the nested exception for details."  # fmt: skip
             ) from ex
 
     @override
     def load_from_path(
         self,
         path: Path,
-        model_name: str,
+        name: str,
         config: object,
         gangs: Gangs,
         dtype: DataType,
@@ -382,9 +402,9 @@ class StandardModelHandler(ModelHandler):
         validate(config)
 
         # Create the model.
-        model = self._do_create(config, gangs, dtype, meta=self.supports_meta)
+        model = self._do_create(config, gangs, dtype, meta=self._supports_meta)
 
-        if self.supports_meta:
+        if self._supports_meta:
             # Move the model to the actual device without initializing. Its
             # state will be overwritten by the checkpoint anyways.
             to_empty(model, device=gangs.root.device)
@@ -399,20 +419,20 @@ class StandardModelHandler(ModelHandler):
                 )
             except TensorLoadError as ex:
                 raise ModelLoadError(
-                    model_name, f"The checkpoint of the '{model_name}' model cannot be loaded. See the nested exception for details."  # fmt: skip
+                    name, f"The checkpoint of the '{name}' model cannot be loaded. See the nested exception for details."  # fmt: skip
                 ) from ex
 
         if "fs2" not in checkpoint:
             if self._checkpoint_converter is None:
                 raise ModelLoadError(
-                    model_name, f"The checkpoint of the '{model_name}' model is not fairseq2 compatible."  # fmt: skip
+                    name, f"The checkpoint of the '{name}' model is not fairseq2 compatible."  # fmt: skip
                 )
 
             try:
                 checkpoint = self._checkpoint_converter(checkpoint, config)
             except (KeyError, ValueError) as ex:
                 raise ModelLoadError(
-                    model_name, f"The checkpoint of the '{model_name}' model cannot be converted to a fairseq2 compatible format. See the nested exception for details."  # fmt: skip
+                    name, f"The checkpoint of the '{name}' model cannot be converted to a fairseq2 compatible format. See the nested exception for details."  # fmt: skip
                 ) from ex
 
         # Load the model state.
@@ -420,29 +440,29 @@ class StandardModelHandler(ModelHandler):
 
         if not isinstance(model_key, str):
             raise ModelLoadError(
-                model_name, f"The 'model_key' in the '{model_name}' checkpoint is expected to be of type `str`, but is of type `{type(model_key)}` instead."  # fmt: skip
+                name, f"The 'model_key' in the '{name}' checkpoint is expected to be of type `str`, but is of type `{type(model_key)}` instead."  # fmt: skip
             )
 
         try:
             state_dict = checkpoint[model_key]
         except KeyError:
             raise ModelLoadError(
-                model_name, f"The '{model_name}' checkpoint does not contain a '{model_key}' key."  # fmt: skip
+                name, f"The '{name}' checkpoint does not contain a '{model_key}' key."  # fmt: skip
             ) from None
 
         if not isinstance(state_dict, dict):
             raise ModelLoadError(
-                model_name, f"The model state dictionary in the '{model_name}' checkpoint is expected to be of type `dict`, but is of type `{type(state_dict)}` instead."  # fmt: skip
+                name, f"The model state dictionary in the '{name}' checkpoint is expected to be of type `dict`, but is of type `{type(state_dict)}` instead."  # fmt: skip
             )
 
         try:
             load_state_dict(model, state_dict)
         except (KeyError, ValueError) as ex:
             raise ModelLoadError(
-                model_name, f"The state of the '{model_name}' model cannot be loaded from the checkpoint. See the nested exception for details."  # fmt: skip
+                name, f"The state of the '{name}' model cannot be loaded from the checkpoint. See the nested exception for details."  # fmt: skip
             ) from ex
 
-        if self.supports_meta:
+        if self._supports_meta:
             # Non-persistent buffers are not included in the checkpoint, so we
             # have to explicitly initialize them.
             reset_non_persistent_buffers(model)
@@ -453,7 +473,7 @@ class StandardModelHandler(ModelHandler):
         self, config: object, gangs: Gangs, dtype: DataType, meta: bool
     ) -> Module:
         if meta:
-            if not self.supports_meta:
+            if not self._supports_meta:
                 raise NotSupportedError(
                     f"The '{self._family}' model family does not support meta device initialization."
                 )
@@ -503,10 +523,34 @@ class StandardModelHandler(ModelHandler):
         self._compiler(model, **kwargs)
 
     @override
+    def apply_activation_checkpointing(self, model: Module) -> None:
+        if self._ac_applier is None:
+            raise NotSupportedError(
+                f"The '{self._family}' model family does not support activation checkpointing."
+            )
+
+        if not isinstance(model, self._kls):
+            raise TypeError(
+                f"`model` must be of type `{self._kls}`, but is of type `{type(model)}` instead."
+            )
+
+        self._ac_applier(model)
+
+    @override
     def apply_fsdp(
         self, model: Module, granularity: FsdpGranularity, wrapper: FsdpWrapper
-    ) -> Module:
-        return apply_default_fsdp(model, granularity, wrapper)
+    ) -> None:
+        if self._fsdp_applier is None:
+            raise NotSupportedError(
+                f"The '{self._family}' model family does not support FSDP."
+            )
+
+        if not isinstance(model, self._kls):
+            raise TypeError(
+                f"`model` must be of type `{self._kls}`, but is of type `{type(model)}` instead."
+            )
+
+        self._fsdp_applier(model, granularity, wrapper)
 
     @property
     @override
@@ -530,10 +574,20 @@ class StandardModelHandler(ModelHandler):
 
     @property
     @override
-    def supports_sharding(self) -> bool:
+    def supports_model_parallelism(self) -> bool:
         return self._sharder is not None
 
     @property
     @override
     def supports_compilation(self) -> bool:
         return self._compiler is not None
+
+    @property
+    @override
+    def supports_activation_checkpointing(self) -> bool:
+        return self._ac_applier is not None
+
+    @property
+    @override
+    def supports_fsdp(self) -> bool:
+        return self._fsdp_applier is not None

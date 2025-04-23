@@ -202,7 +202,7 @@ class FakeGang(Gang):
     @override
     def as_process_group(self) -> ProcessGroup:
         raise NotSupportedError(
-            "`FakeGang` does not support conversion to a process group."
+            f"`{FakeGang}` does not support conversion to a process group."
         )
 
     @override
@@ -218,7 +218,7 @@ class FakeGang(Gang):
                 tensor.pow_(self._size)
             case _:
                 raise NotSupportedError(
-                    "`FakeGang` supports only `SUM` and `PRODUCT` reduce operations."
+                    f"`{FakeGang}` supports only `SUM` and `PRODUCT` reduce operations, but `op` is `{op.name}` instead."
                 )
 
     @override
@@ -314,7 +314,7 @@ class ProcessGroupGang(Gang):
             backend = Backend.NCCL
         else:
             raise NotSupportedError(
-                f"`device` must be of type `cpu` and `cuda`, but is of type `{device.type}` instead."
+                f"`{ProcessGroupGang}` supports only `cpu` and `cuda` device types, but `device` is of type `{device.type}` instead."
             )
 
         if device.type == "cuda":
@@ -471,7 +471,7 @@ class ProcessGroupGang(Gang):
             return ReduceOp.MAX
 
         raise NotSupportedError(
-            f"`{op}` operation is not supported by the underlying process group."
+            f"`{ProcessGroup}` does not support `{op}` reduce operation."
         )
 
 

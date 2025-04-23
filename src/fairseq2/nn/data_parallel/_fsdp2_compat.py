@@ -59,4 +59,4 @@ def fsdp2_summon_full_parameters(fsdp_module: Fsdp2Module) -> ContextManager:
 
 
 def _raise_error() -> NoReturn:
-    raise NotSupportedError("FSDP2 requires PyTorch 2.6 or later.")
+    raise NotSupportedError("FSDP2 is only supported by PyTorch 2.6 and later.")

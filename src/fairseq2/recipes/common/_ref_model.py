@@ -42,7 +42,7 @@ from fairseq2.typing import DataType
 
 from fairseq2.recipes.common._distributed import broadcast_model
 from fairseq2.recipes.common._error import ModelParallelismNotSupportedError
-from fairseq2.recipes.common._model import BasicModel, maybe_compile_model
+from fairseq2.recipes.common._model import BasicModel, maybe_torch_compile_model
 
 
 def setup_reference_model(
@@ -135,7 +135,7 @@ class ReferenceModelLoader:
             raise InvalidModelTypeError(model_name, handler.kls, self._kls) from None
 
         if gangs.root.size != gangs.dp.size:
-            if not handler.supports_sharding:
+            if not handler.supports_model_parallelism:
                 raise ModelParallelismNotSupportedError(model_name)
 
         try:
@@ -184,6 +184,6 @@ def prepare_reference_model(
 ) -> Model:
     remove_parametrizations(model.module)
 
-    maybe_compile_model(model, torch_compile_section)
+    maybe_torch_compile_model(model, torch_compile_section)
 
     return model

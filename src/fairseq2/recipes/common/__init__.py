@@ -21,13 +21,19 @@ from fairseq2.recipes.common._distributed import (
     setup_data_parallel_model as setup_data_parallel_model,
 )
 from fairseq2.recipes.common._error import (
+    ActivationCheckpointingNotSupportedError as ActivationCheckpointingNotSupportedError,
+)
+from fairseq2.recipes.common._error import (
     DatasetPathNotFoundError as DatasetPathNotFoundError,
+)
+from fairseq2.recipes.common._error import (
+    FsdpNotSupportedError as FsdpNotSupportedError,
 )
 from fairseq2.recipes.common._error import (
     HybridShardingNotSupportedError as HybridShardingNotSupportedError,
 )
 from fairseq2.recipes.common._error import (
-    InvalidCheckpointPathError as InvalidCheckpointPathError,
+    InvalidModelPathError as InvalidModelPathError,
 )
 from fairseq2.recipes.common._error import (
     ModelCompilationNotSupportedError as ModelCompilationNotSupportedError,
@@ -52,7 +58,9 @@ from fairseq2.recipes.common._metrics import (
     create_metric_recorder as create_metric_recorder,
 )
 from fairseq2.recipes.common._model import load_base_model as load_base_model
-from fairseq2.recipes.common._model import maybe_compile_model as maybe_compile_model
+from fairseq2.recipes.common._model import (
+    maybe_torch_compile_model as maybe_torch_compile_model,
+)
 from fairseq2.recipes.common._model import prepare_model as prepare_model
 from fairseq2.recipes.common._model import setup_model as setup_model
 from fairseq2.recipes.common._optim import create_lr_scheduler as create_lr_scheduler

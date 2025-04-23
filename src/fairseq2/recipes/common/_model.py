@@ -45,7 +45,6 @@ from fairseq2.models import (
     UnknownModelFamilyError,
     model_asset_card_error,
 )
-from fairseq2.models.checkpointing import use_layerwise_activation_checkpointing
 from fairseq2.nn.utils.gradient import clip_gradient_norm
 from fairseq2.recipes import Model, RecipeError
 from fairseq2.recipes.config import ModelSection, TorchCompileSection, TrainerSection
@@ -60,7 +59,8 @@ from fairseq2.utils.yaml import RuamelYamlDumper
 
 from fairseq2.recipes.common._distributed import setup_data_parallel_model
 from fairseq2.recipes.common._error import (
-    InvalidCheckpointPathError,
+    ActivationCheckpointingNotSupportedError,
+    InvalidModelPathError,
     ModelCompilationNotSupportedError,
     ModelParallelismNotSupportedError,
     ModelPathNotFoundError,
@@ -216,7 +216,7 @@ class CardBasedModelLoader(ModelLoader):
             raise InvalidModelTypeError(model_name, handler.kls, self._kls)
 
         if gangs.root.size != gangs.dp.size:
-            if not handler.supports_sharding:
+            if not handler.supports_model_parallelism:
                 raise ModelParallelismNotSupportedError(model_name)
 
         try:
@@ -348,13 +348,13 @@ class PathBasedModelLoader(ModelLoader):
             raise InvalidModelTypeError(model_name, handler.kls, self._kls)
 
         if gangs.root.size != gangs.dp.size:
-            if not handler.supports_sharding:
+            if not handler.supports_model_parallelism:
                 raise ModelParallelismNotSupportedError(model_name)
 
         model_arch = model_section.arch
 
         try:
-            model_config = handler.get_config(model_arch)
+            model_config = handler.get_arch_config(model_arch)
         except ConfigNotFoundError:
             if model_arch is not None:
                 raise UnknownModelArchitectureError(
@@ -457,7 +457,7 @@ class PathBasedModelLoader(ModelLoader):
         try:
             return Path(model_pathname)
         except ValueError:
-            raise InvalidCheckpointPathError(model_pathname) from None
+            raise InvalidModelPathError(model_pathname) from None
 
 
 @final
@@ -498,13 +498,13 @@ class EmptyModelLoader(ModelLoader):
             raise InvalidModelTypeError(model_name, handler.kls, self._kls)
 
         if gangs.root.size != gangs.dp.size:
-            if not handler.supports_sharding:
+            if not handler.supports_model_parallelism:
                 raise ModelParallelismNotSupportedError(model_name)
 
         model_arch = model_section.arch
 
         try:
-            model_config = handler.get_config(model_arch)
+            model_config = handler.get_arch_config(model_arch)
         except ConfigNotFoundError:
             if model_arch is not None:
                 raise UnknownModelArchitectureError(
@@ -695,14 +695,17 @@ def prepare_model(
     context: RuntimeContext, trainer_section: TrainerSection, model: Model
 ) -> Model:
     if trainer_section.activation_checkpointing:
-        use_layerwise_activation_checkpointing(model.module)
+        if not model.handler.supports_activation_checkpointing:
+            raise ActivationCheckpointingNotSupportedError(model.name)
 
-    maybe_compile_model(model, trainer_section.torch_compile)
+        model.handler.apply_activation_checkpointing(model.module)
+
+    maybe_torch_compile_model(model, trainer_section.torch_compile)
 
     return model
 
 
-def maybe_compile_model(
+def maybe_torch_compile_model(
     model: Model, torch_compile_section: TorchCompileSection
 ) -> None:
     if not torch_compile_section.enabled:

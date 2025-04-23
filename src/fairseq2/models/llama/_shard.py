@@ -9,7 +9,7 @@ from __future__ import annotations
 from fairseq2.gang import Gangs
 from fairseq2.models.transformer_lm import (
     TransformerLanguageModel,
-    shard_transformer_language_model,
+    shard_transformer_lm,
 )
 
 # isort: split
@@ -22,4 +22,4 @@ def shard_llama_model(
 ) -> None:
     shard_embed_dim = config.max_seq_len < 8192  # LLaMA 1 or 2
 
-    shard_transformer_language_model(model, gangs, shard_embed_dim)
+    shard_transformer_lm(model, gangs, shard_embed_dim=shard_embed_dim)

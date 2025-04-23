@@ -138,7 +138,7 @@ class SafetensorLoader(TensorLoader):
 
     def __init__(self, file_system: FileSystem) -> None:
         if not file_system.is_local:
-            raise NotSupportedError("Safetensors supports only local file system.")
+            raise NotSupportedError("Safetensors supports only local file systems.")
 
         self._file_system = file_system
 
@@ -154,8 +154,8 @@ class SafetensorLoader(TensorLoader):
         try:
             from safetensors import safe_open  # type: ignore[import-not-found]
         except ImportError:
-            raise NotSupportedError(
-                "Safetensors not found in your Python environment. Use `pip install safetensors`."
+            raise RuntimeError(
+                "Safetensors is not found in your Python environment. Use `pip install safetensors`."
             )
 
         if map_location is not None:

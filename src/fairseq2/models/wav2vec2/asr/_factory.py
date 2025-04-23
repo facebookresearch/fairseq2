@@ -84,11 +84,11 @@ class Wav2Vec2AsrFactory:
             config.encoder_config.model_dim,
             config.target_vocab_size,
             bias=True,
-            init_fn=init_final_projection,
+            init_fn=_init_final_projection,
         )
 
 
-def init_final_projection(proj: Linear) -> None:
+def _init_final_projection(proj: Linear) -> None:
     nn.init.xavier_uniform_(proj.weight)
 
     if proj.bias is not None:
