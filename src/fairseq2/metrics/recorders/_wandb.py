@@ -9,12 +9,14 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final, final, Optional
+from typing import Final, Optional, final
 
 from fairseq2.logging import log
 from fairseq2.metrics import MetricDescriptor
 
 # isort: split
+
+from typing_extensions import override
 
 from fairseq2.metrics.recorders._handler import MetricRecorderHandler
 from fairseq2.metrics.recorders._recorder import (
@@ -24,9 +26,7 @@ from fairseq2.metrics.recorders._recorder import (
 )
 from fairseq2.registry import Provider
 from fairseq2.utils.structured import structure
-from fairseq2.utils.validation import validate, ValidationError, ValidationResult
-
-from typing_extensions import override
+from fairseq2.utils.validation import ValidationError, ValidationResult, validate
 
 try:
     import wandb  # type: ignore[import-not-found]

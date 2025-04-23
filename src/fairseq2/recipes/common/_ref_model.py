@@ -22,18 +22,20 @@ from fairseq2.gang import GangError, Gangs
 from fairseq2.logging import log
 from fairseq2.models import (
     InvalidModelTypeError,
-    model_asset_card_error,
     ModelConfigLoadError,
     ModelHandler,
     ModelLoadError,
     ShardedModelLoadError,
     UnknownModelError,
     UnknownModelFamilyError,
+    model_asset_card_error,
 )
 from fairseq2.nn.utils.module import remove_parametrizations
 from fairseq2.recipes import Model, RecipeError
 
 # isort: split
+
+from torch.nn import Module
 
 from fairseq2.recipes.common._distributed import broadcast_model
 from fairseq2.recipes.common._error import ModelParallelismNotSupportedError
@@ -42,7 +44,6 @@ from fairseq2.recipes.config import ReferenceModelSection, TorchCompileSection
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.registry import Provider
 from fairseq2.typing import DataType
-from torch.nn import Module
 
 
 def setup_reference_model(

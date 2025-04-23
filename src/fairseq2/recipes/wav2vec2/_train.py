@@ -46,7 +46,6 @@ from fairseq2.recipes.config import (
     RegimeSection,
     TrainerSection,
 )
-
 from fairseq2.recipes.wav2vec2._common import (
     Wav2Vec2Criterion,
     Wav2Vec2LossSection,
