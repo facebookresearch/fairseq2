@@ -21,7 +21,7 @@ from fairseq2.data.text.tokenizers import TextTokenizer
 from fairseq2.gang import Gangs
 from fairseq2.logging import LogWriter
 from fairseq2.metrics import format_as_byte_size
-from fairseq2.nn.utils.module import get_module_size
+from fairseq2.nn.utils.module import get_module_size_info
 from fairseq2.typing import Device
 
 
@@ -217,7 +217,7 @@ def log_model(log: LogWriter, model: Module, gangs: Gangs) -> None:
     if not log.is_enabled_for_info():
         return
 
-    si = get_module_size(model)
+    si = get_module_size_info(model)
 
     s = (
         f"Parameter Size: {si.param_size:,} | "
