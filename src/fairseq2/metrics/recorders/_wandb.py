@@ -78,6 +78,12 @@ class WandbRecorder(MetricRecorder):
         if self._run is None:
             return
 
+        try:
+            self._run.log({"_step": step_nr})  # Log to the specific step
+            self._run.step = step_nr  # Directly update the internal step counter
+        except:
+            ...
+
         for name, value in values.items():
             try:
                 descriptor = self._metric_descriptors.get(name)

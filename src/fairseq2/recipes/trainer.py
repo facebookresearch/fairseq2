@@ -629,7 +629,6 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
                 if self._should_validate():
                     self._validate()
-
                     self._maybe_request_early_stop()
 
                 if self._should_checkpoint():

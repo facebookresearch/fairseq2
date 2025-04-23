@@ -309,12 +309,31 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             rejected_output.logits, rejected_target_batch.target_mask
         )  # [Batch x Rollouts, 1]
 
+        all_entropy = []
+        all_entropy_first100 = []
+        # FIXME better way to get entropy from all rollouts?
+        for rollout_idx in range(len(rollouts[0].outputs)):
+            logprobs = rollouts[0].outputs[rollout_idx].logprobs
+            logprobs = [next(iter(x.values())).logprob for x in logprobs]
+            entropy = sum(logprobs) / len(logprobs)
+            entropy_first100 = sum(logprobs[0:100]) / len(logprobs[0:100])
+            all_entropy.append(entropy)
+            all_entropy_first100.append(entropy_first100)
+        total_logit_entropy = torch.tensor(all_entropy, device=self._gangs.dp.device)
+        total_logit_entropy_first100 = torch.tensor(
+            all_entropy_first100, device=self._gangs.dp.device
+        )
+
         max_entropy_regularizer = (
             -chosen_tgt_logit_entropy.sum()
             * self._loss_config.entropy_regularizer_scale
         )
         self.metric_bag.update_chosen_logit_entropy(chosen_tgt_logit_entropy)
         self.metric_bag.update_rejected_logit_entropy(rejected_tgt_logit_entropy)
+        self.metric_bag.update_total_logit_entropy(total_logit_entropy)
+        self.metric_bag.update_total_logit_entropy_first100(
+            total_logit_entropy_first100
+        )
 
         if self._reference_offload:
             token_ref_chosen_logps = self.compute_reference_logps(batch.chosen)
@@ -458,6 +477,8 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
     entropy_norm: Mean
     chosen_logit_entropy: Mean
     rejected_logit_entropy: Mean
+    total_logit_entropy: Mean
+    total_logit_entropy_first100: Mean
 
     def __init__(self, gang: Gang) -> None:
         super().__init__(gang)
@@ -490,6 +511,12 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
         self.register_metric(
             "rejected_logit_entropy", Mean(device=gang.device), persistent=False
         )
+        self.register_metric(
+            "total_logit_entropy", Mean(device=gang.device), persistent=False
+        )
+        self.register_metric(
+            "total_logit_entropy_first100", Mean(device=gang.device), persistent=False
+        )
 
     @torch.inference_mode()
     def update_chosen_logit_entropy(self, logit_entropy: Tensor):
@@ -504,6 +531,22 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
         # logit_entropy is expected to contain token-level entropy for every sequence in the current batch
         batch_size = logit_entropy.size(0)
         self.rejected_logit_entropy.update(
+            logit_entropy.sum() / batch_size, weight=batch_size
+        )
+
+    @torch.inference_mode()
+    def update_total_logit_entropy(self, logit_entropy: Tensor):
+        # logit_entropy is expected to contain token-level entropy for every sequence in the current batch
+        batch_size = logit_entropy.size(0)
+        self.total_logit_entropy.update(
+            logit_entropy.sum() / batch_size, weight=batch_size
+        )
+
+    @torch.inference_mode()
+    def update_total_logit_entropy_first100(self, logit_entropy: Tensor):
+        # logit_entropy is expected to contain token-level entropy for every sequence in the current batch
+        batch_size = logit_entropy.size(0)
+        self.total_logit_entropy_first100.update(
             logit_entropy.sum() / batch_size, weight=batch_size
         )
 

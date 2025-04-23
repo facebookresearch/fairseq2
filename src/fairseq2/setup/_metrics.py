@@ -80,6 +80,8 @@ def register_metric_descriptors(context: RuntimeContext) -> None:
     register("logit_entropy",         "Logit Entropy",                       51, format_as_float)
     register("chosen_logit_entropy",  "Chosen Logit Entropy",                51, format_as_float)
     register("rejected_logit_entropy","Rejected Logit Entropy",              51, format_as_float)
+    register("total_logit_entropy",   "Total Logit Entropy",                 51, format_as_float)
+    register("total_logit_entropy_first100",   "Total Logit Entropy (first 100)",51, format_as_float)
     register("rollout_lengths",       "Rollout Length",                      70, format_as_float)
     register("chosen_lengths",        "Chosen Sequence Length",              70, format_as_float)
     register("rejected_lengths",      "Rejected Sequence Length",            70, format_as_float)
