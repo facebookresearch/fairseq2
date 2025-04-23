@@ -174,7 +174,8 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         if self._gangs.dp.rank == 0:
             policy_sampling_params = copy(self._vllm_model.sampling_params)
             policy_sampling_params.n = self._vllm_model.valid_n
-            # policy_sampling_params.n = 16
+            policy_sampling_params.temperature = 0.6  # FIXME add to config
+            policy_sampling_params.top_p = 0.9  # FIXME add to config
         else:
             policy_sampling_params = None
 
@@ -261,11 +262,10 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             prompt_batch, rollouts, divpo_p=self._loss_config.divpo_p
         )  # loss_zeroer is used when entire batch has no valid prefrence pair
 
-        unique_1grams, unique_1grams_norm = self.get_unique_1grams(
-            reward_output["text"][0]
-        )
-        self_bleu_score = self.get_self_bleu_score(reward_output["text"][0])
-        compression_ratio = self.get_compression_ratio(reward_output["text"][0])
+        unique_1grams, unique_1grams_norm = get_unique_1grams(reward_output["text"][0])
+        self_bleu_score = get_self_bleu_score(reward_output["text"][0])
+        compression_ratio = get_compression_ratio(reward_output["text"][0])
+        entropy, entropy_norm = get_entropy(rollouts)
 
         if is_bad_batch:
             loss_zeroer = 0.0
@@ -372,7 +372,8 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             unique_1grams_norm,
             self_bleu_score,
             compression_ratio,
-            rollouts,
+            entropy,
+            entropy_norm,
         )
 
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()

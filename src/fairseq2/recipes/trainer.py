@@ -118,6 +118,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     _valid_data_readers: Sequence[DataReader[BatchT]]
     _validate_after_n_steps: int
     _validate_every_n_steps: int | None
+    _validate_step_0: bool
     _validate_after_n_data_epochs: int
     _validate_every_n_data_epochs: int | None
     _checkpoint_manager: CheckpointManager
@@ -177,6 +178,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         valid_data_readers: Sequence[DataReader[BatchT]] | None = None,
         validate_after_n_steps: int = 0,
         validate_every_n_steps: int | None = None,
+        validate_step_0: bool = False,
         validate_after_n_data_epochs: int = 0,
         validate_every_n_data_epochs: int | None = None,
         checkpoint_after_n_steps: int = 0,
@@ -235,6 +237,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             The number of steps after which to start validating the model.
         :param validate_every_n_steps:
             The step interval at which to validate the model.
+        :param validate_step_0:
+            Validate before training
         :param validate_after_n_data_epochs:
             The number of data epochs after which to start validating the model.
         :param validate_every_n_data_epochs:
@@ -390,6 +394,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         self._validate_after_n_data_epochs = validate_after_n_data_epochs
         self._validate_every_n_data_epochs = validate_every_n_data_epochs
+        self._validate_step_0 = validate_step_0
 
         self._checkpoint_manager = checkpoint_manager
 
@@ -600,7 +605,11 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
             first_iter = True
 
+            if self._validate_step_0:
+                self._validate()
+
             while self._should_run_step():
+
                 self._maybe_advance_data_epoch()
 
                 self._step_nr += 1

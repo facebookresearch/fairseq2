@@ -2,7 +2,6 @@ import string as string_lib
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 import gzip
 import torch
-from fairseq2.recipes.lm._online_finetune._rewards import extract_logprobs
 
 
 def get_compression_ratio(strings):
@@ -73,6 +72,14 @@ def get_unique_1grams(strings):
     num_unique_1grams_tensor = torch.Tensor([num_unique_1grams])
     num_unique_1grams_norm = torch.Tensor([num_unique_1grams_norm])
     return num_unique_1grams_tensor, num_unique_1grams_norm
+
+
+def extract_logprobs(data):
+    logprobs = []
+    for item in data:
+        for key, logprob in item.items():
+            logprobs.append(logprob.logprob)
+    return logprobs
 
 
 def get_entropy(rollouts):
