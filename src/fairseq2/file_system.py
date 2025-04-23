@@ -15,14 +15,14 @@ from shutil import copytree, rmtree
 from typing import Any, BinaryIO, Dict, List, TextIO, Tuple, TypeAlias, cast, final
 
 import fsspec  # type: ignore[import-untyped]
-from fsspec.implementations.local import (
-    LocalFileSystem as fsspec_LocalFileSystem,  # type: ignore[import-untyped]
-)
+import fsspec.implementations.local as fs_local  # type: ignore[import-untyped]
 from fsspec.registry import (  # type: ignore[import-untyped]
     available_protocols,
     filesystem,
 )
 from typing_extensions import override
+
+from fairseq2.logging import log
 
 
 class FileMode(Enum):
@@ -225,7 +225,7 @@ class FSspecFileSystem(FileSystem):
     @override
     def is_local(self) -> bool:
         try:
-            return isinstance(self.__fsspec, fsspec_LocalFileSystem)
+            return isinstance(self.__fsspec, fs_local.LocalFileSystem)  # type: ignore
         except ImportError:
             return False
 
@@ -239,7 +239,7 @@ class FileSystemRegistry:
         []
     )
     _fs_cache: Dict[Any, FileSystem] = {}
-    _local_fs: FileSystem = FSspecFileSystem(fsspec_LocalFileSystem(), "")
+    _local_fs: FileSystem = FSspecFileSystem(fs_local.LocalFileSystem(), "")
 
     @classmethod
     def register(
@@ -303,12 +303,14 @@ class FileSystemRegistry:
 
 
 def _register_filesystems(context: Any) -> None:
+    activated_protocol = []
     for protocol in available_protocols():
         # FIXME: to propagate different credentials from the context
         storage_options: Dict[str, Any] = {}
         if hasattr(context, "storage_options"):
             all_storage_options = getattr(context, "storage_options", {})
             storage_options = all_storage_options.get(protocol, {})
+
         try:
             fsspec = filesystem(protocol, **storage_options)
             prefix = f"{protocol}://"
@@ -316,8 +318,10 @@ def _register_filesystems(context: Any) -> None:
                 lambda p: str(p).startswith(prefix),
                 lambda: FSspecFileSystem(fsspec, prefix),
             )
+            activated_protocol.append(protocol)
         except Exception:
             pass
+    log.info(f"Activated FileSystem protocols:\n {activated_protocol}")
 
 
 path_fs_resolver = FileSystemRegistry.resolve_filesystem
