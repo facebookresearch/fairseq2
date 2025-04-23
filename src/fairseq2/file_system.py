@@ -322,7 +322,7 @@ def _register_filesystems(context: Any) -> None:
                 lambda p: str(p).startswith(prefix),
                 lambda: FSspecFileSystem(fsspec, prefix),
             )
-        except (ImportError, OSError):
+        except (ImportError, OSError, ValueError):
             pass
 
 
