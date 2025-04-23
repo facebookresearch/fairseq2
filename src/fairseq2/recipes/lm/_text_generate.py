@@ -175,7 +175,6 @@ def load_text_generator(
         gangs,
         config.generator.dtype,
         config.generator.amp,
-        config.generator.torch_compile,
     )
 
     dataset = load_dataset(InstructionDataset, context, config.dataset, gangs)

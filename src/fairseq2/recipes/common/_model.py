@@ -47,7 +47,7 @@ from fairseq2.models import (
 )
 from fairseq2.nn.utils.gradient import clip_gradient_norm
 from fairseq2.recipes import Model, RecipeError
-from fairseq2.recipes.config import ModelSection, TorchCompileSection, TrainerSection
+from fairseq2.recipes.config import CompileOptionsSection, ModelSection, TrainerSection
 from fairseq2.recipes.utils.log import log_config, log_model
 from fairseq2.registry import Provider
 from fairseq2.typing import ContextManager, DataClass, is_dataclass_instance
@@ -87,7 +87,7 @@ def setup_model(
         checkpoint_manager,
     )
 
-    model = prepare_model(context, trainer_section, model)
+    model = prepare_model(context, model, model_section, trainer_section)
 
     model = setup_data_parallel_model(
         context, trainer_section, model, gangs, static_graph
@@ -692,7 +692,10 @@ class BasicModel(Model):
 
 
 def prepare_model(
-    context: RuntimeContext, trainer_section: TrainerSection, model: Model
+    context: RuntimeContext,
+    model: Model,
+    model_section: ModelSection,
+    trainer_section: TrainerSection,
 ) -> Model:
     if trainer_section.activation_checkpointing:
         if not model.handler.supports_activation_checkpointing:
@@ -700,17 +703,13 @@ def prepare_model(
 
         model.handler.apply_activation_checkpointing(model.module)
 
-    maybe_torch_compile_model(model, trainer_section.torch_compile)
+    if model_section.compile:
+        compile_model(model, model_section.compile_options)
 
     return model
 
 
-def maybe_torch_compile_model(
-    model: Model, torch_compile_section: TorchCompileSection
-) -> None:
-    if not torch_compile_section.enabled:
-        return
-
+def compile_model(model: Model, options_section: CompileOptionsSection) -> None:
     if not model.handler.supports_compilation:
         raise ModelCompilationNotSupportedError(model.name)
 
@@ -719,11 +718,11 @@ def maybe_torch_compile_model(
     try:
         model.handler.compile(
             model.module,
-            fullgraph=torch_compile_section.fullgraph,
-            dynamic=torch_compile_section.dynamic,
-            backend=torch_compile_section.backend,
-            mode=torch_compile_section.mode,
-            options=torch_compile_section.options,
+            fullgraph=options_section.fullgraph,
+            dynamic=options_section.dynamic,
+            mode=options_section.mode,
+            backend=options_section.backend,
+            options=options_section.backend_options,
         )
     except RuntimeError as ex:
         raise RecipeError(

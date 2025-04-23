@@ -272,16 +272,13 @@ class DpoFinetuneUnitHandler(POFinetuneUnitHandler):
         if config.reference_model is not None:
             log.info("Setting up DPO with reference model.")
 
-            mp = False
-
             reference_model = setup_reference_model(
                 DecoderModel,
                 self._context,
                 config.reference_model,
                 gangs,
                 recipe_config.trainer.dtype,
-                mp,
-                recipe_config.trainer.torch_compile,
+                mp=False,
             )
 
             freeze_parameters(reference_model.module)

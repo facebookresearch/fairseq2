@@ -137,7 +137,6 @@ def load_lm_loss_evaluator(
         gangs,
         config.evaluator.dtype,
         config.evaluator.amp,
-        config.evaluator.torch_compile,
     )
 
     dataset = load_dataset(InstructionDataset, context, config.dataset, gangs)

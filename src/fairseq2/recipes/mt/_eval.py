@@ -170,7 +170,6 @@ def load_mt_evaluator(
         gangs,
         config.evaluator.dtype,
         config.evaluator.amp,
-        config.evaluator.torch_compile,
     )
 
     dataset = load_dataset(ParallelTextDataset, context, config.dataset, gangs)

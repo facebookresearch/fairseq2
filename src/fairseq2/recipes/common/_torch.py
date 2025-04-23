@@ -37,7 +37,7 @@ def setup_torch(
     _set_default_sdpa_variant(torch_section.default_sdpa)
 
     torch._functorch.config.activation_memory_budget = (
-        torch_section.torch_compile_activation_budget
+        torch_section.compiled_region_activation_memory_budget
     )
 
 
