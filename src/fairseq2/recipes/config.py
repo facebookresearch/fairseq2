@@ -49,6 +49,12 @@ class ModelSection:
 
     mmap: bool = False
 
+    compile: bool = False
+
+    compile_options: CompileOptionsSection = field(
+        default_factory=lambda: CompileOptionsSection()
+    )
+
     def validate(self) -> None:
         result = ValidationResult()
 
@@ -69,6 +75,30 @@ class ReferenceModelSection:
     name: str
 
     mmap: bool = False
+
+    compile: bool = False
+
+    compile_options: CompileOptionsSection = field(
+        default_factory=lambda: CompileOptionsSection()
+    )
+
+
+CompilationMode: TypeAlias = Literal[
+    "default", "reduce-overhead", "max-autotune", "max-autotune-no-cudagraphs"
+]
+
+
+@dataclass(kw_only=True)
+class CompileOptionsSection:
+    fullgraph: bool = False
+
+    dynamic: bool | None = None
+
+    mode: CompilationMode = "default"
+
+    backend: str = "inductor"
+
+    backend_options: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(kw_only=True)
@@ -139,10 +169,6 @@ class TrainerSection:
     fp16_loss_scale: tuple[float, float] = (128.0, 0.0001)
     """The initial and minimum loss scale for fp16 training."""
 
-    torch_compile: TorchCompileSection = field(
-        default_factory=lambda: TorchCompileSection()
-    )
-
     gc_every_n_steps: int | None = None
     """If specified, calls CPython's ``gc.collect()`` every N steps."""
 
@@ -185,27 +211,6 @@ class FsdpSection:
     """If ``True``, reshards the parameters only after the backward pass."""
 
     fp32_reduce: bool = False
-
-
-TorchCompileMode: TypeAlias = Literal[
-    "default", "reduce-overhead", "max-autotune", "max-autotune-no-cudagraphs"
-]
-
-
-@dataclass(kw_only=True)
-class TorchCompileSection:
-    enabled: bool = False
-    """If ``True``, compiles the model."""
-
-    fullgraph: bool = False
-
-    dynamic: bool | None = None
-
-    backend: str = "inductor"
-
-    mode: TorchCompileMode = "default"
-
-    options: dict[str, object] | None = None
 
 
 @dataclass(kw_only=True)
@@ -381,10 +386,6 @@ class EvaluatorSection:
     amp: bool = False
     """If ``True``, runs evaluation with ``torch.amp``."""
 
-    torch_compile: TorchCompileSection = field(
-        default_factory=lambda: TorchCompileSection()
-    )
-
 
 @dataclass(kw_only=True)
 class GeneratorSection:
@@ -393,10 +394,6 @@ class GeneratorSection:
 
     amp: bool = False
     """If ``True``, runs evaluation with ``torch.amp``."""
-
-    torch_compile: TorchCompileSection = field(
-        default_factory=lambda: TorchCompileSection()
-    )
 
 
 @dataclass(kw_only=True)
@@ -453,10 +450,10 @@ class TorchSection:
     default_sdpa: SDPAVariant = "torch"
     """The default scaled dot-product attention variant."""
 
-    torch_compile_activation_budget: float = 1.0
+    compiled_region_activation_memory_budget: float = 1.0
     """
     The knob to adjust the activation memory budget of compiled regions. Lower
-    values reduce the memory budget and recomputes activations during backward
+    values reduce the memory budget by recomputing activations during backward
     pass (experimental).
     """
 

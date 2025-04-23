@@ -279,7 +279,7 @@ def load_wav2vec2_asr_trainer(
     # We never train the feature extractor.
     freeze_parameters(module.encoder_frontend.feature_extractor)
 
-    prepare_model(context, config.trainer, model)
+    model = prepare_model(context, model, config.model, config.trainer)
 
     static_graph = config.trainer.freeze_encoder_for_n_steps == 0
 

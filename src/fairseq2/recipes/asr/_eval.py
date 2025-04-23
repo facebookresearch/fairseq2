@@ -137,7 +137,6 @@ def load_asr_evaluator(
         gangs,
         config.evaluator.dtype,
         config.evaluator.amp,
-        config.evaluator.torch_compile,
     )
 
     dataset = load_dataset(AsrDataset, context, config.dataset, gangs)

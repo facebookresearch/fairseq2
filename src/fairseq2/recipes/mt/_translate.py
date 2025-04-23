@@ -160,7 +160,6 @@ def load_text_translator(
         gangs,
         config.generator.dtype,
         config.generator.amp,
-        config.generator.torch_compile,
     )
 
     dataset = load_dataset(TextDataset, context, config.dataset, gangs)

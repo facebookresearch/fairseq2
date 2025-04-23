@@ -42,7 +42,6 @@ from fairseq2.recipes.config import (
     GangSection,
     ReferenceModelSection,
     TextTokenizerSection,
-    TorchCompileSection,
     TorchSection,
 )
 from fairseq2.typing import CPU
@@ -141,10 +140,6 @@ class RunChatbotHandler(CliCommandHandler):
 
         model_section = ReferenceModelSection(name=args.model_name)
 
-        mp = False
-
-        torch_compile_section = TorchCompileSection()
-
         try:
             model = setup_reference_model(
                 DecoderModel,
@@ -152,8 +147,7 @@ class RunChatbotHandler(CliCommandHandler):
                 model_section,
                 gangs,
                 args.dtype,
-                mp,
-                torch_compile_section,
+                mp=False,
             )
         except RecipeError as ex:
             raise CliCommandError(

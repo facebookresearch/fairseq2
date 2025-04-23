@@ -140,7 +140,6 @@ def load_wav2vec2_evaluator(
         gangs,
         config.evaluator.dtype,
         config.evaluator.amp,
-        config.evaluator.torch_compile,
     )
 
     dataset = load_dataset(SpeechDataset, context, config.dataset, gangs)
