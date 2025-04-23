@@ -8,18 +8,18 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterator, Mapping
-from typing import TypeVar, final
+from typing import final, TypeVar
 
 import torch
-from typing_extensions import Self, override
 
 from fairseq2.data import DataPipeline, DataPipelineError
-from fairseq2.gang import Gang, GangError, all_sum
-from fairseq2.logging import log
 
 # isort: split
 
 from fairseq2.datasets._config import DataReadOptions, SyncMode
+from fairseq2.gang import all_sum, Gang, GangError
+from fairseq2.logging import log
+from typing_extensions import override, Self
 
 BatchT_co = TypeVar("BatchT_co", covariant=True)
 
