@@ -18,6 +18,8 @@ import fsspec
 from fsspec.implementations.local import LocalFileSystem as fsspec_LocalFileSystem
 from typing_extensions import override
 
+from fairseq2.context import RuntimeContext
+
 
 class FileMode(Enum):
     READ = 0
@@ -245,6 +247,14 @@ class HFFileSystem(FSspecFileSystem):
         super().__init__(HfFileSystem(*arg, **kwargs), prefix="hf://")
 
 
+@final
+class GCSFileSystem(FSspecFileSystem):
+    def __init__(self, *arg, **kwargs) -> None:
+        from gcsfs import GCSFileSystem  # type: ignore
+
+        super().__init__(GCSFileSystem(*arg, **kwargs), prefix="gc://")
+
+
 class FileSystemRegistry:
     """
     Registry for resolving FileSystem instances based on path patterns.
@@ -317,16 +327,22 @@ class FileSystemRegistry:
         return cls._local_fs
 
 
-# Register default resolvers
-FileSystemRegistry.register(
-    lambda p: str(p).startswith("s3://"),
-    S3FileSystem,  # FIXME: to propagate different credentials
-)
-# Register default resolvers
-FileSystemRegistry.register(
-    lambda p: str(p).startswith("hf://"),
-    HFFileSystem,
-)
+def _register_filesystems(context: RuntimeContext) -> None:
+    # FIXME: to propagate different credentials
+    FileSystemRegistry.register(
+        lambda p: str(p).startswith("s3://"),
+        S3FileSystem,
+    )
+
+    FileSystemRegistry.register(
+        lambda p: str(p).startswith("hf://"),
+        HFFileSystem,
+    )
+
+    FileSystemRegistry.register(
+        lambda p: str(p).startswith("gc://"),
+        GCSFileSystem,
+    )
 
 
 path_fs_resolver = FileSystemRegistry.resolve_filesystem
