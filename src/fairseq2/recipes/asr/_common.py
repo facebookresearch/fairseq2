@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import math
-from typing import Any, TextIO, final
+from typing import TextIO, final
 
 import torch
 from torch import Tensor
@@ -20,7 +20,7 @@ from fairseq2.metrics.text import WerMetric
 from fairseq2.models.asr import AsrModel, AsrModelOutput
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
-from fairseq2.recipes import BaseMetricBag, Model, UnitError
+from fairseq2.recipes import Model, RecipeMetricBag, UnitError
 
 
 @final
@@ -43,21 +43,18 @@ class AsrCriterion:
     ) -> tuple[Tensor, int]:
         input_batch = SequenceBatch(batch.source_seqs, batch.source_padding_mask)
 
-        output = self._forward(input_batch)
+        model_output: AsrModelOutput = self._model.module(input_batch)
 
-        loss = output.compute_loss(batch.target_seqs, batch.target_padding_mask)
+        loss = model_output.compute_loss(batch.target_seqs, batch.target_padding_mask)
 
         metric_bag.update_ctc_loss(batch, loss)
 
         metric_bag.update_batch_metrics(batch)
 
         if self._scorer is not None:
-            self._scorer(batch, output, metric_bag)
+            self._scorer(batch, model_output, metric_bag)
 
         return loss, batch.batch_size
-
-    def _forward(self, batch: SequenceBatch) -> AsrModelOutput:
-        return self._model.module(batch)  # type: ignore[no-any-return]
 
     @property
     def model(self) -> Model:
@@ -143,18 +140,16 @@ class AsrScorer:
             ) from ex
 
 
-class AsrMetricBag(BaseMetricBag):
+class AsrMetricBag(RecipeMetricBag):
     ctc_loss: Mean
     wer: WerMetric
 
-    def __init__(self, gang: Gang, train: bool = True) -> None:
-        super().__init__(gang, train=train)
+    def __init__(self, gang: Gang) -> None:
+        super().__init__(gang)
 
-        d = gang.device
+        self.ctc_loss = Mean(device=gang.device)
 
-        self.register_metric("ctc_loss", Mean(device=d), persistent=False)
-
-        self.register_metric("wer", WerMetric(device=d), persistent=False)
+        self.wer = WerMetric(device=gang.device)
 
     @torch.inference_mode()
     def update_ctc_loss(self, batch: Seq2SeqBatch, loss: Tensor) -> None:
@@ -171,19 +166,19 @@ class AsrMetricBag(BaseMetricBag):
         self.num_examples.update(num_examples)
         self.num_elements.update(num_elements)
 
-        if self._train:
-            assert self.total_num_examples is not None
-            assert self.total_num_elements is not None
-
-            self.total_num_examples.update(num_examples)
-            self.total_num_elements.update(num_elements)
+        self.total_num_examples.update(num_examples)
+        self.total_num_elements.update(num_elements)
 
     @override
-    def process_metric_values(self, values: dict[str, Any]) -> None:
+    def process_metric_values(self, values: dict[str, object]) -> None:
         super().process_metric_values(values)
 
-        uer, wer = values.pop("wer")
+        value = values.pop("wer")
 
-        if uer >= 0.0 and wer >= 0.0:
-            values["uer"] = uer
-            values["wer"] = wer
+        if isinstance(value, tuple):
+            uer, wer = value
+
+            if isinstance(uer, Tensor) and isinstance(wer, Tensor):
+                if uer >= 1.0 and wer >= 1.0:
+                    values["uer"] = uer
+                    values["wer"] = wer

@@ -23,6 +23,7 @@ from fairseq2.datasets.instruction import (
     InstructionReadOptions,
 )
 from fairseq2.gang import Gangs
+from fairseq2.metrics import MetricBag
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.sequence import (
     SequenceBatch,
@@ -365,7 +366,7 @@ class InstructionFinetuneUnit(TrainUnit[SequenceBatch]):
 
     @property
     @override
-    def metric_bag(self) -> SequenceMetricBag:
+    def metric_bag(self) -> MetricBag:
         return self._metric_bag
 
 
@@ -390,7 +391,7 @@ class InstructionLossEvalUnit(EvalUnit[SequenceBatch]):
 
     @property
     @override
-    def metric_bag(self) -> SequenceMetricBag:
+    def metric_bag(self) -> MetricBag:
         return self._metric_bag
 
 
@@ -411,9 +412,9 @@ class InstructionFinetuneCriterion:
     ) -> tuple[Tensor, int]:
         input_batch, target_batch = as_auto_regressive_input(batch)
 
-        output = self._forward(input_batch)
+        model_output: SequenceModelOutput = self._model.module(input_batch)
 
-        loss = output.compute_loss(
+        loss = model_output.compute_loss(
             target_batch.seqs, loss_mask=target_batch.target_mask
         )
 
@@ -422,9 +423,6 @@ class InstructionFinetuneCriterion:
         metric_bag.update_batch_metrics(target_batch)
 
         return loss, target_batch.num_target_elements()
-
-    def _forward(self, batch: SequenceBatch) -> SequenceModelOutput:
-        return self._model.module(batch)  # type: ignore[no-any-return]
 
     @property
     def model(self) -> Model:

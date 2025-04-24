@@ -19,6 +19,7 @@ from fairseq2.datasets import LengthBatching, SyncMode
 from fairseq2.datasets.asr import GENERIC_ASR_DATASET_FAMILY, AsrDataset, AsrReadOptions
 from fairseq2.gang import Gang, GangError
 from fairseq2.logging import log
+from fairseq2.metrics import MetricBag
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.wav2vec2 import Wav2Vec2Model
 from fairseq2.models.wav2vec2.asr import Wav2Vec2AsrModel
@@ -459,5 +460,5 @@ class Wav2Vec2AsrTrainUnit(TrainUnit[Seq2SeqBatch]):
 
     @property
     @override
-    def metric_bag(self) -> AsrMetricBag:
+    def metric_bag(self) -> MetricBag:
         return self._metric_bag

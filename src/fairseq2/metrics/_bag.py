@@ -23,7 +23,6 @@ class MetricBag:
 
     _gang: Gang
     _metrics: dict[str, Metric[Any]]
-    _persistent_metrics: dict[str, Metric[Any]]
     _original_metrics: dict[str, Metric[Any]] | None
 
     def __init__(self, gang: Gang) -> None:
@@ -32,7 +31,6 @@ class MetricBag:
             The gang over which to sync metrics.
         """
         super().__setattr__("_metrics", {})
-        super().__setattr__("_persistent_metrics", {})
         super().__setattr__("_original_metrics", None)
 
         self._gang = gang
@@ -47,37 +45,26 @@ class MetricBag:
 
     def __setattr__(self, name: str, value: Any) -> None:
         if isinstance(value, Metric):
-            self.register_metric(name, value, persistent=True)
+            self.register_metric(name, value)
         else:
             if name in self._metrics:
                 del self._metrics[name]
-
-                if name in self._persistent_metrics:
-                    del self._persistent_metrics[name]
 
             super().__setattr__(name, value)
 
     def __delattr__(self, name: str) -> None:
         if name in self._metrics:
             del self._metrics[name]
-
-            if name in self._persistent_metrics:
-                del self._persistent_metrics[name]
         else:
             super().__delattr__(name)
 
     @final
-    def register_metric(
-        self, name: str, metric: Metric[Any], persistent: bool = True
-    ) -> None:
-        """Add ``metric`` to the bag.
+    def register_metric(self, name: str, metric: Metric[Any]) -> None:
+        """
+        Adds ``metric`` to the bag.
 
-        :param name:
-            The attribute name to refer to ``metric``.
-        :param metric:
-            The metric to add.
-        :param persistent:
-            If ``True``, the state of ``metric`` will be preserved in ``state_dict``.
+        :param name: The attribute name to refer to ``metric``.
+        :param metric: The metric to add.
         """
         if hasattr(self, name):
             raise AttributeError(
@@ -88,12 +75,10 @@ class MetricBag:
 
         self._metrics[name] = metric
 
-        if persistent:
-            self._persistent_metrics[name] = metric
-
     @final
     def begin_updates(self) -> None:
-        """Begin a transactional update of multiple metrics.
+        """
+        Begins a transactional update of multiple metrics.
 
         A call to ``begin_updates()`` must be followed by a ``commit_updates()``
         or ``rollback_updates()``.
@@ -110,7 +95,7 @@ class MetricBag:
 
     @final
     def commit_updates(self) -> None:
-        """Commit pending metric updates."""
+        """Commits pending metric updates."""
         if self._original_metrics is None:
             raise InvalidOperationError("`begin_updates()` must be called first.")
 
@@ -118,28 +103,17 @@ class MetricBag:
 
     @final
     def rollback_updates(self) -> None:
-        """Discard pending metric updates and rollback to the original state."""
+        """Discards pending metric updates and rollback to the original state."""
         if self._original_metrics is None:
             raise InvalidOperationError("`begin_updates()` must be called first.")
 
         self._metrics, self._original_metrics = self._original_metrics, None
 
-        for name, metric in self._metrics.items():
-            if name in self._persistent_metrics:
-                self._persistent_metrics[name] = metric
-
     @final
     def reset_metrics(self) -> None:
-        """Reset the metrics to their initial state."""
+        """Resets the metrics to their initial state."""
         for metric in self._metrics.values():
             metric.reset()
-
-    @final
-    def reset_non_persistent_metrics(self) -> None:
-        """Reset the non-persistent metrics to their initial state."""
-        for name, metric in self._metrics.items():
-            if name not in self._persistent_metrics:
-                metric.reset()
 
     @final
     def sync_and_compute_metrics(self) -> dict[str, object] | None:
@@ -158,7 +132,7 @@ class MetricBag:
     def state_dict(self) -> dict[str, object]:
         state_dict: dict[str, object] = {}
 
-        for name, metric in self._persistent_metrics.items():
+        for name, metric in self._metrics.items():
             state_dict[name] = metric.state_dict()
 
         return state_dict
@@ -167,7 +141,7 @@ class MetricBag:
     def load_state_dict(self, state_dict: Mapping[str, object]) -> None:
         state_keys = set(state_dict.keys())
 
-        metric_names = set(self._persistent_metrics.keys())
+        metric_names = set(self._metrics.keys())
 
         if metric_names != state_keys:
             missing_metrics = metric_names - state_keys
@@ -186,7 +160,7 @@ class MetricBag:
                     f"`state_dict` must contain only the states of the metrics of this bag, but it contains the following unexpected key(s): {s}"
                 )
 
-        for name, metric in self._persistent_metrics.items():
+        for name, metric in self._metrics.items():
             metric_state_dict = state_dict[name]
             if not isinstance(metric_state_dict, dict):
                 raise TypeError(
@@ -207,12 +181,6 @@ def reset_metrics(bags: Sequence[MetricBag]) -> None:
     """Reset the metrics in ``bags``."""
     for bag in bags:
         bag.reset_metrics()
-
-
-def reset_non_persistent_metrics(bags: Sequence[MetricBag]) -> None:
-    """Reset the non-persistent metrics in ``bags``."""
-    for bag in bags:
-        bag.reset_non_persistent_metrics()
 
 
 def sync_and_compute_metrics(bags: Sequence[MetricBag]) -> dict[str, object] | None:

@@ -10,7 +10,7 @@ import os
 import re
 from collections.abc import Mapping, MutableMapping, Set, Sized
 from pathlib import Path
-from typing import Any, Final, cast, final
+from typing import Any, Final, final
 from urllib.parse import urlparse, urlunparse
 
 from fairseq2.error import InternalError
@@ -225,7 +225,7 @@ class AssetCardField:
         if not valid_values:
             raise ValueError("`valid_values` must not be empty.")
 
-        value = cast(str, self.as_(str))
+        value: str = self.as_(str)
 
         if value not in valid_values:
             pathname = ".".join(self._path)
@@ -244,7 +244,7 @@ class AssetCardField:
 
     def as_uri(self) -> str:
         """Return the value of this field as a URI."""
-        value = cast(str, self.as_(str))
+        value: str = self.as_(str)
 
         try:
             if not _starts_with_scheme(value):
@@ -264,7 +264,7 @@ class AssetCardField:
 
     def as_filename(self) -> str:
         """Return the value of this field as a filename."""
-        value = cast(str, self.as_(str))
+        value: str = self.as_(str)
 
         if os.sep in value or (os.altsep and os.altsep in value):
             pathname = ".".join(self._path)

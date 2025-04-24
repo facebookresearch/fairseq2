@@ -47,23 +47,19 @@ class POFinetuneMetricBag(SequenceMetricBag):
     def __init__(self, gang: Gang) -> None:
         super().__init__(gang)
 
-        self.register_metric("chosen_logps", Mean(device=gang.device), persistent=False)
-        self.register_metric(
-            "rejected_logps", Mean(device=gang.device), persistent=False
-        )
-        self.register_metric(
-            "chosen_lengths", Mean(device=gang.device), persistent=False
-        )
-        self.register_metric(
-            "rejected_lengths", Mean(device=gang.device), persistent=False
-        )
+        device = gang.device
+
+        self.chosen_logps = Mean(device=device)
+
+        self.rejected_logps = Mean(device=device)
+
+        self.chosen_lengths = Mean(device=device)
+
+        self.rejected_lengths = Mean(device=device)
 
     @torch.inference_mode()
     def update_logps(
-        self,
-        batch: PreferenceBatch,
-        chosen_logps: Tensor,
-        rejected_logps: Tensor,
+        self, batch: PreferenceBatch, chosen_logps: Tensor, rejected_logps: Tensor
     ) -> None:
         """Update the Chosen Sequence Log Probabilities and Rejected Sequence Log Probabilities metrics.
 
@@ -83,10 +79,7 @@ class POFinetuneMetricBag(SequenceMetricBag):
         )
 
     @torch.inference_mode()
-    def update_sequence_lengths(
-        self,
-        batch: PreferenceBatch,
-    ) -> None:
+    def update_sequence_lengths(self, batch: PreferenceBatch) -> None:
         """Update the Chosen Sequence Length and Rejected Sequence Length metrics.
 
         :param batch:

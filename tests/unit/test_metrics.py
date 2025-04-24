@@ -47,12 +47,10 @@ class TestMetricBag:
 
         # Imlicit
         bag.test1 = Sum(device=device)
+        bag.test2 = Sum(device=device)
 
         # Explicit
-        bag.register_metric("test2", Mean(device=device))
-        bag.register_metric("test3", Mean(device=device), persistent=False)
-
-        bag.test4 = Sum(device=device)
+        bag.register_metric("test3", Mean(device=device))
 
         del bag.test1
 
@@ -60,7 +58,7 @@ class TestMetricBag:
 
         assert len(state_dict) == 2
 
-        assert set(state_dict.keys()) == {"test2", "test4"}
+        assert set(state_dict.keys()) == {"test2", "test3"}
 
     def test_load_state_dict_raises_error_when_state_dict_is_corrupt(self) -> None:
         state_dict = {"foo": 0}

@@ -26,6 +26,7 @@ from fairseq2.error import InternalError
 from fairseq2.file_system import FileMode
 from fairseq2.gang import Gangs
 from fairseq2.generation import SamplingConfig, SequenceGenerator
+from fairseq2.metrics import MetricBag
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.recipes import (
@@ -422,5 +423,5 @@ class TextGenerateUnit(GeneratorUnit[SequenceBatch]):
 
     @property
     @override
-    def metric_bag(self) -> SequenceGenerationMetricBag:
+    def metric_bag(self) -> MetricBag:
         return self._metric_bag

@@ -12,13 +12,13 @@ from typing import Final, cast, final
 import torch
 import torch.distributed
 from torch import Tensor
-from torcheval.metrics import Mean
 from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.gang import Gang, Gangs
 from fairseq2.logging import log
+from fairseq2.metrics import Mean, MetricBag
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.sequence import (
     SequenceBatch,
@@ -201,7 +201,7 @@ class DpoFinetuneUnit(TrainUnit[PreferenceBatch]):
 
     @property
     @override
-    def metric_bag(self) -> DpoFinetuneMetricBag:
+    def metric_bag(self) -> MetricBag:
         return self._metric_bag
 
 
@@ -213,17 +213,10 @@ class DpoFinetuneMetricBag(POFinetuneMetricBag):
     def __init__(self, gang: Gang) -> None:
         super().__init__(gang)
 
-        self.register_metric("dpo_loss", Mean(device=gang.device), persistent=False)
+        self.dpo_loss = Mean(device=gang.device)
 
     @torch.inference_mode()
     def update_dpo_loss(self, batch: PreferenceBatch, loss: Tensor) -> None:
-        """Update the DPO loss metric.
-
-        :param batch:
-            The batch processed by the model.
-        :param loss:
-            The DPO loss of ``batch``.
-        """
         self.dpo_loss.update(
             loss / batch.chosen.batch_size, weight=batch.chosen.batch_size
         )

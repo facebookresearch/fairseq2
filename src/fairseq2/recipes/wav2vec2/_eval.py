@@ -21,6 +21,7 @@ from fairseq2.datasets.speech import (
     SpeechReadOptions,
 )
 from fairseq2.gang import Gangs
+from fairseq2.metrics import MetricBag
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2 import Wav2Vec2Model
 from fairseq2.recipes import Evaluator, EvalUnit, Model
@@ -193,7 +194,7 @@ class Wav2Vec2EvalUnit(EvalUnit[SequenceBatch]):
     def __init__(self, criterion: Wav2Vec2Criterion, gangs: Gangs) -> None:
         self._criterion = criterion
 
-        self._metric_bag = Wav2Vec2MetricBag(gangs.dp, train=False)
+        self._metric_bag = Wav2Vec2MetricBag(gangs.dp)
 
     @override
     def __call__(self, batch: SequenceBatch) -> None:
@@ -206,5 +207,5 @@ class Wav2Vec2EvalUnit(EvalUnit[SequenceBatch]):
 
     @property
     @override
-    def metric_bag(self) -> Wav2Vec2MetricBag:
+    def metric_bag(self) -> MetricBag:
         return self._metric_bag

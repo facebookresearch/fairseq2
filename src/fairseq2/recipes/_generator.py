@@ -31,7 +31,7 @@ from fairseq2.utils.stopwatch import Stopwatch
 # isort: split
 
 from fairseq2.recipes._error import RecipeError, UnitError
-from fairseq2.recipes._metrics import extend_batch_metrics
+from fairseq2.recipes._metrics import extend_batch_metric_values
 from fairseq2.recipes._model import Model
 from fairseq2.recipes._recipe import Recipe, RecipeStopException
 
@@ -260,6 +260,8 @@ class Generator(Recipe, Generic[BatchT]):
             if values is None:
                 raise InternalError("`values` is `None`.")
 
+            values = {k: v for k, v in values.items() if not k.startswith("total_")}
+
             device_stats = self._device_stat_tracker.get_stats()
 
             values.update(device_stats)
@@ -268,7 +270,7 @@ class Generator(Recipe, Generic[BatchT]):
 
             compute_time = self._compute_watch.get_elapsed_time()
 
-            extend_batch_metrics(
+            extend_batch_metric_values(
                 values, self._num_batches_read, data_time + compute_time
             )
 

@@ -18,6 +18,7 @@ from fairseq2.datasets import LengthBatching, SyncMode
 from fairseq2.datasets.asr import GENERIC_ASR_DATASET_FAMILY, AsrDataset, AsrReadOptions
 from fairseq2.file_system import FileMode
 from fairseq2.gang import Gangs
+from fairseq2.metrics import MetricBag
 from fairseq2.models.asr import AsrModel
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.recipes import Evaluator, EvalUnit, Model, RecipeError, UnitError
@@ -230,7 +231,7 @@ class AsrEvalUnit(EvalUnit[Seq2SeqBatch]):
     def __init__(self, criterion: AsrCriterion, gangs: Gangs) -> None:
         self._criterion = criterion
 
-        self._metric_bag = AsrMetricBag(gangs.dp, train=False)
+        self._metric_bag = AsrMetricBag(gangs.dp)
 
     @override
     def __call__(self, batch: Seq2SeqBatch) -> None:
@@ -243,5 +244,5 @@ class AsrEvalUnit(EvalUnit[Seq2SeqBatch]):
 
     @property
     @override
-    def metric_bag(self) -> AsrMetricBag:
+    def metric_bag(self) -> MetricBag:
         return self._metric_bag

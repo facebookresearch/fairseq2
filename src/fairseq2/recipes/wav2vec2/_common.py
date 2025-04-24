@@ -24,7 +24,7 @@ from fairseq2.models.wav2vec2 import (
     Wav2Vec2Model,
     Wav2Vec2Output,
 )
-from fairseq2.recipes import BaseMetricBag, Model
+from fairseq2.recipes import Model, RecipeMetricBag
 
 
 @dataclass(kw_only=True)
@@ -58,35 +58,32 @@ class Wav2Vec2Criterion:
     def __call__(
         self, batch: SequenceBatch, metric_bag: Wav2Vec2MetricBag
     ) -> tuple[Tensor, int]:
-        output = self._forward(batch)
+        model_output: Wav2Vec2Output = self._model.module(batch)
 
-        loss = output.compute_loss(
+        loss = model_output.compute_loss(
             self._diversity_loss_weight, self._feature_penalty_weight
         )
 
-        batch_size, seq_len = output.logits.shape[:2]
+        batch_size, seq_len = model_output.logits.shape[:2]
 
         num_targets = batch_size * seq_len
 
         metric_bag.update_losses(loss, num_targets)
 
-        metric_bag.update_accuracy(output)
+        metric_bag.update_accuracy(model_output)
 
-        metric_bag.update_quantizer_metrics(output.quantizer_output)
+        metric_bag.update_quantizer_metrics(model_output.quantizer_output)
 
         metric_bag.update_batch_metrics(batch)
 
         return loss.total, num_targets
-
-    def _forward(self, batch: SequenceBatch) -> Wav2Vec2Output:
-        return self._model.module(batch)  # type: ignore[no-any-return]
 
     @property
     def model(self) -> Model:
         return self._model
 
 
-class Wav2Vec2MetricBag(BaseMetricBag):
+class Wav2Vec2MetricBag(RecipeMetricBag):
     loss: Mean
     contrastive_loss: Mean
     diversity_loss: Mean
@@ -96,26 +93,26 @@ class Wav2Vec2MetricBag(BaseMetricBag):
     prob_perplexity: Mean
     temperature: Mean
 
-    def __init__(self, gang: Gang, train: bool = True) -> None:
-        super().__init__(gang, train=train)
+    def __init__(self, gang: Gang) -> None:
+        super().__init__(gang)
 
-        d = gang.device
+        device = gang.device
 
-        self.register_metric("loss", Mean(device=d), persistent=False)
+        self.loss = Mean(device=device)
 
-        self.register_metric("contrastive_loss", Mean(device=d), persistent=False)
+        self.contrastive_loss = Mean(device=device)
 
-        self.register_metric("diversity_loss", Mean(device=d), persistent=False)
+        self.diversity_loss = Mean(device=device)
 
-        self.register_metric("feature_penalty", Mean(device=d), persistent=False)
+        self.feature_penalty = Mean(device=device)
 
-        self.register_metric("accuracy", MulticlassAccuracy(device=d), persistent=False)
+        self.accuracy = MulticlassAccuracy(device=device)
 
-        self.register_metric("code_perplexity", Mean(device=d), persistent=False)
+        self.code_perplexity = Mean(device=device)
 
-        self.register_metric("prob_perplexity", Mean(device=d), persistent=False)
+        self.prob_perplexity = Mean(device=device)
 
-        self.register_metric("temperature", Mean(device=d), persistent=False)
+        self.temperature = Mean(device=device)
 
     @torch.inference_mode()
     def update_losses(self, loss: Wav2Vec2Loss, num_targets: int) -> None:
@@ -153,7 +150,6 @@ class Wav2Vec2MetricBag(BaseMetricBag):
 
     @torch.inference_mode()
     def update_batch_metrics(self, batch: SequenceBatch) -> None:
-        """Update the batch metrics."""
         num_examples = batch.batch_size
 
         num_elements = batch.num_elements()
@@ -161,9 +157,5 @@ class Wav2Vec2MetricBag(BaseMetricBag):
         self.num_examples.update(num_examples)
         self.num_elements.update(num_elements)
 
-        if self._train:
-            assert self.total_num_examples is not None
-            assert self.total_num_elements is not None
-
-            self.total_num_examples.update(num_examples)
-            self.total_num_elements.update(num_elements)
+        self.total_num_examples.update(num_examples)
+        self.total_num_elements.update(num_elements)
