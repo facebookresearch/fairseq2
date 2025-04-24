@@ -19,9 +19,9 @@ from fairseq2.datasets import LengthBatching, SyncMode
 from fairseq2.datasets.asr import GENERIC_ASR_DATASET_FAMILY, AsrDataset, AsrReadOptions
 from fairseq2.gang import Gang, GangError
 from fairseq2.logging import log
+from fairseq2.models.asr import AsrModel
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.wav2vec2 import Wav2Vec2Model
-from fairseq2.models.wav2vec2.asr import Wav2Vec2AsrModel
 from fairseq2.nn.utils.module import freeze_parameters, share_parameters, to_device
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.optim.lr_scheduler import TRI_STAGE_LR, TriStageLRConfig
@@ -233,7 +233,7 @@ def load_wav2vec2_asr_trainer(
     seed += 1
 
     model = load_base_model(
-        Wav2Vec2AsrModel,
+        AsrModel,
         context,
         config.model,
         config.trainer,
@@ -242,7 +242,7 @@ def load_wav2vec2_asr_trainer(
         checkpoint_manager,
     )
 
-    module = cast(Wav2Vec2AsrModel, model.module)
+    module = cast(AsrModel, model.module)
 
     # If we start the training with an empty ASR model, use the weights of a
     # pretrained wav2vec 2.0 model.
@@ -393,7 +393,7 @@ def load_wav2vec2_asr_trainer(
 
 @final
 class Wav2Vec2AsrTrainUnit(TrainUnit[Seq2SeqBatch]):
-    _module: Wav2Vec2AsrModel
+    _module: AsrModel
     _criterion: AsrCriterion
     _freeze_encoder_for_n_steps: int
     _frozen: bool
@@ -408,9 +408,9 @@ class Wav2Vec2AsrTrainUnit(TrainUnit[Seq2SeqBatch]):
         """
         module = criterion.model.base_module
 
-        if not isinstance(module, Wav2Vec2AsrModel):
+        if not isinstance(module, AsrModel):
             raise TypeError(
-                f"`criterion.model.base_module` must be of type `{Wav2Vec2AsrModel}`, but is of type `{type(module)}` instead."
+                f"`criterion.model.base_module` must be of type `{AsrModel}`, but is of type `{type(module)}` instead."
             )
 
         self._module = module
