@@ -50,12 +50,12 @@ class BasicDataLoadingConfig:
 
     # default trivial config will load all columns
     fragment_load_config: FragmentLoadingConfig = field(
-        default_factory=lambda: FragmentLoadingConfig()
+        default=lambda: FragmentLoadingConfig()
     )
 
     # default trivial config applies NO bucketing
     table_bucketing_config: TableBucketingConfig = field(
-        default_factory=lambda: TableBucketingConfig()
+        default=lambda: TableBucketingConfig()
     )
 
 
