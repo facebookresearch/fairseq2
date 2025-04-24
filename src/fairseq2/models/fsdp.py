@@ -65,11 +65,11 @@ def _do_apply_layerwise_fsdp(
 ) -> None:
     layers = list(stack.layers.named_children())
 
-    for idx, (layer_name, layer) in enumerate(layers):
+    for layer_idx, (layer_name, layer) in enumerate(layers):
         # We don't need to reshard the last layer since we will immediately
         # gather it for the backward pass.
         wrapped = wrapper(
-            layer, reshard_after_forward=None if idx < len(layers) - 1 else False
+            layer, reshard_after_forward=None if layer_idx < len(layers) - 1 else False
         )
 
         stack.layers.register_module(layer_name, wrapped)

@@ -87,7 +87,9 @@ class ModelHandler(ABC):
     def compile(self, model: Module, **kwargs: Any) -> None: ...
 
     @abstractmethod
-    def apply_activation_checkpointing(self, model: Module) -> None: ...
+    def apply_activation_checkpointing(
+        self, model: Module, *, every_nth_layer: int = 1
+    ) -> None: ...
 
     @abstractmethod
     def apply_fsdp(
@@ -156,7 +158,7 @@ class ModelCompiler(Protocol[ModelT_contra]):
 
 
 class ActivationCheckpointApplier(Protocol[ModelT_contra]):
-    def __call__(self, model: ModelT_contra) -> None: ...
+    def __call__(self, model: ModelT_contra, *, every_nth_layer: int = 1) -> None: ...
 
 
 class FsdpApplier(Protocol[ModelT_contra]):
@@ -523,7 +525,9 @@ class DelegatingModelHandler(ModelHandler):
         self._compiler(model, **kwargs)
 
     @override
-    def apply_activation_checkpointing(self, model: Module) -> None:
+    def apply_activation_checkpointing(
+        self, model: Module, *, every_nth_layer: int = 1
+    ) -> None:
         if self._ac_applier is None:
             raise NotSupportedError(
                 f"The '{self._family}' model family does not support activation checkpointing."
@@ -534,7 +538,7 @@ class DelegatingModelHandler(ModelHandler):
                 f"`model` must be of type `{self._kls}`, but is of type `{type(model)}` instead."
             )
 
-        self._ac_applier(model)
+        self._ac_applier(model, every_nth_layer=every_nth_layer)
 
     @override
     def apply_fsdp(

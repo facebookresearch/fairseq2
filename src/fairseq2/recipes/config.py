@@ -135,15 +135,12 @@ class GangSection:
     high_priority: bool = True
 
 
-DataParallelism: TypeAlias = Literal["ddp", "fsdp"]
-
-
 @dataclass(kw_only=True)
 class TrainerSection:
     dtype: DataType = torch.float32
     """The data type of the model."""
 
-    data_parallelism: DataParallelism = "ddp"
+    data_parallelism: Literal["ddp", "fsdp"] = "ddp"
     """The data parallelism API to use."""
 
     fsdp: FsdpSection = field(default_factory=lambda: FsdpSection())
@@ -160,8 +157,10 @@ class TrainerSection:
     gradient_accumulation: int = 1
     """The number of steps to accumulate gradients before an optimizer update."""
 
-    activation_checkpointing: bool = False
+    activation_checkpointing: Literal["off", "layerwise"] = "off"
     """If ``True``, uses activation checkpointing."""
+
+    ac_every_nth_layer: int = 1
 
     max_gradient_norm: float | None = None
     """The maximum gradient norm. If ``None``, no clipping will be applied."""
@@ -172,9 +171,6 @@ class TrainerSection:
     gc_every_n_steps: int | None = None
     """If specified, calls CPython's ``gc.collect()`` every N steps."""
 
-    profile: tuple[int, int] | None = None
-    """The number of steps that the PyTorch profiler should skip and then record."""
-
     gradient_check: bool = False
     """If ``True``, ensures that gradients are in sync across processes."""
 
@@ -183,6 +179,9 @@ class TrainerSection:
 
     def validate(self) -> None:
         result = ValidationResult()
+
+        if self.ac_every_nth_layer <= 0:
+            result.add_error("`ac_every_nth_layer` must be greater than or equal to 1.")
 
         if self.gc_every_n_steps is not None:
             if self.gc_every_n_steps <= 0:

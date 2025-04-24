@@ -53,7 +53,7 @@ class POFinetuneConfig:
             dtype=torch.bfloat16,
             data_parallelism="fsdp",
             fsdp=FsdpSection(fp32_reduce=True),
-            activation_checkpointing=True,
+            activation_checkpointing="layerwise",
         )
     )
 
