@@ -601,6 +601,13 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
                 "train", total=self._max_num_steps, completed=self._step_nr
             )
 
+            try:
+                self._unit.set_data_epoch_nr(self._data_epoch_nr)
+            except UnitError as ex:
+                raise RecipeError(
+                    "The train unit has failed. See the nested exception for details."
+                ) from ex
+
             self._device_stat_tracker.reset()
 
             first_iter = True

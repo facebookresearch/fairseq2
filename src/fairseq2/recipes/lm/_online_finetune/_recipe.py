@@ -290,6 +290,7 @@ def load_online_finetuner(
         raise UnknownOnlineFinetuneUnitError(config.criterion.name) from None
 
     unit = unit_handler.create(model, gangs, config, vllm_actors)
+    valid_unit = unit_handler.create(model, gangs, config, vllm_actors)
 
     batching: Batching
 
@@ -322,8 +323,7 @@ def load_online_finetuner(
     )
 
     if config.dataset.valid_split:
-        # valid_batching = StaticBatching(10000)
-        valid_batching = StaticBatching(100)
+        valid_batching = StaticBatching(32)
         valid_read_options = PromptReadOptions(
             batching=valid_batching,
             example_shuffle_window=config.dataset.example_shuffle_window,
@@ -367,7 +367,7 @@ def load_online_finetuner(
         valid_data_readers = []
 
     if len(valid_data_readers) > 0:
-        valid_units = [unit] * len(valid_data_readers)
+        valid_units = [valid_unit] * len(valid_data_readers)
     else:
         valid_units = []
 

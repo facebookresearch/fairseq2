@@ -451,6 +451,10 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
     def set_step_nr(self, step_nr: int) -> None:
         self._step_nr = step_nr
 
+    @override
+    def set_data_epoch_nr(self, data_epoch_nr: int) -> None:
+        self._data_epoch_nr = data_epoch_nr
+
     @property
     @override
     def model(self) -> Model:
