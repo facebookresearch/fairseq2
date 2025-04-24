@@ -303,22 +303,30 @@ class GenericSpeechDataset(SpeechDataset):
         )
         return builder
 
-    def _retrieve_data_directory(self, split: str) -> Path:
-        manifest_file = self._manifest_dir.joinpath(f"{split}.tsv")
+    @staticmethod
+    def _retrieve_data_directory(
+        manifest_dir: Path, name: str, split: str
+    ) -> Path | None:
+        manifest_file = manifest_dir.joinpath(f"{split}.tsv")
 
         try:
             with manifest_file.open(encoding="utf-8") as fp:
-                line = fp.readline().rstrip()
+                header = fp.readline().rstrip()
         except OSError as ex:
             raise DataReadError(
-                self._name, split, f"The {manifest_file} manifest file cannot be read. See the nested exception for details."  # fmt: skip
+                name, split, f"The {manifest_file} manifest file cannot be read. See the nested exception for details."  # fmt: skip
             ) from ex
 
         try:
-            return Path(line)
+            audio_dir = Path(header)
+            if audio_dir.exists():
+                return audio_dir
+            return None
         except ValueError:
             raise DataReadError(
-                self._name, split, f"The first line of the '{manifest_file}' manifest file must point to a data directory."  # fmt: skip
+                name,
+                split,
+                f"The first line of {manifest_file} must point to a data directory.",
             ) from None
 
     def _read_manifest(
@@ -433,7 +441,9 @@ class GenericSpeechDataset(SpeechDataset):
         seed = options.seed
         no_padding = options.no_padding
 
-        audio_dir = self._retrieve_data_directory(split)
+        audio_dir = GenericSpeechDataset._retrieve_data_directory(
+            self._manifest_dir, self._name, split
+        )
         builder = self._read_manifest(split, max_audio_len, min_audio_len, audio_dir)
 
         if options.example_shuffle_window != 1:
