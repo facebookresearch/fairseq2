@@ -154,7 +154,9 @@ class GenericAsrDataset(AsrDataset):
         npc = options.npc
         seed = options.seed
 
-        audio_dir = self._retrieve_data_directory(split)
+        audio_dir = GenericSpeechDataset._retrieve_data_directory(
+            self._manifest_dir, self._name, split
+        )
         builder = self._read_manifest(split)
 
         # Shuffle examples. Must be consistent across all processes.
@@ -204,24 +206,6 @@ class GenericAsrDataset(AsrDataset):
         return DataPipelineReader[Seq2SeqBatch](
             self._name, split, pipeline, gang, options
         )
-
-    def _retrieve_data_directory(self, split: str) -> Path:
-        manifest_file = self._manifest_dir.joinpath(f"{split}.tsv")
-
-        try:
-            with manifest_file.open(encoding="utf-8") as fp:
-                line = fp.readline().rstrip()
-        except OSError as ex:
-            raise DataReadError(
-                self._name, split, f"The {manifest_file} manifest file cannot be read. See the nested exception for details."  # fmt: skip
-            ) from ex
-
-        try:
-            return Path(line)
-        except ValueError:
-            raise DataReadError(
-                self._name, split, f"The first line of the '{manifest_file}' manifest file must point to a data directory."  # fmt: skip
-            ) from None
 
     def _read_manifest(self, split: str) -> DataPipelineBuilder:
         def read_tsv_file() -> DataPipelineBuilder:
