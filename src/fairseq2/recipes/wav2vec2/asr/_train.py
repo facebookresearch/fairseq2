@@ -8,13 +8,20 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import cast, final, Literal
+from typing import cast, final, List, Literal
 
 import torch
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import LengthBatching, SyncMode
-from fairseq2.datasets.asr import AsrDataset, AsrReadOptions, GENERIC_ASR_DATASET_FAMILY
+
+from fairseq2.datasets.asr import (
+    AsrDataset,
+    AsrReadOptions,
+    GENERIC_ASR_DATASET_FAMILY,
+    MixingAsrDataset,
+)
+from fairseq2.datasets.speech import SpeechDataset, SpeechReadOptions
 from fairseq2.gang import Gang, GangError
 from fairseq2.logging import log
 from fairseq2.models.asr import AsrModel
@@ -126,6 +133,7 @@ class Wav2Vec2AsrTrainConfig:
 @dataclass(kw_only=True)
 class Wav2Vec2AsrTrainDatasetSection(DatasetSection):
     name: str | None = "librilight_asr_10h"
+    """Can take comma separated values"""
 
     family: str = GENERIC_ASR_DATASET_FAMILY
 
@@ -134,6 +142,11 @@ class Wav2Vec2AsrTrainDatasetSection(DatasetSection):
     train_split: str = "train"
 
     valid_split: str | None = "dev_other"
+
+    sampling_weights: List[float] = field(default_factory=lambda: [1.0])
+    """Mixing ratios for training data."""
+
+    is_asr: List[bool] = field(default_factory=lambda: [True])
 
     min_audio_len: int = 1
     """The minimum audio sequence length."""
@@ -358,7 +371,22 @@ def load_wav2vec2_asr_trainer(
         context, config.lr_scheduler, config.regime, optimizer
     )
 
-    dataset = load_dataset(AsrDataset, context, config.dataset, gangs)
+    # Load the training dataset(s).
+    train_datasets = []
+    train_ds_names = config.dataset.name.split(",")
+    config.dataset.path = None
+    for ds_name, is_asr in zip(train_ds_names, config.dataset.is_asr):
+        config.dataset.name = ds_name
+        if is_asr:
+            train_datasets.append(
+                load_dataset(AsrDataset, context, config.dataset, gangs)
+            )
+        else:
+            train_datasets.append(
+                load_dataset(SpeechDataset | AsrDataset, context, config.dataset, gangs)
+            )
+    dataset = MixingAsrDataset(train_datasets, config.dataset.sampling_weights)
+    valid_dataset = train_datasets[0]
 
     tokenizer = load_text_tokenizer(context, config.tokenizer)
 
@@ -417,7 +445,7 @@ def load_wav2vec2_asr_trainer(
             valid_unit = AsrEvalUnit(valid_criterion, gangs)
             valid_units.append(valid_unit)
 
-            valid_data_reader = dataset.create_reader(
+            valid_data_reader = valid_dataset.create_reader(
                 valid_splits[i],
                 tokenizer,
                 gangs.dp,

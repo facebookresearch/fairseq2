@@ -10,22 +10,14 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import partial, reduce
 from pathlib import Path
-from typing import Any, Dict, Final, List, final
+from typing import Any, Dict, Final, final, List
 
 import numpy as np
 import torch
-from torch import Tensor
-from torch.nn.functional import layer_norm
-from typing_extensions import override
 
-from fairseq2.data import (
-    Collater,
-    DataPipelineBuilder,
-    FileMapper,
-    create_bucket_sizes,
-)
+from fairseq2.data import Collater, create_bucket_sizes, DataPipelineBuilder, FileMapper
 from fairseq2.data.audio import AudioDecoder, WaveformToFbankConverter
-from fairseq2.data.text import StrSplitter, read_text
+from fairseq2.data.text import read_text, StrSplitter
 from fairseq2.datasets import (
     DataPipelineReader,
     DataReader,
@@ -43,6 +35,9 @@ from fairseq2.logging import log
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
 from fairseq2.typing import DataType, Device
+from torch import Tensor
+from torch.nn.functional import layer_norm
+from typing_extensions import override
 
 
 @torch.no_grad()
@@ -376,7 +371,7 @@ class GenericSpeechDataset(SpeechDataset):
         return builder
 
     @override
-    def create_reader(
+    def create_pipeline(
         self,
         split: str,
         gang: Gang,
@@ -431,8 +426,21 @@ class GenericSpeechDataset(SpeechDataset):
 
         pipeline = builder.map(
             partial(to_batch, no_padding=no_padding, device=gang.device)
-        ).and_return()
+        )
+        return pipeline
 
+    @override
+    def create_reader(
+        self,
+        split: str,
+        gang: Gang,
+        min_audio_len: int,
+        max_audio_len: int,
+        options: SpeechReadOptions | None = None,
+    ) -> DataPipelineReader[SequenceBatch]:
+        pipeline = self.create_pipeline(
+            split, gang, min_audio_len, max_audio_len, options
+        )
         return DataPipelineReader[SequenceBatch](
             self._name, split, pipeline, gang, options
         )
