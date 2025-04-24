@@ -20,14 +20,13 @@ from typing_extensions import override
 
 from fairseq2.data import (
     Collater,
+    DataPipelineBuilder,
     MemoryBlock,
-    create_bucket_sizes,
     read_sequence,
 )
 from fairseq2.data.audio import (
     AudioDecoder,
     AudioDecoderOutput,
-    WaveformToFbankConverter,
 )
 from fairseq2.data.parquet import (
     FragmentLoadingConfig,
@@ -43,13 +42,10 @@ from fairseq2.datasets import (
     UnknownSplitError,
 )
 from fairseq2.datasets.speech import (
-    AudioCropper,
+    GenericSpeechDataset,
     SpeechDataset,
     SpeechReadOptions,
-    postprocess,
-    to_batch,
 )
-from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
 from fairseq2.logging import log
 from fairseq2.models.sequence import SequenceBatch
@@ -122,6 +118,39 @@ class GenericSpeechParquetDataset(SpeechDataset):
 
         return GenericSpeechParquetDataset(name, datasest, splits)
 
+    @staticmethod
+    def add_audio_decoding(
+        builder: DataPipelineBuilder, options: SpeechReadOptions
+    ) -> DataPipelineBuilder:
+
+        audio_decoder = AudioDecoder(
+            dtype=torch.float32 if options.normalize_audio else options.dtype
+        )
+
+        def decoded_audio(_bytes: NDArray[np.int8]) -> AudioDecoderOutput:
+            return audio_decoder(MemoryBlock(_bytes.tobytes()))
+
+        builder.map(decoded_audio, selector="[*].audio", num_parallel_calls=options.npc)
+
+        return builder
+
+    @staticmethod
+    def add_audio_reading_pipeline(
+        builder: DataPipelineBuilder,
+        options: SpeechReadOptions,
+        seed: int,
+        max_audio_len: int,
+    ) -> DataPipelineBuilder:
+
+        builder = GenericSpeechParquetDataset.add_audio_decoding(builder, options)
+        builder = GenericSpeechDataset.audio_post_process(
+            builder, options, rename_feature
+        )
+        builder = GenericSpeechDataset.add_audio_cropping(
+            builder, options, seed, max_audio_len
+        )
+        return builder
+
     @override
     def splits(self) -> set[str]:
         return self._splits
@@ -151,6 +180,10 @@ class GenericSpeechParquetDataset(SpeechDataset):
         seed = options.seed
         npc = options.npc
         no_padding = options.no_padding
+
+        options.batch_shuffle_window = min(
+            options.batch_shuffle_window, self.max_num_batches
+        )
 
         pa_cpu_count = int(options.extras.get("pa_cpu_count", self.pa_cpu_count))  # type: ignore
         pa.set_cpu_count(pa_cpu_count)
@@ -221,94 +254,19 @@ class GenericSpeechParquetDataset(SpeechDataset):
             builder = builder.shuffle(example_shuffle_window, seed=seed)
             seed += 1
 
-        batching = options.batching
-
-        if isinstance(batching, LengthBatching):
-            # Bucket by the audio length.
-            max_num_elements = batching.max_num_elements
-
-            num_seqs_multiple_of = options.extras.get("num_seqs_multiple_of", 8)
-            assert isinstance(
-                num_seqs_multiple_of, int
-            ), "num_seqs_multiple_of must be an integer"
-            assert num_seqs_multiple_of > 0, "num_seqs_multiple_of must be positive"
-
-            if max_num_elements % max_audio_len != 0:
-                max_num_elements = (max_num_elements // max_audio_len) * max_audio_len
-                log.warning(f"`max_num_elements` is rounded to {max_num_elements}")
-
-            bucket_sizes = create_bucket_sizes(
-                min_seq_len=min_audio_len,
-                max_seq_len=max_audio_len,
-                max_num_elements=max_num_elements,
-                num_seqs_multiple_of=8,
-            )
-
-            builder.bucket_by_length(
-                bucket_sizes,
-                selector="length",
-                min_data_len=min_audio_len,
-                skip_below_min_examples=True,  # this should be neutral
-                skip_above_max_examples=True,  # this should be neutral
-                drop_remainder=options.drop_remainder,
-            )
-        elif isinstance(batching, StaticBatching):
-            if options.no_padding:
-                raise NotSupportedError(
-                    "no_padding is not supported for static batching"
-                )
-            builder.bucket(batching.batch_size, drop_remainder=options.drop_remainder)
-        else:
-            raise NotSupportedError(f"`{batching}` is not supported.")
-
-        # Shuffle buckets.
-        if options.batch_shuffle_window != 1:
-            batch_shuffle_window = min(
-                options.batch_shuffle_window, self.max_num_batches
-            )
-            builder.shuffle(batch_shuffle_window, seed)
-            seed += 1
-
-        # Decode audio.
-        audio_decoder = AudioDecoder(
-            dtype=torch.float32 if options.normalize_audio else options.dtype
-        )
-
-        def decoded_audio(_bytes: NDArray[np.int8]) -> AudioDecoderOutput:
-            return audio_decoder(MemoryBlock(_bytes.tobytes()))
-
-        builder.map(decoded_audio, selector="[*].audio", num_parallel_calls=npc)
-
-        if options.use_fbank:
-            fbank_converter = WaveformToFbankConverter(
-                num_mel_bins=80,
-                waveform_scale=2**15,
-                channel_last=True,
-                standardize=True,
-                dtype=options.dtype,
-            )
-
-            builder.map(fbank_converter, selector="[*].audio", num_parallel_calls=npc)
-        else:
-            builder.map(
-                partial(
-                    postprocess,
-                    normalize_audio=options.normalize_audio,
-                    dtype=options.dtype,
-                ),
-                selector="[*].audio.waveform",
-            )
-
-        # select the audio feature at the top level
-        builder.map(rename_feature)
-
-        # Crop long audios to `max_audio_len`.
-        audio_cropper = AudioCropper(
-            max_audio_len,
+        builder = GenericSpeechDataset.add_bucketing_pipeline(
+            builder,
+            options,
+            max_audio_len=max_audio_len,
+            min_audio_len=min_audio_len,
             seed=seed,
-            crop_to_batch_minimal_size=no_padding,
+            columns="length",
         )
-        builder.map(audio_cropper.crop_audios_in_batch)
+        seed += 1
+
+        builder = GenericSpeechParquetDataset.add_audio_reading_pipeline(
+            builder, options, seed=seed, max_audio_len=max_audio_len
+        )
 
         # Collate batched examples into a batch.
         collater = Collater(pad_value=None if no_padding else 0)
@@ -321,7 +279,9 @@ class GenericSpeechParquetDataset(SpeechDataset):
         builder.prefetch(options.num_prefetch)
 
         pipeline = builder.map(
-            partial(to_batch, no_padding=no_padding, device=gang.device)
+            partial(
+                GenericSpeechDataset.to_batch, no_padding=no_padding, device=gang.device
+            )
         ).and_return()
 
         return DataPipelineReader[SequenceBatch](
