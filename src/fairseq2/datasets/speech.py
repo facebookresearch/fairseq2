@@ -315,6 +315,7 @@ class GenericSpeechDataset(SpeechDataset):
         try:
             audio_dir = Path(header)
             if audio_dir.exists():
+                log.info(f"Using the data directory: {audio_dir}")
                 return audio_dir
             return None
         except ValueError:
