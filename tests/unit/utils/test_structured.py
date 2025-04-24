@@ -13,7 +13,8 @@ from pathlib import Path
 import pytest
 import torch
 
-from fairseq2.typing import EMPTY, DataType
+from fairseq2.data_type import DataType
+from fairseq2.typing import EMPTY
 from fairseq2.utils.structured import (
     StructureError,
     is_unstructured,

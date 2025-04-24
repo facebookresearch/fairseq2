@@ -18,7 +18,7 @@ from typing import Any, final
 
 import torch
 
-from fairseq2.typing import DataType
+from fairseq2.data_type import DataType
 from fairseq2.utils.yaml import YamlError, read_yaml
 
 

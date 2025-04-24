@@ -12,6 +12,7 @@ from typing import Literal, TypeAlias
 
 import torch
 
+from fairseq2.data_type import DataType
 from fairseq2.generation import (
     BEAM_SEARCH_GENERATOR,
     SAMPLING_GENERATOR,
@@ -31,7 +32,6 @@ from fairseq2.metrics.recorders import (
 from fairseq2.nn.data_parallel import FsdpGranularity
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.profilers import TORCH_PROFILER, TorchProfilerConfig
-from fairseq2.typing import DataType
 from fairseq2.utils.validation import ValidationError, ValidationResult
 
 

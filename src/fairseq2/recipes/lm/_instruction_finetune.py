@@ -22,6 +22,7 @@ from fairseq2.datasets.instruction import (
     InstructionDataset,
     InstructionReadOptions,
 )
+from fairseq2.device import CPU
 from fairseq2.gang import Gangs
 from fairseq2.metrics import MetricBag
 from fairseq2.models.decoder import DecoderModel
@@ -58,7 +59,6 @@ from fairseq2.recipes.config import (
     TorchSection,
     TrainerSection,
 )
-from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate

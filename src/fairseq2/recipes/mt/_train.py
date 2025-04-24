@@ -21,6 +21,7 @@ from fairseq2.datasets.parallel_text import (
     ParallelTextDataset,
     ParallelTextReadOptions,
 )
+from fairseq2.device import CPU
 from fairseq2.gang import Gangs
 from fairseq2.generation import BeamSearchConfig
 from fairseq2.metrics import MetricBag
@@ -56,7 +57,6 @@ from fairseq2.recipes.config import (
     TextTokenizerSection,
     TrainerSection,
 )
-from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate

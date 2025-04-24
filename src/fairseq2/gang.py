@@ -21,13 +21,14 @@ from torch import Tensor
 from torch.distributed import Backend, ProcessGroup, ReduceOp
 from typing_extensions import override
 
+from fairseq2.device import Device
 from fairseq2.error import InternalError, InvalidOperationError, NotSupportedError
 from fairseq2.logging import log
-from fairseq2.typing import Device
 from fairseq2.utils.env import (
     InvalidEnvironmentVariableError,
     get_world_size,
 )
+from fairseq2.utils.tensor import to_tensor
 from fairseq2.utils.version import torch_greater_or_equal
 
 
@@ -776,11 +777,11 @@ def setup_fsdp_gangs(gangs: Gangs, intra_node_size: int | None = None) -> Gangs:
 
 def broadcast_flag(gang: Gang, flag: bool, source_rank: int = 0) -> bool:
     """Broadcasts ``flag`` to  all processes in ``gang`` from ``source_rank``."""
-    tmp = torch.tensor(flag, device=gang.device)
+    flag_pt = to_tensor(flag, device=gang.device)
 
-    gang.broadcast(tmp, source_rank)
+    gang.broadcast(flag_pt, source_rank)
 
-    return bool(tmp)
+    return bool(flag_pt)
 
 
 def all_sum(gang: Gang, value: float | int | Tensor) -> Tensor:
@@ -788,7 +789,7 @@ def all_sum(gang: Gang, value: float | int | Tensor) -> Tensor:
     if isinstance(value, Tensor):
         output = value
     else:
-        output = torch.tensor(value, device=gang.device)
+        output = to_tensor(value, device=gang.device)
 
     gang.all_reduce(output, ReduceOperation.SUM)
 

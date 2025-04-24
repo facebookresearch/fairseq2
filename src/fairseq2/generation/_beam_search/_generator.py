@@ -25,6 +25,7 @@ from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.nn import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.utils.stopwatch import Stopwatch
+from fairseq2.utils.tensor import to_tensor
 
 # isort: split
 
@@ -786,7 +787,7 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
                 if len(lprobs) != 1:
                     raise InternalError(f"The length of `lprobs` is {len(lprobs)}.")
 
-                seq_idx = torch.tensor([batch_offset], device=lprobs.device)
+                seq_idx = to_tensor([batch_offset], device=lprobs.device)
 
                 # We just extract the prompt step along with its score and treat
                 # it as the next beam step. So we keep a beam of size 1 until we

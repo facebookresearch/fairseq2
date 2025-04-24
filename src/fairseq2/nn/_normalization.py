@@ -17,7 +17,8 @@ from torch.nn import Module, Parameter
 from torch.nn.functional import layer_norm
 from typing_extensions import override
 
-from fairseq2.typing import DataType, Device
+from fairseq2.data_type import DataType
+from fairseq2.device import Device
 
 try:
     from torch.nn.functional import rms_norm as torch_rms_norm  # type: ignore[import]

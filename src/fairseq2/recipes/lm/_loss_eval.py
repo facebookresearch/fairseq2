@@ -18,6 +18,7 @@ from fairseq2.datasets.instruction import (
     InstructionDataset,
     InstructionReadOptions,
 )
+from fairseq2.device import CPU
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.recipes import Evaluator
@@ -38,7 +39,6 @@ from fairseq2.recipes.config import (
     ReferenceModelSection,
     TextTokenizerSection,
 )
-from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate

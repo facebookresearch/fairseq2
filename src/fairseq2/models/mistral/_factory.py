@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from fairseq2.data_type import DataType
+from fairseq2.device import Device
 from fairseq2.models.transformer import (
     CausalAttentionMaskFactory,
     FeedForwardNetwork,
@@ -36,7 +38,6 @@ from fairseq2.nn import (
     RotaryEncoder,
     StandardEmbedding,
 )
-from fairseq2.typing import DataType, Device
 
 # isort: split
 

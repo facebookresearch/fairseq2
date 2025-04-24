@@ -9,9 +9,9 @@ from __future__ import annotations
 from torch.nn import Parameter
 
 from fairseq2 import get_runtime_context
+from fairseq2.device import META_DEVICE
 from fairseq2.models.transformer import TransformerConfig, TransformerFactory
 from fairseq2.nn.utils.module import select_parameters
-from fairseq2.typing import META
 
 
 def test_select_parameters() -> None:
@@ -23,7 +23,7 @@ def test_select_parameters() -> None:
 
     model_factory = TransformerFactory(model_config)
 
-    with META:
+    with META_DEVICE:
         model = model_factory.create_model()
 
     output = select_parameters(model, [r".*\.encoder_decoder_attn_layer_norm\.bias$"])
@@ -45,7 +45,7 @@ def test_select_parameters_when_exclude_is_true() -> None:
 
     model_factory = TransformerFactory(model_config)
 
-    with META:
+    with META_DEVICE:
         model = model_factory.create_model()
 
     names = [r".*\.encoder_decoder_attn_layer_norm\.bias$", "decoder.layer_norm.weight"]

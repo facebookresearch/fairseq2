@@ -12,6 +12,8 @@ from torch import Tensor
 from torch.nn import Dropout
 from typing_extensions import override
 
+from fairseq2.data_type import DataType
+from fairseq2.device import Device
 from fairseq2.error import NotSupportedError
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
 from fairseq2.models.transformer import TransformerFrontend
@@ -23,7 +25,6 @@ from fairseq2.nn import (
     StandardLayerNorm,
 )
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.typing import DataType, Device
 
 # isort: split
 

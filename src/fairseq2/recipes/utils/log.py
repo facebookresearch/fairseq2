@@ -18,11 +18,11 @@ from torch.nn import Module
 
 import fairseq2
 from fairseq2.data.text.tokenizers import TextTokenizer
+from fairseq2.device import Device
 from fairseq2.gang import Gangs
 from fairseq2.logging import LogWriter
 from fairseq2.metrics import format_as_byte_size
 from fairseq2.nn.utils.module import get_module_size_info
-from fairseq2.typing import Device
 
 
 def log_config(log: LogWriter, title: str, config: object) -> None:

@@ -15,21 +15,21 @@ from pathlib import Path
 from shutil import Error
 from typing import Protocol, TypeAlias, cast, final, runtime_checkable
 
-import torch
 from torch import Tensor
 from typing_extensions import override
 
+from fairseq2.device import CPU
 from fairseq2.error import InternalError
 from fairseq2.file_system import FileMode, FileSystem
 from fairseq2.gang import Gang, GangError, Gangs, all_sum
 from fairseq2.nn.data_parallel import load_with_sdp_gang
-from fairseq2.typing import CPU
 from fairseq2.utils.io import (
     TensorDumper,
     TensorDumpError,
     TensorLoader,
     TensorLoadError,
 )
+from fairseq2.utils.tensor import to_tensor
 from fairseq2.utils.threading import ThreadPool
 
 
@@ -174,8 +174,8 @@ class FileCheckpointManager(CheckpointManager):
         self._op = None
         self._step_nr = None
 
-        self._f_flag = torch.tensor(0, device=gangs.root.device)
-        self._t_flag = torch.tensor(1, device=gangs.root.device)
+        self._f_flag = to_tensor(0, device=gangs.root.device)
+        self._t_flag = to_tensor(1, device=gangs.root.device)
 
     @override
     def save_checkpoint(
@@ -249,7 +249,7 @@ class FileCheckpointManager(CheckpointManager):
                 state = self._move_state_to_cpu(state)
             except (RuntimeError, ValueError, TypeError) as ex:
                 raise CheckpointSaveError(
-                    step_nr, f"The checkpoint state of step {step_nr} cannot be moved to CPU. See the nested exception for details."  # fmt: skip
+                    step_nr, f"The checkpoint state of step {step_nr} cannot be transferred to the host memory. See the nested exception for details."  # fmt: skip
                 ) from ex
 
         if state_processor is not None:

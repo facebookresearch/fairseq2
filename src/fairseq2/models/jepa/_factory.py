@@ -13,6 +13,8 @@ import torch.nn as nn
 from torch import Tensor
 from torch.nn import GELU, Conv2d, Conv3d
 
+from fairseq2.data_type import DataType
+from fairseq2.device import Device
 from fairseq2.models.transformer import (
     FeedForwardNetwork,
     MultiheadAttention,
@@ -41,7 +43,6 @@ from fairseq2.nn import (
     Sinusoidal3dPositionEncoder,
     StandardLayerNorm,
 )
-from fairseq2.typing import DataType, Device
 
 # isort: split
 

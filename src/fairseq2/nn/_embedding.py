@@ -18,11 +18,12 @@ from torch.nn.functional import embedding
 from torch.nn.parameter import Parameter
 from typing_extensions import override
 
+from fairseq2.data_type import DataType
+from fairseq2.device import META_DEVICE, Device
 from fairseq2.error import InternalError
 from fairseq2.gang import Gang
 from fairseq2.nn.utils.module import to_empty
 from fairseq2.tensor_parallel import gather, reduce, reduce_on_backward
-from fairseq2.typing import META, DataType, Device
 
 
 class Embedding(Module, ABC):
@@ -177,7 +178,7 @@ class VocabShardedEmbedding(Embedding):
             embed.embedding_dim,
             embed.pad_idx,
             init_fn=embed.init_fn,
-            device=META,
+            device=META_DEVICE,
             dtype=embed.weight.dtype,
         )
 
@@ -313,7 +314,7 @@ class VocabShardedEmbedding(Embedding):
 
     def to_embedding(self, device: Device | None = None) -> StandardEmbedding:
         """Convert this instance to a :class:`StandardEmbedding`."""
-        embed = self._embedding_like(META)
+        embed = self._embedding_like(device=META_DEVICE)
 
         to_empty(embed, device or self.gang.device)
 
@@ -380,7 +381,7 @@ class ShardedEmbedding(Embedding):
             embed.embedding_dim,
             embed.pad_idx,
             init_fn=embed.init_fn,
-            device=META,
+            device=META_DEVICE,
             dtype=embed.weight.dtype,
         )
 
@@ -491,7 +492,7 @@ class ShardedEmbedding(Embedding):
 
     def to_embedding(self, device: Device | None = None) -> StandardEmbedding:
         """Convert this instance to a :class:`StandardEmbedding`."""
-        embed = self._embedding_like(META)
+        embed = self._embedding_like(device=META_DEVICE)
 
         to_empty(embed, device or self.gang.device)
 

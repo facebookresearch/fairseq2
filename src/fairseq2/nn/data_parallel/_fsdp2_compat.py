@@ -10,9 +10,10 @@ from typing import NoReturn, final
 
 from torch.nn import Module
 
+from fairseq2.data_type import DataType
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gangs
-from fairseq2.typing import ContextManager, DataType
+from fairseq2.typing import ContextManager
 
 # isort: split
 

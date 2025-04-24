@@ -19,8 +19,9 @@ from torch.nn import Dropout
 from torch.nn.functional import embedding, linear
 from torch.nn.parameter import Parameter
 
+from fairseq2.data_type import DataType
+from fairseq2.device import Device
 from fairseq2.nn import Embedding, Projection
-from fairseq2.typing import DataType, Device
 
 
 @dataclass

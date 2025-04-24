@@ -14,9 +14,10 @@ from torch import Tensor
 from torch.nn import Dropout, Module
 from typing_extensions import override
 
+from fairseq2.data_type import DataType
+from fairseq2.device import Device
 from fairseq2.nn import Embedding, IncrementalStateBag, LayerNorm, PositionEncoder
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.typing import DataType, Device
 
 # isort: split
 

@@ -17,10 +17,11 @@ from torch.nn import Dropout, Module
 from torch.utils.hooks import RemovableHandle
 from typing_extensions import override
 
+from fairseq2.data_type import DataType
+from fairseq2.device import CPU, Device
 from fairseq2.error import InvalidOperationError
 from fairseq2.nn import IncrementalStateBag, LayerNorm, LayerStack
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.typing import CPU, DataType, Device
 
 # isort: split
 

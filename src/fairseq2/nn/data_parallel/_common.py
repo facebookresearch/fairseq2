@@ -13,6 +13,7 @@ from torch import Tensor
 from torch.distributed._shard import load_with_process_group
 from torch.nn import Module
 
+from fairseq2.device import Device
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gangs
 from fairseq2.nn.utils.module import (
@@ -20,7 +21,7 @@ from fairseq2.nn.utils.module import (
     reset_parameters,
     to_empty,
 )
-from fairseq2.typing import ContextManager, Device
+from fairseq2.typing import ContextManager
 
 FsdpGranularity: TypeAlias = Literal["layer", "stack"]
 

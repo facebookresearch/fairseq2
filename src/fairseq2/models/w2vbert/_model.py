@@ -13,6 +13,8 @@ from torch import Tensor
 from torch.nn import Module
 from torch.nn.functional import cross_entropy
 
+from fairseq2.data_type import DataType
+from fairseq2.device import Device
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2 import (
     Wav2Vec2Loss,
@@ -22,7 +24,6 @@ from fairseq2.models.wav2vec2 import (
 )
 from fairseq2.nn import Linear
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.typing import DataType, Device
 
 
 @final

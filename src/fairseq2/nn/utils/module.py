@@ -17,9 +17,9 @@ from torch import Tensor
 from torch.nn import Module, Parameter
 from torch.nn.utils import remove_weight_norm  # type: ignore[attr-defined]
 
+from fairseq2.device import CPU, Device
 from fairseq2.gang import Gang
 from fairseq2.logging import log
-from fairseq2.typing import CPU, Device
 from fairseq2.utils.version import torch_greater_or_equal
 
 

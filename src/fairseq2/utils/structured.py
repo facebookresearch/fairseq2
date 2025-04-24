@@ -25,7 +25,9 @@ from typing import (
 
 import torch
 
-from fairseq2.typing import EMPTY, DataClass, DataType, Device
+from fairseq2.data_type import DataType
+from fairseq2.device import Device
+from fairseq2.typing import EMPTY, DataClass
 
 
 class _Structurer(Protocol):

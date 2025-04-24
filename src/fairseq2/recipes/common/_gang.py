@@ -9,7 +9,6 @@ from __future__ import annotations
 from datetime import timedelta
 
 from fairseq2.context import RuntimeContext
-from fairseq2.device import DeviceDetectionError, determine_default_device
 from fairseq2.gang import (
     GangError,
     Gangs,
@@ -25,6 +24,7 @@ from fairseq2.recipes.config import (
     TrainerSection,
 )
 from fairseq2.recipes.utils.log import log_environment_info, log_ranks
+from fairseq2.utils.device import DeviceDetectionError, determine_default_device
 from fairseq2.utils.env import InvalidEnvironmentVariableError, get_local_world_size
 
 

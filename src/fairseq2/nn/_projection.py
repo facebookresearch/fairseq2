@@ -19,11 +19,12 @@ from torch.nn.functional import linear
 from torch.nn.parameter import Parameter
 from typing_extensions import override
 
+from fairseq2.data_type import DataType
+from fairseq2.device import META_DEVICE, Device
 from fairseq2.error import InternalError
 from fairseq2.gang import Gang
 from fairseq2.nn.utils.module import to_empty
 from fairseq2.tensor_parallel import gather, reduce, reduce_on_backward, scatter
-from fairseq2.typing import META, DataType, Device
 
 
 class Projection(Module, ABC):
@@ -177,7 +178,7 @@ class ColumnShardedLinear(Projection):
             bias=linear.bias is not None,
             gather_output=gather_output,
             init_fn=linear.init_fn,
-            device=META,
+            device=META_DEVICE,
             dtype=linear.weight.dtype,
         )
 
@@ -323,7 +324,7 @@ class ColumnShardedLinear(Projection):
 
     def to_linear(self, device: Device | None = None) -> Linear:
         """Convert this instance to a :class:`Linear`."""
-        linear = self._linear_like(META)
+        linear = self._linear_like(device=META_DEVICE)
 
         to_empty(linear, device or self.gang.device)
 
@@ -417,7 +418,7 @@ class RowShardedLinear(Projection):
             bias=linear.bias is not None,
             scatter_input=scatter_input,
             init_fn=linear.init_fn,
-            device=META,
+            device=META_DEVICE,
             dtype=linear.weight.dtype,
         )
 
@@ -550,7 +551,7 @@ class RowShardedLinear(Projection):
 
     def to_linear(self, device: Device | None = None) -> Linear:
         """Convert this instance to a :class:`Linear`."""
-        linear = self._linear_like(META)
+        linear = self._linear_like(device=META_DEVICE)
 
         to_empty(linear, device or self.gang.device)
 

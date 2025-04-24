@@ -13,10 +13,9 @@ from torch import Tensor
 from torch.nn import Module
 from typing_extensions import override
 
-from fairseq2.device import SupportsDeviceTransfer
+from fairseq2.device import Device, SupportsDeviceTransfer
 from fairseq2.models.sequence import SequenceBatch, SequenceModelOutput
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.typing import Device
 
 
 class Seq2SeqModel(Module, ABC):

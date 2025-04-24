@@ -15,8 +15,9 @@ from torch import Tensor
 from torcheval.metrics import Metric
 from typing_extensions import Self, override
 
+from fairseq2.device import Device
 from fairseq2.nn.padding import PaddingMask, get_seq_lens
-from fairseq2.typing import Device
+from fairseq2.utils.tensor import to_tensor
 
 
 @final
@@ -104,8 +105,8 @@ class WerMetric(Metric[tuple[Tensor, Tensor]]):
             uer = self.unit_err * 100.0 / self.unit_len
             wer = self.word_err * 100.0 / self.word_len
         else:
-            uer = torch.tensor(-1.0, dtype=torch.float32)
-            wer = torch.tensor(-1.0, dtype=torch.float32)
+            uer = to_tensor(-1.0, dtype=torch.float32)
+            wer = to_tensor(-1.0, dtype=torch.float32)
 
         return uer, wer
 

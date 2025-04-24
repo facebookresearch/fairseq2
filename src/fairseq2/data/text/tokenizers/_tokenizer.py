@@ -12,7 +12,7 @@ from collections.abc import Sequence
 from torch import Tensor
 
 from fairseq2.data import VocabularyInfo
-from fairseq2.typing import Device
+from fairseq2.device import Device
 
 
 class TextTokenizer(ABC):

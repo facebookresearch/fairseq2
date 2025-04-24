@@ -13,6 +13,8 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 
+from fairseq2.data_type import DataType
+from fairseq2.device import Device
 from fairseq2.models.transformer import (
     FeedForwardNetwork,
     GLUFeedForwardNetwork,
@@ -41,7 +43,7 @@ from fairseq2.nn import (
     StandardEmbedding,
     TiedProjection,
 )
-from fairseq2.typing import DataType, Device
+from fairseq2.utils.tensor import to_tensor
 
 # isort: split
 
@@ -310,4 +312,4 @@ def init_llama_rope_freqs(
 
         new_freqs.append((1 - smooth) * freq / scale_factor + smooth * freq)
 
-    return torch.tensor(new_freqs, dtype=freqs.dtype, device=device)
+    return to_tensor(new_freqs, dtype=freqs.dtype, device=device)
