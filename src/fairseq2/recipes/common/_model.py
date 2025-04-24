@@ -697,11 +697,13 @@ def prepare_model(
     model_section: ModelSection,
     trainer_section: TrainerSection,
 ) -> Model:
-    if trainer_section.activation_checkpointing:
+    if trainer_section.activation_checkpointing == "layerwise":
         if not model.handler.supports_activation_checkpointing:
             raise ActivationCheckpointingNotSupportedError(model.name)
 
-        model.handler.apply_activation_checkpointing(model.module)
+        model.handler.apply_activation_checkpointing(
+            model.module, every_nth_layer=trainer_section.ac_every_nth_layer
+        )
 
     if model_section.compile:
         compile_model(model, model_section.compile_options)
