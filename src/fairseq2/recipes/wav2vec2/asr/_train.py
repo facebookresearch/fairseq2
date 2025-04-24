@@ -16,7 +16,11 @@ from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import LengthBatching, SyncMode
-from fairseq2.datasets.asr import GENERIC_ASR_DATASET_FAMILY, AsrDataset, AsrReadOptions
+from fairseq2.datasets.asr import (
+    GENERIC_ASR_DATASET_FAMILY,
+    AsrDataset,
+)
+from fairseq2.datasets.speech import SpeechReadOptions
 from fairseq2.gang import Gang, GangError
 from fairseq2.logging import log
 from fairseq2.models.asr import AsrModel
@@ -380,7 +384,7 @@ def load_wav2vec2_asr_trainer(
 
     batching = LengthBatching(config.dataset.max_num_elements)
 
-    read_options = AsrReadOptions(
+    read_options = SpeechReadOptions(
         batching=batching,
         dtype=config.trainer.dtype,
         normalize_audio=config.dataset.normalize_audio,
@@ -420,7 +424,7 @@ def load_wav2vec2_asr_trainer(
 
         valid_criterion = AsrCriterion(model, valid_scorer)
 
-        read_options = AsrReadOptions(
+        read_options = SpeechReadOptions(
             batching=batching,
             dtype=config.trainer.dtype,
             normalize_audio=config.dataset.normalize_audio,

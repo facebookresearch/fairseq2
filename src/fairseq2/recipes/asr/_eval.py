@@ -14,7 +14,8 @@ import torch
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import LengthBatching, SyncMode
-from fairseq2.datasets.asr import AsrDataset, AsrReadOptions, GENERIC_ASR_DATASET_FAMILY
+from fairseq2.datasets.asr import AsrDataset, GENERIC_ASR_DATASET_FAMILY
+from fairseq2.datasets.speech import SpeechReadOptions
 from fairseq2.gang import Gangs
 from fairseq2.models.asr import AsrModel
 from fairseq2.models.seq2seq import Seq2SeqBatch
@@ -190,7 +191,7 @@ def load_asr_evaluator(
 
     batching = LengthBatching(config.dataset.max_num_elements)
 
-    read_options = AsrReadOptions(
+    read_options = SpeechReadOptions(
         batching=batching,
         dtype=config.evaluator.dtype,
         normalize_audio=config.dataset.normalize_audio,

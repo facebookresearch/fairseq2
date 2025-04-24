@@ -7,53 +7,35 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
-from typing import Any, Final, cast
-
-import torch
-from torch import Tensor
-from torch.nn.functional import layer_norm
-from typing_extensions import override
+from typing import Any, cast, Dict, Final
 
 from fairseq2.data import (
     CollateOptionsOverride,
     Collater,
     DataPipeline,
     DataPipelineBuilder,
-    FileMapper,
-    SequenceData,
-    create_bucket_sizes,
     read_sequence,
+    SequenceData,
 )
-from fairseq2.data.audio import AudioDecoder
-from fairseq2.data.text import StrSplitter, read_text
+from fairseq2.data.text import read_text, StrSplitter
 from fairseq2.data.text.tokenizers import TextTokenizer
 from fairseq2.datasets import (
     DataPipelineReader,
     DataReader,
     DataReadError,
-    DataReadOptions,
     DatasetHubAccessor,
     DatasetLoadError,
-    LengthBatching,
-    StaticBatching,
     UnknownSplitError,
 )
-from fairseq2.error import NotSupportedError
+from fairseq2.datasets.speech import GenericSpeechDataset, SpeechReadOptions
 from fairseq2.gang import Gang
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
-from fairseq2.typing import DataType
+from fairseq2.typing import Device
 
-
-@dataclass(kw_only=True)
-class AsrReadOptions(DataReadOptions):
-    dtype: DataType = torch.float32
-    """The data type of the decoded audio sequences."""
-
-    normalize_audio: bool = False
-    """If ``True``, normalizes audio to have zero mean and unit variance."""
+from typing_extensions import override
 
 
 class AsrDataset(ABC):
@@ -67,7 +49,7 @@ class AsrDataset(ABC):
         gang: Gang,
         min_audio_len: int,
         max_audio_len: int,
-        options: AsrReadOptions | None = None,
+        options: SpeechReadOptions | None = None,
     ) -> DataReader[Seq2SeqBatch]:
         """Create a dataset reader.
 
@@ -92,14 +74,9 @@ class AsrDataset(ABC):
         """Return the set of splits."""
 
 
-# TODO: FIX, INFER
-npc = 10
-
-
 GENERIC_ASR_DATASET_FAMILY: Final = "generic_asr"
 
 
-# TODO: Work in progress!
 class GenericAsrDataset(AsrDataset):
     """Represents a generic manifest-based ASR dataset."""
 
@@ -117,6 +94,26 @@ class GenericAsrDataset(AsrDataset):
         self._name = name
         self._manifest_dir = manifest_dir
         self._splits = splits
+
+    @staticmethod
+    def to_batch(example: Dict[str, Any], device: Device | None = None) -> Seq2SeqBatch:
+        source_data = cast(SequenceData, example["audio_feature"])
+        target_data = cast(SequenceData, example["text"])
+
+        source_seqs, source_padding_mask = get_seqs_and_padding_mask(
+            source_data, device=device
+        )
+        target_seqs, target_padding_mask = get_seqs_and_padding_mask(
+            target_data, device=device
+        )
+
+        return Seq2SeqBatch(
+            source_seqs,
+            source_padding_mask,
+            target_seqs,
+            target_padding_mask,
+            example,
+        )
 
     @staticmethod
     def from_path(path: Path, name: str) -> GenericAsrDataset:
@@ -142,7 +139,7 @@ class GenericAsrDataset(AsrDataset):
         gang: Gang,
         min_audio_len: int,
         max_audio_len: int,
-        options: AsrReadOptions | None = None,
+        options: SpeechReadOptions | None = None,
     ) -> DataPipelineReader[Seq2SeqBatch]:
         """
         :param cached_fd_count:
@@ -153,12 +150,11 @@ class GenericAsrDataset(AsrDataset):
             raise UnknownSplitError(self._name, split, self._splits)
 
         if options is None:
-            options = AsrReadOptions()
-
+            options = SpeechReadOptions()
+        npc = options.npc
         seed = options.seed
 
         audio_dir = self._retrieve_data_directory(split)
-
         builder = self._read_manifest(split)
 
         # Shuffle examples. Must be consistent across all processes.
@@ -171,79 +167,18 @@ class GenericAsrDataset(AsrDataset):
         builder.shard(gang.rank, gang.size, allow_uneven=True)
 
         seed += gang.rank
-
-        batching = options.batching
-
-        if isinstance(batching, LengthBatching):
-            # Bucket by the audio length.
-            bucket_sizes = create_bucket_sizes(
-                min_seq_len=min_audio_len,
-                max_seq_len=max_audio_len,
-                max_num_elements=batching.max_num_elements,
-                num_seqs_multiple_of=8,
-            )
-
-            builder.bucket_by_length(
-                bucket_sizes,
-                selector="audio_size",
-                min_data_len=min_audio_len,
-                skip_below_min_examples=True,
-                skip_above_max_examples=True,
-                drop_remainder=options.drop_remainder,
-            )
-        elif isinstance(batching, StaticBatching):
-            # Filter out out-of-range audios.
-            def skip(example: dict[str, object]) -> bool:
-                audio_len = cast(int, example["audio_size"])
-
-                return audio_len >= min_audio_len and audio_len <= max_audio_len
-
-            builder.filter(skip)
-
-            # Bucket `batch_size` examples.
-            builder.bucket(batching.batch_size, drop_remainder=options.drop_remainder)
-        else:
-            raise NotSupportedError(f"`{batching}` is not supported.")
-
-        # Shuffle buckets.
-        if options.batch_shuffle_window != 1:
-            builder.shuffle(options.batch_shuffle_window, seed)
-
-        seed += 1
-
-        # Memory map audio files.
-        cached_fd_count = options.extras.get("cached_fd_count", 1)
-        if not isinstance(cached_fd_count, int):
-            raise TypeError(
-                f"`options.extras['cached_fd_count']` must be of type `int`, but is of type `{type(cached_fd_count)}` instead."
-            )
-
-        file_mapper = FileMapper(audio_dir, cached_fd_count=cached_fd_count)
-
-        builder.map(file_mapper, selector="[*].audio")
-
-        # Decode audio.
-        audio_decoder = AudioDecoder(
-            dtype=torch.float32 if options.normalize_audio else options.dtype
+        # Bucketize examples by audio length.
+        builder = GenericSpeechDataset.add_bucketing_pipeline(
+            builder, options, max_audio_len, min_audio_len, seed, "audio_size"
         )
-
-        builder.map(audio_decoder, selector="[*].audio.data")
-
-        # TODO(balioglu): Check/adjust sample size
-
-        # Normalize audio if requested.
-        def normalize(waveform: Tensor) -> Tensor:
-            with torch.no_grad():
-                waveform = layer_norm(waveform, waveform.shape)
-
-            return waveform.to(options.dtype)
-
-        if options.normalize_audio:
-            builder.map(normalize, selector="[*].audio.data.waveform")
+        # Read audios
+        seed += 1
+        builder = GenericSpeechDataset.add_audio_reading_pipeline(
+            builder, audio_dir, options, seed, max_audio_len
+        )
 
         # Tokenize target text.
         text_encoder = tokenizer.create_encoder()
-
         builder.map(text_encoder, selector="[*].text", num_parallel_calls=npc)
 
         # Collate bucketed examples into a batch.
@@ -263,22 +198,8 @@ class GenericAsrDataset(AsrDataset):
         builder.prefetch(options.num_prefetch)
 
         # Wrap examples with `Seq2SeqBatch`.
-        def to_batch(example: dict[str, Any]) -> Seq2SeqBatch:
-            source_data = cast(SequenceData, example["audio"]["data"]["waveform"])
-            target_data = cast(SequenceData, example["text"])
 
-            source_seqs, source_padding_mask = get_seqs_and_padding_mask(source_data)
-            target_seqs, target_padding_mask = get_seqs_and_padding_mask(target_data)
-
-            return Seq2SeqBatch(
-                source_seqs,
-                source_padding_mask,
-                target_seqs,
-                target_padding_mask,
-                example,
-            )
-
-        pipeline = builder.map(to_batch).and_return()
+        pipeline = builder.map(partial(self.to_batch, device=gang.device)).and_return()
 
         return DataPipelineReader[Seq2SeqBatch](
             self._name, split, pipeline, gang, options
@@ -312,7 +233,7 @@ class GenericAsrDataset(AsrDataset):
 
             field_splitter = StrSplitter(names=["audio", "audio_size"])
 
-            builder.map(field_splitter, num_parallel_calls=npc)
+            builder.map(field_splitter)
 
             return builder
 

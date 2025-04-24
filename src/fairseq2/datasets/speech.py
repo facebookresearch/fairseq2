@@ -10,22 +10,14 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import partial, reduce
 from pathlib import Path
-from typing import Any, Dict, Final, List
+from typing import Any, Callable, Dict, Final, List
 
 import numpy as np
 import torch
-from torch import Tensor
-from torch.nn.functional import layer_norm
-from typing_extensions import override
 
-from fairseq2.data import (
-    Collater,
-    DataPipelineBuilder,
-    FileMapper,
-    create_bucket_sizes,
-)
+from fairseq2.data import Collater, create_bucket_sizes, DataPipelineBuilder, FileMapper
 from fairseq2.data.audio import AudioDecoder, WaveformToFbankConverter
-from fairseq2.data.text import StrSplitter, read_text
+from fairseq2.data.text import read_text, StrSplitter
 from fairseq2.datasets import (
     DataPipelineReader,
     DataReader,
@@ -43,6 +35,9 @@ from fairseq2.logging import log
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
 from fairseq2.typing import DataType, Device
+from torch import Tensor
+from torch.nn.functional import layer_norm
+from typing_extensions import override
 
 
 @torch.no_grad()
@@ -98,19 +93,6 @@ def rename_feature(batch: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         elif "waveform" in example["audio"]["data"]:
             example["audio_feature"] = example["audio"]["data"].pop("waveform")
     return batch
-
-
-def to_batch(
-    example: dict[str, Any], no_padding: bool, device: Device
-) -> SequenceBatch:
-    audio_feature = example["audio_feature"]
-    if no_padding:
-        seqs = audio_feature.to(device)
-        padding_mask = None
-    else:
-        seqs, padding_mask = get_seqs_and_padding_mask(audio_feature, device=device)
-
-    return SequenceBatch(seqs, padding_mask, example=example)
 
 
 @dataclass(kw_only=True)
@@ -190,6 +172,19 @@ class GenericSpeechDataset(SpeechDataset):
         self._splits = splits
 
     @staticmethod
+    def to_batch(
+        example: Dict[str, Any], no_padding: bool, device: Device
+    ) -> SequenceBatch:
+        audio_feature = example["audio_feature"]
+        if no_padding:
+            seqs = audio_feature.to(device)
+            padding_mask = None
+        else:
+            seqs, padding_mask = get_seqs_and_padding_mask(audio_feature, device=device)
+
+        return SequenceBatch(seqs, padding_mask, example=example)
+
+    @staticmethod
     def from_path(path: Path, name: str) -> GenericSpeechDataset:
         path = path.expanduser().resolve()
 
@@ -211,16 +206,12 @@ class GenericSpeechDataset(SpeechDataset):
     def splits(self) -> set[str]:
         return self._splits
 
-    def add_audio_reading_pipeline(
-        self,
-        builder: DataPipelineBuilder,
-        audio_dir: Path,
-        options: SpeechReadOptions,
-        seed: int,
-        max_audio_len: int,
+    @staticmethod
+    def add_audio_decoding(
+        builder: DataPipelineBuilder, options: SpeechReadOptions, audio_dir: Path | None
     ) -> DataPipelineBuilder:
         # Memory map audio files.
-        cached_fd_count = options.extras.get("cached_fd_count", 100)
+        cached_fd_count = options.extras.get("cached_fd_count", 1000)
         if not isinstance(cached_fd_count, int):
             raise TypeError(
                 f"`options.extras['cached_fd_count']` must be of type `int`, but is of type `{type(cached_fd_count)}` instead."
@@ -237,7 +228,16 @@ class GenericSpeechDataset(SpeechDataset):
         builder.map(
             audio_decoder, selector="[*].audio.data", num_parallel_calls=options.npc
         )
+        return builder
 
+    @staticmethod
+    def audio_post_process(
+        builder: DataPipelineBuilder,
+        options: SpeechReadOptions,
+        renaming: Callable[
+            [List[Dict[str, Any]]], List[Dict[str, Any]]
+        ] = rename_feature,
+    ) -> DataPipelineBuilder:
         if options.use_fbank:
             fbank_converter = WaveformToFbankConverter(
                 num_mel_bins=80,
@@ -263,8 +263,16 @@ class GenericSpeechDataset(SpeechDataset):
             )
 
         # select the audio feature at the top level
-        builder.map(rename_feature)
+        builder.map(renaming)
+        return builder
 
+    @staticmethod
+    def add_audio_cropping(
+        builder: DataPipelineBuilder,
+        options: SpeechReadOptions,
+        seed: int,
+        max_audio_len: int,
+    ) -> DataPipelineBuilder:
         # Crop long audios to `max_audio_len`.
         audio_cropper = AudioCropper(
             max_audio_len,
@@ -272,7 +280,22 @@ class GenericSpeechDataset(SpeechDataset):
             crop_to_batch_minimal_size=options.no_padding,
         )
         builder.map(audio_cropper.crop_audios_in_batch)
+        return builder
 
+    @staticmethod
+    def add_audio_reading_pipeline(
+        builder: DataPipelineBuilder,
+        audio_dir: Path | None,
+        options: SpeechReadOptions,
+        seed: int,
+        max_audio_len: int,
+    ) -> DataPipelineBuilder:
+
+        builder = GenericSpeechDataset.add_audio_decoding(builder, options, audio_dir)
+        builder = GenericSpeechDataset.audio_post_process(builder, options)
+        builder = GenericSpeechDataset.add_audio_cropping(
+            builder, options, seed, max_audio_len
+        )
         return builder
 
     def _retrieve_data_directory(self, split: str) -> Path:
@@ -322,8 +345,17 @@ class GenericSpeechDataset(SpeechDataset):
 
         return builder
 
+    @staticmethod
+    def _get_num_seqs_multiple_of(options: SpeechReadOptions) -> int:
+        num_seqs_multiple_of = options.extras.get("num_seqs_multiple_of", 8)
+        assert isinstance(
+            num_seqs_multiple_of, int
+        ), "num_seqs_multiple_of must be an integer"
+        assert num_seqs_multiple_of > 0, "num_seqs_multiple_of must be positive"
+        return num_seqs_multiple_of
+
+    @staticmethod
     def add_bucketing_pipeline(
-        self,
         builder: DataPipelineBuilder,
         options: SpeechReadOptions,
         max_audio_len: int,
@@ -336,11 +368,6 @@ class GenericSpeechDataset(SpeechDataset):
         if isinstance(batching, LengthBatching):
             # Bucket by the audio length.
             max_num_elements = batching.max_num_elements
-            num_seqs_multiple_of = options.extras.get("num_seqs_multiple_of", 8)
-            assert isinstance(
-                num_seqs_multiple_of, int
-            ), "num_seqs_multiple_of must be an integer"
-            assert num_seqs_multiple_of > 0, "num_seqs_multiple_of must be positive"
 
             if max_num_elements % max_audio_len != 0:
                 max_num_elements = (max_num_elements // max_audio_len) * max_audio_len
@@ -350,7 +377,9 @@ class GenericSpeechDataset(SpeechDataset):
                 min_seq_len=min_audio_len,
                 max_seq_len=max_audio_len,
                 max_num_elements=max_num_elements,
-                num_seqs_multiple_of=num_seqs_multiple_of,
+                num_seqs_multiple_of=GenericSpeechDataset._get_num_seqs_multiple_of(
+                    options
+                ),
             )
 
             builder.bucket_by_length(
@@ -411,12 +440,17 @@ class GenericSpeechDataset(SpeechDataset):
         builder.shard(gang.rank, gang.size, allow_uneven=True)
         seed += gang.rank
 
-        builder = self.add_bucketing_pipeline(
-            builder, options, max_audio_len, min_audio_len, seed, "audio_size"
+        builder = GenericSpeechDataset.add_bucketing_pipeline(
+            builder,
+            options,
+            max_audio_len=max_audio_len,
+            min_audio_len=min_audio_len,
+            seed=seed,
+            columns="audio_size",
         )
         seed += 1
-        builder = self.add_audio_reading_pipeline(
-            builder, audio_dir, options, seed, max_audio_len
+        builder = GenericSpeechDataset.add_audio_reading_pipeline(
+            builder, audio_dir, options, seed=seed, max_audio_len=max_audio_len
         )
         # Collate batched examples into a batch.
         collater = Collater(pad_value=None if no_padding else 0)
@@ -429,7 +463,7 @@ class GenericSpeechDataset(SpeechDataset):
         builder.prefetch(options.num_prefetch)
 
         pipeline = builder.map(
-            partial(to_batch, no_padding=no_padding, device=gang.device)
+            partial(self.to_batch, no_padding=no_padding, device=gang.device)
         ).and_return()
 
         return DataPipelineReader[SequenceBatch](
