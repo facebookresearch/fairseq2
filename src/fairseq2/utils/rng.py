@@ -13,7 +13,8 @@ from typing import final
 import torch
 from torch import Generator, Tensor
 
-from fairseq2.typing import ContextManager, Device
+from fairseq2.device import Device
+from fairseq2.typing import ContextManager
 
 
 def use_deterministic(value: bool, warn_only: bool = False) -> None:

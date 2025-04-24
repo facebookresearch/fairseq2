@@ -22,7 +22,7 @@ from fairseq2.data.text.tokenizers import (
     TextTokenizer,
     TextTokenizerLoadError,
 )
-from fairseq2.typing import Device
+from fairseq2.device import Device
 
 if TYPE_CHECKING or DOC_MODE:
 

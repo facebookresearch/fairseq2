@@ -18,9 +18,9 @@ import torch
 from torch import Tensor
 from typing_extensions import override
 
+from fairseq2.device import Device
 from fairseq2.error import NotSupportedError
 from fairseq2.file_system import FileMode, FileSystem
-from fairseq2.typing import Device
 
 MapLocation: TypeAlias = (
     Callable[[Tensor, str], Tensor] | Device | str | dict[str, str] | None

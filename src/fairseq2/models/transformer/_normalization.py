@@ -8,8 +8,9 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from fairseq2.data_type import DataType
+from fairseq2.device import Device
 from fairseq2.nn import LayerNorm, StandardLayerNorm
-from fairseq2.typing import DataType, Device
 
 
 class LayerNormFactory(Protocol):

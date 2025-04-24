@@ -13,6 +13,8 @@ import torch.nn as nn
 from torch import Tensor
 from torch.nn import Module, Parameter
 
+from fairseq2.data_type import DataType
+from fairseq2.device import Device
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.transformer import (
     FeedForwardNetwork,
@@ -23,7 +25,6 @@ from fairseq2.models.transformer import (
     create_standard_layer_norm,
 )
 from fairseq2.nn import LayerNorm, Projection
-from fairseq2.typing import DataType, Device
 
 
 @final

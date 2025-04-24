@@ -29,6 +29,7 @@ from fairseq2.data import (
 from fairseq2.data.audio import AudioDecoder
 from fairseq2.data.text import StrSplitter, read_text
 from fairseq2.data.text.tokenizers import TextTokenizer
+from fairseq2.data_type import DataType
 from fairseq2.datasets import (
     DataPipelineReader,
     DataReader,
@@ -44,7 +45,6 @@ from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
-from fairseq2.typing import DataType
 
 
 @dataclass(kw_only=True)

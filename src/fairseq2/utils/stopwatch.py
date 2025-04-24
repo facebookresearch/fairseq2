@@ -12,8 +12,8 @@ from typing import Any, final
 import torch
 from typing_extensions import Self
 
+from fairseq2.device import CPU, Device
 from fairseq2.error import InvalidOperationError
-from fairseq2.typing import CPU, Device
 
 
 @final

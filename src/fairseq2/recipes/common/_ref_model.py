@@ -18,6 +18,7 @@ from fairseq2.assets import (
     AssetStore,
 )
 from fairseq2.context import RuntimeContext
+from fairseq2.data_type import DataType
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import GangError, Gangs
 from fairseq2.logging import log
@@ -36,7 +37,6 @@ from fairseq2.recipes import Model, RecipeError
 from fairseq2.recipes.config import ReferenceModelSection
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.registry import Provider
-from fairseq2.typing import DataType
 
 # isort: split
 

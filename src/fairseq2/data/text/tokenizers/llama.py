@@ -24,7 +24,7 @@ from fairseq2.data.text.tokenizers.tiktoken import (
     TiktokenEncoder,
     TiktokenModel,
 )
-from fairseq2.typing import Device
+from fairseq2.device import Device
 
 
 @final

@@ -15,6 +15,8 @@ from torch.nn import GELU, Conv1d, Module, Sequential
 from torch.nn.utils import remove_weight_norm, weight_norm  # type: ignore[attr-defined]
 from typing_extensions import override
 
+from fairseq2.data_type import DataType
+from fairseq2.device import Device
 from fairseq2.error import NotSupportedError
 from fairseq2.nn import (
     IncrementalStateBag,
@@ -23,7 +25,6 @@ from fairseq2.nn import (
     StandardLayerNorm,
 )
 from fairseq2.nn.padding import PaddingMask, apply_padding_mask
-from fairseq2.typing import DataType, Device
 
 
 @final

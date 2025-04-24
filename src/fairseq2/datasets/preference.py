@@ -33,12 +33,11 @@ from fairseq2.datasets import (
     LengthBatching,
     StaticBatching,
 )
-from fairseq2.device import SupportsDeviceTransfer
+from fairseq2.device import Device, SupportsDeviceTransfer
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
-from fairseq2.typing import Device
 
 # isort: split
 

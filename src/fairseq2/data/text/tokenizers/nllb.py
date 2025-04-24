@@ -25,7 +25,7 @@ from fairseq2.data.text.tokenizers.sentencepiece import (
     SentencePieceModel,
     get_sentencepiece_vocabulary_info,
 )
-from fairseq2.typing import Device
+from fairseq2.device import Device
 
 
 @final

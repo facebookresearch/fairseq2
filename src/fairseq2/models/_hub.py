@@ -19,9 +19,10 @@ from fairseq2.assets import (
     AssetCardNotFoundError,
     AssetStore,
 )
+from fairseq2.data_type import DataType
+from fairseq2.device import Device
 from fairseq2.gang import Gangs, fake_gangs
 from fairseq2.registry import Provider
-from fairseq2.typing import DataType, Device
 
 # isort: split
 

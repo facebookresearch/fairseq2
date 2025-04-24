@@ -9,17 +9,22 @@ from __future__ import annotations
 from collections.abc import MutableMapping
 from contextlib import AbstractContextManager
 from dataclasses import Field, is_dataclass
-from typing import Any, ClassVar, Final, Protocol, TypeAlias, TypeGuard
+from typing import Any, ClassVar, Protocol, TypeAlias, TypeGuard
 
-from torch import device, dtype
 from typing_extensions import Self
-from typing_extensions import override as override  # noqa: F401
+
+ContextManager: TypeAlias = AbstractContextManager[None]
 
 
 class DataClass(Protocol):
     """Represents a data class object."""
 
     __dataclass_fields__: ClassVar[dict[str, Field[Any]]]
+
+
+def is_dataclass_instance(obj: object) -> TypeGuard[DataClass]:
+    """Return ``True`` if ``obj`` is of type :class:`DataClass`."""
+    return is_dataclass(obj) and not isinstance(obj, type)
 
 
 class _EmptyType:
@@ -37,21 +42,4 @@ class _EmptyType:
 
 
 EMPTY = _EmptyType()
-"""A sentinel signifying no value for a dataclass field."""
-
-
-def is_dataclass_instance(obj: object) -> TypeGuard[DataClass]:
-    """Return ``True`` if ``obj`` is of type :class:`DataClass`."""
-    return is_dataclass(obj) and not isinstance(obj, type)
-
-
-ContextManager: TypeAlias = AbstractContextManager[None]
-
-
-Device: TypeAlias = device
-
-DataType: TypeAlias = dtype
-
-CPU: Final = Device("cpu")
-
-META: Final = Device("meta")
+"""A sentinel signifying no value."""

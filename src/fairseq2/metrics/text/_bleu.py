@@ -16,7 +16,8 @@ from torch import Tensor
 from torcheval.metrics import Metric
 from typing_extensions import Self, override
 
-from fairseq2.typing import Device
+from fairseq2.device import Device
+from fairseq2.utils.tensor import to_tensor
 
 DEFAULT_BLEU_TOKENIZER: Final = BLEU.TOKENIZER_DEFAULT
 
@@ -70,8 +71,8 @@ class BleuMetric(Metric[Tensor]):
         self.sys_len += bleu.sys_len
         self.ref_len += bleu.ref_len
 
-        self.valid_ngrams += torch.tensor(bleu.counts, device=self.device)
-        self.total_ngrams += torch.tensor(bleu.totals, device=self.device)
+        self.valid_ngrams += to_tensor(bleu.counts, device=self.device)
+        self.total_ngrams += to_tensor(bleu.totals, device=self.device)
 
         return self
 
@@ -86,7 +87,7 @@ class BleuMetric(Metric[Tensor]):
 
         score_output = BLEU.compute_bleu(valid_ngrams, total_ngrams, sys_len, ref_len)
 
-        return torch.tensor(score_output.score, device=self.device)
+        return to_tensor(score_output.score, device=self.device)
 
     @override
     @torch.inference_mode()

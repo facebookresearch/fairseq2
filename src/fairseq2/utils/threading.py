@@ -85,7 +85,7 @@ def _get_num_cpus(num_procs: int) -> int:
 
     if num_cpus is None or affinity_mask is None:
         raise ThreadingError(
-            "The number of CPUs of the host machine cannot be determined."
+            "The number of CPUs on the host machine cannot be determined."
         )
 
     # We should not exceed the number of cores available in the affinity mask.

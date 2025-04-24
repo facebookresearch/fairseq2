@@ -12,7 +12,7 @@ from typing import final
 import torch
 from typing_extensions import override
 
-from fairseq2.typing import Device
+from fairseq2.device import Device
 
 
 class CudaContext(ABC):

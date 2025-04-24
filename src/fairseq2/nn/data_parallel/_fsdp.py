@@ -10,8 +10,9 @@ from typing import TYPE_CHECKING, Literal
 
 from torch.nn import Module
 
+from fairseq2.data_type import DataType
 from fairseq2.gang import Gangs
-from fairseq2.typing import ContextManager, DataType
+from fairseq2.typing import ContextManager
 from fairseq2.utils.version import torch_greater_or_equal
 
 # isort: split

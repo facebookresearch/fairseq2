@@ -22,6 +22,7 @@ from fairseq2.cli.utils.cluster import set_torch_distributed_variables
 from fairseq2.cli.utils.rich import get_console
 from fairseq2.context import RuntimeContext
 from fairseq2.data.text.tokenizers import TextTokenDecoder, TextTokenizer
+from fairseq2.device import CPU
 from fairseq2.error import InternalError
 from fairseq2.gang import Gang, GangError
 from fairseq2.generation import (
@@ -44,7 +45,6 @@ from fairseq2.recipes.config import (
     TextTokenizerSection,
     TorchSection,
 )
-from fairseq2.typing import CPU
 from fairseq2.utils.rng import RngBag
 
 

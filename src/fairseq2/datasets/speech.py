@@ -14,6 +14,7 @@ from typing import Final, final
 import torch
 from typing_extensions import override
 
+from fairseq2.data_type import DataType
 from fairseq2.datasets import (
     DataPipelineReader,
     DataReader,
@@ -23,7 +24,6 @@ from fairseq2.datasets import (
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
 from fairseq2.models.sequence import SequenceBatch
-from fairseq2.typing import DataType
 
 
 @dataclass(kw_only=True)

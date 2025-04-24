@@ -21,7 +21,8 @@ from fairseq2.data.text.tokenizers import (
     TextTokenDecoder,
     TextTokenEncoder,
 )
-from fairseq2.typing import Device
+from fairseq2.device import Device
+from fairseq2.utils.tensor import to_tensor
 
 
 @final
@@ -113,8 +114,8 @@ class TiktokenEncoder(TextTokenEncoder):
     _encoding: Encoding
     _prefix_indices: list[int]
     _suffix_indices: list[int]
-    _prefix_index_tensor: Tensor | None
-    _suffix_index_tensor: Tensor | None
+    _prefix_indices_pt: Tensor | None
+    _suffix_indices_pt: Tensor | None
     _device: Device | None
     _pin_memory: bool
 
@@ -147,13 +148,13 @@ class TiktokenEncoder(TextTokenEncoder):
                 self._encoding.encode_single_token(t) for t in prefix_tokens
             ]
 
-            self._prefix_index_tensor = torch.tensor(
+            self._prefix_indices_pt = to_tensor(
                 self._prefix_indices, dtype=torch.int64, device=device
             )
         else:
             self._prefix_indices = []
 
-            self._prefix_index_tensor = None
+            self._prefix_indices_pt = None
 
         # Suffix
         if suffix_tokens:
@@ -161,13 +162,13 @@ class TiktokenEncoder(TextTokenEncoder):
                 self._encoding.encode_single_token(t) for t in suffix_tokens
             ]
 
-            self._suffix_index_tensor = torch.tensor(
+            self._suffix_indices_pt = to_tensor(
                 self._suffix_indices, dtype=torch.int64, device=device
             )
         else:
             self._suffix_indices = []
 
-            self._suffix_index_tensor = None
+            self._suffix_indices_pt = None
 
         self._device = device
         self._pin_memory = pin_memory
@@ -197,12 +198,12 @@ class TiktokenEncoder(TextTokenEncoder):
     @property
     @override
     def prefix_indices(self) -> Tensor | None:
-        return self._prefix_index_tensor
+        return self._prefix_indices_pt
 
     @property
     @override
     def suffix_indices(self) -> Tensor | None:
-        return self._suffix_index_tensor
+        return self._suffix_indices_pt
 
 
 @final

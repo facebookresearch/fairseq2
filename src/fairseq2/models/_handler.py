@@ -20,7 +20,8 @@ from fairseq2.assets import (
     AssetDownloadManager,
 )
 from fairseq2.config_registry import ConfigNotFoundError, ConfigProvider
-from fairseq2.device import default_device_and_dtype
+from fairseq2.data_type import DataType, default_dtype
+from fairseq2.device import CPU, META_DEVICE
 from fairseq2.error import ContractError, NotSupportedError
 from fairseq2.gang import Gangs
 from fairseq2.nn.data_parallel import FsdpGranularity, FsdpWrapper, load_with_sdp_gang
@@ -30,7 +31,6 @@ from fairseq2.nn.utils.module import (
     to_device,
     to_empty,
 )
-from fairseq2.typing import CPU, META, DataType
 from fairseq2.utils.io import TensorLoader, TensorLoadError
 from fairseq2.utils.merge import MergeError, merge_object
 from fairseq2.utils.structured import StructureError, structure, unstructure
@@ -480,14 +480,14 @@ class DelegatingModelHandler(ModelHandler):
                     f"The '{self._family}' model family does not support meta device initialization."
                 )
 
-            device = META
+            device = META_DEVICE
         elif gangs.root.size != gangs.dp.size:
             device = CPU  # Avoid OOM for sharded models.
         else:
             device = gangs.root.device
 
         try:
-            with default_device_and_dtype(device, dtype):
+            with device, default_dtype(dtype):
                 model = self._factory(config)
         except NotImplementedError as ex:
             if "'Meta' backend" not in str(ex):

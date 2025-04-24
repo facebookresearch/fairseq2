@@ -7,123 +7,11 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Iterator, Mapping
-from contextlib import contextmanager
-from typing import final
+from typing import Final, TypeAlias
 
 import torch
 
-from fairseq2.context import RuntimeContext
-from fairseq2.error import InternalError
-from fairseq2.typing import CPU, DataType, Device
-from fairseq2.utils.cuda import CudaContext, TorchCudaContext
-from fairseq2.utils.env import (
-    InvalidEnvironmentVariableError,
-    get_device_from_env,
-    get_int_from_env,
-)
-
-
-def determine_default_device(context: RuntimeContext) -> Device:
-    cuda_context = TorchCudaContext()
-
-    device_accessor = DefaultDeviceAccessor(context.env, cuda_context)
-
-    return device_accessor.get()
-
-
-@final
-class DefaultDeviceAccessor:
-    _env: Mapping[str, str]
-    _cuda_context: CudaContext
-
-    def __init__(self, env: Mapping[str, str], cuda_context: CudaContext) -> None:
-        self._env = env
-        self._cuda_context = cuda_context
-
-    def get(self) -> Device:
-        try:
-            device = get_device_from_env(self._env, "FAIRSEQ2_DEVICE")
-        except InvalidEnvironmentVariableError as ex:
-            raise DeviceDetectionError(
-                "The default device cannot be set using the `FAIRSEQ2_DEVICE` environment variable. See the nested exception for details."
-            ) from ex
-
-        if device is None:
-            device = self._determine_default_cuda_device()
-
-        if device is None:
-            device = CPU
-
-        if device.type == "cuda":
-            self._cuda_context.set_default_device(device)
-
-        return device
-
-    def _determine_default_cuda_device(self) -> Device | None:
-        if not self._cuda_context.is_available():
-            return None
-
-        num_devices = self._cuda_context.device_count()
-        if num_devices == 0:
-            return None
-
-        visible_devices = self._env.get("CUDA_VISIBLE_DEVICES")
-        if visible_devices is not None:
-            try:
-                int(visible_devices)
-            except ValueError:
-                # If we are here, it means CUDA_VISIBLE_DEVICES is a list instead of
-                # a single device index.
-                device = None
-            else:
-                device = Device("cuda", index=0)
-        else:
-            device = None
-
-        if device is None:
-            try:
-                idx = self._get_device_index(num_devices, device_type="cuda")
-            except InvalidEnvironmentVariableError as ex:
-                raise DeviceDetectionError(
-                    "The default `cuda` device index cannot be inferred from the environment. See the nested exception for details."
-                ) from ex
-
-            device = Device("cuda", index=idx)
-
-        return device
-
-    def _get_device_index(self, num_devices: int, device_type: str) -> int:
-        if num_devices <= 0:
-            raise InternalError(f"`num_devices` is {num_devices}.")
-
-        # We use the `LOCAL_RANK` environment variable to determine which device to
-        # pick in case the process has more than one available.
-        device_idx = get_int_from_env(self._env, "LOCAL_RANK", allow_zero=True)
-        if device_idx is None:
-            num_procs = get_int_from_env(self._env, "LOCAL_WORLD_SIZE")
-            if num_procs is not None and num_procs > 1 and num_devices > 1:
-                raise InvalidEnvironmentVariableError(
-                    "LOCAL_RANK", f"The default `{device_type}` device cannot be determined. There are {num_devices} devices available, but the `LOCAL_RANK` environment variable is not set."  # fmt: skip
-                )
-
-            return 0
-
-        if device_idx < 0:
-            raise InvalidEnvironmentVariableError(
-                "LOCAL_RANK", f"The value of the `LOCAL_RANK` environment variable is expected to be greater than or equal to 0, but is {device_idx} instead."  # fmt: skip
-            )
-
-        if device_idx >= num_devices:
-            raise InvalidEnvironmentVariableError(
-                "LOCAL_RANK", f"The value of the `LOCAL_RANK` environment variable is expected to be less than the number of available `{device_type}` devices ({num_devices}), but is {device_idx} instead."  # fmt: skip
-            )
-
-        return device_idx
-
-
-class DeviceDetectionError(Exception):
-    pass
+Device: TypeAlias = torch.device
 
 
 class SupportsDeviceTransfer(ABC):
@@ -131,14 +19,6 @@ class SupportsDeviceTransfer(ABC):
     def to(self, device: Device) -> None: ...
 
 
-@contextmanager
-def default_device_and_dtype(device: Device, dtype: DataType) -> Iterator[None]:
-    original_dtype = torch.get_default_dtype()
+CPU: Final = Device("cpu")
 
-    torch.set_default_dtype(dtype)
-
-    try:
-        with device:
-            yield
-    finally:
-        torch.set_default_dtype(original_dtype)
+META_DEVICE: Final = Device("meta")

@@ -11,8 +11,9 @@ from typing import Protocol
 import torch
 from torch import Tensor
 
+from fairseq2.data_type import DataType
+from fairseq2.device import Device
 from fairseq2.nn.ops import repeat_interleave
-from fairseq2.typing import DataType, Device
 
 
 def to_float_mask(mask: Tensor, dtype: DataType | None = None) -> Tensor:

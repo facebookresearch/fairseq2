@@ -26,6 +26,7 @@ from fairseq2.generation import SequenceGenerator
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.llama import LLAMA_MODEL_FAMILY
 from fairseq2.nn.utils.module import infer_device
+from fairseq2.utils.tensor import to_tensor
 
 
 @final
@@ -48,8 +49,8 @@ class LLaMA1DialogEncoder(ChatDialogEncoder):
                 "The device of `generator.model` is not valid. See the nested exception for details."
             ) from ex
 
-        self._bos_idx = torch.tensor([bos_idx], device=device)
-        self._eos_idx = torch.tensor([eos_idx], device=device)
+        self._bos_idx = to_tensor([bos_idx], device=device)
+        self._eos_idx = to_tensor([eos_idx], device=device)
 
         self._text_encoder = tokenizer.create_raw_encoder(device=device)
 
@@ -119,10 +120,10 @@ class LLaMA3DialogEncoder(ChatDialogEncoder):
                 "The device of `generator.model` is not valid. See the nested exception for details."
             ) from ex
 
-        self._bos_idx = torch.tensor([bos_idx], device=device)
-        self._eos_idx = torch.tensor([eos_idx], device=device)
-        self._boh_idx = torch.tensor([boh_idx], device=device)
-        self._eoh_idx = torch.tensor([eoh_idx], device=device)
+        self._bos_idx = to_tensor([bos_idx], device=device)
+        self._eos_idx = to_tensor([eos_idx], device=device)
+        self._boh_idx = to_tensor([boh_idx], device=device)
+        self._eoh_idx = to_tensor([eoh_idx], device=device)
 
         self._text_encoder = tokenizer.create_raw_encoder(device=device)
 

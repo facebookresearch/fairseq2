@@ -17,6 +17,7 @@ from typing_extensions import override
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets import LengthBatching, SyncMode
 from fairseq2.datasets.asr import GENERIC_ASR_DATASET_FAMILY, AsrDataset, AsrReadOptions
+from fairseq2.device import CPU
 from fairseq2.gang import Gang, GangError
 from fairseq2.logging import log
 from fairseq2.metrics import MetricBag
@@ -56,7 +57,6 @@ from fairseq2.recipes.config import (
     TrainerSection,
 )
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.typing import CPU
 from fairseq2.utils.rng import manual_seed
 from fairseq2.utils.structured import structure
 from fairseq2.utils.validation import validate

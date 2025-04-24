@@ -16,6 +16,7 @@ from typing_extensions import Self, override
 from fairseq2.data import DataPipeline, DataPipelineError
 from fairseq2.gang import Gang, GangError, all_sum
 from fairseq2.logging import log
+from fairseq2.utils.tensor import to_tensor
 
 # isort: split
 
@@ -200,9 +201,9 @@ class DataPipelineReader(DataReader[BatchT]):
 def _min_num_batches(num_batches: int, gang: Gang) -> int:
     all_num_batches = torch.zeros((gang.size,), device=gang.device, dtype=torch.int64)
 
-    input_ = torch.tensor([num_batches], device=gang.device)
+    num_batches_pt = to_tensor([num_batches], device=gang.device)
 
-    gang.all_gather(all_num_batches, input_)
+    gang.all_gather(all_num_batches, num_batches_pt)
 
     min_num_batches = int(all_num_batches.min())
     if min_num_batches != 0:
