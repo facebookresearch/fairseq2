@@ -37,6 +37,8 @@ from fairseq2.data.parquet import (
 )
 from fairseq2.datasets import (
     DataPipelineReader,
+    LengthBatching,
+    StaticBatching,
     UnknownSplitError,
 )
 from fairseq2.datasets.speech import (
