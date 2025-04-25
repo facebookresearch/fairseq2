@@ -48,16 +48,6 @@ from fairseq2.gang import Gang
 from fairseq2.logging import log
 from fairseq2.models.sequence import SequenceBatch
 
-
-def rename_feature(batch: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    for example in batch:
-        if "fbank" in example["audio"]:
-            example["audio_feature"] = example["audio"].pop("fbank")
-        elif "waveform" in example["audio"]:
-            example["audio_feature"] = example["audio"].pop("waveform")
-    return batch
-
-
 PARQUET_SPEECH_DATASET_FAMILY: Final = "generic_parquet_speech"
 
 
@@ -69,9 +59,7 @@ class DefaultAudioSchema(NamedColumns):
     extra_columns: List[str] | None = None
 
 
-@final
-class GenericSpeechParquetDataset(SpeechDataset):
-    """Represents a generic manifest-based Speech dataset."""
+class ParquetDatasetInterface:
 
     _name: str
     _dataset: pq.ParquetDataset
@@ -92,7 +80,7 @@ class GenericSpeechParquetDataset(SpeechDataset):
         path: Path | str | List[str | Path],
         name: str,
         filesystem: Any | None = None,
-    ) -> GenericSpeechParquetDataset:
+    ) -> "ParquetDatasetInterface":
 
         # from stopes.fb_config import get_filesystem_from_path
         # path, filesystem = get_filesystem_from_path(path)  # type: ignore
@@ -112,7 +100,24 @@ class GenericSpeechParquetDataset(SpeechDataset):
             else:
                 splits = set(_splits.to_pylist())
 
-        return GenericSpeechParquetDataset(name, datasest, splits)
+        return cls(name, datasest, splits)
+
+    def splits(self) -> set[str]:
+        return self._splits
+
+
+@final
+class GenericSpeechParquetDataset(ParquetDatasetInterface, SpeechDataset):
+    """Represents a generic parquet-based Speech dataset."""
+
+    @staticmethod
+    def rename_feature(batch: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        for example in batch:
+            if "fbank" in example["audio"]:
+                example["audio_feature"] = example["audio"].pop("fbank")
+            elif "waveform" in example["audio"]:
+                example["audio_feature"] = example["audio"].pop("waveform")
+        return batch
 
     @staticmethod
     def add_audio_decoding(
@@ -129,27 +134,6 @@ class GenericSpeechParquetDataset(SpeechDataset):
         builder.map(decoded_audio, selector="[*].audio", num_parallel_calls=options.npc)
 
         return builder
-
-    @staticmethod
-    def add_audio_reading_pipeline(
-        builder: DataPipelineBuilder,
-        options: SpeechReadOptions,
-        seed: int,
-        max_audio_len: int,
-    ) -> DataPipelineBuilder:
-
-        builder = GenericSpeechParquetDataset.add_audio_decoding(builder, options)
-        builder = GenericSpeechDataset.audio_post_process(
-            builder, options, rename_feature
-        )
-        builder = GenericSpeechDataset.add_audio_cropping(
-            builder, options, seed, max_audio_len
-        )
-        return builder
-
-    @override
-    def splits(self) -> set[str]:
-        return self._splits
 
     @staticmethod
     def get_example_loading_builder(
@@ -280,8 +264,12 @@ class GenericSpeechParquetDataset(SpeechDataset):
         )
         seed += 1
 
-        builder = GenericSpeechParquetDataset.add_audio_reading_pipeline(
-            builder, options, seed=seed, max_audio_len=max_audio_len
+        builder = GenericSpeechParquetDataset.add_audio_decoding(builder, options)
+        builder = GenericSpeechDataset.audio_post_process(
+            builder, options, GenericSpeechParquetDataset.rename_feature
+        )
+        builder = GenericSpeechDataset.add_audio_cropping(
+            builder, options, seed, max_audio_len
         )
 
         # Collate batched examples into a batch.

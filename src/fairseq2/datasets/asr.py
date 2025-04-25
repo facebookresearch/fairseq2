@@ -26,7 +26,6 @@ from fairseq2.data.text.tokenizers import TextTokenizer
 from fairseq2.datasets import (
     DataPipelineReader,
     DataReader,
-    DataReadError,
     DatasetHubAccessor,
     DatasetLoadError,
     UnknownSplitError,
@@ -176,7 +175,9 @@ class GenericAsrDataset(AsrDataset):
         # Read audios
         seed += 1
         builder = GenericSpeechDataset.add_audio_decoding(builder, options, audio_dir)
-        builder = GenericSpeechDataset.audio_post_process(builder, options)
+        builder = GenericSpeechDataset.audio_post_process(
+            builder, options, GenericSpeechDataset.rename_feature
+        )
 
         # Tokenize target text.
         text_encoder = tokenizer.create_encoder()

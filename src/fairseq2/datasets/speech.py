@@ -91,15 +91,6 @@ class AudioCropper:
         return batch
 
 
-def rename_feature(batch: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    for example in batch:
-        if "fbank" in example["audio"]["data"]:
-            example["audio_feature"] = example["audio"]["data"].pop("fbank")
-        elif "waveform" in example["audio"]["data"]:
-            example["audio_feature"] = example["audio"]["data"].pop("waveform")
-    return batch
-
-
 @dataclass(kw_only=True)
 class SpeechReadOptions(DataReadOptions):
 
@@ -190,6 +181,15 @@ class GenericSpeechDataset(SpeechDataset):
         return SequenceBatch(seqs, padding_mask, example=example)
 
     @staticmethod
+    def rename_feature(batch: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        for example in batch:
+            if "fbank" in example["audio"]["data"]:
+                example["audio_feature"] = example["audio"]["data"].pop("fbank")
+            elif "waveform" in example["audio"]["data"]:
+                example["audio_feature"] = example["audio"]["data"].pop("waveform")
+        return batch
+
+    @staticmethod
     def from_path(path: Path, name: str) -> GenericSpeechDataset:
         path = path.expanduser().resolve()
 
@@ -239,9 +239,7 @@ class GenericSpeechDataset(SpeechDataset):
     def audio_post_process(
         builder: DataPipelineBuilder,
         options: SpeechReadOptions,
-        renaming: Callable[
-            [List[Dict[str, Any]]], List[Dict[str, Any]]
-        ] = rename_feature,
+        renaming: Callable[[List[Dict[str, Any]]], List[Dict[str, Any]]],
     ) -> DataPipelineBuilder:
         if options.use_fbank:
             fbank_converter = WaveformToFbankConverter(
@@ -285,22 +283,6 @@ class GenericSpeechDataset(SpeechDataset):
             crop_to_batch_minimal_size=options.no_padding,
         )
         builder.map(audio_cropper.crop_audios_in_batch)
-        return builder
-
-    @staticmethod
-    def add_audio_reading_pipeline(
-        builder: DataPipelineBuilder,
-        audio_dir: Path | None,
-        options: SpeechReadOptions,
-        seed: int,
-        max_audio_len: int,
-    ) -> DataPipelineBuilder:
-
-        builder = GenericSpeechDataset.add_audio_decoding(builder, options, audio_dir)
-        builder = GenericSpeechDataset.audio_post_process(builder, options)
-        builder = GenericSpeechDataset.add_audio_cropping(
-            builder, options, seed, max_audio_len
-        )
         return builder
 
     @staticmethod
@@ -465,9 +447,14 @@ class GenericSpeechDataset(SpeechDataset):
             columns="audio_size",
         )
         seed += 1
-        builder = GenericSpeechDataset.add_audio_reading_pipeline(
-            builder, audio_dir, options, seed=seed, max_audio_len=max_audio_len
+        builder = GenericSpeechDataset.add_audio_decoding(builder, options, audio_dir)
+        builder = GenericSpeechDataset.audio_post_process(
+            builder, options, GenericSpeechDataset.rename_feature
         )
+        builder = GenericSpeechDataset.add_audio_cropping(
+            builder, options, seed=seed, max_audio_len=max_audio_len
+        )
+
         # Collate batched examples into a batch.
         collater = Collater(pad_value=None if no_padding else 0)
         builder.map(collater)
