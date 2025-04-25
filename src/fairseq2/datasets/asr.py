@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from functools import partial
-from pathlib import Path
 from typing import Any, Dict, Final, cast
 
 from typing_extensions import override
@@ -27,7 +26,6 @@ from fairseq2.datasets import (
     DataPipelineReader,
     DataReader,
     DatasetHubAccessor,
-    DatasetLoadError,
     UnknownSplitError,
 )
 from fairseq2.datasets.speech import (
