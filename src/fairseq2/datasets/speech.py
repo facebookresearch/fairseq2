@@ -149,8 +149,7 @@ GENERIC_SPEECH_DATASET_FAMILY: Final = "generic_speech"
 get_speech_dataset_hub = DatasetHubAccessor(SpeechDataset)
 
 
-class GenericSpeechDataset(SpeechDataset):
-    """Represents a generic manifest-based Speech dataset."""
+class ManifestDatasetInterface:
 
     _name: str
     _manifest_dir: Path
@@ -166,6 +165,29 @@ class GenericSpeechDataset(SpeechDataset):
         self._name = name
         self._manifest_dir = manifest_dir
         self._splits = splits
+
+    @classmethod
+    def from_path(cls, path: Path, name: str) -> "ManifestDatasetInterface":
+        path = path.expanduser().resolve()
+
+        if not path.is_dir():
+            return cls(name, manifest_dir=path.parent, splits={path.stem})
+
+        try:
+            splits = {f.stem for f in path.glob("*.tsv")}
+        except OSError as ex:
+            raise DatasetLoadError(
+                name, f"The splits under the '{path}' directory of the '{name}' dataset cannot be determined. See the nested exception for details."  # fmt: skip
+            ) from ex
+
+        return cls(name, path, splits)
+
+    def splits(self) -> set[str]:
+        return self._splits
+
+
+class GenericSpeechDataset(ManifestDatasetInterface, SpeechDataset):
+    """Represents a generic manifest-based Speech dataset."""
 
     @staticmethod
     def to_batch(
@@ -188,28 +210,6 @@ class GenericSpeechDataset(SpeechDataset):
             elif "waveform" in example["audio"]["data"]:
                 example["audio_feature"] = example["audio"]["data"].pop("waveform")
         return batch
-
-    @staticmethod
-    def from_path(path: Path, name: str) -> GenericSpeechDataset:
-        path = path.expanduser().resolve()
-
-        if not path.is_dir():
-            return GenericSpeechDataset(
-                name, manifest_dir=path.parent, splits={path.stem}
-            )
-
-        try:
-            splits = {f.stem for f in path.glob("*.tsv")}
-        except OSError as ex:
-            raise DatasetLoadError(
-                name, f"The splits under the '{path}' directory of the '{name}' dataset cannot be determined. See the nested exception for details."  # fmt: skip
-            ) from ex
-
-        return GenericSpeechDataset(name, path, splits)
-
-    @override
-    def splits(self) -> set[str]:
-        return self._splits
 
     @staticmethod
     def add_audio_decoding(

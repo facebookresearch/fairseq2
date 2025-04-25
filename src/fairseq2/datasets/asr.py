@@ -30,7 +30,11 @@ from fairseq2.datasets import (
     DatasetLoadError,
     UnknownSplitError,
 )
-from fairseq2.datasets.speech import GenericSpeechDataset, SpeechReadOptions
+from fairseq2.datasets.speech import (
+    GenericSpeechDataset,
+    ManifestDatasetInterface,
+    SpeechReadOptions,
+)
 from fairseq2.gang import Gang
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
@@ -75,24 +79,11 @@ class AsrDataset(ABC):
 
 GENERIC_ASR_DATASET_FAMILY: Final = "generic_asr"
 
+get_asr_dataset_hub = DatasetHubAccessor(AsrDataset)
 
-class GenericAsrDataset(AsrDataset):
+
+class GenericAsrDataset(ManifestDatasetInterface, AsrDataset):
     """Represents a generic manifest-based ASR dataset."""
-
-    _name: str
-    _manifest_dir: Path
-    _splits: set[str]
-
-    def __init__(self, name: str, manifest_dir: Path, splits: set[str]) -> None:
-        """
-        :param manifest_dir:
-            The directory under which the manifest files resides.
-        :param splits:
-            The available splits.
-        """
-        self._name = name
-        self._manifest_dir = manifest_dir
-        self._splits = splits
 
     @staticmethod
     def to_batch(example: Dict[str, Any], device: Device | None = None) -> Seq2SeqBatch:
@@ -113,22 +104,6 @@ class GenericAsrDataset(AsrDataset):
             target_padding_mask,
             example,
         )
-
-    @staticmethod
-    def from_path(path: Path, name: str) -> GenericAsrDataset:
-        path = path.expanduser().resolve()
-
-        if not path.is_dir():
-            return GenericAsrDataset(name, manifest_dir=path.parent, splits={path.stem})
-
-        try:
-            splits = {f.stem for f in path.glob("*.tsv")}
-        except OSError as ex:
-            raise DatasetLoadError(
-                name, f"The splits under the '{path}' directory of the '{name}' dataset cannot be determined. See the nested exception for details."  # fmt: skip
-            ) from ex
-
-        return GenericAsrDataset(name, path, splits)
 
     @override
     def create_reader(
@@ -238,10 +213,3 @@ class GenericAsrDataset(AsrDataset):
         manifest = list(builder.and_return())
 
         return read_sequence(manifest)
-
-    @override
-    def splits(self) -> set[str]:
-        return self._splits
-
-
-get_asr_dataset_hub = DatasetHubAccessor(AsrDataset)
