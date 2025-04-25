@@ -98,7 +98,7 @@ class CompileOptionsSection:
 
     backend: str = "inductor"
 
-    backend_options: dict[str, object] = field(default_factory=dict)
+    backend_options: dict[str, object] | None = None
 
 
 @dataclass(kw_only=True)
