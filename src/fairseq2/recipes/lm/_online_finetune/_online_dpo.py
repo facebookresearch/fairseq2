@@ -463,7 +463,7 @@ class DpoLossConfig:
 
     entropy_regularizer_scale: float = 0.0
 
-    log_rollouts: bool = True
+    log_rollouts: bool = False
     """Log rollouts during training/validation"""
 
 
