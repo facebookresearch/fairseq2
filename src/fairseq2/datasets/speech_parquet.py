@@ -78,10 +78,8 @@ class GenericSpeechParquetDataset(SpeechDataset):
     _splits: set[str]
     split_column: str = "split"
 
-    nb_samples_per_fragment = 1000  # FIXME: detect it from the dataset metadata
     max_num_batches: int = 1000
     max_num_examples: int = 2_000_000
-    pa_cpu_count: int = 20
 
     def __init__(self, name: str, dataset: pq.ParquetDataset, splits: set[str]) -> None:
         self._dataset = dataset
@@ -153,6 +151,73 @@ class GenericSpeechParquetDataset(SpeechDataset):
     def splits(self) -> set[str]:
         return self._splits
 
+    @staticmethod
+    def get_example_loading_builder(
+        dataset: pq.ParquetDataset,
+        options: SpeechReadOptions,
+        split: str,
+        columns: NamedColumns | None,
+        seed: int,
+        rank: int,
+        world_size: int,
+        pa_cpu_count: int = 20,
+        nb_samples_per_fragment: int = 1000,
+    ) -> DataPipelineBuilder:
+
+        npc = options.npc
+        pa_cpu_count = int(options.extras.get("pa_cpu_count", pa_cpu_count))  # type: ignore
+        pa.set_cpu_count(pa_cpu_count)
+        pa.set_io_thread_count(pa_cpu_count)
+
+        # Streaming
+        partition_filters = options.extras.get("partition_filters", None)
+        parquet_files: List[str] = dataset.files  # type: ignore
+        fragment_config = FragmentStreamingConfig(
+            parquet_path=parquet_files,
+            filesystem=dataset.filesystem,
+            nb_epochs=(None if split == "train" else 1),
+            partition_filters=partition_filters,  # type: ignore
+            split_to_row_groups=True,
+            files_circular_shift=True,
+            seed=seed,
+            fragment_shuffle_window=max(
+                100, options.example_shuffle_window // nb_samples_per_fragment
+            ),
+        )
+        fragement_builder = ParquetFragmentStreamer(
+            config=fragment_config
+        ).build_pipeline(rank=rank, world_size=world_size)
+
+        # we want to give less compute to the loader compared to the audio decoder
+        num_parallel_fragments = options.extras.get(
+            "num_parallel_fragments", max(npc // 3, 1)
+        )
+        assert isinstance(num_parallel_fragments, int)
+        assert num_parallel_fragments > 0, "num_parallel_fragments must be > 0"
+
+        columns = options.extras.get("columns", columns)  # type: ignore
+        assert columns is None or isinstance(columns, NamedColumns)
+
+        loading_config = FragmentLoadingConfig(
+            columns=columns,
+            add_fragment_traces=False,
+            num_parallel_fragments=num_parallel_fragments,
+            nb_prefetch=options.num_prefetch,
+            non_deterministic_read=True,
+            drop_null=False,
+        )
+
+        # load data in memory
+        builder = ParquetFragmentLoader(config=loading_config).apply(fragement_builder)
+
+        # dispatch table into examples
+        builder = builder.yield_from(
+            lambda table: read_sequence(
+                table.to_pandas().to_dict(orient="records")
+            ).and_return()
+        )
+        return builder
+
     @override
     def create_reader(
         self,
@@ -176,68 +241,21 @@ class GenericSpeechParquetDataset(SpeechDataset):
         )
 
         seed = options.seed
-        npc = options.npc
         no_padding = options.no_padding
 
         options.batch_shuffle_window = min(
             options.batch_shuffle_window, self.max_num_batches
         )
-
-        pa_cpu_count = int(options.extras.get("pa_cpu_count", self.pa_cpu_count))  # type: ignore
-        pa.set_cpu_count(pa_cpu_count)
-        pa.set_io_thread_count(pa_cpu_count)
-
-        # Streaming
-        partition_filters = options.extras.get("partition_filters", None)
-        parquet_files: List[str] = self._dataset.files  # type: ignore
-        fragment_config = FragmentStreamingConfig(
-            parquet_path=parquet_files,
-            filesystem=self._dataset.filesystem,
-            nb_epochs=(None if split == "train" else 1),
-            partition_filters=partition_filters,  # type: ignore
-            split_to_row_groups=True,
-            files_circular_shift=True,
+        builder = self.get_example_loading_builder(
+            self._dataset,
+            options,
+            split,
+            columns=DefaultAudioSchema(),
             seed=seed,
-            fragment_shuffle_window=max(
-                100, options.example_shuffle_window // self.nb_samples_per_fragment
-            ),
+            rank=gang.rank,
+            world_size=gang.size,
         )
-        fragement_builder = ParquetFragmentStreamer(
-            config=fragment_config
-        ).build_pipeline(rank=gang.rank, world_size=gang.size)
-
-        seed += gang.rank
-
-        # we want to give less compute to the loader compared to the audio decoder
-        num_parallel_fragments = options.extras.get(
-            "num_parallel_fragments", max(npc // 3, 1)
-        )
-        assert isinstance(num_parallel_fragments, int)
-        assert num_parallel_fragments > 0, "num_parallel_fragments must be > 0"
-
-        columns = options.extras.get("columns", DefaultAudioSchema())
-        if columns is not None:
-            assert isinstance(columns, NamedColumns)
-
-        loading_config = FragmentLoadingConfig(
-            columns=columns,
-            add_fragment_traces=False,
-            num_parallel_fragments=num_parallel_fragments,
-            nb_prefetch=options.num_prefetch,
-            non_deterministic_read=True,
-            drop_null=False,
-        )
-
-        # load data in memory
-        builder = ParquetFragmentLoader(config=loading_config).apply(fragement_builder)
-
-        # dispatch table into examples
-        builder = builder.yield_from(
-            lambda table: read_sequence(
-                table.to_pandas().to_dict(orient="records")
-            ).and_return()
-        )
-
+        seed += gang.size
         # truncate length to max_audio_len
         builder = builder.filter(lambda x: int(x["length"]) >= min_audio_len)
         builder = builder.map(lambda x: min(max_audio_len, x), selector="length")
