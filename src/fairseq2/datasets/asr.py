@@ -175,9 +175,8 @@ class GenericAsrDataset(AsrDataset):
         )
         # Read audios
         seed += 1
-        builder = GenericSpeechDataset.add_audio_reading_pipeline(
-            builder, audio_dir, options, seed, max_audio_len
-        )
+        builder = GenericSpeechDataset.add_audio_decoding(builder, options, audio_dir)
+        builder = GenericSpeechDataset.audio_post_process(builder, options)
 
         # Tokenize target text.
         text_encoder = tokenizer.create_encoder()
