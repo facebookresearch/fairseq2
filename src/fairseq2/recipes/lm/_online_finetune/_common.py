@@ -38,6 +38,7 @@ from fairseq2.gang import Gang
 from fairseq2.models.sequence import SequenceBatch, SequenceModelOutput
 from fairseq2.nn.padding import get_seqs_and_padding_mask
 from fairseq2.recipes.metrics import SequenceMetricBag
+from fairseq2.logging import log
 
 
 @dataclass
@@ -540,3 +541,19 @@ def compute_token_level_entropy(logits: torch.Tensor, target_mask: torch.Tensor)
     entropy_per_seq = entropy_target_only.sum(dim=-1) / target_mask.sum(dim=-1)
 
     return entropy_per_seq
+
+
+def log_rollouts(prompt_batch: PromptBatch, rollouts, split_name, num_rollouts=1):
+    """
+    log the first num_rollouts rollouts for first prompt in the batch
+    """
+    if "prompt_raw" in prompt_batch.meta_info:
+        prompt = prompt_batch.meta_info.get("prompt_raw")[0]
+    else:
+        # raw text prompt doesn't exist for this dataset
+        prompt = "DUMMY PROMPT"
+
+    log.info(f"{split_name} Prompt: {prompt}")
+    for rollout in rollouts[0].outputs[:num_rollouts]:
+        rollout_text = rollout.text
+        log.info(f"{split_name} Rollout: {rollout_text}")

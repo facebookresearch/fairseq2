@@ -51,6 +51,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     copy_state,
     find_first_value,
     generate_rollouts,
+    log_rollouts,
 )
 from fairseq2.recipes.lm._online_finetune._handler import OnlineFinetuneUnitHandler
 from fairseq2.recipes.lm._online_finetune._remote_vllm import (
@@ -167,6 +168,9 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             vllm_model=self._vllm_model,
             sampling_params=policy_sampling_params,
         )
+        if self._loss_config.log_rollouts:
+            log_rollouts(prompt_batch, rollouts, "Valid")
+
         reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
 
@@ -215,6 +219,8 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         rollouts = generate_rollouts(
             prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._vllm_model
         )
+        if self._loss_config.log_rollouts:
+            log_rollouts(prompt_batch, rollouts, "Train")
 
         batch: PreferenceBatch
         batch, is_bad_batch, reward_output = self._reward.prepare_preference_batch(
@@ -456,6 +462,9 @@ class DpoLossConfig:
     """Use length normalized DPO, which uses the average log probability of a sequence as the implicit reward."""
 
     entropy_regularizer_scale: float = 0.0
+
+    log_rollouts: bool = True
+    """Log rollouts during training/validation"""
 
 
 @dataclass(kw_only=True)
