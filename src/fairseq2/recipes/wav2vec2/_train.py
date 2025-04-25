@@ -269,6 +269,7 @@ def load_wav2vec2_trainer(
     # Initialize the validation unit.
     if config.dataset.valid_split is not None:
 
+        config.dataset.extras["is_binarized"] = False
         read_options = SpeechReadOptions(
             batching=batching,
             dtype=config.trainer.dtype,
