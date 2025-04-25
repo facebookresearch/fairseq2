@@ -132,3 +132,11 @@ from fairseq2.recipes.lm._text_generate import (
 from fairseq2.recipes.lm._text_generate import (
     register_text_generate_configs as register_text_generate_configs,
 )
+from fairseq2.recipes.lm._train import LMTrainConfig as LMTrainConfig
+from fairseq2.recipes.lm._train import LMTrainCriterion as LMTrainCriterion
+from fairseq2.recipes.lm._train import LMTrainUnit as LMTrainUnit
+from fairseq2.recipes.lm._train import TextDatasetSection as TextDatasetSection
+from fairseq2.recipes.lm._train import load_lm_trainer as load_lm_trainer
+from fairseq2.recipes.lm._train import (
+    register_lm_train_configs as register_lm_train_configs,
+)

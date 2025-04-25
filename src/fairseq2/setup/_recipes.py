@@ -11,6 +11,7 @@ from fairseq2.recipes.asr import register_asr_eval_configs
 from fairseq2.recipes.lm import (
     register_instruction_finetune_configs,
     register_lm_loss_eval_configs,
+    register_lm_train_configs,
     register_po_finetune_configs,
     register_text_generate_configs,
 )
@@ -30,6 +31,7 @@ def register_recipes(context: RuntimeContext) -> None:
     register_asr_eval_configs(context)
     register_instruction_finetune_configs(context)
     register_lm_loss_eval_configs(context)
+    register_lm_train_configs(context)
     register_mt_eval_configs(context)
     register_mt_train_configs(context)
     register_po_finetune_configs(context)

@@ -63,10 +63,12 @@ from fairseq2.recipes.common import (
 from fairseq2.recipes.lm import (
     InstructionFinetuneConfig,
     LMLossEvalConfig,
+    LMTrainConfig,
     POFinetuneConfig,
     TextGenerateConfig,
     load_instruction_finetuner,
     load_lm_loss_evaluator,
+    load_lm_trainer,
     load_po_finetuner,
     load_text_generator,
 )
@@ -186,6 +188,18 @@ def _register_llama_cli(cli: Cli) -> None:
 
 def _register_lm_cli(cli: Cli) -> None:
     group = cli.add_group("lm", help="language model recipes")
+
+    train_handler = RecipeCommandHandler(
+        loader=load_lm_trainer,
+        config_kls=LMTrainConfig,
+        default_preset="llama3_8b",
+    )
+
+    group.add_command(
+        name="train",
+        handler=train_handler,
+        help="trains a language model",
+    )
 
     # Instruction Finetune
     instruction_finetune_handler = RecipeCommandHandler(
