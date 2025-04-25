@@ -153,5 +153,5 @@ class GenericAsrParquetDataset(ParquetDatasetInterface, AsrDataset):
         ).and_return()
 
         return DataPipelineReader[Seq2SeqBatch](
-            self._name, split, pipeline, gang, options
+            self._name, split, pipeline, gang, options, strict_state=False
         )
