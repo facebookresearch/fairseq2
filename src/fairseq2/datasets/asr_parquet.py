@@ -44,9 +44,9 @@ PARQUET_ASR_DATASET_FAMILY: Final = "generic_parquet_asr"
 @dataclass
 class DefaultASRSchema(NamedColumns):
     audio: str = "audio_bytes"
-    length: str = "length"
+    length: str = "audio_size"
     text: str = "text"
-    size: str | None = "size"  # size of the audio in bytes : len(audio_bytes)
+    # size: str | None = "size"  # size of the audio in bytes : len(audio_bytes)
     extra_columns: List[str] | None = None
 
 
@@ -123,7 +123,7 @@ class GenericAsrParquetDataset(ParquetDatasetInterface, AsrDataset):
         seed += 1
         builder = GenericSpeechParquetDataset.add_audio_decoding(builder, options)
         builder = GenericSpeechDataset.audio_post_process(
-            builder, options, GenericSpeechParquetDataset.rename_feature
+            builder, options, GenericSpeechDataset.rename_feature
         )
 
         # Tokenize target text.
