@@ -66,8 +66,8 @@ class ParquetDatasetInterface:
     _splits: set[str]
     split_column: str = "split"
 
-    max_num_batches: int = 1000
-    max_num_examples: int = 2_000_000
+    max_num_batches: int = 500
+    max_num_examples: int = 1_000_000
 
     def __init__(self, name: str, dataset: pq.ParquetDataset, splits: set[str]) -> None:
         self._dataset = dataset
@@ -111,15 +111,6 @@ class GenericSpeechParquetDataset(ParquetDatasetInterface, SpeechDataset):
     """Represents a generic parquet-based Speech dataset."""
 
     @staticmethod
-    def rename_feature(batch: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        for example in batch:
-            if "fbank" in example["audio"]:
-                example["audio_feature"] = example["audio"].pop("fbank")
-            elif "waveform" in example["audio"]:
-                example["audio_feature"] = example["audio"].pop("waveform")
-        return batch
-
-    @staticmethod
     def add_audio_decoding(
         builder: DataPipelineBuilder, options: SpeechReadOptions
     ) -> DataPipelineBuilder:
@@ -128,8 +119,8 @@ class GenericSpeechParquetDataset(ParquetDatasetInterface, SpeechDataset):
             dtype=torch.float32 if options.normalize_audio else options.dtype
         )
 
-        def decoded_audio(_bytes: NDArray[np.int8]) -> AudioDecoderOutput:
-            return audio_decoder(MemoryBlock(_bytes.tobytes()))
+        def decoded_audio(_bytes: NDArray[np.int8]) -> Dict[str, AudioDecoderOutput]:
+            return {"data": audio_decoder(MemoryBlock(_bytes.tobytes()))}
 
         builder.map(decoded_audio, selector="[*].audio", num_parallel_calls=options.npc)
 
@@ -164,9 +155,10 @@ class GenericSpeechParquetDataset(ParquetDatasetInterface, SpeechDataset):
             split_to_row_groups=True,
             files_circular_shift=True,
             seed=seed,
-            fragment_shuffle_window=max(
-                100, options.example_shuffle_window // nb_samples_per_fragment
-            ),
+            fragment_shuffle_window=-1,
+        )
+        fragment_config = fragment_config.add_partition_filter(
+            pa.compute.field("split") == split
         )
         fragement_builder = ParquetFragmentStreamer(
             config=fragment_config
@@ -266,7 +258,7 @@ class GenericSpeechParquetDataset(ParquetDatasetInterface, SpeechDataset):
 
         builder = GenericSpeechParquetDataset.add_audio_decoding(builder, options)
         builder = GenericSpeechDataset.audio_post_process(
-            builder, options, GenericSpeechParquetDataset.rename_feature
+            builder, options, GenericSpeechDataset.rename_feature
         )
         builder = GenericSpeechDataset.add_audio_cropping(
             builder, options, seed, max_audio_len
