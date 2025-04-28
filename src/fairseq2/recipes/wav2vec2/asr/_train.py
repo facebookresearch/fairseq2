@@ -153,6 +153,9 @@ class Wav2Vec2AsrTrainDatasetSection(DatasetSection):
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
 
+    npc: int = 10
+    """The number of parallel calls to use in the pipeline."""
+
     extras: dict[str, object] = field(default_factory=dict)
     """The dataset-specific extra options."""
 
@@ -324,6 +327,7 @@ def load_wav2vec2_asr_trainer(
         num_prefetch=config.dataset.num_prefetch,
         seed=seed,
         extras=config.dataset.extras,
+        npc=config.dataset.npc,
     )
 
     data_reader = dataset.create_reader(

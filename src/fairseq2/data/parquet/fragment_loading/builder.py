@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 from __future__ import annotations
 
+import gc
 import tempfile
 from copy import deepcopy
 from functools import partial
@@ -12,6 +13,7 @@ from pathlib import Path
 from pickle import dumps, loads
 from typing import List, Optional
 
+import numpy as np
 import pyarrow as pa
 from retrying import retry
 
@@ -139,13 +141,21 @@ class ParquetFragmentLoader:
 
     def apply(self, fragment_pipeline: DataPipelineBuilder) -> DataPipelineBuilder:
         def load_fn(fragment: pa.dataset.ParquetFileFragment) -> pa.Table | None:
-            return SafeFragment(fragment).load(
+            safe_fragment = SafeFragment(fragment)
+            if np.random.rand() < 0.05:
+                gc.collect()
+                # pa.jemalloc_set_decay_ms(10)
+                pool = pa.default_memory_pool()
+                pool.release_unused()
+
+            table = safe_fragment.load(
                 columns=self.columns,
                 add_fragment_traces=self.config.add_fragment_traces,
                 use_threads=self.config.use_threads,
                 filters=self.filters,
                 add_partitioning_columns=True,
             )
+            return table
 
         if self.config.non_deterministic_read:
             # keeping if above checks for back-compatibility
