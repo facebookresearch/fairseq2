@@ -66,8 +66,8 @@ class ParquetDatasetInterface:
     _splits: set[str]
     split_column: str = "split"
 
-    max_num_batches: int = 500
-    max_num_examples: int = 1_000_000
+    max_num_batches: int = 2000
+    max_num_examples: int = 100_000
 
     def __init__(self, name: str, dataset: pq.ParquetDataset, splits: set[str]) -> None:
         self._dataset = dataset
@@ -241,7 +241,6 @@ class GenericSpeechParquetDataset(ParquetDatasetInterface, SpeechDataset):
             example_shuffle_window = min(
                 options.example_shuffle_window, self.max_num_examples
             )
-            builder = builder.prefetch(int(2 * example_shuffle_window))
             builder = builder.shuffle(example_shuffle_window, seed=seed)
             seed += 1
 
