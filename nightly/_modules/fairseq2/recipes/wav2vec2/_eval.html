@@ -335,7 +335,9 @@
     <span class="n">SpeechDataset</span><span class="p">,</span>
     <span class="n">SpeechReadOptions</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">CPU</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gangs</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">MetricBag</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.sequence</span><span class="w"> </span><span class="kn">import</span> <span class="n">SequenceBatch</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.wav2vec2</span><span class="w"> </span><span class="kn">import</span> <span class="n">Wav2Vec2Model</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes</span><span class="w"> </span><span class="kn">import</span> <span class="n">Evaluator</span><span class="p">,</span> <span class="n">EvalUnit</span><span class="p">,</span> <span class="n">Model</span>
@@ -354,7 +356,6 @@
     <span class="n">GangSection</span><span class="p">,</span>
     <span class="n">ReferenceModelSection</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">CPU</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.rng</span><span class="w"> </span><span class="kn">import</span> <span class="n">manual_seed</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.structured</span><span class="w"> </span><span class="kn">import</span> <span class="n">structure</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.validation</span><span class="w"> </span><span class="kn">import</span> <span class="n">validate</span>
@@ -460,7 +461,6 @@
         <span class="n">gangs</span><span class="p">,</span>
         <span class="n">config</span><span class="o">.</span><span class="n">evaluator</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
         <span class="n">config</span><span class="o">.</span><span class="n">evaluator</span><span class="o">.</span><span class="n">amp</span><span class="p">,</span>
-        <span class="n">config</span><span class="o">.</span><span class="n">evaluator</span><span class="o">.</span><span class="n">torch_compile</span><span class="p">,</span>
     <span class="p">)</span>
 
     <span class="n">dataset</span> <span class="o">=</span> <span class="n">load_dataset</span><span class="p">(</span><span class="n">SpeechDataset</span><span class="p">,</span> <span class="n">context</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">dataset</span><span class="p">,</span> <span class="n">gangs</span><span class="p">)</span>
@@ -515,7 +515,7 @@
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">criterion</span><span class="p">:</span> <span class="n">Wav2Vec2Criterion</span><span class="p">,</span> <span class="n">gangs</span><span class="p">:</span> <span class="n">Gangs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_criterion</span> <span class="o">=</span> <span class="n">criterion</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_metric_bag</span> <span class="o">=</span> <span class="n">Wav2Vec2MetricBag</span><span class="p">(</span><span class="n">gangs</span><span class="o">.</span><span class="n">dp</span><span class="p">,</span> <span class="n">train</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_metric_bag</span> <span class="o">=</span> <span class="n">Wav2Vec2MetricBag</span><span class="p">(</span><span class="n">gangs</span><span class="o">.</span><span class="n">dp</span><span class="p">)</span>
 
     <span class="nd">@override</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">SequenceBatch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -528,7 +528,7 @@
 
     <span class="nd">@property</span>
     <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">metric_bag</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Wav2Vec2MetricBag</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">metric_bag</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricBag</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_bag</span>
 </pre></div>
         </article>
@@ -566,7 +566,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=ee97a8ed"></script>
+</div><script src="../../../../_static/documentation_options.js?v=206ec5dc"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>

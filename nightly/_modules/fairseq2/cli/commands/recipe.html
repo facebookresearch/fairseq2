@@ -345,6 +345,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.config_registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConfigNotFoundError</span><span class="p">,</span> <span class="n">ConfigProvider</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">RuntimeContext</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.error</span><span class="w"> </span><span class="kn">import</span> <span class="n">ContractError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.file_system</span><span class="w"> </span><span class="kn">import</span> <span class="n">FileSystem</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">LoggingSetupError</span><span class="p">,</span> <span class="n">log</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes</span><span class="w"> </span><span class="kn">import</span> <span class="n">Recipe</span><span class="p">,</span> <span class="n">RecipeError</span><span class="p">,</span> <span class="n">RecipeStopException</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes.utils.log</span><span class="w"> </span><span class="kn">import</span> <span class="n">log_config</span>
@@ -355,12 +356,11 @@
     <span class="n">SweepTagGenerator</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.env</span><span class="w"> </span><span class="kn">import</span> <span class="n">InvalidEnvironmentVariableError</span><span class="p">,</span> <span class="n">get_rank</span><span class="p">,</span> <span class="n">get_world_size</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.file</span><span class="w"> </span><span class="kn">import</span> <span class="n">FileSystem</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.merge</span><span class="w"> </span><span class="kn">import</span> <span class="n">MergeError</span><span class="p">,</span> <span class="n">merge_object</span><span class="p">,</span> <span class="n">to_mergeable</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.structured</span><span class="w"> </span><span class="kn">import</span> <span class="n">StructureError</span><span class="p">,</span> <span class="n">unstructure</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.yaml</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">StandardYamlDumper</span><span class="p">,</span>
-    <span class="n">StandardYamlLoader</span><span class="p">,</span>
+    <span class="n">RuamelYamlDumper</span><span class="p">,</span>
+    <span class="n">RuamelYamlLoader</span><span class="p">,</span>
     <span class="n">YamlDumper</span><span class="p">,</span>
     <span class="n">YamlError</span><span class="p">,</span>
     <span class="n">YamlLoader</span><span class="p">,</span>
@@ -491,7 +491,7 @@
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">):</span>
                 <span class="n">config</span> <span class="o">=</span> <span class="n">to_mergeable</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 
-            <span class="n">yaml_dumper</span> <span class="o">=</span> <span class="n">StandardYamlDumper</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">file_system</span><span class="p">)</span>
+            <span class="n">yaml_dumper</span> <span class="o">=</span> <span class="n">RuamelYamlDumper</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">file_system</span><span class="p">)</span>
 
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">yaml_dumper</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">)</span>
@@ -598,7 +598,7 @@
 
         <span class="n">file_system</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">file_system</span>
 
-        <span class="n">yaml_loader</span> <span class="o">=</span> <span class="n">StandardYamlLoader</span><span class="p">(</span><span class="n">file_system</span><span class="p">)</span>
+        <span class="n">yaml_loader</span> <span class="o">=</span> <span class="n">RuamelYamlLoader</span><span class="p">(</span><span class="n">file_system</span><span class="p">)</span>
 
         <span class="n">config_reader</span> <span class="o">=</span> <span class="n">ConfigReader</span><span class="p">(</span><span class="n">configs</span><span class="p">,</span> <span class="n">file_system</span><span class="p">,</span> <span class="n">yaml_loader</span><span class="p">)</span>
 
@@ -688,7 +688,7 @@
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_dump_config</span><span class="p">(</span><span class="n">context</span><span class="p">:</span> <span class="n">RuntimeContext</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">yaml_dumper</span> <span class="o">=</span> <span class="n">StandardYamlDumper</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">file_system</span><span class="p">)</span>
+        <span class="n">yaml_dumper</span> <span class="o">=</span> <span class="n">RuamelYamlDumper</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">file_system</span><span class="p">)</span>
 
         <span class="n">dumper</span> <span class="o">=</span> <span class="n">ConfigDumper</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">env</span><span class="p">,</span> <span class="n">yaml_dumper</span><span class="p">)</span>
 
@@ -893,7 +893,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=ee97a8ed"></script>
+</div><script src="../../../../_static/documentation_options.js?v=206ec5dc"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>

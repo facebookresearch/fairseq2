@@ -338,13 +338,13 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.cli.utils.rich</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_error_console</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">RuntimeContext</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.error</span><span class="w"> </span><span class="kn">import</span> <span class="n">InternalError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.file_system</span><span class="w"> </span><span class="kn">import</span> <span class="n">FileMode</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">log</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModelConfigLoadError</span><span class="p">,</span> <span class="n">ModelHandler</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.llama</span><span class="w"> </span><span class="kn">import</span> <span class="n">LLAMA_MODEL_FAMILY</span><span class="p">,</span> <span class="n">LLaMAConfig</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.llama.integ</span><span class="w"> </span><span class="kn">import</span> <span class="n">convert_to_reference_llama_checkpoint</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.file</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">FileMode</span><span class="p">,</span>
-    <span class="n">StandardTensorLoader</span><span class="p">,</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.io</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">AutoTensorLoader</span><span class="p">,</span>
     <span class="n">TensorDumpError</span><span class="p">,</span>
     <span class="n">TensorLoadError</span><span class="p">,</span>
     <span class="n">TorchTensorDumper</span><span class="p">,</span>
@@ -514,7 +514,7 @@
         <span class="c1"># Begin conversion.</span>
         <span class="n">console</span> <span class="o">=</span> <span class="n">get_error_console</span><span class="p">()</span>
 
-        <span class="n">tensor_loader</span> <span class="o">=</span> <span class="n">StandardTensorLoader</span><span class="p">(</span><span class="n">file_system</span><span class="p">)</span>
+        <span class="n">tensor_loader</span> <span class="o">=</span> <span class="n">AutoTensorLoader</span><span class="p">(</span><span class="n">file_system</span><span class="p">)</span>
         <span class="n">tensor_dumper</span> <span class="o">=</span> <span class="n">TorchTensorDumper</span><span class="p">(</span><span class="n">file_system</span><span class="p">)</span>
 
         <span class="k">with</span> <span class="n">console</span><span class="o">.</span><span class="n">status</span><span class="p">(</span><span class="s2">&quot;[bold green]Converting...&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">status</span><span class="p">:</span>
@@ -625,7 +625,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../../_static/documentation_options.js?v=ee97a8ed"></script>
+</div><script src="../../../../../_static/documentation_options.js?v=206ec5dc"></script>
     <script src="../../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../../_static/scripts/furo.js?v=5fa4622c"></script>

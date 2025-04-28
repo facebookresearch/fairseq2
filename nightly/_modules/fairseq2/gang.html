@@ -336,13 +336,14 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">torch.distributed</span><span class="w"> </span><span class="kn">import</span> <span class="n">Backend</span><span class="p">,</span> <span class="n">ProcessGroup</span><span class="p">,</span> <span class="n">ReduceOp</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">override</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">Device</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.error</span><span class="w"> </span><span class="kn">import</span> <span class="n">InternalError</span><span class="p">,</span> <span class="n">InvalidOperationError</span><span class="p">,</span> <span class="n">NotSupportedError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">log</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Device</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.env</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">InvalidEnvironmentVariableError</span><span class="p">,</span>
     <span class="n">get_world_size</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.tensor</span><span class="w"> </span><span class="kn">import</span> <span class="n">to_tensor</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.version</span><span class="w"> </span><span class="kn">import</span> <span class="n">torch_greater_or_equal</span>
 
 
@@ -364,6 +365,27 @@
 <span class="k">class</span><span class="w"> </span><span class="nc">Gang</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a set of processes that work collectively.&quot;&quot;&quot;</span>
 
+    <span class="n">_rank</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">_size</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">_device</span><span class="p">:</span> <span class="n">Device</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`size` must be greater than zero.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">rank</span> <span class="o">&gt;=</span> <span class="n">size</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;`rank` must be less than `size` (</span><span class="si">{</span><span class="n">size</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">rank</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;meta&quot;</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`device` must be a real device.&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_rank</span> <span class="o">=</span> <span class="n">rank</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_size</span> <span class="o">=</span> <span class="n">size</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_device</span> <span class="o">=</span> <span class="n">device</span>
+
 <div class="viewcode-block" id="Gang.close">
 <a class="viewcode-back" href="../../reference/api/gang.html#fairseq2.gang.Gang.close">[docs]</a>
     <span class="nd">@abstractmethod</span>
@@ -373,6 +395,7 @@
 
 <div class="viewcode-block" id="Gang.create_gang">
 <a class="viewcode-back" href="../../reference/api/gang.html#fairseq2.gang.Gang.create_gang">[docs]</a>
+    <span class="nd">@final</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">create_gang</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ranks</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Gang</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Make a new gang.</span>
 
@@ -481,20 +504,23 @@
 <span class="sd">        &quot;&quot;&quot;</span></div>
 
 
+    <span class="nd">@final</span>
     <span class="nd">@property</span>
-    <span class="nd">@abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">rank</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;The rank of this process in the gang.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rank</span>
 
+    <span class="nd">@final</span>
     <span class="nd">@property</span>
-    <span class="nd">@abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;The number of processes that are part of the gang.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_size</span>
 
+    <span class="nd">@final</span>
     <span class="nd">@property</span>
-    <span class="nd">@abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">device</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Device</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;The associated device.&quot;&quot;&quot;</span></div>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The associated device.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_device</span></div>
 
 
 
@@ -511,31 +537,8 @@
 <span class="k">class</span><span class="w"> </span><span class="nc">FakeGang</span><span class="p">(</span><span class="n">Gang</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a non-distributed gang for local use.&quot;&quot;&quot;</span>
 
-    <span class="n">_rank</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="n">_size</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="n">_device</span><span class="p">:</span> <span class="n">Device</span>
-
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        :param device: If ``None``, CPU will be used.</span>
-<span class="sd">        :param rank: The emulated rank of this process in the gang.</span>
-<span class="sd">        :param size: The emulated number of processes that are part of the gang.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`size` must be greater than zero.&quot;</span><span class="p">)</span>
-
-        <span class="k">if</span> <span class="n">rank</span> <span class="o">&gt;=</span> <span class="n">size</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;`rank` must be less than `size` (</span><span class="si">{</span><span class="n">size</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">rank</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
-            <span class="p">)</span>
-
-        <span class="k">if</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;meta&quot;</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`device` must be a real device.&quot;</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_rank</span> <span class="o">=</span> <span class="n">rank</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_size</span> <span class="o">=</span> <span class="n">size</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_device</span> <span class="o">=</span> <span class="n">device</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">rank</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
 
 <div class="viewcode-block" id="FakeGang.close">
 <a class="viewcode-back" href="../../reference/api/gang.html#fairseq2.gang.FakeGang.close">[docs]</a>
@@ -558,24 +561,9 @@
     <span class="nd">@override</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">as_process_group</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ProcessGroup</span><span class="p">:</span>
         <span class="k">raise</span> <span class="n">NotSupportedError</span><span class="p">(</span>
-            <span class="s2">&quot;`FakeGang` does not support conversion to a process group.&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;`</span><span class="si">{</span><span class="n">FakeGang</span><span class="si">}</span><span class="s2">` does not support conversion to a process group.&quot;</span>
         <span class="p">)</span></div>
 
-
-    <span class="nd">@property</span>
-    <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">rank</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rank</span>
-
-    <span class="nd">@property</span>
-    <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_size</span>
-
-    <span class="nd">@property</span>
-    <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">device</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Device</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_device</span>
 
 <div class="viewcode-block" id="FakeGang.barrier">
 <a class="viewcode-back" href="../../reference/api/gang.html#fairseq2.gang.FakeGang.barrier">[docs]</a>
@@ -595,7 +583,7 @@
                 <span class="n">tensor</span><span class="o">.</span><span class="n">pow_</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_size</span><span class="p">)</span>
             <span class="k">case</span><span class="w"> </span><span class="k">_</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="n">NotSupportedError</span><span class="p">(</span>
-                    <span class="s2">&quot;`FakeGang` supports only `SUM` and `PRODUCT` reduce operations.&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;`</span><span class="si">{</span><span class="n">FakeGang</span><span class="si">}</span><span class="s2">` supports only `SUM` and `PRODUCT` reduce operations, but `op` is `</span><span class="si">{</span><span class="n">op</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">` instead.&quot;</span>
                 <span class="p">)</span></div>
 
 
@@ -663,28 +651,12 @@
 <span class="k">class</span><span class="w"> </span><span class="nc">ProcessGroupGang</span><span class="p">(</span><span class="n">Gang</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a gang that wraps a process group.&quot;&quot;&quot;</span>
 
-    <span class="n">_rank</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="n">_size</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="n">_device</span><span class="p">:</span> <span class="n">Device</span>
     <span class="n">_pg</span><span class="p">:</span> <span class="n">ProcessGroup</span>
-    <span class="n">_monitor_pg</span><span class="p">:</span> <span class="n">ProcessGroup</span> <span class="o">|</span> <span class="kc">None</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">pg</span><span class="p">:</span> <span class="n">ProcessGroup</span><span class="p">,</span>
-        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">,</span>
-        <span class="o">*</span><span class="p">,</span>
-        <span class="n">monitor_pg</span><span class="p">:</span> <span class="n">ProcessGroup</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;meta&quot;</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`device` must be a real device.&quot;</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pg</span><span class="p">:</span> <span class="n">ProcessGroup</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">dist</span><span class="o">.</span><span class="n">get_rank</span><span class="p">(</span><span class="n">pg</span><span class="p">),</span> <span class="n">dist</span><span class="o">.</span><span class="n">get_world_size</span><span class="p">(</span><span class="n">pg</span><span class="p">),</span> <span class="n">device</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_rank</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">get_rank</span><span class="p">(</span><span class="n">pg</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_size</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">get_world_size</span><span class="p">(</span><span class="n">pg</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">_device</span> <span class="o">=</span> <span class="n">device</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_pg</span> <span class="o">=</span> <span class="n">pg</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_monitor_pg</span> <span class="o">=</span> <span class="n">monitor_pg</span>
 
 <div class="viewcode-block" id="ProcessGroupGang.init_root_process_group">
 <a class="viewcode-back" href="../../reference/api/gang.html#fairseq2.gang.ProcessGroupGang.init_root_process_group">[docs]</a>
@@ -695,9 +667,9 @@
         <span class="o">*</span><span class="p">,</span>
         <span class="n">timeout</span><span class="p">:</span> <span class="n">timedelta</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">high_priority</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-        <span class="n">monitored</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ProcessGroupGang</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the root process group and wrap it as a gang.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initializes the root process group and wraps it as a gang.</span>
 
 <span class="sd">        :param device: The device for which to initialize the gang. For CUDA</span>
 <span class="sd">            devices, NCCL; for CPU, Gloo will be used.</span>
@@ -705,8 +677,6 @@
 <span class="sd">            default timeout value (15 minutes) will be used.</span>
 <span class="sd">        :param high_priority: If ``True``, the underlying collective operations</span>
 <span class="sd">            will be performed on high priority channels (e.g. CUDA streams).</span>
-<span class="sd">        :param monitored: If ``True``,  puts a monitored barrier before every</span>
-<span class="sd">            collective call for troubleshooting purposes.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">log</span><span class="o">.</span><span class="n">is_enabled_for_debug</span><span class="p">():</span>
             <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;TORCH_DISTRIBUTED_DEBUG&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;INFO&quot;</span>
@@ -717,7 +687,7 @@
             <span class="k">raise</span> <span class="n">GangError</span><span class="p">(</span><span class="s2">&quot;`torch.distributed` is not available.&quot;</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">dist</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">():</span>
-            <span class="k">raise</span> <span class="n">GangError</span><span class="p">(</span><span class="s2">&quot;The default process group is already initialized.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">GangError</span><span class="p">(</span><span class="s2">&quot;The root process group is already initialized.&quot;</span><span class="p">)</span>
 
         <span class="n">backend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span>
 
@@ -727,7 +697,7 @@
             <span class="n">backend</span> <span class="o">=</span> <span class="n">Backend</span><span class="o">.</span><span class="n">NCCL</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">NotSupportedError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;`device` must be of type `cpu` and `cuda`, but is of type `</span><span class="si">{</span><span class="n">device</span><span class="o">.</span><span class="n">type</span><span class="si">}</span><span class="s2">` instead.&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;`</span><span class="si">{</span><span class="n">ProcessGroupGang</span><span class="si">}</span><span class="s2">` supports only `cpu` and `cuda` device types, but `device` is of type `</span><span class="si">{</span><span class="n">device</span><span class="o">.</span><span class="n">type</span><span class="si">}</span><span class="s2">` instead.&quot;</span>
             <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span><span class="p">:</span>
@@ -744,8 +714,7 @@
         <span class="k">if</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span><span class="p">:</span>
             <span class="c1"># Forces NCCL to initialize immediately which enables deterministic</span>
             <span class="c1"># behavior.</span>
-            <span class="k">if</span> <span class="n">torch_greater_or_equal</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">):</span>
-                <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;device_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">device</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;device_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">device</span>
 
             <span class="c1"># If enabled, uses high priority CUDA streams for NCCL.</span>
             <span class="k">if</span> <span class="n">high_priority</span><span class="p">:</span>
@@ -772,21 +741,7 @@
         <span class="k">if</span> <span class="n">pg</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span><span class="s2">&quot;`dist.group.WORLD` is `None`.&quot;</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">monitored</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">backend</span> <span class="o">==</span> <span class="n">Backend</span><span class="o">.</span><span class="n">GLOO</span><span class="p">:</span>
-                <span class="n">monitor_pg</span> <span class="o">=</span> <span class="n">pg</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="c1"># Gloo is needed for monitored barrier support.</span>
-                <span class="k">try</span><span class="p">:</span>
-                    <span class="n">monitor_pg</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">new_group</span><span class="p">(</span><span class="n">backend</span><span class="o">=</span><span class="n">Backend</span><span class="o">.</span><span class="n">GLOO</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">)</span>
-                <span class="k">except</span> <span class="ne">RuntimeError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="n">GangError</span><span class="p">(</span>
-                        <span class="s2">&quot;The underlying process group used for monitoring has failed to initialize. See the nested exception for details.&quot;</span>
-                    <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">monitor_pg</span> <span class="o">=</span> <span class="kc">None</span>
-
-        <span class="k">return</span> <span class="n">ProcessGroupGang</span><span class="p">(</span><span class="n">pg</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">monitor_pg</span><span class="o">=</span><span class="n">monitor_pg</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">ProcessGroupGang</span><span class="p">(</span><span class="n">pg</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="ProcessGroupGang.close">
@@ -800,14 +755,14 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">_do_create_gang</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ranks</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">ProcessGroupGang</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">dist</span><span class="o">.</span><span class="n">group</span><span class="o">.</span><span class="n">WORLD</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">InvalidOperationError</span><span class="p">(</span>
-                <span class="s2">&quot;`create_gang()` can only be called on the gang associated with the default (i.e. main) process group.&quot;</span>
+                <span class="s2">&quot;`create_gang()` can only be called on the gang associated with the root process group.&quot;</span>
             <span class="p">)</span>
 
         <span class="k">try</span><span class="p">:</span>
             <span class="n">backend</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">get_backend</span><span class="p">()</span>
         <span class="k">except</span> <span class="ne">RuntimeError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">GangError</span><span class="p">(</span>
-                <span class="s2">&quot;The default process group backend cannot be determined. See the nested exception for details.&quot;</span>
+                <span class="s2">&quot;The root process group backend cannot be determined. See the nested exception for details.&quot;</span>
             <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
 
         <span class="k">try</span><span class="p">:</span>
@@ -816,28 +771,13 @@
             <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">ranks</span><span class="p">))</span>
 
             <span class="k">raise</span> <span class="n">GangError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;The creation of a new child process group has failed for ranks </span><span class="si">{</span><span class="n">s</span><span class="si">}</span><span class="s2">. See the nested exception for details.&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;The child process group for ranks </span><span class="si">{</span><span class="n">s</span><span class="si">}</span><span class="s2"> cannot be created. See the nested exception for details.&quot;</span>
             <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rank</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ranks</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_monitor_pg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">backend</span> <span class="o">==</span> <span class="n">Backend</span><span class="o">.</span><span class="n">GLOO</span><span class="p">:</span>
-                <span class="n">monitor_pg</span> <span class="o">=</span> <span class="n">pg</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="k">try</span><span class="p">:</span>
-                    <span class="n">monitor_pg</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">new_group</span><span class="p">(</span><span class="n">ranks</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="n">Backend</span><span class="o">.</span><span class="n">GLOO</span><span class="p">)</span>
-                <span class="k">except</span> <span class="ne">RuntimeError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-                    <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">ranks</span><span class="p">))</span>
-
-                    <span class="k">raise</span> <span class="n">GangError</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;The creation of a new monitoring child process group has failed for ranks </span><span class="si">{</span><span class="n">s</span><span class="si">}</span><span class="s2">. See the nested exception for details.&quot;</span>
-                    <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">monitor_pg</span> <span class="o">=</span> <span class="kc">None</span>
-
-        <span class="k">return</span> <span class="n">ProcessGroupGang</span><span class="p">(</span><span class="n">pg</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_device</span><span class="p">,</span> <span class="n">monitor_pg</span><span class="o">=</span><span class="n">monitor_pg</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">ProcessGroupGang</span><span class="p">(</span><span class="n">pg</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_device</span><span class="p">)</span>
 
 <div class="viewcode-block" id="ProcessGroupGang.as_process_group">
 <a class="viewcode-back" href="../../reference/api/gang.html#fairseq2.gang.ProcessGroupGang.as_process_group">[docs]</a>
@@ -846,54 +786,27 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pg</span></div>
 
 
-    <span class="nd">@property</span>
-    <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">rank</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rank</span>
-
-    <span class="nd">@property</span>
-    <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_size</span>
-
-    <span class="nd">@property</span>
-    <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">device</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Device</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_device</span>
-
 <div class="viewcode-block" id="ProcessGroupGang.barrier">
 <a class="viewcode-back" href="../../reference/api/gang.html#fairseq2.gang.ProcessGroupGang.barrier">[docs]</a>
     <span class="nd">@override</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">barrier</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_monitor_pg</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cpu&quot;</span><span class="p">:</span>
-                <span class="n">device_ids</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">device_ids</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_device</span><span class="o">.</span><span class="n">index</span><span class="p">]</span>
-
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">dist</span><span class="o">.</span><span class="n">barrier</span><span class="p">(</span><span class="n">group</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_pg</span><span class="p">,</span> <span class="n">device_ids</span><span class="o">=</span><span class="n">device_ids</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">RuntimeError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">GangError</span><span class="p">(</span>
-                    <span class="s2">&quot;The `barrier` collective operation has failed. See the nested exception for details.&quot;</span>
-                <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span><span class="p">:</span>
+            <span class="n">device_ids</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_device</span><span class="o">.</span><span class="n">index</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">synchronize</span><span class="p">()</span>
+            <span class="n">device_ids</span> <span class="o">=</span> <span class="kc">None</span>
 
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">dist</span><span class="o">.</span><span class="n">monitored_barrier</span><span class="p">(</span><span class="n">group</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_monitor_pg</span><span class="p">,</span> <span class="n">wait_all_ranks</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">RuntimeError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">GangError</span><span class="p">(</span>
-                    <span class="s2">&quot;The `monitored_barrier` collective operation has failed. See the nested exception for details.&quot;</span>
-                <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span></div>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">dist</span><span class="o">.</span><span class="n">barrier</span><span class="p">(</span><span class="n">group</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_pg</span><span class="p">,</span> <span class="n">device_ids</span><span class="o">=</span><span class="n">device_ids</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">RuntimeError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">GangError</span><span class="p">(</span>
+                <span class="s2">&quot;The `barrier` collective operation has failed. See the nested exception for details.&quot;</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span></div>
 
 
 <div class="viewcode-block" id="ProcessGroupGang.all_reduce">
 <a class="viewcode-back" href="../../reference/api/gang.html#fairseq2.gang.ProcessGroupGang.all_reduce">[docs]</a>
     <span class="nd">@override</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">all_reduce</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tensor</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">op</span><span class="p">:</span> <span class="n">ReduceOperation</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_monitored_barrier</span><span class="p">()</span>
-
         <span class="k">try</span><span class="p">:</span>
             <span class="n">dist</span><span class="o">.</span><span class="n">all_reduce</span><span class="p">(</span><span class="n">tensor</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_reduce_op</span><span class="p">(</span><span class="n">op</span><span class="p">),</span> <span class="n">group</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_pg</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">RuntimeError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
@@ -906,8 +819,6 @@
 <a class="viewcode-back" href="../../reference/api/gang.html#fairseq2.gang.ProcessGroupGang.all_gather">[docs]</a>
     <span class="nd">@override</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">all_gather</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output_tensor</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">input_tensor</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_monitored_barrier</span><span class="p">()</span>
-
         <span class="k">try</span><span class="p">:</span>
             <span class="n">dist</span><span class="o">.</span><span class="n">all_gather_into_tensor</span><span class="p">(</span><span class="n">output_tensor</span><span class="p">,</span> <span class="n">input_tensor</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_pg</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">RuntimeError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
@@ -922,8 +833,6 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">all_gather_to_list</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">output_tensors</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span> <span class="n">input_tensor</span><span class="p">:</span> <span class="n">Tensor</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_monitored_barrier</span><span class="p">()</span>
-
         <span class="k">try</span><span class="p">:</span>
             <span class="n">dist</span><span class="o">.</span><span class="n">all_gather</span><span class="p">(</span><span class="n">output_tensors</span><span class="p">,</span> <span class="n">input_tensor</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_pg</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">RuntimeError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
@@ -936,8 +845,6 @@
 <a class="viewcode-back" href="../../reference/api/gang.html#fairseq2.gang.ProcessGroupGang.broadcast">[docs]</a>
     <span class="nd">@override</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">broadcast</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tensor</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">source_rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_monitored_barrier</span><span class="p">()</span>
-
         <span class="k">try</span><span class="p">:</span>
             <span class="n">dist</span><span class="o">.</span><span class="n">broadcast</span><span class="p">(</span><span class="n">tensor</span><span class="p">,</span> <span class="n">source_rank</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_pg</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">RuntimeError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
@@ -950,8 +857,6 @@
 <a class="viewcode-back" href="../../reference/api/gang.html#fairseq2.gang.ProcessGroupGang.broadcast_objects">[docs]</a>
     <span class="nd">@override</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">broadcast_objects</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">objects</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">object</span><span class="p">],</span> <span class="n">source_rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_monitored_barrier</span><span class="p">()</span>
-
         <span class="k">try</span><span class="p">:</span>
             <span class="n">dist</span><span class="o">.</span><span class="n">broadcast_object_list</span><span class="p">(</span><span class="n">objects</span><span class="p">,</span> <span class="n">source_rank</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_pg</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">RuntimeError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
@@ -959,19 +864,6 @@
                 <span class="s2">&quot;The `broadcast_object_list` collective operation has failed. See the nested exception for details.&quot;</span>
             <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span></div>
 
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">_maybe_monitored_barrier</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_monitor_pg</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span>
-
-        <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">synchronize</span><span class="p">()</span>
-
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">dist</span><span class="o">.</span><span class="n">monitored_barrier</span><span class="p">(</span><span class="n">group</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_monitor_pg</span><span class="p">,</span> <span class="n">wait_all_ranks</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">RuntimeError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">GangError</span><span class="p">(</span>
-                <span class="s2">&quot;The `monitored_barrier` collective operation has failed. See the nested exception for details.&quot;</span>
-            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_get_reduce_op</span><span class="p">(</span><span class="n">op</span><span class="p">:</span> <span class="n">ReduceOperation</span><span class="p">):</span>  <span class="c1"># type: ignore[no-untyped-def]</span>
@@ -987,7 +879,7 @@
             <span class="k">return</span> <span class="n">ReduceOp</span><span class="o">.</span><span class="n">MAX</span>
 
         <span class="k">raise</span> <span class="n">NotSupportedError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;`</span><span class="si">{</span><span class="n">op</span><span class="si">}</span><span class="s2">` operation is not supported by the underlying process group.&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;`</span><span class="si">{</span><span class="n">ProcessGroup</span><span class="si">}</span><span class="s2">` does not support `</span><span class="si">{</span><span class="n">op</span><span class="si">}</span><span class="s2">` reduce operation.&quot;</span>
         <span class="p">)</span></div>
 
 
@@ -995,22 +887,17 @@
 <div class="viewcode-block" id="setup_root_gang">
 <a class="viewcode-back" href="../../reference/api/gang.html#fairseq2.gang.setup_root_gang">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">setup_root_gang</span><span class="p">(</span>
-    <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">,</span>
-    <span class="o">*</span><span class="p">,</span>
-    <span class="n">timeout</span><span class="p">:</span> <span class="n">timedelta</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">high_priority</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-    <span class="n">monitored</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="n">timedelta</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">high_priority</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Gang</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create the root gang of this process.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Creates the root gang of this process.</span>
 
-<span class="sd">    :param device: The device for which to initialize the gang. For CUDA</span>
-<span class="sd">        devices, NCCL; for CPU, Gloo will be used.</span>
+<span class="sd">    :param device: The device for which to initialize the gang. For CUDA devices,</span>
+<span class="sd">        NCCL; for CPU, Gloo will be used.</span>
 <span class="sd">    :param timeout: The timeout for collective operations. If ``None``, the</span>
 <span class="sd">        default timeout value (15 minutes) will be used.</span>
 <span class="sd">    :param high_priority: If ``True``, the underlying collective operations</span>
 <span class="sd">        will be performed on high priority channels (e.g. CUDA streams).</span>
-<span class="sd">    :param monitored: If ``True``,  puts a monitored barrier before every</span>
-<span class="sd">        collective call for troubleshooting purposes.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">world_size</span> <span class="o">=</span> <span class="n">get_world_size</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">)</span>
@@ -1023,7 +910,7 @@
         <span class="k">return</span> <span class="n">FakeGang</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">ProcessGroupGang</span><span class="o">.</span><span class="n">init_root_process_group</span><span class="p">(</span>
-        <span class="n">device</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">,</span> <span class="n">high_priority</span><span class="o">=</span><span class="n">high_priority</span><span class="p">,</span> <span class="n">monitored</span><span class="o">=</span><span class="n">monitored</span>
+        <span class="n">device</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">,</span> <span class="n">high_priority</span><span class="o">=</span><span class="n">high_priority</span>
     <span class="p">)</span></div>
 
 
@@ -1076,7 +963,8 @@
 <div class="viewcode-block" id="setup_parallel_gangs">
 <a class="viewcode-back" href="../../reference/api/gang.html#fairseq2.gang.setup_parallel_gangs">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">setup_parallel_gangs</span><span class="p">(</span><span class="n">root_gang</span><span class="p">:</span> <span class="n">Gang</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">tp_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Gangs</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Sets up gangs to be used for data and model parallelism.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Sets up gangs to be used for data and model parallelism.</span>
 
 <span class="sd">    For instance; if we have 8 devices denoted by g0 to g7 and 2 devices are</span>
 <span class="sd">    used for tensor parallelism, this function will make 4 tensor parallel</span>
@@ -1090,6 +978,14 @@
 <span class="sd">    For efficiency, the caller should make sure adjacent ranks are on the same</span>
 <span class="sd">    host. For example, if there are two hosts with a total of 16 GPUs, ranks 0</span>
 <span class="sd">    to 7 belong to the first host and ranks 8 to 15 belong to the second host.</span>
+
+<span class="sd">    .. note::</span>
+
+<span class="sd">        If ``root_gang`` is a PyTorch ``ProcessGroup`` with NCCL backend, this</span>
+<span class="sd">        function uses the experimental ``split_group`` API in PyTorch 2.5 and</span>
+<span class="sd">        later. See `here`__ for more information.</span>
+
+<span class="sd">    .. __: https://dev-discuss.pytorch.org/t/rfc-c10d-a-new-pytorch-api-split-group-to-create-a-process-group-through-ncclcommsplit/2233</span>
 
 <span class="sd">    :param root_gang: The gang whose topology will be used to make the new gangs.</span>
 <span class="sd">    :param tp_size: The size of tensor parallel gangs.</span>
@@ -1127,10 +1023,23 @@
         <span class="k">case</span> <span class="n">root_gang</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
             <span class="n">dp_gang</span> <span class="o">=</span> <span class="n">root_gang</span>
         <span class="k">case</span><span class="w"> </span><span class="k">_</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">tp_size</span><span class="p">):</span>
-                <span class="n">sub_gang</span> <span class="o">=</span> <span class="n">root_gang</span><span class="o">.</span><span class="n">create_gang</span><span class="p">(</span><span class="n">mesh</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
-                <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">rank_coords</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
-                    <span class="n">dp_gang</span> <span class="o">=</span> <span class="n">sub_gang</span>
+            <span class="k">if</span> <span class="n">torch_greater_or_equal</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span> <span class="ow">and</span> <span class="n">root_gang</span><span class="o">.</span><span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">pg</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">distributed</span><span class="o">.</span><span class="n">distributed_c10d</span><span class="o">.</span><span class="n">split_group</span><span class="p">(</span>
+                        <span class="n">split_ranks</span><span class="o">=</span><span class="n">mesh</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">group_desc</span><span class="o">=</span><span class="s2">&quot;dp&quot;</span>
+                    <span class="p">)</span>
+                <span class="k">except</span> <span class="ne">RuntimeError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">GangError</span><span class="p">(</span>
+                        <span class="s2">&quot;The data parallel process group cannot be created. See the nested exception for details.&quot;</span>
+                    <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
+
+                <span class="k">if</span> <span class="n">pg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">dp_gang</span> <span class="o">=</span> <span class="n">ProcessGroupGang</span><span class="p">(</span><span class="n">pg</span><span class="p">,</span> <span class="n">root_gang</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">tp_size</span><span class="p">):</span>
+                    <span class="n">sub_gang</span> <span class="o">=</span> <span class="n">root_gang</span><span class="o">.</span><span class="n">create_gang</span><span class="p">(</span><span class="n">mesh</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+                    <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">rank_coords</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+                        <span class="n">dp_gang</span> <span class="o">=</span> <span class="n">sub_gang</span>
 
     <span class="k">if</span> <span class="n">dp_gang</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span><span class="s2">&quot;`dp_gang` is `None`.&quot;</span><span class="p">)</span>
@@ -1146,10 +1055,23 @@
         <span class="k">case</span> <span class="n">root_gang</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
             <span class="n">tp_gang</span> <span class="o">=</span> <span class="n">root_gang</span>
         <span class="k">case</span><span class="w"> </span><span class="k">_</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dp_size</span><span class="p">):</span>
-                <span class="n">sub_gang</span> <span class="o">=</span> <span class="n">root_gang</span><span class="o">.</span><span class="n">create_gang</span><span class="p">(</span><span class="n">mesh</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
-                <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">rank_coords</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
-                    <span class="n">tp_gang</span> <span class="o">=</span> <span class="n">sub_gang</span>
+            <span class="k">if</span> <span class="n">torch_greater_or_equal</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span> <span class="ow">and</span> <span class="n">root_gang</span><span class="o">.</span><span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">pg</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">distributed</span><span class="o">.</span><span class="n">distributed_c10d</span><span class="o">.</span><span class="n">split_group</span><span class="p">(</span>
+                        <span class="n">split_ranks</span><span class="o">=</span><span class="n">mesh</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">group_desc</span><span class="o">=</span><span class="s2">&quot;tp&quot;</span>
+                    <span class="p">)</span>
+                <span class="k">except</span> <span class="ne">RuntimeError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">GangError</span><span class="p">(</span>
+                        <span class="s2">&quot;The tensor parallel process group cannot be created. See the nested exception for details.&quot;</span>
+                    <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
+
+                <span class="k">if</span> <span class="n">pg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">tp_gang</span> <span class="o">=</span> <span class="n">ProcessGroupGang</span><span class="p">(</span><span class="n">pg</span><span class="p">,</span> <span class="n">root_gang</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dp_size</span><span class="p">):</span>
+                    <span class="n">sub_gang</span> <span class="o">=</span> <span class="n">root_gang</span><span class="o">.</span><span class="n">create_gang</span><span class="p">(</span><span class="n">mesh</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+                    <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">rank_coords</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+                        <span class="n">tp_gang</span> <span class="o">=</span> <span class="n">sub_gang</span>
 
     <span class="k">if</span> <span class="n">tp_gang</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span><span class="s2">&quot;`tp_gang` is `None`.&quot;</span><span class="p">)</span>
@@ -1212,10 +1134,23 @@
         <span class="k">case</span> <span class="n">dp_gang</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
             <span class="n">inter_gang</span> <span class="o">=</span> <span class="n">dp_gang</span>
         <span class="k">case</span><span class="w"> </span><span class="k">_</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">intra_node_size</span><span class="p">):</span>
-                <span class="n">sub_gang</span> <span class="o">=</span> <span class="n">dp_gang</span><span class="o">.</span><span class="n">create_gang</span><span class="p">(</span><span class="n">mesh</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
-                <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">rank_coords</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
-                    <span class="n">inter_gang</span> <span class="o">=</span> <span class="n">sub_gang</span>
+            <span class="k">if</span> <span class="n">torch_greater_or_equal</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span> <span class="ow">and</span> <span class="n">dp_gang</span><span class="o">.</span><span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">pg</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">distributed</span><span class="o">.</span><span class="n">distributed_c10d</span><span class="o">.</span><span class="n">split_group</span><span class="p">(</span>
+                        <span class="n">split_ranks</span><span class="o">=</span><span class="n">mesh</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">group_desc</span><span class="o">=</span><span class="s2">&quot;inter&quot;</span>
+                    <span class="p">)</span>
+                <span class="k">except</span> <span class="ne">RuntimeError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">GangError</span><span class="p">(</span>
+                        <span class="s2">&quot;The inter-node process group cannot be created. See the nested exception for details.&quot;</span>
+                    <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
+
+                <span class="k">if</span> <span class="n">pg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">inter_gang</span> <span class="o">=</span> <span class="n">ProcessGroupGang</span><span class="p">(</span><span class="n">pg</span><span class="p">,</span> <span class="n">dp_gang</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">intra_node_size</span><span class="p">):</span>
+                    <span class="n">sub_gang</span> <span class="o">=</span> <span class="n">dp_gang</span><span class="o">.</span><span class="n">create_gang</span><span class="p">(</span><span class="n">mesh</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+                    <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">rank_coords</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+                        <span class="n">inter_gang</span> <span class="o">=</span> <span class="n">sub_gang</span>
 
     <span class="k">if</span> <span class="n">inter_gang</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span><span class="s2">&quot;`inter_gang` is `None`.&quot;</span><span class="p">)</span>
@@ -1231,10 +1166,23 @@
         <span class="k">case</span> <span class="n">dp_gang</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
             <span class="n">intra_gang</span> <span class="o">=</span> <span class="n">dp_gang</span>
         <span class="k">case</span><span class="w"> </span><span class="k">_</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">inter_node_size</span><span class="p">):</span>
-                <span class="n">sub_gang</span> <span class="o">=</span> <span class="n">dp_gang</span><span class="o">.</span><span class="n">create_gang</span><span class="p">(</span><span class="n">mesh</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
-                <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">rank_coords</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
-                    <span class="n">intra_gang</span> <span class="o">=</span> <span class="n">sub_gang</span>
+            <span class="k">if</span> <span class="n">torch_greater_or_equal</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span> <span class="ow">and</span> <span class="n">dp_gang</span><span class="o">.</span><span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">pg</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">distributed</span><span class="o">.</span><span class="n">distributed_c10d</span><span class="o">.</span><span class="n">split_group</span><span class="p">(</span>
+                        <span class="n">split_ranks</span><span class="o">=</span><span class="n">mesh</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">group_desc</span><span class="o">=</span><span class="s2">&quot;intra&quot;</span>
+                    <span class="p">)</span>
+                <span class="k">except</span> <span class="ne">RuntimeError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">GangError</span><span class="p">(</span>
+                        <span class="s2">&quot;The intra-node process group cannot be created. See the nested exception for details.&quot;</span>
+                    <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">ex</span>
+
+                <span class="k">if</span> <span class="n">pg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">intra_gang</span> <span class="o">=</span> <span class="n">ProcessGroupGang</span><span class="p">(</span><span class="n">pg</span><span class="p">,</span> <span class="n">dp_gang</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">inter_node_size</span><span class="p">):</span>
+                    <span class="n">sub_gang</span> <span class="o">=</span> <span class="n">dp_gang</span><span class="o">.</span><span class="n">create_gang</span><span class="p">(</span><span class="n">mesh</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+                    <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="n">rank_coords</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+                        <span class="n">intra_gang</span> <span class="o">=</span> <span class="n">sub_gang</span>
 
     <span class="k">if</span> <span class="n">intra_gang</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">raise</span> <span class="n">InternalError</span><span class="p">(</span><span class="s2">&quot;`intra_gang` is `None`.&quot;</span><span class="p">)</span>
@@ -1247,23 +1195,23 @@
 <div class="viewcode-block" id="broadcast_flag">
 <a class="viewcode-back" href="../../reference/api/gang.html#fairseq2.gang.broadcast_flag">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">broadcast_flag</span><span class="p">(</span><span class="n">gang</span><span class="p">:</span> <span class="n">Gang</span><span class="p">,</span> <span class="n">flag</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">source_rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Broadcast ``flag`` to  all processes in ``gang`` from ``source_rank``.&quot;&quot;&quot;</span>
-    <span class="n">tmp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">flag</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">gang</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Broadcasts ``flag`` to  all processes in ``gang`` from ``source_rank``.&quot;&quot;&quot;</span>
+    <span class="n">flag_pt</span> <span class="o">=</span> <span class="n">to_tensor</span><span class="p">(</span><span class="n">flag</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">gang</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
 
-    <span class="n">gang</span><span class="o">.</span><span class="n">broadcast</span><span class="p">(</span><span class="n">tmp</span><span class="p">,</span> <span class="n">source_rank</span><span class="p">)</span>
+    <span class="n">gang</span><span class="o">.</span><span class="n">broadcast</span><span class="p">(</span><span class="n">flag_pt</span><span class="p">,</span> <span class="n">source_rank</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">tmp</span><span class="p">)</span></div>
+    <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">flag_pt</span><span class="p">)</span></div>
 
 
 
 <div class="viewcode-block" id="all_sum">
 <a class="viewcode-back" href="../../reference/api/gang.html#fairseq2.gang.all_sum">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">all_sum</span><span class="p">(</span><span class="n">gang</span><span class="p">:</span> <span class="n">Gang</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span> <span class="o">|</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Sum ``value`` over all processes in ``gang``.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Sums ``value`` over all processes in ``gang``.&quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">):</span>
         <span class="n">output</span> <span class="o">=</span> <span class="n">value</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">output</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">gang</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="n">to_tensor</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">gang</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
 
     <span class="n">gang</span><span class="o">.</span><span class="n">all_reduce</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">ReduceOperation</span><span class="o">.</span><span class="n">SUM</span><span class="p">)</span>
 
@@ -1305,7 +1253,7 @@
       
     </aside>
   </div>
-</div><script src="../../_static/documentation_options.js?v=ee97a8ed"></script>
+</div><script src="../../_static/documentation_options.js?v=206ec5dc"></script>
     <script src="../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/scripts/furo.js?v=5fa4622c"></script>

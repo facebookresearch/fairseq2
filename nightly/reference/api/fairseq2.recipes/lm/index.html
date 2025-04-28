@@ -479,7 +479,7 @@ This includes tools for both pre-training and instruction tuning of language mod
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">SequenceMetricBag</span></code></p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>train</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, indicates that this bag is used in a training task.</p>
+<dd class="field-odd"><p><strong>gang</strong> (<a class="reference internal" href="../../gang.html#fairseq2.gang.Gang" title="fairseq2.gang.Gang"><em>Gang</em></a>) – The gang over which to sync metrics.</p>
 </dd>
 </dl>
 <dl class="py method">
@@ -490,8 +490,8 @@ This includes tools for both pre-training and instruction tuning of language mod
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>batch</strong> (<em>PreferenceBatch</em>) – The batch processed by the model.</p></li>
-<li><p><strong>chosen_logps</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.6)"><em>Tensor</em></a>) – The log probabilities for each sequence in <code class="docutils literal notranslate"><span class="pre">batch.chosen</span></code>.</p></li>
-<li><p><strong>rejected_logps</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.6)"><em>Tensor</em></a>) – The log probabilities for each sequence in <code class="docutils literal notranslate"><span class="pre">batch.rejected</span></code>.</p></li>
+<li><p><strong>chosen_logps</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.7)"><em>Tensor</em></a>) – The log probabilities for each sequence in <code class="docutils literal notranslate"><span class="pre">batch.chosen</span></code>.</p></li>
+<li><p><strong>rejected_logps</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.7)"><em>Tensor</em></a>) – The log probabilities for each sequence in <code class="docutils literal notranslate"><span class="pre">batch.rejected</span></code>.</p></li>
 </ul>
 </dd>
 </dl>
@@ -636,23 +636,9 @@ Longer sequences will be dropped.</p>
 <p>Holds the metrics of a CPO preference finetuning task.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>train</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, indicates that this bag is used in a training task.</p>
+<dd class="field-odd"><p><strong>gang</strong> (<a class="reference internal" href="../../gang.html#fairseq2.gang.Gang" title="fairseq2.gang.Gang"><em>Gang</em></a>) – The gang over which to sync metrics.</p>
 </dd>
 </dl>
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.recipes.lm.CpoFinetuneMetricBag.update_cpo_loss">
-<span class="sig-name descname"><span class="pre">update_cpo_loss</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loss</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_cpo.html#CpoFinetuneMetricBag.update_cpo_loss"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.CpoFinetuneMetricBag.update_cpo_loss" title="Link to this definition">¶</a></dt>
-<dd><p>Update the CPO loss metric.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>batch</strong> (<em>PreferenceBatch</em>) – The batch processed by the model.</p></li>
-<li><p><strong>loss</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.6)"><em>Tensor</em></a>) – The CPO loss of <code class="docutils literal notranslate"><span class="pre">batch</span></code>.</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
 </dd></dl>
 
 <dl class="py class">
@@ -713,23 +699,9 @@ data example (fields <cite>reference_score_rejected</cite> and  <cite>reference_
 <p>Holds the metrics of a DPO preference finetuning task.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>train</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, indicates that this bag is used in a training task.</p>
+<dd class="field-odd"><p><strong>gang</strong> (<a class="reference internal" href="../../gang.html#fairseq2.gang.Gang" title="fairseq2.gang.Gang"><em>Gang</em></a>) – The gang over which to sync metrics.</p>
 </dd>
 </dl>
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.recipes.lm.DpoFinetuneMetricBag.update_dpo_loss">
-<span class="sig-name descname"><span class="pre">update_dpo_loss</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loss</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_dpo.html#DpoFinetuneMetricBag.update_dpo_loss"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.DpoFinetuneMetricBag.update_dpo_loss" title="Link to this definition">¶</a></dt>
-<dd><p>Update the DPO loss metric.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>batch</strong> (<em>PreferenceBatch</em>) – The batch processed by the model.</p></li>
-<li><p><strong>loss</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.6)"><em>Tensor</em></a>) – The DPO loss of <code class="docutils literal notranslate"><span class="pre">batch</span></code>.</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
 </dd></dl>
 
 <dl class="py class">
@@ -774,23 +746,9 @@ data example (fields <cite>reference_score_rejected</cite> and  <cite>reference_
 <p>Holds the metrics of a ORPO preference finetuning task.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>train</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, indicates that this bag is used in a training task.</p>
+<dd class="field-odd"><p><strong>gang</strong> (<a class="reference internal" href="../../gang.html#fairseq2.gang.Gang" title="fairseq2.gang.Gang"><em>Gang</em></a>) – The gang over which to sync metrics.</p>
 </dd>
 </dl>
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.recipes.lm.OrpoFinetuneMetricBag.update_orpo_loss">
-<span class="sig-name descname"><span class="pre">update_orpo_loss</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loss</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_orpo.html#OrpoFinetuneMetricBag.update_orpo_loss"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.OrpoFinetuneMetricBag.update_orpo_loss" title="Link to this definition">¶</a></dt>
-<dd><p>Update the ORPO loss metric.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>batch</strong> (<em>PreferenceBatch</em>) – The batch processed by the model.</p></li>
-<li><p><strong>loss</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.6)"><em>Tensor</em></a>) – The ORPO loss of <code class="docutils literal notranslate"><span class="pre">batch</span></code>.</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
 </dd></dl>
 
 <dl class="py class">
@@ -841,23 +799,9 @@ data example (fields <cite>reference_score_rejected</cite> and  <cite>reference_
 <p>Holds the metrics of a SimPO preference finetuning task.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>train</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, indicates that this bag is used in a training task.</p>
+<dd class="field-odd"><p><strong>gang</strong> (<a class="reference internal" href="../../gang.html#fairseq2.gang.Gang" title="fairseq2.gang.Gang"><em>Gang</em></a>) – The gang over which to sync metrics.</p>
 </dd>
 </dl>
-<dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.recipes.lm.SimPOFinetuneMetricBag.update_simpo_loss">
-<span class="sig-name descname"><span class="pre">update_simpo_loss</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loss</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/fairseq2/recipes/lm/_preference_finetune/_simpo.html#SimPOFinetuneMetricBag.update_simpo_loss"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.recipes.lm.SimPOFinetuneMetricBag.update_simpo_loss" title="Link to this definition">¶</a></dt>
-<dd><p>Update the SimPO loss metric.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>batch</strong> (<em>PreferenceBatch</em>) – The batch processed by the model.</p></li>
-<li><p><strong>loss</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.6)"><em>Tensor</em></a>) – The SimPO loss of <code class="docutils literal notranslate"><span class="pre">batch</span></code>.</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
 </dd></dl>
 
 </section>
@@ -1071,10 +1015,7 @@ data example (fields <cite>reference_score_rejected</cite> and  <cite>reference_
 </li>
 <li><a class="reference internal" href="#fairseq2.recipes.lm.CpoFinetuneUnit"><code class="docutils literal notranslate"><span class="pre">CpoFinetuneUnit</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.recipes.lm.CpoFinetuneUnitHandler"><code class="docutils literal notranslate"><span class="pre">CpoFinetuneUnitHandler</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.recipes.lm.CpoFinetuneMetricBag"><code class="docutils literal notranslate"><span class="pre">CpoFinetuneMetricBag</span></code></a><ul>
-<li><a class="reference internal" href="#fairseq2.recipes.lm.CpoFinetuneMetricBag.update_cpo_loss"><code class="docutils literal notranslate"><span class="pre">CpoFinetuneMetricBag.update_cpo_loss()</span></code></a></li>
-</ul>
-</li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.CpoFinetuneMetricBag"><code class="docutils literal notranslate"><span class="pre">CpoFinetuneMetricBag</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.recipes.lm.DpoFinetuneConfig"><code class="docutils literal notranslate"><span class="pre">DpoFinetuneConfig</span></code></a><ul>
 <li><a class="reference internal" href="#fairseq2.recipes.lm.DpoFinetuneConfig.reference_model"><code class="docutils literal notranslate"><span class="pre">DpoFinetuneConfig.reference_model</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.recipes.lm.DpoFinetuneConfig.beta"><code class="docutils literal notranslate"><span class="pre">DpoFinetuneConfig.beta</span></code></a></li>
@@ -1084,10 +1025,7 @@ data example (fields <cite>reference_score_rejected</cite> and  <cite>reference_
 </li>
 <li><a class="reference internal" href="#fairseq2.recipes.lm.DpoFinetuneUnit"><code class="docutils literal notranslate"><span class="pre">DpoFinetuneUnit</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.recipes.lm.DpoFinetuneUnitHandler"><code class="docutils literal notranslate"><span class="pre">DpoFinetuneUnitHandler</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.recipes.lm.DpoFinetuneMetricBag"><code class="docutils literal notranslate"><span class="pre">DpoFinetuneMetricBag</span></code></a><ul>
-<li><a class="reference internal" href="#fairseq2.recipes.lm.DpoFinetuneMetricBag.update_dpo_loss"><code class="docutils literal notranslate"><span class="pre">DpoFinetuneMetricBag.update_dpo_loss()</span></code></a></li>
-</ul>
-</li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.DpoFinetuneMetricBag"><code class="docutils literal notranslate"><span class="pre">DpoFinetuneMetricBag</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.recipes.lm.OrpoFinetuneConfig"><code class="docutils literal notranslate"><span class="pre">OrpoFinetuneConfig</span></code></a><ul>
 <li><a class="reference internal" href="#fairseq2.recipes.lm.OrpoFinetuneConfig.orpo_lambda"><code class="docutils literal notranslate"><span class="pre">OrpoFinetuneConfig.orpo_lambda</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.recipes.lm.OrpoFinetuneConfig.nll_scale"><code class="docutils literal notranslate"><span class="pre">OrpoFinetuneConfig.nll_scale</span></code></a></li>
@@ -1095,10 +1033,7 @@ data example (fields <cite>reference_score_rejected</cite> and  <cite>reference_
 </li>
 <li><a class="reference internal" href="#fairseq2.recipes.lm.OrpoFinetuneUnit"><code class="docutils literal notranslate"><span class="pre">OrpoFinetuneUnit</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.recipes.lm.OrpoFinetuneUnitHandler"><code class="docutils literal notranslate"><span class="pre">OrpoFinetuneUnitHandler</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.recipes.lm.OrpoFinetuneMetricBag"><code class="docutils literal notranslate"><span class="pre">OrpoFinetuneMetricBag</span></code></a><ul>
-<li><a class="reference internal" href="#fairseq2.recipes.lm.OrpoFinetuneMetricBag.update_orpo_loss"><code class="docutils literal notranslate"><span class="pre">OrpoFinetuneMetricBag.update_orpo_loss()</span></code></a></li>
-</ul>
-</li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.OrpoFinetuneMetricBag"><code class="docutils literal notranslate"><span class="pre">OrpoFinetuneMetricBag</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.recipes.lm.SimPOFinetuneConfig"><code class="docutils literal notranslate"><span class="pre">SimPOFinetuneConfig</span></code></a><ul>
 <li><a class="reference internal" href="#fairseq2.recipes.lm.SimPOFinetuneConfig.beta"><code class="docutils literal notranslate"><span class="pre">SimPOFinetuneConfig.beta</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.recipes.lm.SimPOFinetuneConfig.gamma"><code class="docutils literal notranslate"><span class="pre">SimPOFinetuneConfig.gamma</span></code></a></li>
@@ -1107,10 +1042,7 @@ data example (fields <cite>reference_score_rejected</cite> and  <cite>reference_
 </li>
 <li><a class="reference internal" href="#fairseq2.recipes.lm.SimPOFinetuneUnit"><code class="docutils literal notranslate"><span class="pre">SimPOFinetuneUnit</span></code></a></li>
 <li><a class="reference internal" href="#fairseq2.recipes.lm.SimPOFinetuneUnitHandler"><code class="docutils literal notranslate"><span class="pre">SimPOFinetuneUnitHandler</span></code></a></li>
-<li><a class="reference internal" href="#fairseq2.recipes.lm.SimPOFinetuneMetricBag"><code class="docutils literal notranslate"><span class="pre">SimPOFinetuneMetricBag</span></code></a><ul>
-<li><a class="reference internal" href="#fairseq2.recipes.lm.SimPOFinetuneMetricBag.update_simpo_loss"><code class="docutils literal notranslate"><span class="pre">SimPOFinetuneMetricBag.update_simpo_loss()</span></code></a></li>
-</ul>
-</li>
+<li><a class="reference internal" href="#fairseq2.recipes.lm.SimPOFinetuneMetricBag"><code class="docutils literal notranslate"><span class="pre">SimPOFinetuneMetricBag</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#functions-po">Functions (PO)</a><ul>
@@ -1150,7 +1082,7 @@ data example (fields <cite>reference_score_rejected</cite> and  <cite>reference_
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=ee97a8ed"></script>
+</div><script src="../../../../_static/documentation_options.js?v=206ec5dc"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>

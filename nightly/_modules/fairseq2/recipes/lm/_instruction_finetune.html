@@ -337,7 +337,9 @@
     <span class="n">InstructionDataset</span><span class="p">,</span>
     <span class="n">InstructionReadOptions</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.device</span><span class="w"> </span><span class="kn">import</span> <span class="n">CPU</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gangs</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">MetricBag</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.decoder</span><span class="w"> </span><span class="kn">import</span> <span class="n">DecoderModel</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.sequence</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">SequenceBatch</span><span class="p">,</span>
@@ -372,7 +374,6 @@
     <span class="n">TorchSection</span><span class="p">,</span>
     <span class="n">TrainerSection</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">CPU</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.rng</span><span class="w"> </span><span class="kn">import</span> <span class="n">manual_seed</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.structured</span><span class="w"> </span><span class="kn">import</span> <span class="n">structure</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.validation</span><span class="w"> </span><span class="kn">import</span> <span class="n">validate</span>
@@ -401,7 +402,7 @@
             <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">bfloat16</span><span class="p">,</span>
             <span class="n">data_parallelism</span><span class="o">=</span><span class="s2">&quot;fsdp&quot;</span><span class="p">,</span>
             <span class="n">fsdp</span><span class="o">=</span><span class="n">FsdpSection</span><span class="p">(</span><span class="n">fp32_reduce</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-            <span class="n">activation_checkpointing</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">activation_checkpointing</span><span class="o">=</span><span class="s2">&quot;layerwise&quot;</span><span class="p">,</span>
         <span class="p">)</span>
     <span class="p">)</span>
 
@@ -691,7 +692,7 @@
 
     <span class="nd">@property</span>
     <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">metric_bag</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SequenceMetricBag</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">metric_bag</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricBag</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_bag</span></div>
 
 
@@ -719,7 +720,7 @@
 
     <span class="nd">@property</span>
     <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">metric_bag</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SequenceMetricBag</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">metric_bag</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricBag</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_bag</span></div>
 
 
@@ -743,9 +744,9 @@
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
         <span class="n">input_batch</span><span class="p">,</span> <span class="n">target_batch</span> <span class="o">=</span> <span class="n">as_auto_regressive_input</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
 
-        <span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_forward</span><span class="p">(</span><span class="n">input_batch</span><span class="p">)</span>
+        <span class="n">model_output</span><span class="p">:</span> <span class="n">SequenceModelOutput</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="o">.</span><span class="n">module</span><span class="p">(</span><span class="n">input_batch</span><span class="p">)</span>
 
-        <span class="n">loss</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">compute_loss</span><span class="p">(</span>
+        <span class="n">loss</span> <span class="o">=</span> <span class="n">model_output</span><span class="o">.</span><span class="n">compute_loss</span><span class="p">(</span>
             <span class="n">target_batch</span><span class="o">.</span><span class="n">seqs</span><span class="p">,</span> <span class="n">loss_mask</span><span class="o">=</span><span class="n">target_batch</span><span class="o">.</span><span class="n">target_mask</span>
         <span class="p">)</span>
 
@@ -754,9 +755,6 @@
         <span class="n">metric_bag</span><span class="o">.</span><span class="n">update_batch_metrics</span><span class="p">(</span><span class="n">target_batch</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">loss</span><span class="p">,</span> <span class="n">target_batch</span><span class="o">.</span><span class="n">num_target_elements</span><span class="p">()</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">_forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">SequenceBatch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SequenceModelOutput</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model</span><span class="o">.</span><span class="n">module</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>  <span class="c1"># type: ignore[no-any-return]</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">model</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Model</span><span class="p">:</span>
@@ -798,7 +796,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=ee97a8ed"></script>
+</div><script src="../../../../_static/documentation_options.js?v=206ec5dc"></script>
     <script src="../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/scripts/furo.js?v=5fa4622c"></script>

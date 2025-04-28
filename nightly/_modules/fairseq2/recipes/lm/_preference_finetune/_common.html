@@ -364,25 +364,21 @@
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gang</span><span class="p">:</span> <span class="n">Gang</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">gang</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">register_metric</span><span class="p">(</span><span class="s2">&quot;chosen_logps&quot;</span><span class="p">,</span> <span class="n">Mean</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">gang</span><span class="o">.</span><span class="n">device</span><span class="p">),</span> <span class="n">persistent</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">register_metric</span><span class="p">(</span>
-            <span class="s2">&quot;rejected_logps&quot;</span><span class="p">,</span> <span class="n">Mean</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">gang</span><span class="o">.</span><span class="n">device</span><span class="p">),</span> <span class="n">persistent</span><span class="o">=</span><span class="kc">False</span>
-        <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">register_metric</span><span class="p">(</span>
-            <span class="s2">&quot;chosen_lengths&quot;</span><span class="p">,</span> <span class="n">Mean</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">gang</span><span class="o">.</span><span class="n">device</span><span class="p">),</span> <span class="n">persistent</span><span class="o">=</span><span class="kc">False</span>
-        <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">register_metric</span><span class="p">(</span>
-            <span class="s2">&quot;rejected_lengths&quot;</span><span class="p">,</span> <span class="n">Mean</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">gang</span><span class="o">.</span><span class="n">device</span><span class="p">),</span> <span class="n">persistent</span><span class="o">=</span><span class="kc">False</span>
-        <span class="p">)</span>
+        <span class="n">device</span> <span class="o">=</span> <span class="n">gang</span><span class="o">.</span><span class="n">device</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">chosen_logps</span> <span class="o">=</span> <span class="n">Mean</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">rejected_logps</span> <span class="o">=</span> <span class="n">Mean</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">chosen_lengths</span> <span class="o">=</span> <span class="n">Mean</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">rejected_lengths</span> <span class="o">=</span> <span class="n">Mean</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
 
 <div class="viewcode-block" id="POFinetuneMetricBag.update_logps">
 <a class="viewcode-back" href="../../../../../reference/api/fairseq2.recipes/lm/index.html#fairseq2.recipes.lm.POFinetuneMetricBag.update_logps">[docs]</a>
     <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">update_logps</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">batch</span><span class="p">:</span> <span class="n">PreferenceBatch</span><span class="p">,</span>
-        <span class="n">chosen_logps</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
-        <span class="n">rejected_logps</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">PreferenceBatch</span><span class="p">,</span> <span class="n">chosen_logps</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">rejected_logps</span><span class="p">:</span> <span class="n">Tensor</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Update the Chosen Sequence Log Probabilities and Rejected Sequence Log Probabilities metrics.</span>
 
@@ -405,10 +401,7 @@
 <div class="viewcode-block" id="POFinetuneMetricBag.update_sequence_lengths">
 <a class="viewcode-back" href="../../../../../reference/api/fairseq2.recipes/lm/index.html#fairseq2.recipes.lm.POFinetuneMetricBag.update_sequence_lengths">[docs]</a>
     <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">update_sequence_lengths</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">batch</span><span class="p">:</span> <span class="n">PreferenceBatch</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_sequence_lengths</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">PreferenceBatch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Update the Chosen Sequence Length and Rejected Sequence Length metrics.</span>
 
 <span class="sd">        :param batch:</span>
@@ -460,7 +453,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../../_static/documentation_options.js?v=ee97a8ed"></script>
+</div><script src="../../../../../_static/documentation_options.js?v=206ec5dc"></script>
     <script src="../../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../../_static/scripts/furo.js?v=5fa4622c"></script>

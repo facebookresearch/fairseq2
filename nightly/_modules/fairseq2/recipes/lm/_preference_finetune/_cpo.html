@@ -331,7 +331,7 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.datasets.preference</span><span class="w"> </span><span class="kn">import</span> <span class="n">PreferenceBatch</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.gang</span><span class="w"> </span><span class="kn">import</span> <span class="n">Gang</span><span class="p">,</span> <span class="n">Gangs</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mean</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mean</span><span class="p">,</span> <span class="n">MetricBag</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.models.sequence</span><span class="w"> </span><span class="kn">import</span> <span class="n">SequenceModelOutput</span><span class="p">,</span> <span class="n">as_auto_regressive_input</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.recipes</span><span class="w"> </span><span class="kn">import</span> <span class="n">Model</span><span class="p">,</span> <span class="n">TrainUnit</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">fairseq2.utils.structured</span><span class="w"> </span><span class="kn">import</span> <span class="n">structure</span>
@@ -433,7 +433,7 @@
 
     <span class="nd">@property</span>
     <span class="nd">@override</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">metric_bag</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CpoFinetuneMetricBag</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">metric_bag</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricBag</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metric_bag</span></div>
 
 
@@ -448,23 +448,13 @@
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gang</span><span class="p">:</span> <span class="n">Gang</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">gang</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">register_metric</span><span class="p">(</span><span class="s2">&quot;cpo_loss&quot;</span><span class="p">,</span> <span class="n">Mean</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">gang</span><span class="o">.</span><span class="n">device</span><span class="p">),</span> <span class="n">persistent</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cpo_loss</span> <span class="o">=</span> <span class="n">Mean</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">gang</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
 
-<div class="viewcode-block" id="CpoFinetuneMetricBag.update_cpo_loss">
-<a class="viewcode-back" href="../../../../../reference/api/fairseq2.recipes/lm/index.html#fairseq2.recipes.lm.CpoFinetuneMetricBag.update_cpo_loss">[docs]</a>
     <span class="nd">@torch</span><span class="o">.</span><span class="n">inference_mode</span><span class="p">()</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">update_cpo_loss</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">PreferenceBatch</span><span class="p">,</span> <span class="n">loss</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update the CPO loss metric.</span>
-
-<span class="sd">        :param batch:</span>
-<span class="sd">            The batch processed by the model.</span>
-<span class="sd">        :param loss:</span>
-<span class="sd">            The CPO loss of ``batch``.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cpo_loss</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
             <span class="n">loss</span> <span class="o">/</span> <span class="n">batch</span><span class="o">.</span><span class="n">chosen</span><span class="o">.</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="n">batch</span><span class="o">.</span><span class="n">chosen</span><span class="o">.</span><span class="n">batch_size</span>
         <span class="p">)</span></div>
-</div>
 
 
 
@@ -543,7 +533,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../../_static/documentation_options.js?v=ee97a8ed"></script>
+</div><script src="../../../../../_static/documentation_options.js?v=206ec5dc"></script>
     <script src="../../../../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../../_static/scripts/furo.js?v=5fa4622c"></script>
