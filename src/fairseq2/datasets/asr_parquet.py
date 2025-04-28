@@ -71,7 +71,7 @@ class GenericAsrParquetDataset(ParquetDatasetInterface, AsrDataset):
 
         if options is None:
             options = SpeechReadOptions()
-        npc = options.npc
+
         seed = options.seed
 
         options.batch_shuffle_window = min(
@@ -95,8 +95,7 @@ class GenericAsrParquetDataset(ParquetDatasetInterface, AsrDataset):
         seed += gang.size
         # truncate length to max_audio_len
         builder = builder.filter(
-            lambda x: (int(x["length"]) >= min_audio_len)
-            and (int(x["length"]) <= max_audio_len)
+            lambda x: (x["length"] >= min_audio_len) and (x["length"] <= max_audio_len)
         )
 
         # shuffle examples in memory
@@ -128,7 +127,7 @@ class GenericAsrParquetDataset(ParquetDatasetInterface, AsrDataset):
 
         # Tokenize target text.
         text_encoder = tokenizer.create_encoder()
-        builder.map(text_encoder, selector="[*].text", num_parallel_calls=npc)
+        builder.map(text_encoder, selector="[*].text", num_parallel_calls=options.npc)
 
         # Collate bucketed examples into a batch.
         text_collate_opts = CollateOptionsOverride(
@@ -137,7 +136,7 @@ class GenericAsrParquetDataset(ParquetDatasetInterface, AsrDataset):
 
         collater = Collater(pad_value=0, overrides=[text_collate_opts])
 
-        builder.map(collater, num_parallel_calls=npc)
+        builder.map(collater, num_parallel_calls=options.npc)
 
         # Return only the first `max_num_batches`.
         if options.max_num_batches is not None:

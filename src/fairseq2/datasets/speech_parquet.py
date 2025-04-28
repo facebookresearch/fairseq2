@@ -136,7 +136,6 @@ class GenericSpeechParquetDataset(ParquetDatasetInterface, SpeechDataset):
         rank: int,
         world_size: int,
         pa_cpu_count: int = 20,
-        nb_samples_per_fragment: int = 1000,
     ) -> DataPipelineBuilder:
 
         npc = options.npc
@@ -155,7 +154,7 @@ class GenericSpeechParquetDataset(ParquetDatasetInterface, SpeechDataset):
             split_to_row_groups=True,
             files_circular_shift=True,
             seed=seed,
-            fragment_shuffle_window=-1,
+            fragment_shuffle_window=-1 if split == "train" else 0,
         )
         fragment_config = fragment_config.add_partition_filter(
             pa.compute.field("split") == split
