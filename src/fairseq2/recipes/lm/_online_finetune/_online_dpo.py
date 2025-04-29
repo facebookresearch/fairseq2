@@ -255,8 +255,6 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         if self._loss_config.log_rollouts:
             log_rollouts(prompt_batch, rollouts, "Train")
 
-        self.maybe_log_rollouts(prompt_batch, rollouts, "Train")
-
         batch: PreferenceBatch
         batch, is_bad_batch, reward_output = self._reward.prepare_preference_batch(
             prompt_batch, rollouts, divpo_p=self._loss_config.divpo_p
@@ -593,26 +591,12 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
         self.avg_zeroed_loss.update(avg_zeroed_loss, weight=1)
 
     @torch.inference_mode()
-    def update_diversity_metrics(
-        self,
-        unique_1grams,
-        unique_1grams_norm,
-        self_bleu_score,
-        compression_ratio,
-        entropy,
-        entropy_norm,
-    ):
-        self.unique_1grams.update(unique_1grams, weight=1)
-        self.unique_1grams_norm.update(unique_1grams_norm, weight=1)
-        self.self_bleu_score.update(self_bleu_score, weight=1)
-        self.compression_ratio.update(compression_ratio, weight=1)
-
-        self.entropy.update(torch.Tensor([entropy]), weight=1)
-        self.entropy_norm.update(torch.Tensor([entropy_norm]), weight=1)
-
-    # @torch.inference_mode()
-    # def update_rollouts(self, rollouts):
-    #     self.rollouts.update(rollouts)
+    def update_batch_metrics(self, batch: PreferenceBatch):
+        num_examples = batch.batch_size
+        self.num_examples.update(num_examples)
+        if self._train:
+            assert self.total_num_examples is not None
+            self.total_num_examples.update(num_examples)
 
 
 ONLINE_DPO_FINETUNE_UNIT: Final = "online_dpo"
