@@ -603,7 +603,6 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
                 self._validate()
 
             while self._should_run_step():
-
                 self._maybe_advance_data_epoch()
 
                 self._step_nr += 1
