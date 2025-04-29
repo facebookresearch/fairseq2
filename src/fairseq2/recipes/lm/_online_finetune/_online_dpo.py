@@ -445,6 +445,15 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
     def update_avg_zeroed_loss(self, avg_zeroed_loss):
         self.avg_zeroed_loss.update(avg_zeroed_loss, weight=1)
 
+    
+    @torch.inference_mode()
+    def update_batch_metrics(self, batch: PreferenceBatch):
+        num_examples = batch.batch_size
+        self.num_examples.update(num_examples)
+        if self._train:
+            assert self.total_num_examples is not None
+            self.total_num_examples.update(num_examples)
+
 
 ONLINE_DPO_FINETUNE_UNIT: Final = "online_dpo"
 
