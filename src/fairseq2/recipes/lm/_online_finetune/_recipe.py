@@ -211,7 +211,7 @@ def register_online_finetune_configs(context: RuntimeContext) -> None:
         config = OnlineFinetuneConfig()
 
         config.model.config = DropoutConfig()
-        config.regime.validate_step_0 = True
+        config.regime.validate_before_training = True
 
         return config
 

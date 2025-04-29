@@ -219,7 +219,7 @@ class RegimeSection:
     validate_every_n_steps: int | None = None
     """The step interval at which to validate the model."""
 
-    validate_step_0: bool = False
+    validate_before_training: bool = False
     """Validate before training"""
 
     validate_after_n_data_epochs: int = 0
