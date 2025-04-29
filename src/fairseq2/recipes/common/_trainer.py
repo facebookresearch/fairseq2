@@ -96,7 +96,7 @@ def create_trainer(
         valid_data_readers=valid_data_readers,
         validate_after_n_steps=regime_section.validate_after_n_steps,
         validate_every_n_steps=regime_section.validate_every_n_steps,
-        validate_step_0=regime_section.validate_step_0,
+        validate_before_training=regime_section.validate_before_training,
         validate_after_n_data_epochs=regime_section.validate_after_n_data_epochs,
         validate_every_n_data_epochs=regime_section.validate_every_n_data_epochs,
         checkpoint_manager=checkpoint_manager,
