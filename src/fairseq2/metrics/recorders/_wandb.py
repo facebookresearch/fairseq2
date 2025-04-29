@@ -45,6 +45,7 @@ class WandbRecorder(MetricRecorder):
         name: str,
         output_dir: Path,
         metric_descriptors: Provider[MetricDescriptor],
+        id: str | None = None,
     ) -> None:
         """
         :param project: The W&B project name.
@@ -60,7 +61,7 @@ class WandbRecorder(MetricRecorder):
             self._run = None
         else:
             self._run = wandb.init(
-                project=project, name=name, dir=output_dir.parent, resume="allow"
+                project=project, name=name, id=id, dir=output_dir.parent, resume="allow"
             )
 
         self._metric_descriptors = metric_descriptors
@@ -88,6 +89,8 @@ class WandbRecorder(MetricRecorder):
             else:
                 display_name = descriptor.display_name
 
+            display_name = run + "/" + display_name
+
             try:
                 self._run.log({display_name: value}, step=step_nr)
             except RuntimeError as ex:
@@ -111,6 +114,8 @@ class WandbRecorderConfig:
     project: str | None = None
 
     run: str | None = None
+
+    id: str | None = None
 
     def validate(self) -> None:
         result = ValidationResult()
@@ -151,7 +156,11 @@ class WandbRecorderHandler(MetricRecorderHandler):
         wandb_dir = output_dir.joinpath("wandb")
 
         return WandbRecorder(
-            config.project, config.run, wandb_dir, self._metric_descriptors
+            config.project,
+            config.run,
+            wandb_dir,
+            self._metric_descriptors,
+            id=config.id,
         )
 
     @property

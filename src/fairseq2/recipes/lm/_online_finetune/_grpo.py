@@ -19,7 +19,10 @@ from torch.nn import Module
 from torcheval.metrics import Mean
 from typing_extensions import override
 from vllm.distributed.device_communicators.pynccl import PyNcclCommunicator
-from fairseq2.recipes.lm._online_finetune._common import compute_token_level_entropy
+from fairseq2.recipes.lm._online_finetune._common import (
+    compute_token_level_entropy,
+    log_rollouts,
+)
 
 from fairseq2.context import RuntimeContext
 from fairseq2.datasets.preference import PreferenceBatch
@@ -163,9 +166,12 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             vllm_model=self._vllm_model,
             sampling_params=policy_sampling_params,
         )
+        if self._loss_config.log_rollouts:
+            log_rollouts(prompt_batch, rollouts, "Valid")
         reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
         self._metric_bag.update_avg_reward(avg_reward)
+        self._metric_bag.update_batch_metrics(prompt_batch)
         # returning dummy loss since trainer expects it
         return torch.tensor(0.0, device=self._gangs.dp.device), prompt_batch.batch_size
 
@@ -210,6 +216,8 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         rollouts = generate_rollouts(
             prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._vllm_model
         )
+        if self._loss_config.log_rollouts:
+            log_rollouts(prompt_batch, rollouts, "Train")
 
         reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
 
@@ -413,6 +421,14 @@ class GrpoFinetuneMetricBag(SequenceMetricBag):
     def update_avg_reward(self, avg_reward):
         self.avg_reward.update(avg_reward, weight=1)
 
+    @torch.inference_mode()
+    def update_batch_metrics(self, batch: PreferenceBatch):
+        num_examples = batch.batch_size
+        self.num_examples.update(num_examples)
+        if self._train:
+            assert self.total_num_examples is not None
+            self.total_num_examples.update(num_examples)
+
 
 GRPO_FINETUNE_UNIT: Final = "grpo"
 
@@ -423,6 +439,9 @@ class GrpoLossConfig:
     beta: float = 0.1
     """The coefficient of regularization towards the reference model."""
     entropy_regularizer_scale: float = 0.0
+
+    log_rollouts: bool = False
+    """Log rollouts during training/validation"""
 
 
 @dataclass(kw_only=True)
