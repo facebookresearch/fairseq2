@@ -53,6 +53,7 @@ from fairseq2.recipes.lm._online_finetune._common import (
     copy_state,
     find_first_value,
     generate_rollouts,
+    log_rollouts,
 )
 from fairseq2.recipes.lm._online_finetune._handler import OnlineFinetuneUnitHandler
 from fairseq2.recipes.lm._online_finetune._remote_vllm import RemoteVllmModel
@@ -199,31 +200,14 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             vllm_model=self._vllm_model,
             sampling_params=policy_sampling_params,
         )
+        if self._loss_config.log_rollouts:
+            log_rollouts(prompt_batch, rollouts, "Valid")
 
-        self.maybe_log_rollouts(prompt_batch, rollouts, "Valid")
+        reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
+        avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
 
-        if self._valid_reward is None:
-            reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
-        else:
-            reward_output = self._valid_reward.process_rollouts(rollouts, prompt_batch)
-
+        self._metric_bag.update_avg_reward(avg_reward)
         self._metric_bag.update_batch_metrics(prompt_batch)
-        total_reward = torch.tensor(reward_output["rewards"]).float().mean()
-        self._metric_bag.update_avg_reward(total_reward)
-
-        # Diversity metrics
-        unique_1grams, unique_1grams_norm = get_unique_1grams(reward_output["text"][0])
-        self_bleu_score = get_self_bleu_score(reward_output["text"][0])
-        compression_ratio = get_compression_ratio(reward_output["text"][0])
-        entropy, entropy_norm = get_entropy(rollouts)
-        self._metric_bag.update_diversity_metrics(
-            unique_1grams,
-            unique_1grams_norm,
-            self_bleu_score,
-            compression_ratio,
-            entropy,
-            entropy_norm,
-        )
         # returning dummy loss since trainer expects it
         return torch.tensor(0.0, device=self._gangs.dp.device), prompt_batch.batch_size
 
@@ -268,6 +252,8 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         rollouts = generate_rollouts(
             prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._vllm_model
         )
+        if self._loss_config.log_rollouts:
+            log_rollouts(prompt_batch, rollouts, "Train")
 
         self.maybe_log_rollouts(prompt_batch, rollouts, "Train")
 
@@ -650,6 +636,9 @@ class DpoLossConfig:
     log_rollouts: bool = True
     """Add prompts/rollouts to the logs"""
     entropy_regularizer_scale: float = 0.0
+
+    log_rollouts: bool = False
+    """Log rollouts during training/validation"""
 
 
 @dataclass(kw_only=True)
