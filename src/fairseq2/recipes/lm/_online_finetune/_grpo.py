@@ -166,14 +166,8 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             vllm_model=self._vllm_model,
             sampling_params=policy_sampling_params,
         )
-<<<<<<< HEAD
-
-        self.maybe_log_rollouts(prompt_batch, rollouts, "Valid")
-
-=======
         if self._loss_config.log_rollouts:
             log_rollouts(prompt_batch, rollouts, "Valid")
->>>>>>> 099d1aa3f260425f28cdd504cbf40b4a4fbd4952
         reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
         self._metric_bag.update_avg_reward(avg_reward)
