@@ -423,6 +423,10 @@ class AtheneVerifierHandler(VLLMOutputRewardHandler):
 
     @override
     def create(self, reward_model, reward_config, gangs):
+        if reward_config.tokenizer:
+            tokenizer = reward_config.tokenizer
+        else:
+            tokenizer = "Nexusflow/Athene-RM-8B"
         return AtheneVerifier(
             gangs,
             reward_model,
@@ -450,12 +454,12 @@ class AtheneVerifier(VLLMOutputReward):
     Note: this relies on modified Athene-RM-8B code to ensure compatibility with vLLM.
     """
 
-    def __init__(self, gangs, reward_model, answer_key, prompt_key):
+    def __init__(self, gangs, reward_model, answer_key, prompt_key, tokenizer):
         self.answer_key = answer_key
         self.prompt_key = prompt_key
         self._gangs = gangs
         self.reward_model = reward_model
-        self.tokenizer = AutoTokenizer.from_pretrained("Nexusflow/Athene-RM-8B")
+        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer)
 
     def wrap_text(self, prompt_text, rollout_text):
         wrapped_text = [
