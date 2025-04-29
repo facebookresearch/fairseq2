@@ -132,17 +132,6 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
                 self._gangs.root.barrier()
 
         if (
-            self._sync_vllm_valid_model_every_n_steps > 0
-            and self._step_nr % self._sync_vllm_valid_model_every_n_steps == 0
-        ) or force_sync:
-            with self._model.summon_full_parameters():
-                if self._gangs.root.rank == 0:
-                    self._vllm_valid_model.sync_weights_with_vllm(
-                        train_model=self._model
-                    )
-                self._gangs.root.barrier()
-
-        if (
             self._sync_ref_model_every_n_steps > 0
             and self._step_nr % self._sync_ref_model_every_n_steps == 0
         ):
