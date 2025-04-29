@@ -120,15 +120,26 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
     def display_name(self) -> str | None:
         return self._display_name
 
-    def maybe_sync_models(self):
+    def maybe_sync_models(self, force_sync=False):
 
         if (
             self._sync_vllm_model_every_n_steps > 0
             and self._step_nr % self._sync_vllm_model_every_n_steps == 0
-        ):
+        ) or force_sync:
             with self._model.summon_full_parameters():
                 if self._gangs.root.rank == 0:
                     self._vllm_model.sync_weights_with_vllm(train_model=self._model)
+                self._gangs.root.barrier()
+
+        if (
+            self._sync_vllm_valid_model_every_n_steps > 0
+            and self._step_nr % self._sync_vllm_valid_model_every_n_steps == 0
+        ) or force_sync:
+            with self._model.summon_full_parameters():
+                if self._gangs.root.rank == 0:
+                    self._vllm_valid_model.sync_weights_with_vllm(
+                        train_model=self._model
+                    )
                 self._gangs.root.barrier()
 
         if (
@@ -163,9 +174,13 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
             vllm_model=self._vllm_model,
             sampling_params=policy_sampling_params,
         )
+
+        self.maybe_log_rollouts(prompt_batch, rollouts, "Valid")
+
         reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
         self._metric_bag.update_avg_reward(avg_reward)
+        self._metric_bag.update_batch_metrics(prompt_batch)
         # returning dummy loss since trainer expects it
         return torch.tensor(0.0, device=self._gangs.dp.device), prompt_batch.batch_size
 
