@@ -423,15 +423,17 @@ class AtheneVerifierHandler(VLLMOutputRewardHandler):
 
     @override
     def create(self, reward_model, reward_config, gangs):
-        if reward_config.tokenizer:
+        if reward_config.tokenizer is not None:
             tokenizer = reward_config.tokenizer
         else:
             tokenizer = "Nexusflow/Athene-RM-8B"
+
         return AtheneVerifier(
             gangs,
             reward_model,
             answer_key=reward_config.answer_key,
             prompt_key=reward_config.prompt_key,
+            tokenizer=tokenizer,
         )
 
     @property
@@ -509,43 +511,8 @@ class AtheneVerifier(VLLMOutputReward):
 
         return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
 
-    def get_divpo_indices(self, rewards, rollouts, p=0.10):
-        cumulative_logprobs_norm = []
-        for rollout_idx in range(len(rollouts[0].outputs)):
-            logprobs = self.extract_logprobs(rollouts[0].outputs[rollout_idx].logprobs)
-            cumulative_logprob_norm = sum(logprobs) / len(logprobs)
-            cumulative_logprobs_norm.append(cumulative_logprob_norm)
-
-        assert len(rewards) == len(
-            cumulative_logprobs_norm
-        ), "Rewards and logprobs must have the same length"
-
-        # Convert the list to a numpy array
-        max_val = max(rewards)
-        min_val = min(rewards)
-
-        diff = max_val - min_val
-        thresh_offset = diff * p
-        top_thresh = max_val - thresh_offset
-        bot_thresh = min_val + thresh_offset
-
-        chosen_set = [idx for idx, val in enumerate(rewards) if val >= top_thresh]
-        rejected_set = [idx for idx, val in enumerate(rewards) if val <= bot_thresh]
-
-        max_reward_idx = min(chosen_set, key=lambda i: cumulative_logprobs_norm[i])
-        min_reward_idx = max(rejected_set, key=lambda i: cumulative_logprobs_norm[i])
-
-        return max_reward_idx, min_reward_idx
-
-    def extract_logprobs(self, data):
-        logprobs = []
-        for item in data:
-            for key, logprob in item.items():
-                logprobs.append(logprob.logprob)
-        return logprobs
-
     def prepare_preference_batch(
-        self, prompt_batch: PromptBatch, rollouts, divpo_p=0
+        self, prompt_batch: PromptBatch, rollouts
     ) -> PreferenceBatch:
 
         reward_output = self.process_rollouts(rollouts, prompt_batch)
@@ -560,13 +527,8 @@ class AtheneVerifier(VLLMOutputReward):
             zip(reward_output["rewards"], reward_output["tokens"])
         ):
 
-            if divpo_p > 0:
-                chosen_rollout_position, rejected_rollout_position = (
-                    self.get_divpo_indices(i_batch_rewards, rollouts, divpo_p)
-                )
-            else:
-                chosen_rollout_position = i_batch_rewards.index(max(i_batch_rewards))
-                rejected_rollout_position = i_batch_rewards.index(min(i_batch_rewards))
+            chosen_rollout_position = i_batch_rewards.index(max(i_batch_rewards))
+            rejected_rollout_position = i_batch_rewards.index(min(i_batch_rewards))
 
             if chosen_rollout_position == rejected_rollout_position:
                 # cant form preference pair when we dont have such rollouts
