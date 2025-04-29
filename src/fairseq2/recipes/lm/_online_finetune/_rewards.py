@@ -40,6 +40,7 @@ from fairseq2.recipes.trainer import TrainUnit
 class RewardModelConfig:
     answer_key: str = "answer"
     prompt_key: str = "prompt"
+    tokenizer: str | None = None
 
 
 @dataclass(kw_only=True)
@@ -446,9 +447,7 @@ class AtheneVerifier(VLLMOutputReward):
         self.prompt_key = prompt_key
         self._gangs = gangs
         self.reward_model = reward_model
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            "/checkpoint/ram/shared/Athene-RM-8B"  # FIXME move to configs
-        )
+        self.tokenizer = AutoTokenizer.from_pretrained("Nexusflow/Athene-RM-8B")
 
     def wrap_text(self, prompt_text, rollout_text):
         wrapped_text = [
@@ -457,9 +456,6 @@ class AtheneVerifier(VLLMOutputReward):
         ]
         chat_str = self.tokenizer.apply_chat_template(wrapped_text, tokenize=False)
         chat_str += "<|reserved_special_token_1|>"
-
-        # if self._gangs.root.rank == 0:
-        #     breakpoint()
 
         return chat_str
 
