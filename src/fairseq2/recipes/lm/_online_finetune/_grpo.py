@@ -420,6 +420,14 @@ class GrpoFinetuneMetricBag(SequenceMetricBag):
     def update_avg_reward(self, avg_reward):
         self.avg_reward.update(avg_reward, weight=1)
 
+    @torch.inference_mode()
+    def update_batch_metrics(self, batch: PreferenceBatch):
+        num_examples = batch.batch_size
+        self.num_examples.update(num_examples)
+        if self._train:
+            assert self.total_num_examples is not None
+            self.total_num_examples.update(num_examples)
+
 
 GRPO_FINETUNE_UNIT: Final = "grpo"
 
