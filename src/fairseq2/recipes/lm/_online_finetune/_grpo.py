@@ -171,6 +171,7 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         reward_output = self._reward.process_rollouts(rollouts, prompt_batch)
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
         self._metric_bag.update_avg_reward(avg_reward)
+        self._metric_bag.update_batch_metrics(prompt_batch)
         # returning dummy loss since trainer expects it
         return torch.tensor(0.0, device=self._gangs.dp.device), prompt_batch.batch_size
 
