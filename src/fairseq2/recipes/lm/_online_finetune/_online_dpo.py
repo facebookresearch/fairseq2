@@ -93,7 +93,6 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
     _loss_config: DpoLossConfig
     _model_update_group: PyNcclCommunicator
     _sync_vllm_model_every_n_steps: int
-    _sync_vllm_valid_model_every_n_steps: int
     _sync_ref_model_every_n_steps: int
     _display_name: str
     _reward: VLLMOutputReward
@@ -112,7 +111,6 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         gangs: Gangs,
         loss_config: DpoLossConfig,
         sync_vllm_model_every_n_steps: int = 1,
-        sync_vllm_valid_model_every_n_steps: int = -1,
         sync_ref_model_every_n_step: int = -1,
     ) -> None:
         super().__init__()
@@ -124,7 +122,6 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
         self._vllm_model = vllm_model
         self._gangs = gangs
         self._sync_vllm_model_every_n_steps = sync_vllm_model_every_n_steps
-        self._sync_vllm_valid_model_every_n_steps = sync_vllm_valid_model_every_n_steps
         self._sync_ref_model_every_n_steps = sync_ref_model_every_n_step
         self._reward = reward
         self._valid_reward = valid_reward
@@ -145,17 +142,6 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             with self._model.summon_full_parameters():
                 if self._gangs.root.rank == 0:
                     self._vllm_model.sync_weights_with_vllm(train_model=self._model)
-                self._gangs.root.barrier()
-
-        if (
-            self._sync_vllm_valid_model_every_n_steps > 0
-            and self._step_nr % self._sync_vllm_valid_model_every_n_steps == 0
-        ) or force_sync:
-            with self._model.summon_full_parameters():
-                if self._gangs.root.rank == 0:
-                    self._vllm_valid_model.sync_weights_with_vllm(
-                        train_model=self._model
-                    )
                 self._gangs.root.barrier()
 
         if (
@@ -235,12 +221,12 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
     @override
     def __call__(self, prompt_batch: PromptBatch) -> tuple[Tensor, int]:
 
-        self.maybe_sync_models()  # sync before validation
-
         if not self.model.module.training:
             # we are in valid mode, only compute reward and return
             dummy_loss, batch_size = self.validate_reward(prompt_batch)
             return dummy_loss, batch_size
+
+        self.maybe_sync_models()
 
         rollouts = generate_rollouts(
             prompt_batch.prompts, dp_gang=self._gangs.dp, vllm_model=self._vllm_model
