@@ -877,7 +877,7 @@ class FileCheckpointManager(CheckpointManager):
         if keep_last_n is None and keep_best_n is None and keep_every_n_steps is None:
             return False
 
-        step_numbers = self.get_step_numbers(exclude_model_only=True)
+        step_numbers = self.get_step_numbers()
         if not step_numbers:
             return False
 
@@ -985,6 +985,8 @@ class FileCheckpointManager(CheckpointManager):
                     # model.
                     if self._file_system.exists(trainer_dir):
                         step_numbers.append(step_nr)
+                else:
+                    step_numbers.append(step_nr)
         except OSError as ex:
             raise CheckpointError(
                 f"The '{self._checkpoint_dir}' checkpoint directory cannot be traversed. See the nested exception for details."
