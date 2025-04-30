@@ -67,12 +67,17 @@ from fairseq2.recipes.lm._online_finetune._handler import (
     OnlineFinetuneUnitHandler,
     UnknownOnlineFinetuneUnitError,
 )
-from fairseq2.recipes.lm._online_finetune._remote_vllm import (
-    RemoteVllmModelHandler,
-    VllmRayActorConfig,
+from fairseq2.recipes.lm._online_finetune._online_dpo import (  # ONLINE_DPO_FINETUNE_UNIT,
+    OnlineDpoFinetuneConfig,
 )
 from fairseq2.recipes.lm._online_finetune._grpo import (
     GrpoFinetuneConfig,
+)
+
+from fairseq2.recipes.lm._online_finetune._remote_vllm import (
+    RemoteVllmModelHandler,
+    VllmEngineArgs,
+    VllmRayActorConfig,
 )
 from fairseq2.recipes.trainer import Trainer
 from fairseq2.typing import CPU
