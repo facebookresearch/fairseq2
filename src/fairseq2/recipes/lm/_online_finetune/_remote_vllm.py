@@ -32,18 +32,15 @@ from fairseq2.recipes.lm._online_finetune._common import (
 
 class RemoteModelHandler(ABC):
     @abstractmethod
-    def create(self, gangs: Gangs, unit_config: object) -> RemoteVllmModel:
-        ...
+    def create(self, gangs: Gangs, unit_config: object) -> RemoteVllmModel: ...
 
     @property
     @abstractmethod
-    def name(self) -> str:
-        ...
+    def name(self) -> str: ...
 
     @property
     @abstractmethod
-    def config_kls(self) -> type[object]:
-        ...
+    def config_kls(self) -> type[object]: ...
 
 
 @dataclass(kw_only=True)
@@ -52,18 +49,20 @@ class VllmEngineArgs:
     tokenizer: str = "/datasets/pretrained-llms/Llama-3.1-8B-Instruct"
     task: str = "generate"
     tensor_parallel_size: int = 4
+    trust_remote_code: bool = False
+    model_impl: str = "auto"
     enforce_eager: bool = True
     hf_overrides: object = None
+    dtype: str = "auto"
     override_pooler_config: PoolerConfig = field(default_factory=lambda: PoolerConfig())
+    valid_n: int = 1
 
 
 @dataclass(kw_only=True)
 class VllmRayActorConfig:
     ray_actor_name: str = "dummy"
     vllm_engine_args: VllmEngineArgs = field(default_factory=lambda: VllmEngineArgs())
-    vllm_sampling_params: Dict[str, Any] = field(
-        default_factory=lambda: {}
-    )
+    vllm_sampling_params: Dict[str, Any] = field(default_factory=lambda: {})
     init_update_process_group: bool = False
 
 
@@ -114,11 +113,9 @@ class RemoteVllmModel:
         self.vllm_model = self.setup_vllm_worker(
             ray_actor_name, vllm_engine_args, gangs
         )
-        
+
         # populate sampling params using all values that were passed in the config
-        self.sampling_params = SamplingParams(
-            **sampling_params
-        )
+        self.sampling_params = SamplingParams(**sampling_params)
 
         if init_update_process_group:
             self.update_process_group = self.setup_process_group_for_model_sync(
@@ -159,8 +156,11 @@ class RemoteVllmModel:
             worker_cls=MyWorker,
             tensor_parallel_size=vllm_engine_args.tensor_parallel_size,
             task=vllm_engine_args.task,
+            trust_remote_code=vllm_engine_args.trust_remote_code,
+            model_impl=vllm_engine_args.model_impl,
             hf_overrides=vllm_engine_args.hf_overrides,
             override_pooler_config=vllm_engine_args.override_pooler_config,
+            dtype=vllm_engine_args.dtype,
             distributed_executor_backend="ray",
         )
 
