@@ -176,3 +176,7 @@ from fairseq2.recipes.lm._online_finetune._rewards import (
 from fairseq2.recipes.lm._online_finetune._rewards import (
     NuminaMathVerifierHandler as NuminaMathVerifierHandler,
 )
+
+from fairseq2.recipes.lm._online_finetune._rewards import (
+    MathVerifyHandler as MathVerifyHandler,
+)
