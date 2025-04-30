@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import math
-from typing import Any, final, TextIO
+from typing import Any, Dict, final, TextIO
 
 import torch
 
@@ -59,12 +59,15 @@ class AsrCriterion:
 
         output = self._forward(input_batch)
 
-        loss = output.compute_loss(batch.target_seqs, batch.target_padding_mask)
+        loss, extra_metrics = output.compute_loss(
+            batch.target_seqs, batch.target_padding_mask
+        )
 
         metric_bag.update_ctc_loss(batch, loss)
 
         metric_bag.update_batch_metrics(batch)
 
+        metric_bag.update_extra_metrics(batch, extra_metrics)
         if self._scorer is not None:
             self._scorer(batch, output, metric_bag)
 
@@ -164,11 +167,11 @@ class AsrMetricBag(BaseMetricBag):
     def __init__(self, gang: Gang, train: bool = True) -> None:
         super().__init__(gang, train=train)
 
-        d = gang.device
+        self.device = gang.device
 
-        self.register_metric("ctc_loss", Mean(device=d), persistent=False)
+        self.register_metric("ctc_loss", Mean(device=self.device), persistent=False)
 
-        self.register_metric("wer", WerMetric(device=d), persistent=False)
+        self.register_metric("wer", WerMetric(device=self.device), persistent=False)
 
     @torch.inference_mode()
     def update_ctc_loss(self, batch: Seq2SeqBatch, loss: Tensor) -> None:
@@ -191,6 +194,16 @@ class AsrMetricBag(BaseMetricBag):
 
             self.total_num_examples.update(num_examples)
             self.total_num_elements.update(num_elements)
+
+    @torch.inference_mode()
+    def update_extra_metrics(
+        self, batch: Seq2SeqBatch, extra_metrics: Dict[str, Tensor]
+    ) -> None:
+        n = batch.batch_size
+        for k in extra_metrics:
+            if k not in self.metrics:
+                self.register_metric(k, Mean(device=self.device), persistent=False)
+            self.metrics[k].update(extra_metrics[k].detach() / n, weight=n)
 
     @override
     def process_metric_values(self, values: dict[str, Any]) -> None:
