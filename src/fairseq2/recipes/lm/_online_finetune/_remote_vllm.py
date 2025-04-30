@@ -48,10 +48,10 @@ class VllmEngineArgs:
     model: str = "/checkpoint/ram/kulikov/gsm8k_8b_sft/checkpoints/step_20"
     tokenizer: str = "/datasets/pretrained-llms/Llama-3.1-8B-Instruct"
     task: str = "generate"
+    tensor_parallel_size: int = 4
     trust_remote_code: bool = False
     model_impl: str = "auto"
     enforce_eager: bool = True
-    tensor_parallel_size: int = 4
     hf_overrides: object = None
     dtype: str = "auto"
     override_pooler_config: PoolerConfig = field(default_factory=lambda: PoolerConfig())
