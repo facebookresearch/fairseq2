@@ -158,6 +158,8 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
         if self._gangs.dp.rank == 0:
             policy_sampling_params = copy(self._vllm_model.sampling_params)
             policy_sampling_params.n = 1
+            policy_sampling_params.temperature = 0.6  # FIXME add to config
+            policy_sampling_params.top_p = 0.9  # FIXME add to config
         else:
             policy_sampling_params = None
         rollouts = generate_rollouts(

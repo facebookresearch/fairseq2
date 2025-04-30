@@ -363,14 +363,14 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         self._metric_bag.update_batch_metrics(batch.chosen)
 
-        self._metric_bag.update_diversity_metrics(
-            unique_1grams,
-            unique_1grams_norm,
-            self_bleu_score,
-            compression_ratio,
-            entropy,
-            entropy_norm,
-        )
+        # self._metric_bag.update_diversity_metrics(
+        #     unique_1grams,
+        #     unique_1grams_norm,
+        #     self_bleu_score,
+        #     compression_ratio,
+        #     entropy,
+        #     entropy_norm,
+        # )
 
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
         self._metric_bag.update_avg_reward(avg_reward)

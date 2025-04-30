@@ -795,7 +795,7 @@ class AtheneVerifier(VLLMOutputReward):
         return {"text": batch_text, "tokens": batch_tokens, "rewards": batch_rewards}
 
     def prepare_preference_batch(
-        self, prompt_batch: PromptBatch, rollouts
+        self, prompt_batch: PromptBatch, rollouts, divpo_p=0
     ) -> PreferenceBatch:
 
         reward_output = self.process_rollouts(rollouts, prompt_batch)
