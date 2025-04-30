@@ -585,6 +585,12 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         log.info("Training restored. Resuming.")
 
+        try:
+            self._unit.set_step_nr(step_nr)
+            self._unit.maybe_sync_models(force_sync=True)
+        except:
+            ...
+
     def _do_run(self) -> None:
         self._model.module.train()
 
