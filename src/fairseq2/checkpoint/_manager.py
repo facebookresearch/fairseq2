@@ -13,15 +13,12 @@ from copy import deepcopy
 from os import scandir
 from pathlib import Path
 from shutil import Error
-from typing import Protocol, TypeAlias, cast, final, runtime_checkable
-
-from torch import Tensor
-from typing_extensions import override
+from typing import cast, final, Protocol, runtime_checkable, TypeAlias
 
 from fairseq2.device import CPU
 from fairseq2.error import InternalError
 from fairseq2.file_system import FileMode, FileSystem
-from fairseq2.gang import Gang, GangError, Gangs, all_sum
+from fairseq2.gang import all_sum, Gang, GangError, Gangs
 from fairseq2.nn.data_parallel import load_with_sdp_gang
 from fairseq2.utils.io import (
     TensorDumper,
@@ -31,6 +28,9 @@ from fairseq2.utils.io import (
 )
 from fairseq2.utils.tensor import to_tensor
 from fairseq2.utils.threading import ThreadPool
+
+from torch import Tensor
+from typing_extensions import override
 
 
 @runtime_checkable
@@ -877,7 +877,7 @@ class FileCheckpointManager(CheckpointManager):
         if keep_last_n is None and keep_best_n is None and keep_every_n_steps is None:
             return False
 
-        step_numbers = self.get_step_numbers()
+        step_numbers = self.get_step_numbers(exclude_model_only=True)
         if not step_numbers:
             return False
 
