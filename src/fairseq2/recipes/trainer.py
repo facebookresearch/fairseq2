@@ -585,12 +585,6 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         log.info("Training restored. Resuming.")
 
-        try:
-            # Sync vllm model before running online training
-            self._unit.maybe_sync_models(force_sync_vllm=True)
-        except AttributeError:
-            log.info("Vllm model not synced.")
-
     def _do_run(self) -> None:
         self._model.module.train()
 

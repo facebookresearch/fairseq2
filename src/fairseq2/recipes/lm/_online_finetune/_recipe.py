@@ -296,6 +296,13 @@ def load_online_finetuner(
         raise UnknownOnlineFinetuneUnitError(config.criterion.name) from None
 
     unit = unit_handler.create(model, gangs, config, vllm_actors)
+    unit.maybe_sync_models(force_sync_vllm=True)
+    # try:
+    #     # Sync vllm model before running online training
+    #     unit.maybe_sync_models(force_sync_vllm=True)
+    # except AttributeError:
+    #     log.info("Vllm model not synced.")
+
     valid_unit = unit_handler.create(model, gangs, config, vllm_actors)
 
     batching: Batching

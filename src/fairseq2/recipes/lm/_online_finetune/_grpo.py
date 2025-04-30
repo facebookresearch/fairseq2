@@ -125,10 +125,10 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
     def maybe_sync_models(self, force_sync_vllm=False):
 
-        if (
+        if force_sync_vllm or (
             self._sync_vllm_model_every_n_steps > 0
             and self._step_nr % self._sync_vllm_model_every_n_steps == 0
-        ) or force_sync_vllm:
+        ):
             with self._model.summon_full_parameters():
                 if self._gangs.root.rank == 0:
                     self._vllm_model.sync_weights_with_vllm(train_model=self._model)
