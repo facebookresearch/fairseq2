@@ -178,13 +178,6 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
                     self._gangs.root.barrier()
                     broadcast_model(self._reference_model, self._gangs)
 
-    def maybe_log_rollouts(self, prompt_batch: PromptBatch, rollouts, split_name):
-        if self._loss_config.log_rollouts:
-            prompt0 = prompt_batch.meta_info.get("prompt_raw")[0]
-            rollout0 = rollouts[0].outputs[0].text
-            log.info(f"{split_name} Prompt: {prompt0}")
-            log.info(f"{split_name} Rollout: {rollout0}")
-
     def validate_reward(self, prompt_batch: PromptBatch) -> tuple[Tensor, int]:
         if self._gangs.dp.rank == 0:
             policy_sampling_params = copy(self._vllm_model.sampling_params)
