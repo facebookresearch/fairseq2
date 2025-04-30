@@ -55,7 +55,6 @@ class VllmEngineArgs:
     hf_overrides: object = None
     dtype: str = "auto"
     override_pooler_config: PoolerConfig = field(default_factory=lambda: PoolerConfig())
-    valid_n: int = 1
 
 
 @dataclass(kw_only=True)
