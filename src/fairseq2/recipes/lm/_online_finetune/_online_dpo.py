@@ -208,6 +208,16 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         return ref_logps
 
+    def get_all_rollouts_entropy(self, rollouts):
+        all_entropy = []
+        for rollout_idx in range(len(rollouts[0].outputs)):
+            logprobs = rollouts[0].outputs[rollout_idx].logprobs
+            logprobs = [next(iter(x.values())).logprob for x in logprobs]
+            entropy = sum(logprobs) / len(logprobs)
+            all_entropy.append(entropy)
+        logit_entropy = torch.tensor(all_entropy, device=self._gangs.dp.device)
+        return logit_entropy
+
     @override
     def __call__(self, prompt_batch: PromptBatch) -> tuple[Tensor, int]:
 
@@ -270,19 +280,8 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             rejected_output.logits, rejected_target_batch.target_mask
         )  # [Batch x Rollouts, 1]
 
-        all_entropy = []
-        # FIXME better way to get entropy from all rollouts?
-        for rollout_idx in range(len(rollouts[0].outputs)):
-            logprobs = rollouts[0].outputs[rollout_idx].logprobs
-            logprobs = [next(iter(x.values())).logprob for x in logprobs]
-            entropy = sum(logprobs) / len(logprobs)
-            all_entropy.append(entropy)
-        logit_entropy = torch.tensor(all_entropy, device=self._gangs.dp.device)
-
-        if self._gangs.root.rank == 0:
-            breakpoint()
-
-        self._gangs.root.barrier()
+        # entropy for all N rollouts
+        logit_entropy = self.get_all_rollouts_entropy(rollouts)
 
         max_entropy_regularizer = (
             -chosen_tgt_logit_entropy.sum()
