@@ -336,9 +336,14 @@ class GrpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         target_mask = target_batch.target_mask.view(batch_size, num_rollouts, -1)
 
-        per_seq_loss = (
-            (per_token_loss * target_mask).sum(dim=-1) / target_mask.sum(dim=-1)
-        ).mean(dim=1)
+        if self._loss_config.length_normalization:
+            per_seq_loss = (
+                (per_token_loss * target_mask).sum(dim=-1) / target_mask.sum(dim=-1)
+            ).mean(dim=1)
+        else:
+            per_seq_loss = (
+                (per_token_loss * target_mask).sum(dim=-1)
+            ).mean(dim=1)
 
         # if self._gangs.root.rank == 0:
         #     from pudb.remote import set_trace
@@ -439,6 +444,8 @@ class GrpoLossConfig:
     beta: float = 0.1
     """The coefficient of regularization towards the reference model."""
     entropy_regularizer_scale: float = 0.0
+    length_normalization: bool = True
+    """Vanilla GRPO is token-level, but setting this to False will make it sequence-level"""
 
     log_rollouts: bool = False
     """Log rollouts during training/validation"""
@@ -488,6 +495,7 @@ class GrpoFinetuneUnitHandler(OnlineFinetuneUnitHandler):
         config = structure(criterion_section.config, GrpoFinetuneConfig)
 
         validate(config)
+        log.info(f"GRPO loss config:\n{config}")
 
         if isinstance(config.reference_model, ReferenceModelSection):
             log.info("Setting up GRPO with reference model.")
