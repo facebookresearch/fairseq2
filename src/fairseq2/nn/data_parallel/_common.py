@@ -23,7 +23,7 @@ from fairseq2.nn.utils.module import (
 )
 from fairseq2.typing import ContextManager, Device
 
-FsdpGranularity: TypeAlias = Literal["layer", "stack"]
+FsdpGranularity: TypeAlias = Literal["layer", "stack", "model"]
 
 
 class FsdpApplier(Protocol):
