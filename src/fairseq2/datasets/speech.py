@@ -442,5 +442,5 @@ class GenericSpeechDataset(SpeechDataset):
             split, gang, min_audio_len, max_audio_len, options
         )
         return DataPipelineReader[SequenceBatch](
-            self._name, split, pipeline, gang, options
+            self._name, split, pipeline.and_return(), gang, options
         )
