@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from copy import copy
 from dataclasses import dataclass, field
-from typing import Dict, Final, List, cast, final
+from typing import Dict, Final, List, cast, final, Any
 
 import ray
 import torch
@@ -133,12 +133,11 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
     def display_name(self) -> str | None:
         return self._display_name
 
-    def maybe_sync_models(self, force_sync=False):
-
-        if (
+    def maybe_sync_models(self, force_sync_vllm=False):
+        if force_sync_vllm or (
             self._sync_vllm_model_every_n_steps > 0
             and self._step_nr % self._sync_vllm_model_every_n_steps == 0
-        ) or force_sync:
+        ):
             with self._model.summon_full_parameters():
                 if self._gangs.root.rank == 0:
                     self._vllm_model.sync_weights_with_vllm(train_model=self._model)
@@ -167,9 +166,9 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
     def validate_reward(self, prompt_batch: PromptBatch) -> tuple[Tensor, int]:
         if self._gangs.dp.rank == 0:
             policy_sampling_params = copy(self._vllm_model.sampling_params)
-            policy_sampling_params.n = self._vllm_model.valid_n
-            policy_sampling_params.temperature = 0.6  # FIXME add to config
-            policy_sampling_params.top_p = 0.9  # FIXME add to config
+            policy_sampling_params.n = 1
+            for k, v in self._loss_config.validation_vllm_sampling_params.items():
+                policy_sampling_params.__setattr__(k, v)
         else:
             policy_sampling_params = None
 
@@ -361,6 +360,8 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         self._metric_bag.update_logps(batch, chosen_logps, rejected_logps)
 
+        self._metric_bag.update_avg_loss_zeroer(torch.tensor(loss_zeroer))
+
         self._metric_bag.update_batch_metrics(batch.chosen)
 
         # self._metric_bag.update_diversity_metrics(
@@ -392,7 +393,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         # self._gangs.root.barrier()
 
-        return loss, chosen_target_batch.batch_size
+        return loss, prompt_batch.batch_size
 
     def _gather_lprobs(
         self, output: SequenceModelOutput, target: SequenceBatch
@@ -460,6 +461,8 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
     rejected_logit_entropy: Mean
     total_logit_entropy: Mean
     total_logit_entropy_first100: Mean
+    avg_loss_zeroer: Mean
+    logit_entropy: Mean
 
     def __init__(self, gang: Gang) -> None:
         super().__init__(gang)
@@ -470,7 +473,7 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
         )
         self.register_metric("avg_reward", Mean(device=gang.device), persistent=False)
         self.register_metric(
-            "avg_zeroed_loss", Mean(device=gang.device), persistent=False
+            "avg_loss_zeroer", Mean(device=gang.device), persistent=False
         )
         self.register_metric(
             "unique_1grams", Mean(device=gang.device), persistent=False
@@ -555,19 +558,8 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
         self.avg_reward.update(avg_reward, weight=1)
 
     @torch.inference_mode()
-    def update_batch_metrics(self, batch: PreferenceBatch):
-        # if self._gang.rank == 0:
-        #     breakpoint()
-
-        num_examples = batch.batch_size
-        self.num_examples.update(num_examples)
-        if self._train:
-            assert self.total_num_examples is not None
-            self.total_num_examples.update(num_examples)
-
-    @torch.inference_mode()
-    def update_avg_zeroed_loss(self, avg_zeroed_loss):
-        self.avg_zeroed_loss.update(avg_zeroed_loss, weight=1)
+    def update_avg_loss_zeroer(self, avg_loss_zeroer):
+        self.avg_loss_zeroer.update(avg_loss_zeroer, weight=1)
 
     @torch.inference_mode()
     def update_batch_metrics(self, batch: PreferenceBatch):
@@ -602,6 +594,9 @@ class DpoLossConfig:
 
     log_rollouts: bool = False
     """Log rollouts during training/validation"""
+
+    validation_vllm_sampling_params: Dict[str, Any] = field(default_factory=lambda: {})
+    """VLLM sampling params for validation. If not set, the same params as training will be used."""
 
 
 @dataclass(kw_only=True)
