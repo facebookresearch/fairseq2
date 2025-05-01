@@ -55,7 +55,6 @@ class VllmEngineArgs:
     hf_overrides: object = None
     dtype: str = "auto"
     override_pooler_config: PoolerConfig = field(default_factory=lambda: PoolerConfig())
-    valid_n: int = 1
 
 
 @dataclass(kw_only=True)
@@ -113,7 +112,6 @@ class RemoteVllmModel:
         self.vllm_model = self.setup_vllm_worker(
             ray_actor_name, vllm_engine_args, gangs
         )
-        self.valid_n = vllm_engine_args.valid_n
 
         # populate sampling params using all values that were passed in the config
         self.sampling_params = SamplingParams(**sampling_params)
