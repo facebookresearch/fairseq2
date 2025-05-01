@@ -13,31 +13,26 @@ from copy import deepcopy
 from os import scandir
 from pathlib import Path
 from shutil import Error
-from typing import cast, final, Protocol, runtime_checkable, TypeAlias
+from typing import Protocol, TypeAlias, cast, final
 
-from fairseq2.device import CPU
+import torch
+from torch import Tensor
+from typing_extensions import override
+
 from fairseq2.error import InternalError
-from fairseq2.file_system import FileMode, FileSystem
-from fairseq2.gang import all_sum, Gang, GangError, Gangs
+from fairseq2.gang import Gang, GangError, Gangs, all_sum
 from fairseq2.nn.data_parallel import load_with_sdp_gang
-from fairseq2.utils.io import (
+from fairseq2.typing import CPU
+from fairseq2.utils.file import (
+    FileMode,
+    FileSystem,
     TensorDumper,
     TensorDumpError,
     TensorLoader,
     TensorLoadError,
 )
-from fairseq2.utils.tensor import to_tensor
+from fairseq2.utils.state import Stateful
 from fairseq2.utils.threading import ThreadPool
-
-from torch import Tensor
-from typing_extensions import override
-
-
-@runtime_checkable
-class Stateful(Protocol):
-    def state_dict(self) -> dict[str, object]: ...
-
-    def load_state_dict(self, state_dict: Mapping[str, object]) -> None: ...
 
 
 class CheckpointManager(ABC):
@@ -121,7 +116,7 @@ class CheckpointManager(ABC):
     ) -> int | None: ...
 
 
-CheckpointState: TypeAlias = dict[str, tuple[Path, dict[str, object]]]
+CheckpointState: TypeAlias = list[tuple[Path, dict[str, object]]]
 
 
 class CheckpointStateProcessor(Protocol):
@@ -174,8 +169,8 @@ class FileCheckpointManager(CheckpointManager):
         self._op = None
         self._step_nr = None
 
-        self._f_flag = to_tensor(0, device=gangs.root.device)
-        self._t_flag = to_tensor(1, device=gangs.root.device)
+        self._f_flag = torch.tensor(0, device=gangs.root.device)
+        self._t_flag = torch.tensor(1, device=gangs.root.device)
 
     @override
     def save_checkpoint(
@@ -193,7 +188,7 @@ class FileCheckpointManager(CheckpointManager):
     ) -> None:
         self.maybe_complete_async_checkpoint(block=True)
 
-        state: CheckpointState = {}
+        state: CheckpointState = []
 
         self._begin_checkpoint(step_nr)
 
@@ -221,7 +216,7 @@ class FileCheckpointManager(CheckpointManager):
     ) -> None:
         self.maybe_complete_async_checkpoint(block=True)
 
-        state: CheckpointState = {}
+        state: CheckpointState = []
 
         self._begin_checkpoint(step_nr)
 
@@ -249,7 +244,7 @@ class FileCheckpointManager(CheckpointManager):
                 state = self._move_state_to_cpu(state)
             except (RuntimeError, ValueError, TypeError) as ex:
                 raise CheckpointSaveError(
-                    step_nr, f"The checkpoint state of step {step_nr} cannot be transferred to the host memory. See the nested exception for details."  # fmt: skip
+                    step_nr, f"The checkpoint state of step {step_nr} cannot be moved to CPU. See the nested exception for details."  # fmt: skip
                 ) from ex
 
         if state_processor is not None:
@@ -404,7 +399,7 @@ class FileCheckpointManager(CheckpointManager):
 
         state_dict = trainer.state_dict()
 
-        state["trainer"] = (trainer_file, state_dict)
+        state.append((trainer_file, state_dict))
 
     def _collect_model_state(
         self, step_nr: int, model: Stateful, state: CheckpointState
@@ -436,7 +431,7 @@ class FileCheckpointManager(CheckpointManager):
 
         state_dict = {"model": model.state_dict(), "fs2": True}
 
-        state["model"] = (model_file, state_dict)
+        state.append((model_file, state_dict))
 
     def _collect_optimizer_state(
         self, step_nr: int, optimizer: Stateful, state: CheckpointState
@@ -468,7 +463,7 @@ class FileCheckpointManager(CheckpointManager):
 
         state_dict = optimizer.state_dict()
 
-        state["optimizer"] = (optimizer_file, state_dict)
+        state.append((optimizer_file, state_dict))
 
     def _collect_data_reader_state(
         self, step_nr: int, data_reader: Stateful, state: CheckpointState
@@ -496,7 +491,7 @@ class FileCheckpointManager(CheckpointManager):
 
         state_dict = data_reader.state_dict()
 
-        state["data_reader"] = (data_reader_file, state_dict)
+        state.append((data_reader_file, state_dict))
 
     def _collect_metadata(
         self, step_nr: int, metadata: dict[str, object] | None, state: CheckpointState
@@ -508,15 +503,15 @@ class FileCheckpointManager(CheckpointManager):
                 f"step_{step_nr}.tmp/metadata.pt"
             )
 
-            state["metadata"] = (metadata_file, metadata)
+            state.append((metadata_file, metadata))
 
     def _save_state_files(self, step_nr: int, state: CheckpointState) -> None:
-        for kind, (file, state_dict) in state.items():
+        for file, state_dict in state:
             try:
                 self._tensor_dumper.dump(state_dict, file)
             except TensorDumpError as ex:
                 raise CheckpointSaveError(
-                    step_nr, f"The '{kind}' state of step {step_nr} cannot be saved to the '{ex.path}' file. See the nested exception for details."  # fmt: skip
+                    step_nr, f"The state of step {step_nr} cannot be saved to the '{ex.path}' file. See the nested exception for details."  # fmt: skip
                 ) from ex
 
     def _copy_cc(self, step_nr: int) -> None:
