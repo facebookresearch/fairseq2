@@ -297,11 +297,9 @@ def load_online_finetuner(
 
     unit = unit_handler.create(model, gangs, config, vllm_actors)
     try:
-        # Sync vllm model before running online training
         unit.maybe_sync_models(force_sync_vllm=True)
-        log.info("Vllm model synced.")
     except AttributeError:
-        log.info("Vllm model NOT synced.")
+        raise RuntimeError("Train unit does not support maybe_sync_models")
 
     valid_unit = unit_handler.create(model, gangs, config, vllm_actors)
 
