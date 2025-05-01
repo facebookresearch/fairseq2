@@ -18,7 +18,7 @@ from typing_extensions import override
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
 from fairseq2.error import InternalError
-from fairseq2.nn.padding import PaddingMask
+from fairseq2.nn import BatchLayout
 from fairseq2.nn.utils.mask import RowMaskFactory, compute_row_mask
 
 
@@ -26,18 +26,12 @@ class Wav2Vec2Masker(Module, ABC):
     """Masks extracted wav2vec 2.0 features."""
 
     @abstractmethod
-    def forward(
-        self, seqs: Tensor, padding_mask: PaddingMask | None
-    ) -> tuple[Tensor, Tensor]:
+    def forward(self, seqs: Tensor, seqs_layout: BatchLayout) -> tuple[Tensor, Tensor]:
         """
         :param seqs:
             The sequences to mask. *Shape:* :math:`(N,S,M)`, where :math:`N` is
             the batch size, :math:`S` is the sequence length, and :math:`M` is
             the dimensionality of the model.
-        :param seq_lens:
-            An array where each element represents the length of the sequence at
-            the same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is
-            the batch size.
 
         :returns:
             - The input sequences with mask applied. *Shape:* Same as ``seqs``.
@@ -117,9 +111,10 @@ class StandardWav2Vec2Masker(Wav2Vec2Masker):
         nn.init.uniform_(self.temporal_mask_embed)
 
     @override
-    def forward(
-        self, seqs: Tensor, padding_mask: PaddingMask | None
-    ) -> tuple[Tensor, Tensor]:
+    def forward(self, seqs: Tensor, seqs_layout: BatchLayout) -> tuple[Tensor, Tensor]:
+        if seqs_layout.packed:
+            raise ValueError("`seqs` must not be a packed batch.")
+
         batch_size, seq_len, model_dim = seqs.shape
 
         # Temporal mask over time steps.
@@ -127,7 +122,7 @@ class StandardWav2Vec2Masker(Wav2Vec2Masker):
             shape=(batch_size, seq_len),
             span_len=self.temporal_span_len,
             max_mask_prob=self.max_temporal_mask_prob,
-            row_lens=padding_mask.seq_lens if padding_mask is not None else None,
+            row_lens=seqs_layout.seq_lens_pt,
             min_num_spans=self.min_num_temporal_mask_spans,
             device=seqs.device,
         )

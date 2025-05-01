@@ -14,9 +14,9 @@ import torch
 from torch import Tensor
 from torcheval.metrics import MulticlassAccuracy
 
+from fairseq2.datasets import SequenceBatch
 from fairseq2.gang import Gang
 from fairseq2.metrics import Mean
-from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2 import (
     GumbelVectorQuantizerOutput,
     VectorQuantizerOutput,
@@ -58,7 +58,9 @@ class Wav2Vec2Criterion:
     def __call__(
         self, batch: SequenceBatch, metric_bag: Wav2Vec2MetricBag
     ) -> tuple[Tensor, int]:
-        model_output: Wav2Vec2Output = self._model.module(batch)
+        seqs, seqs_layout = batch.as_input()
+
+        model_output: Wav2Vec2Output = self._model.module(seqs, seqs_layout)
 
         loss = model_output.compute_loss(
             self._diversity_loss_weight, self._feature_penalty_weight
@@ -150,12 +152,8 @@ class Wav2Vec2MetricBag(RecipeMetricBag):
 
     @torch.inference_mode()
     def update_batch_metrics(self, batch: SequenceBatch) -> None:
-        num_examples = batch.batch_size
+        self.num_examples.update(batch.num_examples)
+        self.num_elements.update(batch.num_elements)
 
-        num_elements = batch.num_elements()
-
-        self.num_examples.update(num_examples)
-        self.num_elements.update(num_elements)
-
-        self.total_num_examples.update(num_examples)
-        self.total_num_elements.update(num_elements)
+        self.total_num_examples.update(batch.num_examples)
+        self.total_num_elements.update(batch.num_elements)

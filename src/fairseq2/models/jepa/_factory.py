@@ -17,6 +17,7 @@ from fairseq2.data_type import DataType
 from fairseq2.device import Device
 from fairseq2.models.transformer import (
     FeedForwardNetwork,
+    IdentityBias,
     MultiheadAttention,
     StandardFeedForwardNetwork,
     StandardMultiheadAttention,
@@ -189,7 +190,7 @@ class JepaEncoderFactory:
     def create_encoder_layer(self, layer_idx: int) -> TransformerEncoderLayer:
         config = self._config
 
-        self_attn = self.create_attention(layer_idx)
+        self_attn = self.create_self_attention(layer_idx)
 
         ffn = self.create_ffn(layer_idx)
 
@@ -205,10 +206,12 @@ class JepaEncoderFactory:
             ffn_residual=drop_path,
         )
 
-    def create_attention(self, layer_idx: int) -> MultiheadAttention:
+    def create_self_attention(self, layer_idx: int) -> MultiheadAttention:
         config = self._config
 
-        sdpa = create_default_sdpa(attn_dropout_p=config.attn_dropout_p)
+        attn_bias = IdentityBias()
+
+        sdpa = create_default_sdpa(attn_bias, dropout_p=config.attn_dropout_p)
 
         output_proj = self.create_mha_output_projection(layer_idx)
 

@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from fairseq2.nn._batch_layout import BatchLayout as BatchLayout
 from fairseq2.nn._embedding import Embedding as Embedding
 from fairseq2.nn._embedding import ShardedEmbedding as ShardedEmbedding
 from fairseq2.nn._embedding import StandardEmbedding as StandardEmbedding
@@ -13,6 +14,7 @@ from fairseq2.nn._embedding import VocabShardedEmbedding as VocabShardedEmbeddin
 from fairseq2.nn._embedding import init_scaled_embedding as init_scaled_embedding
 from fairseq2.nn._incremental_state import IncrementalState as IncrementalState
 from fairseq2.nn._incremental_state import IncrementalStateBag as IncrementalStateBag
+from fairseq2.nn._layer_stack import LayerStack as LayerStack
 from fairseq2.nn._normalization import LayerNorm as LayerNorm
 from fairseq2.nn._normalization import RMSNorm as RMSNorm
 from fairseq2.nn._normalization import StandardLayerNorm as StandardLayerNorm
@@ -47,4 +49,3 @@ from fairseq2.nn._residual import DropPathResidualConnect as DropPathResidualCon
 from fairseq2.nn._residual import ResidualConnect as ResidualConnect
 from fairseq2.nn._residual import ScaledResidualConnect as ScaledResidualConnect
 from fairseq2.nn._residual import StandardResidualConnect as StandardResidualConnect
-from fairseq2.nn._stack import LayerStack as LayerStack

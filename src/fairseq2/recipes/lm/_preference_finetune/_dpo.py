@@ -15,16 +15,13 @@ from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
+from fairseq2.datasets import SequenceBatch
 from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.gang import Gang, Gangs
 from fairseq2.logging import log
 from fairseq2.metrics import Mean, MetricBag
 from fairseq2.models.decoder import DecoderModel
-from fairseq2.models.sequence import (
-    SequenceBatch,
-    SequenceModelOutput,
-    as_auto_regressive_input,
-)
+from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.nn.utils.module import freeze_parameters
 from fairseq2.recipes import Model, TrainUnit
 from fairseq2.recipes.common import setup_reference_model
@@ -73,10 +70,11 @@ class DpoFinetuneUnit(TrainUnit[PreferenceBatch]):
     @override
     def __call__(self, batch: PreferenceBatch) -> tuple[Tensor, int]:
         chosen_batch = batch.chosen
-        chosen_input_batch, chosen_target_batch = as_auto_regressive_input(chosen_batch)
+        chosen_input_batch, chosen_target_batch = chosen_batch.as_auto_regressive()
+
         rejected_batch = batch.rejected
-        rejected_input_batch, rejected_target_batch = as_auto_regressive_input(
-            rejected_batch
+        rejected_input_batch, rejected_target_batch = (
+            rejected_batch.as_auto_regressive()
         )
         if (
             chosen_target_batch.target_mask is None
@@ -84,11 +82,16 @@ class DpoFinetuneUnit(TrainUnit[PreferenceBatch]):
         ):
             raise RuntimeError("target_mask attributes must exist for DPO loss")
 
-        chosen_output = cast(
-            SequenceModelOutput, self._model.module(chosen_input_batch)
+        chosen_seqs, chosen_seqs_layout = chosen_input_batch.as_input()
+
+        chosen_output: SequenceModelOutput = self._model.module(
+            chosen_seqs, chosen_seqs_layout
         )
-        rejected_output = cast(
-            SequenceModelOutput, self._model.module(rejected_input_batch)
+
+        rejected_seqs, rejected_seqs_layout = rejected_input_batch.as_input()
+
+        rejected_output: SequenceModelOutput = self._model.module(
+            rejected_seqs, rejected_seqs_layout
         )
 
         chosen_logps, average_chosen_logps = _gather_lprobs_avg(
@@ -161,7 +164,7 @@ class DpoFinetuneUnit(TrainUnit[PreferenceBatch]):
             + self._nll_scale
             * nll_loss
             * chosen_target_batch.batch_size
-            / chosen_target_batch.num_target_elements()
+            / chosen_target_batch.num_target_elements
         )  # normalization applied locally per-rank
 
         return loss, chosen_target_batch.batch_size

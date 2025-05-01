@@ -16,7 +16,7 @@ Device: TypeAlias = torch.device
 
 class SupportsDeviceTransfer(ABC):
     @abstractmethod
-    def to(self, device: Device) -> None: ...
+    def to(self, device: Device, *, non_blocking: bool = False) -> None: ...
 
 
 CPU: Final = Device("cpu")

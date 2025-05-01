@@ -10,9 +10,10 @@ import torch
 from torch import Tensor
 from torcheval.metrics import Mean
 
+from fairseq2.datasets import SequenceBatch
 from fairseq2.datasets.preference import PreferenceBatch
 from fairseq2.gang import Gang
-from fairseq2.models.sequence import SequenceBatch, SequenceModelOutput
+from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.recipes import SequenceMetricBag
 
 
@@ -86,10 +87,10 @@ class POFinetuneMetricBag(SequenceMetricBag):
             The batch processed by the model.
         """
         self.chosen_lengths.update(
-            Tensor([batch.chosen.num_target_elements() / batch.chosen.batch_size]),
+            Tensor([batch.chosen.num_target_elements / batch.chosen.batch_size]),
             weight=batch.chosen.batch_size,
         )
         self.rejected_lengths.update(
-            Tensor([batch.rejected.num_target_elements() / batch.rejected.batch_size]),
+            Tensor([batch.rejected.num_target_elements / batch.rejected.batch_size]),
             weight=batch.rejected.batch_size,
         )

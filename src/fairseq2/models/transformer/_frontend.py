@@ -16,8 +16,13 @@ from typing_extensions import override
 
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
-from fairseq2.nn import Embedding, IncrementalStateBag, LayerNorm, PositionEncoder
-from fairseq2.nn.padding import PaddingMask
+from fairseq2.nn import (
+    BatchLayout,
+    Embedding,
+    IncrementalStateBag,
+    LayerNorm,
+    PositionEncoder,
+)
 
 # isort: split
 
@@ -45,18 +50,15 @@ class TransformerFrontend(Module, ABC):
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: PaddingMask | None,
+        seqs_layout: BatchLayout,
         *,
         state_bag: IncrementalStateBag | None = None,
-    ) -> tuple[Tensor, PaddingMask | None]:
+    ) -> tuple[Tensor, BatchLayout]:
         """
         :param seqs:
             The sequences to process. *Shape:* :math:`(N,S,*)`, where :math:`N`
             is the batch size, :math:`S` is the sequence length, and :math:`*`
             is any number of sequence-specific dimensions including none.
-        :param padding_mask:
-            The padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where :math:`N`
-            is the batch size and :math:`S` is the sequence length.
         :param state_bag:
             The state bag to use for incremental decoding.
 
@@ -65,9 +67,6 @@ class TransformerFrontend(Module, ABC):
               *Shape:* :math:`(N,S_{out},M)`, where :math:`N` is the batch size,
               :math:`S_{out}` is the output sequence length, and :math:`M` is
               the dimensionality of the model.
-            - The padding mask of the processed sequences. *Shape:*
-              :math:`(N,S_{out})`, where :math:`N` is the batch size and
-              :math:`S_{out}` is the output sequence length.
         """
 
     def extra_repr(self) -> str:
@@ -149,25 +148,25 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: PaddingMask | None,
+        seqs_layout: BatchLayout,
         *,
         state_bag: IncrementalStateBag | None = None,
-    ) -> tuple[Tensor, PaddingMask | None]:
-        embeds = self.embed(seqs)
+    ) -> tuple[Tensor, BatchLayout]:
+        seqs = self.embed(seqs)
 
         if self.scale != 1.0:
-            embeds = embeds * self.scale
+            seqs = seqs * self.scale
 
         if self.pos_encoder is not None:
-            embeds = self.pos_encoder(embeds, padding_mask, state_bag=state_bag)
+            seqs = self.pos_encoder(seqs, seqs_layout, state_bag=state_bag)
 
         if self.layer_norm is not None:
-            embeds = self.layer_norm(embeds)
+            seqs = self.layer_norm(seqs)
 
         if self.dropout is not None:
-            embeds = self.dropout(embeds)
+            seqs = self.dropout(seqs)
 
-        return embeds, padding_mask
+        return seqs, seqs_layout
 
     def extra_repr(self) -> str:
         """:meta private:"""

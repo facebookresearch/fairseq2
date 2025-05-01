@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections import OrderedDict
-from collections.abc import Iterator
-from typing import Any, Protocol, Sequence, final
+from collections.abc import Iterator, Sequence
+from typing import Any, Protocol, final
 
 import torch
 from torch import Generator, Tensor
@@ -21,12 +21,15 @@ from typing_extensions import override
 from fairseq2.data_type import DataType
 from fairseq2.device import CPU, Device
 from fairseq2.error import InvalidOperationError
-from fairseq2.nn import LayerNorm, LayerStack
-from fairseq2.nn.padding import PaddingMask
+from fairseq2.nn import (
+    BatchLayout,
+    LayerNorm,
+    LayerStack,
+)
 
 # isort: split
 
-from fairseq2.models.transformer._attention_mask import AttentionMaskFactory
+from fairseq2.models.transformer._attention_bias import AttentionBiasCache
 from fairseq2.models.transformer._encoder_layer import TransformerEncoderLayer
 from fairseq2.models.transformer._norm_order import TransformerNormOrder
 from fairseq2.models.transformer._normalization import (
@@ -55,22 +58,16 @@ class TransformerEncoder(LayerStack, ABC):
         self._layer_hooks = OrderedDict()
 
     @abstractmethod
-    def forward(
-        self, seqs: Tensor, padding_mask: PaddingMask | None
-    ) -> tuple[Tensor, PaddingMask | None]:
+    def forward(self, seqs: Tensor, seqs_layout: BatchLayout) -> Tensor:
         """
-        :param seqs:
-            The sequences to encode. *Shape:* :math:`(N,S,M)`, where :math:`N`
-            is the batch size, :math:`S` is the sequence length, and :math:`M`
-            is the dimensionality of the model.
-        :param padding_mask:
-            The padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where :math:`N`
-            is the batch size and :math:`S` is the sequence length.
+        :param seqs: The sequences to encode. *Shape:* :math:`(N,S,M)`, where
+            :math:`N` is the batch size, :math:`S` is the sequence length, and
+            :math:`M` is the dimensionality of the model.
+        :param padding_mask: The padding mask of ``seqs``. *Shape:* :math:`(N,S)`,
+            where :math:`N` is the batch size and :math:`S` is the sequence
+            length.
 
-        :returns:
-            - The encoder output. *Shape:* Same as ``seqs``.
-            - The padding mask of the encoder output. *Shape:* Same as
-              ``padding_mask``.
+        :returns: The encoder output. *Shape:* Same as ``seqs``.
         """
 
     def register_layer_hook(self, hook: TransformerEncoderLayerHook) -> RemovableHandle:
@@ -82,8 +79,7 @@ class TransformerEncoder(LayerStack, ABC):
 
         :param hook: The hook to register.
 
-        :returns:
-            A handle that can be used to remove the added hook by calling
+        :returns: A handle that can be used to remove the added hook by calling
             ``handle.remove()``.
         """
         handle = RemovableHandle(self._layer_hooks)
@@ -106,32 +102,27 @@ class TransformerEncoderLayerHook(Protocol):
         self,
         layer_idx: int,
         layer_output: Tensor,
-        layer_padding_mask: PaddingMask | None,
+        layer_output_layout: BatchLayout,
         num_layers: int,
     ) -> bool:
         """
-        :param layer_idx:
-            The index of the layer in the encoder stack.
-        :param layer_output:
-            The encoded output of the layer.
-        :param layer_padding_mask:
-            The padding mask of ``layer_output``.
-        :param num_layers:
-            The number of layers in the encoder stack.
+        :param layer_idx: The index of the layer in the encoder stack.
+        :param layer_output: The encoded output of the layer.
+        :param num_layers: The number of layers in the encoder stack.
 
-        :returns:
-            ``True`` if the encoder should continue executing the remaining
-            layers in the stack; ``False`` if the encoder should treat this
-            layer as the final layer in the stack.
+        :returns: ``True`` if the encoder should continue executing the
+            remaining layers in the stack; ``False`` if the encoder should treat
+            this layer as the final layer in the stack.
         """
 
 
 @final
 class StandardTransformerEncoder(TransformerEncoder):
-    """Represents a Transformer encoder as described in
-    :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`."""
+    """
+    Represents a Transformer encoder as described in
+    :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`.
+    """
 
-    self_attn_mask_factory: AttentionMaskFactory | None
     layer_drop_p: float
     generator: Generator | None
     layer_norm: LayerNorm | None
@@ -142,7 +133,6 @@ class StandardTransformerEncoder(TransformerEncoder):
         self,
         layers: Sequence[TransformerEncoderLayer],
         *,
-        self_attn_mask_factory: AttentionMaskFactory | None = None,
         layer_drop_p: float = 0.0,
         generator: Generator | None = None,
         dropout_p: float = 0.0,
@@ -153,7 +143,6 @@ class StandardTransformerEncoder(TransformerEncoder):
     ) -> None:
         """
         :param layers: The encoder layers.
-        :param self_attn_mask_factory: The self attention mask factory.
         :param layer_drop_p: If greater than zero, applies LayerDrop to the
             encoder layers as described in
             :cite:t:`https://doi.org/10.48550/arxiv.1909.11556`.
@@ -174,8 +163,6 @@ class StandardTransformerEncoder(TransformerEncoder):
         if layer_norm_factory is None:
             layer_norm_factory = create_standard_layer_norm
 
-        self.self_attn_mask_factory = self_attn_mask_factory
-
         self.layer_drop_p = layer_drop_p
 
         self.generator = generator
@@ -193,35 +180,29 @@ class StandardTransformerEncoder(TransformerEncoder):
         self.norm_order = norm_order
 
     @override
-    def forward(
-        self, seqs: Tensor, padding_mask: PaddingMask | None
-    ) -> tuple[Tensor, PaddingMask | None]:
-        if self._layer_hooks and self.layer_drop_p > 0.0 and self.training:
-            raise InvalidOperationError(
-                "The layer output hooks cannot be run when LayerDrop is enabled."
-            )
+    def forward(self, seqs: Tensor, seqs_layout: BatchLayout) -> Tensor:
+        if self._layer_hooks:
+            if self.training and self.layer_drop_p > 0.0:
+                raise InvalidOperationError(
+                    "The layer output hooks cannot be run when LayerDrop is enabled."
+                )
+
+        attn_bias_cache = AttentionBiasCache()
 
         num_layers = len(self.layers)
 
-        if self.self_attn_mask_factory is None:
-            self_attn_mask = None
-        else:
-            self_attn_mask = self.self_attn_mask_factory(
-                seqs, keys=seqs, training=self.training
-            )
-
         for layer_idx, (layer, drop) in enumerate(self._drop_iter()):
-            layer_output, layer_padding_mask = layer(seqs, padding_mask, self_attn_mask)
+            layer_output = layer(seqs, seqs_layout, attn_bias_cache)
 
             if drop:
                 seqs = _record_drop_for_backward(seqs, layer_output)
 
                 continue
 
-            seqs, padding_mask = layer_output, layer_padding_mask
+            seqs = layer_output
 
             for hook in self._layer_hooks.values():
-                if not hook(layer_idx, seqs, padding_mask, num_layers):
+                if not hook(layer_idx, seqs, seqs_layout, num_layers):
                     break
 
         if self.layer_norm is not None:
@@ -230,7 +211,7 @@ class StandardTransformerEncoder(TransformerEncoder):
         if self.dropout is not None:
             seqs = self.dropout(seqs)
 
-        return seqs, padding_mask
+        return seqs
 
     def _drop_iter(self) -> Iterator[tuple[Module, bool]]:
         if self.training and self.layer_drop_p > 0.0:
@@ -249,24 +230,14 @@ class StandardTransformerEncoder(TransformerEncoder):
         """:meta private:"""
         s = super().extra_repr()
 
-        if self.self_attn_mask_factory is not None:
-            self_attn_mask_factory = getattr(
-                self.self_attn_mask_factory, "__name__", self.self_attn_mask_factory
-            )
-
-            s = f"{s}, self_attn_mask_factory={self_attn_mask_factory}"
-
         if self.layer_drop_p > 0.0:
             s = f"{s}, layer_drop_p={self.layer_drop_p:G}"
 
         return f"{s}, norm_order={self.norm_order.name}"
 
 
-# mypy: disable-error-code="no-any-return,override"
-
-
 def _record_drop_for_backward(x: Tensor, dropped_output: Tensor) -> Tensor:
-    return _RecordDropForBackwardFunction.apply(x, dropped_output)
+    return _RecordDropForBackwardFunction.apply(x, dropped_output)  # type: ignore[no-any-return]
 
 
 class _RecordDropForBackwardFunction(Function):
@@ -275,5 +246,5 @@ class _RecordDropForBackwardFunction(Function):
         return x
 
     @staticmethod
-    def backward(ctx: Any, grad_output: Tensor) -> tuple[Tensor, Tensor]:
+    def backward(ctx: Any, grad_output: Tensor) -> tuple[Tensor, Tensor]:  # type: ignore[override]
         return grad_output, torch.zeros_like(grad_output)

@@ -522,7 +522,7 @@ class Trainer(Recipe, Generic[BatchT]):
 
             log.info("Restoring the optimizer state.")
 
-            self._checkpoint_manager.load_optimizer_state(step_nr, self._optimizer)
+            self._checkpoint_manager.load_optimizer_state(step_nr, self._optimizer)  # type: ignore[arg-type]
 
             log.info("Optimizer state restored.")
 
@@ -717,7 +717,7 @@ class Trainer(Recipe, Generic[BatchT]):
                 batch = batches.pop()
 
                 try:
-                    batch.to(gangs.root.device)
+                    batch.to(gangs.root.device, non_blocking=True)
 
                     with self._maybe_no_sync(batch_nr, num_batches):
                         with record_function(f"step_{step_nr}_{batch_nr}_forward"):
@@ -922,7 +922,7 @@ class Trainer(Recipe, Generic[BatchT]):
                     step_nr,
                     trainer_state_bag,
                     self._model,
-                    self._optimizer,
+                    self._optimizer,  # type: ignore[arg-type]
                     self._data_reader,
                     state_processor=log_ready,
                     callback=self._complete_checkpoint,

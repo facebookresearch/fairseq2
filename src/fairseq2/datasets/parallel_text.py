@@ -31,13 +31,12 @@ from fairseq2.datasets import (
     DatasetHubAccessor,
     DatasetLoadError,
     LengthBatching,
+    Seq2SeqBatch,
     StaticBatching,
     UnknownSplitError,
 )
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
-from fairseq2.models.seq2seq import Seq2SeqBatch
-from fairseq2.nn.padding import get_seqs_and_padding_mask
 
 
 @dataclass(kw_only=True)
@@ -452,15 +451,15 @@ class GenericParallelTextDataset(ParallelTextDataset):
         source_data = cast(SequenceData, example["source_indices"])
         target_data = cast(SequenceData, example["target_indices"])
 
-        source_seqs, source_padding_mask = get_seqs_and_padding_mask(source_data)
-        target_seqs, target_padding_mask = get_seqs_and_padding_mask(target_data)
+        source_seqs, source_seq_lens = source_data["seqs"], source_data["seq_lens"]
+        target_seqs, target_seq_lens = target_data["seqs"], target_data["seq_lens"]
 
         return Seq2SeqBatch(
             source_seqs,
-            source_padding_mask,
+            source_seq_lens,
             target_seqs,
-            target_padding_mask,
-            example,
+            target_seq_lens,
+            example=example,
         )
 
     @override

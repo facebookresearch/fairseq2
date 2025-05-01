@@ -8,6 +8,7 @@ import torch
 
 from fairseq2.models.llama import LLaMAConfig, LLaMAFactory
 from fairseq2.models.llama.lora import get_llama_lora_config
+from fairseq2.nn import BatchLayout
 from fairseq2.nn.lora import (
     freeze_non_lora,
     merge_lora,
@@ -15,6 +16,7 @@ from fairseq2.nn.lora import (
     unwrap_lora,
     wrap_lora,
 )
+from tests.common import device
 
 
 def test_lora_wrappers_llama_works() -> None:
@@ -32,21 +34,24 @@ def test_lora_wrappers_llama_works() -> None:
 
     model_factory = LLaMAFactory(model_config)
 
-    model = model_factory.create_model()
+    with device:
+        model = model_factory.create_model()
 
     lora_config = get_llama_lora_config()
 
-    inputs = torch.LongTensor([[1, 2], [1, 3]], device=torch.device("cpu"))
+    inputs = torch.tensor([[1, 2], [1, 3]], device=device)
+
+    inputs_layout = BatchLayout.of(inputs)
 
     model.eval()
 
     with torch.inference_mode():
-        output_before_wrap, _ = model.decode(seqs=inputs, padding_mask=None)
+        output_before_wrap, _ = model.decode(inputs, inputs_layout)
 
     model = wrap_lora(model, lora_config)  # type: ignore[assignment]
 
     with torch.inference_mode():
-        output_after_wrap, _ = model.decode(seqs=inputs, padding_mask=None)
+        output_after_wrap, _ = model.decode(inputs, inputs_layout)
 
     # Outputs should be the same as lora_B is initialized with zeros.
     torch.testing.assert_close(output_before_wrap, output_after_wrap)
@@ -54,7 +59,7 @@ def test_lora_wrappers_llama_works() -> None:
     model = unwrap_lora(model, merge=False)  # type: ignore[assignment]
 
     with torch.inference_mode():
-        output_after_unwrap, _ = model.decode(seqs=inputs, padding_mask=None)
+        output_after_unwrap, _ = model.decode(inputs, inputs_layout)
 
     torch.testing.assert_close(output_after_wrap, output_after_unwrap)
 
@@ -62,14 +67,14 @@ def test_lora_wrappers_llama_works() -> None:
     merge_lora(model)
 
     with torch.inference_mode():
-        output_after_merge, _ = model.decode(seqs=inputs, padding_mask=None)
+        output_after_merge, _ = model.decode(inputs, inputs_layout)
 
     torch.testing.assert_close(output_after_unwrap, output_after_merge)
 
     unmerge_lora(model)
 
     with torch.inference_mode():
-        output_after_unmerge, _ = model.decode(seqs=inputs, padding_mask=None)
+        output_after_unmerge, _ = model.decode(inputs, inputs_layout)
 
     torch.testing.assert_close(output_after_merge, output_after_unmerge)
 

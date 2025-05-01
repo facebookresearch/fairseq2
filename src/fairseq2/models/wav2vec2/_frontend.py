@@ -18,13 +18,13 @@ from fairseq2.error import NotSupportedError
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
 from fairseq2.models.transformer import TransformerFrontend
 from fairseq2.nn import (
+    BatchLayout,
     IncrementalStateBag,
     LayerNorm,
     Linear,
     PositionEncoder,
     StandardLayerNorm,
 )
-from fairseq2.nn.padding import PaddingMask
 
 # isort: split
 
@@ -133,24 +133,24 @@ class Wav2Vec2Frontend(TransformerFrontend):
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: PaddingMask | None,
+        seqs_layout: BatchLayout,
         *,
         state_bag: IncrementalStateBag | None = None,
-    ) -> tuple[Tensor, PaddingMask | None]:
+    ) -> tuple[Tensor, BatchLayout]:
         if state_bag is not None:
             raise NotSupportedError(
                 f"`{Wav2Vec2Frontend}` does not support incremental decoding."
             )
 
-        seqs, padding_mask, _ = self.extract_features(seqs, padding_mask)
+        seqs, seqs_layout, _ = self.extract_features(seqs, seqs_layout)
 
-        seqs, padding_mask, _ = self.process_features(seqs, padding_mask)
+        seqs, _ = self.process_features(seqs, seqs_layout)
 
-        return seqs, padding_mask
+        return seqs, seqs_layout
 
     def extract_features(
-        self, seqs: Tensor, padding_mask: PaddingMask | None
-    ) -> tuple[Tensor, PaddingMask | None, Tensor]:
+        self, seqs: Tensor, seqs_layout: BatchLayout
+    ) -> tuple[Tensor, BatchLayout, Tensor]:
         """Extract features from the specified sequences.
 
         :param seqs:
@@ -158,36 +158,30 @@ class Wav2Vec2Frontend(TransformerFrontend):
             :math:`(N,S,*)`, where :math:`N` is the batch size, :math:`S` is the
             sequence length, and :math:`*` is any number of sequence-specific
             dimensions including none.
-        :param padding_mask:
-            The padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where :math:`N`
-            is the batch size and :math:`S` is the sequence length.
 
         :returns:
             - The normalized features. *Shape:* :math:`(N,S_{out},E)`, where
               :math:`N` is the batch size, :math:`S_{out}` is the output
               sequence length, and :math:`E` is the dimensionality of the
               extracted features.
-            - The padding mask of the extracted features. *Shape:*
-              :math:`(N,S_{out})`, where :math:`N` is the batch size and
-              :math:`S_{out}` is the output sequence length.
             - The raw features. *Shape*: Same as the normalized features (i.e.
               first element of the returned tuple).
         """
         if self.feature_extractor is not None:
-            seqs, padding_mask = self.feature_extractor(seqs, padding_mask)
+            seqs, seqs_layout = self.feature_extractor(seqs, seqs_layout)
 
         raw_features = seqs.clone()
 
         seqs = self.post_extract_layer_norm(seqs)
 
-        return seqs, padding_mask, raw_features
+        return seqs, seqs_layout, raw_features
 
     def process_features(
         self,
         seqs: Tensor,
-        padding_mask: PaddingMask | None,
+        seqs_layout: BatchLayout,
         masker: Wav2Vec2Masker | None = None,
-    ) -> tuple[Tensor, PaddingMask | None, Tensor | None]:
+    ) -> tuple[Tensor, Tensor | None]:
         """Process extracted features.
 
         :param seqs:
@@ -206,9 +200,6 @@ class Wav2Vec2Frontend(TransformerFrontend):
               :math:`(N,S,M)`, where :math:`N` is the batch size, :math:`S` is
               the sequence length, and :math:`M` is the dimensionality of the
               model.
-            - The padding mask of the processed features. *Shape:* :math:`(N,S)`,
-              where :math:`N` is the batch size and :math:`S` is the output
-              sequence length.
             - The temporal mask that has been applied to the processed features.
               *Shape:* :math:`(N,S)`, where :math:`N` is the batch size and
               :math`S` is the sequence length.
@@ -220,12 +211,12 @@ class Wav2Vec2Frontend(TransformerFrontend):
             seqs = self.first_pass_dropout(seqs)
 
         if masker is not None:
-            seqs, temporal_mask = masker(seqs, padding_mask)
+            seqs, temporal_mask = masker(seqs, seqs_layout)
         else:
             temporal_mask = None
 
         if self.pos_encoder is not None:
-            seqs = self.pos_encoder(seqs, padding_mask)
+            seqs = self.pos_encoder(seqs, seqs_layout)
 
         if self.layer_norm is not None:
             seqs = self.layer_norm(seqs)
@@ -233,7 +224,7 @@ class Wav2Vec2Frontend(TransformerFrontend):
         if self.dropout is not None:
             seqs = self.dropout(seqs)
 
-        return seqs, padding_mask, temporal_mask
+        return seqs, temporal_mask
 
     def extra_repr(self) -> str:
         """:meta private:"""

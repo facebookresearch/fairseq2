@@ -39,11 +39,11 @@ class IncrementalState(ABC):
         """
 
     @abstractmethod
-    def size(self) -> int:
+    def size_bytes(self) -> int:
         """Returns the size of the state in bytes."""
 
     @abstractmethod
-    def capacity(self) -> int:
+    def capacity_bytes(self) -> int:
         """Returns the reserved capacity of the state in bytes."""
 
 
@@ -149,10 +149,10 @@ class IncrementalStateBag:
         """
         return self._capacity_increment
 
-    def size(self) -> int:
+    def size_bytes(self) -> int:
         """Returns the size of the state bag in bytes."""
-        return sum(s.size() for s in self._module_states.values())
+        return sum(s.size_bytes() for s in self._module_states.values())
 
-    def capacity(self) -> int:
+    def capacity_bytes(self) -> int:
         """Returns the reserved capacity of the state bag in bytes."""
-        return sum(s.capacity() for s in self._module_states.values())
+        return sum(s.capacity_bytes() for s in self._module_states.values())

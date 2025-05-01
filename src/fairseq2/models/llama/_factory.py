@@ -16,6 +16,7 @@ from torch import Tensor
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
 from fairseq2.models.transformer import (
+    CausalAttentionBias,
     FeedForwardNetwork,
     GLUFeedForwardNetwork,
     MultiheadAttention,
@@ -89,7 +90,7 @@ class LLaMAFactory:
 
             std = init_std or (embed_dim**-0.5)
 
-            _init_truncated_normal(embed.weight, bias=None, std=std)
+            self._init_truncated_normal(embed.weight, bias=None, std=std)
 
         return StandardEmbedding(
             num_embeddings=config.vocab_size,
@@ -143,7 +144,7 @@ class LLaMAFactory:
     def create_decoder_layer(
         self, layer_idx: int, pos_encoder: PositionEncoder
     ) -> TransformerLMDecoderLayer:
-        self_attn = self.create_attention(layer_idx, pos_encoder)
+        self_attn = self.create_self_attention(layer_idx, pos_encoder)
 
         ffn = self.create_ffn(layer_idx)
 
@@ -154,7 +155,7 @@ class LLaMAFactory:
             layer_norm_factory=self.create_layer_norm,
         )
 
-    def create_attention(
+    def create_self_attention(
         self, layer_idx: int, pos_encoder: PositionEncoder
     ) -> MultiheadAttention:
         config = self._config
@@ -168,9 +169,13 @@ class LLaMAFactory:
 
             std = init_std or (input_dim**-0.5)
 
-            _init_truncated_normal(proj.weight, proj.bias, std=std / std_scale_factor)
+            self._init_truncated_normal(
+                proj.weight, proj.bias, std=std / std_scale_factor
+            )
 
-        sdpa = create_default_sdpa(attn_dropout_p=config.dropout_p)
+        attn_bias = CausalAttentionBias()
+
+        sdpa = create_default_sdpa(attn_bias, dropout_p=config.dropout_p)
 
         return StandardMultiheadAttention(
             config.model_dim,
@@ -195,7 +200,9 @@ class LLaMAFactory:
 
             std = init_std or (input_dim**-0.5)
 
-            _init_truncated_normal(proj.weight, proj.bias, std=std / std_scale_factor)
+            self._init_truncated_normal(
+                proj.weight, proj.bias, std=std / std_scale_factor
+            )
 
         ffn_inner_dim = int(config.ffn_inner_dim * config.ffn_inner_dim_multiplier)
 
@@ -244,7 +251,7 @@ class LLaMAFactory:
 
             std = init_std or (input_dim**-0.5)
 
-            _init_truncated_normal(proj.weight, proj.bias, std=std)
+            self._init_truncated_normal(proj.weight, proj.bias, std=std)
 
         return Linear(
             config.model_dim,
@@ -259,14 +266,14 @@ class LLaMAFactory:
     ) -> LayerNorm:
         return RMSNorm(model_dim, bias=False, device=device, dtype=dtype)
 
+    @staticmethod
+    def _init_truncated_normal(
+        weight: Tensor, bias: Tensor | None, *, std: float = 1.0
+    ) -> None:
+        nn.init.trunc_normal_(weight, mean=0.0, std=std, a=-3 * std, b=3 * std)
 
-def _init_truncated_normal(
-    weight: Tensor, bias: Tensor | None, *, std: float = 1.0
-) -> None:
-    nn.init.trunc_normal_(weight, mean=0.0, std=std, a=-3 * std, b=3 * std)
-
-    if bias is not None:
-        nn.init.zeros_(bias)
+        if bias is not None:
+            nn.init.zeros_(bias)
 
 
 def init_llama_rope_freqs(

@@ -13,8 +13,7 @@ from typing_extensions import override
 
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.sequence import SequenceModelOutput
-from fairseq2.nn import IncrementalStateBag, Projection
-from fairseq2.nn.padding import PaddingMask
+from fairseq2.nn import BatchLayout, IncrementalStateBag, Projection
 
 # isort: split
 
@@ -69,37 +68,41 @@ class TransformerModel(EncoderDecoderModel):
 
     @override
     def encode(
-        self, seqs: Tensor, padding_mask: PaddingMask | None
-    ) -> tuple[Tensor, PaddingMask | None]:
-        seqs, padding_mask = self.encoder_frontend(seqs, padding_mask)
+        self, seqs: Tensor, seqs_layout: BatchLayout
+    ) -> tuple[Tensor, BatchLayout]:
+        seqs, seqs_layout = self.encoder_frontend(seqs, seqs_layout)
 
-        return self.encoder(seqs, padding_mask)  # type: ignore[no-any-return]
+        seqs = self.encoder(seqs, seqs_layout)
+
+        return seqs, seqs_layout
 
     @override
     def decode(
         self,
         seqs: Tensor,
-        padding_mask: PaddingMask | None,
+        seqs_layout: BatchLayout,
         encoder_output: Tensor,
-        encoder_padding_mask: PaddingMask | None,
+        encoder_output_layout: BatchLayout,
         *,
         state_bag: IncrementalStateBag | None = None,
-    ) -> tuple[Tensor, PaddingMask | None]:
-        seqs, padding_mask = self.decoder_frontend(
-            seqs, padding_mask, state_bag=state_bag
+    ) -> tuple[Tensor, BatchLayout]:
+        seqs, seqs_layout = self.decoder_frontend(
+            seqs, seqs_layout, state_bag=state_bag
         )
 
-        return self.decoder(  # type: ignore[no-any-return]
+        seqs = self.decoder(
             seqs,
-            padding_mask,
+            seqs_layout,
             encoder_output,
-            encoder_padding_mask,
+            encoder_output_layout,
             state_bag=state_bag,
         )
 
+        return seqs, seqs_layout
+
     @override
     def project(
-        self, decoder_output: Tensor, decoder_padding_mask: PaddingMask | None
+        self, decoder_output: Tensor, decoder_output_layout: BatchLayout
     ) -> SequenceModelOutput:
         logits = self.final_proj(decoder_output)
 

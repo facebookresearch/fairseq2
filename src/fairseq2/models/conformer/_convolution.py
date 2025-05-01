@@ -15,8 +15,8 @@ from torch.nn.functional import pad
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
 from fairseq2.error import InternalError
-from fairseq2.nn import LayerNorm, StandardLayerNorm
-from fairseq2.nn.padding import PaddingMask, apply_padding_mask
+from fairseq2.nn import BatchLayout, LayerNorm, StandardLayerNorm
+from fairseq2.nn.utils.mask import apply_mask
 
 
 @final
@@ -67,8 +67,7 @@ class ConformerConvolution(Module):
         # channels to the first pointwise convolution.
         self.pointwise_conv1 = Conv1d(
             model_dim,
-            # We apply GLU to outputs to bring them back to `model_dim`.
-            model_dim * 2,
+            model_dim * 2,  # with GLU brings outputs back to `model_dim`.
             kernel_size=1,
             bias=False,
             device=device,
@@ -82,8 +81,7 @@ class ConformerConvolution(Module):
             model_dim,
             depthwise_kernel_size,
             padding="same" if not causal_depthwise_conv else 0,
-            # We want to perform depthwise convolution.
-            groups=model_dim,
+            groups=model_dim,  # depthwise
             bias=False,
             device=device,
             dtype=dtype,
@@ -117,21 +115,25 @@ class ConformerConvolution(Module):
             model_dim, model_dim, kernel_size=1, bias=False, device=device, dtype=dtype
         )
 
-    def forward(self, seqs: Tensor, padding_mask: PaddingMask | None) -> Tensor:
+    def forward(self, seqs: Tensor, seqs_layout: BatchLayout) -> Tensor:
         """
         :param seqs:
             The sequences to process. *Shape:* :math:`(N,S,M)`, where :math:`N`
             is the batch size, :math:`S` is the sequence length, and :math:`M`
             is the dimensionality of the model.
-        :param padding_mask:
-            The padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where :math:`N`
-            is the batch size and :math:`S` is the sequence length.
 
         :returns:
             The processed sequences. *Shape:* Same as ``seqs``.
         """
-        # Ensure that we do not leak padded positions in depthwise convolution.
-        seqs = apply_padding_mask(seqs, padding_mask)
+        if seqs_layout.packed:
+            raise ValueError("`seqs` must not be a packed batch.")
+
+        if seqs_layout.padded:
+            padding_mask = seqs_layout.position_indices >= 0
+
+            # We have to ensure that the padded elements are correctly set to
+            # zero; otherwise, noise will leak into the feature maps.
+            seqs = apply_mask(seqs, padding_mask)
 
         # (N, S, M) -> (N, M, S)
         seqs = seqs.transpose(1, 2)

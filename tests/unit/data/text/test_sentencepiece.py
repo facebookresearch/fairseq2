@@ -154,6 +154,9 @@ class TestSentencePieceModel:
         bos_idx = model.bos_idx
         eos_idx = model.eos_idx
 
+        assert bos_idx is not None
+        assert eos_idx is not None
+
         e = [foo1_idx, bos_idx] + self.token_indices + [foo2_idx, eos_idx, foo3_idx]
 
         assert_equal(indices, e)

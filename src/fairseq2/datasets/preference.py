@@ -31,17 +31,13 @@ from fairseq2.datasets import (
     DataReadOptions,
     DatasetHubAccessor,
     LengthBatching,
+    SequenceBatch,
     StaticBatching,
 )
+from fairseq2.datasets.utils._manifest import _load_files_and_weights
 from fairseq2.device import Device, SupportsDeviceTransfer
 from fairseq2.error import NotSupportedError
 from fairseq2.gang import Gang
-from fairseq2.models.sequence import SequenceBatch
-from fairseq2.nn.padding import get_seqs_and_padding_mask
-
-# isort: split
-
-from fairseq2.datasets.utils._manifest import _load_files_and_weights
 
 
 @dataclass(kw_only=True)
@@ -80,16 +76,20 @@ class PreferenceBatch(SupportsDeviceTransfer):
         return self.chosen.batch_size
 
     @override
-    def to(self, device: Device) -> None:
-        self.chosen.to(device)
+    def to(self, device: Device, *, non_blocking: bool = False) -> None:
+        self.chosen.to(device, non_blocking=non_blocking)
 
-        self.rejected.to(device)
+        self.rejected.to(device, non_blocking=non_blocking)
 
         if self.reference_score_chosen is not None:
-            self.reference_score_chosen = self.reference_score_chosen.to(device)
+            self.reference_score_chosen = self.reference_score_chosen.to(
+                device, non_blocking=non_blocking
+            )
 
         if self.reference_score_rejected is not None:
-            self.reference_score_rejected = self.reference_score_rejected.to(device)
+            self.reference_score_rejected = self.reference_score_rejected.to(
+                device, non_blocking=non_blocking
+            )
 
 
 class PreferenceDataset(ABC):
@@ -329,9 +329,13 @@ class GenericPreferenceDataset(PreferenceDataset):
             indices_chosen = cast(SequenceData, example["indices_chosen"])
             indices_rejected = cast(SequenceData, example["indices_rejected"])
 
-            seqs_chosen, padding_mask_chosen = get_seqs_and_padding_mask(indices_chosen)
-            seqs_rejected, padding_mask_rejected = get_seqs_and_padding_mask(
-                indices_rejected
+            seqs_chosen, seq_chosen_lens = (
+                indices_chosen["seqs"],
+                indices_chosen["seq_lens"],
+            )
+            seqs_rejected, seq_rejected_lens = (
+                indices_rejected["seqs"],
+                indices_rejected["seq_lens"],
             )
 
             target_mask_chosen = example["target_mask_chosen"]["seqs"]
@@ -339,15 +343,15 @@ class GenericPreferenceDataset(PreferenceDataset):
 
             batch_chosen = SequenceBatch(
                 seqs_chosen,
-                padding_mask_chosen,
-                target_mask_chosen,
+                seq_chosen_lens,
+                target_mask=target_mask_chosen,
                 example=example,
             )
 
             batch_rejected = SequenceBatch(
                 seqs_rejected,
-                padding_mask_rejected,
-                target_mask_rejected,
+                seq_rejected_lens,
+                target_mask=target_mask_rejected,
                 example=example,
             )
 

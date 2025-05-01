@@ -38,14 +38,11 @@ class Embedding(Module, ABC):
         self, num_embeddings: int, embedding_dim: int, pad_idx: int | None = None
     ) -> None:
         """
-        :param num_embeddings:
-            The size of the embedding table.
-        :param embedding_dim:
-            The dimensionality of returned embeddings.
-        :param pad_idx:
-            If not ``None``, entries at ``pad_idx`` do not contribute to the
-            gradient; therefore, the embedding at ``pad_idx`` is not updated
-            during training.
+        :param num_embeddings: The size of the embedding table.
+        :param embedding_dim: The dimensionality of returned embeddings.
+        :param pad_idx: If not ``None``, entries at ``pad_idx`` do not
+            contribute to the gradient; therefore, the embedding at ``pad_idx``
+            is not updated during training.
         """
         super().__init__()
 
@@ -59,11 +56,9 @@ class Embedding(Module, ABC):
     @abstractmethod
     def forward(self, x: Tensor) -> Tensor:
         """
-        :param x:
-            The embedding indices. *Shape:* Any.
+        :param x: The embedding indices. *Shape:* Any.
 
-        :returns:
-            The embeddings corresponding to the specified indices. *Shape:*
+        :returns: The embeddings corresponding to the specified indices. *Shape:*
             :math:`(*,E)`, where :math:`*` is the input shape and :math:`E` is
             the dimensionality of the embeddings.
         """
@@ -96,16 +91,12 @@ class StandardEmbedding(Embedding):
         dtype: DataType | None = None,
     ) -> None:
         """
-        :param num_embeddings:
-            The size of the embedding table.
-        :param embedding_dim:
-            The dimensionality of returned embeddings.
-        :param pad_idx:
-            If not ``None``, entries at ``pad_idx`` do not contribute to the
-            gradient; therefore, the embedding at ``pad_idx`` is not updated
-            during training.
-        :param init_fn:
-            The callable to initialize the embedding table.
+        :param num_embeddings: The size of the embedding table.
+        :param embedding_dim: The dimensionality of returned embeddings.
+        :param pad_idx: If not ``None``, entries at ``pad_idx`` do not
+            contribute to the gradient; therefore, the embedding at ``pad_idx``
+            is not updated during training.
+        :param init_fn: The callable to initialize the embedding table.
         """
         super().__init__(num_embeddings, embedding_dim, pad_idx)
 
@@ -118,7 +109,7 @@ class StandardEmbedding(Embedding):
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        """Reset the parameters and buffers of the module."""
+        """Resets the parameters and buffers of the module."""
         if self.init_fn is not None:
             self.init_fn(self)
 
@@ -148,8 +139,10 @@ class StandardEmbedding(Embedding):
 
 @final
 class VocabShardedEmbedding(Embedding):
-    """Represents a :class:`StandardEmbedding` that is sharded across its
-    vocabulary dimension."""
+    """
+    Represents a :class:`StandardEmbedding` that is sharded across its
+    vocabulary dimension.
+    """
 
     gang: Gang
     sharded_num_embeddings: int
@@ -158,12 +151,11 @@ class VocabShardedEmbedding(Embedding):
 
     @staticmethod
     def from_embedding(embed: StandardEmbedding, gang: Gang) -> VocabShardedEmbedding:
-        """Construct a :class:`VocabShardedEmbedding` by sharding ``embed``.
+        """
+        Constructs a :class:`VocabShardedEmbedding` by sharding ``embed``.
 
-        :param embed:
-            The embedding to shard.
-        :param gang:
-            The gang over which to shard ``embed``.
+        :param embed: The embedding to shard.
+        :param gang: The gang over which to shard ``embed``.
         """
         device = embed.weight.device
 
@@ -201,18 +193,13 @@ class VocabShardedEmbedding(Embedding):
         dtype: DataType | None = None,
     ) -> None:
         """
-        :param gang:
-            The gang over which to shard the embedding table.
-        :param num_embeddings:
-            The size of the embedding table.
-        :param embedding_dim:
-            The dimensionality of returned embeddings.
-        :param pad_idx:
-            If not ``None``, entries at ``pad_idx`` do not contribute to the
-            gradient; therefore, the embedding at ``pad_idx`` is not updated
-            during training.
-        :param init_fn:
-            The callable to initialize the embedding table.
+        :param gang: The gang over which to shard the embedding table.
+        :param num_embeddings: The size of the embedding table.
+        :param embedding_dim: The dimensionality of returned embeddings.
+        :param pad_idx: If not ``None``, entries at ``pad_idx`` do not
+            contribute to the gradient; therefore, the embedding at ``pad_idx``
+            is not updated during training.
+        :param init_fn: The callable to initialize the embedding table.
         """
         super().__init__(num_embeddings, embedding_dim, pad_idx)
 
@@ -245,7 +232,7 @@ class VocabShardedEmbedding(Embedding):
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        """Reset the parameters and buffers of the module."""
+        """Resets the parameters and buffers of the module."""
         embed = self._embedding_like(self.gang.device)
 
         self._copy_weight(embed)
@@ -313,7 +300,7 @@ class VocabShardedEmbedding(Embedding):
         return x
 
     def to_embedding(self, device: Device | None = None) -> StandardEmbedding:
-        """Convert this instance to a :class:`StandardEmbedding`."""
+        """Converts this instance to a :class:`StandardEmbedding`."""
         embed = self._embedding_like(device=META_DEVICE)
 
         to_empty(embed, device or self.gang.device)
@@ -351,8 +338,10 @@ class VocabShardedEmbedding(Embedding):
 
 @final
 class ShardedEmbedding(Embedding):
-    """Represents a :class:`StandardEmbedding` that is sharded across its
-    embedding dimension."""
+    """
+    Represents a :class:`StandardEmbedding` that is sharded across its embedding
+    dimension.
+    """
 
     gang: Gang
     sharded_embedding_dim: int
@@ -361,12 +350,11 @@ class ShardedEmbedding(Embedding):
 
     @staticmethod
     def from_embedding(embed: StandardEmbedding, gang: Gang) -> ShardedEmbedding:
-        """Construct a :class:`ShardedEmbedding` by sharding ``embed``.
+        """
+        Constructs a :class:`ShardedEmbedding` by sharding ``embed``.
 
-        :param embed:
-            The embedding to shard.
-        :param gang:
-            The gang over which to shard ``embed``.
+        :param embed: The embedding to shard.
+        :param gang: The gang over which to shard ``embed``.
         """
         device = embed.weight.device
 
@@ -404,18 +392,13 @@ class ShardedEmbedding(Embedding):
         dtype: DataType | None = None,
     ) -> None:
         """
-        :param gang:
-            The gang over which to shard the embedding table.
-        :param num_embeddings:
-            The size of the embedding table.
-        :param embedding_dim:
-            The dimensionality of returned embeddings.
-        :param pad_idx:
-            If not ``None``, entries at ``pad_idx`` do not contribute to the
-            gradient; therefore, the embedding at ``pad_idx`` is not updated
-            during training.
-        :param init_fn:
-            The callable to initialize the embedding table.
+        :param gang: The gang over which to shard the embedding table.
+        :param num_embeddings: The size of the embedding table.
+        :param embedding_dim: The dimensionality of returned embeddings.
+        :param pad_idx: If not ``None``, entries at ``pad_idx`` do not
+            contribute to the gradient; therefore, the embedding at ``pad_idx``
+            is not updated during training.
+        :param init_fn: The callable to initialize the embedding table.
         """
         super().__init__(num_embeddings, embedding_dim, pad_idx)
 
@@ -448,7 +431,7 @@ class ShardedEmbedding(Embedding):
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        """Reset the parameters and buffers of the module."""
+        """Resets the parameters and buffers of the module."""
         embed = self._embedding_like(self.gang.device)
 
         self._copy_weight(embed)
@@ -491,7 +474,7 @@ class ShardedEmbedding(Embedding):
         return x
 
     def to_embedding(self, device: Device | None = None) -> StandardEmbedding:
-        """Convert this instance to a :class:`StandardEmbedding`."""
+        """Converts this instance to a :class:`StandardEmbedding`."""
         embed = self._embedding_like(device=META_DEVICE)
 
         to_empty(embed, device or self.gang.device)
@@ -528,8 +511,9 @@ class ShardedEmbedding(Embedding):
 
 
 def init_scaled_embedding(embed: StandardEmbedding) -> None:
-    """Initialize ``embed`` from
-    :math:`\\mathcal{N}(0, \\frac{1}{\\text{embedding_dim}})`."""
+    """
+    Initializes ``embed`` from :math:`\\mathcal{N}(0, \\frac{1}{\\text{embedding_dim}})`.
+    """
     nn.init.normal_(embed.weight, std=embed.embedding_dim**-0.5)
 
     if embed.pad_idx is not None:

@@ -15,7 +15,13 @@ from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
 from fairseq2.data.text.tokenizers import TextTokenizer
-from fairseq2.datasets import Batching, LengthBatching, StaticBatching, SyncMode
+from fairseq2.datasets import (
+    Batching,
+    LengthBatching,
+    Seq2SeqBatch,
+    StaticBatching,
+    SyncMode,
+)
 from fairseq2.datasets.parallel_text import (
     GENERIC_PARALLEL_TEXT_DATASET_FAMILY,
     Direction,
@@ -30,7 +36,6 @@ from fairseq2.generation.text import SequenceToTextConverter
 from fairseq2.metrics import MetricBag
 from fairseq2.metrics.text import DEFAULT_BLEU_TOKENIZER, BleuMetric, ChrfMetric
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
-from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.recipes import (
     Evaluator,
     EvalUnit,
@@ -453,14 +458,14 @@ class MTBleuChrfEvalUnit(EvalUnit[Seq2SeqBatch]):
                 f"`batch.example['target_text'] must be an iterable of strings, but is of type `{type(refs)}` instead."
             )
 
-        hyps, output = self._converter.batch_convert(
-            batch.source_seqs, batch.source_padding_mask
-        )
+        source_seqs, source_seqs_layout = batch.as_source_input()
+
+        hyps, output = self._converter.batch_convert(source_seqs, source_seqs_layout)
 
         self._metric_bag.bleu.update(refs, hyps)
         self._metric_bag.chrf.update(refs, hyps)
 
-        self._metric_bag.update_batch_metrics(output, batch.num_source_elements())
+        self._metric_bag.update_batch_metrics(output, batch.num_source_elements)
 
         try:
             # Dump source sentences.

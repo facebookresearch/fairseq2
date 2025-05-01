@@ -16,7 +16,7 @@ from torch import Tensor
 from typing_extensions import override
 
 from fairseq2.context import RuntimeContext
-from fairseq2.datasets import LengthBatching
+from fairseq2.datasets import LengthBatching, SequenceBatch
 from fairseq2.datasets.text import (
     GENERIC_TEXT_DATASET_FAMILY,
     TextDataset,
@@ -25,11 +25,7 @@ from fairseq2.datasets.text import (
 from fairseq2.device import CPU
 from fairseq2.gang import Gangs
 from fairseq2.models.decoder import DecoderModel
-from fairseq2.models.sequence import (
-    SequenceBatch,
-    SequenceModelOutput,
-    as_auto_regressive_input,
-)
+from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.optim import ADAMW_OPTIMIZER, AdamWConfig
 from fairseq2.optim.lr_scheduler import COSINE_ANNEALING_LR, CosineAnnealingLRConfig
 from fairseq2.recipes import Model, SequenceMetricBag, Trainer, TrainUnit
@@ -71,7 +67,7 @@ class LMTrainConfig:
             family="llama",
             arch="llama3_8b",
             compile=True,
-            compile_options=CompileOptionsSection(fullgraph=True, dynamic=False),
+            compile_options=CompileOptionsSection(fullgraph=False, dynamic=False),
         )
     )
 
@@ -300,11 +296,13 @@ class LMTrainCriterion:
     def __call__(
         self, batch: SequenceBatch, metric_bag: SequenceMetricBag
     ) -> tuple[Tensor, None]:
-        input_batch, target_batch = as_auto_regressive_input(batch)
+        batch, target_batch = batch.as_auto_regressive()
 
-        output = self._forward(input_batch)
+        seqs, seqs_layout = batch.as_input()
 
-        loss = output.compute_loss(
+        model_output: SequenceModelOutput = self._model.module(seqs, seqs_layout)
+
+        loss = model_output.compute_loss(
             target_batch.seqs, loss_mask=target_batch.target_mask, reduction="mean"
         )
 
@@ -313,9 +311,6 @@ class LMTrainCriterion:
         metric_bag.update_batch_metrics(target_batch)
 
         return loss, None
-
-    def _forward(self, batch: SequenceBatch) -> SequenceModelOutput:
-        return self._model.module(batch)  # type: ignore[no-any-return]
 
     @property
     def model(self) -> Model:

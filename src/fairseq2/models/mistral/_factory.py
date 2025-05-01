@@ -9,7 +9,7 @@ from __future__ import annotations
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
 from fairseq2.models.transformer import (
-    CausalAttentionMaskFactory,
+    CausalAttentionBias,
     FeedForwardNetwork,
     GLUFeedForwardNetwork,
     LocalAttentionStateFactory,
@@ -99,13 +99,8 @@ class MistralFactory:
 
             layers.append(layer)
 
-        self_attn_mask_factory = CausalAttentionMaskFactory(
-            attn_window_len=config.attn_window_len
-        )
-
         return StandardTransformerLMDecoder(
             layers,
-            self_attn_mask_factory=self_attn_mask_factory,
             norm_order=TransformerNormOrder.PRE,
             layer_norm_factory=self.create_layer_norm,
         )
@@ -114,8 +109,7 @@ class MistralFactory:
         config = self._config
 
         return RotaryEncoder(
-            config.model_dim // config.num_attn_heads,
-            config.max_seq_len,
+            config.model_dim // config.num_attn_heads, config.max_seq_len
         )
 
     def create_decoder_layer(
@@ -123,7 +117,7 @@ class MistralFactory:
     ) -> TransformerLMDecoderLayer:
         config = self._config
 
-        self_attn = self.create_attention(pos_encoder)
+        self_attn = self.create_self_attention(pos_encoder)
 
         ffn = self.create_ffn()
 
@@ -135,12 +129,14 @@ class MistralFactory:
             layer_norm_factory=self.create_layer_norm,
         )
 
-    def create_attention(self, pos_encoder: PositionEncoder) -> MultiheadAttention:
+    def create_self_attention(self, pos_encoder: PositionEncoder) -> MultiheadAttention:
         config = self._config
 
-        sdpa = create_default_sdpa(attn_dropout_p=config.dropout_p)
+        attn_bias = CausalAttentionBias(attn_window_len=config.attn_window_len)
 
-        state_factory = LocalAttentionStateFactory(config.attn_window_len)
+        sdpa = create_default_sdpa(attn_bias, dropout_p=config.dropout_p)
+
+        incremental_state_factory = LocalAttentionStateFactory(config.attn_window_len)
 
         return StandardMultiheadAttention(
             config.model_dim,
@@ -149,7 +145,7 @@ class MistralFactory:
             sdpa=sdpa,
             pos_encoder=pos_encoder,
             bias=False,
-            state_factory=state_factory,
+            state_factory=incremental_state_factory,
         )
 
     def create_ffn(self) -> FeedForwardNetwork:

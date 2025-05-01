@@ -191,11 +191,11 @@ def to_fsdp2(
 
 
 def fsdp2_local_state_dict(module: Fsdp2Module) -> dict[str, object]:
-    state_dict = {}
+    state_dict: dict[str, object] = {}
 
     sharded_state_dict = module.state_dict()
 
-    fsdp_state = fully_shard.state(module)
+    fsdp_state = fully_shard.state(module)  # type: ignore[attr-defined]
 
     param_group = fsdp_state._fsdp_param_group
     if param_group is None:
@@ -211,7 +211,8 @@ def fsdp2_local_state_dict(module: Fsdp2Module) -> dict[str, object]:
 
     for name, item in sharded_state_dict.items():
         if isinstance(item, DTensor):
-            state_dict[name] = item.detach().to_local()
+            state_dict[name] = cast(DTensor, item.detach()).to_local()
+
         # Save replicated items only on the first intra-node (i.e. sharded)
         # gang.
         elif sdp_rank == 0:
@@ -235,7 +236,7 @@ def fsdp2_no_sync(module: Fsdp2Module) -> Iterator[None]:
 
 @contextmanager
 def fsdp2_summon_full_parameters(module: Fsdp2Module) -> Iterator[None]:
-    state = fully_shard.state(module)
+    state = fully_shard.state(module)  # type: ignore[attr-defined]
 
     try:
         mp = state._mp_policy

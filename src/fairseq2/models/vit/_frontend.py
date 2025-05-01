@@ -12,9 +12,13 @@ from torch import Tensor
 from torch.nn import Dropout
 from typing_extensions import override
 
+from fairseq2.error import NotSupportedError
 from fairseq2.models.transformer import TransformerFrontend
-from fairseq2.nn import IncrementalStateBag, InterpolatedPositionEncoder
-from fairseq2.nn.padding import PaddingMask
+from fairseq2.nn import (
+    BatchLayout,
+    IncrementalStateBag,
+    InterpolatedPositionEncoder,
+)
 
 # isort: split
 
@@ -64,15 +68,20 @@ class StandardViTFrontend(TransformerFrontend):
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: PaddingMask | None,
+        seqs_layout: BatchLayout,
         *,
         state_bag: IncrementalStateBag | None = None,
-    ) -> tuple[Tensor, PaddingMask | None]:
-        if padding_mask is not None:
-            raise ValueError(f"`{type(self)}` does not support padding mask.")
-
+    ) -> tuple[Tensor, BatchLayout]:
         if state_bag is not None:
-            raise ValueError(f"`{type(self)}` does not support incremental decoding.")
+            raise NotSupportedError(
+                f"`{StandardViTFrontend}` does not support incremental decoding."
+            )
+
+        if seqs_layout.packed:
+            raise ValueError("`seqs` must not be a packed batch.")
+
+        if seqs_layout.padded:
+            raise ValueError("`seqs` must not be a padded batch.")
 
         seqs = self.feature_extractor(seqs)
 
@@ -81,4 +90,4 @@ class StandardViTFrontend(TransformerFrontend):
         # (N, *, E) -> (N, S, E)
         seqs = seqs.flatten(1, -2)
 
-        return seqs, None
+        return seqs, seqs_layout

@@ -985,6 +985,8 @@ class FileCheckpointManager(CheckpointManager):
                     # model.
                     if self._file_system.exists(trainer_dir):
                         step_numbers.append(step_nr)
+                else:
+                    step_numbers.append(step_nr)
         except OSError as ex:
             raise CheckpointError(
                 f"The '{self._checkpoint_dir}' checkpoint directory cannot be traversed. See the nested exception for details."

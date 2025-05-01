@@ -23,8 +23,9 @@ from fairseq2.generation import (
     SequenceGenerator,
     SequenceGeneratorOutput,
 )
-from fairseq2.nn.padding import PaddingMask, pad_seqs
+from fairseq2.nn import BatchLayout
 from fairseq2.nn.utils.module import infer_device
+from fairseq2.nn.utils.padding import pad_seqs
 
 
 @final
@@ -87,25 +88,25 @@ class SequenceToTextConverter:
             - The converted text.
             - The output of the underlying sequence-to-sequence generator.
         """
-        texts, generator_output = self._do_convert(
-            source_seq.unsqueeze(0), source_padding_mask=None
-        )
+        # (S, *) -> (1, S, *)
+        source_seqs = source_seq.unsqueeze(0)
+
+        source_seqs_layout = BatchLayout.of(source_seqs)
+
+        texts, generator_output = self._do_convert(source_seqs, source_seqs_layout)
 
         return texts[0], generator_output
 
     def batch_convert(
         self,
         source_seqs: Tensor,
-        source_padding_mask: PaddingMask | None,
+        source_seqs_layout: BatchLayout,
     ) -> tuple[list[str], Seq2SeqGeneratorOutput]:
         """
         :param source_seqs:
             The source sequences. *Shape:* :math:`(N,S,*)`, where :math:`N` is
             the batch size, :math:`S` is the sequence length, and :math:`*` is
             any number of sequence-specific dimensions including none.
-        :param source_padding_mask:
-            The padding mask of ``source_seqs``. *Shape:* :math:`(N,S)`, where
-            :math:`N` is the batch size and :math:`S` is the sequence length.
 
         :returns:
             - The converted texts.
@@ -116,12 +117,12 @@ class SequenceToTextConverter:
                 "`source_seqs` must contain at least one element, but is empty instead."
             )
 
-        return self._do_convert(source_seqs, source_padding_mask)
+        return self._do_convert(source_seqs, source_seqs_layout)
 
     def _do_convert(
         self,
         source_seqs: Tensor,
-        source_padding_mask: PaddingMask | None,
+        source_seqs_layout: BatchLayout,
     ) -> tuple[list[str], Seq2SeqGeneratorOutput]:
         """A subclass should call this method for actual text conversion.
 
@@ -129,9 +130,6 @@ class SequenceToTextConverter:
             The source sequences. *Shape:* :math:`(N,S,*)`, where :math:`N` is
             the batch size, :math:`S` is the sequence length, and :math:`*` is
             any number of sequence-specific dimensions including none.
-        :param source_padding_mask:
-            The padding mask of ``source_seqs``. *Shape:* :math:`(N,S)`, where
-            :math:`N` is the batch size and :math:`S` is the sequence length.
 
         :returns:
             - The converted texts.
@@ -142,8 +140,13 @@ class SequenceToTextConverter:
         # (S) -> (N, S)
         target_prefix_seqs = self._target_prefix_seq.expand(batch_size, -1)
 
+        target_prefix_seqs_layout = BatchLayout.of(target_prefix_seqs)
+
         generator_output = self._generator(
-            source_seqs, source_padding_mask, target_prefix_seqs, None
+            source_seqs,
+            source_seqs_layout,
+            prompt_seqs=target_prefix_seqs,
+            prompt_seqs_layout=target_prefix_seqs_layout,
         )
 
         texts: list[str] = []
@@ -252,14 +255,16 @@ class TextTranslator:
                 "`source_texts` must contain at least one element, but is empty instead."
             )
 
-        source_seq_list = [self._source_text_encoder(t) for t in source_texts]
+        source_seqs = [self._source_text_encoder(t) for t in source_texts]
 
         if self._max_source_len:
-            source_seq_list = [seq[: self._max_source_len] for seq in source_seq_list]
+            source_seqs = [seq[: self._max_source_len] for seq in source_seqs]
 
-        source_seqs, source_padding_mask = pad_seqs(source_seq_list, self._pad_idx)
+        source_seqs_pt, source_seqs_layout = pad_seqs(
+            source_seqs, pad_value=self._pad_idx
+        )
 
-        return self._converter.batch_convert(source_seqs, source_padding_mask)
+        return self._converter.batch_convert(source_seqs_pt, source_seqs_layout)
 
 
 @final
@@ -300,9 +305,12 @@ class TextCompleter:
         """
         prompt_seq = self._text_encoder(prompt)
 
-        texts, generator_output = self._do_complete(
-            prompt_seq.unsqueeze(0), prompt_padding_mask=None
-        )
+        # (S_prm, *) -> (1, S_prm, *)
+        prompt_seqs = prompt_seq.unsqueeze(0)
+
+        prompt_seqs_layout = BatchLayout.of(prompt_seqs)
+
+        texts, generator_output = self._do_complete(prompt_seqs, prompt_seqs_layout)
 
         return texts[0], generator_output
 
@@ -322,16 +330,16 @@ class TextCompleter:
                 "`prompts` must contain at least one element, but is empty instead."
             )
 
-        prompt_seq_list = [self._text_encoder(p) for p in prompts]
+        prompt_seqs = [self._text_encoder(p) for p in prompts]
 
-        prompt_seqs, prompt_padding_mask = pad_seqs(prompt_seq_list)
+        prompt_seqs_pt, prompt_seqs_layout = pad_seqs(prompt_seqs)
 
-        return self._do_complete(prompt_seqs, prompt_padding_mask)
+        return self._do_complete(prompt_seqs_pt, prompt_seqs_layout)
 
     def _do_complete(
-        self, prompt_seqs: Tensor, prompt_padding_mask: PaddingMask | None
+        self, prompt_seqs: Tensor, prompt_seqs_layout: BatchLayout
     ) -> tuple[list[str], SequenceGeneratorOutput]:
-        generator_output = self._generator(prompt_seqs, prompt_padding_mask)
+        generator_output = self._generator(prompt_seqs, prompt_seqs_layout)
 
         texts: list[str] = []
 

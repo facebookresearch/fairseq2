@@ -18,15 +18,18 @@ from typing_extensions import override
 
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
-from fairseq2.nn import Linear
-from fairseq2.nn.padding import PaddingMask
+from fairseq2.error import NotSupportedError
+from fairseq2.nn import BatchLayout, Linear
 
 # isort: split
 
-from fairseq2.models.transformer._attention import SDPA, create_default_sdpa
-from fairseq2.models.transformer._attention_mask import (
-    AttentionMask,
-    CustomAttentionMask,
+from fairseq2.models.transformer._attention_bias import (
+    AttentionBias,
+    AttentionBiasCache,
+)
+from fairseq2.models.transformer._sdpa._base import SDPA
+from fairseq2.models.transformer._sdpa._naive import (
+    naive_scaled_dot_product_attention,
 )
 
 
@@ -41,29 +44,23 @@ class RelativePositionSDPA(SDPA):
     u_bias: Parameter
     v_bias: Parameter
     r_proj: Linear
-    inner_sdpa: SDPA
 
     def __init__(
         self,
         model_dim: int,
         num_heads: int,
         pos_encoding: RelativePositionalEncoding,
+        bias: AttentionBias,
         *,
-        inner_sdpa: SDPA | None = None,
         device: Device | None = None,
         dtype: DataType | None = None,
     ) -> None:
         """
-        :param model_dim:
-            The dimensionality of the model.
-        :param: num_heads:
-            The number of attention heads.
-        :param: pos_encoding:
-            The relative positional encoding table.
-        :param inner_sdpa:
-            The actual :class:`SDPA` module to compute head attentions.
+        :param model_dim: The dimensionality of the model.
+        :param: num_heads: The number of attention heads.
+        :param: pos_encoding: The relative positional encoding table.
         """
-        super().__init__()
+        super().__init__(bias)
 
         if model_dim % num_heads != 0:
             raise ValueError(
@@ -93,11 +90,6 @@ class RelativePositionSDPA(SDPA):
             model_dim, model_dim, bias=False, device=device, dtype=dtype
         )
 
-        if inner_sdpa is not None:
-            self.inner_sdpa = inner_sdpa
-        else:
-            self.inner_sdpa = create_default_sdpa()
-
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
@@ -109,15 +101,34 @@ class RelativePositionSDPA(SDPA):
     def forward(
         self,
         seqs: Tensor,
+        seqs_layout: BatchLayout,
         keys: Tensor,
-        key_padding_mask: PaddingMask | None,
+        keys_layout: BatchLayout,
         values: Tensor,
+        bias_cache: AttentionBiasCache,
         *,
-        attn_mask: AttentionMask | None = None,
         needs_weights: bool = False,
     ) -> tuple[Tensor, Tensor | None]:
-        q = seqs
-        k = keys
+        if seqs_layout.packed or keys_layout.packed:
+            raise NotSupportedError(
+                f"`{RelativePositionSDPA}` does not support packed batches."
+            )
+
+        # ([[N], H], S, S_kv)
+        bias = self._maybe_get_attention_bias_tensor(
+            seqs, seqs_layout, keys_layout, bias_cache
+        )
+
+        q, k, v = seqs, keys, values
+
+        # (N, S, H, K) -> (N, H, S, K)
+        q = q.transpose(-2, -3)
+
+        # (N, S_kv, H, K) -> (N, H, S_kv, K)
+        k = k.transpose(-2, -3)
+
+        # (N, S_kv, H, V) -> (N, H, S_kv, V)
+        v = v.transpose(-2, -3)
 
         # (H, K_h) -> (H, 1, K_h)
         u_bias = self.u_bias.unsqueeze(1)
@@ -136,25 +147,20 @@ class RelativePositionSDPA(SDPA):
         # (N, H, S, 2 x S - 1) -> (N, H, S, S)
         bd = self._shift_bd(bd)
 
-        # We treat `bd` as an attention mask to take advantage of efficient SDPA
-        # implementations.
+        # We treat `bd` as attention bias.
         bd = bd * (q.size(-1) ** -0.5)
 
-        if attn_mask is None:
-            mask = bd
-        else:
-            mask = bd + attn_mask.materialize()
+        if bias is not None:
+            bd = bd + bias
 
-        attn_mask = CustomAttentionMask(mask)
-
-        return self.inner_sdpa(  # type: ignore[no-any-return]
-            q_with_u_bias,
-            k,
-            key_padding_mask,
-            values,
-            attn_mask=attn_mask,
-            needs_weights=needs_weights,
+        attns, attn_weights = naive_scaled_dot_product_attention(
+            q_with_u_bias, k, v, bias=bd, needs_weights=needs_weights
         )
+
+        # (N, H, S, V) -> (N, S, H, V)
+        attns = attns.transpose(-2, -3)
+
+        return attns, attn_weights
 
     def _compute_r(self, k: Tensor, batch_size: int) -> Tensor:
         # (2 x S - 1, K)
@@ -194,7 +200,9 @@ class RelativePositionSDPA(SDPA):
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        return f"model_dim={self.model_dim}, num_heads={self.num_heads}"
+        s = super().extra_repr()
+
+        return f"model_dim={self.model_dim}, num_heads={self.num_heads}, {s}"
 
 
 @final

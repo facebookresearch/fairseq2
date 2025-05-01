@@ -50,17 +50,13 @@ class LayerNorm(Module, ABC):
         dtype: DataType | None = None,
     ) -> None:
         """
-        :param normalized_shape:
-            The shape over which to normalize incoming data. For example, if the
-            shape is ``(3, 5)``, the incoming data is normalized over the last 2
-            dimensions (i.e. ``input.mean((-2, -1))``).
-        :param bias:
-            If ``True``, learns an additive bias. Ignored if
+        :param normalized_shape: The shape over which to normalize incoming data.
+            For example, if the shape is ``(3, 5)``, the incoming data is
+            normalized over the last 2 dimensions (i.e. ``input.mean((-2, -1))``).
+        :param bias: If ``True``, learns an additive bias. Ignored if
             ``elementwise_affine`` is ``False``.
-        :param eps:
-            The value to add to the denominator for numerical stability.
-        :param elementwise_affine:
-            If ``True``, learns an affine transformation.
+        :param eps: The value to add to the denominator for numerical stability.
+        :param elementwise_affine: If ``True``, learns an affine transformation.
         """
         super().__init__()
 
@@ -92,7 +88,7 @@ class LayerNorm(Module, ABC):
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        """Reset the parameters and buffers of the module."""
+        """Resets the parameters and buffers of the module."""
         if self.init_fn is not None:
             self.init_fn(self)
         else:
@@ -105,12 +101,10 @@ class LayerNorm(Module, ABC):
     @abstractmethod
     def forward(self, x: Tensor) -> Tensor:
         """
-        :param x:
-            The input to normalize. *Shape:* :math:`(*,H)`, where :math:`H` is
-            :attr:`normalized_shape`.
+        :param x: The input to normalize. *Shape:* :math:`(*,H)`, where :math:`H`
+            is :attr:`normalized_shape`.
 
-        :param:
-            The normalized output. *Shape:* Same as ``x``.
+        :returns: The normalized output. *Shape:* Same as ``x``.
         """
 
     def extra_repr(self) -> str:
@@ -123,8 +117,10 @@ class LayerNorm(Module, ABC):
 
 @final
 class StandardLayerNorm(LayerNorm):
-    """Applies Layer Normalization to incoming data as described in
-    :cite:t:`https://doi.org/10.48550/arxiv.1607.06450`."""
+    """
+    Applies Layer Normalization to incoming data as described in
+    :cite:t:`https://doi.org/10.48550/arxiv.1607.06450`.
+    """
 
     @override
     def forward(self, x: Tensor) -> Tensor:
@@ -133,8 +129,10 @@ class StandardLayerNorm(LayerNorm):
 
 @final
 class RMSNorm(LayerNorm):
-    """Applies Root Mean Square Layer Normalization to incoming data as
-    described in :cite:t:`https://doi.org/10.48550/arxiv.1910.07467`."""
+    """
+    Applies Root Mean Square Layer Normalization to incoming data as described
+    in :cite:t:`https://doi.org/10.48550/arxiv.1910.07467`.
+    """
 
     @override
     def forward(self, x: Tensor) -> Tensor:

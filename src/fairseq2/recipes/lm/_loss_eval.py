@@ -12,7 +12,7 @@ from pathlib import Path
 import torch
 
 from fairseq2.context import RuntimeContext
-from fairseq2.datasets import LengthBatching, SyncMode
+from fairseq2.datasets import LengthBatching, SequenceBatch, SyncMode
 from fairseq2.datasets.instruction import (
     GENERIC_INSTRUCTION_DATASET_FAMILY,
     InstructionDataset,
@@ -20,7 +20,6 @@ from fairseq2.datasets.instruction import (
 )
 from fairseq2.device import CPU
 from fairseq2.models.decoder import DecoderModel
-from fairseq2.models.sequence import SequenceBatch
 from fairseq2.recipes import Evaluator
 from fairseq2.recipes.common import (
     create_evaluator,

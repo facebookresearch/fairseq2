@@ -35,10 +35,8 @@ class Projection(Module, ABC):
 
     def __init__(self, input_dim: int, output_dim: int) -> None:
         """
-        :param input_dim:
-            The dimensionality of inputs.
-        :param output_dim:
-            The dimensionality of projected outputs.
+        :param input_dim: The dimensionality of inputs.
+        :param output_dim: The dimensionality of projected outputs.
         """
         super().__init__()
 
@@ -47,13 +45,11 @@ class Projection(Module, ABC):
     @abstractmethod
     def forward(self, x: Tensor) -> Tensor:
         """
-        :param x:
-            The input to project. *Shape:* :math:`(*,H_{inp})`, where
+        :param x: The input to project. *Shape:* :math:`(*,H_{inp})`, where
             :math:`H_{inp}` is the input dimensionality.
 
-        :returns:
-            The projected output. *Shape:* :math:`(*,H_{out})`, where all but
-            the last dimension are the same shape as the input and
+        :returns: The projected output. *Shape:* :math:`(*,H_{out})`, where all
+            but the last dimension are the same shape as the input and
             :math:`H_{out}` is the output dimensionality.
         """
 
@@ -64,7 +60,8 @@ class Projection(Module, ABC):
 
 @final
 class Linear(Projection):
-    """Applies a linear transformation to incoming data using weights and bias.
+    """
+    Applies a linear transformation to incoming data using weights and bias.
 
     Unless overridden by a subclass, the weights and bias are initialized from
     :math:`\\mathcal{U}(-\\sqrt{k}, \\sqrt{k})`, where
@@ -89,14 +86,10 @@ class Linear(Projection):
         dtype: DataType | None = None,
     ) -> None:
         """
-        :param input_dim:
-            The dimensionality of inputs.
-        :param output_dim:
-            The dimensionality of projected outputs.
-        :param bias:
-            If ``True``, learns an additive bias.
-        :param init_fn:
-            The callable to initialize the weight and bias.
+        :param input_dim: The dimensionality of inputs.
+        :param output_dim: The dimensionality of projected outputs.
+        :param bias: If ``True``, learns an additive bias.
+        :param init_fn: The callable to initialize the weight and bias.
         """
         super().__init__(input_dim, output_dim)
 
@@ -116,7 +109,7 @@ class Linear(Projection):
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        """Reset the parameters and buffers of the module."""
+        """Resets the parameters and buffers of the module."""
         if self.init_fn is not None:
             self.init_fn(self)
         else:
@@ -155,14 +148,13 @@ class ColumnShardedLinear(Projection):
     def from_linear(
         linear: Linear, gang: Gang, gather_output: bool = True
     ) -> ColumnShardedLinear:
-        """Construct a :class:`ColumnShardedLinear` by sharding ``linear``.
+        """
+        Constructs a :class:`ColumnShardedLinear` by sharding ``linear``.
 
-        :param linear:
-            The projection to shard.
-        :param gang:
-            The gang over which to shard ``linear``.
-        :param gather_output:
-            If ``True``, gather the sharded output into a single tensor.
+        :param linear: The projection to shard.
+        :param gang: The gang over which to shard ``linear``.
+        :param gather_output: If ``True``, gather the sharded output into a
+            single tensor.
         """
         device = linear.weight.device
 
@@ -202,18 +194,13 @@ class ColumnShardedLinear(Projection):
         dtype: DataType | None = None,
     ) -> None:
         """
-        :param gang:
-            The gang over which to shard the weight tensor.
-        :param input_dim:
-            The dimensionality of inputs.
-        :param output_dim:
-            The dimensionality of projected outputs.
-        :param bias:
-            If ``True``, learns an additive bias.
-        :param gather_output:
-            If ``True``, gather the sharded output into a single tensor.
-        :param init_fn:
-            The callable to initialize the weight and bias.
+        :param gang: The gang over which to shard the weight tensor.
+        :param input_dim: The dimensionality of inputs.
+        :param output_dim: The dimensionality of projected outputs.
+        :param bias: If ``True``, learns an additive bias.
+        :param gather_output: If ``True``, gather the sharded output into a
+            single tensor.
+        :param init_fn: The callable to initialize the weight and bias.
         """
         super().__init__(input_dim, output_dim)
 
@@ -323,7 +310,7 @@ class ColumnShardedLinear(Projection):
         return x
 
     def to_linear(self, device: Device | None = None) -> Linear:
-        """Convert this instance to a :class:`Linear`."""
+        """Converts this instance to a :class:`Linear`."""
         linear = self._linear_like(device=META_DEVICE)
 
         to_empty(linear, device or self.gang.device)
@@ -394,15 +381,13 @@ class RowShardedLinear(Projection):
     def from_linear(
         linear: Linear, gang: Gang, scatter_input: bool = False
     ) -> RowShardedLinear:
-        """Construct a :class:`RowShardedLinear` by sharding ``linear``.
+        """
+        Constructs a :class:`RowShardedLinear` by sharding ``linear``.
 
-        :param linear:
-            The projection to shard.
-        :param gang:
-            The gang over which to shard ``linear``.
-        :param scatter_input:
-            If ``True``, inputs are considered already sharded and won't be
-            scattered.
+        :param linear: The projection to shard.
+        :param gang: The gang over which to shard ``linear``.
+        :param scatter_input: If ``True``, inputs are considered already sharded
+            and won't be scattered.
         """
         device = linear.weight.device
 
@@ -442,19 +427,13 @@ class RowShardedLinear(Projection):
         dtype: DataType | None = None,
     ) -> None:
         """
-        :param gang:
-            The gang over which to shard the weight tensor.
-        :param input_dim:
-            The dimensionality of inputs.
-        :param output_dim:
-            The dimensionality of projected outputs.
-        :param bias:
-            If ``True``, learns an additive bias.
-        :param scatter_input:
-            If ``True``, scatters the input tensor; otherwise, considers it
-            already sharded.
-        :param init_fn:
-            The callable to initialize the weight and bias.
+        :param gang: The gang over which to shard the weight tensor.
+        :param input_dim: The dimensionality of inputs.
+        :param output_dim: The dimensionality of projected outputs.
+        :param bias: If ``True``, learns an additive bias.
+        :param scatter_input: If ``True``, scatters the input tensor; otherwise,
+            considers it already sharded.
+        :param init_fn: The callable to initialize the weight and bias.
         """
         super().__init__(input_dim, output_dim)
 
@@ -496,7 +475,7 @@ class RowShardedLinear(Projection):
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        """Reset the parameters and buffers of the module."""
+        """Resets the parameters and buffers of the module."""
         linear = self._linear_like(self.gang.device)
 
         self._copy_weight(linear)
@@ -550,7 +529,7 @@ class RowShardedLinear(Projection):
         return x
 
     def to_linear(self, device: Device | None = None) -> Linear:
-        """Convert this instance to a :class:`Linear`."""
+        """Converts this instance to a :class:`Linear`."""
         linear = self._linear_like(device=META_DEVICE)
 
         to_empty(linear, device or self.gang.device)
@@ -605,18 +584,18 @@ class RowShardedLinear(Projection):
 
 @final
 class TiedProjection(Projection):
-    """Applies a linear transformation to incoming data using the weights and
-    bias of another :class:`~torch.nn.Module` instance."""
+    """
+    Applies a linear transformation to incoming data using the weights and bias
+    of another :class:`~torch.nn.Module` instance.
+    """
 
     weight: Parameter
     bias: Parameter | None
 
     def __init__(self, weight: Parameter, bias: Parameter | None) -> None:
         """
-        :param weight:
-            The shared weights.
-        :param bias:
-            The shared bias.
+        :param weight: The shared weights.
+        :param bias: The shared bias.
         """
         super().__init__(weight.size(1), weight.size(0))
 
@@ -664,7 +643,7 @@ def _init_uniform(weight: Tensor, bias: Tensor | None) -> None:
 
 
 def init_bert_projection(proj: Linear) -> None:
-    """Initialize ``proj`` as a projection to be used in BERT-like models."""
+    """Initializes ``proj`` as a projection to be used in BERT-like models."""
     nn.init.normal_(proj.weight, mean=0.0, std=0.02)
 
     if proj.bias is not None:

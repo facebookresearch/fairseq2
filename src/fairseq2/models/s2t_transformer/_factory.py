@@ -10,7 +10,10 @@ from torch.nn import SiLU
 
 from fairseq2.models.conformer import ConformerBlock, ConformerConvolution
 from fairseq2.models.transformer import (
+    SDPA,
+    CausalAttentionBias,
     FeedForwardNetwork,
+    IdentityBias,
     MultiheadAttention,
     RelativePositionalEncoding,
     RelativePositionSDPA,
@@ -136,7 +139,7 @@ class S2TTransformerFactory:
     def create_encoder_layer(
         self, lazy_rel_pos_encoding: Lazy[RelativePositionalEncoding]
     ) -> TransformerEncoderLayer:
-        self_attn = self.create_encoder_attention(lazy_rel_pos_encoding)
+        self_attn = self.create_encoder_self_attention(lazy_rel_pos_encoding)
 
         ffn = self.create_ffn()
 
@@ -144,12 +147,14 @@ class S2TTransformerFactory:
             self_attn, ffn, norm_order=TransformerNormOrder.PRE
         )
 
-    def create_encoder_attention(
+    def create_encoder_self_attention(
         self, lazy_rel_pos_encoding: Lazy[RelativePositionalEncoding]
     ) -> MultiheadAttention:
         config = self._config
 
-        sdpa = create_default_sdpa(attn_dropout_p=config.dropout_p)
+        attn_bias = IdentityBias()
+
+        sdpa: SDPA
 
         if config.use_relative_pos:
             rel_pos_encoding = lazy_rel_pos_encoding.retrieve()
@@ -158,8 +163,10 @@ class S2TTransformerFactory:
                 config.model_dim,
                 config.num_encoder_attn_heads,
                 rel_pos_encoding,
-                inner_sdpa=sdpa,
+                attn_bias,
             )
+        else:
+            sdpa = create_default_sdpa(attn_bias, dropout_p=config.dropout_p)
 
         return StandardMultiheadAttention(
             config.model_dim, config.num_encoder_attn_heads, sdpa=sdpa
@@ -197,7 +204,7 @@ class S2TTransformerFactory:
 
         ffn1 = self.create_ffn(use_swish=True)
 
-        self_attn = self.create_encoder_attention(lazy_rel_pos_encoding)
+        self_attn = self.create_encoder_self_attention(lazy_rel_pos_encoding)
 
         conv = self.create_conformer_conv()
 
@@ -253,9 +260,9 @@ class S2TTransformerFactory:
     def create_decoder_layer(self) -> TransformerDecoderLayer:
         config = self._config
 
-        self_attn = self.create_decoder_attention()
+        self_attn = self.create_decoder_self_attention()
 
-        encoder_decoder_attn = self.create_decoder_attention()
+        encoder_decoder_attn = self.create_encoder_decoder_attention()
 
         ffn = self.create_ffn()
 
@@ -267,10 +274,23 @@ class S2TTransformerFactory:
             norm_order=TransformerNormOrder.PRE,
         )
 
-    def create_decoder_attention(self) -> MultiheadAttention:
+    def create_decoder_self_attention(self) -> MultiheadAttention:
         config = self._config
 
-        sdpa = create_default_sdpa(attn_dropout_p=config.dropout_p)
+        attn_bias = CausalAttentionBias()
+
+        sdpa = create_default_sdpa(attn_bias, dropout_p=config.dropout_p)
+
+        return StandardMultiheadAttention(
+            config.model_dim, config.num_decoder_attn_heads, sdpa=sdpa
+        )
+
+    def create_encoder_decoder_attention(self) -> MultiheadAttention:
+        config = self._config
+
+        attn_bias = IdentityBias()
+
+        sdpa = create_default_sdpa(attn_bias, dropout_p=config.dropout_p)
 
         return StandardMultiheadAttention(
             config.model_dim, config.num_decoder_attn_heads, sdpa=sdpa

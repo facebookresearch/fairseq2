@@ -8,22 +8,22 @@ from __future__ import annotations
 
 import torch
 
-from fairseq2.nn.padding import to_padding_mask
+from fairseq2.nn import BatchLayout
 from tests.common import assert_equal, device
 
 
-def test_to_padding_mask_works() -> None:
-    seq_lens = torch.tensor([4, 2, 0, 5], device=device, dtype=torch.int32)
+def test_padding_mask_works() -> None:
+    batch_layout = BatchLayout((4, 6), seq_lens=[4, 2, 3, 5], device=device)
 
-    mask = to_padding_mask(seq_lens, 6)
+    mask = batch_layout.position_indices >= 0
 
     # fmt: off
     expected_mask = torch.tensor(
         [
-            [True,  True,  True,  True,  False, False],
-            [True,  True,  False, False, False, False],
-            [False, False, False, False, False, False],
-            [True,  True,  True,  True,  True,  False],
+            [True, True, True,  True,  False, False],
+            [True, True, False, False, False, False],
+            [True, True, True,  False, False, False],
+            [True, True, True,  True,  True,  False],
         ],
         device=device, dtype=torch.bool
     )

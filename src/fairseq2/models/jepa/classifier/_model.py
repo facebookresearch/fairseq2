@@ -15,7 +15,6 @@ from torch.nn import Module, Parameter
 
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
-from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.transformer import (
     FeedForwardNetwork,
     LayerNormFactory,
@@ -24,7 +23,7 @@ from fairseq2.models.transformer import (
     TransformerFrontend,
     create_standard_layer_norm,
 )
-from fairseq2.nn import LayerNorm, Projection
+from fairseq2.nn import BatchLayout, LayerNorm, Projection
 
 
 @final
@@ -39,15 +38,15 @@ class JepaClassifierModel(Module):
     model_dim: int
     encoder_frontend: TransformerFrontend
     encoder: TransformerEncoder
-    pooler: AttentivePooler
-    head: Projection
+    attn_pooler: AttentivePooler
+    head_proj: Projection
 
     def __init__(
         self,
         encoder_frontend: TransformerFrontend,
         encoder: TransformerEncoder,
-        pooler: AttentivePooler,
-        head: Projection,
+        attn_pooler: AttentivePooler,
+        head_proj: Projection,
     ) -> None:
         super().__init__()
 
@@ -56,21 +55,21 @@ class JepaClassifierModel(Module):
         self.encoder_frontend = encoder_frontend
         self.encoder = encoder
 
-        self.pooler = pooler
+        self.attn_pooler = attn_pooler
 
-        self.head = head
+        self.head_proj = head_proj
 
-    def forward(self, batch: SequenceBatch) -> Tensor:
-        seqs, padding_mask = self.encoder_frontend(batch.seqs, batch.padding_mask)
+    def forward(self, seqs: Tensor, seqs_layout: BatchLayout) -> Tensor:
+        seqs, seqs_layout = self.encoder_frontend(seqs, seqs_layout)
 
-        seqs, _ = self.encoder(seqs, padding_mask)
+        seqs = self.encoder(seqs, seqs_layout)
 
-        seqs = self.pooler(seqs)
+        seqs = self.attn_pooler(seqs, seqs_layout)
 
         # (N, P, M)
         seqs = seqs.squeeze(1)  # TODO: NEEDED?
 
-        return self.head(seqs)  # type: ignore[no-any-return]
+        return self.head_proj(seqs)  # type: ignore[no-any-return]
 
     def extra_repr(self) -> str:
         """:meta private:"""
@@ -91,14 +90,14 @@ class AttentivePooler(Module):
     """
 
     model_dim: int
-    decoder: CrossAttentionDecoderLayer
+    decoder_layer: CrossAttentionDecoderLayer
     encoder: TransformerEncoder | None
     query_tokens: Parameter
     init_std: float
 
     def __init__(
         self,
-        decoder: CrossAttentionDecoderLayer,
+        decoder_layer: CrossAttentionDecoderLayer,
         encoder: TransformerEncoder | None,
         *,
         num_queries: int = 1,
@@ -108,9 +107,9 @@ class AttentivePooler(Module):
     ) -> None:
         super().__init__()
 
-        self.model_dim = decoder.model_dim
+        self.model_dim = decoder_layer.model_dim
 
-        self.decoder = decoder
+        self.decoder_layer = decoder_layer
 
         if encoder:
             self.encoder = encoder
@@ -129,16 +128,20 @@ class AttentivePooler(Module):
         """Reset the parameters and buffers of the module."""
         nn.init.trunc_normal_(self.query_tokens, std=self.init_std)
 
-    def forward(self, seqs: Tensor) -> Tensor:
+    def forward(self, seqs: Tensor, seqs_layout: BatchLayout) -> Tensor:
         if self.encoder is not None:
-            seqs, _ = self.encoder(seqs, padding_mask=None)
+            seqs = self.encoder(seqs, seqs_layout)
 
         batch_size = seqs.size(0)
 
         # (1, P, M) -> (N, P, M)
         pool_seqs = self.query_tokens.repeat(batch_size, 1, 1)
 
-        return self.decoder(pool_seqs, seqs)  # type: ignore[no-any-return]
+        pool_seqs_layout = BatchLayout.of(pool_seqs)
+
+        return self.decoder_layer(  # type: ignore[no-any-return]
+            pool_seqs, pool_seqs_layout, seqs, seqs_layout
+        )
 
     def extra_repr(self) -> str:
         """:meta private:"""
@@ -191,24 +194,39 @@ class CrossAttentionDecoderLayer(Module):
 
         self.ffn = ffn
 
-    def forward(self, seqs: Tensor, encoder_output: Tensor) -> Tensor:
-        seqs = self._forward_cross_attn(seqs, encoder_output)
+    def forward(
+        self,
+        seqs: Tensor,
+        seqs_layout: BatchLayout,
+        encoder_output: Tensor,
+        encoder_output_layout: BatchLayout,
+    ) -> Tensor:
+        seqs = self._forward_cross_attn(
+            seqs, seqs_layout, encoder_output, encoder_output_layout
+        )
 
         seqs = self._forward_ffn(seqs)
 
         return seqs
 
-    def _forward_cross_attn(self, seqs: Tensor, encoder_output: Tensor) -> Tensor:
+    def _forward_cross_attn(
+        self,
+        seqs: Tensor,
+        seqs_layout: BatchLayout,
+        encoder_output: Tensor,
+        encoder_output_layout: BatchLayout,
+    ) -> Tensor:
         residual = seqs
 
-        # Note that the cross-attention norm is applied on encoder output and not seqs
+        # Note that the cross-attention norm is applied on encoder output instead
+        # of sequences.
         encoder_output = self.cross_attn_layer_norm(encoder_output)
 
         seqs = self.cross_attn(
             seqs,
-            padding_mask=None,
+            seqs_layout,
             keys=encoder_output,
-            key_padding_mask=None,
+            keys_layout=encoder_output_layout,
             values=encoder_output,
         )
 

@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from typing import Final, final
 
@@ -16,7 +17,7 @@ from typing_extensions import override
 from fairseq2.data_type import DataType
 from fairseq2.device import Device
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
-from fairseq2.nn.padding import PaddingMask
+from fairseq2.nn import BatchLayout
 
 
 @final
@@ -90,8 +91,8 @@ class Conv1dFbankSubsampler(SequenceFeatureExtractor):
 
     @override
     def forward(
-        self, seqs: Tensor, padding_mask: PaddingMask | None
-    ) -> tuple[Tensor, PaddingMask | None]:
+        self, seqs: Tensor, seqs_layout: BatchLayout
+    ) -> tuple[Tensor, BatchLayout]:
         """See the base :meth:`SequenceFeatureExtractor.forward`.
 
         :param seqs:
@@ -99,30 +100,36 @@ class Conv1dFbankSubsampler(SequenceFeatureExtractor):
             :math:`N` is the batch size, :math:`S` is the number of frames, and
             :math:`C` is the number of channels.
         """
+        if seqs_layout.padded:
+            raise ValueError("`seqs` must not be a packed batch.")
+
         # Apply the convolution along the temporal dimension (i.e. along the
         # sequence).
         # (N, S, C) -> (N, C, S)
         seqs = seqs.transpose(1, 2)
 
         # (N, C, S) -> (N, F, S_out)
-        features = self.layers(seqs)
+        seqs = self.layers(seqs)
 
         # (N, F, S_out) -> (N, S_out, F)
-        features = features.transpose(1, 2)
+        seqs = seqs.transpose(1, 2)
 
-        # Since we contracted the temporal dimension, we should re-compute
-        # the sequence lengths.
-        if padding_mask is not None:
-            seq_lens = self._contract_seq_lens(padding_mask.seq_lens)
+        if seqs_layout.padded:
+            # Since we contracted the temporal dimension, we should re-compute
+            # the sequence lengths.
+            seq_lens = self._contract_seq_lens(seqs_layout.seq_lens)
+        else:
+            seq_lens = None
 
-            padding_mask = PaddingMask(seq_lens, batch_seq_len=features.size(1))
+        seqs_layout = BatchLayout.of(seqs, seq_lens)
 
-        return features, padding_mask
+        return seqs, seqs_layout
 
-    def _contract_seq_lens(self, num_frames: Tensor) -> Tensor:
-        seq_lens = num_frames.clone()
+    def _contract_seq_lens(self, seq_lens: Sequence[int]) -> list[int]:
+        seq_lens = list(seq_lens)
 
         for _ in range(len(self.layers)):
-            seq_lens = (((seq_lens - 1) / self.stride) + 1.0).floor()
+            for i in range(len(seq_lens)):
+                seq_lens[i] = math.floor(((seq_lens[i] - 1) / self.stride) + 1.0)
 
-        return seq_lens.type_as(num_frames)
+        return seq_lens
