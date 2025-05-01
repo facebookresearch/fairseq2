@@ -210,13 +210,18 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
     def get_all_rollouts_entropy(self, rollouts):
         all_entropy = []
-        for rollout_idx in range(len(rollouts[0].outputs)):
-            logprobs = rollouts[0].outputs[rollout_idx].logprobs
-            logprobs = [next(iter(x.values())).logprob for x in logprobs]
-            entropy = sum(logprobs) / len(logprobs)
-            all_entropy.append(entropy)
-        logit_entropy = torch.tensor(all_entropy, device=self._gangs.dp.device)
-        return logit_entropy
+        for batch_idx in range(len(rollouts)):
+            batch_entropy = []
+            for rollout_idx in range(len(rollouts[batch_idx].outputs)):
+                logprobs = rollouts[batch_idx].outputs[rollout_idx].logprobs
+                logprobs = [next(iter(x.values())).logprob for x in logprobs]
+                entropy = sum(logprobs) / len(logprobs)
+                batch_entropy.append(entropy)
+            batch_entropy = torch.tensor(batch_entropy, device=self._gangs.dp.device)
+            all_entropy.append(batch_entropy)
+
+        all_entropy = torch.stack(all_entropy, dim=0)
+        return all_entropy
 
     @override
     def __call__(self, prompt_batch: PromptBatch) -> tuple[Tensor, int]:
