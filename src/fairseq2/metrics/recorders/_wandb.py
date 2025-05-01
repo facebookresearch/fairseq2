@@ -14,10 +14,6 @@ from typing import Final, final
 from fairseq2.logging import log
 from fairseq2.metrics import MetricDescriptor
 
-# isort: split
-
-from typing_extensions import override
-
 from fairseq2.metrics.recorders._handler import MetricRecorderHandler
 from fairseq2.metrics.recorders._recorder import (
     MetricRecorder,
@@ -26,7 +22,11 @@ from fairseq2.metrics.recorders._recorder import (
 )
 from fairseq2.registry import Provider
 from fairseq2.utils.structured import structure
-from fairseq2.utils.validation import ValidationError, ValidationResult, validate
+from fairseq2.utils.validation import validate, ValidationError, ValidationResult
+
+# isort: split
+
+from typing_extensions import override
 
 try:
     import wandb  # type: ignore[import-not-found]
@@ -49,11 +49,13 @@ class WandbRecorder(MetricRecorder):
         name: str,
         output_dir: Path,
         metric_descriptors: Provider[MetricDescriptor],
+        display_split_name: bool = False,
     ) -> None:
         """
         :param project: The W&B project name.
         :param name: The run name.
         :param output_dir: The base directory under which to store the W&B files.
+        :param display_split_name: Whether to display the datasplit name in the metric name.
 
         In order to use W&B, run `wandb login` from the command line and enter
         the API key when prompted.
@@ -72,6 +74,7 @@ class WandbRecorder(MetricRecorder):
             )
 
         self._metric_descriptors = metric_descriptors
+        self._display_split_name = display_split_name
 
     @override
     def record_metrics(
@@ -95,6 +98,8 @@ class WandbRecorder(MetricRecorder):
                 display_name = name
             else:
                 display_name = descriptor.display_name
+            if self._display_split_name:
+                display_name = f"{run}: {display_name}"
 
             try:
                 self._run.log({display_name: value}, step=step_nr)
@@ -121,6 +126,8 @@ class WandbRecorderConfig:
     project: str | None = None
 
     run: str | None = None
+
+    display_split_name: bool = False
 
     def validate(self) -> None:
         result = ValidationResult()
@@ -166,6 +173,7 @@ class WandbRecorderHandler(MetricRecorderHandler):
             config.run,
             wandb_dir,
             self._metric_descriptors,
+            config.display_split_name,
         )
 
     @property
