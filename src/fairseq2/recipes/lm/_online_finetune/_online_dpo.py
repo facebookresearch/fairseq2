@@ -279,6 +279,11 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
             all_entropy.append(entropy)
         logit_entropy = torch.tensor(all_entropy, device=self._gangs.dp.device)
 
+        if self._gangs.root.rank == 0:
+            breakpoint()
+
+        self._gangs.root.barrier()
+
         max_entropy_regularizer = (
             -chosen_tgt_logit_entropy.sum()
             * self._loss_config.entropy_regularizer_scale
