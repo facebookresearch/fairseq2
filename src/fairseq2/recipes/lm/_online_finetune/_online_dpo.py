@@ -320,6 +320,8 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         self._metric_bag.update_logps(batch, chosen_logps, rejected_logps)
 
+        self._metric_bag.update_avg_loss_zeroer(torch.tensor(loss_zeroer))
+
         self._metric_bag.update_batch_metrics(batch.chosen)
 
         avg_reward = torch.tensor(reward_output["rewards"]).float().mean()
@@ -342,7 +344,7 @@ class OnlineDpoFinetuneUnit(TrainUnit[SequenceBatch]):
 
         # self._gangs.root.barrier()
 
-        return loss, chosen_target_batch.batch_size
+        return loss, prompt_batch.batch_size
 
     def _gather_lprobs(
         self, output: SequenceModelOutput, target: SequenceBatch
@@ -395,7 +397,7 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
     dpo_loss: Mean
     num_dummy_batches: Mean
     avg_reward: Mean
-    avg_zeroed_loss: Mean
+    avg_loss_zeroer: Mean
     logit_entropy: Mean
 
     def __init__(self, gang: Gang) -> None:
@@ -407,7 +409,7 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
         )
         self.register_metric("avg_reward", Mean(device=gang.device), persistent=False)
         self.register_metric(
-            "avg_zeroed_loss", Mean(device=gang.device), persistent=False
+            "avg_loss_zeroer", Mean(device=gang.device), persistent=False
         )
         self.register_metric(
             "logit_entropy", Mean(device=gang.device), persistent=False
@@ -443,8 +445,8 @@ class OnlineDpoFinetuneMetricBag(POFinetuneMetricBag):
         self.avg_reward.update(avg_reward, weight=1)
 
     @torch.inference_mode()
-    def update_avg_zeroed_loss(self, avg_zeroed_loss):
-        self.avg_zeroed_loss.update(avg_zeroed_loss, weight=1)
+    def update_avg_loss_zeroer(self, avg_loss_zeroer):
+        self.avg_loss_zeroer.update(avg_loss_zeroer, weight=1)
 
     @torch.inference_mode()
     def update_batch_metrics(self, batch: PreferenceBatch):
