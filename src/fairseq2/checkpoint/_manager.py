@@ -13,12 +13,14 @@ from copy import deepcopy
 from os import scandir
 from pathlib import Path
 from shutil import Error
-from typing import cast, final, Protocol, TypeAlias
+from typing import Protocol, TypeAlias, cast, final
 
 import torch
+from torch import Tensor
+from typing_extensions import override
 
 from fairseq2.error import InternalError
-from fairseq2.gang import all_sum, Gang, GangError, Gangs
+from fairseq2.gang import Gang, GangError, Gangs, all_sum
 from fairseq2.nn.data_parallel import load_with_sdp_gang
 from fairseq2.typing import CPU
 from fairseq2.utils.file import (
@@ -31,8 +33,6 @@ from fairseq2.utils.file import (
 )
 from fairseq2.utils.state import Stateful
 from fairseq2.utils.threading import ThreadPool
-from torch import Tensor
-from typing_extensions import override
 
 
 class CheckpointManager(ABC):
